@@ -1,0 +1,5 @@
+ENUM_VALUE(model_building)
+ENUM_VALUE(internal)
+ENUM_VALUE(parsing)
+ENUM_VALUE(file)
+//etc.

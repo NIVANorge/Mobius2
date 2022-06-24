@@ -1,0 +1,619 @@
+
+
+module("HBVSnow", 1,0,0) {
+"""
+Some description in markdown.
+"""
+	air        : compartment("Atmosphere")
+	snow_box   : compartment("Snow box")
+	
+	snow_par :
+	snow_box.par_group("Snow") {
+		"""
+		Maybe allow a description per par group too, giving a better summary of how to use it. Can be shown in tooltip.
+		"""
+		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, "Some description")
+		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0)
+		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0)
+		refreeze  : par_real("Refreeze efficiency", unit(), 0.5)
+		snow_liq  : par_real("Liquid water fraction", unit(), 0.5)
+		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 0)
+	}
+	
+	snow  : substance("Snow (water equivalents)")
+	water : substance("Water")
+	
+	temp   : property("Temperature")
+	precip : property("Precipitation")
+	
+	# Or should these two be external to the module?
+	air.has(temp,   series("Air temperature", unit(deg_c)))
+	air.has(precip, series("Precipitation", unit(mm, day -1)))
+	
+	snow_box.has(snow,  unit(m m)) initial { init_snow }
+	snow_box.has(water, unit(m m)) initial { 0 }             # Not necessary to declare initial here, default is 0.
+	
+	# Source void means that we are not interested in tracking the state of the source, this is then a pure source to the system
+	flux(void, snow_box.snow, "Precipitation falling as snow") {
+		air.precip    if air.temp <= t_snow,
+		0             otherwise
+	}
+	
+	p_rain :
+	out_flux(void, "Precipitation falling as rain") {       # out_flux means that this module does not know what the target is. The target has to be linked in the model composition later.
+		air.precip    if air.temp > t_snow,
+		0             otherwise
+	}
+	
+	flux(snow_box.snow, snow_box.water, "Melt") {
+		min(max(0, ddf_melt*(air.temp - t_melt)), last(snow_box.snow))
+	}
+	
+	# It would be good if we don't have to declare min(..., last(snow_box.water)) here and instead have it automatic, but it would make order of evaluation of refreeze and melt_runoff ambiguous. Can we figure out a way to make this more clean?
+	
+	flux(snow_box.water, snow_box.snow, "Refreeze") {
+		min(max(0, refreeze*ddf_melt*(t_melt - air.temp)), last(snow_box.water))
+	}
+	
+	melt_runoff :
+	out_flux(snow_box.water, "Melt runoff") {
+		max(0, snow_box.water - snow_box.snow*snow_liq)
+	}
+}
+
+module("Degree-day PET") {
+"""
+Very simple evapotranspiration module.
+"""
+	air : compartment("Atmosphere")
+	soil : compartment("Soil")
+	
+	temp : property("Temperature", unit(deg_c))
+	pet  : property("Potential evapotranspiration", unit(m m, day-1))
+	
+	soil.par_group("Potential evapotranspiration") {
+		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1))
+		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c))
+	}
+	
+	# Not declaring that air.has(temp) here makes this module incomplete on its own (what is the source of the value?), but it is sufficient that it is composed with some other module that declares it.
+	# This means that this module does not have to know that air.temp is an input series. Can be useful in some more complicated cases where there is some value that can be either an input series or
+	# computed depending on what other modules are used.
+	
+	soil.has(pet) {
+		max(0, ddf_pet*(air.temp - pet_min_t))
+	}
+}
+
+module("SimplyQ soil", 1,0,0) {
+"""
+Insert module description in markdown
+"""
+	soil    : compartment("Soil")
+	aquifer : compartment("Aquifer")
+	
+	# We attach this first parameter group to the soil - even though it is the same for the entire catchment - since it is used in computations regarding fluxes of soil water: But the model composition can re_index it so that it does not have to have all the index set dependencies of soil.
+	hydr:
+	soil.par_group("Hydrology") {
+		bfi     : par_real ..
+		f_quick : par_real ...
+	}
+	
+	hydr_land :
+	soil.par_group("Hydrology land") {
+		tc_s    : par_real ..
+		fc      : par_real ...
+	}
+	
+	hydr_gw :
+	aquifer.par_group("Hydrology groundwater") {
+		tc_g    : par_real ..
+	}
+	
+	water : substance("Water")
+	
+	soil.has(water, unit(m m)) initial { fc }
+	aquifer.has(water, unit(m m))
+	
+	pet  : property("Potential evapotranspiration", unit(m m, day -1))
+	
+	evap :
+	flux(soil.water, void, "Evapotranspiration") {         # Pure sink (target is void)
+		soil.pet*(1 - exp(log(0.01) * soil.water/fc)
+	}
+	
+	flow : property("Flow")
+	soil.has(flow, unit(m m, day -1)) {
+		max(0, (water - fc) / tc_s)
+	}
+	
+	recharge :
+	flux(soil.water, aquifer.water, "Groundwater recharge") {
+		bfi * soil.flow
+	}
+	
+	gw_flow :
+	out_flux(aquifer.water, "Groundwater flow") {
+		water / tc_g
+	}
+	
+	lat_flow :
+	out_flux(soil.water, "Lateral flow") {
+		(1 - bfi)*flow
+	}
+	
+	quick_flow :
+	out_flux(soil.water, "Quick flow") {
+		in_flux(soil.water) * f_quick                 # in_flux is the 
+	}	
+}
+
+module("SimplyQ river", 1, 0, 0)
+"""
+etc
+"""
+	surf  : compartment_type("Surface water")
+	river : compartment("River", surf)          # River is a "Surface water", and so is interchangeable with other compartments of this type (if we make a lake or reservoir for instance).
+	
+	water : substance("Water")
+	surf.has(water, unit(m 3))
+	
+	# All surface waters have these parameters :
+	surf.par_group("General catchment parameters") {
+		catchment_area : par_real("Catchment area", unit(k m 2), 0, 0, 10000)
+	}
+	
+	# Specific to rivers :
+	river.par_group("Reach parameters") {
+		slope          : par_real("Reach slope", unit(),  ...)
+		len            : par_real ...
+		c_mann         : par_real ...
+		init_flow      : par_real ...
+	}
+	
+	upstream_area : property("Upstream area", unit(k m 2))
+	eff_len       : property("Effective length", unit(m))
+	
+	# Framework should be able to determine that this one is constant, and should only be evaluated at start of run
+	river.has(upstream_area) {
+		ca := sum_neighbors(catchment_area);
+		up := sum_neighbors(upstream_area);
+		ca + up
+	}
+	
+	# Again, constant
+	river.has(eff_len) {
+		len * (upstream_area + catchment_area/2) / (upstream_area + catchment_area)
+	}
+	
+	flow : property("Flow")
+	river.has(flow, unit(m 3, s -1)) {
+		val := water * sqrt(slope) / (eff_len * c_mann);
+		0.28 * val * sqrt(val)                            #TODO: may have to do something with the unit here too.
+	} initial {
+		sum_neighbors(flow) if  neighbor_count>0,
+		init_flow           otherwise
+	}
+	
+	river.has(water, unit(m 3)) initial {
+		depth := 0.349 * flow ** 0.34;
+		width := 2.72 * flow ** 0.557;
+		discard_unit(width * depth * len)      # It is not possible for the automatic unit checking to get this correct (unless we let 0.349 be a constant of unit m*(m^3/s)^-0.34 etc.
+		                                       # discard_unit tells the unit checker to ignore that the unit is incorrect and just take the pure number and use it as if it had correct unit.
+	}
+
+	neighbor_flux(river.water) {
+		from.flow                      # No unit conversion has to be declared (seconds to days). Is automatic by the unit checker. 'from' and 'to' are special keywords in the context of neighbor fluxes.
+		                               # This would also allow the module to be completely time step independent (the model composition takes care of that).
+	}
+}
+
+
+model("SimplyQ") {
+"""
+General model description.
+"""
+	
+	time_step(unit(day))     # Could also have this not hard coded into the model, and instead be a choice at user interface level? (though requires input data to have a declared time_step).
+	
+	###### Import modules
+	
+	add_directory("../../Modules")
+	
+	# May want to eventually have a system for run-time choice of module, i.e one declares alternatives here, and these are selected by user when running model
+	# We may even allow specifying specific versions here.
+	
+	include_module("hbv_snow.module", "HBVSnow")   # it should be in its own .module file, we just have everything in this file for convenience when displaying this example.
+	include_module("pet.module", "Degree-day PET")
+	include_module("simply_q.module", "SimplyQ soil", "SimplyQ river")
+	
+	###### Distribute modules over index sets and set solvers
+	
+	lu       : index_set("Landscape units")               # Simplest index set, where all indexes are considered neighbors (but this is usually not used)
+	subcatch : index_set("Sub-catchment", flow_graph)      # flow_graph : Only neighbor flux from "upstream" to "downstream". Any trailing end also has neighor flux to void
+	
+	# These compartments must have been declared by other modules
+	snow_box : compartment("Snow")
+	soil     : compartment("Soil")
+	aquifer  : compartment("Aquifer")
+	river    : compartment("River")
+	
+	snow_box.distribute(lu)             # Many or all of the computations could still be done only once, instead of per lu, if framework can determine that they are the same.
+	soil.distribute(lu)
+	aquifer.distribute(subcatch)
+	river.distribute(subcatch)              # [river, lake].distribute(subcatch)  (or similar?) if allowing interchanginge of compartments of this type.
+	
+	#atmosphere.distribute(lu)   # This would allow the user to optionally have separate precip and air_t per lu. Can not do it for subcatch unless soil is distributed per subcatch.
+	
+	simply_solver : solver("Simply solver", "IncaDascru", 0.1)
+	
+	soil.water.solve(simply_solver)
+	aquifer.water.solve(simply_solver)
+	river.water.solve(simply_solver)
+	# No solver for snow.water and snow.snow, so these are evaluated as discrete (one per timestep) fluxes.
+	
+	soil    .hydr    .re_index()        # Re-index this parameter group over (no index sets) so that it does not index over lu. The other soil par_group will index over lu.
+	snow_box.snow_par.re_index()     # Can only re_index to a subset of what the compartment is indexed over.
+	aquifer .hydr_gw .re_index()
+	
+	##### Link fluxes between compartments and specify aggregation between compartments that are distributed differently, and unit conversions where volumes are different
+	
+	par_group("Land cover", lu, subcatch) {
+		lu_proportions : par_real("Land use proportions", unit(), 0, 0, 1)
+	}
+	
+	# Aggregation between these compartment are weighted using this parameter (fluxes that are linked below are automatically summed up using this weight)
+	aggregation_weight(soil, aquifer, lu_proportions)
+	aggregation_weight(soil, surf,    lu_proportions)
+	
+	# It is unambiguous for the automatic unit system to know how to use catchment_area(km^2) to convert  mm to m^3. May have to do something more complicated for other types of conversions though...
+	unit_conversion(soil.water, surf.water, surf.catchment_area)
+	unit_conversion(aquifer.water, surf.water, surf.catchment_area)
+	
+	void    .p_rain     .to(soil.water)
+	snow_box.melt_runoff.to(soil.water)
+	soil    .quick_flow .to(surf)
+	soil    .lat_flow   .to(surf)
+	aquifer .gw_flow    .to(surf)
+}
+
+
+
+
+module("SimplyC", 1,0,0) {
+	
+	air     : compartment("Atmosphere")
+	soil    : compartment("Soil")
+	aquifer : compartment("Aquifer")
+	surf    : compartment_type("Surface water")
+	
+	carbon_global :
+	soil.par_group("Soil carbon global") {
+		base_diss : par_real("Baseline soil DOC dissolution rate", ...)
+		kT :        par_real(...)
+		kSO4 :      par_real(...)
+	}
+	soil.par_group("Soil carbon land") {
+		base_conc : par_real("Baseline soil DOC concentration", ...)
+		compute_min_rate : par_bool(...) {
+			true {
+				min_rate :  par_real("Soil DOC mineralization rate", unit(day -1), ...)     # Disabled unless compute_min_rate is true.
+			}
+		}
+	}
+	# or just have
+	# {
+	# 	compute_min_rate : par_bool(...)
+	#	if compute_min_rate {
+	# 		min_rate : par_real(...)
+	# 	}
+	# }
+	# because that allows for disabling or enabling things within other par groups too.
+	
+	carbon_aquifer :
+	aquifer.par_group("Carbon groundwater") {
+		gw_doc_type : par_enum("Groundwater DOC conc type", const, .. ) {     # 'const' here refers to the value declared below, making it default.
+			const :    "Constant" {
+				deep_doc :  par_real("Deep soil DOC concentration", unit(m g, l-1))   # Only enabled if gw_doc_type has value const
+			}
+			soil_avg : "Soil average"
+			mass_bal : "Mass balance" {
+				gw_min_hl : par_real("Groundwater DOC half life", ...)                # Only enabled if gw_doc_type has value mass_bal
+			}
+		}
+	}
+	
+	
+	so4_series : series("SO4 deposition", unit(m g, l-1))
+	
+	so4_dep : property("SO4 deposition")
+	air.has(so4_dep) {
+		so4_series    if given(so4_series),
+		0		      otherwise
+	}
+	
+	temp : property("Temperature", unit(deg_c))
+	# We don't declare soil.has(temp), it is delegated to a soil temperature module. Means that this module can't be used unless some other module declares soil.has(temp){ and how to compute it }
+	
+	
+	# Maybe the next two should overwrite the parameter value (like it is possible to do in Mobius 1) instead of having a separate constant property (?)
+	# That makes it easier to switch between the two modes without recalibrating.
+	use_min_rate : property("Soil DOC mineralization rate", unit(day-1))
+	soil.has(use_min_rate) {
+		base_diss / base_conc    if compute_min_rate,
+		min_rate                 otherwise
+	}
+	
+	use_base_conc : property("Baseline soil DOC concentration", unit(m g, l-1))
+	soil.has(use_base_conc) {
+		base_conc                if compute_min_rate,
+		min_rate * base_diss     otherwise
+	}
+	
+	eq_doc_conc : property("Equilibrium DOC concentration", unit(m g, l-1))
+	soil.has(eq_doc_conc) {
+		use_base_conc * (1 + kT*soil.temp - kSO4*air.so4)
+	}
+	
+	
+	water : substance("Water")
+	oc : substance("Organic carbon")
+	
+	soil.has(water, unit(m m))         # We technically don't have to declare this here since it is done in the hydrology module, but it is good to declare intention (maybe?)
+	
+	# Not sure if "attached" is best. Can't use "dissolved" since the same system should be used for toxins that are absorbed in carbon or cations that are adsorbed to soil etc. Maybe just use "has" here too, unless it becomes ambiguous?
+	soil.water.has_attached(oc, "DOC", unit(k g, k m -2), unit(m g, l-1))    # Second unit (optional) is unit of concentration of oc in water. "DOC" redeclares name of the dissolved type of the substance (optional)
+	initial_conc {              # For dissolved substances, one can provide initial concentration instead of initial volume or mass (and framework internally computes the mass).
+		eq_doc_conc 
+	}
+	
+	aquifer.water.has_attached(oc, "DOC", unit(k g, k m -2), unit(m g, l-1))
+	initial_conc {
+		deep_doc                                                                 if  gw_doc_type.const,
+		aggregate(conc(soil.water.oc))                                           if  gw_doc_type.soil_avg,
+		aggregate(conc(soil.water.oc)) / (tc_g * hl_to_rate(gw_min_hl) + 1)      if  gw_doc_type.mass_bal,
+	}
+	# 'conc' gives the (automatically computed) concentration of the dissolved substance. 'aggregate' uses the (model-)given aggregations weights. No need to declare a separate cumulation equation like in Mobius1.
+	
+	surf.water.has_attached(oc, "DOC", unit(k g), unit(m g, l-1))
+	initial_conc {
+		aggregate(conc(aquifer.water.oc))    # In the particular model this is used in below, aquifer and surf are distributed the same way, so 'aggregate' will be discarded.
+	}
+	
+	flux(void, soil.water.oc, "Dissolution") {
+		soil.water * base_diss * (1 + kT*soil.temp - kSO4*air.so4)
+	}
+	
+	flux(soil.water.oc, void, "Mineralization") {
+		soil.water.oc * use_min_rate           # Since this equation is unambiguously in the scope of soil.water, it could be ok to just write oc*use_min_rate  here.
+	}
+	
+	flux(aquifer.water.oc, void, "Mineralization") {
+		hl_to_rate(gw_min_hl) * aquifer.water.oc       # hl_to_rate  is a function that is either provided by the framework, or maybe you could specify your own functions.
+	}
+	
+	# Override the concentration of DOC in groundwater in some instances (break out of automatic mass balance).
+	override_conc(aquifer.water.oc) {                            # Could also provide an override_mass (obviously both can't be used at the same time)
+		deep_doc                              if  gw_doc_type.const,
+		aggregate(conc(soil.water.oc))        if  gw_doc_type.soil_avg,
+		no_override                           if  gw_doc_type.mass_bal,
+	}
+	
+	# Fluxes of dissolved substances between compartments follow the water automatically.
+	
+	# No need to say anything about what is going on in the river since there are no processes there (yet). It will automatically transport the doc that comes to it.
+}
+
+
+
+model("SimplyC") {
+	add_directory("../../Modules")
+	
+	# Use all the same modules and couplings of fluxes as in the SimplyQ model above.
+	extend_model("simply_q.model", "SimplyQ")
+	
+	include_module("simply_c.module", "SimplyC")
+	
+	# All the info about linking fluxes, aggregating and converting is already present in SimplQ, so we don't have to say any more here.
+	# For conversion of kg/km2 in soil to kg in river it will attemt to use the same conversion information as was given for the water it is dissolved in, which will succeed in this case.
+	# Though for some substance types in more complex it may be necessary to be able to override this info per substance (?)
+	
+	# Identifiers known in SimplyQ are known here too (?)
+	
+	soil.carbon_global.re_index()
+	aquifer.carbon_aquifer.re_index()
+	
+	# We should make it automatic that dissolved substances inherit their solver from soil.water unless you want to override it, so the below should be unnecessary
+	# soil.water.oc.solve(simply_solver)
+	# aquifer.water.oc.solve(simply_solver)
+	# surf.water.oc.solve(simply_solver)
+	
+	soil.water.oc.ignore_flux(soil.water.evap)    # Evapotranspiration should not carry dissolved oc.
+}
+
+
+module("SimplySed") {
+"""
+Model description.
+"""
+
+	top_soil : compartment_type("Top soil")
+	
+	ar_soil    : compartment("Arable top soil", top_soil)
+	nonar_soil : compartment("Non-arable top soil", top_soil)
+	
+	top_soil.par_group("Erodibility") {
+		sed_scale  : par_real("Sediment input scaling factor", ...)
+		sed_pow    : par_real("Sediment input nonlinear coefficient", ...)
+	}
+	
+	top_soil.par_group("Erodibility land") {
+		sed_reduction : par_real("Reduction of load in sediment")
+		c_cover       : par_real("Vegetation cover factor")
+	}
+	
+	top_soil.par_group("Land slope") {
+		land_slope : par_real("Mean slope of land")
+	}
+	
+	ar_soil.par_group("Crops") {
+		doy_spring : par_int(..., !30, !335)           # ! gives enforced boundary (?)
+		doy_autumn : par_int(...)
+		prop_spring : par_real("Proportion of spring grown crops", ...)
+	}
+	
+	sed_in           : property("Sediment input coefficient", unit(k g, m 3))
+	veg_cover_factor : property("Vegetation cover factor", unit())
+	
+	# Import C function.
+	#dynamic_vegetation_cover : external_c("vegetation_cover.h", "vegetation_cover", double(double, int, int, double, int), unit())
+	
+	triangle : function(x, mid, width, low) {
+		linear_response(x, mid-width/2, mid, low, 1)    if x < mid,
+		linear_response(x, mid, mid+width/2, 1, low)    otherwise,
+	}
+	
+	
+	# Specific top soil types have different implementations of veg_cover_factor
+	
+	ar_soil.has(veg_cover_factor) {
+		# Example of equation that is difficult to express in this language.. Call an external C function instead.
+		#dynamic_vegetation_cover(c_cover, doy_spring, doy_autumn, prop_spring, current_time.day_of_year)
+		
+		#TODO: Not entirely correct. However this is the gist of it. No need for C linkage?
+		doy := current_time.day_of_year;
+		risk_period := 60;
+		
+			   prop_spring  * triangle(doy, doy_spring, risk_period, c_cover)
+		  + (1-prop_spring) * triangle(doy, doy_autumn, risk_period, c_cover)
+	}
+	
+	nonar_soil.has(veg_cover_factor) {
+		c_cover
+	}
+	
+	top_soil.has(sed_in) {
+		1e6 * sed_scale * land_slope * veg_cover_factor * (1 - sed_reduction)
+	}
+	
+	surf : compartment_type("Surface water")
+	
+	erosion_factor : property("Erosion factor", unit(something))
+	surf.has(erosion_factor) {
+		flow_from_land := non_neighbor_input(surf.water)    # Neighbor is other surface waters, so this gives total input of water from other sources, i.e. land.
+		discard_unit(catchment_area * (flow_from_land / catchment_area) ** sed_pow)
+	}
+	
+	sed : substance("Sediment")
+	surf.water.has_attached(sed, unit(k g), unit(m g, l-1), "Suspended sediment")
+	
+	flux(void, surf.water.sed) {
+		aggregate(sed_in) * erosion_factor
+	}
+}
+
+model("SimplySed") {
+	extend_model("simply_q.model", "SimplyQ")
+	
+	# bla bla bla ....
+	
+	
+	[ar_soil, nonar_soil].distribute(subcatch, lu)      #Necessary to have both subcatch and lu to get a different land_slope for these combinations, but veg_cover_factor will still only be computed per lu.
+	
+	# Each instance of the compartment can either be an ar_soil or an nonar_soil
+	# hmm, it is really just the lu that should determine it, and not the subcatch though...   Maybe we should re-think the semantics for this then...
+	# something like [ar_soil, nonar_soil].distribute(lu).distribute(subcatch) for cases when you want the choice only to be determined by the first index set ?
+
+	# re_index some par groups etc...
+}
+
+
+# also, in future may need something like [lake_layer.distribute(layer), river].distribute(subcatch)    Hmmm...
+# and in and out-fluxes then have to somehow be directed to the top layer of the lake and so on. Quickly becomes complicated.
+#    lake_layer.neighbor(river).locate(0)    ..... # or whatever
+# also lake layers are neighbors with one another and also have neighbor fluxes. So this entire system maybe has to be better thought through.
+# even with easy-lake there are two lake compartments per lake.
+# Maybe the lake is a compartment_group, and then the group specifies how it directs "outer" neighbor fluxes vs "inner" neighbor fluxes.
+
+/*
+ #More complex stuff in a Contaminant module
+	water       : substance("Water")
+	oc          : substance("Organic carbon")
+	contaminant : substance("Contaminant")
+ 
+	soil.has(water, unit(m m))
+	soil.has(oc,    unit(k g, k m -2), "SOC")
+	soil.water.has_attached(oc, unit(m g, l-1), "DOC")
+	
+	soil.air.has_attached(contaminant, unit(n g, k m -2), unit(n g, m -3))
+	soil.water.has_attached(contaminant, unig(n g, k m -2), unit(n g, m -3))
+	soil.oc.has_attached(contaminant, unit(n g, k g -1))
+	soil.water.oc.has_attached(contaminant, unit(n g, k g -1))                #soil.water.oc.contaminant is then transported with all fluxes from soil.water
+	
+	temp : property("Temperature", unit(deg_k))
+	
+	air.has(temp) { #declare how it is computed }
+	soil.has(temp) { etc }
+	aquifer.has(temp) { etc }
+	river.has(temp) { etc }
+	surf.has(temp) { etc }
+	
+	# Parameters tied to a substance.
+	contaminant.par_group("Physio-chemistry") {
+		log_k_ow_25 : par_real("Log10 octanol-water partitioning coefficient at 25°C", unit(), ...)
+		dUow    : par_real("Enthalpy of octanol-water phase transition", ...)
+	}
+	
+	R         : constant("Ideal gas constant", 8.314, unit(J, K-1, mol-1))
+	base_temp : constant("Temperature at which physiochemical properties are given", 25, unit(deg_c))
+	
+	# Declaring a universal equation for the property (not specific to location)
+	log_k_ow : property("Log10 octanol-water partitioning coefficient", unit()) {
+		temp_k := convert(temp, unit(K));
+		base_k := convert(base_temp, unit(K));
+		log_k_ow_25 - (1e3*dUow / (ln(10)*R))*(1/temp_k - 1/base_k)
+	}
+	
+	#TODO: This is a property of the compartment AND the contaminant. But soil.contaminant is not a thing since it is always soil.water.contaminant etc.
+	# Is it ok to let the framework infer that it should be computed per compartment too, or should it be declared in some way?
+	
+	# Will use the same equation, but with 'temp' relative to the compartment.
+	contaminant.has(log_k_ow)
+	
+	
+	
+#In model composition
+	contaminant_type : index_set("Contaminant type")
+	
+	# Can also distribute substances over index sets (many types of substance, with same equations, but parametrized differently)
+	contaminant.distribute("Contaminant type")
+	
+	
+	
+#Matrix parameters
+	# Like in PERSiST or between plastic classes in INCA-MP
+	
+	# How is the parameter defined?
+	#perc : par_matrix("Percolation matrix", ...)  # But how does it determine that 'soil_box' is the "inner" index set that creates the matrix (and not lu). Maybe tie this to the compartment group concept (see above)
+	
+	neighbor_flux(soil.water, soil.water) {
+		min(from.runoff * perc.from.to, to.mpi)       # perc.from.to is the percolation value
+	}
+
+
+# Python wrapper.
+	#Since the symbols of all the variables are exposed to the interface, we can instead of having to write
+	# dataset.set_parameter_double("Baseflow index", ["Forest"], 0.5)   and   series = dataset.get_result_series("Reach flow", ["Coull"])
+	# instead implement __setattr__ and __getattribute__ to allow syntax like the following in the python wrapper:
+	dataset.soil["Forest"].bfi = 0.5
+	dataset.run_model()
+	flow_series = dataset.river["Coull"].flow
+
+	# we could actually do something similar with __setitem__ and __getitem__ currently to achieve the following:
+	dataset.parameter["Baseflow index"]["Forest"] = 0.5
+	flow_series = dataset.result["Reach flow"]["Coull"]
+ */
+
+
+
+
