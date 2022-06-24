@@ -40,7 +40,7 @@ struct Decl_AST : Expr_AST {
 };
 
 struct Decl_Body_AST : Body_AST {
-	std::vector<Token>      doc_strings;
+	Token                   doc_string;
 	std::vector<Decl_AST *> child_decls;
 	
 	Decl_Body_AST() : Body_AST(Body_Type::decl) {};

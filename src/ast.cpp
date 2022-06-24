@@ -170,7 +170,12 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 					Token token = stream->peek_token();
 					if(token.type == Token_Type::quoted_string) {
 						stream->read_token();
-						decl_body->doc_strings.push_back(token);
+						if(decl_body->doc_string.type == Token_Type::quoted_string) {
+							// we already found one earlier.
+							token.print_error_header();
+							fatal_error("Multiple doc strings for declaration.");
+						}
+						decl_body->doc_string = token;
 					} else if (token.type == Token_Type::identifier) {
 						Decl_AST *child_decl = parse_decl(stream, allocator);
 						decl_body->child_decls.push_back(child_decl);
@@ -194,7 +199,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 			break;
 	}
 	
-	#if 1
+	#if 0
 	{
 		warning_print("decl:\n");
 		if(decl->handle_name.string_value.count)
