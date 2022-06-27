@@ -10,8 +10,22 @@ struct Expr_AST {
 	
 };
 
-enum class Body_Type {
+enum class Decl_Type {
 	unrecognized,
+	#define ENUM_VALUE(name, body_type) name,
+	#include "decl_types.incl"
+	#undef ENUM_VALUE
+};
+
+inline const char *
+name(Decl_Type type) {
+	#define ENUM_VALUE(name, body_type) if(type == Decl_Type::name) return #name;
+	#include "decl_types.incl"
+	#undef ENUM_VALUE
+	return "unrecognized";
+}
+
+enum class Body_Type {
 	none,
 	decl,
 	function,
@@ -34,6 +48,9 @@ struct Argument_AST : Expr_AST {
 
 struct Decl_AST : Expr_AST {
 	Token                        handle_name;
+	Token                        type_name; // Hmm, is a bit superfluous, but it is mostly to store the source location.
+	Decl_Type                    type;
+	
 	std::vector<Token>           decl_chain;
 	std::vector<Argument_AST *>  args;
 	std::vector<Body_AST *>      bodies;

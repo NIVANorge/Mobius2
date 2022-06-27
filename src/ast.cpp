@@ -32,23 +32,17 @@ read_identifier_chain(Token_Stream *stream, char separator, std::vector<Token> *
 	}
 }
 
-Body_Type
-body_type(String_View decl) {
-	static const char * decls[] = {
-		"model", "module", "par_group",
-	};
-	static const char * nones[] = {
-		"unit", "substance", "property", "compartment",
-	};
-	static const char * funcs[] = {
-		"function", "has", "flux",
-	};
-	for(auto type : decls) if (decl == type) return Body_Type::decl;
-	for(auto type : nones) if (decl == type) return Body_Type::none;
-	for(auto type : funcs) if (decl == type) return Body_Type::function;
-	return Body_Type::unrecognized;
+Decl_Type
+decl_type(Token *string_name, Body_Type *body_type_out) {
+	#define ENUM_VALUE(name, body_type) if(string_name->string_value == #name) { *body_type_out = Body_Type::body_type; return Decl_Type::name; }
+	#include "decl_types.incl"
+	#undef ENUM_VALUE
+	
+	string_name->print_error_header();
+	fatal_error("Unrecognized declaration type \"", string_name->string_value, "\".");
+	
+	return Decl_Type::unrecognized;
 }
-
 
 void print_expr(Math_Expr_AST *expr) {
 	warning_print("(");
@@ -80,12 +74,19 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 		ident = stream->expect_token(Token_Type::identifier);
 		next  = stream->read_token();
 	}
-	decl->decl_chain.push_back(ident);
+	decl->type_name = ident;
+	
 	
 	if((char)next.type == '.') {
 		read_identifier_chain(stream, '.', &decl->decl_chain);
+		decl->type_name = decl->decl_chain->back();
+		decl->decl_chain->pop_back();
+		
 		next = stream->read_token();
 	}
+	
+	Body_Type body_type;
+	decl->type = decl_type(&decl->type_name, &body_type);
 	
 	if((char)next.type != '(') {
 		next.print_error_header();
@@ -140,18 +141,14 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 		if(ch == '.' || ch == '{') {
 			stream->read_token();
 			Body_AST *body;
-			String_View decl_name = decl->decl_chain.back().string_value;
-			Body_Type type = body_type(decl_name);
-			if(type == Body_Type::decl) {
+			
+			if(body_type == Body_Type::decl) {
 				body = allocator->make_new<Decl_Body_AST>();
-			} else if(type == Body_Type::function) {
+			} else if(body_type == Body_Type::function) {
 				body = allocator->make_new<Function_Body_AST>();
-			} else if(type == Body_Type::none) {
+			} else if(body_type == Body_Type::none) {
 				next.print_error_header();
-				fatal_error("Declarations of type ", decl_name, " can't have declaration bodies.");
-			} else if(type == Body_Type::unrecognized) {
-				next.print_error_header();
-				fatal_error("Unrecognized declaration type: ", decl_name);
+				fatal_error("Declarations of type ", decl->type_name.string_value, " can't have declaration bodies.");
 			}
 			
 			if(ch == '.') {

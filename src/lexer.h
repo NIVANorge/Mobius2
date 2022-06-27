@@ -87,6 +87,7 @@ Token {
 		return (double)val_int;
 	}
 	
+	void print_error_location();
 	void print_error_header();
 };
 

@@ -4,9 +4,15 @@
 #include <limits>
 
 void
+Token::print_error_location() {
+	error_print("file ", location.filename, " line ", location.line+1, " column ", location.column, ":\n");
+}
+
+void
 Token::print_error_header() {
 	begin_error(Mobius_Error::parsing);
-	error_print("In file ", location.filename, " line ", location.line+1, " column ", location.column, ":\n");
+	error_print("In ");
+	print_error_location();
 }
 
 const Token *
@@ -56,7 +62,7 @@ Token_Stream::expect_token(char type) {
 inline int
 col_width(char c) {
 	if(c == '\t') return 4;
-	return (((u8)c >> 7) == 0 || ((u8)c >> 6) == 3);  // A utf-8 char sequence starts with either 0xxxxxxx or 11xxxxxxx. Just count the first char in the sequence.
+	return (((u8)c >> 7) == 0 || ((u8)c >> 6) == 0b11);  // A utf-8 char sequence starts with either 0xxxxxxx or 11xxxxxxx. Just count the first char in the sequence.
 }
 
 
@@ -72,7 +78,7 @@ get_utf8(char *s) {
 	} else {
 		for(int pos = 1; pos < 4; ++pos) {
 			char c = s[pos];
-			if(((u8)c >> 6) != 2) break;
+			if(((u8)c >> 6) != 0b10) break;
 			result.count = pos + 1;
 		}
 	}
