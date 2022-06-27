@@ -24,10 +24,41 @@ struct Entity_Registration {
 
 struct Compartment_Registration : Entity_Registration {
 	// no need for additional info right now..
-	
-	
 };
 
+struct Par_Group_Registration   : Entity_Registration {
+	entity_handle                  compartment;  //TODO: could also be substance
+	std::vector<entity_handle>     parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
+};
+
+union Parameter_Value {
+	double    val_double;
+	s64       val_int;
+	u64       val_bool;
+	u64       val_enum;
+	Date_Time val_datetime;
+	
+	Parameter_Value() : val_datetime() {};
+};
+
+struct Par_Registration         : Entity_Registration {
+	entity_handle  par_group;
+	entity_handle  unit;
+	
+	Parameter_Value default_val;
+	Parameter_Value min_val;
+	Parameter_Value max_val;
+	
+	String_View     description;
+};
+
+struct Unit_Registration        : Entity_Registration {
+	// TODO: put data here.
+};
+
+struct Substance_Registration   : Entity_Registration {
+	entity_handle  unit;
+};
 
 struct Module_Declaration;
 
@@ -38,13 +69,14 @@ struct Registry {
 	std::vector<Registration_Type> registrations;
 	Module_Declaration            *parent;
 	
+	Registry(Module_Declaration *parent) : parent(parent) {}
+	
 	entity_handle
-	find_or_create(Token *handle_name, Token *name, bool this_is_the_declaration = false);
+	find_or_create(Token *handle_name, Token *name = nullptr, bool this_is_the_declaration = false);
 	
 	Registration_Type *operator[](entity_handle handle) {
-		if(!is_valid(handle) || handle >= registrations.size()) {
+		if(!is_valid(handle) || handle >= registrations.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
-		}
 		return &registrations[handle];
 	}
 };
@@ -55,28 +87,28 @@ struct Module_Declaration {
 	
 	String_View doc_string;
 	
-	string_map<Entity_Registration *> handles_in_scope;
+	string_map<std::pair<Decl_Type, entity_handle>> handles_in_scope;
 	
 	Registry<Compartment_Registration, Decl_Type::compartment> compartments;
+	Registry<Par_Group_Registration,   Decl_Type::par_group>   par_groups;
+	Registry<Par_Registration,         Decl_Type::par_real>    parameters;     // NOTE: par_real is a stand-in for all parameter declarations.
+	Registry<Unit_Registration,        Decl_Type::unit>        units;
+	Registry<Substance_Registration,   Decl_Type::substance>   substances;
 	
-	Module_Declaration() {
-		compartments.parent = this;
-	}
+	Module_Declaration() : 
+		compartments(this),
+		par_groups  (this),
+		parameters  (this),
+		units       (this),
+		substances  (this)
+	{}
 };
-
-inline entity_handle
-register_compartment(String_View *handle_name, bool is_declaration, Token *name) {
-	
-	//TODO.
-	entity_handle handle = 0;
-	return handle;
-}
 
 
 
 
 Module_Declaration *
-process_module_declaration(Decl_AST *decl, Linear_Allocator *allocator);
+process_module_declaration(Decl_AST *decl);
 
 
 #endif // MOBIUS_MODEL_BUILDER_H

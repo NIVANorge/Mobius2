@@ -8,6 +8,7 @@ module("HBVSnow lite", 1,0,0) {
 	
 	snow_par :
 	snow_box.par_group("Snow") {
+		#test      : par_real("Test", a, 1)
 		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, "Some description")
 		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0)
 		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0)
@@ -31,14 +32,15 @@ module("HBVSnow lite", 1,0,0) {
 	
 	
 	
-	# Source void means that we are not interested in tracking the state of the source, this is then a pure source to the system
-	flux(void, snow_box.snow, "Precipitation falling as snow") {
+	# Source nowhere means that we are not interested in tracking the state of the source, this is then a pure source to the system
+	flux(nowhere, snow_box.snow, "Precipitation falling as snow") {
 		air.precip    if air.temp <= t_snow,
 		0             otherwise
 	}
 	
+	# target out means that this module does not know what the target is. The target has to be linked in the model composition later.
 	p_rain :
-	flux(void, out, "Precipitation falling as rain") {       # target out means that this module does not know what the target is. The target has to be linked in the model composition later.
+	flux(nowhere, out, "Precipitation falling as rain") {
 		air.precip    if air.temp > t_snow,
 		0             otherwise
 	}

@@ -74,16 +74,17 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 		ident = stream->expect_token(Token_Type::identifier);
 		next  = stream->read_token();
 	}
-	decl->type_name = ident;
-	
+	decl->decl_chain.push_back(ident);
 	
 	if((char)next.type == '.') {
 		read_identifier_chain(stream, '.', &decl->decl_chain);
-		decl->type_name = decl->decl_chain->back();
-		decl->decl_chain->pop_back();
 		
 		next = stream->read_token();
 	}
+	
+	// We generally have something on the form a.b.type(bla) . The chain is now {a, b, type}, but we want to store the type separately from the rest of the chain.
+	decl->type_name = decl->decl_chain.back();
+	decl->decl_chain.pop_back();
 	
 	Body_Type body_type;
 	decl->type = decl_type(&decl->type_name, &body_type);
@@ -161,7 +162,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 				fatal_error("Expected a {}-enclosed body for the declaration.");
 			}
 			
-			if(type == Body_Type::decl) {
+			if(body_type == Body_Type::decl) {
 				auto decl_body = reinterpret_cast<Decl_Body_AST *>(body);
 				while(true) {
 					Token token = stream->peek_token();
@@ -185,7 +186,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 					}
 				}
 			}
-			else if(type == Body_Type::function) {
+			else if(body_type == Body_Type::function) {
 				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
 				function_body->block = parse_math_block(stream, allocator);
 			}
