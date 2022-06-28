@@ -12,6 +12,7 @@ Module_Declaration::registry(Decl_Type decl_type) {
 		case Decl_Type::substance :
 		case Decl_Type::property :    return &properties_and_substances;
 		case Decl_Type::has :         return &hases;
+		case Decl_Type::flux :        return &fluxes;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type in registry().");
@@ -54,6 +55,8 @@ see_if_handle_name_exists_in_scope(Module_Declaration *module, Token *handle_nam
 
 template <Decl_Type decl_type> entity_id
 Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *declaration) {
+	
+	// TODO: This may be a case of a function that tries to do too many things and becomes confusing. Split it up?
 	
 	entity_id found_id = invalid_entity_id;
 	
@@ -105,8 +108,9 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 		- This is not a declaration, but a handle was given, and it is the first reference to the handle.
 	*/
 	
+	bool existed_already = is_valid(found_id);
 	
-	if(!is_valid(found_id)) {
+	if(!existed_already) {
 		// The entity was not already created, so we have to do that.
 	
 		found_id = (entity_id)registrations.size();
@@ -137,8 +141,10 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 	if(name)
 		registration->name = name->string_value;
 	
-	//NOTE: this could be different from the decl_type in some instances since we use the same registry for e.g. substances and properties, or different parameter types.
-	registration->type              = declaration->type;        
+	//NOTE: the type be different from the decl_type in some instances since we use the same registry for e.g. substances and properties, or different parameter types.
+	if(declaration)
+		registration->type              = declaration->type;
+	
 	registration->has_been_declared = (declaration != nullptr);
 	
 	return found_id;
@@ -298,16 +304,22 @@ resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_
 }
 
 template<> entity_id
-process_declaration<Decl_Type::unit>(Module_Declaration *module, Decl_AST *unit) {
+process_declaration<Decl_Type::unit>(Module_Declaration *module, Decl_AST *decl) {
 	
-	for(Argument_AST *arg : unit->args) {
+	for(Argument_AST *arg : decl->args) {
 		if(!Arg_Pattern().matches(arg)) {
-			unit->type_name.print_error_header();
+			decl->type_name.print_error_header();
 			fatal_error("Invalid argument to unit declaration.");
 		}
 	}
 	
 	return invalid_entity_id;
+}
+
+template<> entity_id
+process_declaration<Decl_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::quoted_string}});
+	return module->compartments.standard_declaration(decl);
 }
 
 template<> entity_id
@@ -408,8 +420,9 @@ process_declaration<Decl_Type::has>(Module_Declaration *module, Decl_AST *decl) 
 	auto has = module->hases[id];
 	
 	// TODO: can eventually be tied to a substance not only a compartment.
-	has->compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
-	has->property_or_substance = resolve_argument<Decl_Type::property>(module, decl, 0);
+	has->located_value.type = Location_Type::located;
+	has->located_value.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
+	has->located_value.property_or_substance = resolve_argument<Decl_Type::property>(module, decl, 0);
 	
 	if(which == 1)
 		has->override_unit = resolve_argument<Decl_Type::unit>(module, decl, 1);
@@ -444,6 +457,53 @@ process_declaration<Decl_Type::has>(Module_Declaration *module, Decl_AST *decl) 
 	return id;
 }
 
+void
+process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Located_Value *location) {
+	std::vector<Token> *symbol = &decl->args[which]->sub_chain;
+	if(symbol->size() == 1) {
+		Token *token = &(*symbol)[0];
+		if(token->string_value == "nowhere")
+			location->type = Location_Type::nowhere;
+		else if(token->string_value == "out")
+			location->type = Location_Type::out;
+		else {
+			token->print_error_header();
+			fatal_error("Invalid flux location.");
+		}
+	} else if (symbol->size() == 2) {
+		location->type     = Location_Type::located;
+		location->compartment = module->compartments.find_or_create(&(*symbol)[0]);
+		location->property_or_substance   = module->properties_and_substances.find_or_create(&(*symbol)[1]);    //NOTE: this does not guarantee that this is a substance and not a property, so that must be checked in post.
+	} else {
+		//TODO: this should eventually be allowed when having dissolved substances
+		(*symbol)[0].print_error_header();
+		fatal_error("Invalid flux location.");
+	}
+}
+
+template<> entity_id
+process_declaration<Decl_Type::flux>(Module_Declaration *module, Decl_AST *decl) {
+	
+	int which = match_declaration(decl,
+		{
+			{Token_Type::identifier, Token_Type::identifier},
+			{Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
+		});
+	
+	Token *name = nullptr;
+	if(which == 1)
+		name = single_arg(decl, 2);
+	
+	auto id   = module->fluxes.find_or_create(&decl->handle_name, name, decl);
+	auto flux = module->fluxes[id];
+	
+	process_flux_argument(module, decl, 0, &flux->source);
+	process_flux_argument(module, decl, 1, &flux->target);
+	
+	return id;
+}
+
+
 Module_Declaration *
 process_module_declaration(Decl_AST *decl) {
 	
@@ -465,11 +525,10 @@ process_module_declaration(Decl_AST *decl) {
 	
 	for(Decl_AST *child : body->child_decls) {
 		
-		//TODO: finish!
+		// hmm, this is a bit annoying to have to write out..
 		switch(child->type) {
 			case Decl_Type::compartment : {
-				match_declaration(child, {{Token_Type::quoted_string}});
-				module->compartments.standard_declaration(child);;
+				process_declaration<Decl_Type::compartment>(module, child);
 			} break;
 			
 			case Decl_Type::par_group : {
@@ -489,12 +548,12 @@ process_module_declaration(Decl_AST *decl) {
 			} break;
 			
 			case Decl_Type::flux : {
-				
+				process_declaration<Decl_Type::flux>(module, child);
 			} break;
 			
 			case Decl_Type::unit : {
 				process_declaration<Decl_Type::unit>(module, child);
-			} 
+			} break;
 			
 			default : {
 				child->type_name.print_error_header();

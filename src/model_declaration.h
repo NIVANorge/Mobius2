@@ -74,39 +74,43 @@ Entity_Registration<Decl_Type::property> : Entity_Registration_Base {
 	entity_id    unit;
 };
 
-template<> struct
-Entity_Registration<Decl_Type::has> : Entity_Registration_Base {
-	entity_id    compartment;                       //TODO: eventually it could also be a substance that has a property!
-	entity_id    property_or_substance;
-	entity_id    override_unit;
-	//entity_id    conc_unit;
-	//String_View 
-	Math_Block_AST *code;
-	Math_Block_AST *initial_code;
-};
-
-
 enum class
-Flux_Target_Type {
+Location_Type {
 	nowhere, out, located,
 };
 
 struct
 Located_Value {
 	//TODO: this becomes more complicated with dissolved substances etc.
+	Location_Type type;
+	
 	entity_id compartment;
 	entity_id property_or_substance;
 };
 
 template<> struct
+Entity_Registration<Decl_Type::has> : Entity_Registration_Base {
+	Located_Value   located_value;
+	entity_id       override_unit;
+	//entity_id    conc_unit;
+	//String_View 
+	Math_Block_AST *code;
+	Math_Block_AST *initial_code;
+};
+
+struct
+Located_Value_Hash {
+	int operator()(const Located_Value &loc) const {
+		if(loc.type != Location_Type::located)
+			fatal_error(Mobius_Error::internal, "Tried to look up the state variable of a non-located value.");
+		return loc.compartment + 97*loc.property_or_substance;   // Should be ok. We probably don't have more than 96 compartment types, and if that happens we are still ok with a clash.
+	}
+};
+
+template<> struct
 Entity_Registration<Decl_Type::flux> : Entity_Registration_Base {
-	Flux_Target_Type source_type;
-	Flux_Target_Type dest_type;
-	
-	Located_Value    source_substance;
-	Located_Value    target_substance;
-	
-	String_View      name;
+	Located_Value    source;
+	Located_Value    target;
 	
 	Math_Block_AST  *code;
 };
@@ -168,17 +172,33 @@ Module_Declaration {
 		parameters  (this),
 		units       (this),
 		properties_and_substances(this),
-		hases       (this)
+		hases       (this),
+		fluxes      (this)
 	{}
 	
 	Registry_Base *	registry(Decl_Type);
 };
 
-
-
-
 Module_Declaration *
 process_module_declaration(Decl_AST *decl);
+
+typedef s32 state_var_id;
+
+struct
+State_Variable {
+	Decl_Type type;     //either flux, substance or property
+	entity_id entity;
+};
+
+struct
+Mobius_Model {
+	Module_Declaration *module;   //TODO: allow multiple modules!
+	
+	std::vector<State_Variable> state_variables;
+	std::unordered_map<Located_Value, state_var_id, Located_Value_Hash> location_to_id;
+	
+	void add_module(Module_Declaration *module);
+};
 
 
 #endif // MOBIUS_MODEL_BUILDER_H

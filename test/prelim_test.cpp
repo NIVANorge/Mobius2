@@ -20,4 +20,7 @@ int main() {
 	Decl_AST *module_decl = parse_decl(&stream, &memory);
 	
 	Module_Declaration *module = process_module_declaration(module_decl);
+	
+	Mobius_Model model;
+	model.add_module(module);
 }
