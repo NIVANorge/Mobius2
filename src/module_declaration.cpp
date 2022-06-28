@@ -69,12 +69,12 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 			
 			found_id = find->second;
 			
-			if(declaration && registrations[find->second].has_been_declared) {
+			if(declaration && registrations[find->second.id].has_been_declared) {
 				// the handle was used for a previous declaration (of the same type), and this is also a declaration (in the same module scope), which is not allowed.
 				
 				handle_name->print_error_header();
 				error_print("Re-declaration of handle \"", handle_name->string_value, "\". It was previously declared here:\n");
-				registrations[find->second].location.print_error();
+				registrations[find->second.id].location.print_error();
 				mobius_error_exit();
 			}
 			
@@ -92,7 +92,7 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 			if(declaration) {
 				name->print_error_header();
 				error_print("Re-declaration of an entity of name ", name->string_value, " of the same type as one previously declared here:\n");
-				registrations[find->second].location.print_error();
+				registrations[find->second.id].location.print_error();
 				mobius_error_exit();
 			}
 			
@@ -113,7 +113,7 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 	if(!existed_already) {
 		// The entity was not already created, so we have to do that.
 	
-		found_id = (entity_id)registrations.size();
+		found_id = {parent->module_id, (s32)registrations.size()};
 		registrations.push_back({});
 	
 		if(is_valid(handle_name)) {
@@ -128,7 +128,7 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 			name_to_handle[name->string_value] = found_id;
 	}
 	
-	auto registration = &registrations[found_id];
+	auto registration = &registrations[found_id.id];
 	
 	// note: this overwrites the handle name if it was already registered, but that is not really a problem (since it is the same).
 	// also, we want the location to be overwritten with the declaration.
@@ -149,8 +149,6 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 	
 	return found_id;
 }
-
-
 
 //TODO: Maybe classifying the arguments should be done in the AST parsing instead??
 //TODO: Make a general-purpose tagged union?
@@ -420,9 +418,9 @@ process_declaration<Decl_Type::has>(Module_Declaration *module, Decl_AST *decl) 
 	auto has = module->hases[id];
 	
 	// TODO: can eventually be tied to a substance not only a compartment.
-	has->located_value.type = Location_Type::located;
-	has->located_value.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
-	has->located_value.property_or_substance = resolve_argument<Decl_Type::property>(module, decl, 0);
+	has->value_location.type = Location_Type::located;
+	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
+	has->value_location.property_or_substance = resolve_argument<Decl_Type::property>(module, decl, 0);
 	
 	if(which == 1)
 		has->override_unit = resolve_argument<Decl_Type::unit>(module, decl, 1);
@@ -458,7 +456,7 @@ process_declaration<Decl_Type::has>(Module_Declaration *module, Decl_AST *decl) 
 }
 
 void
-process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Located_Value *location) {
+process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Value_Location *location) {
 	std::vector<Token> *symbol = &decl->args[which]->sub_chain;
 	if(symbol->size() == 1) {
 		Token *token = &(*symbol)[0];
@@ -505,11 +503,12 @@ process_declaration<Decl_Type::flux>(Module_Declaration *module, Decl_AST *decl)
 
 
 Module_Declaration *
-process_module_declaration(Decl_AST *decl) {
+process_module_declaration(int module_id, Decl_AST *decl) {
 	
 	//TODO: have to decide whether we should copy over string views at this point.
 	
 	Module_Declaration *module = new Module_Declaration();
+	module->module_id = module_id;
 	
 	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, true, false);
 	

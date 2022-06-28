@@ -6,11 +6,30 @@
 
 #include <unordered_map>
 
-typedef s32 entity_id;
+struct Module_Declaration;
 
-constexpr s32 invalid_entity_id = -1;
+struct entity_id {
+	//TODO: should this just contain the type too?
+	s32 module_id;
+	s32 id;
+	
+	entity_id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
+	entity_id &operator++() { id++; return *this; }
+};
 
-inline bool is_valid(entity_id id) { return id >= 0; }
+inline bool
+operator==(const entity_id &a, const entity_id &b) {
+	return a.module_id == b.module_id && a.id == b.id;
+}
+
+inline bool
+operator!=(const entity_id &a, const entity_id &b) {
+	return a.module_id != b.module_id || a.id != b.id;
+}
+
+constexpr entity_id invalid_entity_id = {-1, -1};
+
+inline bool is_valid(entity_id id) { return id.module_id >= 0 && id.id >= 0; }
 
 template <typename Value_Type>
 using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
@@ -80,7 +99,7 @@ Location_Type {
 };
 
 struct
-Located_Value {
+Value_Location {
 	//TODO: this becomes more complicated with dissolved substances etc.
 	Location_Type type;
 	
@@ -88,10 +107,15 @@ Located_Value {
 	entity_id property_or_substance;
 };
 
+inline bool
+operator==(const Value_Location &a, const Value_Location &b) {
+	return a.type == b.type && a.compartment == b.compartment && a.property_or_substance == b.property_or_substance;
+}
+
 template<> struct
 Entity_Registration<Decl_Type::has> : Entity_Registration_Base {
-	Located_Value   located_value;
-	entity_id       override_unit;
+	Value_Location value_location;
+	entity_id      override_unit;
 	//entity_id    conc_unit;
 	//String_View 
 	Math_Block_AST *code;
@@ -99,24 +123,26 @@ Entity_Registration<Decl_Type::has> : Entity_Registration_Base {
 };
 
 struct
-Located_Value_Hash {
-	int operator()(const Located_Value &loc) const {
+Value_Location_Hash {
+	int operator()(const Value_Location &loc) const {
 		if(loc.type != Location_Type::located)
 			fatal_error(Mobius_Error::internal, "Tried to look up the state variable of a non-located value.");
-		return loc.compartment + 97*loc.property_or_substance;   // Should be ok. We probably don't have more than 96 compartment types, and if that happens we are still ok with a clash.
+		// hopefully this one is ok...
+		return
+			 loc.compartment.module_id
+		+ 23*loc.compartment.id
+		+ 97*loc.property_or_substance.module_id
+		+ 2237*loc.property_or_substance.id;
 	}
 };
 
 template<> struct
 Entity_Registration<Decl_Type::flux> : Entity_Registration_Base {
-	Located_Value    source;
-	Located_Value    target;
+	Value_Location   source;
+	Value_Location   target;
 	
 	Math_Block_AST  *code;
 };
-
-
-struct Module_Declaration;
 
 struct Registry_Base {
 	string_map<entity_id>          handle_name_to_handle;
@@ -142,17 +168,18 @@ Registry : Registry_Base {
 	entity_id
 	standard_declaration(Decl_AST *decl);
 	
-	Entity_Registration<decl_type> *operator[](entity_id handle) {
-		if(!is_valid(handle) || handle >= registrations.size())
-			fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
-		return &registrations[handle];
-	}
+	Entity_Registration<decl_type> *operator[](entity_id id);
+	
+	entity_id begin();
+	entity_id end();
 };
 
 struct
 Module_Declaration {
 	String_View name;
 	int major, minor, revision;
+	
+	s32 module_id;
 	
 	String_View doc_string;
 	
@@ -179,8 +206,22 @@ Module_Declaration {
 	Registry_Base *	registry(Decl_Type);
 };
 
+template<Decl_Type decl_type>
+Entity_Registration<decl_type> *Registry<decl_type>::operator[](entity_id id) {
+	if(!is_valid(id) || id.id >= registrations.size() || id.module_id != parent->module_id)
+		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
+	return &registrations[id.id];
+}
+
+template<Decl_Type decl_type>
+entity_id Registry<decl_type>::begin() { return {parent->module_id, 0}; }
+
+template<Decl_Type decl_type>
+entity_id Registry<decl_type>::end()   { return {parent->module_id, (s32)registrations.size()}; }
+
+
 Module_Declaration *
-process_module_declaration(Decl_AST *decl);
+process_module_declaration(int module_id, Decl_AST *decl);
 
 typedef s32 state_var_id;
 
@@ -195,10 +236,9 @@ Mobius_Model {
 	Module_Declaration *module;   //TODO: allow multiple modules!
 	
 	std::vector<State_Variable> state_variables;
-	std::unordered_map<Located_Value, state_var_id, Located_Value_Hash> location_to_id;
+	std::unordered_map<Value_Location, state_var_id, Value_Location_Hash> location_to_id;
 	
 	void add_module(Module_Declaration *module);
 };
-
 
 #endif // MOBIUS_MODEL_BUILDER_H
