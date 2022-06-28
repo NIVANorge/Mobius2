@@ -20,12 +20,10 @@ module("HBVSnow lite", 1,0,0) {
 	snow  : substance("Snow (water equivalents)")
 	water : substance("Water")
 	
-	temp   : property("Temperature")
-	precip : property("Precipitation")
+	# note: we don't say air.has(temp) ... etc. This means that it is "hanging" and so assumed to be an input series, unless another module declares a function for it.
 	
-	# Or should these two be external to the module?
-	air.has(temp,   series("Air temperature", unit(deg_c)))
-	air.has(precip, series("Precipitation", unit(mm, day -1)))
+	temp   : property("Temperature", unit(deg_c))
+	precip : property("Precipitation", unit(m m, day -1))
 	
 	snow_box.has(snow,  unit(m m)) .initial { init_snow }
 	snow_box.has(water, unit(m m)) .initial { 0 }             # Not necessary to declare initial here, default is 0.

@@ -61,6 +61,9 @@ struct
 Source_Location {
 	String_View filename;
 	s32 line, column;
+	
+	void print_error();
+	void print_error_header();
 };
 
 struct
@@ -90,6 +93,11 @@ Token {
 	void print_error_location();
 	void print_error_header();
 };
+
+inline bool
+is_valid(Token *token) {
+	return token && (token->type != Token_Type::unknown) && !(token->type == Token_Type::identifier && token->string_value.count == 0);
+}
 
 struct
 Token_Stream {

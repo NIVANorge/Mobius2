@@ -151,6 +151,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 				next.print_error_header();
 				fatal_error("Declarations of type ", decl->type_name.string_value, " can't have declaration bodies.");
 			}
+			body->opens_at = next.location;
 			
 			if(ch == '.') {
 				read_identifier_chain(stream, '.', &body->modifiers);
@@ -188,7 +189,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 			}
 			else if(body_type == Body_Type::function) {
 				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
-				function_body->block = parse_math_block(stream, allocator);
+				function_body->block = parse_math_block(stream, allocator, next.location);
 			}
 			
 			decl->bodies.push_back(body);
@@ -242,7 +243,9 @@ parse_function_call(Token_Stream *stream, Linear_Allocator *allocator) {
 		Token token = stream->peek_token();
 		if(token.type == Token_Type::eof) {
 			token.print_error_header();
-			fatal_error("End of file while parsing function argument list"); // TODO: should give location of where it started.
+			error_print("End of file while parsing function argument list for function \"", function->name.string_value, "\" starting at:\n");
+			function->name.print_error_location();
+			mobius_error_exit();
 		} else if((char)token.type == ')') {
 			stream->read_token();
 			break;
@@ -351,7 +354,7 @@ parse_primary_expr(Token_Stream *stream, Linear_Allocator *allocator) {
 		result = unary;
 	} else if((char)token.type == '{') {
 		stream->read_token();
-		result = parse_math_block(stream, allocator);
+		result = parse_math_block(stream, allocator, token.location);
 	} else if (token.type == Token_Type::identifier) {
 		Token peek = stream->peek_token(1);
 		if((char)peek.type == '(') {
@@ -422,15 +425,18 @@ parse_potential_if_expr(Token_Stream *stream, Linear_Allocator *allocator) {
 }
 
 Math_Block_AST *
-parse_math_block(Token_Stream *stream, Linear_Allocator *allocator) {
+parse_math_block(Token_Stream *stream, Linear_Allocator *allocator, Source_Location opens_at) {
 	Math_Block_AST *block = allocator->make_new<Math_Block_AST>();
+	block->opens_at = opens_at;
 	
 	int semicolons = 0;
 	while(true) {
 		Token token = stream->peek_token();
 		if(token.type == Token_Type::eof) {
 			token.print_error_header();
-			fatal_error("End of file while parsing math block"); // TODO: should give location of where it started.
+			error_print("End of file while parsing math block starting at:\n");
+			opens_at.print_error();
+			mobius_error_exit();
 		}
 		else if((char)token.type == '}') {
 			stream->read_token();

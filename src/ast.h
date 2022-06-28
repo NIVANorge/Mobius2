@@ -6,11 +6,13 @@
 #include <vector>
 
 
-struct Expr_AST {
+struct
+Expr_AST {
 	
 };
 
-enum class Decl_Type {
+enum class
+Decl_Type {
 	unrecognized,
 	#define ENUM_VALUE(name, body_type) name,
 	#include "decl_types.incl"
@@ -25,14 +27,17 @@ name(Decl_Type type) {
 	return "unrecognized";
 }
 
-enum class Body_Type {
+enum class
+Body_Type {
 	none,
 	decl,
 	function,
 };
 
-struct Body_AST : Expr_AST {
+struct
+Body_AST : Expr_AST {
 	std::vector<Token> modifiers;
+	Source_Location    opens_at;
 	Body_Type type;
 	
 	Body_AST(Body_Type type) : type(type) {};
@@ -40,13 +45,15 @@ struct Body_AST : Expr_AST {
 
 struct Decl_AST;
 
-struct Argument_AST : Expr_AST {
+struct
+Argument_AST : Expr_AST {
 	std::vector<Token> sub_chain;    //TODO: better name?
 	char               chain_sep;
 	Decl_AST          *decl;
 };
 
-struct Decl_AST : Expr_AST {
+struct
+Decl_AST : Expr_AST {
 	Token                        handle_name;
 	Token                        type_name; // Hmm, is a bit superfluous, but it is mostly to store the source location.
 	Decl_Type                    type;
@@ -56,7 +63,8 @@ struct Decl_AST : Expr_AST {
 	std::vector<Body_AST *>      bodies;
 };
 
-struct Decl_Body_AST : Body_AST {
+struct
+Decl_Body_AST : Body_AST {
 	Token                   doc_string;
 	std::vector<Decl_AST *> child_decls;
 	
@@ -65,14 +73,16 @@ struct Decl_Body_AST : Body_AST {
 
 struct Math_Block_AST;
 
-struct Function_Body_AST : Body_AST {
+struct
+Function_Body_AST : Body_AST {
 	Math_Block_AST *block;
 	
 	Function_Body_AST() : Body_AST(Body_Type::function) {};
 };
 
 
-enum class Math_Expr_Type {
+enum class
+Math_Expr_Type {
 	block,
 	identifier_chain,
 	literal,
@@ -84,45 +94,53 @@ enum class Math_Expr_Type {
 };
 
 
-struct Math_Expr_AST : Expr_AST {
+struct
+Math_Expr_AST : Expr_AST {
 	Math_Expr_Type               type;
 	
 	Math_Expr_AST(Math_Expr_Type type) : type(type) {};
 };
 
-struct Math_Block_AST : Math_Expr_AST {
+struct
+Math_Block_AST : Math_Expr_AST {
 	std::vector<Math_Expr_AST *> exprs;
+	Source_Location              opens_at;
 	
 	Math_Block_AST() : Math_Expr_AST(Math_Expr_Type::block) {};
 };
 
-struct Identifier_Chain_AST : Math_Expr_AST {
+struct
+Identifier_Chain_AST : Math_Expr_AST {
 	std::vector<Token>           chain;
 	
 	Identifier_Chain_AST() : Math_Expr_AST(Math_Expr_Type::identifier_chain) {};
 };
 
-struct Literal_AST : Math_Expr_AST {
+struct
+Literal_AST : Math_Expr_AST {
 	Token                        value;
 	
 	Literal_AST() : Math_Expr_AST(Math_Expr_Type::literal) {};
 };
 
-struct Function_Call_AST : Math_Expr_AST {
+struct
+Function_Call_AST : Math_Expr_AST {
 	Token                        name;
 	std::vector<Math_Expr_AST *> args;
 	
 	Function_Call_AST() : Math_Expr_AST(Math_Expr_Type::function_call) {};
 };
 
-struct Unary_Operator_AST : Math_Expr_AST {
+struct
+Unary_Operator_AST : Math_Expr_AST {
 	String_View                   oper;
 	Math_Expr_AST                *arg;
 	
 	Unary_Operator_AST() : Math_Expr_AST(Math_Expr_Type::unary_operator) {};
 };
 
-struct Binary_Operator_AST : Math_Expr_AST {
+struct
+Binary_Operator_AST : Math_Expr_AST {
 	String_View                   oper;
 	Math_Expr_AST                *lhs;
 	Math_Expr_AST                *rhs;
@@ -130,7 +148,8 @@ struct Binary_Operator_AST : Math_Expr_AST {
 	Binary_Operator_AST() : Math_Expr_AST(Math_Expr_Type::binary_operator) {};
 };
 
-struct If_Expr_AST : Math_Expr_AST {
+struct
+If_Expr_AST : Math_Expr_AST {
 	std::vector<std::pair<Math_Expr_AST *, Math_Expr_AST *>>  ifs;
 	Math_Expr_AST                                            *otherwise;
 	
@@ -151,7 +170,7 @@ Math_Expr_AST *
 parse_primary_expr(Token_Stream *stream, Linear_Allocator *allocator);
 
 Math_Block_AST *
-parse_math_block(Token_Stream *stream, Linear_Allocator *allocator);
+parse_math_block(Token_Stream *stream, Linear_Allocator *allocator, Source_Location opens_at);
 
 
 #endif // MOBIUS_AST_H

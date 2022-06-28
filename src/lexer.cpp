@@ -4,15 +4,25 @@
 #include <limits>
 
 void
+Source_Location::print_error() {
+	error_print("file ", filename, " line ", line+1, " column ", column, ":\n");
+}
+
+void
+Source_Location::print_error_header() {
+	begin_error(Mobius_Error::parsing);
+	error_print("In ");
+	print_error();
+}
+
+void
 Token::print_error_location() {
-	error_print("file ", location.filename, " line ", location.line+1, " column ", location.column, ":\n");
+	location.print_error();
 }
 
 void
 Token::print_error_header() {
-	begin_error(Mobius_Error::parsing);
-	error_print("In ");
-	print_error_location();
+	location.print_error_header();
 }
 
 const Token *

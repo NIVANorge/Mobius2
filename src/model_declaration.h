@@ -6,32 +6,42 @@
 
 #include <unordered_map>
 
-typedef s32 entity_handle;
+typedef s32 entity_id;
 
-constexpr s32 invalid_entity_handle = -1;
+constexpr s32 invalid_entity_id = -1;
 
-inline bool is_valid(entity_handle handle) { return handle >= 0; }
+inline bool is_valid(entity_id id) { return id >= 0; }
 
 template <typename Value_Type>
 using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
 
-struct Entity_Registration {
-	Decl_Type     type;
-	bool          has_been_declared;
-	Token         handle_name;
-	String_View   name;
+struct
+Entity_Registration_Base {
+	Decl_Type       type;
+	bool            has_been_declared;
+	Source_Location location;            // if it has_been_declared, this should be the declaration location, otherwise it should be the location where it was last referenced.
+	String_View     handle_name;
+	String_View     name;
 };
 
-struct Compartment_Registration : Entity_Registration {
+template<Decl_Type decl_type> struct
+Entity_Registration : Entity_Registration_Base {
+	//TODO: delete constructor or something like that
+};
+
+template<> struct
+Entity_Registration<Decl_Type::compartment> : Entity_Registration_Base {
 	// no need for additional info right now..
 };
 
-struct Par_Group_Registration   : Entity_Registration {
-	entity_handle                  compartment;  //TODO: could also be substance
-	std::vector<entity_handle>     parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
+template<> struct
+Entity_Registration<Decl_Type::par_group> : Entity_Registration_Base {
+	entity_id              compartment;  //TODO: could also be substance
+	std::vector<entity_id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
 };
 
-union Parameter_Value {
+union
+Parameter_Value {
 	double    val_double;
 	s64       val_int;
 	u64       val_bool;
@@ -41,9 +51,10 @@ union Parameter_Value {
 	Parameter_Value() : val_datetime() {};
 };
 
-struct Par_Registration         : Entity_Registration {
-	entity_handle  par_group;
-	entity_handle  unit;
+template<> struct
+Entity_Registration<Decl_Type::par_real> : Entity_Registration_Base {
+	entity_id       par_group;
+	entity_id       unit;
 	
 	Parameter_Value default_val;
 	Parameter_Value min_val;
@@ -52,56 +63,115 @@ struct Par_Registration         : Entity_Registration {
 	String_View     description;
 };
 
-struct Unit_Registration        : Entity_Registration {
+template<> struct
+Entity_Registration<Decl_Type::unit> : Entity_Registration_Base {
 	// TODO: put data here.
 };
 
-struct Substance_Registration   : Entity_Registration {
-	entity_handle  unit;
+template<> struct
+Entity_Registration<Decl_Type::property> : Entity_Registration_Base {
+	//NOTE: this is in practice used both for property and substance
+	entity_id    unit;
 };
+
+template<> struct
+Entity_Registration<Decl_Type::has> : Entity_Registration_Base {
+	entity_id    compartment;                       //TODO: eventually it could also be a substance that has a property!
+	entity_id    property_or_substance;
+	entity_id    override_unit;
+	//entity_id    conc_unit;
+	//String_View 
+	Math_Block_AST *code;
+	Math_Block_AST *initial_code;
+};
+
+
+enum class
+Flux_Target_Type {
+	nowhere, out, located,
+};
+
+struct
+Located_Value {
+	//TODO: this becomes more complicated with dissolved substances etc.
+	entity_id compartment;
+	entity_id property_or_substance;
+};
+
+template<> struct
+Entity_Registration<Decl_Type::flux> : Entity_Registration_Base {
+	Flux_Target_Type source_type;
+	Flux_Target_Type dest_type;
+	
+	Located_Value    source_substance;
+	Located_Value    target_substance;
+	
+	String_View      name;
+	
+	Math_Block_AST  *code;
+};
+
 
 struct Module_Declaration;
 
-template <typename Registration_Type, Decl_Type decl_type>
-struct Registry {
-	string_map<entity_handle>      handle_name_to_handle;
-	string_map<entity_handle>      name_to_handle;
-	std::vector<Registration_Type> registrations;
+struct Registry_Base {
+	string_map<entity_id>          handle_name_to_handle;
+	string_map<entity_id>          name_to_handle;
 	Module_Declaration            *parent;
 	
-	Registry(Module_Declaration *parent) : parent(parent) {}
+	virtual entity_id find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr);
+	virtual Entity_Registration_Base *operator[](entity_id handle);
 	
-	entity_handle
-	find_or_create(Token *handle_name, Token *name = nullptr, bool this_is_the_declaration = false);
+	Registry_Base(Module_Declaration *parent) : parent(parent) {}
+};
+
+template <Decl_Type decl_type> struct
+Registry : Registry_Base {
 	
-	Registration_Type *operator[](entity_handle handle) {
+	std::vector<Entity_Registration<decl_type>> registrations;
+	
+	Registry(Module_Declaration *parent) : Registry_Base(parent) {}
+	
+	entity_id
+	find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr);
+	
+	entity_id
+	standard_declaration(Decl_AST *decl);
+	
+	Entity_Registration<decl_type> *operator[](entity_id handle) {
 		if(!is_valid(handle) || handle >= registrations.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
 		return &registrations[handle];
 	}
 };
 
-struct Module_Declaration {
+struct
+Module_Declaration {
 	String_View name;
 	int major, minor, revision;
 	
 	String_View doc_string;
 	
-	string_map<std::pair<Decl_Type, entity_handle>> handles_in_scope;
+	string_map<std::pair<Decl_Type, entity_id>> handles_in_scope;
 	
-	Registry<Compartment_Registration, Decl_Type::compartment> compartments;
-	Registry<Par_Group_Registration,   Decl_Type::par_group>   par_groups;
-	Registry<Par_Registration,         Decl_Type::par_real>    parameters;     // NOTE: par_real is a stand-in for all parameter declarations.
-	Registry<Unit_Registration,        Decl_Type::unit>        units;
-	Registry<Substance_Registration,   Decl_Type::substance>   substances;
+	Registry<Decl_Type::compartment> compartments;
+	Registry<Decl_Type::par_group>   par_groups;
+	Registry<Decl_Type::par_real>    parameters;     // NOTE: par_real is a stand-in for all parameter declarations.
+	Registry<Decl_Type::unit>        units;
+	Registry<Decl_Type::property>    properties_and_substances;  // NOTE: is used for both Decl_Type::property and Decl_Type::substance.
+	Registry<Decl_Type::has>         hases;
+	Registry<Decl_Type::flux>        fluxes;
 	
 	Module_Declaration() : 
 		compartments(this),
 		par_groups  (this),
 		parameters  (this),
 		units       (this),
-		substances  (this)
+		properties_and_substances(this),
+		hases       (this)
 	{}
+	
+	Registry_Base *	registry(Decl_Type);
 };
 
 
