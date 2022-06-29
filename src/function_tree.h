@@ -6,16 +6,36 @@
 #include "module_declaration.h"
 
 //NOTE: this is really just a copy of the AST, but we want to put additional data on it.
-//NOTE: we *could* put it in the AST, but it is not that clean.
+//NOTE: we *could* put the extra data in the AST, but it is not that clean (?)
+// however we may want to copy the tree any way when we resolve properties that are attached to multiple other entities.
+
+typedef s32 state_var_id;
 
 enum class
 Value_Type {
-	unresolved = 0, real, integer, boolean, datetime,    // NOTE: enum would resolve to bool.
+	unresolved = 0, real, integer, boolean,    // NOTE: enum would resolve to bool.
 };
+
+inline Value_Type
+get_value_type(Decl_Type decl_type) {
+	if(decl_type == Decl_Type::par_real) return Value_Type::real;
+	//TODO: fill in for other parameters!
+	
+	return Value_Type::unresolved;
+}
+
+inline Value_Type
+get_value_type(Token_Type type) {
+	if(type == Token_Type::real) return Value_Type::real;
+	else if(type == Token_Type::integer) return Value_Type::integer;
+	else if(type == Token_Type::boolean) return Value_Type::boolean;
+	
+	return Value_Type::unresolved;
+}
 
 enum class
 Variable_Type {
-	parameter, input_series, state_var,  // Maybe also computed_parameter eventually.
+	parameter, input_series, state_var,  // Maybe also computed_parameter eventually. Also local.
 };
 
 
@@ -23,9 +43,9 @@ struct
 Math_Expr_FT {
 	Math_Expr_AST               *ast;
 	Value_Type                   value_type;
-	entity_id                    unit;
+	Entity_Id                    unit;
 	
-	Math_Expr_AST(Math_Expr_AST *ast) : ast(ast), value_type(Value_Type::unresolved) {};
+	Math_Expr_FT() : value_type(Value_Type::unresolved) {};
 };
 
 struct
@@ -34,27 +54,27 @@ Math_Block_FT : Math_Expr_FT {
 	
 	//TODO: scope info
 	
-	Math_Block_FT(Math_Block_AST *ast) : Math_Expr_FT(ast) {};
+	Math_Block_FT() : Math_Expr_FT() {};
 };
 
 struct
-Identifier_Chain_FT : Math_Expr_FT {
+Identifier_FT : Math_Expr_FT {
 
 	Variable_Type                variable_type;
 	union {
-		entity_id                parameter;
+		Entity_Id                parameter;
 		state_var_id             state_var;
 		state_var_id             series;
 	};
 	
-	Identifier_Chain_FT(Math_Block_AST *ast) : Math_Expr_FT(ast) {};
+	Identifier_FT() : Math_Expr_FT() {};
 };
 
 struct
 Literal_FT : Math_Expr_FT {
-	Token                        value;
+	Parameter_Value value;
 	
-	Literal_FT(Math_Block_AST *ast) : Math_Expr_FT(ast) {};
+	Literal_FT() : Math_Expr_FT() {};
 };
 
 struct
@@ -62,30 +82,30 @@ Function_Call_FT : Math_Expr_FT {
 	std::vector<Math_Expr_FT *>  args;
 	
 	
-	Function_Call_FT(Math_Block_AST *ast) : Math_Expr_FT(ast) {};
+	Function_Call_FT() : Math_Expr_FT() {};
 };
 
 struct
 Unary_Operator_FT : Math_Expr_FT {
 	Math_Expr_FT                 *arg;
 	
-	Unary_Operator_FT() : Math_Expr_AST(Math_Expr_Type::unary_operator) {};
+	Unary_Operator_FT() : Math_Expr_FT() {};
 };
 
 struct
-Binary_Operator_AST : Math_Expr_AST {
+Binary_Operator_FT : Math_Expr_FT {
 	Math_Expr_FT                *lhs;
 	Math_Expr_FT                *rhs;
 	
-	Binary_Operator_AST() : Math_Expr_AST(Math_Expr_Type::binary_operator) {};
+	Binary_Operator_FT() : Math_Expr_FT() {};
 };
 
 struct
-If_Expr_AST : Math_Expr_AST {
+If_Expr_FT : Math_Expr_FT {
 	std::vector<std::pair<Math_Expr_FT *, Math_Expr_FT *>>    ifs;
 	Math_Expr_FT                                             *otherwise;
 	
-	If_Expr_AST() : Math_Expr_AST(Math_Expr_Type::if_chain) {};
+	If_Expr_FT() : Math_Expr_FT() {};
 };
 
 

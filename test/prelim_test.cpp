@@ -23,4 +23,6 @@ int main() {
 	
 	Mobius_Model model;
 	model.add_module(module);
+	
+	model.compose(&memory);
 }

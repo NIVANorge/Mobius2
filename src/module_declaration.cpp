@@ -19,22 +19,6 @@ Module_Declaration::registry(Reg_Type reg_type) {
 	return nullptr;
 }
 
-inline Reg_Type
-get_reg_type(Decl_Type decl_type) {
-	switch(decl_type) {
-	#define ENUM_VALUE(decl_type, _a, reg_type) case Decl_Type::decl_type : return Reg_Type::reg_type;
-	#include "decl_types.incl"
-	#undef ENUM_VALUE
-	}
-	return Reg_Type::unrecognized;
-}
-
-
-inline Entity_Registration_Base *
-find_entity(Module_Declaration *module, std::pair<Reg_Type, entity_id> id) {
-	return (*module->registry(id.first))[id.second];
-}
-
 void
 see_if_handle_name_exists_in_scope(Module_Declaration *module, Token *handle_name) {
 	
@@ -52,22 +36,22 @@ see_if_handle_name_exists_in_scope(Module_Declaration *module, Token *handle_nam
 		fatal_error("The name \"", handle_name->string_value, "\" is reserved.");
 	}
 	
-	auto find = module->handles_in_scope.find(handle_name->string_value);
-	if(find != module->handles_in_scope.end()) {
+	Entity_Id id = find_handle(module, handle_name->string_value);
+	if(is_valid(id)) {
 		handle_name->print_error_header();
 		error_print("The name \"", handle_name->string_value, "\" was already used here:\n");
-		auto reg = find_entity(module, find->second);
+		auto reg = find_entity(module, id);
 		reg->location.print_error();
-		error_print("with type ", name(reg->type), ".");
+		error_print("with type ", name(reg->decl_type), ".");
 	}
 }
 
-template <Reg_Type reg_type> entity_id
+template <Reg_Type reg_type> Entity_Id
 Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *declaration) {
 	
 	// TODO: This may be a case of a function that tries to do too many things and becomes confusing. Split it up?
 	
-	entity_id found_id = invalid_entity_id;
+	Entity_Id found_id = invalid_entity_id;
 	
 	if(is_valid(handle_name)) {
 		// this is either a lookup of an already registered handle, or it is a new declaration with a given handle.
@@ -122,7 +106,7 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 	if(!existed_already) {
 		// The entity was not already created, so we have to do that.
 	
-		found_id = {parent->module_id, (s32)registrations.size()};
+		found_id = {parent->module_id, reg_type, (s32)registrations.size()};
 		registrations.push_back({});
 	
 		if(is_valid(handle_name)) {
@@ -130,7 +114,7 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 			see_if_handle_name_exists_in_scope(parent, handle_name);
 			
 			handle_name_to_handle[handle_name->string_value] = found_id;
-			parent->handles_in_scope[handle_name->string_value] = {reg_type, found_id};
+			parent->handles_in_scope[handle_name->string_value] = found_id;
 		}
 		
 		if(name)
@@ -152,12 +136,28 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 	
 	//NOTE: the type be different from the reg_type in some instances since we use the same registry for e.g. substances and properties, or different parameter types.
 	if(declaration)
-		registration->type              = declaration->type;
+		registration->decl_type   = declaration->type;
 	
 	registration->has_been_declared = (declaration != nullptr);
 	
 	return found_id;
 }
+
+template <Reg_Type reg_type> Entity_Id
+Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type decl_type) {
+	Entity_Id id = {parent->module_id, reg_type, (s32)registrations.size()};
+	registrations.push_back({});
+	
+	auto registration = &registrations[id.id];
+	registration->handle_name = handle_name;
+	registration->location.filename = "(compiler internal)";
+	registration->decl_type   = decl_type;
+	registration->has_been_declared = true;
+	
+	return id;
+}
+
+
 
 //TODO: Maybe classifying the arguments should be done in the AST parsing instead??
 //TODO: Make a general-purpose tagged union?
@@ -280,16 +280,16 @@ single_arg(Decl_AST *decl, int which) {
 	return &decl->args[which]->sub_chain[0];
 }
 
-template<Reg_Type reg_type> entity_id
+template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::standard_declaration(Decl_AST *decl) {
 	Token *name = single_arg(decl, 0);
 	return find_or_create(&decl->handle_name, name, decl);
 }
 
-template<Reg_Type reg_type> entity_id
+template<Reg_Type reg_type> Entity_Id
 process_declaration(Module_Declaration *module, Decl_AST *decl); //NOTE: this will be template specialized below.
 
-template<Reg_Type expected_type> entity_id
+template<Reg_Type expected_type> Entity_Id
 resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_sub_chain_size = 1) {
 	// We could do more error checking here, but it should really only be called after calling match_declaration...
 	
@@ -310,7 +310,7 @@ resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_
 	return invalid_entity_id;
 }
 
-template<> entity_id
+template<> Entity_Id
 process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) {
 	
 	for(Argument_AST *arg : decl->args) {
@@ -325,13 +325,13 @@ process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) 
 	return invalid_entity_id;
 }
 
-template<> entity_id
+template<> Entity_Id
 process_declaration<Reg_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::quoted_string}});
 	return module->compartments.standard_declaration(decl);
 }
 
-template<> entity_id
+template<> Entity_Id
 process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *decl) {
 	Token_Type value_type = Token_Type::real; //TODO: allow other types.
 	
@@ -347,10 +347,10 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 	auto parameter = module->parameters[id];
 	
 	parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
-	parameter->default_val.val_double  = single_arg(decl, 2)->double_value();
+	parameter->default_val             = get_parameter_value(single_arg(decl, 2));
 	if(which == 2 || which == 3) {
-		parameter->min_val.val_double  = single_arg(decl, 3)->double_value();
-		parameter->max_val.val_double  = single_arg(decl, 4)->double_value();
+		parameter->min_val             = get_parameter_value(single_arg(decl, 3));
+		parameter->max_val             = get_parameter_value(single_arg(decl, 4));
 	} else {
 		parameter->min_val.val_double  = -std::numeric_limits<double>::infinity();
 		parameter->max_val.val_double  =  std::numeric_limits<double>::infinity();
@@ -364,7 +364,7 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 	return id;
 }
 
-template<> entity_id
+template<> Entity_Id
 process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::quoted_string}}, 1);
 
@@ -392,7 +392,7 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 	return id;
 }
 
-template<> entity_id
+template<> Entity_Id
 process_declaration<Reg_Type::property_or_substance>(Module_Declaration *module, Decl_AST *decl) {
 	int which = match_declaration(decl,
 		{
@@ -411,7 +411,7 @@ process_declaration<Reg_Type::property_or_substance>(Module_Declaration *module,
 	return id;
 }
 
-template<> entity_id
+template<> Entity_Id
 process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	int which = match_declaration(decl,
 		{
@@ -429,9 +429,9 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	has->value_location.property_or_substance = resolve_argument<Reg_Type::property_or_substance>(module, decl, 0);
 	
 	if(which == 1)
-		has->override_unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
+		has->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
 	else
-		has->override_unit = invalid_entity_id;
+		has->unit = invalid_entity_id;
 	
 	for(Body_AST *body : decl->bodies) {
 		auto function = reinterpret_cast<Function_Body_AST *>(body);
@@ -485,7 +485,7 @@ process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Val
 	}
 }
 
-template<> entity_id
+template<> Entity_Id
 process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) {
 	
 	int which = match_declaration(decl,
@@ -516,7 +516,7 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 
 
 Module_Declaration *
-process_module_declaration(int module_id, Decl_AST *decl) {
+process_module_declaration(s16 module_id, Decl_AST *decl) {
 	
 	//TODO: have to decide whether we should copy over string views at this point.
 	
@@ -529,6 +529,10 @@ process_module_declaration(int module_id, Decl_AST *decl) {
 	module->major = single_arg(decl, 1)->val_int;
 	module->minor = single_arg(decl, 2)->val_int;
 	module->revision = single_arg(decl, 3)->val_int;
+	
+	
+	module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
+	
 
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	

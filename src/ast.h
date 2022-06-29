@@ -90,7 +90,7 @@ Math_Expr_Type {
 	unary_operator,
 	binary_operator,
 	if_chain,
-	assignment,
+	//assignment,
 };
 
 

@@ -8,40 +8,40 @@
 
 struct Module_Declaration;
 
-struct
-entity_id {
-	//TODO: should this just contain the type too?
-	s32 module_id;
-	s32 id;
-	
-	entity_id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
-	entity_id &operator++() { id++; return *this; }
-};
-
-inline bool
-operator==(const entity_id &a, const entity_id &b) {
-	return a.module_id == b.module_id && a.id == b.id;
-}
-
-inline bool
-operator!=(const entity_id &a, const entity_id &b) {
-	return a.module_id != b.module_id || a.id != b.id;
-}
-
-constexpr entity_id invalid_entity_id = {-1, -1};
-
-inline bool is_valid(entity_id id) { return id.module_id >= 0 && id.id >= 0; }
-
-template <typename Value_Type>
-using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
-
 enum class
-Reg_Type {
+Reg_Type : s16 {
 	unrecognized,
 	#define ENUM_VALUE(name) name,
 	#include "reg_types.incl"
 	#undef ENUM_VALUE
 };
+
+struct
+Entity_Id {
+	s16      module_id;
+	Reg_Type reg_type;
+	s32      id;
+	
+	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
+	Entity_Id &operator++() { id++; return *this; }
+};
+
+inline bool
+operator==(const Entity_Id &a, const Entity_Id &b) {
+	return a.module_id == b.module_id && a.reg_type == b.reg_type && a.id == b.id;
+}
+
+inline bool
+operator!=(const Entity_Id &a, const Entity_Id &b) {
+	return a.module_id != b.module_id || a.id != b.id || a.reg_type != b.reg_type;
+}
+
+constexpr Entity_Id invalid_entity_id = {-1, Reg_Type::unrecognized, -1};
+
+inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
+
+template <typename Value_Type>
+using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
 
 
 struct
@@ -65,8 +65,8 @@ Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	entity_id              compartment;  //TODO: could also be substance
-	std::vector<entity_id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
+	Entity_Id              compartment;  //TODO: could also be substance
+	std::vector<Entity_Id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
 };
 
 union
@@ -80,10 +80,24 @@ Parameter_Value {
 	Parameter_Value() : val_datetime() {};
 };
 
+inline Parameter_Value
+get_parameter_value(Token *token) {
+	Parameter_Value result;
+	if(token->type == Token_Type::real)
+		result.val_double = token->double_value();
+	else if(token->type == Token_Type::integer)
+		result.val_int = token->val_int;
+	else if(token->type == Token_Type::boolean)
+		result.val_bool = token->val_bool;
+	else
+		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
+	return result;
+}
+
 template<> struct
 Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
-	entity_id       par_group;
-	entity_id       unit;
+	Entity_Id       par_group;
+	Entity_Id       unit;
 	
 	Parameter_Value default_val;
 	Parameter_Value min_val;
@@ -100,7 +114,7 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::property_or_substance> : Entity_Registration_Base {
 	//NOTE: this is in practice used both for property and substance
-	entity_id    unit;
+	Entity_Id    unit;
 };
 
 enum class
@@ -113,8 +127,8 @@ Value_Location {
 	//TODO: this becomes more complicated with dissolved substances etc.
 	Location_Type type;
 	
-	entity_id compartment;
-	entity_id property_or_substance;
+	Entity_Id compartment;
+	Entity_Id property_or_substance;
 };
 
 inline bool
@@ -133,14 +147,15 @@ Value_Location_Hash {
 		+ 23*loc.compartment.id
 		+ 97*loc.property_or_substance.module_id
 		+ 2237*loc.property_or_substance.id;
+		// NOTE: no point using the reg_type here since they should be the same always (for now).
 	}
 };
 
 template<> struct
 Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 	Value_Location value_location;
-	entity_id      override_unit;
-	//entity_id    conc_unit;
+	Entity_Id      unit;
+	//Entity_Id    conc_unit;
 	//String_View 
 	Math_Block_AST *code;
 	Math_Block_AST *initial_code;
@@ -155,12 +170,12 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 };
 
 struct Registry_Base {
-	string_map<entity_id>          handle_name_to_handle;
-	string_map<entity_id>          name_to_handle;
+	string_map<Entity_Id>          handle_name_to_handle;
+	string_map<Entity_Id>          name_to_handle;
 	Module_Declaration            *parent;
 	
-	virtual entity_id find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr);
-	virtual Entity_Registration_Base *operator[](entity_id handle);
+	virtual Entity_Id find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr);
+	virtual Entity_Registration_Base *operator[](Entity_Id handle);
 	
 	Registry_Base(Module_Declaration *parent) : parent(parent) {}
 };
@@ -172,16 +187,19 @@ Registry : Registry_Base {
 	
 	Registry(Module_Declaration *parent) : Registry_Base(parent) {}
 	
-	entity_id
+	Entity_Id
 	find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr);
 	
-	entity_id
+	Entity_Id
+	create_compiler_internal(String_View handle_name, Decl_Type decl_type);
+	
+	Entity_Id
 	standard_declaration(Decl_AST *decl);
 	
-	Entity_Registration<reg_type> *operator[](entity_id id);
+	Entity_Registration<reg_type> *operator[](Entity_Id id);
 	
-	entity_id begin();
-	entity_id end();
+	Entity_Id begin();
+	Entity_Id end();
 };
 
 struct
@@ -189,11 +207,11 @@ Module_Declaration {
 	String_View name;
 	int major, minor, revision;
 	
-	s32 module_id;
+	s16 module_id;
 	
 	String_View doc_string;
 	
-	string_map<std::pair<Reg_Type, entity_id>> handles_in_scope;
+	string_map<Entity_Id>           handles_in_scope;
 	
 	Registry<Reg_Type::compartment> compartments;
 	Registry<Reg_Type::par_group>   par_groups;
@@ -214,41 +232,64 @@ Module_Declaration {
 	{}
 	
 	Registry_Base *	registry(Reg_Type);
+	
+	
+	Entity_Id dimensionless_unit;
 };
 
 template<Reg_Type reg_type>
-Entity_Registration<reg_type> *Registry<reg_type>::operator[](entity_id id) {
-	if(!is_valid(id) || id.id >= registrations.size() || id.module_id != parent->module_id)
+Entity_Registration<reg_type> *Registry<reg_type>::operator[](Entity_Id id) {
+	if(!is_valid(id) || id.id >= registrations.size() || id.module_id != parent->module_id || id.reg_type != reg_type)
 		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
 	return &registrations[id.id];
 }
 
 template<Reg_Type reg_type>
-entity_id Registry<reg_type>::begin() { return {parent->module_id, 0}; }
+Entity_Id Registry<reg_type>::begin() { return {parent->module_id, reg_type, 0}; }
 
 template<Reg_Type reg_type>
-entity_id Registry<reg_type>::end()   { return {parent->module_id, (s32)registrations.size()}; }
+Entity_Id Registry<reg_type>::end()   { return {parent->module_id, reg_type, (s32)registrations.size()}; }
 
+inline Reg_Type
+get_reg_type(Decl_Type decl_type) {
+	switch(decl_type) {
+	#define ENUM_VALUE(decl_type, _a, reg_type) case Decl_Type::decl_type : return Reg_Type::reg_type;
+	#include "decl_types.incl"
+	#undef ENUM_VALUE
+	}
+	return Reg_Type::unrecognized;
+}
+
+
+inline Entity_Registration_Base *
+find_entity(Module_Declaration *module, Entity_Id id) {
+	return (*module->registry(id.reg_type))[id];
+}
+
+inline Entity_Id
+find_handle(Module_Declaration *module, String_View handle_name) {
+	Entity_Id result = invalid_entity_id;
+	auto find = module->handles_in_scope.find(handle_name);
+	if(find != module->handles_in_scope.end())
+		result = find->second;
+	return result;
+}
+
+inline Value_Location
+make_value_location(Module_Declaration *module, Entity_Id compartment, Entity_Id property_or_substance) {
+	Value_Location result;
+	result.type = Location_Type::located;
+	result.compartment = compartment;
+	result.property_or_substance = property_or_substance;
+	if(module->module_id != compartment.module_id || module->module_id != property_or_substance.module_id ||
+		compartment.reg_type != Reg_Type::compartment || property_or_substance.reg_type != Reg_Type::property_or_substance) {
+			fatal_error(Mobius_Error::internal, "Incorrect use of make_value_location().");
+	}
+	
+	return result;
+}
 
 Module_Declaration *
-process_module_declaration(int module_id, Decl_AST *decl);
-
-typedef s32 state_var_id;
-
-struct
-State_Variable {
-	Decl_Type type;     //either flux, substance or property
-	entity_id entity;
-};
-
-struct
-Mobius_Model {
-	Module_Declaration *module;   //TODO: allow multiple modules!
-	
-	std::vector<State_Variable> state_variables;
-	std::unordered_map<Value_Location, state_var_id, Value_Location_Hash> location_to_id;
-	
-	void add_module(Module_Declaration *module);
-};
+process_module_declaration(s16 module_id, Decl_AST *decl);
 
 #endif // MOBIUS_MODEL_BUILDER_H
