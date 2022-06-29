@@ -8,7 +8,8 @@
 
 struct Module_Declaration;
 
-struct entity_id {
+struct
+entity_id {
 	//TODO: should this just contain the type too?
 	s32 module_id;
 	s32 id;
@@ -34,27 +35,36 @@ inline bool is_valid(entity_id id) { return id.module_id >= 0 && id.id >= 0; }
 template <typename Value_Type>
 using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
 
+enum class
+Reg_Type {
+	unrecognized,
+	#define ENUM_VALUE(name) name,
+	#include "reg_types.incl"
+	#undef ENUM_VALUE
+};
+
+
 struct
 Entity_Registration_Base {
-	Decl_Type       type;
+	Decl_Type       decl_type;
 	bool            has_been_declared;
 	Source_Location location;            // if it has_been_declared, this should be the declaration location, otherwise it should be the location where it was last referenced.
 	String_View     handle_name;
 	String_View     name;
 };
 
-template<Decl_Type decl_type> struct
+template<Reg_Type reg_type> struct
 Entity_Registration : Entity_Registration_Base {
 	//TODO: delete constructor or something like that
 };
 
 template<> struct
-Entity_Registration<Decl_Type::compartment> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 	// no need for additional info right now..
 };
 
 template<> struct
-Entity_Registration<Decl_Type::par_group> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
 	entity_id              compartment;  //TODO: could also be substance
 	std::vector<entity_id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
 };
@@ -71,7 +81,7 @@ Parameter_Value {
 };
 
 template<> struct
-Entity_Registration<Decl_Type::par_real> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 	entity_id       par_group;
 	entity_id       unit;
 	
@@ -83,12 +93,12 @@ Entity_Registration<Decl_Type::par_real> : Entity_Registration_Base {
 };
 
 template<> struct
-Entity_Registration<Decl_Type::unit> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 	// TODO: put data here.
 };
 
 template<> struct
-Entity_Registration<Decl_Type::property> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::property_or_substance> : Entity_Registration_Base {
 	//NOTE: this is in practice used both for property and substance
 	entity_id    unit;
 };
@@ -112,16 +122,6 @@ operator==(const Value_Location &a, const Value_Location &b) {
 	return a.type == b.type && a.compartment == b.compartment && a.property_or_substance == b.property_or_substance;
 }
 
-template<> struct
-Entity_Registration<Decl_Type::has> : Entity_Registration_Base {
-	Value_Location value_location;
-	entity_id      override_unit;
-	//entity_id    conc_unit;
-	//String_View 
-	Math_Block_AST *code;
-	Math_Block_AST *initial_code;
-};
-
 struct
 Value_Location_Hash {
 	int operator()(const Value_Location &loc) const {
@@ -137,7 +137,17 @@ Value_Location_Hash {
 };
 
 template<> struct
-Entity_Registration<Decl_Type::flux> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
+	Value_Location value_location;
+	entity_id      override_unit;
+	//entity_id    conc_unit;
+	//String_View 
+	Math_Block_AST *code;
+	Math_Block_AST *initial_code;
+};
+
+template<> struct
+Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Value_Location   source;
 	Value_Location   target;
 	
@@ -155,10 +165,10 @@ struct Registry_Base {
 	Registry_Base(Module_Declaration *parent) : parent(parent) {}
 };
 
-template <Decl_Type decl_type> struct
+template <Reg_Type reg_type> struct
 Registry : Registry_Base {
 	
-	std::vector<Entity_Registration<decl_type>> registrations;
+	std::vector<Entity_Registration<reg_type>> registrations;
 	
 	Registry(Module_Declaration *parent) : Registry_Base(parent) {}
 	
@@ -168,7 +178,7 @@ Registry : Registry_Base {
 	entity_id
 	standard_declaration(Decl_AST *decl);
 	
-	Entity_Registration<decl_type> *operator[](entity_id id);
+	Entity_Registration<reg_type> *operator[](entity_id id);
 	
 	entity_id begin();
 	entity_id end();
@@ -183,15 +193,15 @@ Module_Declaration {
 	
 	String_View doc_string;
 	
-	string_map<std::pair<Decl_Type, entity_id>> handles_in_scope;
+	string_map<std::pair<Reg_Type, entity_id>> handles_in_scope;
 	
-	Registry<Decl_Type::compartment> compartments;
-	Registry<Decl_Type::par_group>   par_groups;
-	Registry<Decl_Type::par_real>    parameters;     // NOTE: par_real is a stand-in for all parameter declarations.
-	Registry<Decl_Type::unit>        units;
-	Registry<Decl_Type::property>    properties_and_substances;  // NOTE: is used for both Decl_Type::property and Decl_Type::substance.
-	Registry<Decl_Type::has>         hases;
-	Registry<Decl_Type::flux>        fluxes;
+	Registry<Reg_Type::compartment> compartments;
+	Registry<Reg_Type::par_group>   par_groups;
+	Registry<Reg_Type::parameter>   parameters;     // NOTE: par_real is a stand-in for all parameter declarations.
+	Registry<Reg_Type::unit>        units;
+	Registry<Reg_Type::property_or_substance>    properties_and_substances;  // NOTE: is used for both Decl_Type::property and Decl_Type::substance.
+	Registry<Reg_Type::has>         hases;
+	Registry<Reg_Type::flux>        fluxes;
 	
 	Module_Declaration() : 
 		compartments(this),
@@ -203,21 +213,21 @@ Module_Declaration {
 		fluxes      (this)
 	{}
 	
-	Registry_Base *	registry(Decl_Type);
+	Registry_Base *	registry(Reg_Type);
 };
 
-template<Decl_Type decl_type>
-Entity_Registration<decl_type> *Registry<decl_type>::operator[](entity_id id) {
+template<Reg_Type reg_type>
+Entity_Registration<reg_type> *Registry<reg_type>::operator[](entity_id id) {
 	if(!is_valid(id) || id.id >= registrations.size() || id.module_id != parent->module_id)
 		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
 	return &registrations[id.id];
 }
 
-template<Decl_Type decl_type>
-entity_id Registry<decl_type>::begin() { return {parent->module_id, 0}; }
+template<Reg_Type reg_type>
+entity_id Registry<reg_type>::begin() { return {parent->module_id, 0}; }
 
-template<Decl_Type decl_type>
-entity_id Registry<decl_type>::end()   { return {parent->module_id, (s32)registrations.size()}; }
+template<Reg_Type reg_type>
+entity_id Registry<reg_type>::end()   { return {parent->module_id, (s32)registrations.size()}; }
 
 
 Module_Declaration *

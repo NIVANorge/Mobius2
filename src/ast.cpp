@@ -34,7 +34,7 @@ read_identifier_chain(Token_Stream *stream, char separator, std::vector<Token> *
 
 Decl_Type
 decl_type(Token *string_name, Body_Type *body_type_out) {
-	#define ENUM_VALUE(name, body_type) if(string_name->string_value == #name) { *body_type_out = Body_Type::body_type; return Decl_Type::name; }
+	#define ENUM_VALUE(name, body_type, _) if(string_name->string_value == #name) { *body_type_out = Body_Type::body_type; return Decl_Type::name; }
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
 	

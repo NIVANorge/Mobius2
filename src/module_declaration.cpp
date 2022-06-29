@@ -1,18 +1,17 @@
 
-#include "model_declaration.h"
+#include "module_declaration.h"
 #include <algorithm>
 
 Registry_Base *
-Module_Declaration::registry(Decl_Type decl_type) {
-	switch(decl_type) {
-		case Decl_Type::compartment : return &compartments;
-		case Decl_Type::par_group :   return &par_groups;
-		case Decl_Type::par_real :    return &parameters;
-		case Decl_Type::unit :        return &units;
-		case Decl_Type::substance :
-		case Decl_Type::property :    return &properties_and_substances;
-		case Decl_Type::has :         return &hases;
-		case Decl_Type::flux :        return &fluxes;
+Module_Declaration::registry(Reg_Type reg_type) {
+	switch(reg_type) {
+		case Reg_Type::compartment :              return &compartments;
+		case Reg_Type::par_group :                return &par_groups;
+		case Reg_Type::parameter :                return &parameters;
+		case Reg_Type::unit :                     return &units;
+		case Reg_Type::property_or_substance :    return &properties_and_substances;
+		case Reg_Type::has :                      return &hases;
+		case Reg_Type::flux :                     return &fluxes;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type in registry().");
@@ -20,9 +19,19 @@ Module_Declaration::registry(Decl_Type decl_type) {
 	return nullptr;
 }
 
+inline Reg_Type
+get_reg_type(Decl_Type decl_type) {
+	switch(decl_type) {
+	#define ENUM_VALUE(decl_type, _a, reg_type) case Decl_Type::decl_type : return Reg_Type::reg_type;
+	#include "decl_types.incl"
+	#undef ENUM_VALUE
+	}
+	return Reg_Type::unrecognized;
+}
+
 
 inline Entity_Registration_Base *
-find_entity(Module_Declaration *module, std::pair<Decl_Type, entity_id> id) {
+find_entity(Module_Declaration *module, std::pair<Reg_Type, entity_id> id) {
 	return (*module->registry(id.first))[id.second];
 }
 
@@ -31,7 +40,7 @@ see_if_handle_name_exists_in_scope(Module_Declaration *module, Token *handle_nam
 	
 	// check for reserved names
 	static String_View reserved[] = {
-		#define ENUM_VALUE(name, body_type) #name,
+		#define ENUM_VALUE(name, _a, _b) #name,
 		#include "decl_types.incl"
 		#undef ENUM_VALUE
 		
@@ -53,8 +62,8 @@ see_if_handle_name_exists_in_scope(Module_Declaration *module, Token *handle_nam
 	}
 }
 
-template <Decl_Type decl_type> entity_id
-Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *declaration) {
+template <Reg_Type reg_type> entity_id
+Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *declaration) {
 	
 	// TODO: This may be a case of a function that tries to do too many things and becomes confusing. Split it up?
 	
@@ -121,7 +130,7 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 			see_if_handle_name_exists_in_scope(parent, handle_name);
 			
 			handle_name_to_handle[handle_name->string_value] = found_id;
-			parent->handles_in_scope[handle_name->string_value] = {decl_type, found_id};
+			parent->handles_in_scope[handle_name->string_value] = {reg_type, found_id};
 		}
 		
 		if(name)
@@ -141,7 +150,7 @@ Registry<decl_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *d
 	if(name)
 		registration->name = name->string_value;
 	
-	//NOTE: the type be different from the decl_type in some instances since we use the same registry for e.g. substances and properties, or different parameter types.
+	//NOTE: the type be different from the reg_type in some instances since we use the same registry for e.g. substances and properties, or different parameter types.
 	if(declaration)
 		registration->type              = declaration->type;
 	
@@ -271,29 +280,29 @@ single_arg(Decl_AST *decl, int which) {
 	return &decl->args[which]->sub_chain[0];
 }
 
-template<Decl_Type decl_type> entity_id
-Registry<decl_type>::standard_declaration(Decl_AST *decl) {
+template<Reg_Type reg_type> entity_id
+Registry<reg_type>::standard_declaration(Decl_AST *decl) {
 	Token *name = single_arg(decl, 0);
 	return find_or_create(&decl->handle_name, name, decl);
 }
 
-template<Decl_Type decl_type> entity_id
+template<Reg_Type reg_type> entity_id
 process_declaration(Module_Declaration *module, Decl_AST *decl); //NOTE: this will be template specialized below.
 
-template<Decl_Type expected_type> entity_id
+template<Reg_Type expected_type> entity_id
 resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_sub_chain_size = 1) {
 	// We could do more error checking here, but it should really only be called after calling match_declaration...
 	
 	Argument_AST *arg = decl->args[which];
 	if(arg->decl) {
-		if(arg->decl->type != expected_type)
-			fatal_error(Mobius_Error::internal, "Mismatched type in type resolution"); // This should not have happened since we should have checked this aready.
+		if(get_reg_type(arg->decl->type) != expected_type)
+			fatal_error(Mobius_Error::internal, "Mismatched type in type resolution."); // This should not have happened since we should have checked this aready.
 		
 		return process_declaration<expected_type>(module, arg->decl);
 	} else {
 		if(max_sub_chain_size > 0 && arg->sub_chain.size() > max_sub_chain_size) {
 			arg->sub_chain[0].print_error_header();
-			fatal_error("Units can not be a member of another entity");
+			fatal_error("Did not expect a chained declaration.");
 		}
 		
 		return module->registry(expected_type)->find_or_create(&arg->sub_chain[0]);
@@ -302,7 +311,7 @@ resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_
 }
 
 template<> entity_id
-process_declaration<Decl_Type::unit>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) {
 	
 	for(Argument_AST *arg : decl->args) {
 		if(!Arg_Pattern().matches(arg)) {
@@ -311,17 +320,19 @@ process_declaration<Decl_Type::unit>(Module_Declaration *module, Decl_AST *decl)
 		}
 	}
 	
+	// TODO: implement this!
+	
 	return invalid_entity_id;
 }
 
 template<> entity_id
-process_declaration<Decl_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::quoted_string}});
 	return module->compartments.standard_declaration(decl);
 }
 
 template<> entity_id
-process_declaration<Decl_Type::par_real>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *decl) {
 	Token_Type value_type = Token_Type::real; //TODO: allow other types.
 	
 	int which = match_declaration(decl,
@@ -335,7 +346,7 @@ process_declaration<Decl_Type::par_real>(Module_Declaration *module, Decl_AST *d
 	auto id        = module->parameters.standard_declaration(decl);
 	auto parameter = module->parameters[id];
 	
-	parameter->unit                    = resolve_argument<Decl_Type::unit>(module, decl, 1);
+	parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
 	parameter->default_val.val_double  = single_arg(decl, 2)->double_value();
 	if(which == 2 || which == 3) {
 		parameter->min_val.val_double  = single_arg(decl, 3)->double_value();
@@ -354,7 +365,7 @@ process_declaration<Decl_Type::par_real>(Module_Declaration *module, Decl_AST *d
 }
 
 template<> entity_id
-process_declaration<Decl_Type::par_group>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::quoted_string}}, 1);
 
 	auto id        = module->par_groups.standard_declaration(decl);
@@ -368,7 +379,7 @@ process_declaration<Decl_Type::par_group>(Module_Declaration *module, Decl_AST *
 	
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::par_real) {   //TODO: do other parameter types
-			auto par_handle = process_declaration<Decl_Type::par_real>(module, child);
+			auto par_handle = process_declaration<Reg_Type::parameter>(module, child);
 			par_group->parameters.push_back(par_handle);
 			module->parameters[par_handle]->par_group = id;
 		} else {
@@ -382,7 +393,7 @@ process_declaration<Decl_Type::par_group>(Module_Declaration *module, Decl_AST *
 }
 
 template<> entity_id
-process_declaration<Decl_Type::property>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::property_or_substance>(Module_Declaration *module, Decl_AST *decl) {
 	int which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string},
@@ -393,7 +404,7 @@ process_declaration<Decl_Type::property>(Module_Declaration *module, Decl_AST *d
 	auto property = module->properties_and_substances[id];
 	
 	if(which == 1)
-		property->unit = resolve_argument<Decl_Type::unit>(module, decl, 1);
+		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
 	else
 		property->unit = invalid_entity_id;
 	
@@ -401,12 +412,7 @@ process_declaration<Decl_Type::property>(Module_Declaration *module, Decl_AST *d
 }
 
 template<> entity_id
-process_declaration<Decl_Type::substance>(Module_Declaration *module, Decl_AST *decl) {
-	return process_declaration<Decl_Type::property>(module, decl);
-}
-
-template<> entity_id
-process_declaration<Decl_Type::has>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	int which = match_declaration(decl,
 		{
 			{Decl_Type::property},
@@ -420,10 +426,10 @@ process_declaration<Decl_Type::has>(Module_Declaration *module, Decl_AST *decl) 
 	// TODO: can eventually be tied to a substance not only a compartment.
 	has->value_location.type = Location_Type::located;
 	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
-	has->value_location.property_or_substance = resolve_argument<Decl_Type::property>(module, decl, 0);
+	has->value_location.property_or_substance = resolve_argument<Reg_Type::property_or_substance>(module, decl, 0);
 	
 	if(which == 1)
-		has->override_unit = resolve_argument<Decl_Type::unit>(module, decl, 1);
+		has->override_unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
 	else
 		has->override_unit = invalid_entity_id;
 	
@@ -480,7 +486,7 @@ process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Val
 }
 
 template<> entity_id
-process_declaration<Decl_Type::flux>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) {
 	
 	int which = match_declaration(decl,
 		{
@@ -497,6 +503,13 @@ process_declaration<Decl_Type::flux>(Module_Declaration *module, Decl_AST *decl)
 	
 	process_flux_argument(module, decl, 0, &flux->source);
 	process_flux_argument(module, decl, 1, &flux->target);
+	
+	auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
+	if(!body->modifiers.empty()) {
+		body->modifiers[0].print_error_header();
+		fatal_error("Flux bodies should not have modifiers.");
+	}
+	flux->code = body->block;
 	
 	return id;
 }
@@ -527,31 +540,28 @@ process_module_declaration(int module_id, Decl_AST *decl) {
 		// hmm, this is a bit annoying to have to write out..
 		switch(child->type) {
 			case Decl_Type::compartment : {
-				process_declaration<Decl_Type::compartment>(module, child);
+				process_declaration<Reg_Type::compartment>(module, child);
 			} break;
 			
 			case Decl_Type::par_group : {
-				process_declaration<Decl_Type::par_group>(module, child);
+				process_declaration<Reg_Type::par_group>(module, child);
 			} break;
 			
-			case Decl_Type::substance : {
-				process_declaration<Decl_Type::substance>(module, child);
-			} break;
-			
+			case Decl_Type::substance :
 			case Decl_Type::property : {
-				process_declaration<Decl_Type::property>(module, child);
+				process_declaration<Reg_Type::property_or_substance>(module, child);
 			} break;
 			
 			case Decl_Type::has : {
-				process_declaration<Decl_Type::has>(module, child);
+				process_declaration<Reg_Type::has>(module, child);
 			} break;
 			
 			case Decl_Type::flux : {
-				process_declaration<Decl_Type::flux>(module, child);
+				process_declaration<Reg_Type::flux>(module, child);
 			} break;
 			
 			case Decl_Type::unit : {
-				process_declaration<Decl_Type::unit>(module, child);
+				process_declaration<Reg_Type::unit>(module, child);
 			} break;
 			
 			default : {

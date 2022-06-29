@@ -1,9 +1,11 @@
 
-#include "model_declaration.h"
+#include "module_declaration.h"
 
 
 void
 register_state_variable(Mobius_Model *model, Module_Declaration *module, Decl_Type type, entity_id id) {
+	
+	//TODO: here we may have to do something with fixing up things that were declared in multiple modules...
 	
 	Decl_Type var_type = type;
 	Value_Location loc;
@@ -64,6 +66,8 @@ Mobius_Model::add_module(Module_Declaration *module) {
 		check_flux_location(this, module, flux->location, flux->source);
 		check_flux_location(this, module, flux->location, flux->target);
 	}
+	
+	
 }
 
 

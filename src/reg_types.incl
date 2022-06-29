@@ -1,0 +1,8 @@
+ENUM_VALUE(par_group)
+ENUM_VALUE(unit)
+ENUM_VALUE(property_or_substance)
+ENUM_VALUE(compartment)
+ENUM_VALUE(parameter)
+ENUM_VALUE(function)
+ENUM_VALUE(has)
+ENUM_VALUE(flux)
