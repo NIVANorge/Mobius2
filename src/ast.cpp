@@ -48,9 +48,9 @@ void print_expr(Math_Expr_AST *expr) {
 	warning_print("(");
 	if(expr->type == Math_Expr_Type::binary_operator) {
 		auto binop = reinterpret_cast<Binary_Operator_AST *>(expr);
-		print_expr(binop->lhs);
+		print_expr(binop->exprs[0]);
 		warning_print(binop->oper);
-		print_expr(binop->rhs);
+		print_expr(binop->exprs[1]);
 	} else if(expr->type == Math_Expr_Type::literal) {
 		auto literal = reinterpret_cast<Literal_AST *>(expr);
 		warning_print(literal->value.double_value());
@@ -252,7 +252,7 @@ parse_function_call(Token_Stream *stream, Linear_Allocator *allocator) {
 		}
 		
 		Math_Expr_AST *expr = parse_math_expr(stream, allocator);
-		function->args.push_back(expr);
+		function->exprs.push_back(expr);
 		
 		token = stream->peek_token();
 		if((char)token.type == ',')
@@ -326,8 +326,8 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, Linear_Allocator *a
 			
 			Binary_Operator_AST *binop = allocator->make_new<Binary_Operator_AST>();
 			binop->oper = oper;
-			binop->lhs = lhs;
-			binop->rhs = rhs;
+			binop->exprs.push_back(lhs);
+			binop->exprs.push_back(rhs);
 			lhs = binop;
 			
 		} else
@@ -346,11 +346,11 @@ parse_primary_expr(Token_Stream *stream, Linear_Allocator *allocator) {
 	Math_Expr_AST  *result = nullptr;
 	Token token = stream->peek_token();
 	
-	if((char)token.type == '-') {
+	if((char)token.type == '-' || (char)token.type == '!') {
 		stream->read_token();
 		auto unary = allocator->make_new<Unary_Operator_AST>();
 		unary->oper = token.string_value;
-		unary->arg = parse_primary_expr(stream, allocator);
+		unary->exprs.push_back(parse_primary_expr(stream, allocator));
 		result = unary;
 	} else if((char)token.type == '{') {
 		stream->read_token();
@@ -396,7 +396,8 @@ parse_potential_if_expr(Token_Stream *stream, Linear_Allocator *allocator) {
 		Math_Expr_AST *condition = parse_math_expr(stream, allocator);
 		
 		If_Expr_AST *if_expr = allocator->make_new<If_Expr_AST>();
-		if_expr->ifs.push_back(std::make_pair(value, condition));
+		if_expr->exprs.push_back(value);
+		if_expr->exprs.push_back(condition);
 		
 		while(true) {
 			stream->expect_token(',');
@@ -407,10 +408,11 @@ parse_potential_if_expr(Token_Stream *stream, Linear_Allocator *allocator) {
 			if(token.type == Token_Type::identifier) {
 				if(token.string_value == "if") {
 					condition = parse_math_expr(stream, allocator);
-					if_expr->ifs.push_back(std::make_pair(value, condition));
+					if_expr->exprs.push_back(value);
+					if_expr->exprs.push_back(condition);
 					continue;
 				} else if (token.string_value == "otherwise") {
-					if_expr->otherwise = value;
+					if_expr->exprs.push_back(value);
 					break;
 				}
 			}

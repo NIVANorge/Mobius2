@@ -150,7 +150,6 @@ Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type 
 	
 	auto registration = &registrations[id.id];
 	registration->handle_name = handle_name;
-	registration->location.filename = "(compiler internal)";
 	registration->decl_type   = decl_type;
 	registration->has_been_declared = true;
 	
@@ -531,7 +530,17 @@ process_module_declaration(s16 module_id, Decl_AST *decl) {
 	module->revision = single_arg(decl, 3)->val_int;
 	
 	
+	
+	//TODO: it does not make that much sense to have special units and intrinsic functions registered on every module. We instead need a global scope for some things.
 	module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
+	
+	auto minfun = module->functions.create_compiler_internal("min", Decl_Type::function);
+	module->functions[minfun]->fun_type = Function_Type::intrinsic;
+	module->functions[minfun]->args = {"a", "b"};
+	auto maxfun = module->functions.create_compiler_internal("max", Decl_Type::function);
+	module->functions[maxfun]->fun_type = Function_Type::intrinsic;
+	module->functions[maxfun]->args = {"a", "b"};
+	
 	
 
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);

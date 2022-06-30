@@ -90,6 +90,7 @@ Math_Expr_Type {
 	unary_operator,
 	binary_operator,
 	if_chain,
+	cast,
 	//assignment,
 };
 
@@ -97,14 +98,15 @@ Math_Expr_Type {
 struct
 Math_Expr_AST : Expr_AST {
 	Math_Expr_Type               type;
+	std::vector<Math_Expr_AST *> exprs;
+	Source_Location              location;
 	
 	Math_Expr_AST(Math_Expr_Type type) : type(type) {};
 };
 
 struct
 Math_Block_AST : Math_Expr_AST {
-	std::vector<Math_Expr_AST *> exprs;
-	Source_Location              opens_at;
+	Source_Location              opens_at; //TODO: remove, use location instead
 	
 	Math_Block_AST() : Math_Expr_AST(Math_Expr_Type::block) {};
 };
@@ -126,7 +128,6 @@ Literal_AST : Math_Expr_AST {
 struct
 Function_Call_AST : Math_Expr_AST {
 	Token                        name;
-	std::vector<Math_Expr_AST *> args;
 	
 	Function_Call_AST() : Math_Expr_AST(Math_Expr_Type::function_call) {};
 };
@@ -134,7 +135,6 @@ Function_Call_AST : Math_Expr_AST {
 struct
 Unary_Operator_AST : Math_Expr_AST {
 	String_View                   oper;
-	Math_Expr_AST                *arg;
 	
 	Unary_Operator_AST() : Math_Expr_AST(Math_Expr_Type::unary_operator) {};
 };
@@ -142,17 +142,12 @@ Unary_Operator_AST : Math_Expr_AST {
 struct
 Binary_Operator_AST : Math_Expr_AST {
 	String_View                   oper;
-	Math_Expr_AST                *lhs;
-	Math_Expr_AST                *rhs;
 	
 	Binary_Operator_AST() : Math_Expr_AST(Math_Expr_Type::binary_operator) {};
 };
 
 struct
 If_Expr_AST : Math_Expr_AST {
-	std::vector<std::pair<Math_Expr_AST *, Math_Expr_AST *>>  ifs;
-	Math_Expr_AST                                            *otherwise;
-	
 	If_Expr_AST() : Math_Expr_AST(Math_Expr_Type::if_chain) {};
 };
 

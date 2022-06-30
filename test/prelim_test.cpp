@@ -24,5 +24,7 @@ int main() {
 	Mobius_Model model;
 	model.add_module(module);
 	
-	model.compose(&memory);
+	model.compose();
+	
+	std::cout << "Finished correctly.\n";
 }

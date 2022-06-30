@@ -10,7 +10,7 @@ module("HBVSnow lite", 1,0,0) {
 	snow_box.par_group("Snow") {
 		#test      : par_real("Test", a, 1)   # should give error. a is not declared anywhere
 		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, "Some description")
-		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0)
+		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0, -4, 4, "More description")
 		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0)
 		refreeze  : par_real("Refreeze efficiency", unit(), 0.5)
 		snow_liq  : par_real("Liquid water fraction", unit(), 0.5)
@@ -43,14 +43,16 @@ module("HBVSnow lite", 1,0,0) {
 		0             otherwise
 	}
 	
+	# NOTE: default is that a flux should never make a quantity go negative. Maybe allow specifying that a quantity *could* go negative (e.g. if you model potential energy or something)
+	
 	flux(snow_box.snow, snow_box.water, "Melt") {
-		min(max(0, ddf_melt*(air.temp - t_melt)), last(snow_box.snow))
+		max(0, ddf_melt*(air.temp - t_melt))
 	}
 	
-	# It would be good if we don't have to declare min(..., last(snow_box.water)) here and instead have it automatic, but it would make order of evaluation of refreeze and melt_runoff ambiguous. Can we figure out a way to make this more clean?
+	# TODO: order of evaluation of refreeze and melt_runoff are ambiguous. Can we figure out a way to specify it?
 	
 	flux(snow_box.water, snow_box.snow, "Refreeze") {
-		min(max(0, refreeze*ddf_melt*(t_melt - air.temp)), last(snow_box.water))
+		max(0, refreeze*ddf_melt*(t_melt - air.temp))
 	}
 	
 	#flux(air.water, snow_box.water) { 0 }   # should give error. We have not declared air.has(water)

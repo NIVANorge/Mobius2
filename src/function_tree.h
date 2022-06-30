@@ -9,6 +9,8 @@
 //NOTE: we *could* put the extra data in the AST, but it is not that clean (?)
 // however we may want to copy the tree any way when we resolve properties that are attached to multiple other entities.
 
+//TODO: Memory leak! Need to free sub-nodes when destructing!
+
 typedef s32 state_var_id;
 
 enum class
@@ -42,16 +44,16 @@ Variable_Type {
 struct
 Math_Expr_FT {
 	Math_Expr_AST               *ast;
+	Math_Expr_Type               expr_type;
 	Value_Type                   value_type;
 	Entity_Id                    unit;
+	std::vector<Math_Expr_FT *>  exprs;
 	
 	Math_Expr_FT() : value_type(Value_Type::unresolved) {};
 };
 
 struct
 Math_Block_FT : Math_Expr_FT {
-	std::vector<Math_Expr_FT *> exprs;
-	
 	//TODO: scope info
 	
 	Math_Block_FT() : Math_Expr_FT() {};
@@ -79,34 +81,16 @@ Literal_FT : Math_Expr_FT {
 
 struct
 Function_Call_FT : Math_Expr_FT {
-	std::vector<Math_Expr_FT *>  args;
-	
+	Function_Type fun_type;
 	
 	Function_Call_FT() : Math_Expr_FT() {};
 };
 
-struct
-Unary_Operator_FT : Math_Expr_FT {
-	Math_Expr_FT                 *arg;
-	
-	Unary_Operator_FT() : Math_Expr_FT() {};
-};
-
-struct
-Binary_Operator_FT : Math_Expr_FT {
-	Math_Expr_FT                *lhs;
-	Math_Expr_FT                *rhs;
-	
-	Binary_Operator_FT() : Math_Expr_FT() {};
-};
-
-struct
-If_Expr_FT : Math_Expr_FT {
-	std::vector<std::pair<Math_Expr_FT *, Math_Expr_FT *>>    ifs;
-	Math_Expr_FT                                             *otherwise;
-	
-	If_Expr_FT() : Math_Expr_FT() {};
-};
+struct Mobius_Model;
+struct Math_Expr_AST;
+struct State_Variable;
+Math_Expr_FT *
+resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *var);
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

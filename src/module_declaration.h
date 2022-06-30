@@ -36,6 +36,16 @@ operator!=(const Entity_Id &a, const Entity_Id &b) {
 	return a.module_id != b.module_id || a.id != b.id || a.reg_type != b.reg_type;
 }
 
+inline bool
+operator<(const Entity_Id &a, const Entity_Id &b) {
+	if(a.module_id == b.module_id) {
+		if(a.reg_type == b.reg_type)
+			return a.id < b.id;
+		return a.reg_type < b.reg_type;
+	}
+	return a.module_id < b.module_id;
+}
+
 constexpr Entity_Id invalid_entity_id = {-1, Reg_Type::unrecognized, -1};
 
 inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
@@ -44,30 +54,8 @@ template <typename Value_Type>
 using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
 
 
-struct
-Entity_Registration_Base {
-	Decl_Type       decl_type;
-	bool            has_been_declared;
-	Source_Location location;            // if it has_been_declared, this should be the declaration location, otherwise it should be the location where it was last referenced.
-	String_View     handle_name;
-	String_View     name;
-};
 
-template<Reg_Type reg_type> struct
-Entity_Registration : Entity_Registration_Base {
-	//TODO: delete constructor or something like that
-};
 
-template<> struct
-Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
-	// no need for additional info right now..
-};
-
-template<> struct
-Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	Entity_Id              compartment;  //TODO: could also be substance
-	std::vector<Entity_Id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
-};
 
 union
 Parameter_Value {
@@ -93,29 +81,6 @@ get_parameter_value(Token *token) {
 		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
 	return result;
 }
-
-template<> struct
-Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
-	Entity_Id       par_group;
-	Entity_Id       unit;
-	
-	Parameter_Value default_val;
-	Parameter_Value min_val;
-	Parameter_Value max_val;
-	
-	String_View     description;
-};
-
-template<> struct
-Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
-	// TODO: put data here.
-};
-
-template<> struct
-Entity_Registration<Reg_Type::property_or_substance> : Entity_Registration_Base {
-	//NOTE: this is in practice used both for property and substance
-	Entity_Id    unit;
-};
 
 enum class
 Location_Type {
@@ -151,6 +116,56 @@ Value_Location_Hash {
 	}
 };
 
+
+
+struct
+Entity_Registration_Base {
+	Decl_Type       decl_type;
+	bool            has_been_declared;
+	Source_Location location;            // if it has_been_declared, this should be the declaration location, otherwise it should be the location where it was last referenced.
+	String_View     handle_name;
+	String_View     name;
+};
+
+template<Reg_Type reg_type> struct
+Entity_Registration : Entity_Registration_Base {
+	//TODO: delete constructor or something like that
+};
+
+template<> struct
+Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
+	// no need for additional info right now..
+};
+
+template<> struct
+Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
+	Entity_Id              compartment;  //TODO: could also be substance
+	std::vector<Entity_Id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
+};
+
+template<> struct
+Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
+	Entity_Id       par_group;
+	Entity_Id       unit;
+	
+	Parameter_Value default_val;
+	Parameter_Value min_val;
+	Parameter_Value max_val;
+	
+	String_View     description;
+};
+
+template<> struct
+Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
+	// TODO: put data here.
+};
+
+template<> struct
+Entity_Registration<Reg_Type::property_or_substance> : Entity_Registration_Base {
+	//NOTE: this is in practice used both for property and substance
+	Entity_Id    unit;
+};
+
 template<> struct
 Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 	Value_Location value_location;
@@ -168,6 +183,25 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	
 	Math_Block_AST  *code;
 };
+
+
+enum class
+Function_Type {
+	decl, external, intrinsic,
+};
+
+template<> struct
+Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
+	std::vector<String_View> args;
+	
+	Function_Type    fun_type;
+	//Math_Block_AST  *code;
+	
+	// TODO: need some info about how it transforms units.
+	// TODO: may need some info on expected input types (especially for externals)
+};
+
+
 
 struct Registry_Base {
 	string_map<Entity_Id>          handle_name_to_handle;
@@ -202,6 +236,9 @@ Registry : Registry_Base {
 	Entity_Id end();
 };
 
+
+
+
 struct
 Module_Declaration {
 	String_View name;
@@ -220,6 +257,7 @@ Module_Declaration {
 	Registry<Reg_Type::property_or_substance>    properties_and_substances;  // NOTE: is used for both Decl_Type::property and Decl_Type::substance.
 	Registry<Reg_Type::has>         hases;
 	Registry<Reg_Type::flux>        fluxes;
+	Registry<Reg_Type::function>    functions;
 	
 	Module_Declaration() : 
 		compartments(this),
@@ -228,7 +266,8 @@ Module_Declaration {
 		units       (this),
 		properties_and_substances(this),
 		hases       (this),
-		fluxes      (this)
+		fluxes      (this),
+		functions   (this)
 	{}
 	
 	Registry_Base *	registry(Reg_Type);
