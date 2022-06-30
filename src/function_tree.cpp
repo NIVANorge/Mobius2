@@ -11,7 +11,7 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	//TODO: if we cast a literal, we should just cast the value here and replace the literal.
 	
 	auto cast = new Math_Expr_FT();
-	cast->ast = nullptr;
+	cast->ast = expr->ast;     // not sure if this is good, it is just so that it has a valid location.
 	cast->value_type = cast_to;
 	cast->unit = expr->unit;
 	cast->exprs.push_back(expr);
@@ -26,8 +26,11 @@ void try_cast(Math_Expr_FT **a, Math_Expr_FT **b) {
 }
 
 void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right, String_View name) {
-	if((*left)->value_type == Value_Type::boolean || (*right)->value_type == Value_Type::boolean) {
-		//TODO: location location location!
+	if((*left)->value_type == Value_Type::boolean) {
+		(*left)->ast->location.print_error_header(); //TODO: should the error refer to the operator instead?
+		fatal_error("Expression \"", name, "\" does not accept an argument of type boolean.");
+	} else if ((*right)->value_type == Value_Type::boolean) {
+		(*right)->ast->location.print_error_header(); //TODO: should the error refer to the operator instead?
 		fatal_error("Expression \"", name, "\" does not accept an argument of type boolean.");
 	}
 	try_cast(left, right);
@@ -54,7 +57,6 @@ Math_Expr_FT *
 resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *var){
 	Math_Expr_FT *result;
 	
-#if 0
 	Module_Declaration *module = model->modules[var->entity_id.module_id];
 	switch(ast->type) {
 		case Math_Expr_Type::block : {
@@ -151,9 +153,9 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			}
 			
 			//TODO: should be replaced with check in resolve_arguments
-			if(fun->exprs.size() != module->functions[fun_id]->exprs.size()) {
+			if(fun->exprs.size() != module->functions[fun_id]->args.size()) {
 				fun->name.print_error_header();
-				fatal_error("Wrong number of arguments to function. Expected ", module->functions[fun_id]->exprs.size(), ", got ", fun->exprs.size(), ".");
+				fatal_error("Wrong number of arguments to function. Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".");
 			}
 			
 			resolve_arguments(model, new_fun, ast, var);
@@ -180,14 +182,14 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			
 			if(unary->oper == "-") {
 			if(new_unary->exprs[0]->value_type == Value_Type::boolean) {
-					//TODO: location location location!
+					new_unary->exprs[0]->ast->location.print_error_header();
 					fatal_error("Unary minus can not have an argument of type boolean.");
 				}
 				new_unary->unit = new_unary->exprs[0]->unit;
 				new_unary->value_type = new_unary->exprs[0]->value_type;
 			} else if(unary->oper == "!") {
 				if(new_unary->exprs[0]->value_type != Value_Type::boolean) {
-					//TODO: location location location!
+					new_unary->exprs[0]->ast->location.print_error_header();
 					fatal_error("Negation must have an argument of type boolean.");
 				}
 				
@@ -239,15 +241,13 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 	}
 	
 	result->ast = ast;
-	result->expr_type = ast->expr_type;
+	result->expr_type = ast->type;
 	
-	/*
-	TODO: should have stored location on each ast node so that we could make error messages like these!
-	if(reult->value_type == Value_Type::unresolved) {
-		ast->location.
+	if(result->value_type == Value_Type::unresolved) {
+		ast->location.print_error_header();
+		fatal_error("(internal error) did not resolve value type of expression.");
 	}
-	*/
-#endif
+
 	return result;
 }
 

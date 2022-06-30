@@ -12,12 +12,12 @@
 int main() {
 	//SetConsoleOutputCP(65001);
 	
-	Linear_Allocator memory;
-	memory.initialize(32*1024*1024);
+	//Linear_Allocator memory;
+	//memory.initialize(32*1024*1024);
 
 	Token_Stream stream("small_lexer_test.txt");
 	
-	Decl_AST *module_decl = parse_decl(&stream, &memory);
+	Decl_AST *module_decl = parse_decl(&stream);
 	
 	Module_Declaration *module = process_module_declaration(0, module_decl);
 	

@@ -2,6 +2,9 @@
 #include "ast.h"
 
 
+//TODO: memory leak!
+// need to delete sub-nodes when destructing parent node!
+
 bool
 is_accepted_for_chain(Token_Type type, bool identifier_only) {
 	return (identifier_only && type == Token_Type::identifier) || (!identifier_only && can_be_value_token(type));
@@ -62,9 +65,9 @@ void print_expr(Math_Expr_AST *expr) {
 
 
 Decl_AST *
-parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
+parse_decl(Token_Stream *stream) {
 	
-	Decl_AST *decl = allocator->make_new<Decl_AST>();
+	Decl_AST *decl = new Decl_AST();
 	
 	Token ident = stream->expect_token(Token_Type::identifier);
 	Token next  = stream->read_token();
@@ -102,7 +105,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 			break;
 		}
 		else if(can_be_value_token(next.type)) {
-			Argument_AST *arg = allocator->make_new<Argument_AST>();
+			Argument_AST *arg = new Argument_AST();
 			
 			Token peek = stream->peek_token(1);
 			if(can_be_value_token(peek.type) || (char)peek.type == ')' || (char)peek.type == ',') {
@@ -114,7 +117,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 					read_identifier_chain(stream, '.', &arg->sub_chain);
 					arg->chain_sep = '.';
 				} else
-					arg->decl = parse_decl(stream, allocator);
+					arg->decl = parse_decl(stream);
 			} else {
 				peek.print_error_header();
 				fatal_error("Misformatted declaration argument.");
@@ -144,9 +147,9 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 			Body_AST *body;
 			
 			if(body_type == Body_Type::decl) {
-				body = allocator->make_new<Decl_Body_AST>();
+				body = new Decl_Body_AST();
 			} else if(body_type == Body_Type::function) {
-				body = allocator->make_new<Function_Body_AST>();
+				body = new Function_Body_AST();
 			} else if(body_type == Body_Type::none) {
 				next.print_error_header();
 				fatal_error("Declarations of type ", decl->type_name.string_value, " can't have declaration bodies.");
@@ -176,7 +179,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 						}
 						decl_body->doc_string = token;
 					} else if (token.type == Token_Type::identifier) {
-						Decl_AST *child_decl = parse_decl(stream, allocator);
+						Decl_AST *child_decl = parse_decl(stream);
 						decl_body->child_decls.push_back(child_decl);
 					} else if ((char)token.type == '}') {
 						stream->read_token();
@@ -189,7 +192,7 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 			}
 			else if(body_type == Body_Type::function) {
 				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
-				function_body->block = parse_math_block(stream, allocator, next.location);
+				function_body->block = parse_math_block(stream, next.location);
 			}
 			
 			decl->bodies.push_back(body);
@@ -234,10 +237,11 @@ parse_decl(Token_Stream *stream, Linear_Allocator *allocator) {
 
 
 Function_Call_AST *
-parse_function_call(Token_Stream *stream, Linear_Allocator *allocator) {
-	Function_Call_AST *function = allocator->make_new<Function_Call_AST>();
+parse_function_call(Token_Stream *stream) {
+	Function_Call_AST *function = new Function_Call_AST();
 	
 	function->name = stream->read_token();
+	function->location = function->name.location;
 	stream->read_token(); // consume the '('
 	while(true) {
 		Token token = stream->peek_token();
@@ -251,7 +255,7 @@ parse_function_call(Token_Stream *stream, Linear_Allocator *allocator) {
 			break;
 		}
 		
-		Math_Expr_AST *expr = parse_math_expr(stream, allocator);
+		Math_Expr_AST *expr = parse_math_expr(stream);
 		function->exprs.push_back(expr);
 		
 		token = stream->peek_token();
@@ -305,7 +309,7 @@ find_binary_operator(Token_Stream *stream, String_View *result) {
 }
 
 Math_Expr_AST *
-potentially_parse_binary_operation_rhs(Token_Stream *stream, Linear_Allocator *allocator, int prev_prec, Math_Expr_AST *lhs) {
+potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math_Expr_AST *lhs) {
 	
 	while(true) {
 		String_View oper;
@@ -313,21 +317,23 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, Linear_Allocator *a
 			if(cur_prec < prev_prec)
 				return lhs;
 			
+			Source_Location location = stream->peek_token().location;
 			for(int it = 0; it < oper.count; ++it)
 				stream->read_token(); // consume the operator;
 			
-			Math_Expr_AST *rhs = parse_primary_expr(stream, allocator);
+			Math_Expr_AST *rhs = parse_primary_expr(stream);
 			
 			String_View oper_next;
 			if(int next_prec = find_binary_operator(stream, &oper_next)) {
 				if(cur_prec < next_prec)
-					rhs = potentially_parse_binary_operation_rhs(stream, allocator, cur_prec + 1, rhs);
+					rhs = potentially_parse_binary_operation_rhs(stream, cur_prec + 1, rhs);
 			}
 			
-			Binary_Operator_AST *binop = allocator->make_new<Binary_Operator_AST>();
+			Binary_Operator_AST *binop = new Binary_Operator_AST();
 			binop->oper = oper;
 			binop->exprs.push_back(lhs);
 			binop->exprs.push_back(rhs);
+			binop->location = location;
 			lhs = binop;
 			
 		} else
@@ -336,43 +342,47 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, Linear_Allocator *a
 }
 
 Math_Expr_AST *
-parse_math_expr(Token_Stream *stream, Linear_Allocator *allocator) {
-	auto lhs = parse_primary_expr(stream, allocator);
-	return potentially_parse_binary_operation_rhs(stream, allocator, 0, lhs);
+parse_math_expr(Token_Stream *stream) {
+	auto lhs = parse_primary_expr(stream);
+	return potentially_parse_binary_operation_rhs(stream, 0, lhs);
 }
 	
 Math_Expr_AST *
-parse_primary_expr(Token_Stream *stream, Linear_Allocator *allocator) {
+parse_primary_expr(Token_Stream *stream) {
 	Math_Expr_AST  *result = nullptr;
 	Token token = stream->peek_token();
 	
 	if((char)token.type == '-' || (char)token.type == '!') {
+		Source_Location location = token.location;
 		stream->read_token();
-		auto unary = allocator->make_new<Unary_Operator_AST>();
+		auto unary = new Unary_Operator_AST();
 		unary->oper = token.string_value;
-		unary->exprs.push_back(parse_primary_expr(stream, allocator));
+		unary->exprs.push_back(parse_primary_expr(stream));
+		unary->location = location;
 		result = unary;
 	} else if((char)token.type == '{') {
 		stream->read_token();
-		result = parse_math_block(stream, allocator, token.location);
+		result = parse_math_block(stream, token.location);
 	} else if (token.type == Token_Type::identifier) {
 		Token peek = stream->peek_token(1);
 		if((char)peek.type == '(') {
-			result = parse_function_call(stream, allocator);
+			result = parse_function_call(stream);
 		} else {
-			auto val = allocator->make_new<Identifier_Chain_AST>();
+			auto val = new Identifier_Chain_AST();
+			val->location = token.location;
 			read_identifier_chain(stream, '.', &val->chain, true);
 			result = val;
 		}
 	} else if (is_numeric_or_bool(token.type)) {
-		auto val = allocator->make_new<Literal_AST>();
+		auto val = new Literal_AST();
+		val->location = token.location;
 		stream->read_token();
 		val->value = token;
 		result = val;
 	} else if ((char)token.type == '(') {
 		// todo fixup of precedence
 		stream->read_token();
-		result = parse_math_expr(stream, allocator);
+		result = parse_math_expr(stream);
 		Token token = stream->read_token();
 		if((char)token.type != ')') {
 			token.print_error_header();
@@ -387,27 +397,29 @@ parse_primary_expr(Token_Stream *stream, Linear_Allocator *allocator) {
 }
 
 Math_Expr_AST *
-parse_potential_if_expr(Token_Stream *stream, Linear_Allocator *allocator) {
-	Math_Expr_AST *value = parse_math_expr(stream, allocator);
+parse_potential_if_expr(Token_Stream *stream) {
+	Math_Expr_AST *value = parse_math_expr(stream);
 	Token token = stream->peek_token();
 	if(token.type == Token_Type::identifier && token.string_value == "if") {
+		Source_Location location = token.location;
 		stream->read_token(); // consume the if
 		
-		Math_Expr_AST *condition = parse_math_expr(stream, allocator);
+		Math_Expr_AST *condition = parse_math_expr(stream);
 		
-		If_Expr_AST *if_expr = allocator->make_new<If_Expr_AST>();
+		If_Expr_AST *if_expr = new If_Expr_AST();
+		if_expr->location = location;
 		if_expr->exprs.push_back(value);
 		if_expr->exprs.push_back(condition);
 		
 		while(true) {
 			stream->expect_token(',');
 			
-			value = parse_math_expr(stream, allocator);
+			value = parse_math_expr(stream);
 			token = stream->read_token();
 			
 			if(token.type == Token_Type::identifier) {
 				if(token.string_value == "if") {
-					condition = parse_math_expr(stream, allocator);
+					condition = parse_math_expr(stream);
 					if_expr->exprs.push_back(value);
 					if_expr->exprs.push_back(condition);
 					continue;
@@ -427,9 +439,9 @@ parse_potential_if_expr(Token_Stream *stream, Linear_Allocator *allocator) {
 }
 
 Math_Block_AST *
-parse_math_block(Token_Stream *stream, Linear_Allocator *allocator, Source_Location opens_at) {
-	Math_Block_AST *block = allocator->make_new<Math_Block_AST>();
-	block->opens_at = opens_at;
+parse_math_block(Token_Stream *stream, Source_Location opens_at) {
+	Math_Block_AST *block = new Math_Block_AST();
+	block->location = opens_at;
 	
 	int semicolons = 0;
 	while(true) {
@@ -454,7 +466,7 @@ parse_math_block(Token_Stream *stream, Linear_Allocator *allocator, Source_Locat
 		
 		//TODO: assignments.. like   a := 5;
 		
-		auto expr = parse_potential_if_expr(stream, allocator);
+		auto expr = parse_potential_if_expr(stream);
 		block->exprs.push_back(expr);
 		
 		token = stream->peek_token();

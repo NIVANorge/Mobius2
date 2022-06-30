@@ -153,19 +153,19 @@ If_Expr_AST : Math_Expr_AST {
 
 
 Decl_AST *
-parse_decl(Token_Stream *stream, Linear_Allocator *allocator);
+parse_decl(Token_Stream *stream);
 
 Math_Expr_AST *
-parse_potential_if_expr(Token_Stream *stream, Linear_Allocator *allocator);
+parse_potential_if_expr(Token_Stream *stream);
 
 Math_Expr_AST *
-parse_math_expr(Token_Stream *stream, Linear_Allocator *allocator);
+parse_math_expr(Token_Stream *stream);
 
 Math_Expr_AST *
-parse_primary_expr(Token_Stream *stream, Linear_Allocator *allocator);
+parse_primary_expr(Token_Stream *stream);
 
 Math_Block_AST *
-parse_math_block(Token_Stream *stream, Linear_Allocator *allocator, Source_Location opens_at);
+parse_math_block(Token_Stream *stream, Source_Location opens_at);
 
 
 #endif // MOBIUS_AST_H
