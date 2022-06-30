@@ -2,12 +2,17 @@
 
 #include "function_tree.h"
 #include "model_declaration.h"
-
+#include "emulate.h"
 
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	if(cast_to == expr->value_type) return expr;
-	
+	else if(expr->expr_type == Math_Expr_Type::literal) {
+		auto literal = reinterpret_cast<Literal_FT *>(expr);
+		literal->value = cast_value(literal->value, literal->value_type, cast_to);
+		literal->value_type = cast_to;
+		return literal;
+	}
 	//TODO: if we cast a literal, we should just cast the value here and replace the literal.
 	
 	auto cast = new Math_Expr_FT();
@@ -41,6 +46,7 @@ void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 	if(name->string_value == "min" || name->string_value == "max") {
 		fun->unit = fun->exprs[0]->unit;   //TODO: should also check that the units are equal.
 		make_casts_for_binary_expr(&fun->exprs[0], &fun->exprs[1], name->string_value);
+		fun->value_type = fun->exprs[0]->value_type; //Note: value types of both arguments should be the same now.
 	} else {
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", name, "\" in fixup_intrinsic().");
 	}
@@ -108,8 +114,13 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 					// unresolved, but valid. Assume this is an input series instead.
 					warning_print("Input series unimplemented.\n"); //TODO!!!
 					
+					state_var_id input_id = 0; //TODO: instead register it
 					new_ident->variable_type = Variable_Type::input_series;
-					var->depends_on_input_series.insert(var_id);
+					new_ident->series = input_id;
+					new_ident->unit = module->dimensionless_unit;  //TODO: instead inherit from the property.
+					new_ident->value_type    = Value_Type::real;
+					
+					var->depends_on_input_series.insert(input_id);
 				} else {
 					new_ident->variable_type = Variable_Type::state_var;
 					new_ident->state_var     = var_id;
@@ -161,27 +172,50 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			resolve_arguments(model, new_fun, ast, var);
 			
 			new_fun->fun_type = module->functions[fun_id]->fun_type;
+			
+			bool replaced = false;
 			if(new_fun->fun_type == Function_Type::intrinsic) {
 				fixup_intrinsic(new_fun, &fun->name);
+				
+				bool all_literal = true;
+				for(auto expr : new_fun->exprs) {
+					if(expr->expr_type != Math_Expr_Type::literal) { all_literal = false; break; }
+				}
+				if(all_literal) {
+					auto literal = new Literal_FT();
+					literal->ast = new_fun->ast;
+					literal->unit = new_fun->unit;
+					literal->value_type = new_fun->value_type;
+					
+					if(new_fun->exprs.size() == 2) {
+						auto arg1 = reinterpret_cast<Literal_FT *>(new_fun->exprs[0]);
+						auto arg2 = reinterpret_cast<Literal_FT *>(new_fun->exprs[1]);
+						literal->value = apply_intrinsic(arg1->value, arg2->value, new_fun->value_type, fun->name.string_value);
+						delete new_fun;
+						result = literal;
+						replaced = true;
+					} else
+						fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic.");
+				}
 			} else {
 				//TODO!
 				fatal_error(Mobius_Error::internal, "Unhandled function type.");
 			}
 			
-			result = new_fun;
+			if(!replaced)
+				result = new_fun;
 		} break;
 		
 		//NOTE: currently we don't allow integers and reals to auto-cast to boolean
 		
 		case Math_Expr_Type::unary_operator : {
-			//TODO: if argument is literal, just do the operation here and replace with the result.
 			auto unary = reinterpret_cast<Unary_Operator_AST *>(ast);
 			auto new_unary = new Math_Expr_FT();
 			
 			resolve_arguments(model, new_unary, ast, var);
 			
 			if(unary->oper == "-") {
-			if(new_unary->exprs[0]->value_type == Value_Type::boolean) {
+				if(new_unary->exprs[0]->value_type == Value_Type::boolean) {
 					new_unary->exprs[0]->ast->location.print_error_header();
 					fatal_error("Unary minus can not have an argument of type boolean.");
 				}
@@ -198,7 +232,18 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled unary operator type in resolve_function_tree().");
 			
-			result = new_unary;
+			// If the argument is a literal, just apply the operator directly on the unary and replace the unary with the literal.
+			if(new_unary->exprs[0]->expr_type == Math_Expr_Type::literal) {
+				auto literal = reinterpret_cast<Literal_FT *>(new_unary->exprs[0]);
+				Parameter_Value val = apply_unary(literal->value, literal->value_type, unary->oper);
+				new_unary->exprs.clear(); //To not invoke destructors when we delete it;
+				literal->value = val;
+				literal->value_type = new_unary->value_type;
+				literal->unit = new_unary->unit;
+				delete new_unary;
+				result = literal;
+			} else
+				result = new_unary;
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
@@ -226,7 +271,20 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 				}
 			}
 			
-			result = new_binary;
+			if(new_binary->exprs[0]->expr_type == Math_Expr_Type::literal && new_binary->exprs[1]->expr_type == Math_Expr_Type::literal) {
+				auto left = reinterpret_cast<Literal_FT *>(new_binary->exprs[0]);
+				auto right = reinterpret_cast<Literal_FT *>(new_binary->exprs[1]);
+				//NOTE: after the above operations, the value type of left and right should be the same..
+				Parameter_Value val = apply_binary(left->value, right->value, left->value_type, binary->oper);
+				new_binary->exprs.clear(); //To not invoke destructors of subexprs when we delete it;
+				left->value = val;
+				left->value_type = new_binary->value_type;
+				left->unit = new_binary->unit;
+				delete new_binary;
+				delete right;
+				result = left;
+			} else
+				result = new_binary;
 		} break;
 		
 		case Math_Expr_Type::if_chain : {
@@ -234,9 +292,71 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			auto new_if = new Math_Expr_FT();
 			
 			resolve_arguments(model, new_if, ast, var);
-			//TODO!
 			
-			result = new_if;
+			// Cast all possible result values up to the same type
+			Value_Type value_type = new_if->exprs[0]->value_type;
+			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
+				if(new_if->exprs[idx+1]->value_type != Value_Type::boolean) {
+					new_if->exprs[idx+1]->ast->location.print_error_header();
+					fatal_error("Value of condition in if expression must be of type boolean.");
+				}
+				if(new_if->exprs[idx]->value_type == Value_Type::real) value_type = Value_Type::real;
+				else if(new_if->exprs[idx]->value_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::boolean;
+			}
+			int otherwise_idx = (int)new_if->exprs.size()-1;
+			if(new_if->exprs[otherwise_idx]->value_type == Value_Type::real) value_type = Value_Type::real;
+			else if(new_if->exprs[otherwise_idx]->value_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::boolean;
+			
+			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2)
+				new_if->exprs[idx] = make_cast(new_if->exprs[idx], value_type);
+			new_if->exprs[otherwise_idx] = make_cast(new_if->exprs[otherwise_idx], value_type);
+			
+			new_if->value_type = value_type;
+			new_if->unit       = new_if->exprs[0]->unit; //TODO: We actually need to check that it is the same for all cases.
+			
+			//resolve directly if some of the conditions are literals
+			std::vector<Math_Expr_FT *> remains;
+			int true_idx = -1;
+			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
+				bool is_false = false;
+				if(new_if->exprs[idx]->expr_type == Math_Expr_Type::literal) {
+					auto literal = reinterpret_cast<Literal_FT *>(new_if->exprs[idx]);
+					if(literal->value.val_bool == false) {
+						is_false = true;
+						delete literal;
+						new_if->exprs[idx] = nullptr;
+						delete new_if->exprs[idx+1]; //Also delete the condition
+						new_if->exprs[idx+1] = nullptr;
+					} else {
+						true_idx = idx; break;
+					}
+				}
+				if(!is_false) {
+					remains.push_back(new_if->exprs[idx]);
+					remains.push_back(new_if->exprs[idx]+1);
+				}
+			}
+			remains.push_back(new_if->exprs[otherwise_idx]);
+			
+			bool replaced = false;
+			if(true_idx > 0) {
+				for(int idx = 0; idx < new_if->exprs.size(); ++idx) if(idx != true_idx && new_if->exprs[idx]) delete new_if->exprs[idx];
+				result = new_if->exprs[true_idx];
+				replaced = true;
+				new_if->exprs.clear(); //to not invoke destructor on the new result
+				delete new_if;
+			} else {
+				if(remains.size() == 1) { // Only the otherwise value remained, so we can replace the entire expression with that.
+					result = new_if->exprs[0];
+					new_if->exprs.clear(); // to not invoke destructor on child element.
+					replaced = true;
+					delete new_if;
+				} else
+					new_if->exprs = remains;
+			}
+			
+			if(!replaced)
+				result = new_if;
 		} break;
 	}
 	

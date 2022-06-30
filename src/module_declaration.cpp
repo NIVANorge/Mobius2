@@ -12,6 +12,7 @@ Module_Declaration::registry(Reg_Type reg_type) {
 		case Reg_Type::property_or_substance :    return &properties_and_substances;
 		case Reg_Type::has :                      return &hases;
 		case Reg_Type::flux :                     return &fluxes;
+		case Reg_Type::function :                 return &functions;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type in registry().");
@@ -152,6 +153,9 @@ Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type 
 	registration->handle_name = handle_name;
 	registration->decl_type   = decl_type;
 	registration->has_been_declared = true;
+	
+	handle_name_to_handle[handle_name] = id;
+	parent->handles_in_scope[handle_name] = id;
 	
 	return id;
 }
