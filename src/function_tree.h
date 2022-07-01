@@ -69,28 +69,38 @@ Identifier_FT : Math_Expr_FT {
 		state_var_id             series;
 	};
 	
-	Identifier_FT() : Math_Expr_FT() {};
+	Identifier_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::identifier_chain; };
 };
 
 struct
 Literal_FT : Math_Expr_FT {
 	Parameter_Value value;
 	
-	Literal_FT() : Math_Expr_FT() {};
+	Literal_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::literal; };
 };
 
 struct
 Function_Call_FT : Math_Expr_FT {
 	Function_Type fun_type;
 	
-	Function_Call_FT() : Math_Expr_FT() {};
+	Function_Call_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::function_call; };
 };
 
 struct Mobius_Model;
 struct Math_Expr_AST;
 struct State_Variable;
+
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *var);
+resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast);
+
+void
+register_dependencies(Math_Expr_FT *expr, State_Variable *var);
+
+Math_Expr_FT *
+make_cast(Math_Expr_FT *expr, Value_Type cast_to);
+
+Math_Expr_FT *
+prune_tree(Math_Expr_FT *expr);
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

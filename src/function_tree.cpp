@@ -7,12 +7,7 @@
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	if(cast_to == expr->value_type) return expr;
-	else if(expr->expr_type == Math_Expr_Type::literal) {
-		auto literal = reinterpret_cast<Literal_FT *>(expr);
-		literal->value = cast_value(literal->value, literal->value_type, cast_to);
-		literal->value_type = cast_to;
-		return literal;
-	}
+	
 	//TODO: if we cast a literal, we should just cast the value here and replace the literal.
 	
 	auto cast = new Math_Expr_FT();
@@ -52,25 +47,31 @@ void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 	}
 }
 
-void resolve_arguments(Mobius_Model *model, Math_Expr_FT *ft, Math_Expr_AST *ast, State_Variable *var) {
+void resolve_arguments(Mobius_Model *model, s32 module_id, Math_Expr_FT *ft, Math_Expr_AST *ast) {
 	//TODO allow error check on expected number of arguments
 	for(auto arg : ast->exprs) {
-		ft->exprs.push_back(resolve_function_tree(model, arg, var));
+		ft->exprs.push_back(resolve_function_tree(model, module_id, arg));
 	}
 }
 
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *var){
+resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 	Math_Expr_FT *result;
 	
-	Module_Declaration *module = model->modules[var->entity_id.module_id];
+#define DEBUGGING_NOW 0
+#if DEBUGGING_NOW
+	warning_print("begin ", name(ast->type), "\n");
+#endif
+	
+	Module_Declaration *module = model->modules[module_id];
 	switch(ast->type) {
 		case Math_Expr_Type::block : {
 			auto new_block = new Math_Block_FT();
 			
-			resolve_arguments(model, new_block, ast, var);
+			resolve_arguments(model, module_id, new_block, ast);
 			
 			// the value of a block is the value of the last expression in the block.
+			//TODO: if there is only one expr in the block, we could replace the block with that expr.
 			new_block->value_type = new_block->exprs.back()->value_type;
 			new_block->unit       = new_block->exprs.back()->unit;
 			result = new_block;
@@ -81,6 +82,7 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			auto new_ident = new Identifier_FT();
 			if(ident->chain.size() == 1) {
 				//TODO: for now, just assume this is a parameter. Could eventually be a local variable.
+				//TODO: could also allow refering to properties by just a single identifier if the compartment is obvious.
 				new_ident->variable_type = Variable_Type::parameter;
 				
 				Entity_Id par_id = find_handle(module, ident->chain[0].string_value);
@@ -89,7 +91,6 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 					ident->chain[0].print_error_header();
 					fatal_error("Can not resolve the name \"", ident->chain[0].string_value, "\".");
 				}
-				//TODO: could allow refering to properties by just a single identifier if the compartment is obvious.
 				
 				new_ident->variable_type = Variable_Type::parameter;
 				new_ident->parameter = par_id;
@@ -97,8 +98,6 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 				new_ident->value_type = get_value_type(module->parameters[par_id]->decl_type);
 				// TODO: make it so that we can't reference datetime values (if we implement those)
 				//  also special handling of for enum values!
-				
-				var->depends_on_par_group.insert(module->parameters[par_id]->par_group);
 			} else if(ident->chain.size() == 2) {
 				//TODO: may need fixup for multiple modules.
 				Entity_Id first  = find_handle(module, ident->chain[0].string_value);
@@ -112,22 +111,18 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 				state_var_id var_id = find_state_var(model, make_value_location(module, first, second));
 				if(var_id < 0) {    // TODO: make proper id system...
 					// unresolved, but valid. Assume this is an input series instead.
-					warning_print("Input series unimplemented.\n"); //TODO!!!
+					warning_print("Input series not implemented.\n"); //TODO!!!
 					
 					state_var_id input_id = 0; //TODO: instead register it
 					new_ident->variable_type = Variable_Type::input_series;
 					new_ident->series = input_id;
 					new_ident->unit = module->dimensionless_unit;  //TODO: instead inherit from the property.
 					new_ident->value_type    = Value_Type::real;
-					
-					var->depends_on_input_series.insert(input_id);
 				} else {
 					new_ident->variable_type = Variable_Type::state_var;
 					new_ident->state_var     = var_id;
 					new_ident->unit          = module->hases[model->state_variables[var_id].entity_id]->unit;
 					new_ident->value_type    = Value_Type::real;
-					
-					var->depends_on_state_var.insert(var_id);
 				}
 			} else {
 				ident->chain[0].print_error_header();
@@ -169,41 +164,19 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 				fatal_error("Wrong number of arguments to function. Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".");
 			}
 			
-			resolve_arguments(model, new_fun, ast, var);
+			resolve_arguments(model, module_id, new_fun, ast);
 			
 			new_fun->fun_type = module->functions[fun_id]->fun_type;
 			
-			bool replaced = false;
 			if(new_fun->fun_type == Function_Type::intrinsic) {
 				fixup_intrinsic(new_fun, &fun->name);
-				
-				bool all_literal = true;
-				for(auto expr : new_fun->exprs) {
-					if(expr->expr_type != Math_Expr_Type::literal) { all_literal = false; break; }
-				}
-				if(all_literal) {
-					auto literal = new Literal_FT();
-					literal->ast = new_fun->ast;
-					literal->unit = new_fun->unit;
-					literal->value_type = new_fun->value_type;
-					
-					if(new_fun->exprs.size() == 2) {
-						auto arg1 = reinterpret_cast<Literal_FT *>(new_fun->exprs[0]);
-						auto arg2 = reinterpret_cast<Literal_FT *>(new_fun->exprs[1]);
-						literal->value = apply_intrinsic(arg1->value, arg2->value, new_fun->value_type, fun->name.string_value);
-						delete new_fun;
-						result = literal;
-						replaced = true;
-					} else
-						fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic.");
-				}
 			} else {
 				//TODO!
 				fatal_error(Mobius_Error::internal, "Unhandled function type.");
 			}
 			
-			if(!replaced)
-				result = new_fun;
+			result = new_fun;
+			
 		} break;
 		
 		//NOTE: currently we don't allow integers and reals to auto-cast to boolean
@@ -212,7 +185,7 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			auto unary = reinterpret_cast<Unary_Operator_AST *>(ast);
 			auto new_unary = new Math_Expr_FT();
 			
-			resolve_arguments(model, new_unary, ast, var);
+			resolve_arguments(model, module_id, new_unary, ast);
 			
 			if(unary->oper == "-") {
 				if(new_unary->exprs[0]->value_type == Value_Type::boolean) {
@@ -232,26 +205,14 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled unary operator type in resolve_function_tree().");
 			
-			// If the argument is a literal, just apply the operator directly on the unary and replace the unary with the literal.
-			if(new_unary->exprs[0]->expr_type == Math_Expr_Type::literal) {
-				auto literal = reinterpret_cast<Literal_FT *>(new_unary->exprs[0]);
-				Parameter_Value val = apply_unary(literal->value, literal->value_type, unary->oper);
-				new_unary->exprs.clear(); //To not invoke destructors when we delete it;
-				literal->value = val;
-				literal->value_type = new_unary->value_type;
-				literal->unit = new_unary->unit;
-				delete new_unary;
-				result = literal;
-			} else
-				result = new_unary;
+			result = new_unary;
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
-			//TODO: if both arguments are literals we should just do the evaluation here and replace with the literal of the result.
 			auto binary = reinterpret_cast<Binary_Operator_AST *>(ast);
 			auto new_binary = new Math_Expr_FT();
 			
-			resolve_arguments(model, new_binary, ast, var);
+			resolve_arguments(model, module_id, new_binary, ast);
 			
 			if(binary->oper == "|" || binary->oper == "&") {
 				if(new_binary->exprs[0]->value_type != Value_Type::boolean || new_binary->exprs[1]->value_type != Value_Type::boolean) {
@@ -271,27 +232,14 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 				}
 			}
 			
-			if(new_binary->exprs[0]->expr_type == Math_Expr_Type::literal && new_binary->exprs[1]->expr_type == Math_Expr_Type::literal) {
-				auto left = reinterpret_cast<Literal_FT *>(new_binary->exprs[0]);
-				auto right = reinterpret_cast<Literal_FT *>(new_binary->exprs[1]);
-				//NOTE: after the above operations, the value type of left and right should be the same..
-				Parameter_Value val = apply_binary(left->value, right->value, left->value_type, binary->oper);
-				new_binary->exprs.clear(); //To not invoke destructors of subexprs when we delete it;
-				left->value = val;
-				left->value_type = new_binary->value_type;
-				left->unit = new_binary->unit;
-				delete new_binary;
-				delete right;
-				result = left;
-			} else
-				result = new_binary;
+			result = new_binary;
 		} break;
 		
 		case Math_Expr_Type::if_chain : {
 			auto ifexpr = reinterpret_cast<If_Expr_AST *>(ast);
 			auto new_if = new Math_Expr_FT();
 			
-			resolve_arguments(model, new_if, ast, var);
+			resolve_arguments(model, module_id, new_if, ast);
 			
 			// Cast all possible result values up to the same type
 			Value_Type value_type = new_if->exprs[0]->value_type;
@@ -314,7 +262,99 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			new_if->value_type = value_type;
 			new_if->unit       = new_if->exprs[0]->unit; //TODO: We actually need to check that it is the same for all cases.
 			
-			//resolve directly if some of the conditions are literals
+			result = new_if;
+		} break;
+	}
+	
+	result->ast = ast;
+	result->expr_type = ast->type;
+	
+	if(result->value_type == Value_Type::unresolved) {
+		ast->location.print_error_header();
+		fatal_error("(internal error) did not resolve value type of expression.");
+	}
+	
+#if DEBUGGING_NOW
+	warning_print("end ", name(ast->type), "\n");
+#endif
+
+	return result;
+}
+
+Math_Expr_FT *
+prune_tree(Math_Expr_FT *expr) {
+	
+	for(auto &arg : expr->exprs)
+		arg = prune_tree(arg);
+	
+	switch(expr->expr_type) {
+		case Math_Expr_Type::block : {
+			//todo: replace with last statement if only one statement
+		} break;
+		
+		case Math_Expr_Type::function_call : {
+			auto fun = reinterpret_cast<Function_Call_FT *>(expr);
+			if(fun->fun_type != Function_Type::intrinsic)           //TODO: implement for others.
+				return expr;
+			
+			bool all_literal = true;
+			for(auto arg : expr->exprs) {
+				if(arg->expr_type != Math_Expr_Type::literal) { all_literal = false; break; }
+			}
+			if(all_literal) {
+				auto literal = new Literal_FT();
+				literal->ast = expr->ast;
+				literal->unit = expr->unit;
+				literal->value_type = expr->value_type;
+				literal->ast = expr->ast;
+				
+				if(expr->exprs.size() == 2) {
+					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+					auto arg2 = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
+					auto fun_ast = reinterpret_cast<Function_Call_AST *>(expr->ast);
+					literal->value = apply_intrinsic(arg1->value, arg2->value, expr->value_type, fun_ast->name.string_value);
+					delete expr;
+					return literal;
+				} else
+					fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic.");
+			}
+		} break;
+		
+		case Math_Expr_Type::unary_operator : {
+			// If the argument is a literal, just apply the operator directly on the unary and replace the unary with the literal.
+			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
+				auto unary = reinterpret_cast<Unary_Operator_AST *>(expr->ast);
+				auto arg = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+				Parameter_Value val = apply_unary(arg->value, arg->value_type, unary->oper);
+				auto literal = new Literal_FT();
+				literal->value = val;
+				literal->value_type = expr->value_type;
+				literal->unit = expr->unit;
+				literal->ast = expr->ast;
+				delete expr;
+				return literal;
+			}
+		} break;
+		
+		case Math_Expr_Type::binary_operator : {
+			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal && expr->exprs[1]->expr_type == Math_Expr_Type::literal) {
+				auto left  = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+				auto right = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
+				auto binary = reinterpret_cast<Binary_Operator_AST *>(expr->ast);
+				//NOTE: the value type of left and right should be the same..
+				Parameter_Value val = apply_binary(left->value, right->value, left->value_type, binary->oper);
+				auto literal = new Literal_FT();
+				literal->value = val;
+				literal->value_type = expr->value_type;
+				literal->unit = expr->unit;
+				literal->ast = expr->ast;
+				delete expr;
+				return literal;
+			}
+		} break;
+	
+		case Math_Expr_Type::if_chain : {
+			/*
 			std::vector<Math_Expr_FT *> remains;
 			int true_idx = -1;
 			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
@@ -339,7 +379,7 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 			remains.push_back(new_if->exprs[otherwise_idx]);
 			
 			bool replaced = false;
-			if(true_idx > 0) {
+			if(true_idx > 0) { //TODO: This is WRONG! We can't remove the *prior* clauses. We just have to remove the rest and replace the *otherwise* with this one.
 				for(int idx = 0; idx < new_if->exprs.size(); ++idx) if(idx != true_idx && new_if->exprs[idx]) delete new_if->exprs[idx];
 				result = new_if->exprs[true_idx];
 				replaced = true;
@@ -354,20 +394,36 @@ resolve_function_tree(Mobius_Model *model, Math_Expr_AST *ast, State_Variable *v
 				} else
 					new_if->exprs = remains;
 			}
-			
-			if(!replaced)
-				result = new_if;
+			*/
+		} break;
+		
+		case Math_Expr_Type::cast : {
+			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
+				auto old_literal = reinterpret_cast<Literal_FT*>(expr->exprs[0]);
+				auto literal = new Literal_FT();
+				literal->value = apply_cast(old_literal->value, old_literal->value_type, expr->value_type);
+				literal->value_type = expr->value_type;
+				literal->unit = expr->unit;
+				literal->ast = expr->ast;
+				delete expr;
+				return literal;
+			}
 		} break;
 	}
-	
-	result->ast = ast;
-	result->expr_type = ast->type;
-	
-	if(result->value_type == Value_Type::unresolved) {
-		ast->location.print_error_header();
-		fatal_error("(internal error) did not resolve value type of expression.");
-	}
-
-	return result;
+	return expr;
 }
 
+void
+register_dependencies(Math_Expr_FT *expr, State_Variable *var) {
+	for(auto arg : expr->exprs) register_dependencies(arg, var);
+	
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if(ident->variable_type == Variable_Type::parameter)
+			var->depends_on_parameter.insert(ident->parameter);
+		else if(ident->variable_type == Variable_Type::state_var)
+			var->depends_on_state_var.insert(ident->state_var);
+		else if(ident->variable_type == Variable_Type::input_series)
+			var->depends_on_input_series.insert(ident->series);
+	}
+}

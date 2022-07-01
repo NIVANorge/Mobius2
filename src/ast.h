@@ -83,16 +83,18 @@ Function_Body_AST : Body_AST {
 
 enum class
 Math_Expr_Type {
-	block,
-	identifier_chain,
-	literal,
-	function_call,
-	unary_operator,
-	binary_operator,
-	if_chain,
-	cast,
-	//assignment,
+	#define ENUM_VALUE(name) name,
+	#include "math_expr_types.incl"
+	#undef ENUM_VALUE
 };
+
+inline const char *
+name(Math_Expr_Type type) {
+	#define ENUM_VALUE(name) if(type == Math_Expr_Type::name) return #name;
+	#include "math_expr_types.incl"
+	#undef ENUM_VALUE
+	return "unrecognized";
+}
 
 
 struct

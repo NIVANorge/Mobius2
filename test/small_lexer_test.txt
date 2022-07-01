@@ -25,10 +25,13 @@ module("HBVSnow lite", 1,0,0) {
 	temp   : property("Temperature", unit(deg_c))
 	precip : property("Precipitation", unit(m m, day -1))
 	
+	snurkelmeis : snow_box.has(temp) {
+		air.precip    if air.temp < t_snow,
+		0             otherwise
+	}
+	
 	snow_box.has(snow,  unit(m m)) .initial { init_snow }
 	snow_box.has(water, unit(m m)) .initial { 0 }             # Not necessary to declare initial here, default is 0.
-	
-	
 	
 	# Source nowhere means that we are not interested in tracking the state of the source, this is then a pure source to the system
 	flux(nowhere, snow_box.snow, "Precipitation falling as snow") {

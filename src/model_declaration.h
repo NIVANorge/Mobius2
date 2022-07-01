@@ -14,11 +14,13 @@ State_Variable {
 	
 	Entity_Id entity_id;
 	
-	std::set<Entity_Id>    depends_on_par_group;
+	std::set<Entity_Id>    depends_on_parameter;
 	std::set<state_var_id> depends_on_input_series;
 	std::set<state_var_id> depends_on_state_var;
 	
 	Math_Expr_FT *function_tree;
+	
+	State_Variable() : function_tree(nullptr) {};
 };
 
 struct Code_Batch {

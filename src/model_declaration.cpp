@@ -53,7 +53,7 @@ Mobius_Model::add_module(Module_Declaration *module) {
 		auto has = module->hases[id];
 		
 		// TODO: fixup of unit of the has (inherits from the substance or property if not given here!)
-		
+		// TODO: check for duplicate has!
 		register_state_variable(this, module, Decl_Type::has, id);
 	}
 	
@@ -75,7 +75,19 @@ Mobius_Model::compose() {
 		else if(var.type == Decl_Type::property)
 			ast = modules[var.entity_id.module_id]->hases[var.entity_id]->code;
 		
-		if(ast) resolve_function_tree(this, ast, &var);
+		if(ast) {
+			var.function_tree = make_cast(resolve_function_tree(this, var.entity_id.module_id, ast), Value_Type::real);
+		}
+	}
+	
+	for(State_Variable &var : state_variables) {
+		if(var.function_tree)
+			var.function_tree = prune_tree(var.function_tree);
+	}
+	
+	for(State_Variable &var : state_variables) {
+		if(var.function_tree)
+			register_dependencies(var.function_tree, &var);
 	}
 }
 
