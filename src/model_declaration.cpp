@@ -13,7 +13,7 @@ register_state_variable(Mobius_Model *model, Module_Declaration *module, Decl_Ty
 	if(type == Decl_Type::has) {
 		auto has = module->hases[id];
 		loc = has->value_location;
-		var_type = module->properties_and_substances[loc.property_or_substance]->decl_type;
+		var_type = module->properties_and_quantities[loc.property_or_quantity]->decl_type;
 	} else if (type != Decl_Type::flux) {
 		fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	}
@@ -33,15 +33,15 @@ register_state_variable(Mobius_Model *model, Module_Declaration *module, Decl_Ty
 void
 check_flux_location(Mobius_Model *model, Module_Declaration *module, Source_Location source_loc, Value_Location loc) {
 	if(loc.type != Location_Type::located) return;
-	auto hopefully_a_substance = module->properties_and_substances[loc.property_or_substance];
-	if(hopefully_a_substance->decl_type != Decl_Type::substance) {
+	auto hopefully_a_quantity = module->properties_and_quantities[loc.property_or_quantity];
+	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 		source_loc.print_error_header();
-		fatal_error("Fluxes can only be assigned to substances. \"", hopefully_a_substance->handle_name, "\" is a property, not a substance.");
+		fatal_error("Fluxes can only be assigned to quantities. \"", hopefully_a_quantity->handle_name, "\" is a property, not a quantity.");
 	}
 	if(!state_var_location_exists(model, loc)) {
 		auto compartment = module->compartments[loc.compartment];
 		source_loc.print_error_header();
-		fatal_error("The compartment \"", compartment->handle_name, "\" does not have the substance \"", hopefully_a_substance->handle_name, "\".");
+		fatal_error("The compartment \"", compartment->handle_name, "\" does not have the quantity \"", hopefully_a_quantity->handle_name, "\".");
 	}
 }
 
@@ -52,7 +52,7 @@ Mobius_Model::add_module(Module_Declaration *module) {
 	for(Entity_Id id : module->hases) {
 		auto has = module->hases[id];
 		
-		// TODO: fixup of unit of the has (inherits from the substance or property if not given here!)
+		// TODO: fixup of unit of the has (inherits from the quantity or property if not given here!)
 		// TODO: check for duplicate has!
 		register_state_variable(this, module, Decl_Type::has, id);
 	}
@@ -75,8 +75,13 @@ Mobius_Model::compose() {
 		else if(var.type == Decl_Type::property)
 			ast = modules[var.entity_id.module_id]->hases[var.entity_id]->code;
 		
+		//TODO: For fluxes, with discrete solver, we also have to make sure they don't empty the given quantity.
+		//Also, the order of fluxes are important.
+		
 		if(ast) {
 			var.function_tree = make_cast(resolve_function_tree(this, var.entity_id.module_id, ast), Value_Type::real);
+		} else {
+			var.function_tree = quantity_codegen(this, var.entity_id);
 		}
 	}
 	
@@ -89,6 +94,8 @@ Mobius_Model::compose() {
 		if(var.function_tree)
 			register_dependencies(var.function_tree, &var);
 	}
+	
+	// TODO: sort into batch structure.
 }
 
 

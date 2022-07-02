@@ -11,7 +11,7 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	//TODO: if we cast a literal, we should just cast the value here and replace the literal.
 	
 	auto cast = new Math_Expr_FT();
-	cast->ast = expr->ast;     // not sure if this is good, it is just so that it has a valid location.
+	cast->location = expr->location;     // not sure if this is good, it is just so that it has a valid location.
 	cast->value_type = cast_to;
 	cast->unit = expr->unit;
 	cast->exprs.push_back(expr);
@@ -27,10 +27,10 @@ void try_cast(Math_Expr_FT **a, Math_Expr_FT **b) {
 
 void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right, String_View name) {
 	if((*left)->value_type == Value_Type::boolean) {
-		(*left)->ast->location.print_error_header(); //TODO: should the error refer to the operator instead?
+		(*left)->location.print_error_header(); //TODO: should the error refer to the operator instead?
 		fatal_error("Expression \"", name, "\" does not accept an argument of type boolean.");
 	} else if ((*right)->value_type == Value_Type::boolean) {
-		(*right)->ast->location.print_error_header(); //TODO: should the error refer to the operator instead?
+		(*right)->location.print_error_header(); //TODO: should the error refer to the operator instead?
 		fatal_error("Expression \"", name, "\" does not accept an argument of type boolean.");
 	}
 	try_cast(left, right);
@@ -104,7 +104,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 				Entity_Id second = find_handle(module, ident->chain[1].string_value);
 				//TODO: may need fixup for special identifiers.
 				
-				if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_substance) {
+				if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_quantity) {
 					ident->chain[0].print_error_header();
 					fatal_error("Unable to resolve value.");  //TODO: make message more specific.
 				}
@@ -167,6 +167,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 			resolve_arguments(model, module_id, new_fun, ast);
 			
 			new_fun->fun_type = module->functions[fun_id]->fun_type;
+			new_fun->fun_name = fun->name.string_value;
 			
 			if(new_fun->fun_type == Function_Type::intrinsic) {
 				fixup_intrinsic(new_fun, &fun->name);
@@ -183,20 +184,22 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 		
 		case Math_Expr_Type::unary_operator : {
 			auto unary = reinterpret_cast<Unary_Operator_AST *>(ast);
-			auto new_unary = new Math_Expr_FT();
+			auto new_unary = new Operator_FT();
 			
 			resolve_arguments(model, module_id, new_unary, ast);
 			
-			if(unary->oper == "-") {
+			new_unary->oper = unary->oper;
+			
+			if((char)unary->oper == '-') {
 				if(new_unary->exprs[0]->value_type == Value_Type::boolean) {
-					new_unary->exprs[0]->ast->location.print_error_header();
+					new_unary->exprs[0]->location.print_error_header();
 					fatal_error("Unary minus can not have an argument of type boolean.");
 				}
 				new_unary->unit = new_unary->exprs[0]->unit;
 				new_unary->value_type = new_unary->exprs[0]->value_type;
-			} else if(unary->oper == "!") {
+			} else if((char)unary->oper == '!') {
 				if(new_unary->exprs[0]->value_type != Value_Type::boolean) {
-					new_unary->exprs[0]->ast->location.print_error_header();
+					new_unary->exprs[0]->location.print_error_header();
 					fatal_error("Negation must have an argument of type boolean.");
 				}
 				
@@ -210,20 +213,23 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 		
 		case Math_Expr_Type::binary_operator : {
 			auto binary = reinterpret_cast<Binary_Operator_AST *>(ast);
-			auto new_binary = new Math_Expr_FT();
+			auto new_binary = new Operator_FT();
 			
 			resolve_arguments(model, module_id, new_binary, ast);
 			
-			if(binary->oper == "|" || binary->oper == "&") {
+			new_binary->oper = binary->oper;
+			char op = (char)binary->oper;
+			
+			if(op == '|' || op == '&') {
 				if(new_binary->exprs[0]->value_type != Value_Type::boolean || new_binary->exprs[1]->value_type != Value_Type::boolean) {
-					fatal_error("Operator ", binary->oper, " can only take boolean arguments.");
+					fatal_error("Operator ", name(binary->oper), " can only take boolean arguments.");
 				}
 				new_binary->value_type = Value_Type::boolean;
 				new_binary->unit       = module->dimensionless_unit;
 			} else {
-				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1], binary->oper);
+				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1], name(binary->oper));
 				
-				if(binary->oper == "+" || binary->oper == "-" || binary->oper == "*" || binary->oper == "/") {
+				if(op == '+' || op == '-' || op == '*' || op == '/' || binary->oper == Token_Type::pow) {
 					new_binary->value_type = new_binary->exprs[0]->value_type;
 					new_binary->unit = new_binary->exprs[0]->unit;              //TODO: instead do unit arithmetic when that is implemented!
 				} else {
@@ -245,7 +251,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 			Value_Type value_type = new_if->exprs[0]->value_type;
 			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
 				if(new_if->exprs[idx+1]->value_type != Value_Type::boolean) {
-					new_if->exprs[idx+1]->ast->location.print_error_header();
+					new_if->exprs[idx+1]->location.print_error_header();
 					fatal_error("Value of condition in if expression must be of type boolean.");
 				}
 				if(new_if->exprs[idx]->value_type == Value_Type::real) value_type = Value_Type::real;
@@ -266,7 +272,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 		} break;
 	}
 	
-	result->ast = ast;
+	result->location = ast->location;
 	result->expr_type = ast->type;
 	
 	if(result->value_type == Value_Type::unresolved) {
@@ -303,16 +309,14 @@ prune_tree(Math_Expr_FT *expr) {
 			}
 			if(all_literal) {
 				auto literal = new Literal_FT();
-				literal->ast = expr->ast;
+				literal->location = expr->location;
 				literal->unit = expr->unit;
 				literal->value_type = expr->value_type;
-				literal->ast = expr->ast;
 				
 				if(expr->exprs.size() == 2) {
 					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 					auto arg2 = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
-					auto fun_ast = reinterpret_cast<Function_Call_AST *>(expr->ast);
-					literal->value = apply_intrinsic(arg1->value, arg2->value, expr->value_type, fun_ast->name.string_value);
+					literal->value = apply_intrinsic(arg1->value, arg2->value, expr->value_type, fun->fun_name);
 					delete expr;
 					return literal;
 				} else
@@ -323,14 +327,14 @@ prune_tree(Math_Expr_FT *expr) {
 		case Math_Expr_Type::unary_operator : {
 			// If the argument is a literal, just apply the operator directly on the unary and replace the unary with the literal.
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
-				auto unary = reinterpret_cast<Unary_Operator_AST *>(expr->ast);
+				auto unary = reinterpret_cast<Operator_FT *>(expr);
 				auto arg = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 				Parameter_Value val = apply_unary(arg->value, arg->value_type, unary->oper);
 				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
 				literal->unit = expr->unit;
-				literal->ast = expr->ast;
+				literal->location = expr->location;
 				delete expr;
 				return literal;
 			}
@@ -340,14 +344,14 @@ prune_tree(Math_Expr_FT *expr) {
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal && expr->exprs[1]->expr_type == Math_Expr_Type::literal) {
 				auto left  = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 				auto right = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
-				auto binary = reinterpret_cast<Binary_Operator_AST *>(expr->ast);
+				auto binary = reinterpret_cast<Operator_FT *>(expr);
 				//NOTE: the value type of left and right should be the same..
 				Parameter_Value val = apply_binary(left->value, right->value, left->value_type, binary->oper);
 				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
 				literal->unit = expr->unit;
-				literal->ast = expr->ast;
+				literal->location = expr->location;
 				delete expr;
 				return literal;
 			}
@@ -404,7 +408,7 @@ prune_tree(Math_Expr_FT *expr) {
 				literal->value = apply_cast(old_literal->value, old_literal->value_type, expr->value_type);
 				literal->value_type = expr->value_type;
 				literal->unit = expr->unit;
-				literal->ast = expr->ast;
+				literal->location = expr->location;
 				delete expr;
 				return literal;
 			}
@@ -427,3 +431,64 @@ register_dependencies(Math_Expr_FT *expr, State_Variable *var) {
 			var->depends_on_input_series.insert(ident->series);
 	}
 }
+
+
+Math_Expr_FT *
+quantity_codegen(Mobius_Model *model, Entity_Id id) {
+	auto module = model->modules[id.module_id];
+	auto has = module->hases[id];
+	
+	auto location = has->value_location;
+	//TODO: check that the location is a valid quantity location.
+	
+	std::vector<std::pair<state_var_id, char>> fluxes;
+	//TODO: make proper id system.
+	//TODO: make convenience lookup functions for some of the below!
+	for(state_var_id var_id = 0; var_id < model->state_variables.size(); ++var_id) {
+		State_Variable *state_var = &model->state_variables[var_id];
+		auto entity_id = state_var->entity_id;
+		if(entity_id.reg_type == Reg_Type::flux) {
+			auto flux = model->modules[entity_id.module_id]->fluxes[entity_id];
+			if(flux->source == location)
+				fluxes.push_back({var_id, '+'});
+			if(flux->target == location)
+				fluxes.push_back({var_id, '-'});
+		}
+	}
+	
+	state_var_id quant_id = model->location_to_id[location]; //TODO: not raw lookup, check that it exists!
+	
+	//TODO: The below can be compressed a lot with helper functions
+	Identifier_FT *quant = new Identifier_FT();
+	quant->variable_type = Variable_Type::state_var;
+	quant->state_var = quant_id;
+	quant->value_type = Value_Type::real;
+	quant->unit = module->dimensionless_unit; //TODO! also, what do we do about unit checking for fluxes? Can't be done at function tree stage since then error messages will be strange.
+	
+	Math_Expr_FT *result = quant;
+	//TODO: have to make fixes to function tree to get this to work.
+	for(auto &pair : fluxes) {
+		auto flx = new Identifier_FT();
+		flx->variable_type = Variable_Type::state_var;
+		flx->state_var = pair.first;
+		flx->value_type = Value_Type::real;
+		flx->unit = module->dimensionless_unit; //TODO
+		
+		auto sum = new Operator_FT();
+		sum->value_type = Value_Type::real;
+		sum->expr_type = Math_Expr_Type::binary_operator;
+		sum->oper = (Token_Type)pair.second;
+		sum->unit = module->dimensionless_unit; //TODO
+		
+		sum->exprs.push_back(result);
+		sum->exprs.push_back(flx);
+		result = sum;
+	}
+	
+	return result;
+}
+
+
+
+
+

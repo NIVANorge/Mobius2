@@ -52,7 +52,7 @@ void print_expr(Math_Expr_AST *expr) {
 	if(expr->type == Math_Expr_Type::binary_operator) {
 		auto binop = reinterpret_cast<Binary_Operator_AST *>(expr);
 		print_expr(binop->exprs[0]);
-		warning_print(binop->oper);
+		warning_print(name(binop->oper));
 		print_expr(binop->exprs[1]);
 	} else if(expr->type == Math_Expr_Type::literal) {
 		auto literal = reinterpret_cast<Literal_AST *>(expr);
@@ -272,39 +272,19 @@ parse_function_call(Token_Stream *stream) {
 
 
 int
-find_binary_operator(Token_Stream *stream, String_View *result) {
+find_binary_operator(Token_Stream *stream, Token_Type *t) {
 	Token peek = stream->peek_token();
-	char c = (char)peek.type;
+	*t = peek.type;
+	char c = (char)*t;
 	
-	bool arit = (c == '+') || (c == '-') || (c == '*') || (c == '/');
-	bool eq   = (c == '=') || (c == '!');
-	bool comp = (c == '<') || (c == '>');
-	bool logical = (c == '|') || (c == '&');
+	if(c == '|') return 1000;
+	else if(c == '&') return 2000;
+	else if((c == '<') || (c == '>') || (*t == Token_Type::leq) || (*t == Token_Type::geq) || (*t == Token_Type::eq) || (*t == Token_Type::neq)) return 3000; 
+	else if((c == '+') || (c == '-')) return 4000;
+	else if(c == '/') return 5000;
+	else if(c == '*') return 6000;   //not sure if * should be higher than /
+	else if(*t == Token_Type::pow) return 7000;
 	
-	if( arit || comp || eq || logical) {
-		*result = peek.string_value;
-		
-		// Hmm, we could also have done this combining of two-char operators in the lexer ?? Would make it possible to disallow spaces inside    >   =     for instance. Also cleaner.
-		// Actually,    >  =    would cause a bug now, since the = would not be counted in the operator string.
-		if(eq || comp) {
-			Token peek2 = stream->peek_token(1);
-			if((char)peek2.type == '=') {
-				++result->count;
-			} else if (eq)    // we got a single = or ! sign, which is not a binary operator
-				return 0;
-		}
-		
-		if(*result == "|") return 1000;
-		else if(*result == "&") return 2000;
-		else if(*result == "<" || *result == ">" || *result == ">=" || *result == "<=" || *result == "==" || *result == "!=") return 3000; 
-		else if(*result == "+" || *result == "-") return 4000;
-		else if(*result == "/") return 5000;
-		else if(*result == "*") return 6000;   //not sure if * should be higher than /
-		else {
-			peek.print_error_header();
-			fatal_error("Unrecognized binary operator \"", *result, "\".");
-		}
-	}
 	return 0;
 }
 
@@ -312,18 +292,16 @@ Math_Expr_AST *
 potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math_Expr_AST *lhs) {
 	
 	while(true) {
-		String_View oper;
+		Token_Type oper;
 		if(int cur_prec = find_binary_operator(stream, &oper)) {	
 			if(cur_prec < prev_prec)
 				return lhs;
 			
-			Source_Location location = stream->peek_token().location;
-			for(int it = 0; it < oper.count; ++it)
-				stream->read_token(); // consume the operator;
+			Token token = stream->read_token(); // consume the operator
 			
 			Math_Expr_AST *rhs = parse_primary_expr(stream);
 			
-			String_View oper_next;
+			Token_Type oper_next;
 			if(int next_prec = find_binary_operator(stream, &oper_next)) {
 				if(cur_prec < next_prec)
 					rhs = potentially_parse_binary_operation_rhs(stream, cur_prec + 1, rhs);
@@ -333,7 +311,7 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 			binop->oper = oper;
 			binop->exprs.push_back(lhs);
 			binop->exprs.push_back(rhs);
-			binop->location = location;
+			binop->location = token.location;
 			lhs = binop;
 			
 		} else
@@ -356,7 +334,7 @@ parse_primary_expr(Token_Stream *stream) {
 		Source_Location location = token.location;
 		stream->read_token();
 		auto unary = new Unary_Operator_AST();
-		unary->oper = token.string_value;
+		unary->oper = token.type;
 		unary->exprs.push_back(parse_primary_expr(stream));
 		unary->location = location;
 		result = unary;

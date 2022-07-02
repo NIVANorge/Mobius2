@@ -136,14 +136,14 @@ Function_Call_AST : Math_Expr_AST {
 
 struct
 Unary_Operator_AST : Math_Expr_AST {
-	String_View                   oper;
+	Token_Type                   oper;
 	
 	Unary_Operator_AST() : Math_Expr_AST(Math_Expr_Type::unary_operator) {};
 };
 
 struct
 Binary_Operator_AST : Math_Expr_AST {
-	String_View                   oper;
+	Token_Type                   oper;
 	
 	Binary_Operator_AST() : Math_Expr_AST(Math_Expr_Type::binary_operator) {};
 };

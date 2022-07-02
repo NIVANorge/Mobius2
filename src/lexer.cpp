@@ -182,7 +182,15 @@ Token_Stream::read_token_base(Token *token) {
 					is_single = false;
 			}
 			
-			if(is_single)                               token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.
+			if(is_single) {
+				char n = peek_char();
+				if     (c == '<' && n == '=') token->type = Token_Type::leq;
+				else if(c == '>' && n == '=') token->type = Token_Type::geq;
+				else if(c == '=' && n == '=') token->type = Token_Type::eq;
+				else if(c == '!' && n == '=') token->type = Token_Type::neq;
+				else if(c == '*' && n == '*') token->type = Token_Type::pow;
+				else token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.
+			}
 			else if(c == '"')                           token->type =  Token_Type::quoted_string;
 			else if(c == '-' || c == '.' || isdigit(c)) token->type =  Token_Type::real;          // NOTE: Can change type to integer, date or time when parsing it below
 			else if(is_identifier(c))                   token->type =  Token_Type::identifier;   // NOTE: Can change type to bool or real when parsing it below
@@ -214,6 +222,11 @@ Token_Stream::read_token_base(Token *token) {
 		read_identifier(token);
 	else if(token->type == Token_Type::real)
 		read_number(token);
+	else {  // we have a two-character operator
+		read_char(); read_char(); // consume the two chars.
+		token->string_value.count = 2;
+		return;
+	}
 }
 
 void

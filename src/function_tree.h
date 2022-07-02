@@ -43,10 +43,10 @@ Variable_Type {
 
 struct
 Math_Expr_FT {
-	Math_Expr_AST               *ast;
 	Math_Expr_Type               expr_type;
 	Value_Type                   value_type;
 	Entity_Id                    unit;
+	Source_Location              location;
 	std::vector<Math_Expr_FT *>  exprs;
 	
 	Math_Expr_FT() : value_type(Value_Type::unresolved) {};
@@ -56,7 +56,7 @@ struct
 Math_Block_FT : Math_Expr_FT {
 	//TODO: scope info
 	
-	Math_Block_FT() : Math_Expr_FT() {};
+	Math_Block_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::block; };
 };
 
 struct
@@ -82,9 +82,19 @@ Literal_FT : Math_Expr_FT {
 struct
 Function_Call_FT : Math_Expr_FT {
 	Function_Type fun_type;
+	String_View   fun_name;
 	
 	Function_Call_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::function_call; };
 };
+
+struct
+Operator_FT : Math_Expr_FT {
+	Token_Type oper;
+	
+	Operator_FT() : Math_Expr_FT() {};
+};
+
+
 
 struct Mobius_Model;
 struct Math_Expr_AST;
@@ -102,5 +112,7 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to);
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr);
 
+Math_Expr_FT *
+quantity_codegen(Mobius_Model *model, Entity_Id id);
 
 #endif // MOBIUS_FUNCTION_TREE_H

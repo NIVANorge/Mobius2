@@ -17,8 +17,8 @@ module("HBVSnow lite", 1,0,0) {
 		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 0)
 	}
 	
-	snow  : substance("Snow (water equivalents)")
-	water : substance("Water")
+	snow  : quantity("Snow (water equivalents)")
+	water : quantity("Water")
 	
 	# note: we don't say air.has(temp) ... etc. This means that it is "hanging" and so assumed to be an input series, unless another module declares a function for it.
 	

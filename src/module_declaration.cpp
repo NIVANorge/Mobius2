@@ -9,7 +9,7 @@ Module_Declaration::registry(Reg_Type reg_type) {
 		case Reg_Type::par_group :                return &par_groups;
 		case Reg_Type::parameter :                return &parameters;
 		case Reg_Type::unit :                     return &units;
-		case Reg_Type::property_or_substance :    return &properties_and_substances;
+		case Reg_Type::property_or_quantity :     return &properties_and_quantities;
 		case Reg_Type::has :                      return &hases;
 		case Reg_Type::flux :                     return &fluxes;
 		case Reg_Type::function :                 return &functions;
@@ -135,7 +135,7 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 	if(name)
 		registration->name = name->string_value;
 	
-	//NOTE: the type be different from the reg_type in some instances since we use the same registry for e.g. substances and properties, or different parameter types.
+	//NOTE: the type be different from the reg_type in some instances since we use the same registry for e.g. quantities and properties, or different parameter types.
 	if(declaration)
 		registration->decl_type   = declaration->type;
 	
@@ -375,7 +375,7 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 	auto par_group = module->par_groups[id];
 	
 	//TODO: Do we always need to require that a par group is tied a compartment?
-	//TODO: Actually, it could be tied to a substance too, once we get to implement that!
+	//TODO: Actually, it could be tied to a quantity too, once we get to implement that!
 	par_group->compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
 	
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
@@ -396,15 +396,15 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 }
 
 template<> Entity_Id
-process_declaration<Reg_Type::property_or_substance>(Module_Declaration *module, Decl_AST *decl) {
+process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, Decl_AST *decl) {
 	int which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string},
 			{Token_Type::quoted_string, Decl_Type::unit},
 		});
 
-	auto id       = module->properties_and_substances.standard_declaration(decl);
-	auto property = module->properties_and_substances[id];
+	auto id       = module->properties_and_quantities.standard_declaration(decl);
+	auto property = module->properties_and_quantities[id];
 	
 	if(which == 1)
 		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
@@ -426,10 +426,10 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	auto id  = module->hases.find_or_create(&decl->handle_name, nullptr, decl);
 	auto has = module->hases[id];
 	
-	// TODO: can eventually be tied to a substance not only a compartment.
+	// TODO: can eventually be tied to a quantity not only a compartment.
 	has->value_location.type = Location_Type::located;
 	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
-	has->value_location.property_or_substance = resolve_argument<Reg_Type::property_or_substance>(module, decl, 0);
+	has->value_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
 	
 	if(which == 1)
 		has->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
@@ -480,9 +480,9 @@ process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Val
 	} else if (symbol->size() == 2) {
 		location->type     = Location_Type::located;
 		location->compartment = module->compartments.find_or_create(&(*symbol)[0]);
-		location->property_or_substance   = module->properties_and_substances.find_or_create(&(*symbol)[1]);    //NOTE: this does not guarantee that this is a substance and not a property, so that must be checked in post.
+		location->property_or_quantity   = module->properties_and_quantities.find_or_create(&(*symbol)[1]);    //NOTE: this does not guarantee that this is a quantity and not a property, so that must be checked in post.
 	} else {
-		//TODO: this should eventually be allowed when having dissolved substances
+		//TODO: this should eventually be allowed when having dissolved quantity
 		(*symbol)[0].print_error_header();
 		fatal_error("Invalid flux location.");
 	}
@@ -506,6 +506,11 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 	
 	process_flux_argument(module, decl, 0, &flux->source);
 	process_flux_argument(module, decl, 1, &flux->target);
+	
+	if(flux->source == flux->target && flux->source.type == Location_Type::located) {
+		decl->type_name.print_error_header();
+		fatal_error("The source and the target of a flux can't be the same.");
+	}
 	
 	auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
 	if(!body->modifiers.empty()) {
@@ -564,9 +569,9 @@ process_module_declaration(s16 module_id, Decl_AST *decl) {
 				process_declaration<Reg_Type::par_group>(module, child);
 			} break;
 			
-			case Decl_Type::substance :
+			case Decl_Type::quantity :
 			case Decl_Type::property : {
-				process_declaration<Reg_Type::property_or_substance>(module, child);
+				process_declaration<Reg_Type::property_or_quantity>(module, child);
 			} break;
 			
 			case Decl_Type::has : {

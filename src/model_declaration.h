@@ -10,9 +10,9 @@
 
 struct
 State_Variable {
-	Decl_Type type; //either flux, substance or property
+	Decl_Type type; //either flux, quantity or property
 	
-	Entity_Id entity_id;
+	Entity_Id entity_id;  // This is the ID of the declaration, either has(...) or flux(...)
 	
 	std::set<Entity_Id>    depends_on_parameter;
 	std::set<state_var_id> depends_on_input_series;

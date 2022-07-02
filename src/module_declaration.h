@@ -89,16 +89,16 @@ Location_Type {
 
 struct
 Value_Location {
-	//TODO: this becomes more complicated with dissolved substances etc.
+	//TODO: this becomes more complicated with dissolved quantities etc.
 	Location_Type type;
 	
 	Entity_Id compartment;
-	Entity_Id property_or_substance;
+	Entity_Id property_or_quantity;
 };
 
 inline bool
 operator==(const Value_Location &a, const Value_Location &b) {
-	return a.type == b.type && a.compartment == b.compartment && a.property_or_substance == b.property_or_substance;
+	return a.type == b.type && a.compartment == b.compartment && a.property_or_quantity == b.property_or_quantity;
 }
 
 struct
@@ -110,8 +110,8 @@ Value_Location_Hash {
 		return
 			 loc.compartment.module_id
 		+ 23*loc.compartment.id
-		+ 97*loc.property_or_substance.module_id
-		+ 2237*loc.property_or_substance.id;
+		+ 97*loc.property_or_quantity.module_id
+		+ 2237*loc.property_or_quantity.id;
 		// NOTE: no point using the reg_type here since they should be the same always (for now).
 	}
 };
@@ -139,7 +139,7 @@ Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	Entity_Id              compartment;  //TODO: could also be substance
+	Entity_Id              compartment;  //TODO: could also be quantity
 	std::vector<Entity_Id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
 };
 
@@ -161,8 +161,8 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 };
 
 template<> struct
-Entity_Registration<Reg_Type::property_or_substance> : Entity_Registration_Base {
-	//NOTE: this is in practice used both for property and substance
+Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
+	//NOTE: this is in practice used both for property and quantity
 	Entity_Id    unit;
 };
 
@@ -254,7 +254,7 @@ Module_Declaration {
 	Registry<Reg_Type::par_group>   par_groups;
 	Registry<Reg_Type::parameter>   parameters;     // NOTE: par_real is a stand-in for all parameter declarations.
 	Registry<Reg_Type::unit>        units;
-	Registry<Reg_Type::property_or_substance>    properties_and_substances;  // NOTE: is used for both Decl_Type::property and Decl_Type::substance.
+	Registry<Reg_Type::property_or_quantity>    properties_and_quantities;  // NOTE: is used for both Decl_Type::property and Decl_Type::quantity.
 	Registry<Reg_Type::has>         hases;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::function>    functions;
@@ -264,7 +264,7 @@ Module_Declaration {
 		par_groups  (this),
 		parameters  (this),
 		units       (this),
-		properties_and_substances(this),
+		properties_and_quantities(this),
 		hases       (this),
 		fluxes      (this),
 		functions   (this)
@@ -315,13 +315,13 @@ find_handle(Module_Declaration *module, String_View handle_name) {
 }
 
 inline Value_Location
-make_value_location(Module_Declaration *module, Entity_Id compartment, Entity_Id property_or_substance) {
+make_value_location(Module_Declaration *module, Entity_Id compartment, Entity_Id property_or_quantity) {
 	Value_Location result;
 	result.type = Location_Type::located;
 	result.compartment = compartment;
-	result.property_or_substance = property_or_substance;
-	if(module->module_id != compartment.module_id || module->module_id != property_or_substance.module_id ||
-		compartment.reg_type != Reg_Type::compartment || property_or_substance.reg_type != Reg_Type::property_or_substance) {
+	result.property_or_quantity = property_or_quantity;
+	if(module->module_id != compartment.module_id || module->module_id != property_or_quantity.module_id ||
+		compartment.reg_type != Reg_Type::compartment || property_or_quantity.reg_type != Reg_Type::property_or_quantity) {
 			fatal_error(Mobius_Error::internal, "Incorrect use of make_value_location().");
 	}
 	
