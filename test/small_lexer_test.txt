@@ -26,8 +26,7 @@ module("HBVSnow lite", 1,0,0) {
 	precip : property("Precipitation", unit(m m, day -1))
 	
 	snurkelmeis : snow_box.has(temp) {
-		air.precip    if air.temp < t_snow,
-		0             otherwise
+		exp(1)
 	}
 	
 	snow_box.has(snow,  unit(m m)) .initial { init_snow }

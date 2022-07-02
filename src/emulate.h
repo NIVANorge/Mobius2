@@ -12,6 +12,9 @@ Parameter_Value
 apply_binary(Parameter_Value lhs, Parameter_Value rhs, Value_Type type, Token_Type oper);
 
 Parameter_Value
+apply_intrinsic(Parameter_Value a, Value_Type type, String_View function);
+
+Parameter_Value
 apply_intrinsic(Parameter_Value a, Parameter_Value b, Value_Type type, String_View function);
 
 

@@ -2,6 +2,8 @@
 #include "function_tree.h"
 #include "emulate.h"
 
+#include <cmath>
+
 
 Parameter_Value
 apply_cast(Parameter_Value val, Value_Type from_type, Value_Type to_type) {
@@ -76,6 +78,9 @@ apply_binary(Parameter_Value lhs, Parameter_Value rhs, Value_Type value_type, To
 	} else if(op == '/') {
 		if(value_type == Value_Type::integer)   result.val_int = lhs.val_int / rhs.val_int;
 		else if(value_type == Value_Type::real) result.val_double = lhs.val_double / rhs.val_double;
+	} else if(op == '^') {
+		if(value_type == Value_Type::integer)   result.val_double = std::pow(lhs.val_double, rhs.val_int);
+		else if(value_type == Value_Type::real) result.val_double = std::pow(lhs.val_double, rhs.val_int);
 	} else
 		fatal_error(Mobius_Error::internal, "apply_binary() unhandled operator ", name(oper), " .");
 	
@@ -98,6 +103,19 @@ apply_intrinsic(Parameter_Value a, Parameter_Value b, Value_Type type, String_Vi
 		}
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+	return result;
+}
+
+Parameter_Value
+apply_intrinsic(Parameter_Value a, Value_Type type, String_View function) {
+	Parameter_Value result;
+	if(function == "exp") {
+		if(type != Value_Type::real)
+			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic().");
+		result.val_double = std::exp(a.val_double);
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+	
 	return result;
 }
 
@@ -139,16 +157,23 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state) {
 			auto binary = reinterpret_cast<Operator_FT *>(expr);
 			Parameter_Value a = emulate_expression(expr->exprs[0], state);
 			Parameter_Value b = emulate_expression(expr->exprs[1], state);
-			return apply_binary(a, b, expr->exprs[0]->value_type, binary->oper);
+			return apply_binary(a, b, expr->exprs[1]->value_type, binary->oper);
 		} break;
 		
 		case Math_Expr_Type::function_call : {
 			auto fun = reinterpret_cast<Function_Call_FT *>(expr);
-			if(fun->fun_type != Function_Type::intrinsic) fatal_error(Mobius_Error::internal, "Unhandled function type in emulate_expression().");
-			if(fun->exprs.size() != 2) fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in emulate_expression().");
-			Parameter_Value a = emulate_expression(fun->exprs[0], state);
-			Parameter_Value b = emulate_expression(fun->exprs[1], state);
-			return apply_intrinsic(a, b, fun->exprs[0]->value_type, fun->fun_name);
+			if(fun->fun_type != Function_Type::intrinsic)
+				fatal_error(Mobius_Error::internal, "Unhandled function type in emulate_expression().");
+			
+			if(fun->exprs.size() == 1) {
+				Parameter_Value a = emulate_expression(fun->exprs[0], state);
+				return apply_intrinsic(a, fun->exprs[0]->value_type, fun->fun_name);
+			} else if(fun->exprs.size() == 2) {
+				Parameter_Value a = emulate_expression(fun->exprs[0], state);
+				Parameter_Value b = emulate_expression(fun->exprs[1], state);
+				return apply_intrinsic(a, b, fun->exprs[0]->value_type, fun->fun_name);
+			} else
+				fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in emulate_expression().");
 		} break;
 
 		case Math_Expr_Type::if_chain : {

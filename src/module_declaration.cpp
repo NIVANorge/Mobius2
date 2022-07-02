@@ -549,7 +549,9 @@ process_module_declaration(s16 module_id, Decl_AST *decl) {
 	auto maxfun = module->functions.create_compiler_internal("max", Decl_Type::function);
 	module->functions[maxfun]->fun_type = Function_Type::intrinsic;
 	module->functions[maxfun]->args = {"a", "b"};
-	
+	auto expfun = module->functions.create_compiler_internal("exp", Decl_Type::function);
+	module->functions[expfun]->fun_type = Function_Type::intrinsic;
+	module->functions[expfun]->args = {"a"};
 	
 
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);

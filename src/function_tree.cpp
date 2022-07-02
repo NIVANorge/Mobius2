@@ -21,27 +21,27 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 }
 
 void try_cast(Math_Expr_FT **a, Math_Expr_FT **b) {
-	if((*a)->value_type == Value_Type::integer && (*b)->value_type == Value_Type::real)
+	if((*a)->value_type != Value_Type::real && (*b)->value_type == Value_Type::real)
 		*a = make_cast(*a, Value_Type::real);
+	else if((*a)->value_type == Value_Type::boolean && (*b)->value_type == Value_Type::integer)
+		*a = make_cast(*a, Value_Type::integer);
 }
 
-void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right, String_View name) {
-	if((*left)->value_type == Value_Type::boolean) {
-		(*left)->location.print_error_header(); //TODO: should the error refer to the operator instead?
-		fatal_error("Expression \"", name, "\" does not accept an argument of type boolean.");
-	} else if ((*right)->value_type == Value_Type::boolean) {
-		(*right)->location.print_error_header(); //TODO: should the error refer to the operator instead?
-		fatal_error("Expression \"", name, "\" does not accept an argument of type boolean.");
-	}
+void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right) {
 	try_cast(left, right);
 	try_cast(right, left);
 }
 
 void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
-	if(name->string_value == "min" || name->string_value == "max") {
+	String_View n = name->string_value;
+	if(n == "min" || n == "max") {
 		fun->unit = fun->exprs[0]->unit;   //TODO: should also check that the units are equal.
-		make_casts_for_binary_expr(&fun->exprs[0], &fun->exprs[1], name->string_value);
+		make_casts_for_binary_expr(&fun->exprs[0], &fun->exprs[1]);
 		fun->value_type = fun->exprs[0]->value_type; //Note: value types of both arguments should be the same now.
+	} else if (n == "exp") {
+		fun->unit = fun->exprs[0]->unit;  //TODO: wrong! Should probably be dimensionless. But also wants argument to be dimensionless.
+		fun->exprs[0] = make_cast(fun->exprs[0], Value_Type::real);
+		fun->value_type = Value_Type::real;
 	} else {
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", name, "\" in fixup_intrinsic().");
 	}
@@ -226,10 +226,16 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 				}
 				new_binary->value_type = Value_Type::boolean;
 				new_binary->unit       = module->dimensionless_unit;
+			} else if (op == '^') {
+				//Note: we could implement pow for lhs of type int too, but llvm does not have an intrinsic for it, and there is unlikely to be any use case.
+				new_binary->value_type = Value_Type::real;
+				new_binary->unit       = module->dimensionless_unit; //TODO: could make new unit if rhs is an integer or exact fraction.
+				new_binary->exprs[0]   = make_cast(new_binary->exprs[0], Value_Type::real);
+				if(new_binary->exprs[1]->value_type == Value_Type::boolean) new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
 			} else {
-				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1], name(binary->oper));
+				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1]);
 				
-				if(op == '+' || op == '-' || op == '*' || op == '/' || binary->oper == Token_Type::pow) {
+				if(op == '+' || op == '-' || op == '*' || op == '/') {
 					new_binary->value_type = new_binary->exprs[0]->value_type;
 					new_binary->unit = new_binary->exprs[0]->unit;              //TODO: instead do unit arithmetic when that is implemented!
 				} else {
@@ -313,10 +319,15 @@ prune_tree(Math_Expr_FT *expr) {
 				literal->unit = expr->unit;
 				literal->value_type = expr->value_type;
 				
-				if(expr->exprs.size() == 2) {
+				if(expr->exprs.size() == 1) {
+					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+					literal->value = apply_intrinsic(arg1->value, arg1->value_type, fun->fun_name);
+					delete expr;
+					return literal;
+				} else if(expr->exprs.size() == 2) {
 					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 					auto arg2 = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
-					literal->value = apply_intrinsic(arg1->value, arg2->value, expr->value_type, fun->fun_name);
+					literal->value = apply_intrinsic(arg1->value, arg2->value, arg1->value_type, fun->fun_name);
 					delete expr;
 					return literal;
 				} else
@@ -342,11 +353,11 @@ prune_tree(Math_Expr_FT *expr) {
 		
 		case Math_Expr_Type::binary_operator : {
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal && expr->exprs[1]->expr_type == Math_Expr_Type::literal) {
-				auto left  = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
-				auto right = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
+				auto lhs  = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+				auto rhs = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
 				auto binary = reinterpret_cast<Operator_FT *>(expr);
-				//NOTE: the value type of left and right should be the same..
-				Parameter_Value val = apply_binary(left->value, right->value, left->value_type, binary->oper);
+				//NOTE: have to pass rhs type since that matters for pow.. not clean, instead Parameter_Value should carry its type, or we should pass both
+				Parameter_Value val = apply_binary(lhs->value, rhs->value, rhs->value_type, binary->oper);
 				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
@@ -358,47 +369,45 @@ prune_tree(Math_Expr_FT *expr) {
 		} break;
 	
 		case Math_Expr_Type::if_chain : {
-			/*
-			std::vector<Math_Expr_FT *> remains;
-			int true_idx = -1;
-			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
-				bool is_false = false;
-				if(new_if->exprs[idx]->expr_type == Math_Expr_Type::literal) {
-					auto literal = reinterpret_cast<Literal_FT *>(new_if->exprs[idx]);
-					if(literal->value.val_bool == false) {
-						is_false = true;
-						delete literal;
-						new_if->exprs[idx] = nullptr;
-						delete new_if->exprs[idx+1]; //Also delete the condition
-						new_if->exprs[idx+1] = nullptr;
-					} else {
-						true_idx = idx; break;
-					}
-				}
-				if(!is_false) {
-					remains.push_back(new_if->exprs[idx]);
-					remains.push_back(new_if->exprs[idx]+1);
-				}
-			}
-			remains.push_back(new_if->exprs[otherwise_idx]);
 			
-			bool replaced = false;
-			if(true_idx > 0) { //TODO: This is WRONG! We can't remove the *prior* clauses. We just have to remove the rest and replace the *otherwise* with this one.
-				for(int idx = 0; idx < new_if->exprs.size(); ++idx) if(idx != true_idx && new_if->exprs[idx]) delete new_if->exprs[idx];
-				result = new_if->exprs[true_idx];
-				replaced = true;
-				new_if->exprs.clear(); //to not invoke destructor on the new result
-				delete new_if;
-			} else {
-				if(remains.size() == 1) { // Only the otherwise value remained, so we can replace the entire expression with that.
-					result = new_if->exprs[0];
-					new_if->exprs.clear(); // to not invoke destructor on child element.
-					replaced = true;
-					delete new_if;
-				} else
-					new_if->exprs = remains;
+			std::vector<Math_Expr_FT *> remains;
+			bool found_true = false;
+			for(int idx = 0; idx < (int)expr->exprs.size()-1; idx+=2) {
+				bool is_false = false;
+				bool is_true  = false;
+				if(!found_true && expr->exprs[idx+1]->expr_type == Math_Expr_Type::literal) {
+					auto literal = reinterpret_cast<Literal_FT *>(expr->exprs[idx+1]);
+					if(literal->value.val_bool) is_true  = true;
+					else                        is_false = true;
+				}
+				
+				// If this clause is constantly false, or a previous one was true, delete the value.
+				// If this clause was true, this value becomes the 'otherwise'. Only delete clause, not value.
+				if(is_false || found_true)     
+					delete expr->exprs[idx];
+				else
+					remains.push_back(expr->exprs[idx]);
+				
+				if(is_true || is_false || found_true)
+					delete expr->exprs[idx+1];
+				else
+					remains.push_back(expr->exprs[idx+1]);
+				
+				if(is_true) found_true = true;
 			}
-			*/
+			if(found_true)
+				delete expr->exprs.back();
+			else	
+				remains.push_back(expr->exprs.back());
+			
+			if(remains.size() == 1) {
+				expr->exprs.clear(); //To not invoke destructor on children.
+				delete expr;
+				return remains[0];
+			}
+			expr->exprs = remains;
+			return expr;
+			
 		} break;
 		
 		case Math_Expr_Type::cast : {
