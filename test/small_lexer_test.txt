@@ -1,7 +1,10 @@
 
 
 module("HBVSnow lite", 1,0,0) {
-	"A snow module"
+"""
+A nice snow module.
+With some extra spice.
+"""
 
 	air        : compartment("Atmosphere")
 	snow_box   : compartment("Snow box")

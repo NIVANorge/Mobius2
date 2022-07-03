@@ -211,7 +211,7 @@ void emulate_model_run(Mobius_Model *model) {
 	//TODO: check that model is composed
 	
 	//TODO: finish this later!
-	
+	/*
 	Model_Run_State run_state;
 	run_state.parameters = (Parameter_Value *)malloc(sizeof(Parameter_Value)*module->parameters.registrations.size());
 	run_state.parameters[0].val_double = 5.1;
@@ -219,5 +219,6 @@ void emulate_model_run(Mobius_Model *model) {
 	run_state.state_vars = (double *)malloc(sizeof(double)*model.state_vars.vars.size());
 	run_state.series     = (double *)malloc(sizeof(double)*100); //TODO.
 	run_state.series[0] = 2.0;
+	*/
 }
 

@@ -99,9 +99,9 @@ get_utf8(char *s) {
 }
 
 char
-Token_Stream::peek_char() {
+Token_Stream::peek_char(s64 ahead) {
 	char c = '\0';
-	if(at_char + 1 < file_data.count) c = file_data[at_char + 1];
+	if(at_char + ahead + 1 < file_data.count) c = file_data[at_char + 1 + ahead];
 	return c;
 }
 
@@ -230,21 +230,44 @@ Token_Stream::read_token_base(Token *token) {
 
 void
 Token_Stream::read_string(Token *token) {
-	bool first_quotation_mark = true;
+	bool docstring = false;
+	
+	token->string_value.count = 0;
+	char c = read_char(); // This is just the initial quotation mark that we already detected.
+	++token->string_value.data; // don't store the quotation mark in the string data.
+	
+	if(peek_char(0) == '"' && peek_char(1) == '"') {
+		docstring = true;
+		read_char(); read_char();
+		token->string_value.data += 2;
+		c = peek_char();
+		if(c == '\n') { //Skip initial newline.
+			read_char();
+			++token->string_value.data;
+		}
+	}
 	
 	while(true) {
 		char c = read_char();
 		++token->string_value.count;
 		
 		if(c == '"') {
-			//NOTE: Don't count the quotation marks in the string length or data.
-			--token->string_value.count;
-			if(first_quotation_mark)
-				++token->string_value.data;
-			else
+			bool close = true;
+			if(docstring) {
+				// determine if this is actually closing the string.
+				if(peek_char(0) == '"' && peek_char(1) == '"') {
+					read_char(); read_char();
+					--token->string_value.count;
+					if(token->string_value[token->string_value.count-1] == '\n')
+						--token->string_value.count;  // Trim away closing newline right before """ if it exists.
+					break;
+				}
+			} else {
+				// Don't count the quotation marks in the string value.
+				--token->string_value.count;
 				break;
-			first_quotation_mark = false;
-		} else if (c == '\n') {
+			}
+		} else if (c == '\n' && !docstring) {
 			token->print_error_header();
 			fatal_error("New line before quoted string was closed.");
 		} else if (c == '\0') {

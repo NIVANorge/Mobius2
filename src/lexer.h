@@ -140,7 +140,7 @@ private:
 	
 	Peek_Queue<Token> token_queue;
 	
-	char peek_char();
+	char peek_char(s64 ahead = 0);
 	char read_char();
 	void putback_char();
 	
