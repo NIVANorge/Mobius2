@@ -247,6 +247,8 @@ Token_Stream::read_string(Token *token) {
 		}
 	}
 	
+	//TODO: for docstrings we would ideally like to trim tabs per line up to the column position of where it started, but that requires us to copy the string data into another location.
+	
 	while(true) {
 		char c = read_char();
 		++token->string_value.count;
