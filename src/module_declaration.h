@@ -57,13 +57,15 @@ using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>
 
 
 
-union
+struct
 Parameter_Value {
-	double    val_double;
-	s64       val_int;
-	u64       val_bool;
-	u64       val_enum;
-	Date_Time val_datetime;
+	union {
+		double    val_double;
+		s64       val_int;
+		u64       val_bool;
+		u64       val_enum;
+		Date_Time val_datetime;
+	};
 	
 	Parameter_Value() : val_datetime() {};
 };
@@ -95,6 +97,13 @@ Value_Location {
 	Entity_Id compartment;
 	Entity_Id property_or_quantity;
 };
+
+constexpr Value_Location invalid_value_location = {Location_Type::nowhere, invalid_entity_id, invalid_entity_id};
+
+inline bool
+is_valid(Value_Location a) {
+	return (a.type != Location_Type::located) || (is_valid(a.compartment) && is_valid(a.property_or_quantity));
+}
 
 inline bool
 operator==(const Value_Location &a, const Value_Location &b) {
@@ -274,6 +283,11 @@ Module_Declaration {
 	
 	
 	Entity_Id dimensionless_unit;
+	
+	Entity_Registration_Base *
+	find_entity(Entity_Id id) {
+		return (*registry(id.reg_type))[id];
+	}
 };
 
 template<Reg_Type reg_type>
@@ -297,12 +311,6 @@ get_reg_type(Decl_Type decl_type) {
 	#undef ENUM_VALUE
 	}
 	return Reg_Type::unrecognized;
-}
-
-
-inline Entity_Registration_Base *
-find_entity(Module_Declaration *module, Entity_Id id) {
-	return (*module->registry(id.reg_type))[id];
 }
 
 inline Entity_Id

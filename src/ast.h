@@ -8,7 +8,7 @@
 
 struct
 Expr_AST {
-	
+	virtual ~Expr_AST() {};
 };
 
 enum class
@@ -41,6 +41,7 @@ Body_AST : Expr_AST {
 	Body_Type type;
 	
 	Body_AST(Body_Type type) : type(type) {};
+	virtual ~Body_AST() {};
 };
 
 struct Decl_AST;
@@ -50,6 +51,8 @@ Argument_AST : Expr_AST {
 	std::vector<Token> sub_chain;    //TODO: better name?
 	char               chain_sep;
 	Decl_AST          *decl;
+	
+	~Argument_AST();
 };
 
 struct
@@ -61,6 +64,8 @@ Decl_AST : Expr_AST {
 	std::vector<Token>           decl_chain;
 	std::vector<Argument_AST *>  args;
 	std::vector<Body_AST *>      bodies;
+	
+	~Decl_AST() { for(auto arg : args) delete arg; for(auto body : bodies) delete body; }
 };
 
 struct
@@ -69,6 +74,7 @@ Decl_Body_AST : Body_AST {
 	std::vector<Decl_AST *> child_decls;
 	
 	Decl_Body_AST() : Body_AST(Body_Type::decl) {};
+	~Decl_Body_AST() { for(auto decl : child_decls) delete decl; }
 };
 
 struct Math_Block_AST;
@@ -78,6 +84,7 @@ Function_Body_AST : Body_AST {
 	Math_Block_AST *block;
 	
 	Function_Body_AST() : Body_AST(Body_Type::function) {};
+	~Function_Body_AST();
 };
 
 
@@ -104,6 +111,7 @@ Math_Expr_AST : Expr_AST {
 	Source_Location              location;
 	
 	Math_Expr_AST(Math_Expr_Type type) : type(type) {};
+	~Math_Expr_AST() { for(auto expr : exprs) delete expr; }
 };
 
 struct

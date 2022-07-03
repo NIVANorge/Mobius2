@@ -6,12 +6,30 @@
 #include "module_declaration.h"
 
 //NOTE: this is really just a copy of the AST, but we want to put additional data on it.
-//NOTE: we *could* put the extra data in the AST, but it is not that clean (?)
-// however we may want to copy the tree any way when we resolve properties that are attached to multiple other entities.
+//NOTE: we *could* put the extra data in the AST, but it is not that clean. We will also want to copy the tree any way when we resolve properties that are attached to multiple other entities.
 
-//TODO: Memory leak! Need to free sub-nodes when destructing!
+struct Var_Id {
+	s32 id;
+	
+	Var_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
+	Var_Id &operator++() { id++; return *this; }
+};
 
-typedef s32 state_var_id;
+inline bool
+is_valid(Var_Id id) {
+	return id.id >= 0;
+}
+
+constexpr Var_Id invalid_var = {-1};
+
+inline bool
+operator!=(const Var_Id &a, const Var_Id &b) {
+	return a.id != b.id;
+}
+inline bool
+operator<(const Var_Id &a, const Var_Id &b) {
+	return a.id < b.id;
+}
 
 enum class
 Value_Type {
@@ -37,7 +55,7 @@ get_value_type(Token_Type type) {
 
 enum class
 Variable_Type {
-	parameter, input_series, state_var,  // Maybe also computed_parameter eventually. Also local.
+	parameter, series, state_var,  // Maybe also computed_parameter eventually. Also local.
 };
 
 
@@ -50,6 +68,7 @@ Math_Expr_FT {
 	std::vector<Math_Expr_FT *>  exprs;
 	
 	Math_Expr_FT() : value_type(Value_Type::unresolved) {};
+	~Math_Expr_FT() { for(auto expr : exprs) delete expr; };
 };
 
 struct
@@ -65,8 +84,8 @@ Identifier_FT : Math_Expr_FT {
 	Variable_Type                variable_type;
 	union {
 		Entity_Id                parameter;
-		state_var_id             state_var;
-		state_var_id             series;
+		Var_Id                   state_var;
+		Var_Id                   series;
 	};
 	
 	Identifier_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::identifier_chain; };

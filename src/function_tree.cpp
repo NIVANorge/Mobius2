@@ -108,20 +108,23 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 					ident->chain[0].print_error_header();
 					fatal_error("Unable to resolve value.");  //TODO: make message more specific.
 				}
-				state_var_id var_id = find_state_var(model, make_value_location(module, first, second));
-				if(var_id < 0) {    // TODO: make proper id system...
-					// unresolved, but valid. Assume this is an input series instead.
-					warning_print("Input series not implemented.\n"); //TODO!!!
-					
-					state_var_id input_id = 0; //TODO: instead register it
-					new_ident->variable_type = Variable_Type::input_series;
-					new_ident->series = input_id;
-					new_ident->unit = module->dimensionless_unit;  //TODO: instead inherit from the property.
-					new_ident->value_type    = Value_Type::real;
-				} else {
+				Value_Location loc = make_value_location(module, first, second);
+				Var_Id var_id = model->state_vars[loc];
+				if(is_valid(var_id)) {
 					new_ident->variable_type = Variable_Type::state_var;
 					new_ident->state_var     = var_id;
-					new_ident->unit          = module->hases[model->state_variables[var_id].entity_id]->unit;
+					new_ident->unit          = module->hases[model->state_vars[var_id]->entity_id]->unit;
+					new_ident->value_type    = Value_Type::real;
+				} else {
+					var_id = model->series[loc];
+					if(!is_valid(var_id)) {
+						// register new input series
+						State_Variable var = {}; //TODO: put data on it
+						var_id = model->series.register_var(var, loc);
+					}
+					new_ident->variable_type = Variable_Type::series;
+					new_ident->series = var_id;
+					new_ident->unit = module->dimensionless_unit;  //TODO: instead inherit from the property.
 					new_ident->value_type    = Value_Type::real;
 				}
 			} else {
@@ -321,13 +324,13 @@ prune_tree(Math_Expr_FT *expr) {
 				
 				if(expr->exprs.size() == 1) {
 					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
-					literal->value = apply_intrinsic(arg1->value, arg1->value_type, fun->fun_name);
+					literal->value = apply_intrinsic({arg1->value, arg1->value_type}, fun->fun_name);
 					delete expr;
 					return literal;
 				} else if(expr->exprs.size() == 2) {
 					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 					auto arg2 = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
-					literal->value = apply_intrinsic(arg1->value, arg2->value, arg1->value_type, fun->fun_name);
+					literal->value = apply_intrinsic({arg1->value, arg1->value_type}, {arg2->value, arg2->value_type}, fun->fun_name);
 					delete expr;
 					return literal;
 				} else
@@ -340,7 +343,7 @@ prune_tree(Math_Expr_FT *expr) {
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
 				auto unary = reinterpret_cast<Operator_FT *>(expr);
 				auto arg = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
-				Parameter_Value val = apply_unary(arg->value, arg->value_type, unary->oper);
+				Parameter_Value val = apply_unary({arg->value, arg->value_type}, unary->oper);
 				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
@@ -357,7 +360,7 @@ prune_tree(Math_Expr_FT *expr) {
 				auto rhs = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
 				auto binary = reinterpret_cast<Operator_FT *>(expr);
 				//NOTE: have to pass rhs type since that matters for pow.. not clean, instead Parameter_Value should carry its type, or we should pass both
-				Parameter_Value val = apply_binary(lhs->value, rhs->value, rhs->value_type, binary->oper);
+				Parameter_Value val = apply_binary({lhs->value, lhs->value_type}, {rhs->value, rhs->value_type}, binary->oper);
 				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
@@ -414,7 +417,7 @@ prune_tree(Math_Expr_FT *expr) {
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
 				auto old_literal = reinterpret_cast<Literal_FT*>(expr->exprs[0]);
 				auto literal = new Literal_FT();
-				literal->value = apply_cast(old_literal->value, old_literal->value_type, expr->value_type);
+				literal->value = apply_cast({old_literal->value, old_literal->value_type}, expr->value_type);
 				literal->value_type = expr->value_type;
 				literal->unit = expr->unit;
 				literal->location = expr->location;
@@ -436,8 +439,8 @@ register_dependencies(Math_Expr_FT *expr, State_Variable *var) {
 			var->depends_on_parameter.insert(ident->parameter);
 		else if(ident->variable_type == Variable_Type::state_var)
 			var->depends_on_state_var.insert(ident->state_var);
-		else if(ident->variable_type == Variable_Type::input_series)
-			var->depends_on_input_series.insert(ident->series);
+		else if(ident->variable_type == Variable_Type::series)
+			var->depends_on_series.insert(ident->series);
 	}
 }
 
@@ -450,11 +453,11 @@ quantity_codegen(Mobius_Model *model, Entity_Id id) {
 	auto location = has->value_location;
 	//TODO: check that the location is a valid quantity location.
 	
-	std::vector<std::pair<state_var_id, char>> fluxes;
+	std::vector<std::pair<Var_Id, char>> fluxes;
 	//TODO: make proper id system.
 	//TODO: make convenience lookup functions for some of the below!
-	for(state_var_id var_id = 0; var_id < model->state_variables.size(); ++var_id) {
-		State_Variable *state_var = &model->state_variables[var_id];
+	for(Var_Id var_id : model->state_vars) {
+		State_Variable *state_var = model->state_vars[var_id];
 		auto entity_id = state_var->entity_id;
 		if(entity_id.reg_type == Reg_Type::flux) {
 			auto flux = model->modules[entity_id.module_id]->fluxes[entity_id];
@@ -465,7 +468,9 @@ quantity_codegen(Mobius_Model *model, Entity_Id id) {
 		}
 	}
 	
-	state_var_id quant_id = model->location_to_id[location]; //TODO: not raw lookup, check that it exists!
+	Var_Id quant_id = model->state_vars[location];
+	if(!is_valid(quant_id))
+		fatal_error(Mobius_Error::internal, "Somehow got a non-existing location in quantity_codegen().");
 	
 	//TODO: The below can be compressed a lot with helper functions
 	Identifier_FT *quant = new Identifier_FT();

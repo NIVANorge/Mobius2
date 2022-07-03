@@ -41,9 +41,10 @@ see_if_handle_name_exists_in_scope(Module_Declaration *module, Token *handle_nam
 	if(is_valid(id)) {
 		handle_name->print_error_header();
 		error_print("The name \"", handle_name->string_value, "\" was already used here:\n");
-		auto reg = find_entity(module, id);
+		auto reg = module->find_entity(id);
 		reg->location.print_error();
 		error_print("with type ", name(reg->decl_type), ".");
+		mobius_error_exit();
 	}
 }
 
@@ -596,7 +597,7 @@ process_module_declaration(s16 module_id, Decl_AST *decl) {
 	}
 	
 	for(const auto &entry : module->handles_in_scope) {
-		auto reg = find_entity(module, entry.second);
+		auto reg = module->find_entity(entry.second);
 		
 		if(!reg->has_been_declared) {
 			reg->location.print_error_header();

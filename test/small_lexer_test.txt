@@ -12,7 +12,7 @@ module("HBVSnow lite", 1,0,0) {
 		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, "Some description")
 		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0, -4, 4, "More description")
 		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0)
-		refreeze  : par_real("Refreeze efficiency", unit(), 0.5)
+		refr_eff  : par_real("Refreeze efficiency", unit(), 0.5)
 		snow_liq  : par_real("Liquid water fraction", unit(), 0.5)
 		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 0)
 	}
@@ -33,6 +33,7 @@ module("HBVSnow lite", 1,0,0) {
 	snow_box.has(water, unit(m m)) .initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
 	# Source nowhere means that we are not interested in tracking the state of the source, this is then a pure source to the system
+	p_snow :
 	flux(nowhere, snow_box.snow, "Precipitation falling as snow") {
 		air.precip    if air.temp <= t_snow,
 		0             otherwise
@@ -47,14 +48,16 @@ module("HBVSnow lite", 1,0,0) {
 	
 	# NOTE: default is that a flux should never make a quantity go negative. Maybe allow specifying that a quantity *could* go negative (e.g. if you model potential energy or something)
 	
+	melt :
 	flux(snow_box.snow, snow_box.water, "Melt") {
 		max(0, ddf_melt*(air.temp - t_melt))
 	}
 	
 	# TODO: order of evaluation of refreeze and melt_runoff are ambiguous. Can we figure out a way to specify it?
 	
+	refreeze :
 	flux(snow_box.water, snow_box.snow, "Refreeze") {
-		max(0, refreeze*ddf_melt*(t_melt - air.temp))
+		max(0, refr_eff*ddf_melt*(t_melt - air.temp))
 	}
 	
 	#flux(air.water, snow_box.water) { 0 }   # should give error. We have not declared air.has(water)

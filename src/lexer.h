@@ -102,10 +102,7 @@ is_valid(Token *token) {
 struct
 Token_Stream {
 	
-	Token_Stream(String_View filename) : filename(filename), line(0), column(0), previous_column(0), allow_date_time_tokens(false) {
-		at_char = -1;
-		
-		file_data = read_entire_file(filename);
+	Token_Stream(String_View filename, String_View file_data) : filename(filename), file_data(file_data), line(0), column(0), previous_column(0), allow_date_time_tokens(false), at_char(-1) {
 		
 		//NOTE: In case the file has a BOM (byte order mark), which Notepad tends to do on Windows.
 		if(file_data.count >= 3 
@@ -113,10 +110,6 @@ Token_Stream {
 				&& file_data[1] == (char) 0xBB
 				&& file_data[2] == (char) 0xBF)
 			at_char = 2;
-	}
-	
-	~Token_Stream() {
-		if(file_data.data) free((void *)file_data.data); // NOTE: Casting away constness, but it doesn't matter since we just allocated it ourselves.
 	}
 	
 	Token read_token();

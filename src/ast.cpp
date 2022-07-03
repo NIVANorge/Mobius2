@@ -2,8 +2,9 @@
 #include "ast.h"
 
 
-//TODO: memory leak!
-// need to delete sub-nodes when destructing parent node!
+Argument_AST::~Argument_AST() { delete decl; }
+Function_Body_AST::~Function_Body_AST() { delete block; }
+
 
 bool
 is_accepted_for_chain(Token_Type type, bool identifier_only) {
