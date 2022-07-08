@@ -161,6 +161,13 @@ If_Expr_AST : Math_Expr_AST {
 	If_Expr_AST() : Math_Expr_AST(Math_Expr_Type::if_chain) {};
 };
 
+struct
+Local_Var_AST : Math_Expr_AST {
+	Token                        name;
+	
+	Local_Var_AST() : Math_Expr_AST(Math_Expr_Type::local_var) {};
+};
+
 
 Decl_AST *
 parse_decl(Token_Stream *stream);

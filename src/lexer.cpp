@@ -188,6 +188,7 @@ Token_Stream::read_token_base(Token *token) {
 				else if(c == '>' && n == '=') token->type = Token_Type::geq;
 				else if(c == '=' && n == '=') token->type = Token_Type::eq;
 				else if(c == '!' && n == '=') token->type = Token_Type::neq;
+				else if(c == ':' && n == '=') token->type = Token_Type::def;
 				else token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.
 			}
 			else if(c == '"')                           token->type =  Token_Type::quoted_string;

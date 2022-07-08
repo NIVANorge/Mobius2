@@ -77,7 +77,7 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 				return found_id;
 		}
 		
-	} else if (name) {
+	} else if (is_valid(name)) {
 		// the handle was not given. This is either an anonymous (i.e. handle-less) declaration, or it is a name-based lookup.
 		
 		auto find = name_to_handle.find(name->string_value);
@@ -213,6 +213,14 @@ struct Arg_Pattern {
 		}
 		return false;
 	}
+	
+	void print_to_error() const {
+		switch(pattern_type) {
+			case Type::unit_literal : { error_print("(unit literal)"); } break;
+			case Type::decl :         { error_print(name(decl_type));  } break;
+			case Type::value :        { error_print(name(token_type)); } break;
+		}
+	}
 };
 
 inline int
@@ -255,10 +263,21 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		break;
 	}
 	
-	if(found_match == -1) {
+	if(found_match == -1 && patterns.size() > 0) {
 		decl->type_name.print_error_header();
-		fatal_error("The arguments to ", decl->type_name.string_value, " don't match any possible declaration pattern.");
-		// TODO: print the possible patterns
+		error_print("The arguments to the declaration \"", decl->type_name.string_value, "\" don't match any recognized pattern. The recognized patterns are:\n");
+		for(const auto &pattern : patterns) {
+			error_print("(");
+			auto match = pattern.begin();
+			while(true) {
+				match->print_to_error();
+				++match;
+				if(match != pattern.end()) error_print(", ");
+				else break;
+			}
+			error_print(")\n");
+		}
+		mobius_error_exit();
 	}
 	
 	// NOTE: We already checked in the AST processing stage if the declaration is allowed to have bodies at all. This just checks if it can have more than one.
@@ -351,10 +370,10 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 	auto parameter = module->parameters[id];
 	
 	parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
-	parameter->default_val             = get_parameter_value(single_arg(decl, 2));
+	parameter->default_val             = get_parameter_value(single_arg(decl, 2), Token_Type::real);
 	if(which == 2 || which == 3) {
-		parameter->min_val             = get_parameter_value(single_arg(decl, 3));
-		parameter->max_val             = get_parameter_value(single_arg(decl, 4));
+		parameter->min_val             = get_parameter_value(single_arg(decl, 3), Token_Type::real);
+		parameter->max_val             = get_parameter_value(single_arg(decl, 4), Token_Type::real);
 	} else {
 		parameter->min_val.val_double  = -std::numeric_limits<double>::infinity();
 		parameter->max_val.val_double  =  std::numeric_limits<double>::infinity();
@@ -421,10 +440,16 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 		{
 			{Decl_Type::property},
 			{Decl_Type::property, Decl_Type::unit},
+			{Decl_Type::property, Token_Type::quoted_string},
+			{Decl_Type::property, Decl_Type::unit, Token_Type::quoted_string},
 		},
 		1, true, true, true);
 	
-	auto id  = module->hases.find_or_create(&decl->handle_name, nullptr, decl);
+	Token *name = nullptr;
+	if(which == 2) name = single_arg(decl, 1);
+	else if(which == 3) name = single_arg(decl, 2);
+	
+	auto id  = module->hases.find_or_create(&decl->handle_name, name, decl);
 	auto has = module->hases[id];
 	
 	// TODO: can eventually be tied to a quantity not only a compartment.
@@ -432,7 +457,7 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
 	has->value_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
 	
-	if(which == 1)
+	if(which == 1 || which == 3)
 		has->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
 	else
 		has->unit = invalid_entity_id;
@@ -494,13 +519,14 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 	
 	int which = match_declaration(decl,
 		{
-			{Token_Type::identifier, Token_Type::identifier},
+			// it is actually safer and very time saving just to require a name.
+			//{Token_Type::identifier, Token_Type::identifier},
 			{Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
 		});
 	
 	Token *name = nullptr;
-	if(which == 1)
-		name = single_arg(decl, 2);
+	//if(which == 1)
+	name = single_arg(decl, 2);
 	
 	auto id   = module->fluxes.find_or_create(&decl->handle_name, name, decl);
 	auto flux = module->fluxes[id];
@@ -514,11 +540,38 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 	}
 	
 	auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
-	if(!body->modifiers.empty()) {
-		body->modifiers[0].print_error_header();
-		fatal_error("Flux bodies should not have modifiers.");
-	}
 	flux->code = body->block;
+	
+	return id;
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::function>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {});
+	
+	auto id =  module->functions.find_or_create(&decl->handle_name, nullptr, decl);
+	auto function = module->functions[id];
+	
+	for(auto arg : decl->args) {
+		if(arg->decl || arg->sub_chain.size() != 1) {
+			decl->type_name.print_error_header();
+			fatal_error("The arguments to a function declaration should be just single identifiers.");
+		}
+		function->args.push_back(arg->sub_chain[0].string_value);
+	}
+	
+	for(int idx = 1; idx < function->args.size(); ++idx) {
+		for(int idx2 = 0; idx2 < idx; ++idx2) {
+			if(function->args[idx] == function->args[idx2]) {
+				decl->args[idx]->sub_chain[0].print_error_header();
+				fatal_error("Duplicate argument name \"", function->args[idx], "\" in function declaration.");
+			}
+		}
+	}
+	
+	auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+	function->code = body->block;
+	function->fun_type = Function_Type::decl;
 	
 	return id;
 }
@@ -587,6 +640,10 @@ process_module_declaration(s16 module_id, Decl_AST *decl) {
 			
 			case Decl_Type::unit : {
 				process_declaration<Reg_Type::unit>(module, child);
+			} break;
+			
+			case Decl_Type::function : {
+				process_declaration<Reg_Type::function>(module, child);
 			} break;
 			
 			default : {

@@ -385,7 +385,7 @@ parse_potential_if_expr(Token_Stream *stream) {
 		
 		Math_Expr_AST *condition = parse_math_expr(stream);
 		
-		If_Expr_AST *if_expr = new If_Expr_AST();
+		auto if_expr = new If_Expr_AST();
 		if_expr->location = location;
 		if_expr->exprs.push_back(value);
 		if_expr->exprs.push_back(condition);
@@ -419,7 +419,7 @@ parse_potential_if_expr(Token_Stream *stream) {
 
 Math_Block_AST *
 parse_math_block(Token_Stream *stream, Source_Location opens_at) {
-	Math_Block_AST *block = new Math_Block_AST();
+	auto block = new Math_Block_AST();
 	block->location = opens_at;
 	
 	int semicolons = 0;
@@ -444,9 +444,20 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 		}
 		
 		//TODO: assignments.. like   a := 5;
-		
-		auto expr = parse_potential_if_expr(stream);
-		block->exprs.push_back(expr);
+		token = stream->peek_token();
+		Token token2 = stream->peek_token(1);
+		if(token.type == Token_Type::identifier && token2.type == Token_Type::def) {
+			auto local_var = new Local_Var_AST();
+			local_var->name = token;
+			local_var->location = token.location;
+			stream->read_token(); stream->read_token();
+			auto expr = parse_math_expr(stream);
+			local_var->exprs.push_back(expr);
+			block->exprs.push_back(local_var);
+		} else {
+			auto expr = parse_potential_if_expr(stream);
+			block->exprs.push_back(expr);
+		}
 		
 		token = stream->peek_token();
 		if((char)token.type == ';') {

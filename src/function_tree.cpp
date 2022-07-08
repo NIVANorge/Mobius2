@@ -3,6 +3,7 @@
 #include "function_tree.h"
 #include "model_declaration.h"
 #include "emulate.h"
+#include "units.h"
 
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
@@ -10,11 +11,10 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	
 	//TODO: if we cast a literal, we should just cast the value here and replace the literal.
 	
-	auto cast = new Math_Expr_FT();
+	auto cast = new Math_Expr_FT(expr->scope, Math_Expr_Type::cast);
 	cast->location = expr->location;     // not sure if this is good, it is just so that it has a valid location.
 	cast->value_type = cast_to;
-	cast->unit = expr->unit;
-	cast->exprs.push_back(expr);
+	cast->add_expr(expr);
 	cast->expr_type = Math_Expr_Type::cast;
 	
 	return cast;
@@ -35,11 +35,9 @@ void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right) {
 void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 	String_View n = name->string_value;
 	if(n == "min" || n == "max") {
-		fun->unit = fun->exprs[0]->unit;   //TODO: should also check that the units are equal.
 		make_casts_for_binary_expr(&fun->exprs[0], &fun->exprs[1]);
 		fun->value_type = fun->exprs[0]->value_type; //Note: value types of both arguments should be the same now.
 	} else if (n == "exp") {
-		fun->unit = fun->exprs[0]->unit;  //TODO: wrong! Should probably be dimensionless. But also wants argument to be dimensionless.
 		fun->exprs[0] = make_cast(fun->exprs[0], Value_Type::real);
 		fun->value_type = Value_Type::real;
 	} else {
@@ -49,14 +47,55 @@ void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 
 void resolve_arguments(Mobius_Model *model, s32 module_id, Math_Expr_FT *ft, Math_Expr_AST *ast) {
 	//TODO allow error check on expected number of arguments
+	
+	Math_Block_FT *scope = ft->scope;
+	if(ft->expr_type == Math_Expr_Type::block)
+		scope = reinterpret_cast<Math_Block_FT *>(ft);
+	
 	for(auto arg : ast->exprs) {
-		ft->exprs.push_back(resolve_function_tree(model, module_id, arg));
+		ft->add_expr(resolve_function_tree(model, module_id, arg, scope));
 	}
 }
 
+bool
+find_local_variable(Identifier_FT *ident, String_View name, Math_Block_FT *scope, int scopes_up = 0) {
+	if(!scope) return false;
+	//warning_print("Try to resolve ", name, ".\n");
+	int idx = 0;
+	for(auto expr : scope->exprs) {
+		if(expr->expr_type == Math_Expr_Type::local_var) {
+			auto local = reinterpret_cast<Local_Var_FT *>(expr);
+			//warning_print("Check ", name, " against ", local->name, ".\n");
+			if(local->name == name) {
+				ident->variable_type = Variable_Type::local;
+				ident->local_var.index = idx;
+				ident->local_var.scopes_up = scopes_up;
+				ident->value_type = local->value_type;
+				local->is_used = true;
+				return true;
+			}
+		}
+		++idx;
+	}
+	if(!scope->function_name)  //NOTE: scopes should not "bleed through" function substitutions.
+		return find_local_variable(ident, name, scope->scope, scopes_up+1);
+	return false;
+}
+
+bool
+is_inside_function(Math_Block_FT *scope, String_View name) {
+	Math_Block_FT *sc = scope;
+	while(true) {
+		sc = sc->scope;
+		if(!sc) return false;
+		if(sc->function_name == name) return true;
+	}
+	return false;
+}
+
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
-	Math_Expr_FT *result;
+resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Math_Block_FT *scope){
+	Math_Expr_FT *result = nullptr;
 	
 #define DEBUGGING_NOW 0
 #if DEBUGGING_NOW
@@ -66,38 +105,48 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 	Module_Declaration *module = model->modules[module_id];
 	switch(ast->type) {
 		case Math_Expr_Type::block : {
-			auto new_block = new Math_Block_FT();
+			auto new_block = new Math_Block_FT(scope);
 			
 			resolve_arguments(model, module_id, new_block, ast);
 			
+			for(auto expr : new_block->exprs)
+				if(expr->expr_type == Math_Expr_Type::local_var) ++new_block->n_locals;
+			
+			Math_Expr_FT *last = new_block->exprs.back();
+			if(last->expr_type == Math_Expr_Type::local_var) {
+				last->location.print_error_header();
+				fatal_error("The last statement in a block has to evaluate to a value, it can't be a declaration of a local variable.");
+			}
 			// the value of a block is the value of the last expression in the block.
-			//TODO: if there is only one expr in the block, we could replace the block with that expr.
-			new_block->value_type = new_block->exprs.back()->value_type;
-			new_block->unit       = new_block->exprs.back()->unit;
+			new_block->value_type = last->value_type;
 			result = new_block;
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_Chain_AST *>(ast);
-			auto new_ident = new Identifier_FT();
+			auto new_ident = new Identifier_FT(scope);
 			if(ident->chain.size() == 1) {
-				//TODO: for now, just assume this is a parameter. Could eventually be a local variable.
-				//TODO: could also allow refering to properties by just a single identifier if the compartment is obvious.
-				new_ident->variable_type = Variable_Type::parameter;
+				String_View name = ident->chain[0].string_value;
 				
-				Entity_Id par_id = find_handle(module, ident->chain[0].string_value);
-				
-				if(!is_valid(par_id) || par_id.reg_type != Reg_Type::parameter) {
-					ident->chain[0].print_error_header();
-					fatal_error("Can not resolve the name \"", ident->chain[0].string_value, "\".");
+				bool found = find_local_variable(new_ident, name, scope);
+				if(!found) {
+					//TODO: for now, just assume this is a parameter.
+					//TODO: could also allow refering to properties by just a single identifier if the compartment is obvious.
+					new_ident->variable_type = Variable_Type::parameter;
+					
+					Entity_Id par_id = find_handle(module, name);
+					
+					if(!is_valid(par_id) || par_id.reg_type != Reg_Type::parameter) {
+						ident->chain[0].print_error_header();
+						fatal_error("Can't resolve the name \"", name, "\".");
+					}
+					
+					new_ident->variable_type = Variable_Type::parameter;
+					new_ident->parameter = par_id;
+					new_ident->value_type = get_value_type(module->parameters[par_id]->decl_type);
+					// TODO: make it so that we can't reference datetime values (if we implement those)
+					//  also special handling of for enum values!
 				}
-				
-				new_ident->variable_type = Variable_Type::parameter;
-				new_ident->parameter = par_id;
-				new_ident->unit      = module->parameters[par_id]->unit;
-				new_ident->value_type = get_value_type(module->parameters[par_id]->decl_type);
-				// TODO: make it so that we can't reference datetime values (if we implement those)
-				//  also special handling of for enum values!
 			} else if(ident->chain.size() == 2) {
 				//TODO: may need fixup for multiple modules.
 				Entity_Id first  = find_handle(module, ident->chain[0].string_value);
@@ -113,18 +162,15 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 				if(is_valid(var_id)) {
 					new_ident->variable_type = Variable_Type::state_var;
 					new_ident->state_var     = var_id;
-					new_ident->unit          = module->hases[model->state_vars[var_id]->entity_id]->unit;
 					new_ident->value_type    = Value_Type::real;
 				} else {
 					var_id = model->series[loc];
 					if(!is_valid(var_id)) {
-						// register new input series
-						State_Variable var = {}; //TODO: put data on it
-						var_id = model->series.register_var(var, loc);
+						ast->location.print_error_header();
+						fatal_error("Value is not attached to this compartment.");
 					}
 					new_ident->variable_type = Variable_Type::series;
 					new_ident->series = var_id;
-					new_ident->unit = module->dimensionless_unit;  //TODO: instead inherit from the property.
 					new_ident->value_type    = Value_Type::real;
 				}
 			} else {
@@ -136,24 +182,22 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 		
 		case Math_Expr_Type::literal : {
 			auto literal = reinterpret_cast<Literal_AST *>(ast);
-			auto new_literal = new Literal_FT();
+			auto new_literal = new Literal_FT(scope);
 			
 			new_literal->value_type = get_value_type(literal->value.type);
-			new_literal->unit       = module->dimensionless_unit;
-			new_literal->value      = get_parameter_value(&literal->value);
+			new_literal->value      = get_parameter_value(&literal->value, literal->value.type);
 			
 			result = new_literal;
 		} break;
 		
 		case Math_Expr_Type::function_call : {
 			//TODO: allow accessing global functions when that is implemented.
-			//TODO: should have different mechanisms for checking units
 			//TODO: should have some kind of mechanism for checking types.
 			
 			//TODO: if all arguments are literals we should just do the evaluation here (if possible) and replace with the literal of the result.
 			
 			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
-			auto new_fun = new Function_Call_FT();
+			
 			
 			Entity_Id fun_id = find_handle(module, fun->name.string_value);
 			if(!is_valid(fun_id) || fun_id.reg_type != Reg_Type::function) {
@@ -161,33 +205,62 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 				fatal_error("The function \"", fun->name.string_value, "\" has not been declared.");
 			}
 			
+			auto fun_decl = module->functions[fun_id];
+			
 			//TODO: should be replaced with check in resolve_arguments
-			if(fun->exprs.size() != module->functions[fun_id]->args.size()) {
+			if(fun->exprs.size() != fun_decl->args.size()) {
 				fun->name.print_error_header();
 				fatal_error("Wrong number of arguments to function. Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".");
 			}
 			
-			resolve_arguments(model, module_id, new_fun, ast);
+			auto fun_type = fun_decl->fun_type;
 			
-			new_fun->fun_type = module->functions[fun_id]->fun_type;
-			new_fun->fun_name = fun->name.string_value;
+			if(fun_type == Function_Type::intrinsic) {
+				auto new_fun = new Function_Call_FT(scope);
+				
+				resolve_arguments(model, module_id, new_fun, ast);
 			
-			if(new_fun->fun_type == Function_Type::intrinsic) {
+				new_fun->fun_type = fun_type;
+				new_fun->fun_name = fun->name.string_value;
 				fixup_intrinsic(new_fun, &fun->name);
+				
+				result = new_fun;
+			} else if(fun_type == Function_Type::decl) {
+				if(is_inside_function(scope, fun->name.string_value)) {
+					fun->name.print_error_header();
+					//TODO: We should print the actual stack trace. That also goes for several other error locations!
+					fatal_error("The function ", fun->name.string_value, " calls itself either directly or indirectly. This is not allowed.");
+				}
+				// Inline in the function call as a new block with the arguments as local vars.
+				auto inlined_fun = new Math_Block_FT(scope);
+				
+				resolve_arguments(model, module_id, inlined_fun, ast);
+				
+				inlined_fun->function_name = fun->name.string_value;
+				inlined_fun->n_locals = inlined_fun->exprs.size();
+				for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
+					auto arg = inlined_fun->exprs[argidx];
+					auto inlined_arg = new Local_Var_FT(inlined_fun);
+					inlined_arg->add_expr(arg);
+					inlined_arg->name = fun_decl->args[argidx];
+					inlined_arg->value_type = arg->value_type;
+					inlined_fun->exprs[argidx] = inlined_arg;
+				}
+				
+				inlined_fun->add_expr(resolve_function_tree(model, module_id, fun_decl->code, inlined_fun));
+				inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
+				
+				result = inlined_fun;
 			} else {
-				//TODO!
 				fatal_error(Mobius_Error::internal, "Unhandled function type.");
 			}
-			
-			result = new_fun;
-			
 		} break;
 		
 		//NOTE: currently we don't allow integers and reals to auto-cast to boolean
 		
 		case Math_Expr_Type::unary_operator : {
 			auto unary = reinterpret_cast<Unary_Operator_AST *>(ast);
-			auto new_unary = new Operator_FT();
+			auto new_unary = new Operator_FT(scope, Math_Expr_Type::unary_operator);
 			
 			resolve_arguments(model, module_id, new_unary, ast);
 			
@@ -198,15 +271,12 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 					new_unary->exprs[0]->location.print_error_header();
 					fatal_error("Unary minus can not have an argument of type boolean.");
 				}
-				new_unary->unit = new_unary->exprs[0]->unit;
 				new_unary->value_type = new_unary->exprs[0]->value_type;
 			} else if((char)unary->oper == '!') {
 				if(new_unary->exprs[0]->value_type != Value_Type::boolean) {
 					new_unary->exprs[0]->location.print_error_header();
 					fatal_error("Negation must have an argument of type boolean.");
 				}
-				
-				new_unary->unit = module->dimensionless_unit;
 				new_unary->value_type = Value_Type::boolean;
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled unary operator type in resolve_function_tree().");
@@ -216,7 +286,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 		
 		case Math_Expr_Type::binary_operator : {
 			auto binary = reinterpret_cast<Binary_Operator_AST *>(ast);
-			auto new_binary = new Operator_FT();
+			auto new_binary = new Operator_FT(scope, Math_Expr_Type::binary_operator);
 			
 			resolve_arguments(model, module_id, new_binary, ast);
 			
@@ -228,23 +298,18 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 					fatal_error("Operator ", name(binary->oper), " can only take boolean arguments.");
 				}
 				new_binary->value_type = Value_Type::boolean;
-				new_binary->unit       = module->dimensionless_unit;
 			} else if (op == '^') {
 				//Note: we could implement pow for lhs of type int too, but llvm does not have an intrinsic for it, and there is unlikely to be any use case.
 				new_binary->value_type = Value_Type::real;
-				new_binary->unit       = module->dimensionless_unit; //TODO: could make new unit if rhs is an integer or exact fraction.
 				new_binary->exprs[0]   = make_cast(new_binary->exprs[0], Value_Type::real);
 				if(new_binary->exprs[1]->value_type == Value_Type::boolean) new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
 			} else {
 				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1]);
 				
-				if(op == '+' || op == '-' || op == '*' || op == '/') {
+				if(op == '+' || op == '-' || op == '*' || op == '/')
 					new_binary->value_type = new_binary->exprs[0]->value_type;
-					new_binary->unit = new_binary->exprs[0]->unit;              //TODO: instead do unit arithmetic when that is implemented!
-				} else {
+				else
 					new_binary->value_type = Value_Type::boolean;
-					new_binary->unit       = module->dimensionless_unit;
-				}
 			}
 			
 			result = new_binary;
@@ -252,7 +317,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 		
 		case Math_Expr_Type::if_chain : {
 			auto ifexpr = reinterpret_cast<If_Expr_AST *>(ast);
-			auto new_if = new Math_Expr_FT();
+			auto new_if = new Math_Expr_FT(scope, Math_Expr_Type::if_chain);
 			
 			resolve_arguments(model, module_id, new_if, ast);
 			
@@ -273,16 +338,44 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast){
 			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2)
 				new_if->exprs[idx] = make_cast(new_if->exprs[idx], value_type);
 			new_if->exprs[otherwise_idx] = make_cast(new_if->exprs[otherwise_idx], value_type);
-			
 			new_if->value_type = value_type;
-			new_if->unit       = new_if->exprs[0]->unit; //TODO: We actually need to check that it is the same for all cases.
 			
 			result = new_if;
 		} break;
+		
+		case Math_Expr_Type::local_var : {
+			
+			auto local = reinterpret_cast<Local_Var_AST *>(ast);
+			
+			for(auto loc : scope->exprs) {
+				if(loc->expr_type == Math_Expr_Type::local_var) {
+					auto loc2 = reinterpret_cast<Local_Var_FT *>(loc);
+					if(loc2->name == local->name.string_value) {
+						local->location.print_error_header();
+						fatal_error("Re-declaration of local variable \"", loc2->name, "\" in the same scope.");
+					}
+				}
+			}
+			
+			auto new_local = new Local_Var_FT(scope);
+			
+			resolve_arguments(model, module_id, new_local, ast);
+			
+			new_local->name = local->name.string_value;
+			new_local->value_type = new_local->exprs[0]->value_type;
+			
+			result = new_local;
+		} break;
+		
+		default : {
+			fatal_error(Mobius_Error::internal, "Unhandled math expr type in resolve_function_tree().");
+		} break;
 	}
 	
+	if(!result)
+		fatal_error(Mobius_Error::internal, "Result unassigned in resolve_function_tree().");
+	
 	result->location = ast->location;
-	result->expr_type = ast->type;
 	
 	if(result->value_type == Value_Type::unresolved) {
 		ast->location.print_error_header();
@@ -304,7 +397,7 @@ prune_tree(Math_Expr_FT *expr) {
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
-			//todo: replace with last statement if only one statement
+			//todo: replace with last statement if only one statement ? Probably not, sice it could mess up scopes! Or we would have to fix that in that case
 		} break;
 		
 		case Math_Expr_Type::function_call : {
@@ -317,9 +410,8 @@ prune_tree(Math_Expr_FT *expr) {
 				if(arg->expr_type != Math_Expr_Type::literal) { all_literal = false; break; }
 			}
 			if(all_literal) {
-				auto literal = new Literal_FT();
+				auto literal = new Literal_FT(expr->scope);
 				literal->location = expr->location;
-				literal->unit = expr->unit;
 				literal->value_type = expr->value_type;
 				
 				if(expr->exprs.size() == 1) {
@@ -344,10 +436,9 @@ prune_tree(Math_Expr_FT *expr) {
 				auto unary = reinterpret_cast<Operator_FT *>(expr);
 				auto arg = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 				Parameter_Value val = apply_unary({arg->value, arg->value_type}, unary->oper);
-				auto literal = new Literal_FT();
+				auto literal = new Literal_FT(expr->scope);
 				literal->value = val;
 				literal->value_type = expr->value_type;
-				literal->unit = expr->unit;
 				literal->location = expr->location;
 				delete expr;
 				return literal;
@@ -361,10 +452,9 @@ prune_tree(Math_Expr_FT *expr) {
 				auto binary = reinterpret_cast<Operator_FT *>(expr);
 				//NOTE: have to pass rhs type since that matters for pow.. not clean, instead Parameter_Value should carry its type, or we should pass both
 				Parameter_Value val = apply_binary({lhs->value, lhs->value_type}, {rhs->value, rhs->value_type}, binary->oper);
-				auto literal = new Literal_FT();
+				auto literal = new Literal_FT(expr->scope);
 				literal->value = val;
 				literal->value_type = expr->value_type;
-				literal->unit = expr->unit;
 				literal->location = expr->location;
 				delete expr;
 				return literal;
@@ -416,35 +506,65 @@ prune_tree(Math_Expr_FT *expr) {
 		case Math_Expr_Type::cast : {
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
 				auto old_literal = reinterpret_cast<Literal_FT*>(expr->exprs[0]);
-				auto literal = new Literal_FT();
+				auto literal = new Literal_FT(expr->scope);
 				literal->value = apply_cast({old_literal->value, old_literal->value_type}, expr->value_type);
 				literal->value_type = expr->value_type;
-				literal->unit = expr->unit;
 				literal->location = expr->location;
 				delete expr;
 				return literal;
 			}
 		} break;
+		
+		case Math_Expr_Type::identifier_chain : {
+			auto ident = reinterpret_cast<Identifier_FT *>(expr);
+			if(ident->variable_type == Variable_Type::local) {
+				Math_Block_FT *sc = ident->scope;
+				for(int i = 0; i < ident->local_var.scopes_up; ++i)
+					sc = sc->scope;
+				int index = 0;
+				for(auto loc : sc->exprs) {
+					if((loc->expr_type == Math_Expr_Type::local_var) 
+						&& (index == ident->local_var.index) 
+						&& (loc->exprs[0]->expr_type == Math_Expr_Type::literal)) {
+							auto literal = new Literal_FT(expr->scope);
+							auto loc2        = reinterpret_cast<Local_Var_FT *>(loc);
+							auto loc_literal = reinterpret_cast<Literal_FT *>(loc->exprs[0]);
+							literal->value =      loc_literal->value;
+							literal->value_type = loc_literal->value_type;
+							literal->location = ident->location;
+							loc2->is_used = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
+							delete expr;
+							return literal;
+					}
+					++index;
+				}
+			}
+		} break;
+		
+		
 	}
 	return expr;
 }
 
 void
-register_dependencies(Math_Expr_FT *expr, State_Variable *var) {
-	for(auto arg : expr->exprs) register_dependencies(arg, var);
+register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
+	for(auto arg : expr->exprs) register_dependencies(arg, depends);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::parameter)
-			var->depends_on_parameter.insert(ident->parameter);
-		else if(ident->variable_type == Variable_Type::state_var)
-			var->depends_on_state_var.insert(ident->state_var);
+			depends->on_parameter.insert(ident->parameter);
+		else if(ident->variable_type == Variable_Type::state_var) {
+			if(!(ident->flags & ident_flags_last_result))
+				depends->on_state_var.insert(ident->state_var);
+			//TODO: register depends_on_state_var_last or something instead
+		}
 		else if(ident->variable_type == Variable_Type::series)
-			var->depends_on_series.insert(ident->series);
+			depends->on_series.insert(ident->series);
 	}
 }
 
-
+/*
 Math_Expr_FT *
 quantity_codegen(Mobius_Model *model, Entity_Id id) {
 	auto module = model->modules[id.module_id];
@@ -477,7 +597,6 @@ quantity_codegen(Mobius_Model *model, Entity_Id id) {
 	quant->variable_type = Variable_Type::state_var;
 	quant->state_var = quant_id;
 	quant->value_type = Value_Type::real;
-	quant->unit = module->dimensionless_unit; //TODO! also, what do we do about unit checking for fluxes? Can't be done at function tree stage since then error messages will be strange.
 	
 	Math_Expr_FT *result = quant;
 	//TODO: have to make fixes to function tree to get this to work.
@@ -486,13 +605,11 @@ quantity_codegen(Mobius_Model *model, Entity_Id id) {
 		flx->variable_type = Variable_Type::state_var;
 		flx->state_var = pair.first;
 		flx->value_type = Value_Type::real;
-		flx->unit = module->dimensionless_unit; //TODO
 		
 		auto sum = new Operator_FT();
 		sum->value_type = Value_Type::real;
 		sum->expr_type = Math_Expr_Type::binary_operator;
 		sum->oper = (Token_Type)pair.second;
-		sum->unit = module->dimensionless_unit; //TODO
 		
 		sum->exprs.push_back(result);
 		sum->exprs.push_back(flx);
@@ -501,8 +618,50 @@ quantity_codegen(Mobius_Model *model, Entity_Id id) {
 	
 	return result;
 }
+*/
+
+Math_Expr_FT *
+restrict_flux(Math_Expr_FT *expr, Var_Id source) {
+	// note: create something like
+	// 		min(flux, source)
+	
+	//NOTE: we are actually also making an assumption here that the flux is not negative...
+	// should we restrict in the other direction as well?
+	auto ident = new Identifier_FT(expr->scope);
+	ident->value_type = Value_Type::real;
+	ident->variable_type = Variable_Type::state_var;
+	ident->state_var     = source;
+	//ident->flags         = ident_flags_last_result;    //ouch, we don't want this actually, because if there are multiple fluxes, they should depend on the removal of the previous...
+	ident->location      = expr->location;
+	
+	auto minfun = new Function_Call_FT(expr->scope);
+	minfun->value_type = Value_Type::real;
+	minfun->fun_name   = "min";
+	minfun->fun_type   = Function_Type::intrinsic;
+	minfun->location   = expr->location;
+	minfun->add_expr(expr);
+	minfun->add_expr(ident);
+	return minfun;
+}
 
 
-
-
+Standardized_Unit
+check_units(Math_Expr_FT *expr, Standardized_Unit *expected_top = nullptr) {
+	Standardized_Unit result;
+	
+	//TODO!
+	
+	switch(expr->expr_type) {
+		
+		case Math_Expr_Type::block : {
+		} break;
+		
+		
+		default : {
+			fatal_error(Mobius_Error::internal, "Unhandled expression type in check_units()");
+		}
+	}
+	
+	return result;
+}
 

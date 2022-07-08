@@ -28,12 +28,17 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function);
 struct
 Model_Run_State {
 	Parameter_Value *parameters;
+	double *last_state_vars;
 	double *state_vars;
 	double *series;
 };
 
+struct Scope_Local_Vars;
 
 Typed_Value
-emulate_expression(Math_Expr_FT *expr, Model_Run_State *state);
+emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars *locals);
+
+void
+emulate_model_run(Mobius_Model *model);
 
 #endif // MOBIUS_EMULATE_H

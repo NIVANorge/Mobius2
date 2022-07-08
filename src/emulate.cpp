@@ -1,6 +1,7 @@
 
 #include "function_tree.h"
 #include "emulate.h"
+#include "model_declaration.h"
 
 #include <cmath>
 
@@ -128,14 +129,48 @@ apply_intrinsic(Typed_Value a, String_View function) {
 	return result;
 }
 
-
+struct
+Scope_Local_Vars {
+	Scope_Local_Vars *scope_up;
+	std::vector<Typed_Value> local_vars;
+};
 
 Typed_Value
-emulate_expression(Math_Expr_FT *expr, Model_Run_State *state) {
+get_local_var(Scope_Local_Vars *scope, int index, int scopes_up) {
+	if(!scope)
+		fatal_error(Mobius_Error::internal, "Mis-counting of scopes in emulation.");
+	for(int i = 0; i < scopes_up; ++i) {
+		scope = scope->scope_up;
+		if(!scope)
+			fatal_error(Mobius_Error::internal, "Mis-counting of scopes in emulation.");
+	}
+	if(index >= scope->local_vars.size())
+		fatal_error(Mobius_Error::internal, "Mis-counting of local variables in emulation.");
+	return scope->local_vars[index];
+}
+
+Typed_Value
+emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars *locals) {
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
-			//TODO: incomplete, but ok before we get assignments
-			return emulate_expression(expr->exprs.back(), state);
+			auto block= reinterpret_cast<Math_Block_FT *>(expr);
+			Typed_Value result;
+			Scope_Local_Vars new_locals;
+			new_locals.scope_up = locals;
+			new_locals.local_vars.resize(block->n_locals);
+			int index = 0;
+			for(auto sub_expr : expr->exprs) {
+				result = emulate_expression(sub_expr, state, &new_locals);
+				if(sub_expr->expr_type == Math_Expr_Type::local_var) {
+					new_locals.local_vars[index] = result;
+					++index;
+				}
+			}
+			return result;
+		} break;
+		
+		case Math_Expr_Type::local_var : {
+			return emulate_expression(expr->exprs[0], state, locals);
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
@@ -144,11 +179,13 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state) {
 			Typed_Value result;
 			result.type = expr->value_type;
 			if(ident->variable_type == Variable_Type::parameter)
-				return {state->parameters[ident->parameter.id], expr->value_type};
+				result = Typed_Value {state->parameters[ident->parameter.id], expr->value_type};
 			else if(ident->variable_type == Variable_Type::state_var)
 				result.val_double = state->state_vars[ident->state_var.id];
 			else if(ident->variable_type == Variable_Type::series)
 				result.val_double = state->series[ident->series.id];
+			else if(ident->variable_type == Variable_Type::local)
+				result = get_local_var(locals, ident->local_var.index, ident->local_var.scopes_up);
 			return result;
 		} break;
 		
@@ -159,14 +196,14 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state) {
 		
 		case Math_Expr_Type::unary_operator : {
 			auto unary = reinterpret_cast<Operator_FT *>(expr);
-			Typed_Value a = emulate_expression(expr->exprs[0], state);
+			Typed_Value a = emulate_expression(expr->exprs[0], state, locals);
 			return apply_unary(a, unary->oper);
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
 			auto binary = reinterpret_cast<Operator_FT *>(expr);
-			Typed_Value a = emulate_expression(expr->exprs[0], state);
-			Typed_Value b = emulate_expression(expr->exprs[1], state);
+			Typed_Value a = emulate_expression(expr->exprs[0], state, locals);
+			Typed_Value b = emulate_expression(expr->exprs[1], state, locals);
 			return apply_binary(a, b, binary->oper);
 		} break;
 		
@@ -176,11 +213,11 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state) {
 				fatal_error(Mobius_Error::internal, "Unhandled function type in emulate_expression().");
 			
 			if(fun->exprs.size() == 1) {
-				Typed_Value a = emulate_expression(fun->exprs[0], state);
+				Typed_Value a = emulate_expression(fun->exprs[0], state, locals);
 				return apply_intrinsic(a, fun->fun_name);
 			} else if(fun->exprs.size() == 2) {
-				Typed_Value a = emulate_expression(fun->exprs[0], state);
-				Typed_Value b = emulate_expression(fun->exprs[1], state);
+				Typed_Value a = emulate_expression(fun->exprs[0], state, locals);
+				Typed_Value b = emulate_expression(fun->exprs[1], state, locals);
 				return apply_intrinsic(a, b, fun->fun_name);
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in emulate_expression().");
@@ -188,14 +225,14 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state) {
 
 		case Math_Expr_Type::if_chain : {
 			for(int idx = 0; idx < expr->exprs.size()-1; idx+=2) {
-				Typed_Value cond = emulate_expression(expr->exprs[idx+1], state);
-				if(cond.val_bool) return emulate_expression(expr->exprs[idx], state);
-				return emulate_expression(expr->exprs.back(), state);
+				Typed_Value cond = emulate_expression(expr->exprs[idx+1], state, locals);
+				if(cond.val_bool) return emulate_expression(expr->exprs[idx], state, locals);
+				return emulate_expression(expr->exprs.back(), state, locals);
 			}
 		} break;
 		
 		case Math_Expr_Type::cast : {
-			Typed_Value a = emulate_expression(expr->exprs[0], state);
+			Typed_Value a = emulate_expression(expr->exprs[0], state, locals);
 			return apply_cast(a, expr->value_type);
 		} break;
 	}
@@ -207,18 +244,125 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state) {
 
 
 
+void emulate_batch(Mobius_Model *model, Run_Batch *batch, Model_Run_State *run_state, bool initial = false) {
+	for(auto var_id : batch->state_vars) {
+		auto var = model->state_vars[var_id];
+		auto fun = var->function_tree;
+		if(initial)
+			fun = var->initial_function_tree;
+		if(fun) {
+			Typed_Value val = emulate_expression(fun, run_state, nullptr);
+			run_state->state_vars[var_id.id] = val.val_double;
+			if(var->type == Decl_Type::flux) {
+				// TODO: lookup every time step of location here is inefficient. Even though this emulation is not supposed to be fast, we could maybe make an optimization here.
+				if(var->loc1.type == Location_Type::located)
+					run_state->state_vars[model->state_vars[var->loc1].id] -= val.val_double;    // Subtract the flux from the source
+				if(var->loc2.type == Location_Type::located)
+					run_state->state_vars[model->state_vars[var->loc2].id] += val.val_double;    // Add the flux to the target.
+			}
+		} else if(var->type != Decl_Type::quantity)
+			fatal_error(Mobius_Error::internal, "Some non-quantity did not get a function tree before emulate_model_run().");
+	}
+}
+
+void read_input_data(String_View file_name, Mobius_Model *model, double *target, s64 time_steps);
+void write_result_data(String_View file_name, Mobius_Model *model, double *results, s64 time_steps);
+
 void emulate_model_run(Mobius_Model *model) {
-	//TODO: check that model is composed
+	if(!model->is_composed)
+		fatal_error(Mobius_Error::internal, "Tried to emulate_model_run() before the model was composed.");
 	
-	//TODO: finish this later!
-	/*
+	
+	auto pars = &model->modules[0]->parameters;
+	
 	Model_Run_State run_state;
-	run_state.parameters = (Parameter_Value *)malloc(sizeof(Parameter_Value)*module->parameters.registrations.size());
-	run_state.parameters[0].val_double = 5.1;
-	run_state.parameters[1].val_double = 3.2;
-	run_state.state_vars = (double *)malloc(sizeof(double)*model.state_vars.vars.size());
-	run_state.series     = (double *)malloc(sizeof(double)*100); //TODO.
-	run_state.series[0] = 2.0;
-	*/
+	run_state.parameters = (Parameter_Value *)malloc(sizeof(Parameter_Value)*pars->count());
+	
+	for(auto par : *pars)
+		run_state.parameters[par.id] = (*pars)[par]->default_val;
+	
+	s64 time_steps = 100;
+	
+	int var_count    = model->state_vars.vars.size();
+	int series_count = model->series.vars.size();
+	
+	double *state_vars = (double *)malloc((time_steps+1)*sizeof(double)*var_count);
+	double *series     = (double *)malloc(time_steps*sizeof(double)*series_count);
+
+	
+	read_input_data("testinput.dat", model, series, time_steps);
+	
+	run_state.state_vars = state_vars;
+	run_state.last_state_vars = state_vars;
+	run_state.series     = series;
+	
+	// Initial values:
+	memset(run_state.state_vars, 0, sizeof(double)*var_count); // by default 0 unless they are specified
+	emulate_batch(model, &model->initial_batch, &run_state, true);
+	
+	for(s64 ts = 0; ts < time_steps; ++ts) {
+		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
+		run_state.state_vars+=var_count;
+		
+		emulate_batch(model, &model->batch, &run_state);
+		
+		run_state.series     += series_count;
+	}
+	
+	write_result_data("results.dat", model, state_vars, time_steps);
+}
+
+
+
+
+
+
+
+void read_input_data(String_View file_name, Mobius_Model *model, double *target, s64 time_steps) {	
+	// Dummy code for initial prototype. We should reuse stuff from Mobius 1.0 later!
+	
+	String_View file_data = read_entire_file(file_name);
+	Token_Stream stream(file_name, file_data);
+	
+	std::vector<std::vector<int>> order;
+	
+	while(true) {
+		auto token = stream.peek_token();
+		if(token.type != Token_Type::quoted_string) break;
+		stream.read_token();
+		order.resize(order.size() + 1);
+		String_View name = token.string_value;
+		for(auto id : *model->series[name]) order[order.size()-1].push_back(id.id);
+	}
+	
+	size_t count = order.size();
+	for(s64 ts = 0; ts < time_steps; ++ts)
+		for(int idx = 0; idx < count; ++idx) {
+			double val = stream.expect_real();
+			for(auto id : order[idx])
+				target[count*ts + id] = val;
+		}
+		
+	free(file_data.data);
+}
+
+void write_result_data(String_View file_name, Mobius_Model *model, double *results, s64 time_steps) {
+	FILE *file = open_file(file_name, "w");
+	
+	size_t result_count = model->batch.state_vars.size();
+	for(int idx = 0; idx < result_count; ++idx) {
+		String_View name = model->state_vars.vars[idx].name;
+		fprintf(file, "\"%.*s\"\t", name.count, name.data);
+	}
+	fprintf(file, "\n");
+	
+	for(int ts = 0; ts < time_steps; ++ts)
+	{
+		for(int idx = 0; idx < result_count; ++idx)
+			fprintf(file, "%f\t", results[result_count*ts + idx]);
+		fprintf(file, "\n");
+	}
+	
+	fclose(file);
 }
 

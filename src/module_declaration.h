@@ -50,9 +50,6 @@ constexpr Entity_Id invalid_entity_id = {-1, Reg_Type::unrecognized, -1};
 
 inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
 
-template <typename Value_Type>
-using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
-
 
 
 
@@ -71,13 +68,15 @@ Parameter_Value {
 };
 
 inline Parameter_Value
-get_parameter_value(Token *token) {
+get_parameter_value(Token *token, Token_Type type) {
+	if((type == Token_Type::integer || type == Token_Type::boolean) && token->type == Token_Type::real)
+		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
 	Parameter_Value result;
-	if(token->type == Token_Type::real)
+	if(type == Token_Type::real)
 		result.val_double = token->double_value();
-	else if(token->type == Token_Type::integer)
+	else if(type == Token_Type::integer) 
 		result.val_int = token->val_int;
-	else if(token->type == Token_Type::boolean)
+	else if(type == Token_Type::boolean)
 		result.val_bool = token->val_bool;
 	else
 		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
@@ -204,7 +203,7 @@ Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
 	std::vector<String_View> args;
 	
 	Function_Type    fun_type;
-	//Math_Block_AST  *code;
+	Math_Block_AST  *code;
 	
 	// TODO: need some info about how it transforms units.
 	// TODO: may need some info on expected input types (especially for externals)
@@ -240,6 +239,8 @@ Registry : Registry_Base {
 	standard_declaration(Decl_AST *decl);
 	
 	Entity_Registration<reg_type> *operator[](Entity_Id id);
+	
+	size_t count() { return registrations.size(); }
 	
 	Entity_Id begin();
 	Entity_Id end();
@@ -288,10 +289,17 @@ Module_Declaration {
 	find_entity(Entity_Id id) {
 		return (*registry(id.reg_type))[id];
 	}
+	
+	template<Reg_Type reg_type> Entity_Registration<reg_type> *
+	find_entity(Entity_Id id) {
+		if(id.reg_type != reg_type)
+			fatal_error(Mobius_Error::internal, "Incorrect type passed to find_entity().");
+		return reinterpret_cast<Entity_Registration<reg_type> *>(find_entity(id));
+	}
 };
 
-template<Reg_Type reg_type>
-Entity_Registration<reg_type> *Registry<reg_type>::operator[](Entity_Id id) {
+template<Reg_Type reg_type> Entity_Registration<reg_type> *
+Registry<reg_type>::operator[](Entity_Id id) {
 	if(!is_valid(id) || id.id >= registrations.size() || id.module_id != parent->module_id || id.reg_type != reg_type)
 		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
 	return &registrations[id.id];

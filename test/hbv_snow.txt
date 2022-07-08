@@ -17,23 +17,27 @@ With some extra spice.
 		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0)
 		refr_eff  : par_real("Refreeze efficiency", unit(), 0.5)
 		snow_liq  : par_real("Liquid water fraction", unit(), 0.5)
-		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 0)
+		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 10)
 	}
 	
 	snow  : quantity("Snow (water equivalents)")
 	water : quantity("Water")
 	
-	# note: we don't say air.has(temp) ... etc. This means that it is "hanging" and so assumed to be an input series, unless another module declares a function for it.
+	# note: We don't give a function body to compute these, and so if they are not re-declared in another module, they are assumed to be input series.
+	air.has(temp : property("Temperature"), unit(deg_c), "Air temperature")
+	air.has(precip : property("Precipitation"), unit(m m, day -1))
 	
-	temp   : property("Temperature", unit(deg_c))
-	precip : property("Precipitation", unit(m m, day -1))
+	snow_box.has(snow,  unit(m m), "Snow depth") .initial { init_snow }
+	snow_box.has(water, unit(m m), "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
-	snurkelmeis : snow_box.has(temp) {
-		exp(1)
+	my_min : function(a, b) {
+		a  if a <= b,
+		b  otherwise
 	}
 	
-	snow_box.has(snow,  unit(m m)) .initial { init_snow }
-	snow_box.has(water, unit(m m)) .initial { 0 }             # Not necessary to declare initial here, default is 0.
+	snow_box.has(temp, unit(deg_c), "Soil temperature") {
+		ddf_melt
+	}
 	
 	# Source nowhere means that we are not interested in tracking the state of the source, this is then a pure source to the system
 	p_snow :
@@ -63,7 +67,7 @@ With some extra spice.
 		max(0, refr_eff*ddf_melt*(t_melt - air.temp))
 	}
 	
-	#flux(air.water, snow_box.water) { 0 }   # should give error. We have not declared air.has(water)
+	#flux(air.water, snow_box.water, "Smurk") { 0 }   # should give error. We have not declared air.has(water)
 	
 	melt_runoff :
 	flux(snow_box.water, out, "Melt runoff") {

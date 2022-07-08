@@ -6,4 +6,4 @@ ENUM_VALUE(unary_operator)
 ENUM_VALUE(binary_operator)
 ENUM_VALUE(if_chain)
 ENUM_VALUE(cast)
-//assignment,
+ENUM_VALUE(local_var)

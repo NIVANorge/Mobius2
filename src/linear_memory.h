@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unordered_map>
 
 #include "mobius_common.h"
 
@@ -84,6 +85,8 @@ struct String_View : Array<char> {
 	bool operator==(const char *c_string) {
 		return *this == String_View(c_string);
 	}
+	
+	operator bool() { return data && count; }
 };
 
 inline std::ostream&
@@ -103,7 +106,8 @@ struct String_View_Hash {
     }
 };
 
-
+template <typename Value_Type>
+using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
 
 
 
@@ -129,20 +133,11 @@ Linear_Allocator {
 	Memory_Bucket *first;
 	Memory_Bucket *current;
 	
-	Linear_Allocator() : bucket_size(0), current_used(0), first(nullptr), current(nullptr) {
+	Linear_Allocator(size_t bucket_size) : bucket_size(bucket_size), current_used(0), first(nullptr), current(nullptr) {
 	}
 	
 	~Linear_Allocator() {
 		deallocate_all();
-	}
-	
-	void
-	initialize(size_t bucket_size) {
-		if(this->bucket_size != 0)
-			fatal_error(Mobius_Error::internal, "Tried to initialize a bucket allocator twice.");
-		
-		//TODO: Round up to multiple of 8?
-		this->bucket_size = bucket_size;
 	}
 	
 	template<typename T> T*

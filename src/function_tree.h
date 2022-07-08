@@ -55,47 +55,66 @@ get_value_type(Token_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var,  // Maybe also computed_parameter eventually. Also local.
+	parameter, series, state_var, local // Maybe also computed_parameter eventually.
 };
 
+struct Math_Block_FT;
 
 struct
 Math_Expr_FT {
 	Math_Expr_Type               expr_type;
 	Value_Type                   value_type;
-	Entity_Id                    unit;
 	Source_Location              location;
 	std::vector<Math_Expr_FT *>  exprs;
+	Math_Block_FT               *scope;
 	
-	Math_Expr_FT() : value_type(Value_Type::unresolved) {};
+	Math_Expr_FT(Math_Block_FT *scope, Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), scope(scope), expr_type(expr_type) {};
 	~Math_Expr_FT() { for(auto expr : exprs) delete expr; };
+	
+	virtual void add_expr(Math_Expr_FT *expr) {
+		exprs.push_back(expr);
+	}
 };
 
 struct
 Math_Block_FT : Math_Expr_FT {
-	//TODO: scope info
 	
-	Math_Block_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::block; };
+	String_View function_name;
+	int n_locals;
+	
+	Math_Block_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::block), n_locals(0), function_name("") { };
+};
+
+//NOTE: we don't want to use enum class here, because it doesn't autocast to int, making bitwise operations annoying :(
+enum Identifier_Flags : u32 {
+	ident_flags_none        = 0x0,
+	ident_flags_last_result = 0x1,
+	//TODO: conc, trust_unit, auto_convert, etc.
 };
 
 struct
 Identifier_FT : Math_Expr_FT {
 
 	Variable_Type                variable_type;
+	Identifier_Flags             flags;
 	union {
 		Entity_Id                parameter;
 		Var_Id                   state_var;
 		Var_Id                   series;
+		struct {
+			s32           index;
+			s32           scopes_up;
+		}                        local_var;
 	};
 	
-	Identifier_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::identifier_chain; };
+	Identifier_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::identifier_chain), flags(ident_flags_none) { };
 };
 
 struct
 Literal_FT : Math_Expr_FT {
 	Parameter_Value value;
 	
-	Literal_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::literal; };
+	Literal_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::literal) { };
 };
 
 struct
@@ -103,27 +122,35 @@ Function_Call_FT : Math_Expr_FT {
 	Function_Type fun_type;
 	String_View   fun_name;
 	
-	Function_Call_FT() : Math_Expr_FT() { expr_type = Math_Expr_Type::function_call; };
+	Function_Call_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::function_call) { };
 };
 
 struct
 Operator_FT : Math_Expr_FT {
 	Token_Type oper;
 	
-	Operator_FT() : Math_Expr_FT() {};
+	Operator_FT(Math_Block_FT *scope, Math_Expr_Type expr_type) : Math_Expr_FT(scope, expr_type) { };
+};
+
+struct
+Local_Var_FT : Math_Expr_FT {
+	String_View   name;
+	bool          is_used;
+	
+	Local_Var_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::local_var), is_used(false) { }
 };
 
 
 
 struct Mobius_Model;
 struct Math_Expr_AST;
-struct State_Variable;
+struct Dependency_Set;
 
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast);
+resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Math_Block_FT *scope);
 
 void
-register_dependencies(Math_Expr_FT *expr, State_Variable *var);
+register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends);
 
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to);
@@ -131,7 +158,11 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to);
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr);
 
+//Math_Expr_FT *
+//quantity_codegen(Mobius_Model *model, Entity_Id id);
+
 Math_Expr_FT *
-quantity_codegen(Mobius_Model *model, Entity_Id id);
+restrict_flux(Math_Expr_FT *expr, Var_Id source);
+
 
 #endif // MOBIUS_FUNCTION_TREE_H
