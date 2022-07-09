@@ -1,6 +1,6 @@
 
 
-module("HBVSnow lite", 1,0,0) {
+module("HBVSnow", 1,0,0) {
 """
 A nice snow module.
 With some extra spice.
@@ -30,14 +30,14 @@ With some extra spice.
 	snow_box.has(snow,  unit(m m), "Snow depth") .initial { init_snow }
 	snow_box.has(water, unit(m m), "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
-	my_min : function(a, b) {
-		a  if a <= b,
-		b  otherwise
-	}
+	#my_min : function(a, b) {
+	#	a  if a <= b,
+	#	b  otherwise
+	#}
 	
-	snow_box.has(temp, unit(deg_c), "Soil temperature") {
-		ddf_melt
-	}
+	#snow_box.has(temp, unit(deg_c), "Soil temperature") {
+	#	my_min(ddf_melt, 1)
+	#}
 	
 	# Source nowhere means that we are not interested in tracking the state of the source, this is then a pure source to the system
 	p_snow :

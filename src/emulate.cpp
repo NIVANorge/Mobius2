@@ -178,8 +178,10 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			//TODO: instead we have to find a way to convert the id to a local index. This is just for early testing.
 			Typed_Value result;
 			result.type = expr->value_type;
-			if(ident->variable_type == Variable_Type::parameter)
+			if(ident->variable_type == Variable_Type::parameter) {
 				result = Typed_Value {state->parameters[ident->parameter.id], expr->value_type};
+				//warning_print("looked up par ", ident->parameter.id, " val ", result.val_double, "\n");
+			}
 			else if(ident->variable_type == Variable_Type::state_var)
 				result.val_double = state->state_vars[ident->state_var.id];
 			else if(ident->variable_type == Variable_Type::series)
@@ -272,8 +274,8 @@ void emulate_model_run(Mobius_Model *model) {
 	if(!model->is_composed)
 		fatal_error(Mobius_Error::internal, "Tried to emulate_model_run() before the model was composed.");
 	
-	
-	auto pars = &model->modules[0]->parameters;
+	//TODO!!!!
+	auto pars = &model->modules[1]->parameters;
 	
 	Model_Run_State run_state;
 	run_state.parameters = (Parameter_Value *)malloc(sizeof(Parameter_Value)*pars->count());
@@ -281,7 +283,7 @@ void emulate_model_run(Mobius_Model *model) {
 	for(auto par : *pars)
 		run_state.parameters[par.id] = (*pars)[par]->default_val;
 	
-	s64 time_steps = 100;
+	s64 time_steps = 10;
 	
 	int var_count    = model->state_vars.vars.size();
 	int series_count = model->series.vars.size();
@@ -292,9 +294,8 @@ void emulate_model_run(Mobius_Model *model) {
 	
 	read_input_data("testinput.dat", model, series, time_steps);
 	
-	run_state.state_vars = state_vars;
-	run_state.last_state_vars = state_vars;
-	run_state.series     = series;
+	run_state.state_vars      = state_vars;
+	run_state.series          = series;
 	
 	// Initial values:
 	memset(run_state.state_vars, 0, sizeof(double)*var_count); // by default 0 unless they are specified
@@ -342,7 +343,6 @@ void read_input_data(String_View file_name, Mobius_Model *model, double *target,
 			for(auto id : order[idx])
 				target[count*ts + id] = val;
 		}
-		
 	free(file_data.data);
 }
 
@@ -356,7 +356,7 @@ void write_result_data(String_View file_name, Mobius_Model *model, double *resul
 	}
 	fprintf(file, "\n");
 	
-	for(int ts = 0; ts < time_steps; ++ts)
+	for(int ts = 0; ts <= time_steps; ++ts)
 	{
 		for(int idx = 0; idx < result_count; ++idx)
 			fprintf(file, "%f\t", results[result_count*ts + idx]);

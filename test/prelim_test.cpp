@@ -16,26 +16,18 @@ int main() {
 	//Linear_Allocator memory;
 	//memory.initialize(32*1024*1024);
 	
-	File_Data_Handler files;
+	Mobius_Model *model = load_model("test_model.txt");
+	//Mobius_Model model;
+	//model.load_module("hbv_snow.txt");
+	//model.load_module("test_soil.txt");
 	
-	String_View file_name = "small_lexer_test.txt";
-	String_View file_data = files.load_file(file_name);
-	Token_Stream stream(file_name, file_data);
-	
-	Decl_AST *module_decl = parse_decl(&stream);
-	
-	Module_Declaration *module = process_module_declaration(0, module_decl);
-	
-	Mobius_Model model;
-	model.add_module(module);
-	
-	model.compose();
+	model->compose();
 	
 	std::cout << "Composition done.\n";
 	
-	delete module_decl; //NOTE: only safe after compose();
+	//delete module_decl; //NOTE: only safe after compose();
 	
-	emulate_model_run(&model);
+	emulate_model_run(model);
 		
 	std::cout << "Finished correctly.\n";
 }

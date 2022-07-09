@@ -142,7 +142,7 @@ Entity_Registration : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
-	// no need for additional info right now..
+	Entity_Id global_id;
 };
 
 template<> struct
@@ -170,8 +170,8 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
-	//NOTE: this is in practice used both for property and quantity
-	Entity_Id    unit;
+	Entity_Id    global_id;
+	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
 };
 
 template<> struct
@@ -248,13 +248,15 @@ Registry : Registry_Base {
 
 
 
-
 struct
-Module_Declaration {
+Module_Declaration {	
 	String_View name;
 	int major, minor, revision;
 	
+	Decl_AST *decl;
+	
 	s16 module_id;
+	Module_Declaration *global_scope;
 	
 	String_View doc_string;
 	
@@ -277,13 +279,13 @@ Module_Declaration {
 		properties_and_quantities(this),
 		hases       (this),
 		fluxes      (this),
-		functions   (this)
+		functions   (this),
+		global_scope(nullptr)
 	{}
 	
 	Registry_Base *	registry(Reg_Type);
 	
-	
-	Entity_Id dimensionless_unit;
+	//Entity_Id dimensionless_unit;
 	
 	Entity_Registration_Base *
 	find_entity(Entity_Id id) {
@@ -296,12 +298,27 @@ Module_Declaration {
 			fatal_error(Mobius_Error::internal, "Incorrect type passed to find_entity().");
 		return reinterpret_cast<Entity_Registration<reg_type> *>(find_entity(id));
 	}
+	
+	inline Entity_Id
+	find_handle(String_View handle_name) {
+		Entity_Id result = invalid_entity_id;
+		auto find = handles_in_scope.find(handle_name);
+		if(find != handles_in_scope.end())
+			result = find->second;
+		return result;
+	}
 };
 
 template<Reg_Type reg_type> Entity_Registration<reg_type> *
 Registry<reg_type>::operator[](Entity_Id id) {
-	if(!is_valid(id) || id.id >= registrations.size() || id.module_id != parent->module_id || id.reg_type != reg_type)
+	if(!is_valid(id))
 		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid handle.");
+	else if(id.module_id != parent->module_id)
+		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a handle from a different module.");
+	else if(id.reg_type != reg_type)
+		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a handle of a wrong type.");
+	else if(id.id >= registrations.size())
+		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a handle that was out of bounds.");
 	return &registrations[id.id];
 }
 
@@ -321,14 +338,9 @@ get_reg_type(Decl_Type decl_type) {
 	return Reg_Type::unrecognized;
 }
 
-inline Entity_Id
-find_handle(Module_Declaration *module, String_View handle_name) {
-	Entity_Id result = invalid_entity_id;
-	auto find = module->handles_in_scope.find(handle_name);
-	if(find != module->handles_in_scope.end())
-		result = find->second;
-	return result;
-}
+//TODO: clean this up. We could just put the code for make_global directly in make_value_location, and then use that directly in module_declaration.cpp
+Value_Location
+make_global(Module_Declaration *module, Value_Location loc);
 
 inline Value_Location
 make_value_location(Module_Declaration *module, Entity_Id compartment, Entity_Id property_or_quantity) {
@@ -341,10 +353,73 @@ make_value_location(Module_Declaration *module, Entity_Id compartment, Entity_Id
 			fatal_error(Mobius_Error::internal, "Incorrect use of make_value_location().");
 	}
 	
-	return result;
+	return make_global(module, result);
 }
 
 Module_Declaration *
-process_module_declaration(s16 module_id, Decl_AST *decl);
+process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl);
+
+
+template<Reg_Type reg_type> inline Entity_Id
+Registry<reg_type>::standard_declaration(Decl_AST *decl) {
+	Token *name = single_arg(decl, 0);
+	return find_or_create(&decl->handle_name, name, decl);
+}
+
+template<Reg_Type reg_type> Entity_Id
+process_declaration(Module_Declaration *module, Decl_AST *decl); //NOTE: this will be template specialized below.
+
+template<> inline Entity_Id
+process_declaration<Reg_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::quoted_string}});
+	
+	auto name = single_arg(decl, 0);
+	
+	Entity_Id global_id;
+	
+	if(module->global_scope) {
+		global_id = module->global_scope->compartments.find_or_create(nullptr, name);
+		if(!is_valid(global_id)) 
+			global_id = module->global_scope->compartments.find_or_create(nullptr, name, decl);
+	}
+	
+	Entity_Id id = module->compartments.standard_declaration(decl);
+	module->compartments[id]->global_id = global_id;
+	
+	return id;
+}
+
+template<> inline Entity_Id
+process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, Decl_AST *decl) {
+	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
+	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
+	int which = match_declaration(decl,
+		{
+			{Token_Type::quoted_string},
+			//{Token_Type::quoted_string, Decl_Type::unit},
+		});
+		
+	auto name = single_arg(decl, 0);
+	
+	Entity_Id global_id;
+	
+	if(module->global_scope) {
+		global_id = module->global_scope->properties_and_quantities.find_or_create(nullptr, name);
+		if(!is_valid(global_id)) 
+			global_id = module->global_scope->properties_and_quantities.find_or_create(nullptr, name, decl);
+	}
+
+	auto id       = module->properties_and_quantities.standard_declaration(decl);
+	auto property = module->properties_and_quantities[id];
+	
+	property->global_id = global_id;
+	/*
+	if(which == 1)
+		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
+	else
+		property->unit = invalid_entity_id;
+	*/
+	return id;
+}
 
 #endif // MOBIUS_MODEL_BUILDER_H

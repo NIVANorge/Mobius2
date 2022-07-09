@@ -134,7 +134,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 					//TODO: could also allow refering to properties by just a single identifier if the compartment is obvious.
 					new_ident->variable_type = Variable_Type::parameter;
 					
-					Entity_Id par_id = find_handle(module, name);
+					Entity_Id par_id = module->find_handle(name);
 					
 					if(!is_valid(par_id) || par_id.reg_type != Reg_Type::parameter) {
 						ident->chain[0].print_error_header();
@@ -149,8 +149,8 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 				}
 			} else if(ident->chain.size() == 2) {
 				//TODO: may need fixup for multiple modules.
-				Entity_Id first  = find_handle(module, ident->chain[0].string_value);
-				Entity_Id second = find_handle(module, ident->chain[1].string_value);
+				Entity_Id first  = module->find_handle(ident->chain[0].string_value);
+				Entity_Id second = module->find_handle(ident->chain[1].string_value);
 				//TODO: may need fixup for special identifiers.
 				
 				if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_quantity) {
@@ -166,8 +166,10 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 				} else {
 					var_id = model->series[loc];
 					if(!is_valid(var_id)) {
+						//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
+						// Maybe that is not that important (?).
 						ast->location.print_error_header();
-						fatal_error("Value is not attached to this compartment.");
+						fatal_error("There has not been a \"has\" declaration registering this location.");
 					}
 					new_ident->variable_type = Variable_Type::series;
 					new_ident->series = var_id;
@@ -199,7 +201,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
 			
 			
-			Entity_Id fun_id = find_handle(module, fun->name.string_value);
+			Entity_Id fun_id = module->find_handle(fun->name.string_value);
 			if(!is_valid(fun_id) || fun_id.reg_type != Reg_Type::function) {
 				fun->name.print_error_header();
 				fatal_error("The function \"", fun->name.string_value, "\" has not been declared.");

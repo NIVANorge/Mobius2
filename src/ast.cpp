@@ -472,3 +472,77 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 	return block;
 }
 
+int
+match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain, bool allow_handle, bool allow_multiple_bodies, bool allow_body_modifiers) {
+	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
+	
+	//TODO: need much better error messages!
+	
+	if(!allow_chain && !decl->decl_chain.empty()) {
+		decl->decl_chain[0].print_error_header();
+		fatal_error("This should not be a chained declaration.");
+	}
+	if(allow_chain > 0 && decl->decl_chain.size() != allow_chain) {
+		decl->decl_chain[0].print_error_header();
+		fatal_error("There should be ", allow_chain, " elements in the declaration chain. We found ", decl->decl_chain.size(), ".");
+	}
+	if(!allow_handle && decl->handle_name.string_value.count > 0) {
+		decl->handle_name.print_error_header();
+		fatal_error("This declaration should not have a handle");
+	}
+	
+	int found_match = -1;
+	int idx = -1;
+	for(const auto &pattern : patterns) {
+		++idx;
+		if(decl->args.size() != pattern.size()) continue;
+		
+		bool cont = false;
+		auto match = pattern.begin();
+		for(auto arg : decl->args) {
+			if(!match->matches(arg)) {
+				cont = true;
+				break;
+			}
+			++match;
+		}
+		if(cont) continue;
+		
+		found_match = idx;
+		break;
+	}
+	
+	if(found_match == -1 && patterns.size() > 0) {
+		decl->type_name.print_error_header();
+		error_print("The arguments to the declaration \"", decl->type_name.string_value, "\" don't match any recognized pattern. The recognized patterns are:\n");
+		for(const auto &pattern : patterns) {
+			error_print("(");
+			auto match = pattern.begin();
+			while(true) {
+				match->print_to_error();
+				++match;
+				if(match != pattern.end()) error_print(", ");
+				else break;
+			}
+			error_print(")\n");
+		}
+		mobius_error_exit();
+	}
+	
+	// NOTE: We already checked in the AST processing stage if the declaration is allowed to have bodies at all. This just checks if it can have more than one.
+	if(!allow_multiple_bodies && decl->bodies.size() > 1) {
+		decl->type_name.print_error_header();
+		fatal_error("This declaration should not have multiple bodies.");
+	}
+	
+	if(!allow_body_modifiers) {
+		for(auto body : decl->bodies) {
+			if(body->modifiers.size() > 0) {
+				decl->type_name.print_error_header();
+				fatal_error("The bodies of this declaration should not have modifiers.");
+			}
+		}
+	}
+	
+	return found_match;
+}

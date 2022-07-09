@@ -28,7 +28,7 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function);
 struct
 Model_Run_State {
 	Parameter_Value *parameters;
-	double *last_state_vars;
+	//double *last_state_vars;
 	double *state_vars;
 	double *series;
 };

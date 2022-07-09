@@ -37,7 +37,7 @@ see_if_handle_name_exists_in_scope(Module_Declaration *module, Token *handle_nam
 		fatal_error("The name \"", handle_name->string_value, "\" is reserved.");
 	}
 	
-	Entity_Id id = find_handle(module, handle_name->string_value);
+	Entity_Id id = module->find_handle(handle_name->string_value);
 	if(is_valid(id)) {
 		handle_name->print_error_header();
 		error_print("The name \"", handle_name->string_value, "\" was already used here:\n");
@@ -161,157 +161,6 @@ Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type 
 	return id;
 }
 
-
-
-//TODO: Maybe classifying the arguments should be done in the AST parsing instead??
-//TODO: Make a general-purpose tagged union?
-struct Arg_Pattern {
-	enum class Type { value, decl, unit_literal };
-	Type pattern_type;
-	
-	union {
-		Token_Type token_type;
-		Decl_Type  decl_type;
-	};
-	
-	Arg_Pattern(Token_Type token_type) : token_type(token_type), pattern_type(Type::value) {}
-	Arg_Pattern(Decl_Type decl_type)   : decl_type(decl_type), pattern_type(Type::decl) {}
-	Arg_Pattern() : pattern_type(Type::unit_literal) {}
-	
-	bool matches(Argument_AST *arg) const {
-		Token_Type check_type = token_type;
-		
-		switch(pattern_type) {
-			case Type::unit_literal : {
-				int count = arg->sub_chain.size();
-				if(!arg->decl && (count == 1 || (count <= 3 && arg->chain_sep == ' ')))
-					return true; //NOTE: only potentially true. Must be properly checked in the process_unit_declaration
-				return false;
-			} break;
-		
-			case Type::decl : {
-				if(arg->decl && (arg->decl->type == decl_type)) return true;
-				//NOTE: we could still have an identifier that could potentially resolve to this type
-				check_type = Token_Type::identifier;
-			} // fall through to the next case to see if we have an identifier (chain).
-			
-			case Type::value : {
-				if(arg->sub_chain.size() == 1) {
-					if(check_type == Token_Type::real)
-						return is_numeric(arg->sub_chain[0].type);
-					return arg->sub_chain[0].type == check_type;
-				}
-				else if(arg->sub_chain.size() > 1 && check_type == Token_Type::identifier) {
-					if(arg->chain_sep != '.') return false;
-					for(Token &token : arg->sub_chain) {
-						if(token.type != Token_Type::identifier)
-							return false;
-					}
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-	
-	void print_to_error() const {
-		switch(pattern_type) {
-			case Type::unit_literal : { error_print("(unit literal)"); } break;
-			case Type::decl :         { error_print(name(decl_type));  } break;
-			case Type::value :        { error_print(name(token_type)); } break;
-		}
-	}
-};
-
-inline int
-match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain = 0, bool allow_handle = true, bool allow_multiple_bodies = false, bool allow_body_modifiers = false) {
-	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
-	
-	//TODO: need much better error messages!
-	
-	if(!allow_chain && !decl->decl_chain.empty()) {
-		decl->decl_chain[0].print_error_header();
-		fatal_error("This should not be a chained declaration.");
-	}
-	if(allow_chain > 0 && decl->decl_chain.size() != allow_chain) {
-		decl->decl_chain[0].print_error_header();
-		fatal_error("There should be ", allow_chain, " elements in the declaration chain. We found ", decl->decl_chain.size(), ".");
-	}
-	if(!allow_handle && decl->handle_name.string_value.count > 0) {
-		decl->handle_name.print_error_header();
-		fatal_error("This declaration should not have a handle");
-	}
-	
-	int found_match = -1;
-	int idx = -1;
-	for(const auto &pattern : patterns) {
-		++idx;
-		if(decl->args.size() != pattern.size()) continue;
-		
-		bool cont = false;
-		auto match = pattern.begin();
-		for(auto arg : decl->args) {
-			if(!match->matches(arg)) {
-				cont = true;
-				break;
-			}
-			++match;
-		}
-		if(cont) continue;
-		
-		found_match = idx;
-		break;
-	}
-	
-	if(found_match == -1 && patterns.size() > 0) {
-		decl->type_name.print_error_header();
-		error_print("The arguments to the declaration \"", decl->type_name.string_value, "\" don't match any recognized pattern. The recognized patterns are:\n");
-		for(const auto &pattern : patterns) {
-			error_print("(");
-			auto match = pattern.begin();
-			while(true) {
-				match->print_to_error();
-				++match;
-				if(match != pattern.end()) error_print(", ");
-				else break;
-			}
-			error_print(")\n");
-		}
-		mobius_error_exit();
-	}
-	
-	// NOTE: We already checked in the AST processing stage if the declaration is allowed to have bodies at all. This just checks if it can have more than one.
-	if(!allow_multiple_bodies && decl->bodies.size() > 1) {
-		decl->type_name.print_error_header();
-		fatal_error("This declaration should not have multiple bodies.");
-	}
-	
-	if(!allow_body_modifiers) {
-		for(auto body : decl->bodies) {
-			if(body->modifiers.size() > 0) {
-				decl->type_name.print_error_header();
-				fatal_error("The bodies of this declaration should not have modifiers.");
-			}
-		}
-	}
-	
-	return found_match;
-}
-
-inline Token *
-single_arg(Decl_AST *decl, int which) {
-	return &decl->args[which]->sub_chain[0];
-}
-
-template<Reg_Type reg_type> Entity_Id
-Registry<reg_type>::standard_declaration(Decl_AST *decl) {
-	Token *name = single_arg(decl, 0);
-	return find_or_create(&decl->handle_name, name, decl);
-}
-
-template<Reg_Type reg_type> Entity_Id
-process_declaration(Module_Declaration *module, Decl_AST *decl); //NOTE: this will be template specialized below.
-
 template<Reg_Type expected_type> Entity_Id
 resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_sub_chain_size = 1) {
 	// We could do more error checking here, but it should really only be called after calling match_declaration...
@@ -346,12 +195,6 @@ process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) 
 	// TODO: implement this!
 	
 	return invalid_entity_id;
-}
-
-template<> Entity_Id
-process_declaration<Reg_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}});
-	return module->compartments.standard_declaration(decl);
 }
 
 template<> Entity_Id
@@ -415,23 +258,17 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 	return id;
 }
 
-template<> Entity_Id
-process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, Decl_AST *decl) {
-	int which = match_declaration(decl,
-		{
-			{Token_Type::quoted_string},
-			{Token_Type::quoted_string, Decl_Type::unit},
-		});
 
-	auto id       = module->properties_and_quantities.standard_declaration(decl);
-	auto property = module->properties_and_quantities[id];
-	
-	if(which == 1)
-		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
-	else
-		property->unit = invalid_entity_id;
-	
-	return id;
+Value_Location
+make_global(Module_Declaration *module, Value_Location loc) {
+	Value_Location result = loc;
+	if(loc.type == Location_Type::located && module->global_scope) {
+		auto comp_id = module->compartments[loc.compartment]->global_id;
+		if(is_valid(comp_id)) result.compartment = comp_id;
+		auto quant_id = module->properties_and_quantities[loc.property_or_quantity]->global_id;
+		if(is_valid(quant_id)) result.property_or_quantity = quant_id;
+	}
+	return result;
 }
 
 template<> Entity_Id
@@ -456,6 +293,8 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	has->value_location.type = Location_Type::located;
 	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
 	has->value_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
+	
+	has->value_location = make_global(module, has->value_location);
 	
 	if(which == 1 || which == 3)
 		has->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
@@ -507,6 +346,7 @@ process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Val
 		location->type     = Location_Type::located;
 		location->compartment = module->compartments.find_or_create(&(*symbol)[0]);
 		location->property_or_quantity   = module->properties_and_quantities.find_or_create(&(*symbol)[1]);    //NOTE: this does not guarantee that this is a quantity and not a property, so that must be checked in post.
+		*location = make_global(module, *location);
 	} else {
 		//TODO: this should eventually be allowed when having dissolved quantity
 		(*symbol)[0].print_error_header();
@@ -578,11 +418,13 @@ process_declaration<Reg_Type::function>(Module_Declaration *module, Decl_AST *de
 
 
 Module_Declaration *
-process_module_declaration(s16 module_id, Decl_AST *decl) {
+process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl) {
 	
 	//TODO: have to decide whether we should copy over string views at this point.
 	
 	Module_Declaration *module = new Module_Declaration();
+	module->global_scope = global_scope;
+	module->decl = decl; // Keep it so that we can free it later.
 	module->module_id = module_id;
 	
 	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, true, false);
@@ -595,7 +437,7 @@ process_module_declaration(s16 module_id, Decl_AST *decl) {
 	
 	
 	//TODO: it does not make that much sense to have special units and intrinsic functions registered on every module. We instead need a global scope for some things.
-	module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
+	//module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
 	
 	auto minfun = module->functions.create_compiler_internal("min", Decl_Type::function);
 	module->functions[minfun]->fun_type = Function_Type::intrinsic;

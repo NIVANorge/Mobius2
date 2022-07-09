@@ -87,29 +87,23 @@ struct Var_Registry {
 	Var_Id end()   { return {(s32)vars.size()}; }
 };
 
+
 struct Run_Batch {
 	std::vector<Var_Id> state_vars;
 };
 
 struct
 Mobius_Model {
-	std::vector<Module_Declaration *> modules;   //TODO: allow multiple modules!
 	
-	Var_Registry state_vars;
-	Var_Registry series;
-	
-	Mobius_Model() : allocator(32*1024*1024) {}    //NOTE: for now, just to build string names.
+	String_View name;
+	String_View doc_string;
 	
 	
-	void add_module(Module_Declaration *module);
+	Mobius_Model() : allocator(32*1024*1024) {}    //NOTE: for now, the allocator is just to store / build string names... Should maybe get rid of it.
+	
+	// TODO: destructor.
+	
 	void compose();
-	bool is_composed = false;
-	
-	Run_Batch initial_batch;
-	
-	Run_Batch batch;    //TODO: eventually many of these
-	
-	Linear_Allocator allocator;
 	
 	Entity_Registration_Base *
 	find_entity(Entity_Id id) {
@@ -124,8 +118,27 @@ Mobius_Model {
 			fatal_error(Mobius_Error::internal, "find_entity() with invalid module id.");
 		return modules[id.module_id]->find_entity<reg_type>(id);
 	}
+	
+	s16 load_module(String_View file_name, String_View module_name);
+	
+
+	String_View this_path = "";
+	
+	bool is_composed = false;
+	
+	Run_Batch initial_batch;
+	Run_Batch batch;    //TODO: eventually many of these
+	
+	File_Data_Handler file_handler;
+	Linear_Allocator allocator;
+	
+	std::vector<Module_Declaration *> modules;   //TODO: allow multiple modules!
+	
+	Var_Registry state_vars;
+	Var_Registry series;
 };
 
-
+Mobius_Model *
+load_model(String_View file_name);
 
 #endif // MOBIUS_MODEL_DECLARATION_H
