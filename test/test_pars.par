@@ -1,0 +1,41 @@
+
+
+module("HBV snow", 1, 1, 0) {
+	par_group("Snow") [] {
+		"Degree-day factor for snowmelt" :
+		[ 2.74 ]
+		
+		"Temperature at which precip falls as snow" :
+		[ 0 ]
+		
+		"Temperature at which snow melts" :
+		[ 0 ]
+		
+		"Refreeze efficiency" :
+		[ 0.5 ]
+		
+		"Liquid water fraction" :
+		[ 0.5 ]
+		
+		"Initial snow depth (water equivalents)" :
+		[ 10 ]
+	}
+}
+
+module("Test soil water", 1, 0, 0) {
+	soil.par_group("Hydrology land") ["Landscape units"] {
+		"Field capacity" :
+		[ 120 100 ]
+		
+		"Baseflow index" :
+		[ 0.7 0.3 ]
+		
+		"Soil water time constant" :
+		[ 2 3 ]
+	}
+	
+	soil.par_group("Hydrology") {
+		"Groundwater time constant" :
+		[ 60 ]
+	}
+}

@@ -15,10 +15,49 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	cast->location = expr->location;     // not sure if this is good, it is just so that it has a valid location.
 	cast->value_type = cast_to;
 	cast->add_expr(expr);
-	cast->expr_type = Math_Expr_Type::cast;
 	
 	return cast;
 }
+
+Math_Expr_FT *
+make_literal(Math_Block_FT *scope, s64 val_int) {
+	auto literal = new Literal_FT(scope);
+	literal->value_type = Value_Type::integer;
+	literal->location = {}; //Hmm, we should actually make it possible to provide more location info on these generated nodes.
+	literal->value.val_int = val_int;
+	return literal;
+}
+
+Math_Expr_FT *
+make_state_var_identifier(Math_Block_FT *scope, Var_Id state_var) {
+	auto ident = new Identifier_FT(scope);
+	ident->value_type    = Value_Type::real;
+	ident->variable_type = Variable_Type::state_var;
+	ident->state_var     = state_var;
+	return ident;
+}
+
+Math_Expr_FT *
+make_intrinsic_function_call(Math_Block_FT *scope, Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2) {
+	auto fun = new Function_Call_FT(scope);
+	fun->value_type = value_type;
+	fun->fun_name   = name;
+	fun->fun_type   = Function_Type::intrinsic;
+	fun->exprs.push_back(arg1);
+	fun->exprs.push_back(arg2);
+	return fun;
+}
+
+Math_Expr_FT *
+make_binop(Math_Block_FT *scope, char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs, Value_Type value_type) {
+	auto binop = new Operator_FT(scope, Math_Expr_Type::binary_operator);
+	binop->value_type = value_type;
+	binop->oper = (Token_Type)oper;
+	binop->exprs.push_back(lhs);
+	binop->exprs.push_back(rhs);
+	return binop;
+}
+
 
 void try_cast(Math_Expr_FT **a, Math_Expr_FT **b) {
 	if((*a)->value_type != Value_Type::real && (*b)->value_type == Value_Type::real)
@@ -200,61 +239,93 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 			
 			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
 			
-			
-			Entity_Id fun_id = module->find_handle(fun->name.string_value);
-			if(!is_valid(fun_id) || fun_id.reg_type != Reg_Type::function) {
-				fun->name.print_error_header();
-				fatal_error("The function \"", fun->name.string_value, "\" has not been declared.");
-			}
-			
-			auto fun_decl = module->functions[fun_id];
-			
-			//TODO: should be replaced with check in resolve_arguments
-			if(fun->exprs.size() != fun_decl->args.size()) {
-				fun->name.print_error_header();
-				fatal_error("Wrong number of arguments to function. Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".");
-			}
-			
-			auto fun_type = fun_decl->fun_type;
-			
-			if(fun_type == Function_Type::intrinsic) {
-				auto new_fun = new Function_Call_FT(scope);
-				
+			// First check for "special" calls that are not really function calls.
+			if(fun->name.string_value == "last") {
+				auto new_fun = new Function_Call_FT(scope); // Hmm it is a bit annoying to have to do this only to delete it again.
 				resolve_arguments(model, module_id, new_fun, ast);
-			
-				new_fun->fun_type = fun_type;
-				new_fun->fun_name = fun->name.string_value;
-				fixup_intrinsic(new_fun, &fun->name);
-				
-				result = new_fun;
-			} else if(fun_type == Function_Type::decl) {
-				if(is_inside_function(scope, fun->name.string_value)) {
+				if(new_fun->exprs.size() != 1) {
 					fun->name.print_error_header();
-					//TODO: We should print the actual stack trace. That also goes for several other error locations!
-					fatal_error("The function ", fun->name.string_value, " calls itself either directly or indirectly. This is not allowed.");
+					fatal_error("A last() call only takes one argument.");
 				}
-				// Inline in the function call as a new block with the arguments as local vars.
-				auto inlined_fun = new Math_Block_FT(scope);
-				
-				resolve_arguments(model, module_id, inlined_fun, ast);
-				
-				inlined_fun->function_name = fun->name.string_value;
-				inlined_fun->n_locals = inlined_fun->exprs.size();
-				for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
-					auto arg = inlined_fun->exprs[argidx];
-					auto inlined_arg = new Local_Var_FT(inlined_fun);
-					inlined_arg->add_expr(arg);
-					inlined_arg->name = fun_decl->args[argidx];
-					inlined_arg->value_type = arg->value_type;
-					inlined_fun->exprs[argidx] = inlined_arg;
+				if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) {
+					new_fun->exprs[0]->location.print_error_header();
+					fatal_error("A last() call only takes a state variable identifier as argument.");
 				}
+				auto var = reinterpret_cast<Identifier_FT *>(new_fun->exprs[0]);
+				new_fun->exprs.clear();
+				delete new_fun;
+				if(var->variable_type != Variable_Type::state_var && var->variable_type != Variable_Type::series) {
+					var->location.print_error_header();
+					fatal_error("A last() call can only be applied to a state variable or input series.");
+				}
+				var->flags = (Identifier_Flags)(var->flags | ident_flags_last_result);
 				
-				inlined_fun->add_expr(resolve_function_tree(model, module_id, fun_decl->code, inlined_fun));
-				inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
-				
-				result = inlined_fun;
+				result = var;
 			} else {
-				fatal_error(Mobius_Error::internal, "Unhandled function type.");
+				// Otherwise it should have been registered as an entity.
+			
+				Entity_Id fun_id = module->find_handle(fun->name.string_value);
+				if(!is_valid(fun_id)) fun_id = module->global_scope->find_handle(fun->name.string_value);
+				
+				if(!is_valid(fun_id)) {
+					fun->name.print_error_header();
+					fatal_error("The function \"", fun->name.string_value, "\" has not been registered.");
+				}
+				
+				if(is_valid(fun_id) && fun_id.reg_type != Reg_Type::function) {
+					fun->name.print_error_header();
+					fatal_error("The handle \"", fun->name.string_value, "\" is not a function.");
+				}
+				
+				auto fun_decl = model->find_entity<Reg_Type::function>(fun_id);
+				
+				//TODO: should be replaced with check in resolve_arguments
+				if(fun->exprs.size() != fun_decl->args.size()) {
+					fun->name.print_error_header();
+					fatal_error("Wrong number of arguments to function. Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".");
+				}
+				
+				auto fun_type = fun_decl->fun_type;
+				
+				if(fun_type == Function_Type::intrinsic) {
+					auto new_fun = new Function_Call_FT(scope);
+					
+					resolve_arguments(model, module_id, new_fun, ast);
+				
+					new_fun->fun_type = fun_type;
+					new_fun->fun_name = fun->name.string_value;
+					fixup_intrinsic(new_fun, &fun->name);
+					
+					result = new_fun;
+				} else if(fun_type == Function_Type::decl) {
+					if(is_inside_function(scope, fun->name.string_value)) {
+						fun->name.print_error_header();
+						//TODO: We should print the actual stack trace. That also goes for several other error locations!
+						fatal_error("The function ", fun->name.string_value, " calls itself either directly or indirectly. This is not allowed.");
+					}
+					// Inline in the function call as a new block with the arguments as local vars.
+					auto inlined_fun = new Math_Block_FT(scope);
+					
+					resolve_arguments(model, module_id, inlined_fun, ast);
+					
+					inlined_fun->function_name = fun->name.string_value;
+					inlined_fun->n_locals = inlined_fun->exprs.size();
+					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
+						auto arg = inlined_fun->exprs[argidx];
+						auto inlined_arg = new Local_Var_FT(inlined_fun);
+						inlined_arg->add_expr(arg);
+						inlined_arg->name = fun_decl->args[argidx];
+						inlined_arg->value_type = arg->value_type;
+						inlined_fun->exprs[argidx] = inlined_arg;
+					}
+					
+					inlined_fun->add_expr(resolve_function_tree(model, module_id, fun_decl->code, inlined_fun));
+					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
+					
+					result = inlined_fun;
+				} else {
+					fatal_error(Mobius_Error::internal, "Unhandled function type.");
+				}
 			}
 		} break;
 		
@@ -566,84 +637,20 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 	}
 }
 
-/*
-Math_Expr_FT *
-quantity_codegen(Mobius_Model *model, Entity_Id id) {
-	auto module = model->modules[id.module_id];
-	auto has = module->hases[id];
-	
-	auto location = has->value_location;
-	//TODO: check that the location is a valid quantity location.
-	
-	std::vector<std::pair<Var_Id, char>> fluxes;
-	//TODO: make proper id system.
-	//TODO: make convenience lookup functions for some of the below!
-	for(Var_Id var_id : model->state_vars) {
-		State_Variable *state_var = model->state_vars[var_id];
-		auto entity_id = state_var->entity_id;
-		if(entity_id.reg_type == Reg_Type::flux) {
-			auto flux = model->modules[entity_id.module_id]->fluxes[entity_id];
-			if(flux->source == location)
-				fluxes.push_back({var_id, '+'});
-			if(flux->target == location)
-				fluxes.push_back({var_id, '-'});
-		}
-	}
-	
-	Var_Id quant_id = model->state_vars[location];
-	if(!is_valid(quant_id))
-		fatal_error(Mobius_Error::internal, "Somehow got a non-existing location in quantity_codegen().");
-	
-	//TODO: The below can be compressed a lot with helper functions
-	Identifier_FT *quant = new Identifier_FT();
-	quant->variable_type = Variable_Type::state_var;
-	quant->state_var = quant_id;
-	quant->value_type = Value_Type::real;
-	
-	Math_Expr_FT *result = quant;
-	//TODO: have to make fixes to function tree to get this to work.
-	for(auto &pair : fluxes) {
-		auto flx = new Identifier_FT();
-		flx->variable_type = Variable_Type::state_var;
-		flx->state_var = pair.first;
-		flx->value_type = Value_Type::real;
-		
-		auto sum = new Operator_FT();
-		sum->value_type = Value_Type::real;
-		sum->expr_type = Math_Expr_Type::binary_operator;
-		sum->oper = (Token_Type)pair.second;
-		
-		sum->exprs.push_back(result);
-		sum->exprs.push_back(flx);
-		result = sum;
-	}
-	
-	return result;
-}
-*/
+
 
 Math_Expr_FT *
-restrict_flux(Math_Expr_FT *expr, Var_Id source) {
+restrict_flux(Math_Expr_FT *flux, Var_Id source) {
 	// note: create something like
 	// 		min(flux, source)
-	
 	//NOTE: we are actually also making an assumption here that the flux is not negative...
 	// should we restrict in the other direction as well?
-	auto ident = new Identifier_FT(expr->scope);
-	ident->value_type = Value_Type::real;
-	ident->variable_type = Variable_Type::state_var;
-	ident->state_var     = source;
-	//ident->flags         = ident_flags_last_result;    //ouch, we don't want this actually, because if there are multiple fluxes, they should depend on the removal of the previous...
-	ident->location      = expr->location;
 	
-	auto minfun = new Function_Call_FT(expr->scope);
-	minfun->value_type = Value_Type::real;
-	minfun->fun_name   = "min";
-	minfun->fun_type   = Function_Type::intrinsic;
-	minfun->location   = expr->location;
-	minfun->add_expr(expr);
-	minfun->add_expr(ident);
-	return minfun;
+	//ident->flags         = ident_flags_last_result;    //ouch, we don't want this actually, because if there are multiple fluxes, they should depend on the removal of the previous...
+	auto arg1 = flux;
+	auto arg2 = make_state_var_identifier(flux->scope, source);
+	
+	return make_intrinsic_function_call(flux->scope, Value_Type::real, "min", arg1, arg2);
 }
 
 

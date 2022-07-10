@@ -87,11 +87,6 @@ struct Var_Registry {
 	Var_Id end()   { return {(s32)vars.size()}; }
 };
 
-
-struct Run_Batch {
-	std::vector<Var_Id> state_vars;
-};
-
 struct
 Mobius_Model {
 	
@@ -120,14 +115,10 @@ Mobius_Model {
 	}
 	
 	s16 load_module(String_View file_name, String_View module_name);
-	
 
 	String_View this_path = "";
 	
 	bool is_composed = false;
-	
-	Run_Batch initial_batch;
-	Run_Batch batch;    //TODO: eventually many of these
 	
 	File_Data_Handler file_handler;
 	Linear_Allocator allocator;
@@ -137,6 +128,9 @@ Mobius_Model {
 	Var_Registry state_vars;
 	Var_Registry series;
 };
+
+template<Reg_Type reg_type> Entity_Id
+process_declaration(Mobius_Model *model, Decl_AST *decl);
 
 Mobius_Model *
 load_model(String_View file_name);

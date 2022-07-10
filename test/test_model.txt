@@ -1,0 +1,30 @@
+
+model("Test model") {
+"""
+General model description.
+"""
+	
+	###### Import modules
+	
+	#add_directory("../../Modules")
+	
+	
+	load("hbv_snow.txt",  sn : module("HBVSnow"))
+	load("test_soil.txt", sw : module("Test soil water"))
+	
+	over : compartment("Overland")
+	soil : compartment("Soil")
+	gw   : compartment("Groundwater")
+	water : quantity("Water")
+	
+	###### Distribute modules over index sets and set solvers
+	
+	lu : index_set("Landscape units")
+	soil.distribute(lu)
+	
+	
+	##### Link fluxes between compartments and specify aggregation between compartments that are distributed differently, and unit conversions where volumes are different
+
+	sn.p_rain     .to(over.water)
+	sn.melt_runoff.to(over.water)
+}

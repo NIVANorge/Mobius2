@@ -52,8 +52,6 @@ inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && i
 
 
 
-
-
 struct
 Parameter_Value {
 	union {
@@ -209,6 +207,17 @@ Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
 	// TODO: may need some info on expected input types (especially for externals)
 };
 
+template<> struct
+Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
+	//TODO: eventually index_set_type
+};
+
+template<> struct
+Entity_Registration<Reg_Type::distribute> : Entity_Registration_Base {
+	Entity_Id compartment;
+	Entity_Id index_set;
+};
+
 
 
 struct Registry_Base {
@@ -263,13 +272,18 @@ Module_Declaration {
 	string_map<Entity_Id>           handles_in_scope;
 	
 	Registry<Reg_Type::compartment> compartments;
-	Registry<Reg_Type::par_group>   par_groups;
-	Registry<Reg_Type::parameter>   parameters;     // NOTE: par_real is a stand-in for all parameter declarations.
-	Registry<Reg_Type::unit>        units;
 	Registry<Reg_Type::property_or_quantity>    properties_and_quantities;  // NOTE: is used for both Decl_Type::property and Decl_Type::quantity.
+	Registry<Reg_Type::par_group>   par_groups;
+	Registry<Reg_Type::parameter>   parameters;     // NOTE: is used for all parameter decl types.
+	Registry<Reg_Type::unit>        units;
 	Registry<Reg_Type::has>         hases;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::function>    functions;
+	//TODO: it is a bit wasteful to have these here since they are only relevant for the global module.
+	//   similarly, not all of the above are relevant for the global module.
+	//     Could maybe template over module type, but that quickly gets gnarly.
+	Registry<Reg_Type::index_set>   index_sets;
+	Registry<Reg_Type::distribute>  distributes;
 	
 	Module_Declaration() : 
 		compartments(this),
@@ -280,6 +294,8 @@ Module_Declaration {
 		hases       (this),
 		fluxes      (this),
 		functions   (this),
+		index_sets  (this),
+		distributes (this),
 		global_scope(nullptr)
 	{}
 	
@@ -358,68 +374,5 @@ make_value_location(Module_Declaration *module, Entity_Id compartment, Entity_Id
 
 Module_Declaration *
 process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl);
-
-
-template<Reg_Type reg_type> inline Entity_Id
-Registry<reg_type>::standard_declaration(Decl_AST *decl) {
-	Token *name = single_arg(decl, 0);
-	return find_or_create(&decl->handle_name, name, decl);
-}
-
-template<Reg_Type reg_type> Entity_Id
-process_declaration(Module_Declaration *module, Decl_AST *decl); //NOTE: this will be template specialized below.
-
-template<> inline Entity_Id
-process_declaration<Reg_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}});
-	
-	auto name = single_arg(decl, 0);
-	
-	Entity_Id global_id;
-	
-	if(module->global_scope) {
-		global_id = module->global_scope->compartments.find_or_create(nullptr, name);
-		if(!is_valid(global_id)) 
-			global_id = module->global_scope->compartments.find_or_create(nullptr, name, decl);
-	}
-	
-	Entity_Id id = module->compartments.standard_declaration(decl);
-	module->compartments[id]->global_id = global_id;
-	
-	return id;
-}
-
-template<> inline Entity_Id
-process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, Decl_AST *decl) {
-	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
-	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
-	int which = match_declaration(decl,
-		{
-			{Token_Type::quoted_string},
-			//{Token_Type::quoted_string, Decl_Type::unit},
-		});
-		
-	auto name = single_arg(decl, 0);
-	
-	Entity_Id global_id;
-	
-	if(module->global_scope) {
-		global_id = module->global_scope->properties_and_quantities.find_or_create(nullptr, name);
-		if(!is_valid(global_id)) 
-			global_id = module->global_scope->properties_and_quantities.find_or_create(nullptr, name, decl);
-	}
-
-	auto id       = module->properties_and_quantities.standard_declaration(decl);
-	auto property = module->properties_and_quantities[id];
-	
-	property->global_id = global_id;
-	/*
-	if(which == 1)
-		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
-	else
-		property->unit = invalid_entity_id;
-	*/
-	return id;
-}
 
 #endif // MOBIUS_MODEL_BUILDER_H

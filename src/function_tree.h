@@ -23,17 +23,15 @@ is_valid(Var_Id id) {
 constexpr Var_Id invalid_var = {-1};
 
 inline bool
-operator!=(const Var_Id &a, const Var_Id &b) {
-	return a.id != b.id;
-}
+operator==(const Var_Id &a, const Var_Id &b) { return a.id == b.id; }
 inline bool
-operator<(const Var_Id &a, const Var_Id &b) {
-	return a.id < b.id;
-}
+operator!=(const Var_Id &a, const Var_Id &b) { return a.id != b.id; }
+inline bool
+operator<(const Var_Id &a, const Var_Id &b) { return a.id < b.id; }
 
 enum class
 Value_Type {
-	unresolved = 0, real, integer, boolean,    // NOTE: enum would resolve to bool.
+	unresolved = 0, none, real, integer, boolean,    // NOTE: enum would resolve to bool.
 };
 
 inline Value_Type
@@ -68,7 +66,7 @@ Math_Expr_FT {
 	std::vector<Math_Expr_FT *>  exprs;
 	Math_Block_FT               *scope;
 	
-	Math_Expr_FT(Math_Block_FT *scope, Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), scope(scope), expr_type(expr_type) {};
+	Math_Expr_FT(Math_Block_FT *scope, Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), scope(scope), expr_type(expr_type), location() {};
 	~Math_Expr_FT() { for(auto expr : exprs) delete expr; };
 	
 	virtual void add_expr(Math_Expr_FT *expr) {
@@ -156,6 +154,19 @@ Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to);
 
 Math_Expr_FT *
+make_literal(Math_Block_FT *scope, s64 val_int);
+
+Math_Expr_FT *
+make_state_var_identifier(Math_Block_FT *scope, Var_Id state_var);
+
+Math_Expr_FT *
+make_intrinsic_function_call(Math_Block_FT *scope, Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2);
+
+Math_Expr_FT *
+make_binop(Math_Block_FT *scope, char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs, Value_Type value_type);
+
+
+Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr);
 
 //Math_Expr_FT *
@@ -163,6 +174,9 @@ prune_tree(Math_Expr_FT *expr);
 
 Math_Expr_FT *
 restrict_flux(Math_Expr_FT *expr, Var_Id source);
+
+Math_Expr_FT *
+copy(Math_Expr_FT *source);
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

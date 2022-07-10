@@ -1,0 +1,50 @@
+
+module("Test soil water", 1, 0, 0) {
+"""
+Oversimplified soil water module inc.
+"""
+	over     : compartment("Overland")
+	soil     : compartment("Soil")
+	gw       : compartment("Groundwater")
+	
+	soil.par_group("Hydrology land") {
+		fc   : par_real("Field capacity", unit(m m), 120)
+		bfi  : par_real("Baseflow index", unit(), 0.7)
+		tc_s : par_real("Soil water time constant", unit(day -1), 2)
+	}
+	
+	soil.par_group("Hydrology") {
+		f_quick : par_real("Proportion to quick flow", unit(), 0.01)
+		tc_g : par_real("Groundwater time constant", unit(day -1), 60)
+	}
+	
+	water : quantity("Water")
+	
+	over.has(water, unit(m m), "Overland water") .initial { 0 }    #TODO: should not have to do this. Should be able to just look at "in_flux" to soil instead.
+	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
+	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 }
+	
+	flux(over.water, soil.water, "Infiltration") {
+		(1 - f_quick)*over.water
+	}
+	
+	flux(over.water, out, "Quick flow") {
+		f_quick * over.water
+	}
+	
+	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
+		max(0, (last(soil.water) - fc)/tc_s)
+	}
+	
+	flux(soil.water, out, "Soil runoff") {
+		soil.flow * (1 - bfi)
+	}
+	
+	flux(soil.water, gw.water, "Recharge") {
+		soil.flow * bfi
+	}
+	
+	flux(gw.water, out, "Groundwater runoff") {
+		gw.water / tc_g
+	}
+}

@@ -2,4 +2,5 @@ ENUM_VALUE(model_building)
 ENUM_VALUE(internal)
 ENUM_VALUE(parsing)
 ENUM_VALUE(file)
+ENUM_VALUE(api_usage)
 //etc.

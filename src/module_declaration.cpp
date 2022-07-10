@@ -1,5 +1,6 @@
 
 #include "module_declaration.h"
+#include "model_declaration.h"
 #include <algorithm>
 
 Registry_Base *
@@ -13,6 +14,8 @@ Module_Declaration::registry(Reg_Type reg_type) {
 		case Reg_Type::has :                      return &hases;
 		case Reg_Type::flux :                     return &fluxes;
 		case Reg_Type::function :                 return &functions;
+		case Reg_Type::index_set :                return &index_sets;
+		case Reg_Type::distribute :               return &distributes;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type in registry().");
@@ -145,24 +148,8 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 	return found_id;
 }
 
-template <Reg_Type reg_type> Entity_Id
-Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type decl_type) {
-	Entity_Id id = {parent->module_id, reg_type, (s32)registrations.size()};
-	registrations.push_back({});
-	
-	auto registration = &registrations[id.id];
-	registration->handle_name = handle_name;
-	registration->decl_type   = decl_type;
-	registration->has_been_declared = true;
-	
-	handle_name_to_handle[handle_name] = id;
-	parent->handles_in_scope[handle_name] = id;
-	
-	return id;
-}
-
 template<Reg_Type expected_type> Entity_Id
-resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_sub_chain_size = 1) {
+resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_sub_chain_size=1) {
 	// We could do more error checking here, but it should really only be called after calling match_declaration...
 	
 	Argument_AST *arg = decl->args[which];
@@ -180,6 +167,84 @@ resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_
 		return module->registry(expected_type)->find_or_create(&arg->sub_chain[0]);
 	}
 	return invalid_entity_id;
+}
+
+template <Reg_Type reg_type> Entity_Id
+Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type decl_type) {
+	Entity_Id id = {parent->module_id, reg_type, (s32)registrations.size()};
+	registrations.push_back({});
+	
+	auto registration = &registrations[id.id];
+	registration->handle_name = handle_name;
+	registration->decl_type   = decl_type;
+	registration->has_been_declared = true;
+	
+	handle_name_to_handle[handle_name] = id;
+	parent->handles_in_scope[handle_name] = id;
+	
+	return id;
+}
+
+template<Reg_Type reg_type> inline Entity_Id
+Registry<reg_type>::standard_declaration(Decl_AST *decl) {
+	Token *name = single_arg(decl, 0);
+	return find_or_create(&decl->handle_name, name, decl);
+}
+
+template<Reg_Type reg_type> Entity_Id
+process_declaration(Module_Declaration *module, Decl_AST *decl); //NOTE: this will be template specialized below.
+
+template<> inline Entity_Id
+process_declaration<Reg_Type::compartment>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::quoted_string}});
+	
+	auto name = single_arg(decl, 0);
+	
+	Entity_Id global_id;
+	
+	if(module->global_scope) {
+		global_id = module->global_scope->compartments.find_or_create(nullptr, name);
+		if(!is_valid(global_id)) 
+			global_id = module->global_scope->compartments.find_or_create(nullptr, name, decl);
+	}
+	
+	Entity_Id id = module->compartments.standard_declaration(decl);
+	module->compartments[id]->global_id = global_id;
+	
+	return id;
+}
+
+template<> inline Entity_Id
+process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, Decl_AST *decl) {
+	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
+	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
+	int which = match_declaration(decl,
+		{
+			{Token_Type::quoted_string},
+			//{Token_Type::quoted_string, Decl_Type::unit},
+		});
+		
+	auto name = single_arg(decl, 0);
+	
+	Entity_Id global_id;
+	
+	if(module->global_scope) {
+		global_id = module->global_scope->properties_and_quantities.find_or_create(nullptr, name);
+		if(!is_valid(global_id)) 
+			global_id = module->global_scope->properties_and_quantities.find_or_create(nullptr, name, decl);
+	}
+
+	auto id       = module->properties_and_quantities.standard_declaration(decl);
+	auto property = module->properties_and_quantities[id];
+	
+	property->global_id = global_id;
+	/*
+	if(which == 1)
+		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
+	else
+		property->unit = invalid_entity_id;
+	*/
+	return id;
 }
 
 template<> Entity_Id
@@ -433,22 +498,6 @@ process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl
 	module->major = single_arg(decl, 1)->val_int;
 	module->minor = single_arg(decl, 2)->val_int;
 	module->revision = single_arg(decl, 3)->val_int;
-	
-	
-	
-	//TODO: it does not make that much sense to have special units and intrinsic functions registered on every module. We instead need a global scope for some things.
-	//module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
-	
-	auto minfun = module->functions.create_compiler_internal("min", Decl_Type::function);
-	module->functions[minfun]->fun_type = Function_Type::intrinsic;
-	module->functions[minfun]->args = {"a", "b"};
-	auto maxfun = module->functions.create_compiler_internal("max", Decl_Type::function);
-	module->functions[maxfun]->fun_type = Function_Type::intrinsic;
-	module->functions[maxfun]->args = {"a", "b"};
-	auto expfun = module->functions.create_compiler_internal("exp", Decl_Type::function);
-	module->functions[expfun]->fun_type = Function_Type::intrinsic;
-	module->functions[expfun]->args = {"a"};
-	
 
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
@@ -508,5 +557,214 @@ process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl
 	return module;
 }
 
+
+void
+process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AST *decl) {
+	// Process a "to" declaration
+	
+	match_declaration(decl, {{Token_Type::identifier}}, 2, false);
+	
+	String_View module_handle = decl->decl_chain[0].string_value;
+	auto find = module_ids->find(module_handle);
+	if(find == module_ids->end()) {
+		decl->decl_chain[0].print_error_header();
+		fatal_error("The module handle \"", module_handle, "\" was not declared.");
+	}
+	s16 module_id = find->second;
+	Module_Declaration *module = model->modules[module_id];
+	
+	String_View flux_handle = decl->decl_chain[1].string_value;
+	Entity_Id flux_id = module->find_handle(flux_handle);
+	if(!is_valid(flux_id)) {
+		decl->decl_chain[1].print_error_header();
+		fatal_error("The module \"", module->name, "\" with handle \"", module_handle, "\" does not have a flux with handle \"", flux_handle, "\".");
+	}
+	
+	auto flux = module->fluxes[flux_id];
+	if(flux->target.type != Location_Type::out) {
+		decl->decl_chain[1].print_error_header();
+		fatal_error("The flux \"", flux_handle, "\" does not have the target \"out\", and so we can't re-assign its target.");
+	}
+	
+	Token *comp_tk = &decl->args[0]->sub_chain[0];
+	if(decl->args[0]->sub_chain.size() != 2) {
+		comp_tk->print_error_header();
+		fatal_error("This is not a well-formatted flux target. Expected something on the form a.b .");
+	}
+	Token *quant_tk = &decl->args[0]->sub_chain[1];
+	auto comp_id = model->modules[0]->find_handle(comp_tk->string_value);
+	if(!is_valid(comp_id)) {
+		comp_tk->print_error_header();
+		fatal_error("The compartment \"", comp_tk->string_value, "\" has not been declared in the local scope.");
+	}
+	auto quant_id = model->modules[0]->find_handle(quant_tk->string_value);
+	if(!is_valid(quant_id)) {
+		quant_tk->print_error_header();
+		fatal_error("The property or quantity \"", quant_tk->string_value, "\" has not been declared in the local scope.");
+	}
+	
+	flux->target = make_value_location(model->modules[0], comp_id, quant_id);
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::index_set>(Module_Declaration *module, Decl_AST *decl) {
+	//TODO: index set type
+	
+	match_declaration(decl, {{Token_Type::quoted_string}});
+	return module->index_sets.standard_declaration(decl);
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::distribute>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Decl_Type::index_set}}, 1, false);
+	
+	auto id    = module->distributes.find_or_create(&decl->handle_name, nullptr, decl);
+	auto distr = module->distributes[id];
+	
+	distr->compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
+	distr->index_set = resolve_argument<Reg_Type::index_set>(module, decl, 0);
+	
+	return id;
+}
+
+void
+register_intrinsics(Module_Declaration *module) {
+	//module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
+	
+	auto minfun = module->functions.create_compiler_internal("min", Decl_Type::function);
+	module->functions[minfun]->fun_type = Function_Type::intrinsic;
+	module->functions[minfun]->args = {"a", "b"};
+	auto maxfun = module->functions.create_compiler_internal("max", Decl_Type::function);
+	module->functions[maxfun]->fun_type = Function_Type::intrinsic;
+	module->functions[maxfun]->args = {"a", "b"};
+	auto expfun = module->functions.create_compiler_internal("exp", Decl_Type::function);
+	module->functions[expfun]->fun_type = Function_Type::intrinsic;
+	module->functions[expfun]->args = {"a"};
+}
+
+
+Mobius_Model *
+load_model(String_View file_name) {
+	Mobius_Model *model = new Mobius_Model();
+	
+	String_View model_data = model->file_handler.load_file(file_name);
+	model->this_path = file_name;
+	
+	Token_Stream stream(file_name, model_data);
+	Decl_AST *decl = parse_decl(&stream);
+	if(decl->type != Decl_Type::model || stream.peek_token().type != Token_Type::eof) {
+		decl->type_name.print_error_header();
+		fatal_error("Model files should only have a single model declaration in the top scope.");
+	}
+	
+	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
+	model->name = single_arg(decl, 0)->string_value;
+	
+	//note: it is a bit annoying that we can't reuse Registry or Var_Registry for this, but it would also be too gnarly to factor out any more functionality from those, I think.
+	string_map<s16> module_ids;    /// Oops, we should definitely reuse the handles_in_scope in the global module so that we don't get name clashes with other entities...
+	
+	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
+	
+	if(body->doc_string.type == Token_Type::quoted_string)
+		model->doc_string = body->doc_string.string_value;
+	
+	auto global_scope = new Module_Declaration();
+	global_scope->module_id = 0;
+	
+	register_intrinsics(global_scope);
+	
+	//note: this must happen before we load the modules, otherwise this will be viewed as a re-declaration
+	for(Decl_AST *child : body->child_decls) {
+		switch (child->type) {
+			case Decl_Type::compartment : {
+				process_declaration<Reg_Type::compartment>(global_scope, child);
+			} break;
+			
+			case Decl_Type::quantity : {
+				process_declaration<Reg_Type::property_or_quantity>(global_scope, child);
+			} break;
+		}
+	}
+	
+	model->modules.push_back(global_scope);
+	
+	for(Decl_AST *child : body->child_decls) {
+		switch (child->type) {
+			case Decl_Type::load : {
+				match_declaration(child, {{Token_Type::quoted_string, Decl_Type::module}}, 0, false);
+				String_View file_name = single_arg(child, 0)->string_value;
+				Decl_AST *module_spec = child->args[1]->decl;
+				match_declaration(module_spec, {{Token_Type::quoted_string}});  //TODO: allow specifying the version also?
+				String_View module_name = single_arg(module_spec, 0)->string_value;
+				
+				s16 module_id = model->load_module(file_name, module_name);
+				if(module_spec->handle_name.string_value)
+					module_ids[module_spec->handle_name.string_value] = module_id;
+			} break;
+		}
+	}
+	
+	for(Decl_AST *child : body->child_decls) {
+		switch (child->type) {
+			case Decl_Type::to : {
+				process_to_declaration(model, &module_ids, child);
+			} break;
+			
+			case Decl_Type::index_set : {
+				process_declaration<Reg_Type::index_set>(global_scope, child);
+			} break;
+			
+			case Decl_Type::distribute : {
+				process_declaration<Reg_Type::distribute>(global_scope, child);
+			} break;
+			
+			case Decl_Type::compartment :
+			case Decl_Type::quantity :
+			case Decl_Type::load : {
+				// Don't do anything. We handled it above already
+			} break;
+			
+			default : {
+				child->type_name.print_error_header();
+				fatal_error("Did not expect a declaration of type ", child->type_name.string_value, " inside a model declaration.");
+			};
+		}
+	}
+	
+	return model;
+}
+
+
+s16
+Mobius_Model::load_module(String_View file_name, String_View module_name) {
+	String_View file_data = file_handler.load_file(file_name, this_path);
+	Token_Stream stream(file_name, file_data);
+	
+	s16 module_id = (s16)modules.size();
+	bool found = false;
+	while(true) {
+		if(stream.peek_token().type == Token_Type::eof) break;
+		Decl_AST *module_decl = parse_decl(&stream);
+		if(module_decl->type != Decl_Type::module) {
+			module_decl->type_name.print_error_header();
+			fatal_error("Module files should only have modules in the top scope.");
+		}
+		if(module_decl->args.size() >= 1 && module_decl->args[0]->sub_chain.size() >= 1 && module_decl->args[0]->sub_chain[0].string_value == module_name) {
+			auto global_scope = modules[0];
+			Module_Declaration *module = process_module_declaration(global_scope, module_id, module_decl);
+			modules.push_back(module);
+			found = true;
+			break;
+		} else {
+			// TODO: this is wasteful for now. We could cache the ast in case it is loaded by another load_module call, then delete the ones we did not use
+			delete module_decl;
+		}
+	}
+	if(!found) {
+		//TODO: this should give the location of where it was requested?
+		fatal_error(Mobius_Error::parsing, "Could not find the module ", module_name, " in the file ", file_name, ".");
+	}
+	return module_id;
+}
 
 

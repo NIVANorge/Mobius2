@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #include <iostream>
-
+#include <chrono>
 
 typedef uint64_t u64;
 typedef uint32_t u32;
@@ -61,6 +61,7 @@ inline void
 mobius_error_exit() {
 	error_print("\n\n");
 	exit(1);
+	// TODO: For internal errors we should provide a stack trace here (if that is feasible).
 }
 #endif
 
@@ -89,6 +90,26 @@ fatal_error(V... tail) {
 #elif defined(_MSC_VER)
 	#include <intrin.h>
 #endif
+
+struct 
+Timer {
+	std::chrono::time_point<std::chrono::high_resolution_clock> begin;
+	s64 cycle_begin;
+	
+	Timer() {
+		begin = std::chrono::high_resolution_clock::now();
+		cycle_begin = (s64)__rdtsc();
+	}
+	
+	s64 get_cycles() {
+		return (s64)__rdtsc() - cycle_begin;
+	}
+	
+	s64 get_milliseconds() {
+		auto   end = std::chrono::high_resolution_clock::now();
+		return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+	}
+};
 
 
 #endif //MOBIUS_COMMON_H
