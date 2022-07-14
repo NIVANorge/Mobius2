@@ -8,11 +8,26 @@
 
 #include <set>
 
+enum
+Dependency_Type : u32 {
+	dep_type_none             = 0x0,
+	dep_type_earlier_step     = 0x1,
+	dep_type_flux_on_quantity = 0x2,
+};
+
+struct
+State_Var_Dependency {
+	Var_Id            var_id;
+	Dependency_Type   type;
+};
+
+inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) { if(a.var_id < b.var_id) return true; return (u32)a.type < (u32)b.type; }
+
 struct
 Dependency_Set {
-	std::set<Entity_Id>    on_parameter;
-	std::set<Var_Id>       on_series;
-	std::set<Var_Id>       on_state_var;
+	std::set<Entity_Id>             on_parameter;
+	std::set<Var_Id>                on_series;
+	std::set<State_Var_Dependency>  on_state_var;
 };
 
 struct
@@ -34,11 +49,7 @@ State_Variable {
 	Math_Expr_FT *function_tree;
 	Math_Expr_FT *initial_function_tree;
 	
-	State_Variable() : function_tree(nullptr), visited(false), temp_visited(false) {};
-	
-	// Note: these two are used for topological sorts during batch generation in the model composition stage.
-	bool visited;
-	bool temp_visited;
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr) {};
 };
 
 struct Var_Registry {
@@ -85,6 +96,7 @@ struct Var_Registry {
 	
 	Var_Id begin() { return {0}; }
 	Var_Id end()   { return {(s32)vars.size()}; }
+	size_t count() { return vars.size(); }
 };
 
 struct

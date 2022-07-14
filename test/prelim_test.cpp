@@ -30,12 +30,14 @@ void read_input_data(String_View file_name, Model_Application *model_app) {
 		for(auto id : *model->series[name]) order[order.size()-1].push_back(id);
 	}
 	
+	std::vector<Index_T> indexes;
+	
 	size_t count = order.size();
 	for(s64 ts = 0; ts < model_app->series_data.time_steps; ++ts)
 		for(int idx = 0; idx < count; ++idx) {
 			double val = stream.expect_real();
 			for(auto id : order[idx]) {
-				auto offset = model_app->series_data.get_offset(id);
+				auto offset = model_app->series_data.get_offset(id, &indexes);
 				*(model_app->series_data.get_value(offset, ts)) = val;
 			}
 		}
@@ -47,16 +49,22 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	
 	auto model = model_app->model;
 	
-	for(auto id : model_app->result_data.structure[0].handles) {
-		String_View name = model->state_vars[id]->name;
-		fprintf(file, "\"%.*s\"\t", name.count, name.data);
+	for(auto &array : model_app->result_data.structure) {
+		for(auto id : array.handles) {
+			String_View name = model->state_vars[id]->name;
+			fprintf(file, "\"%.*s\"\t", name.count, name.data);
+		}
 	}
 	fprintf(file, "\n");
 	
+	std::vector<Index_T> indexes = { Index_T { Entity_Id { } , 0 } }; //TODO!
+	
 	for(s64 ts = -1; ts < model_app->result_data.time_steps; ++ts) {
-		for(auto id : model_app->result_data.structure[0].handles) {
-			auto offset = model_app->result_data.get_offset(id);
-			fprintf(file, "%f\t", *(model_app->result_data.get_value(offset, ts)));
+		for(auto &array : model_app->result_data.structure) {
+			for(auto id : array.handles) {
+				auto offset = model_app->result_data.get_offset(id, &indexes);
+				fprintf(file, "%f\t", *(model_app->result_data.get_value(offset, ts)));
+			}
 		}
 		fprintf(file, "\n");
 	}
@@ -64,17 +72,16 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	fclose(file);
 }
 
+#define USE_SIMPLE 0
+
 int main() {
 	//SetConsoleOutputCP(65001);
 	
-	//Linear_Allocator memory;
-	//memory.initialize(32*1024*1024);
-	
+#if USE_SIMPLE
+	Mobius_Model *model = load_model("stupidly_simple_model.txt");
+#else
 	Mobius_Model *model = load_model("test_model.txt");
-	//Mobius_Model model;
-	//model.load_module("hbv_snow.txt");
-	//model.load_module("test_soil.txt");
-	
+#endif
 	model->compose();
 	
 	std::cout << "Composition done.\n";
@@ -86,10 +93,11 @@ int main() {
 	app.set_up_series_structure();
 	
 	app.compile();
-	
+
+#if !USE_SIMPLE
 	app.series_data.allocate(time_steps);
 	read_input_data("testinput.dat", &app);
-	//TODO: move input reading and result writing to here..
+#endif
 	
 	emulate_model_run(&app, time_steps);
 	

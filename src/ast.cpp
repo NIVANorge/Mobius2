@@ -87,11 +87,11 @@ parse_decl(Token_Stream *stream) {
 	}
 	
 	// We generally have something on the form a.b.type(bla) . The chain is now {a, b, type}, but we want to store the type separately from the rest of the chain.
-	decl->type_name = decl->decl_chain.back();
-	decl->decl_chain.pop_back();
+	decl->location = decl->decl_chain.back().location;
 	
 	Body_Type body_type;
-	decl->type = decl_type(&decl->type_name, &body_type);
+	decl->type = decl_type(&decl->decl_chain.back(), &body_type);
+	decl->decl_chain.pop_back(); // note: we only want to keep the first symbols (denoting location) in the chain since we now have stored the type separately.
 	
 	if((char)next.type != '(') {
 		next.print_error_header();
@@ -153,7 +153,7 @@ parse_decl(Token_Stream *stream) {
 				body = new Function_Body_AST();
 			} else if(body_type == Body_Type::none) {
 				next.print_error_header();
-				fatal_error("Declarations of type ", decl->type_name.string_value, " can't have declaration bodies.");
+				fatal_error("Declarations of type ", name(decl->type), " can't have declaration bodies.");
 			}
 			body->opens_at = next.location;
 			
@@ -513,8 +513,8 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	}
 	
 	if(found_match == -1 && patterns.size() > 0) {
-		decl->type_name.print_error_header();
-		error_print("The arguments to the declaration \"", decl->type_name.string_value, "\" don't match any recognized pattern. The recognized patterns are:\n");
+		decl->location.print_error_header();
+		error_print("The arguments to the declaration \"", name(decl->type), "\" don't match any recognized pattern. The recognized patterns are:\n");
 		for(const auto &pattern : patterns) {
 			error_print("(");
 			auto match = pattern.begin();
@@ -531,14 +531,14 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	
 	// NOTE: We already checked in the AST processing stage if the declaration is allowed to have bodies at all. This just checks if it can have more than one.
 	if(!allow_multiple_bodies && decl->bodies.size() > 1) {
-		decl->type_name.print_error_header();
+		decl->location.print_error_header();
 		fatal_error("This declaration should not have multiple bodies.");
 	}
 	
 	if(!allow_body_modifiers) {
 		for(auto body : decl->bodies) {
 			if(body->modifiers.size() > 0) {
-				decl->type_name.print_error_header();
+				decl->location.print_error_header();
 				fatal_error("The bodies of this declaration should not have modifiers.");
 			}
 		}

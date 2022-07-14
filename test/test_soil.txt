@@ -24,13 +24,20 @@ Oversimplified soil water module inc.
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
 	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 }
 	
+	#TODO: issue here: we want to take all over.water from *this* time step, not the previous one.
+	# should implement in_flux then!
 	flux(over.water, soil.water, "Infiltration") {
 		(1 - f_quick)*over.water
 	}
 	
+	# same here.
 	flux(over.water, out, "Quick flow") {
 		f_quick * over.water
 	}
+	
+	#flux(soil.water, out, "Quick flow") {
+	#	f_quick * in_flux(soil.water)
+	#}
 	
 	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
 		max(0, (last(soil.water) - fc)/tc_s)

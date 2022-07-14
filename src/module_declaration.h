@@ -16,6 +16,14 @@ Reg_Type : s16 {
 	#undef ENUM_VALUE
 };
 
+inline String_View
+name(Reg_Type type) {
+	#define ENUM_VALUE(name) if(type == Reg_Type::name) return #name;
+	#include "reg_types.incl"
+	#undef ENUM_VALUE
+	return "unrecognized";
+}
+
 struct
 Entity_Id {
 	s16      module_id;
@@ -141,6 +149,8 @@ Entity_Registration : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 	Entity_Id global_id;
+	
+	std::vector<Entity_Id> index_sets; //NOTE: will only be set on the global module. TODO: more info about distribution?
 };
 
 template<> struct
@@ -212,12 +222,6 @@ Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 	//TODO: eventually index_set_type
 };
 
-template<> struct
-Entity_Registration<Reg_Type::distribute> : Entity_Registration_Base {
-	Entity_Id compartment;
-	Entity_Id index_set;
-};
-
 
 
 struct Registry_Base {
@@ -283,7 +287,6 @@ Module_Declaration {
 	//   similarly, not all of the above are relevant for the global module.
 	//     Could maybe template over module type, but that quickly gets gnarly.
 	Registry<Reg_Type::index_set>   index_sets;
-	Registry<Reg_Type::distribute>  distributes;
 	
 	Module_Declaration() : 
 		compartments(this),
@@ -295,7 +298,6 @@ Module_Declaration {
 		fluxes      (this),
 		functions   (this),
 		index_sets  (this),
-		distributes (this),
 		global_scope(nullptr)
 	{}
 	

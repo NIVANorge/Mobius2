@@ -39,7 +39,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	if(!var.name)
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
 		
-	warning_print("Var ", var.name, " is series: ", is_series, "\n");
+	//warning_print("Var ", var.name, " is series: ", is_series, "\n");
 	
 	if(is_series)
 		model->series.register_var(var, loc);
@@ -156,26 +156,28 @@ Mobius_Model::compose() {
 		if(var->function_tree)
 			register_dependencies(var->function_tree, &var->depends);
 		
-		//TODO: do something like in Mobius1 where you make a function stand in for its initial value if it is referenced.
 		if(var->initial_function_tree)
 			register_dependencies(var->initial_function_tree, &var->initial_depends);
 		
 		if(var->type == Decl_Type::flux) {
+			// note: the value of a state variable depends on the value of the fluxes going to and from it (the fluxes must be computed first)
+			
+			// note: mark flux dependencies on their state vars as special. A flux can depend on its state var, but that will always be on an earlier value of the state var, not the one from this time step (which has been updated with the flux).
 			if(var->loc1.type == Location_Type::located) {
-				auto source = state_vars[state_vars[var->loc1]];
-				source->depends.on_state_var.insert(var_id);
+				auto loc1 = state_vars[var->loc1];
+				auto source = state_vars[loc1];
+				source->depends.on_state_var.insert(State_Var_Dependency {var_id, dep_type_none});
+				var->depends.on_state_var.erase(State_Var_Dependency {loc1, dep_type_none});
+				var->depends.on_state_var.insert(State_Var_Dependency {loc1, dep_type_flux_on_quantity});
 			}
 			if(var->loc2.type == Location_Type::located) {
-				auto target = state_vars[state_vars[var->loc2]];
-				target->depends.on_state_var.insert(var_id);
+				auto loc2 = state_vars[var->loc2];
+				auto target = state_vars[loc2];
+				target->depends.on_state_var.insert(State_Var_Dependency {var_id, dep_type_none});
+				var->depends.on_state_var.erase(State_Var_Dependency {loc2, dep_type_none});
+				// nope, flux does not normally depend on its target, however TODO: it should if it was referenced explicitly!
+				//var->depends.on_state_var.insert(State_Var_Dependency {loc2, dep_type_flux_on_quantity});
 			}
-		}
-		if(var->type == Decl_Type::flux) {
-			// remove dependencies of flux on its source. Even though it compares agains the source, it should be ordered before it in the execution batches
-			if(var->loc1.type == Location_Type::located)
-				var->depends.on_state_var.erase(state_vars[var->loc1]);
-			if(var->loc2.type == Location_Type::located)
-				var->depends.on_state_var.erase(state_vars[var->loc2]);
 		}
 	}
 	

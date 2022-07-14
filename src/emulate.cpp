@@ -131,15 +131,16 @@ apply_intrinsic(Typed_Value a, String_View function) {
 
 struct
 Scope_Local_Vars {
+	s32 scope_id;
 	Scope_Local_Vars *scope_up;
 	std::vector<Typed_Value> local_vars;
 };
 
 Typed_Value
-get_local_var(Scope_Local_Vars *scope, int index, int scopes_up) {
+get_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 	if(!scope)
 		fatal_error(Mobius_Error::internal, "Mis-counting of scopes in emulation.");
-	for(int i = 0; i < scopes_up; ++i) {
+	while(scope->scope_id != scope_id) {
 		scope = scope->scope_up;
 		if(!scope)
 			fatal_error(Mobius_Error::internal, "Mis-counting of scopes in emulation.");
@@ -151,11 +152,15 @@ get_local_var(Scope_Local_Vars *scope, int index, int scopes_up) {
 
 Typed_Value
 emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars *locals) {
+	if(!expr)
+		fatal_error(Mobius_Error::internal, "Got a nullptr expression in emulate_expression().");
+	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
 			auto block= reinterpret_cast<Math_Block_FT *>(expr);
 			Typed_Value result;
 			Scope_Local_Vars new_locals;
+			new_locals.scope_id = block->unique_block_id;
 			new_locals.scope_up = locals;
 			new_locals.local_vars.resize(block->n_locals);
 			int index = 0;
@@ -179,28 +184,16 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			Typed_Value result;
 			result.type = expr->value_type;
 			s64 offset = emulate_expression(expr->exprs[0], state, locals).val_int;
+			//warning_print("offset for lookup was ", offset, "\n");
 			
 			if(ident->variable_type == Variable_Type::parameter) {
-				//auto offset = state->model_app->parameter_data.get_offset(ident->parameter);
 				result = Typed_Value {state->parameters[offset], expr->value_type};
 			} else if(ident->variable_type == Variable_Type::state_var) {
-				/*
-				auto offset = state->model_app->result_data.get_offset(ident->state_var);
-				if(ident->flags & ident_flags_last_result)
-					offset -= state->model_app->result_data.total_count;
-				*/
 				result.val_double = state->state_vars[offset];
-				
 			} else if(ident->variable_type == Variable_Type::series) {
-				/*
-				auto offset = state->model_app->series_data.get_offset(ident->series);
-				if(ident->flags & ident_flags_last_result)
-					offset -= state->model_app->series_data.total_count;
-				*/
 				result.val_double = state->series[offset];
-				
 			} else if(ident->variable_type == Variable_Type::local)
-				result = get_local_var(locals, ident->local_var.index, ident->local_var.scopes_up);
+				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 			return result;
 		} break;
 		
@@ -250,6 +243,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
 			state->state_vars[index.val_int] = value.val_double;
+			//warning_print("offset for assignment was ", index.val_int, "\n");
 			return {Parameter_Value(), Value_Type::none};
 		} break;
 		
@@ -332,6 +326,8 @@ void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 	// Initial values:
 	emulate_expression(model_app->initial_batch.run_code, &run_state, nullptr);
 	//emulate_batch(model, &model_app->initial_batch, &run_state, true);
+	
+	warning_print("got past initial\n");
 	
 	for(s64 ts = 0; ts < time_steps; ++ts) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step

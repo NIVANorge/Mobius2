@@ -5,10 +5,11 @@
 
 void
 Source_Location::print_error() {
-	if(filename.data) //TODO: maybe instead put a flag on the source location saying if it is a file or internal, to make it explicit.
+	if(filename.data) 
 		error_print("file ", filename, " line ", line+1, " column ", column, ":\n");
 	else
-		error_print("(compiler internal)");
+		error_print("(compiler internal)\n");
+	//TODO: maybe instead put a flag on the source location saying if it is a file or internal, to make it explicit. May also want to provide more info about where it was generated.
 }
 
 void

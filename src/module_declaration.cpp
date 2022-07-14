@@ -15,7 +15,6 @@ Module_Declaration::registry(Reg_Type reg_type) {
 		case Reg_Type::flux :                     return &fluxes;
 		case Reg_Type::function :                 return &functions;
 		case Reg_Type::index_set :                return &index_sets;
-		case Reg_Type::distribute :               return &distributes;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type in registry().");
@@ -134,7 +133,7 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 		registration->handle_name = handle_name->string_value;
 		registration->location    = handle_name->location;
 	} else
-		registration->location    = declaration->type_name.location;
+		registration->location    = declaration->location;
 	
 	if(name)
 		registration->name = name->string_value;
@@ -252,7 +251,7 @@ process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) 
 	
 	for(Argument_AST *arg : decl->args) {
 		if(!Arg_Pattern().matches(arg)) {
-			decl->type_name.print_error_header();
+			decl->location.print_error_header();
 			fatal_error("Invalid argument to unit declaration.");
 		}
 	}
@@ -314,8 +313,8 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 			par_group->parameters.push_back(par_handle);
 			module->parameters[par_handle]->par_group = id;
 		} else {
-			child->type_name.print_error_header();
-			fatal_error("Did not expect a declaration of type ", child->type_name.string_value, " inside a par_group declaration.");
+			child->location.print_error_header();
+			fatal_error("Did not expect a declaration of type ", name(child->type), " inside a par_group declaration.");
 		}
 	}
 	//TODO: process doc string(s) in the par group?
@@ -440,7 +439,7 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 	process_flux_argument(module, decl, 1, &flux->target);
 	
 	if(flux->source == flux->target && flux->source.type == Location_Type::located) {
-		decl->type_name.print_error_header();
+		decl->location.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
@@ -459,7 +458,7 @@ process_declaration<Reg_Type::function>(Module_Declaration *module, Decl_AST *de
 	
 	for(auto arg : decl->args) {
 		if(arg->decl || arg->sub_chain.size() != 1) {
-			decl->type_name.print_error_header();
+			decl->location.print_error_header();
 			fatal_error("The arguments to a function declaration should be just single identifiers.");
 		}
 		function->args.push_back(arg->sub_chain[0].string_value);
@@ -492,7 +491,7 @@ process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl
 	module->decl = decl; // Keep it so that we can free it later.
 	module->module_id = module_id;
 	
-	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, true, false);
+	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
 	
 	module->name  = single_arg(decl, 0)->string_value;
 	module->major = single_arg(decl, 1)->val_int;
@@ -538,8 +537,8 @@ process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl
 			} break;
 			
 			default : {
-				child->type_name.print_error_header();
-				fatal_error("Did not expect a declaration of type ", child->type_name.string_value, " inside a module declaration.");
+				child->location.print_error_header();
+				fatal_error("Did not expect a declaration of type ", name(child->type), " inside a module declaration.");
 			};
 		}
 	}
@@ -614,17 +613,16 @@ process_declaration<Reg_Type::index_set>(Module_Declaration *module, Decl_AST *d
 	return module->index_sets.standard_declaration(decl);
 }
 
-template<> Entity_Id
-process_declaration<Reg_Type::distribute>(Module_Declaration *module, Decl_AST *decl) {
+void
+process_distribute_declaration(Module_Declaration *module, Decl_AST *decl) {
 	match_declaration(decl, {{Decl_Type::index_set}}, 1, false);
 	
-	auto id    = module->distributes.find_or_create(&decl->handle_name, nullptr, decl);
-	auto distr = module->distributes[id];
+	auto compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
+	auto index_set = resolve_argument<Reg_Type::index_set>(module, decl, 0);
 	
-	distr->compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
-	distr->index_set = resolve_argument<Reg_Type::index_set>(module, decl, 0);
+	//TODO: some guard against overlapping / contradictory declarations.
 	
-	return id;
+	module->compartments[compartment]->index_sets.push_back(index_set);
 }
 
 void
@@ -653,7 +651,7 @@ load_model(String_View file_name) {
 	Token_Stream stream(file_name, model_data);
 	Decl_AST *decl = parse_decl(&stream);
 	if(decl->type != Decl_Type::model || stream.peek_token().type != Token_Type::eof) {
-		decl->type_name.print_error_header();
+		decl->location.print_error_header();
 		fatal_error("Model files should only have a single model declaration in the top scope.");
 	}
 	
@@ -701,6 +699,14 @@ load_model(String_View file_name) {
 				if(module_spec->handle_name.string_value)
 					module_ids[module_spec->handle_name.string_value] = module_id;
 			} break;
+			
+			case Decl_Type::module : {
+				s16 module_id = (s16)model->modules.size();
+				Module_Declaration *module = process_module_declaration(global_scope, module_id, child);
+				model->modules.push_back(module);
+				if(child->handle_name.string_value)
+					module_ids[child->handle_name.string_value] = module_id;
+			} break;
 		}
 	}
 	
@@ -715,18 +721,19 @@ load_model(String_View file_name) {
 			} break;
 			
 			case Decl_Type::distribute : {
-				process_declaration<Reg_Type::distribute>(global_scope, child);
+				process_distribute_declaration(global_scope, child);
 			} break;
 			
 			case Decl_Type::compartment :
 			case Decl_Type::quantity :
+			case Decl_Type::module :
 			case Decl_Type::load : {
 				// Don't do anything. We handled it above already
 			} break;
 			
 			default : {
-				child->type_name.print_error_header();
-				fatal_error("Did not expect a declaration of type ", child->type_name.string_value, " inside a model declaration.");
+				child->location.print_error_header();
+				fatal_error("Did not expect a declaration of type ", name(child->type), " inside a model declaration.");
 			};
 		}
 	}
@@ -746,8 +753,8 @@ Mobius_Model::load_module(String_View file_name, String_View module_name) {
 		if(stream.peek_token().type == Token_Type::eof) break;
 		Decl_AST *module_decl = parse_decl(&stream);
 		if(module_decl->type != Decl_Type::module) {
-			module_decl->type_name.print_error_header();
-			fatal_error("Module files should only have modules in the top scope.");
+			module_decl->location.print_error_header();
+			fatal_error("Module files should have only modules in the top scope.");
 		}
 		if(module_decl->args.size() >= 1 && module_decl->args[0]->sub_chain.size() >= 1 && module_decl->args[0]->sub_chain[0].string_value == module_name) {
 			auto global_scope = modules[0];

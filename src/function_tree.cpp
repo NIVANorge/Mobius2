@@ -5,11 +5,16 @@
 #include "emulate.h"
 #include "units.h"
 
+void
+Math_Block_FT::set_id() {
+	//TODO: if we ever want to paralellize code generation, we have to make a better system here:
+	static s32 id_counter = 0;
+	unique_block_id = id_counter++;
+}
+
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	if(cast_to == expr->value_type) return expr;
-	
-	//TODO: if we cast a literal, we should just cast the value here and replace the literal.
 	
 	auto cast = new Math_Expr_FT(expr->scope, Math_Expr_Type::cast);
 	cast->location = expr->location;     // not sure if this is good, it is just so that it has a valid location.
@@ -97,7 +102,7 @@ void resolve_arguments(Mobius_Model *model, s32 module_id, Math_Expr_FT *ft, Mat
 }
 
 bool
-find_local_variable(Identifier_FT *ident, String_View name, Math_Block_FT *scope, int scopes_up = 0) {
+find_local_variable(Identifier_FT *ident, String_View name, Math_Block_FT *scope) {
 	if(!scope) return false;
 	//warning_print("Try to resolve ", name, ".\n");
 	int idx = 0;
@@ -108,7 +113,7 @@ find_local_variable(Identifier_FT *ident, String_View name, Math_Block_FT *scope
 			if(local->name == name) {
 				ident->variable_type = Variable_Type::local;
 				ident->local_var.index = idx;
-				ident->local_var.scopes_up = scopes_up;
+				ident->local_var.scope_id = scope->unique_block_id;
 				ident->value_type = local->value_type;
 				local->is_used = true;
 				return true;
@@ -117,7 +122,7 @@ find_local_variable(Identifier_FT *ident, String_View name, Math_Block_FT *scope
 		++idx;
 	}
 	if(!scope->function_name)  //NOTE: scopes should not "bleed through" function substitutions.
-		return find_local_variable(ident, name, scope->scope, scopes_up+1);
+		return find_local_variable(ident, name, scope->scope);
 	return false;
 }
 
@@ -592,8 +597,11 @@ prune_tree(Math_Expr_FT *expr) {
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
 			if(ident->variable_type == Variable_Type::local) {
 				Math_Block_FT *sc = ident->scope;
-				for(int i = 0; i < ident->local_var.scopes_up; ++i)
+				while(sc->unique_block_id != ident->local_var.scope_id) {
 					sc = sc->scope;
+					if(!sc)
+						fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier.");
+				}
 				int index = 0;
 				for(auto loc : sc->exprs) {
 					if((loc->expr_type == Math_Expr_Type::local_var) 
@@ -628,9 +636,11 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 		if(ident->variable_type == Variable_Type::parameter)
 			depends->on_parameter.insert(ident->parameter);
 		else if(ident->variable_type == Variable_Type::state_var) {
-			if(!(ident->flags & ident_flags_last_result))
-				depends->on_state_var.insert(ident->state_var);
-			//TODO: register depends_on_state_var_last or something instead
+			State_Var_Dependency dep {ident->state_var, dep_type_none};
+			if(ident->flags & ident_flags_last_result)
+				dep.type = (Dependency_Type)(dep.type | dep_type_earlier_step);
+			
+			depends->on_state_var.insert(dep);
 		}
 		else if(ident->variable_type == Variable_Type::series)
 			depends->on_series.insert(ident->series);

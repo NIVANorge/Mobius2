@@ -4,6 +4,7 @@
 
 #include "model_declaration.h"
 
+#include <functional>
 
 
 template<typename Handle_T> struct Hash_Fun {
@@ -18,23 +19,21 @@ template<> struct Hash_Fun<Var_Id> {
 	int operator()(const Var_Id& id) const { return id.id; }
 };
 
-/*
+
 struct Index_T {
-	Entity_Id index_set_id;
+	Entity_Id index_set;
 	s32       index;
-}
-*/
+};
 
 template<typename Handle_T>
 struct Multi_Array_Structure {
-	//std::vector<Entity_Id> index_sets;
+	std::vector<Entity_Id> index_sets;
 	std::vector<Handle_T>  handles;
 	
 	std::unordered_map<Handle_T, s32, Hash_Fun<Handle_T>> handle_location;
 	s64 begin_offset;
 	
-	// TODO: indexing!
-	s64 get_offset(Handle_T handle) { //, Index_T *index_counts) {
+	s64 get_offset_base(Handle_T handle) {
 		/*
 		//TODO: checking should not be on by default (?) Need to optimize.
 		auto find = handle_location.find(handle);
@@ -44,18 +43,69 @@ struct Multi_Array_Structure {
 		return begin_offset + handle_location[handle];
 	}
 	
-	Math_Expr_FT *get_offset_code(Math_Block_FT *scope, Handle_T handle) {
-		return make_literal(scope, begin_offset + handle_location[handle]);
+	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes, std::vector<Index_T> *index_counts) {
+		s64 offset = 0;
+		for(auto &index_set : index_sets) {
+			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
+			offset *= (s64)(*index_counts)[index_set.id].index;
+			offset += (s64)(*indexes)[index_set.id].index;
+		}
+		return (s64)offset*handles.size() + get_offset_base(handle);
 	}
 	
-	s64 total_count() { return handle_location.size(); } // TODO: multiply with indexes
+	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes, std::vector<Index_T> *index_counts) {
+		s64 offset = 0;
+		int idx = 0;
+		for(auto &index_set : index_sets) {
+			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
+			offset *= (s64)(*index_counts)[index_set.id].index;
+			offset += (s64)(*indexes)[idx].index;
+			++idx;
+		}
+		return (s64)offset*handles.size() + get_offset_base(handle);
+	}
 	
-	Multi_Array_Structure(/*std::vector<Entity_Id> &&index_sets,*/ std::vector<Handle_T> &&handles) : /*index_sets(index_sets),*/ handles(handles) {
-		this->handles = handles;
+	Math_Expr_FT *get_offset_code(Math_Block_FT *scope, Handle_T handle, std::vector<Math_Expr_FT *> *indexes, std::vector<Index_T> *index_counts) {
+		//return make_literal(scope, begin_offset + handle_location[handle]);
+		//TODO: should copy exprs from indexes, not just point to them!
+		Math_Expr_FT *result;
+		if(index_sets.empty()) result = make_literal(scope, (s64)0);
+		for(int idx = 0; idx < index_sets.size(); ++idx) {
+			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
+			auto &index_set = index_sets[idx];
+			if(idx == 0)
+				result = (*indexes)[index_set.id];
+			else {
+				//make_binop(Math_Block_FT *scope, char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs, Value_Type value_type);
+				result = make_binop(scope, '*', result, make_literal(scope, (s64)(*index_counts)[index_set.id].index), Value_Type::integer);
+				result = make_binop(scope, '+', result, (*indexes)[index_set.id], Value_Type::integer);
+			}
+		}
+		result = make_binop(scope, '*', result, make_literal(scope, (s64)handles.size()), Value_Type::integer);
+		result = make_binop(scope, '+', result, make_literal(scope, begin_offset + handle_location[handle]), Value_Type::integer);
+		return result;
+	}
+	
+	s64 total_count(std::vector<Index_T> *index_counts) { 
+		s64 count = (s64)handles.size();
+		for(auto &index_set : index_sets)
+			count *= (s64)(*index_counts)[index_set.id].index;
+		return count;
+	}
+	
+	void finalize() {
 		for(int idx = 0; idx < this->handles.size(); ++idx)
 			handle_location[this->handles[idx]] = idx;
 	}
+	
+	Multi_Array_Structure(std::vector<Entity_Id> &&index_sets, std::vector<Handle_T> &&handles) : index_sets(index_sets), handles(handles) {
+		finalize();
+	}
+	
+	Multi_Array_Structure() {}
 };
+
+struct Model_Application;
 
 template<typename Val_T, typename Handle_T>
 struct Structured_Storage {
@@ -66,30 +116,14 @@ struct Structured_Storage {
 	s64    total_count;
 	bool   has_been_set_up;
 	
+	Model_Application *parent;
+	
 	std::unordered_map<Handle_T, s32, Hash_Fun<Handle_T>> handle_is_in_array;
 	std::vector<Multi_Array_Structure<Handle_T>> structure;
 	
 	//TODO: need much more error checking in these!
 	
-	void set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure) {
-		if(has_been_set_up)
-			fatal_error(Mobius_Error::internal, "Tried to set up structure twice.");
-		
-		this->structure = structure;
-		
-		s64 offset = 0;
-		s32 array_idx = 0;
-		for(auto &multi_array : this->structure) {
-			multi_array.begin_offset = offset;
-			offset += multi_array.total_count();
-			for(Handle_T handle : multi_array.handles)
-				handle_is_in_array[handle] = array_idx;
-			++array_idx;
-		}
-		total_count = offset;
-		
-		has_been_set_up = true;
-	}
+	void set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure);
 	
 	//TODO: there should be a version of this one that checks for out of bounds indexing. But we also want the fast one that doesn't
 	Val_T  *get_value(s64 offset_for_val, s64 time_step = 0) {
@@ -107,29 +141,26 @@ struct Structured_Storage {
 		memset(data, 0, alloc_size);
 	}; //TODO: also start_date
 	
-	s64 get_offset(Handle_T handle) { // TODO: indexes
-		/*
-		auto find = handle_is_in_array.find(handle);           //TODO: checking shoud not be here by default. Need to optimize
-		if(find == handle_is_in_array.end())
-			fatal_error(Mobius_Error::internal, "Handle was not registered in structure.");
-		*/
-		s32 array_idx = handle_is_in_array[handle];
-		return structure[array_idx].get_offset(handle);
-	}
+	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes);
+	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes);
 	
-	Math_Expr_FT *get_offset_code(Math_Block_FT *scope, Handle_T handle) {
-		s32 array_idx = handle_is_in_array[handle];
-		return structure[array_idx].get_offset_code(scope, handle);
-	}
+	Math_Expr_FT *get_offset_code(Math_Block_FT *scope, Handle_T handle, std::vector<Math_Expr_FT *> *indexes);
 	
-	Structured_Storage(s64 initial_step) : initial_step(initial_step), has_been_set_up(false), data(nullptr) {}
+	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr) {}
+	
+	void for_each(Handle_T, const std::function<void(std::vector<Index_T> *, s64)>&);
 	
 };
 
+struct
+Sub_Batch {
+	Multi_Array_Structure<Var_Id> array;
+};
 
 struct
 Run_Batch {
-	std::vector<Var_Id> state_vars;
+	std::vector<Sub_Batch> sub_batches;
+	//std::vector<Var_Id>    state_vars; //TODO: remove!
 	
 	Math_Expr_FT *run_code;
 	//TODO: also function pointer to llvm compiled code.
@@ -139,10 +170,21 @@ struct
 Model_Application {
 	Mobius_Model *model;
 	
-	Model_Application(Mobius_Model *model) : model(model), parameter_data(0), series_data(0), result_data(1), is_compiled(false) {
+	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), is_compiled(false) {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
+		
+		index_counts.resize(model->modules[0]->index_sets.count());
+		
+		for(auto index_set : model->modules[0]->index_sets) {
+			index_counts[index_set.id].index_set = index_set;
+			index_counts[index_set.id].index = 1; //TODO:     initialize to 0 instead, then make the count come from the data set.
+		}
 	}
+	
+	std::vector<Index_T>                            index_counts;
+	void set_indexes(Entity_Id index_set, Array<String_View> *names);
+	bool all_indexes_are_set();
 	
 	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;
 	Structured_Storage<double, Var_Id>              series_data;
@@ -158,6 +200,85 @@ Model_Application {
 	Run_Batch batch;
 	Run_Batch initial_batch;
 };
+
+
+
+
+
+template<typename Val_T, typename Handle_T> s64
+Structured_Storage<Val_T, Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> *indexes) {
+	auto array_idx = handle_is_in_array[handle];
+	return structure[array_idx].get_offset(handle, indexes, &parent->index_counts);
+}
+
+template<typename Val_T, typename Handle_T> s64
+Structured_Storage<Val_T, Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes) {
+	auto array_idx = handle_is_in_array[handle];
+	return structure[array_idx].get_offset_alternate(handle, indexes, &parent->index_counts);
+}
+	
+template<typename Val_T, typename Handle_T> Math_Expr_FT *
+Structured_Storage<Val_T, Handle_T>::get_offset_code(Math_Block_FT *scope, Handle_T handle, std::vector<Math_Expr_FT *> *indexes) {
+	auto array_idx = handle_is_in_array[handle];
+	return structure[array_idx].get_offset_code(scope, handle, indexes, &parent->index_counts);
+}
+
+template<typename Val_T, typename Handle_T> void
+Structured_Storage<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure) {
+	//TODO: check that index_counts are properly set up in parent.
+	
+	if(has_been_set_up)
+		fatal_error(Mobius_Error::internal, "Tried to set up structure twice.");
+	
+	this->structure = structure;
+	
+	s64 offset = 0;
+	s32 array_idx = 0;
+	for(auto &multi_array : this->structure) {
+		multi_array.begin_offset = offset;
+		offset += multi_array.total_count(&parent->index_counts);
+		for(Handle_T handle : multi_array.handles)
+			handle_is_in_array[handle] = array_idx;
+		++array_idx;
+	}
+	total_count = offset;
+	
+	has_been_set_up = true;
+}
+
+
+template<typename Val_T, typename Handle_T> void
+Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> *, s64)> &do_stuff) {
+	auto array_idx = handle_is_in_array[handle];
+	auto &index_sets = structure[array_idx].index_sets;
+	std::vector<Index_T> indexes;
+	if(index_sets.empty()) {
+		s64 offset = get_offset_alternate(handle, &indexes);
+		do_stuff(&indexes, offset);
+		return;
+	}
+	indexes.resize(index_sets.size());
+	for(int level = 0; level < index_sets.size(); ++level) {
+		indexes[level].index_set = index_sets[level];
+		indexes[level].index = 0;
+	}
+	
+	int bottom = (int)index_sets.size() - 1;
+	int level = bottom;
+	while(true) {
+		if(level == bottom) {
+			s64 offset = get_offset_alternate(handle, &indexes);
+			do_stuff(&indexes, offset);
+		}
+		indexes[level].index++;
+		if(indexes[level].index == parent->index_counts[level].index) {
+			if(level == 0) break;
+			indexes[level].index = 0;
+			level--;
+		} else if (level != bottom)
+			level++;
+	}
+}
 
 
 #endif // MOBIUS_MODEL_APPLICATION_H

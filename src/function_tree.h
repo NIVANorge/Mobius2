@@ -77,10 +77,12 @@ Math_Expr_FT {
 struct
 Math_Block_FT : Math_Expr_FT {
 	
+	s32 unique_block_id;
 	String_View function_name;
 	int n_locals;
 	
-	Math_Block_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::block), n_locals(0), function_name("") { };
+	void set_id();
+	Math_Block_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::block), n_locals(0), function_name("") { set_id(); };
 };
 
 //NOTE: we don't want to use enum class here, because it doesn't autocast to int, making bitwise operations annoying :(
@@ -101,7 +103,7 @@ Identifier_FT : Math_Expr_FT {
 		Var_Id                   series;
 		struct {
 			s32           index;
-			s32           scopes_up;
+			s32           scope_id;
 		}                        local_var;
 	};
 	
