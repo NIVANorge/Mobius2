@@ -13,8 +13,11 @@ Oversimplified soil water module inc.
 		tc_s : par_real("Soil water time constant", unit(day -1), 2)
 	}
 	
-	soil.par_group("Hydrology") {
+	over.par_group("Quick flow") {
 		f_quick : par_real("Proportion to quick flow", unit(), 0.01)
+	}
+		
+	gw.  par_group("Groundwater") {
 		tc_g : par_real("Groundwater time constant", unit(day -1), 60)
 	}
 	

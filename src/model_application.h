@@ -65,24 +65,26 @@ struct Multi_Array_Structure {
 		return (s64)offset*handles.size() + get_offset_base(handle);
 	}
 	
-	Math_Expr_FT *get_offset_code(Math_Block_FT *scope, Handle_T handle, std::vector<Math_Expr_FT *> *indexes, std::vector<Index_T> *index_counts) {
-		//return make_literal(scope, begin_offset + handle_location[handle]);
-		//TODO: should copy exprs from indexes, not just point to them!
+	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes, std::vector<Index_T> *index_counts) {
 		Math_Expr_FT *result;
-		if(index_sets.empty()) result = make_literal(scope, (s64)0);
+		if(index_sets.empty()) result = make_literal((s64)0);
 		for(int idx = 0; idx < index_sets.size(); ++idx) {
-			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
+			//TODO: check that counts are in the right index set
 			auto &index_set = index_sets[idx];
+			Math_Expr_FT *index = (*indexes)[index_set.id];
+			if(!index)
+				return nullptr;
+			index = copy(index);
+			
 			if(idx == 0)
-				result = (*indexes)[index_set.id];
+				result = index;
 			else {
-				//make_binop(Math_Block_FT *scope, char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs, Value_Type value_type);
-				result = make_binop(scope, '*', result, make_literal(scope, (s64)(*index_counts)[index_set.id].index), Value_Type::integer);
-				result = make_binop(scope, '+', result, (*indexes)[index_set.id], Value_Type::integer);
+				result = make_binop('*', result, make_literal((s64)(*index_counts)[index_set.id].index));
+				result = make_binop('+', result, (*indexes)[index_set.id]);
 			}
 		}
-		result = make_binop(scope, '*', result, make_literal(scope, (s64)handles.size()), Value_Type::integer);
-		result = make_binop(scope, '+', result, make_literal(scope, begin_offset + handle_location[handle]), Value_Type::integer);
+		result = make_binop('*', result, make_literal((s64)handles.size()));
+		result = make_binop('+', result, make_literal((s64)(begin_offset + handle_location[handle])));
 		return result;
 	}
 	
@@ -144,26 +146,23 @@ struct Structured_Storage {
 	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes);
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes);
 	
-	Math_Expr_FT *get_offset_code(Math_Block_FT *scope, Handle_T handle, std::vector<Math_Expr_FT *> *indexes);
+	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes);
 	
 	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr) {}
 	
 	void for_each(Handle_T, const std::function<void(std::vector<Index_T> *, s64)>&);
 	
-};
-
-struct
-Sub_Batch {
-	Multi_Array_Structure<Var_Id> array;
+	String_View get_handle_name(Handle_T handle);
 };
 
 struct
 Run_Batch {
-	std::vector<Sub_Batch> sub_batches;
-	//std::vector<Var_Id>    state_vars; //TODO: remove!
+	std::vector<Multi_Array_Structure<Var_Id>> structure;
 	
 	Math_Expr_FT *run_code;
 	//TODO: also function pointer to llvm compiled code.
+	
+	Run_Batch() : run_code(nullptr) {}
 };
 
 struct
@@ -202,8 +201,18 @@ Model_Application {
 };
 
 
+template<> inline String_View
+Structured_Storage<Parameter_Value, Entity_Id>::get_handle_name(Entity_Id par) {
+	return parent->model->find_entity<Reg_Type::parameter>(par)->name;
+}
 
-
+template<> inline String_View
+Structured_Storage<double, Var_Id>::get_handle_name(Var_Id var_id) {
+	// TODO: oof, this is a hack and prone to break. We should have another way of determining if we are in the state vars or series structure.
+	if(initial_step == 0)
+		return parent->model->series[var_id]->name;
+	return parent->model->state_vars[var_id]->name;
+}
 
 template<typename Val_T, typename Handle_T> s64
 Structured_Storage<Val_T, Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> *indexes) {
@@ -218,9 +227,12 @@ Structured_Storage<Val_T, Handle_T>::get_offset_alternate(Handle_T handle, std::
 }
 	
 template<typename Val_T, typename Handle_T> Math_Expr_FT *
-Structured_Storage<Val_T, Handle_T>::get_offset_code(Math_Block_FT *scope, Handle_T handle, std::vector<Math_Expr_FT *> *indexes) {
+Structured_Storage<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes) {
 	auto array_idx = handle_is_in_array[handle];
-	return structure[array_idx].get_offset_code(scope, handle, indexes, &parent->index_counts);
+	auto code = structure[array_idx].get_offset_code(handle, indexes, &parent->index_counts);
+	if(!code)
+		fatal_error(Mobius_Error::internal, "We somehow referenced an index that was not properly initialized, get_offset_code(). Name of referenced variable was \"", get_handle_name(handle), "\".");
+	return code;
 }
 
 template<typename Val_T, typename Handle_T> void

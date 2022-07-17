@@ -46,7 +46,7 @@ Typed_Value
 apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 	Typed_Value result;
 	char op = (char)oper;
-	if(op != '^' && lhs.type != rhs.type) fatal_error(Mobius_Error::internal, "Mismatching types in apply_binary()."); //this should have been eliminated at a different stage.
+	if(op != '^' && lhs.type != rhs.type) fatal_error(Mobius_Error::internal, "Mismatching types in apply_binary(). lhs: ", name(lhs.type), ", rhs: ", name(rhs.type), "."); //this should have been eliminated at a different stage.
 	result.type = lhs.type;
 	//NOTE: this implementation doesn't allow for short-circuiting. Dunno if we want that.	
 	
@@ -150,10 +150,20 @@ get_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 	return scope->local_vars[index];
 }
 
+
+#define DO_DEBUG 0
+#if DO_DEBUG
+	#define DEBUG(a) a;
+#else
+	#define DEBUG(a)
+#endif
+
 Typed_Value
 emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars *locals) {
 	if(!expr)
 		fatal_error(Mobius_Error::internal, "Got a nullptr expression in emulate_expression().");
+	
+	DEBUG(warning_print("emulate expression of type ", name(expr->expr_type), "\n"))
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
@@ -163,12 +173,22 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			new_locals.scope_id = block->unique_block_id;
 			new_locals.scope_up = locals;
 			new_locals.local_vars.resize(block->n_locals);
-			int index = 0;
-			for(auto sub_expr : expr->exprs) {
-				result = emulate_expression(sub_expr, state, &new_locals);
-				if(sub_expr->expr_type == Math_Expr_Type::local_var) {
-					new_locals.local_vars[index] = result;
-					++index;
+			if(!block->is_for_loop) {
+				int index = 0;
+				for(auto sub_expr : expr->exprs) {
+					result = emulate_expression(sub_expr, state, &new_locals);
+					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
+						new_locals.local_vars[index] = result;
+						++index;
+					}
+				}
+			} else {
+				//DEBUG(warning_print("for loop with ", block->n_locals, " locals\n"))
+				s64 n = emulate_expression(expr->exprs[0], state, locals).val_int;
+				for(s64 i = 0; i < n; ++i) {
+					new_locals.local_vars[0].val_int = i;
+					new_locals.local_vars[0].type = Value_Type::integer;
+					result = emulate_expression(expr->exprs[1], state, &new_locals);
 				}
 			}
 			return result;
@@ -183,7 +203,11 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			//TODO: instead we have to find a way to convert the id to a local index. This is just for early testing.
 			Typed_Value result;
 			result.type = expr->value_type;
-			s64 offset = emulate_expression(expr->exprs[0], state, locals).val_int;
+			s64 offset = 0;
+			if(ident->variable_type != Variable_Type::local) {
+				DEBUG(warning_print("lookup var offset.\n"))
+				offset = emulate_expression(expr->exprs[0], state, locals).val_int;
+			}
 			//warning_print("offset for lookup was ", offset, "\n");
 			
 			if(ident->variable_type == Variable_Type::parameter) {
@@ -192,8 +216,9 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 				result.val_double = state->state_vars[offset];
 			} else if(ident->variable_type == Variable_Type::series) {
 				result.val_double = state->series[offset];
-			} else if(ident->variable_type == Variable_Type::local)
+			} else if(ident->variable_type == Variable_Type::local) {
 				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+			}
 			return result;
 		} break;
 		
@@ -259,44 +284,6 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 }
 
 
-/*
-void emulate_batch(Mobius_Model *model, Run_Batch *batch, Model_Run_State *run_state, bool initial = false) {
-	
-#if 0	
-	for(auto var_id : batch->state_vars) {
-		auto var = model->state_vars[var_id];
-		auto fun = var->function_tree;
-		if(initial)
-			fun = var->initial_function_tree;
-		if(fun) {
-			Typed_Value val = emulate_expression(fun, run_state, nullptr);
-			auto offset = run_state->model_app->result_data.get_offset(var_id);
-			run_state->state_vars[offset] = val.val_double;
-			//warning_print("value ", val.val_double, ".\n");
-			if(var->type == Decl_Type::flux) {
-				// TODO: lookup every time step of location here is inefficient. Even though this emulation is not supposed to be fast, we could maybe make an optimization here. Should just do a pass to store the Var_Id of each location on the state var itself.
-				if(var->loc1.type == Location_Type::located) {
-					auto offset = run_state->model_app->result_data.get_offset(model->state_vars[var->loc1]);
-					run_state->state_vars[offset] -= val.val_double;    // Subtract the flux from the source
-				} if(var->loc2.type == Location_Type::located) {
-					auto offset = run_state->model_app->result_data.get_offset(model->state_vars[var->loc2]);
-					run_state->state_vars[offset] += val.val_double;    // Add the flux to the target.
-				}
-			}
-		} else if(var->type != Decl_Type::quantity)
-			fatal_error(Mobius_Error::internal, "Some non-quantity did not get a function tree before emulate_model_run().");
-	}
-#else
-	emulate_expression(batch->run_code, run_state, nullptr);
-		
-#endif
-}
-*/
-
-
-
-
-
 void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 	
 	warning_print("begin emulate model run.\n");
@@ -323,6 +310,7 @@ void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 	
 	Timer run_timer;
 	
+	warning_print("begin initial values\n");
 	// Initial values:
 	emulate_expression(model_app->initial_batch.run_code, &run_state, nullptr);
 	//emulate_batch(model, &model_app->initial_batch, &run_state, true);

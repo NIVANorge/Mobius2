@@ -10,7 +10,7 @@ With some extra spice.
 	
 	snow_par :
 	snow_box.par_group("Snow") {
-		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, "Some description")
+		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 1.1, "Some description")
 		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0, -4, 4, "More description")
 		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0)
 		refr_eff  : par_real("Refreeze efficiency", unit(), 0.5)

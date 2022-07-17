@@ -16,17 +16,17 @@ Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	if(cast_to == expr->value_type) return expr;
 	
-	auto cast = new Math_Expr_FT(expr->scope, Math_Expr_Type::cast);
+	auto cast = new Math_Expr_FT(Math_Expr_Type::cast);
 	cast->location = expr->location;     // not sure if this is good, it is just so that it has a valid location.
 	cast->value_type = cast_to;
-	cast->add_expr(expr);
+	cast->exprs.push_back(expr);
 	
 	return cast;
 }
 
 Math_Expr_FT *
-make_literal(Math_Block_FT *scope, s64 val_int) {
-	auto literal = new Literal_FT(scope);
+make_literal(s64 val_int) {
+	auto literal = new Literal_FT();
 	literal->value_type = Value_Type::integer;
 	literal->location = {}; //Hmm, we should actually make it possible to provide more location info on these generated nodes.
 	literal->value.val_int = val_int;
@@ -34,8 +34,8 @@ make_literal(Math_Block_FT *scope, s64 val_int) {
 }
 
 Math_Expr_FT *
-make_state_var_identifier(Math_Block_FT *scope, Var_Id state_var) {
-	auto ident = new Identifier_FT(scope);
+make_state_var_identifier(Var_Id state_var) {
+	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;
 	ident->variable_type = Variable_Type::state_var;
 	ident->state_var     = state_var;
@@ -43,8 +43,18 @@ make_state_var_identifier(Math_Block_FT *scope, Var_Id state_var) {
 }
 
 Math_Expr_FT *
-make_intrinsic_function_call(Math_Block_FT *scope, Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2) {
-	auto fun = new Function_Call_FT(scope);
+make_local_var_reference(s32 index, s32 scope_id, Value_Type value_type) {
+	auto ident = new Identifier_FT();
+	ident->value_type    = value_type;
+	ident->variable_type = Variable_Type::local;
+	ident->local_var.index = index;
+	ident->local_var.scope_id = scope_id;
+	return ident;
+}
+
+Math_Expr_FT *
+make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2) {
+	auto fun = new Function_Call_FT();
 	fun->value_type = value_type;
 	fun->fun_name   = name;
 	fun->fun_type   = Function_Type::intrinsic;
@@ -54,13 +64,23 @@ make_intrinsic_function_call(Math_Block_FT *scope, Value_Type value_type, String
 }
 
 Math_Expr_FT *
-make_binop(Math_Block_FT *scope, char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs, Value_Type value_type) {
-	auto binop = new Operator_FT(scope, Math_Expr_Type::binary_operator);
-	binop->value_type = value_type;
+make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
+	if(lhs->value_type != rhs->value_type)
+		fatal_error(Mobius_Error::internal, "Mismatching types of arguments in make_binop().");
+	auto binop = new Operator_FT(Math_Expr_Type::binary_operator);
+	binop->value_type = lhs->value_type;
 	binop->oper = (Token_Type)oper;
 	binop->exprs.push_back(lhs);
 	binop->exprs.push_back(rhs);
 	return binop;
+}
+
+Math_Block_FT *
+make_for_loop() {
+	auto for_loop = new Math_Block_FT();
+	for_loop->n_locals = 1;
+	for_loop->is_for_loop = true;
+	return for_loop;
 }
 
 
@@ -89,56 +109,63 @@ void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 	}
 }
 
-void resolve_arguments(Mobius_Model *model, s32 module_id, Math_Expr_FT *ft, Math_Expr_AST *ast) {
+struct
+Scope_Data {
+	Scope_Data *parent;
+	Math_Block_FT *block;
+	String_View function_name;
+	
+	Scope_Data() : parent(nullptr), block(nullptr), function_name("") {}
+};
+
+void resolve_arguments(Mobius_Model *model, s32 module_id, Math_Expr_FT *ft, Math_Expr_AST *ast, Scope_Data *scope) {
 	//TODO allow error check on expected number of arguments
-	
-	Math_Block_FT *scope = ft->scope;
-	if(ft->expr_type == Math_Expr_Type::block)
-		scope = reinterpret_cast<Math_Block_FT *>(ft);
-	
 	for(auto arg : ast->exprs) {
-		ft->add_expr(resolve_function_tree(model, module_id, arg, scope));
+		ft->exprs.push_back(resolve_function_tree(model, module_id, arg, scope));
 	}
 }
 
 bool
-find_local_variable(Identifier_FT *ident, String_View name, Math_Block_FT *scope) {
+find_local_variable(Identifier_FT *ident, String_View name, Scope_Data *scope) {
 	if(!scope) return false;
-	//warning_print("Try to resolve ", name, ".\n");
-	int idx = 0;
-	for(auto expr : scope->exprs) {
-		if(expr->expr_type == Math_Expr_Type::local_var) {
-			auto local = reinterpret_cast<Local_Var_FT *>(expr);
-			//warning_print("Check ", name, " against ", local->name, ".\n");
-			if(local->name == name) {
-				ident->variable_type = Variable_Type::local;
-				ident->local_var.index = idx;
-				ident->local_var.scope_id = scope->unique_block_id;
-				ident->value_type = local->value_type;
-				local->is_used = true;
-				return true;
+	
+	auto block = scope->block;
+	if(!block->is_for_loop) {
+		int idx = 0;
+		for(auto expr : block->exprs) {
+			if(expr->expr_type == Math_Expr_Type::local_var) {
+				auto local = reinterpret_cast<Local_Var_FT *>(expr);
+				//warning_print("Check ", name, " against ", local->name, ".\n");
+				if(local->name == name) {
+					ident->variable_type = Variable_Type::local;
+					ident->local_var.index = idx;
+					ident->local_var.scope_id = block->unique_block_id;
+					ident->value_type = local->value_type;
+					local->is_used = true;
+					return true;
+				}
 			}
+			++idx;
 		}
-		++idx;
 	}
 	if(!scope->function_name)  //NOTE: scopes should not "bleed through" function substitutions.
-		return find_local_variable(ident, name, scope->scope);
+		return find_local_variable(ident, name, scope->parent);
 	return false;
 }
 
 bool
-is_inside_function(Math_Block_FT *scope, String_View name) {
-	Math_Block_FT *sc = scope;
+is_inside_function(Scope_Data *scope, String_View name) {
+	Scope_Data *sc = scope;
 	while(true) {
-		sc = sc->scope;
 		if(!sc) return false;
 		if(sc->function_name == name) return true;
+		sc = sc->parent;
 	}
 	return false;
 }
 
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Math_Block_FT *scope){
+resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Scope_Data *scope){
 	Math_Expr_FT *result = nullptr;
 	
 #define DEBUGGING_NOW 0
@@ -149,9 +176,12 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 	Module_Declaration *module = model->modules[module_id];
 	switch(ast->type) {
 		case Math_Expr_Type::block : {
-			auto new_block = new Math_Block_FT(scope);
+			auto new_block = new Math_Block_FT();
+			Scope_Data new_scope;
+			new_scope.parent = scope;
+			new_scope.block = new_block;
 			
-			resolve_arguments(model, module_id, new_block, ast);
+			resolve_arguments(model, module_id, new_block, ast, &new_scope);
 			
 			for(auto expr : new_block->exprs)
 				if(expr->expr_type == Math_Expr_Type::local_var) ++new_block->n_locals;
@@ -168,7 +198,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 		
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_Chain_AST *>(ast);
-			auto new_ident = new Identifier_FT(scope);
+			auto new_ident = new Identifier_FT();
 			if(ident->chain.size() == 1) {
 				String_View name = ident->chain[0].string_value;
 				
@@ -228,7 +258,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 		
 		case Math_Expr_Type::literal : {
 			auto literal = reinterpret_cast<Literal_AST *>(ast);
-			auto new_literal = new Literal_FT(scope);
+			auto new_literal = new Literal_FT();
 			
 			new_literal->value_type = get_value_type(literal->value.type);
 			new_literal->value      = get_parameter_value(&literal->value, literal->value.type);
@@ -237,17 +267,14 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 		} break;
 		
 		case Math_Expr_Type::function_call : {
-			//TODO: allow accessing global functions when that is implemented.
-			//TODO: should have some kind of mechanism for checking types.
-			
-			//TODO: if all arguments are literals we should just do the evaluation here (if possible) and replace with the literal of the result.
+			//TODO: should have some kind of mechanism for checking types that is not hard coded.
 			
 			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
 			
 			// First check for "special" calls that are not really function calls.
 			if(fun->name.string_value == "last") {
-				auto new_fun = new Function_Call_FT(scope); // Hmm it is a bit annoying to have to do this only to delete it again.
-				resolve_arguments(model, module_id, new_fun, ast);
+				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
+				resolve_arguments(model, module_id, new_fun, ast, scope);
 				if(new_fun->exprs.size() != 1) {
 					fun->name.print_error_header();
 					fatal_error("A last() call only takes one argument.");
@@ -293,9 +320,9 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 				auto fun_type = fun_decl->fun_type;
 				
 				if(fun_type == Function_Type::intrinsic) {
-					auto new_fun = new Function_Call_FT(scope);
+					auto new_fun = new Function_Call_FT();
 					
-					resolve_arguments(model, module_id, new_fun, ast);
+					resolve_arguments(model, module_id, new_fun, ast, scope);
 				
 					new_fun->fun_type = fun_type;
 					new_fun->fun_name = fun->name.string_value;
@@ -309,22 +336,27 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 						fatal_error("The function ", fun->name.string_value, " calls itself either directly or indirectly. This is not allowed.");
 					}
 					// Inline in the function call as a new block with the arguments as local vars.
-					auto inlined_fun = new Math_Block_FT(scope);
+					auto inlined_fun = new Math_Block_FT();
 					
-					resolve_arguments(model, module_id, inlined_fun, ast);
+					resolve_arguments(model, module_id, inlined_fun, ast, scope);
 					
-					inlined_fun->function_name = fun->name.string_value;
+					//inlined_fun->function_name = fun->name.string_value;
 					inlined_fun->n_locals = inlined_fun->exprs.size();
 					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
 						auto arg = inlined_fun->exprs[argidx];
-						auto inlined_arg = new Local_Var_FT(inlined_fun);
-						inlined_arg->add_expr(arg);
+						auto inlined_arg = new Local_Var_FT();
+						inlined_arg->exprs.push_back(arg);
 						inlined_arg->name = fun_decl->args[argidx];
 						inlined_arg->value_type = arg->value_type;
 						inlined_fun->exprs[argidx] = inlined_arg;
 					}
 					
-					inlined_fun->add_expr(resolve_function_tree(model, module_id, fun_decl->code, inlined_fun));
+					Scope_Data new_scope;
+					new_scope.parent = scope;
+					new_scope.block = inlined_fun;
+					new_scope.function_name = fun->name.string_value;
+					
+					inlined_fun->exprs.push_back(resolve_function_tree(model, module_id, fun_decl->code, &new_scope));
 					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
 					
 					result = inlined_fun;
@@ -338,9 +370,9 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 		
 		case Math_Expr_Type::unary_operator : {
 			auto unary = reinterpret_cast<Unary_Operator_AST *>(ast);
-			auto new_unary = new Operator_FT(scope, Math_Expr_Type::unary_operator);
+			auto new_unary = new Operator_FT(Math_Expr_Type::unary_operator);
 			
-			resolve_arguments(model, module_id, new_unary, ast);
+			resolve_arguments(model, module_id, new_unary, ast, scope);
 			
 			new_unary->oper = unary->oper;
 			
@@ -364,9 +396,9 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 		
 		case Math_Expr_Type::binary_operator : {
 			auto binary = reinterpret_cast<Binary_Operator_AST *>(ast);
-			auto new_binary = new Operator_FT(scope, Math_Expr_Type::binary_operator);
+			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
 			
-			resolve_arguments(model, module_id, new_binary, ast);
+			resolve_arguments(model, module_id, new_binary, ast, scope);
 			
 			new_binary->oper = binary->oper;
 			char op = (char)binary->oper;
@@ -395,9 +427,9 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 		
 		case Math_Expr_Type::if_chain : {
 			auto ifexpr = reinterpret_cast<If_Expr_AST *>(ast);
-			auto new_if = new Math_Expr_FT(scope, Math_Expr_Type::if_chain);
+			auto new_if = new Math_Expr_FT(Math_Expr_Type::if_chain);
 			
-			resolve_arguments(model, module_id, new_if, ast);
+			resolve_arguments(model, module_id, new_if, ast, scope);
 			
 			// Cast all possible result values up to the same type
 			Value_Type value_type = new_if->exprs[0]->value_type;
@@ -425,7 +457,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 			
 			auto local = reinterpret_cast<Local_Var_AST *>(ast);
 			
-			for(auto loc : scope->exprs) {
+			for(auto loc : scope->block->exprs) {
 				if(loc->expr_type == Math_Expr_Type::local_var) {
 					auto loc2 = reinterpret_cast<Local_Var_FT *>(loc);
 					if(loc2->name == local->name.string_value) {
@@ -435,9 +467,9 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 				}
 			}
 			
-			auto new_local = new Local_Var_FT(scope);
+			auto new_local = new Local_Var_FT();
 			
-			resolve_arguments(model, module_id, new_local, ast);
+			resolve_arguments(model, module_id, new_local, ast, scope);
 			
 			new_local->name = local->name.string_value;
 			new_local->value_type = new_local->exprs[0]->value_type;
@@ -468,10 +500,18 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Ma
 }
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr) {
+prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 	
-	for(auto &arg : expr->exprs)
-		arg = prune_tree(arg);
+	if(expr->expr_type == Math_Expr_Type::block) {
+		Scope_Data new_scope;
+		new_scope.parent = scope;
+		new_scope.block = reinterpret_cast<Math_Block_FT *>(expr);
+		for(auto &arg : expr->exprs)
+			arg = prune_tree(arg, &new_scope);
+	} else {
+		for(auto &arg : expr->exprs)
+			arg = prune_tree(arg, scope);
+	}
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
@@ -488,7 +528,7 @@ prune_tree(Math_Expr_FT *expr) {
 				if(arg->expr_type != Math_Expr_Type::literal) { all_literal = false; break; }
 			}
 			if(all_literal) {
-				auto literal = new Literal_FT(expr->scope);
+				auto literal = new Literal_FT();
 				literal->location = expr->location;
 				literal->value_type = expr->value_type;
 				
@@ -514,7 +554,7 @@ prune_tree(Math_Expr_FT *expr) {
 				auto unary = reinterpret_cast<Operator_FT *>(expr);
 				auto arg = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 				Parameter_Value val = apply_unary({arg->value, arg->value_type}, unary->oper);
-				auto literal = new Literal_FT(expr->scope);
+				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
 				literal->location = expr->location;
@@ -528,9 +568,9 @@ prune_tree(Math_Expr_FT *expr) {
 				auto lhs  = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
 				auto rhs = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
 				auto binary = reinterpret_cast<Operator_FT *>(expr);
-				//NOTE: have to pass rhs type since that matters for pow.. not clean, instead Parameter_Value should carry its type, or we should pass both
+				//warning_print("apply_binary() lhs ", name(lhs->value_type), " rhs ", name(rhs->value_type), "\n");
 				Parameter_Value val = apply_binary({lhs->value, lhs->value_type}, {rhs->value, rhs->value_type}, binary->oper);
-				auto literal = new Literal_FT(expr->scope);
+				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
 				literal->location = expr->location;
@@ -584,7 +624,7 @@ prune_tree(Math_Expr_FT *expr) {
 		case Math_Expr_Type::cast : {
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
 				auto old_literal = reinterpret_cast<Literal_FT*>(expr->exprs[0]);
-				auto literal = new Literal_FT(expr->scope);
+				auto literal = new Literal_FT();
 				literal->value = apply_cast({old_literal->value, old_literal->value_type}, expr->value_type);
 				literal->value_type = expr->value_type;
 				literal->location = expr->location;
@@ -596,32 +636,41 @@ prune_tree(Math_Expr_FT *expr) {
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
 			if(ident->variable_type == Variable_Type::local) {
-				Math_Block_FT *sc = ident->scope;
-				while(sc->unique_block_id != ident->local_var.scope_id) {
-					sc = sc->scope;
+				Scope_Data *sc = scope;
+				while(sc->block->unique_block_id != ident->local_var.scope_id) {
+					sc = sc->parent;
 					if(!sc)
 						fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier.");
 				}
-				int index = 0;
-				for(auto loc : sc->exprs) {
-					if((loc->expr_type == Math_Expr_Type::local_var) 
-						&& (index == ident->local_var.index) 
-						&& (loc->exprs[0]->expr_type == Math_Expr_Type::literal)) {
-							auto literal = new Literal_FT(expr->scope);
-							auto loc2        = reinterpret_cast<Local_Var_FT *>(loc);
-							auto loc_literal = reinterpret_cast<Literal_FT *>(loc->exprs[0]);
-							literal->value =      loc_literal->value;
-							literal->value_type = loc_literal->value_type;
-							literal->location = ident->location;
-							loc2->is_used = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
-							delete expr;
-							return literal;
+				Math_Block_FT *block = sc->block;
+				if(!block->is_for_loop) { // If the scope was a for loop, the identifier was pointing to the iteration index, and that can't be optimized away here.
+					int index = 0;
+					for(auto loc : block->exprs) {
+						if((loc->expr_type == Math_Expr_Type::local_var) 
+							&& (index == ident->local_var.index) 
+							&& (loc->exprs[0]->expr_type == Math_Expr_Type::literal)) {
+								auto literal = new Literal_FT();
+								auto loc2        = reinterpret_cast<Local_Var_FT *>(loc);
+								auto loc_literal = reinterpret_cast<Literal_FT *>(loc->exprs[0]);
+								literal->value =      loc_literal->value;
+								literal->value_type = loc_literal->value_type;
+								literal->location = ident->location;
+								loc2->is_used = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
+								delete expr;
+								return literal;
+						}
+						++index;
 					}
-					++index;
 				}
 			}
 		} break;
 		
+		
+		/* TODO: if loop count is constantly equal to 1, remove the loop. (unroll if the count is low? probably not since we prefer to vectorize in codegen?).
+		case Math_Expr_Type::for_loop : {
+			
+		} break;
+		*/
 		
 	}
 	return expr;
@@ -647,28 +696,67 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 	}
 }
 
-
-
-Math_Expr_FT *
-restrict_flux(Math_Expr_FT *flux, Var_Id source) {
-	// note: create something like
-	// 		min(flux, source)
-	//NOTE: we are actually also making an assumption here that the flux is not negative...
-	// should we restrict in the other direction as well?
-	
-	//ident->flags         = ident_flags_last_result;    //ouch, we don't want this actually, because if there are multiple fluxes, they should depend on the removal of the previous...
-	auto arg1 = flux;
-	auto arg2 = make_state_var_identifier(flux->scope, source);
-	
-	return make_intrinsic_function_call(flux->scope, Value_Type::real, "min", arg1, arg2);
+template<typename Expr_Type> Math_Expr_FT *
+copy_one(Math_Expr_FT *source) {
+	auto source_full = reinterpret_cast<Expr_Type *>(source);
+	auto result = new Expr_Type();
+	*result = *source_full;
+	return result;
 }
 
+Math_Expr_FT *
+copy(Math_Expr_FT *source) {
+	Math_Expr_FT *result;
+	switch(source->expr_type) {
+		case Math_Expr_Type::block : {
+			// Hmm this means that the unique block id is not going to be actually unique. It won't matter if we don't paste the same tree as a branch of itself though. Note that we can't just generate a new id without going through all references to it further down in the tree.
+			result = copy_one<Math_Block_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::identifier_chain : {
+			result = copy_one<Identifier_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::literal : {
+			result = copy_one<Literal_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::function_call : {
+			result = copy_one<Function_Call_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::unary_operator :
+		case Math_Expr_Type::binary_operator : {
+			result = copy_one<Operator_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::local_var : {
+			result = copy_one<Local_Var_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::if_chain :
+		case Math_Expr_Type::cast : 
+		case Math_Expr_Type::state_var_assignment : {
+			result = copy_one<Math_Expr_FT>(source);
+		} break;
+		
+		default : {
+			fatal_error(Mobius_Error::internal, "Unhandled math expr type in copy().");
+		} break;
+	};
+
+	for(int idx = 0; idx < result->exprs.size(); ++idx) {
+		result->exprs[idx] = copy(result->exprs[idx]);
+	}
+	
+	return result;
+}
 
 Standardized_Unit
 check_units(Math_Expr_FT *expr, Standardized_Unit *expected_top = nullptr) {
 	Standardized_Unit result;
 	
-	//TODO!
+	//TODO! Incomplete!
 	
 	switch(expr->expr_type) {
 		

@@ -1,0 +1,17 @@
+
+model("Stupidly simple test model") {
+	
+	md : module("Stupidly simple module", 1, 1, 0) {
+		
+		a : compartment("A")
+		
+		b : property("B")
+		
+		a.has(b, "B in A") {
+			c := 5;
+			{
+				2 + c
+			}
+		}
+	}
+}

@@ -1,0 +1,108 @@
+
+
+
+rules for discrete fluxes
+
+
+	all fluxes to a compartment are added before any going out are computed.
+		same as flux out of loc getting an order dependency on flux to loc.
+			could always make an in_flux(loc) generated variable (?)
+		
+		not always feasible when it comes to back-and-forth fluxes.
+		
+		make timing of fluxes explicit in code ?
+			
+			flux(last(snow_box.snow), snow_box.water, "Melt")
+			
+			flux(last(snow_box.water), snow_box.snow", "Refreeze")
+			
+			flux(snow_box.water, out, "Melt runoff")
+			
+			#this would be a bit different from HBVSnow in that refreeze is subtracted before melt runoff is computed, but that is actually better.
+			
+		So:
+			1. all fluxes going out from last() are computed and subtracted.
+			2. all fluxes going in are added.
+			3. all fluxes going out from current are computed and subtracted.
+			
+			- still gives problem of ordering within groups 1. and 3. , so it only solves things in simple cases.
+			
+			Also: what if there are multiple modules that interact in "interesting" ways? Ordering should ideally be specified at model (not module) stage, where things can be properly sorted out.
+	
+	
+	
+	HBVsnow:
+	
+	snow = last(snow)
+	melt = fun(snow)
+	snow -= melt
+	
+	water = last(water)
+	refreeze = fun(water)   #in this case there isn't that much of a problem since melt and refreeze are never simultaneously nonzero, so this might as well have 	been ordered after the addition step.
+	water += melt
+	
+	runoff   = fun(water)
+	water -= refreeze    
+	water -= runoff           #interestingly we could get in situations with water going negative here (?)
+	
+	snow += refreeze    # this breaks the rule of all additions going before subtractions.
+	
+	
+	
+	Euler step of the same:
+	
+	snow  = last(snow)
+	water = last(water)
+	
+	melt = fun(snow)
+	refr = fun(water)
+	runoff = fun(water)         # is incorrect, should be fun(water+melt)
+	
+	water += melt - refr - runoff
+	snow  += refr - melt
+	
+	
+	
+	How to declare.
+	
+	order(sn.melt, sn.refreeze, sn.runoff)
+	
+	Some times we may want to say that several fluxes going out from a compartment should "go at the same time", but be limited proportionately if they are to big. E.g.
+	
+	order(sn.melt, {sn.refreeze, sn.runoff])
+	
+	but that should be a later feature.
+	
+	
+	Alternatively, let the user specify it in some kind of code...
+		--gives flexibility but removes some of the simplicity of the framework.
+		
+	code {
+		compute(melt);
+		snow_box.snow -= melt;
+		compute(refreeze);
+		snow_box.snow  += refreeze;
+		snow_box.water -= refreeze;
+		snow_box.water += melt;
+		compute(runoff);
+		snow_box.water -= runoff;
+	}
+	
+	# for proportionality
+	code {
+		compute(a);
+		compute(b);
+		a = a * q/(a + b);
+		b = b * q/(a + b);
+		q -= a + b;
+	}
+	
+	# Something like that would be great for MAGiC actually.
+	
+	
+	Make the simple system first, then allow complicated system for later?
+	
+	
+	
+	
+	

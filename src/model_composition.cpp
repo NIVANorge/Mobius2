@@ -123,12 +123,6 @@ Mobius_Model::compose() {
 		
 		if(ast) {
 			var->function_tree = make_cast(resolve_function_tree(this, var->entity_id.module_id, ast, nullptr), Value_Type::real);
-			if(var->type == Decl_Type::flux) {
-				if(var->loc1.type == Location_Type::located) {
-					auto source = state_vars[var->loc1];
-					var->function_tree = restrict_flux(var->function_tree, source);
-				}
-			}
 		} else
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
@@ -139,8 +133,9 @@ Mobius_Model::compose() {
 			var->initial_function_tree = nullptr;
 	}
 	
+	/*
 	warning_print("Prune begin\n");
-	//TODO: this should only be done after code for an entire batch is generated.
+	//TODO: this could probably be removed since we prune again after the code for the entire batch is generated
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		if(var->function_tree)
@@ -148,8 +143,9 @@ Mobius_Model::compose() {
 		if(var->initial_function_tree)
 			var->initial_function_tree = prune_tree(var->initial_function_tree);
 	}
+	*/
 	
-	warning_print("Fluxing & dependencies begin\n");
+	warning_print("Dependencies begin\n");
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		
@@ -160,24 +156,23 @@ Mobius_Model::compose() {
 			register_dependencies(var->initial_function_tree, &var->initial_depends);
 		
 		if(var->type == Decl_Type::flux) {
-			// note: the value of a state variable depends on the value of the fluxes going to and from it (the fluxes must be computed first)
-			
 			// note: mark flux dependencies on their state vars as special. A flux can depend on its state var, but that will always be on an earlier value of the state var, not the one from this time step (which has been updated with the flux).
+			
+			//note: we only have to erase now since other dependency ordering is taken care of by the model_application.
 			if(var->loc1.type == Location_Type::located) {
 				auto loc1 = state_vars[var->loc1];
 				auto source = state_vars[loc1];
-				source->depends.on_state_var.insert(State_Var_Dependency {var_id, dep_type_none});
 				var->depends.on_state_var.erase(State_Var_Dependency {loc1, dep_type_none});
-				var->depends.on_state_var.insert(State_Var_Dependency {loc1, dep_type_flux_on_quantity});
+				//var->depends.on_state_var.insert(State_Var_Dependency {loc1, dep_type_earlier_step});
 			}
+			/*
 			if(var->loc2.type == Location_Type::located) {
 				auto loc2 = state_vars[var->loc2];
 				auto target = state_vars[loc2];
 				target->depends.on_state_var.insert(State_Var_Dependency {var_id, dep_type_none});
 				var->depends.on_state_var.erase(State_Var_Dependency {loc2, dep_type_none});
-				// nope, flux does not normally depend on its target, however TODO: it should if it was referenced explicitly!
-				//var->depends.on_state_var.insert(State_Var_Dependency {loc2, dep_type_flux_on_quantity});
 			}
+			*/
 		}
 	}
 	

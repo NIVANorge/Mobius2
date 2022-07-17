@@ -12,7 +12,6 @@ enum
 Dependency_Type : u32 {
 	dep_type_none             = 0x0,
 	dep_type_earlier_step     = 0x1,
-	dep_type_flux_on_quantity = 0x2,
 };
 
 struct

@@ -34,6 +34,16 @@ Value_Type {
 	unresolved = 0, none, real, integer, boolean,    // NOTE: enum would resolve to bool.
 };
 
+inline String_View
+name(Value_Type type) {
+	if(type == Value_Type::unresolved) return "unresolved";
+	if(type == Value_Type::none)       return "none";
+	if(type == Value_Type::real)       return "real";
+	if(type == Value_Type::integer)    return "integer";
+	if(type == Value_Type::boolean)    return "boolean";
+	return "unresolved";
+}
+
 inline Value_Type
 get_value_type(Decl_Type decl_type) {
 	if(decl_type == Decl_Type::par_real) return Value_Type::real;
@@ -56,33 +66,27 @@ Variable_Type {
 	parameter, series, state_var, local // Maybe also computed_parameter eventually.
 };
 
-struct Math_Block_FT;
-
 struct
 Math_Expr_FT {
 	Math_Expr_Type               expr_type;
 	Value_Type                   value_type;
 	Source_Location              location;
 	std::vector<Math_Expr_FT *>  exprs;
-	Math_Block_FT               *scope;
 	
-	Math_Expr_FT(Math_Block_FT *scope, Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), scope(scope), expr_type(expr_type), location() {};
+	Math_Expr_FT(Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), expr_type(expr_type), location() {};
+	Math_Expr_FT() {}; //NOTE: we need this one in copy() (where the data is overwritten) but it should otherwise not be used!
 	~Math_Expr_FT() { for(auto expr : exprs) delete expr; };
-	
-	virtual void add_expr(Math_Expr_FT *expr) {
-		exprs.push_back(expr);
-	}
 };
 
 struct
 Math_Block_FT : Math_Expr_FT {
 	
 	s32 unique_block_id;
-	String_View function_name;
 	int n_locals;
+	bool is_for_loop;
 	
 	void set_id();
-	Math_Block_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::block), n_locals(0), function_name("") { set_id(); };
+	Math_Block_FT() : Math_Expr_FT(Math_Expr_Type::block), n_locals(0), is_for_loop(false) { set_id(); };
 };
 
 //NOTE: we don't want to use enum class here, because it doesn't autocast to int, making bitwise operations annoying :(
@@ -107,14 +111,14 @@ Identifier_FT : Math_Expr_FT {
 		}                        local_var;
 	};
 	
-	Identifier_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::identifier_chain), flags(ident_flags_none) { };
+	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier_chain), flags(ident_flags_none) { };
 };
 
 struct
 Literal_FT : Math_Expr_FT {
 	Parameter_Value value;
 	
-	Literal_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::literal) { };
+	Literal_FT() : Math_Expr_FT(Math_Expr_Type::literal) { };
 };
 
 struct
@@ -122,14 +126,15 @@ Function_Call_FT : Math_Expr_FT {
 	Function_Type fun_type;
 	String_View   fun_name;
 	
-	Function_Call_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::function_call) { };
+	Function_Call_FT() : Math_Expr_FT(Math_Expr_Type::function_call) { };
 };
 
 struct
 Operator_FT : Math_Expr_FT {
 	Token_Type oper;
 	
-	Operator_FT(Math_Block_FT *scope, Math_Expr_Type expr_type) : Math_Expr_FT(scope, expr_type) { };
+	Operator_FT(Math_Expr_Type expr_type) : Math_Expr_FT(expr_type) { };
+	Operator_FT() : Math_Expr_FT(Math_Expr_Type::unary_operator) { }; // NOTE: we need this one in copy(), where the type is then overwritten, but should otherwise not be used.
 };
 
 struct
@@ -137,7 +142,7 @@ Local_Var_FT : Math_Expr_FT {
 	String_View   name;
 	bool          is_used;
 	
-	Local_Var_FT(Math_Block_FT *scope) : Math_Expr_FT(scope, Math_Expr_Type::local_var), is_used(false) { }
+	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
 };
 
 
@@ -146,8 +151,10 @@ struct Mobius_Model;
 struct Math_Expr_AST;
 struct Dependency_Set;
 
+struct Scope_Data;
+
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Math_Block_FT *scope);
+resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Scope_Data *scope = nullptr);
 
 void
 register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends);
@@ -156,26 +163,26 @@ Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to);
 
 Math_Expr_FT *
-make_literal(Math_Block_FT *scope, s64 val_int);
+make_literal(s64 val_int);
 
 Math_Expr_FT *
-make_state_var_identifier(Math_Block_FT *scope, Var_Id state_var);
+make_state_var_identifier(Var_Id state_var);
 
 Math_Expr_FT *
-make_intrinsic_function_call(Math_Block_FT *scope, Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2);
+make_local_var_reference(s32 index, s32 scope_id, Value_Type value_type);
 
 Math_Expr_FT *
-make_binop(Math_Block_FT *scope, char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs, Value_Type value_type);
+make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2);
+
+Math_Expr_FT *
+make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs);
+
+Math_Block_FT *
+make_for_loop();
 
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr);
-
-//Math_Expr_FT *
-//quantity_codegen(Mobius_Model *model, Entity_Id id);
-
-Math_Expr_FT *
-restrict_flux(Math_Expr_FT *expr, Var_Id source);
+prune_tree(Math_Expr_FT *expr, Scope_Data *scope = nullptr);
 
 Math_Expr_FT *
 copy(Math_Expr_FT *source);
