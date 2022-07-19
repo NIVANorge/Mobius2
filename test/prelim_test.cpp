@@ -49,22 +49,21 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	
 	auto model = model_app->model;
 	
-	for(auto &array : model_app->result_data.structure) {
-		for(auto id : array.handles) {
-			String_View name = model->state_vars[id]->name;
-			fprintf(file, "\"%.*s\"\t", name.count, name.data);
-		}
+	std::vector<s64> offsets;
+	for(auto var_id : model->state_vars) {
+		String_View name = model->state_vars[var_id]->name;
+		model_app->result_data.for_each(var_id, [&](std::vector<Index_T> *indexes, s64 offset) {
+			fprintf(file, "\"%.*s\"[", name.count, name.data);
+			for(auto index : *indexes) fprintf(file, "%d ", index.index);
+			fprintf(file, "]\t");
+			offsets.push_back(offset);
+		});
 	}
 	fprintf(file, "\n");
-	
-	std::vector<Index_T> indexes = { Index_T { Entity_Id { } , 0 } }; //TODO!
-	
+
 	for(s64 ts = -1; ts < model_app->result_data.time_steps; ++ts) {
-		for(auto &array : model_app->result_data.structure) {
-			for(auto id : array.handles) {
-				auto offset = model_app->result_data.get_offset(id, &indexes);
-				fprintf(file, "%f\t", *(model_app->result_data.get_value(offset, ts)));
-			}
+		for(s64 offset : offsets) {
+			fprintf(file, "%f\t", *(model_app->result_data.get_value(offset, ts)));
 		}
 		fprintf(file, "\n");
 	}
@@ -86,12 +85,31 @@ int main() {
 	
 	std::cout << "Composition done.\n";
 	
-	s64 time_steps = 100;
+	s64 time_steps = 1;
 	
 	Model_Application app(model);
+	
+	std::vector<String_View> indexes = {"a", "b"};
+	for(auto index_set : model->modules[0]->index_sets)
+		app.set_indexes(index_set, Array<String_View>{indexes.data(), indexes.size()});
+	
 	app.set_up_parameter_structure();
 	app.set_up_series_structure();
-	
+
+#if !USE_SIMPLE
+	//haaaack!
+	Entity_Id par_id = model->modules[2]->find_handle("fc");
+	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
+	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
+	warning_print("par offset is ", offset, "\n");
+	app.parameter_data.data[offset].val_double = 50.0;
+#else
+	Entity_Id par_id = model->modules[1]->find_handle("par");
+	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("idx"), 1}};
+	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
+	warning_print("par offset is ", offset, "\n");
+	app.parameter_data.data[offset].val_double = 50.0;
+#endif
 	app.compile();
 
 #if !USE_SIMPLE

@@ -76,6 +76,8 @@ Mobius_Model::compose() {
 	
 	// TODO: we should check that all referenced entities in all modules have actually been declared ( has_been_declared flag on Entity_Registration )
 	
+	warning_print("State var registration begin.\n");
+	
 	int idx = -1;
 	for(auto module : modules) {
 		++idx;
@@ -103,8 +105,8 @@ Mobius_Model::compose() {
 			register_state_variable(this, Decl_Type::flux, id, false);
 		}
 	}
-	
-	warning_print("State var registration begin.\n");
+
+	warning_print("Function tree resolution begin.\n");
 	
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
@@ -133,19 +135,23 @@ Mobius_Model::compose() {
 			var->initial_function_tree = nullptr;
 	}
 	
-	/*
-	warning_print("Prune begin\n");
-	//TODO: this could probably be removed since we prune again after the code for the entire batch is generated
-	for(auto var_id : state_vars) {
-		auto var = state_vars[var_id];
-		if(var->function_tree)
-			var->function_tree = prune_tree(var->function_tree);
-		if(var->initial_function_tree)
-			var->initial_function_tree = prune_tree(var->initial_function_tree);
+	warning_print("Put solvers begin.\n");
+	for(auto id : modules[0]->solves) {
+		auto solve = modules[0]->solves[id];
+		Var_Id var_id = state_vars[solve->loc];
+		if(!is_valid(var_id)) {
+			solve->source_location.print_error_header();
+			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
+		}
+		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
+		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
+			solve->source_location.print_error_header();
+			fatal_error("Solvers can only be put on quantities, not on properties.");
+		}
+		state_vars[var_id]->solver = solve->solver;
 	}
-	*/
 	
-	warning_print("Dependencies begin\n");
+	warning_print("Dependencies begin.\n");
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		
@@ -156,8 +162,6 @@ Mobius_Model::compose() {
 			register_dependencies(var->initial_function_tree, &var->initial_depends);
 		
 		if(var->type == Decl_Type::flux) {
-			// note: mark flux dependencies on their state vars as special. A flux can depend on its state var, but that will always be on an earlier value of the state var, not the one from this time step (which has been updated with the flux).
-			
 			//note: we only have to erase now since other dependency ordering is taken care of by the model_application.
 			if(var->loc1.type == Location_Type::located) {
 				auto loc1 = state_vars[var->loc1];

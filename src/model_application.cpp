@@ -1,22 +1,45 @@
 
 #include "model_application.h"
 
+#include <map>
+
+//TODO: this should eventually get data from the par file that is stored in the model app instead!
+void
+get_parameter_index_sets(Mobius_Model *model, Entity_Id par_id, std::set<Entity_Id> *index_sets) {
+	auto group = model->find_entity<Reg_Type::parameter>(par_id)->par_group;
+	auto comp_local = model->find_entity<Reg_Type::par_group>(group)->compartment;
+	auto comp_id = model->find_entity<Reg_Type::compartment>(comp_local)->global_id;
+	auto compartment = model->modules[0]->compartments[comp_id];
+	index_sets->insert(compartment->index_sets.begin(), compartment->index_sets.end());
+}
 
 void
 Model_Application::set_up_parameter_structure() {
 	if(parameter_data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up parameter structure twice.");
+	if(!all_indexes_are_set())
+		fatal_error(Mobius_Error::internal, "Tried to set up parameter structure before all index sets received indexes.");
 	
 	std::vector<Multi_Array_Structure<Entity_Id>> structure;
 	
-	std::vector<Entity_Id> handles;
-	for(auto module : model->modules) {
-		for(auto par : module->parameters)
-			handles.push_back(par);
-	}
-	Multi_Array_Structure<Entity_Id> array({}, std::move(handles));
+	std::map<std::vector<Entity_Id>, std::vector<Entity_Id>> par_by_index_sets;
 	
-	structure.push_back(std::move(array));
+	//TODO: has to be rewritten!!
+	for(auto module : model->modules) {
+		for(auto par : module->parameters) {
+			std::set<Entity_Id> index_sets;
+			get_parameter_index_sets(model, par, &index_sets);
+			std::vector<Entity_Id> index_sets2(index_sets.begin(), index_sets.end());
+			par_by_index_sets[index_sets2].push_back(par);
+		}
+	}
+	
+	for(auto pair : par_by_index_sets) {
+		std::vector<Entity_Id> index_sets = pair.first;
+		std::vector<Entity_Id> handles    = pair.second;
+		Multi_Array_Structure<Entity_Id> array(std::move(index_sets), std::move(handles));
+		structure.push_back(std::move(array));
+	}
 	
 	parameter_data.set_up(std::move(structure));
 	parameter_data.allocate();
@@ -37,6 +60,8 @@ void
 Model_Application::set_up_result_structure() {
 	if(result_data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up result structure twice.");
+	if(!all_indexes_are_set())
+		fatal_error(Mobius_Error::internal, "Tried to set up result structure before all index sets received indexes.");
 	
 	std::vector<Multi_Array_Structure<Var_Id>> structure = batch.structure;
 	// NOTE: we just copy the batch structure, which should make it easier optimizing the run code for cache locality
@@ -47,6 +72,8 @@ void
 Model_Application::set_up_series_structure() {
 	if(series_data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up input structure twice.");
+	if(!all_indexes_are_set())
+		fatal_error(Mobius_Error::internal, "Tried to set up input structure before all index sets received indexes.");
 	
 	std::vector<Multi_Array_Structure<Var_Id>> structure;
 	std::vector<Var_Id> handles;
@@ -59,8 +86,8 @@ Model_Application::set_up_series_structure() {
 }
 
 void 
-Model_Application::set_indexes(Entity_Id index_set, Array<String_View> *names) {
-	index_counts[index_set.id] = {index_set, (s32)names->count};
+Model_Application::set_indexes(Entity_Id index_set, Array<String_View> names) {
+	index_counts[index_set.id] = {index_set, (s32)names.count};
 	//TODO: actually store the names.
 }
 
@@ -69,51 +96,6 @@ Model_Application::all_indexes_are_set() {
 	for(auto count : index_counts) if(count.index == 0) return false;
 	return true;
 }
-
-
-/*
-void
-error_print_location(Mobius_Model *model, Value_Location loc) {
-	auto comp = model->find_entity(loc.compartment);
-	auto prop = model->find_entity(loc.property_or_quantity);
-	error_print(comp->handle_name, ".", prop->handle_name);
-}
-
-void
-error_print_state_var(Mobius_Model *model, Var_Id id) {
-	
-	//TODO: this has to be improved
-	auto var = model->state_vars[id];
-	auto entity = model->find_entity(var->entity_id);
-	if(entity->handle_name.data)
-		error_print(entity->handle_name);
-	else if(entity->name.data)
-		error_print(entity->name);
-	else {
-		if(var->type == Decl_Type::quantity || var->type == Decl_Type::property) {
-			auto has = model->modules[var->entity_id.module_id]->hases[var->entity_id];
-			error_print("has(");
-			error_print_location(model, has->value_location);
-			error_print(")");
-		} else {
-			auto flux = model->modules[var->entity_id.module_id]->fluxes[var->entity_id];
-			error_print("flux(");
-			error_print_location(model, flux->source);
-			error_print(", ");
-			error_print_location(model, flux->target);
-			error_print(")");
-		}
-	}
-}
-
-void
-print_partial_dependency_trace(Mobius_Model *model, Var_Id id, Var_Id dep) {
-	error_print_state_var(model, id);
-	error_print(" <-- ");
-	error_print_state_var(model, dep);
-	error_print("\n");
-}
-*/
 
 
 inline Dependency_Set *
@@ -145,6 +127,25 @@ Model_Instruction {
 };
 
 
+
+inline void
+error_print_instruction(Mobius_Model *model, Model_Instruction *instr) {
+	if(instr->type == Model_Instruction::Type::compute_state_var)
+		error_print("\"", model->state_vars[instr->var_id]->name, "\"");
+	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
+		error_print("(\"", model->state_vars[instr->source_or_target_id]->name, "\" -= \"", model->state_vars[instr->var_id]->name, "\")");
+	else if(instr->type == Model_Instruction::Type::add_flux_to_target)
+		error_print("(\"", model->state_vars[instr->source_or_target_id]->name, "\" += \"", model->state_vars[instr->var_id]->name, "\")");
+}
+
+inline void
+print_partial_dependency_trace(Mobius_Model *model, Model_Instruction *we, Model_Instruction *dep) {
+	error_print_instruction(model, we);
+	error_print(" <-- ");
+	error_print_instruction(model, dep);
+	error_print("\n");
+}
+
 bool
 topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vector<int> *push_to, std::vector<Model_Instruction> *all_instrs, bool initial) {
 	Model_Instruction *instr = &(*all_instrs)[instr_idx];
@@ -164,7 +165,7 @@ topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vec
 	for(int dep : instr->depends_on_instruction) {
 		bool success = topological_sort_instructions_visit(model, dep, push_to, all_instrs, initial);
 		if(!success) {
-			//print_partial_dependency_trace(model, var_id, dep.var_id);  //TODO: fix this again!
+			print_partial_dependency_trace(model, instr, &(*all_instrs)[dep]);
 			return false;
 		}
 	}
@@ -308,16 +309,6 @@ generate_run_code(Model_Application *model_app, std::vector<Pre_Batch_Array> *ba
 	}
 	
 	return prune_tree(top_scope);
-}
-
-//TODO: this should eventually get data from the par file that is stored in the model app instead!
-void
-get_parameter_index_sets(Mobius_Model *model, Entity_Id par_id, std::set<Entity_Id> *index_sets) {
-	auto group = model->find_entity<Reg_Type::parameter>(par_id)->par_group;
-	auto comp_local = model->find_entity<Reg_Type::par_group>(group)->compartment;
-	auto comp_id = model->find_entity<Reg_Type::compartment>(comp_local)->global_id;
-	auto compartment = model->modules[0]->compartments[comp_id];
-	index_sets->insert(compartment->index_sets.begin(), compartment->index_sets.end());
 }
 
 
@@ -527,10 +518,15 @@ Model_Application::compile() {
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application twice.");
 	
+	if(!all_indexes_are_set())
+		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before all index sets had received indexes.");
+	
 	if(!series_data.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before input series data was set up.");
 	if(!parameter_data.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before parameter data was set up.");
+	
+	
 	
 	// Resolve index set dependendencies of model instructions
 	

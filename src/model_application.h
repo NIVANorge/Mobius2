@@ -54,12 +54,17 @@ struct Multi_Array_Structure {
 	}
 	
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes, std::vector<Index_T> *index_counts) {
+		if(indexes->size() != index_sets.size())
+			fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
 		s64 offset = 0;
 		int idx = 0;
 		for(auto &index_set : index_sets) {
+			auto &index = (*indexes)[idx];
+			if(index.index_set != index_set)
+				fatal_error(Mobius_Error::internal, "Got mismatching index sets to get_offset_alternate().");
 			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
 			offset *= (s64)(*index_counts)[index_set.id].index;
-			offset += (s64)(*indexes)[idx].index;
+			offset += (s64)index.index;
 			++idx;
 		}
 		return (s64)offset*handles.size() + get_offset_base(handle);
@@ -177,12 +182,12 @@ Model_Application {
 		
 		for(auto index_set : model->modules[0]->index_sets) {
 			index_counts[index_set.id].index_set = index_set;
-			index_counts[index_set.id].index = 1; //TODO:     initialize to 0 instead, then make the count come from the data set.
+			index_counts[index_set.id].index = 0;
 		}
 	}
 	
 	std::vector<Index_T>                            index_counts;
-	void set_indexes(Entity_Id index_set, Array<String_View> *names);
+	void set_indexes(Entity_Id index_set, Array<String_View> names);
 	bool all_indexes_are_set();
 	
 	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;

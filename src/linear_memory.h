@@ -29,6 +29,7 @@ Array {
 	size_t  count;
 	
 	Array() : data(nullptr), count(0) {};
+	Array(T *data, size_t count) : data(data), count(count) {};
 	
 	inline T& operator[](size_t index) {
 #ifdef MOBIUS_TEST_INDEX_OVERFLOW

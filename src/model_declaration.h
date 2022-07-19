@@ -37,6 +37,8 @@ State_Variable {
 
 	Entity_Id entity_id;  // This is the ID of the declaration, either has(...) or flux(...)
 	
+	Entity_Id solver;
+	
 	// If this is a quantity or property, loc1 is the location of this variable.
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
 	Value_Location loc1;
@@ -48,7 +50,7 @@ State_Variable {
 	Math_Expr_FT *function_tree;
 	Math_Expr_FT *initial_function_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), solver(invalid_entity_id) {};
 };
 
 struct Var_Registry {

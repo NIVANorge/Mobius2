@@ -15,6 +15,8 @@ Module_Declaration::registry(Reg_Type reg_type) {
 		case Reg_Type::flux :                     return &fluxes;
 		case Reg_Type::function :                 return &functions;
 		case Reg_Type::index_set :                return &index_sets;
+		case Reg_Type::solver :                   return &solvers;
+		case Reg_Type::solve :                    return &solves;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type in registry().");
@@ -613,6 +615,52 @@ process_declaration<Reg_Type::index_set>(Module_Declaration *module, Decl_AST *d
 	return module->index_sets.standard_declaration(decl);
 }
 
+template<> Entity_Id
+process_declaration<Reg_Type::solver>(Module_Declaration *module, Decl_AST *decl) {
+	int which = match_declaration(decl, {
+		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real},
+		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Token_Type::real},
+	});
+	auto id = module->solvers.standard_declaration(decl);
+	auto solver = module->solvers[id];
+	
+	// TODO: this should be more dynamic so that it easy for users to link in other solver functions (e.g. from a .dll).
+	String_View solver_name = single_arg(decl, 1)->string_value;
+	if(solver_name == "Euler")
+		solver->solver_fun = &euler_solver;
+	else if(solver_name == "INCADascru")
+		solver->solver_fun = &inca_dascru;
+	else {
+		single_arg(decl, 1)->print_error_header();
+		fatal_error("The name \"", solver_name, "\" is not recognized as the name of an ODE solver.");
+	}
+	//TODO: allow parametrization of the solver h and hmin like in Mobius1.
+	
+	solver->h = single_arg(decl, 2)->double_value();
+	if(which == 1)
+		solver->hmin = single_arg(decl, 3)->double_value();
+	else
+		solver->hmin = 0.01 * solver->h;
+	
+	return id;
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Decl_Type::solver}}, 2, false);
+	
+	auto id = module->solves.find_or_create(nullptr, nullptr, decl);
+	auto solve = module->solves[id];
+	
+	auto compartment       = module->compartments.find_or_create(&decl->decl_chain[0]);
+	auto quantity          = module->compartments.find_or_create(&decl->decl_chain[1]);
+	solve->loc             = make_value_location(module, compartment, quantity);
+	solve->solver          = resolve_argument<Reg_Type::solver>(module, decl, 0);
+	solve->source_location = decl->location;
+	
+	return id;
+}
+
 void
 process_distribute_declaration(Module_Declaration *module, Decl_AST *decl) {
 	match_declaration(decl, {{Decl_Type::index_set}}, 1, false);
@@ -722,6 +770,14 @@ load_model(String_View file_name) {
 			
 			case Decl_Type::distribute : {
 				process_distribute_declaration(global_scope, child);
+			} break;
+			
+			case Decl_Type::solver : {
+				process_declaration<Reg_Type::solver>(global_scope, child);
+			} break;
+			
+			case Decl_Type::solve : {
+				process_declaration<Reg_Type::solve>(global_scope, child);
 			} break;
 			
 			case Decl_Type::compartment :

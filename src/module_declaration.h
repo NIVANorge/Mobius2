@@ -3,6 +3,7 @@
 #define MOBIUS_MODEL_BUILDER_H
 
 #include "ast.h"
+#include "ode_solvers.h"
 
 #include <unordered_map>
 
@@ -222,6 +223,19 @@ Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 	//TODO: eventually index_set_type
 };
 
+template<> struct
+Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
+	Solver_Function *solver_fun;
+	double h;
+	double hmin;
+};
+
+template<> struct
+Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
+	Entity_Id solver;
+	Value_Location loc;
+	Source_Location source_location;
+};
 
 
 struct Registry_Base {
@@ -287,6 +301,8 @@ Module_Declaration {
 	//   similarly, not all of the above are relevant for the global module.
 	//     Could maybe template over module type, but that quickly gets gnarly.
 	Registry<Reg_Type::index_set>   index_sets;
+	Registry<Reg_Type::solver>      solvers;
+	Registry<Reg_Type::solve>       solves;
 	
 	Module_Declaration() : 
 		compartments(this),
@@ -298,6 +314,8 @@ Module_Declaration {
 		fluxes      (this),
 		functions   (this),
 		index_sets  (this),
+		solvers     (this),
+		solves      (this),
 		global_scope(nullptr)
 	{}
 	

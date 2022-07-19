@@ -4,14 +4,19 @@ model("Stupidly simple test model") {
 	md : module("Stupidly simple module", 1, 1, 0) {
 		
 		a : compartment("A")
+		b : quantity("B")
 		
-		b : property("B")
+		grp : a.par_group("grp") {
+			par : par_real("par", unit(), 0)
+		}
 		
-		a.has(b, "B in A") {
-			c := 5;
-			{
-				2 + c
-			}
+		a.has(b, "B in A") .initial {
+			par
 		}
 	}
+	
+	a : compartment("A")
+	idx : index_set("idx")
+	
+	a.distribute(idx)
 }
