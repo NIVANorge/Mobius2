@@ -164,7 +164,11 @@ struct
 Run_Batch {
 	std::vector<Multi_Array_Structure<Var_Id>> structure;
 	
-	Math_Expr_FT *run_code;
+	Solver_Function *solver;
+	double           h;
+	double           hmin;
+	
+	Math_Expr_FT    *run_code;
 	//TODO: also function pointer to llvm compiled code.
 	
 	Run_Batch() : run_code(nullptr) {}

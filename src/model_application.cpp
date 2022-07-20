@@ -115,6 +115,8 @@ Model_Instruction {
 	Var_Id var_id;
 	Var_Id source_or_target_id;
 	
+	Entity_Id           solver;
+	
 	std::set<Entity_Id> index_sets;
 	
 	std::set<int> depends_on_instruction;
@@ -427,7 +429,6 @@ build_pre_batch(Model_Application *model_app, std::vector<Model_Instruction> *in
 	// TODO: more passes!
 }
 
-
 void
 build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instructions, bool initial) {
 	
@@ -446,13 +447,17 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instruct
 		Model_Instruction instr;
 		instr.type = Model_Instruction::Type::compute_state_var;
 		instr.var_id = var_id;
+		
+		if(!initial)              // the initial step is a purely discrete setup step, not integration.
+			instr.solver = model->state_vars[var_id]->solver;
+		
 		(*instructions)[var_id.id] = std::move(instr);
 	}
 	
 	for(auto var_id : model->state_vars) {
 		auto *instr = &(*instructions)[var_id.id];
 		
-		if(!is_valid(instr->var_id)) continue;
+		if(!is_valid(instr->var_id)) continue; // NOTE: this can happen in the initial step. In that case we don't want to compute all variables necessarily.
 		
 		// note we could maybe just retrieve the dependencies from the function tree here instead of doing it earlier and storing them on the State_Variable. It can be nice to keep them there for other uses though.
 		for(auto dep : get_dep(model, var_id, initial)->on_state_var) {
@@ -462,56 +467,176 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instruct
 		}
 		
 		if(!initial && model->state_vars[var_id]->type == Decl_Type::flux) {
-			//TODO : if the source is an ODE, this has to be handled differently
 			auto loc1 = model->state_vars[var_id]->loc1;
 			if(loc1.type == Location_Type::located) {
 				Var_Id source_id = model->state_vars[loc1];
-				
-				Model_Instruction sub_source_instr;
-				sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
-				sub_source_instr.var_id = var_id;
-				
-				sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
-				sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux.
-				
-				int sub_idx = (int)instructions->size();
-				
-				//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. Tn fact it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
-				sub_source_instr.source_or_target_id = source_id;
 				Model_Instruction *source = &(*instructions)[source_id.id];
-				source->depends_on_instruction.insert(sub_idx);
-								
-				(*instructions)[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id); // The flux itself has to be computed once per instance of the source.
-				
-				instructions->push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+				auto source_solver = model->state_vars[source_id]->solver;
+				if (is_valid(source_solver)) { // NOTE: ode variables are integrated, we don't subtract or add to them in just one step.
+					instr->solver = source_solver; // all fluxes are given the same solver as their source (if it has one).
+					
+					// hmmm, maybe we shouldn't do this, because ODE state variables are handled completely differently any way.
+					//source->depends_on_instruction.insert(var_id.id); // the quantity depends on the flux directly since we don't have any intermediary instructions
+				} else {
+					Model_Instruction sub_source_instr;
+					sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
+					sub_source_instr.var_id = var_id;
+					
+					sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
+					sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux.
+					
+					int sub_idx = (int)instructions->size();
+					
+					//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. Tn fact it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
+					sub_source_instr.source_or_target_id = source_id;
+					source->depends_on_instruction.insert(sub_idx);
+									
+					(*instructions)[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id); // The flux itself has to be computed once per instance of the source.
+					
+					instructions->push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+				}
 			}
-			//TODO: if the target is an ODE, this has to be handled differently
 			auto loc2 = model->state_vars[var_id]->loc2;
 			if(loc2.type == Location_Type::located) {
 				Var_Id target_id = model->state_vars[loc2];
-				
-				Model_Instruction add_target_instr;
-				add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
-				add_target_instr.var_id = var_id;
-				
-				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
-				add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
-				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
-				
-				int add_idx = (int)instructions->size();
-				
-				add_target_instr.source_or_target_id = target_id;
 				Model_Instruction *target = &(*instructions)[target_id.id];
-				target->depends_on_instruction.insert(add_idx);
-				
-				//NOTE: the flux does inherit index sets from the target. However,
-				//TODO: if the flux index sets are not a subset of the target index sets, we need to have been given an aggregation in the model. (there could also be an aggregation any way). Otherwise we have to throw an error (but only after the index sets are resolved later (?) )
-				
-				instructions->push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+				if(is_valid(model->state_vars[target_id]->solver)) {
+					//target->depends_on_instruction.insert(var_id.id);
+				} else {
+					Model_Instruction add_target_instr;
+					add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
+					add_target_instr.var_id = var_id;
+					
+					add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
+					add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
+					add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
+					
+					int add_idx = (int)instructions->size();
+					
+					add_target_instr.source_or_target_id = target_id;
+					target->depends_on_instruction.insert(add_idx);
+					
+					//NOTE: the flux does inherit index sets from the target. However,
+					//TODO: if the flux index sets are not a subset of the target index sets, we need to have been given an aggregation in the model. (there could also be an aggregation any way). Otherwise we have to throw an error (but only after the index sets are resolved later (?) )
+					
+					instructions->push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+				}
 			}
 		}
 	}
 }
+
+
+
+// give all properties the solver if it is "between" quantities or fluxes with that solver in the dependency tree.
+// NOTE: this should be called only after a proper topological sort so that circular dependencies are detected. Otherwise this will go into infinite recursion.
+bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
+	auto instr = &instructions[instr_id];
+	Decl_Type decl_type = model->state_vars[instr->var_id]->type;
+	
+	if(instr->solver == solver)
+		return true;
+	
+	bool found = false;
+	for(int dep : instr->depends_on_instruction) {
+		if(propagate_solvers(model, dep, solver, instructions))
+			found = true;
+	}
+	if(found) {
+		if(is_valid(instr->solver) && instr->solver != solver) {
+			// ooops, we already wanted to put it on another solver.
+			//TODO: we must give a much better error message here. This is not parseable to regular users.
+			// print a dependency trace or something like that!
+			fatal_error(Mobius_Error::model_building, "The state variable \"", model->state_vars[instr->var_id]->name, "\" is lodged between multiple ODE solvers.");
+		}
+		
+		if(decl_type == Decl_Type::property)
+			instr->solver = solver;
+	}
+	
+	return found;
+}
+
+struct Pre_Batch {
+	Entity_Id solver;
+	std::vector<int> instrs;
+};
+
+void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
+	// create one batch per solver
+	// if a quantity has a solver, it goes in that batch.
+	// a flux goes in the batch of its source always, (same with the subtraction of that flux).
+	// addition of flux goes in the batch of its target.
+	// batches are ordered by dependence
+	// properties:
+	//	- if it is "between" other vars from the same batch, it goes in that batch.
+	// discrete batches:
+	// 	- can be multiple of these. 
+	
+	std::vector<int> sorted_instructions;
+	
+	warning_print("Sorting begin\n");
+	
+	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
+		bool success = topological_sort_instructions_visit(model, instr_id, &sorted_instructions, &instructions, false);
+		if(!success) mobius_error_exit();
+	}
+	
+	for(int instr_id : sorted_instructions) {
+		auto instr = &instructions[instr_id];
+		if(is_valid(instr->solver)) {
+			for(int dep : instr->depends_on_instruction)
+				propagate_solvers(model, dep, instr->solver, instructions);
+		}
+	}
+	
+
+	batches_out.clear();
+	
+	// TODO: this algorithm is repeated only with slightly different checks (solver vs. index sets). Is there a way to unify the code?
+	for(int instr_id : sorted_instructions) {
+		auto instr = &instructions[instr_id];
+		int first_suitable_batch = batches_out.size();
+		int first_suitable_location = batches_out.size();
+		
+		for(int batch_idx = batches_out.size()-1; batch_idx >= 0; --batch_idx) {
+			auto batch = &batches_out[batch_idx];
+			if(is_valid(batch->solver) && batch->solver == instr->solver) {
+				batch->instrs.push_back(instr_id);
+				break;
+			} else if (!is_valid(batch->solver) && !is_valid(instr->solver)) {
+				first_suitable_batch = batch_idx;
+			}
+			
+			bool found_dependency = false;
+			for(int id : batch->instrs) {
+				auto other_instr = &instructions[id];
+				if(other_instr->depends_on_instruction.find(instr_id) != other_instr->depends_on_instruction.end()) {
+					found_dependency = true;
+					break;
+				}
+			}
+			if(found_dependency)
+				break;
+			first_suitable_location = batch_idx;
+		}
+		if(first_suitable_batch != batches_out.size()) {
+			batches_out[first_suitable_batch].instrs.push_back(instr_id);
+		} else {
+			Pre_Batch batch;
+			batch.instrs.push_back(instr_id);
+			batch.solver = instr->solver;
+			if(first_suitable_location == batches_out.size())
+				batches_out.push_back(std::move(batch));
+			else
+				batches_out.insert(batches_out.begin() + first_suitable_location, std::move(batch));
+		}
+		
+		//TODO: more passes to better group non-solver batches in a minimal way.
+		
+	}
+}
+
 
 void
 Model_Application::compile() {

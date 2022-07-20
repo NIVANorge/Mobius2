@@ -653,8 +653,12 @@ process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl)
 	auto solve = module->solves[id];
 	
 	auto compartment       = module->compartments.find_or_create(&decl->decl_chain[0]);
-	auto quantity          = module->compartments.find_or_create(&decl->decl_chain[1]);
-	solve->loc             = make_value_location(module, compartment, quantity);
+	auto quantity          = module->properties_and_quantities.find_or_create(&decl->decl_chain[1]);
+	solve->loc.type        = Location_Type::located;
+	solve->loc.compartment = compartment;
+	solve->loc.property_or_quantity = quantity;
+	solve->loc             = make_global(module, solve->loc);
+	
 	solve->solver          = resolve_argument<Reg_Type::solver>(module, decl, 0);
 	solve->source_location = decl->location;
 	
