@@ -1,0 +1,16 @@
+
+
+MAKE_INTRINSIC2(min, min, unresolved, unresolved, unresolved)
+MAKE_INTRINSIC2(max, max, unresolved, unresolved, unresolved)
+MAKE_INTRINSIC1(sqrt, sqrt, real, real)
+MAKE_INTRINSIC1(exp, exp, real, real)
+MAKE_INTRINSIC1(pow2, exp2, real, real)
+MAKE_INTRINSIC1(ln,  log, real, real)
+MAKE_INTRINSIC1(log10, log10, real, real)
+MAKE_INTRINSIC1(log2, log2, real, real)
+MAKE_INTRINSIC1(cos, cos, real, real)
+MAKE_INTRINSIC1(sin, sin, real, real)
+MAKE_INTRINSIC1(tan, tan, real, real)
+MAKE_INTRINSIC1(acos, acos, real, real)
+MAKE_INTRINSIC1(asin, asin, real, real)
+MAKE_INTRINSIC1(atan, atan, real, real)

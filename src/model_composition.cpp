@@ -161,23 +161,27 @@ Mobius_Model::compose() {
 		if(var->initial_function_tree)
 			register_dependencies(var->initial_function_tree, &var->initial_depends);
 		
+		//note: This should now be handled by a different system!
+		/*
 		if(var->type == Decl_Type::flux) {
-			//note: we only have to erase now since other dependency ordering is taken care of by the model_application.
+			
+			
 			if(var->loc1.type == Location_Type::located) {
 				auto loc1 = state_vars[var->loc1];
 				auto source = state_vars[loc1];
 				var->depends.on_state_var.erase(State_Var_Dependency {loc1, dep_type_none});
 				//var->depends.on_state_var.insert(State_Var_Dependency {loc1, dep_type_earlier_step});
 			}
-			/*
+			
 			if(var->loc2.type == Location_Type::located) {
 				auto loc2 = state_vars[var->loc2];
 				auto target = state_vars[loc2];
 				target->depends.on_state_var.insert(State_Var_Dependency {var_id, dep_type_none});
 				var->depends.on_state_var.erase(State_Var_Dependency {loc2, dep_type_none});
 			}
-			*/
+			
 		}
+		*/
 	}
 	
 	is_composed = true;

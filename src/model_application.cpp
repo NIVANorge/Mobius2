@@ -143,9 +143,9 @@ error_print_instruction(Mobius_Model *model, Model_Instruction *instr) {
 
 inline void
 print_partial_dependency_trace(Mobius_Model *model, Model_Instruction *we, Model_Instruction *dep) {
-	error_print_instruction(model, we);
-	error_print(" <-- ");
 	error_print_instruction(model, dep);
+	error_print(" <-- ");
+	error_print_instruction(model, we);
 	error_print("\n");
 }
 
@@ -512,7 +512,7 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				if (is_valid(source_solver)) { // NOTE: ode variables are integrated, we don't subtract or add to them in just one step.
 					instr->solver = source_solver; // all fluxes are given the same solver as their source (if it has one).
 					source->inherits_index_sets_from_instruction.insert(var_id.id);
-					//source->depends_on_instruction.insert(var_id.id); // the quantity depends on the flux directly since we don't have any intermediary instructions
+					//warning_print("-------------- bonkalink!!! \n");
 				} else {
 					Model_Instruction sub_source_instr;
 					sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
@@ -569,13 +569,15 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 
 
 // give all properties the solver if it is "between" quantities or fluxes with that solver in the dependency tree.
-// NOTE: this should be called only after a proper topological sort so that circular dependencies are detected. Otherwise this will go into infinite recursion.
 bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
 	auto instr = &instructions[instr_id];
 	Decl_Type decl_type = model->state_vars[instr->var_id]->type;
 	
 	if(instr->solver == solver)
 		return true;
+	if(instr->visited)
+		return false;
+	instr->visited = true;
 	
 	bool found = false;
 	for(int dep : instr->depends_on_instruction) {
@@ -590,9 +592,10 @@ bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std:
 			fatal_error(Mobius_Error::model_building, "The state variable \"", model->state_vars[instr->var_id]->name, "\" is lodged between multiple ODE solvers.");
 		}
 		
-		if(decl_type == Decl_Type::property)
+		if(decl_type != Decl_Type::quantity)
 			instr->solver = solver;
 	}
+	instr->visited = false;
 	
 	return found;
 }
@@ -608,22 +611,46 @@ void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, st
 	// discrete batches:
 	// 	- can be multiple of these. 
 	
-	std::vector<int> sorted_instructions;
-	
-	warning_print("Sorting begin\n");
-	
-	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
-		bool success = topological_sort_instructions_visit(model, instr_id, sorted_instructions, instructions, false);
-		if(!success) mobius_error_exit();
-	}
-	
+	// TODO : this may no longer work, and we may have to have one more outer loop. This is because they are not sorted first.
+	//   but we can also not sort them first because we have to remove some dependencies after adding solvers and before sorting...
 	warning_print("Propagate solvers\n");
-	for(int instr_id : sorted_instructions) {
+	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		auto instr = &instructions[instr_id];
 		if(is_valid(instr->solver)) {
 			for(int dep : instr->depends_on_instruction)
 				propagate_solvers(model, dep, instr->solver, instructions);
 		}
+	}
+	
+	warning_print("Remove flux dependencies\n");
+	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
+		auto instr = &instructions[instr_id];
+		// Remove dependency of quantities on fluxes if they have the same solver.
+		//   this is because quantites with solvers are solved "simultaneously" as ODE variables, and so we don't care about circular dependencies with them.
+		// On the other hand, if neither has a solver but are discrete, we instead generate intermediary instructions that do the adding and subtracting, so we don't want direct dependencies between source/target or flux in that case either.
+		if(model->state_vars[instr->var_id]->type == Decl_Type::flux) {
+			auto loc1 = model->state_vars[instr->var_id]->loc1;
+			if(loc1.type == Location_Type::located) {
+				auto source_id = model->state_vars[loc1];
+				instr->depends_on_instruction.erase(source_id.id);     // NOTE: we know the source has the same solvers as the flux.
+				instructions[source_id.id].depends_on_instruction.erase(instr_id);
+			}
+			auto loc2 = model->state_vars[instr->var_id]->loc2;
+			if(loc2.type == Location_Type::located) {
+				auto target_id = model->state_vars[loc2];
+				if(instructions[target_id.id].solver == instr->solver) {
+					instr->depends_on_instruction.erase(target_id.id);
+					instructions[target_id.id].depends_on_instruction.erase(instr_id);
+				}
+			}
+		}
+	}
+	
+	warning_print("Sorting begin\n");
+	std::vector<int> sorted_instructions;
+	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
+		bool success = topological_sort_instructions_visit(model, instr_id, sorted_instructions, instructions, false);
+		if(!success) mobius_error_exit();
 	}
 	
 	batches_out.clear();

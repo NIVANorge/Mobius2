@@ -25,20 +25,20 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 }
 
 Math_Expr_FT *
-make_literal(s64 val_int) {
+make_literal(s64 val_integer) {
 	auto literal = new Literal_FT();
 	literal->value_type = Value_Type::integer;
 	literal->location = {}; //Hmm, we should actually make it possible to provide more location info on these generated nodes.
-	literal->value.val_int = val_int;
+	literal->value.val_integer = val_integer;
 	return literal;
 }
 
 Math_Expr_FT *
-make_literal(double val_double) {
+make_literal(double val_real) {
 	auto literal = new Literal_FT();
 	literal->value_type = Value_Type::real;
 	literal->location = {}; //Hmm, we should actually make it possible to provide more location info on these generated nodes.
-	literal->value.val_double = val_double;
+	literal->value.val_real = val_real;
 	return literal;
 }
 
@@ -107,13 +107,26 @@ void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right) {
 
 void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 	String_View n = name->string_value;
-	if(n == "min" || n == "max") {
-		make_casts_for_binary_expr(&fun->exprs[0], &fun->exprs[1]);
-		fun->value_type = fun->exprs[0]->value_type; //Note: value types of both arguments should be the same now.
-	} else if (n == "exp") {
-		fun->exprs[0] = make_cast(fun->exprs[0], Value_Type::real);
-		fun->value_type = Value_Type::real;
-	} else {
+	if(false) {}
+	#define MAKE_INTRINSIC1(fun_name, emul, ret_type, type1) \
+		else if(n == #fun_name) { \
+			fun->exprs[0] = make_cast(fun->exprs[0], Value_Type::type1); \
+			fun->value_type = Value_Type::ret_type; \
+		}
+	#define MAKE_INTRINSIC2(fun_name, emul, ret_type, type1, type2) \
+		else if(n == #fun_name) { \
+			if(Value_Type::type1 == Value_Type::unresolved) { \
+				make_casts_for_binary_expr(&fun->exprs[0], &fun->exprs[1]); \
+				fun->value_type = fun->exprs[0]->value_type; \
+			} else { \
+				fun->exprs[0] = make_cast(fun->exprs[0], Value_Type::type1); \
+				fun->exprs[1] = make_cast(fun->exprs[1], Value_Type::type2); \
+			} \
+		}
+	#include "intrinsics.incl"
+	#undef MAKE_INTRINSIC1
+	#undef MAKE_INTRINSIC2
+	else {
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", name, "\" in fixup_intrinsic().");
 	}
 }
@@ -597,7 +610,7 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 				bool is_true  = false;
 				if(!found_true && expr->exprs[idx+1]->expr_type == Math_Expr_Type::literal) {
 					auto literal = reinterpret_cast<Literal_FT *>(expr->exprs[idx+1]);
-					if(literal->value.val_bool) is_true  = true;
+					if(literal->value.val_boolean) is_true  = true;
 					else                        is_false = true;
 				}
 				

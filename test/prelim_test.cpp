@@ -85,7 +85,7 @@ int main() {
 	
 	std::cout << "Composition done.\n";
 	
-	s64 time_steps = 15;
+	s64 time_steps = 100;
 	
 	Model_Application app(model);
 	
@@ -102,13 +102,15 @@ int main() {
 	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
 	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
 	warning_print("par offset is ", offset, "\n");
-	app.parameter_data.data[offset].val_double = 50.0;
+	app.parameter_data.data[offset].val_real = 50.0;
 #else
+	/*
 	Entity_Id par_id = model->modules[1]->find_handle("par");
 	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("idx"), 1}};
 	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
 	warning_print("par offset is ", offset, "\n");
-	app.parameter_data.data[offset].val_double = 50.0;
+	app.parameter_data.data[offset].val_real = 50.0;
+	*/
 #endif
 	app.compile();
 

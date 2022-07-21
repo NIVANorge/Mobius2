@@ -14,14 +14,14 @@ apply_cast(Typed_Value val, Value_Type to_type) {
 	if(to_type == Value_Type::boolean) fatal_error(Mobius_Error::internal, "apply_cast() to bool not implemented."); // we don't cast to bool yet. May want to implement it later, but it is not really necessary.
 	if(to_type == Value_Type::real) {
 		if(val.type == Value_Type::integer)
-			result.val_double = (double)val.val_int;
+			result.val_real = (double)val.val_integer;
 		else if(val.type == Value_Type::boolean)
-			result.val_double = (double)val.val_bool;
+			result.val_real = (double)val.val_boolean;
 	} else if(to_type == Value_Type::integer) {
 		if(val.type == Value_Type::real)
-			result.val_int = (s64)val.val_double;
+			result.val_integer = (s64)val.val_real;
 		else if(val.type == Value_Type::boolean);
-			result.val_int = (s64)val.val_bool;
+			result.val_integer = (s64)val.val_boolean;
 	}
 	return result;
 }
@@ -32,11 +32,11 @@ apply_unary(Typed_Value val, Token_Type oper) {
 	result.type = val.type;
 	if((char)oper == '-') {
 		if(val.type == Value_Type::boolean) fatal_error(Mobius_Error::internal, "apply_unary() minus on boolean.");
-		else if(val.type == Value_Type::real) result.val_double = val.val_double;
-		else if(val.type == Value_Type::integer) result.val_int = val.val_int;
+		else if(val.type == Value_Type::real) result.val_real = val.val_real;
+		else if(val.type == Value_Type::integer) result.val_integer = val.val_integer;
 	} else if((char)oper == '!') {
 		if(val.type != Value_Type::boolean) fatal_error(Mobius_Error::internal, "apply_unary() negation on non-boolean.");
-		result.val_bool = !val.val_bool;
+		result.val_boolean = !val.val_boolean;
 	} else
 		fatal_error(Mobius_Error::internal, "apply_unary() unhandled operator ", name(oper), " .");
 	return result;
@@ -51,41 +51,41 @@ apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 	//NOTE: this implementation doesn't allow for short-circuiting. Dunno if we want that.	
 	
 	//TODO: should probably do type checking here too, but it SHOULD be correct from the function tree resolution already.
-	if(op == '|')      result.val_bool = lhs.val_bool || rhs.val_bool; 
-	else if(op == '&') result.val_bool = lhs.val_bool && rhs.val_bool;
+	if(op == '|')      result.val_boolean = lhs.val_boolean || rhs.val_boolean; 
+	else if(op == '&') result.val_boolean = lhs.val_boolean && rhs.val_boolean;
 	else if(op == '<') {
-		if(lhs.type == Value_Type::integer)   result.val_bool = lhs.val_int < rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_bool = lhs.val_double < rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer < rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real < rhs.val_real;
 	} else if(oper == Token_Type::leq) {
-		if(lhs.type == Value_Type::integer)   result.val_bool = lhs.val_int <= rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_bool = lhs.val_double <= rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer <= rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real <= rhs.val_real;
 	} else if(op == '>') {
-		if(lhs.type == Value_Type::integer)   result.val_bool = lhs.val_int > rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_bool = lhs.val_double > rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer > rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real > rhs.val_real;
 	} else if(oper == Token_Type::geq) {
-		if(lhs.type == Value_Type::integer)   result.val_bool = lhs.val_int >= rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_bool = lhs.val_double >= rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer >= rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real >= rhs.val_real;
 	} else if(oper == Token_Type::eq) {
-		if(lhs.type == Value_Type::integer)   result.val_bool = lhs.val_int == rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_bool = lhs.val_double == rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer == rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real == rhs.val_real;
 	} else if(oper == Token_Type::neq) {
-		if(lhs.type == Value_Type::integer)   result.val_bool = lhs.val_int != rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_bool = lhs.val_double != rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer != rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real != rhs.val_real;
 	} else if(op == '+') {
-		if(lhs.type == Value_Type::integer)   result.val_int = lhs.val_int + rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_double = lhs.val_double + rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer + rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real + rhs.val_real;
 	} else if(op == '-') {
-		if(lhs.type == Value_Type::integer)   result.val_int = lhs.val_int - rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_double = lhs.val_double - rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer - rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real - rhs.val_real;
 	} else if(op == '*') {
-		if(lhs.type == Value_Type::integer)   result.val_int = lhs.val_int * rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_double = lhs.val_double * rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer * rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real * rhs.val_real;
 	} else if(op == '/') {
-		if(lhs.type == Value_Type::integer)   result.val_int = lhs.val_int / rhs.val_int;
-		else if(lhs.type == Value_Type::real) result.val_double = lhs.val_double / rhs.val_double;
+		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer / rhs.val_integer;
+		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real / rhs.val_real;
 	} else if(op == '^') {
-		if(rhs.type == Value_Type::integer)   result.val_double = std::pow(lhs.val_double, rhs.val_int);
-		else if(rhs.type == Value_Type::real) result.val_double = std::pow(lhs.val_double, rhs.val_double);
+		if(rhs.type == Value_Type::integer)   result.val_real = std::pow(lhs.val_real, rhs.val_integer);
+		else if(rhs.type == Value_Type::real) result.val_real = std::pow(lhs.val_real, rhs.val_real);
 		result.type = Value_Type::real;
 	} else
 		fatal_error(Mobius_Error::internal, "apply_binary() unhandled operator ", name(oper), " .");
@@ -95,6 +95,9 @@ apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 
 Typed_Value
 apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
+	
+	//TODO: use MAKE_INTRINSIC2 macro here!
+	
 	Typed_Value result;
 	bool ismin = function == "min";
 	if(ismin || function == "max") {
@@ -102,11 +105,11 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
 		
 		result.type = a.type;
 		if(a.type == Value_Type::real) {
-			if(ismin) result.val_double = a.val_double < b.val_double ? a.val_double : b.val_double;
-			else      result.val_double = a.val_double > b.val_double ? a.val_double : b.val_double;
+			if(ismin) result.val_real = a.val_real < b.val_real ? a.val_real : b.val_real;
+			else      result.val_real = a.val_real > b.val_real ? a.val_real : b.val_real;
 		} else if(a.type == Value_Type::integer) {
-			if(ismin) result.val_int = a.val_int < b.val_int ? a.val_int : b.val_int;
-			else      result.val_int = a.val_int > b.val_int ? a.val_int : b.val_int;
+			if(ismin) result.val_integer = a.val_integer < b.val_integer ? a.val_integer : b.val_integer;
+			else      result.val_integer = a.val_integer > b.val_integer ? a.val_integer : b.val_integer;
 		} else {
 			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic().");
 		}
@@ -118,12 +121,19 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
 Typed_Value
 apply_intrinsic(Typed_Value a, String_View function) {
 	Typed_Value result;
-	result.type = Value_Type::real;
-	if(function == "exp") {
-		if(a.type != Value_Type::real)
-			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic().");
-		result.val_double = std::exp(a.val_double);
-	} else
+	if(false) {}
+	#define MAKE_INTRINSIC1(name, emul, ret_type, type1) \
+		else if(function == #name) { \
+			result.type = Value_Type::ret_type; \
+			if(a.type != Value_Type::type1) \
+				fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic()."); \
+			result.val_##ret_type = std::emul(a.val_##type1); \
+		}
+	#define MAKE_INTRINSIC2(name, emul, ret_type, type1, type2)
+	#include "intrinsics.incl"
+	#undef MAKE_INTRINSIC1
+	#undef MAKE_INTRINSIC2
+	else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
 	
 	return result;
@@ -184,9 +194,9 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 				}
 			} else {
 				//DEBUG(warning_print("for loop with ", block->n_locals, " locals\n"))
-				s64 n = emulate_expression(expr->exprs[0], state, locals).val_int;
+				s64 n = emulate_expression(expr->exprs[0], state, locals).val_integer;
 				for(s64 i = 0; i < n; ++i) {
-					new_locals.local_vars[0].val_int = i;
+					new_locals.local_vars[0].val_integer = i;
 					new_locals.local_vars[0].type = Value_Type::integer;
 					result = emulate_expression(expr->exprs[1], state, &new_locals);
 				}
@@ -206,16 +216,16 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			s64 offset = 0;
 			if(ident->variable_type != Variable_Type::local) {
 				DEBUG(warning_print("lookup var offset.\n"))
-				offset = emulate_expression(expr->exprs[0], state, locals).val_int;
+				offset = emulate_expression(expr->exprs[0], state, locals).val_integer;
 			}
 			//warning_print("offset for lookup was ", offset, "\n");
 			
 			if(ident->variable_type == Variable_Type::parameter) {
 				result = Typed_Value {state->parameters[offset], expr->value_type};
 			} else if(ident->variable_type == Variable_Type::state_var) {
-				result.val_double = state->state_vars[offset];
+				result.val_real = state->state_vars[offset];
 			} else if(ident->variable_type == Variable_Type::series) {
-				result.val_double = state->series[offset];
+				result.val_real = state->series[offset];
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 			}
@@ -259,7 +269,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 		case Math_Expr_Type::if_chain : {
 			for(int idx = 0; idx < expr->exprs.size()-1; idx+=2) {
 				Typed_Value cond = emulate_expression(expr->exprs[idx+1], state, locals);
-				if(cond.val_bool) return emulate_expression(expr->exprs[idx], state, locals);
+				if(cond.val_boolean) return emulate_expression(expr->exprs[idx], state, locals);
 				return emulate_expression(expr->exprs.back(), state, locals);
 			}
 		} break;
@@ -267,16 +277,16 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 		case Math_Expr_Type::state_var_assignment : {
 			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
-			state->state_vars[index.val_int] = value.val_double;
-			//warning_print("offset for val assignment was ", index.val_int, "\n");
+			state->state_vars[index.val_integer] = value.val_real;
+			//warning_print("offset for val assignment was ", index.val_integer, "\n");
 			return {Parameter_Value(), Value_Type::none};
 		} break;
 		
 		case Math_Expr_Type::derivative_assignment : {
 			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
-			state->solver_workspace[index.val_int] = value.val_double;
-			//warning_print("offset for deriv assignment was ", index.val_int, "\n");
+			state->solver_workspace[index.val_integer] = value.val_real;
+			//warning_print("offset for deriv assignment was ", index.val_integer, "\n");
 			return {Parameter_Value(), Value_Type::none};
 		} break;
 		
@@ -296,7 +306,7 @@ struct ODE_Fun_State {
 	Model_Run_State *run_state;
 };
 
-void emulation_ode_fun(double *x0, double *wk, double t, void *run_state) {
+void emulation_ode_fun(double t, void *run_state) {
 	//Hmm, we don't actually need to know x0 and wk here. Should we just remove them from the spec?
 	auto state = reinterpret_cast<ODE_Fun_State *>(run_state);
 	emulate_expression(state->fun, state->run_state, nullptr);

@@ -64,9 +64,9 @@ inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && i
 struct
 Parameter_Value {
 	union {
-		double    val_double;
-		s64       val_int;
-		u64       val_bool;
+		double    val_real;
+		s64       val_integer;
+		u64       val_boolean;
 		u64       val_enum;
 		Date_Time val_datetime;
 	};
@@ -80,11 +80,11 @@ get_parameter_value(Token *token, Token_Type type) {
 		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
 	Parameter_Value result;
 	if(type == Token_Type::real)
-		result.val_double = token->double_value();
+		result.val_real = token->double_value();
 	else if(type == Token_Type::integer) 
-		result.val_int = token->val_int;
+		result.val_integer = token->val_int;
 	else if(type == Token_Type::boolean)
-		result.val_bool = token->val_bool;
+		result.val_boolean = token->val_bool;
 	else
 		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
 	return result;
