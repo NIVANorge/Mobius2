@@ -29,7 +29,7 @@ struct Model_Application;
 
 struct
 Model_Run_State {
-	Model_Application *model_app;
+	//Model_Application *model_app;
 	Parameter_Value *parameters;
 	//double *last_state_vars;
 	double *state_vars;

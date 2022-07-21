@@ -328,13 +328,10 @@ void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 	
 	//TODO: better encapsulate run_state functionality
 	Model_Run_State run_state;
-	run_state.model_app  = model_app;
+	//run_state.model_app  = model_app;
 	run_state.parameters = model_app->parameter_data.data;
 	run_state.state_vars = model_app->result_data.data;
 	run_state.series     = model_app->series_data.data;
-	
-	int var_count    = model_app->result_data.total_count;
-	int series_count = model_app->series_data.total_count;
 	
 	int solver_workspace_size = 0;
 	for(auto &batch : model_app->batches) {
@@ -343,6 +340,9 @@ void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 	}
 	if(solver_workspace_size > 0)
 		run_state.solver_workspace = (double *)malloc(sizeof(double)*solver_workspace_size);
+	
+	int var_count    = model_app->result_data.total_count;
+	int series_count = model_app->series_data.total_count;
 	
 	Timer run_timer;
 	
