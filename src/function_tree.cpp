@@ -34,6 +34,15 @@ make_literal(s64 val_int) {
 }
 
 Math_Expr_FT *
+make_literal(double val_double) {
+	auto literal = new Literal_FT();
+	literal->value_type = Value_Type::real;
+	literal->location = {}; //Hmm, we should actually make it possible to provide more location info on these generated nodes.
+	literal->value.val_double = val_double;
+	return literal;
+}
+
+Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var) {
 	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;
@@ -736,7 +745,8 @@ copy(Math_Expr_FT *source) {
 		
 		case Math_Expr_Type::if_chain :
 		case Math_Expr_Type::cast : 
-		case Math_Expr_Type::state_var_assignment : {
+		case Math_Expr_Type::state_var_assignment :
+		case Math_Expr_Type::derivative_assignment : {
 			result = copy_one<Math_Expr_FT>(source);
 		} break;
 		

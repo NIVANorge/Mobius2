@@ -34,6 +34,10 @@ Model_Run_State {
 	//double *last_state_vars;
 	double *state_vars;
 	double *series;
+	
+	double *solver_workspace;
+	
+	Model_Run_State() : solver_workspace(nullptr) {}
 };
 
 Typed_Value

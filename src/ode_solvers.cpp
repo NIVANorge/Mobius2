@@ -15,7 +15,7 @@ bool euler_solver(double *try_h, double hmin, int n, double *x0, double *wk, ODE
 			run = false;
 		}
 		
-		ode_fun(x0, wk, t, run_state);
+		ode_fun(t, run_state);
 		t += h;
 		
 		for(int var_idx = 0; var_idx < n; ++var_idx)
@@ -61,7 +61,7 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 				run = false;
 			}
 			
-			ode_fun(x0, wk, t, run_state); //NOTE: The ode_fun computes dx/dt at x0 and puts the results in wk.
+			ode_fun(t, run_state); //NOTE: The ode_fun computes dx/dt at x0 and puts the results in wk.
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx = h * wk[var_idx] / 3.0;
 				wk1[var_idx] = dx;
@@ -69,14 +69,14 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 			}
 			t += h / 3.0;
 			
-			ode_fun(x0, wk, t, run_state);
+			ode_fun(t, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx0 = h * wk[var_idx] / 3.0;
 				double dx  = 0.5 * (dx0 + wk1[var_idx]);
 				x0[var_idx] = wk0[var_idx] + dx;
 			}
 			
-			ode_fun(x0, wk, t, run_state);
+			ode_fun(t, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx = h * wk[var_idx];
 				wk2[var_idx] = dx;
@@ -85,7 +85,7 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 			}
 			t += h / 6.0;
 			
-			ode_fun(x0, wk, t, run_state);
+			ode_fun(t, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx0 = h * wk[var_idx] / 3.0;
 				double dx = wk1[var_idx] + 4.0 * dx0;
@@ -95,7 +95,7 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 			}
 			t += 0.5*h;
 			
-			ode_fun(x0, wk, t, run_state);
+			ode_fun(t, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx0 = h * wk[var_idx] / 3.0;
 				double dx = 0.5 * (dx0 + wk1[var_idx]);

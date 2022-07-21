@@ -93,11 +93,15 @@ struct Multi_Array_Structure {
 		return result;
 	}
 	
-	s64 total_count(std::vector<Index_T> *index_counts) { 
-		s64 count = (s64)handles.size();
+	s64 instance_count(std::vector<Index_T> *index_counts) {
+		s64 count = 1;
 		for(auto &index_set : index_sets)
 			count *= (s64)(*index_counts)[index_set.id].index;
 		return count;
+	}
+	
+	s64 total_count(std::vector<Index_T> *index_counts) { 
+		return (s64)handles.size() * instance_count(index_counts);
 	}
 	
 	void finalize() {
@@ -109,7 +113,7 @@ struct Multi_Array_Structure {
 		finalize();
 	}
 	
-	Multi_Array_Structure() {}
+	//Multi_Array_Structure() {}
 };
 
 struct Model_Application;
@@ -148,6 +152,8 @@ struct Structured_Storage {
 		memset(data, 0, alloc_size);
 	}; //TODO: also start_date
 	
+	s64 get_offset_base(Handle_T handle);
+	s64 instance_count(Handle_T handle);
 	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes);
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes);
 	
@@ -162,16 +168,16 @@ struct Structured_Storage {
 
 struct
 Run_Batch {
-	std::vector<Multi_Array_Structure<Var_Id>> structure;
-	
-	Solver_Function *solver;
+	Solver_Function *solver_fun;
 	double           h;
 	double           hmin;
+	s64              first_ode_offset;
+	int              n_ode;
 	
 	Math_Expr_FT    *run_code;
 	//TODO: also function pointer to llvm compiled code.
 	
-	Run_Batch() : run_code(nullptr) {}
+	Run_Batch() : run_code(nullptr), solver_fun(nullptr) {}
 };
 
 struct
@@ -200,13 +206,13 @@ Model_Application {
 	
 	void set_up_parameter_structure();
 	void set_up_series_structure();
-	void set_up_result_structure();
+	//void set_up_result_structure();
 	
 	bool is_compiled;
 	void compile();
 	
-	Run_Batch batch;
-	Run_Batch initial_batch;
+	Run_Batch              initial_batch;
+	std::vector<Run_Batch> batches;
 };
 
 
@@ -221,6 +227,18 @@ Structured_Storage<double, Var_Id>::get_handle_name(Var_Id var_id) {
 	if(initial_step == 0)
 		return parent->model->series[var_id]->name;
 	return parent->model->state_vars[var_id]->name;
+}
+
+template<typename Val_T, typename Handle_T> s64
+Structured_Storage<Val_T, Handle_T>::get_offset_base(Handle_T handle) {
+	auto array_idx = handle_is_in_array[handle];
+	return structure[array_idx].get_offset_base(handle);
+}
+
+template<typename Val_T, typename Handle_T> s64
+Structured_Storage<Val_T, Handle_T>::instance_count(Handle_T handle) {
+	auto array_idx = handle_is_in_array[handle];
+	return structure[array_idx].instance_count(&parent->index_counts);
 }
 
 template<typename Val_T, typename Handle_T> s64

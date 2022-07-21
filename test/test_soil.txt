@@ -43,7 +43,7 @@ Oversimplified soil water module inc.
 	#}
 	
 	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
-		max(0, (last(soil.water) - fc)/tc_s)
+		max(0, (soil.water - fc)/tc_s)
 	}
 	
 	flux(soil.water, out, "Soil runoff") {

@@ -268,7 +268,15 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
 			state->state_vars[index.val_int] = value.val_double;
-			//warning_print("offset for assignment was ", index.val_int, "\n");
+			//warning_print("offset for val assignment was ", index.val_int, "\n");
+			return {Parameter_Value(), Value_Type::none};
+		} break;
+		
+		case Math_Expr_Type::derivative_assignment : {
+			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
+			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
+			state->solver_workspace[index.val_int] = value.val_double;
+			//warning_print("offset for deriv assignment was ", index.val_int, "\n");
 			return {Parameter_Value(), Value_Type::none};
 		} break;
 		
@@ -283,6 +291,16 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 	return {Parameter_Value(), Value_Type::unresolved};
 }
 
+struct ODE_Fun_State {
+	Math_Expr_FT    *fun;
+	Model_Run_State *run_state;
+};
+
+void emulation_ode_fun(double *x0, double *wk, double t, void *run_state) {
+	//Hmm, we don't actually need to know x0 and wk here. Should we just remove them from the spec?
+	auto state = reinterpret_cast<ODE_Fun_State *>(run_state);
+	emulate_expression(state->fun, state->run_state, nullptr);
+}
 
 void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 	
@@ -308,6 +326,14 @@ void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 	int var_count    = model_app->result_data.total_count;
 	int series_count = model_app->series_data.total_count;
 	
+	int solver_workspace_size = 0;
+	for(auto &batch : model_app->batches) {
+		if(batch.solver_fun)
+			solver_workspace_size = std::max(solver_workspace_size, 4*batch.n_ode); // TODO:    the 4*  is INCA-Dascru specific. Make it general somehow.
+	}
+	if(solver_workspace_size > 0)
+		run_state.solver_workspace = (double *)malloc(sizeof(double)*solver_workspace_size);
+	
 	Timer run_timer;
 	
 	warning_print("begin initial values\n");
@@ -321,14 +347,26 @@ void emulate_model_run(Model_Application *model_app, s64 time_steps) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
 		run_state.state_vars+=var_count;
 		
-		//emulate_batch(model, &model_app->batch, &run_state);
-		emulate_expression(model_app->batch.run_code, &run_state, nullptr);
+		//TODO: we *could* also generate code for this for loop to avoid the ifs
+		for(auto &batch : model_app->batches) {
+			if(!batch.solver_fun)
+				emulate_expression(batch.run_code, &run_state, nullptr);
+			else {
+				double *x0 = run_state.state_vars + batch.first_ode_offset;
+				ODE_Fun_State state {batch.run_code, &run_state};
+				double h   = batch.h;
+				//TODO: keep h around for the next time step (trying an initial h that we ended up with from the previous step)
+				batch.solver_fun(&h, batch.hmin, batch.n_ode, x0, run_state.solver_workspace, &emulation_ode_fun, &state);
+			}
+		}
 		
 		run_state.series    += series_count;
 	}
 	
 	s64 cycles = run_timer.get_cycles();
 	s64 ms     = run_timer.get_milliseconds();
+	
+	if(run_state.solver_workspace) free(run_state.solver_workspace);
 	
 	warning_print("Run time: ", ms, " milliseconds, ", cycles, " cycles.\n");
 	

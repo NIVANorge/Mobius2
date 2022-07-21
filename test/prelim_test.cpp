@@ -85,7 +85,7 @@ int main() {
 	
 	std::cout << "Composition done.\n";
 	
-	s64 time_steps = 1;
+	s64 time_steps = 15;
 	
 	Model_Application app(model);
 	

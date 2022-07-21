@@ -55,19 +55,6 @@ Model_Application::set_up_parameter_structure() {
 	}
 }
 
-
-void
-Model_Application::set_up_result_structure() {
-	if(result_data.has_been_set_up)
-		fatal_error(Mobius_Error::internal, "Tried to set up result structure twice.");
-	if(!all_indexes_are_set())
-		fatal_error(Mobius_Error::internal, "Tried to set up result structure before all index sets received indexes.");
-	
-	std::vector<Multi_Array_Structure<Var_Id>> structure = batch.structure;
-	// NOTE: we just copy the batch structure, which should make it easier optimizing the run code for cache locality
-	result_data.set_up(std::move(structure));
-}
-
 void
 Model_Application::set_up_series_structure() {
 	if(series_data.has_been_set_up)
@@ -125,9 +112,23 @@ Model_Instruction {
 	bool visited;
 	bool temp_visited;
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id) {};
 };
 
+struct
+Pre_Batch_Array {
+	std::vector<int>         instr_ids;
+	std::set<Entity_Id>      index_sets;
+};
+
+struct Pre_Batch {
+	Entity_Id solver;
+	std::vector<int> instrs;
+	std::vector<Pre_Batch_Array> arrays;
+	std::vector<Pre_Batch_Array> arrays_ode;
+	
+	Pre_Batch() : solver(invalid_entity_id) {}
+};
 
 
 inline void
@@ -149,8 +150,8 @@ print_partial_dependency_trace(Mobius_Model *model, Model_Instruction *we, Model
 }
 
 bool
-topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vector<int> *push_to, std::vector<Model_Instruction> *all_instrs, bool initial) {
-	Model_Instruction *instr = &(*all_instrs)[instr_idx];
+topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vector<int> &push_to, std::vector<Model_Instruction> &instructions, bool initial) {
+	Model_Instruction *instr = &instructions[instr_idx];
 	
 	if(!is_valid(instr->var_id)) return true;
 	if(initial && !model->state_vars[instr->var_id]->initial_function_tree) return true;
@@ -160,27 +161,27 @@ topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vec
 		begin_error(Mobius_Error::model_building);
 		error_print("There is a circular dependency between the");
 		if(initial) error_print(" initial value of the");
-		error_print("state variables:\n"); //todo tell about if it is initial
+		error_print(" state variables:\n");
 		return false;
 	}
 	instr->temp_visited = true;
 	for(int dep : instr->depends_on_instruction) {
-		bool success = topological_sort_instructions_visit(model, dep, push_to, all_instrs, initial);
+		bool success = topological_sort_instructions_visit(model, dep, push_to, instructions, initial);
 		if(!success) {
-			print_partial_dependency_trace(model, instr, &(*all_instrs)[dep]);
+			print_partial_dependency_trace(model, instr, &instructions[dep]);
 			return false;
 		}
 	}
 	instr->visited = true;
-	push_to->push_back(instr_idx);
+	push_to.push_back(instr_idx);
 	return true;
 }
 
 
 void
-put_var_lookup_indices(Math_Expr_FT *expr, Model_Application *model_app, std::vector<Math_Expr_FT *> *index_expr) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::vector<Math_Expr_FT *> &index_expr) {
 	for(auto arg : expr->exprs)
-		put_var_lookup_indices(arg, model_app, index_expr);
+		put_var_lookup_indexes(arg, model_app, index_expr);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
 	
@@ -188,12 +189,12 @@ put_var_lookup_indices(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 	Math_Expr_FT *offset_code = nullptr;
 	s64 back_step;
 	if(ident->variable_type == Variable_Type::parameter) {
-		offset_code = model_app->parameter_data.get_offset_code(ident->parameter, index_expr);
+		offset_code = model_app->parameter_data.get_offset_code(ident->parameter, &index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
-		offset_code = model_app->series_data.get_offset_code(ident->series, index_expr);
+		offset_code = model_app->series_data.get_offset_code(ident->series, &index_expr);
 		back_step = model_app->series_data.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
-		offset_code = model_app->result_data.get_offset_code(ident->state_var, index_expr);
+		offset_code = model_app->result_data.get_offset_code(ident->state_var, &index_expr);
 		back_step = model_app->result_data.total_count;
 	}
 	
@@ -228,41 +229,43 @@ add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id va
 	return assignment;
 }
 
-struct
-Pre_Batch_Array {
-	std::vector<int>         instr_ids;
-	std::set<Entity_Id>      index_sets;
-};
+Math_Expr_FT *
+create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, Pre_Batch_Array &array, std::vector<Math_Expr_FT *> &indexes) {
+	for(auto &index_set : model_app->model->modules[0]->index_sets)
+		indexes[index_set.id] = nullptr;    //note: just so that it is easy to catch if we somehow use an index we shouldn't
+		
+	Math_Block_FT *scope = top_scope;
+	for(auto &index_set : array.index_sets) {
+		auto loop = make_for_loop();
+		loop->exprs.push_back(make_literal((s64)model_app->index_counts[index_set.id].index));
+		scope->exprs.push_back(loop);
+		
+		//NOTE: the scope of this item itself is replaced when it is inserted later.
+		// note: this is a reference to the iterator of the for loop.
+		indexes[index_set.id] = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer); 
+		
+		scope = loop;
+	}
+	auto body = new Math_Block_FT();
+	scope->exprs.push_back(body);
+	scope = body;
+	
+	return scope;
+}
+
 
 Math_Expr_FT *
-generate_run_code(Model_Application *model_app, std::vector<Pre_Batch_Array> *batch, std::vector<Model_Instruction> *instructions, bool initial) {
+generate_run_code(Model_Application *model_app, Pre_Batch *batch, std::vector<Model_Instruction> &instructions, bool initial) {
 	auto model = model_app->model;
 	auto top_scope = new Math_Block_FT();
 	
 	std::vector<Math_Expr_FT *> indexes(model->modules[0]->index_sets.count());
 	
-	for(auto &pre_batch : *batch) {
-		for(auto &index_set : model->modules[0]->index_sets)
-			indexes[index_set.id] = nullptr;    //note: just so that it is easy to catch if we somehow use an index we shouldn't
-		
-		Math_Block_FT *scope = top_scope;
-		for(auto &index_set : pre_batch.index_sets) {
-			auto loop = make_for_loop();
-			loop->exprs.push_back(make_literal((s64)model_app->index_counts[index_set.id].index));
-			scope->exprs.push_back(loop);
+	for(auto &array : batch->arrays) {
+		Math_Expr_FT *scope = create_nested_for_loops(model_app, top_scope, array, indexes);
 			
-			//NOTE: the scope of this item itself is replaced when it is inserted later.
-			// note: this is a reference to the iterator of the loop.
-			indexes[index_set.id] = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer); 
-			
-			scope = loop;
-		}
-		auto body = new Math_Block_FT();
-		scope->exprs.push_back(body);
-		scope = body;
-			
-		for(int instr_id : pre_batch.instr_ids) {
-			auto instr = &(*instructions)[instr_id];
+		for(int instr_id : array.instr_ids) {
+			auto instr = &instructions[instr_id];
 			
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				auto var = model->state_vars[instr->var_id];
@@ -274,7 +277,7 @@ generate_run_code(Model_Application *model_app, std::vector<Pre_Batch_Array> *ba
 				if(fun) {
 					fun = copy(fun);
 					
-					if(var->type == Decl_Type::flux) {
+					if(!is_valid(batch->solver) && var->type == Decl_Type::flux) {
 						// note: create something like
 						// 		flux = min(flux, source)
 						// NOTE: it is a design decision by the framework to not allow negative fluxes, otherwise the flux would get a much more
@@ -289,13 +292,12 @@ generate_run_code(Model_Application *model_app, std::vector<Pre_Batch_Array> *ba
 					}
 					
 					//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
-					put_var_lookup_indices(fun, model_app, &indexes);
+					put_var_lookup_indexes(fun, model_app, indexes);
 					
 					auto offset_code = model_app->result_data.get_offset_code(instr->var_id, &indexes);
 					auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 					assignment->exprs.push_back(offset_code);
 					assignment->exprs.push_back(fun);
-					
 					scope->exprs.push_back(assignment);
 				} else if(var->type != Decl_Type::quantity)
 					fatal_error(Mobius_Error::internal, "Some non-quantity did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
@@ -310,18 +312,63 @@ generate_run_code(Model_Application *model_app, std::vector<Pre_Batch_Array> *ba
 		for(auto expr : indexes) if(expr) delete expr;
 	}
 	
+	if(!is_valid(batch->solver) || initial)
+		return prune_tree(top_scope);
+	
+	if(batch->arrays_ode.empty() || batch->arrays_ode[0].instr_ids.empty())
+		fatal_error(Mobius_Error::internal, "Somehow we got an empty ode batch in a batch that was assigned a solver.");
+	
+	// NOTE: The way we do things here rely on the fact that all ODEs of the same batch (and time step) are stored contiguously in memory. If that changes, the indexing of derivatives will break!
+	//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
+	s64 init_pos = model_app->result_data.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
+	for(auto &array : batch->arrays_ode) {
+		Math_Expr_FT *scope = create_nested_for_loops(model_app, top_scope, array, indexes);
+				
+		for(int instr_id : array.instr_ids) {
+			auto instr = &instructions[instr_id];
+			
+			if(instr->type != Model_Instruction::Type::compute_state_var)
+				fatal_error(Mobius_Error::internal, "Somehow we got an instruction that is not a state var computation inside an ODE batch.\n");
+			
+			// NOTE this computation is the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
+			// TODO: again we need to insert aggregation if necessary.
+			auto fun = make_literal((double)0.0);
+			for(Var_Id flux_id : model->state_vars) {
+				auto flux = model->state_vars[flux_id];
+				if(flux->type != Decl_Type::flux) continue;
+				if(flux->loc1.type == Location_Type::located && model->state_vars[flux->loc1] == instr->var_id) {
+					auto flux_code = make_state_var_identifier(flux_id);
+					fun = make_binop('-', fun, flux_code);
+				}
+				if(flux->loc2.type == Location_Type::located && model->state_vars[flux->loc2] == instr->var_id) {
+					auto flux_code = make_state_var_identifier(flux_id);
+					fun = make_binop('+', fun, flux_code);
+				}
+			}
+			
+			put_var_lookup_indexes(fun, model_app, indexes);
+			
+			auto offset_var = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+			auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
+			auto assignment = new Math_Expr_FT(Math_Expr_Type::derivative_assignment);
+			assignment->exprs.push_back(offset_deriv);
+			assignment->exprs.push_back(fun);
+			scope->exprs.push_back(assignment);
+		}
+	}
+	
 	return prune_tree(top_scope);
 }
 
 
 void
-resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_Instruction> *instructions, bool initial) {
+resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
 	Mobius_Model *model = model_app->model;
 	
 	for(auto var_id : model->state_vars) {
 		for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
-			get_parameter_index_sets(model, par_id, &(*instructions)[var_id.id].index_sets);
+			get_parameter_index_sets(model, par_id, &instructions[var_id.id].index_sets);
 		}
 		
 		//TODO: also for input time series when we implement indexing of those. 
@@ -331,13 +378,13 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	for(int it = 0; it < 100; ++it) {
 		changed = false;
 		
-		for(auto &instr : *instructions) {
+		for(auto &instr : instructions) {
 			if(!is_valid(instr.var_id))
 				continue;
 			
 			int before = instr.index_sets.size();
 			for(int dep : instr.inherits_index_sets_from_instruction) {
-				auto dep_idx = &(*instructions)[dep].index_sets;
+				auto dep_idx = &instructions[dep].index_sets;
 				instr.index_sets.insert(dep_idx->begin(), dep_idx->end());
 			}
 			int after = instr.index_sets.size();
@@ -351,33 +398,22 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 }
 
 void
-build_pre_batch(Model_Application *model_app, std::vector<Model_Instruction> *instructions, std::vector<Pre_Batch_Array> *batch_out, bool initial) {
+build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Pre_Batch_Array> &batch_out, bool initial) {
 	Mobius_Model *model = model_app->model;
 	
-	std::vector<int> sorted_instructions;
+	batch_out.clear();
 	
-	warning_print("Sorting begin\n");
-	
-	for(int instr_id = 0; instr_id < instructions->size(); ++instr_id) {
-		bool success = topological_sort_instructions_visit(model, instr_id, &sorted_instructions, instructions, initial);
-		if(!success) mobius_error_exit();
-	}
-	
-	warning_print("Build batches begin\n");
-	
-	batch_out->clear();
-	
-	for(int instr_id : sorted_instructions) {
-		Model_Instruction *instr = &(*instructions)[instr_id];
+	for(int instr_id : instrs) {
+		Model_Instruction *instr = &instructions[instr_id];
 		
 		//auto var = model->state_vars[instr->var_id];
 		//warning_print("var is ", var->name, "\n");
 		
-		int earliest_possible_batch = batch_out->size();
-		int earliest_suitable_pos   = batch_out->size();
+		int earliest_possible_batch = batch_out.size();
+		int earliest_suitable_pos   = batch_out.size();
 		
-		for(int sub_batch_idx = batch_out->size()-1; sub_batch_idx >= 0 ; --sub_batch_idx) {
-			auto array = &(*batch_out)[sub_batch_idx];
+		for(int sub_batch_idx = batch_out.size()-1; sub_batch_idx >= 0 ; --sub_batch_idx) {
+			auto array = &batch_out[sub_batch_idx];
 			
 			if(array->index_sets == instr->index_sets)
 				earliest_possible_batch = sub_batch_idx;
@@ -392,29 +428,29 @@ build_pre_batch(Model_Application *model_app, std::vector<Model_Instruction> *in
 			if(found_dependency) break;
 			earliest_suitable_pos   = sub_batch_idx;
 		}
-		if(earliest_possible_batch != batch_out->size()) {
-			(*batch_out)[earliest_possible_batch].instr_ids.push_back(instr_id);
+		if(earliest_possible_batch != batch_out.size()) {
+			batch_out[earliest_possible_batch].instr_ids.push_back(instr_id);
 		} else {
 			Pre_Batch_Array pre_batch;
 			pre_batch.index_sets = instr->index_sets;
 			pre_batch.instr_ids.push_back(instr_id);
-			if(earliest_suitable_pos == batch_out->size())
-				batch_out->push_back(std::move(pre_batch));
+			if(earliest_suitable_pos == batch_out.size())
+				batch_out.push_back(std::move(pre_batch));
 			else
-				batch_out->insert(batch_out->begin()+earliest_suitable_pos, std::move(pre_batch));
+				batch_out.insert(batch_out.begin()+earliest_suitable_pos, std::move(pre_batch));
 		}
 	}
 	
 #if 1
 	warning_print("\n****", initial ? " initial" : "", " batch structure ****\n");
-	for(auto &pre_batch : *batch_out) {
+	for(auto &pre_batch : batch_out) {
 		warning_print("[");;
 		for(auto index_set : pre_batch.index_sets)
 			warning_print("\"", model->find_entity<Reg_Type::index_set>(index_set)->name, "\" ");
 		warning_print("]\n");
 		for(auto instr_id : pre_batch.instr_ids) {
 			warning_print("\t");
-			auto instr = &(*instructions)[instr_id];
+			auto instr = &instructions[instr_id];
 			if(instr->type == Model_Instruction::Type::compute_state_var)
 				warning_print(model->state_vars[instr->var_id]->name, "\n");
 			else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
@@ -430,9 +466,9 @@ build_pre_batch(Model_Application *model_app, std::vector<Model_Instruction> *in
 }
 
 void
-build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instructions, bool initial) {
+build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instructions, bool initial) {
 	
-	instructions->resize(model->state_vars.count());
+	instructions.resize(model->state_vars.count());
 	
 	for(auto var_id : model->state_vars) {
 		auto fun = model->state_vars[var_id]->function_tree;
@@ -451,11 +487,11 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instruct
 		if(!initial)              // the initial step is a purely discrete setup step, not integration.
 			instr.solver = model->state_vars[var_id]->solver;
 		
-		(*instructions)[var_id.id] = std::move(instr);
+		instructions[var_id.id] = std::move(instr);
 	}
 	
 	for(auto var_id : model->state_vars) {
-		auto *instr = &(*instructions)[var_id.id];
+		auto instr = &instructions[var_id.id];
 		
 		if(!is_valid(instr->var_id)) continue; // NOTE: this can happen in the initial step. In that case we don't want to compute all variables necessarily.
 		
@@ -468,14 +504,14 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instruct
 		
 		if(!initial && model->state_vars[var_id]->type == Decl_Type::flux) {
 			auto loc1 = model->state_vars[var_id]->loc1;
+			Entity_Id source_solver = invalid_entity_id;
 			if(loc1.type == Location_Type::located) {
 				Var_Id source_id = model->state_vars[loc1];
-				Model_Instruction *source = &(*instructions)[source_id.id];
-				auto source_solver = model->state_vars[source_id]->solver;
+				Model_Instruction *source = &instructions[source_id.id];
+				source_solver = model->state_vars[source_id]->solver;
 				if (is_valid(source_solver)) { // NOTE: ode variables are integrated, we don't subtract or add to them in just one step.
 					instr->solver = source_solver; // all fluxes are given the same solver as their source (if it has one).
-					
-					// hmmm, maybe we shouldn't do this, because ODE state variables are handled completely differently any way.
+					source->inherits_index_sets_from_instruction.insert(var_id.id);
 					//source->depends_on_instruction.insert(var_id.id); // the quantity depends on the flux directly since we don't have any intermediary instructions
 				} else {
 					Model_Instruction sub_source_instr;
@@ -485,23 +521,27 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instruct
 					sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
 					sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux.
 					
-					int sub_idx = (int)instructions->size();
+					int sub_idx = (int)instructions.size();
 					
 					//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. Tn fact it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
 					sub_source_instr.source_or_target_id = source_id;
 					source->depends_on_instruction.insert(sub_idx);
 									
-					(*instructions)[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id); // The flux itself has to be computed once per instance of the source.
+					instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id); // The flux itself has to be computed once per instance of the source.
 					
-					instructions->push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+					instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 				}
 			}
 			auto loc2 = model->state_vars[var_id]->loc2;
 			if(loc2.type == Location_Type::located) {
 				Var_Id target_id = model->state_vars[loc2];
-				Model_Instruction *target = &(*instructions)[target_id.id];
-				if(is_valid(model->state_vars[target_id]->solver)) {
-					//target->depends_on_instruction.insert(var_id.id);
+				Model_Instruction *target = &instructions[target_id.id];
+				auto target_solver = model->state_vars[target_id]->solver;
+				if(is_valid(target_solver)) {
+					if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.
+						//warning_print(model->state_vars[target_id]->name, " depends on ", model->state_vars[var_id]->name, "\n");
+						target->depends_on_instruction.insert(var_id.id);
+					}
 				} else {
 					Model_Instruction add_target_instr;
 					add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
@@ -511,7 +551,7 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instruct
 					add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
 					add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 					
-					int add_idx = (int)instructions->size();
+					int add_idx = (int)instructions.size();
 					
 					add_target_instr.source_or_target_id = target_id;
 					target->depends_on_instruction.insert(add_idx);
@@ -519,7 +559,7 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> *instruct
 					//NOTE: the flux does inherit index sets from the target. However,
 					//TODO: if the flux index sets are not a subset of the target index sets, we need to have been given an aggregation in the model. (there could also be an aggregation any way). Otherwise we have to throw an error (but only after the index sets are resolved later (?) )
 					
-					instructions->push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+					instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 				}
 			}
 		}
@@ -557,11 +597,6 @@ bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std:
 	return found;
 }
 
-struct Pre_Batch {
-	Entity_Id solver;
-	std::vector<int> instrs;
-};
-
 void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
 	// create one batch per solver
 	// if a quantity has a solver, it goes in that batch.
@@ -578,10 +613,11 @@ void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, st
 	warning_print("Sorting begin\n");
 	
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
-		bool success = topological_sort_instructions_visit(model, instr_id, &sorted_instructions, &instructions, false);
+		bool success = topological_sort_instructions_visit(model, instr_id, sorted_instructions, instructions, false);
 		if(!success) mobius_error_exit();
 	}
 	
+	warning_print("Propagate solvers\n");
 	for(int instr_id : sorted_instructions) {
 		auto instr = &instructions[instr_id];
 		if(is_valid(instr->solver)) {
@@ -590,9 +626,9 @@ void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, st
 		}
 	}
 	
-
 	batches_out.clear();
 	
+	warning_print("Create batches\n");
 	// TODO: this algorithm is repeated only with slightly different checks (solver vs. index sets). Is there a way to unify the code?
 	for(int instr_id : sorted_instructions) {
 		auto instr = &instructions[instr_id];
@@ -602,16 +638,16 @@ void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, st
 		for(int batch_idx = batches_out.size()-1; batch_idx >= 0; --batch_idx) {
 			auto batch = &batches_out[batch_idx];
 			if(is_valid(batch->solver) && batch->solver == instr->solver) {
-				batch->instrs.push_back(instr_id);
-				break;
+				first_suitable_batch = batch_idx;
+				break;   // we ever only want one batch per solver, so we can stop looking now.
 			} else if (!is_valid(batch->solver) && !is_valid(instr->solver)) {
 				first_suitable_batch = batch_idx;
 			}
 			
+			// note : we can't place ourselves earlier than another instruction that we depend on.
 			bool found_dependency = false;
-			for(int id : batch->instrs) {
-				auto other_instr = &instructions[id];
-				if(other_instr->depends_on_instruction.find(instr_id) != other_instr->depends_on_instruction.end()) {
+			for(int other_id : batch->instrs) {
+				if(instr->depends_on_instruction.find(other_id) != instr->depends_on_instruction.end()) {
 					found_dependency = true;
 					break;
 				}
@@ -639,6 +675,37 @@ void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, st
 
 
 void
+add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Pre_Batch_Array &array, std::vector<Model_Instruction> &instructions) {
+	std::vector<Entity_Id> index_sets(array.index_sets.begin(), array.index_sets.end()); // TODO: eventually has to be more sophisticated if we have multiple-dependencies on the same index set.
+	std::vector<Var_Id>    handles;
+	for(int instr_id : array.instr_ids) {
+		auto instr = &instructions[instr_id];
+		if(instr->type == Model_Instruction::Type::compute_state_var)
+			handles.push_back(instr->var_id);
+	}
+	Multi_Array_Structure<Var_Id> arr(std::move(index_sets), std::move(handles));
+	structure.push_back(std::move(arr));
+}
+
+void
+set_up_result_structure(Model_Application *model_app, std::vector<Pre_Batch> &batches, std::vector<Model_Instruction> &instructions) {
+	if(model_app->result_data.has_been_set_up)
+		fatal_error(Mobius_Error::internal, "Tried to set up result structure twice.");
+	if(!model_app->all_indexes_are_set())
+		fatal_error(Mobius_Error::internal, "Tried to set up result structure before all index sets received indexes.");
+	
+	// NOTE: we just copy the batch structure so that it is easier to optimize the run code for cache locality.
+	// NOTE: It is crucial that all ode variables from the same batch are stored contiguously, so that part of the setup must be kept no matter what!
+	std::vector<Multi_Array_Structure<Var_Id>> structure;
+	for(auto &batch : batches) {
+		for(auto &array : batch.arrays)      add_array(structure, array, instructions);
+		for(auto &array : batch.arrays_ode)  add_array(structure, array, instructions);
+	}
+	
+	model_app->result_data.set_up(std::move(structure));
+}
+
+void
 Model_Application::compile() {
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application twice.");
@@ -651,67 +718,83 @@ Model_Application::compile() {
 	if(!parameter_data.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before parameter data was set up.");
 	
-	
-	
-	// Resolve index set dependendencies of model instructions
-	
 	warning_print("Create instruction arrays\n");
 	std::vector<Model_Instruction> initial_instructions;
 	std::vector<Model_Instruction> instructions;
-	build_instructions(model, &initial_instructions, true);
-	build_instructions(model, &instructions, false);
-	
+	build_instructions(model, initial_instructions, true);
+	build_instructions(model, instructions, false);
+
 	warning_print("Resolve index sets dependencies begin.\n");
-	resolve_index_set_dependencies(this, &initial_instructions, true);
+	resolve_index_set_dependencies(this, initial_instructions, true);
 	
 	// NOTE: state var inherits all index set dependencies from its initial code.
 	for(auto var_id : model->state_vars)
 		instructions[var_id.id].index_sets = initial_instructions[var_id.id].index_sets;
 	
-	resolve_index_set_dependencies(this, &instructions, false);
+	resolve_index_set_dependencies(this, instructions, false);
 	
 	// similarly, the initial state of a varialble has to be indexed like the variable. (this is just for simplicity in the code generation, so that a value is assigned to every instance of the variable, but it can cause re-computation of the same value many times. Probably not an issue since it is just for a single time step.)
 	for(auto var_id : model->state_vars)
 		initial_instructions[var_id.id].index_sets = instructions[var_id.id].index_sets;
 	
-	std::vector<Pre_Batch_Array> pre_batch;
-	std::vector<Pre_Batch_Array> initial_pre_batch;
+	std::vector<Pre_Batch> batches;
+	create_batches(model, batches, instructions);
+	
+	Pre_Batch initial_batch;
+	initial_batch.solver = invalid_entity_id;
+	
+	warning_print("Sort initial.\n");
+	// Sort the initial instructions too.
+	// TODO: we should allow for the code for a state var (properties at least) to act as its initial code like in Mobius1, so we should have a separate sorting system here.
+	for(int instr_id = 0; instr_id < initial_instructions.size(); ++instr_id) {
+		bool success = topological_sort_instructions_visit(model, instr_id, initial_batch.instrs, initial_instructions, true);
+		if(!success) mobius_error_exit();
+	}
 	
 	warning_print("Build pre batches.\n");
-	build_pre_batch(this, &initial_instructions, &initial_pre_batch, true);
-	build_pre_batch(this, &instructions, &pre_batch, false);
+	build_batch_arrays(this, initial_batch.instrs, initial_instructions, initial_batch.arrays, true);
 	
-	// TODO : we should determine a way of sorting the index sets (maybe like in mobius1, but may also have to optimize for neighbor affiliations, or base it on the "distribute" specifications)
-	for(auto &array : initial_pre_batch) {
-		Multi_Array_Structure<Var_Id> array2;
-		for(auto index_set : array.index_sets) array2.index_sets.push_back(index_set);
-		for(int instr_id : array.instr_ids) {
-			auto instr = &instructions[instr_id];
-			if(instr->type == Model_Instruction::Type::compute_state_var)
-				array2.handles.push_back(instr->var_id);
+	for(auto &batch : batches) {
+		if(!is_valid(batch.solver))
+			build_batch_arrays(this, batch.instrs, instructions, batch.arrays, false);
+		else {
+			std::vector<int> vars;
+			std::vector<int> vars_ode;
+			for(int var : batch.instrs) {
+				if(model->state_vars[instructions[var].var_id]->type == Decl_Type::quantity)
+					vars_ode.push_back(var);
+				else
+					vars.push_back(var);
+			}
+			build_batch_arrays(this, vars,     instructions, batch.arrays,     false);
+			build_batch_arrays(this, vars_ode, instructions, batch.arrays_ode, false);
 		}
-		array2.finalize();
-		initial_batch.structure.push_back(std::move(array2));
-	}
-	for(auto &array : pre_batch) {
-		Multi_Array_Structure<Var_Id> array2;
-		for(auto index_set : array.index_sets) array2.index_sets.push_back(index_set);
-		for(int instr_id : array.instr_ids) {
-			auto instr = &instructions[instr_id];
-			if(instr->type == Model_Instruction::Type::compute_state_var)
-				array2.handles.push_back(instr->var_id);
-		}
-		array2.finalize();
-		batch.structure.push_back(std::move(array2));
 	}
 	
-	set_up_result_structure();
+	set_up_result_structure(this, batches, instructions);
 	
 	warning_print("Generate inital run code\n");
-	initial_batch.run_code = generate_run_code(this, &initial_pre_batch, &initial_instructions, true);
+	this->initial_batch.run_code = generate_run_code(this, &initial_batch, initial_instructions, true);
 	
 	warning_print("Generate main run code\n");
-	batch.run_code         = generate_run_code(this, &pre_batch, &instructions, false);
+	for(auto &batch : batches) {
+		Run_Batch new_batch;
+		new_batch.run_code = generate_run_code(this, &batch, instructions, false);
+		if(is_valid(batch.solver)) {
+			auto solver = model->find_entity<Reg_Type::solver>(batch.solver);
+			new_batch.solver_fun = solver->solver_fun;
+			new_batch.h          = solver->h;
+			new_batch.hmin       = solver->hmin;
+			// NOTE: same as noted above, all ODEs have to be stored contiguously.
+			new_batch.first_ode_offset = result_data.get_offset_base(instructions[batch.arrays_ode[0].instr_ids[0]].var_id);
+			new_batch.n_ode = 0;
+			for(auto &array : batch.arrays_ode) {         // Hmm, this is a bit inefficient, but oh well.
+				for(int instr_id : array.instr_ids)
+					new_batch.n_ode += result_data.instance_count(instructions[instr_id].var_id);
+			}
+		}
+		this->batches.push_back(new_batch);
+	}
 	
 	is_compiled = true;
 }

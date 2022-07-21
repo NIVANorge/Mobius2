@@ -166,6 +166,9 @@ Math_Expr_FT *
 make_literal(s64 val_int);
 
 Math_Expr_FT *
+make_literal(double val_double);
+
+Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var);
 
 Math_Expr_FT *

@@ -21,11 +21,12 @@ General model description.
 	
 	lu : index_set("Landscape units")
 	soil.distribute(lu)
+	gw.distribute(lu)      #TODO: implement aggregation instead!
 	
 	simply_solver : solver("Simply solver", "INCADascru", 0.1)
 	
-	#soil.water.solve(simply_solver)
-	#gw.water.solve(simply_solver)
+	soil.water.solve(simply_solver)
+	gw.water.solve(simply_solver)
 	
 	
 	##### Link fluxes between compartments and specify aggregation between compartments that are distributed differently, and unit conversions where volumes are different
