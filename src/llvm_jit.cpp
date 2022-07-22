@@ -10,7 +10,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
@@ -19,6 +18,9 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
+#include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Passes/PassBuilder.h"
 
 
 #include "llvm_jit.h"
@@ -48,7 +50,6 @@ LLVM_Module_Data {
 	std::unique_ptr<llvm::LLVMContext>         context;
 	std::unique_ptr<llvm::Module>              module;
 	std::unique_ptr<llvm::IRBuilder<>>         builder;
-	std::unique_ptr<llvm::legacy::FunctionPassManager> optimizer;           //TODO: find out why this is legacy, and can we replace it?
 };
 
 LLVM_Module_Data *
@@ -66,28 +67,30 @@ create_llvm_module() {
 	// Create a new builder for the module.
 	data->builder = std::make_unique<llvm::IRBuilder<>>(*data->context);
 
-	// Create a new pass manager attached to it.
-	data->optimizer = std::make_unique<llvm::legacy::FunctionPassManager>(data->module.get());
-
-	
-	// TODO: rabbit hole on optimizations and see how the affect complex models!
-	
-	// Do simple "peephole" optimizations and bit-twiddling optzns.
-	data->optimizer->add(llvm::createInstructionCombiningPass());
-	// Reassociate expressions.
-	data->optimizer->add(llvm::createReassociatePass());
-	// Eliminate Common SubExpressions.
-	data->optimizer->add(llvm::createGVNPass());
-	// Simplify the control flow graph (deleting unreachable blocks, etc).
-	data->optimizer->add(llvm::createCFGSimplificationPass());
-
-	data->optimizer->doInitialization();
-	
 	return data;
 }
 
 void
 jit_compile_module(LLVM_Module_Data *data) {
+	
+	// TODO: rabbit hole on optimizations/passes and see how the affect complex models!
+	llvm::LoopAnalysisManager     lam;
+	llvm::FunctionAnalysisManager fam;
+	llvm::CGSCCAnalysisManager    cgam;
+	llvm::ModuleAnalysisManager   mam;
+	
+	llvm::PassBuilder pb;
+	
+	pb.registerModuleAnalyses(mam);
+	pb.registerCGSCCAnalyses(cgam);
+	pb.registerFunctionAnalyses(fam);
+	pb.registerLoopAnalyses(lam);
+	pb.crossRegisterProxies(lam, fam, cgam, mam);
+	
+	llvm::ModulePassManager mpm = pb.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+	
+	mpm.run(*data->module, mam);
+	
 	auto rt = global_jit->getMainJITDylib().createResourceTracker();                           //TODO: keep this around so that we can   ExitOnErr(rt->remove());  to free memory used by jit.
 	auto tsm = llvm::orc::ThreadSafeModule(std::move(data->module), std::move(data->context));
 	//TODO: don't exitonerr, instead log.
@@ -169,10 +172,6 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	}
 	
 	warning_print("Verification done.\n");
-	
-	data->optimizer->run(*fun);
-	
-	warning_print("Optimization done.\n");
 }
 
 
@@ -408,7 +407,7 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_lo
 	llvm::Value *step_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 1));  // Step is always 1
 	llvm::Value *next_iter = data->builder->CreateAdd(iter, step_val, "next_iter");
 	llvm::Value *iter_end  = build_expression_ir(n, loop_local, args, data);
-	llvm::Value *loop_cond = data->builder->CreateICmpNE(next_iter, iter_end, "loopcond");
+	llvm::Value *loop_cond = data->builder->CreateICmpNE(next_iter, iter_end, "loopcond"); // iter+1 != n
 	
 	llvm::BasicBlock *loop_end_block = data->builder->GetInsertBlock();
 	llvm::BasicBlock *after_block = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
@@ -460,7 +459,6 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
-			//TODO: instead we have to find a way to convert the id to a local index. This is just for early testing.
 			llvm::Value *result = nullptr;
 			
 			llvm::Value *offset = nullptr;
@@ -543,15 +541,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		} break;
 
 		case Math_Expr_Type::if_chain : {
-			/*
-			for(int idx = 0; idx < expr->exprs.size()-1; idx+=2) {
-				Typed_Value cond = emulate_expression(expr->exprs[idx+1], state, locals);
-				if(cond.val_boolean) return emulate_expression(expr->exprs[idx], state, locals);
-				return emulate_expression(expr->exprs.back(), state, locals);
-			}
-			*/
 			return build_if_chain_ir(expr->exprs.data(), expr->exprs.size(), locals, args, data);
-			
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {

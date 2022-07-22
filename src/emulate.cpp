@@ -210,7 +210,6 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 		
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
-			//TODO: instead we have to find a way to convert the id to a local index. This is just for early testing.
 			Typed_Value result;
 			result.type = expr->value_type;
 			s64 offset = 0;

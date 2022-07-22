@@ -90,7 +90,7 @@ int main() {
 	
 	Model_Application app(model);
 	
-	std::vector<String_View> indexes = {"a", "b"};
+	std::vector<String_View> indexes = {"a", "b", "c", "d"};
 	for(auto index_set : model->modules[0]->index_sets)
 		app.set_indexes(index_set, Array<String_View>{indexes.data(), indexes.size()});
 	
