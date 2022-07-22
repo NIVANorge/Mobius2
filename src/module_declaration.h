@@ -243,8 +243,8 @@ struct Registry_Base {
 	string_map<Entity_Id>          name_to_handle;
 	Module_Declaration            *parent;
 	
-	virtual Entity_Id find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr);
-	virtual Entity_Registration_Base *operator[](Entity_Id handle);
+	virtual Entity_Id find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr) = 0;
+	virtual Entity_Registration_Base *operator[](Entity_Id handle) = 0;
 	
 	Registry_Base(Module_Declaration *parent) : parent(parent) {}
 };

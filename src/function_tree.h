@@ -183,12 +183,14 @@ make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 Math_Block_FT *
 make_for_loop();
 
-
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr, Scope_Data *scope = nullptr);
 
 Math_Expr_FT *
 copy(Math_Expr_FT *source);
+
+//void
+//print_tree(Math_Expr_FT *expr, int ntabs=0);
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

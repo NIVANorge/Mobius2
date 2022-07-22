@@ -52,7 +52,7 @@ is_numeric_or_bool(Token_Type type) {
 	return is_numeric(type) || (type == Token_Type::boolean);
 }
 
-inline
+inline bool
 can_be_value_token(Token_Type type) {
 	return is_numeric_or_bool(type) || type == Token_Type::identifier || type == Token_Type::quoted_string;
 }

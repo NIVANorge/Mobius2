@@ -26,24 +26,9 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function);
 
 struct Scope_Local_Vars;
 struct Model_Application;
-
-struct
-Model_Run_State {
-	//Model_Application *model_app;
-	Parameter_Value *parameters;
-	//double *last_state_vars;
-	double *state_vars;
-	double *series;
-	
-	double *solver_workspace;
-	
-	Model_Run_State() : solver_workspace(nullptr) {}
-};
+struct Model_Run_State;
 
 Typed_Value
 emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars *locals);
-
-void
-emulate_model_run(Model_Application *model_app, s64 time_steps);
 
 #endif // MOBIUS_EMULATE_H

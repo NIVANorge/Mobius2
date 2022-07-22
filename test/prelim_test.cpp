@@ -71,7 +71,7 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	fclose(file);
 }
 
-#define USE_SIMPLE 0
+#define USE_SIMPLE 1
 
 int main() {
 	//SetConsoleOutputCP(65001);
@@ -119,7 +119,7 @@ int main() {
 	read_input_data("testinput.dat", &app);
 #endif
 	
-	emulate_model_run(&app, time_steps);
+	run_model(&app, time_steps);
 	
 	write_result_data("results.dat", &app);
 		

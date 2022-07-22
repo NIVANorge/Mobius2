@@ -3,6 +3,7 @@
 #define MOBIUS_MODEL_APPLICATION_H
 
 #include "model_declaration.h"
+#include "llvm_jit.h"
 
 #include <functional>
 
@@ -175,9 +176,9 @@ Run_Batch {
 	int              n_ode;
 	
 	Math_Expr_FT    *run_code;
-	//TODO: also function pointer to llvm compiled code.
+	batch_function  *compiled_code;
 	
-	Run_Batch() : run_code(nullptr), solver_fun(nullptr) {}
+	Run_Batch() : run_code(nullptr), solver_fun(nullptr), compiled_code(nullptr) {}
 };
 
 struct
@@ -194,6 +195,9 @@ Model_Application {
 			index_counts[index_set.id].index_set = index_set;
 			index_counts[index_set.id].index = 0;
 		}
+		
+		initialize_llvm();
+		llvm_data = create_llvm_module();   //TODO: free it later.
 	}
 	
 	std::vector<Index_T>                            index_counts;
@@ -211,9 +215,24 @@ Model_Application {
 	bool is_compiled;
 	void compile();
 	
+	LLVM_Module_Data      *llvm_data;
+	
 	Run_Batch              initial_batch;
 	std::vector<Run_Batch> batches;
 };
+
+struct
+Model_Run_State {
+	Parameter_Value *parameters;
+	double *state_vars;
+	double *series;
+	double *solver_workspace;
+	
+	Model_Run_State() : solver_workspace(nullptr) {}
+};
+
+void
+run_model(Model_Application *model_app, s64 time_steps);
 
 
 template<> inline String_View

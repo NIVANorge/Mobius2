@@ -2,6 +2,7 @@
 #include "model_application.h"
 
 #include <map>
+#include <string>
 
 //TODO: this should eventually get data from the par file that is stored in the model app instead!
 void
@@ -802,8 +803,11 @@ Model_Application::compile() {
 	
 	warning_print("Generate inital run code\n");
 	this->initial_batch.run_code = generate_run_code(this, &initial_batch, initial_instructions, true);
+	jit_add_batch(this->initial_batch.run_code, "initial_values", llvm_data);
 	
 	warning_print("Generate main run code\n");
+	
+	int batch_idx = 0;
 	for(auto &batch : batches) {
 		Run_Batch new_batch;
 		new_batch.run_code = generate_run_code(this, &batch, instructions, false);
@@ -820,7 +824,23 @@ Model_Application::compile() {
 					new_batch.n_ode += result_data.instance_count(instructions[instr_id].var_id);
 			}
 		}
+		
+		std::string function_name = std::string("batch_function_") + std::to_string(batch_idx);
+		jit_add_batch(new_batch.run_code, function_name, llvm_data);
+		
 		this->batches.push_back(new_batch);
+		
+		++batch_idx;
+	}
+	
+	jit_compile_module(llvm_data);
+	
+	this->initial_batch.compiled_code = get_jitted_batch_function("initial_values");
+	batch_idx = 0;
+	for(auto &batch : this->batches) {
+		std::string function_name = std::string("batch_function_") + std::to_string(batch_idx);
+		batch.compiled_code = get_jitted_batch_function(function_name);
+		++batch_idx;
 	}
 	
 	is_compiled = true;
