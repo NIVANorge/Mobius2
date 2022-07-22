@@ -251,18 +251,17 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 		if(type1 == Value_Type::integer)   result = data->builder->CreateSDiv(lhs, rhs, "divtemp");    //TODO: what is difference between sdiv and exactsdiv ?
 		else if(type1 == Value_Type::real) result = data->builder->CreateFDiv(lhs, rhs, "fdivtemp");
 	} else if(op == '^') {
-		std::vector<llvm::Value *> args = { lhs, rhs };
 		if(type2 == Value_Type::integer) {
 			// TODO: Do we really want to do the trunc? There is no version of the intrinsic that takes int64. But likelihood of causing errors is very low..
 			rhs = data->builder->CreateTrunc(rhs, llvm::Type::getInt32Ty(*data->context));
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context), llvm::Type::getInt32Ty(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::powi, arg_types);
-			result = data->builder->CreateCall(fun, args);
+			result = data->builder->CreateCall(fun, { lhs, rhs });
 		}
 		else if(type2 == Value_Type::real) {
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::pow, arg_types);
-			result = data->builder->CreateCall(fun, args);
+			result = data->builder->CreateCall(fun, { lhs, rhs });
 		}
 	} else
 		fatal_error(Mobius_Error::internal, "build_binary_ir() unhandled operator ", name(oper), " .");
@@ -280,7 +279,7 @@ llvm::Value *build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to
 		fatal_error(Mobius_Error::internal, "Cast from integer to boolean type not implemented");
 	} else if (from_type == Value_Type::boolean) {
 		if(to_type == Value_Type::integer)
-			return data->builder->CreateSExt(val, llvm::Type::getInt64Ty(*data->context), "castbtoi");
+			return data->builder->CreateZExt(val, llvm::Type::getInt64Ty(*data->context), "castbtoi");
 		else if(to_type == Value_Type::real)
 			return data->builder->CreateUIToFP(val, llvm::Type::getDoubleTy(*data->context), "castbtof");
 	}
@@ -427,7 +426,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 	if(!expr)
 		fatal_error(Mobius_Error::internal, "Got a nullptr expression in build_expression_ir().");
 	
-	warning_print("ir gen, ", name(expr->expr_type), "\n");
+	//warning_print("ir gen, ", name(expr->expr_type), "\n");
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
@@ -446,10 +445,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 						++index;
 					}
 				}
-			} else {
-				//llvm::Value *n = build_expression_ir(expr->exprs[0], locals, args, data);
+			} else
 				result = build_for_loop_ir(expr->exprs[0], expr->exprs[1], &new_locals, args, data);
-			}
 			return result;
 		} break;
 		
@@ -470,12 +467,12 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			
 			if(ident->variable_type == Variable_Type::parameter) {
 				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_lookup");
+				result = data->builder->CreateLoad(double_ty, result);
 				if(ident->value_type == Value_Type::integer || ident->value_type == Value_Type::boolean) {
 					result = data->builder->CreateBitCast(result, llvm::Type::getInt64Ty(*data->context));
 					if(ident->value_type == Value_Type::boolean)
 						result = data->builder->CreateTrunc(result, llvm::Type::getInt1Ty(*data->context));
 				}
-				result = data->builder->CreateLoad(double_ty, result);
 			} else if(ident->variable_type == Variable_Type::state_var) {
 				result = data->builder->CreateGEP(double_ty, args[2], offset, "var_lookup");
 				result = data->builder->CreateLoad(double_ty, result);

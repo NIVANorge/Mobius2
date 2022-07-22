@@ -12,7 +12,6 @@ General model description.
 	load("hbv_snow.txt",  sn : module("HBVSnow"))
 	load("test_soil.txt", sw : module("Test soil water"))
 	
-	over : compartment("Overland")
 	soil : compartment("Soil")
 	gw   : compartment("Groundwater")
 	water : quantity("Water")
@@ -31,6 +30,6 @@ General model description.
 	
 	##### Link fluxes between compartments and specify aggregation between compartments that are distributed differently, and unit conversions where volumes are different
 
-	sn.p_rain     .to(over.water)
-	sn.melt_runoff.to(over.water)
+	sn.p_rain     .to(soil.water)
+	sn.melt_runoff.to(soil.water)
 }

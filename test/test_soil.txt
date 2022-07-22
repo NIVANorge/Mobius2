@@ -3,7 +3,7 @@ module("Test soil water", 1, 0, 0) {
 """
 Oversimplified soil water module inc.
 """
-	over     : compartment("Overland")
+
 	soil     : compartment("Soil")
 	gw       : compartment("Groundwater")
 	
@@ -11,9 +11,7 @@ Oversimplified soil water module inc.
 		fc   : par_real("Field capacity", unit(m m), 120)
 		bfi  : par_real("Baseflow index", unit(), 0.7)
 		tc_s : par_real("Soil water time constant", unit(day -1), 2)
-	}
-	
-	over.par_group("Quick flow") {
+
 		f_quick : par_real("Proportion to quick flow", unit(), 0.01)
 	}
 		
@@ -23,24 +21,13 @@ Oversimplified soil water module inc.
 	
 	water : quantity("Water")
 	
-	over.has(water, unit(m m), "Overland water") .initial { 0 }    #TODO: should not have to do this. Should be able to just look at "in_flux" to soil instead.
+	#over.has(water, unit(m m), "Overland water") .initial { 0 }    #TODO: should not have to do this. Should be able to just look at "in_flux" to soil instead.
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
 	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 }
 	
-	#TODO: issue here: we want to take all over.water from *this* time step, not the previous one.
-	# should implement in_flux then!
-	flux(over.water, soil.water, "Infiltration") {
-		(1 - f_quick)*over.water
+	flux(soil.water, out, "Quick flow") {
+		f_quick * in_flux(soil.water)
 	}
-	
-	# same here.
-	flux(over.water, out, "Quick flow") {
-		f_quick * over.water
-	}
-	
-	#flux(soil.water, out, "Quick flow") {
-	#	f_quick * in_flux(soil.water)
-	#}
 	
 	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
 		max(0, (soil.water - fc)/tc_s)

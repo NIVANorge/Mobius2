@@ -47,7 +47,8 @@ name(Value_Type type) {
 inline Value_Type
 get_value_type(Decl_Type decl_type) {
 	if(decl_type == Decl_Type::par_real) return Value_Type::real;
-	//TODO: fill in for other parameters!
+	if(decl_type == Decl_Type::par_int)  return Value_Type::integer;
+	if(decl_type == Decl_Type::par_bool) return Value_Type::boolean;
 	
 	return Value_Type::unresolved;
 }
@@ -59,6 +60,15 @@ get_value_type(Token_Type type) {
 	else if(type == Token_Type::boolean) return Value_Type::boolean;
 	
 	return Value_Type::unresolved;
+}
+
+inline Token_Type
+get_token_type(Value_Type type) {
+	if(type == Value_Type::real) return Token_Type::real;
+	if(type == Value_Type::integer) return Token_Type::integer;
+	if(type == Value_Type::boolean) return Token_Type::boolean;
+	
+	return Token_Type::unknown;
 }
 
 enum class
@@ -93,6 +103,7 @@ Math_Block_FT : Math_Expr_FT {
 enum Identifier_Flags : u32 {
 	ident_flags_none        = 0x0,
 	ident_flags_last_result = 0x1,
+	ident_flags_in_flux     = 0x2
 	//TODO: conc, trust_unit, auto_convert, etc.
 };
 

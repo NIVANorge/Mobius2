@@ -71,16 +71,17 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	fclose(file);
 }
 
-#define USE_SIMPLE 1
+#define USE_MODEL 1
 
 int main() {
 	//SetConsoleOutputCP(65001);
 	
-#if USE_SIMPLE
-	//Mobius_Model *model = load_model("stupidly_simple_model.txt");
-	Mobius_Model *model = load_model("lv_model.txt");
-#else
+#if USE_MODEL == 0
+	Mobius_Model *model = load_model("stupidly_simple_model.txt");
+#elif USE_MODEL == 1
 	Mobius_Model *model = load_model("test_model.txt");
+#else
+	Mobius_Model *model = load_model("lv_model.txt");
 #endif
 	model->compose();
 	
@@ -90,32 +91,29 @@ int main() {
 	
 	Model_Application app(model);
 	
-	std::vector<String_View> indexes = {"a", "b", "c", "d"};
+	//std::vector<String_View> indexes = {"a", "b", "c", "d"};
+	std::vector<String_View> indexes = {"a", "b"};
 	for(auto index_set : model->modules[0]->index_sets)
 		app.set_indexes(index_set, Array<String_View>{indexes.data(), indexes.size()});
 	
 	app.set_up_parameter_structure();
 	app.set_up_series_structure();
 
-#if !USE_SIMPLE
+#if USE_MODEL == 1
 	//haaaack!
 	Entity_Id par_id = model->modules[2]->find_handle("fc");
 	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
 	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-	warning_print("par offset is ", offset, "\n");
 	app.parameter_data.data[offset].val_real = 50.0;
-#else
-	/*
-	Entity_Id par_id = model->modules[1]->find_handle("par");
-	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("idx"), 1}};
+#elif USE_MODEL == 2
+	Entity_Id par_id = model->modules[1]->find_handle("init_prey");
+	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("hi"), 1}};
 	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-	warning_print("par offset is ", offset, "\n");
-	app.parameter_data.data[offset].val_real = 50.0;
-	*/
+	app.parameter_data.data[offset].val_real = 2.0;
 #endif
 	app.compile();
 
-#if !USE_SIMPLE
+#if USE_MODEL == 1
 	app.series_data.allocate(time_steps);
 	read_input_data("testinput.dat", &app);
 #endif

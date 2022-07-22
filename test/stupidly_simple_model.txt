@@ -6,17 +6,21 @@ model("Simple test model") {
 		habitat : compartment("Habitat")
 		
 		grp : habitat.par_group("Habitat parameters") {
-			par : par_real("My par", unit(), 6)
+			par  : par_real("My par", unit(), 6)
+			par2 : par_int("My int", unit(), 5)
+			par3 : par_bool("My bool", true)
 		}
 		
 		habitat.has(a : property("A"), unit()) {
-			1  if par > 5,
-			2  if par < 3,
-			3  otherwise
+			par2 / 2.
+		} .initial {
+			3
 		}
 		
 		habitat.has(b : property("B"), unit()) {
 			habitat.a - 5.0
 		}
+		
+		habitat.has(c : quantity("C"), unit()) .initial { habitat.a }
 	}
 }

@@ -302,32 +302,58 @@ process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) 
 
 template<> Entity_Id
 process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *decl) {
-	Token_Type value_type = Token_Type::real; //TODO: allow other types.
+	Token_Type token_type = get_token_type(get_value_type(decl->type));
 	
-	int which = match_declaration(decl,
+	int which;
+	if(token_type == Token_Type::real || token_type == Token_Type::integer) {
+		which = match_declaration(decl,
 		{
-			{Token_Type::quoted_string, Decl_Type::unit, value_type},                                                      // 0
-			{Token_Type::quoted_string, Decl_Type::unit, value_type, Token_Type::quoted_string},                           // 1
-			{Token_Type::quoted_string, Decl_Type::unit, value_type, value_type, value_type},                              // 2
-			{Token_Type::quoted_string, Decl_Type::unit, value_type, value_type, value_type, Token_Type::quoted_string},   // 3
+			{Token_Type::quoted_string, Decl_Type::unit, token_type},                                                      // 0
+			{Token_Type::quoted_string, Decl_Type::unit, token_type, Token_Type::quoted_string},                           // 1
+			{Token_Type::quoted_string, Decl_Type::unit, token_type, token_type, token_type},                              // 2
+			{Token_Type::quoted_string, Decl_Type::unit, token_type, token_type, token_type, Token_Type::quoted_string},   // 3
 		});
+	} else if (token_type == Token_Type::boolean) {            // note: min, max values for boolean parameters are redundant.
+		which = match_declaration(decl,
+		{
+			{Token_Type::quoted_string, token_type},                                                      // 0
+			{Token_Type::quoted_string, token_type, Token_Type::quoted_string},                           // 1
+		});
+	} else
+		fatal_error(Mobius_Error::internal, "Got an unrecognized type in parameter declaration processing.");
 	
 	auto id        = module->parameters.standard_declaration(decl);
 	auto parameter = module->parameters[id];
 	
-	parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
-	parameter->default_val             = get_parameter_value(single_arg(decl, 2), Token_Type::real);
-	if(which == 2 || which == 3) {
-		parameter->min_val             = get_parameter_value(single_arg(decl, 3), Token_Type::real);
-		parameter->max_val             = get_parameter_value(single_arg(decl, 4), Token_Type::real);
-	} else {
-		parameter->min_val.val_real    = -std::numeric_limits<double>::infinity();
-		parameter->max_val.val_real    =  std::numeric_limits<double>::infinity();
+	int mt0 = 2;
+	if(token_type == Token_Type::boolean) mt0--;
+	parameter->default_val             = get_parameter_value(single_arg(decl, mt0), token_type);
+	
+	if(token_type == Token_Type::real) {
+		parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
+		if(which == 2 || which == 3) {
+			parameter->min_val             = get_parameter_value(single_arg(decl, 3), Token_Type::real);
+			parameter->max_val             = get_parameter_value(single_arg(decl, 4), Token_Type::real);
+		} else {
+			parameter->min_val.val_real    = -std::numeric_limits<double>::infinity();
+			parameter->max_val.val_real    =  std::numeric_limits<double>::infinity();
+		}
+	} else if (token_type == Token_Type::integer) {
+		parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
+		if(which == 2 || which == 3) {
+			parameter->min_val             = get_parameter_value(single_arg(decl, 3), Token_Type::integer);
+			parameter->max_val             = get_parameter_value(single_arg(decl, 4), Token_Type::integer);
+		} else {
+			parameter->min_val.val_real    = std::numeric_limits<s64>::lowest();
+			parameter->max_val.val_real    = std::numeric_limits<s64>::max();
+		}        
 	}
 	
+	int mt1 = 3;
+	if(token_type == Token_Type::boolean) mt1--;
 	if(which == 1)
-		parameter->description         = single_arg(decl, 3)->string_value;
-	if(which == 3)
+		parameter->description         = single_arg(decl, mt1)->string_value;
+	else if(which == 3)
 		parameter->description         = single_arg(decl, 5)->string_value;
 	
 	return id;
@@ -347,10 +373,10 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
 	for(Decl_AST *child : body->child_decls) {
-		if(child->type == Decl_Type::par_real) {   //TODO: do other parameter types
-			auto par_handle = process_declaration<Reg_Type::parameter>(module, child);
-			par_group->parameters.push_back(par_handle);
-			module->parameters[par_handle]->par_group = id;
+		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool) {
+			auto par_id = process_declaration<Reg_Type::parameter>(module, child);
+			par_group->parameters.push_back(par_id);
+			module->parameters[par_id]->par_group = id;
 		} else {
 			child->location.print_error_header();
 			fatal_error("Did not expect a declaration of type ", name(child->type), " inside a par_group declaration.");

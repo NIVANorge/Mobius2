@@ -293,42 +293,47 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			
 			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
 			
+			auto fun_name = fun->name.string_value;
+			
 			// First check for "special" calls that are not really function calls.
-			if(fun->name.string_value == "last") {
+			if(fun_name == "last" || fun_name == "in_flux") {
 				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
 				resolve_arguments(model, module_id, new_fun, ast, scope);
 				if(new_fun->exprs.size() != 1) {
 					fun->name.print_error_header();
-					fatal_error("A last() call only takes one argument.");
+					fatal_error("A ", fun_name, "() call only takes one argument.");
 				}
 				if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) {
 					new_fun->exprs[0]->location.print_error_header();
-					fatal_error("A last() call only takes a state variable identifier as argument.");
+					fatal_error("A ", fun_name, "() call only takes a state variable identifier as argument.");
 				}
 				auto var = reinterpret_cast<Identifier_FT *>(new_fun->exprs[0]);
 				new_fun->exprs.clear();
 				delete new_fun;
 				if(var->variable_type != Variable_Type::state_var && var->variable_type != Variable_Type::series) {
 					var->location.print_error_header();
-					fatal_error("A last() call can only be applied to a state variable or input series.");
+					fatal_error("A ", fun_name, "() call can only be applied to a state variable or input series.");
 				}
-				var->flags = (Identifier_Flags)(var->flags | ident_flags_last_result);
+				if(fun_name == "last")
+					var->flags = (Identifier_Flags)(var->flags | ident_flags_last_result);
+				else if(fun_name == "in_flux")
+					var->flags = (Identifier_Flags)(var->flags | ident_flags_in_flux);
 				
 				result = var;
 			} else {
 				// Otherwise it should have been registered as an entity.
 			
-				Entity_Id fun_id = module->find_handle(fun->name.string_value);
-				if(!is_valid(fun_id)) fun_id = module->global_scope->find_handle(fun->name.string_value);
+				Entity_Id fun_id = module->find_handle(fun_name);
+				if(!is_valid(fun_id)) fun_id = module->global_scope->find_handle(fun_name);
 				
 				if(!is_valid(fun_id)) {
 					fun->name.print_error_header();
-					fatal_error("The function \"", fun->name.string_value, "\" has not been registered.");
+					fatal_error("The function \"", fun_name, "\" has not been registered.");
 				}
 				
 				if(is_valid(fun_id) && fun_id.reg_type != Reg_Type::function) {
 					fun->name.print_error_header();
-					fatal_error("The handle \"", fun->name.string_value, "\" is not a function.");
+					fatal_error("The handle \"", fun_name, "\" is not a function.");
 				}
 				
 				auto fun_decl = model->find_entity<Reg_Type::function>(fun_id);
@@ -347,22 +352,21 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					resolve_arguments(model, module_id, new_fun, ast, scope);
 				
 					new_fun->fun_type = fun_type;
-					new_fun->fun_name = fun->name.string_value;
+					new_fun->fun_name = fun_name;
 					fixup_intrinsic(new_fun, &fun->name);
 					
 					result = new_fun;
 				} else if(fun_type == Function_Type::decl) {
-					if(is_inside_function(scope, fun->name.string_value)) {
+					if(is_inside_function(scope, fun_name)) {
 						fun->name.print_error_header();
 						//TODO: We should print the actual stack trace. That also goes for several other error locations!
-						fatal_error("The function ", fun->name.string_value, " calls itself either directly or indirectly. This is not allowed.");
+						fatal_error("The function ", fun_name, " calls itself either directly or indirectly. This is not allowed.");
 					}
 					// Inline in the function call as a new block with the arguments as local vars.
 					auto inlined_fun = new Math_Block_FT();
 					
 					resolve_arguments(model, module_id, inlined_fun, ast, scope);
 					
-					//inlined_fun->function_name = fun->name.string_value;
 					inlined_fun->n_locals = inlined_fun->exprs.size();
 					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
 						auto arg = inlined_fun->exprs[argidx];
@@ -376,7 +380,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					Scope_Data new_scope;
 					new_scope.parent = scope;
 					new_scope.block = inlined_fun;
-					new_scope.function_name = fun->name.string_value;
+					new_scope.function_name = fun_name;
 					
 					inlined_fun->exprs.push_back(resolve_function_tree(model, module_id, fun_decl->code, &new_scope));
 					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.

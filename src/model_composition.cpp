@@ -6,10 +6,8 @@
 #include <sstream>
 
 
-void
-register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool is_series) {
-	
-	//TODO: here we may have to do something with identifying things that were declared withe the same name in multiple modules...
+Var_Id
+register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool is_series, String_View given_name = "") {
 	
 	State_Variable var = {};
 	var.type           = type;
@@ -17,21 +15,23 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	
 	Value_Location loc = invalid_value_location;
 	
-	if(type == Decl_Type::has) {
-		auto has = model->find_entity<Reg_Type::has>(id);
-		loc = has->value_location;
-		var.loc1 = loc;
-		var.type = model->find_entity(loc.property_or_quantity)->decl_type;
-	} else if (type == Decl_Type::flux) {
-		auto flux = model->find_entity<Reg_Type::flux>(id);
-		var.loc1 = flux->source;
-		var.loc2 = flux->target;
-	} else
-		fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
+	if(is_valid(id)) {
+		if(type == Decl_Type::has) {
+			auto has = model->find_entity<Reg_Type::has>(id);
+			loc = has->value_location;
+			var.loc1 = loc;
+			var.type = model->find_entity(loc.property_or_quantity)->decl_type;
+		} else if (type == Decl_Type::flux) {
+			auto flux = model->find_entity<Reg_Type::flux>(id);
+			var.loc1 = flux->source;
+			var.loc2 = flux->target;
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
+	}
 	
-	
-	
-	auto name = model->find_entity(id)->name;
+	auto name = given_name;
+	if(!name && is_valid(id))
+		name = model->find_entity(id)->name;
 	if(!name && type == Decl_Type::has) //TODO: this is a pretty poor stopgap.
 		name = model->find_entity(loc.property_or_quantity)->name;
 		
@@ -42,9 +42,11 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	//warning_print("Var ", var.name, " is series: ", is_series, "\n");
 	
 	if(is_series)
-		model->series.register_var(var, loc);
+		return model->series.register_var(var, loc);
 	else
-		model->state_vars.register_var(var, loc);
+		return model->state_vars.register_var(var, loc);
+	
+	return invalid_var;
 }
 
 
@@ -61,6 +63,50 @@ check_flux_location(Mobius_Model *model, Source_Location source_loc, Value_Locat
 		auto compartment = model->find_entity(loc.compartment);
 		source_loc.print_error_header();
 		fatal_error("The compartment \"", compartment->handle_name, "\" does not have the quantity \"", hopefully_a_quantity->handle_name, "\".");
+	}
+}
+
+void
+remove_lasts(Math_Expr_FT *expr, bool make_error) {
+	for(auto arg : expr->exprs) remove_lasts(arg, make_error);
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if(ident->variable_type == Variable_Type::state_var && (ident->flags & ident_flags_last_result)) {
+			if(make_error) {
+				expr->location.print_error_header();
+				fatal_error("Did not expect a last() in an initial value function.");
+			}
+			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_last_result);
+		}
+	}
+}
+
+typedef std::unordered_map<int, std::vector<Var_Id>> Var_Map;
+
+void
+find_in_fluxes(Math_Expr_FT *expr, Var_Map &var_map, Var_Id push, bool make_error) {
+	for(auto arg : expr->exprs) find_in_fluxes(arg, var_map, push, make_error);
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if(ident->variable_type == Variable_Type::state_var && (ident->flags & ident_flags_in_flux)) {
+			if(make_error) {
+				expr->location.print_error_header();
+				fatal_error("Did not expect an in_flux() in an initial value function.");
+			}
+			var_map[ident->state_var.id].push_back(push);
+		}
+	}
+}
+
+void
+replace_in_flux(Math_Expr_FT *expr, Var_Id target_id, Var_Id in_flux_id) {
+	for(auto arg : expr->exprs) replace_in_flux(arg, target_id, in_flux_id);
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if(ident->variable_type == Variable_Type::state_var && ident->state_var == target_id && (ident->flags & ident_flags_in_flux)) {
+			ident->state_var = in_flux_id;
+			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_in_flux);
+		}
 	}
 }
 
@@ -108,6 +154,8 @@ Mobius_Model::compose() {
 
 	warning_print("Function tree resolution begin.\n");
 	
+	Var_Map in_flux_map;
+	
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		Math_Expr_AST *ast = nullptr;
@@ -125,14 +173,38 @@ Mobius_Model::compose() {
 		
 		if(ast) {
 			var->function_tree = make_cast(resolve_function_tree(this, var->entity_id.module_id, ast, nullptr), Value_Type::real);
+			find_in_fluxes(var->function_tree, in_flux_map, var_id, false);
 		} else
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
 		if(init_ast) {
 			//warning_print("found initial function tree for ", var->name, "\n");
 			var->initial_function_tree = make_cast(resolve_function_tree(this, var->entity_id.module_id, init_ast, nullptr), Value_Type::real);
+			remove_lasts(var->initial_function_tree, true);
+			find_in_fluxes(var->initial_function_tree, in_flux_map, var_id, true);
 		} else
 			var->initial_function_tree = nullptr;
+	}
+	
+	warning_print("Generate state vars for in_fluxes.\n");
+	for(auto &in_flux : in_flux_map) {
+		Var_Id target_id = {in_flux.first};
+		
+		Var_Id in_flux_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
+		auto in_flux_var = state_vars[in_flux_id];
+		// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
+		//   Make a lookup accelleration for this?
+		Math_Expr_FT *flux_sum = make_literal(0.0);
+		for(auto flux_id : state_vars) {
+			auto var = state_vars[flux_id];
+			if(var->type == Decl_Type::flux && var->loc2.type == Location_Type::located && state_vars[var->loc2] == target_id)
+				flux_sum = make_binop('+', flux_sum, make_state_var_identifier(flux_id));
+		}
+		in_flux_var->function_tree         = flux_sum;
+		in_flux_var->initial_function_tree = nullptr;
+		
+		for(auto rep_id : in_flux.second)
+			replace_in_flux(state_vars[rep_id]->function_tree, target_id, in_flux_id);
 	}
 	
 	warning_print("Put solvers begin.\n");
@@ -160,28 +232,6 @@ Mobius_Model::compose() {
 		
 		if(var->initial_function_tree)
 			register_dependencies(var->initial_function_tree, &var->initial_depends);
-		
-		//note: This should now be handled by a different system!
-		/*
-		if(var->type == Decl_Type::flux) {
-			
-			
-			if(var->loc1.type == Location_Type::located) {
-				auto loc1 = state_vars[var->loc1];
-				auto source = state_vars[loc1];
-				var->depends.on_state_var.erase(State_Var_Dependency {loc1, dep_type_none});
-				//var->depends.on_state_var.insert(State_Var_Dependency {loc1, dep_type_earlier_step});
-			}
-			
-			if(var->loc2.type == Location_Type::located) {
-				auto loc2 = state_vars[var->loc2];
-				auto target = state_vars[loc2];
-				target->depends.on_state_var.insert(State_Var_Dependency {var_id, dep_type_none});
-				var->depends.on_state_var.erase(State_Var_Dependency {loc2, dep_type_none});
-			}
-			
-		}
-		*/
 	}
 	
 	is_composed = true;
