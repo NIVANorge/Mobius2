@@ -77,7 +77,8 @@ int main() {
 	//SetConsoleOutputCP(65001);
 	
 #if USE_SIMPLE
-	Mobius_Model *model = load_model("stupidly_simple_model.txt");
+	//Mobius_Model *model = load_model("stupidly_simple_model.txt");
+	Mobius_Model *model = load_model("lv_model.txt");
 #else
 	Mobius_Model *model = load_model("test_model.txt");
 #endif

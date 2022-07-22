@@ -222,16 +222,16 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 	if(op == '|')      result = data->builder->CreateLogicalOr(lhs, rhs, "ortemp");
 	else if(op == '&') result = data->builder->CreateLogicalAnd(lhs, rhs, "andtemp");
 	else if(op == '<') {
-		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpULT(lhs, rhs, "lttemp");
+		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpSLT(lhs, rhs, "lttemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFCmpULT(lhs, rhs, "flttemp");
 	} else if(oper == Token_Type::leq) {
-		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpULE(lhs, rhs, "letemp");
+		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpSLE(lhs, rhs, "letemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFCmpULE(lhs, rhs, "fletemp");
 	} else if(op == '>') {
-		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpUGT(lhs, rhs, "gttemp");
+		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpSGT(lhs, rhs, "gttemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFCmpUGT(lhs, rhs, "fgttemp");
 	} else if(oper == Token_Type::geq) {
-		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpUGE(lhs, rhs, "uetemp");
+		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpSGE(lhs, rhs, "uetemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFCmpUGE(lhs, rhs, "fuetemp");
 	} else if(oper == Token_Type::eq) {
 		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpEQ(lhs, rhs, "eqtemp");
@@ -342,7 +342,88 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 }
 
 
-llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+llvm::Value *
+build_if_chain_ir(Math_Expr_FT **exprs, int exprs_size, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+	
+	//TODO: we should probably optimize by having only one merge block and phi node!
+	
+	if(exprs_size % 2 != 1)
+		fatal_error(Mobius_Error::internal, "Got a malformed if statement in ir generation. This should have been detected at an earlier stage!");
+	
+	if(exprs_size == 1)
+		return build_expression_ir(exprs[0], locals, args, data);
+	
+	llvm::Value *cond = build_expression_ir(exprs[1], locals, args, data);
+	llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
+	
+	llvm::BasicBlock *then_block  = llvm::BasicBlock::Create(*data->context, "then", fun);
+	llvm::BasicBlock *else_block  = llvm::BasicBlock::Create(*data->context, "else");
+	llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(*data->context, "endif");
+	
+	data->builder->CreateCondBr(cond, then_block, else_block);
+	
+	data->builder->SetInsertPoint(then_block);
+	llvm::Value *then_val = build_expression_ir(exprs[0], locals, args, data);
+	
+	data->builder->CreateBr(merge_block);
+	then_block = data->builder->GetInsertBlock();
+	
+	fun->getBasicBlockList().push_back(else_block);
+	data->builder->SetInsertPoint(else_block);
+	
+	llvm::Value *else_val = build_if_chain_ir(exprs+2, exprs_size-2, locals, args, data);
+	
+	data->builder->CreateBr(merge_block);
+	else_block = data->builder->GetInsertBlock();
+	
+	fun->getBasicBlockList().push_back(merge_block);
+	data->builder->SetInsertPoint(merge_block);
+	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
+	
+	phi->addIncoming(then_val, then_block);
+	phi->addIncoming(else_val, else_block);
+	
+	return phi;
+}
+
+llvm::Value *
+build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_local, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+	llvm::Value *start_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0));  // Iterator starts at 0
+	
+	llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
+	llvm::BasicBlock *pre_header_block = data->builder->GetInsertBlock();
+	llvm::BasicBlock *loop_block       = llvm::BasicBlock::Create(*data->context, "loop", fun);
+	
+	data->builder->CreateBr(loop_block);
+	data->builder->SetInsertPoint(loop_block);
+	
+	// Create the iterator
+	llvm::PHINode *iter = data->builder->CreatePHI(llvm::Type::getInt64Ty(*data->context), 2, "index");
+	iter->addIncoming(start_val, pre_header_block);
+	loop_local->local_vars[0] = iter;
+	
+	// Insert the loop body
+	build_expression_ir(body, loop_local, args, data);
+	
+	llvm::Value *step_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 1));  // Step is always 1
+	llvm::Value *next_iter = data->builder->CreateAdd(iter, step_val, "next_iter");
+	llvm::Value *iter_end  = build_expression_ir(n, loop_local, args, data);
+	llvm::Value *loop_cond = data->builder->CreateICmpNE(next_iter, iter_end, "loopcond");
+	
+	llvm::BasicBlock *loop_end_block = data->builder->GetInsertBlock();
+	llvm::BasicBlock *after_block = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
+	
+	data->builder->CreateCondBr(loop_cond, loop_block, after_block);
+	data->builder->SetInsertPoint(after_block);
+	
+	iter->addIncoming(next_iter, loop_end_block);
+	
+	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0));  // NOTE: This is a dummy, it should not be read by anyone.
+}
+
+
+llvm::Value *
+build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
 	if(!expr)
 		fatal_error(Mobius_Error::internal, "Got a nullptr expression in build_expression_ir().");
@@ -366,17 +447,10 @@ llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, s
 						++index;
 					}
 				}
+			} else {
+				//llvm::Value *n = build_expression_ir(expr->exprs[0], locals, args, data);
+				result = build_for_loop_ir(expr->exprs[0], expr->exprs[1], &new_locals, args, data);
 			}
-			/*   TODO!!!!
-			else {
-				s64 n = emulate_expression(expr->exprs[0], state, locals).val_integer;
-				for(s64 i = 0; i < n; ++i) {
-					new_locals.local_vars[0].val_integer = i;
-					new_locals.local_vars[0].type = Value_Type::integer;
-					result = emulate_expression(expr->exprs[1], state, &new_locals);
-				}
-			}
-			*/
 			return result;
 		} break;
 		
@@ -476,37 +550,8 @@ llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, s
 				return emulate_expression(expr->exprs.back(), state, locals);
 			}
 			*/
-			llvm::Value *cond = build_expression_ir(expr->exprs[1], locals, args, data);
-			llvm::Function *if_fun = data->builder->GetInsertBlock()->getParent();
+			return build_if_chain_ir(expr->exprs.data(), expr->exprs.size(), locals, args, data);
 			
-			llvm::BasicBlock *then_block  = llvm::BasicBlock::Create(*data->context, "then", if_fun);
-			llvm::BasicBlock *else_block  = llvm::BasicBlock::Create(*data->context, "else");
-			llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(*data->context, "endif");
-			
-			data->builder->CreateCondBr(cond, then_block, else_block);
-			
-			data->builder->SetInsertPoint(then_block);
-			llvm::Value *then_val = build_expression_ir(expr->exprs[0], locals, args, data);
-			
-			data->builder->CreateBr(merge_block);
-			then_block = data->builder->GetInsertBlock();
-			
-			if_fun->getBasicBlockList().push_back(else_block);
-			data->builder->SetInsertPoint(else_block);
-			
-			llvm::Value *else_val = build_expression_ir(expr->exprs[2], locals, args, data);
-			
-			data->builder->CreateBr(merge_block);
-			else_block = data->builder->GetInsertBlock();
-			
-			if_fun->getBasicBlockList().push_back(merge_block);
-			data->builder->SetInsertPoint(merge_block);
-			llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(expr->exprs[0]->value_type, data), 2, "iftemp");
-			
-			phi->addIncoming(then_val, then_block);
-			phi->addIncoming(else_val, else_block);
-			
-			return phi;
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {

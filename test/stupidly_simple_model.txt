@@ -6,12 +6,13 @@ model("Simple test model") {
 		habitat : compartment("Habitat")
 		
 		grp : habitat.par_group("Habitat parameters") {
-			par : par_real("My par", unit(), 3)
+			par : par_real("My par", unit(), 6)
 		}
 		
 		habitat.has(a : property("A"), unit()) {
-			1  if par < 5,
-			2  otherwise
+			1  if par > 5,
+			2  if par < 3,
+			3  otherwise
 		}
 		
 		habitat.has(b : property("B"), unit()) {

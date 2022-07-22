@@ -4,8 +4,6 @@ model("Predator-prey test model") {
 	md : module("Predator-prey", 1, 1, 0) {
 		
 		habitat : compartment("Habitat")
-		pred : quantity("Predators")
-		prey : quantity("Prey")
 		
 		grp : habitat.par_group("Habitat parameters") {
 			init_pred : par_real("Initial predators", unit(), 1)
@@ -16,9 +14,8 @@ model("Predator-prey test model") {
 			pred_birth : par_real("Predator birth rate", unit(), 0.025)
 			pred_death : par_real("Predator death rate", unit(), 0.05)
 		}
-		habitat.has(pred, unit()) .initial { init_pred }
-		habitat.has(prey, unit()) .initial { init_prey }
-		#habitat.has(prey : quantity("Prey"), unit())      .initial { init_prey }
+		habitat.has(pred : quantity("Predators"), unit()) .initial { init_pred }
+		habitat.has(prey : quantity("Prey"), unit())      .initial { init_prey }
 		
 		flux(nowhere, habitat.prey, "Prey birth") {
 			habitat.prey * prey_birth
@@ -44,4 +41,7 @@ model("Predator-prey test model") {
 	sol : solver("LV-Solver", "INCADascru", 0.1)
 	habitat.pred.solve(sol)
 	habitat.prey.solve(sol)
+	
+	hi : index_set("Habitat index")
+	habitat.distribute(hi)
 }

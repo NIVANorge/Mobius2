@@ -1,6 +1,7 @@
 
 
 #include "model_application.h"
+#include "emulate.h"
 
 #define EMULATE 0
 
@@ -77,7 +78,7 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
 		run_state.state_vars+=var_count;
 		
-		//TODO: we *could* also generate code for this for loop to avoid the ifs
+		//TODO: we *could* also generate code for this for loop to avoid the ifs (but branch prediction should work well since the branches don't change)
 		for(auto &batch : model_app->batches) {
 			if(!batch.solver_fun)
 #if EMULATE
