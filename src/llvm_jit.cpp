@@ -288,6 +288,58 @@ llvm::Value *build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to
 	fatal_error(Mobius_Error::internal, "Unimplemented cast in ir building.");
 }
 
+llvm::Type *
+get_llvm_type(Value_Type type, LLVM_Module_Data *data) {
+	if(type == Value_Type::real)    return llvm::Type::getDoubleTy(*data->context);
+	if(type == Value_Type::integer) return llvm::Type::getInt64Ty(*data->context);
+	if(type == Value_Type::boolean) return llvm::Type::getInt1Ty(*data->context);
+	fatal_error(Mobius_Error::internal, "Tried to look up llvm type of unrecognized type.");
+	return llvm::Type::getInt64Ty(*data->context);
+}
+
+llvm::Value *
+build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_Module_Data *data) {
+	llvm::Value *result = nullptr;
+	if(false) {}
+	#define MAKE_INTRINSIC1(name, intrin_name, ret_type, type1) \
+		else if(function == #name) { \
+			if(type != Value_Type::type1) \
+				fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic()."); \
+			std::vector<llvm::Type *> arg_types = { get_llvm_type(Value_Type::type1, data) }; \
+			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::intrin_name, arg_types); \
+			result = data->builder->CreateCall(fun, { a }); \
+		}
+	#define MAKE_INTRINSIC2(name, intrin_name, ret_type, type1, type2)
+	#include "intrinsics.incl"
+	#undef MAKE_INTRINSIC1
+	#undef MAKE_INTRINSIC2
+	else
+		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+	
+	return result;
+}
+
+llvm::Value *
+build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type type2, String_View function, LLVM_Module_Data *data) {
+	//TODO: use MAKE_INTRINSIC2 macro here?
+	llvm::Value *result;
+	bool ismin = function == "min";
+	if(ismin || function == "max") {
+		if(type1 != type2) fatal_error(Mobius_Error::internal, "Mismatching types in build_intrinsic_ir()."); //this should have been eliminated at a different stage.
+		
+		std::vector<llvm::Type *> arg_types = { get_llvm_type(type1, data) };
+		llvm::Function *fun = nullptr;
+		if(type1 == Value_Type::integer) {
+			fun = llvm::Intrinsic::getDeclaration(data->module.get(), ismin ? llvm::Intrinsic::smin : llvm::Intrinsic::smax, arg_types);
+		} else if(type1 == Value_Type::real) {
+			fun = llvm::Intrinsic::getDeclaration(data->module.get(), ismin ? llvm::Intrinsic::minnum : llvm::Intrinsic::maxnum, arg_types);
+		} else
+			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic().");
+		result = data->builder->CreateCall(fun, { a, b });
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+	return result;
+}
 
 
 llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
@@ -345,7 +397,6 @@ llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, s
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
 			
 			if(ident->variable_type == Variable_Type::parameter) {
-				//llvm::ArrayRef<llvm::Value*>(offset, 1)
 				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_lookup");
 				if(ident->value_type == Value_Type::integer || ident->value_type == Value_Type::boolean) {
 					result = data->builder->CreateBitCast(result, llvm::Type::getInt64Ty(*data->context));
@@ -402,21 +453,19 @@ llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, s
 		} break;
 		
 		case Math_Expr_Type::function_call : {
-			/*
 			auto fun = reinterpret_cast<Function_Call_FT *>(expr);
 			if(fun->fun_type != Function_Type::intrinsic)
-				fatal_error(Mobius_Error::internal, "Unhandled function type in emulate_expression().");
+				fatal_error(Mobius_Error::internal, "Unhandled function type in ir building.");
 			
 			if(fun->exprs.size() == 1) {
-				Typed_Value a = emulate_expression(fun->exprs[0], state, locals);
-				return apply_intrinsic(a, fun->fun_name);
+				llvm::Value *a = build_expression_ir(fun->exprs[0], locals, args, data);
+				return build_intrinsic_ir(a, fun->exprs[0]->value_type, fun->fun_name, data);
 			} else if(fun->exprs.size() == 2) {
-				Typed_Value a = emulate_expression(fun->exprs[0], state, locals);
-				Typed_Value b = emulate_expression(fun->exprs[1], state, locals);
-				return apply_intrinsic(a, b, fun->fun_name);
+				llvm::Value *a = build_expression_ir(fun->exprs[0], locals, args, data);
+				llvm::Value *b = build_expression_ir(fun->exprs[1], locals, args, data);
+				return build_intrinsic_ir(a, fun->exprs[0]->value_type, b, fun->exprs[1]->value_type, fun->fun_name, data);
 			} else
-				fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in emulate_expression().");
-			*/
+				fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in ir building.");
 		} break;
 
 		case Math_Expr_Type::if_chain : {
@@ -427,6 +476,37 @@ llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, s
 				return emulate_expression(expr->exprs.back(), state, locals);
 			}
 			*/
+			llvm::Value *cond = build_expression_ir(expr->exprs[1], locals, args, data);
+			llvm::Function *if_fun = data->builder->GetInsertBlock()->getParent();
+			
+			llvm::BasicBlock *then_block  = llvm::BasicBlock::Create(*data->context, "then", if_fun);
+			llvm::BasicBlock *else_block  = llvm::BasicBlock::Create(*data->context, "else");
+			llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(*data->context, "endif");
+			
+			data->builder->CreateCondBr(cond, then_block, else_block);
+			
+			data->builder->SetInsertPoint(then_block);
+			llvm::Value *then_val = build_expression_ir(expr->exprs[0], locals, args, data);
+			
+			data->builder->CreateBr(merge_block);
+			then_block = data->builder->GetInsertBlock();
+			
+			if_fun->getBasicBlockList().push_back(else_block);
+			data->builder->SetInsertPoint(else_block);
+			
+			llvm::Value *else_val = build_expression_ir(expr->exprs[2], locals, args, data);
+			
+			data->builder->CreateBr(merge_block);
+			else_block = data->builder->GetInsertBlock();
+			
+			if_fun->getBasicBlockList().push_back(merge_block);
+			data->builder->SetInsertPoint(merge_block);
+			llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(expr->exprs[0]->value_type, data), 2, "iftemp");
+			
+			phi->addIncoming(then_val, then_block);
+			phi->addIncoming(else_val, else_block);
+			
+			return phi;
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {
