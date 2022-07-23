@@ -186,6 +186,38 @@ Mobius_Model::compose() {
 			var->initial_function_tree = nullptr;
 	}
 	
+	warning_print("Generate state vars for aggregate fluxes.\n");
+	
+	// note: at this stage we always generate an aggregate if the source compartment has more indexes than the target compartment.
+	//    We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer.
+	
+	/* TODO: have to finish the code generation for it before we enable it.
+	s32 var_count = (s32)state_vars.count();
+	for(s32 id = 0; id < var_count; ++id) {
+		Var_Id var_id = { id };
+		auto var = state_vars[var_id];
+		if(var->type != Decl_Type::flux) continue;
+		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
+		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
+		auto target = find_entity<Reg_Type::compartment>(var->loc2.compartment);
+		std::vector<Entity_Id> must_sum_over;
+		for(auto index_set : source->index_sets)
+			if(std::find(target->index_sets.begin(), target->index_sets.end(), index_set) == target->index_sets->end())
+				must_sum_over.push_back(index_set);
+		if(must_sum_over.empty()) continue;
+		
+		var->flags = (State_Variable::Flags)(var->flags | State_Variable::f_has_aggregate);
+		
+		// note: can't reference var below this (without looking it up again). The vector it resides in may have reallocated.
+		Var_Id agg_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, "aggregate"); //TODO: generate a better name!
+		
+		auto agg_var = state_vars[agg_id];
+		agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
+		agg_var->agg = var_id;
+		state_vars[var_id]->agg = agg_id;
+	}
+	*/
+	
 	warning_print("Generate state vars for in_fluxes.\n");
 	for(auto &in_flux : in_flux_map) {
 		Var_Id target_id = {in_flux.first};
@@ -202,6 +234,7 @@ Mobius_Model::compose() {
 		}
 		in_flux_var->function_tree         = flux_sum;
 		in_flux_var->initial_function_tree = nullptr;
+		in_flux_var->flags = (State_Var::Flags)(in_flux_var->flags | State_Var::f_in_flux);
 		
 		for(auto rep_id : in_flux.second)
 			replace_in_flux(state_vars[rep_id]->function_tree, target_id, in_flux_id);

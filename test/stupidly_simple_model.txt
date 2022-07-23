@@ -12,7 +12,7 @@ model("Simple test model") {
 		}
 		
 		habitat.has(a : property("A"), unit()) {
-			par^sqrt(4)
+			2
 		} .initial {
 			3
 		}

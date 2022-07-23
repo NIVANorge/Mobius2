@@ -104,6 +104,11 @@ Value_Location {
 	Entity_Id property_or_quantity;
 };
 
+inline bool
+is_located(Value_Location loc) {
+	return loc.type == Location_Type::located;
+}
+
 constexpr Value_Location invalid_value_location = {Location_Type::nowhere, invalid_entity_id, invalid_entity_id};
 
 inline bool

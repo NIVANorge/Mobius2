@@ -5,6 +5,7 @@
 #include <string>
 
 //TODO: this should eventually get data from the par file that is stored in the model app instead!
+// Note, is only meant as a helper function in set_up_parameter_structure(), don't use it elsewhere, look up the parameter structure instead.
 void
 get_parameter_index_sets(Mobius_Model *model, Entity_Id par_id, std::set<Entity_Id> *index_sets) {
 	auto group = model->find_entity<Reg_Type::parameter>(par_id)->par_group;
@@ -68,7 +69,7 @@ Model_Application::set_up_series_structure() {
 	std::vector<Var_Id> handles;
 		for(auto id : model->series) handles.push_back(id);
 	
-	Multi_Array_Structure<Var_Id> array({}, std::move(handles));
+	Multi_Array_Structure<Var_Id> array({}, std::move(handles)); // TODO: index sets when we implement those.
 	structure.push_back(std::move(array));
 	
 	series_data.set_up(std::move(structure));
@@ -118,18 +119,18 @@ Model_Instruction {
 };
 
 struct
-Pre_Batch_Array {
+Batch_Array {
 	std::vector<int>         instr_ids;
 	std::set<Entity_Id>      index_sets;
 };
 
-struct Pre_Batch {
+struct Batch {
 	Entity_Id solver;
 	std::vector<int> instrs;
-	std::vector<Pre_Batch_Array> arrays;
-	std::vector<Pre_Batch_Array> arrays_ode;
+	std::vector<Batch_Array> arrays;
+	std::vector<Batch_Array> arrays_ode;
 	
-	Pre_Batch() : solver(invalid_entity_id) {}
+	Batch() : solver(invalid_entity_id) {}
 };
 
 
@@ -234,7 +235,7 @@ add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id va
 }
 
 Math_Expr_FT *
-create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, Pre_Batch_Array &array, std::vector<Math_Expr_FT *> &indexes) {
+create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, Batch_Array &array, std::vector<Math_Expr_FT *> &indexes) {
 	for(auto &index_set : model_app->model->modules[0]->index_sets)
 		indexes[index_set.id] = nullptr;    //note: just so that it is easy to catch if we somehow use an index we shouldn't
 		
@@ -259,7 +260,7 @@ create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, 
 
 
 Math_Expr_FT *
-generate_run_code(Model_Application *model_app, Pre_Batch *batch, std::vector<Model_Instruction> &instructions, bool initial) {
+generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_Instruction> &instructions, bool initial) {
 	auto model = model_app->model;
 	auto top_scope = new Math_Block_FT();
 	
@@ -345,6 +346,7 @@ generate_run_code(Model_Application *model_app, Pre_Batch *batch, std::vector<Mo
 					fun = make_binop('-', fun, flux_code);
 				}
 				// TODO: again we need to insert aggregation if necessary.
+				// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
 				if(flux->loc2.type == Location_Type::located && model->state_vars[flux->loc2] == instr->var_id) {
 					auto flux_code = make_state_var_identifier(flux_id);
 					fun = make_binop('+', fun, flux_code);
@@ -373,7 +375,8 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	
 	for(auto var_id : model->state_vars) {
 		for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
-			get_parameter_index_sets(model, par_id, &instructions[var_id.id].index_sets);
+			auto index_sets = model_app->parameter_data.get_index_sets(par_id);
+			instructions[var_id.id].index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
 		}
 		
 		//TODO: also for input time series when we implement indexing of those. 
@@ -403,7 +406,7 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 }
 
 void
-build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Pre_Batch_Array> &batch_out, bool initial) {
+build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &batch_out, bool initial) {
 	Mobius_Model *model = model_app->model;
 	
 	batch_out.clear();
@@ -436,7 +439,7 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 		if(earliest_possible_batch != batch_out.size()) {
 			batch_out[earliest_possible_batch].instr_ids.push_back(instr_id);
 		} else {
-			Pre_Batch_Array pre_batch;
+			Batch_Array pre_batch;
 			pre_batch.index_sets = instr->index_sets;
 			pre_batch.instr_ids.push_back(instr_id);
 			if(earliest_suitable_pos == batch_out.size())
@@ -602,7 +605,7 @@ bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std:
 	return found;
 }
 
-void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
+void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
 	// create one batch per solver
 	// if a quantity has a solver, it goes in that batch.
 	// a flux goes in the batch of its source always, (same with the subtraction of that flux).
@@ -688,7 +691,7 @@ void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, st
 		if(first_suitable_batch != batches_out.size()) {
 			batches_out[first_suitable_batch].instrs.push_back(instr_id);
 		} else {
-			Pre_Batch batch;
+			Batch batch;
 			batch.instrs.push_back(instr_id);
 			batch.solver = instr->solver;
 			if(first_suitable_location == batches_out.size())
@@ -704,7 +707,7 @@ void create_batches(Mobius_Model *model, std::vector<Pre_Batch> &batches_out, st
 
 
 void
-add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Pre_Batch_Array &array, std::vector<Model_Instruction> &instructions) {
+add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Batch_Array &array, std::vector<Model_Instruction> &instructions) {
 	std::vector<Entity_Id> index_sets(array.index_sets.begin(), array.index_sets.end()); // TODO: eventually has to be more sophisticated if we have multiple-dependencies on the same index set.
 	std::vector<Var_Id>    handles;
 	for(int instr_id : array.instr_ids) {
@@ -717,7 +720,7 @@ add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Pre_Batch_Array
 }
 
 void
-set_up_result_structure(Model_Application *model_app, std::vector<Pre_Batch> &batches, std::vector<Model_Instruction> &instructions) {
+set_up_result_structure(Model_Application *model_app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
 	if(model_app->result_data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up result structure twice.");
 	if(!model_app->all_indexes_are_set())
@@ -766,10 +769,10 @@ Model_Application::compile() {
 	for(auto var_id : model->state_vars)
 		initial_instructions[var_id.id].index_sets = instructions[var_id.id].index_sets;
 	
-	std::vector<Pre_Batch> batches;
+	std::vector<Batch> batches;
 	create_batches(model, batches, instructions);
 	
-	Pre_Batch initial_batch;
+	Batch initial_batch;
 	initial_batch.solver = invalid_entity_id;
 	
 	warning_print("Sort initial.\n");

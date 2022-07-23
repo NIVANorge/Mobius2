@@ -158,6 +158,8 @@ struct Structured_Storage {
 	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes);
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes);
 	
+	const std::vector<Entity_Id> & get_index_sets(Handle_T handle);
+	
 	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes);
 	
 	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr) {}
@@ -246,6 +248,12 @@ Structured_Storage<double, Var_Id>::get_handle_name(Var_Id var_id) {
 	if(initial_step == 0)
 		return parent->model->series[var_id]->name;
 	return parent->model->state_vars[var_id]->name;
+}
+
+template<typename Val_T, typename Handle_T> const std::vector<Entity_Id> &
+Structured_Storage<Val_T, Handle_T>::get_index_sets(Handle_T handle) {
+	auto array_idx = handle_is_in_array[handle];
+	return structure[array_idx].index_sets;
 }
 
 template<typename Val_T, typename Handle_T> s64

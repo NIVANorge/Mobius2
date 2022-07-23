@@ -32,7 +32,14 @@ Dependency_Set {
 struct
 State_Variable {
 	Decl_Type type; //either flux, quantity or property
-
+	
+	enum Flags {
+		f_none            = 0x0, 
+		f_in_flux         = 0x1, 
+		f_is_aggregate    = 0x2, 
+		f_has_aggregate   = 0x4,
+	} flags;
+	
 	String_View name;
 
 	Entity_Id entity_id;  // This is the ID of the declaration, either has(...) or flux(...)
@@ -44,13 +51,15 @@ State_Variable {
 	Value_Location loc1;
 	Value_Location loc2;
 	
+	Var_Id         agg;    // if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
+	
 	Dependency_Set depends;
 	Dependency_Set initial_depends;
 	
 	Math_Expr_FT *function_tree;
 	Math_Expr_FT *initial_function_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), solver(invalid_entity_id) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), solver(invalid_entity_id), flags(f_none), agg(invalid_var) {};
 };
 
 struct Var_Registry {
