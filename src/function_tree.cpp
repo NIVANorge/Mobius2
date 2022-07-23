@@ -28,7 +28,6 @@ Math_Expr_FT *
 make_literal(s64 val_integer) {
 	auto literal = new Literal_FT();
 	literal->value_type = Value_Type::integer;
-	literal->location = {}; //Hmm, we should actually make it possible to provide more location info on these generated nodes.
 	literal->value.val_integer = val_integer;
 	return literal;
 }
@@ -37,7 +36,6 @@ Math_Expr_FT *
 make_literal(double val_real) {
 	auto literal = new Literal_FT();
 	literal->value_type = Value_Type::real;
-	literal->location = {}; //Hmm, we should actually make it possible to provide more location info on these generated nodes.
 	literal->value.val_real = val_real;
 	return literal;
 }
@@ -59,6 +57,28 @@ make_local_var_reference(s32 index, s32 scope_id, Value_Type value_type) {
 	ident->local_var.index = index;
 	ident->local_var.scope_id = scope_id;
 	return ident;
+}
+
+Math_Expr_FT *
+add_local_var(Math_Block_FT *scope, Math_Expr_FT *val) {
+	// NOTE: this should only be called on a block that is under construction.
+	auto local = new Local_Var_FT();
+	local->exprs.push_back(val);
+	local->value_type = val->value_type;
+	s32 index = scope->n_locals;
+	scope->exprs.push_back(local);
+	++scope->n_locals;
+	return make_local_var_reference(index, scope->unique_block_id, val->value_type);
+}
+
+Math_Expr_FT *
+make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg) {
+	auto fun = new Function_Call_FT();
+	fun->value_type = value_type;
+	fun->fun_name   = name;
+	fun->fun_type   = Function_Type::intrinsic;
+	fun->exprs.push_back(arg);
+	return fun;
 }
 
 Math_Expr_FT *
@@ -526,6 +546,58 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 }
 
 Math_Expr_FT *
+maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, s64 p) {
+	
+	// Note: case p == 0 is handled in another call. Also for p == 1, but we also use this for powers 1.5 etc. see below
+	Math_Expr_FT *result = binary;
+	if(p == 1)
+		result = lhs;
+	else if(p == -1)
+		result = make_binop('/', make_literal(1.0), lhs);
+	else if(p >= -2 && p <=3) {
+		auto scope = new Math_Block_FT();
+		result = scope;
+		result->value_type = Value_Type::real;
+		
+		auto ref = add_local_var(scope, lhs);
+	
+		if(p == 2)
+			result->exprs.push_back(make_binop('*', ref, ref));
+		else if(p == 3)
+			result->exprs.push_back(make_binop('*', make_binop('*', ref, ref), ref));
+		else if(p == -2)
+			result->exprs.push_back(make_binop('/', make_literal(1.0), make_binop('*', ref, ref)));
+	}
+	return result;
+}
+
+Math_Expr_FT *
+maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
+	Math_Expr_FT *result = binary;
+	if(rhs->value_type == Value_Type::real) {
+		double val = rhs->value.val_real;
+		if(val == 0.5) {
+			result = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
+		} else if ( (val - 0.5) == (double)(s64)(val - 0.5) ) {
+			auto rt = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
+			result = maybe_optimize_pow(binary, rt, (s64)(val - 0.5));
+			if(result == binary) delete rt;   // ugh, this is a weird way to do it.
+		} else if(val == (double)(s64)val)
+			result = maybe_optimize_pow(binary, lhs, (s64)val);
+	} else if (rhs->value_type == Value_Type::integer)
+		result = maybe_optimize_pow(binary, lhs, rhs->value.val_integer);
+	
+	if(result != binary) {
+		result->location = binary->location;
+		binary->exprs.clear(); // to not invoke recursive destructor on lhs.
+		delete rhs;
+		delete binary;
+	}
+	
+	return result;
+}
+
+Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 	
 	if(expr->expr_type == Math_Expr_Type::block) {
@@ -590,6 +662,7 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
+			// TODO: we could do more, like determine if the two branches are going to evaluate to the same (or opposite) value, and then use that in case of minus etc.
 			Literal_FT *lhs = nullptr;
 			Literal_FT *rhs = nullptr;
 			auto binary = reinterpret_cast<Operator_FT *>(expr);
@@ -633,11 +706,11 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 					delete expr;
 					return literal;
 				}
-			}
+			} else if((char)binary->oper == '^' && rhs)
+				return maybe_optimize_pow(binary, expr->exprs[0], rhs);
 		} break;
 	
 		case Math_Expr_Type::if_chain : {
-			
 			std::vector<Math_Expr_FT *> remains;
 			bool found_true = false;
 			for(int idx = 0; idx < (int)expr->exprs.size()-1; idx+=2) {

@@ -183,7 +183,13 @@ Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var);
 
 Math_Expr_FT *
+add_local_var(Math_Block_FT *scope, Math_Expr_FT *val);
+
+Math_Expr_FT *
 make_local_var_reference(s32 index, s32 scope_id, Value_Type value_type);
+
+Math_Expr_FT *
+make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg);
 
 Math_Expr_FT *
 make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2);

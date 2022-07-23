@@ -12,15 +12,15 @@ model("Simple test model") {
 		}
 		
 		habitat.has(a : property("A"), unit()) {
-			par2 / 2.
+			par^-1.0
 		} .initial {
 			3
 		}
 		
-		habitat.has(b : property("B"), unit()) {
-			habitat.a - 5.0
-		}
+		#habitat.has(b : property("B"), unit()) {
+		#	habitat.a - 5.0
+		#}
 		
-		habitat.has(c : quantity("C"), unit()) .initial { habitat.a }
+		#habitat.has(c : quantity("C"), unit()) .initial { habitat.a }
 	}
 }

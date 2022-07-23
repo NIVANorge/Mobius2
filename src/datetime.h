@@ -108,8 +108,7 @@ public:
 	}
 	
 	inline void
-	year_month_day(s32 *year_out, s32 *month_out, s32 *day_out) const
-	{
+	year_month_day(s32 *year_out, s32 *month_out, s32 *day_out) const {
 		//Computes the year, month and day (of month) for a seconds since epoch timestamp.
 		s32 day;
 		day_of_year(&day, year_out);
@@ -124,7 +123,7 @@ public:
 	}
 	
 	inline s64
-	second_of_day() const 	{
+	second_of_day() const {
 		if(seconds_since_epoch >= 0)
 			return seconds_since_epoch % 86400;
 		else
@@ -140,8 +139,7 @@ public:
 		static char buf[64];
 		if(seconds_since_epoch % 86400 == 0)
 			sprintf(buf, "%04d-%02d-%02d", year, month, day);
-		else
-		{
+		else {
 			s64 sod = second_of_day();
 			s32 hour = (sod / 3600);
 			s32 minute = (sod / 60) % 60;
@@ -176,238 +174,124 @@ public:
 };
 
 
-/*
 enum class
-Timestep_Unit {
-	Second = 0,
-	Month  = 1,
-	//Year,    //TODO: Should probably have this as an optimization!
+Time_Step_Unit {
+	second = 0,
+	month  = 1,
+	//year   = 2,   // could have some optimizations in the code below if we know the step size is in whole years
 };
 
-struct Timestep_Size {
-	Timestep_Unit unit;
-	s32           magnitude;
+struct Time_Step_Size {
+	Time_Step_Unit unit;
+	s32            magnitude;
 };
 
-
-Timestep_Size
-parse_timestep_size(const char *format)
-{
-	//TODO: Has to parse a string view instead.
+struct Expanded_Date_Time {
+	// Note: it is beneficial if these struct members are nicely packed.
+	s32       year;
+	s32       month;
+	s32       day_of_year;
+	s32       day_of_month;
+	s64       second_of_day;
 	
-	// Format is "XY", where X is a number and Y is one of "s", "m", "h", "D", "M", "Y".
-	Timestep_Size result;
-	char type;
-	int found = sscanf(format, "%d%c", &result.magnitude, &type);
-	if(found != 2 || result.magnitude <= 0)
-		fatal_error(Mobius_Error::model_building, "The size of the timestep must be declared on the format \"nx\", where n is a positive whole number, and x is one of 's', 'm', 'h', 'D', 'M', or 'Y'.");
-	if(type == 's')
-		result.unit = Timestep_Unit::second;
-	else if(Type == 'm') {
-		result.unit = Timestep_Unit::second;
-		result.magnitude *= 60;
-	}
-	else if(Type == 'h') {
-		result.unit = Timestep_Unit::second;
-		result.magnitude *= 3600;
-	}
-	else if(Type == 'D') {
-		result.unit = Timestep_Unit::second;
-		result.magnitude *= 86400;
-	}
-	else if(Type == 'M')
-		result.unit = Timestep_Unit::month;
-	else if(Type == 'Y') {
-		result.unit = Timestep_Unit::month;
-		result.magnitude *= 12;
-	}
-	else
-		fatal_error(Mobius_Error::model_building, "The size of the timestep must be declared on the format \"nx\", where n is a positive whole number, and x is one of 's', 'm', 'h', 'D', 'M', or 'Y'.");
+	s32       days_this_year;
+	s32       days_this_month;
 	
-	return result;
-}
-
-String_View
-timestep_size_as_unit_name(const char *format, linear_memory *memory)
-{
-	//NOTE: This one doesn't do error checking, instead we assume that Format has already been passed to ParseTimestepSize once
-	char type;
-	s32  magnitude;
-	int Found = sscanf(format, "%d%c", &magnitude, &type);
-
-	const char *Name;
-	if(Type == 's')
-		Name = "seconds";
-	else if(Type == 'm')
-		Name = "minutes";
-	else if(Type == 'h')
-		Name = "hours";
-	else if(Type == 'D')
-		Name = "days";
-	else if(Type == 'M')
-		Name = "months";
-	else if(Type == 'Y')
-		Name = "years";
+	s64       step_length_in_seconds;
 	
-	if(Magnitude != 1)
-	{
-		char Buffer[256];
-		sprintf(Buffer, "%d %s", Magnitude, Name);
-		Name = Buffer;
-	}
+	Date_Time date_time;
+	Time_Step_Size time_step;
 	
-	token_string StrName(Name);
-	return StrName.Copy(Alloc);
-}
-
-struct expanded_datetime
-{
-	datetime DateTime;
-	s32      Year;
-	s32      Month;
-	s32      DayOfYear;
-	s32      DayOfMonth;
-	s64      SecondOfDay;
 	
-	s32      DaysThisYear;
-	s32      DaysThisMonth;
-	
-	timestep_size Timestep;
-	s64      StepLengthInSeconds;
-	
-	expanded_datetime(datetime Base, timestep_size Timestep)
-	{
-		this->DateTime = Base;
-		this->Timestep = Timestep;
-		
+	Expanded_Date_Time(Date_Time base, Time_Step_Size time_step) : date_time(base), time_step(time_step) {
 		//NOTE: This does double work, but it should not matter that much.
-		DateTime.YearMonthDay(&Year, &Month, &DayOfMonth);
-		DateTime.DayOfYear(&DayOfYear, &Year);
+		date_time.year_month_day(&year, &month, &day_of_month);
+		date_time.day_of_year(&day_of_year, &year);
 		
-		DaysThisYear = YearLength(Year);
-		DaysThisMonth = MonthLength(Year, Month);
+		days_this_year  = year_length(year);
+		days_this_month = month_length(year, month);
 		
-		SecondOfDay = DateTime.SecondOfDay();
+		second_of_day = date_time.second_of_day();
 		
-		ComputeNextStepSize();
+		compute_next_step_size();
 	}
 	
-	expanded_datetime()
-	{
-		Year = 1970;
-		Month = 1;
-		DayOfYear = 1;
-		DayOfMonth = 1;
-		DaysThisYear = 365;
-		DaysThisMonth = 30;
-		StepLengthInSeconds = 86400;
-		Timestep.Unit = Timestep_Second;
-		Timestep.Magnitude = 86400;
-		SecondOfDay = 0;
-	}
+	Expanded_Date_Time() : Expanded_Date_Time(Date_Time(), {Time_Step_Unit::second, 86400}) {}
 	
 	void
-	Advance()
-	{
-		if(Timestep.Unit == Timestep_Second)
-		{
-			DateTime.SecondsSinceEpoch += StepLengthInSeconds;
-			SecondOfDay                += StepLengthInSeconds;
+	advance() {
+		date_time.seconds_since_epoch += step_length_in_seconds;
+		if(time_step.unit == Time_Step_Unit::second) {
+			second_of_day                 += step_length_in_seconds;
 			
-			s32 Days = SecondOfDay / 86400;
-			SecondOfDay -= 86400*Days;
-			DayOfYear   += Days;
-			DayOfMonth  += Days;
-		}
-		else
-		{
-			assert(Timestep.Unit == Timestep_Month);
-			
-			DateTime.SecondsSinceEpoch += StepLengthInSeconds;
-			DayOfMonth                 += StepLengthInSeconds / 86400;
-		}
+			s32 days       = second_of_day / 86400;
+			second_of_day -= 86400*days;
+			day_of_year   += days;
+			day_of_month  += days;
+		} else
+			day_of_month  += step_length_in_seconds / 86400;
 		
-		while(DayOfMonth > DaysThisMonth)
-		{
-			DayOfMonth -= DaysThisMonth;
-			Month++;
+		while(day_of_month > days_this_month) {
+			day_of_month -= days_this_month;
+			++month;
 			
-			if(Month > 12)
-			{
-				
-				DayOfYear -= DaysThisYear;
-				Year++;
-				DaysThisYear = YearLength(Year);
-				Month = 1;
+			if(month > 12) {
+				day_of_year -= days_this_year;
+				++year;
+				days_this_year = year_length(year);
+				month = 1;
 			}
 			
-			DaysThisMonth = MonthLength(Year, Month);
+			days_this_month = month_length(year, month);
 		}
 		
-		if(Timestep.Unit == Timestep_Month)
-			ComputeNextStepSize();
+		if(time_step.unit == Time_Step_Unit::month)
+			compute_next_step_size();
 	}
 	
 	void
-	ComputeNextStepSize()
-	{
-		if(Timestep.Unit == Timestep_Second)
-			StepLengthInSeconds = Timestep.Magnitude;
-		else
-		{
-			assert(Timestep.Unit == Timestep_Month);
-			
-			StepLengthInSeconds = 0;
-			s32 Y = Year;
-			s32 M = Month;
-			for(s32 MM = 0; MM < Timestep.Magnitude; ++MM)
-			{
-				StepLengthInSeconds += 86400*MonthLength(Y, M);
-				M++;
-				if(M > 12) {M = 1; Y++; } 
+	compute_next_step_size() {
+		if(time_step.unit == Time_Step_Unit::second)
+			step_length_in_seconds = time_step.magnitude;
+		else {
+			step_length_in_seconds = 0;
+			s32 y = year;
+			s32 m = month;
+			for(s32 mm = 0; mm < time_step.magnitude; ++mm) {
+				step_length_in_seconds += 86400*month_length(y, m);
+				++m;
+				if(m > 12) {m = 1; ++y; } 
 			}
 		}
 	}
 	
 };
 
-std::ostream& operator<<(std::ostream& Os, const expanded_datetime &Dt)
-{
-	Os << Dt.DateTime.ToString();
-	return Os;
-}
-
-
-static s64
-DivideDown(s64 a, s64 b)
-{
+inline s64
+divide_down(s64 a, s64 b) {
     s64 r = a/b;
     if(r < 0 && r*b != a)
         return r - 1;
     return r;
 }
 
-static s64
-FindTimestep(datetime Start, datetime Current, timestep_size Timestep)
-{
-	s64 Diff;
-	if(Timestep.Unit == Timestep_Second)
-		Diff = Current.SecondsSinceEpoch - Start.SecondsSinceEpoch;
-	else
-	{
-		assert(Timestep.Unit == Timestep_Month);
-		
-		s32 SY, SM, SD, CY, CM, CD;
+inline s64
+steps_between(Date_Time from, Date_Time to, Time_Step_Size time_step) {
+	s64 diff;
+	if(time_step.unit == Time_Step_Unit::second)
+		diff = to.seconds_since_epoch - from.seconds_since_epoch;
+	else {
+		s32 fy, fm, fd, ty, tm, td;
 		
 		//TODO: This could probably be optimized
-		Start.YearMonthDay(&SY, &SM, &SD);
-		Current.YearMonthDay(&CY, &CM, &CD);
+		from.year_month_day(&fy, &fm, &fd);
+		to.year_month_day(&ty, &tm, &td);
 
-		Diff = (CM - SM + 12*(CY-SY));
+		diff = (tm - fm + 12*(ty - fy));
 	}
 	
-	return DivideDown(Diff, (s64)Timestep.Magnitude);
+	return divide_down(diff, (s64)time_step.magnitude);
 }
-*/
+
 
 #endif // DATETIME_H
