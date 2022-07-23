@@ -147,11 +147,18 @@ Entity_Registration : Entity_Registration_Base {
 	//TODO: delete constructor or something like that
 };
 
+struct
+Aggregation_Data {
+	Entity_Id to_compartment;
+	Math_Block_AST *code;
+};
+
 template<> struct
 Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 	Entity_Id global_id;
 	
 	std::vector<Entity_Id> index_sets; //NOTE: will only be set on the global module. TODO: more info about distribution?
+	std::vector<Aggregation_Data> aggregations; //NOTE: will only be set on the global module.
 };
 
 template<> struct

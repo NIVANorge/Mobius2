@@ -16,12 +16,12 @@ Oversimplified soil water module inc.
 	}
 		
 	gw.  par_group("Groundwater") {
-		tc_g : par_real("Groundwater time constant", unit(day -1), 60)
+		tc_g    : par_real("Groundwater time constant", unit(day -1), 60)
+		#a_catch : par_real("Catchment area", unit(k m 2), 1)                 # Here for now until we make river.
 	}
 	
 	water : quantity("Water")
 	
-	#over.has(water, unit(m m), "Overland water") .initial { 0 }    #TODO: should not have to do this. Should be able to just look at "in_flux" to soil instead.
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
 	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 }
 	

@@ -10,6 +10,7 @@ get_parameter_index_sets(Mobius_Model *model, Entity_Id par_id, std::set<Entity_
 	auto group = model->find_entity<Reg_Type::parameter>(par_id)->par_group;
 	auto comp_local = model->find_entity<Reg_Type::par_group>(group)->compartment;
 	auto comp_id = model->find_entity<Reg_Type::compartment>(comp_local)->global_id;
+	if(!is_valid(comp_id)) comp_id = comp_local;   // In this case we were in the global scope already.
 	auto compartment = model->modules[0]->compartments[comp_id];
 	index_sets->insert(compartment->index_sets.begin(), compartment->index_sets.end());
 }
@@ -25,7 +26,7 @@ Model_Application::set_up_parameter_structure() {
 	
 	std::map<std::vector<Entity_Id>, std::vector<Entity_Id>> par_by_index_sets;
 	
-	//TODO: has to be rewritten!!
+	//TODO: has to be rewritten!! Does not account for possibly multiple deps on same index set.
 	for(auto module : model->modules) {
 		for(auto par : module->parameters) {
 			std::set<Entity_Id> index_sets;
@@ -212,6 +213,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 Math_Expr_FT *
 add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id var_id_flux, Var_Id var_id_sub, std::vector<Math_Expr_FT *> *indexes) {
 	
+	//TODO: add aggregation_weight if there is one.
+	
 	auto offset_code     = model_app->result_data.get_offset_code(var_id_flux, indexes);
 	auto offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
 	
@@ -332,7 +335,7 @@ generate_run_code(Model_Application *model_app, Pre_Batch *batch, std::vector<Mo
 				fatal_error(Mobius_Error::internal, "Somehow we got an instruction that is not a state var computation inside an ODE batch.\n");
 			
 			// NOTE this computation is the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
-			// TODO: again we need to insert aggregation if necessary.
+			
 			auto fun = make_literal((double)0.0);
 			for(Var_Id flux_id : model->state_vars) {
 				auto flux = model->state_vars[flux_id];
@@ -341,6 +344,7 @@ generate_run_code(Model_Application *model_app, Pre_Batch *batch, std::vector<Mo
 					auto flux_code = make_state_var_identifier(flux_id);
 					fun = make_binop('-', fun, flux_code);
 				}
+				// TODO: again we need to insert aggregation if necessary.
 				if(flux->loc2.type == Location_Type::located && model->state_vars[flux->loc2] == instr->var_id) {
 					auto flux_code = make_state_var_identifier(flux_id);
 					fun = make_binop('+', fun, flux_code);
@@ -556,9 +560,6 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 					
 					add_target_instr.source_or_target_id = target_id;
 					target->depends_on_instruction.insert(add_idx);
-					
-					//NOTE: the flux does inherit index sets from the target. However,
-					//TODO: if the flux index sets are not a subset of the target index sets, we need to have been given an aggregation in the model. (there could also be an aggregation any way). Otherwise we have to throw an error (but only after the index sets are resolved later (?) )
 					
 					instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 				}

@@ -590,18 +590,49 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
-			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal && expr->exprs[1]->expr_type == Math_Expr_Type::literal) {
-				auto lhs  = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
-				auto rhs = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
-				auto binary = reinterpret_cast<Operator_FT *>(expr);
-				//warning_print("apply_binary() lhs ", name(lhs->value_type), " rhs ", name(rhs->value_type), "\n");
-				Parameter_Value val = apply_binary({lhs->value, lhs->value_type}, {rhs->value, rhs->value_type}, binary->oper);
-				auto literal = new Literal_FT();
-				literal->value = val;
-				literal->value_type = expr->value_type;
-				literal->location = expr->location;
-				delete expr;
-				return literal;
+			Literal_FT *lhs = nullptr;
+			Literal_FT *rhs = nullptr;
+			auto binary = reinterpret_cast<Operator_FT *>(expr);
+			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal)
+				lhs = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+			if(expr->exprs[1]->expr_type == Math_Expr_Type::literal)
+				rhs = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
+			
+			Typed_Value result;
+			result.type = Value_Type::unresolved;
+			if(lhs && rhs) {
+				// If both arguments are literals, just apply the operator directly.
+				result = apply_binary({lhs->value, lhs->value_type}, {rhs->value, rhs->value_type}, binary->oper);
+			} else {
+				// If one argument is a literal, we can still in some cases determine the result in advance.
+				if(lhs)
+					result = check_binop_reduction(binary->location, binary->oper, lhs->value, lhs->value_type, true);
+				else if(rhs)
+					result = check_binop_reduction(binary->location, binary->oper, rhs->value, rhs->value_type, false);
+			}
+			
+			if(result.type != Value_Type::unresolved) {
+				if(result.type == Value_Type::none) { // note: this is used by the check_binop_reduction procedure to signal to keep the other operand rather than replace it with a literal
+					//return expr;  // nocheckin
+					Math_Expr_FT *res;
+					if(lhs) {
+						delete expr->exprs[0];
+						res =  expr->exprs[1];
+					} else {
+						delete expr->exprs[1];
+						res =  expr->exprs[0];
+					}
+					expr->exprs.clear(); // to not invoke recursive destructor
+					delete expr;
+					return res;
+				} else {
+					auto literal = new Literal_FT();
+					literal->value = result;
+					literal->value_type = expr->value_type;
+					literal->location = expr->location;
+					delete expr;
+					return literal;
+				}
 			}
 		} break;
 	
@@ -724,6 +755,8 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 
 template<typename Expr_Type> Math_Expr_FT *
 copy_one(Math_Expr_FT *source) {
+	if(!source)
+		fatal_error(Mobius_Error::internal, "Somehow we got a nullptr node in a function tree in copy().");
 	auto source_full = reinterpret_cast<Expr_Type *>(source);
 	auto result = new Expr_Type();
 	*result = *source_full;

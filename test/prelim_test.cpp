@@ -71,52 +71,57 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	fclose(file);
 }
 
-#define USE_MODEL 1
 
-int main() {
+
+int main(int argc, char** argv) {
 	//SetConsoleOutputCP(65001);
 	
-#if USE_MODEL == 0
-	Mobius_Model *model = load_model("stupidly_simple_model.txt");
-#elif USE_MODEL == 1
-	Mobius_Model *model = load_model("test_model.txt");
-#else
-	Mobius_Model *model = load_model("lv_model.txt");
-#endif
+	s64 time_steps = 100;
+	String_View model_file = "stupidly_simple_model.txt";
+	std::vector<String_View> indexes;
+	
+	if(argc >= 2)
+		time_steps = (s64)atoi(argv[1]);
+	if(argc >= 3)
+		model_file = argv[2];
+	if(argc >= 4) {
+		String_View idxs = "bcdefghijklmnopqrstuvwxyz";
+		int nidx = atoi(argv[3]);
+		for(int idx = 0; idx < nidx; ++idx)
+			indexes.push_back(idxs.substring(idx, 1));
+	}
+	
+	Mobius_Model *model = load_model(model_file);
 	model->compose();
 	
 	std::cout << "Composition done.\n";
 	
-	s64 time_steps = 100;
-	
 	Model_Application app(model);
-	
-	//std::vector<String_View> indexes = {"a", "b", "c", "d"};
-	std::vector<String_View> indexes = {"a", "b"};
+
 	for(auto index_set : model->modules[0]->index_sets)
 		app.set_indexes(index_set, Array<String_View>{indexes.data(), indexes.size()});
-	
+
 	app.set_up_parameter_structure();
 	app.set_up_series_structure();
 
-#if USE_MODEL == 1
-	//haaaack!
-	Entity_Id par_id = model->modules[2]->find_handle("fc");
-	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
-	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-	app.parameter_data.data[offset].val_real = 50.0;
-#elif USE_MODEL == 2
-	Entity_Id par_id = model->modules[1]->find_handle("init_prey");
-	std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("hi"), 1}};
-	auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-	app.parameter_data.data[offset].val_real = 2.0;
-#endif
+	if(model_file == "test_model.txt") {
+		//haaaack!
+		Entity_Id par_id = model->modules[2]->find_handle("fc");
+		std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
+		auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
+		app.parameter_data.data[offset].val_real = 50.0;
+	} else if (model_file == "lv_model.txt") {
+		Entity_Id par_id = model->modules[1]->find_handle("init_prey");
+		std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("hi"), 1}};
+		auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
+		app.parameter_data.data[offset].val_real = 2.0;
+	}
 	app.compile();
 
-#if USE_MODEL == 1
-	app.series_data.allocate(time_steps);
-	read_input_data("testinput.dat", &app);
-#endif
+	if(model_file == "test_model.txt") {
+		app.series_data.allocate(time_steps);
+		read_input_data("testinput.dat", &app);
+	}
 	
 	run_model(&app, time_steps);
 	

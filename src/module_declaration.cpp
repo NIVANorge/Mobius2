@@ -746,6 +746,19 @@ process_distribute_declaration(Module_Declaration *module, Decl_AST *decl) {
 }
 
 void
+process_aggregation_weight_declaration(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Decl_Type::compartment, Decl_Type::compartment}}, 0, false);
+	
+	auto from_comp = resolve_argument<Reg_Type::compartment>(module, decl, 0);
+	auto to_comp   = resolve_argument<Reg_Type::compartment>(module, decl, 1);
+	
+	//TODO: some guard against overlapping / contradictory declarations.
+	
+	auto function = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+	module->compartments[from_comp]->aggregations.push_back({to_comp, function->block});
+}
+
+void
 register_intrinsics(Module_Declaration *module) {
 	//module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
 	
@@ -856,6 +869,14 @@ load_model(String_View file_name) {
 			
 			case Decl_Type::solve : {
 				process_declaration<Reg_Type::solve>(global_scope, child);
+			} break;
+			
+			case Decl_Type::par_group : {
+				process_declaration<Reg_Type::par_group>(global_scope, child);
+			} break;
+			
+			case Decl_Type::aggregation_weight : {
+				process_aggregation_weight_declaration(global_scope, child);
 			} break;
 			
 			case Decl_Type::compartment :
