@@ -576,14 +576,19 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
 	Math_Expr_FT *result = binary;
 	if(rhs->value_type == Value_Type::real) {
 		double val = rhs->value.val_real;
+		double valmh = val-0.5;
 		if(val == 0.5) {
 			result = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
-		} else if ( (val - 0.5) == (double)(s64)(val - 0.5) ) {
+		} else if (valmh == (double)(s64)valmh) {
 			auto rt = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
-			result = maybe_optimize_pow(binary, rt, (s64)(val - 0.5));
-			if(result == binary) delete rt;   // ugh, this is a weird way to do it.
-		} else if(val == (double)(s64)val)
+			result = maybe_optimize_pow(binary, rt, (s64)valmh);
+			if(result == binary) // we did not do a simple pow replacement, make powi instead
+				result = make_binop('^', rt, make_literal((s64)valmh));
+		} else if(val == (double)(s64)val) {
 			result = maybe_optimize_pow(binary, lhs, (s64)val);
+			if(result == binary) // we did not do a simple pow replacement, make powi instead
+				result = make_binop('^', lhs, make_literal((s64)val));
+		}
 	} else if (rhs->value_type == Value_Type::integer)
 		result = maybe_optimize_pow(binary, lhs, rhs->value.val_integer);
 	
