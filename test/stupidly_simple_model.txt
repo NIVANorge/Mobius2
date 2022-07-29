@@ -4,29 +4,38 @@ model("Simple test model") {
 	md : module("So very simple", 1, 1, 0) {
 		
 		habitat : compartment("Habitat")
+		world   : compartment("World")
 		
 		grp : habitat.par_group("Habitat parameters") {
-			par1 : par_real("My par", unit(), 6)
+			par1 : par_real("My par", unit(), 100)
 			par2 : par_int("My int", unit(), 5)
 			par3 : par_bool("My bool", true)
 			par4 : par_enum("My enum", milk) { orange milk forest }
 		}
 		
-		fun : function(c, a) {
-			b := 5
-			a * c^b
-			par4.milk
-			#par2 = 5
+		a : quantity("A")
+		habitat.has(a, unit(), "Habitat A") .initial { par1 }
+		world  .has(a, unit(), "World A")   .initial { 0 }
+		
+		flux(habitat.a, world.a, "The Flow") {
+			0.1 * habitat.a
 		}
-		
-		habitat.has(a : property("A"), unit()) {
-			fun(2, last(habitat.a))
-		} .initial { 1 }
-		
-		#habitat.has(b : property("B"), unit()) {
-		#	habitat.a - 5.0
-		#}
-		
-		#habitat.has(c : quantity("C"), unit()) .initial { habitat.a }
 	}
+	
+	habitat : compartment("Habitat")
+	world   : compartment("World")
+	a : quantity("A")
+	
+	hi : index_set("Habitat index")
+	sol : solver("My solver", "INCADascru", 0.1)
+	habitat.a.solve(sol)
+	world.a.solve(sol)
+	
+	habitat.distribute(hi)
+	
+	habitat.par_group("Weights") {
+		agg_wt : par_real("Aggregation weight", unit(), 0.9)
+	}
+	
+	aggregation_weight(habitat, world) { agg_wt }
 }

@@ -100,6 +100,8 @@ Model_Instruction {
 		compute_state_var,
 		subtract_flux_from_source,
 		add_flux_to_target,
+		clear_state_var,
+		add_to_aggregate,
 	}      type;
 	
 	Var_Id var_id;
@@ -275,6 +277,8 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				auto var = model->state_vars[instr->var_id];
 				
+				if(var->flags & State_Variable::Flags::f_is_aggregate) continue; // NOTE: the aggregate does not compute itself. Instead it is added to by the flux it aggregates.
+				
 				auto fun = var->function_tree;
 				if(initial)
 					fun = var->initial_function_tree;
@@ -305,11 +309,44 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					assignment->exprs.push_back(fun);
 					scope->exprs.push_back(assignment);
 				} else if(var->type != Decl_Type::quantity)
-					fatal_error(Mobius_Error::internal, "Some non-quantity did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
+					fatal_error(Mobius_Error::internal, "Some variable unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
 				scope->exprs.push_back(add_or_subtract_flux_from_var(model_app, '-', instr->var_id, instr->source_or_target_id, &indexes));
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				scope->exprs.push_back(add_or_subtract_flux_from_var(model_app, '+', instr->var_id, instr->source_or_target_id, &indexes));
+			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
+				auto offset = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
+				assignment->exprs.push_back(offset);
+				assignment->exprs.push_back(make_literal((s64)0));
+				scope->exprs.push_back(assignment);
+			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
+				auto var = model->state_vars[instr->var_id];
+				auto agg_var = model->state_vars[var->agg];
+				auto weight = agg_var->function_tree;
+				if(!weight)
+					fatal_error(Mobius_Error::internal, "Somehow we got an aggregation without code for computing the weight.");
+				weight = copy(weight);
+				put_var_lookup_indexes(weight, model_app, indexes);			
+				
+				// read value of the new value we want to sum in.
+				auto offset = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+				auto read = make_state_var_identifier(instr->var_id);
+				read->exprs.push_back(offset);
+				
+				// read value of aggregate before the sum:
+				auto offset2 = model_app->result_data.get_offset_code(instr->source_or_target_id, &indexes);
+				auto read2 = make_state_var_identifier(var->agg);
+				read2->exprs.push_back(offset2);
+				
+				auto mul = make_binop('*', read, weight);
+				auto sum = make_binop('+', read2, mul);
+				
+				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
+				assignment->exprs.push_back(copy(offset2));
+				assignment->exprs.push_back(sum);
+				
+				scope->exprs.push_back(assignment);
 			}
 		}
 		
@@ -317,8 +354,10 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 		for(auto expr : indexes) if(expr) delete expr;
 	}
 	
-	if(!is_valid(batch->solver) || initial)
-		return prune_tree(top_scope);
+	if(!is_valid(batch->solver) || initial) {
+		auto result = prune_tree(top_scope);
+		return result;
+	}
 	
 	if(batch->arrays_ode.empty() || batch->arrays_ode[0].instr_ids.empty())
 		fatal_error(Mobius_Error::internal, "Somehow we got an empty ode batch in a batch that was assigned a solver.");
@@ -341,13 +380,13 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			for(Var_Id flux_id : model->state_vars) {
 				auto flux = model->state_vars[flux_id];
 				if(flux->type != Decl_Type::flux) continue;
-				if(flux->loc1.type == Location_Type::located && model->state_vars[flux->loc1] == instr->var_id) {
+				if(flux->loc1.type == Location_Type::located && model->state_vars[flux->loc1] == instr->var_id && !(flux->flags & State_Variable::Flags::f_is_aggregate)) {
 					auto flux_code = make_state_var_identifier(flux_id);
 					fun = make_binop('-', fun, flux_code);
 				}
 				// TODO: again we need to insert aggregation if necessary.
 				// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
-				if(flux->loc2.type == Location_Type::located && model->state_vars[flux->loc2] == instr->var_id) {
+				if(flux->loc2.type == Location_Type::located && model->state_vars[flux->loc2] == instr->var_id && !(flux->flags & State_Variable::Flags::f_has_aggregate)) {
 					auto flux_code = make_state_var_identifier(flux_id);
 					fun = make_binop('+', fun, flux_code);
 				}
@@ -374,6 +413,8 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	Mobius_Model *model = model_app->model;
 	
 	for(auto var_id : model->state_vars) {
+		if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // The aggregate should not have index sets determined by what is in the weight.
+		
 		for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
 			auto index_sets = model_app->parameter_data.get_index_sets(par_id);
 			instructions[var_id.id].index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
@@ -465,6 +506,10 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 				warning_print(model->state_vars[instr->source_or_target_id]->name, " -= ", model->state_vars[instr->var_id]->name, "\n");
 			else if(instr->type == Model_Instruction::Type::add_flux_to_target)
 				warning_print(model->state_vars[instr->source_or_target_id]->name, " += ", model->state_vars[instr->var_id]->name, "\n");
+			else if(instr->type == Model_Instruction::Type::clear_state_var)
+				warning_print(model->state_vars[instr->var_id]->name, " = 0\n");
+			else if(instr->type == Model_Instruction::Type::add_to_aggregate)
+				warning_print(model->state_vars[instr->source_or_target_id]->name, " += ", model->state_vars[instr->var_id]->name, " * weight\n");
 		}
 	}
 	warning_print("\n\n");
@@ -479,11 +524,12 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 	instructions.resize(model->state_vars.count());
 	
 	for(auto var_id : model->state_vars) {
-		auto fun = model->state_vars[var_id]->function_tree;
-		if(initial) fun = model->state_vars[var_id]->initial_function_tree;
+		auto var = model->state_vars[var_id];
+		auto fun = var->function_tree;
+		if(initial) fun = var->initial_function_tree;
 		if(!fun) {
-			if(!initial && model->state_vars[var_id]->type != Decl_Type::quantity)
-				fatal_error(Mobius_Error::internal, "Somehow we got a state variable that is not a quantity where the function code was not provided. This should have been detected at an earlier stage in compilation.");
+			if(!initial && var->type != Decl_Type::quantity && !(var->flags & State_Variable::Flags::f_is_aggregate))
+				fatal_error(Mobius_Error::internal, "Somehow we got a state variable where the function code was unexpectedly not provided. This should have been detected at an earlier stage in compilation.");
 			if(initial)
 				continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
 		}
@@ -493,7 +539,7 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		instr.var_id = var_id;
 		
 		if(!initial)              // the initial step is a purely discrete setup step, not integration.
-			instr.solver = model->state_vars[var_id]->solver;
+			instr.solver = var->solver;
 		
 		instructions[var_id.id] = std::move(instr);
 	}
@@ -510,62 +556,110 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 			instr->inherits_index_sets_from_instruction.insert(dep.var_id.id);
 		}
 		
-		if(!initial && model->state_vars[var_id]->type == Decl_Type::flux) {
-			auto loc1 = model->state_vars[var_id]->loc1;
-			Entity_Id source_solver = invalid_entity_id;
-			if(loc1.type == Location_Type::located) {
-				Var_Id source_id = model->state_vars[loc1];
-				Model_Instruction *source = &instructions[source_id.id];
-				source_solver = model->state_vars[source_id]->solver;
-				if (is_valid(source_solver)) { // NOTE: ode variables are integrated, we don't subtract or add to them in just one step.
-					instr->solver = source_solver; // all fluxes are given the same solver as their source (if it has one).
-					source->inherits_index_sets_from_instruction.insert(var_id.id);
-					//warning_print("-------------- bonkalink!!! \n");
-				} else {
-					Model_Instruction sub_source_instr;
-					sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
-					sub_source_instr.var_id = var_id;
-					
-					sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
-					sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux.
-					
-					int sub_idx = (int)instructions.size();
-					
-					//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. Tn fact it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
-					sub_source_instr.source_or_target_id = source_id;
-					source->depends_on_instruction.insert(sub_idx);
-									
-					instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id); // The flux itself has to be computed once per instance of the source.
-					
-					instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
-				}
+		// TODO: the following is very messy. Maybe move the cases of is_aggregate and has_aggregate out?
+		
+		auto var = model->state_vars[var_id];
+		if(initial || var->type != Decl_Type::flux) continue;
+		
+		auto loc1 = var->loc1;
+		auto loc2 = var->loc2;
+		
+		bool is_aggregate  = var->flags & State_Variable::Flags::f_is_aggregate;
+		bool has_aggregate = var->flags & State_Variable::Flags::f_has_aggregate;
+		
+		if(has_aggregate) {
+			//NOTE: Since this is an aggregate, we know loc1 and loc2 are valid.
+			Var_Id source_id = model->state_vars[loc1];
+			Var_Id target_id = model->state_vars[loc2];
+
+			Entity_Id source_solver = model->state_vars[source_id]->solver;
+			
+			Model_Instruction *agg_instr = &instructions[var->agg.id];
+			
+			agg_instr->inherits_index_sets_from_instruction.clear();
+			agg_instr->inherits_index_sets_from_instruction.insert(target_id.id);
+			
+			if(is_valid(source_solver)) {
+				agg_instr->solver = source_solver;
+				// NOTE: we have to clear the aggregate to 0 before we start adding to it, so we insert a clear instruction before the computation of whatever it aggregates
+				Model_Instruction clear_instr;
+				clear_instr.type = Model_Instruction::Type::clear_state_var;
+				clear_instr.solver = source_solver;
+				clear_instr.var_id = var->agg;
+				clear_instr.inherits_index_sets_from_instruction.insert(target_id.id);
+				int idx = (int)instructions.size();
+				instructions[var_id.id].depends_on_instruction.insert(idx); // Computing the flux comes after clearing the aggregation variable.
+				instructions.push_back(std::move(clear_instr));
 			}
-			auto loc2 = model->state_vars[var_id]->loc2;
-			if(loc2.type == Location_Type::located) {
-				Var_Id target_id = model->state_vars[loc2];
-				Model_Instruction *target = &instructions[target_id.id];
-				auto target_solver = model->state_vars[target_id]->solver;
-				if(is_valid(target_solver)) {
-					if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.
-						//warning_print(model->state_vars[target_id]->name, " depends on ", model->state_vars[var_id]->name, "\n");
-						target->depends_on_instruction.insert(var_id.id);
-					}
-				} else {
-					Model_Instruction add_target_instr;
-					add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
-					add_target_instr.var_id = var_id;
-					
-					add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
-					add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
-					add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
-					
-					int add_idx = (int)instructions.size();
-					
-					add_target_instr.source_or_target_id = target_id;
-					target->depends_on_instruction.insert(add_idx);
-					
-					instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+			
+			auto compartment = model->find_entity<Reg_Type::compartment>(loc1.compartment);
+			Model_Instruction add_aggr;
+			add_aggr.type = Model_Instruction::Type::add_to_aggregate;
+			add_aggr.var_id = var_id;
+			add_aggr.source_or_target_id = var->agg;
+			add_aggr.depends_on_instruction.insert(var_id.id);
+			add_aggr.index_sets.insert(compartment->index_sets.begin(), compartment->index_sets.end());
+			add_aggr.solver = source_solver;
+			int idx = (int)instructions.size();
+			instructions.push_back(std::move(add_aggr));
+			
+			//NOTE: have to look this up again since the pointer could have been invalidated.
+			agg_instr = &instructions[var->agg.id];
+			agg_instr->depends_on_instruction.insert(idx);
+		}
+		
+		Entity_Id source_solver = invalid_entity_id;
+		if(loc1.type == Location_Type::located && !is_aggregate) {
+			Var_Id source_id = model->state_vars[loc1];
+			Model_Instruction *source = &instructions[source_id.id];
+			source_solver = model->state_vars[source_id]->solver;
+		
+			if (is_valid(source_solver)) { // NOTE: ode variables are integrated, we don't subtract or add to them in just one step.
+				instr->solver = source_solver; // all fluxes are given the same solver as their source (if it has one).
+				source->inherits_index_sets_from_instruction.insert(var_id.id);
+			} else {
+				Model_Instruction sub_source_instr;
+				sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
+				sub_source_instr.var_id = var_id;
+				
+				sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
+				sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux.
+				
+				sub_source_instr.source_or_target_id = source_id;
+				
+				//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. In the discrete case it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
+				int sub_idx = (int)instructions.size();
+				source->depends_on_instruction.insert(sub_idx);
+								
+				instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id); // The flux itself has to be computed once per instance of the source.
+				
+				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
+			}
+		}
+		if(loc2.type == Location_Type::located && !has_aggregate) {
+			Var_Id target_id = model->state_vars[loc2];
+			Model_Instruction *target = &instructions[target_id.id];
+			auto target_solver = model->state_vars[target_id]->solver;
+
+			if(is_valid(target_solver)) {
+				if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.
+					target->depends_on_instruction.insert(var_id.id);
 				}
+			} else {
+				Model_Instruction add_target_instr;
+				add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
+				add_target_instr.var_id = var_id;
+				
+				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
+				add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
+				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
+				
+				add_target_instr.source_or_target_id = target_id;
+				
+				int add_idx = (int)instructions.size();
+				target->depends_on_instruction.insert(add_idx);
+				
+				instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
 	}
@@ -633,6 +727,9 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 		// Remove dependency of quantities on fluxes if they have the same solver.
 		//   this is because quantites with solvers are solved "simultaneously" as ODE variables, and so we don't care about circular dependencies with them.
 		// On the other hand, if neither has a solver but are discrete, we instead generate intermediary instructions that do the adding and subtracting, so we don't want direct dependencies between source/target or flux in that case either.
+		
+		if(instr->type != Model_Instruction::Type::compute_state_var) continue;
+		
 		if(model->state_vars[instr->var_id]->type == Decl_Type::flux) {
 			auto loc1 = model->state_vars[instr->var_id]->loc1;
 			if(loc1.type == Location_Type::located) {

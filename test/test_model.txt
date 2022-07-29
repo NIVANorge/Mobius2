@@ -11,9 +11,11 @@ General model description.
 	
 	load("hbv_snow.txt",  sn : module("HBVSnow"))
 	load("test_soil.txt", sw : module("Test soil water"))
+	load("test_soil.txt", rw : module("Test river water"))
 	
 	soil : compartment("Soil")
 	gw   : compartment("Groundwater")
+	river : compartment("River")
 	water : quantity("Water")
 	
 	###### Distribute modules over index sets and set solvers
@@ -26,17 +28,19 @@ General model description.
 	
 	soil.water.solve(simply_solver)
 	gw.water.solve(simply_solver)
+	river.water.solve(simply_solver)
 	
 	##### Link fluxes between compartments and specify aggregation between compartments that are distributed differently, and unit conversions where volumes are different
 
 	sn.p_rain     .to(soil.water)
 	sn.melt_runoff.to(soil.water)
-	
+	sw.soil_runoff.to(river.water)
+	sw.gw_runoff  .to(river.water)
 	
 	soil.par_group("Land cover") {
-		lu_prop  : par_real("Land use proportions", unit(), 0, 0, 1)
+		lu_prop  : par_real("Land use proportions", unit(), 0.5, 0, 1)
 	}
 	
 	aggregation_weight(soil, gw) { lu_prop }
-	
+	aggregation_weight(soil, river) { lu_prop }
 }

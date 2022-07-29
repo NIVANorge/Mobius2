@@ -860,7 +860,7 @@ load_model(String_View file_name) {
 				match_declaration(child, {{Token_Type::quoted_string, Decl_Type::module}}, 0, false);
 				String_View file_name = single_arg(child, 0)->string_value;
 				Decl_AST *module_spec = child->args[1]->decl;
-				match_declaration(module_spec, {{Token_Type::quoted_string}});  //TODO: allow specifying the version also?
+				match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
 				String_View module_name = single_arg(module_spec, 0)->string_value;
 				
 				s16 module_id = model->load_module(file_name, module_name);

@@ -1,9 +1,10 @@
 
+
 module("Test soil water", 1, 0, 0) {
 """
 Oversimplified soil water module inc.
 """
-
+	air      : compartment("Atmosphere")
 	soil     : compartment("Soil")
 	gw       : compartment("Groundwater")
 	
@@ -14,10 +15,14 @@ Oversimplified soil water module inc.
 
 		f_quick : par_real("Proportion to quick flow", unit(), 0.01)
 	}
+	
+	soil.par_group("Potential evapotranspiration") {
+		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1), 0.12)
+		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c), 0)
+	}
 		
 	gw.  par_group("Groundwater") {
 		tc_g    : par_real("Groundwater time constant", unit(day -1), 60)
-		#a_catch : par_real("Catchment area", unit(k m 2), 1)                 # Here for now until we make river.
 	}
 	
 	water : quantity("Water")
@@ -25,14 +30,26 @@ Oversimplified soil water module inc.
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
 	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 }
 	
+	pet  : property("Potential evapotranspiration")
+	temp : property("Temperature")
+	
+	soil.has(pet, unit(m m, day -1)) {
+		max(0, ddf_pet*(air.temp - pet_min_t))
+	}
+	
 	flux(soil.water, out, "Quick flow") {
 		f_quick * in_flux(soil.water)
+	}
+	
+	flux(soil.water, nowhere, "Evapotranspiration") {
+		soil.pet*(1 - exp(log10(0.01) * soil.water/fc))
 	}
 	
 	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
 		max(0, (soil.water - fc)/tc_s)
 	}
 	
+	soil_runoff :
 	flux(soil.water, out, "Soil runoff") {
 		soil.flow * (1 - bfi)
 	}
@@ -41,7 +58,45 @@ Oversimplified soil water module inc.
 		soil.flow * bfi
 	}
 	
+	gw_runoff :
 	flux(gw.water, out, "Groundwater runoff") {
 		gw.water / tc_g
+	}
+}
+
+
+module("Test river water", 0, 0, 1) {
+"""
+The doc string
+"""
+
+	river : compartment("River")
+	
+	water : quantity("Water")
+	
+	river.par_group("Reach parameters") {
+		slope          : par_real("Reach slope", unit(), 0.01)
+		len            : par_real("Reach length", unit(m), 1000)
+		c_mann         : par_real("Manning's roughness coefficient", unit(), 0.04)
+		init_flow      : par_real("Initial reach flow", unit(m 3, s-1), 0)
+		
+		a_catch : par_real("Catchment area", unit(k m 2), 1)
+	}
+	
+	river.has(water, unit(m 3), "Reach water volume") .initial {
+		depth := 0.349 * river.flow^0.34
+		width := 2.72 * river.flow^0.557
+		width * depth * len
+	}
+	
+	river.has(flow : property("Flow"), unit(m 3, s -1)) {
+		0.28 * (river.water * sqrt(slope) / (len * c_mann))^1.5
+	} .initial {
+		init_flow
+	}
+	
+	#TODO!
+	flux(river.water, nowhere, "Reach flow") {
+		river.flow
 	}
 }

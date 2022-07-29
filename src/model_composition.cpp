@@ -191,9 +191,9 @@ Mobius_Model::compose() {
 	// note: at this stage we always generate an aggregate if the source compartment has more indexes than the target compartment.
 	//    We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer.
 	
-	//TODO: we have to make a similar system where we throw an error for variables if they only reference something that has more indexes than they themselves are allowed to!
+	//TODO: we have to make a similar system where we throw an error for variables if they only reference something that can have more indexes than they themselves are allowed to!
 	   // ( but user could specify an aggregate() on the reference to avoid it. We then also have to make a state var for that aggregation.
-	/* TODO: have to finish the code generation for it before we enable it.
+	// TODO: have to finish the code generation for it before we enable it.
 	s32 var_count = (s32)state_vars.count();
 	for(s32 id = 0; id < var_count; ++id) {
 		Var_Id var_id = { id };
@@ -204,12 +204,21 @@ Mobius_Model::compose() {
 		auto target = find_entity<Reg_Type::compartment>(var->loc2.compartment);
 		std::vector<Entity_Id> must_sum_over;
 		for(auto index_set : source->index_sets)
-			if(std::find(target->index_sets.begin(), target->index_sets.end(), index_set) == target->index_sets->end())
+			if(std::find(target->index_sets.begin(), target->index_sets.end(), index_set) == target->index_sets.end())
 				must_sum_over.push_back(index_set);
 		if(must_sum_over.empty()) continue;
 		
-		// TODO: throw error if there was no aggregation method specified in the 
-		
+		// TODO: throw error if there was no aggregation method specified in the
+		Math_Expr_FT *agg_weight = nullptr;
+		for(auto &agg : source->aggregations) {
+			if(agg.to_compartment == var->loc2.compartment) {
+				agg_weight = make_cast(resolve_function_tree(this, var->loc1.compartment.module_id, agg.code, nullptr), Value_Type::real); // Note: the module id is probably always 0 here since aggregation_weight should only be declared in model scope.
+				break;
+			}
+		}
+		if(!agg_weight) {
+			fatal_error(Mobius_Error::model_building, "The flux \"", var->name, "\" goes from compartment \"", source->name, "\" to compartment, \"", target->name, "\", but the first compartment is distributed over a higher number of index sets than the second. This is only allowed if you specify an aggregation_weight between the two compartments.");
+		}
 		var->flags = (State_Variable::Flags)(var->flags | State_Variable::f_has_aggregate);
 		
 		// note: can't reference var below this (without looking it up again). The vector it resides in may have reallocated.
@@ -218,9 +227,13 @@ Mobius_Model::compose() {
 		auto agg_var = state_vars[agg_id];
 		agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
 		agg_var->agg = var_id;
+		agg_var->function_tree = agg_weight;
+		
+		var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
+		agg_var->loc1 = var->loc1;
+		agg_var->loc2 = var->loc2;
 		state_vars[var_id]->agg = agg_id;
 	}
-	*/
 	
 	warning_print("Generate state vars for in_fluxes.\n");
 	for(auto &in_flux : in_flux_map) {
