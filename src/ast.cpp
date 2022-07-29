@@ -37,7 +37,7 @@ read_identifier_chain(Token_Stream *stream, char separator, std::vector<Token> *
 }
 
 Decl_Type
-decl_type(Token *string_name, Body_Type *body_type_out) {
+get_decl_type(Token *string_name, Body_Type *body_type_out) {
 	#define ENUM_VALUE(name, body_type, _) if(string_name->string_value == #name) { *body_type_out = Body_Type::body_type; return Decl_Type::name; }
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
@@ -46,6 +46,14 @@ decl_type(Token *string_name, Body_Type *body_type_out) {
 	fatal_error("Unrecognized declaration type \"", string_name->string_value, "\".");
 	
 	return Decl_Type::unrecognized;
+}
+
+Body_Type
+get_body_type(Decl_Type decl_type) {
+	#define ENUM_VALUE(name, body_type, _) if(decl_type == Decl_Type::name) { return Body_Type::body_type; }
+	#include "decl_types.incl"
+	#undef ENUM_VALUE
+	return Body_Type::none;
 }
 
 void print_expr(Math_Expr_AST *expr) {
@@ -90,7 +98,7 @@ parse_decl(Token_Stream *stream) {
 	decl->location = decl->decl_chain.back().location;
 	
 	Body_Type body_type;
-	decl->type = decl_type(&decl->decl_chain.back(), &body_type);
+	decl->type = get_decl_type(&decl->decl_chain.back(), &body_type);
 	decl->decl_chain.pop_back(); // note: we only want to keep the first symbols (denoting location) in the chain since we now have stored the type separately.
 	
 	if((char)next.type != '(') {
@@ -280,7 +288,7 @@ find_binary_operator(Token_Stream *stream, Token_Type *t) {
 	
 	if(c == '|') return 1000;
 	else if(c == '&') return 2000;
-	else if((c == '<') || (c == '>') || (*t == Token_Type::leq) || (*t == Token_Type::geq) || (*t == Token_Type::eq) || (*t == Token_Type::neq)) return 3000; 
+	else if((c == '<') || (c == '>') || (*t == Token_Type::leq) || (*t == Token_Type::geq) || (c == '=') || (*t == Token_Type::neq)) return 3000; 
 	else if((c == '+') || (c == '-')) return 4000;
 	else if(c == '/') return 5000;
 	else if(c == '*') return 6000;   //not sure if * should be higher than /
@@ -422,7 +430,7 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 	auto block = new Math_Block_AST();
 	block->location = opens_at;
 	
-	int semicolons = 0;
+	//int semicolons = 0;
 	while(true) {
 		Token token = stream->peek_token();
 		if(token.type == Token_Type::eof) {
@@ -436,10 +444,10 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 			if(block->exprs.size() == 0) {
 				token.print_error_header();
 				fatal_error("Empty math block.");
-			} else if (semicolons >= block->exprs.size()) {
+			} /*else if (semicolons >= block->exprs.size()) {
 				token.print_error_header();
 				fatal_error("The final statement in a block should not be terminated with a ; .");
-			}
+			}*/
 			break;
 		}
 		
@@ -459,21 +467,22 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 			block->exprs.push_back(expr);
 		}
 		
-		token = stream->peek_token();
-		if((char)token.type == ';') {
+		//token = stream->peek_token();
+		/*if((char)token.type == ';') {
 			++semicolons;
 			stream->read_token();
 		} else if((char)token.type != '}') {
 			token.print_error_header();
 			fatal_error("Expected ; or } , got \"", token.string_value, "\".");
 		}
+		*/
 	}
 	
 	return block;
 }
 
 int
-match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain, bool allow_handle, bool allow_multiple_bodies, bool allow_body_modifiers) {
+match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_modifiers) {
 	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
 	
 	//TODO: need much better error messages!
@@ -529,10 +538,11 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		mobius_error_exit();
 	}
 	
-	// NOTE: We already checked in the AST processing stage if the declaration is allowed to have bodies at all. This just checks if it can have more than one.
-	if(!allow_multiple_bodies && decl->bodies.size() > 1) {
+	// NOTE: This check is only relevant if this type of declaration is allowed to have bodies at all. If a declaration that should not have a body gets one, that will be caught at the AST parsing stage.
+	Body_Type body_type = get_body_type(decl->type);
+	if(body_type != Body_Type::none && allow_body_count >= 0 && allow_body_count != decl->bodies.size()) {
 		decl->location.print_error_header();
-		fatal_error("This declaration should not have multiple bodies.");
+		fatal_error("Expected ", allow_body_count, " bodies for this declaration, got ", decl->bodies.size(), ".");
 	}
 	
 	if(!allow_body_modifiers) {

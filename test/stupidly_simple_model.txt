@@ -6,16 +6,22 @@ model("Simple test model") {
 		habitat : compartment("Habitat")
 		
 		grp : habitat.par_group("Habitat parameters") {
-			par  : par_real("My par", unit(), 6)
+			par1 : par_real("My par", unit(), 6)
 			par2 : par_int("My int", unit(), 5)
 			par3 : par_bool("My bool", true)
+			par4 : par_enum("My enum", milk) { orange milk forest }
+		}
+		
+		fun : function(c, a) {
+			b := 5
+			a * c^b
+			par4.milk
+			#par2 = 5
 		}
 		
 		habitat.has(a : property("A"), unit()) {
-			2
-		} .initial {
-			3
-		}
+			fun(2, last(habitat.a))
+		} .initial { 1 }
 		
 		#habitat.has(b : property("B"), unit()) {
 		#	habitat.a - 5.0

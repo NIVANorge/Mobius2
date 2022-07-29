@@ -67,7 +67,6 @@ Parameter_Value {
 		double    val_real;
 		s64       val_integer;
 		u64       val_boolean;
-		u64       val_enum;
 		Date_Time val_datetime;
 	};
 	
@@ -181,8 +180,18 @@ Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 	Parameter_Value min_val;
 	Parameter_Value max_val;
 	
+	std::vector<String_View> enum_values;
+	
 	String_View     description;
 };
+
+inline s64
+enum_int_value(Entity_Registration<Reg_Type::parameter> *reg, String_View name) {
+	auto find = std::find(reg->enum_values.begin(), reg->enum_values.end(), name);
+	if(find != reg->enum_values.end())
+		return (s64)(find - reg->enum_values.begin());
+	return -1;
+}
 
 template<> struct
 Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {

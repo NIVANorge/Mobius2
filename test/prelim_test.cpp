@@ -96,36 +96,40 @@ int main(int argc, char** argv) {
 	
 	std::cout << "Composition done.\n";
 	
-	Model_Application app(model);
+	{
+		Model_Application app(model);
 
-	for(auto index_set : model->modules[0]->index_sets)
-		app.set_indexes(index_set, Array<String_View>{indexes.data(), indexes.size()});
+		for(auto index_set : model->modules[0]->index_sets)
+			app.set_indexes(index_set, Array<String_View>{indexes.data(), indexes.size()});
 
-	app.set_up_parameter_structure();
-	app.set_up_series_structure();
+		app.set_up_parameter_structure();
+		app.set_up_series_structure();
 
-	if(model_file == "test_model.txt") {
-		//haaaack!
-		Entity_Id par_id = model->modules[2]->find_handle("fc");
-		std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
-		auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-		app.parameter_data.data[offset].val_real = 50.0;
-	} else if (model_file == "lv_model.txt") {
-		Entity_Id par_id = model->modules[1]->find_handle("init_prey");
-		std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("hi"), 1}};
-		auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-		app.parameter_data.data[offset].val_real = 2.0;
-	}
-	app.compile();
+		if(model_file == "test_model.txt") {
+			//haaaack!
+			Entity_Id par_id = model->modules[2]->find_handle("fc");
+			std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
+			auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
+			app.parameter_data.data[offset].val_real = 50.0;
+		} else if (model_file == "lv_model.txt") {
+			Entity_Id par_id = model->modules[1]->find_handle("init_prey");
+			std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("hi"), 1}};
+			auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
+			app.parameter_data.data[offset].val_real = 2.0;
+		}
+		app.compile();
 
-	if(model_file == "test_model.txt") {
-		app.series_data.allocate(time_steps);
-		read_input_data("testinput.dat", &app);
+		if(model_file == "test_model.txt") {
+			app.series_data.allocate(time_steps);
+			read_input_data("testinput.dat", &app);
+		}
+		
+		run_model(&app, time_steps);
+		
+		write_result_data("results.dat", &app);
 	}
 	
-	run_model(&app, time_steps);
-	
-	write_result_data("results.dat", &app);
+	delete model;
 		
 	std::cout << "Finished correctly.\n";
 }

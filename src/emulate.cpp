@@ -65,7 +65,7 @@ apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 	} else if(oper == Token_Type::geq) {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer >= rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real >= rhs.val_real;
-	} else if(oper == Token_Type::eq) {
+	} else if(op == '=') {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer == rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real == rhs.val_real;
 	} else if(oper == Token_Type::neq) {

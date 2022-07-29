@@ -302,10 +302,10 @@ process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) 
 
 template<> Entity_Id
 process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *decl) {
-	Token_Type token_type = get_token_type(get_value_type(decl->type));
+	Token_Type token_type = get_token_type(decl->type);
 	
 	int which;
-	if(token_type == Token_Type::real || token_type == Token_Type::integer) {
+	if(decl->type == Decl_Type::par_real || decl->type == Decl_Type::par_int) {
 		which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string, Decl_Type::unit, token_type},                                                      // 0
@@ -313,7 +313,7 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 			{Token_Type::quoted_string, Decl_Type::unit, token_type, token_type, token_type},                              // 2
 			{Token_Type::quoted_string, Decl_Type::unit, token_type, token_type, token_type, Token_Type::quoted_string},   // 3
 		});
-	} else if (token_type == Token_Type::boolean) {            // note: min, max values for boolean parameters are redundant.
+	} else if (decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_enum) {            // note: min, max values for boolean parameters are redundant.
 		which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string, token_type},                                                      // 0
@@ -327,9 +327,10 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 	
 	int mt0 = 2;
 	if(token_type == Token_Type::boolean) mt0--;
-	parameter->default_val             = get_parameter_value(single_arg(decl, mt0), token_type);
+	if(decl->type != Decl_Type::par_enum)
+		parameter->default_val             = get_parameter_value(single_arg(decl, mt0), token_type);
 	
-	if(token_type == Token_Type::real) {
+	if(decl->type == Decl_Type::par_real) {
 		parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
 		if(which == 2 || which == 3) {
 			parameter->min_val             = get_parameter_value(single_arg(decl, 3), Token_Type::real);
@@ -338,7 +339,7 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 			parameter->min_val.val_real    = -std::numeric_limits<double>::infinity();
 			parameter->max_val.val_real    =  std::numeric_limits<double>::infinity();
 		}
-	} else if (token_type == Token_Type::integer) {
+	} else if (decl->type == Decl_Type::par_int) {
 		parameter->unit                    = resolve_argument<Reg_Type::unit>(module, decl, 1);
 		if(which == 2 || which == 3) {
 			parameter->min_val             = get_parameter_value(single_arg(decl, 3), Token_Type::integer);
@@ -347,14 +348,42 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 			parameter->min_val.val_real    = std::numeric_limits<s64>::lowest();
 			parameter->max_val.val_real    = std::numeric_limits<s64>::max();
 		}        
+	} else if (decl->type == Decl_Type::par_bool) {
+		parameter->min_val.val_boolean = false;
+		parameter->max_val.val_boolean = true;
 	}
 	
 	int mt1 = 3;
-	if(token_type == Token_Type::boolean) mt1--;
+	if(decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_enum) mt1--;
 	if(which == 1)
 		parameter->description         = single_arg(decl, mt1)->string_value;
 	else if(which == 3)
 		parameter->description         = single_arg(decl, 5)->string_value;
+	
+	if(decl->type == Decl_Type::par_enum) {
+		auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);   // Re-purposing function body for a simple list... TODO: We should maybe have a separate body type for that
+		for(auto expr : body->block->exprs) {
+			if(expr->type != Math_Expr_Type::identifier_chain) {
+				expr->location.print_error_header();
+				fatal_error("Expected a list of identifiers only.");
+			}
+			auto ident = reinterpret_cast<Identifier_Chain_AST *>(expr);
+			if(ident->chain.size() != 1) {
+				expr->location.print_error_header();
+				fatal_error("Expected a list of identifiers only.");
+			}
+			parameter->enum_values.push_back(ident->chain[0].string_value);
+		}
+		String_View default_val_name = single_arg(decl, 1)->string_value;
+		s64 default_val = enum_int_value(parameter, default_val_name);
+		if(default_val < 0) {
+			single_arg(decl, 1)->print_error_header();
+			fatal_error("The given default value \"", default_val_name, "\" does not appear on the list of possible values for this enum parameter.");
+		}
+		parameter->default_val.val_integer = default_val;
+		parameter->min_val.val_integer = 0;
+		parameter->max_val.val_integer = (s64)parameter->enum_values.size() - 1;
+	}
 	
 	return id;
 }
@@ -373,7 +402,7 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
 	for(Decl_AST *child : body->child_decls) {
-		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool) {
+		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool || child->type == Decl_Type::par_enum) {
 			auto par_id = process_declaration<Reg_Type::parameter>(module, child);
 			par_group->parameters.push_back(par_id);
 			module->parameters[par_id]->par_group = id;
@@ -409,7 +438,7 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 			{Decl_Type::property, Token_Type::quoted_string},
 			{Decl_Type::property, Decl_Type::unit, Token_Type::quoted_string},
 		},
-		1, true, true, true);
+		1, true, -1, true);
 	
 	Token *name = nullptr;
 	if(which == 2) name = single_arg(decl, 1);

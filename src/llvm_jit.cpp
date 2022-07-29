@@ -237,7 +237,7 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 	} else if(oper == Token_Type::geq) {
 		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpSGE(lhs, rhs, "uetemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFCmpUGE(lhs, rhs, "fuetemp");
-	} else if(oper == Token_Type::eq) {
+	} else if(op == '=') {
 		if(type1 == Value_Type::integer)   result = data->builder->CreateICmpEQ(lhs, rhs, "eqtemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFCmpUEQ(lhs, rhs, "feqtemp");
 	} else if(oper == Token_Type::neq) {

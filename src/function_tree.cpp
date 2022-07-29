@@ -206,6 +206,19 @@ is_inside_function(Scope_Data *scope, String_View name) {
 	return false;
 }
 
+void
+fatal_error_trace(Scope_Data *scope) {
+	Scope_Data *sc = scope;
+	while(true) {
+		if(!sc) mobius_error_exit();
+		if(sc->function_name) {
+			error_print("In function \"", sc->function_name, "\", called from ");
+			sc->block->location.print_error();
+		}
+		sc = sc->parent;
+	}
+}
+
 Math_Expr_FT *
 resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Scope_Data *scope){
 	Math_Expr_FT *result = nullptr;
@@ -229,9 +242,10 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				if(expr->expr_type == Math_Expr_Type::local_var) ++new_block->n_locals;
 			
 			Math_Expr_FT *last = new_block->exprs.back();
-			if(last->expr_type == Math_Expr_Type::local_var) {
+			if(last->value_type == Value_Type::none) {
 				last->location.print_error_header();
-				fatal_error("The last statement in a block has to evaluate to a value, it can't be a declaration of a local variable.");
+				error_print("The last statement in a block must evaluate to a value.\n");
+				fatal_error_trace(scope);
 			}
 			// the value of a block is the value of the last expression in the block.
 			new_block->value_type = last->value_type;
@@ -241,6 +255,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_Chain_AST *>(ast);
 			auto new_ident = new Identifier_FT();
+			result = new_ident;
 			if(ident->chain.size() == 1) {
 				String_View name = ident->chain[0].string_value;
 				
@@ -254,48 +269,83 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					
 					if(!is_valid(par_id) || par_id.reg_type != Reg_Type::parameter) {
 						ident->chain[0].print_error_header();
-						fatal_error("Can't resolve the name \"", name, "\".");
+						error_print("The name \"", name, "\" is not the name of a parameter or local variable.\n");
+						fatal_error_trace(scope);
+					}
+					if(module->parameters[par_id]->decl_type == Decl_Type::par_enum) {
+						ident->chain[0].print_error_header();
+						error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
+						fatal_error_trace(scope);
 					}
 					
 					new_ident->variable_type = Variable_Type::parameter;
 					new_ident->parameter = par_id;
 					new_ident->value_type = get_value_type(module->parameters[par_id]->decl_type);
-					// TODO: make it so that we can't reference datetime values (if we implement those)
-					//  also special handling of for enum values!
+					// TODO: find out how to handle datetime values if we decide to implement those.
 				}
+				
 			} else if(ident->chain.size() == 2) {
-				//TODO: may need fixup for multiple modules.
-				Entity_Id first  = module->find_handle(ident->chain[0].string_value);
-				Entity_Id second = module->find_handle(ident->chain[1].string_value);
+				// This is either compartment.quantity_or_property, or enum_par.enum_value
+				
+				String_View n1 = ident->chain[0].string_value;
+				String_View n2 = ident->chain[1].string_value;
+				Entity_Id first  = module->find_handle(n1);
+				
 				//TODO: may need fixup for special identifiers.
 				
-				if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_quantity) {
-					ident->chain[0].print_error_header();
-					fatal_error("Unable to resolve value.");  //TODO: make message more specific.
-				}
-				Value_Location loc = make_value_location(module, first, second);
-				Var_Id var_id = model->state_vars[loc];
-				if(is_valid(var_id)) {
-					new_ident->variable_type = Variable_Type::state_var;
-					new_ident->state_var     = var_id;
-					new_ident->value_type    = Value_Type::real;
-				} else {
-					var_id = model->series[loc];
-					if(!is_valid(var_id)) {
-						//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
-						// Maybe that is not that important (?).
-						ast->location.print_error_header();
-						fatal_error("There has not been a \"has\" declaration registering this location.");
+				if(first.reg_type == Reg_Type::parameter) {
+					auto parameter = module->parameters[first];
+					if(parameter->decl_type != Decl_Type::par_enum) {
+						ident->chain[0].print_error_header();
+						error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
+						fatal_error_trace(scope);
 					}
-					new_ident->variable_type = Variable_Type::series;
-					new_ident->series = var_id;
-					new_ident->value_type    = Value_Type::real;
+					s64 val = enum_int_value(parameter, n2);
+					if(val < 0) {
+						ident->chain[1].print_error_header();
+						error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
+						fatal_error_trace(scope);
+					}
+					new_ident->variable_type = Variable_Type::parameter;
+					new_ident->parameter = first;
+					new_ident->value_type = Value_Type::integer;
+					result = make_binop('=', new_ident, make_literal(val));
+					result->value_type = Value_Type::boolean;   // Ooops, make_binop does not give correct type for comparison operators.
+				} else {
+					
+					Entity_Id second = module->find_handle(n2);
+					
+					if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_quantity) {
+						ident->chain[0].print_error_header();
+						error_print("Unable to resolve what variable \"", n1, ".", n2, "\" refers to.\n");  //TODO: make message more specific about the reason why it failed.
+						fatal_error_trace(scope);
+					}
+					Value_Location loc = make_value_location(module, first, second);
+					Var_Id var_id = model->state_vars[loc];
+					if(is_valid(var_id)) {
+						new_ident->variable_type = Variable_Type::state_var;
+						new_ident->state_var     = var_id;
+						new_ident->value_type    = Value_Type::real;
+					} else {
+						var_id = model->series[loc];
+						if(!is_valid(var_id)) {
+							//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
+							// Maybe that is not that important (?).
+							ast->location.print_error_header();
+							error_print("There has not been a \"has\" declaration registering \"", n2, "\" as tied to \"", n1, "\".\n");
+							fatal_error_trace(scope);
+						}
+						new_ident->variable_type = Variable_Type::series;
+						new_ident->series = var_id;
+						new_ident->value_type    = Value_Type::real;
+					}
 				}
 			} else {
 				ident->chain[0].print_error_header();
-				fatal_error("Too many identifiers in chain.");
+				error_print("Too many identifiers in chain.\n");
+				fatal_error_trace(scope);
 			}
-			result = new_ident;
+			
 		} break;
 		
 		case Math_Expr_Type::literal : {
@@ -309,8 +359,6 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 		} break;
 		
 		case Math_Expr_Type::function_call : {
-			//TODO: should have some kind of mechanism for checking types that is not hard coded.
-			
 			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
 			
 			auto fun_name = fun->name.string_value;
@@ -321,18 +369,21 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				resolve_arguments(model, module_id, new_fun, ast, scope);
 				if(new_fun->exprs.size() != 1) {
 					fun->name.print_error_header();
-					fatal_error("A ", fun_name, "() call only takes one argument.");
+					error_print("A ", fun_name, "() call only takes one argument.\n");
+					fatal_error_trace(scope);
 				}
 				if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) {
 					new_fun->exprs[0]->location.print_error_header();
-					fatal_error("A ", fun_name, "() call only takes a state variable identifier as argument.");
+					error_print("A ", fun_name, "() call only takes a state variable identifier as argument.\n");
+					fatal_error_trace(scope);
 				}
 				auto var = reinterpret_cast<Identifier_FT *>(new_fun->exprs[0]);
 				new_fun->exprs.clear();
 				delete new_fun;
 				if(var->variable_type != Variable_Type::state_var && var->variable_type != Variable_Type::series) {
 					var->location.print_error_header();
-					fatal_error("A ", fun_name, "() call can only be applied to a state variable or input series.");
+					error_print("A ", fun_name, "() call can only be applied to a state variable or input series.\n");
+					fatal_error_trace(scope);
 				}
 				if(fun_name == "last")
 					var->flags = (Identifier_Flags)(var->flags | ident_flags_last_result);
@@ -348,12 +399,14 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				
 				if(!is_valid(fun_id)) {
 					fun->name.print_error_header();
-					fatal_error("The function \"", fun_name, "\" has not been registered.");
+					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
+					fatal_error_trace(scope);
 				}
 				
 				if(is_valid(fun_id) && fun_id.reg_type != Reg_Type::function) {
 					fun->name.print_error_header();
-					fatal_error("The handle \"", fun_name, "\" is not a function.");
+					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
+					fatal_error_trace(scope);
 				}
 				
 				auto fun_decl = model->find_entity<Reg_Type::function>(fun_id);
@@ -361,7 +414,8 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				//TODO: should be replaced with check in resolve_arguments
 				if(fun->exprs.size() != fun_decl->args.size()) {
 					fun->name.print_error_header();
-					fatal_error("Wrong number of arguments to function. Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".");
+					error_print("Wrong number of arguments to function \"", fun_name, "\". Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".\n");
+					fatal_error_trace(scope);
 				}
 				
 				auto fun_type = fun_decl->fun_type;
@@ -379,11 +433,12 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				} else if(fun_type == Function_Type::decl) {
 					if(is_inside_function(scope, fun_name)) {
 						fun->name.print_error_header();
-						//TODO: We should print the actual stack trace. That also goes for several other error locations!
-						fatal_error("The function ", fun_name, " calls itself either directly or indirectly. This is not allowed.");
+						error_print("The function \"", fun_name, "\" calls itself either directly or indirectly. This is not allowed.\n");
+						fatal_error_trace(scope);
 					}
 					// Inline in the function call as a new block with the arguments as local vars.
 					auto inlined_fun = new Math_Block_FT();
+					inlined_fun->location = fun->location; //NOTE: do this to get correct diagnostics in fatal_error_trace()
 					
 					resolve_arguments(model, module_id, inlined_fun, ast, scope);
 					
@@ -425,13 +480,15 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			if((char)unary->oper == '-') {
 				if(new_unary->exprs[0]->value_type == Value_Type::boolean) {
 					new_unary->exprs[0]->location.print_error_header();
-					fatal_error("Unary minus can not have an argument of type boolean.");
+					error_print("Unary minus can not have an argument of type boolean.\n");
+					fatal_error_trace(scope);
 				}
 				new_unary->value_type = new_unary->exprs[0]->value_type;
 			} else if((char)unary->oper == '!') {
 				if(new_unary->exprs[0]->value_type != Value_Type::boolean) {
 					new_unary->exprs[0]->location.print_error_header();
-					fatal_error("Negation must have an argument of type boolean.");
+					error_print("Negation must have an argument of type boolean.\n");
+					fatal_error_trace(scope);
 				}
 				new_unary->value_type = Value_Type::boolean;
 			} else
@@ -451,7 +508,8 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			
 			if(op == '|' || op == '&') {
 				if(new_binary->exprs[0]->value_type != Value_Type::boolean || new_binary->exprs[1]->value_type != Value_Type::boolean) {
-					fatal_error("Operator ", name(binary->oper), " can only take boolean arguments.");
+					error_print("Operator ", name(binary->oper), " can only take boolean arguments.\n");
+					fatal_error_trace(scope);
 				}
 				new_binary->value_type = Value_Type::boolean;
 			} else if (op == '^') {
@@ -482,7 +540,8 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
 				if(new_if->exprs[idx+1]->value_type != Value_Type::boolean) {
 					new_if->exprs[idx+1]->location.print_error_header();
-					fatal_error("Value of condition in if expression must be of type boolean.");
+					error_print("Value of condition in if expression must be of type boolean.\n");
+					fatal_error_trace(scope);
 				}
 				if(new_if->exprs[idx]->value_type == Value_Type::real) value_type = Value_Type::real;
 				else if(new_if->exprs[idx]->value_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::boolean;
@@ -508,7 +567,8 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					auto loc2 = reinterpret_cast<Local_Var_FT *>(loc);
 					if(loc2->name == local->name.string_value) {
 						local->location.print_error_header();
-						fatal_error("Re-declaration of local variable \"", loc2->name, "\" in the same scope.");
+						error_print("Re-declaration of local variable \"", loc2->name, "\" in the same scope.\n");
+						fatal_error_trace(scope);
 					}
 				}
 			}

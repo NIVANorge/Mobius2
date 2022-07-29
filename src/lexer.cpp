@@ -187,7 +187,6 @@ Token_Stream::read_token_base(Token *token) {
 				char n = peek_char();
 				if     (c == '<' && n == '=') token->type = Token_Type::leq;
 				else if(c == '>' && n == '=') token->type = Token_Type::geq;
-				else if(c == '=' && n == '=') token->type = Token_Type::eq;
 				else if(c == '!' && n == '=') token->type = Token_Type::neq;
 				else if(c == ':' && n == '=') token->type = Token_Type::def;
 				else token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.

@@ -8,7 +8,7 @@ ENUM_VALUE(date, "date")
 ENUM_VALUE(time, "time")
 ENUM_VALUE(geq, ">=")
 ENUM_VALUE(leq, "<=")
-ENUM_VALUE(eq, "==")
+//ENUM_VALUE(eq, "==")    //note: we decided to use '=' for equals comparison.
 ENUM_VALUE(neq, "!=")
 ENUM_VALUE(def, ":=")
 ENUM_VALUE(eof, "(end of file)")

@@ -191,6 +191,8 @@ Mobius_Model::compose() {
 	// note: at this stage we always generate an aggregate if the source compartment has more indexes than the target compartment.
 	//    We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer.
 	
+	//TODO: we have to make a similar system where we throw an error for variables if they only reference something that has more indexes than they themselves are allowed to!
+	   // ( but user could specify an aggregate() on the reference to avoid it. We then also have to make a state var for that aggregation.
 	/* TODO: have to finish the code generation for it before we enable it.
 	s32 var_count = (s32)state_vars.count();
 	for(s32 id = 0; id < var_count; ++id) {
@@ -205,6 +207,8 @@ Mobius_Model::compose() {
 			if(std::find(target->index_sets.begin(), target->index_sets.end(), index_set) == target->index_sets->end())
 				must_sum_over.push_back(index_set);
 		if(must_sum_over.empty()) continue;
+		
+		// TODO: throw error if there was no aggregation method specified in the 
 		
 		var->flags = (State_Variable::Flags)(var->flags | State_Variable::f_has_aggregate);
 		
@@ -234,7 +238,7 @@ Mobius_Model::compose() {
 		}
 		in_flux_var->function_tree         = flux_sum;
 		in_flux_var->initial_function_tree = nullptr;
-		in_flux_var->flags = (State_Var::Flags)(in_flux_var->flags | State_Var::f_in_flux);
+		in_flux_var->flags = (State_Variable::Flags)(in_flux_var->flags | State_Variable::f_in_flux);
 		
 		for(auto rep_id : in_flux.second)
 			replace_in_flux(state_vars[rep_id]->function_tree, target_id, in_flux_id);

@@ -218,7 +218,7 @@ struct Arg_Pattern {
 };
 
 int
-match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain = 0, bool allow_handle = true, bool allow_multiple_bodies = false, bool allow_body_modifiers = false);
+match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain = 0, bool allow_handle = true, int allow_body_count = 1, bool allow_body_modifiers = false);
 
 
 
