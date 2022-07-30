@@ -291,7 +291,7 @@ find_binary_operator(Token_Stream *stream, Token_Type *t) {
 	else if((c == '<') || (c == '>') || (*t == Token_Type::leq) || (*t == Token_Type::geq) || (c == '=') || (*t == Token_Type::neq)) return 3000; 
 	else if((c == '+') || (c == '-')) return 4000;
 	else if(c == '/') return 5000;
-	else if(c == '*') return 6000;   //not sure if * should be higher than /
+	else if(c == '*' || c == '%') return 6000;   //not sure if * should be higher than /
 	else if(c == '^') return 7000;
 	
 	return 0;

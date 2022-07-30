@@ -47,7 +47,7 @@ apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 	Typed_Value result;
 	char op = (char)oper;
 	if(op != '^' && lhs.type != rhs.type) fatal_error(Mobius_Error::internal, "Mismatching types in apply_binary(). lhs: ", name(lhs.type), ", rhs: ", name(rhs.type), "."); //this should have been eliminated at a different stage.
-	result.type = lhs.type;
+	
 	//NOTE: this implementation doesn't allow for short-circuiting. Dunno if we want that.	
 	
 	//TODO: should probably do type checking here too, but it SHOULD be correct from the function tree resolution already.
@@ -56,37 +56,50 @@ apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 	else if(op == '<') {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer < rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real < rhs.val_real;
+		result.type = Value_Type::boolean;
 	} else if(oper == Token_Type::leq) {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer <= rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real <= rhs.val_real;
+		result.type = Value_Type::boolean;
 	} else if(op == '>') {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer > rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real > rhs.val_real;
+		result.type = Value_Type::boolean;
 	} else if(oper == Token_Type::geq) {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer >= rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real >= rhs.val_real;
+		result.type = Value_Type::boolean;
 	} else if(op == '=') {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer == rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real == rhs.val_real;
+		result.type = Value_Type::boolean;
 	} else if(oper == Token_Type::neq) {
 		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer != rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real != rhs.val_real;
+		result.type = Value_Type::boolean;
 	} else if(op == '+') {
 		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer + rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real + rhs.val_real;
+		result.type = lhs.type;
 	} else if(op == '-') {
 		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer - rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real - rhs.val_real;
+		result.type = lhs.type;
 	} else if(op == '*') {
 		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer * rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real * rhs.val_real;
+		result.type = lhs.type;
 	} else if(op == '/') {
 		if(lhs.type == Value_Type::integer)   result.val_integer = lhs.val_integer / rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_real = lhs.val_real / rhs.val_real;
+		result.type = lhs.type;
 	} else if(op == '^') {
 		if(rhs.type == Value_Type::integer)   result.val_real = std::pow(lhs.val_real, rhs.val_integer);
 		else if(rhs.type == Value_Type::real) result.val_real = std::pow(lhs.val_real, rhs.val_real);
 		result.type = Value_Type::real;
+	} else if(op == '%') {
+		result.val_integer = lhs.val_integer % rhs.val_integer;
+		result.type = Value_Type::integer;
 	} else
 		fatal_error(Mobius_Error::internal, "apply_binary() unhandled operator ", name(oper), " .");
 	
@@ -321,7 +334,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 					result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 				} break;
 				
-				#define TIME_VALUE(name, bits, pos)\
+				#define TIME_VALUE(name, bits)\
 				case Variable_Type::time_##name : { \
 					val.val_integer = state->date_time.name; \
 					result = Typed_Value {val, expr->value_type}; \

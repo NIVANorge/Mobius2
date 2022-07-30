@@ -189,7 +189,7 @@ struct Time_Step_Size {
 struct Expanded_Date_Time {
 	// Note: IMPORTANT! The members coming from time_values.incl have to be at the top of this struct!
 	
-	#define TIME_VALUE(name, bits, pos) s##bits name;
+	#define TIME_VALUE(name, bits) s##bits name;
 	#include "time_values.incl"
 	#undef TIME_VALUE
 	

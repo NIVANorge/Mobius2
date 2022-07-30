@@ -10,6 +10,7 @@ model("Another simple") {
 		
 		place.par_group("Place stuff") {
 			a : par_real("The A value", unit(), 0.3)
+			b : par_int("The B value", unit(), -1)
 		}
 		
 		place.has(property("step"), unit()) {
@@ -30,6 +31,14 @@ model("Another simple") {
 		
 		place.has(property("day_of_month"), unit()) {
 			time.day_of_month
+		}
+		
+		place.has(property("something"), unit()) {
+			time.step % 30
+		}
+		
+		place.has(property("something else"), unit()) {
+			b - 5
 		}
 	}
 

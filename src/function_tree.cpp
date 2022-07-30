@@ -315,7 +315,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					//TODO: may need fixup for special more identifiers.
 					if(n1 == "time") {
 						if(false){}
-						#define TIME_VALUE(name, bits, pos) \
+						#define TIME_VALUE(name, bits) \
 						else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
 						#include "time_values.incl"
 						#undef TIME_VALUE
@@ -545,6 +545,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			
 			if(op == '|' || op == '&') {
 				if(new_binary->exprs[0]->value_type != Value_Type::boolean || new_binary->exprs[1]->value_type != Value_Type::boolean) {
+					binary->location.print_error_header();
 					error_print("Operator ", name(binary->oper), " can only take boolean arguments.\n");
 					fatal_error_trace(scope);
 				}
@@ -554,6 +555,15 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				new_binary->value_type = Value_Type::real;
 				new_binary->exprs[0]   = make_cast(new_binary->exprs[0], Value_Type::real);
 				if(new_binary->exprs[1]->value_type == Value_Type::boolean) new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
+			} else if (op == '%') {
+				if(new_binary->exprs[0]->value_type == Value_Type::real || new_binary->exprs[1]->value_type == Value_Type::real) {
+					binary->location.print_error_header();
+					error_print("Operator % can only take integer arguments.\n");
+					fatal_error_trace(scope);
+				}
+				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::integer);
+				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
+				new_binary->value_type = Value_Type::integer;
 			} else {
 				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1]);
 				
@@ -644,6 +654,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 
 Math_Expr_FT *
 maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, s64 p) {
+	// TODO: I made this for fun, but llvm can make similar optimizations if fast-math is turned on, so it is a bit unnecessary...
 	
 	// Note: case p == 0 is handled in another call. Also for p == 1, but we also use this for powers 1.5 etc. see below
 	Math_Expr_FT *result = binary;

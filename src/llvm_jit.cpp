@@ -282,8 +282,10 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 		if(type1 == Value_Type::integer)   result = data->builder->CreateMul(lhs, rhs, "multemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFMul(lhs, rhs, "fmultemp");
 	} else if(op == '/') {
-		if(type1 == Value_Type::integer)   result = data->builder->CreateSDiv(lhs, rhs, "divtemp");    //TODO: what is difference between sdiv and exactsdiv ?
+		if(type1 == Value_Type::integer)   result = data->builder->CreateSDiv(lhs, rhs, "divtemp");    //TODO: what is the difference between sdiv and exactsdiv ?
 		else if(type1 == Value_Type::real) result = data->builder->CreateFDiv(lhs, rhs, "fdivtemp");
+	} else if(op == '%') {
+		                                   result = data->builder->CreateSRem(lhs, rhs, "remtemp");
 	} else if(op == '^') {
 		if(type2 == Value_Type::integer) {
 			// TODO: Do we really want to do the trunc? There is no version of the intrinsic that takes int64. But likelihood of causing errors is very low..
@@ -500,6 +502,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
 			auto int_32_ty = llvm::Type::getInt32Ty(*data->context);
 			
+			int struct_pos = -1;
 			if(ident->variable_type == Variable_Type::parameter) {
 				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_lookup");
 				result = data->builder->CreateLoad(double_ty, result);
@@ -517,9 +520,9 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 			} 
-			#define TIME_VALUE(name, bits, pos) \
-			else if(ident->variable_type == Variable_Type::time_##name) { \
-				result = data->builder->CreateStructGEP(data->dt_struct_type, args[4], pos, #name); \
+			#define TIME_VALUE(name, bits) \
+			else if(++struct_pos, ident->variable_type == Variable_Type::time_##name) { \
+				result = data->builder->CreateStructGEP(data->dt_struct_type, args[4], struct_pos, #name); \
 				result = data->builder->CreateLoad(int_##bits##_ty, result); \
 				if(bits != 64) \
 					result = data->builder->CreateSExt(result, int_64_ty, "cast"); \
@@ -541,7 +544,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 				} break;
 				
 				case Value_Type::integer : {
-					result = llvm::ConstantInt::get(*data->context, llvm::APInt(64, literal->value.val_integer, true)); //TODO: check that this handles negative numbers correctly!
+					result = llvm::ConstantInt::get(*data->context, llvm::APInt(64, literal->value.val_integer, true));
 				} break;
 				
 				case Value_Type::boolean : {
