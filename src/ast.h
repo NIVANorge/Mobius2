@@ -3,6 +3,7 @@
 #define MOBIUS_AST_H
 
 #include "lexer.h"
+#include "common_types.h"
 #include <vector>
 
 
@@ -10,22 +11,6 @@ struct
 Expr_AST {
 	virtual ~Expr_AST() {};
 };
-
-enum class
-Decl_Type {
-	unrecognized,
-	#define ENUM_VALUE(name, body_type, _) name,
-	#include "decl_types.incl"
-	#undef ENUM_VALUE
-};
-
-inline const char *
-name(Decl_Type type) {
-	#define ENUM_VALUE(name, body_type, _) if(type == Decl_Type::name) return #name;
-	#include "decl_types.incl"
-	#undef ENUM_VALUE
-	return "unrecognized";
-}
 
 enum class
 Body_Type {

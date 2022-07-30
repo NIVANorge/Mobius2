@@ -4,6 +4,7 @@
 
 #include "ast.h"
 #include "ode_solvers.h"
+#include "run_model.h"
 
 #include <unordered_map>
 
@@ -58,20 +59,6 @@ operator<(const Entity_Id &a, const Entity_Id &b) {
 constexpr Entity_Id invalid_entity_id = {-1, Reg_Type::unrecognized, -1};
 
 inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
-
-
-
-struct
-Parameter_Value {
-	union {
-		double    val_real;
-		s64       val_integer;
-		u64       val_boolean;
-		Date_Time val_datetime;
-	};
-	
-	Parameter_Value() : val_datetime() {};
-};
 
 inline Parameter_Value
 get_parameter_value(Token *token, Token_Type type) {

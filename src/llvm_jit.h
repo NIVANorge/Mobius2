@@ -1,8 +1,7 @@
 
 
 #include "function_tree.h"
-
-typedef void batch_function(double *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time);
+#include "run_model.h"
 
 void initialize_llvm();
 

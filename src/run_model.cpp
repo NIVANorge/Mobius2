@@ -2,35 +2,9 @@
 
 #include "model_application.h"
 #include "emulate.h"
+#include "run_model.h"
 
-#define EMULATE 0
 
-
-struct ODE_Fun_State {
-#if EMULATE
-	Math_Expr_FT    *fun;
-#else
-	batch_function  *fun;
-#endif
-	Model_Run_State *run_state;
-};
-
-// NOTE: this obviously has to match the call signature of batch_function.
-inline void
-call_fun(batch_function *fun, Model_Run_State *run_state) {
-	fun(reinterpret_cast<double *>(run_state->parameters), run_state->series, run_state->state_vars, run_state->solver_workspace, &run_state->date_time);
-}
-
-// TODO: this could actually be inlined into the ode functions.
-void ode_fun(double t, void *st) {
-
-	auto state = reinterpret_cast<ODE_Fun_State *>(st);
-#if EMULATE
-	emulate_expression(state->fun, state->run_state, nullptr);
-#else
-	call_fun(state->fun, state->run_state);
-#endif
-}
 
 void run_model(Model_Application *model_app, s64 time_steps) {
 	
@@ -52,8 +26,9 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	run_state.parameters = model_app->parameter_data.data;
 	run_state.state_vars = model_app->result_data.data;
 	run_state.series     = model_app->series_data.data;
+	run_state.solver_workspace = nullptr;
 	run_state.date_time  = Expanded_Date_Time(); // TODO: set this properly.
-	
+	run_state.solver_t   = 0.0;
 	
 	int solver_workspace_size = 0;
 	for(auto &batch : model_app->batches) {
@@ -68,14 +43,18 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	
 	warning_print("begin run\n");
 	// Initial values:
-	
+
+#if MOBIUS_EMULATE
+	#define BATCH_FUNCTION(batch) reinterpret_cast<batch_function *>(batch.run_code)
+#else
+	#define BATCH_FUNCTION(batch) batch.compiled_code
+#endif
+
 	Timer run_timer;
 	run_state.date_time.step = -1;
-#if EMULATE
-	emulate_expression(model_app->initial_batch.run_code, &run_state, nullptr);
-#else
-	call_fun(model_app->initial_batch.compiled_code, &run_state);
-#endif
+
+	call_fun(BATCH_FUNCTION(model_app->initial_batch), &run_state);
+
 	
 	for(run_state.date_time.step = 0; run_state.date_time.step < time_steps; run_state.date_time.advance()) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
@@ -84,21 +63,12 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 		//TODO: we *could* also generate code for this for loop to avoid the ifs (but branch prediction should work well since the branches don't change)
 		for(auto &batch : model_app->batches) {
 			if(!batch.solver_fun)
-#if EMULATE
-				emulate_expression(batch.run_code, &run_state, nullptr);
-#else
-				call_fun(batch.compiled_code, &run_state);
-#endif
+				call_fun(BATCH_FUNCTION(batch), &run_state);
 			else {
 				double *x0 = run_state.state_vars + batch.first_ode_offset;
-#if EMULATE
-				ODE_Fun_State state {batch.run_code, &run_state};
-#else
-				ODE_Fun_State state {batch.compiled_code, &run_state};
-#endif
 				double h   = batch.h;
 				//TODO: keep h around for the next time step (trying an initial h that we ended up with from the previous step)
-				batch.solver_fun(&h, batch.hmin, batch.n_ode, x0, run_state.solver_workspace, &ode_fun, &state);
+				batch.solver_fun(&h, batch.hmin, batch.n_ode, x0, &run_state, BATCH_FUNCTION(batch));
 			}
 		}
 		

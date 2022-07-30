@@ -223,20 +223,6 @@ Model_Application {
 	std::vector<Run_Batch> batches;
 };
 
-struct
-Model_Run_State {
-	Parameter_Value *parameters;
-	double *state_vars;
-	double *series;
-	double *solver_workspace;
-	Expanded_Date_Time date_time;
-	
-	Model_Run_State() : solver_workspace(nullptr) {}
-};
-
-void
-run_model(Model_Application *model_app, s64 time_steps);
-
 
 template<> inline String_View
 Structured_Storage<Parameter_Value, Entity_Id>::get_handle_name(Entity_Id par) {

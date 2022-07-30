@@ -8,32 +8,8 @@
 #include "datetime.h"
 #include "file_utils.h"
 #include "peek_queue.h"
+#include "common_types.h"
 
-enum class Token_Type : char
-{
-	#define ENUM_VALUE(handle, name) handle,
-	#include "token_types.incl"
-	#undef ENUM_VALUE
-	max_multichar = 20,
-};
-
-
-
-inline const char *
-name(Token_Type type) {
-	if(type <= Token_Type::max_multichar)                   
-		switch(type) {
-			#define ENUM_VALUE(handle, name) case Token_Type::handle: return name;
-			#include "token_types.incl"
-			#undef ENUM_VALUE
-		}
-	else {
-		static char buf[2] = {0, 0};
-		buf[0] = (char)type;
-		return buf;
-	}
-	return "";
-}
 
 inline const char *
 article(Token_Type type) {
@@ -56,15 +32,6 @@ inline bool
 can_be_value_token(Token_Type type) {
 	return is_numeric_or_bool(type) || type == Token_Type::identifier || type == Token_Type::quoted_string;
 }
-
-struct
-Source_Location {
-	String_View filename;
-	s32 line, column;
-	
-	void print_error();
-	void print_error_header();
-};
 
 struct
 Token {

@@ -3,10 +3,12 @@
 
 #include <cmath>
 
-bool euler_solver(double *try_h, double hmin, int n, double *x0, double *wk, ODE_Function ode_fun, void *run_state) {
+bool euler_solver(double *try_h, double hmin, int n, double *x0, Model_Run_State *run_state, batch_function ode_fun) {
 	double t = 0.0;
 	bool run = true;
 	double h = *try_h;
+	
+	double *wk = run_state->solver_workspace;
 	
 	while(run) {
 	
@@ -15,7 +17,8 @@ bool euler_solver(double *try_h, double hmin, int n, double *x0, double *wk, ODE
 			run = false;
 		}
 		
-		ode_fun(t, run_state);
+		run_state->solver_t = t;
+		call_fun(ode_fun, run_state);
 		t += h;
 		
 		for(int var_idx = 0; var_idx < n; ++var_idx)
@@ -25,8 +28,8 @@ bool euler_solver(double *try_h, double hmin, int n, double *x0, double *wk, ODE
 	return true;
 }
 
-bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_Function ode_fun, void *run_state)  {
-	//NOTE: This is the original solver from INCA based on the DASCRU Runge-Kutta 4 solver. See also
+bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State *run_state, batch_function ode_fun)  {
+	//NOTE: This is an adaption of the original solver from INCA based on the DASCRU Runge-Kutta 4 solver. See also
 	// Rational Runge-Kutta Methods for Solving Systems of Ordinary Differential Equations, Computing 20, 333-342.
 	// Source code has been modified for clarity.
 
@@ -34,6 +37,7 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 
 	double t = 0.0;			      // 0 <= t <= 1 is the time progress of the solver.
 	
+	double *wk = run_state->solver_workspace;
 	// Divide up "workspaces" for the solver where it can store intermediate values.
 	double *wk0 = wk + n;
 	double *wk1 = wk0 + n;
@@ -61,7 +65,8 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 				run = false;
 			}
 			
-			ode_fun(t, run_state); //NOTE: The ode_fun computes dx/dt at x0 and puts the results in wk.
+			run_state->solver_t = t;
+			call_fun(ode_fun, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx = h * wk[var_idx] / 3.0;
 				wk1[var_idx] = dx;
@@ -69,14 +74,16 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 			}
 			t += h / 3.0;
 			
-			ode_fun(t, run_state);
+			run_state->solver_t = t;
+			call_fun(ode_fun, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx0 = h * wk[var_idx] / 3.0;
 				double dx  = 0.5 * (dx0 + wk1[var_idx]);
 				x0[var_idx] = wk0[var_idx] + dx;
 			}
 			
-			ode_fun(t, run_state);
+			run_state->solver_t = t;
+			call_fun(ode_fun, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx = h * wk[var_idx];
 				wk2[var_idx] = dx;
@@ -85,7 +92,8 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 			}
 			t += h / 6.0;
 			
-			ode_fun(t, run_state);
+			run_state->solver_t = t;
+			call_fun(ode_fun, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx0 = h * wk[var_idx] / 3.0;
 				double dx = wk1[var_idx] + 4.0 * dx0;
@@ -95,7 +103,8 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, double *wk, ODE_
 			}
 			t += 0.5*h;
 			
-			ode_fun(t, run_state);
+			run_state->solver_t = t;
+			call_fun(ode_fun, run_state);
 			for(int var_idx = 0; var_idx < n; ++var_idx) {
 				double dx0 = h * wk[var_idx] / 3.0;
 				double dx = 0.5 * (dx0 + wk1[var_idx]);

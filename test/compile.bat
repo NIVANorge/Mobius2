@@ -5,6 +5,4 @@ REM ../src/lexer.cpp ../src/ast.cpp ../src/module_declaration.cpp ../src/model_c
 
 REM /EHs-c-
 
-REM /ignore:4286 /ignore:4217
-
 REM cl /MD prelim_test.cpp ../src/lexer.cpp ../src/ast.cpp ../src/module_declaration.cpp ../src/model_composition.cpp ../src/function_tree.cpp  ../src/emulate.cpp ../src/units.cpp ../src/model_application.cpp ../src/ode_solvers.cpp /w /std:c++14  /EHsc /GR- -D_CRT_SECURE_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_NONSTDC_NO_WARNINGS -D_SCL_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS /O2 /link

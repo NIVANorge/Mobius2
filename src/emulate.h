@@ -2,6 +2,8 @@
 #ifndef MOBIUS_EMULATE_H
 #define MOBIUS_EMULATE_H
 
+#include "common_types.h"
+
 struct Typed_Value : Parameter_Value {
 	Value_Type type;
 	
@@ -30,6 +32,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 struct Scope_Local_Vars;
 struct Model_Application;
 struct Model_Run_State;
+struct Math_Expr_FT;
 
 Typed_Value
 emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars *locals);

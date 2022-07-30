@@ -3,84 +3,13 @@
 #ifndef MOBIUS_FUNCTION_TREE_H
 #define MOBIUS_FUNCTION_TREE_H
 
+#include "common_types.h"
 #include "module_declaration.h"
 
 //NOTE: this is really just a copy of the AST, but we want to put additional data on it.
 //NOTE: we *could* put the extra data in the AST, but it is not that clean. We will also want to copy the tree any way when we resolve properties that are attached to multiple other entities.
 
-struct Var_Id {
-	s32 id;
-	
-	Var_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
-	Var_Id &operator++() { id++; return *this; }
-};
 
-inline bool
-is_valid(Var_Id id) {
-	return id.id >= 0;
-}
-
-constexpr Var_Id invalid_var = {-1};
-
-inline bool
-operator==(const Var_Id &a, const Var_Id &b) { return a.id == b.id; }
-inline bool
-operator!=(const Var_Id &a, const Var_Id &b) { return a.id != b.id; }
-inline bool
-operator<(const Var_Id &a, const Var_Id &b) { return a.id < b.id; }
-
-enum class
-Value_Type {
-	unresolved = 0, none, real, integer, boolean,    // NOTE: enum would resolve to bool.
-};
-
-inline String_View
-name(Value_Type type) {
-	if(type == Value_Type::unresolved) return "unresolved";
-	if(type == Value_Type::none)       return "none";
-	if(type == Value_Type::real)       return "real";
-	if(type == Value_Type::integer)    return "integer";
-	if(type == Value_Type::boolean)    return "boolean";
-	return "unresolved";
-}
-
-inline Value_Type
-get_value_type(Decl_Type decl_type) {
-	if(decl_type == Decl_Type::par_real) return Value_Type::real;
-	if(decl_type == Decl_Type::par_int)  return Value_Type::integer;
-	if(decl_type == Decl_Type::par_bool) return Value_Type::boolean;
-	
-	return Value_Type::unresolved;
-}
-
-inline Value_Type
-get_value_type(Token_Type type) {
-	if(type == Token_Type::real) return Value_Type::real;
-	else if(type == Token_Type::integer) return Value_Type::integer;
-	else if(type == Token_Type::boolean) return Value_Type::boolean;
-	
-	return Value_Type::unresolved;
-}
-
-inline Token_Type
-get_token_type(Decl_Type type) {
-	if(type == Decl_Type::par_real) return Token_Type::real;
-	if(type == Decl_Type::par_int) return Token_Type::integer;
-	if(type == Decl_Type::par_bool) return Token_Type::boolean;
-	if(type == Decl_Type::par_enum) return Token_Type::identifier;
-	
-	return Token_Type::unknown;
-}
-
-enum class
-Variable_Type {
-	parameter, series, state_var, local, 
-	// "special" state variables
-	#define TIME_VALUE(name, bits, pos) time_##name,
-	#include "time_values.incl"
-	#undef TIME_VALUE
-	// Maybe also computed_parameter eventually.
-};
 
 struct
 Math_Expr_FT {
