@@ -229,6 +229,7 @@ Model_Run_State {
 	double *state_vars;
 	double *series;
 	double *solver_workspace;
+	Expanded_Date_Time date_time;
 	
 	Model_Run_State() : solver_workspace(nullptr) {}
 };

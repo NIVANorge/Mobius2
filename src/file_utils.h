@@ -108,7 +108,7 @@ File_Data_Handler {
 	load_file(String_View file_name, String_View relative = {}) {
 		String_View load_name = file_name;
 		if(relative)
-			//TODO: This could possibly give us multiple paths pointing to the same file. We should standardize them more, but that would be system specific.
+			//TODO: This could possibly give us multiple paths pointing to the same file. We should normalize the path, but that would be system specific.
 			// could maybe use std::filesystem::path here...
 			make_path_relative_to(file_name, relative);
 		auto find = loaded_files.find(load_name);

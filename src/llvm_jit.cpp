@@ -50,6 +50,8 @@ LLVM_Module_Data {
 	std::unique_ptr<llvm::LLVMContext>         context;
 	std::unique_ptr<llvm::Module>              module;
 	std::unique_ptr<llvm::IRBuilder<>>         builder;
+	
+	llvm::Type                                *dt_struct_type;
 };
 
 LLVM_Module_Data *
@@ -66,6 +68,9 @@ create_llvm_module() {
 
 	// Create a new builder for the module.
 	data->builder = std::make_unique<llvm::IRBuilder<>>(*data->context);
+	
+	// TODO: maybe set the fast math flags a bit more granularly. 
+	data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
 
 	return data;
 }
@@ -125,11 +130,24 @@ get_jitted_batch_function(const std::string &fun_name) {
 /*
 	Batch function is of the form
 	
-	void evaluate_batch(Parameter_Value *parameters, double *series, double *state_vars, double *solver_workspace);
+	void evaluate_batch(Parameter_Value *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time);
 	
 	since there are no union types in llvm, we treat Parameter_Value as a double and use bitcast when we want it as other types.
 	
-	     (to be expanded upon with datetime info etc).
+	struct Expanded_Date_Time {
+		s32       year;                       //0
+		s32       month;                      //1
+		s32       day_of_year;                //2
+		s32       day_of_month;               //3
+		s64       second_of_day;              //4
+		
+		s32       days_this_year;             //5
+		s32       days_this_month;            //6
+		
+		s64       step;                       //7
+		s64       step_length_in_seconds;     //8
+		...
+	}
 */
 
 struct Scope_Local_Vars;
@@ -140,16 +158,27 @@ void
 jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module_Data *data) {
 	
 	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
+	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
+	
+	std::vector<llvm::Type *> dt_member_types = {
+		int_32_ty, int_32_ty, int_32_ty, int_32_ty, int_64_ty, int_32_ty, int_32_ty, int_64_ty, int_64_ty,
+	};
+	
+	llvm::StructType *dt_ty     = llvm::StructType::get(*data->context, dt_member_types);
+	llvm::Type       *dt_ptr_ty = llvm::PointerType::getUnqual(dt_ty);
+	
+	data->dt_struct_type = dt_ty;
 	
 	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty,
+		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty
 		};
 		
 	llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
 	llvm::Function *fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	
 	// Hmm, is it important to set the argument names, or could we skip it?
-	const char *argnames[4] = {"parameters", "series", "state_vars", "solver_workspace"};
+	const char *argnames[5] = {"parameters", "series", "state_vars", "solver_workspace", "date_time"};
 	std::vector<llvm::Value *> args;
 	int idx = 0;
 	for(auto &arg : fun->args()) {
@@ -391,7 +420,7 @@ build_if_chain_ir(Math_Expr_FT **exprs, int exprs_size, Scope_Local_Vars *locals
 
 llvm::Value *
 build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_local, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
-	llvm::Value *start_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0));  // Iterator starts at 0
+	llvm::Value *start_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // Iterator starts at 0
 	
 	llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
 	llvm::BasicBlock *pre_header_block = data->builder->GetInsertBlock();
@@ -408,7 +437,7 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_lo
 	// Insert the loop body
 	build_expression_ir(body, loop_local, args, data);
 	
-	llvm::Value *step_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 1));  // Step is always 1
+	llvm::Value *step_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 1, true));  // Step is always 1
 	llvm::Value *next_iter = data->builder->CreateAdd(iter, step_val, "next_iter");
 	llvm::Value *iter_end  = build_expression_ir(n, loop_local, args, data);
 	llvm::Value *loop_cond = data->builder->CreateICmpNE(next_iter, iter_end, "loopcond"); // iter+1 != n
@@ -421,9 +450,8 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_lo
 	
 	iter->addIncoming(next_iter, loop_end_block);
 	
-	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0));  // NOTE: This is a dummy, it should not be read by anyone.
+	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be read by anyone.
 }
-
 
 llvm::Value *
 build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
@@ -464,11 +492,13 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			llvm::Value *result = nullptr;
 			
 			llvm::Value *offset = nullptr;
-			if(ident->variable_type != Variable_Type::local) {
+			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series) {
 				offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			}
 			//warning_print("offset for lookup was ", offset, "\n");
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
+			auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
+			auto int_32_ty = llvm::Type::getInt32Ty(*data->context);
 			
 			if(ident->variable_type == Variable_Type::parameter) {
 				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_lookup");
@@ -486,6 +516,18 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 				result = data->builder->CreateLoad(double_ty, result);
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+			} 
+			#define TIME_VALUE(name, bits, pos) \
+			else if(ident->variable_type == Variable_Type::time_##name) { \
+				result = data->builder->CreateStructGEP(data->dt_struct_type, args[4], pos, #name); \
+				result = data->builder->CreateLoad(int_##bits##_ty, result); \
+				if(bits != 64) \
+					result = data->builder->CreateSExt(result, int_64_ty, "cast"); \
+			}
+			#include "time_values.incl"
+			#undef TIME_VALUE
+			else {
+				fatal_error(Mobius_Error::internal, "Unhandled variable type in build_expression_ir().");
 			}
 			return result;
 		} break;
@@ -499,7 +541,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 				} break;
 				
 				case Value_Type::integer : {
-					result = llvm::ConstantInt::get(*data->context, llvm::APInt(64, literal->value.val_integer)); //TODO: check that this handles negative numbers correctly!
+					result = llvm::ConstantInt::get(*data->context, llvm::APInt(64, literal->value.val_integer, true)); //TODO: check that this handles negative numbers correctly!
 				} break;
 				
 				case Value_Type::boolean : {

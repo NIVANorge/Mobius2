@@ -187,23 +187,17 @@ struct Time_Step_Size {
 };
 
 struct Expanded_Date_Time {
-	// Note: it is beneficial if these struct members are nicely packed.
-	s32       year;
-	s32       month;
-	s32       day_of_year;
-	s32       day_of_month;
-	s64       second_of_day;
+	// Note: IMPORTANT! The members coming from time_values.incl have to be at the top of this struct!
 	
-	s32       days_this_year;
-	s32       days_this_month;
-	
-	s64       step_length_in_seconds;
+	#define TIME_VALUE(name, bits, pos) s##bits name;
+	#include "time_values.incl"
+	#undef TIME_VALUE
 	
 	Date_Time date_time;
 	Time_Step_Size time_step;
 	
 	
-	Expanded_Date_Time(Date_Time base, Time_Step_Size time_step) : date_time(base), time_step(time_step) {
+	Expanded_Date_Time(Date_Time base, Time_Step_Size time_step) : date_time(base), time_step(time_step), step(0) {
 		//NOTE: This does double work, but it should not matter that much.
 		date_time.year_month_day(&year, &month, &day_of_month);
 		date_time.day_of_year(&day_of_year, &year);
@@ -220,6 +214,7 @@ struct Expanded_Date_Time {
 	
 	void
 	advance() {
+		++step;
 		date_time.seconds_since_epoch += step_length_in_seconds;
 		if(time_step.unit == Time_Step_Unit::second) {
 			second_of_day                 += step_length_in_seconds;

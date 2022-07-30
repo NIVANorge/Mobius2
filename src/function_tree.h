@@ -74,7 +74,12 @@ get_token_type(Decl_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var, local // Maybe also computed_parameter eventually.
+	parameter, series, state_var, local, 
+	// "special" state variables
+	#define TIME_VALUE(name, bits, pos) time_##name,
+	#include "time_values.incl"
+	#undef TIME_VALUE
+	// Maybe also computed_parameter eventually.
 };
 
 struct

@@ -58,7 +58,6 @@ Argument_AST : Expr_AST {
 struct
 Decl_AST : Expr_AST {
 	Token                        handle_name;
-	//Token                        type_name; // Hmm, is a bit superfluous, but it is mostly to store the source location. TODO: replace just with a Source_Location
 	Source_Location              location;
 	Decl_Type                    type;
 	

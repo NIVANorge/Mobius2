@@ -137,8 +137,6 @@ Mobius_Model {
 	}
 	
 	s16 load_module(String_View file_name, String_View module_name);
-
-	String_View this_path = "";
 	
 	bool is_composed = false;
 	

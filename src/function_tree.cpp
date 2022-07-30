@@ -206,6 +206,17 @@ is_inside_function(Scope_Data *scope, String_View name) {
 	return false;
 }
 
+bool
+is_inside_function(Scope_Data *scope) {
+	Scope_Data *sc = scope;
+	while(true) {
+		if(!sc) return false;
+		if(sc->function_name) return true;
+		sc = sc->parent;
+	}
+	return false;
+}
+
 void
 fatal_error_trace(Scope_Data *scope) {
 	Scope_Data *sc = scope;
@@ -256,12 +267,24 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			auto ident = reinterpret_cast<Identifier_Chain_AST *>(ast);
 			auto new_ident = new Identifier_FT();
 			result = new_ident;
+			
+			bool isfun = is_inside_function(scope);
+			bool found_local = false;
+			String_View name;
 			if(ident->chain.size() == 1) {
-				String_View name = ident->chain[0].string_value;
-				
-				bool found = find_local_variable(new_ident, name, scope);
-				if(!found) {
-					//TODO: for now, just assume this is a parameter.
+				name = ident->chain[0].string_value;
+				found_local = find_local_variable(new_ident, name, scope);
+			}
+			
+			if(isfun && !found_local) {
+				ident->chain[0].print_error_header();
+				error_print("The name \"", name, "\" is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
+				fatal_error_trace(scope);
+			}
+			
+			if(!found_local) {
+				if(ident->chain.size() == 1) {
+					//note: for now, just assume this is a parameter.
 					//TODO: could also allow refering to properties by just a single identifier if the compartment is obvious.
 					new_ident->variable_type = Variable_Type::parameter;
 					
@@ -282,70 +305,79 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					new_ident->parameter = par_id;
 					new_ident->value_type = get_value_type(module->parameters[par_id]->decl_type);
 					// TODO: find out how to handle datetime values if we decide to implement those.
-				}
-				
-			} else if(ident->chain.size() == 2) {
-				// This is either compartment.quantity_or_property, or enum_par.enum_value
-				
-				String_View n1 = ident->chain[0].string_value;
-				String_View n2 = ident->chain[1].string_value;
-				Entity_Id first  = module->find_handle(n1);
-				
-				//TODO: may need fixup for special identifiers.
-				
-				if(first.reg_type == Reg_Type::parameter) {
-					auto parameter = module->parameters[first];
-					if(parameter->decl_type != Decl_Type::par_enum) {
-						ident->chain[0].print_error_header();
-						error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
-						fatal_error_trace(scope);
-					}
-					s64 val = enum_int_value(parameter, n2);
-					if(val < 0) {
-						ident->chain[1].print_error_header();
-						error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
-						fatal_error_trace(scope);
-					}
-					new_ident->variable_type = Variable_Type::parameter;
-					new_ident->parameter = first;
-					new_ident->value_type = Value_Type::integer;
-					result = make_binop('=', new_ident, make_literal(val));
-					result->value_type = Value_Type::boolean;   // Ooops, make_binop does not give correct type for comparison operators.
-				} else {
+				} else if(ident->chain.size() == 2) {
+					// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
 					
-					Entity_Id second = module->find_handle(n2);
+					String_View n1 = ident->chain[0].string_value;
+					String_View n2 = ident->chain[1].string_value;
+					Entity_Id first  = module->find_handle(n1);
 					
-					if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_quantity) {
-						ident->chain[0].print_error_header();
-						error_print("Unable to resolve what variable \"", n1, ".", n2, "\" refers to.\n");  //TODO: make message more specific about the reason why it failed.
-						fatal_error_trace(scope);
-					}
-					Value_Location loc = make_value_location(module, first, second);
-					Var_Id var_id = model->state_vars[loc];
-					if(is_valid(var_id)) {
-						new_ident->variable_type = Variable_Type::state_var;
-						new_ident->state_var     = var_id;
-						new_ident->value_type    = Value_Type::real;
-					} else {
-						var_id = model->series[loc];
-						if(!is_valid(var_id)) {
-							//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
-							// Maybe that is not that important (?).
-							ast->location.print_error_header();
-							error_print("There has not been a \"has\" declaration registering \"", n2, "\" as tied to \"", n1, "\".\n");
+					//TODO: may need fixup for special more identifiers.
+					if(n1 == "time") {
+						if(false){}
+						#define TIME_VALUE(name, bits, pos) \
+						else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
+						#include "time_values.incl"
+						#undef TIME_VALUE
+						else {
+							ident->chain[1].print_error_header();
+							error_print("The time structure does not have a member \"", n2, "\".\n");
 							fatal_error_trace(scope);
 						}
-						new_ident->variable_type = Variable_Type::series;
-						new_ident->series = var_id;
-						new_ident->value_type    = Value_Type::real;
+						new_ident->value_type = Value_Type::integer;
+					} else if(first.reg_type == Reg_Type::parameter) {
+						auto parameter = module->parameters[first];
+						if(parameter->decl_type != Decl_Type::par_enum) {
+							ident->chain[0].print_error_header();
+							error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of another type.\n");// ", name(parameter->decl_type), ".\n");
+							fatal_error_trace(scope);
+						}
+						s64 val = enum_int_value(parameter, n2);
+						if(val < 0) {
+							ident->chain[1].print_error_header();
+							error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
+							fatal_error_trace(scope);
+						}
+						new_ident->variable_type = Variable_Type::parameter;
+						new_ident->parameter = first;
+						new_ident->value_type = Value_Type::integer;
+						result = make_binop('=', new_ident, make_literal(val));
+						result->value_type = Value_Type::boolean;   // Ooops, make_binop does not give correct type for comparison operators.
+					} else {
+						
+						Entity_Id second = module->find_handle(n2);
+						
+						if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_quantity) {
+							ident->chain[0].print_error_header();
+							error_print("Unable to resolve what variable \"", n1, ".", n2, "\" refers to.\n");  //TODO: make message more specific about the reason why it failed.
+							fatal_error_trace(scope);
+						}
+						Value_Location loc = make_value_location(module, first, second);
+						Var_Id var_id = model->state_vars[loc];
+						if(is_valid(var_id)) {
+							new_ident->variable_type = Variable_Type::state_var;
+							new_ident->state_var     = var_id;
+							new_ident->value_type    = Value_Type::real;
+						} else {
+							var_id = model->series[loc];
+							if(!is_valid(var_id)) {
+								//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
+								// Maybe that is not that important (?).
+								ast->location.print_error_header();
+								error_print("There has not been a \"has\" declaration registering \"", n2, "\" as tied to \"", n1, "\".\n");
+								fatal_error_trace(scope);
+							}
+							new_ident->variable_type = Variable_Type::series;
+							new_ident->series = var_id;
+							new_ident->value_type    = Value_Type::real;
+						}
 					}
+				} else {
+					ident->chain[0].print_error_header();
+					error_print("Too many identifiers in chain.\n");
+					fatal_error_trace(scope);
 				}
-			} else {
-				ident->chain[0].print_error_header();
-				error_print("Too many identifiers in chain.\n");
-				fatal_error_trace(scope);
 			}
-			
 		} break;
 		
 		case Math_Expr_Type::literal : {
@@ -393,23 +425,30 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				result = var;
 			} else {
 				// Otherwise it should have been registered as an entity.
-			
+				
+				// TODO: it is a bit problematic that a function can see all other functions in the scope it was imported into...
+				
 				Entity_Id fun_id = module->find_handle(fun_name);
-				if(!is_valid(fun_id)) fun_id = module->global_scope->find_handle(fun_name);
+				bool local = is_valid(fun_id);
+				if(!local && module->global_scope) fun_id = module->global_scope->find_handle(fun_name);
 				
-				if(!is_valid(fun_id)) {
+				bool found = is_valid(fun_id) && fun_id.reg_type == Reg_Type::function;
+				
+				Entity_Registration<Reg_Type::function> *fun_decl;
+				Function_Type fun_type;
+				
+				if(found) {
+					fun_decl = model->find_entity<Reg_Type::function>(fun_id);
+					fun_type = fun_decl->fun_type;
+				}
+				
+				found = found && (local || (fun_type == Function_Type::intrinsic));    // Only intrinsics are visible from the model scope.
+				
+				if(!found) {
 					fun->name.print_error_header();
 					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
 					fatal_error_trace(scope);
 				}
-				
-				if(is_valid(fun_id) && fun_id.reg_type != Reg_Type::function) {
-					fun->name.print_error_header();
-					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
-					fatal_error_trace(scope);
-				}
-				
-				auto fun_decl = model->find_entity<Reg_Type::function>(fun_id);
 				
 				//TODO: should be replaced with check in resolve_arguments
 				if(fun->exprs.size() != fun_decl->args.size()) {
@@ -417,8 +456,6 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					error_print("Wrong number of arguments to function \"", fun_name, "\". Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".\n");
 					fatal_error_trace(scope);
 				}
-				
-				auto fun_type = fun_decl->fun_type;
 				
 				if(fun_type == Function_Type::intrinsic) {
 					auto new_fun = new Function_Call_FT();

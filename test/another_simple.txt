@@ -1,0 +1,36 @@
+
+
+model("Another simple") {
+
+	module("So simple", 1, 0, 0) {
+	
+		load("../stdlib/response.txt", library("Response"))
+	
+		place : compartment("Place")
+		
+		place.par_group("Place stuff") {
+			a : par_real("The A value", unit(), 0.3)
+		}
+		
+		place.has(property("step"), unit()) {
+			time.step
+		}
+		
+		place.has(property("year"), unit()) {
+			time.year
+		}
+		
+		place.has(property("month"), unit()) {
+			time.month
+		}
+		
+		place.has(property("day_of_year"), unit()) {
+			time.day_of_year
+		}
+		
+		place.has(property("day_of_month"), unit()) {
+			time.day_of_month
+		}
+	}
+
+}

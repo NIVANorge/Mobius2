@@ -297,20 +297,41 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			Typed_Value result;
 			result.type = expr->value_type;
 			s64 offset = 0;
-			if(ident->variable_type != Variable_Type::local) {
+			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series) {
 				DEBUG(warning_print("lookup var offset.\n"))
 				offset = emulate_expression(expr->exprs[0], state, locals).val_integer;
 			}
 			//warning_print("offset for lookup was ", offset, "\n");
 			
-			if(ident->variable_type == Variable_Type::parameter) {
-				result = Typed_Value {state->parameters[offset], expr->value_type};
-			} else if(ident->variable_type == Variable_Type::state_var) {
-				result.val_real = state->state_vars[offset];
-			} else if(ident->variable_type == Variable_Type::series) {
-				result.val_real = state->series[offset];
-			} else if(ident->variable_type == Variable_Type::local) {
-				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+			Parameter_Value val;
+			switch(ident->variable_type) {
+				case Variable_Type::parameter: {
+					result = Typed_Value {state->parameters[offset], expr->value_type};
+				} break;
+				
+				case Variable_Type::state_var : {
+					result.val_real = state->state_vars[offset];
+				} break;
+				
+				case Variable_Type::series : {
+					result.val_real = state->series[offset];
+				} break;
+				
+				case Variable_Type::local : {
+					result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+				} break;
+				
+				#define TIME_VALUE(name, bits, pos)\
+				case Variable_Type::time_##name : { \
+					val.val_integer = state->date_time.name; \
+					result = Typed_Value {val, expr->value_type}; \
+				} break;
+				#include "time_values.incl"
+				#undef TIME_VALUE			
+				
+				default : {
+					fatal_error(Mobius_Error::internal, "Unhandled variable type in emulate_expression().");
+				}
 			}
 			return result;
 		} break;

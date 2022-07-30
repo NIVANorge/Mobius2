@@ -294,7 +294,7 @@ Registry : Registry_Base {
 	Entity_Id end();
 };
 
-
+struct Mobius_Model;
 
 struct
 Module_Declaration {	
@@ -304,9 +304,12 @@ Module_Declaration {
 	Decl_AST *decl;
 	
 	s16 module_id;
-	Module_Declaration *global_scope;
+	Module_Declaration *global_scope;          //TODO: this is a bad name. It is the registration data for the model. Very little here is visible to the other modules.
+	Mobius_Model       *model;
 	
 	String_View doc_string;
+	
+	String_View source_path;
 	
 	string_map<Entity_Id>           handles_in_scope;
 	

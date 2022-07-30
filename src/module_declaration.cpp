@@ -588,15 +588,74 @@ check_for_missing_declarations(Module_Declaration *module) {
 	}
 }
 
+Decl_AST *
+load_top_decl_from_file(Mobius_Model *model, String_View file_name, String_View decl_name, Decl_Type type, String_View rel_path) {
+	// TODO: this is wasteful in that it may parse the same file many times. We could cache the decls in case they are needed by another load call.
+	
+	String_View file_data = model->file_handler.load_file(file_name, rel_path);
+	Token_Stream stream(file_name, file_data);
+	
+	Decl_AST *result = nullptr;
+	while(true) {
+		if(stream.peek_token().type == Token_Type::eof) break;
+		Decl_AST *decl = parse_decl(&stream);
+		if(decl->type != Decl_Type::module && decl->type != Decl_Type::library) {
+			decl->location.print_error_header();
+			fatal_error("Module files should only have modules or libraries in the top scope. Encountered a \"", name(decl->type), "\".");
+		}
+		if(decl->type == type && decl->args.size() >= 1 && decl->args[0]->sub_chain.size() >= 1 && decl->args[0]->sub_chain[0].string_value == decl_name)
+			result = decl;
+		else
+			delete decl;
+	}
+	
+	if(!result)
+		fatal_error(Mobius_Error::parsing, "Could not find the ", name(type), " \"", decl_name, "\" in the file ", file_name, " .");
+	
+	return result;
+}
+
+void
+process_load_library_declaration(Module_Declaration *module, Decl_AST *load_decl) {
+	match_declaration(load_decl, {{Token_Type::quoted_string, Decl_Type::library}});
+	
+	String_View file_name = single_arg(load_decl, 0)->string_value;
+	auto lib_load_decl = load_decl->args[1]->decl;
+	
+	match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, 0, true, 0);
+	
+	String_View library_name = single_arg(lib_load_decl, 0)->string_value;
+	
+	Decl_AST *lib_decl = load_top_decl_from_file(module->model, file_name, library_name, Decl_Type::library, module->source_path);
+	
+	match_declaration(lib_decl, {{Token_Type::quoted_string}});
+	
+	auto body = reinterpret_cast<Decl_Body_AST *>(lib_decl->bodies[0]);
+
+	for(Decl_AST *child : body->child_decls) {
+		if(child->type == Decl_Type::function) {
+			process_declaration<Reg_Type::function>(module, child);
+		} else {
+			child->location.print_error_header();
+			fatal_error("Did not expect a declaration of type ", name(child->type), " inside a library.");
+		}
+	}
+	
+	//TODO: we should somehow check that the loaded functions only access other functions that were declared in their own scope.
+	//   we should probably make a better "declaration scope" system and separate the concept of declaration scope from the concept of module.
+}
+
 Module_Declaration *
-process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl) {
+process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope, s16 module_id, Decl_AST *decl, String_View source_path) {
 	
 	//TODO: have to decide whether we should copy over string views at this point.
 	
 	Module_Declaration *module = new Module_Declaration();
 	module->global_scope = global_scope;
-	module->decl = decl; // Keep it so that we can free it later.
+	module->model = model;
+	module->decl = decl; // Keep it so that we can free it later. TODO: not needed if we instead cache loaded decls on a file basis. Then the cache would be responsible for freeing.
 	module->module_id = module_id;
+	module->source_path = source_path;
 	
 	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
 	
@@ -607,7 +666,7 @@ process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl
 
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
-	if(body->doc_string.type == Token_Type::quoted_string)
+	if(body->doc_string.string_value)
 		module->doc_string = body->doc_string.string_value;
 	
 	for(Decl_AST *child : body->child_decls) {
@@ -641,6 +700,10 @@ process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl
 			
 			case Decl_Type::function : {
 				process_declaration<Reg_Type::function>(module, child);
+			} break;
+			
+			case Decl_Type::load : {
+				process_load_library_declaration(module, child);
 			} break;
 			
 			default : {
@@ -809,12 +872,24 @@ register_intrinsics(Module_Declaration *module) {
 }
 
 
+s16
+Mobius_Model::load_module(String_View file_name, String_View module_name) {
+	
+	auto global_scope = modules[0];
+	Decl_AST *module_decl = load_top_decl_from_file(this, file_name, module_name, Decl_Type::module, global_scope->source_path);
+	
+	s16 module_id = (s16)modules.size();
+	Module_Declaration *module = process_module_declaration(this, global_scope, module_id, module_decl, file_name); //TODO: should be the normalized file name.
+	modules.push_back(module);
+	return module_id;
+}
+
+
 Mobius_Model *
 load_model(String_View file_name) {
 	Mobius_Model *model = new Mobius_Model();
 	
 	String_View model_data = model->file_handler.load_file(file_name);
-	model->this_path = file_name;
 	
 	Token_Stream stream(file_name, model_data);
 	Decl_AST *decl = parse_decl(&stream);
@@ -836,6 +911,7 @@ load_model(String_View file_name) {
 	
 	auto global_scope = new Module_Declaration();
 	global_scope->module_id = 0;
+	global_scope->source_path = file_name;
 	
 	register_intrinsics(global_scope);
 	
@@ -855,6 +931,8 @@ load_model(String_View file_name) {
 	model->modules.push_back(global_scope);
 	
 	for(Decl_AST *child : body->child_decls) {
+		//TODO: do libraries also.
+		
 		switch (child->type) {
 			case Decl_Type::load : {
 				match_declaration(child, {{Token_Type::quoted_string, Decl_Type::module}}, 0, false);
@@ -870,7 +948,7 @@ load_model(String_View file_name) {
 			
 			case Decl_Type::module : {
 				s16 module_id = (s16)model->modules.size();
-				Module_Declaration *module = process_module_declaration(global_scope, module_id, child);
+				Module_Declaration *module = process_module_declaration(model, global_scope, module_id, child, global_scope->source_path);
 				model->modules.push_back(module);
 				if(child->handle_name.string_value)
 					module_ids[child->handle_name.string_value] = module_id;
@@ -926,38 +1004,4 @@ load_model(String_View file_name) {
 	
 	return model;
 }
-
-
-s16
-Mobius_Model::load_module(String_View file_name, String_View module_name) {
-	String_View file_data = file_handler.load_file(file_name, this_path);
-	Token_Stream stream(file_name, file_data);
-	
-	s16 module_id = (s16)modules.size();
-	bool found = false;
-	while(true) {
-		if(stream.peek_token().type == Token_Type::eof) break;
-		Decl_AST *module_decl = parse_decl(&stream);
-		if(module_decl->type != Decl_Type::module) {
-			module_decl->location.print_error_header();
-			fatal_error("Module files should have only modules in the top scope.");
-		}
-		if(module_decl->args.size() >= 1 && module_decl->args[0]->sub_chain.size() >= 1 && module_decl->args[0]->sub_chain[0].string_value == module_name) {
-			auto global_scope = modules[0];
-			Module_Declaration *module = process_module_declaration(global_scope, module_id, module_decl);
-			modules.push_back(module);
-			found = true;
-			break;
-		} else {
-			// TODO: this is wasteful for now. We could cache the ast in case it is loaded by another load_module call, then delete the ones we did not use
-			delete module_decl;
-		}
-	}
-	if(!found) {
-		//TODO: this should give the location of where it was requested?
-		fatal_error(Mobius_Error::parsing, "Could not find the module ", module_name, " in the file ", file_name, ".");
-	}
-	return module_id;
-}
-
 

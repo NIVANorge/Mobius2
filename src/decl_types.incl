@@ -1,5 +1,6 @@
 ENUM_VALUE(model, decl, unrecognized)
 ENUM_VALUE(module, decl, unrecognized)
+ENUM_VALUE(library, decl, unrecognized)
 ENUM_VALUE(load, none, unrecognized)
 ENUM_VALUE(to, none, to)
 ENUM_VALUE(index_set, none, index_set)

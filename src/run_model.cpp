@@ -18,12 +18,12 @@ struct ODE_Fun_State {
 // NOTE: this obviously has to match the call signature of batch_function.
 inline void
 call_fun(batch_function *fun, Model_Run_State *run_state) {
-	fun(reinterpret_cast<double *>(run_state->parameters), run_state->series, run_state->state_vars, run_state->solver_workspace);
+	fun(reinterpret_cast<double *>(run_state->parameters), run_state->series, run_state->state_vars, run_state->solver_workspace, &run_state->date_time);
 }
 
 // TODO: this could actually be inlined into the ode functions.
 void ode_fun(double t, void *st) {
-	//Hmm, we don't actually need to know x0 and wk here. Should we just remove them from the spec?
+
 	auto state = reinterpret_cast<ODE_Fun_State *>(st);
 #if EMULATE
 	emulate_expression(state->fun, state->run_state, nullptr);
@@ -52,6 +52,8 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	run_state.parameters = model_app->parameter_data.data;
 	run_state.state_vars = model_app->result_data.data;
 	run_state.series     = model_app->series_data.data;
+	run_state.date_time  = Expanded_Date_Time(); // TODO: set this properly.
+	
 	
 	int solver_workspace_size = 0;
 	for(auto &batch : model_app->batches) {
@@ -68,13 +70,14 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	// Initial values:
 	
 	Timer run_timer;
+	run_state.date_time.step = -1;
 #if EMULATE
 	emulate_expression(model_app->initial_batch.run_code, &run_state, nullptr);
 #else
 	call_fun(model_app->initial_batch.compiled_code, &run_state);
 #endif
 	
-	for(s64 ts = 0; ts < time_steps; ++ts) {
+	for(run_state.date_time.step = 0; run_state.date_time.step < time_steps; run_state.date_time.advance()) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
 		run_state.state_vars+=var_count;
 		
