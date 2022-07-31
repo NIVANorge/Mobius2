@@ -36,7 +36,7 @@ can_be_value_token(Token_Type type) {
 struct
 Token {
 	
-	Token() : val_date() {};
+	Token() : val_date(), string_value(), type(Token_Type::unknown) {};
 	
 	Source_Location location;
 	String_View     string_value;

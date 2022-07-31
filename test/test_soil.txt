@@ -20,6 +20,8 @@ module("Test soil water", 1, 0, 0) {
 """
 Oversimplified soil water module inc.
 """
+	load("../stdlib/response.txt", library("Response"))    #TODO: we need a better way to address the stdlib so that we don't have to know the path.
+
 	air      : compartment("Atmosphere")
 	soil     : compartment("Soil")
 	gw       : compartment("Groundwater")
@@ -45,9 +47,12 @@ Oversimplified soil water module inc.
 	
 	flux(soil.water, out, "Quick flow")             {   f_quick * in_flux(water)   }
 	
-	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - exp(ln(0.01) * water/fc))   }
+	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - 0.01^(water/fc))   }  #pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
 	
-	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {   max(0, (water - fc)/tc_s)  }
+	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
+		rate := (water - fc)/tc_s
+		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the rate on between water volumes of fc and 1.01*fc
+	}
 	
 	soil_runoff :
 	flux(soil.water, out, "Soil runoff")            {   soil.flow * (1 - bfi)   }

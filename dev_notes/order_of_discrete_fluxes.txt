@@ -1,6 +1,39 @@
 
 
 
+what if we do:
+
+
+discrete_order {
+	melt
+	sub(melt)
+	refreeze
+	#add(refreeze)    #can infer that they are right after refreeze if that is not declared.
+	#sub(refreeze)
+	add(melt)
+	runoff
+	#sub(runoff)   #could be inferred.
+}
+	
+	# for proportionality
+	code {
+		compute(a);
+		compute(b);
+		a = a * q/(a + b);
+		b = b * q/(a + b);
+		q -= a + b;
+	}
+
+
+
+
+
+
+
+
+# old discussion:
+
+
 rules for discrete fluxes
 
 

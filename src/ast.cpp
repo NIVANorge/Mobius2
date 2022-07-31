@@ -181,7 +181,7 @@ parse_decl(Token_Stream *stream) {
 					Token token = stream->peek_token();
 					if(token.type == Token_Type::quoted_string) {
 						stream->read_token();
-						if(decl_body->doc_string.type == Token_Type::quoted_string) {
+						if(is_valud(&decl_body->doc_string)) {
 							// we already found one earlier.
 							token.print_error_header();
 							fatal_error("Multiple doc strings for declaration.");

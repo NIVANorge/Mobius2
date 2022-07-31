@@ -835,8 +835,21 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 					delete expr;
 					return literal;
 				}
-			} else if((char)binary->oper == '^' && rhs)
-				return maybe_optimize_pow(binary, expr->exprs[0], rhs);
+			} else if((char)binary->oper == '^') {
+				if(rhs)
+					return maybe_optimize_pow(binary, expr->exprs[0], rhs);
+				else if(lhs) {
+					// if lhs is a literal > 0, replace    lhs^rhs with exp(ln(lhs)*rhs). Since the ln can be computed now, this function call is faster and easier for llvm to optimize.
+					//    llvm does NOT do this reduction on its own, and it can have a huge impact on model speed.
+					if(lhs->value.val_real > 1e-16) {   // TODO: find a good epsilon here. We should check what the floating point error resulting from the replacement is for various epsilons.
+						lhs->value.val_real = std::log(lhs->value.val_real);
+						auto result = make_intrinsic_function_call(Value_Type::real, "exp", make_binop('*', lhs, make_cast(expr->exprs[1], Value_Type::real)));
+						expr->exprs.clear();
+						delete expr;
+						return result;
+					}
+				}
+			}
 		} break;
 	
 		case Math_Expr_Type::if_chain : {

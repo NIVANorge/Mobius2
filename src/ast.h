@@ -58,7 +58,7 @@ Decl_Body_AST : Body_AST {
 	Token                   doc_string;
 	std::vector<Decl_AST *> child_decls;
 	
-	Decl_Body_AST() : Body_AST(Body_Type::decl) {};
+	Decl_Body_AST() : Body_AST(Body_Type::decl), doc_string() {};
 	~Decl_Body_AST() { for(auto decl : child_decls) delete decl; }
 };
 
