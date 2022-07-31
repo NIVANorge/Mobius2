@@ -69,7 +69,8 @@ create_llvm_module() {
 	// Create a new builder for the module.
 	data->builder = std::make_unique<llvm::IRBuilder<>>(*data->context);
 	
-	// TODO: maybe set the fast math flags a bit more granularly. 
+	// TODO: maybe set the fast math flags a bit more granularly.
+	// we should monitor better how they affect model correctness and/or interfers with is_finite
 	data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
 
 	return data;
@@ -335,10 +336,10 @@ llvm::Value *
 build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_Module_Data *data) {
 	llvm::Value *result = nullptr;
 	if(false) {}
-	#define MAKE_INTRINSIC1(name, intrin_name, ret_type, type1) \
-		else if(function == #name) { \
+	#define MAKE_INTRINSIC1(name, emul, intrin_name, ret_type, type1) \
+		else if(function == #name && #intrin_name != "fshr") { \
 			if(type != Value_Type::type1) \
-				fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic()."); \
+				fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in build_intrinsic_ir()."); \
 			std::vector<llvm::Type *> arg_types = { get_llvm_type(Value_Type::type1, data) }; \
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::intrin_name, arg_types); \
 			result = data->builder->CreateCall(fun, { a }); \
@@ -347,8 +348,14 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 	#include "intrinsics.incl"
 	#undef MAKE_INTRINSIC1
 	#undef MAKE_INTRINSIC2
-	else
-		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+	else if(function == "is_finite") {
+		// NOTE: This checks if the mantissa bits are all 1.
+		auto mask = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0x7ff0000000000000));
+		result = data->builder->CreateBitCast(a, llvm::Type::getInt64Ty(*data->context));
+		result = data->builder->CreateAnd(result, mask);
+		result = data->builder->CreateICmpNE(result, mask);
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in build_intrinsic_ir().");
 	
 	return result;
 }
@@ -368,10 +375,10 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 		} else if(type1 == Value_Type::real) {
 			fun = llvm::Intrinsic::getDeclaration(data->module.get(), ismin ? llvm::Intrinsic::minnum : llvm::Intrinsic::maxnum, arg_types);
 		} else
-			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic().");
+			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in build_intrinsic_ir().");
 		result = data->builder->CreateCall(fun, { a, b });
 	} else
-		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in build_intrinsic_ir().");
 	return result;
 }
 

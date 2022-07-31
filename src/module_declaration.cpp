@@ -885,7 +885,7 @@ void
 register_intrinsics(Module_Declaration *module) {
 	//module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
 	
-	#define MAKE_INTRINSIC1(name, emul, ret_type, type1) \
+	#define MAKE_INTRINSIC1(name, emul, llvm, ret_type, type1) \
 		{ \
 			auto fun = module->functions.create_compiler_internal(#name, Decl_Type::function); \
 			module->functions[fun]->fun_type = Function_Type::intrinsic; \

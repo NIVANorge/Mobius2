@@ -1,4 +1,13 @@
 
+library("Basic") {
+
+	safe_divide : function(a, b) {
+		r := a/b
+		r if is_finite(r),
+		0 otherwise
+	}
+	
+}
 
 
 library("Response") {

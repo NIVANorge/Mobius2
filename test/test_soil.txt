@@ -20,7 +20,7 @@ module("Test soil water", 1, 0, 0) {
 """
 Oversimplified soil water module inc.
 """
-	load("../stdlib/response.txt", library("Response"))    #TODO: we need a better way to address the stdlib so that we don't have to know the path.
+	load("../stdlib/basic_math.txt", library("Response"))    #TODO: we need a better way to address the stdlib so that we don't have to know the path.
 
 	air      : compartment("Atmosphere")
 	soil     : compartment("Soil")
@@ -47,7 +47,7 @@ Oversimplified soil water module inc.
 	
 	flux(soil.water, out, "Quick flow")             {   f_quick * in_flux(water)   }
 	
-	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - 0.01^(water/fc))   }  #pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
+	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - 0.01^(water/fc))   }  # = pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
 	
 	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
 		rate := (water - fc)/tc_s

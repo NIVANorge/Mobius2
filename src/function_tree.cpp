@@ -128,7 +128,7 @@ void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right) {
 void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 	String_View n = name->string_value;
 	if(false) {}
-	#define MAKE_INTRINSIC1(fun_name, emul, ret_type, type1) \
+	#define MAKE_INTRINSIC1(fun_name, emul, llvm, ret_type, type1) \
 		else if(n == #fun_name) { \
 			fun->exprs[0] = make_cast(fun->exprs[0], Value_Type::type1); \
 			fun->value_type = Value_Type::ret_type; \
@@ -815,7 +815,6 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 			
 			if(result.type != Value_Type::unresolved) {
 				if(result.type == Value_Type::none) { // note: this is used by the check_binop_reduction procedure to signal to keep the other operand rather than replace it with a literal
-					//return expr;  // nocheckin
 					Math_Expr_FT *res;
 					if(lhs) {
 						delete expr->exprs[0];
@@ -839,9 +838,15 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 				if(rhs)
 					return maybe_optimize_pow(binary, expr->exprs[0], rhs);
 				else if(lhs) {
-					// if lhs is a literal > 0, replace    lhs^rhs with exp(ln(lhs)*rhs). Since the ln can be computed now, this function call is faster and easier for llvm to optimize.
-					//    llvm does NOT do this reduction on its own, and it can have a huge impact on model speed.
-					if(lhs->value.val_real > 1e-16) {   // TODO: find a good epsilon here. We should check what the floating point error resulting from the replacement is for various epsilons.
+					if(lhs->value.val_real == 2.0) {
+						auto result = make_intrinsic_function_call(Value_Type::real, "pow2", make_cast(expr->exprs[1], Value_Type::real));
+						expr->exprs.clear();
+						delete lhs;
+						delete expr;
+						return result;
+					} else if(lhs->value.val_real > 1e-16) {   // TODO: find a good epsilon here. We should check what the floating point error resulting from the replacement is for various epsilons.
+						// if lhs is a literal > 0, replace    lhs^rhs with exp(ln(lhs)*rhs). Since the ln can be computed now, this function call is faster and easier for llvm to optimize.
+						//    llvm does NOT do this reduction on its own, and it can have a huge impact on model speed.
 						lhs->value.val_real = std::log(lhs->value.val_real);
 						auto result = make_intrinsic_function_call(Value_Type::real, "exp", make_binop('*', lhs, make_cast(expr->exprs[1], Value_Type::real)));
 						expr->exprs.clear();

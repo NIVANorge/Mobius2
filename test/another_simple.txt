@@ -4,28 +4,30 @@ model("Another simple") {
 
 	module("So simple", 1, 0, 0) {
 	
-		load("../stdlib/response.txt", library("Response"))
+		load("../stdlib/basic_math.txt", library("Response"))
+		load("../stdlib/basic_math.txt", library("Basic"))
 	
 		place : compartment("Place")
 		
 		place.par_group("Place stuff") {
 			a : par_real("The A value", unit(), 0.3)
-			b : par_int("The B value", unit(), -1)
+			b : par_real("The B value", unit(), 0)
+			c : par_real("The C value", unit(), 0)
 		}
 		
-		place.has(property("step"), unit())            {   time.step   }
+		place.has(property("step"), unit())            {   2^a   }
 		
-		place.has(property("year"), unit())            {   time.year   }
+		place.has(property("year"), unit())            {   is_finite(1)   }
 		
-		place.has(property("month"), unit())           {   time.month   }
+		place.has(property("month"), unit())           {   is_finite(a/b)   }
 		
-		place.has(property("day_of_year"), unit())     {   time.day_of_year   }
+		place.has(property("day_of_year"), unit())     {   is_finite(b/c)   }
 		
-		place.has(property("day_of_month"), unit())    {   time.day_of_month  }
+		place.has(property("day_of_month"), unit())    {   is_finite(a)  }
 		
-		place.has(property("something"), unit())       {   time.step % 30  }
+		place.has(property("something"), unit())       {   safe_divide(a, 3)  }
 		
-		place.has(property("something else"), unit())  {   b - 5   }
+		place.has(property("something else"), unit())  {   safe_divide(a, b)  }
 	}
 
 }

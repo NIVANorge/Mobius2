@@ -124,10 +124,10 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
 			if(ismin) result.val_integer = a.val_integer < b.val_integer ? a.val_integer : b.val_integer;
 			else      result.val_integer = a.val_integer > b.val_integer ? a.val_integer : b.val_integer;
 		} else {
-			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic().");
+			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic(a, b).");
 		}
 	} else
-		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic(a, b).");
 	return result;
 }
 
@@ -135,7 +135,7 @@ Typed_Value
 apply_intrinsic(Typed_Value a, String_View function) {
 	Typed_Value result;
 	if(false) {}
-	#define MAKE_INTRINSIC1(name, emul, ret_type, type1) \
+	#define MAKE_INTRINSIC1(name, emul, llvm, ret_type, type1) \
 		else if(function == #name) { \
 			result.type = Value_Type::ret_type; \
 			if(a.type != Value_Type::type1) \
@@ -147,7 +147,7 @@ apply_intrinsic(Typed_Value a, String_View function) {
 	#undef MAKE_INTRINSIC1
 	#undef MAKE_INTRINSIC2
 	else
-		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic().");
+		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic(a).");
 	
 	return result;
 }
