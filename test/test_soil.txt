@@ -1,5 +1,21 @@
 
 
+module("Degree-day PET", 1, 0, 0) {
+	air       : compartment("Atmosphere")
+	soil      : compartment("Soil")
+
+	soil.par_group("Potential evapotranspiration") {
+		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1), 0.12)
+		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c), 0)
+	}
+	
+	pet  : property("Potential evapotranspiration")
+	temp : property("Temperature")
+	
+	soil.has(pet, unit(m m, day -1))                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
+}
+
+
 module("Test soil water", 1, 0, 0) {
 """
 Oversimplified soil water module inc.
@@ -8,6 +24,8 @@ Oversimplified soil water module inc.
 	soil     : compartment("Soil")
 	gw       : compartment("Groundwater")
 	
+	water : quantity("Water")
+	
 	soil.par_group("Hydrology land") {
 		fc   : par_real("Field capacity", unit(m m), 120)
 		bfi  : par_real("Baseflow index", unit(), 0.7)
@@ -15,53 +33,29 @@ Oversimplified soil water module inc.
 
 		f_quick : par_real("Proportion to quick flow", unit(), 0.01)
 	}
-	
-	soil.par_group("Potential evapotranspiration") {
-		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1), 0.12)
-		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c), 0)
-	}
 		
 	gw.  par_group("Groundwater") {
 		tc_g    : par_real("Groundwater time constant", unit(day -1), 60)
 	}
 	
-	water : quantity("Water")
-	
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
 	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 }
-	
+
 	pet  : property("Potential evapotranspiration")
-	temp : property("Temperature")
 	
-	soil.has(pet, unit(m m, day -1)) {
-		max(0, ddf_pet*(air.temp - pet_min_t))
-	}
+	flux(soil.water, out, "Quick flow")             {   f_quick * in_flux(water)   }
 	
-	flux(soil.water, out, "Quick flow") {
-		f_quick * in_flux(soil.water)
-	}
+	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - exp(ln(0.01) * water/fc))   }
 	
-	flux(soil.water, nowhere, "Evapotranspiration") {
-		soil.pet*(1 - exp(log10(0.01) * soil.water/fc))
-	}
-	
-	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
-		max(0, (soil.water - fc)/tc_s)
-	}
+	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {   max(0, (water - fc)/tc_s)  }
 	
 	soil_runoff :
-	flux(soil.water, out, "Soil runoff") {
-		soil.flow * (1 - bfi)
-	}
+	flux(soil.water, out, "Soil runoff")            {   soil.flow * (1 - bfi)   }
 	
-	flux(soil.water, gw.water, "Recharge") {
-		soil.flow * bfi
-	}
+	flux(soil.water, gw.water, "Recharge")          {   soil.flow * bfi   }
 	
 	gw_runoff :
-	flux(gw.water, out, "Groundwater runoff") {
-		gw.water / tc_g
-	}
+	flux(gw.water, out, "Groundwater runoff")       {   water / tc_g   }
 }
 
 
@@ -84,19 +78,19 @@ The doc string
 	}
 	
 	river.has(water, unit(m 3), "Reach water volume") .initial {
-		depth := 0.349 * river.flow^0.34
-		width := 2.72 * river.flow^0.557
+		depth := 0.349 * flow^0.34
+		width := 2.72 * flow^0.557
 		width * depth * len
 	}
 	
 	river.has(flow : property("Flow"), unit(m 3, s -1)) {
-		0.28 * (river.water * sqrt(slope) / (len * c_mann))^1.5
+		0.28 * (water * sqrt(slope) / (len * c_mann))^1.5
 	} .initial {
 		init_flow
 	}
 	
 	#TODO!
 	flux(river.water, nowhere, "Reach flow") {
-		river.flow
+		flow
 	}
 }

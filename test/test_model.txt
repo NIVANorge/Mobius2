@@ -12,6 +12,7 @@ General model description.
 	load("hbv_snow.txt",  sn : module("HBVSnow"))
 	load("test_soil.txt", sw : module("Test soil water"))
 	load("test_soil.txt", rw : module("Test river water"))
+	load("test_soil.txt", pe : module("Degree-day PET"))
 	
 	soil : compartment("Soil")
 	gw   : compartment("Groundwater")

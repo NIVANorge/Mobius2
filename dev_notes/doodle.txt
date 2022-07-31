@@ -283,9 +283,9 @@ General model description.
 	#fjord : compartment_group("Fjord", surf) [ fjord_layer("layer")
 	
 	lu           : index_set("Landscape units")
-	subcatch     : index_set_tree("Sub-catchments",               "surf flow")      # The last tag can be used to specify the "neighbor" fluxes.
-	fjord_arms   : index_set_graph("Fjord arms",                  "lateral")
-	fjord_layers : index_set_uniform_1D("Fjord layers", fjord_dz, "vertical")
+	subcatch     : index_set_directed_tree("Sub-catchments",      neighbor("surface flow"))      # The last tag can be used to specify the "neighbor" fluxes.
+	fjord_arms   : index_set_graph("Fjord arms",                  neighbor("fjord lateral"))
+	fjord_layers : index_set_uniform_1D("Fjord layers", fjord_dz, neighbor("fjord vertical"))
 	
 	fjord_arms.subset_of(subcatch)
 	
@@ -302,6 +302,12 @@ General model description.
 	
 	lu.distr( soil )
 	subcatch.distr( [*{river lake} fjord_arm] )      {a b} means a or b
+	
+	
+	
+	flux(river.water, neighbor("surface flow", water), "Reach flow") {
+	
+	}
 	
 	#######
 }

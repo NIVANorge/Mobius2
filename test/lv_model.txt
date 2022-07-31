@@ -5,7 +5,7 @@ model("Predator-prey test model") {
 		
 		habitat : compartment("Habitat")
 		
-		grp : habitat.par_group("Habitat parameters") {
+		habitat.par_group("Habitat parameters") {
 			init_pred : par_real("Initial predators", unit(), 1)
 			init_prey : par_real("Initial prey", unit(), 1)
 			
@@ -17,21 +17,13 @@ model("Predator-prey test model") {
 		habitat.has(pred : quantity("Predators"), unit()) .initial { init_pred }
 		habitat.has(prey : quantity("Prey"), unit())      .initial { init_prey }
 		
-		flux(nowhere, habitat.prey, "Prey birth") {
-			habitat.prey * prey_birth
-		}
+		flux(nowhere, habitat.prey, "Prey birth")     {  prey * prey_birth  }          # NOTE: we can omit writing habitat.prey since the compartment can be inferred from the flux declaration
 		
-		flux(habitat.prey, nowhere, "Predation") {
-			nomnom * habitat.prey * habitat.pred
-		}
+		flux(habitat.prey, nowhere, "Predation")      {  nomnom * prey * pred  }
 		
-		flux(nowhere, habitat.pred, "Predator birth") {
-			pred_birth * habitat.prey * habitat.pred 
-		}
+		flux(nowhere, habitat.pred, "Predator birth") {  pred_birth * prey * pred  }
 		
-		flux(habitat.pred, nowhere, "Predator death") {
-			habitat.pred * pred_death
-		}
+		flux(habitat.pred, nowhere, "Predator death") {  pred * pred_death  }
 	}
 	
 	habitat : compartment("Habitat")

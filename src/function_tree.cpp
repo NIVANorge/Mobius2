@@ -160,10 +160,10 @@ Scope_Data {
 	Scope_Data() : parent(nullptr), block(nullptr), function_name("") {}
 };
 
-void resolve_arguments(Mobius_Model *model, s32 module_id, Math_Expr_FT *ft, Math_Expr_AST *ast, Scope_Data *scope) {
+void resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Data *scope) {
 	//TODO allow error check on expected number of arguments
 	for(auto arg : ast->exprs) {
-		ft->exprs.push_back(resolve_function_tree(model, module_id, arg, scope));
+		ft->exprs.push_back(resolve_function_tree(arg, data, scope));
 	}
 }
 
@@ -230,8 +230,49 @@ fatal_error_trace(Scope_Data *scope) {
 	}
 }
 
+void
+try_to_locate_variable(Identifier_FT *new_ident, Entity_Id first, Entity_Id second, String_View n1, String_View n2, Source_Location sl, Module_Declaration *module, Mobius_Model *model, Scope_Data *scope) {
+	if(first.reg_type != Reg_Type::compartment) {
+		sl.print_error_header();
+		if(n1)
+			error_print("The name \"", n1, "\" does not refer to a compartment or enum parameter.");
+		else
+			error_print("Unable to resolve compartment of variable."); // This should actually not happen currently. If we called this without a compartment handle, it means we already resolved the compartment
+		fatal_error_trace(scope);
+	}
+	
+	if(second.reg_type != Reg_Type::property_or_quantity) {
+		sl.print_error_header();
+		if(n1)
+			error_print("The name \"", n2, "\" does not refer to a quantity or property.");
+		else
+			error_print("The name \"", n2, "\" does not refer to a variable.");
+		fatal_error_trace(scope);
+	}
+	
+	Value_Location loc = make_value_location(model, first, second);
+	Var_Id var_id = model->state_vars[loc];
+	if(is_valid(var_id)) {
+		new_ident->variable_type = Variable_Type::state_var;
+		new_ident->state_var     = var_id;
+		new_ident->value_type    = Value_Type::real;
+	} else {
+		var_id = model->series[loc];
+		if(!is_valid(var_id)) {
+			//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
+			// Maybe that is not that important (?).
+			sl.print_error_header();
+			error_print("There is no \"has\" declaration tying \"", n2, "\" to the compartment \"", model->find_entity(first)->name, "\".\n");
+			fatal_error_trace(scope);
+		}
+		new_ident->variable_type = Variable_Type::series;
+		new_ident->series = var_id;
+		new_ident->value_type    = Value_Type::real;
+	}
+}
+
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Scope_Data *scope){
+resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Data *scope) {
 	Math_Expr_FT *result = nullptr;
 	
 #define DEBUGGING_NOW 0
@@ -239,7 +280,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 	warning_print("begin ", name(ast->type), "\n");
 #endif
 	
-	Module_Declaration *module = model->modules[module_id];
+	Module_Declaration *module = data->model->modules[data->module_id];
 	switch(ast->type) {
 		case Math_Expr_Type::block : {
 			auto new_block = new Math_Block_FT();
@@ -247,7 +288,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			new_scope.parent = scope;
 			new_scope.block = new_block;
 			
-			resolve_arguments(model, module_id, new_block, ast, &new_scope);
+			resolve_arguments(new_block, ast, data, &new_scope);
 			
 			for(auto expr : new_block->exprs)
 				if(expr->expr_type == Math_Expr_Type::local_var) ++new_block->n_locals;
@@ -270,45 +311,44 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			
 			bool isfun = is_inside_function(scope);
 			bool found_local = false;
-			String_View name;
-			if(ident->chain.size() == 1) {
-				name = ident->chain[0].string_value;
-				found_local = find_local_variable(new_ident, name, scope);
-			}
+			String_View n1 = ident->chain[0].string_value;;
+			if(ident->chain.size() == 1)
+				found_local = find_local_variable(new_ident, n1, scope);
 			
 			if(isfun && !found_local) {
 				ident->chain[0].print_error_header();
-				error_print("The name \"", name, "\" is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
+				error_print("The name \"", n1, "\" is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
 				fatal_error_trace(scope);
 			}
 			
 			if(!found_local) {
 				if(ident->chain.size() == 1) {
-					//note: for now, just assume this is a parameter.
-					//TODO: could also allow refering to properties by just a single identifier if the compartment is obvious.
-					new_ident->variable_type = Variable_Type::parameter;
-					
-					Entity_Id par_id = module->find_handle(name);
-					
-					if(!is_valid(par_id) || par_id.reg_type != Reg_Type::parameter) {
+					Entity_Id id = module->find_handle(n1);
+					if(id.reg_type == Reg_Type::parameter) {
+
+						if(module->parameters[id]->decl_type == Decl_Type::par_enum) {
+							ident->chain[0].print_error_header();
+							error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
+							fatal_error_trace(scope);
+						}
+						new_ident->variable_type = Variable_Type::parameter;
+						new_ident->parameter = id;
+						new_ident->value_type = get_value_type(module->parameters[id]->decl_type);
+					} else if (id.reg_type == Reg_Type::property_or_quantity) {
+						if(!is_valid(data->in_compartment)) {
+							ident->chain[0].print_error_header();
+							error_print("The name \"", n1, "\" can not properly be resolved since the compartment can not be inferred from the context.\n");
+							fatal_error_trace(scope);
+						}
+						try_to_locate_variable(new_ident, data->in_compartment, id, {}, n1, ident->chain[0].location, module, data->model, scope);
+						
+					} else {
 						ident->chain[0].print_error_header();
-						error_print("The name \"", name, "\" is not the name of a parameter or local variable.\n");
+						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
 						fatal_error_trace(scope);
 					}
-					if(module->parameters[par_id]->decl_type == Decl_Type::par_enum) {
-						ident->chain[0].print_error_header();
-						error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
-						fatal_error_trace(scope);
-					}
-					
-					new_ident->variable_type = Variable_Type::parameter;
-					new_ident->parameter = par_id;
-					new_ident->value_type = get_value_type(module->parameters[par_id]->decl_type);
-					// TODO: find out how to handle datetime values if we decide to implement those.
 				} else if(ident->chain.size() == 2) {
 					// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
-					
-					String_View n1 = ident->chain[0].string_value;
 					String_View n2 = ident->chain[1].string_value;
 					Entity_Id first  = module->find_handle(n1);
 					
@@ -329,7 +369,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 						auto parameter = module->parameters[first];
 						if(parameter->decl_type != Decl_Type::par_enum) {
 							ident->chain[0].print_error_header();
-							error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of another type.\n");// ", name(parameter->decl_type), ".\n");
+							error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
 							fatal_error_trace(scope);
 						}
 						s64 val = enum_int_value(parameter, n2);
@@ -344,33 +384,9 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 						result = make_binop('=', new_ident, make_literal(val));
 						result->value_type = Value_Type::boolean;   // Ooops, make_binop does not give correct type for comparison operators.
 					} else {
-						
 						Entity_Id second = module->find_handle(n2);
-						
-						if(!is_valid(first) || !is_valid(second) || first.reg_type != Reg_Type::compartment || second.reg_type != Reg_Type::property_or_quantity) {
-							ident->chain[0].print_error_header();
-							error_print("Unable to resolve what variable \"", n1, ".", n2, "\" refers to.\n");  //TODO: make message more specific about the reason why it failed.
-							fatal_error_trace(scope);
-						}
-						Value_Location loc = make_value_location(module, first, second);
-						Var_Id var_id = model->state_vars[loc];
-						if(is_valid(var_id)) {
-							new_ident->variable_type = Variable_Type::state_var;
-							new_ident->state_var     = var_id;
-							new_ident->value_type    = Value_Type::real;
-						} else {
-							var_id = model->series[loc];
-							if(!is_valid(var_id)) {
-								//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
-								// Maybe that is not that important (?).
-								ast->location.print_error_header();
-								error_print("There has not been a \"has\" declaration registering \"", n2, "\" as tied to \"", n1, "\".\n");
-								fatal_error_trace(scope);
-							}
-							new_ident->variable_type = Variable_Type::series;
-							new_ident->series = var_id;
-							new_ident->value_type    = Value_Type::real;
-						}
+					
+						try_to_locate_variable(new_ident, first, second, n1, n2, ident->chain[0].location, module, data->model, scope);
 					}
 				} else {
 					ident->chain[0].print_error_header();
@@ -398,7 +414,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			// First check for "special" calls that are not really function calls.
 			if(fun_name == "last" || fun_name == "in_flux") {
 				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
-				resolve_arguments(model, module_id, new_fun, ast, scope);
+				resolve_arguments(new_fun, ast, data, scope);
 				if(new_fun->exprs.size() != 1) {
 					fun->name.print_error_header();
 					error_print("A ", fun_name, "() call only takes one argument.\n");
@@ -406,7 +422,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				}
 				if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) {
 					new_fun->exprs[0]->location.print_error_header();
-					error_print("A ", fun_name, "() call only takes a state variable identifier as argument.\n");
+					error_print("A ", fun_name, "() call can only be applied to a state variable or input series.\n");
 					fatal_error_trace(scope);
 				}
 				auto var = reinterpret_cast<Identifier_FT *>(new_fun->exprs[0]);
@@ -438,7 +454,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				Function_Type fun_type;
 				
 				if(found) {
-					fun_decl = model->find_entity<Reg_Type::function>(fun_id);
+					fun_decl = data->model->find_entity<Reg_Type::function>(fun_id);
 					fun_type = fun_decl->fun_type;
 				}
 				
@@ -460,7 +476,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 				if(fun_type == Function_Type::intrinsic) {
 					auto new_fun = new Function_Call_FT();
 					
-					resolve_arguments(model, module_id, new_fun, ast, scope);
+					resolve_arguments(new_fun, ast, data, scope);
 				
 					new_fun->fun_type = fun_type;
 					new_fun->fun_name = fun_name;
@@ -477,7 +493,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					auto inlined_fun = new Math_Block_FT();
 					inlined_fun->location = fun->location; //NOTE: do this to get correct diagnostics in fatal_error_trace()
 					
-					resolve_arguments(model, module_id, inlined_fun, ast, scope);
+					resolve_arguments(inlined_fun, ast, data, scope);
 					
 					inlined_fun->n_locals = inlined_fun->exprs.size();
 					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
@@ -494,7 +510,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 					new_scope.block = inlined_fun;
 					new_scope.function_name = fun_name;
 					
-					inlined_fun->exprs.push_back(resolve_function_tree(model, module_id, fun_decl->code, &new_scope));
+					inlined_fun->exprs.push_back(resolve_function_tree(fun_decl->code, data, &new_scope));
 					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
 					
 					result = inlined_fun;
@@ -510,7 +526,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			auto unary = reinterpret_cast<Unary_Operator_AST *>(ast);
 			auto new_unary = new Operator_FT(Math_Expr_Type::unary_operator);
 			
-			resolve_arguments(model, module_id, new_unary, ast, scope);
+			resolve_arguments(new_unary, ast, data, scope);
 			
 			new_unary->oper = unary->oper;
 			
@@ -538,7 +554,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			auto binary = reinterpret_cast<Binary_Operator_AST *>(ast);
 			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
 			
-			resolve_arguments(model, module_id, new_binary, ast, scope);
+			resolve_arguments(new_binary, ast, data, scope);
 			
 			new_binary->oper = binary->oper;
 			char op = (char)binary->oper;
@@ -580,7 +596,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			auto ifexpr = reinterpret_cast<If_Expr_AST *>(ast);
 			auto new_if = new Math_Expr_FT(Math_Expr_Type::if_chain);
 			
-			resolve_arguments(model, module_id, new_if, ast, scope);
+			resolve_arguments(new_if, ast, data, scope);
 			
 			// Cast all possible result values up to the same type
 			Value_Type value_type = new_if->exprs[0]->value_type;
@@ -622,7 +638,7 @@ resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Sc
 			
 			auto new_local = new Local_Var_FT();
 			
-			resolve_arguments(model, module_id, new_local, ast, scope);
+			resolve_arguments(new_local, ast, data, scope);
 			
 			new_local->name = local->name.string_value;
 			new_local->value_type = new_local->exprs[0]->value_type;

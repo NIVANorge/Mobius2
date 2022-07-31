@@ -21,14 +21,13 @@ With some extra spice.
 	snow  : quantity("Snow (water equivalents)")
 	water : quantity("Water")
 	
-	# note: We don't give a function body to compute these, and so if they are not re-declared in another module, they are assumed to be input series.
+	# note: We don't give a function body to compute temp and precip, and so if they are not re-declared in another module, they are assumed to be input series.
 	air.has(temp : property("Temperature"), unit(deg_c), "Air temperature")
 	air.has(precip : property("Precipitation"), unit(m m, day -1))
 	
 	snow_box.has(snow,  unit(m m), "Snow depth") .initial { init_snow }
 	snow_box.has(water, unit(m m), "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
-	p_snow :
 	flux(nowhere, snow_box.snow, "Precipitation falling as snow") {
 		air.precip    if air.temp <= t_snow,
 		0             otherwise
@@ -40,18 +39,10 @@ With some extra spice.
 		0             otherwise
 	}
 	
-	melt :
-	flux(snow_box.snow, snow_box.water, "Melt") {
-		max(0, ddf_melt*(air.temp - t_melt))
-	}
+	flux(snow_box.snow, snow_box.water, "Melt")     {   max(0, ddf_melt*(air.temp - t_melt))   }
 	
-	refreeze :
-	flux(snow_box.water, snow_box.snow, "Refreeze") {
-		max(0, refr_eff*ddf_melt*(t_melt - air.temp))
-	}
+	flux(snow_box.water, snow_box.snow, "Refreeze") {	max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
 
 	melt_runoff :
-	flux(snow_box.water, out, "Melt runoff") {
-		max(0, snow_box.water - snow_box.snow*snow_liq)
-	}
+	flux(snow_box.water, out, "Melt runoff")        {   max(0, water - snow*snow_liq)  }  # Not necessary to write snow_box.water and snow_box.snow since the compartment can be inferred from the flux declaration
 }

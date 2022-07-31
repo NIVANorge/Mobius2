@@ -13,33 +13,19 @@ model("Another simple") {
 			b : par_int("The B value", unit(), -1)
 		}
 		
-		place.has(property("step"), unit()) {
-			time.step
-		}
+		place.has(property("step"), unit())            {   time.step   }
 		
-		place.has(property("year"), unit()) {
-			time.year
-		}
+		place.has(property("year"), unit())            {   time.year   }
 		
-		place.has(property("month"), unit()) {
-			time.month
-		}
+		place.has(property("month"), unit())           {   time.month   }
 		
-		place.has(property("day_of_year"), unit()) {
-			time.day_of_year
-		}
+		place.has(property("day_of_year"), unit())     {   time.day_of_year   }
 		
-		place.has(property("day_of_month"), unit()) {
-			time.day_of_month
-		}
+		place.has(property("day_of_month"), unit())    {   time.day_of_month  }
 		
-		place.has(property("something"), unit()) {
-			time.step % 30
-		}
+		place.has(property("something"), unit())       {   time.step % 30  }
 		
-		place.has(property("something else"), unit()) {
-			b - 5
-		}
+		place.has(property("something else"), unit())  {   b - 5   }
 	}
 
 }

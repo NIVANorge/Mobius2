@@ -205,6 +205,7 @@ template<> struct
 Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Value_Location   source;
 	Value_Location   target;
+	bool target_was_out;           // We some times need info about if the target was re-directed by a 'to' declaration.
 	
 	Math_Block_AST  *code;
 };
@@ -385,23 +386,8 @@ get_reg_type(Decl_Type decl_type) {
 	return Reg_Type::unrecognized;
 }
 
-//TODO: clean this up. We could just put the code for make_global directly in make_value_location, and then use that directly in module_declaration.cpp
 Value_Location
-make_global(Module_Declaration *module, Value_Location loc);
-
-inline Value_Location
-make_value_location(Module_Declaration *module, Entity_Id compartment, Entity_Id property_or_quantity) {
-	Value_Location result;
-	result.type = Location_Type::located;
-	result.compartment = compartment;
-	result.property_or_quantity = property_or_quantity;
-	if(module->module_id != compartment.module_id || module->module_id != property_or_quantity.module_id ||
-		compartment.reg_type != Reg_Type::compartment || property_or_quantity.reg_type != Reg_Type::property_or_quantity) {
-			fatal_error(Mobius_Error::internal, "Incorrect use of make_value_location().");
-	}
-	
-	return make_global(module, result);
-}
+make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity);
 
 Module_Declaration *
 process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl);

@@ -99,8 +99,15 @@ struct Dependency_Set;
 
 struct Scope_Data;
 
+struct
+Function_Resolve_Data {
+	Mobius_Model *model;
+	s32 module_id;
+	Entity_Id in_compartment;
+};
+
 Math_Expr_FT *
-resolve_function_tree(Mobius_Model *model, s32 module_id, Math_Expr_AST *ast, Scope_Data *scope = nullptr);
+resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Data *scope = nullptr);
 
 void
 register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends);

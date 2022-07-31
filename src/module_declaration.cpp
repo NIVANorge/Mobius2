@@ -416,16 +416,34 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 	return id;
 }
 
-
-Value_Location
-make_global(Module_Declaration *module, Value_Location loc) {
-	Value_Location result = loc;
-	if(loc.type == Location_Type::located && module->global_scope) {
-		auto comp_id = module->compartments[loc.compartment]->global_id;
-		if(is_valid(comp_id)) result.compartment = comp_id;
-		auto quant_id = module->properties_and_quantities[loc.property_or_quantity]->global_id;
-		if(is_valid(quant_id)) result.property_or_quantity = quant_id;
+// NOTE: This one should not be called on a module where all declarations are not loaded yet. This is because the global ids don't exist before the corresponding entity is declared, and it could be declared before it is referenced.
+void
+make_global(Module_Declaration *module, Value_Location *loc) {
+	if(loc->type == Location_Type::located && module->global_scope) {
+		auto comp_id = module->compartments[loc->compartment]->global_id;
+		if(is_valid(comp_id)) loc->compartment = comp_id;
+		auto quant_id = module->properties_and_quantities[loc->property_or_quantity]->global_id;
+		if(is_valid(quant_id)) loc->property_or_quantity = quant_id;
 	}
+}
+
+// NOTE: This one should not be called on a module where all declarations are not loaded yet. This is because the global ids don't exist before the corresponding entity is declared, and it could be declared before it is referenced.
+Value_Location
+make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity) {
+	Value_Location result;
+	result.type = Location_Type::located;
+	auto comp = model->find_entity<Reg_Type::compartment>(compartment);
+	if(is_valid(comp->global_id))
+		result.compartment = comp->global_id;
+	else
+		result.compartment = compartment;
+	
+	auto prop = model->find_entity<Reg_Type::property_or_quantity>(property_or_quantity);
+	if(is_valid(prop->global_id))
+		result.property_or_quantity = prop->global_id;
+	else
+		result.property_or_quantity = property_or_quantity;
+	
 	return result;
 }
 
@@ -451,9 +469,7 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	has->value_location.type = Location_Type::located;
 	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
 	has->value_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
-	
-	has->value_location = make_global(module, has->value_location);
-	
+		
 	if(which == 1 || which == 3)
 		has->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
 	else
@@ -494,9 +510,13 @@ process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Val
 		Token *token = &(*symbol)[0];
 		if(token->string_value == "nowhere")
 			location->type = Location_Type::nowhere;
-		else if(token->string_value == "out")
+		else if(token->string_value == "out") {
+			if(which == 0) {
+				token->print_error_header();
+				fatal_error("The source of a flux can never be \"out\".");
+			}
 			location->type = Location_Type::out;
-		else {
+		} else {
 			token->print_error_header();
 			fatal_error("Invalid flux location.");
 		}
@@ -504,7 +524,6 @@ process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Val
 		location->type     = Location_Type::located;
 		location->compartment = module->compartments.find_or_create(&(*symbol)[0]);
 		location->property_or_quantity   = module->properties_and_quantities.find_or_create(&(*symbol)[1]);    //NOTE: this does not guarantee that this is a quantity and not a property, so that must be checked in post.
-		*location = make_global(module, *location);
 	} else {
 		//TODO: this should eventually be allowed when having dissolved quantity
 		(*symbol)[0].print_error_header();
@@ -531,6 +550,7 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 	
 	process_flux_argument(module, decl, 0, &flux->source);
 	process_flux_argument(module, decl, 1, &flux->target);
+	flux->target_was_out = (flux->target.type == Location_Type::out);
 	
 	if(flux->source == flux->target && flux->source.type == Location_Type::located) {
 		decl->location.print_error_header();
@@ -715,6 +735,17 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 	
 	check_for_missing_declarations(module);
 	
+	// NOTE: this has to be done after all declarations are processed. This is because the global id of a compartment, quantity or property does not exist before it is declared, and that could happen after it was referenced.
+	for(auto has : module->hases)
+		make_global(module, &module->hases[has]->value_location);
+	for(auto flux : module->fluxes) {
+		make_global(module, &module->fluxes[flux]->source);
+		make_global(module, &module->fluxes[flux]->target);
+	}
+	// hmm, this one is probably never necessary since it always happens at model scope:
+	for(auto solve : module->solves)
+		make_global(module, &module->solves[solve]->loc);
+	
 	return module;
 }
 
@@ -764,7 +795,8 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 		fatal_error("The property or quantity \"", quant_tk->string_value, "\" has not been declared in the local scope.");
 	}
 	
-	flux->target = make_value_location(model->modules[0], comp_id, quant_id);
+	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to call this.
+	flux->target = make_value_location(model, comp_id, quant_id);
 }
 
 template<> Entity_Id
@@ -817,7 +849,6 @@ process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl)
 	solve->loc.type        = Location_Type::located;
 	solve->loc.compartment = compartment;
 	solve->loc.property_or_quantity = quantity;
-	solve->loc             = make_global(module, solve->loc);
 	
 	solve->solver          = resolve_argument<Reg_Type::solver>(module, decl, 0);
 	solve->source_location = decl->location;

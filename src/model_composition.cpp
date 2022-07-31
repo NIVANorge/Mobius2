@@ -160,26 +160,35 @@ Mobius_Model::compose() {
 		auto var = state_vars[var_id];
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
-		if(var->type == Decl_Type::flux)
-			ast = find_entity<Reg_Type::flux>(var->entity_id)->code;
-		else if(var->type == Decl_Type::property || var->type == Decl_Type::quantity) {
+		
+		Entity_Id in_compartment = invalid_entity_id;
+		if(var->type == Decl_Type::flux) {
+			auto flux = find_entity<Reg_Type::flux>(var->entity_id);
+			ast = flux->code;
+			bool target_is_located = is_located(flux->target) && !flux->target_was_out; // Note: the target could have been re-directed by the model. We only care about how it was declared
+			if(is_located(flux->source)) {
+				if(!target_is_located || flux->source == flux->target)	
+					in_compartment = flux->source.compartment;
+			} else if(target_is_located)
+				in_compartment = flux->target.compartment;
+		} else if(var->type == Decl_Type::property || var->type == Decl_Type::quantity) {
 			auto has = find_entity<Reg_Type::has>(var->entity_id);
 			ast      = has->code;
 			init_ast = has->initial_code;
+			in_compartment = has->value_location.compartment;
 		}
-		
-		//TODO: For fluxes, with discrete solver, we also have to make sure they don't empty the given quantity.
-		//Also, the order of fluxes are important.
-		
+				
+		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
+		Function_Resolve_Data res_data = { this, var->entity_id.module_id, in_compartment };
 		if(ast) {
-			var->function_tree = make_cast(resolve_function_tree(this, var->entity_id.module_id, ast, nullptr), Value_Type::real);
+			var->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
 			find_in_fluxes(var->function_tree, in_flux_map, var_id, false);
 		} else
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
 		if(init_ast) {
 			//warning_print("found initial function tree for ", var->name, "\n");
-			var->initial_function_tree = make_cast(resolve_function_tree(this, var->entity_id.module_id, init_ast, nullptr), Value_Type::real);
+			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
 			find_in_fluxes(var->initial_function_tree, in_flux_map, var_id, true);
 		} else
@@ -212,7 +221,8 @@ Mobius_Model::compose() {
 		Math_Expr_FT *agg_weight = nullptr;
 		for(auto &agg : source->aggregations) {
 			if(agg.to_compartment == var->loc2.compartment) {
-				agg_weight = make_cast(resolve_function_tree(this, var->loc1.compartment.module_id, agg.code, nullptr), Value_Type::real); // Note: the module id is probably always 0 here since aggregation_weight should only be declared in model scope.
+				Function_Resolve_Data res_data = { this, var->loc1.compartment.module_id, invalid_entity_id };
+				agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real); // Note: the module id is probably always 0 here since aggregation_weight should only be declared in model scope.
 				break;
 			}
 		}
