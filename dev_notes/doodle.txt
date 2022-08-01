@@ -1,5 +1,23 @@
 
 
+
+
+    # For initial groundwater flow, could we do something like
+	#     .initial { out_flux(target(gw_runoff)) * tc_g }
+	# where target(x) is the located quantity of the flux target (which is not resolved in this module)
+	# Would mean that this module doesn't need to explicitly know about what happens in the target to set initial steady state.
+	# Is a bit tricky since one would have to know to invert the unit conversion. Also, what happens if the target is a fjord and not a river?
+	# Alternative
+	#     .initial { steady(gw_runoff)*tc_g }
+	# where steady(flux) tries to compute what value of gw_runoff is needed to put the target in steady state.
+	# Also tricky since it would have to invert the equation for the target.
+	# What about
+	#	  .initial { inv_convert(target(gw_runoff).flow) * tc_g   if exists, (whatever) otherwise }
+	# where exists evaluates to true at compile time if the lhs exists.  This is probably a good option. Still a lot of work to implement...
+
+
+
+
 module("HBVSnow", 1,0,0) {
 """
 Some description in markdown.

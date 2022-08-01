@@ -1,24 +1,10 @@
 
 
-module("Degree-day PET", 1, 0, 0) {
-	air       : compartment("Atmosphere")
-	soil      : compartment("Soil")
-
-	soil.par_group("Potential evapotranspiration") {
-		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1), 0.12)
-		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c), 0)
-	}
-	
-	pet  : property("Potential evapotranspiration")
-	temp : property("Temperature")
-	
-	soil.has(pet, unit(m m, day -1))                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
-}
-
-
-module("Test soil water", 1, 0, 0) {
+module("SimplyQ land", 0, 5, 0) {
 """
-Oversimplified soil water module inc.
+This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
+
+[Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
 """
 	load("../stdlib/basic_math.txt", library("Response"))    #TODO: we need a better way to address the stdlib so that we don't have to know the path.
 
@@ -68,9 +54,9 @@ Oversimplified soil water module inc.
 }
 
 
-module("Test river water", 0, 0, 1) {
+module("SimplyQ river", 0, 0, 1) {
 """
-The doc string
+The river part of the SimplyQ module.
 """
 
 	river : compartment("River")
@@ -84,7 +70,6 @@ The doc string
 		init_flow      : par_real("Initial reach flow", unit(m 3, s-1), 1)
 	}
 	
-	#TODO: eff_len!
 	flow : property("Flow")
 	
 	river.has(water, unit(m 3), "Reach water volume") .initial {
@@ -93,21 +78,11 @@ The doc string
 		width * depth * len
 	}
 
-	river.has(flow, unit(m 3, s -1), "Reach flow") {
-		#eff_len := len * 0.5   #TODO: should be a computed parameter.
-		0.28 * (water * sqrt(slope) / (len * c_mann))^1.5
-	} .initial {
-		init_flow
-	}
+	#eff_len := len * 0.5   #TODO: should be a computed parameter.
+	river.has(flow, unit(m 3, s -1), "Reach flow")    { 0.28 * (water * sqrt(slope) / (len * c_mann))^1.5   } .initial { init_flow 	}
 	
 	#TODO: link up river segments!
-	flux(river.water, nowhere, "Reach flow flux") {
-		flow * 86400                              #NOTE: explicit unit conversion should be removed once we get automatic unit checks
-	}
-	
-	#NOTE: for debugging
-	river.has(property("In flow"), unit(m 3, day -1)) {
-		in_flux(water)
-	}
-}
+	flux(river.water, nowhere, "Reach flow flux")     {	 flow * 86400  }                  #NOTE: explicit unit conversion should be removed once we get automatic unit checks 
 
+	river.has(property("In flow"), unit(m 3, day -1)) {  in_flux(water)  } #NOTE: for debugging
+}

@@ -71,7 +71,7 @@ make_path_relative_to(String_View file_name, String_View relative) {
 	int last_slash;
 	bool any_slash_at_all = false;
 	for(last_slash = relative.count - 1; last_slash >= 0; --last_slash) {
-		char c = file_name[last_slash];
+		char c = relative[last_slash];
 		if(c == '\\' || c == '/') {
 			any_slash_at_all = true;
 			break;
@@ -80,7 +80,8 @@ make_path_relative_to(String_View file_name, String_View relative) {
 	if(!any_slash_at_all) last_slash = -1;
 	static char new_path[1024]; //TODO make a string builder instead?
 	sprintf(new_path, "%.*s%.*s", last_slash+1, relative.data, (int)file_name.count, file_name.data);
-	return new_path;
+	String_View result = new_path;
+	return result;
 }
 
 inline String_View
@@ -108,9 +109,8 @@ File_Data_Handler {
 	load_file(String_View file_name, String_View relative = {}) {
 		String_View load_name = file_name;
 		if(relative)
-			//TODO: This could possibly give us multiple paths pointing to the same file. We should normalize the path, but that would be system specific.
-			// could maybe use std::filesystem::path here...
-			make_path_relative_to(file_name, relative);
+			//TODO: This could possibly give us multiple paths pointing to the same file. We should normalize the path
+			load_name = make_path_relative_to(file_name, relative);
 		auto find = loaded_files.find(load_name);
 		if(find != loaded_files.end())
 			return find->second;
