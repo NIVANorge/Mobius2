@@ -87,6 +87,10 @@ struct String_View : Array<char> {
 		return *this == String_View(c_string);
 	}
 	
+	bool operator!=(const char *c_string) {
+		return !(*this == c_string);
+	}
+	
 	operator bool() { return data && count; }
 };
 

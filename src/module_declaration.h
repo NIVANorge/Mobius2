@@ -144,12 +144,21 @@ Aggregation_Data {
 	Math_Block_AST *code;
 };
 
+struct
+Flux_Unit_Conversion_Data {
+	Value_Location source;
+	Value_Location target;
+	Math_Block_AST *code;
+};
+
 template<> struct
 Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 	Entity_Id global_id;
 	
-	std::vector<Entity_Id> index_sets; //NOTE: will only be set on the global module. TODO: more info about distribution?
-	std::vector<Aggregation_Data> aggregations; //NOTE: will only be set on the global module.
+	// NOTE: These will only be set in the "global" module.
+	std::vector<Entity_Id> index_sets; //TODO: more info about distribution?
+	std::vector<Aggregation_Data> aggregations; 
+	std::vector<Flux_Unit_Conversion_Data> unit_convs;  
 };
 
 template<> struct

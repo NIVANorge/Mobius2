@@ -669,11 +669,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 }
 
 Math_Expr_FT *
-maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, s64 p) {
+optimize_pow_int(Math_Expr_FT *lhs, s64 p) {
 	// TODO: I made this for fun, but llvm can make similar optimizations if fast-math is turned on, so it is a bit unnecessary...
 	
 	// Note: case p == 0 is handled in another call. Also for p == 1, but we also use this for powers 1.5 etc. see below
-	Math_Expr_FT *result = binary;
+	Math_Expr_FT *result = nullptr;
 	if(p == 1)
 		result = lhs;
 	else if(p == -1)
@@ -691,6 +691,8 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, s64 p) {
 			result->exprs.push_back(make_binop('*', make_binop('*', ref, ref), ref));
 		else if(p == -2)
 			result->exprs.push_back(make_binop('/', make_literal(1.0), make_binop('*', ref, ref)));
+	} else {
+		result = make_binop('^', lhs, make_literal(p));  // Fallback on powi
 	}
 	return result;
 }
@@ -705,16 +707,13 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
 			result = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
 		} else if (valmh == (double)(s64)valmh) {
 			auto rt = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
-			result = maybe_optimize_pow(binary, rt, (s64)valmh);
-			if(result == binary) // we did not do a simple pow replacement, make powi instead
-				result = make_binop('^', rt, make_literal((s64)valmh));
+			auto rest = optimize_pow_int(copy(lhs), (s64)valmh);   // 
+			result = make_binop('*', rt, rest);
 		} else if(val == (double)(s64)val) {
-			result = maybe_optimize_pow(binary, lhs, (s64)val);
-			if(result == binary) // we did not do a simple pow replacement, make powi instead
-				result = make_binop('^', lhs, make_literal((s64)val));
+			result = optimize_pow_int(lhs, (s64)val);
 		}
 	} else if (rhs->value_type == Value_Type::integer)
-		result = maybe_optimize_pow(binary, lhs, rhs->value.val_integer);
+		result = optimize_pow_int(lhs, rhs->value.val_integer);
 	
 	if(result != binary) {
 		result->location = binary->location;

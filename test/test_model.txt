@@ -37,13 +37,21 @@ General model description.
 
 	sn.p_rain     .to(soil.water)
 	sn.melt_runoff.to(soil.water)
+	sw.quick_flow .to(river.water)
 	sw.soil_runoff.to(river.water)
 	sw.gw_runoff  .to(river.water)
 	
 	soil.par_group("Land cover") {
-		lu_prop  : par_real("Land use proportions", unit(), 0.5, 0, 1)
+		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)
+	}
+	river.par_group("Catchment data") {
+		a_catch  : par_real("Catchment area", unit(km 2), 51.7)
 	}
 	
 	aggregation_weight(soil, gw) { lu_prop }
 	aggregation_weight(soil, river) { lu_prop }
+	
+	# convert mm to m^3
+	unit_conversion(soil.water, river.water) { a_catch * 1000 }   #TODO: when we get automatic unit checking we should remove the 1000 !
+	unit_conversion(gw.water, river.water) { a_catch * 1000 }
 }

@@ -227,6 +227,11 @@ add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id va
 	auto flux_ident = make_state_var_identifier(var_id_flux);
 	flux_ident->exprs.push_back(offset_code);
 	
+	// NOTE: the unit conversion applies to what reaches the target.
+	auto unit_conv = model_app->model->state_vars[var_id_flux]->flux_unit_conversion_tree;
+	if(oper == '+' && unit_conv)
+		flux_ident = make_binop('*', flux_ident, unit_conv);
+	
 	auto sum = make_binop(oper, substance_ident, flux_ident);
 	
 	auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
@@ -384,10 +389,13 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					auto flux_code = make_state_var_identifier(flux_id);
 					fun = make_binop('-', fun, flux_code);
 				}
-				// TODO: again we need to insert aggregation if necessary.
+				
 				// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
 				if(flux->loc2.type == Location_Type::located && model->state_vars[flux->loc2] == instr->var_id && !(flux->flags & State_Variable::Flags::f_has_aggregate)) {
 					auto flux_code = make_state_var_identifier(flux_id);
+					// NOTE: the unit conversion applies to what reaches the target.
+					if(flux->flux_unit_conversion_tree)
+						flux_code = make_binop('*', flux_code, flux->flux_unit_conversion_tree);
 					fun = make_binop('+', fun, flux_code);
 				}
 			}

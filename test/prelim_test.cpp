@@ -52,6 +52,7 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	std::vector<s64> offsets;
 	for(auto var_id : model->state_vars) {
 		String_View name = model->state_vars[var_id]->name;
+		//if(name != "Quick flow" && name != "in_flux") continue;
 		model_app->result_data.for_each(var_id, [&](std::vector<Index_T> *indexes, s64 offset) {
 			fprintf(file, "\"%.*s\"[", name.count, name.data);
 			for(auto index : *indexes) fprintf(file, "%d ", index.index);

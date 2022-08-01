@@ -29,23 +29,27 @@ Oversimplified soil water module inc.
 	water : quantity("Water")
 	
 	soil.par_group("Hydrology land") {
-		fc   : par_real("Field capacity", unit(m m), 120)
-		bfi  : par_real("Baseflow index", unit(), 0.7)
-		tc_s : par_real("Soil water time constant", unit(day -1), 2)
-
-		f_quick : par_real("Proportion to quick flow", unit(), 0.01)
+		fc     : par_real("Field capacity", unit(m m), 120)
+		bfi    : par_real("Baseflow index", unit(), 0.6)
+		tc_s   : par_real("Soil water time constant", unit(day -1), 2)
+		qqinfl : par_real("Quick flow inflection point", unit(), 160)
 	}
 		
 	gw.  par_group("Groundwater") {
-		tc_g    : par_real("Groundwater time constant", unit(day -1), 60)
+		tc_g    : par_real("Groundwater time constant", unit(day -1), 30)
 	}
 	
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
-	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 }
+	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 } # TODO!
 
 	pet  : property("Potential evapotranspiration")
 	
-	flux(soil.water, out, "Quick flow")             {   f_quick * in_flux(water)   }
+	quick_flow :
+	flux(soil.water, out, "Quick flow") {
+		drylim := 0.9		# Could be a parameter. Stops quick flow below drylim*fc
+		flow   := in_flux(water)
+		flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-2*flow/qqinfl)) - 1)
+	}
 	
 	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - 0.01^(water/fc))   }  # = pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
 	
@@ -74,28 +78,36 @@ The doc string
 	water : quantity("Water")
 	
 	river.par_group("Reach parameters") {
-		slope          : par_real("Reach slope", unit(), 0.01)
-		len            : par_real("Reach length", unit(m), 1000)
+		slope          : par_real("Reach slope", unit(), 0.014)
+		len            : par_real("Reach length", unit(m), 10000)
 		c_mann         : par_real("Manning's roughness coefficient", unit(), 0.04)
-		init_flow      : par_real("Initial reach flow", unit(m 3, s-1), 0)
-		
-		a_catch : par_real("Catchment area", unit(k m 2), 1)
+		init_flow      : par_real("Initial reach flow", unit(m 3, s-1), 1)
 	}
+	
+	#TODO: eff_len!
+	flow : property("Flow")
 	
 	river.has(water, unit(m 3), "Reach water volume") .initial {
 		depth := 0.349 * flow^0.34
-		width := 2.72 * flow^0.557
+		width := 2.71 * flow^0.557
 		width * depth * len
 	}
-	
-	river.has(flow : property("Flow"), unit(m 3, s -1)) {
+
+	river.has(flow, unit(m 3, s -1), "Reach flow") {
+		#eff_len := len * 0.5   #TODO: should be a computed parameter.
 		0.28 * (water * sqrt(slope) / (len * c_mann))^1.5
 	} .initial {
 		init_flow
 	}
 	
-	#TODO!
-	flux(river.water, nowhere, "Reach flow") {
-		flow
+	#TODO: link up river segments!
+	flux(river.water, nowhere, "Reach flow flux") {
+		flow * 86400                              #NOTE: explicit unit conversion should be removed once we get automatic unit checks
+	}
+	
+	#NOTE: for debugging
+	river.has(property("In flow"), unit(m 3, day -1)) {
+		in_flux(water)
 	}
 }
+

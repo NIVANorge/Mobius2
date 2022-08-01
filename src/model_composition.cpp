@@ -154,12 +154,16 @@ Mobius_Model::compose() {
 
 	warning_print("Function tree resolution begin.\n");
 	
+	// TODO: check if there are unused aggregation data or unit conversion data!
+	// TODO: warning or error if a flux is still marked as "out" (?)   -- though this could be legitimate in some cases where you just want to run a sub-module and not link it up with anything.
+	
 	Var_Map in_flux_map;
 	
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
+		Math_Expr_AST *unit_conv_ast = nullptr;
 		
 		Entity_Id in_compartment = invalid_entity_id;
 		if(var->type == Decl_Type::flux) {
@@ -171,6 +175,13 @@ Mobius_Model::compose() {
 					in_compartment = flux->source.compartment;
 			} else if(target_is_located)
 				in_compartment = flux->target.compartment;
+			
+			if(is_located(flux->source)) {
+				for(auto &unit_conv : modules[0]->compartments[flux->source.compartment]->unit_convs) {
+					if(flux->source == unit_conv.source && flux->target == unit_conv.target) 
+						unit_conv_ast = unit_conv.code;
+				}
+			}
 		} else if(var->type == Decl_Type::property || var->type == Decl_Type::quantity) {
 			auto has = find_entity<Reg_Type::has>(var->entity_id);
 			ast      = has->code;
@@ -193,16 +204,23 @@ Mobius_Model::compose() {
 			find_in_fluxes(var->initial_function_tree, in_flux_map, var_id, true);
 		} else
 			var->initial_function_tree = nullptr;
+		
+		if(unit_conv_ast) {
+			auto res_data2 = res_data;
+			res_data2.module_id = 0;
+			//TODO: For this one we have to do a more thorough check of what type of data this code is allowed to look up!
+			var->flux_unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
+		} else
+			var->flux_unit_conversion_tree = nullptr;
 	}
 	
 	warning_print("Generate state vars for aggregate fluxes.\n");
 	
-	// note: at this stage we always generate an aggregate if the source compartment has more indexes than the target compartment.
-	//    We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer.
+	// note: We always generate an aggregate if the source compartment has more indexes than the target compartment.
+	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the aggregate is trivial
 	
-	//TODO: we have to make a similar system where we throw an error for variables if they only reference something that can have more indexes than they themselves are allowed to!
+	//TODO: we have to make a similar system where we throw an error for variables if they only reference something that can have more indexes than they themselves are allowed to! This also has to check the unit conversions.
 	   // ( but user could specify an aggregate() on the reference to avoid it. We then also have to make a state var for that aggregation.
-	// TODO: have to finish the code generation for it before we enable it.
 	s32 var_count = (s32)state_vars.count();
 	for(s32 id = 0; id < var_count; ++id) {
 		Var_Id var_id = { id };
@@ -221,8 +239,10 @@ Mobius_Model::compose() {
 		Math_Expr_FT *agg_weight = nullptr;
 		for(auto &agg : source->aggregations) {
 			if(agg.to_compartment == var->loc2.compartment) {
+				// Note: the module id is probably always 0 here since aggregation_weight should only be declared in model scope.
 				Function_Resolve_Data res_data = { this, var->loc1.compartment.module_id, invalid_entity_id };
-				agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real); // Note: the module id is probably always 0 here since aggregation_weight should only be declared in model scope.
+				agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
+				//TODO: we need to be restrictive about what kind of data this code can look up.
 				break;
 			}
 		}
@@ -242,6 +262,7 @@ Mobius_Model::compose() {
 		var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 		agg_var->loc1 = var->loc1;
 		agg_var->loc2 = var->loc2;
+		agg_var->flux_unit_conversion_tree = var->flux_unit_conversion_tree;
 		state_vars[var_id]->agg = agg_id;
 	}
 	
@@ -256,8 +277,13 @@ Mobius_Model::compose() {
 		Math_Expr_FT *flux_sum = make_literal(0.0);
 		for(auto flux_id : state_vars) {
 			auto var = state_vars[flux_id];
-			if(var->type == Decl_Type::flux && var->loc2.type == Location_Type::located && state_vars[var->loc2] == target_id)
-				flux_sum = make_binop('+', flux_sum, make_state_var_identifier(flux_id));
+			if(var->type == Decl_Type::flux && is_located(var->loc2) && state_vars[var->loc2] == target_id 
+					&& !(var->flags & State_Variable::Flags::f_has_aggregate)) { //NOTE: if it has an aggregate, we should only count the aggregate, not this on its own.
+				auto flux_code = make_state_var_identifier(flux_id);
+				if(var->flux_unit_conversion_tree)
+					flux_code = make_binop('*', flux_code, copy(var->flux_unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
+				flux_sum = make_binop('+', flux_sum, flux_code);
+			}
 		}
 		in_flux_var->function_tree         = flux_sum;
 		in_flux_var->initial_function_tree = nullptr;

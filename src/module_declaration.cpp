@@ -504,9 +504,9 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 }
 
 void
-process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Value_Location *location) {
+process_location_argument(Module_Declaration *module, Decl_AST *decl, int which, Value_Location *location, bool allow_unspecified) {
 	std::vector<Token> *symbol = &decl->args[which]->sub_chain;
-	if(symbol->size() == 1) {
+	if(symbol->size() == 1 && allow_unspecified) {
 		Token *token = &(*symbol)[0];
 		if(token->string_value == "nowhere")
 			location->type = Location_Type::nowhere;
@@ -518,16 +518,16 @@ process_flux_argument(Module_Declaration *module, Decl_AST *decl, int which, Val
 			location->type = Location_Type::out;
 		} else {
 			token->print_error_header();
-			fatal_error("Invalid flux location.");
+			fatal_error("Invalid variable location.");
 		}
 	} else if (symbol->size() == 2) {
 		location->type     = Location_Type::located;
 		location->compartment = module->compartments.find_or_create(&(*symbol)[0]);
 		location->property_or_quantity   = module->properties_and_quantities.find_or_create(&(*symbol)[1]);    //NOTE: this does not guarantee that this is a quantity and not a property, so that must be checked in post.
 	} else {
-		//TODO: this should eventually be allowed when having dissolved quantity
+		//TODO: this should eventually be allowed when having dissolved quantities
 		(*symbol)[0].print_error_header();
-		fatal_error("Invalid flux location.");
+		fatal_error("Invalid variable location.");
 	}
 }
 
@@ -548,8 +548,8 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 	auto id   = module->fluxes.find_or_create(&decl->handle_name, name, decl);
 	auto flux = module->fluxes[id];
 	
-	process_flux_argument(module, decl, 0, &flux->source);
-	process_flux_argument(module, decl, 1, &flux->target);
+	process_location_argument(module, decl, 0, &flux->source, true);
+	process_location_argument(module, decl, 1, &flux->target, true);
 	flux->target_was_out = (flux->target.type == Location_Type::out);
 	
 	if(flux->source == flux->target && flux->source.type == Location_Type::located) {
@@ -882,6 +882,22 @@ process_aggregation_weight_declaration(Module_Declaration *module, Decl_AST *dec
 }
 
 void
+process_unit_conversion_declaration(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::identifier, Token_Type::identifier}});
+	
+	Flux_Unit_Conversion_Data data = {};
+	
+	//TODO: some guard against overlapping / contradictory declarations.
+	//TODO: guard against nonsensical declarations (e.g. going between the same compartment).
+	
+	process_location_argument(module, decl, 0, &data.source, false);
+	process_location_argument(module, decl, 1, &data.target, false);
+	data.code = reinterpret_cast<Function_Body_AST *>(decl->bodies[0])->block;
+	
+	module->compartments[data.source.compartment]->unit_convs.push_back(data);
+}
+
+void
 register_intrinsics(Module_Declaration *module) {
 	//module->dimensionless_unit = module->units.create_compiler_internal("__dimensionless__", Decl_Type::unit); //TODO: give it data if necessary.
 	
@@ -1015,6 +1031,10 @@ load_model(String_View file_name) {
 			
 			case Decl_Type::aggregation_weight : {
 				process_aggregation_weight_declaration(global_scope, child);
+			} break;
+			
+			case Decl_Type::unit_conversion : {
+				process_unit_conversion_declaration(global_scope, child);
 			} break;
 			
 			case Decl_Type::compartment :

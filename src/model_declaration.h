@@ -58,6 +58,7 @@ State_Variable {
 	
 	Math_Expr_FT *function_tree;
 	Math_Expr_FT *initial_function_tree;
+	Math_Expr_FT *flux_unit_conversion_tree;
 	
 	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), solver(invalid_entity_id), flags(f_none), agg(invalid_var) {};
 };
