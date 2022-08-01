@@ -219,8 +219,6 @@ Mobius_Model::compose() {
 	// note: We always generate an aggregate if the source compartment has more indexes than the target compartment.
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the aggregate is trivial
 	
-	//TODO: we have to make a similar system where we throw an error for variables if they only reference something that can have more indexes than they themselves are allowed to! This also has to check the unit conversions.
-	   // ( but user could specify an aggregate() on the reference to avoid it. We then also have to make a state var for that aggregation.
 	s32 var_count = (s32)state_vars.count();
 	for(s32 id = 0; id < var_count; ++id) {
 		Var_Id var_id = { id };
@@ -319,6 +317,11 @@ Mobius_Model::compose() {
 		if(var->initial_function_tree)
 			register_dependencies(var->initial_function_tree, &var->initial_depends);
 	}
+	
+	
+	//TODO: we have to make a system where we throw an error for variables if they reference something that can have more indexes than they themselves are allowed to! This also has to check the unit conversions and aggregation weights.
+	   // ( but user could specify an aggregate() on the reference to avoid it. We then also have to make a state var for that aggregation.
+	// NOTE: we could just do this in the index set dependency resolution, but that would not trip in all cases, and it would be harder to detect why it happened (to give good error message).
 	
 	is_composed = true;
 }

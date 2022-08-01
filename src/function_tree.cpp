@@ -670,8 +670,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 
 Math_Expr_FT *
 optimize_pow_int(Math_Expr_FT *lhs, s64 p) {
-	// TODO: I made this for fun, but llvm can make similar optimizations if fast-math is turned on, so it is a bit unnecessary...
-	
 	// Note: case p == 0 is handled in another call. Also for p == 1, but we also use this for powers 1.5 etc. see below
 	Math_Expr_FT *result = nullptr;
 	if(p == 1)
@@ -726,22 +724,59 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
 }
 
 Math_Expr_FT *
+replace_iteration_index(Math_Expr_FT *expr, s32 block_id) {
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if(ident->variable_type == Variable_Type::local && ident->local_var.scope_id == block_id) {
+			//NOTE: the for loop block has only one local variable, the iteration index, so we only have to know that it points to that block.
+			delete expr;
+			return make_literal((s64)0);
+		}
+	}
+	for(auto &arg : expr->exprs) arg = replace_iteration_index(arg, block_id);
+	
+	return expr;
+}
+
+Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 	
+	// Try to simplify the math expression if some components can be evaluated to constants at compile time.
+	//    Some of this could be left to llvm, but it is beneficial make the job easier for llvm, and we do see improvements from some of these optimizations.
+	
+	Scope_Data *old_scope = scope;
+	Scope_Data new_scope;
 	if(expr->expr_type == Math_Expr_Type::block) {
-		Scope_Data new_scope;
 		new_scope.parent = scope;
 		new_scope.block = reinterpret_cast<Math_Block_FT *>(expr);
-		for(auto &arg : expr->exprs)
-			arg = prune_tree(arg, &new_scope);
-	} else {
-		for(auto &arg : expr->exprs)
-			arg = prune_tree(arg, scope);
+		scope = &new_scope;
 	}
+	
+	for(auto &arg : expr->exprs)
+		arg = prune_tree(arg, scope);
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
-			//todo: replace with last statement if only one statement ? Probably not, sice it could mess up scopes! Or we would have to fix that in that case
+			auto block = reinterpret_cast<Math_Block_FT *>(expr);
+			if(block->is_for_loop
+				&& block->exprs[0]->expr_type == Math_Expr_Type::literal 
+				&& reinterpret_cast<Literal_FT *>(block->exprs[0])->value.val_integer == 1) {   // Iteration count of for loop is 1, so the loop only executes once.
+				
+				delete block->exprs[0];
+				auto result = block->exprs[1];
+				result = replace_iteration_index(result, block->unique_block_id); // Replace the iteration index with constant 0 in the body.
+				result = prune_tree(result, scope);  // We could maybe prune more now that more stuff could be constant.
+				
+				block->exprs.clear();
+				delete block;          //NOTE: don't move this up, because it would screw up the linking of scope data.
+				return result;
+			}
+			if(!block->is_for_loop && block->exprs.size() == 1) {   // A block with a single statement can be replaced with that statement.
+				auto result = block->exprs[0];
+				block->exprs.clear();
+				delete block;
+				return result;
+			}
 		} break;
 		
 		case Math_Expr_Type::function_call : {
@@ -940,14 +975,6 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 				}
 			}
 		} break;
-		
-		
-		/* TODO: if loop count is constantly equal to 1, remove the loop. (unroll if the count is low? probably not since we prefer to vectorize in codegen?).
-		case Math_Expr_Type::for_loop : {
-			
-		} break;
-		*/
-		
 	}
 	return expr;
 }
