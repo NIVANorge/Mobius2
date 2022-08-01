@@ -66,20 +66,56 @@ read_entire_file(String_View file_name)
 	return file_data;
 }
 
+inline bool is_slash(char c) { return c == '\\' || c == '/'; }
+
 inline String_View
 make_path_relative_to(String_View file_name, String_View relative) {
-	int last_slash;
-	bool any_slash_at_all = false;
-	for(last_slash = relative.count - 1; last_slash >= 0; --last_slash) {
-		char c = relative[last_slash];
-		if(c == '\\' || c == '/') {
-			any_slash_at_all = true;
-			break;
-		}
-	}
-	if(!any_slash_at_all) last_slash = -1;
+	// TODO: this should maybe check that the file_name *is* actually a relative path..
+	
 	static char new_path[1024]; //TODO make a string builder instead?
-	sprintf(new_path, "%.*s%.*s", last_slash+1, relative.data, (int)file_name.count, file_name.data);
+	
+	warning_print(file_name, " ", relative, "\n");
+	
+	int pos = 0;
+	int last_slash = -1;
+	while(pos < relative.count) {
+		if(pos == 1024) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
+		char c = relative[pos];
+		if(is_slash(c)) { last_slash = pos; c = '\\'; }
+		new_path[pos] = c;
+		++pos;
+	}
+	pos = last_slash + 1;    // Remove the file name from the "relative to" path.
+	int cursor = 0;
+	bool start_dir = true;
+	while(cursor < file_name.count) {
+		if(pos == 1024) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
+		char c = file_name[cursor];
+		if(start_dir && c == '.' 
+			&& (cursor+1 < file_name.count) && file_name[cursor+1] == '.'
+			&& (cursor+2 < file_name.count) && is_slash(file_name[cursor+2])) {
+			if(pos >= 2) {
+				cursor += 3;
+				pos -= 2; // remove the first slash.
+				while(pos >= 0) {
+					char c = new_path[pos];
+					if(is_slash(c)) { ++pos; break; }
+					--pos;
+				}
+				if(pos < 0) pos = 0;
+			} else if (pos == 1) { pos--; cursor += 3; }
+		}
+		if(cursor == file_name.count) break;
+		c = file_name[cursor];
+		if(is_slash(c)) { start_dir = true; c = '\\'; }
+		else start_dir = false;
+		new_path[pos] = c;
+		++cursor;
+		++pos;
+	}
+	if(pos == 1024) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
+	new_path[pos] = '\0';
+	
 	String_View result = new_path;
 	return result;
 }
@@ -106,7 +142,7 @@ File_Data_Handler {
 	File_Data_Handler() : allocator(1024*1024) {};
 	
 	String_View
-	load_file(String_View file_name, String_View relative = {}) {
+	load_file(String_View file_name, String_View relative = {}, String_View *normalized_path_out = nullptr) {
 		String_View load_name = file_name;
 		if(relative)
 			//TODO: This could possibly give us multiple paths pointing to the same file. We should normalize the path
@@ -117,6 +153,7 @@ File_Data_Handler {
 		load_name = allocator.copy_string_view(load_name);
 		String_View data = read_entire_file(load_name);
 		loaded_files[load_name] = data;
+		if(normalized_path_out) *normalized_path_out = load_name;
 		return data;
 	}
 	

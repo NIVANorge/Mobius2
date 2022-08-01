@@ -609,10 +609,10 @@ check_for_missing_declarations(Module_Declaration *module) {
 }
 
 Decl_AST *
-load_top_decl_from_file(Mobius_Model *model, String_View file_name, String_View decl_name, Decl_Type type, String_View rel_path) {
+load_top_decl_from_file(Mobius_Model *model, String_View file_name, String_View decl_name, Decl_Type type, String_View rel_path, String_View *normalized_path_out) {
 	// TODO: this is wasteful in that it may parse the same file many times. We could cache the decls in case they are needed by another load call.
-	
-	String_View file_data = model->file_handler.load_file(file_name, rel_path);
+
+	String_View file_data = model->file_handler.load_file(file_name, rel_path, normalized_path_out);
 	Token_Stream stream(file_name, file_data);
 	
 	Decl_AST *result = nullptr;
@@ -646,7 +646,7 @@ process_load_library_declaration(Module_Declaration *module, Decl_AST *load_decl
 	
 	String_View library_name = single_arg(lib_load_decl, 0)->string_value;
 	
-	Decl_AST *lib_decl = load_top_decl_from_file(module->model, file_name, library_name, Decl_Type::library, module->source_path);
+	Decl_AST *lib_decl = load_top_decl_from_file(module->model, file_name, library_name, Decl_Type::library, module->source_path, nullptr);
 	
 	match_declaration(lib_decl, {{Token_Type::quoted_string}});
 	
@@ -923,10 +923,11 @@ s16
 Mobius_Model::load_module(String_View file_name, String_View module_name) {
 	
 	auto global_scope = modules[0];
-	Decl_AST *module_decl = load_top_decl_from_file(this, file_name, module_name, Decl_Type::module, global_scope->source_path);
+	String_View normalized_path;
+	Decl_AST *module_decl = load_top_decl_from_file(this, file_name, module_name, Decl_Type::module, global_scope->source_path, &normalized_path);
 	
 	s16 module_id = (s16)modules.size();
-	Module_Declaration *module = process_module_declaration(this, global_scope, module_id, module_decl, file_name); //TODO: should be the normalized file name.
+	Module_Declaration *module = process_module_declaration(this, global_scope, module_id, module_decl, normalized_path); //TODO: should be the normalized file name.
 	modules.push_back(module);
 	return module_id;
 }
