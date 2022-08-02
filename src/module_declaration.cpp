@@ -610,27 +610,51 @@ check_for_missing_declarations(Module_Declaration *module) {
 
 Decl_AST *
 load_top_decl_from_file(Mobius_Model *model, String_View file_name, String_View decl_name, Decl_Type type, String_View rel_path, String_View *normalized_path_out) {
-	// TODO: this is wasteful in that it may parse the same file many times. We could cache the decls in case they are needed by another load call.
-
-	String_View file_data = model->file_handler.load_file(file_name, rel_path, normalized_path_out);
-	Token_Stream stream(file_name, file_data);
 	
+	String_View normalized_path;
+	auto path_ptr = normalized_path_out ? normalized_path_out : &normalized_path;
+	
+	String_View file_data = model->file_handler.load_file(file_name, rel_path, path_ptr);
+	
+	bool already_parsed_file = false;
 	Decl_AST *result = nullptr;
-	while(true) {
-		if(stream.peek_token().type == Token_Type::eof) break;
-		Decl_AST *decl = parse_decl(&stream);
-		if(decl->type != Decl_Type::module && decl->type != Decl_Type::library) {
-			decl->location.print_error_header();
-			fatal_error("Module files should only have modules or libraries in the top scope. Encountered a \"", name(decl->type), "\".");
+	auto find_file = model->parsed_decls.find(*path_ptr);
+	if(find_file != model->parsed_decls.end()) {
+		already_parsed_file = true;
+		auto find_decl = find_file->second.find(decl_name);
+		if(find_decl != find_file->second.end())
+			result = find_decl->second;
+	}
+
+	if(!already_parsed_file) {
+		Token_Stream stream(file_name, file_data);
+			
+		while(true) {
+			if(stream.peek_token().type == Token_Type::eof) break;
+			Decl_AST *decl = parse_decl(&stream);
+			if(decl->type != Decl_Type::module && decl->type != Decl_Type::library) {
+				decl->location.print_error_header();
+				fatal_error("Module files should only have modules or libraries in the top scope. Encountered a \"", name(decl->type), "\".");
+			}
+			if(!(decl->args.size() >= 1 && decl->args[0]->sub_chain.size() >= 1 && decl->args[0]->sub_chain[0].type == Token_Type::quoted_string)) {
+				decl->location.print_error_header();
+				fatal_error("Encountered a top-level declaration without a name.");
+			}
+			String_View name = decl->args[0]->sub_chain[0].string_value;
+			if(decl_name == name) {
+				result = decl;
+			}
+			model->parsed_decls[*path_ptr][decl_name] = decl;
 		}
-		if(decl->type == type && decl->args.size() >= 1 && decl->args[0]->sub_chain.size() >= 1 && decl->args[0]->sub_chain[0].string_value == decl_name)
-			result = decl;
-		else
-			delete decl;
 	}
 	
 	if(!result)
 		fatal_error(Mobius_Error::parsing, "Could not find the ", name(type), " \"", decl_name, "\" in the file ", file_name, " .");
+	
+	if(result->type != type) {
+		result->location.print_error_header();
+		fatal_error(Mobius_Error::parsing, "The declaration \"", decl_name, "\" is of type ", name(result->type), ", expected ", name(type), ".");
+	}
 	
 	return result;
 }
@@ -673,7 +697,6 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 	Module_Declaration *module = new Module_Declaration();
 	module->global_scope = global_scope;
 	module->model = model;
-	module->decl = decl; // Keep it so that we can free it later. TODO: not needed if we instead cache loaded decls on a file basis. Then the cache would be responsible for freeing.
 	module->module_id = module_id;
 	module->source_path = source_path;
 	

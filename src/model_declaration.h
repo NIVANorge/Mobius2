@@ -110,6 +110,7 @@ struct Var_Registry {
 	size_t count() { return vars.size(); }
 };
 
+
 struct
 Mobius_Model {
 	
@@ -117,7 +118,7 @@ Mobius_Model {
 	String_View doc_string;
 	
 	
-	Mobius_Model() : allocator(32*1024*1024) {}    //NOTE: for now, the allocator is just to store / build string names... Should maybe get rid of it.
+	Mobius_Model() : allocator(1024*1024) {}    //NOTE: for now, the allocator is just to store / build string names... Should maybe get rid of it.
 	
 	// TODO: destructor.
 	
@@ -142,9 +143,11 @@ Mobius_Model {
 	bool is_composed = false;
 	
 	File_Data_Handler file_handler;
+	string_map<string_map<Decl_AST *>> parsed_decls;
+	
 	Linear_Allocator allocator;
 	
-	std::vector<Module_Declaration *> modules;   //TODO: allow multiple modules!
+	std::vector<Module_Declaration *> modules;
 	
 	Var_Registry state_vars;
 	Var_Registry series;

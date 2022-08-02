@@ -298,8 +298,6 @@ Module_Declaration {
 	String_View name;
 	int major, minor, revision;
 	
-	Decl_AST *decl;
-	
 	s16 module_id;
 	Module_Declaration *global_scope;          //TODO: this is a bad name. It is the registration data for the model. Very little here is visible to the other modules.
 	Mobius_Model       *model;
