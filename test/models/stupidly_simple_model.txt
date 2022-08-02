@@ -27,9 +27,9 @@ model("Simple test model") {
 	a : quantity("A")
 	
 	hi : index_set("Habitat index")
-	sol : solver("My solver", "INCADascru", 0.1)
-	habitat.a.solve(sol)
-	world.a.solve(sol)
+	#sol : solver("My solver", "INCADascru", 0.1)
+	#habitat.a.solve(sol)
+	#world.a.solve(sol)
 	
 	habitat.distribute(hi)
 	

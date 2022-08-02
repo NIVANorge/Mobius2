@@ -616,11 +616,15 @@ load_top_decl_from_file(Mobius_Model *model, String_View file_name, String_View 
 	
 	String_View file_data = model->file_handler.load_file(file_name, rel_path, path_ptr);
 	
+	//warning_print("Try to load ", decl_name, " from ", *path_ptr, "\n");
+	
 	bool already_parsed_file = false;
 	Decl_AST *result = nullptr;
 	auto find_file = model->parsed_decls.find(*path_ptr);
+	//warning_print("Look for file ", *path_ptr, "\n");
 	if(find_file != model->parsed_decls.end()) {
 		already_parsed_file = true;
+		//warning_print("Already parsed file\n");
 		auto find_decl = find_file->second.find(decl_name);
 		if(find_decl != find_file->second.end())
 			result = find_decl->second;
@@ -641,10 +645,9 @@ load_top_decl_from_file(Mobius_Model *model, String_View file_name, String_View 
 				fatal_error("Encountered a top-level declaration without a name.");
 			}
 			String_View name = decl->args[0]->sub_chain[0].string_value;
-			if(decl_name == name) {
+			if(decl_name == name)
 				result = decl;
-			}
-			model->parsed_decls[*path_ptr][decl_name] = decl;
+			model->parsed_decls[*path_ptr][name] = decl;
 		}
 	}
 	

@@ -52,6 +52,7 @@ State_Variable {
 	Value_Location loc2;
 	
 	Var_Id         agg;    // if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
+	Entity_Id      agg_to_compartment;
 	
 	Dependency_Set depends;
 	Dependency_Set initial_depends;

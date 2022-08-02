@@ -44,6 +44,9 @@ General model description.
 	soil.par_group("Land cover") {
 		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)
 	}
+	
+	#TODO: it would be nice if we could declare lu_prop.sums_to(lu, 1).  #This would allow for run-time checks and also sometimes compile-time optimizations.
+	
 	river.par_group("Catchment data") {
 		a_catch  : par_real("Catchment area", unit(km 2), 51.7)
 	}
@@ -54,4 +57,10 @@ General model description.
 	# convert mm to m^3
 	unit_conversion(soil.water, river.water) { a_catch * 1000 }   #TODO: when we get automatic unit checking we should remove the 1000 !
 	unit_conversion(gw.water, river.water) { a_catch * 1000 }
+	
+	
+	# should not be in simplyq, just testing for now:
+	#load("simplysed.txt", ss : module("SimplySed"))
+	#sed : quantity("Sediment")
+	#river.sed.solve(simply_solver)
 }

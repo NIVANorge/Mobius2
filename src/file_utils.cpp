@@ -93,7 +93,6 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 					// otherwise if the path looks like [whatever]/ rewind to the beginning of [whatever] (and proceed to overwrite it).
 					while(pos >= 0) {
 						char c = new_path[pos];
-						warning_print("c is ", c, "\n");
 						if(is_slash(c)) { ++pos; break; }
 						--pos;
 					}

@@ -38,7 +38,8 @@ Math_Block_FT : Math_Expr_FT {
 enum Identifier_Flags : u32 {
 	ident_flags_none        = 0x0,
 	ident_flags_last_result = 0x1,
-	ident_flags_in_flux     = 0x2
+	ident_flags_in_flux     = 0x2,
+	ident_flags_aggregate   = 0x4,
 	//TODO: conc, trust_unit, auto_convert, etc.
 };
 

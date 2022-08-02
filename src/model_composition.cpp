@@ -82,33 +82,59 @@ remove_lasts(Math_Expr_FT *expr, bool make_error) {
 }
 
 typedef std::unordered_map<int, std::vector<Var_Id>> Var_Map;
+typedef std::unordered_map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_Map2;
 
 void
-find_in_fluxes(Math_Expr_FT *expr, Var_Map &var_map, Var_Id push, bool make_error) {
-	for(auto arg : expr->exprs) find_in_fluxes(arg, var_map, push, make_error);
+find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux) {
+	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var && (ident->flags & ident_flags_in_flux)) {
-			if(make_error) {
+		if(ident->flags & ident_flags_in_flux) {
+			if(make_error_in_flux) {
 				expr->location.print_error_header();
 				fatal_error("Did not expect an in_flux() in an initial value function.");
 			}
-			var_map[ident->state_var.id].push_back(push);
+			in_fluxes[ident->state_var.id].push_back(looked_up_by);
+		}
+		if(ident->flags & ident_flags_aggregate) {
+			if(!is_valid(lookup_compartment)) {
+				expr->location.print_error_header();
+				fatal_error("Can't use aggregate() in this function body because it does not belong to a compartment.");
+			}
+				
+			aggregates[ident->state_var.id].first.insert(lookup_compartment);         //OOOps!!!! This is not correct if this was applied to an input series!
+			
+			if(is_valid(looked_up_by)) {
+				aggregates[ident->state_var.id].second.push_back(looked_up_by);
+			}
 		}
 	}
 }
 
 void
-replace_in_flux(Math_Expr_FT *expr, Var_Id target_id, Var_Id in_flux_id) {
-	for(auto arg : expr->exprs) replace_in_flux(arg, target_id, in_flux_id);
+replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier_Flags flag) {
+	for(auto arg : expr->exprs) replace_flagged(arg, replace_this, with, flag);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var && ident->state_var == target_id && (ident->flags & ident_flags_in_flux)) {
-			ident->state_var = in_flux_id;
-			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_in_flux);
+		if(ident->variable_type == Variable_Type::state_var && ident->state_var == replace_this && (ident->flags & flag)) {
+			ident->state_var = with;
+			ident->flags = (Identifier_Flags)(ident->flags & ~flag);
 		}
 	}
 }
+
+void
+restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type) {
+	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type);
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if(ident->variable_type != Variable_Type::local && ident->variable_type != Variable_Type::parameter) {
+			expr->location.print_error_header();
+			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
+		}
+	}
+}
+
 
 void
 Mobius_Model::compose() {
@@ -158,6 +184,7 @@ Mobius_Model::compose() {
 	// TODO: warning or error if a flux is still marked as "out" (?)   -- though this could be legitimate in some cases where you just want to run a sub-module and not link it up with anything.
 	
 	Var_Map in_flux_map;
+	Var_Map2 needs_aggregate;
 	
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
@@ -166,15 +193,20 @@ Mobius_Model::compose() {
 		Math_Expr_AST *unit_conv_ast = nullptr;
 		
 		Entity_Id in_compartment = invalid_entity_id;
+		Entity_Id from_compartment = invalid_entity_id;
 		if(var->type == Decl_Type::flux) {
 			auto flux = find_entity<Reg_Type::flux>(var->entity_id);
 			ast = flux->code;
 			bool target_is_located = is_located(flux->target) && !flux->target_was_out; // Note: the target could have been re-directed by the model. We only care about how it was declared
 			if(is_located(flux->source)) {
+				from_compartment = flux->source.compartment;
 				if(!target_is_located || flux->source == flux->target)	
-					in_compartment = flux->source.compartment;
-			} else if(target_is_located)
+					in_compartment = from_compartment;
+			} else if(target_is_located) {
 				in_compartment = flux->target.compartment;
+			}
+			if(!is_valid(from_compartment)) from_compartment = in_compartment;
+			// note : the only case where from_compartment != in_compartment is when both source and target are located, but different. In that case in_compartment is invalid, but from_compartment is not.
 			
 			if(is_located(flux->source)) {
 				for(auto &unit_conv : modules[0]->compartments[flux->source.compartment]->unit_convs) {
@@ -186,14 +218,14 @@ Mobius_Model::compose() {
 			auto has = find_entity<Reg_Type::has>(var->entity_id);
 			ast      = has->code;
 			init_ast = has->initial_code;
-			in_compartment = has->value_location.compartment;
+			from_compartment = in_compartment = has->value_location.compartment;
 		}
 				
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
 		Function_Resolve_Data res_data = { this, var->entity_id.module_id, in_compartment };
 		if(ast) {
 			var->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
-			find_in_fluxes(var->function_tree, in_flux_map, var_id, false);
+			find_other_flags(var->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 		} else
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
@@ -201,67 +233,99 @@ Mobius_Model::compose() {
 			//warning_print("found initial function tree for ", var->name, "\n");
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
-			find_in_fluxes(var->initial_function_tree, in_flux_map, var_id, true);
+			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
 		} else
 			var->initial_function_tree = nullptr;
 		
 		if(unit_conv_ast) {
 			auto res_data2 = res_data;
 			res_data2.module_id = 0;
-			//TODO: For this one we have to do a more thorough check of what type of data this code is allowed to look up!
 			var->flux_unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
+			restrictive_lookups(var->flux_unit_conversion_tree, Decl_Type::unit_conversion);
 		} else
 			var->flux_unit_conversion_tree = nullptr;
 	}
 	
-	warning_print("Generate state vars for aggregate fluxes.\n");
+	warning_print("Generate state vars for aggregates.\n");
+	
+	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
 	
 	// note: We always generate an aggregate if the source compartment has more indexes than the target compartment.
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the aggregate is trivial
-	
-	s32 var_count = (s32)state_vars.count();
-	for(s32 id = 0; id < var_count; ++id) {
-		Var_Id var_id = { id };
+	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		if(var->type != Decl_Type::flux) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
 		auto target = find_entity<Reg_Type::compartment>(var->loc2.compartment);
-		std::vector<Entity_Id> must_sum_over;
-		for(auto index_set : source->index_sets)
-			if(std::find(target->index_sets.begin(), target->index_sets.end(), index_set) == target->index_sets.end())
-				must_sum_over.push_back(index_set);
-		if(must_sum_over.empty()) continue;
 		
-		// TODO: throw error if there was no aggregation method specified in the
-		Math_Expr_FT *agg_weight = nullptr;
-		for(auto &agg : source->aggregations) {
-			if(agg.to_compartment == var->loc2.compartment) {
-				// Note: the module id is probably always 0 here since aggregation_weight should only be declared in model scope.
-				Function_Resolve_Data res_data = { this, var->loc1.compartment.module_id, invalid_entity_id };
-				agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
-				//TODO: we need to be restrictive about what kind of data this code can look up.
+		for(auto index_set : source->index_sets)
+			if(std::find(target->index_sets.begin(), target->index_sets.end(), index_set) == target->index_sets.end()) {
+				needs_aggregate[var_id.id].first.insert(var->loc2.compartment);   //NOTE: The aggregate is going to be "looked up from" the target compartment of the flux in this case.
 				break;
 			}
+	}
+		
+	for(auto &need_agg : needs_aggregate) {
+		auto var_id = Var_Id {need_agg.first};
+		auto var = state_vars[var_id];
+		
+		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
+		
+		for(auto to_compartment : need_agg.second.first) {
+			//warning_print("********* Create an aggregate\n");
+			
+			Math_Expr_FT *agg_weight = nullptr;
+			for(auto &agg : source->aggregations) {
+				if(agg.to_compartment == to_compartment) {
+					// Note: the module id is always 0 here since aggregation_weight should only be declared in model scope.
+					Function_Resolve_Data res_data = { this, 0, invalid_entity_id };
+					agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
+					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight);
+					break;
+				}
+			}
+			if(!agg_weight) {
+				auto target = find_entity<Reg_Type::compartment>(to_compartment);
+				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
+				if(var->type == Decl_Type::flux) {
+					
+					fatal_error(Mobius_Error::model_building, "The flux \"", var->name, "\" goes from compartment \"", source->name, "\" to compartment, \"", target->name, "\", but the first compartment is distributed over a higher number of index sets than the second. This is only allowed if you specify an aggregation_weight between the two compartments.");
+				} else {
+					fatal_error(Mobius_Error::model_building, "Missing aggregation_weight for variable ", var->name, " between compartments \"", source->name, "\" and \"", target->name, "\".\n");
+				}
+			}
+			var->flags = (State_Variable::Flags)(var->flags | State_Variable::f_has_aggregate);
+			
+			//TODO: We also have to handle the case where the agg. variable was a series!
+			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
+			
+			//TODO: make better name generation system!
+			char varname[1024];
+			sprintf(varname, "aggregate(%.*s)", var->name.count, var->name.data);
+			auto varname2 = allocator.copy_string_view(varname);
+			Var_Id agg_id = register_state_variable(this, var->type, invalid_entity_id, false, varname2);
+			
+			auto agg_var = state_vars[agg_id];
+			agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
+			agg_var->agg = var_id;
+			agg_var->function_tree = agg_weight;
+			
+			var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
+			agg_var->loc1 = var->loc1;
+			agg_var->loc2 = var->loc2;
+			agg_var->flux_unit_conversion_tree = var->flux_unit_conversion_tree;
+			agg_var->agg_to_compartment = to_compartment;
+			state_vars[var_id]->agg = agg_id;
+			
+			for(auto looked_up_by : need_agg.second.second) {
+				auto lu = state_vars[looked_up_by];
+
+				if(lu->loc1.compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
+				
+				replace_flagged(lu->function_tree, var_id, agg_id, ident_flags_aggregate);
+			}
 		}
-		if(!agg_weight) {
-			fatal_error(Mobius_Error::model_building, "The flux \"", var->name, "\" goes from compartment \"", source->name, "\" to compartment, \"", target->name, "\", but the first compartment is distributed over a higher number of index sets than the second. This is only allowed if you specify an aggregation_weight between the two compartments.");
-		}
-		var->flags = (State_Variable::Flags)(var->flags | State_Variable::f_has_aggregate);
-		
-		// note: can't reference var below this (without looking it up again). The vector it resides in may have reallocated.
-		Var_Id agg_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, "aggregate"); //TODO: generate a better name!
-		
-		auto agg_var = state_vars[agg_id];
-		agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
-		agg_var->agg = var_id;
-		agg_var->function_tree = agg_weight;
-		
-		var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
-		agg_var->loc1 = var->loc1;
-		agg_var->loc2 = var->loc2;
-		agg_var->flux_unit_conversion_tree = var->flux_unit_conversion_tree;
-		state_vars[var_id]->agg = agg_id;
 	}
 	
 	warning_print("Generate state vars for in_fluxes.\n");
@@ -288,7 +352,7 @@ Mobius_Model::compose() {
 		in_flux_var->flags = (State_Variable::Flags)(in_flux_var->flags | State_Variable::f_in_flux);
 		
 		for(auto rep_id : in_flux.second)
-			replace_in_flux(state_vars[rep_id]->function_tree, target_id, in_flux_id);
+			replace_flagged(state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
 	}
 	
 	warning_print("Put solvers begin.\n");

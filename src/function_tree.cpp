@@ -412,7 +412,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 			auto fun_name = fun->name.string_value;
 			
 			// First check for "special" calls that are not really function calls.
-			if(fun_name == "last" || fun_name == "in_flux") {
+			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate") {
 				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
 				resolve_arguments(new_fun, ast, data, scope);
 				if(new_fun->exprs.size() != 1) {
@@ -428,15 +428,20 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 				auto var = reinterpret_cast<Identifier_FT *>(new_fun->exprs[0]);
 				new_fun->exprs.clear();
 				delete new_fun;
-				if(var->variable_type != Variable_Type::state_var && var->variable_type != Variable_Type::series) {
+				bool can_series = fun_name != "in_flux";
+				if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series))) {
 					var->location.print_error_header();
-					error_print("A ", fun_name, "() call can only be applied to a state variable or input series.\n");
+					error_print("A ", fun_name, "() call can only be applied to a state variable");
+					if(can_series) error_print(" or input series.\n");
+					else           error_print(".\n");
 					fatal_error_trace(scope);
 				}
 				if(fun_name == "last")
 					var->flags = (Identifier_Flags)(var->flags | ident_flags_last_result);
-				else if(fun_name == "in_flux")
+				else if(fun_name == "in_flux") {
 					var->flags = (Identifier_Flags)(var->flags | ident_flags_in_flux);
+				} else if(fun_name == "aggregate")
+					var->flags = (Identifier_Flags)(var->flags | ident_flags_aggregate);
 				
 				result = var;
 			} else {

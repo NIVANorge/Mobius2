@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 		app.set_up_parameter_structure();
 		app.set_up_series_structure();
 
-		if(model_file == "test_model.txt") {
+		if(model_file == "models/simplyq_model.txt") {
 			//haaaack!
 			Entity_Id par_id = model->modules[2]->find_handle("fc");
 			std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
@@ -120,7 +120,8 @@ int main(int argc, char** argv) {
 		}
 		app.compile();
 
-		if(model_file == "test_model.txt") {
+		if(model_file == "models/simplyq_model.txt") {
+			warning_print("Load input data\n");
 			app.series_data.allocate(time_steps);
 			read_input_data("testinput.dat", &app);
 		}
