@@ -504,16 +504,28 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	int idx = -1;
 	for(const auto &pattern : patterns) {
 		++idx;
-		if(decl->args.size() != pattern.size()) continue;
+		if(decl->args.size() < pattern.size()) continue;
 		
 		bool cont = false;
 		auto match = pattern.begin();
+		int match_idx = 0;
 		for(auto arg : decl->args) {
 			if(!match->matches(arg)) {
 				cont = true;
 				break;
 			}
-			++match;
+			
+			if(match->is_vararg) {
+				if(match_idx != pattern.size()-1)
+					fatal_error(Mobius_Error::internal, "Used a vararg that was not the last in the arg list when match_declaration().\n");
+			} else {
+				++match_idx;
+				++match;
+			}
+			if(match == pattern.end() && match_idx != decl->args.size()) {
+				cont = true;
+				break;
+			}
 		}
 		if(cont) continue;
 		

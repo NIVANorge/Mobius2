@@ -10,8 +10,7 @@ General model description.
 	
 	
 	load("hbv_snow.txt",  sn : module("HBVSnow"))
-	load("simplyq.txt",   sw : module("SimplyQ land"))
-	load("simplyq.txt",   rw : module("SimplyQ river"))
+	load("simplyq.txt",   sw : module("SimplyQ land"), module("SimplyQ river"))
 	load("pet.txt",       pe : module("Degree-day PET"))
 	
 	soil  : compartment("Soil")
@@ -60,7 +59,7 @@ General model description.
 	
 	
 	# should not be in simplyq, just testing for now:
-	load("simplysed.txt", ss : module("SimplySed"))
-	sed : quantity("Sediment")
-	river.sed.solve(simply_solver)
+	#load("simplysed.txt", ss : module("SimplySed"))
+	#sed : quantity("Sediment")
+	#river.sed.solve(simply_solver)
 }

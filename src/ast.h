@@ -180,14 +180,15 @@ single_arg(Decl_AST *decl, int which) {
 struct Arg_Pattern {
 	enum class Type { value, decl, unit_literal };
 	Type pattern_type;
+	bool is_vararg;
 	
 	union {
 		Token_Type token_type;
 		Decl_Type  decl_type;
 	};
 	
-	Arg_Pattern(Token_Type token_type) : token_type(token_type), pattern_type(Type::value) {}
-	Arg_Pattern(Decl_Type decl_type)   : decl_type(decl_type), pattern_type(Type::decl) {}
+	Arg_Pattern(Token_Type token_type, bool is_vararg = false) : token_type(token_type), pattern_type(Type::value), is_vararg(is_vararg) {}
+	Arg_Pattern(Decl_Type decl_type, bool is_vararg = false)   : decl_type(decl_type), pattern_type(Type::decl), is_vararg(is_vararg) {}
 	Arg_Pattern() : pattern_type(Type::unit_literal) {}
 	
 	bool matches(Argument_AST *arg) const;

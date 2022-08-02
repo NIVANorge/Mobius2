@@ -158,7 +158,9 @@ Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 	// NOTE: These will only be set in the "global" module.
 	std::vector<Entity_Id> index_sets; //TODO: more info about distribution?
 	std::vector<Aggregation_Data> aggregations; 
-	std::vector<Flux_Unit_Conversion_Data> unit_convs;  
+	std::vector<Flux_Unit_Conversion_Data> unit_convs;
+	
+	Entity_Registration() : global_id(invalid_entity_id) {}
 };
 
 template<> struct
@@ -198,6 +200,8 @@ template<> struct
 Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
 	Entity_Id    global_id;
 	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
+	
+	Entity_Registration() : global_id(invalid_entity_id) {}
 };
 
 template<> struct
@@ -301,7 +305,7 @@ struct Mobius_Model;
 
 struct
 Module_Declaration {	
-	String_View name;
+	String_View module_name;
 	int major, minor, revision;
 	
 	s16 module_id;

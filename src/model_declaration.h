@@ -115,7 +115,7 @@ struct Var_Registry {
 struct
 Mobius_Model {
 	
-	String_View name;
+	String_View model_name;
 	String_View doc_string;
 	
 	

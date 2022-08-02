@@ -4,8 +4,7 @@ model("Another simple") {
 
 	module("So simple", 1, 0, 0) {
 	
-		load("../../stdlib/basic_math.txt", library("Response"))
-		load("../../stdlib/basic_math.txt", library("Basic"))
+		load("../../stdlib/basic_math.txt", library("Response"), library("Basic"))
 	
 		place : compartment("Place")
 		

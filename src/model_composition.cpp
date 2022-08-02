@@ -21,6 +21,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 			loc = has->value_location;
 			var.loc1 = loc;
 			var.type = model->find_entity(loc.property_or_quantity)->decl_type;
+			//warning_print("Found state variable ", model->find_entity(loc.compartment)->handle_name, ".", model->find_entity(loc.property_or_quantity)->handle_name, "\n");
 		} else if (type == Decl_Type::flux) {
 			auto flux = model->find_entity<Reg_Type::flux>(id);
 			var.loc1 = flux->source;
@@ -38,8 +39,6 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	var.name = name;
 	if(!var.name)
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
-		
-	//warning_print("Var ", var.name, " is series: ", is_series, "\n");
 	
 	if(is_series)
 		return model->series.register_var(var, loc);
@@ -128,7 +127,8 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type) {
 	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
-		if(ident->variable_type != Variable_Type::local && ident->variable_type != Variable_Type::parameter) {
+		if(ident->variable_type != Variable_Type::local 
+			&& ident->variable_type != Variable_Type::parameter) {
 			expr->location.print_error_header();
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
 		}
@@ -171,6 +171,7 @@ Mobius_Model::compose() {
 		
 		for(Entity_Id id : module->fluxes) {
 			auto flux = module->fluxes[id];
+
 			check_flux_location(this, flux->location, flux->source);
 			check_flux_location(this, flux->location, flux->target);
 			
@@ -330,7 +331,6 @@ Mobius_Model::compose() {
 
 				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
 				
-				warning_print("****** doing replacement\n");
 				replace_flagged(lu->function_tree, var_id, agg_id, ident_flags_aggregate);
 			}
 		}
@@ -385,12 +385,6 @@ Mobius_Model::compose() {
 		
 		if(var->function_tree)
 			register_dependencies(var->function_tree, &var->depends);
-		
-		if(var->name == "Sediment mobilization") {
-			warning_print("******* Sed mob depends on\n");
-			for(auto dep : var->depends.on_state_var)
-				warning_print("\t", state_vars[dep.var_id]->name, "\n");
-		}
 		
 		if(var->initial_function_tree)
 			register_dependencies(var->initial_function_tree, &var->initial_depends);

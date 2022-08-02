@@ -239,7 +239,7 @@ process_declaration<Reg_Type::compartment>(Module_Declaration *module, Decl_AST 
 	
 	auto name = single_arg(decl, 0);
 	
-	Entity_Id global_id;
+	Entity_Id global_id = invalid_entity_id;
 	
 	if(module->global_scope) {
 		global_id = module->global_scope->compartments.find_or_create(nullptr, name);
@@ -265,7 +265,7 @@ process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, 
 		
 	auto name = single_arg(decl, 0);
 	
-	Entity_Id global_id;
+	Entity_Id global_id = invalid_entity_id;
 	
 	if(module->global_scope) {
 		global_id = module->global_scope->properties_and_quantities.find_or_create(nullptr, name);
@@ -678,34 +678,37 @@ load_top_decl_from_file(Mobius_Model *model, String_View file_name, String_View 
 
 void
 process_load_library_declaration(Module_Declaration *module, Decl_AST *load_decl) {
-	match_declaration(load_decl, {{Token_Type::quoted_string, Decl_Type::library}});
+	match_declaration(load_decl, {{Token_Type::quoted_string, { Decl_Type::library, true } }});
 	
 	String_View file_name = single_arg(load_decl, 0)->string_value;
-	auto lib_load_decl = load_decl->args[1]->decl;
 	
-	match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, 0, true, 0);
-	
-	String_View library_name = single_arg(lib_load_decl, 0)->string_value;
-	
-	Decl_AST *lib_decl = load_top_decl_from_file(module->model, file_name, library_name, Decl_Type::library, module->source_path, nullptr);
-	
-	match_declaration(lib_decl, {{Token_Type::quoted_string}});
-	
-	auto body = reinterpret_cast<Decl_Body_AST *>(lib_decl->bodies[0]);
+	for(int idx = 1; idx < load_decl->args.size(); ++idx) {
+		auto lib_load_decl = load_decl->args[idx]->decl;
+		
+		match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, 0, true, 0);
+		
+		String_View library_name = single_arg(lib_load_decl, 0)->string_value;
+		
+		Decl_AST *lib_decl = load_top_decl_from_file(module->model, file_name, library_name, Decl_Type::library, module->source_path, nullptr);
+		
+		match_declaration(lib_decl, {{Token_Type::quoted_string}});
+		
+		auto body = reinterpret_cast<Decl_Body_AST *>(lib_decl->bodies[0]);
 
-	for(Decl_AST *child : body->child_decls) {
-		if(child->type == Decl_Type::function) {
-			process_declaration<Reg_Type::function>(module, child);
-		} else if(child->type == Decl_Type::constant) {
-			process_declaration<Reg_Type::constant>(module, child);
-		} else {
-			child->location.print_error_header();
-			fatal_error("Did not expect a declaration of type ", name(child->type), " inside a library.");
+		for(Decl_AST *child : body->child_decls) {
+			if(child->type == Decl_Type::function) {
+				process_declaration<Reg_Type::function>(module, child);
+			} else if(child->type == Decl_Type::constant) {
+				process_declaration<Reg_Type::constant>(module, child);
+			} else {
+				child->location.print_error_header();
+				fatal_error("Did not expect a declaration of type ", name(child->type), " inside a library.");
+			}
 		}
+		
+		//TODO: we should somehow check that the loaded functions only access other functions (and constants) that were declared in their own scope.
+		//   we should probably make a better "declaration scope" system and separate the concept of declaration scope from the concept of module.
 	}
-	
-	//TODO: we should somehow check that the loaded functions only access other functions that were declared in their own scope.
-	//   we should probably make a better "declaration scope" system and separate the concept of declaration scope from the concept of module.
 }
 
 Module_Declaration *
@@ -721,10 +724,10 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 	
 	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
 	
-	module->name  = single_arg(decl, 0)->string_value;
-	module->major = single_arg(decl, 1)->val_int;
-	module->minor = single_arg(decl, 2)->val_int;
-	module->revision = single_arg(decl, 3)->val_int;
+	module->module_name  = single_arg(decl, 0)->string_value;
+	module->major        = single_arg(decl, 1)->val_int;
+	module->minor        = single_arg(decl, 2)->val_int;
+	module->revision     = single_arg(decl, 3)->val_int;
 
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
@@ -815,7 +818,7 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 	Entity_Id flux_id = module->find_handle(flux_handle);
 	if(!is_valid(flux_id)) {
 		decl->decl_chain[1].print_error_header();
-		fatal_error("The module \"", module->name, "\" with handle \"", module_handle, "\" does not have a flux with handle \"", flux_handle, "\".");
+		fatal_error("The module \"", module->module_name, "\" with handle \"", module_handle, "\" does not have a flux with handle \"", flux_handle, "\".");
 	}
 	
 	auto flux = module->fluxes[flux_id];
@@ -835,11 +838,21 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 		comp_tk->print_error_header();
 		fatal_error("The compartment \"", comp_tk->string_value, "\" has not been declared in the local scope.");
 	}
+	if(comp_id.reg_type != Reg_Type::compartment) {
+		comp_tk->print_error_header();
+		fatal_error("The handle \"", comp_tk->string_value, "\" does not designate a compartment.");
+	}
 	auto quant_id = model->modules[0]->find_handle(quant_tk->string_value);
 	if(!is_valid(quant_id)) {
 		quant_tk->print_error_header();
 		fatal_error("The property or quantity \"", quant_tk->string_value, "\" has not been declared in the local scope.");
 	}
+	if(quant_id.reg_type != Reg_Type::property_or_quantity) {
+		comp_tk->print_error_header();
+		fatal_error("The handle \"", comp_tk->string_value, "\" does not designate a quantity.");
+	}
+	
+	//warning_print("Trying to direct flux ", flux_handle, " to ", model->find_entity<Reg_Type::compartment>(comp_id)->name, " ", model->find_entity<Reg_Type::property_or_quantity>(quant_id)->name, ".\n");
 	
 	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to call this.
 	flux->target = make_value_location(model, comp_id, quant_id);
@@ -972,6 +985,11 @@ Mobius_Model::load_module(String_View file_name, String_View module_name) {
 	String_View normalized_path;
 	Decl_AST *module_decl = load_top_decl_from_file(this, file_name, module_name, Decl_Type::module, global_scope->source_path, &normalized_path);
 	
+	for(int module_idx = 1; module_idx < modules.size(); ++module_idx) {
+		if(modules[module_idx]->module_name == module_name && modules[module_idx]->source_path == normalized_path)
+			return module_idx;    // NOTE: we already loaded this module from this file.
+	}
+	
 	s16 module_id = (s16)modules.size();
 	Module_Declaration *module = process_module_declaration(this, global_scope, module_id, module_decl, normalized_path); //TODO: should be the normalized file name.
 	modules.push_back(module);
@@ -993,7 +1011,7 @@ load_model(String_View file_name) {
 	}
 	
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
-	model->name = single_arg(decl, 0)->string_value;
+	model->model_name = single_arg(decl, 0)->string_value;
 	
 	//note: it is a bit annoying that we can't reuse Registry or Var_Registry for this, but it would also be too gnarly to factor out any more functionality from those, I think.
 	string_map<s16> module_ids;    /// Oops, we should definitely reuse the handles_in_scope in the global module so that we don't get name clashes with other entities...
@@ -1029,23 +1047,37 @@ load_model(String_View file_name) {
 		
 		switch (child->type) {
 			case Decl_Type::load : {
-				match_declaration(child, {{Token_Type::quoted_string, Decl_Type::module}}, 0, false);
+				match_declaration(child, {{Token_Type::quoted_string, {Decl_Type::module, true}}}, 0, false);
 				String_View file_name = single_arg(child, 0)->string_value;
-				Decl_AST *module_spec = child->args[1]->decl;
-				match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
-				String_View module_name = single_arg(module_spec, 0)->string_value;
-				
-				s16 module_id = model->load_module(file_name, module_name);
-				if(module_spec->handle_name.string_value)
-					module_ids[module_spec->handle_name.string_value] = module_id;
+				for(int idx = 1; idx < child->args.size(); ++idx) {
+					Decl_AST *module_spec = child->args[idx]->decl;
+					match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
+					String_View module_name = single_arg(module_spec, 0)->string_value;
+					
+					s16 module_id = model->load_module(file_name, module_name);
+					auto hn = module_spec->handle_name.string_value;
+					if(hn) {
+						if(module_ids.find(hn) != module_ids.end()) {
+							module_spec->handle_name.print_error_header();
+							fatal_error("Re-declaration of handle ", hn, ".");
+						}
+						module_ids[hn] = module_id;
+					}
+				}
 			} break;
 			
 			case Decl_Type::module : {
 				s16 module_id = (s16)model->modules.size();
 				Module_Declaration *module = process_module_declaration(model, global_scope, module_id, child, global_scope->source_path);
 				model->modules.push_back(module);
-				if(child->handle_name.string_value)
-					module_ids[child->handle_name.string_value] = module_id;
+				auto hn = child->handle_name.string_value;
+				if(hn) {
+					if(module_ids.find(hn) != module_ids.end()) {
+						child->handle_name.print_error_header();
+						fatal_error("Re-declaration of handle ", hn, ".");
+					}
+					module_ids[hn] = module_id;
+				}
 			} break;
 		}
 	}
