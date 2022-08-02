@@ -320,9 +320,17 @@ Mobius_Model::compose() {
 			
 			for(auto looked_up_by : need_agg.second.second) {
 				auto lu = state_vars[looked_up_by];
-
-				if(lu->loc1.compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
 				
+				Entity_Id lu_compartment = lu->loc1.compartment;
+				if(!is_located(lu->loc1)) {
+					lu_compartment = lu->loc2.compartment;
+					if(!is_located(lu->loc2))
+						fatal_error(Mobius_Error::internal, "We somehow allowed a non-located state variable to look up an aggregate.");
+				}
+
+				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
+				
+				warning_print("****** doing replacement\n");
 				replace_flagged(lu->function_tree, var_id, agg_id, ident_flags_aggregate);
 			}
 		}
@@ -377,6 +385,12 @@ Mobius_Model::compose() {
 		
 		if(var->function_tree)
 			register_dependencies(var->function_tree, &var->depends);
+		
+		if(var->name == "Sediment mobilization") {
+			warning_print("******* Sed mob depends on\n");
+			for(auto dep : var->depends.on_state_var)
+				warning_print("\t", state_vars[dep.var_id]->name, "\n");
+		}
 		
 		if(var->initial_function_tree)
 			register_dependencies(var->initial_function_tree, &var->initial_depends);

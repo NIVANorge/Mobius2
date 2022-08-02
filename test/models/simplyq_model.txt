@@ -60,7 +60,7 @@ General model description.
 	
 	
 	# should not be in simplyq, just testing for now:
-	#load("simplysed.txt", ss : module("SimplySed"))
-	#sed : quantity("Sediment")
-	#river.sed.solve(simply_solver)
+	load("simplysed.txt", ss : module("SimplySed"))
+	sed : quantity("Sediment")
+	river.sed.solve(simply_solver)
 }

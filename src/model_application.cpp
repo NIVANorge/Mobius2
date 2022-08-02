@@ -215,9 +215,6 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 
 Math_Expr_FT *
 add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id var_id_flux, Var_Id var_id_sub, std::vector<Math_Expr_FT *> *indexes) {
-	
-	//TODO: add aggregation_weight if there is one.
-	
 	auto offset_code     = model_app->result_data.get_offset_code(var_id_flux, indexes);
 	auto offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
 	
@@ -421,14 +418,18 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	Mobius_Model *model = model_app->model;
 	
 	for(auto var_id : model->state_vars) {
-		if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // The aggregate should not have index sets determined by what is in the weight.
+		if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // The index sets of the aggregate are determined differently.
+		
+		// However, TODO: we have to check that the weight doesn't misbehave!
+		
+		// Similarly, we have to check that unit conversions don't misbehave (and take them into account in index set determination)
 		
 		for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
 			auto index_sets = model_app->parameter_data.get_index_sets(par_id);
 			instructions[var_id.id].index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
 		}
 		
-		//TODO: also for input time series when we implement indexing of those. 
+		//TODO: also for dependency on input time series when we implement indexing of those. 
 	}
 	
 	bool changed;
@@ -546,6 +547,14 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		instr.type = Model_Instruction::Type::compute_state_var;
 		instr.var_id = var_id;
 		
+		// All fluxes are given the same solver as the flux source.
+		if(var->type == Decl_Type::flux) {
+			if(is_located(var->loc1)) {
+				auto source_id = model->state_vars[var->loc1];
+				var->solver = model->state_vars[source_id]->solver;
+			}
+		}
+		
 		if(!initial)              // the initial step is a purely discrete setup step, not integration.
 			instr.solver = var->solver;
 		
@@ -567,7 +576,6 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		// TODO: the following is very messy. Maybe move the cases of is_aggregate and has_aggregate out?
 		
 		auto var = model->state_vars[var_id];
-		if(initial || var->type != Decl_Type::flux) continue;
 		
 		auto loc1 = var->loc1;
 		auto loc2 = var->loc2;
@@ -576,54 +584,75 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		bool has_aggregate = var->flags & State_Variable::Flags::f_has_aggregate;
 		
 		if(has_aggregate) {
-			//NOTE: Since this is an aggregate, we know loc1 and loc2 are valid.
-			Var_Id source_id = model->state_vars[loc1];
-			Var_Id target_id = model->state_vars[loc2];
-
-			Entity_Id source_solver = model->state_vars[source_id]->solver;
+			// var (var_id) is now the variable that is being aggregated.
+			// instr is the instruction to compute it
 			
-			Model_Instruction *agg_instr = &instructions[var->agg.id];
+			auto aggr_var = model->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
 			
+			// If we are on a solver we need to put in an instruction to clear the aggregation variable to 0 between each time it is needed.
+			int clear_idx;
+			if(is_valid(var->solver)) {
+				clear_idx = instructions.size();
+				instructions.push_back({});
+			}
+			int add_to_aggr_idx = instructions.size();
+			instructions.push_back({});
+			
+			// The instruction for the aggr_var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
+			auto agg_instr = &instructions[var->agg.id];  
+			
+			// The instruction for clearing to 0
+			auto clear_instr = &instructions[clear_idx];
+			
+			// The instruction that takes the value of var and adds it to aggr_var (with a weight)
+			auto add_to_aggr_instr = &instructions[add_to_aggr_idx];
+			
+			
+			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
+			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
+			auto agg_to_comp = model->find_entity<Reg_Type::compartment>(aggr_var->agg_to_compartment);
 			agg_instr->inherits_index_sets_from_instruction.clear();
-			agg_instr->inherits_index_sets_from_instruction.insert(target_id.id);
+			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
+			agg_instr->solver = var->solver;
+			agg_instr->depends_on_instruction.insert(add_to_aggr_idx); // The value of the aggregate is only done after we have finished summing to it.
 			
-			if(is_valid(source_solver)) {
-				agg_instr->solver = source_solver;
-				// NOTE: we have to clear the aggregate to 0 before we start adding to it, so we insert a clear instruction before the computation of whatever it aggregates
-				Model_Instruction clear_instr;
-				clear_instr.type = Model_Instruction::Type::clear_state_var;
-				clear_instr.solver = source_solver;
-				clear_instr.var_id = var->agg;
-				clear_instr.inherits_index_sets_from_instruction.insert(target_id.id);
-				int idx = (int)instructions.size();
-				instructions[var_id.id].depends_on_instruction.insert(idx); // Computing the flux comes after clearing the aggregation variable.
-				instructions.push_back(std::move(clear_instr));
+			// Build the clear instruction
+			if(is_valid(var->solver)) {
+				add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
+				
+				clear_instr->type = Model_Instruction::Type::clear_state_var;
+				clear_instr->solver = var->solver;
+				clear_instr->var_id = var->agg;     // The var_id of the clear_instr indicates which variable we want to clear.
+				
+				clear_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
 			}
 			
-			auto compartment = model->find_entity<Reg_Type::compartment>(loc1.compartment);
-			Model_Instruction add_aggr;
-			add_aggr.type = Model_Instruction::Type::add_to_aggregate;
-			add_aggr.var_id = var_id;
-			add_aggr.source_or_target_id = var->agg;
-			add_aggr.depends_on_instruction.insert(var_id.id);
-			add_aggr.index_sets.insert(compartment->index_sets.begin(), compartment->index_sets.end());
-			add_aggr.solver = source_solver;
-			int idx = (int)instructions.size();
-			instructions.push_back(std::move(add_aggr));
+			add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
+			add_to_aggr_instr->var_id = var_id;
+			add_to_aggr_instr->source_or_target_id = var->agg;
+			add_to_aggr_instr->depends_on_instruction.insert(var_id.id); // We can only sum the value in after it is computed.
+			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed.
+			add_to_aggr_instr->solver = var->solver;
 			
-			//NOTE: have to look this up again since the pointer could have been invalidated.
-			agg_instr = &instructions[var->agg.id];
-			agg_instr->depends_on_instruction.insert(idx);
+			if(var->type == Decl_Type::flux && is_located(loc2)) {
+				// If the aggregated variable is a flux, we potentially may have to tell it to get the right index sets.
+				
+				//note: this is only ok for auto-generated aggregations. Not if somebody called aggregate() on a flux explicitly, because then it is not necessarily the target of the flux that wants to know the aggregate.
+				// But I guess you can't explicitly reference fluxes in code any way. We have to keep in mind that if that is implemented though.
+				auto target_id = model->state_vars[loc2];
+				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var->agg.id);
+			}
 		}
 		
+		if(initial || var->type != Decl_Type::flux) continue;
+		
 		Entity_Id source_solver = invalid_entity_id;
-		if(loc1.type == Location_Type::located && !is_aggregate) {
+		if(is_located(loc1) && !is_aggregate) {
 			Var_Id source_id = model->state_vars[loc1];
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = model->state_vars[source_id]->solver;
 		
 			if (is_valid(source_solver)) { // NOTE: ode variables are integrated, we don't subtract or add to them in just one step.
-				instr->solver = source_solver; // all fluxes are given the same solver as their source (if it has one).
 				source->inherits_index_sets_from_instruction.insert(var_id.id);
 			} else {
 				Model_Instruction sub_source_instr;
@@ -644,7 +673,7 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
-		if(loc2.type == Location_Type::located && !has_aggregate) {
+		if(is_located(loc2) && !has_aggregate) {
 			Var_Id target_id = model->state_vars[loc2];
 			Model_Instruction *target = &instructions[target_id.id];
 			auto target_solver = model->state_vars[target_id]->solver;
