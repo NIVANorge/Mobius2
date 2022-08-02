@@ -341,7 +341,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 							fatal_error_trace(scope);
 						}
 						try_to_locate_variable(new_ident, data->in_compartment, id, {}, n1, ident->chain[0].location, module, data->model, scope);
-						
+					} else if (id.reg_type == Reg_Type::constant) {
+						delete new_ident; // A little stupid to do it that way, but oh well.
+						result = make_literal(module->constants[id]->value);
+						// TODO: remember unit when that is implemented.
 					} else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");

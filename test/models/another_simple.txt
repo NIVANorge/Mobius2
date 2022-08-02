@@ -4,8 +4,8 @@ model("Another simple") {
 
 	module("So simple", 1, 0, 0) {
 	
-		load("../stdlib/basic_math.txt", library("Response"))
-		load("../stdlib/basic_math.txt", library("Basic"))
+		load("../../stdlib/basic_math.txt", library("Response"))
+		load("../../stdlib/basic_math.txt", library("Basic"))
 	
 		place : compartment("Place")
 		
@@ -15,19 +15,7 @@ model("Another simple") {
 			c : par_real("The C value", unit(), 0)
 		}
 		
-		place.has(property("step"), unit())            {   2^a   }
-		
-		place.has(property("year"), unit())            {   is_finite(1)   }
-		
-		place.has(property("month"), unit())           {   is_finite(a/b)   }
-		
-		place.has(property("day_of_year"), unit())     {   is_finite(b/c)   }
-		
-		place.has(property("day_of_month"), unit())    {   is_finite(a)  }
-		
-		place.has(property("something"), unit())       {   safe_divide(a, 3)  }
-		
-		place.has(property("something else"), unit())  {   safe_divide(a, b)  }
+		place.has(property("test"), unit())            {   cos(pi)   }
 	}
 
 }

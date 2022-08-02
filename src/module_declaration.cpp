@@ -54,9 +54,10 @@ Module_Declaration::registry(Reg_Type reg_type) {
 		case Reg_Type::index_set :                return &index_sets;
 		case Reg_Type::solver :                   return &solvers;
 		case Reg_Type::solve :                    return &solves;
+		case Reg_Type::constant :                 return &constants;
 	}
 	
-	fatal_error(Mobius_Error::internal, "Unhandled entity type in registry().");
+	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
 	
 	return nullptr;
 }
@@ -594,6 +595,19 @@ process_declaration<Reg_Type::function>(Module_Declaration *module, Decl_AST *de
 	return id;
 }
 
+template<> Entity_Id
+process_declaration<Reg_Type::constant>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::unit, Token_Type::real}});
+	
+	auto id        = module->constants.standard_declaration(decl);
+	auto constant  = module->constants[id];
+	
+	constant->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
+	constant->value = single_arg(decl, 2)->double_value();
+	
+	return id;
+}
+
 
 void
 check_for_missing_declarations(Module_Declaration *module) {
@@ -682,6 +696,8 @@ process_load_library_declaration(Module_Declaration *module, Decl_AST *load_decl
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::function) {
 			process_declaration<Reg_Type::function>(module, child);
+		} else if(child->type == Decl_Type::constant) {
+			process_declaration<Reg_Type::constant>(module, child);
 		} else {
 			child->location.print_error_header();
 			fatal_error("Did not expect a declaration of type ", name(child->type), " inside a library.");
@@ -746,6 +762,10 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 			
 			case Decl_Type::function : {
 				process_declaration<Reg_Type::function>(module, child);
+			} break;
+			
+			case Decl_Type::constant : {
+				process_declaration<Reg_Type::constant>(module, child);
 			} break;
 			
 			case Decl_Type::load : {

@@ -255,6 +255,12 @@ Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
 	Source_Location source_location;
 };
 
+template<> struct
+Entity_Registration<Reg_Type::constant> : Entity_Registration_Base {
+	double    value;   //Hmm, should we allow integer constants too? But that would require two declaration types.
+	Entity_Id unit;
+};
+
 
 struct Registry_Base {
 	string_map<Entity_Id>          handle_name_to_handle;
@@ -316,6 +322,7 @@ Module_Declaration {
 	Registry<Reg_Type::has>         hases;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::function>    functions;
+	Registry<Reg_Type::constant>    constants;
 	//TODO: it is a bit wasteful to have these here since they are only relevant for the global module.
 	//   similarly, not all of the above are relevant for the global module.
 	//     Could maybe template over module type, but that quickly gets gnarly.
@@ -332,6 +339,7 @@ Module_Declaration {
 		hases       (this),
 		fluxes      (this),
 		functions   (this),
+		constants   (this),
 		index_sets  (this),
 		solvers     (this),
 		solves      (this),
