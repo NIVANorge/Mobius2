@@ -81,7 +81,8 @@ The river part of the SimplyQ module.
 	river.has(flow, unit(m 3, s -1), "Reach flow")    { 0.28 * (water * sqrt(slope) / (len * c_mann))^1.5   } .initial { init_flow 	}
 	
 	#TODO: link up river segments!
+	reach_out :
 	flux(river.water, out, "Reach flow flux")     {	 flow * 86400  }                  #NOTE: explicit unit conversion should be removed once we get automatic unit checks 
 
-	river.has(property("In flow"), unit(m 3, day -1)) {  in_flux(water)  } #NOTE: for debugging
+	#river.has(property("In flow"), unit(m 3, day -1)) {  in_flux(water)  } #NOTE: for debugging
 }

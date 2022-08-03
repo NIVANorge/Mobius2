@@ -55,6 +55,7 @@ Module_Declaration::registry(Reg_Type reg_type) {
 		case Reg_Type::solver :                   return &solvers;
 		case Reg_Type::solve :                    return &solves;
 		case Reg_Type::constant :                 return &constants;
+		case Reg_Type::neighbor :                 return &neighbors;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
@@ -799,6 +800,22 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 }
 
 
+Entity_Id
+expect_exists(Module_Declaration *module, Token *handle_name, Reg_Type reg_type) {
+	auto result = module->find_handle(handle_name->string_value);
+	
+	if(!is_valid(result)) {
+		handle_name->print_error_header();
+		fatal_error("There is no entity with the identifier \"", handle_name->string_value, "\" in the referenced scope.");
+	}
+	if(result.reg_type != reg_type) {
+		handle_name->print_error_header();
+		fatal_error("The entity \"", handle_name->string_value, "\" does not have the type ", name(reg_type), ".");
+	}
+	
+	return result;
+}
+
 void
 process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AST *decl) {
 	// Process a "to" declaration
@@ -814,48 +831,38 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 	s16 module_id = find->second;
 	Module_Declaration *module = model->modules[module_id];
 	
-	String_View flux_handle = decl->decl_chain[1].string_value;
-	Entity_Id flux_id = module->find_handle(flux_handle);
-	if(!is_valid(flux_id)) {
-		decl->decl_chain[1].print_error_header();
-		fatal_error("The module \"", module->module_name, "\" with handle \"", module_handle, "\" does not have a flux with handle \"", flux_handle, "\".");
-	}
+	Token *flux_handle = &decl->decl_chain[1];
+	Entity_Id flux_id = expect_exists(module, flux_handle, Reg_Type::flux);
 	
 	auto flux = module->fluxes[flux_id];
 	if(flux->target.type != Location_Type::out) {
 		decl->decl_chain[1].print_error_header();
-		fatal_error("The flux \"", flux_handle, "\" does not have the target \"out\", and so we can't re-assign its target.");
+		fatal_error("The flux \"", flux_handle->string_value, "\" does not have the target \"out\", and so we can't re-assign its target.");
 	}
 	
-	Token *comp_tk = &decl->args[0]->sub_chain[0];
-	if(decl->args[0]->sub_chain.size() != 2) {
-		comp_tk->print_error_header();
-		fatal_error("This is not a well-formatted flux target. Expected something on the form a.b .");
-	}
-	Token *quant_tk = &decl->args[0]->sub_chain[1];
-	auto comp_id = model->modules[0]->find_handle(comp_tk->string_value);
-	if(!is_valid(comp_id)) {
-		comp_tk->print_error_header();
-		fatal_error("The compartment \"", comp_tk->string_value, "\" has not been declared in the local scope.");
-	}
-	if(comp_id.reg_type != Reg_Type::compartment) {
-		comp_tk->print_error_header();
-		fatal_error("The handle \"", comp_tk->string_value, "\" does not designate a compartment.");
-	}
-	auto quant_id = model->modules[0]->find_handle(quant_tk->string_value);
-	if(!is_valid(quant_id)) {
-		quant_tk->print_error_header();
-		fatal_error("The property or quantity \"", quant_tk->string_value, "\" has not been declared in the local scope.");
-	}
-	if(quant_id.reg_type != Reg_Type::property_or_quantity) {
-		comp_tk->print_error_header();
-		fatal_error("The handle \"", comp_tk->string_value, "\" does not designate a quantity.");
+	auto &chain = decl->args[0]->sub_chain;
+	
+	if(chain.size() == 2) {
+		Token *comp_tk = &chain[0];
+		Token *quant_tk = &chain[1];
+		auto comp_id  = expect_exists(model->modules[0], comp_tk, Reg_Type::compartment);
+		auto quant_id = expect_exists(model->modules[0], quant_tk, Reg_Type::property_or_quantity);
+		
+		flux->target = make_value_location(model, comp_id, quant_id);
+	} else if (chain.size() == 1) {
+		Token *neigh_tk = &chain[0];
+		auto neigh_id = expect_exists(model->modules[0], neigh_tk, Reg_Type::neighbor);
+		
+		flux->target.type     = Location_Type::neighbor;
+		flux->target.neighbor = neigh_id;
+	} else {
+		chain[0].print_error_header();
+		fatal_error("This is not a well-formatted flux target. Expected something on the form compartment.quantity or neighbor .");
 	}
 	
 	//warning_print("Trying to direct flux ", flux_handle, " to ", model->find_entity<Reg_Type::compartment>(comp_id)->name, " ", model->find_entity<Reg_Type::property_or_quantity>(quant_id)->name, ".\n");
 	
 	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to call this.
-	flux->target = make_value_location(model, comp_id, quant_id);
 }
 
 template<> Entity_Id
@@ -911,6 +918,28 @@ process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl)
 	
 	solve->solver          = resolve_argument<Reg_Type::solver>(module, decl, 0);
 	solve->source_location = decl->location;
+	
+	return id;
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::neighbor>(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::identifier}}, 1);
+	
+	auto id       = module->neighbors.standard_declaration(decl);
+	auto neighbor = module->neighbors[id];
+	
+	auto index_set            = module->index_sets.find_or_create(&decl->decl_chain[0]);
+	String_View structure_type = single_arg(decl, 1)->string_value;
+	
+	neighbor->index_set = index_set;
+	module->index_sets[index_set]->neighbor_structure = id;
+	if(structure_type == "directed_tree")
+		neighbor->type = Neighbor_Structure_Type::directed_tree;
+	else {
+		single_arg(decl, 1)->print_error_header();
+		fatal_error("Unsupported neighbor structure type \"", structure_type, "\".");
+	}
 	
 	return id;
 }
@@ -1090,6 +1119,10 @@ load_model(String_View file_name) {
 				case Decl_Type::quantity : {
 					process_declaration<Reg_Type::property_or_quantity>(global_scope, child);
 				} break;
+				
+				case Decl_Type::neighbor : {
+					process_declaration<Reg_Type::neighbor>(global_scope, child);  // NOTE: we also put this here since we expect we will need referencing it inside modules eventually.
+				} break;
 			}
 		}
 	}
@@ -1180,6 +1213,7 @@ load_model(String_View file_name) {
 				case Decl_Type::extend :
 				case Decl_Type::compartment :
 				case Decl_Type::quantity :
+				case Decl_Type::neighbor :
 				case Decl_Type::module :
 				case Decl_Type::load : {
 					// Don't do anything. We handled it above already

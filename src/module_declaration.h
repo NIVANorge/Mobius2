@@ -78,7 +78,7 @@ get_parameter_value(Token *token, Token_Type type) {
 
 enum class
 Location_Type {
-	nowhere, out, located,
+	nowhere, out, located, neighbor,
 };
 
 struct
@@ -86,7 +86,10 @@ Value_Location {
 	//TODO: this becomes more complicated with dissolved quantities etc.
 	Location_Type type;
 	
-	Entity_Id compartment;
+	union {
+		Entity_Id compartment;
+		Entity_Id neighbor;
+	};
 	Entity_Id property_or_quantity;
 };
 
@@ -236,14 +239,27 @@ Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
 	Function_Type    fun_type;
 	Math_Block_AST  *code;
 	
-	// TODO: need some info about how it transforms units.
-	// TODO: may need some info on expected input types (especially for externals)
+	// TODO: may need some info about how it transforms units.
+	// TODO: may need some info on expected argument types (especially for externals)
 };
 
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
-	//TODO: eventually index_set_type
+	Entity_Id neighbor_structure;   // TODO: In time we could have several, e.g. for lateral vs vertical neighbors etc.
+	
+	Entity_Registration() : neighbor_structure(invalid_entity_id) {}
 };
+
+enum class
+Neighbor_Structure_Type {
+	unrecognized = 0, directed_tree,
+};
+template<> struct
+Entity_Registration<Reg_Type::neighbor> : Entity_Registration_Base {
+	Neighbor_Structure_Type type;
+	Entity_Id index_set;
+};
+
 
 template<> struct
 Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
@@ -333,6 +349,7 @@ Module_Declaration {
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
 	Registry<Reg_Type::solve>       solves;
+	Registry<Reg_Type::neighbor>    neighbors;
 	
 	Module_Declaration() : 
 		compartments(this),
@@ -347,6 +364,7 @@ Module_Declaration {
 		index_sets  (this),
 		solvers     (this),
 		solves      (this),
+		neighbors   (this),
 		global_scope(nullptr)
 	{}
 	

@@ -10,7 +10,7 @@ General model description.
 	
 	
 	load("hbv_snow.txt",  sn : module("HBVSnow"))
-	load("simplyq.txt",   sw : module("SimplyQ land"), module("SimplyQ river"))
+	load("simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
 	load("pet.txt",       pe : module("Degree-day PET"))
 	
 	soil  : compartment("Soil")
@@ -22,6 +22,8 @@ General model description.
 	
 	sc : index_set("Subcatchment")
 	lu : index_set("Landscape units")
+	
+	downstream : sc.neighbor("Downstream", directed_tree)
 	
 	soil.distribute(sc, lu)
 	gw.distribute(sc)
@@ -40,6 +42,8 @@ General model description.
 	sw.quick_flow .to(river.water)
 	sw.soil_runoff.to(river.water)
 	sw.gw_runoff  .to(river.water)
+	
+	rw.reach_out  .to(downstream)
 	
 	soil.par_group("Land cover") {
 		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)
