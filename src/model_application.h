@@ -259,6 +259,11 @@ Structured_Storage<double, Var_Id>::get_handle_name(Var_Id var_id) {
 	return parent->model->state_vars[var_id]->name;
 }
 
+template<> inline String_View
+Structured_Storage<s64, Neighbor_T>::get_handle_name(Neighbor_T nb) {
+	return parent->model->find_entity<Reg_Type::neighbor>(nb.neighbor)->name;
+}
+
 template<typename Val_T, typename Handle_T> const std::vector<Entity_Id> &
 Structured_Storage<Val_T, Handle_T>::get_index_sets(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];

@@ -93,12 +93,12 @@ make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_
 }
 
 Math_Expr_FT *
-make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
+make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	if(lhs->value_type != rhs->value_type)
 		fatal_error(Mobius_Error::internal, "Mismatching types of arguments in make_binop().");
 	auto binop = new Operator_FT(Math_Expr_Type::binary_operator);
 	binop->value_type = lhs->value_type;
-	binop->oper = (Token_Type)oper;
+	binop->oper = oper;
 	binop->exprs.push_back(lhs);
 	binop->exprs.push_back(rhs);
 	return binop;

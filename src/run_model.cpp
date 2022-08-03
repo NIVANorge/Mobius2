@@ -26,6 +26,7 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	run_state.parameters = model_app->parameter_data.data;
 	run_state.state_vars = model_app->result_data.data;
 	run_state.series     = model_app->series_data.data;
+	run_state.neighbor_info = model_app->neighbor_data.data;
 	run_state.solver_workspace = nullptr;
 	run_state.date_time  = Expanded_Date_Time(); // TODO: set this properly.
 	run_state.solver_t   = 0.0;

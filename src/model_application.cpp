@@ -252,19 +252,19 @@ add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id va
 	auto offset_code     = model_app->result_data.get_offset_code(var_id_flux, indexes);
 	
 	Math_Expr_FT *offset_code_sub;
+	Math_Expr_FT *index_ref = nullptr;
 	
-	if(is_valid(neighbor)) {
+	if(is_valid(neighbor_id)) {
 		// This flux was pointed at a neighbor, so we have to replace an index in the target.
 		auto neighbor = model_app->model->modules[0]->neighbors[neighbor_id];
-		auto data = &model_app->neighbor_data[neighbor_id.id];
+		
 		auto cur_idx = (*indexes)[neighbor->index_set.id];
 		
-		// This instructs it to look up the relevant neighbor of the current index instead of using the current index.
-		
+		// TODO: for directed_trees, if the index count is 1, we know that this can't possibly go anywhere, and can be omitted, so we should just return a no-op.
 		if(neighbor->type != Neighbor_Structure_Type::directed_tree)
 			fatal_error(Mobius_Error::internal, "Unhandled neighbor type in add_or_subtract_flux_from_var()");
 		
-		index_offset = model_app->neighbor_data.get_offset_code({neighbor_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
+		auto index_offset = model_app->neighbor_data.get_offset_code({neighbor_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
 		auto index = new Identifier_FT();
 		index->variable_type = Variable_Type::neighbor_info;
 		index->value_type = Value_Type::integer;
@@ -273,9 +273,7 @@ add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id va
 		(*indexes)[neighbor->index_set.id] = index;
 		offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
 		(*indexes)[neighbor->index_set.id] = cur_idx;  // Reset it for use by others;
-		// Delete the temporary expression. This should be safe since get_offset_code will make a copy of it.
-		index->exprs.clear();
-		delete index;
+		index_ref = index;
 	} else
 		offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
 	
@@ -299,6 +297,21 @@ add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id va
 	auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 	assignment->exprs.push_back(copy(offset_code_sub));
 	assignment->exprs.push_back(sum);
+	assignment->value_type = Value_Type::none;
+	
+	if(index_ref) {
+		// We have to check that the index is not negative (meaning there are no neighbors)
+		// NOTE: we don't have to copy the index_ref here, because it should have been copied in its previous use.
+		auto condition = make_binop(Token_Type::geq, index_ref, make_literal((s64)0));
+		condition->value_type = Value_Type::boolean; // TODO: make make_binop do this correctly
+		auto if_chain = new Math_Expr_FT();
+		if_chain->expr_type = Math_Expr_Type::if_chain;
+		if_chain->exprs.push_back(assignment);
+		if_chain->exprs.push_back(condition);
+		if_chain->exprs.push_back(make_literal((s64)0)); // The last "else" value is a dummy. We could make an if statement that doesn't have an else (?).
+		if_chain->value_type = Value_Type::none;
+		return if_chain;
+	}
 	
 	return assignment;
 }
@@ -580,9 +593,12 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 				warning_print(model->state_vars[instr->var_id]->name, "\n");
 			else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
 				warning_print(model->state_vars[instr->source_or_target_id]->name, " -= ", model->state_vars[instr->var_id]->name, "\n");
-			else if(instr->type == Model_Instruction::Type::add_flux_to_target)
-				warning_print(model->state_vars[instr->source_or_target_id]->name, " += ", model->state_vars[instr->var_id]->name, "\n");
-			else if(instr->type == Model_Instruction::Type::clear_state_var)
+			else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
+				if(is_valid(instr->neighbor)) warning_print("neighbor(");
+				warning_print(model->state_vars[instr->source_or_target_id]->name);
+				if(is_valid(instr->neighbor)) warning_print(")");
+				warning_print(" += ", model->state_vars[instr->var_id]->name, "\n");
+			} else if(instr->type == Model_Instruction::Type::clear_state_var)
 				warning_print(model->state_vars[instr->var_id]->name, " = 0\n");
 			else if(instr->type == Model_Instruction::Type::add_to_aggregate)
 				warning_print(model->state_vars[instr->source_or_target_id]->name, " += ", model->state_vars[instr->var_id]->name, " * weight\n");
@@ -744,14 +760,16 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		bool is_neighbor = loc2.type == Location_Type::neighbor;
 		if(is_neighbor && has_aggregate)
 			fatal_error(Mobius_Error::internal, "Somehow a neighbor flux got an aggregate");
+		
 		if((is_located(loc2) || is_neighbor) && !has_aggregate) {
-			Var_Id target_id = model->state_vars[loc2];
-			Model_Instruction *target = &instructions[target_id.id];
-			Entity_Id target_solver = invalid_entity_id;
-			if(!is_neighbor)
-				target_solver = model->state_vars[target_id]->solver;
+			Var_Id target_id;
+			if(is_neighbor)
+				target_id = source_id;
 			else
-				target_solver = source_solver;
+				target_id = model->state_vars[loc2];
+			
+			Model_Instruction *target = &instructions[target_id.id];
+			Entity_Id target_solver = model->state_vars[target_id]->solver;
 			
 			if(is_valid(target_solver)) {
 				if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.
@@ -764,17 +782,21 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				
 				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
 				add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
-				if(!is_neighbor) {
-					add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
-					add_target_instr.source_or_target_id = target_id;
-				} else {
+				add_target_instr.source_or_target_id = target_id;
+				if(is_neighbor) {
 					// the index sets already depend on the flux itself, which depends on the source, so we don't have to redeclare that.
 					add_target_instr.neighbor = loc2.neighbor;
-					add_target_instr.source_or_target_id = source_id;
+					auto neighbor = model->find_entity<Reg_Type::neighbor>(loc2.neighbor);
+					if(neighbor->type != Neighbor_Structure_Type::directed_tree)
+						fatal_error(Mobius_Error::internal, "Unsupported neighbor structure in build_instructions().");
+					target->index_sets.insert(neighbor->index_set);
+				} else {
+					add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 				}
 				
 				int add_idx = (int)instructions.size();
-				target->depends_on_instruction.insert(add_idx);
+				if(!is_neighbor)
+					target->depends_on_instruction.insert(add_idx);
 				
 				instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
@@ -975,9 +997,10 @@ Model_Application::compile() {
 	
 	// NOTE: state var inherits all index set dependencies from its initial code.
 	for(auto var_id : model->state_vars) {
-		if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // NOTE: these were already "hard coded", and should not be overwritten.
+		//if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // NOTE: these were already "hard coded", and should not be overwritten.
+		auto &init_idx = initial_instructions[var_id.id].index_sets;
 		
-		instructions[var_id.id].index_sets = initial_instructions[var_id.id].index_sets;
+		instructions[var_id.id].index_sets.insert(init_idx.begin(), init_idx.end());
 	}
 	
 	resolve_index_set_dependencies(this, instructions, false);

@@ -2,19 +2,21 @@
 
 model("Another simple") {
 
-	module("So simple", 1, 0, 0) {
-	
-		load("../../stdlib/basic_math.txt", library("Response"), library("Basic"))
+	sp : module("So simple", 1, 0, 0) {
 	
 		place : compartment("Place")
 		
-		place.par_group("Place stuff") {
-			a : par_real("The A value", unit(), 0.3)
-			b : par_real("The B value", unit(), 0)
-			c : par_real("The C value", unit(), 0)
-		}
+		place.has(stuff : quantity("Stuff"), unit()) .initial { 100 }
 		
-		place.has(property("test"), unit())            {   cos(pi)   }
+		the_flow : flux(place.stuff, out, "The flow") { 5 }
 	}
-
+	
+	place : compartment("Place")
+	
+	idx : index_set("Place index")
+	place.distribute(idx)
+	
+	pnb : idx.neighbor("Place neighbor", directed_tree)
+	
+	sp.the_flow.to(pnb)
 }

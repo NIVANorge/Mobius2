@@ -138,7 +138,12 @@ Math_Expr_FT *
 make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2);
 
 Math_Expr_FT *
-make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs);
+make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs);
+
+inline Math_Expr_FT *
+make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
+	return make_binop((Token_Type)oper, lhs, rhs);
+}
 
 Math_Block_FT *
 make_for_loop();

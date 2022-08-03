@@ -122,8 +122,12 @@ int main(int argc, char** argv) {
 		app.set_up_neighbor_structure();
 		
 		// NOTE : test neighbor connections
-		if(app.neighbor_data.total_count > 0)
+		if(app.neighbor_data.total_count == 2)
 			app.neighbor_data.data[0] = 1;             //This will point the first index at the second.
+		else if(app.neighbor_data.total_count > 2) {
+			app.neighbor_data.data[0] = 2;
+			app.neighbor_data.data[1] = 2;
+		}
 		
 		/*
 		if(model_file == "models/simplyq_model.txt") {

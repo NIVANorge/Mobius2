@@ -159,9 +159,11 @@ void
 jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module_Data *data) {
 	
 	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	auto int_64_ptr_ty = llvm::Type::getInt64PtrTy(*data->context);
 	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
 	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
 	
+	// NOTE: this is the one that must match the top of the Expanded_Date_Time structure:
 	std::vector<llvm::Type *> dt_member_types = {
 		int_32_ty, int_32_ty, int_32_ty, int_32_ty, int_64_ty, int_32_ty, int_32_ty, int_64_ty, int_64_ty,
 	};
@@ -172,7 +174,7 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	data->dt_struct_type = dt_ty;
 	
 	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, int_64_ty, dt_ptr_ty
+		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, int_64_ptr_ty, dt_ptr_ty
 		};
 		
 	llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
@@ -419,6 +421,11 @@ build_if_chain_ir(Math_Expr_FT **exprs, int exprs_size, Scope_Local_Vars *locals
 	
 	fun->getBasicBlockList().push_back(merge_block);
 	data->builder->SetInsertPoint(merge_block);
+	
+	if(exprs[0]->value_type == Value_Type::none) {
+		return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be read by anyone.
+	}
+	
 	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
 	
 	phi->addIncoming(then_val, then_block);
