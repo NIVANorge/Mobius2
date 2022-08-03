@@ -917,14 +917,16 @@ process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl)
 
 void
 process_distribute_declaration(Module_Declaration *module, Decl_AST *decl) {
-	match_declaration(decl, {{Decl_Type::index_set}}, 1, false);
+	match_declaration(decl, {{{Decl_Type::index_set, true}}}, 1, false);
 	
 	auto compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
-	auto index_set = resolve_argument<Reg_Type::index_set>(module, decl, 0);
 	
 	//TODO: some guard against overlapping / contradictory declarations.
+	for(int idx = 0; idx < decl->args.size(); ++idx) {
 	
-	module->compartments[compartment]->index_sets.push_back(index_set);
+		auto index_set = resolve_argument<Reg_Type::index_set>(module, decl, idx);
+		module->compartments[compartment]->index_sets.push_back(index_set);
+	}
 }
 
 void

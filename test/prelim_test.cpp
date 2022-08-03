@@ -80,7 +80,8 @@ int main(int argc, char** argv) {
 	String_View model_file = "stupidly_simple_model.txt";
 	s64 time_steps = 100;
 	String_View input_file = "";
-	int nidx = 1;
+	int nidx1 = 1;
+	int nidx2 = 1;
 	
 	if(argc >= 2)
 		model_file = argv[1];
@@ -89,12 +90,17 @@ int main(int argc, char** argv) {
 	if(argc >= 4)
 		input_file = argv[3];
 	if(argc >= 5)
-		nidx = atoi(argv[4]);
+		nidx1 = atoi(argv[4]);
+	if(argc >= 6)
+		nidx2 = atoi(argv[5]);
 
 	String_View idxs = "abcdefghijklmnopqrstuvwxyz";
-	std::vector<String_View> indexes;
-	for(int idx = 0; idx < nidx; ++idx)
-		indexes.push_back(idxs.substring(idx, 1));
+	std::vector<String_View> indexes1;
+	std::vector<String_View> indexes2;
+	for(int idx = 0; idx < nidx1; ++idx)
+		indexes1.push_back(idxs.substring(idx, 1));
+	for(int idx = 0; idx < nidx2; ++idx)
+		indexes2.push_back(idxs.substring(idx, 1));
 	
 	Mobius_Model *model = load_model(model_file);
 	model->compose();
@@ -103,10 +109,14 @@ int main(int argc, char** argv) {
 	
 	{
 		Model_Application app(model);
-
-		for(auto index_set : model->modules[0]->index_sets)
-			app.set_indexes(index_set, Array<String_View>{indexes.data(), indexes.size()});
-
+		
+		int idxidx = 0;
+		for(auto index_set : model->modules[0]->index_sets) {
+			if(idxidx++ == 0)
+				app.set_indexes(index_set, Array<String_View>{indexes1.data(), indexes1.size()});
+			else
+				app.set_indexes(index_set, Array<String_View>{indexes2.data(), indexes2.size()});
+		}
 		app.set_up_parameter_structure();
 		app.set_up_series_structure();
 		

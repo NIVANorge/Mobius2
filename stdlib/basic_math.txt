@@ -1,4 +1,7 @@
 
+
+#TODO: maybe make an intrinsic operator for safe_divide. Like "//".  Could also have an operator for enforced floating point division to avoid accidental integer divisions? "/."
+
 library("Basic") {
 
 	pi : constant("π", unit(), 3.141592653589793238)

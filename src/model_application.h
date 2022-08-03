@@ -86,7 +86,7 @@ struct Multi_Array_Structure {
 				result = index;
 			else {
 				result = make_binop('*', result, make_literal((s64)(*index_counts)[index_set.id].index));
-				result = make_binop('+', result, (*indexes)[index_set.id]);
+				result = make_binop('+', result, index);
 			}
 		}
 		result = make_binop('*', result, make_literal((s64)handles.size()));

@@ -272,7 +272,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 	
 	for(auto &array : batch->arrays) {
 		Math_Expr_FT *scope = create_nested_for_loops(model_app, top_scope, array, indexes);
-			
+		
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
 			
@@ -301,7 +301,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 							fun = make_intrinsic_function_call(Value_Type::real, "min", fun, source);
 						}
 					}
-					
+				
 					//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
 					put_var_lookup_indexes(fun, model_app, indexes);
 					
@@ -894,8 +894,11 @@ Model_Application::compile() {
 	resolve_index_set_dependencies(this, initial_instructions, true);
 	
 	// NOTE: state var inherits all index set dependencies from its initial code.
-	for(auto var_id : model->state_vars)
+	for(auto var_id : model->state_vars) {
+		if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // NOTE: these were already "hard coded", and should not be overwritten.
+		
 		instructions[var_id.id].index_sets = initial_instructions[var_id.id].index_sets;
+	}
 	
 	resolve_index_set_dependencies(this, instructions, false);
 	

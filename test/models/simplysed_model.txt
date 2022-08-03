@@ -1,0 +1,12 @@
+
+
+model("SimplySed") {
+"""
+Description
+"""
+	extend("simplyq_model.txt")
+	
+	load("simplysed.txt", ss : module("SimplySed"))
+	sed : quantity("Sediment")
+	river.sed.solve(simply_solver)
+}

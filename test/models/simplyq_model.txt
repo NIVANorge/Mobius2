@@ -20,11 +20,12 @@ General model description.
 	
 	###### Distribute modules over index sets and set solvers
 	
+	sc : index_set("Subcatchment")
 	lu : index_set("Landscape units")
-	#sc : index_set("Subcatchment")
-	soil.distribute(lu) #(sc, lu)
-	#gw.distribute(sc)
-	#river.distribute(sc)
+	
+	soil.distribute(sc, lu)
+	gw.distribute(sc)
+	river.distribute(sc)
 	
 	simply_solver : solver("Simply solver", "INCADascru", 0.1)
 	
