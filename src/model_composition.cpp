@@ -26,6 +26,14 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 			auto flux = model->find_entity<Reg_Type::flux>(id);
 			var.loc1 = flux->source;
 			var.loc2 = flux->target;
+			if(var.loc2.type == Location_Type::neighbor) {  //TODO: move this test somewhere else to make it cleaner.
+				if(!is_located(var.loc1)) {
+					flux->location.print_error_header();
+					fatal_error("You can't have a flux from nowhere to a neighbor.\n");
+				}
+				//var.loc2 = var.loc1;     // A bit superfluous.
+				//var.neighbor = var.loc2.neighbor;
+			} 
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	}
@@ -33,7 +41,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	auto name = given_name;
 	if(!name && is_valid(id))
 		name = model->find_entity(id)->name;
-	if(!name && type == Decl_Type::has) //TODO: this is a pretty poor stopgap.
+	if(!name && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. Could generate "Compartmentname Quantityname" or something like that.
 		name = model->find_entity(loc.property_or_quantity)->name;
 		
 	var.name = name;

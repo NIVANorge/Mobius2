@@ -8,6 +8,18 @@
 #include <functional>
 
 
+struct Index_T {
+	Entity_Id index_set;
+	s32       index;
+};
+
+struct Neighbor_T {
+	Entity_Id neighbor;
+	s32       info_id;
+};
+
+inline bool operator==(const Neighbor_T &a, const Neighbor_T& b) { return a.neighbor == b.neighbor && a.info_id == b.info_id; }
+
 template<typename Handle_T> struct Hash_Fun {
 	int operator()(const Handle_T&) const;
 };
@@ -20,11 +32,16 @@ template<> struct Hash_Fun<Var_Id> {
 	int operator()(const Var_Id& id) const { return id.id; }
 };
 
-
-struct Index_T {
-	Entity_Id index_set;
-	s32       index;
+template<> struct Hash_Fun<Neighbor_T> {
+	int operator()(const Neighbor_T& id) const { return 97*id.neighbor.id + id.info_id; }
 };
+
+/*
+inline bool
+is_valid(Index_T index) {
+	return is_valid(index.index_set) && index.index >= 0;
+}
+*/
 
 template<typename Handle_T>
 struct Multi_Array_Structure {
@@ -187,31 +204,36 @@ struct
 Model_Application {
 	Mobius_Model *model;
 	
-	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), is_compiled(false) {
+	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), is_compiled(false) {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
-		index_counts.resize(model->modules[0]->index_sets.count());
+		auto global = model->modules[0];
 		
-		for(auto index_set : model->modules[0]->index_sets) {
+		index_counts.resize(global->index_sets.count());
+		
+		for(auto index_set : global->index_sets) {
 			index_counts[index_set.id].index_set = index_set;
 			index_counts[index_set.id].index = 0;
 		}
 		
 		initialize_llvm();
-		llvm_data = create_llvm_module();   //TODO: free it later.
+		llvm_data = create_llvm_module();   //TODO: free it on destruction.
 	}
 	
 	std::vector<Index_T>                            index_counts;
+	
 	void set_indexes(Entity_Id index_set, Array<String_View> names);
 	bool all_indexes_are_set();
 	
 	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;
 	Structured_Storage<double, Var_Id>              series_data;
 	Structured_Storage<double, Var_Id>              result_data;
+	Structured_Storage<s64, Neighbor_T>             neighbor_data;
 	
 	void set_up_parameter_structure();
 	void set_up_series_structure();
+	void set_up_neighbor_structure();
 	//void set_up_result_structure();
 	
 	bool is_compiled;

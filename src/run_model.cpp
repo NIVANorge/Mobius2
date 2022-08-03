@@ -30,6 +30,9 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	run_state.date_time  = Expanded_Date_Time(); // TODO: set this properly.
 	run_state.solver_t   = 0.0;
 	
+	// TODO: we could reuse structured storage?
+	//run_state.neighbor_info = (s64 *)malloc(sizeof(s64)*
+	
 	int solver_workspace_size = 0;
 	for(auto &batch : model_app->batches) {
 		if(batch.solver_fun)

@@ -1,41 +1,86 @@
 
 
+"""
+Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
+"""
+
+
+index_sets {
+	"Landscape units" : [ "Forest" "Agricultural" ]
+	"Reaches"         : [ "Coull" "Boyne" ]
+}
+
+neighbor("Downstream") {
+	"Coull" -> "Boyne"               # Coull points at Boyne.
+}
+
+# could even do chains to make it easy to see what the branches are
+#
+# "One" -> "Two" -> "Three" -> "A" -> "B"
+# "Bing" -> "Song" -> "Bong" -> "A"
+
+# for directed acyclic graph neighbor types:
+# 
+# "One" -- "Two" -> "Three " -- "Four"      etc.
+#
+# Or is there another recognized graph format for text that we should just adopt? This looks a bit like DOT without the semicolons.
+
+series {
+	start_date : 1997-1-1        # These don't declare the min and max for all input data, just for this block.
+	end_date   : 1999-2-31
+	"Air temperature"	"Precipitation"["Reaches" : "Coull"] :
+	0 1
+	-2 1
+	-3 4
+}
+
+series {
+	"Precipitation"["Reaches" : "Boyne"]	"Potential evapotranspiration"[interpolate linear repeat yearly] :
+1993-2-1	9	8
+1992-1-4	0	1
+}
+
+# We don't declare index_set_dependencies anymore, or additional_time_series, these are inferred.
+
+load("another_input_file.dat")
+
 module("HBV snow", 1, 1, 0) {
-	par_group("Snow") [] {
+	par_group("Snow") [] {                  # Here we don't specify the full allowed dependency for this group.        # Should allow omitting the []
 		"Degree-day factor for snowmelt" :
-		[ 2.74 ]
+		2.74
 		
 		"Temperature at which precip falls as snow" :
-		[ 0 ]
+		0
 		
 		"Temperature at which snow melts" :
-		[ 0 ]
+		0
 		
 		"Refreeze efficiency" :
-		[ 0.5 ]
+		0.5
 		
 		"Liquid water fraction" :
-		[ 0.5 ]
+		0.5
 		
 		"Initial snow depth (water equivalents)" :
-		[ 10 ]
+		10
 	}
 }
 
 module("Test soil water", 1, 0, 0) {
-	soil.par_group("Hydrology land") ["Landscape units"] {
+	par_group("Hydrology land") ["Landscape units"] {
 		"Field capacity" :
-		[ 120 100 ]
+		120 100
 		
 		"Baseflow index" :
-		[ 0.7 0.3 ]
+		0.7 0.3
 		
 		"Soil water time constant" :
-		[ 2 3 ]
+		2 3
 	}
 	
-	soil.par_group("Hydrology") {
+	par_group("Hydrology") {
 		"Groundwater time constant" :
-		[ 60 ]
+		60
 	}
 }
+

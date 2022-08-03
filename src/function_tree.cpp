@@ -282,6 +282,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 	
 	Module_Declaration *module = data->model->modules[data->module_id];
 	switch(ast->type) {
+		
 		case Math_Expr_Type::block : {
 			auto new_block = new Math_Block_FT();
 			Scope_Data new_scope;

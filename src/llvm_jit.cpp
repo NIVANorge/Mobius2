@@ -172,14 +172,14 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	data->dt_struct_type = dt_ty;
 	
 	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty
+		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, int_64_ty, dt_ptr_ty
 		};
 		
 	llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
 	llvm::Function *fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	
 	// Hmm, is it important to set the argument names, or could we skip it?
-	const char *argnames[5] = {"parameters", "series", "state_vars", "solver_workspace", "date_time"};
+	const char *argnames[6] = {"parameters", "series", "state_vars", "solver_workspace", "neighbor_info", "date_time"};
 	std::vector<llvm::Value *> args;
 	int idx = 0;
 	for(auto &arg : fun->args()) {
@@ -501,7 +501,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			llvm::Value *result = nullptr;
 			
 			llvm::Value *offset = nullptr;
-			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series) {
+			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
+				|| ident->variable_type == Variable_Type::neighbor_info) {
 				offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			}
 			//warning_print("offset for lookup was ", offset, "\n");
@@ -512,7 +513,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			int struct_pos = -1;
 			if(ident->variable_type == Variable_Type::parameter) {
 				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_lookup");
-				result = data->builder->CreateLoad(double_ty, result);
+				result = data->builder->CreateLoad(double_ty, result, "par");
 				if(ident->value_type == Value_Type::integer || ident->value_type == Value_Type::boolean) {
 					result = data->builder->CreateBitCast(result, llvm::Type::getInt64Ty(*data->context));
 					if(ident->value_type == Value_Type::boolean)
@@ -520,16 +521,19 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 				}
 			} else if(ident->variable_type == Variable_Type::state_var) {
 				result = data->builder->CreateGEP(double_ty, args[2], offset, "var_lookup");
-				result = data->builder->CreateLoad(double_ty, result);
+				result = data->builder->CreateLoad(double_ty, result, "var");
 			} else if(ident->variable_type == Variable_Type::series) {
 				result = data->builder->CreateGEP(double_ty, args[1], offset, "series_lookup");
-				result = data->builder->CreateLoad(double_ty, result);
+				result = data->builder->CreateLoad(double_ty, result, "series");
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
-			} 
+			} else if(ident->variable_type == Variable_Type::neighbor_info) {
+				result = data->builder->CreateGEP(int_64_ty, args[4], offset, "neighbor_info_lookup");
+				result = data->builder->CreateLoad(int_64_ty, result, "neighbor_info");
+			}
 			#define TIME_VALUE(name, bits) \
 			else if(++struct_pos, ident->variable_type == Variable_Type::time_##name) { \
-				result = data->builder->CreateStructGEP(data->dt_struct_type, args[4], struct_pos, #name); \
+				result = data->builder->CreateStructGEP(data->dt_struct_type, args[5], struct_pos, #name); \
 				result = data->builder->CreateLoad(int_##bits##_ty, result); \
 				if(bits != 64) \
 					result = data->builder->CreateSExt(result, int_64_ty, "cast"); \

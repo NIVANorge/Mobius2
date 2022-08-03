@@ -75,6 +75,32 @@ Model_Application::set_up_series_structure() {
 	series_data.set_up(std::move(structure));
 }
 
+void
+Model_Application::set_up_neighbor_structure() {
+	if(neighbor_data.has_been_set_up)
+		fatal_error(Mobius_Error::internal, "Tried to set up neighbor structure twice.");
+	if(!all_indexes_are_set())
+		fatal_error(Mobius_Error::internal, "Tried to set up neighbor structure before all index sets received indexes.");
+	
+	std::vector<Multi_Array_Structure<Neighbor_T>> structure;
+	for(auto neighbor_id : model->modules[0]->neighbors) {
+		auto neighbor = model->modules[0]->neighbors[neighbor_id];
+		
+		if(neighbor->type != Neighbor_Structure_Type::directed_tree)
+			fatal_error(Mobius_Error::internal, "Unsupported neighbor structure type in set_up_neighbor_structure()");
+		
+		Neighbor_T handle = { neighbor_id, 0 };  // For now we only support one info point per index, which will be what the index points at.
+		std::vector<Neighbor_T> handles { handle };
+		Multi_Array_Structure<Neighbor_T> array({neighbor->index_set}, std::move(handles));
+		structure.push_back(array);
+	}
+	neighbor_data.set_up(std::move(structure));
+	neighbor_data.allocate();
+	
+	for(int idx = 0; idx < neighbor_data.total_count; ++idx)
+		neighbor_data.data[idx] = -1;                          // To signify that it doesn't point at anything.
+};
+
 void 
 Model_Application::set_indexes(Entity_Id index_set, Array<String_View> names) {
 	index_counts[index_set.id] = {index_set, (s32)names.count};
@@ -106,6 +132,7 @@ Model_Instruction {
 	
 	Var_Id var_id;
 	Var_Id source_or_target_id;
+	Entity_Id neighbor;
 	
 	Entity_Id           solver;
 	
@@ -117,7 +144,7 @@ Model_Instruction {
 	bool visited;
 	bool temp_visited;
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), neighbor(invalid_entity_id) {};
 };
 
 struct
@@ -142,8 +169,15 @@ error_print_instruction(Mobius_Model *model, Model_Instruction *instr) {
 		error_print("\"", model->state_vars[instr->var_id]->name, "\"");
 	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
 		error_print("(\"", model->state_vars[instr->source_or_target_id]->name, "\" -= \"", model->state_vars[instr->var_id]->name, "\")");
-	else if(instr->type == Model_Instruction::Type::add_flux_to_target)
-		error_print("(\"", model->state_vars[instr->source_or_target_id]->name, "\" += \"", model->state_vars[instr->var_id]->name, "\")");
+	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
+		error_print("(");
+		if(is_valid(instr->neighbor))
+			error_print("neighbor(");
+		error_print("\"", model->state_vars[instr->source_or_target_id]->name, "\"");
+		if(is_valid(instr->neighbor))
+			error_print(")");
+		error_print(" += \"", model->state_vars[instr->var_id]->name, "\")");
+	}
 }
 
 inline void
@@ -214,9 +248,33 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 
 
 Math_Expr_FT *
-add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id var_id_flux, Var_Id var_id_sub, std::vector<Math_Expr_FT *> *indexes) {
+add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id var_id_flux, Var_Id var_id_sub, std::vector<Math_Expr_FT *> *indexes, Entity_Id neighbor_id = invalid_entity_id) {
 	auto offset_code     = model_app->result_data.get_offset_code(var_id_flux, indexes);
-	auto offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
+	
+	Math_Expr_FT *offset_code_sub;
+	/*
+	if(is_valid(neighbor)) {
+		// This flux was pointed at a neighbor, so we have to replace an index in the target.
+		auto neighbor = model_app->model->modules[0]->neighbors[neighbor_id];
+		auto data = &model_app->neighbor_data[neighbor_id.id];
+		auto cur_idx = (*indexes)[neighbor->index_set.id];
+		auto index = new Identifier_FT();
+		// This instructs it to look up the relevant neighbor of the current index instead of using the current index.
+		index->variable_type = Variable_Type::neighbor_info;
+		index->value_type = Value_Type::integer;
+		index->exprs.push_back(cur_idx); // NO!!: instead we have to get it as an index from the structured neighbor_data in the model_app.
+		(*indexes)[neighbor->index_set.id] = index;
+		offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
+		(*indexes)[neighbor->index_set.id] = cur_idx;  // Reset it for use by others;
+		// Delete the temporary expression. This should be safe since get_offset_code will make a copy of it.
+		index->exprs.clear();
+		delete index;
+	} else*/
+		offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
+	
+	//TODO: we have to branch on validity of the replaced index. There could be indexes without neighbors!
+	// For that we should have an instruction that is a single if without an else.
+	
 	
 	auto substance_ident = make_state_var_identifier(var_id_sub);
 	substance_ident->exprs.push_back(offset_code_sub);
@@ -315,7 +373,9 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
 				scope->exprs.push_back(add_or_subtract_flux_from_var(model_app, '-', instr->var_id, instr->source_or_target_id, &indexes));
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
-				scope->exprs.push_back(add_or_subtract_flux_from_var(model_app, '+', instr->var_id, instr->source_or_target_id, &indexes));
+				auto result = add_or_subtract_flux_from_var(model_app, '+', instr->var_id, instr->source_or_target_id, &indexes, instr->neighbor);
+				if(result)
+					scope->exprs.push_back(result);    // NOTE: The result could be null if there is a neighbor flux without a target.
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				auto offset = model_app->result_data.get_offset_code(instr->var_id, &indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
@@ -647,8 +707,9 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		if(initial || var->type != Decl_Type::flux) continue;
 		
 		Entity_Id source_solver = invalid_entity_id;
+		Var_Id source_id;
 		if(is_located(loc1) && !is_aggregate) {
-			Var_Id source_id = model->state_vars[loc1];
+			source_id = model->state_vars[loc1];
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = model->state_vars[source_id]->solver;
 		
@@ -673,11 +734,18 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
-		if(is_located(loc2) && !has_aggregate) {
+		bool is_neighbor = loc2.type == Location_Type::neighbor;
+		if(is_neighbor && has_aggregate)
+			fatal_error(Mobius_Error::internal, "Somehow a neighbor flux got an aggregate");
+		if((is_located(loc2) || is_neighbor) && !has_aggregate) {
 			Var_Id target_id = model->state_vars[loc2];
 			Model_Instruction *target = &instructions[target_id.id];
-			auto target_solver = model->state_vars[target_id]->solver;
-
+			Entity_Id target_solver = invalid_entity_id;
+			if(!is_neighbor)
+				target_solver = model->state_vars[target_id]->solver;
+			else
+				target_solver = source_solver;
+			
 			if(is_valid(target_solver)) {
 				if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.
 					target->depends_on_instruction.insert(var_id.id);
@@ -689,9 +757,14 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				
 				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
 				add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
-				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
-				
-				add_target_instr.source_or_target_id = target_id;
+				if(!is_neighbor) {
+					add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
+					add_target_instr.source_or_target_id = target_id;
+				} else {
+					// the index sets already depend on the flux itself, which depends on the source, so we don't have to redeclare that.
+					add_target_instr.neighbor = loc2.neighbor;
+					add_target_instr.source_or_target_id = source_id;
+				}
 				
 				int add_idx = (int)instructions.size();
 				target->depends_on_instruction.insert(add_idx);
