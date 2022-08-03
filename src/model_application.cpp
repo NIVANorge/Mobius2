@@ -252,24 +252,31 @@ add_or_subtract_flux_from_var(Model_Application *model_app, char oper, Var_Id va
 	auto offset_code     = model_app->result_data.get_offset_code(var_id_flux, indexes);
 	
 	Math_Expr_FT *offset_code_sub;
-	/*
+	
 	if(is_valid(neighbor)) {
 		// This flux was pointed at a neighbor, so we have to replace an index in the target.
 		auto neighbor = model_app->model->modules[0]->neighbors[neighbor_id];
 		auto data = &model_app->neighbor_data[neighbor_id.id];
 		auto cur_idx = (*indexes)[neighbor->index_set.id];
-		auto index = new Identifier_FT();
+		
 		// This instructs it to look up the relevant neighbor of the current index instead of using the current index.
+		
+		if(neighbor->type != Neighbor_Structure_Type::directed_tree)
+			fatal_error(Mobius_Error::internal, "Unhandled neighbor type in add_or_subtract_flux_from_var()");
+		
+		index_offset = model_app->neighbor_data.get_offset_code({neighbor_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
+		auto index = new Identifier_FT();
 		index->variable_type = Variable_Type::neighbor_info;
 		index->value_type = Value_Type::integer;
-		index->exprs.push_back(cur_idx); // NO!!: instead we have to get it as an index from the structured neighbor_data in the model_app.
+		index->exprs.push_back(index_offset);
+		
 		(*indexes)[neighbor->index_set.id] = index;
 		offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
 		(*indexes)[neighbor->index_set.id] = cur_idx;  // Reset it for use by others;
 		// Delete the temporary expression. This should be safe since get_offset_code will make a copy of it.
 		index->exprs.clear();
 		delete index;
-	} else*/
+	} else
 		offset_code_sub = model_app->result_data.get_offset_code(var_id_sub, indexes);
 	
 	//TODO: we have to branch on validity of the replaced index. There could be indexes without neighbors!
