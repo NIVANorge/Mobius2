@@ -997,11 +997,9 @@ Mobius_Model::load_module(String_View file_name, String_View module_name) {
 }
 
 
-Mobius_Model *
-load_model(String_View file_name) {
-	Mobius_Model *model = new Mobius_Model();
-	
-	String_View model_data = model->file_handler.load_file(file_name);
+Decl_AST *
+read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, String_View *normalized_path_out = nullptr) {
+	String_View model_data = handler->load_file(file_name, rel_path, normalized_path_out);
 	
 	Token_Stream stream(file_name, model_data);
 	Decl_AST *decl = parse_decl(&stream);
@@ -1011,6 +1009,51 @@ load_model(String_View file_name) {
 	}
 	
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
+	
+	return decl;
+}
+
+bool
+load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, string_map<Decl_AST *> &loaded_out, String_View rel_path) {
+	auto body = reinterpret_cast<Decl_Body_AST *>(from_decl->bodies[0]);
+	
+	for(Decl_AST *child : body->child_decls) {
+		if(child->type == Decl_Type::extend) {
+			match_declaration(child, {{Token_Type::quoted_string}});
+			String_View extend_file_name = single_arg(child, 0)->string_value;
+			
+			// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
+			//  but right now that happens in the same function call.
+			String_View normalized_path;
+			auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+			
+			if(loaded_out.find(normalized_path) != loaded_out.end()) {
+				begin_error(Mobius_Error::parsing);
+				error_print("There is circularity in the model extensions:\n", extend_file_name, "\n");
+				delete extend_model;
+				return false;
+			}
+			
+			loaded_out[normalized_path] = extend_model;
+			
+			// Load extensions of extensions.
+			bool success = load_model_extensions(handler, extend_model, loaded_out, normalized_path);
+			if(!success) {
+				error_print(extend_file_name, "\n");
+				return false;
+			}
+		}
+	}
+	
+	return true;
+}
+
+Mobius_Model *
+load_model(String_View file_name) {
+	Mobius_Model *model = new Mobius_Model();
+	
+	auto decl = read_model_ast_from_file(&model->file_handler, file_name);
+	
 	model->model_name = single_arg(decl, 0)->string_value;
 	
 	//note: it is a bit annoying that we can't reuse Registry or Var_Registry for this, but it would also be too gnarly to factor out any more functionality from those, I think.
@@ -1027,106 +1070,124 @@ load_model(String_View file_name) {
 	
 	register_intrinsics(global_scope);
 	
-	//note: this must happen before we load the modules, otherwise this will be viewed as a re-declaration
-	for(Decl_AST *child : body->child_decls) {
-		switch (child->type) {
-			case Decl_Type::compartment : {
-				process_declaration<Reg_Type::compartment>(global_scope, child);
-			} break;
-			
-			case Decl_Type::quantity : {
-				process_declaration<Reg_Type::property_or_quantity>(global_scope, child);
-			} break;
+	string_map<Decl_AST *> extend_models;
+	extend_models[file_name] = decl;
+	load_model_extensions(&model->file_handler, decl, extend_models, file_name);
+	
+	//TODO: now we just throw everything into a single namespace, but what happens if we have re-declarations of handles because of multiple extensions?
+	
+	//note: this must happen before we load the modules, otherwise these declarations would be re-declarations into the global scope of something that was created by the modules.
+	for(auto &extend : extend_models) {
+		auto body = reinterpret_cast<Decl_Body_AST *>(extend.second->bodies[0]);
+		for(Decl_AST *child : body->child_decls) {
+			switch (child->type) {
+				case Decl_Type::compartment : {
+					process_declaration<Reg_Type::compartment>(global_scope, child);
+				} break;
+				
+				case Decl_Type::quantity : {
+					process_declaration<Reg_Type::property_or_quantity>(global_scope, child);
+				} break;
+			}
 		}
 	}
 	
 	model->modules.push_back(global_scope);
 	
-	for(Decl_AST *child : body->child_decls) {
-		//TODO: do libraries also.
-		
-		switch (child->type) {
-			case Decl_Type::load : {
-				match_declaration(child, {{Token_Type::quoted_string, {Decl_Type::module, true}}}, 0, false);
-				String_View file_name = single_arg(child, 0)->string_value;
-				for(int idx = 1; idx < child->args.size(); ++idx) {
-					Decl_AST *module_spec = child->args[idx]->decl;
-					match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
-					String_View module_name = single_arg(module_spec, 0)->string_value;
-					
-					s16 module_id = model->load_module(file_name, module_name);
-					auto hn = module_spec->handle_name.string_value;
+	// We then have to do all loads before we start linking things up.
+	for(auto &extend : extend_models) {
+		auto body = reinterpret_cast<Decl_Body_AST *>(extend.second->bodies[0]);
+		for(Decl_AST *child : body->child_decls) {
+			//TODO: do libraries also.
+			
+			switch (child->type) {
+				case Decl_Type::load : {
+					match_declaration(child, {{Token_Type::quoted_string, {Decl_Type::module, true}}}, 0, false);
+					String_View file_name = single_arg(child, 0)->string_value;
+					for(int idx = 1; idx < child->args.size(); ++idx) {
+						Decl_AST *module_spec = child->args[idx]->decl;
+						match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
+						String_View module_name = single_arg(module_spec, 0)->string_value;
+						
+						s16 module_id = model->load_module(file_name, module_name);
+						auto hn = module_spec->handle_name.string_value;
+						if(hn) {
+							if(module_ids.find(hn) != module_ids.end()) {
+								module_spec->handle_name.print_error_header();
+								fatal_error("Re-declaration of handle ", hn, ".");
+							}
+							module_ids[hn] = module_id;
+						}
+					}
+				} break;
+				
+				case Decl_Type::module : {
+					s16 module_id = (s16)model->modules.size();
+					Module_Declaration *module = process_module_declaration(model, global_scope, module_id, child, global_scope->source_path);
+					model->modules.push_back(module);
+					auto hn = child->handle_name.string_value;
 					if(hn) {
 						if(module_ids.find(hn) != module_ids.end()) {
-							module_spec->handle_name.print_error_header();
+							child->handle_name.print_error_header();
 							fatal_error("Re-declaration of handle ", hn, ".");
 						}
 						module_ids[hn] = module_id;
 					}
-				}
-			} break;
-			
-			case Decl_Type::module : {
-				s16 module_id = (s16)model->modules.size();
-				Module_Declaration *module = process_module_declaration(model, global_scope, module_id, child, global_scope->source_path);
-				model->modules.push_back(module);
-				auto hn = child->handle_name.string_value;
-				if(hn) {
-					if(module_ids.find(hn) != module_ids.end()) {
-						child->handle_name.print_error_header();
-						fatal_error("Re-declaration of handle ", hn, ".");
-					}
-					module_ids[hn] = module_id;
-				}
-			} break;
+				} break;
+			}
 		}
 	}
 	
-	for(Decl_AST *child : body->child_decls) {
-		switch (child->type) {
-			case Decl_Type::to : {
-				process_to_declaration(model, &module_ids, child);
-			} break;
-			
-			case Decl_Type::index_set : {
-				process_declaration<Reg_Type::index_set>(global_scope, child);
-			} break;
-			
-			case Decl_Type::distribute : {
-				process_distribute_declaration(global_scope, child);
-			} break;
-			
-			case Decl_Type::solver : {
-				process_declaration<Reg_Type::solver>(global_scope, child);
-			} break;
-			
-			case Decl_Type::solve : {
-				process_declaration<Reg_Type::solve>(global_scope, child);
-			} break;
-			
-			case Decl_Type::par_group : {
-				process_declaration<Reg_Type::par_group>(global_scope, child);
-			} break;
-			
-			case Decl_Type::aggregation_weight : {
-				process_aggregation_weight_declaration(global_scope, child);
-			} break;
-			
-			case Decl_Type::unit_conversion : {
-				process_unit_conversion_declaration(global_scope, child);
-			} break;
-			
-			case Decl_Type::compartment :
-			case Decl_Type::quantity :
-			case Decl_Type::module :
-			case Decl_Type::load : {
-				// Don't do anything. We handled it above already
-			} break;
-			
-			default : {
-				child->location.print_error_header();
-				fatal_error("Did not expect a declaration of type ", name(child->type), " inside a model declaration.");
-			};
+	for(auto &extend : extend_models) {
+		auto body = reinterpret_cast<Decl_Body_AST *>(extend.second->bodies[0]);
+		
+		for(Decl_AST *child : body->child_decls) {
+			switch (child->type) {
+				case Decl_Type::to : {
+					process_to_declaration(model, &module_ids, child);
+				} break;
+				
+				case Decl_Type::index_set : {
+					process_declaration<Reg_Type::index_set>(global_scope, child);
+				} break;
+				
+				case Decl_Type::distribute : {
+					process_distribute_declaration(global_scope, child);
+				} break;
+				
+				case Decl_Type::solver : {
+					process_declaration<Reg_Type::solver>(global_scope, child);
+				} break;
+				
+				case Decl_Type::solve : {
+					process_declaration<Reg_Type::solve>(global_scope, child);
+				} break;
+				
+				case Decl_Type::par_group : {
+					process_declaration<Reg_Type::par_group>(global_scope, child);
+				} break;
+				
+				case Decl_Type::aggregation_weight : {
+					process_aggregation_weight_declaration(global_scope, child);
+				} break;
+				
+				case Decl_Type::unit_conversion : {
+					process_unit_conversion_declaration(global_scope, child);
+				} break;
+				
+				case Decl_Type::extend :
+				case Decl_Type::compartment :
+				case Decl_Type::quantity :
+				case Decl_Type::module :
+				case Decl_Type::load : {
+					// Don't do anything. We handled it above already
+				} break;
+				
+				default : {
+					child->location.print_error_header();
+					fatal_error("Did not expect a declaration of type ", name(child->type), " inside a model declaration.");
+				};
+			}
 		}
 	}
 	

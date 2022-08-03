@@ -1,5 +1,5 @@
 
-model("Test model") {
+model("SimplyQ") {
 """
 General model description.
 """
@@ -57,9 +57,6 @@ General model description.
 	unit_conversion(soil.water, river.water) { a_catch * 1000 }   #TODO: when we get automatic unit checking we should remove the 1000 !
 	unit_conversion(gw.water, river.water) { a_catch * 1000 }
 	
-	
-	# should not be in simplyq, just testing for now:
-	#load("simplysed.txt", ss : module("SimplySed"))
-	#sed : quantity("Sediment")
-	#river.sed.solve(simply_solver)
 }
+
+

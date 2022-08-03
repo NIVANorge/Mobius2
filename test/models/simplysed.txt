@@ -50,11 +50,11 @@ This is a simple sediment transport module created as a part of SimplyP.
 	
 	e_fact : property("Erosion factor")
 	
-	soil.has(e_fact, unit(), "Erosion factor land")  {   land_slope * c_cover * (1 - loadred)   }
+	soil.has(e_fact, unit(), "Erosion factor land")                    {   land_slope * c_cover * (1 - loadred)   }
 	
 	# TODO: determine if in_flux also counts "neighbor" fluxes, and in that case give an alternative that doesn't
 	# TODO: have to discard the unit of this one when that is implemented.
-	river.has(e_fact, unit(), "Erosion factor river") {   a_catch * (ksed * in_flux(water) / a_catch)^psed   }
+	river.has(e_fact, unit(), "Erosion factor river")                  {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed   }
 	
 	# TODO: river.water.sediment
 	flux(nowhere, river.sediment, "Sediment mobilization")             {   aggregate(soil.e_fact) * e_fact   }
@@ -64,7 +64,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 	flux(river.sediment, nowhere, "River sediment flux")               {   86400*flow * safe_divide(sediment, water)   }
 	
 	# Likewise, this would be auto-generated.
-	river.has(ss_conc : property("Suspended sediment concentration"), unit(m g, l-1)) { safe_divide(sediment, water)  }
+	river.has(ss_conc : property("Suspended sediment concentration"), unit(m g, l-1)) { 1e-3*safe_divide(sediment, water)  }
 }
 
 

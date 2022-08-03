@@ -28,8 +28,6 @@ With some extra spice.
 	snow_box.has(snow,  unit(m m), "Snow depth") .initial { init_snow }
 	snow_box.has(water, unit(m m), "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
-	snow_box.has(property("Test"), unit()) { air.temp }
-	
 	flux(nowhere, snow_box.snow, "Precipitation falling as snow") {
 		air.precip    if air.temp <= t_snow,
 		0             otherwise

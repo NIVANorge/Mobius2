@@ -77,20 +77,24 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 int main(int argc, char** argv) {
 	//SetConsoleOutputCP(65001);
 	
-	s64 time_steps = 100;
 	String_View model_file = "stupidly_simple_model.txt";
-	std::vector<String_View> indexes;
+	s64 time_steps = 100;
+	String_View input_file = "";
+	int nidx = 1;
 	
 	if(argc >= 2)
-		time_steps = (s64)atoi(argv[1]);
+		model_file = argv[1];
 	if(argc >= 3)
-		model_file = argv[2];
-	if(argc >= 4) {
-		String_View idxs = "bcdefghijklmnopqrstuvwxyz";
-		int nidx = atoi(argv[3]);
-		for(int idx = 0; idx < nidx; ++idx)
-			indexes.push_back(idxs.substring(idx, 1));
-	}
+		time_steps = (s64)atoi(argv[2]);
+	if(argc >= 4)
+		input_file = argv[3];
+	if(argc >= 5)
+		nidx = atoi(argv[4]);
+
+	String_View idxs = "abcdefghijklmnopqrstuvwxyz";
+	std::vector<String_View> indexes;
+	for(int idx = 0; idx < nidx; ++idx)
+		indexes.push_back(idxs.substring(idx, 1));
 	
 	Mobius_Model *model = load_model(model_file);
 	model->compose();
@@ -105,7 +109,8 @@ int main(int argc, char** argv) {
 
 		app.set_up_parameter_structure();
 		app.set_up_series_structure();
-
+		
+		/*
 		if(model_file == "models/simplyq_model.txt") {
 			//haaaack!
 			Entity_Id par_id = model->modules[2]->find_handle("fc");
@@ -118,12 +123,13 @@ int main(int argc, char** argv) {
 			auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
 			app.parameter_data.data[offset].val_real = 2.0;
 		}
+		*/
 		app.compile();
 
-		if(model_file == "models/simplyq_model.txt") {
+		if(input_file) {
 			warning_print("Load input data\n");
 			app.series_data.allocate(time_steps);
-			read_input_data("testinput.dat", &app);
+			read_input_data(input_file, &app);
 		}
 		
 		run_model(&app, time_steps);
