@@ -265,6 +265,7 @@ Mobius_Model::compose() {
 		auto var = state_vars[var_id];
 		if(var->type != Decl_Type::flux) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
+		
 		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
 		auto target = find_entity<Reg_Type::compartment>(var->loc2.compartment);
 		

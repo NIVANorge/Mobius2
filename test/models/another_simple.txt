@@ -12,11 +12,16 @@ model("Another simple") {
 	}
 	
 	place : compartment("Place")
+	stuff : quantity("Stuff")
+	
 	
 	idx : index_set("Place index")
 	place.distribute(idx)
 	
 	pnb : idx.neighbor("Place neighbor", directed_tree)
+	
+	sol : solver("My solver", "INCADascru", 0.1)
+	#place.stuff.solve(sol)
 	
 	sp.the_flow.to(pnb)
 }

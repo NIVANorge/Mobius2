@@ -384,6 +384,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					put_var_lookup_indexes(fun, model_app, indexes);
 					
 					auto offset_code = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+					
 					auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 					assignment->exprs.push_back(offset_code);
 					assignment->exprs.push_back(fun);
@@ -745,6 +746,7 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				
 				sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
 				sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux.
+				sub_source_instr.inherits_index_sets_from_instruction.insert(source_id.id); // and it has to be done per instance of the source.
 				
 				sub_source_instr.source_or_target_id = source_id;
 				
@@ -752,7 +754,9 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				int sub_idx = (int)instructions.size();
 				source->depends_on_instruction.insert(sub_idx);
 								
-				instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id); // The flux itself has to be computed once per instance of the source.
+				// The flux itself has to be computed once per instance of the source.
+				// 		The reason for this is that for discrete fluxes we generate a   flux := min(flux, source) in order to not send the source negative.
+				instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id);
 				
 				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
@@ -761,10 +765,20 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		if(is_neighbor && has_aggregate)
 			fatal_error(Mobius_Error::internal, "Somehow a neighbor flux got an aggregate");
 		
+		if(is_neighbor) {
+			auto neighbor = model->find_entity<Reg_Type::neighbor>(loc2.neighbor);
+			if(neighbor->type != Neighbor_Structure_Type::directed_tree)
+				fatal_error(Mobius_Error::internal, "Unsupported neighbor structure in build_instructions().");
+			// NOTE: the source and target id for the neighbor-flux are the same, but loc2 doesn't record the target in this case, so we use the source_id.
+			Model_Instruction *target = &instructions[source_id.id];
+			// If we have fluxes of two instances of the same quantity, we have to enforce that it is indexed by by the index set of that neighbor relation.
+			target->index_sets.insert(neighbor->index_set);
+		}
+		
 		if((is_located(loc2) || is_neighbor) && !has_aggregate) {
 			Var_Id target_id;
 			if(is_neighbor)
-				target_id = source_id;
+				target_id = source_id;	
 			else
 				target_id = model->state_vars[loc2];
 			
@@ -782,16 +796,11 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				
 				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
 				add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
+				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 				add_target_instr.source_or_target_id = target_id;
 				if(is_neighbor) {
 					// the index sets already depend on the flux itself, which depends on the source, so we don't have to redeclare that.
 					add_target_instr.neighbor = loc2.neighbor;
-					auto neighbor = model->find_entity<Reg_Type::neighbor>(loc2.neighbor);
-					if(neighbor->type != Neighbor_Structure_Type::directed_tree)
-						fatal_error(Mobius_Error::internal, "Unsupported neighbor structure in build_instructions().");
-					target->index_sets.insert(neighbor->index_set);
-				} else {
-					add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 				}
 				
 				int add_idx = (int)instructions.size();

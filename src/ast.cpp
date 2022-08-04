@@ -367,7 +367,6 @@ parse_primary_expr(Token_Stream *stream) {
 		val->value = token;
 		result = val;
 	} else if ((char)token.type == '(') {
-		// todo fixup of precedence
 		stream->read_token();
 		result = parse_math_expr(stream);
 		Token token = stream->read_token();
@@ -389,7 +388,7 @@ parse_potential_if_expr(Token_Stream *stream) {
 	Token token = stream->peek_token();
 	if(token.type == Token_Type::identifier && token.string_value == "if") {
 		Source_Location location = token.location;
-		stream->read_token(); // consume the if
+		stream->read_token(); // consume the "if"
 		
 		Math_Expr_AST *condition = parse_math_expr(stream);
 		
@@ -444,14 +443,10 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 			if(block->exprs.size() == 0) {
 				token.print_error_header();
 				fatal_error("Empty math block.");
-			} /*else if (semicolons >= block->exprs.size()) {
-				token.print_error_header();
-				fatal_error("The final statement in a block should not be terminated with a ; .");
-			}*/
+			}
 			break;
 		}
 		
-		//TODO: assignments.. like   a := 5;
 		token = stream->peek_token();
 		Token token2 = stream->peek_token(1);
 		if(token.type == Token_Type::identifier && token2.type == Token_Type::def) {
@@ -466,16 +461,6 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 			auto expr = parse_potential_if_expr(stream);
 			block->exprs.push_back(expr);
 		}
-		
-		//token = stream->peek_token();
-		/*if((char)token.type == ';') {
-			++semicolons;
-			stream->read_token();
-		} else if((char)token.type != '}') {
-			token.print_error_header();
-			fatal_error("Expected ; or } , got \"", token.string_value, "\".");
-		}
-		*/
 	}
 	
 	return block;
