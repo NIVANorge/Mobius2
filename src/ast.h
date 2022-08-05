@@ -153,6 +153,8 @@ Local_Var_AST : Math_Expr_AST {
 	Local_Var_AST() : Math_Expr_AST(Math_Expr_Type::local_var) {};
 };
 
+Decl_AST *
+parse_decl_header(Token_Stream *stream, Body_Type *body_type_out = nullptr);
 
 Decl_AST *
 parse_decl(Token_Stream *stream);

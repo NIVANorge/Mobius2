@@ -141,7 +141,7 @@ Token_Stream::putback_char() {
 inline bool
 is_single_char_token(char c) {
 	//TODO: Maybe include [ and ] also.
-	return c == '!' || (c >= '%' && c <= '/') || (c >= ':' && c <= '?') || (c >= '{' && c <= '}') || c == '^';
+	return c == '!' || (c >= '%' && c <= '/') || (c >= ':' && c <= '?') || (c >= '{' && c <= '}') || c == '^' || c=='[' || c==']';
 }
 
 inline bool
@@ -189,6 +189,7 @@ Token_Stream::read_token_base(Token *token) {
 				else if(c == '>' && n == '=') token->type = Token_Type::geq;
 				else if(c == '!' && n == '=') token->type = Token_Type::neq;
 				else if(c == ':' && n == '=') token->type = Token_Type::def;
+				else if(c == '-' && n == '>') token->type = Token_Type::arr_r;
 				else token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.
 			}
 			else if(c == '"')                           token->type =  Token_Type::quoted_string;

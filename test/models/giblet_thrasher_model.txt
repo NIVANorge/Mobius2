@@ -27,7 +27,7 @@ model("Giblet-Thrasher test model") {
 		habitat.has(pred : quantity("Thrashers"), unit()) .initial { init_pred }
 		habitat.has(prey : quantity("Giblets"), unit())   .initial { init_prey }
 		
-		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time - 60.0, birth_time, birth_time+60.0, 0.6, 1, 0.6) }
+		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time- 60.0, birth_time, birth_time+60.0, 0.6, 1, 0.6) }
 		
 		flux(habitat.prey, nowhere, "Predation")        {  nomnom * prey * pred  }
 		
@@ -37,6 +37,23 @@ model("Giblet-Thrasher test model") {
 		
 		migration :
 		flux(habitat.prey, out, "Giblet migration") {  prey * pred * pmig  }
+		
+		#
+		# Need to implement the following:
+		#
+		# mig : neighbor("Migration route")
+		#
+		# Or is all of this on model scope? No, need a way to do it inside modules too to distinguish between fluxes in different directions (e.g. up/down)
+		#
+		# par_group ("Migration weights", matrix(mig)) {
+		# 	mig_wt : par_real("Migration weights", mig, unit(), 0.1, 0, 1)
+		# }
+		#			# no need to explicitly index the matrix when used in this context...
+		# flux(habitat.prey, mig) {  min(0, prey * mig_wt * (pred - to.pred) )
+		#
+		# model scope:
+		#	mig : hi.neighbor("Migration route", all_to_all)
+		#
 	}
 	
 	habitat : compartment("Habitat")
@@ -51,7 +68,7 @@ model("Giblet-Thrasher test model") {
 	habitat.distribute(hi)
 	
 	mig : hi.neighbor("Migration route", directed_tree)
-	md.migration.to(mig)
+	md.migration.to(mig)          # TODO: Need a way to specify boundary conditions for fluxes. What happens to this flux when there is no neighbors?
 }
 
 

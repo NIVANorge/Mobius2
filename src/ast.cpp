@@ -56,6 +56,7 @@ get_body_type(Decl_Type decl_type) {
 	return Body_Type::none;
 }
 
+/*
 void print_expr(Math_Expr_AST *expr) {
 	warning_print("(");
 	if(expr->type == Math_Expr_Type::binary_operator) {
@@ -71,11 +72,10 @@ void print_expr(Math_Expr_AST *expr) {
 	}
 	warning_print(")");
 }
-
+*/
 
 Decl_AST *
-parse_decl(Token_Stream *stream) {
-	
+parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	Decl_AST *decl = new Decl_AST();
 	
 	Token ident = stream->expect_token(Token_Type::identifier);
@@ -100,6 +100,9 @@ parse_decl(Token_Stream *stream) {
 	Body_Type body_type;
 	decl->type = get_decl_type(&decl->decl_chain.back(), &body_type);
 	decl->decl_chain.pop_back(); // note: we only want to keep the first symbols (denoting location) in the chain since we now have stored the type separately.
+	
+	if(body_type_out)
+		*body_type_out = body_type;
 	
 	if((char)next.type != '(') {
 		next.print_error_header();
@@ -147,9 +150,18 @@ parse_decl(Token_Stream *stream) {
 			fatal_error("Misformatted declaration argument list."); //TODO: better error message.
 		}
 	}
+	
+	return decl;
+}
+
+Decl_AST *
+parse_decl(Token_Stream *stream) {
+	
+	Body_Type body_type;
+	Decl_AST *decl = parse_decl_header(stream, &body_type);
 
 	while(true) {
-		next = stream->peek_token();
+		Token next = stream->peek_token();
 		char ch = (char)next.type;
 		if(ch == '.' || ch == '{') {
 			stream->read_token();
@@ -467,7 +479,8 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 }
 
 int
-match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_modifiers) {
+match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
+	int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_modifiers) {
 	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
 	
 	//TODO: need much better error messages!

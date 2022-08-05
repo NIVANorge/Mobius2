@@ -256,7 +256,6 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Var_Id
 	Math_Expr_FT *index_ref = nullptr;
 	
 	if(is_valid(neighbor_id)) {
-		warning_print("**************** Got a neighbor id\n");
 		// The aggregation was pointed at a neighboring index, not the same index as the current one.
 		auto neighbor = model_app->model->modules[0]->neighbors[neighbor_id];
 		
@@ -303,6 +302,8 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Var_Id
 	if(index_ref) {
 		// We have to check that the index is not negative (meaning there are no neighbors)
 		// NOTE: we don't have to copy the index_ref here, because it should have been copied in its previous use.
+		
+		// TODO: Instead of having the branch we could have the index point at some random existing value, then multiply with a weight which is 0 if there is no target, and 1 otherwise.
 		auto condition = make_binop(Token_Type::geq, index_ref, make_literal((s64)0));
 		condition->value_type = Value_Type::boolean; // TODO: make make_binop do this correctly
 		auto if_chain = new Math_Expr_FT();
@@ -429,29 +430,6 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 				auto result = add_or_subtract_var_from_agg_var(model_app, '+', instr->var_id, instr->source_or_target_id, &indexes, nullptr, instr->neighbor, weight);
 				scope->exprs.push_back(result);
-				
-				
-				/*
-				// read value of the new value we want to sum in.
-				auto offset = model_app->result_data.get_offset_code(instr->var_id, &indexes);
-				auto read = make_state_var_identifier(instr->var_id);
-				read->exprs.push_back(offset);
-				
-				// read value of aggregate before the sum:
-				auto offset2 = model_app->result_data.get_offset_code(instr->source_or_target_id, &indexes);
-				auto read2 = make_state_var_identifier(instr->source_or_target_id);
-				read2->exprs.push_back(offset2);
-				
-				auto mul = make_binop('*', read, weight);
-				auto sum = make_binop('+', read2, mul);
-				
-				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
-				assignment->exprs.push_back(copy(offset2));
-				assignment->exprs.push_back(sum);
-				assignment->value_type = Value_Type::none;
-				
-				scope->exprs.push_back(assignment);
-				*/
 			}
 		}
 		

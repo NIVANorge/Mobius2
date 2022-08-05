@@ -5,14 +5,13 @@ Can have a docstring to describe the dataset. This gets saved when you save the 
 """
 
 
-index_sets {
-	"Landscape units" : [ "Forest" "Agricultural" ]
-	"Reaches"         : [ "Coull" "Boyne" ]
-}
 
-neighbor("Downstream") {
+index_set("Landscape units") [ "Forest" "Agricultural" ]
+index_set("Reaches") [ "Coull" "Boyne" ]
+
+neighbor("Downstream", "Reaches") [
 	"Coull" -> "Boyne"               # Coull points at Boyne.
-}
+]
 
 # could even do chains to make it easy to see what the branches are
 #
@@ -25,44 +24,46 @@ neighbor("Downstream") {
 #
 # Or is there another recognized graph format for text that we should just adopt? This looks a bit like DOT without the semicolons.
 
-series {
-	start_date : 1997-1-1        # These don't declare the min and max for all input data, just for this block.
-	end_date   : 1999-2-31
+series [
+	1997-1-1        # This doesn't declare start for all input data, just for this block.
 	"Air temperature"	"Precipitation"["Reaches" : "Coull"] :
 	0 1
 	-2 1
 	-3 4
-}
+]
 
-series {
-	"Precipitation"["Reaches" : "Boyne"]	"Potential evapotranspiration"[interpolate linear repeat yearly] :
+series [
+	"Precipitation"["Reaches" : "Boyne"]	"Potential evapotranspiration"[interp_linear repeat_yearly] :
 1993-2-1	9	8
 1992-1-4	0	1
-}
+]
 
 # We don't declare index_set_dependencies anymore, or additional_time_series, these are inferred.
 
-load("another_input_file.dat")
+series("another_input_file.dat")
+
+par_datetime("Start date") [ 2004-01-01 ]
+par_datetime("End date")   [ 2005-12-31 ]
 
 module("HBV snow", 1, 1, 0) {
 	par_group("Snow") [] {                  # Here we don't specify the full allowed dependency for this group.        # Should allow omitting the []
-		"Degree-day factor for snowmelt" :
-		2.74
+		par_real("Degree-day factor for snowmelt")
+		[ 2.74 ]
 		
-		"Temperature at which precip falls as snow" :
-		0
+		par_real("Temperature at which precip falls as snow")
+		[ 0 ]
 		
-		"Temperature at which snow melts" :
-		0
+		par_real("Temperature at which snow melts")
+		[ 0 ]
 		
-		"Refreeze efficiency" :
-		0.5
+		par_real("Refreeze efficiency")
+		[ 0.5 ]
 		
-		"Liquid water fraction" :
-		0.5
+		par_real("Liquid water fraction")
+		[ 0.5 ]
 		
-		"Initial snow depth (water equivalents)" :
-		10
+		par_real("Initial snow depth (water equivalents)")
+		[ 10  ]
 	}
 }
 
