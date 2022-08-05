@@ -34,11 +34,14 @@ State_Variable {
 	Decl_Type type; //either flux, quantity or property
 	
 	enum Flags {
-		f_none            = 0x0, 
-		f_in_flux         = 0x1, 
-		f_is_aggregate    = 0x2, 
-		f_has_aggregate   = 0x4,
+		f_none             = 0x0, 
+		f_in_flux          = 0x1,
+		f_in_flux_neighbor = 0x2,
+		f_is_aggregate     = 0x4, 
+		f_has_aggregate    = 0x8,
 	} flags;
+	
+	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.
 	
 	String_View name;
 
@@ -46,13 +49,20 @@ State_Variable {
 	
 	Entity_Id solver;
 	
+	Entity_Id neighbor; // For a flux that points at a neighbor.
+	
 	// If this is a quantity or property, loc1 is the location of this variable.
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
 	Value_Location loc1;
 	Value_Location loc2;
 	
-	Var_Id         agg;    // if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
+	// if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
+	Var_Id         agg;
 	Entity_Id      agg_to_compartment;
+	
+	// If this is the target variable of a neighbor flux, neighbor_agg points to the aggregation variable for the neighbor flux.
+	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es).
+	Var_Id         neighbor_agg;
 	
 	Dependency_Set depends;
 	Dependency_Set initial_depends;
@@ -61,7 +71,7 @@ State_Variable {
 	Math_Expr_FT *initial_function_tree;
 	Math_Expr_FT *flux_unit_conversion_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), solver(invalid_entity_id), flags(f_none), agg(invalid_var) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), solver(invalid_entity_id), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
 };
 
 struct Var_Registry {

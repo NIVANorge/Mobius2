@@ -1087,3 +1087,58 @@ check_units(Math_Expr_FT *expr, Standardized_Unit *expected_top = nullptr) {
 	return result;
 }
 
+
+void
+print_tabs(int ntabs) { for(int i = 0; i < ntabs; ++i) warning_print('\t'); }
+
+void
+print_tree(Math_Expr_FT *expr, int ntabs) {
+	print_tabs(ntabs);
+	warning_print(name(expr->expr_type));
+	if(expr->expr_type == Math_Expr_Type::literal) {
+		auto literal = reinterpret_cast<Literal_FT *>(expr);
+		if(literal->value_type == Value_Type::real)    warning_print(" ", literal->value.val_real);
+		if(literal->value_type == Value_Type::integer) warning_print(" ", literal->value.val_integer);
+		if(literal->value_type == Value_Type::boolean) warning_print(" ", literal->value.val_boolean ? "true": "false");
+	} else if (expr->expr_type == Math_Expr_Type::binary_operator) {
+		auto binop = reinterpret_cast<Operator_FT *>(expr);
+		warning_print(" ", (char)binop->oper);
+	}
+	warning_print("\n");
+	for(auto arg : expr->exprs)
+		print_tree(arg, ntabs+1);
+}
+
+/*
+ugh, this is obnoxious to write :(
+
+void
+print_tree(Math_Expr_FT *expr, int ntabs) {
+	
+	switch(expr->expr_type) {
+		case Math_Expr_Type::block : {
+			auto block = reinterpret_cast<Math_Block_FT *>(expr);
+			//print_tabs(ntabs);
+			if(block->is_for_loop) {
+				warning_print("for(i = 0..");
+				print_tree(expr->exprs[0]);
+				warning_print(") ");
+			}
+			warning_print("{\n");
+			if(block->is_for_loop)
+				print_tree(expr->exprs[1], ntabs + 1);
+			else
+				for(auto arg : expr->exprs) print_tree(arg, ntabs + 1);
+			warning_print("}\n");
+		} break;
+		
+		case Math_Expr_Type::local_var : {
+			//print_tabs(ntabs);
+			warning_print("var := ");
+			print_tree(expr->exprs[0]);
+		}
+		
+		case Math_Expr_Type::identifier_chain :
+	}
+}
+*/

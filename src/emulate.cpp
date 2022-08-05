@@ -311,7 +311,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			result.type = expr->value_type;
 			s64 offset = 0;
 			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
-				|| ident->variable_type == Variable_Type::neighbor_info ) {
+				|| ident->variable_type == Variable_Type::neighbor_info) {
 				DEBUG(warning_print("lookup var offset.\n"))
 				offset = emulate_expression(expr->exprs[0], state, locals).val_integer;
 			}

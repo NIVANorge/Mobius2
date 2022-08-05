@@ -31,8 +31,9 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 					flux->location.print_error_header();
 					fatal_error("You can't have a flux from nowhere to a neighbor.\n");
 				}
-				//var.loc2 = var.loc1;     // A bit superfluous.
-				//var.neighbor = var.loc2.neighbor;
+				// NOTE: organizing it this way is more convenient to work with later:
+				var.neighbor = var.loc2.neighbor;
+				var.loc2 = var.loc1;
 			} 
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
@@ -195,6 +196,8 @@ Mobius_Model::compose() {
 	Var_Map in_flux_map;
 	Var_Map2 needs_aggregate;
 	
+	std::set<Var_Id> may_need_neighbor_target;
+	
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		Math_Expr_AST *ast = nullptr;
@@ -216,6 +219,11 @@ Mobius_Model::compose() {
 			}
 			if(!is_valid(from_compartment)) from_compartment = in_compartment;
 			// note : the only case where from_compartment != in_compartment is when both source and target are located, but different. In that case in_compartment is invalid, but from_compartment is not.
+			
+			if(is_valid(var->neighbor)) {
+				Var_Id target_id = state_vars[var->loc1]; // loc1==loc2 for neighbor fluxes.
+				may_need_neighbor_target.insert(state_vars[var->loc1]); // We only need these for non-discrete variables.
+			}
 			
 			if(is_located(flux->source)) {
 				for(auto &unit_conv : modules[0]->compartments[flux->source.compartment]->unit_convs) {
@@ -255,9 +263,25 @@ Mobius_Model::compose() {
 			var->flux_unit_conversion_tree = nullptr;
 	}
 	
-	warning_print("Generate state vars for aggregates.\n");
+	warning_print("Put solvers begin.\n");
+	// NOTE: this only puts a solver on ODE quantities. It is propagated to other state variables during compilation
+	for(auto id : modules[0]->solves) {
+		auto solve = modules[0]->solves[id];
+		Var_Id var_id = state_vars[solve->loc];
+		if(!is_valid(var_id)) {
+			solve->source_location.print_error_header();
+			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
+		}
+		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
+		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
+			solve->source_location.print_error_header();
+			fatal_error("Solvers can only be put on quantities, not on properties.");
+		}
+		state_vars[var_id]->solver = solve->solver;
+	}
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
+	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.
 	
 	// note: We always generate an aggregate if the source compartment has more indexes than the target compartment.
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the aggregate is trivial
@@ -275,6 +299,8 @@ Mobius_Model::compose() {
 				break;
 			}
 	}
+	
+	warning_print("Generate state vars for aggregates.\n");
 		
 	for(auto &need_agg : needs_aggregate) {
 		auto var_id = Var_Id {need_agg.first};
@@ -345,7 +371,23 @@ Mobius_Model::compose() {
 		}
 	}
 	
-	warning_print("Generate state vars for in_fluxes.\n");
+	warning_print("Generate state vars for in_flux_neighbor.\n");
+	// TODO: generate aggregation variables for the neighbor flux.
+	for(auto var_id : may_need_neighbor_target) {
+		
+		auto solver = state_vars[var_id]->solver;
+		if(!is_valid(solver)) continue;
+		
+		Var_Id n_agg_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux_neighbor"); //TODO: generate a better name
+		auto n_agg_var = state_vars[n_agg_id];
+		n_agg_var->flags = State_Variable::Flags::f_in_flux_neighbor;
+		n_agg_var->solver = solver;
+		n_agg_var->neighbor_agg = var_id;
+		
+		state_vars[var_id]->neighbor_agg = n_agg_id;
+	}
+	
+	warning_print("Generate state vars for in_flux.\n");
 	for(auto &in_flux : in_flux_map) {
 		Var_Id target_id = {in_flux.first};
 		
@@ -353,10 +395,13 @@ Mobius_Model::compose() {
 		auto in_flux_var = state_vars[in_flux_id];
 		// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
 		//   Make a lookup accelleration for this?
+		
+		// TODO: can separate out code for this and reuse when adding to ode variables in model_application.
 		Math_Expr_FT *flux_sum = make_literal(0.0);
 		for(auto flux_id : state_vars) {
 			auto var = state_vars[flux_id];
-			if(var->type == Decl_Type::flux && is_located(var->loc2) && state_vars[var->loc2] == target_id 
+			// NOTE: if neighbors are to be computed, it has to be done differently.
+			if(var->type == Decl_Type::flux && !is_valid(var->neighbor) && is_located(var->loc2) && state_vars[var->loc2] == target_id 
 					&& !(var->flags & State_Variable::Flags::f_has_aggregate)) { //NOTE: if it has an aggregate, we should only count the aggregate, not this on its own.
 				auto flux_code = make_state_var_identifier(flux_id);
 				if(var->flux_unit_conversion_tree)
@@ -371,23 +416,9 @@ Mobius_Model::compose() {
 		for(auto rep_id : in_flux.second)
 			replace_flagged(state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
 	}
+
 	
-	warning_print("Put solvers begin.\n");
-	for(auto id : modules[0]->solves) {
-		auto solve = modules[0]->solves[id];
-		Var_Id var_id = state_vars[solve->loc];
-		if(!is_valid(var_id)) {
-			solve->source_location.print_error_header();
-			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
-		}
-		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
-		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			solve->source_location.print_error_header();
-			fatal_error("Solvers can only be put on quantities, not on properties.");
-		}
-		state_vars[var_id]->solver = solve->solver;
-	}
-	
+	// NOTE: This reads dependencies that are explicitly referenced in the variable's function code. Other dependencies are resolved during compilation.
 	warning_print("Dependencies begin.\n");
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];

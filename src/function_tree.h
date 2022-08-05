@@ -154,8 +154,8 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope = nullptr);
 Math_Expr_FT *
 copy(Math_Expr_FT *source);
 
-//void
-//print_tree(Math_Expr_FT *expr, int ntabs=0);
+void
+print_tree(Math_Expr_FT *expr, int ntabs=0);
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

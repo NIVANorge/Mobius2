@@ -43,7 +43,7 @@ General model description.
 	sw.soil_runoff.to(river.water)
 	sw.gw_runoff  .to(river.water)
 	
-	#rw.reach_out  .to(downstream)
+	rw.reach_out  .to(downstream)
 	
 	soil.par_group("Land cover") {
 		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)

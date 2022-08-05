@@ -6,9 +6,13 @@ model("Another simple") {
 	
 		place : compartment("Place")
 		
+		place.par_group("Flow pars") {
+			flow_mag : par_real("Flow magnitude", unit(), 5)
+		}
+		
 		place.has(stuff : quantity("Stuff"), unit()) .initial { 100 }
 		
-		the_flow : flux(place.stuff, out, "The flow") { 5 }
+		the_flow : flux(place.stuff, out, "The flow") { flow_mag }
 	}
 	
 	place : compartment("Place")
@@ -21,7 +25,7 @@ model("Another simple") {
 	pnb : idx.neighbor("Place neighbor", directed_tree)
 	
 	sol : solver("My solver", "INCADascru", 0.1)
-	#place.stuff.solve(sol)
+	place.stuff.solve(sol)
 	
 	sp.the_flow.to(pnb)
 }
