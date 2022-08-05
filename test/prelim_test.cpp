@@ -93,6 +93,9 @@ int main(int argc, char** argv) {
 		nidx1 = atoi(argv[4]);
 	if(argc >= 6)
 		nidx2 = atoi(argv[5]);
+	
+	Data_Set data_set;
+	data_set.read_from_file("test_data_set.dat");
 
 	String_View idxs = "abcdefghijklmnopqrstuvwxyz";
 	std::vector<String_View> indexes1;

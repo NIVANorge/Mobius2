@@ -4,6 +4,7 @@
 
 #include "model_declaration.h"
 #include "llvm_jit.h"
+#include "data_set.h"
 
 #include <functional>
 

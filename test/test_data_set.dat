@@ -4,8 +4,6 @@
 Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
 """
 
-
-
 index_set("Landscape units") [ "Forest" "Agricultural" ]
 index_set("Reaches") [ "Coull" "Boyne" ]
 
@@ -26,21 +24,21 @@ neighbor("Downstream", "Reaches") [
 
 series [
 	1997-1-1        # This doesn't declare start for all input data, just for this block.
-	"Air temperature"	"Precipitation"["Reaches" : "Coull"] :
+	"Air temperature"	"Precipitation"["Reaches" : "Coull"]
 	0 1
 	-2 1
 	-3 4
 ]
 
 series [
-	"Precipitation"["Reaches" : "Boyne"]	"Potential evapotranspiration"[interp_linear repeat_yearly] :
+	"Precipitation"["Reaches" : "Boyne"]	"Potential evapotranspiration"[interp_linear repeat_yearly]
 1993-2-1	9	8
 1992-1-4	0	1
 ]
 
 # We don't declare index_set_dependencies anymore, or additional_time_series, these are inferred.
 
-series("another_input_file.dat")
+# series("another_input_file.dat")
 
 par_datetime("Start date") [ 2004-01-01 ]
 par_datetime("End date")   [ 2005-12-31 ]
@@ -69,19 +67,19 @@ module("HBV snow", 1, 1, 0) {
 
 module("Test soil water", 1, 0, 0) {
 	par_group("Hydrology land") ["Landscape units"] {
-		"Field capacity" :
-		120 100
+		par_real("Field capacity")
+		[ 120 100 ]
 		
-		"Baseflow index" :
-		0.7 0.3
+		par_real("Baseflow index")
+		[ 0.7 0.3 ]
 		
-		"Soil water time constant" :
-		2 3
+		par_real("Soil water time constant")
+		[ 2 3 ]
 	}
 	
 	par_group("Hydrology") {
-		"Groundwater time constant" :
-		60
+		par_real("Groundwater time constant")
+		[ 60 ]
 	}
 }
 
