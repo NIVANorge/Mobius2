@@ -54,3 +54,11 @@ library("Response") {
 	}
 	
 }
+
+library("Rates") {
+	
+	hl_to_rate : function(hl)   {   ln(2) / hl   }
+	
+	rate_to_hl : function(rate) {   ln(2) / rate   }
+	
+}

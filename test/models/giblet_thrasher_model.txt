@@ -1,0 +1,57 @@
+
+model("Giblet-Thrasher test model") {
+	
+	md : module("Giblet-Thrasher", 1, 1, 0) {
+		
+		habitat : compartment("Habitat")
+		world   : compartment("World")
+		
+		load("../../stdlib/basic_math.txt", library("Response"))
+		
+		#TODO: should it be possible to specify a par_group to be global without creating a separate compartment for it?
+		world  .par_group("General parameters") {
+			prey_birth : par_real("Giblet birth rate", unit(), 0.2)
+			birth_time : par_int ("Giblet preferred birthday", unit(), 120, 30, 335)
+			pmig       : par_real("Giblet propensity to migrate", unit(), 0.05, 0, 1)
+			nomnom     : par_real("Predation rate", unit(), 0.1)
+			pred_birth : par_real("Thrasher birth rate", unit(), 0.025)
+			pred_death : par_real("Thrasher death rate", unit(), 0.05)
+		}
+		
+		habitat.par_group("Habitat parameters") {
+			init_pred  : par_real("Initial predators", unit(), 1)
+			init_prey  : par_real("Initial prey", unit(), 1)
+			
+			c_cap      : par_real("Giblet carrying capacity", unit(), 20)
+		}
+		habitat.has(pred : quantity("Thrashers"), unit()) .initial { init_pred }
+		habitat.has(prey : quantity("Giblets"), unit())   .initial { init_prey }
+		
+		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time - 60.0, birth_time, birth_time+60.0, 0.6, 1, 0.6) }
+		
+		flux(habitat.prey, nowhere, "Predation")        {  nomnom * prey * pred  }
+		
+		flux(nowhere, habitat.pred, "Thrasher birth")   {  pred_birth * prey * pred  }
+		
+		flux(habitat.pred, nowhere, "Thrasher death")   {  pred * pred_death  }
+		
+		migration :
+		flux(habitat.prey, out, "Giblet migration") {  prey * pred * pmig  }
+	}
+	
+	habitat : compartment("Habitat")
+	pred : quantity("Thrashers")
+	prey : quantity("Giblets")
+	
+	sol : solver("LV-Solver", "INCADascru", 0.1)
+	habitat.pred.solve(sol)
+	habitat.prey.solve(sol)
+	
+	hi : index_set("Habitat index")
+	habitat.distribute(hi)
+	
+	mig : hi.neighbor("Migration route", directed_tree)
+	md.migration.to(mig)
+}
+
+

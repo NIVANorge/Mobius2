@@ -1,0 +1,38 @@
+
+
+library("Thermodynamics") {
+	
+	ideal_gas        : constant("Ideal gas constant",        unit(J, K -1, mol -1), 8.31446261815324)
+	boltzmann        : constant("Boltzmann constant",        unit(J, K -1),         1.380649e-23)
+	stefan_boltzmann : constant("Stefan-Boltzmann constant", unit(W, m -2, K -4),   5.670373e-8)
+	
+	deg_c_to_K : function(T_celsius)          {   T_celsius + 273.15   }  ##TODO: when we get automatic unit checking, we have to force the unit conversion here.
+	
+	K_to_deg_c : function(T_kelvin)           {   T_kelvin  - 273.15   }
+	
+	black_body_radiation : function(T_kelvin) {   stefan_boltzmann * T_kelvin^4   }
+	
+	entropy_adjust_log10 : function(log10ref, ref_T_kelvin, T_kelvin, dU) {
+		log10ref - (dU/(1e-3*ideal_gas*ln(10)) * (1/T_kelvin - 1/ref_T_kelvin))
+	}
+	
+}
+
+library("Chemistry") {
+
+	avogadro         : constant("Avogadro constant", unit(mol -1), 6.02214076e23)
+	
+}
+
+library("Ions") {
+	
+	ca_mol_wt        : constant("Ca molecular weight", unit(g mol-1), 40.078)
+	ca_valency       : constant("Ca valency", unit(eq, mol -1), 2)
+	
+	# etc.
+	
+	
+	mass_to_eq : function(mass, mol_wt, valency) {
+		mass * valency / mol_wt
+	}
+}
