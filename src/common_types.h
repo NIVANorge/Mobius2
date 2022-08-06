@@ -36,6 +36,7 @@ Source_Location {
 	
 	void print_error();
 	void print_error_header();
+	void print_warning_header();
 };
 
 struct Var_Id {

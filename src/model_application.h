@@ -165,11 +165,12 @@ struct Structured_Storage {
 		if(!has_been_set_up)
 			fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
 		if(data) free(data);
-		this->time_steps = time_steps;// + initial_step;
+		this->time_steps = time_steps;
 		s64 alloc_size = sizeof(Val_T) * total_count * (time_steps + initial_step);
 		data = (Val_T *) malloc(alloc_size);
 		memset(data, 0, alloc_size);
-	}; //TODO: also start_date
+	};
+	//TODO: also start_date
 	
 	s64 get_offset_base(Handle_T handle);
 	s64 instance_count(Handle_T handle);
@@ -205,7 +206,8 @@ struct
 Model_Application {
 	Mobius_Model *model;
 	
-	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), is_compiled(false) {
+	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), is_compiled(false),
+		data_set(nullptr) {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
@@ -219,7 +221,7 @@ Model_Application {
 		}
 		
 		initialize_llvm();
-		llvm_data = create_llvm_module();   //TODO: free it on destruction.
+		llvm_data = create_llvm_module();   //TODO: free it on destruction!
 	}
 	
 	std::vector<Index_T>                            index_counts;
@@ -227,18 +229,22 @@ Model_Application {
 	void set_indexes(Entity_Id index_set, Array<String_View> names);
 	bool all_indexes_are_set();
 	
+	void build_from_data_set(Data_Set *data_set);
+	
 	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;
 	Structured_Storage<double, Var_Id>              series_data;
 	Structured_Storage<double, Var_Id>              result_data;
 	Structured_Storage<s64, Neighbor_T>             neighbor_data;
 	
-	void set_up_parameter_structure();
+	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
 	void set_up_series_structure();
 	void set_up_neighbor_structure();
 	//void set_up_result_structure();
 	
 	bool is_compiled;
 	void compile();
+	
+	Data_Set              *data_set;
 	
 	LLVM_Module_Data      *llvm_data;
 	

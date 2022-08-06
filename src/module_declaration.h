@@ -304,7 +304,20 @@ Registry : Registry_Base {
 	find_or_create(Token *handle_name, Token *name = nullptr, Decl_AST *declaration = nullptr);
 	
 	Entity_Id
-	create_compiler_internal(String_View handle_name, Decl_Type decl_type);
+	find_by_name(Token *name) {
+		return find_or_create(nullptr, name, nullptr);
+	}
+	
+	Entity_Id
+	find_by_name(String_View name) {
+		auto find = name_to_handle.find(name);
+		if(find != name_to_handle.end())
+			return find->second;
+		return invalid_entity_id;
+	}
+	
+	Entity_Id
+	create_compiler_internal(String_View handle_name, Decl_Type decl_type, String_View name = "");
 	
 	Entity_Id
 	standard_declaration(Decl_AST *decl);

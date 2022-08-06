@@ -20,6 +20,14 @@ Source_Location::print_error_header() {
 }
 
 void
+Source_Location::print_warning_header() {
+	if(filename.data) 
+		error_print("WARNING: In file ", filename, " line ", line+1, " column ", column, ":\n");
+	else
+		error_print("(compiler internal)\n");
+}
+
+void
 Token::print_error_location() {
 	location.print_error();
 }
@@ -27,6 +35,11 @@ Token::print_error_location() {
 void
 Token::print_error_header() {
 	location.print_error_header();
+}
+
+void
+Token::print_warning_header() {
+	location.print_warning_header();
 }
 
 const Token *

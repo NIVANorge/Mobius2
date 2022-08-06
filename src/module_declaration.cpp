@@ -176,8 +176,10 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 	} else
 		registration->location    = declaration->location;
 	
-	if(name)
+	if(name) {
 		registration->name = name->string_value;
+		name_to_handle[name->string_value] = found_id;  // This is needed if something is referred to first only by handle, then later declared by name.
+	}
 	
 	//NOTE: the type be different from the reg_type in some instances since we use the same registry for e.g. quantities and properties, or different parameter types.
 	if(declaration)
@@ -210,7 +212,7 @@ resolve_argument(Module_Declaration *module, Decl_AST *decl, int which, int max_
 }
 
 template <Reg_Type reg_type> Entity_Id
-Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type decl_type) {
+Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type decl_type, String_View name) {
 	Entity_Id id = {parent->module_id, reg_type, (s32)registrations.size()};
 	registrations.push_back({});
 	
@@ -221,6 +223,11 @@ Registry<reg_type>::create_compiler_internal(String_View handle_name, Decl_Type 
 	
 	handle_name_to_handle[handle_name] = id;
 	parent->handles_in_scope[handle_name] = id;
+	
+	if(name) {
+		registration->name = name;
+		name_to_handle[name] = id;
+	}
 	
 	return id;
 }
@@ -1006,6 +1013,17 @@ register_intrinsics(Module_Declaration *module) {
 	#include "intrinsics.incl"
 	#undef MAKE_INTRINSIC1
 	#undef MAKE_INTRINSIC2
+	
+	//TODO: We should actually make it so that these can't be referenced in code (i.e. not have a handle)
+	auto system = module->par_groups.create_compiler_internal("system", Decl_Type::par_group, "System");
+	auto start = module->parameters.create_compiler_internal("start_date", Decl_Type::par_datetime, "Start date");
+	auto end   = module->parameters.create_compiler_internal("end_date", Decl_Type::par_datetime, "End date");
+	
+	module->par_groups[system]->parameters.push_back(start);
+	module->par_groups[system]->parameters.push_back(end);
+	module->par_groups[system]->compartment = invalid_entity_id;
+	module->parameters[start]->par_group = system;
+	module->parameters[end]->par_group = system;
 }
 
 

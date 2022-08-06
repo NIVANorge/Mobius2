@@ -93,9 +93,6 @@ int main(int argc, char** argv) {
 		nidx1 = atoi(argv[4]);
 	if(argc >= 6)
 		nidx2 = atoi(argv[5]);
-	
-	Data_Set data_set;
-	data_set.read_from_file("test_data_set.dat");
 
 	String_View idxs = "abcdefghijklmnopqrstuvwxyz";
 	std::vector<String_View> indexes1;
@@ -113,6 +110,12 @@ int main(int argc, char** argv) {
 	{
 		Model_Application app(model);
 		
+		Data_Set data_set;
+		data_set.read_from_file("test_data_set.dat");
+		
+		app.build_from_data_set(&data_set);
+		
+		/*
 		int idxidx = 0;
 		for(auto index_set : model->modules[0]->index_sets) {
 			if(idxidx++ == 0)
@@ -120,17 +123,20 @@ int main(int argc, char** argv) {
 			else
 				app.set_indexes(index_set, Array<String_View>{indexes2.data(), indexes2.size()});
 		}
-		app.set_up_parameter_structure();
+		*/
+		//app.set_up_parameter_structure();
 		app.set_up_series_structure();
-		app.set_up_neighbor_structure();
+		//app.set_up_neighbor_structure();
 		
 		// NOTE : test neighbor connections
+		/*
 		if(app.neighbor_data.total_count == 2)
 			app.neighbor_data.data[0] = 1;             //This will point the first index at the second.
 		else if(app.neighbor_data.total_count > 2) {
 			app.neighbor_data.data[0] = 2;
 			app.neighbor_data.data[1] = 2;
 		}
+		*/
 		
 		/*
 		if(model_file == "models/simplyq_model.txt") {

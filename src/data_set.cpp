@@ -91,7 +91,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 					token = stream->peek_token();
 					stream->expect_quoted_string();
 					int index      = index_set->indexes.expect_exists_idx(&token, "index");
-					indexes.push_back(std::pair<String_View, int>{index_set->name, index});
+					indexes.push_back(std::pair<String_View, int>{index_set->name.string_value, index});
 					token = stream->peek_token();
 					if((char)token.type == ']') {
 						stream->read_token();
@@ -243,7 +243,7 @@ Data_Set::read_from_file(String_View file_name) {
 			continue;
 		} else if(token.type != Token_Type::identifier) {
 			token.print_error_header();
-			fatal_error("Expected an identifier (index_set, neighbor, series, module, or par_datetime)."); 
+			fatal_error("Expected an identifier (index_set, neighbor, series, module, par_group, or par_datetime)."); 
 		}
 		
 		if(token.string_value == "index_set") {
@@ -265,7 +265,7 @@ Data_Set::read_from_file(String_View file_name) {
 			auto data = neighbors.find_or_create(name);
 			
 			Index_Set_Info *index_set = index_sets.expect_exists(single_arg(decl, 1), "index_set");
-			data->index_set = index_set->name;
+			data->index_set = index_set->name.string_value;
 			data->points_at.resize(index_set->indexes.count(), -1);
 			read_neighbor_data(&stream, data, index_set);
 			delete decl;
@@ -290,6 +290,8 @@ Data_Set::read_from_file(String_View file_name) {
 			}
 		} else if(token.string_value == "par_datetime") {
 			parse_parameter_decl(&global_pars, &stream, 1);
+		} else if(token.string_value == "par_group") {
+			parse_par_group_decl(this, &global_module, &stream);
 		} else if(token.string_value == "module") {
 			auto decl = parse_decl_header(&stream);
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);

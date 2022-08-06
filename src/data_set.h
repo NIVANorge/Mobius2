@@ -55,26 +55,29 @@ Info_Registry {
 		}
 		name_to_id[name->string_value] = (int)data.size();
 		data.push_back({});
-		data.back().name = name->string_value;
+		data.back().name = *name;
 		return &data.back();
 	}
 	int count() { return data.size(); }
+	
+	Info_Type *begin() { return data.data(); }
+	Info_Type *end()   { return data.data() + data.size(); }
 };
 
 struct
 Index_Info {
-	String_View name;
+	Token name;
 };
 
 struct
 Index_Set_Info {
-	String_View name;
+	Token name;
 	Info_Registry<Index_Info> indexes;
 };
 
 struct
 Neighbor_Info {    // This obviously has to be either subclased or have different data when having other neighbor structure types.
-	String_View name;
+	Token name;
 	String_View index_set;
 	
 	enum class Type {
@@ -88,7 +91,7 @@ Neighbor_Info {    // This obviously has to be either subclased or have differen
 
 struct
 Par_Info {
-	String_View name;
+	Token name;
 	Decl_Type type;
 	std::vector<Parameter_Value> values;
 	std::vector<String_View> values_enum; // Can't resolve them to int yet.
@@ -96,7 +99,7 @@ Par_Info {
 
 struct
 Par_Group_Info {
-	String_View name;
+	Token name;
 	
 	std::vector<String_View> index_sets;
 	Info_Registry<Par_Info> pars;
@@ -104,7 +107,7 @@ Par_Group_Info {
 
 struct
 Module_Info {
-	String_View name;
+	Token name;
 	int major, minor, revision;
 	
 	Info_Registry<Par_Group_Info> par_groups;
@@ -157,7 +160,11 @@ Series_Set_Info {
 struct
 Data_Set {
 	
-	//Data_Set();
+	Data_Set() {
+		global_pars.name = {};
+		global_pars.name.string_value = "System";
+		global_pars.name.type = Token_Type::quoted_string;
+	}
 	//Data_Set(String_View file_name);
 	
 	void read_from_file(String_View file_name);
@@ -167,7 +174,8 @@ Data_Set {
 	
 	String_View doc_string;
 	
-	Par_Group_Info global_pars;
+	Par_Group_Info global_pars;     // This is typically just for "Start date" and "End date"
+	Module_Info    global_module;   // This is for par groups that are not in a module but were declared in the model directly.
 	
 	Info_Registry<Index_Set_Info>  index_sets;
 	Info_Registry<Neighbor_Info>   neighbors;

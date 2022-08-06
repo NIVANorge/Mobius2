@@ -45,7 +45,7 @@ General model description.
 	
 	rw.reach_out  .to(downstream)
 	
-	soil.par_group("Land cover") {
+	soil.par_group("Land cover") {         #TODO: Should maybe have syntax to enforce a dependecy of this on landscape units (?)
 		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)
 	}
 	
