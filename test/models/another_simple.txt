@@ -7,12 +7,13 @@ model("Another simple") {
 		place : compartment("Place")
 		
 		place.par_group("Flow pars") {
-			flow_mag : par_real("Flow magnitude", unit(), 5)
+			flow_mag   : par_real("Flow magnitude", unit(), 5)
+			init_stuff : par_real("Initial stuff", unit(), 10)
 		}
 		
-		place.has(stuff : quantity("Stuff"), unit()) .initial { 100 }
+		place.has(stuff : quantity("Stuff"), unit()) .initial { init_stuff }
 		
-		the_flow : flux(place.stuff, out, "The flow") { flow_mag }
+		the_flow : flux(place.stuff, out, "The flow") { flow_mag*stuff }
 	}
 	
 	place : compartment("Place")

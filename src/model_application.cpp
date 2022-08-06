@@ -39,6 +39,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 				} else
 					index_sets = &empty;
 			}
+		
 			for(auto par : module->par_groups[group_id]->parameters)
 				par_by_index_sets[*index_sets].push_back(par);
 		}
@@ -143,6 +144,12 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 		// NOTE: we do error handling on this on the second pass.
 		return;
 	}
+	
+	if(par_group->index_sets.empty()) { // We have to signal it so that it is not filled with default index sets later
+		par_group_index_sets[par_group_id] = {};
+		return;
+	}
+	
 	auto pgd          = module->par_groups[par_group_id];
 	if(is_valid(pgd->compartment)) {  // It is invalid for the "System" par group
 		auto compartment  = module->compartments[pgd->compartment];
@@ -166,7 +173,7 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 
 void
 process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Module_Info *module_info = nullptr) {
-	warning_print("process parameters\n");
+	
 	if(!app->parameter_data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
 	
@@ -188,21 +195,18 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	} else
 		module = model->modules[0];
 	
-	warning_print("smooch.\n");
-	warning_print("name:  ", par_group_info->name.string_value, "\n");
 	// TODO: Match module versions, and be lenient on errors if versions don't match.
 	
 	// TODO: oops module->module_name is not the right thing to use for the global module (unless we set that name to something sensible?).
 	
 	auto par_group_id = module->par_groups.find_by_name(&par_group_info->name);
-	warning_print("booch.\n");
 	if(!is_valid(par_group_id)) {
 		par_group_info->name.print_error_header();
 		fatal_error("The module \"", module->module_name, "\" does not contain the parameter group \"", par_group_info->name.string_value, ".");
 		//TODO: say what file the module was declared in?
 	}
 	//auto par_group = module->par_groups[par_group_id];
-	warning_print("ping\n");
+	
 	for(auto &par : par_group_info->pars) {
 		warning_print(par.name.string_value, "\n");
 		auto par_id = module->parameters.find_by_name(&par.name);
@@ -212,7 +216,6 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 			par.name.print_error_header();
 			fatal_error("The parameter group \"", par_group_info->name.string_value, "\" in the module \"", module->module_name, "\" does not contain a parameter named \"", par.name.string_value, "\".");
 		}
-		warning_print("pong.\n");
 		
 		if(param->decl_type != par.type) {
 			par.name.print_error_header();
@@ -220,7 +223,6 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		}
 		
 		// TODO: Double check that we have a valid amount of values for the parameter.
-		warning_print("bing\n");
 		s64 expect_count = app->parameter_data.instance_count(par_id);
 		if((par.type == Decl_Type::par_enum && expect_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && expect_count != par.values.size()))
 			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly).");

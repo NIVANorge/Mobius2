@@ -89,18 +89,6 @@ int main(int argc, char** argv) {
 		time_steps = (s64)atoi(argv[2]);
 	if(argc >= 4)
 		input_file = argv[3];
-	if(argc >= 5)
-		nidx1 = atoi(argv[4]);
-	if(argc >= 6)
-		nidx2 = atoi(argv[5]);
-
-	String_View idxs = "abcdefghijklmnopqrstuvwxyz";
-	std::vector<String_View> indexes1;
-	std::vector<String_View> indexes2;
-	for(int idx = 0; idx < nidx1; ++idx)
-		indexes1.push_back(idxs.substring(idx, 1));
-	for(int idx = 0; idx < nidx2; ++idx)
-		indexes2.push_back(idxs.substring(idx, 1));
 	
 	Mobius_Model *model = load_model(model_file);
 	model->compose();
@@ -111,7 +99,7 @@ int main(int argc, char** argv) {
 		Model_Application app(model);
 		
 		Data_Set data_set;
-		data_set.read_from_file("test_data_set.dat");
+		data_set.read_from_file(input_file);
 		
 		app.build_from_data_set(&data_set);
 		
@@ -154,11 +142,13 @@ int main(int argc, char** argv) {
 		*/
 		app.compile();
 
+		/*
 		if(input_file) {
 			warning_print("Load input data\n");
 			app.series_data.allocate(time_steps);
 			read_input_data(input_file, &app);
 		}
+		*/
 		
 		run_model(&app, time_steps);
 		
