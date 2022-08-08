@@ -6,7 +6,7 @@
 
 
 
-void run_model(Model_Application *model_app, s64 time_steps) {
+void run_model(Model_Application *model_app) {
 	
 	warning_print("begin emulate model run.\n");
 	
@@ -14,25 +14,45 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 		fatal_error(Mobius_Error::api_usage, "Tried to run model before it was compiled.");
 	Mobius_Model *model = model_app->model;
 	
-	model_app->result_data.allocate(time_steps);
-	if(!model_app->series_data.data)
+	Date_Time start_date = model_app->get_start_date_parameter();
+	Date_Time end_date   = model_app->get_end_date_parameter();
+	
+	if(start_date > end_date)
+		fatal_error(Mobius_Error::api_usage, "The end date of the model run was set to be later than the start date.\n");
+	
+	s64 time_steps = steps_between(start_date, end_date, model_app->timestep_size) + 1; // +1 since end date is inclusive.
+	
+	s64 input_offset = 0;
+	if(model_app->series_data.data) {
+		if(start_date < model_app->series_data.start_date)
+			fatal_error(Mobius_Error::api_usage, "Tried to start the model run at an earlier time than there exists time series input data.\n");
+		input_offset = steps_between(model_app->series_data.start_date, start_date, model_app->timestep_size);
+		
+		if(input_offset + time_steps > model_app->series_data.time_steps)
+			fatal_error(Mobius_Error::api_usage, "Tried to run the model for longer than there exists time series input data.\n");
+	} else {
 		model_app->series_data.allocate(time_steps);
+		model_app->series_data.start_date = start_date;
+	}
+	
+	model_app->result_data.allocate(time_steps);
+	model_app->result_data.start_date = start_date;
 	
 	warning_print("got past allocation\n");
+	
+	int var_count    = model_app->result_data.total_count;
+	int series_count = model_app->series_data.total_count;
 	
 	//TODO: better encapsulate run_state functionality
 	Model_Run_State run_state;
 	//run_state.model_app  = model_app;
 	run_state.parameters = model_app->parameter_data.data;
 	run_state.state_vars = model_app->result_data.data;
-	run_state.series     = model_app->series_data.data;       // TODO: properly advance into this to the start date of the model run.
+	run_state.series     = model_app->series_data.data + series_count*input_offset;
 	run_state.neighbor_info = model_app->neighbor_data.data;
 	run_state.solver_workspace = nullptr;
-	run_state.date_time  = Expanded_Date_Time(); // TODO: set this properly, using the start date parameter and the timestep_size
+	run_state.date_time  = Expanded_Date_Time(start_date, model_app->timestep_size);
 	run_state.solver_t   = 0.0;
-	
-	// TODO: we could reuse structured storage?
-	//run_state.neighbor_info = (s64 *)malloc(sizeof(s64)*
 	
 	int solver_workspace_size = 0;
 	for(auto &batch : model_app->batches) {
@@ -42,11 +62,8 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	if(solver_workspace_size > 0)
 		run_state.solver_workspace = (double *)malloc(sizeof(double)*solver_workspace_size);
 	
-	int var_count    = model_app->result_data.total_count;
-	int series_count = model_app->series_data.total_count;
-	
 	warning_print("begin run\n");
-	// Initial values:
+	
 
 #if MOBIUS_EMULATE
 	#define BATCH_FUNCTION(batch) reinterpret_cast<batch_function *>(batch.run_code)
@@ -57,6 +74,7 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	Timer run_timer;
 	run_state.date_time.step = -1;
 
+	// Initial values:
 	call_fun(BATCH_FUNCTION(model_app->initial_batch), &run_state);
 
 	
@@ -85,8 +103,4 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	if(run_state.solver_workspace) free(run_state.solver_workspace);
 	
 	warning_print("Run time: ", ms, " milliseconds, ", cycles, " cycles.\n");
-	
-	warning_print("finished run.\n");
-	
-	warning_print("finished running.\n");
 }

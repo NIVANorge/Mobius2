@@ -35,6 +35,6 @@ call_fun(batch_function *fun, Model_Run_State *run_state) {
 }
 
 void
-run_model(Model_Application *model_app, s64 time_steps);
+run_model(Model_Application *model_app);
 
 #endif // MOBIUS_RUN_MODEL_H

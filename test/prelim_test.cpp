@@ -80,7 +80,6 @@ int main(int argc, char** argv) {
 	//SetConsoleOutputCP(65001);
 	
 	String_View model_file = "stupidly_simple_model.txt";
-	s64 time_steps = 100;
 	String_View input_file = "";
 	int nidx1 = 1;
 	int nidx2 = 1;
@@ -88,9 +87,7 @@ int main(int argc, char** argv) {
 	if(argc >= 2)
 		model_file = argv[1];
 	if(argc >= 3)
-		time_steps = (s64)atoi(argv[2]);
-	if(argc >= 4)
-		input_file = argv[3];
+		input_file = argv[2];
 	
 	Mobius_Model *model = load_model(model_file);
 	model->compose();
@@ -107,7 +104,7 @@ int main(int argc, char** argv) {
 
 		app.compile();
 		
-		run_model(&app, time_steps);
+		run_model(&app);
 		
 		write_result_data("results.dat", &app);
 	}

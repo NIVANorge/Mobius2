@@ -40,8 +40,8 @@ neighbor("Downstream", "Subcatchment") [
 
 series("testinput.dat")
 
-par_datetime("Start date") [ 2004-01-01 ]
-par_datetime("End date")   [ 2005-12-31 ]
+par_datetime("Start date") [ 1981-01-01 ]
+par_datetime("End date")   [ 1986-12-31 ]
 
 par_group("Land cover") ["Subcatchment" "Landscape units"] {
 	par_real("Land use proportions") [ 

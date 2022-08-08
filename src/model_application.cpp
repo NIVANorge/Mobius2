@@ -428,4 +428,19 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 }
 
 
+Date_Time
+Model_Application::get_start_date_parameter() {
+	auto id = model->modules[0]->parameters.find_by_name("Start date");
+	auto offset = parameter_data.get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
+	return parameter_data.get_value(offset)->val_datetime;
+}
+
+Date_Time
+Model_Application::get_end_date_parameter() {
+	auto id = model->modules[0]->parameters.find_by_name("End date");
+	auto offset = parameter_data.get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
+	return parameter_data.get_value(offset)->val_datetime;
+}
+
+
 

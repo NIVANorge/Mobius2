@@ -1,0 +1,20 @@
+
+
+
+index_set("Place index") [  "Place A" "Place B" "Place C" ]
+
+neighbor("Place neighbor", "Place index") [
+	"Place A" -> "Place C"
+	"Place B" -> "Place C"
+]
+
+module("So simple", 1, 0, 0) {
+	par_group("Flow pars") ["Place index"] {
+		par_real("Flow magnitude") [
+			0.1 0.2 0.01
+		]
+		par_real("Initial stuff") [
+			10 20 0
+		]
+	}
+}
