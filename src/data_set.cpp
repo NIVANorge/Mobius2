@@ -119,6 +119,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 						fatal_error("Expected a ] or another flag identifier");
 					}
 				}
+				//TODO: Check for conflicting flags.
 			} else {
 				token.print_error_header();
 				fatal_error("Expected the name of an index set or a flag");
@@ -136,7 +137,9 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 	
 	int rowlen = data->header_data.size();
 	
-	data->raw_values.reserve(1024*rowlen);
+	data->raw_values.resize(rowlen);
+	for(auto &vec : data->raw_values)
+		vec.reserve(1024);
 	
 	if(data->has_date_vector) {
 		Date_Time start_date;
@@ -147,11 +150,11 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 		while(true) {
 			Date_Time date = stream->expect_datetime();
 			if(date < start_date) start_date = date;
-			if(date > end_date) end_date = date;
+			if(date > end_date)   end_date   = date;
 			data->dates.push_back(date);
-			for(int idx = 0; idx < rowlen; ++idx) {
+			for(int col = 0; col < rowlen; ++col) {
 				double val = stream->expect_real();
-				data->raw_values.push_back(val);
+				data->raw_values[col].push_back(val);
 			}
 			Token token = stream->peek_token();
 			if(token.type != Token_Type::date)
@@ -167,9 +170,9 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 	} else {
 		data->time_steps = 0;
 		while(true) {
-			for(int idx = 0; idx < rowlen; ++idx) {
+			for(int col = 0; col < rowlen; ++col) {
 				double val = stream->expect_real();
-				data->raw_values.push_back(val);
+				data->raw_values[col].push_back(val);
 			}
 			++data->time_steps;
 			Token token = stream->peek_token();

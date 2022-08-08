@@ -1,6 +1,4 @@
 
-
-
 index_set("Place index") [  "Place A" "Place B" "Place C" ]
 
 neighbor("Place neighbor", "Place index") [
@@ -18,3 +16,14 @@ module("So simple", 1, 0, 0) {
 		]
 	}
 }
+
+par_datetime("Start date") [ 1990-1-1 ]
+par_datetime("End date")   [ 1990-5-1 ]
+
+series [
+	"The series"[interp_spline]
+1989-1-1	1
+1990-1-12	3
+1990-2-15	1.1
+1990-6-1	1.9
+]

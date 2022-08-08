@@ -11,6 +11,12 @@ model("Another simple") {
 			init_stuff : par_real("Initial stuff", unit(), 10)
 		}
 		
+		place.has(the_series : property("The series"))
+		
+		place.has(record : property("Record")) {
+			the_series
+		}
+		
 		place.has(stuff : quantity("Stuff"), unit()) .initial { init_stuff }
 		
 		the_flow : flux(place.stuff, out, "The flow") { flow_mag*stuff }

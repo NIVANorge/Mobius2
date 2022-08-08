@@ -126,10 +126,10 @@ Series_Data_Flags {
 inline void
 set_flag(Series_Data_Flags *flags, Token *token) {
 	String_View name = token->string_value;
-	if     (name == "interp_step")   *flags = (Series_Data_Flags)(*flags & series_data_interp_step);
-	else if(name == "interp_linear") *flags = (Series_Data_Flags)(*flags & series_data_interp_linear);
-	else if(name == "interp_spline") *flags = (Series_Data_Flags)(*flags & series_data_interp_spline);
-	else if(name == "repeat_yearly") *flags = (Series_Data_Flags)(*flags & series_data_repeat_yearly);
+	if     (name == "interp_step")   *flags = (Series_Data_Flags)(*flags | series_data_interp_step);
+	else if(name == "interp_linear") *flags = (Series_Data_Flags)(*flags | series_data_interp_linear);
+	else if(name == "interp_spline") *flags = (Series_Data_Flags)(*flags | series_data_interp_spline);
+	else if(name == "repeat_yearly") *flags = (Series_Data_Flags)(*flags | series_data_repeat_yearly);
 	else {
 		token->print_error_header();
 		fatal_error("Unrecognized series data flag \"", name, "\".");
@@ -155,7 +155,7 @@ Series_Set_Info {
 	bool has_date_vector;
 	std::vector<Series_Header_Info>  header_data;
 	std::vector<Date_Time>           dates;
-	std::vector<double>              raw_values;
+	std::vector<std::vector<double>> raw_values;
 	
 	Series_Set_Info() : has_date_vector(true) {};
 };

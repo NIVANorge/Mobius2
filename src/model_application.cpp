@@ -319,7 +319,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 
 
 void
-process_series(Model_Application *app, Series_Set_Info *series_info);
+process_series(Model_Application *app, Series_Set_Info *series_info, Date_Time end_date);
 
 void
 Model_Application::build_from_data_set(Data_Set *data_set) {
@@ -396,8 +396,6 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			process_parameters(this, &par_group, &module);
 	}
 	
-	warning_print("bonk\n");
-	
 	Series_Metadata metadata;
 	metadata.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
 	metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
@@ -415,13 +413,14 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		//TODO: use the model run start and end date.
 		// Or better yet, we could just bake in series data as literals in the code. in this case.
 	}
-	warning_print(metadata.start_date.to_string(), " ", metadata.end_date.to_string(), " ", time_steps, "\n");
+	warning_print("Input dates: ", metadata.start_date.to_string());
+	warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
 	series_data.allocate(time_steps);
 	// TODO: fill default NaN values in the series data for some types of series!
 	series_data.start_date = metadata.start_date;
 	
 	for(auto &series : data_set->series) {
-		process_series(this, &series);
+		process_series(this, &series, metadata.end_date);
 	}
 	
 	//TODO: unload the loaded file data from the data_set. But if we stored string data from it, we would have to copy that over.

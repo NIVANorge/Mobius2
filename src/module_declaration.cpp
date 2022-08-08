@@ -1019,11 +1019,17 @@ register_intrinsics(Module_Declaration *module) {
 	auto start = module->parameters.create_compiler_internal("start_date", Decl_Type::par_datetime, "Start date");
 	auto end   = module->parameters.create_compiler_internal("end_date", Decl_Type::par_datetime, "End date");
 	
+	Date_Time default_start;  // 1970-1-1
+	Date_Time default_end;
+	default_end.seconds_since_epoch += 15*86400;  // 1970-1-16
+	
 	module->par_groups[system]->parameters.push_back(start);
 	module->par_groups[system]->parameters.push_back(end);
 	module->par_groups[system]->compartment = invalid_entity_id;
 	module->parameters[start]->par_group = system;
+	module->parameters[start]->default_val.val_datetime = default_start;
 	module->parameters[end]->par_group = system;
+	module->parameters[end]->default_val.val_datetime = default_end;
 }
 
 
