@@ -94,11 +94,12 @@ struct Var_Registry {
 		return find->second;
 	}
 	
-	std::set<Var_Id> *operator[](String_View name) {
+	const std::set<Var_Id> &operator[](String_View name) {
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end())
-			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid name \"", name, "\".");
-		return &find->second;
+			return {};
+			//fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid name \"", name, "\".");
+		return find->second;
 	}
 	
 	Var_Id register_var(State_Variable var, Value_Location loc) {

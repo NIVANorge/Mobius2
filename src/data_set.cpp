@@ -64,8 +64,12 @@ read_neighbor_data(Token_Stream *stream, Neighbor_Info *info, Index_Set_Info *in
 
 void
 read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info *data) {
+	
+	data->has_date_vector = true;
 	Token token = stream->peek_token();
+	
 	if(token.type == Token_Type::date) {
+		// If there is a date as the first token, that gives the start date, and there is no separate date for each row.
 		data->start_date = stream->expect_datetime();
 		data->has_date_vector = false;
 	} else if(token.type != Token_Type::quoted_string) {
@@ -75,6 +79,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 	
 	while(true) {
 		Series_Header_Info header;
+		header.location = token.location;
 		header.name = stream->expect_quoted_string();
 		while(true) {
 			token = stream->peek_token();
@@ -118,26 +123,59 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 				token.print_error_header();
 				fatal_error("Expected the name of an index set or a flag");
 			}
-			data->header_data.push_back(std::move(header));
 		}
+		data->header_data.push_back(std::move(header));
+		
 		Token token = stream->peek_token();
 		if(token.type != Token_Type::quoted_string)
 			break;
 	}
+	
+	if(data->header_data.empty())
+		fatal_error(Mobius_Error::internal, "Empty input data header not properly detected.");
+	
 	int rowlen = data->header_data.size();
+	
 	data->raw_values.reserve(1024*rowlen);
-	while(true) {
-		if(data->has_date_vector) {
+	
+	if(data->has_date_vector) {
+		Date_Time start_date;
+		start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
+		Date_Time end_date;
+		end_date.seconds_since_epoch = std::numeric_limits<s64>::min();
+		
+		while(true) {
 			Date_Time date = stream->expect_datetime();
+			if(date < start_date) start_date = date;
+			if(date > end_date) end_date = date;
 			data->dates.push_back(date);
+			for(int idx = 0; idx < rowlen; ++idx) {
+				double val = stream->expect_real();
+				data->raw_values.push_back(val);
+			}
+			Token token = stream->peek_token();
+			if(token.type != Token_Type::date)
+				break;
 		}
-		for(int idx = 0; idx < rowlen; ++idx) {
-			double val = stream->expect_real();
-			data->raw_values.push_back(val);
+		if(!data->dates.empty()) {
+			data->start_date = start_date;
+			data->end_date = end_date;
+			data->time_steps = -1;    // This signals that the end_date is recorded instead of the time_steps;
+		} else
+			data->time_steps = 0;
+		
+	} else {
+		data->time_steps = 0;
+		while(true) {
+			for(int idx = 0; idx < rowlen; ++idx) {
+				double val = stream->expect_real();
+				data->raw_values.push_back(val);
+			}
+			++data->time_steps;
+			Token token = stream->peek_token();
+			if(!is_numeric(token.type))
+				break;
 		}
-		Token token = stream->peek_token();
-		if(!((data->has_date_vector && token.type == Token_Type::date) || (!data->has_date_vector && is_numeric(token.type))))
-			break;
 	}
 }
 
@@ -226,7 +264,7 @@ Data_Set::read_from_file(String_View file_name) {
 	main_file = file_name;
 	
 	//TODO: have a file handler instead
-	auto file_data = read_entire_file(file_name);
+	auto file_data = file_handler.load_file(file_name);
 	
 	Token_Stream stream(file_name, file_data);
 	stream.allow_date_time_tokens = true;
@@ -275,8 +313,24 @@ Data_Set::read_from_file(String_View file_name) {
 				auto decl = parse_decl_header(&stream);
 				match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
 				
-				String_View file_name = single_arg(decl, 0)->string_value;
-				warning_print("Reading series data from separate file not yet implemented.");
+				String_View other_file_name = single_arg(decl, 0)->string_value;
+				
+				if(file_handler.is_loaded(other_file_name, file_name)) {
+					token.print_error_header();
+					fatal_error("The file ", other_file_name, " has already been loaded.");
+				}
+				//TODO: implement excel files
+				String_View other_data = file_handler.load_file(other_file_name, file_name);
+				Token_Stream other_stream(other_file_name, other_data);
+				other_stream.allow_date_time_tokens = true;
+				
+				series.push_back({});
+				Series_Set_Info &data = series.back();
+				data.file_name = other_file_name;
+				read_series_data_block(this, &other_stream, &data);
+				
+				// NOTE: we can't do this because the header data points into it. It has to be unloaded after processing.
+				//file_handler.unload(other_file_name, file_name);
 				
 				delete decl;
 			} else {
@@ -321,4 +375,7 @@ Data_Set::read_from_file(String_View file_name) {
 			fatal_error("Unknown declaration type \"", token.string_value, ".");
 		}
 	}
+	
+	// NOTE: We can't do this yet because we have string data pointing into it! It has to be done after processing
+	//file_handler.unload(file_name);
 }

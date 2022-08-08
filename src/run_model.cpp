@@ -25,10 +25,10 @@ void run_model(Model_Application *model_app, s64 time_steps) {
 	//run_state.model_app  = model_app;
 	run_state.parameters = model_app->parameter_data.data;
 	run_state.state_vars = model_app->result_data.data;
-	run_state.series     = model_app->series_data.data;
+	run_state.series     = model_app->series_data.data;       // TODO: properly advance into this to the start date of the model run.
 	run_state.neighbor_info = model_app->neighbor_data.data;
 	run_state.solver_workspace = nullptr;
-	run_state.date_time  = Expanded_Date_Time(); // TODO: set this properly.
+	run_state.date_time  = Expanded_Date_Time(); // TODO: set this properly, using the start date parameter and the timestep_size
 	run_state.solver_t   = 0.0;
 	
 	// TODO: we could reuse structured storage?

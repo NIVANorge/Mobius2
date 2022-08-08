@@ -414,7 +414,10 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 			instructions[var_id.id].index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
 		}
 		
-		//TODO: also for dependency on input time series when we implement indexing of those. 
+		for(auto series_id : get_dep(model, var_id, initial)->on_series) {
+			auto index_sets = model_app->series_data.get_index_sets(series_id);
+			instructions[var_id.id].index_sets.insert(index_sets.begin(), index_sets.end());
+		}
 	}
 	
 	bool changed;

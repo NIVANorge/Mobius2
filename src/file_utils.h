@@ -48,6 +48,27 @@ File_Data_Handler {
 		return data;
 	}
 	
+	bool
+	is_loaded(String_View file_name, String_View relative) {
+		String_View load_name = file_name;
+		if(relative)
+			load_name = make_path_relative_to(file_name, relative);
+		auto find = loaded_files.find(load_name);
+		return find != loaded_files.end();
+	}
+	
+	void
+	unload(String_View file_name, String_View relative) {
+		String_View load_name = file_name;
+		if(relative)
+			load_name = make_path_relative_to(file_name, relative);
+		auto find = loaded_files.find(load_name);
+		if(find != loaded_files.end()) {
+			delete find->second.data;
+			loaded_files.erase(find);
+		}
+	}
+	
 	~File_Data_Handler() {
 		for(auto find : loaded_files) free(find.second.data);
 	}

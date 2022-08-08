@@ -184,6 +184,9 @@ Time_Step_Unit {
 struct Time_Step_Size {
 	Time_Step_Unit unit;
 	s32            magnitude;
+	
+	Time_Step_Size(Time_Step_Unit unit, s32 magnitude) : unit(unit), magnitude(magnitude) {}
+	Time_Step_Size() : unit(Time_Step_Unit::second), magnitude(86400) {}
 };
 
 struct Expanded_Date_Time {
@@ -195,7 +198,6 @@ struct Expanded_Date_Time {
 	
 	Date_Time date_time;
 	Time_Step_Size time_step;
-	
 	
 	Expanded_Date_Time(Date_Time base, Time_Step_Size time_step) : date_time(base), time_step(time_step), step(0) {
 		//NOTE: This does double work, but it should not matter that much.
@@ -210,7 +212,7 @@ struct Expanded_Date_Time {
 		compute_next_step_size();
 	}
 	
-	Expanded_Date_Time() : Expanded_Date_Time(Date_Time(), {Time_Step_Unit::second, 86400}) {}
+	Expanded_Date_Time() : Expanded_Date_Time(Date_Time(), Time_Step_Size {Time_Step_Unit::second, 86400}) {}
 	
 	void
 	advance() {

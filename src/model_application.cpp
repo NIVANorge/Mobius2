@@ -17,10 +17,11 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 	
 	std::map<std::vector<Entity_Id>, std::vector<Entity_Id>> par_by_index_sets;
 	
+	std::vector<Entity_Id> empty;
 	for(auto module : model->modules) {
 		for(auto group_id : module->par_groups) {
-			std::vector<Entity_Id> *index_sets;
-			std::vector<Entity_Id> empty;
+			std::vector<Entity_Id> *index_sets = &empty;
+			
 			bool found = false;
 			if(par_group_index_sets) {
 				auto find = par_group_index_sets->find(group_id);
@@ -36,8 +37,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 					if(is_valid(compartment->global_id))
 						compartment = model->modules[0]->compartments[compartment->global_id];
 					index_sets = &compartment->index_sets;
-				} else
-					index_sets = &empty;
+				}
 			}
 		
 			for(auto par : module->par_groups[group_id]->parameters)
@@ -67,18 +67,34 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 }
 
 void
-Model_Application::set_up_series_structure() {
+Model_Application::set_up_series_structure(Series_Metadata *metadata) {
 	if(series_data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up input structure twice.");
 	if(!all_indexes_are_set())
 		fatal_error(Mobius_Error::internal, "Tried to set up input structure before all index sets received indexes.");
 	
 	std::vector<Multi_Array_Structure<Var_Id>> structure;
-	std::vector<Var_Id> handles;
-		for(auto id : model->series) handles.push_back(id);
 	
-	Multi_Array_Structure<Var_Id> array({}, std::move(handles)); // TODO: index sets when we implement those.
-	structure.push_back(std::move(array));
+	std::map<std::vector<Entity_Id>, std::vector<Var_Id>> series_by_index_sets;
+	
+	std::vector<Entity_Id> empty;
+	for(auto series_id : model->series) {
+		std::vector<Entity_Id> *index_sets = &empty;
+		if(metadata) {
+			auto find = metadata->index_sets.find(series_id);
+			if(find != metadata->index_sets.end())
+				index_sets = &find->second;
+		}
+		
+		series_by_index_sets[*index_sets].push_back(series_id);
+	}
+	
+	for(auto pair : series_by_index_sets) {
+		std::vector<Entity_Id> index_sets = pair.first;
+		std::vector<Var_Id>    handles    = pair.second;
+		Multi_Array_Structure<Var_Id> array(std::move(index_sets), std::move(handles));
+		structure.push_back(std::move(array));
+	}
 	
 	series_data.set_up(std::move(structure));
 }
@@ -208,7 +224,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	//auto par_group = module->par_groups[par_group_id];
 	
 	for(auto &par : par_group_info->pars) {
-		warning_print(par.name.string_value, "\n");
+		//warning_print(par.name.string_value, "\n");
 		auto par_id = module->parameters.find_by_name(&par.name);
 		Entity_Registration<Reg_Type::parameter> *param;
 		if(!is_valid(par_id) || (param = module->parameters[par_id])->par_group != par_group_id) {
@@ -252,6 +268,58 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	}
 }
 
+void
+process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_Metadata *metadata) {
+	
+	auto model = app->model;
+	
+	if(series->time_steps == 0 || (series->time_steps < 0 && series->dates.empty()))   // Ignore empty data block.
+		return;
+	
+	if(series->start_date < metadata->start_date) metadata->start_date = series->start_date;
+	Date_Time end_date = series->end_date;
+	if(series->time_steps >= 0) {  // Recorded time steps instead of end date
+		Expanded_Date_Time dt(series->start_date, app->timestep_size);
+		for(s64 step = 0; step < series->time_steps-1; ++step) // NOTE: For 1 time step, start_date = end_date (they are inclusive).
+			dt.advance(); //TODO: Is there a more efficient way to do this?
+		end_date = dt.date_time;
+	}
+	if(end_date > metadata->end_date) metadata->end_date = end_date;
+	
+	metadata->any_data_at_all = true;
+
+	for(auto &header : series->header_data) {
+		// NOTE: several time series could have been given the same name.
+		std::set<Var_Id> ids = model->series[header.name];
+		
+		if(ids.empty()) continue;  //TODO: in this case register it as an additional time series.
+		
+		if(header.indexes.empty()) continue;
+		
+		if(metadata->index_sets.find(*ids.begin()) != metadata->index_sets.end()) continue; // NOTE: already set by another series data block.
+		
+		for(auto &index : header.indexes[0]) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
+			// NOTE: this should be valid since we already tested it internally in the data set.
+			Entity_Id index_set = model->modules[0]->index_sets.find_by_name(index.first);
+			if(!is_valid(index_set))
+				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
+			for(auto id : ids) {
+				
+				auto comp_id     = model->series[id]->loc1.compartment;
+				auto compartment = model->modules[0]->compartments[comp_id];
+				if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
+					header.location.print_error_header();
+					fatal_error(Mobius_Error::parsing, "Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
+				}
+				metadata->index_sets[id].push_back(index_set);
+			}
+		}
+	}
+}
+
+
+void
+process_series(Model_Application *app, Series_Set_Info *series_info);
 
 void
 Model_Application::build_from_data_set(Data_Set *data_set) {
@@ -316,7 +384,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &par_group : module.par_groups)
 			process_par_group_index_sets(model, &par_group, par_group_index_sets, &module.name);
 	}
-	warning_print("Set up par structure\n");
+	
 	set_up_parameter_structure(&par_group_index_sets);
 	
 	process_parameters(this, &data_set->global_pars);
@@ -327,6 +395,36 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &par_group : module.par_groups)
 			process_parameters(this, &par_group, &module);
 	}
+	
+	warning_print("bonk\n");
+	
+	Series_Metadata metadata;
+	metadata.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
+	metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
+	
+	for(auto &series : data_set->series) {
+		process_series_metadata(this, &series, &metadata);
+	}
+	
+	set_up_series_structure(&metadata);
+	s64 time_steps = 0;
+	if(metadata.any_data_at_all) {
+		time_steps = steps_between(metadata.start_date, metadata.end_date, timestep_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
+	}
+	else if(model->series.count() != 0) {
+		//TODO: use the model run start and end date.
+		// Or better yet, we could just bake in series data as literals in the code. in this case.
+	}
+	warning_print(metadata.start_date.to_string(), " ", metadata.end_date.to_string(), " ", time_steps, "\n");
+	series_data.allocate(time_steps);
+	// TODO: fill default NaN values in the series data for some types of series!
+	series_data.start_date = metadata.start_date;
+	
+	for(auto &series : data_set->series) {
+		process_series(this, &series);
+	}
+	
+	//TODO: unload the loaded file data from the data_set. But if we stored string data from it, we would have to copy that over.
 }
 
 

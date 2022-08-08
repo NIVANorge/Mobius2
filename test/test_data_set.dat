@@ -22,26 +22,26 @@ neighbor("Downstream", "Subcatchment") [
 #
 # Or is there another recognized graph format for text that we should just adopt? This looks a bit like DOT without the semicolons.
 
-series [
-	1997-1-1        # This doesn't declare start for all input data, just for this block.
-	"Air temperature"	"Precipitation"["Subcatchment" : "Coull"]
-	0 1
-	-2 1
-	-3 4
-]
+#series [
+#	1997-1-1        # This doesn't declare start for all input data, just for this block.
+#	"Air temperature"	"Precipitation"["Subcatchment" : "Coull"]
+#	0 1
+#	-2 1
+#	-3 4
+#]
 
-series [
-	"Precipitation"["Subcatchment" : "Boyne"]	"Potential evapotranspiration"[interp_linear repeat_yearly]
-1993-2-1	9	8
-1992-1-4	0	1
-]
+#series [
+#	"Precipitation"["Subcatchment" : "Boyne"]	"Potential evapotranspiration"[interp_linear repeat_yearly]
+#1993-2-1	9	8
+#1992-1-4	0	1
+#]
 
 # We don't declare index_set_dependencies anymore, or additional_time_series, these are inferred.
 
-# series("another_input_file.dat")
+series("testinput.dat")
 
-#par_datetime("Start date") [ 2004-01-01 ]
-#par_datetime("End date")   [ 2005-12-31 ]
+par_datetime("Start date") [ 2004-01-01 ]
+par_datetime("End date")   [ 2005-12-31 ]
 
 par_group("Land cover") ["Subcatchment" "Landscape units"] {
 	par_real("Land use proportions") [ 

@@ -138,6 +138,7 @@ set_flag(Series_Data_Flags *flags, Token *token) {
 
 struct
 Series_Header_Info {
+	Source_Location location;
 	String_View name;
 	std::vector<std::vector<std::pair<String_View, int>>> indexes;
 	Series_Data_Flags flags;
@@ -149,16 +150,20 @@ struct
 Series_Set_Info {
 	String_View file_name;
 	Date_Time start_date;
+	Date_Time end_date;
+	s64       time_steps;
 	bool has_date_vector;
 	std::vector<Series_Header_Info>  header_data;
 	std::vector<Date_Time>           dates;
-	std::vector<double> raw_values;
+	std::vector<double>              raw_values;
 	
 	Series_Set_Info() : has_date_vector(true) {};
 };
 
 struct
 Data_Set {
+	
+	File_Data_Handler file_handler;
 	
 	Data_Set() {
 		global_pars.name = {};

@@ -139,12 +139,12 @@ struct Model_Application;
 
 template<typename Val_T, typename Handle_T>
 struct Structured_Storage {
-	Val_T *data;
-	s64    time_steps;
-	//TODO: store start_date here too.
-	s64    initial_step; //Matching the (local) start date.
-	s64    total_count;
-	bool   has_been_set_up;
+	Val_T    *data;
+	s64       time_steps;
+	Date_Time start_date;
+	s64       initial_step; //Matching the (local) start date.
+	s64       total_count;
+	bool      has_been_set_up;
 	
 	Model_Application *parent;
 	
@@ -156,12 +156,14 @@ struct Structured_Storage {
 	void set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure);
 	
 	//TODO: there should be a version of this one that checks for out of bounds indexing. But we also want the fast one that doesn't
-	Val_T  *get_value(s64 offset_for_val, s64 time_step = 0) {
+	Val_T  *
+	get_value(s64 offset_for_val, s64 time_step = 0) {
 		s64 step = std::max(time_step + initial_step, (s64)0);
 		return data + offset_for_val + step*total_count;
 	}
 	
-	void allocate(s64 time_steps = 1) {
+	void 
+	allocate(s64 time_steps = 1) {
 		if(!has_been_set_up)
 			fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
 		if(data) free(data);
@@ -177,15 +179,19 @@ struct Structured_Storage {
 	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes);
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes);
 	
-	const std::vector<Entity_Id> & get_index_sets(Handle_T handle);
+	const std::vector<Entity_Id> &
+	get_index_sets(Handle_T handle);
 	
-	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes);
+	Math_Expr_FT *
+	get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes);
+	
+	void
+	for_each(Handle_T, const std::function<void(std::vector<Index_T> *, s64)>&);
+	
+	String_View
+	get_handle_name(Handle_T handle);
 	
 	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr) {}
-	
-	void for_each(Handle_T, const std::function<void(std::vector<Index_T> *, s64)>&);
-	
-	String_View get_handle_name(Handle_T handle);
 };
 
 struct
@@ -203,11 +209,20 @@ Run_Batch {
 };
 
 struct
+Series_Metadata {
+	Date_Time start_date;
+	Date_Time end_date;
+	bool any_data_at_all;
+	std::unordered_map<Var_Id, std::vector<Entity_Id>, Hash_Fun<Var_Id>> index_sets;
+	Series_Metadata() : any_data_at_all(false) {}
+};
+
+struct
 Model_Application {
 	Mobius_Model *model;
 	
 	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), is_compiled(false),
-		data_set(nullptr) {
+		data_set(nullptr), timestep_size {} {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
@@ -231,15 +246,17 @@ Model_Application {
 	
 	void build_from_data_set(Data_Set *data_set);
 	
+	Time_Step_Size                                   timestep_size;
+	
 	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;
 	Structured_Storage<double, Var_Id>              series_data;
 	Structured_Storage<double, Var_Id>              result_data;
 	Structured_Storage<s64, Neighbor_T>             neighbor_data;
 	
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
-	void set_up_series_structure();
+	void set_up_series_structure(Series_Metadata *metadata = nullptr);
 	void set_up_neighbor_structure();
-	//void set_up_result_structure();
+	
 	
 	bool is_compiled;
 	void compile();

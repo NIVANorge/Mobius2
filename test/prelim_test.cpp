@@ -11,6 +11,7 @@
 
 //#include <windows.h>
 
+/*
 void read_input_data(String_View file_name, Model_Application *model_app) {	
 	// Dummy code for initial prototype. We should reuse stuff from Mobius 1.0 later!
 	
@@ -43,6 +44,7 @@ void read_input_data(String_View file_name, Model_Application *model_app) {
 		}
 	free(file_data.data);
 }
+*/
 
 void write_result_data(String_View file_name, Model_Application *model_app) {
 	FILE *file = open_file(file_name, "w");
@@ -102,53 +104,8 @@ int main(int argc, char** argv) {
 		data_set.read_from_file(input_file);
 		
 		app.build_from_data_set(&data_set);
-		
-		/*
-		int idxidx = 0;
-		for(auto index_set : model->modules[0]->index_sets) {
-			if(idxidx++ == 0)
-				app.set_indexes(index_set, Array<String_View>{indexes1.data(), indexes1.size()});
-			else
-				app.set_indexes(index_set, Array<String_View>{indexes2.data(), indexes2.size()});
-		}
-		*/
-		//app.set_up_parameter_structure();
-		app.set_up_series_structure();
-		//app.set_up_neighbor_structure();
-		
-		// NOTE : test neighbor connections
-		/*
-		if(app.neighbor_data.total_count == 2)
-			app.neighbor_data.data[0] = 1;             //This will point the first index at the second.
-		else if(app.neighbor_data.total_count > 2) {
-			app.neighbor_data.data[0] = 2;
-			app.neighbor_data.data[1] = 2;
-		}
-		*/
-		
-		/*
-		if(model_file == "models/simplyq_model.txt") {
-			//haaaack!
-			Entity_Id par_id = model->modules[2]->find_handle("fc");
-			std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("lu"), 0}};
-			auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-			app.parameter_data.data[offset].val_real = 50.0;
-		} else if (model_file == "lv_model.txt") {
-			Entity_Id par_id = model->modules[1]->find_handle("init_prey");
-			std::vector<Index_T> par_idx = {Index_T{model->modules[0]->find_handle("hi"), 1}};
-			auto offset = app.parameter_data.get_offset_alternate(par_id, &par_idx);
-			app.parameter_data.data[offset].val_real = 2.0;
-		}
-		*/
-		app.compile();
 
-		/*
-		if(input_file) {
-			warning_print("Load input data\n");
-			app.series_data.allocate(time_steps);
-			read_input_data(input_file, &app);
-		}
-		*/
+		app.compile();
 		
 		run_model(&app, time_steps);
 		
