@@ -1,0 +1,37 @@
+index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
+
+neighbor("Migration route", "Habitat index") [
+	"Forest" -> "Plateau"
+	"Bogs"   -> "Plateau"
+]
+
+module("Giblet-Thasher", 1, 0, 0) {
+	par_group("General parameters") {
+		par_real("Giblet birth rate") [ 0.2 ]
+		par_int ("Giblet preferred birthday") [ 120 ]
+		par_real("Giblet propensity to migrate") [ 0.05 ]
+		par_real("Predation rate") [ 0.1 ]
+		par_real("Thrasher birth rate") [ 0.025 ]
+		par_real("Thrasher death rate") [ 0.05 ]
+	}
+	
+	par_group("Habitat parameters") ["Habitat index"] {
+		par_real("Initial predators") [ 1 0.5 0.5 ]
+		par_real("Initial prey") [ 0.4 1 2 ]
+		
+		par_real("Giblet carrying capacity") [ 40 20 30 ]
+	}
+}
+
+par_datetime("Start date") [ 1990-1-1 ]
+par_datetime("End date")   [ 1995-1-1 ]
+
+series [
+	"Meteor strikes"["Habitat index" : "Plateau"]
+1990-1-1	0
+1990-1-12	1
+1990-6-1	1
+1992-4-21	1
+1994-3-15	1
+1995-1-1	0
+]
