@@ -422,10 +422,16 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 				auto index_sets = model_app->series_data.get_index_sets(series_id);
 				instr.index_sets.insert(index_sets.begin(), index_sets.end());
 			}
+			
 		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
 			for(auto par_id : model->state_vars[instr.source_or_target_id]->agg_depends.on_parameter) {
 				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
 				instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
+			}
+		} else if (instr.type == Model_Instruction::Type::add_flux_to_target) {
+			for(auto par_id : model->state_vars[instr.var_id]->unit_conv_depends.on_parameter) {
+				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
+				instr.index_sets.insert(index_sets.begin(), index_sets.end());
 			}
 		}
 	}
@@ -531,7 +537,9 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 }
 
 void
-build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instructions, bool initial) {
+build_instructions(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
+	
+	auto model = app->model;
 	
 	instructions.resize(model->state_vars.count());
 	
@@ -716,6 +724,12 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 		
 			if (is_valid(source_solver)) { // NOTE: ODE variables have separate code for computing the derivative.
 				source->inherits_index_sets_from_instruction.insert(var_id.id);
+				// TODO: this is a bit of a hack.. Find a way to say that it inherits from the unit_conversion_tree without putting it here?
+				for(auto par_id : model->state_vars[var_id]->unit_conv_depends.on_parameter) {
+					auto &index_sets = app->parameter_data.get_index_sets(par_id);
+					source->index_sets.insert(index_sets.begin(), index_sets.end());  // TODO: handle matrix parameters ?
+				}
+				
 			} else {
 				Model_Instruction sub_source_instr;
 				sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
@@ -783,6 +797,9 @@ build_instructions(Mobius_Model *model, std::vector<Model_Instruction> &instruct
 				int add_idx = (int)instructions.size();
 				if(!is_neighbor)
 					target->depends_on_instruction.insert(add_idx);
+				
+				// NOTE: this one is needed because of unit conversions, which could give an extra index set dependency to the add instruction.
+				instructions[target_id.id].inherits_index_sets_from_instruction.insert(add_idx);
 				
 				instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
@@ -975,8 +992,8 @@ Model_Application::compile() {
 	warning_print("Create instruction arrays\n");
 	std::vector<Model_Instruction> initial_instructions;
 	std::vector<Model_Instruction> instructions;
-	build_instructions(model, initial_instructions, true);
-	build_instructions(model, instructions, false);
+	build_instructions(this, initial_instructions, true);
+	build_instructions(this, instructions, false);
 	
 	for(auto &instr : instructions)
 		if(instr.type == Model_Instruction::Type::invalid)

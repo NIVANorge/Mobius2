@@ -351,6 +351,9 @@ Mobius_Model::compose() {
 			agg_var->loc1 = var->loc1;
 			agg_var->loc2 = var->loc2;
 			agg_var->unit_conversion_tree = var->unit_conversion_tree;
+			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
+			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
+			var->unit_conversion_tree = nullptr;
 			agg_var->agg_to_compartment = to_compartment;
 			state_vars[var_id]->agg = agg_id;
 			
