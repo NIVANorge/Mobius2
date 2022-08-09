@@ -1015,21 +1015,32 @@ register_intrinsics(Module_Declaration *module) {
 	#undef MAKE_INTRINSIC2
 	
 	//TODO: We should actually make it so that these can't be referenced in code (i.e. not have a handle)
-	auto system = module->par_groups.create_compiler_internal("system", Decl_Type::par_group, "System");
-	auto start = module->parameters.create_compiler_internal("start_date", Decl_Type::par_datetime, "Start date");
-	auto end   = module->parameters.create_compiler_internal("end_date", Decl_Type::par_datetime, "End date");
+	auto system_id = module->par_groups.create_compiler_internal("system", Decl_Type::par_group, "System");
+	auto start_id  = module->parameters.create_compiler_internal("start_date", Decl_Type::par_datetime, "Start date");
+	auto end_id    = module->parameters.create_compiler_internal("end_date", Decl_Type::par_datetime, "End date");
 	
-	Date_Time default_start;  // 1970-1-1
-	Date_Time default_end;
-	default_end.seconds_since_epoch += 15*86400;  // 1970-1-16
+	auto system = module->par_groups[system_id];
+	auto start  = module->parameters[start_id];
+	auto end    = module->parameters[end_id];
 	
-	module->par_groups[system]->parameters.push_back(start);
-	module->par_groups[system]->parameters.push_back(end);
-	module->par_groups[system]->compartment = invalid_entity_id;
-	module->parameters[start]->par_group = system;
-	module->parameters[start]->default_val.val_datetime = default_start;
-	module->parameters[end]->par_group = system;
-	module->parameters[end]->default_val.val_datetime = default_end;
+	Date_Time default_start(1970, 1, 1);
+	Date_Time default_end(1970, 1, 16);
+	Date_Time min_date(1000, 1, 1);
+	Date_Time max_date(3000, 1, 1);
+	
+	system->parameters.push_back(start_id);
+	system->parameters.push_back(end_id);
+	system->compartment = invalid_entity_id;
+	start->par_group = system_id;
+	start->default_val.val_datetime = default_start;
+	start->description = "The start date is inclusive";
+	start->min_val.val_datetime = min_date;
+	start->max_val.val_datetime = max_date;
+	end->par_group = system_id;
+	end->default_val.val_datetime = default_end;
+	end->description   = "The end date is inclusive";
+	end->min_val.val_datetime = min_date;
+	end->max_val.val_datetime = max_date;
 }
 
 

@@ -352,10 +352,47 @@ Structured_Storage<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Ha
 	has_been_set_up = true;
 }
 
+template<typename Val_T, typename Handle_T> void
+for_each_helper(Structured_Storage<Val_T, Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> *, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
+	Entity_Id index_set = indexes[level].index_set;
+	
+	if(level == indexes.size()-1) {
+		for(int idx = 0; idx < self->parent->index_counts[index_set.id].index; ++idx) {
+			indexes[level].index = idx;
+			s64 offset = self->get_offset_alternate(handle, &indexes);
+			do_stuff(&indexes, offset);
+		}
+	} else {
+		for(int idx = 0; idx < self->parent->index_counts[index_set.id].index; ++idx) {
+			indexes[level].index = idx;
+			for_each_helper(self, handle, do_stuff, indexes, level+1);
+		}
+	}
+}
 
 template<typename Val_T, typename Handle_T> void
 Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> *, s64)> &do_stuff) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx   = handle_is_in_array[handle];
+	auto &index_sets = structure[array_idx].index_sets;
+	std::vector<Index_T> indexes;
+	if(index_sets.empty()) {
+		s64 offset = get_offset_alternate(handle, &indexes);
+		do_stuff(&indexes, offset);
+		return;
+	}
+	indexes.resize(index_sets.size());
+	for(int level = 0; level < index_sets.size(); ++level) {
+		indexes[level].index_set = index_sets[level];
+		indexes[level].index = 0;
+	}
+	for_each_helper(this, handle, do_stuff, indexes, 0);
+}
+
+// TODO: Debug why this one doesn't work. It is in principle nicer.
+#if 0
+template<typename Val_T, typename Handle_T> void
+Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> *, s64)> &do_stuff) {
+	auto array_idx   = handle_is_in_array[handle];
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;
 	if(index_sets.empty()) {
@@ -372,6 +409,21 @@ Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::functi
 	int bottom = (int)index_sets.size() - 1;
 	int level = bottom;
 	while(true) {
+		if((indexes[level].index != parent->index_counts[level].index) && (level == bottom)) {
+			s64 offset = get_offset_alternate(handle, &indexes);
+			do_stuff(&indexes, offset);
+		}
+		if(level == bottom)
+			indexes[level].index++;
+		if(indexes[level].index == parent->index_counts[level].index) {
+			indexes[level].index = 0;
+			if(level == 0) break;
+			level--;
+			indexes[level].index++;
+			continue;
+		} else if(level != bottom)
+			++level;
+		/*
 		if(level == bottom) {
 			s64 offset = get_offset_alternate(handle, &indexes);
 			do_stuff(&indexes, offset);
@@ -383,8 +435,9 @@ Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::functi
 			level--;
 		} else if (level != bottom)
 			level++;
+		*/
 	}
 }
-
+#endif
 
 #endif // MOBIUS_MODEL_APPLICATION_H

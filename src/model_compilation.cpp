@@ -12,6 +12,7 @@ struct
 Model_Instruction {
 	enum class 
 	Type {
+		invalid,
 		compute_state_var,
 		subtract_flux_from_source,
 		add_flux_to_target,
@@ -34,7 +35,7 @@ Model_Instruction {
 	bool visited;
 	bool temp_visited;
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), neighbor(invalid_entity_id) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), neighbor(invalid_entity_id), type(Type::invalid) {};
 };
 
 struct
@@ -82,7 +83,7 @@ bool
 topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vector<int> &push_to, std::vector<Model_Instruction> &instructions, bool initial) {
 	Model_Instruction *instr = &instructions[instr_idx];
 	
-	if(!is_valid(instr->var_id)) return true;
+	if(!is_valid(instr->var_id) || instr->type == Model_Instruction::Type::invalid) return true; //TODO: I think these two can only happen in conjunction, when there is an initial value that we don't want to compute. Clean that up!
 	if(initial && !model->state_vars[instr->var_id]->initial_function_tree) return true;
 	
 	if(instr->visited) return true;
@@ -291,7 +292,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				
-				auto unit_conv = model->state_vars[instr->var_id]->flux_unit_conversion_tree;
+				auto unit_conv = model->state_vars[instr->var_id]->unit_conversion_tree;
 				auto result = add_or_subtract_var_from_agg_var(model_app, '+', instr->var_id, instr->source_or_target_id, &indexes, unit_conv, instr->neighbor);
 				scope->exprs.push_back(result);
 				
@@ -308,7 +309,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				auto var = model->state_vars[instr->var_id];
 				auto agg_var = model->state_vars[instr->source_or_target_id];
 				
-				auto weight = agg_var->function_tree;
+				auto weight = agg_var->aggregation_weight_tree;
 				if(!weight && !is_valid(instr->neighbor))  // NOTE: no default weight for neighbor fluxes.
 					fatal_error(Mobius_Error::internal, "Somehow we got an aggregation without code for computing the weight.");
 				
@@ -366,8 +367,8 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				if(is_located(flux->loc2) && !is_valid(flux->neighbor) && model->state_vars[flux->loc2] == instr->var_id && !(flux->flags & State_Variable::Flags::f_has_aggregate)) {
 					auto flux_code = make_state_var_identifier(flux_id);
 					// NOTE: the unit conversion applies to what reaches the target.
-					if(flux->flux_unit_conversion_tree)
-						flux_code = make_binop('*', flux_code, flux->flux_unit_conversion_tree);
+					if(flux->unit_conversion_tree)
+						flux_code = make_binop('*', flux_code, flux->unit_conversion_tree);
 					fun = make_binop('+', fun, flux_code);
 				}
 			}
@@ -402,31 +403,39 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	
 	Mobius_Model *model = model_app->model;
 	
-	for(auto var_id : model->state_vars) {
-		if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // The index sets of the aggregate are determined differently.
-		
+	// Collect direct dependencies coming from lookups in the declared functions of the variables.
+	for(auto &instr : instructions) {
+		auto var_id = instr.var_id;
+	//for(auto var_id : model->state_vars) {
+	//	auto &instr = instructions[var_id.id];
+		if(instr.type == Model_Instruction::Type::compute_state_var) {
 		// However, TODO: we have to check that the weight doesn't misbehave!
 		
 		// Similarly, we have to check that unit conversions don't misbehave (and take them into account in index set determination)
 		
-		for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
-			auto index_sets = model_app->parameter_data.get_index_sets(par_id);
-			instructions[var_id.id].index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
-		}
-		
-		for(auto series_id : get_dep(model, var_id, initial)->on_series) {
-			auto index_sets = model_app->series_data.get_index_sets(series_id);
-			instructions[var_id.id].index_sets.insert(index_sets.begin(), index_sets.end());
+			for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
+				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
+				instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
+			}
+			
+			for(auto series_id : get_dep(model, var_id, initial)->on_series) {
+				auto index_sets = model_app->series_data.get_index_sets(series_id);
+				instr.index_sets.insert(index_sets.begin(), index_sets.end());
+			}
+		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
+			for(auto par_id : model->state_vars[instr.source_or_target_id]->agg_depends.on_parameter) {
+				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
+				instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
+			}
 		}
 	}
+	
 	
 	bool changed;
 	for(int it = 0; it < 100; ++it) {
 		changed = false;
 		
 		for(auto &instr : instructions) {
-			//if(!is_valid(instr.var_id))
-			//	continue;
 			
 			int before = instr.index_sets.size();
 			for(int dep : instr.inherits_index_sets_from_instruction) {
@@ -968,6 +977,10 @@ Model_Application::compile() {
 	std::vector<Model_Instruction> instructions;
 	build_instructions(model, initial_instructions, true);
 	build_instructions(model, instructions, false);
+	
+	for(auto &instr : instructions)
+		if(instr.type == Model_Instruction::Type::invalid)
+			fatal_error(Mobius_Error::internal, "Did not set up instruction types properly.");
 
 	warning_print("Resolve index sets dependencies begin.\n");
 	resolve_index_set_dependencies(this, initial_instructions, true);

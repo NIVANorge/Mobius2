@@ -7,7 +7,6 @@ neighbor("Migration route", "Habitat index") [
 
 module("Giblet-Thasher", 1, 0, 0) {
 	par_group("General parameters") {
-		par_real("Giblet birth rate") [ 0.2 ]
 		par_int ("Giblet preferred birthday") [ 120 ]
 		par_real("Giblet propensity to migrate") [ 0.05 ]
 		par_real("Predation rate") [ 0.1 ]
@@ -18,8 +17,7 @@ module("Giblet-Thasher", 1, 0, 0) {
 	par_group("Habitat parameters") ["Habitat index"] {
 		par_real("Initial predators") [ 1 0.5 0.5 ]
 		par_real("Initial prey") [ 0.4 1 2 ]
-		
-		par_real("Giblet carrying capacity") [ 40 20 30 ]
+		par_real("Giblet birth rate") [ 0.2 0.1 0.3 ]
 	}
 }
 

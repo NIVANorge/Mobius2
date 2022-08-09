@@ -64,14 +64,18 @@ State_Variable {
 	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es).
 	Var_Id         neighbor_agg;
 	
-	Dependency_Set depends;
-	Dependency_Set initial_depends;
-	
 	Math_Expr_FT *function_tree;
 	Math_Expr_FT *initial_function_tree;
-	Math_Expr_FT *flux_unit_conversion_tree;
+	Math_Expr_FT *aggregation_weight_tree;
+	Math_Expr_FT *unit_conversion_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), solver(invalid_entity_id), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
+	Dependency_Set depends;
+	Dependency_Set initial_depends;
+	Dependency_Set agg_depends;
+	Dependency_Set unit_conv_depends;
+	
+	
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), solver(invalid_entity_id), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
 };
 
 struct Var_Registry {

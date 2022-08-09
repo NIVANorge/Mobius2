@@ -107,6 +107,7 @@ int main(int argc, char** argv) {
 		run_model(&app);
 		
 		write_result_data("results.dat", &app);
+		
 	}
 	
 	delete model;

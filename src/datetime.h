@@ -45,10 +45,11 @@ public:
 	
 	Date_Time() : seconds_since_epoch(0) {}
 	
-	Date_Time(s32 year, s32 month, s32 day, bool *success) {
-		*success = (day >= 1 && day <= month_length(year, month) && month >= 1 && month <= 12);
-		if(!*success) return;
-		
+	Date_Time(s32 year, s32 month, s32 day, bool *success = nullptr) {
+		bool ok = (day >= 1 && day <= month_length(year, month) && month >= 1 && month <= 12);
+		if(success) *success = ok;
+		if(!ok) return;
+
 		s64 result = 0;
 		if(year > 1970) {
 			for(s32 y = 1970; y < year; ++y)

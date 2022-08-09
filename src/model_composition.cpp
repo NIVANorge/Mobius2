@@ -257,10 +257,10 @@ Mobius_Model::compose() {
 		if(unit_conv_ast) {
 			auto res_data2 = res_data;
 			res_data2.module_id = 0;
-			var->flux_unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
-			restrictive_lookups(var->flux_unit_conversion_tree, Decl_Type::unit_conversion);
+			var->unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
+			restrictive_lookups(var->unit_conversion_tree, Decl_Type::unit_conversion);
 		} else
-			var->flux_unit_conversion_tree = nullptr;
+			var->unit_conversion_tree = nullptr;
 	}
 	
 	warning_print("Put solvers begin.\n");
@@ -345,12 +345,12 @@ Mobius_Model::compose() {
 			auto agg_var = state_vars[agg_id];
 			agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
 			agg_var->agg = var_id;
-			agg_var->function_tree = agg_weight;
+			agg_var->aggregation_weight_tree = agg_weight;
 			
 			var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 			agg_var->loc1 = var->loc1;
 			agg_var->loc2 = var->loc2;
-			agg_var->flux_unit_conversion_tree = var->flux_unit_conversion_tree;
+			agg_var->unit_conversion_tree = var->unit_conversion_tree;
 			agg_var->agg_to_compartment = to_compartment;
 			state_vars[var_id]->agg = agg_id;
 			
@@ -397,6 +397,7 @@ Mobius_Model::compose() {
 		//   Make a lookup accelleration for this?
 		
 		// TODO: can separate out code for this and reuse when adding to ode variables in model_application.
+		// TODO: This should be generated in model_compilation stage instead!
 		Math_Expr_FT *flux_sum = make_literal(0.0);
 		for(auto flux_id : state_vars) {
 			auto var = state_vars[flux_id];
@@ -404,8 +405,8 @@ Mobius_Model::compose() {
 			if(var->type == Decl_Type::flux && !is_valid(var->neighbor) && is_located(var->loc2) && state_vars[var->loc2] == target_id 
 					&& !(var->flags & State_Variable::Flags::f_has_aggregate)) { //NOTE: if it has an aggregate, we should only count the aggregate, not this on its own.
 				auto flux_code = make_state_var_identifier(flux_id);
-				if(var->flux_unit_conversion_tree)
-					flux_code = make_binop('*', flux_code, copy(var->flux_unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
+				if(var->unit_conversion_tree)
+					flux_code = make_binop('*', flux_code, copy(var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
 				flux_sum = make_binop('+', flux_sum, flux_code);
 			}
 		}
@@ -428,6 +429,12 @@ Mobius_Model::compose() {
 		
 		if(var->initial_function_tree)
 			register_dependencies(var->initial_function_tree, &var->initial_depends);
+		
+		if(var->aggregation_weight_tree)
+			register_dependencies(var->aggregation_weight_tree, &var->agg_depends);
+		
+		if(var->unit_conversion_tree)
+			register_dependencies(var->unit_conversion_tree, &var->unit_conv_depends);
 	}
 	
 	

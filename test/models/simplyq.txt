@@ -13,11 +13,14 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	water : quantity("Water")
 	
+	soil.par_group("Hydrology general") {
+		bfi    : par_real("Baseflow index", unit(), 0.6)
+		qqinfl : par_real("Quick flow inflection point", unit(), 160)
+	}
+	
 	soil.par_group("Hydrology land") {
 		fc     : par_real("Field capacity", unit(m m), 120)
-		bfi    : par_real("Baseflow index", unit(), 0.6)
 		tc_s   : par_real("Soil water time constant", unit(day -1), 2)
-		qqinfl : par_real("Quick flow inflection point", unit(), 160)
 	}
 		
 	gw.  par_group("Groundwater") {
