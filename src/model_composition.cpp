@@ -264,7 +264,8 @@ Mobius_Model::compose() {
 	}
 	
 	warning_print("Put solvers begin.\n");
-	// NOTE: this only puts a solver on ODE quantities. It is propagated to other state variables during compilation
+	// NOTE: this only puts a solver on ODE quantities. It is propagated to other state variables later. First to fluxes having this as their source (below),
+	//   then to other model instructions during compilation.
 	for(auto id : modules[0]->solves) {
 		auto solve = modules[0]->solves[id];
 		Var_Id var_id = state_vars[solve->loc];
@@ -349,6 +350,10 @@ Mobius_Model::compose() {
 			
 			var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 			agg_var->loc1 = var->loc1;
+			//TODO: we would like to be able to do the following (as it would make a lot of checks more natural), but it happens to break something (what?)
+			//var->loc2.type = Location_Type::nowhere;  //note:test
+			//agg_var->loc1.type = Location_Type::nowhere; //note:test
+			
 			agg_var->loc2 = var->loc2;
 			agg_var->unit_conversion_tree = var->unit_conversion_tree;
 			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
@@ -396,24 +401,9 @@ Mobius_Model::compose() {
 		
 		Var_Id in_flux_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
 		auto in_flux_var = state_vars[in_flux_id];
-		// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
-		//   Make a lookup accelleration for this?
 		
-		// TODO: can separate out code for this and reuse when adding to ode variables in model_application.
-		// TODO: This should be generated in model_compilation stage instead!
-		Math_Expr_FT *flux_sum = make_literal(0.0);
-		for(auto flux_id : state_vars) {
-			auto var = state_vars[flux_id];
-			// NOTE: if neighbors are to be computed, it has to be done differently.
-			if(var->type == Decl_Type::flux && !is_valid(var->neighbor) && is_located(var->loc2) && state_vars[var->loc2] == target_id 
-					&& !(var->flags & State_Variable::Flags::f_has_aggregate)) { //NOTE: if it has an aggregate, we should only count the aggregate, not this on its own.
-				auto flux_code = make_state_var_identifier(flux_id);
-				if(var->unit_conversion_tree)
-					flux_code = make_binop('*', flux_code, copy(var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
-				flux_sum = make_binop('+', flux_sum, flux_code);
-			}
-		}
-		in_flux_var->function_tree         = flux_sum;
+		in_flux_var->agg                   = target_id;
+		in_flux_var->function_tree         = nullptr; // This is instead generated in model_compilation
 		in_flux_var->initial_function_tree = nullptr;
 		in_flux_var->flags = (State_Variable::Flags)(in_flux_var->flags | State_Variable::f_in_flux);
 		
@@ -421,6 +411,17 @@ Mobius_Model::compose() {
 			replace_flagged(state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
 	}
 
+	// All fluxes are given the same solver as the flux source.
+	// TODO: why do we really have to do this here? Could it be done on an instruction basis in model_compilation ?
+	for(auto var_id : state_vars) {
+		auto var = state_vars[var_id];
+		if(var->type == Decl_Type::flux) {
+			if(is_located(var->loc1)) {
+				auto source_id = state_vars[var->loc1];
+				var->solver = state_vars[source_id]->solver;
+			}
+		}
+	}
 	
 	// NOTE: This reads dependencies that are explicitly referenced in the variable's function code. Other dependencies are resolved during compilation.
 	warning_print("Dependencies begin.\n");

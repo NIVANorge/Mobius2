@@ -32,10 +32,12 @@ Model_Instruction {
 	std::set<int> instruction_is_blocking; // Instructions that can not go in the same for loop as this one
 	std::set<int> inherits_index_sets_from_instruction;
 	
+	Math_Expr_FT *code;
+	
 	bool visited;
 	bool temp_visited;
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), neighbor(invalid_entity_id), type(Type::invalid) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), neighbor(invalid_entity_id), type(Type::invalid), code(nullptr) {};
 };
 
 struct
@@ -253,9 +255,10 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				if(var->flags & State_Variable::Flags::f_in_flux_neighbor) continue;
 				if(var->flags & State_Variable::Flags::f_is_aggregate) continue; 
 				
-				auto fun = var->function_tree;
-				if(initial)
-					fun = var->initial_function_tree;
+				auto fun = instr->code;
+				//auto fun = var->function_tree;
+				//if(initial)
+				//	fun = var->initial_function_tree;
 				
 				if(fun) {
 					fun = copy(fun);
@@ -265,6 +268,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 						// 		flux = min(flux, source)
 						// NOTE: it is a design decision by the framework to not allow negative fluxes, otherwise the flux would get a much more
 						//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
+						// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
 						
 						auto loc1 = model->state_vars[instr->var_id]->loc1;
 						if(loc1.type == Location_Type::located) {
@@ -550,7 +554,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(!fun) {
 			if(!initial && var->type != Decl_Type::quantity && 
 				!(var->flags & State_Variable::Flags::f_is_aggregate) && 
-				!(var->flags & State_Variable::Flags::f_in_flux_neighbor))
+				!(var->flags & State_Variable::Flags::f_in_flux_neighbor) &&
+				!(var->flags & State_Variable::Flags::f_in_flux))
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			if(initial)
 				continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
@@ -560,20 +565,15 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		Model_Instruction instr;
 		instr.type = Model_Instruction::Type::compute_state_var;
 		instr.var_id = var_id;
+		instr.code = fun;
 		
-		// All fluxes are given the same solver as the flux source.
-		if(var->type == Decl_Type::flux) {
-			if(is_located(var->loc1)) {
-				auto source_id = model->state_vars[var->loc1];
-				var->solver = model->state_vars[source_id]->solver;
-			}
-		}
-		
-		if(!initial)              // the initial step is a purely discrete setup step, not integration.
+		if(!initial)              // the initial step is a purely discrete setup step, no ODE integration.
 			instr.solver = var->solver;
 		
 		instructions[var_id.id] = std::move(instr);
 	}
+	
+	// TODO: just set up solvers for quantities and fluxes here instead of having that as a field on the state variable at all.
 	
 	for(auto var_id : model->state_vars) {
 		auto instr = &instructions[var_id.id];
@@ -977,6 +977,42 @@ set_up_result_structure(Model_Application *model_app, std::vector<Batch> &batche
 }
 
 void
+instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions) {
+	
+	auto model = app->model;
+	
+	for(auto &instr : instructions) {
+		
+		if(instr.type == Model_Instruction::Type::compute_state_var) {
+			auto var = model->state_vars[instr.var_id];
+			
+			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
+			//   Make a lookup accelleration for this?
+			
+			// Codegen for in_fluxes:
+			if(var->flags & State_Variable::Flags::f_in_flux) {
+				Math_Expr_FT *flux_sum = make_literal(0.0);
+				for(auto flux_id : model->state_vars) {
+					auto flux_var = model->state_vars[flux_id];
+					// NOTE: by design we don't include neighbor fluxes in the in_flux. May change that later.
+					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && model->state_vars[flux_var->loc2] == var->agg
+							&& !(flux_var->flags & State_Variable::Flags::f_has_aggregate)) { //NOTE: if it has an aggregate, we should only count the aggregate, not this on its own.
+						auto flux_ref = make_state_var_identifier(flux_id);
+						if(flux_var->unit_conversion_tree)
+							flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
+						flux_sum = make_binop('+', flux_sum, flux_ref);
+					}
+				}
+				instr.code = flux_sum;
+			}
+		
+		// TODO: Do codegen for other instructions here too!
+		//     should simplify dependency resolution!
+		}
+	}
+}
+
+void
 Model_Application::compile() {
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application twice.");
@@ -998,6 +1034,8 @@ Model_Application::compile() {
 	for(auto &instr : instructions)
 		if(instr.type == Model_Instruction::Type::invalid)
 			fatal_error(Mobius_Error::internal, "Did not set up instruction types properly.");
+		
+	instruction_codegen(this, instructions);
 
 	warning_print("Resolve index sets dependencies begin.\n");
 	resolve_index_set_dependencies(this, initial_instructions, true);

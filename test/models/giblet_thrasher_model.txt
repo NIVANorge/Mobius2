@@ -50,7 +50,7 @@ model("Giblet-Thrasher test model") {
 		# 	mig_wt : par_real("Migration weights", mig, unit(), 0.1, 0, 1)
 		# }
 		#			# no need to explicitly index the matrix when used in this context...
-		# flux(habitat.prey, mig) {  min(0, prey * mig_wt * (pred - to.pred) )
+		# flux(habitat.prey, mig) {  max(0, prey * mig_wt * (pred - to.pred) )
 		#
 		# model scope:
 		#	mig : hi.neighbor("Migration route", all_to_all)

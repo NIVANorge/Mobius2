@@ -57,6 +57,7 @@ State_Variable {
 	Value_Location loc2;
 	
 	// if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
+	// if f_in_flux is set (this is the aggregation variable for the in fluxes), agg points at the quantity that is the target of the fluxes.
 	Var_Id         agg;
 	Entity_Id      agg_to_compartment;
 	
