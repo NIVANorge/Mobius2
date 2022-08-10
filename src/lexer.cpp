@@ -189,8 +189,8 @@ Token_Stream::read_token_base(Token *token) {
 		if(c == '\0')                               token->type =  Token_Type::eof;
 		else {
 			bool is_single = is_single_char_token(c);
-			if(c=='-') {
-				//peek at the next char to see if it is numeric. In that case parse this as a negative number instead of returning the minus operator.
+			if((fold_minus && c == '-') || c == '.') {
+				//peek at the next char to see if it is numeric. In that case parse this as a number instead of returning the minus or dot.
 				char next = peek_char();
 				if(isdigit(next))
 					is_single = false;
@@ -302,7 +302,7 @@ Token_Stream::read_identifier(Token *token) {
 		++token->string_value.count;
 		
 		if(!is_identifier(c) && !isdigit(c)) {
-			// NOTE: in this case we assume the latest read char was the start of another token, so go back one char to make the position correct for the next call to ReadTokenInternal_.
+			// NOTE: in this case we assume the latest read char was the start of another token, so go back one char to make the position correct for the next call to read_token.
 			putback_char();
 			--token->string_value.count;
 			break;
@@ -459,7 +459,7 @@ Token_Stream::read_number(Token *token) {
 					digits_after_comma++;
 
 				if(!append_digit<u64>(&base, c)){
-					// TODO: Ideally we should use arbitrary precision integers for Base instead, or shift to it if this happens. When parsing doubles, we should allow higher number of digits.
+					// TODO: Ideally we should use arbitrary precision integers for base instead, or shift to it if this happens. When parsing doubles, we should allow higher number of digits.
 					token->print_error_header();
 					fatal_error("Overflow in numeric literal.");
 				}
@@ -467,7 +467,7 @@ Token_Stream::read_number(Token *token) {
 			++numeric_pos;
 		}
 		else {
-			// NOTE: We assume that the latest read char was the start of another token, so go back one char to make the position correct for the next call to ReadTokenInternal_.
+			// NOTE: We assume that the latest read char was the start of another token, so go back one char to make the position correct for the next call to read_token.
 			putback_char();
 			--token->string_value.count;
 			break;
@@ -524,7 +524,7 @@ Token_Stream::read_date_or_time(Token *token, s32 first_part) {
 			}
 		}
 		else {
-			// NOTE: We assume that the latest read char was the start of another token, so go back one char to make the position correct for the next call to ReadTokenInternal_.
+			// NOTE: We assume that the latest read char was the start of another token, so go back one char to make the position correct for the next call to read_token.
 			putback_char();
 			--token->string_value.count;
 			break;

@@ -32,8 +32,8 @@ apply_unary(Typed_Value val, Token_Type oper) {
 	result.type = val.type;
 	if((char)oper == '-') {
 		if(val.type == Value_Type::boolean) fatal_error(Mobius_Error::internal, "apply_unary() minus on boolean.");
-		else if(val.type == Value_Type::real) result.val_real = val.val_real;
-		else if(val.type == Value_Type::integer) result.val_integer = val.val_integer;
+		else if(val.type == Value_Type::real) result.val_real       = -val.val_real;
+		else if(val.type == Value_Type::integer) result.val_integer = -val.val_integer;
 	} else if((char)oper == '!') {
 		if(val.type != Value_Type::boolean) fatal_error(Mobius_Error::internal, "apply_unary() negation on non-boolean.");
 		result.val_boolean = !val.val_boolean;

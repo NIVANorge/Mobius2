@@ -13,6 +13,10 @@ model("Another simple") {
 		
 		place.has(the_series : property("The series"))
 		
+		place.has(test : property("Test")) {
+			-1*flow_mag
+		}
+		
 		place.has(record : property("Record")) {
 			the_series
 		}

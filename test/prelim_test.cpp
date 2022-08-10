@@ -75,7 +75,6 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 }
 
 
-
 int main(int argc, char** argv) {
 	//SetConsoleOutputCP(65001);
 	

@@ -67,6 +67,8 @@ void print_expr(Math_Expr_AST *expr) {
 	} else if(expr->type == Math_Expr_Type::literal) {
 		auto literal = reinterpret_cast<Literal_AST *>(expr);
 		warning_print(literal->value.double_value());
+	} else if(expr->type == Math_Expr_Type::unary_operator) {
+		warning_print('-');
 	} else {
 		warning_print("something");
 	}
@@ -213,7 +215,11 @@ parse_decl(Token_Stream *stream) {
 			}
 			else if(body_type == Body_Type::function) {
 				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
+				
+				// Note: fold_minus causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
+				stream->fold_minus = false; 
 				function_body->block = parse_math_block(stream, next.location);
+				stream->fold_minus = true;
 			}
 			
 			decl->bodies.push_back(body);
