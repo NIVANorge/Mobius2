@@ -26,6 +26,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 		data_set->series.push_back({});
 		Series_Set_Info &data = data_set->series.back();
 		data.has_date_vector = true;
+		data.file_name = handles->file_path;
 		
 		std::vector<Index_Set_Info *> index_sets;
 		
@@ -125,6 +126,8 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 			data.header_data.push_back({});
 			auto &header = data.header_data.back();
 			// TODO: Make system for having more than one index tuple.
+			header.name = current_input_name;
+			//header.location   //TODO!
 			header.indexes.push_back(std::move(indexes));
 			
 			if(potential_flag_row > 0) {
