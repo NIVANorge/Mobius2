@@ -1,6 +1,6 @@
 
 #include "data_set.h"
-
+#include "ole_wrapper.h"
 
 void
 Data_Set::write_to_file(String_View file_name) {
@@ -110,7 +110,11 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 				header.indexes.push_back(std::move(indexes));
 			} else if(token.type == Token_Type::identifier) {
 				while(true) {
-					set_flag(&header.flags, &token);
+					bool success = set_flag(&header.flags, token.string_value);
+					if(!success) {
+						token.print_error_header();
+						fatal_error("Unrecognized input flag \"", token.string_value, "\".");
+					}
 					token = stream->read_token();
 					if((char)token.type == ']')
 						break;
@@ -259,6 +263,12 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 	delete decl;
 }
 
+
+#if OLE_AVAILABLE
+void
+read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Linear_Allocator *alloc);
+#endif
+
 void
 Data_Set::read_from_file(String_View file_name) {
 	if(main_file) {
@@ -271,6 +281,10 @@ Data_Set::read_from_file(String_View file_name) {
 	
 	Token_Stream stream(file_name, file_data);
 	stream.allow_date_time_tokens = true;
+	
+#if OLE_AVAILABLE
+	OLE_Handles handles = {};
+#endif
 	
 	while(true) {
 		Token token = stream.peek_token();
@@ -322,19 +336,32 @@ Data_Set::read_from_file(String_View file_name) {
 					token.print_error_header();
 					fatal_error("The file ", other_file_name, " has already been loaded.");
 				}
-				//TODO: implement excel files
-				String_View other_data = file_handler.load_file(other_file_name, file_name);
-				Token_Stream other_stream(other_file_name, other_data);
-				other_stream.allow_date_time_tokens = true;
 				
-				series.push_back({});
-				Series_Set_Info &data = series.back();
-				data.file_name = other_file_name;
-				read_series_data_block(this, &other_stream, &data);
-				
-				// NOTE: we can't do this because the header data points into it. It has to be unloaded after processing.
-				//file_handler.unload(other_file_name, file_name);
-				
+				bool success;
+				String_View extension = get_extension(other_file_name, &success);
+				if(success && (extension == ".xlsx" || extension == ".xls")) {
+					#if OLE_AVAILABLE
+					String_View relative = make_path_relative_to(other_file_name, file_name);
+					ole_open_spreadsheet(relative, &handles);
+					read_series_data_from_spreadsheet(this, &handles, &alloc);
+					#else
+					single_arg(decl, 0)->print_error_header();
+					fatal_error("Spreadsheet reading only available on Windows.");
+					#endif
+				} else {
+					//TODO: implement excel files
+					String_View other_data = file_handler.load_file(other_file_name, file_name);
+					Token_Stream other_stream(other_file_name, other_data);
+					other_stream.allow_date_time_tokens = true;
+					
+					series.push_back({});
+					Series_Set_Info &data = series.back();
+					data.file_name = other_file_name;
+					read_series_data_block(this, &other_stream, &data);
+					
+					// NOTE: we can't do this because the header data points into it. It has to be unloaded after processing.
+					//file_handler.unload(other_file_name, file_name);
+				}
 				delete decl;
 			} else {
 				stream.read_token();
@@ -378,6 +405,10 @@ Data_Set::read_from_file(String_View file_name) {
 			fatal_error("Unknown declaration type \"", token.string_value, ".");
 		}
 	}
+	
+#if OLE_AVAILABLE
+	ole_close_app_and_spreadsheet(&handles);
+#endif
 	
 	// NOTE: We can't do this yet because we have string data pointing into it! It has to be done after processing
 	//file_handler.unload(file_name);

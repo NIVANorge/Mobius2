@@ -97,10 +97,12 @@ jit_compile_module(LLVM_Module_Data *data) {
 	
 	mpm.run(*data->module, mam);
 	
+	#if 0
 	std::string module_ir_text;
 	llvm::raw_string_ostream os(module_ir_text);
 	os << *data->module;
 	warning_print("Compiled module is:\n", os.str());
+	#endif
 	
 	auto rt = global_jit->getMainJITDylib().createResourceTracker();                           //TODO: keep this around so that we can   ExitOnErr(rt->remove());  to free memory used by jit.
 	auto tsm = llvm::orc::ThreadSafeModule(std::move(data->module), std::move(data->context));

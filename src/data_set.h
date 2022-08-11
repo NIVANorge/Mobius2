@@ -44,6 +44,17 @@ Info_Registry {
 	Info_Type *expect_exists(Token *name, String_View info_type) {
 		return &data[expect_exists_idx(name, info_type)];
 	}
+	int expect_exists_idx(String_View name) {
+		auto find = name_to_id.find(name);
+		if(find == name_to_id.end())
+			return -1;
+		return find->second;
+	}
+	Info_Type *expect_exists(String_View name) {
+		int idx = expect_exists_idx(name);
+		if(idx >= 0) return &data[idx];
+		return nullptr;
+	}
 	Info_Type *find_or_create(Token *name, bool allow_duplicate=false) {
 		auto find = name_to_id.find(name->string_value);
 		if(find != name_to_id.end()) {
@@ -123,17 +134,15 @@ Series_Data_Flags {
 	// TODO: could allow specifying an "series_data_override" to let this series override a state variable.
 };
 
-inline void
-set_flag(Series_Data_Flags *flags, Token *token) {
-	String_View name = token->string_value;
+inline bool
+set_flag(Series_Data_Flags *flags, String_View name) {
 	if     (name == "interp_step")   *flags = (Series_Data_Flags)(*flags | series_data_interp_step);
 	else if(name == "interp_linear") *flags = (Series_Data_Flags)(*flags | series_data_interp_linear);
 	else if(name == "interp_spline") *flags = (Series_Data_Flags)(*flags | series_data_interp_spline);
 	else if(name == "repeat_yearly") *flags = (Series_Data_Flags)(*flags | series_data_repeat_yearly);
-	else {
-		token->print_error_header();
-		fatal_error("Unrecognized series data flag \"", name, "\".");
-	}
+	else
+		return false;
+	return true;
 }
 
 struct
@@ -164,8 +173,9 @@ struct
 Data_Set {
 	
 	File_Data_Handler file_handler;
+	Linear_Allocator  alloc;          // Hmm only needed to copy input names from excel. Kind of wasteful. Store stuff as std::string instead? Or get alloc from somewhere else?
 	
-	Data_Set() {
+	Data_Set() : alloc(1024*16) {
 		global_pars.name = {};
 		global_pars.name.string_value = "System";
 		global_pars.name.type = Token_Type::quoted_string;

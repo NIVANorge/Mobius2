@@ -11,7 +11,8 @@ neighbor("Downstream", "Subcatchment") [
 	"Coull" -> "Boyne"               # Coull points at Boyne.
 ]
 
-series("testinput.dat")
+#series("simplyq_series.dat")
+series("simplyq_series.xlsx")
 
 par_datetime("Start date") [ 1981-01-01 ]
 par_datetime("End date")   [ 1986-12-31 ]
