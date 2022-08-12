@@ -126,3 +126,21 @@ get_extension(String_View file_name, bool *success) {
 	return extension;
 }
 
+
+String_View
+File_Data_Handler::load_file(String_View file_name, String_View relative, String_View *normalized_path_out) {
+	String_View load_name = file_name;
+	if(relative)
+		load_name = make_path_relative_to(file_name, relative);
+	auto find = loaded_files.find(load_name);
+	if(find != loaded_files.end()) {
+		if(normalized_path_out) *normalized_path_out = find->first;
+		return find->second;
+	}
+	load_name = allocator.copy_string_view(load_name);
+	String_View data = read_entire_file(load_name);
+	loaded_files[load_name] = data;
+	if(normalized_path_out) *normalized_path_out = load_name;
+	
+	return data;
+}

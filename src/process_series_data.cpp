@@ -159,13 +159,15 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 		}
 	}
 	
-	// If there is some segment missing at the beginning and end, fill them in with a constant equal to the first/last value.
-	int first = order[0];
-	int last  = order[x_vals.size()-1];
-	if(x_vals[first] > app->series_data.start_date)
-		fill_constant_range(app, app->series_data.start_date, x_vals[first], y_vals[first], write_offsets);
-	if(x_vals[last] < end_date)
-		fill_constant_range(app, x_vals[last], end_date, y_vals[last], write_offsets);
+	// If there is some segment missing at the beginning and end (and the "inside" flag is not set), fill them in with a constant equal to the first/last value.
+	if(!flags & series_data_interp_inside) {
+		int first = order[0];
+		int last  = order[x_vals.size()-1];
+		if(x_vals[first] > app->series_data.start_date)
+			fill_constant_range(app, app->series_data.start_date, x_vals[first], y_vals[first], write_offsets);
+		if(x_vals[last] < end_date)
+			fill_constant_range(app, x_vals[last], end_date, y_vals[last], write_offsets);
+	}
 }
 
 void

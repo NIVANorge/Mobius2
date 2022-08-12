@@ -305,26 +305,31 @@ ole_open_spreadsheet(String_View file_path, OLE_Handles *handles) {
 	ole_set_value(handles->app, L"Visible", &visible);
 }
 
-VARIANT
+/*
+OLE_Matrix
 ole_create_matrix(int dim_x, int dim_y) {
-	VARIANT matrix = ole_new_variant();
-	matrix.vt = VT_ARRAY | VT_VARIANT;
+	OLE_Matrix result;
+	result.var = ole_new_variant();
+	result.base_row = 1;
+	result.base_col = 1;
+	result.var.vt = VT_ARRAY | VT_VARIANT;
     SAFEARRAYBOUND sab[2];
 	sab[0].lLbound = 1; sab[0].cElements = dim_y;
 	sab[1].lLbound = 1; sab[1].cElements = dim_x;
-	matrix.parray = SafeArrayCreate(VT_VARIANT, 2, sab);
+	result.var.parray = SafeArrayCreate(VT_VARIANT, 2, sab);
 	
-	return matrix;
+	return result;
 }
+*/
 
 bool
-ole_destroy_matrix(VARIANT *matrix) {
-	bool success = (SafeArrayDestroy(matrix->parray) == S_OK);
-	matrix->parray = nullptr;
+ole_destroy_matrix(OLE_Matrix *matrix) {
+	bool success = (SafeArrayDestroy(matrix->var.parray) == S_OK);
+	matrix->var.parray = nullptr;
 	return success;
 }
 
-VARIANT
+OLE_Matrix
 ole_get_range_matrix(int from_row, int to_row, int from_col, int to_col, OLE_Handles *handles) {
 	IDispatch *range;
 	char range_buf[256];
@@ -341,19 +346,22 @@ ole_get_range_matrix(int from_row, int to_row, int from_col, int to_col, OLE_Han
 		fatal_error("Failed to select range ", range_buf, ".");
 	}
 	
-	VARIANT matrix = ole_get_value(range, L"Value");
+	OLE_Matrix result;
+	result.var = ole_get_value(range, L"Value");
+	result.base_row = from_row;
+	result.base_col = from_col;
 	
 	ole_destroy_string(&range_string);
 	range->Release();
 	
-	return matrix;
+	return result;
 }
 
 VARIANT
-ole_get_matrix_value(VARIANT *matrix, int row, int col, OLE_Handles *handles) {
+ole_get_matrix_value(OLE_Matrix *matrix, int row, int col, OLE_Handles *handles) {
 	VARIANT result = ole_new_variant();
-	long indices[2] = {row, col};
-	HRESULT hr = SafeArrayGetElement(matrix->parray, indices, (void *)&result);
+	long indices[2] = {row - matrix->base_row + 1, col - matrix->base_col + 1};
+	HRESULT hr = SafeArrayGetElement(matrix->var.parray, indices, (void *)&result);
 	if(hr != S_OK) {
 		ole_close_due_to_error(handles);
 		fatal_error("Error when indexing matrix. Row: ", row, " Col: ", col, " (relative to matrix).");

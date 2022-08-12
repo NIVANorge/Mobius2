@@ -39,17 +39,24 @@ ole_close_due_to_error(OLE_Handles *handles, int tab = -1, int col = -1, int row
 void
 ole_open_spreadsheet(String_View file_path, OLE_Handles *handles);
 
-VARIANT
-ole_create_matrix(int dim_x, int dim_y);
+struct
+OLE_Matrix {
+	VARIANT var;
+	int base_row;
+	int base_col;
+};
+
+//OLE_Matrix;
+//ole_create_matrix(int dim_x, int dim_y);
 
 bool
-ole_destroy_matrix(VARIANT *matrix);
+ole_destroy_matrix(OLE_Matrix *matrix);
 
-VARIANT
+OLE_Matrix
 ole_get_range_matrix(int from_row, int to_row, int from_col, int to_col, OLE_Handles *handles);
 
 VARIANT
-ole_get_matrix_value(VARIANT *matrix, int row, int col, OLE_Handles *handles);
+ole_get_matrix_value(OLE_Matrix *matrix, int row, int col, OLE_Handles *handles);
 
 int
 ole_get_num_tabs(OLE_Handles *handles);

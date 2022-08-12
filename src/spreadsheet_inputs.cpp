@@ -31,16 +31,16 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 		std::vector<Index_Set_Info *> index_sets;
 		
 		int search_len = 128; //NOTE: We only search for index sets among the first 1024 rows since anything more than that would be ridiculous.
-		VARIANT matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles); 
+		auto matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles); 
 		
 		int potential_flag_row = -1;
 		int first_date_row = -1;
 		
 		// ***** parse the first column to see what index sets are used and on what row there are flags and where the date column starts
-		warning_print("Parse first column\n");
+		//warning_print("Parse first column\n");
 		
 		for(int row = 0; row < search_len; ++row) {
-			VARIANT value = ole_get_matrix_value(&matrix, row+1, 1, handles);
+			VARIANT value = ole_get_matrix_value(&matrix, 2+row, 1, handles);
 
 			if(value.vt == VT_DATE) {
 				first_date_row = row+2;
@@ -87,11 +87,11 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 		matrix = ole_get_range_matrix(1, row_range, 2, 1 + search_len, handles); 
 		
 		// ********* Parse the header data
-		warning_print("Parse header data\n");
+		//warning_print("Parse header data\n");
 		
 		String_View current_input_name = "";
 		for(int col = 0; col < search_len; ++col) {
-			VARIANT name = ole_get_matrix_value(&matrix, 1, col+1, handles);
+			VARIANT name = ole_get_matrix_value(&matrix, 1, col+2, handles);
 			
 			bool got_name_this_column = false;
 			
@@ -176,15 +176,13 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 		data.time_steps = -1; //Signals that end date is recorded rather than time steps.
 		
 		// ********* Read all the dates in the date column
-		warning_print("Read all dates\n");
+		//warning_print("Read all dates\n");
 		
 		while(true) {
 			bool break_out = false;
-			VARIANT matrix = ole_get_range_matrix(start_row, start_row + search_len - 1, 1, 1, handles);
+			auto matrix = ole_get_range_matrix(start_row, start_row + search_len - 1, 1, 1, handles);
 			for(int row = 0; row < search_len; ++row) {
-				int mat_row = 1 + row;
-				int total_row = start_row + row;
-				VARIANT var = ole_get_matrix_value(&matrix, mat_row, 1, handles);
+				VARIANT var = ole_get_matrix_value(&matrix, start_row+row, 1, handles);
 				
 				Date_Time date;
 				bool success = ole_get_date(&var, &date);
@@ -193,7 +191,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 					break_out = true;
 					break;
 				}
-				
 				//warning_print("Got date ", date.to_string(), "\n");
 				
 				if(date < data.start_date) data.start_date = date;
@@ -214,13 +211,13 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 			vals.resize(data.dates.size());
 		
 		// ***** Read in the actual input data values
-		warning_print("Read input data values\n");
+		//warning_print("Read input data values\n");
 		
 		matrix = ole_get_range_matrix(first_date_row, first_date_row + data.dates.size() - 1, 2, 1 + data.header_data.size(), handles);
 		
 		for(int col = 0; col < data.header_data.size(); ++col) {
 			for(int row = 0; row < data.dates.size(); ++row) {
-				VARIANT value = ole_get_matrix_value(&matrix, row+1, col+1, handles);
+				VARIANT value = ole_get_matrix_value(&matrix, first_date_row + row, col+2, handles);
 				double val = ole_get_double(&value);
 				if(!std::isfinite(val)) val = std::numeric_limits<double>::quiet_NaN();
 				data.raw_values[col][row] = val;
@@ -230,7 +227,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 		ole_destroy_matrix(&matrix);
 	}
 	
-	warning_print("Excel reading finished.\n");
+	//warning_print("Excel reading finished.\n");
 }
 
 #endif // OLE_AVAILABLE

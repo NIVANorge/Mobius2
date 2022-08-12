@@ -20,14 +20,7 @@ Info_Registry {
 	std::vector<Info_Type> data;
 	
 	bool has(String_View name) { return name_to_id.find(name) != name_to_id.end(); }
-	/*
-	int operator[](String_View name) {
-		auto find = name_to_id.find(name);
-		if(find != name_to_id.end())
-			return find->second;
-		return -1;
-	}
-	*/
+	
 	Info_Type *operator[](int idx) {
 		if(idx < 0 || idx >= data.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up data set info using an invalid index.\n");
@@ -130,15 +123,17 @@ Series_Data_Flags {
 	series_data_interp_step       = 0x01,
 	series_data_interp_linear     = 0x02,
 	series_data_interp_spline     = 0x04,
-	series_data_repeat_yearly     = 0x08,
+	series_data_interp_inside     = 0x08,
+	series_data_repeat_yearly     = 0x10,
 	// TODO: could allow specifying an "series_data_override" to let this series override a state variable.
 };
 
 inline bool
 set_flag(Series_Data_Flags *flags, String_View name) {
-	if     (name == "interp_step")   *flags = (Series_Data_Flags)(*flags | series_data_interp_step);
-	else if(name == "interp_linear") *flags = (Series_Data_Flags)(*flags | series_data_interp_linear);
-	else if(name == "interp_spline") *flags = (Series_Data_Flags)(*flags | series_data_interp_spline);
+	if     (name == "step_interpolate")   *flags = (Series_Data_Flags)(*flags | series_data_interp_step);
+	else if(name == "linear_interpolate") *flags = (Series_Data_Flags)(*flags | series_data_interp_linear);
+	else if(name == "spline_interpolate") *flags = (Series_Data_Flags)(*flags | series_data_interp_spline);
+	else if(name == "inside")        *flags = (Series_Data_Flags)(*flags | series_data_interp_inside);
 	else if(name == "repeat_yearly") *flags = (Series_Data_Flags)(*flags | series_data_repeat_yearly);
 	else
 		return false;
@@ -175,12 +170,11 @@ Data_Set {
 	File_Data_Handler file_handler;
 	Linear_Allocator  alloc;          // Hmm only needed to copy input names from excel. Kind of wasteful. Store stuff as std::string instead? Or get alloc from somewhere else?
 	
-	Data_Set() : alloc(1024*16) {
+	Data_Set() : alloc(1024) {
 		global_pars.name = {};
 		global_pars.name.string_value = "System";
 		global_pars.name.type = Token_Type::quoted_string;
 	}
-	//Data_Set(String_View file_name);
 	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
