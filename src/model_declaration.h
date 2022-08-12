@@ -57,9 +57,11 @@ State_Variable {
 	Value_Location loc2;
 	
 	// if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
-	// if f_in_flux is set (this is the aggregation variable for the in fluxes), agg points at the quantity that is the target of the fluxes.
 	Var_Id         agg;
 	Entity_Id      agg_to_compartment;
+	
+	// if f_in_flux is set (this is the aggregation variable for the in fluxes), agg points at the quantity that is the target of the fluxes.
+	Var_Id         in_flux_target;
 	
 	// If this is the target variable of a neighbor flux, neighbor_agg points to the aggregation variable for the neighbor flux.
 	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es) (which is the same as the source).
@@ -69,12 +71,6 @@ State_Variable {
 	Math_Expr_FT *initial_function_tree;
 	Math_Expr_FT *aggregation_weight_tree;
 	Math_Expr_FT *unit_conversion_tree;
-	
-	Dependency_Set depends;
-	Dependency_Set initial_depends;
-	Dependency_Set agg_depends;
-	Dependency_Set unit_conv_depends;
-	
 	
 	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), /*solver(invalid_entity_id),*/ flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
 };

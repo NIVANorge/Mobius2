@@ -402,7 +402,7 @@ Mobius_Model::compose() {
 		Var_Id in_flux_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
 		auto in_flux_var = state_vars[in_flux_id];
 		
-		in_flux_var->agg                   = target_id;
+		in_flux_var->in_flux_target        = target_id;
 		in_flux_var->function_tree         = nullptr; // This is instead generated in model_compilation
 		in_flux_var->initial_function_tree = nullptr;
 		in_flux_var->flags = (State_Variable::Flags)(in_flux_var->flags | State_Variable::f_in_flux);
@@ -411,24 +411,6 @@ Mobius_Model::compose() {
 			replace_flagged(state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
 	}
 
-	// NOTE: This reads dependencies that are explicitly referenced in the variable's function code. Other dependencies are resolved during compilation.
-	warning_print("Dependencies begin.\n");
-	for(auto var_id : state_vars) {
-		auto var = state_vars[var_id];
-		
-		if(var->function_tree)
-			register_dependencies(var->function_tree, &var->depends);
-		
-		if(var->initial_function_tree)
-			register_dependencies(var->initial_function_tree, &var->initial_depends);
-		
-		if(var->aggregation_weight_tree)
-			register_dependencies(var->aggregation_weight_tree, &var->agg_depends);
-		
-		if(var->unit_conversion_tree)
-			register_dependencies(var->unit_conversion_tree, &var->unit_conv_depends);
-	}
-	
 	
 	//TODO: we have to make a system where we throw an error for variables if they reference something that can have more indexes than they themselves are allowed to! This also has to check the unit conversions and aggregation weights.
 	   // ( but user could specify an aggregate() on the reference to avoid it. We then also have to make a state var for that aggregation.

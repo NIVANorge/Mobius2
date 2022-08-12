@@ -3,10 +3,12 @@
 
 #include <string>
 
+/*
 inline Dependency_Set *
 get_dep(Mobius_Model *model, Var_Id var_id, bool initial) { 
 	return initial ? &model->state_vars[var_id]->initial_depends : &model->state_vars[var_id]->depends;
 }
+*/
 
 struct
 Model_Instruction {
@@ -360,32 +362,29 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	Mobius_Model *model = model_app->model;
 	
 	// Collect direct dependencies coming from lookups in the declared functions of the variables.
+	
+	
 	for(auto &instr : instructions) {
-		auto var_id = instr.var_id;
-
-		if(instr.type == Model_Instruction::Type::compute_state_var) {
+		//auto var_id = instr.var_id;
 		
-			for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
-				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
-				instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
-			}
-			
-			for(auto series_id : get_dep(model, var_id, initial)->on_series) {
-				auto index_sets = model_app->series_data.get_index_sets(series_id);
-				instr.index_sets.insert(index_sets.begin(), index_sets.end());
-			}
-			
-		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
-			for(auto par_id : model->state_vars[instr.source_or_target_id]->agg_depends.on_parameter) {
-				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
-				instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
-			}
-		} else if (instr.type == Model_Instruction::Type::add_flux_to_target) {
-			// TODO: this may be unnecessary since we fold them into the instruction code now.
-			for(auto par_id : model->state_vars[instr.var_id]->unit_conv_depends.on_parameter) {
-				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
-				instr.index_sets.insert(index_sets.begin(), index_sets.end());
-			}
+		if(!instr.code) continue;
+		
+		Dependency_Set code_depends;
+		register_dependencies(instr.code, &code_depends);
+		
+		for(auto par_id : code_depends.on_parameter) {
+			auto index_sets = model_app->parameter_data.get_index_sets(par_id);
+			instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
+		}
+		for(auto series_id : code_depends.on_series) {
+			auto index_sets = model_app->series_data.get_index_sets(series_id);
+			instr.index_sets.insert(index_sets.begin(), index_sets.end());
+		}
+		
+		for(auto dep : code_depends.on_state_var) {
+			if(dep.type == dep_type_none)
+				instr.depends_on_instruction.insert(dep.var_id.id);
+			instr.inherits_index_sets_from_instruction.insert(dep.var_id.id);
 		}
 	}
 	
@@ -549,13 +548,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		auto instr = &instructions[var_id.id];
 		
 		if(!is_valid(instr->var_id)) continue; // NOTE: this can happen in the initial step. In that case we don't want to compute all variables necessarily.
-		
-		// note we could maybe just retrieve the dependencies from the function tree here instead of doing it earlier and storing them on the State_Variable. It can be nice to keep them there for other uses though.
-		for(auto dep : get_dep(model, var_id, initial)->on_state_var) {
-			if(dep.type == dep_type_none)
-				instr->depends_on_instruction.insert(dep.var_id.id);
-			instr->inherits_index_sets_from_instruction.insert(dep.var_id.id);
-		}
 	
 		// TODO: the following is very messy. Maybe move the cases of is_aggregate and has_aggregate out?
 		
@@ -593,6 +585,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// The instruction that takes the value of var and adds it to aggr_var (with a weight)
 			auto add_to_aggr_instr = &instructions[add_to_aggr_idx];
 			
+			// TODO: We may be able to remove a lot of explicit dependency declarations here now:
 			
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
@@ -694,15 +687,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = source->solver;
 		
-			if (is_valid(source_solver)) { // NOTE: ODE variables have separate code for computing the derivative.
-				source->inherits_index_sets_from_instruction.insert(var_id.id);
-				// TODO: this is a bit of a hack.. Find a way to say that it inherits from the unit_conversion_tree without putting it here?
-				for(auto par_id : model->state_vars[var_id]->unit_conv_depends.on_parameter) {
-					auto &index_sets = app->parameter_data.get_index_sets(par_id);
-					source->index_sets.insert(index_sets.begin(), index_sets.end());  // TODO: handle matrix parameters ?
-				}
-				
-			} else {
+			//if (is_valid(source_solver)) { // NOTE: ODE variables have separate code for computing the derivative.
+				//source->inherits_index_sets_from_instruction.insert(var_id.id);
+			//} else {
+			if(!is_valid(source_solver)) {
 				Model_Instruction sub_source_instr;
 				sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
 				sub_source_instr.var_id = var_id;
@@ -748,11 +736,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			Model_Instruction *target = &instructions[target_id.id];
 			Entity_Id target_solver = target->solver;
 			
-			if(is_valid(target_solver)) {
+			/*if(is_valid(target_solver)) {
 				if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.
 					target->depends_on_instruction.insert(var_id.id);
 				}
-			} else {
+			} else {*/
+			if(!is_valid(target_solver)) {
 				Model_Instruction add_target_instr;
 				add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
 				add_target_instr.var_id = var_id;
@@ -835,29 +824,25 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 		}
 	}
 	
-	warning_print("Remove flux dependencies\n");
+	warning_print("Remove ode dependencies\n");
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
-		auto instr = &instructions[instr_id];
-		// Remove dependency of quantities on fluxes if they have the same solver.
-		//   this is because quantites with solvers are solved "simultaneously" as ODE variables, and so we don't care about circular dependencies with them.
-		// On the other hand, if neither has a solver but are discrete, we instead generate intermediary instructions that do the adding and subtracting, so we don't want direct dependencies between source/target or flux in that case either.
+		auto &instr = instructions[instr_id];
 		
-		if(instr->type != Model_Instruction::Type::compute_state_var) continue;
-		
-		if(model->state_vars[instr->var_id]->type == Decl_Type::flux) {
-			auto loc1 = model->state_vars[instr->var_id]->loc1;
-			if(loc1.type == Location_Type::located) {
-				auto source_id = model->state_vars[loc1];
-				instr->depends_on_instruction.erase(source_id.id);     // NOTE: we know the source has the same solvers as the flux.
-				instructions[source_id.id].depends_on_instruction.erase(instr_id);
+		if(is_valid(instr.solver)) {
+			// Remove dependency of any instruction on an ode variable if they are on the same solver.
+			std::vector<int> remove;
+			for(int other_id : instr.depends_on_instruction) {
+				auto &other_instr = instructions[other_id];
+				if(other_instr.solver == instr.solver && model->state_vars[other_instr.var_id]->type == Decl_Type::quantity)
+					remove.push_back(other_id);
 			}
-			auto loc2 = model->state_vars[instr->var_id]->loc2;
-			if(is_located(loc2)) {
-				auto target_id = model->state_vars[loc2];
-				if(instructions[target_id.id].solver == instr->solver) {
-					instr->depends_on_instruction.erase(target_id.id);
-					instructions[target_id.id].depends_on_instruction.erase(instr_id);
-				}
+			for(int rem : remove)
+				instr.depends_on_instruction.erase(rem);
+		} else if (model->state_vars[instr.var_id]->type == Decl_Type::flux) {
+			// Remove dependency of discrete fluxes on their sources. Discrete fluxes are ordered in a specific way, and the final value of the source comes after the flux is subtracted.
+			auto var = model->state_vars[instr.var_id];
+			if(is_located(var->loc1)) {
+				instr.depends_on_instruction.erase(model->state_vars[var->loc1].id);
 			}
 		}
 	}
@@ -965,11 +950,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				// NOTE: it is a design decision by the framework to not allow negative fluxes, otherwise the flux would get a much more
 				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
 				// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
-						
+				
 				auto loc1 = var->loc1;
 				if(loc1.type == Location_Type::located) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
 					Var_Id source_id = model->state_vars[loc1];
-					auto source_ref = make_state_var_identifier(source_id);
+					auto source_ref = reinterpret_cast<Identifier_FT *>(make_state_var_identifier(source_id));
+					//source_ref->flags = (Identifier_Flags)(source_ref->flags & ident_flags_last_result);
 					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 				}
 			}
@@ -983,7 +969,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : model->state_vars) {
 					auto flux_var = model->state_vars[flux_id];
 					// NOTE: by design we don't include neighbor fluxes in the in_flux. May change that later.
-					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && model->state_vars[flux_var->loc2] == var->agg
+					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && model->state_vars[flux_var->loc2] == var->in_flux_target
 							&& !(flux_var->flags & State_Variable::Flags::f_has_aggregate)) { //NOTE: if it has an aggregate, we should only count the aggregate, not this on its own.
 						auto flux_ref = make_state_var_identifier(flux_id);
 						if(flux_var->unit_conversion_tree)

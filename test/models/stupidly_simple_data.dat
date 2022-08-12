@@ -1,0 +1,11 @@
+
+index_set("Index") [  "Place A" "Place B" "Place C" ]
+
+neighbor("Index neighbor", "Index") [
+	"Place A" -> "Place C"
+	"Place B" -> "Place C"
+]
+
+par_datetime("Start date") [ 1990-1-1 ]
+par_datetime("End date")   [ 1990-5-1 ]
+
