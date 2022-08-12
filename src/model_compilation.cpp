@@ -275,7 +275,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					fatal_error(Mobius_Error::internal, "Some variable \"", var->name, "\" unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
 				
-				auto var_ident = make_possibly_weighted_var_ident(instr->var_id);
+				auto var_ident = instr->code;
 				put_var_lookup_indexes(var_ident, model_app, indexes);
 				
 				auto result = add_or_subtract_var_from_agg_var(model_app, '-', var_ident, instr->source_or_target_id, &indexes);
@@ -283,8 +283,15 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				
-				auto unit_conv = model->state_vars[instr->var_id]->unit_conversion_tree;
-				auto var_ident = make_possibly_weighted_var_ident(instr->var_id, nullptr, unit_conv);
+				auto var_ident = instr->code;
+				put_var_lookup_indexes(var_ident, model_app, indexes);
+				
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', var_ident, instr->source_or_target_id, &indexes, instr->neighbor);
+				scope->exprs.push_back(result);
+				
+			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
+				
+				auto var_ident = instr->code;
 				put_var_lookup_indexes(var_ident, model_app, indexes);
 				
 				auto result = add_or_subtract_var_from_agg_var(model_app, '+', var_ident, instr->source_or_target_id, &indexes, instr->neighbor);
@@ -298,23 +305,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				assignment->exprs.push_back(make_literal((s64)0));
 				scope->exprs.push_back(assignment);
 				
-			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
-				
-				auto agg_var = model->state_vars[instr->source_or_target_id];
-				
-				auto weight = agg_var->aggregation_weight_tree;
-				if(!weight && !is_valid(instr->neighbor))  // NOTE: no default weight for neighbor fluxes.
-					fatal_error(Mobius_Error::internal, "Somehow we got an aggregation without code for computing the weight.");
-				
-				if(weight)
-					weight = copy(weight);
-				
-				auto var_ident = make_possibly_weighted_var_ident(instr->var_id, weight, nullptr);
-				put_var_lookup_indexes(var_ident, model_app, indexes);
-				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', var_ident, instr->source_or_target_id, &indexes, instr->neighbor);
-				scope->exprs.push_back(result);
-			}
+			} 
 		}
 		
 		//NOTE: delete again to not leak (note that if any of these are used, they are copied, so we are free to delete the originals).
@@ -1039,9 +1030,27 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				instr.code = fun;
 			}
 			
+		} else if (instr.type == Model_Instruction::Type::subtract_flux_from_source) {
 			
-			// TODO: Do codegen for other instructions here too!
-		//     should simplify dependency resolution!
+			instr.code = make_possibly_weighted_var_ident(instr.var_id);
+			
+		} else if (instr.type == Model_Instruction::Type::add_flux_to_target) {
+			
+			auto unit_conv = model->state_vars[instr.var_id]->unit_conversion_tree;
+			instr.code = make_possibly_weighted_var_ident(instr.var_id, nullptr, unit_conv);
+			
+		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
+			
+			auto agg_var = model->state_vars[instr.source_or_target_id];
+			
+			auto weight = agg_var->aggregation_weight_tree;
+			if(!weight && !is_valid(instr.neighbor))  // NOTE: no default weight for neighbor fluxes.
+				fatal_error(Mobius_Error::internal, "Somehow we got an aggregation without code for computing the weight.");
+			
+			if(weight)
+				weight = copy(weight);
+			
+			instr.code = make_possibly_weighted_var_ident(instr.var_id, weight, nullptr);
 		}
 	}
 }
