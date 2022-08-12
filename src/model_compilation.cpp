@@ -351,31 +351,8 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			if(instr->type != Model_Instruction::Type::compute_state_var)
 				fatal_error(Mobius_Error::internal, "Somehow we got an instruction that is not a state var computation inside an ODE batch.\n");
 			
-			// NOTE this computation is the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
-			Math_Expr_FT *fun;
-			auto neigh_agg = model->state_vars[instr->var_id]->neighbor_agg; // aggregation variable for values coming from neighbor fluxes.
-			if(is_valid(neigh_agg))
-				fun = make_state_var_identifier(neigh_agg);
-			else
-				fun = make_literal((double)0.0);
-			
-			for(Var_Id flux_id : model->state_vars) {
-				auto flux = model->state_vars[flux_id];
-				if(flux->type != Decl_Type::flux) continue;
-				if(is_located(flux->loc1) && model->state_vars[flux->loc1] == instr->var_id && !(flux->flags & State_Variable::Flags::f_is_aggregate)) {
-					auto flux_code = make_state_var_identifier(flux_id);
-					fun = make_binop('-', fun, flux_code);
-				}
-				
-				// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
-				if(is_located(flux->loc2) && !is_valid(flux->neighbor) && model->state_vars[flux->loc2] == instr->var_id && !(flux->flags & State_Variable::Flags::f_has_aggregate)) {
-					auto flux_code = make_state_var_identifier(flux_id);
-					// NOTE: the unit conversion applies to what reaches the target.
-					if(flux->unit_conversion_tree)
-						flux_code = make_binop('*', flux_code, flux->unit_conversion_tree);
-					fun = make_binop('+', fun, flux_code);
-				}
-			}
+			// NOTE: the code for an ode variable computes the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
+			auto fun = instr->code;
 			
 			put_var_lookup_indexes(fun, model_app, indexes);
 			
@@ -410,12 +387,8 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	// Collect direct dependencies coming from lookups in the declared functions of the variables.
 	for(auto &instr : instructions) {
 		auto var_id = instr.var_id;
-	//for(auto var_id : model->state_vars) {
-	//	auto &instr = instructions[var_id.id];
+
 		if(instr.type == Model_Instruction::Type::compute_state_var) {
-		// However, TODO: we have to check that the weight doesn't misbehave!
-		
-		// Similarly, we have to check that unit conversions don't misbehave (and take them into account in index set determination)
 		
 			for(auto par_id : get_dep(model, var_id, initial)->on_parameter) {
 				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
@@ -433,6 +406,7 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 				instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
 			}
 		} else if (instr.type == Model_Instruction::Type::add_flux_to_target) {
+			// TODO: this may be unnecessary since we fold them into the instruction code now.
 			for(auto par_id : model->state_vars[instr.var_id]->unit_conv_depends.on_parameter) {
 				auto index_sets = model_app->parameter_data.get_index_sets(par_id);
 				instr.index_sets.insert(index_sets.begin(), index_sets.end());
@@ -1029,7 +1003,37 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				instr.code = flux_sum;
 			}
 		
-		// TODO: Do codegen for other instructions here too!
+			if(var->type == Decl_Type::quantity && is_valid(instr.solver)) {
+				Math_Expr_FT *fun;
+				auto neigh_agg = var->neighbor_agg; // aggregation variable for values coming from neighbor fluxes.
+				if(is_valid(neigh_agg))
+					fun = make_state_var_identifier(neigh_agg);
+				else
+					fun = make_literal((double)0.0);
+				
+				for(Var_Id flux_id : model->state_vars) {
+					auto flux = model->state_vars[flux_id];
+					if(flux->type != Decl_Type::flux) continue;
+					
+					if(is_located(flux->loc1) && model->state_vars[flux->loc1] == instr.var_id && !(flux->flags & State_Variable::Flags::f_is_aggregate)) {
+						auto flux_ref = make_state_var_identifier(flux_id);
+						fun = make_binop('-', fun, flux_ref);
+					}
+					
+					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
+					if(is_located(flux->loc2) && !is_valid(flux->neighbor) && model->state_vars[flux->loc2] == instr.var_id && !(flux->flags & State_Variable::Flags::f_has_aggregate)) {
+						auto flux_ref = make_state_var_identifier(flux_id);
+						// NOTE: the unit conversion applies to what reaches the target.
+						if(flux->unit_conversion_tree)
+							flux_ref = make_binop('*', flux_ref, flux->unit_conversion_tree);
+						fun = make_binop('+', fun, flux_ref);
+					}
+				}
+				instr.code = fun;
+			}
+			
+			
+			// TODO: Do codegen for other instructions here too!
 		//     should simplify dependency resolution!
 		}
 	}
