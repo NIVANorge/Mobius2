@@ -59,7 +59,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 	for(auto module : model->modules) {
 		for(auto par : module->parameters) {
 			Parameter_Value val = model->find_entity<Reg_Type::parameter>(par)->default_val;
-			parameter_data.for_each(par, [&](std::vector<Index_T> *indexes, s64 offset) {
+			parameter_data.for_each(par, [&](auto indexes, s64 offset) {
 				*(parameter_data.get_value(offset)) = val;
 			});
 		}
@@ -373,7 +373,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			for(int idx = 0; idx < index_counts[index_set.id].index; ++idx) { // TODO: make ++ and < operators for Index_T instead!
 				indexes[0].index = idx;
 				int info_id = 0;  // directed trees only have one info point (id 0), which is the points_at information.
-				s64 offset = neighbor_data.get_offset_alternate({neigh_id, info_id}, &indexes);
+				s64 offset = neighbor_data.get_offset_alternate({neigh_id, info_id}, indexes);
 				*neighbor_data.get_value(offset) = (s64)neighbor.points_at[idx];
 			}
 		} else {

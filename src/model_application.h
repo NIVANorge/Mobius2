@@ -62,40 +62,40 @@ struct Multi_Array_Structure {
 		return begin_offset + handle_location[handle];
 	}
 	
-	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes, std::vector<Index_T> *index_counts) {
+	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, std::vector<Index_T> &index_counts) {
 		s64 offset = 0;
 		for(auto &index_set : index_sets) {
 			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
-			offset *= (s64)(*index_counts)[index_set.id].index;
-			offset += (s64)(*indexes)[index_set.id].index;
+			offset *= (s64)index_counts[index_set.id].index;
+			offset += (s64)indexes[index_set.id].index;
 		}
 		return (s64)offset*handles.size() + get_offset_base(handle);
 	}
 	
-	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes, std::vector<Index_T> *index_counts) {
-		if(indexes->size() != index_sets.size())
+	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, std::vector<Index_T> &index_counts) {
+		if(indexes.size() != index_sets.size())
 			fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
 		s64 offset = 0;
 		int idx = 0;
 		for(auto &index_set : index_sets) {
-			auto &index = (*indexes)[idx];
+			auto &index = indexes[idx];
 			if(index.index_set != index_set)
 				fatal_error(Mobius_Error::internal, "Got mismatching index sets to get_offset_alternate().");
 			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
-			offset *= (s64)(*index_counts)[index_set.id].index;
+			offset *= (s64)index_counts[index_set.id].index;
 			offset += (s64)index.index;
 			++idx;
 		}
 		return (s64)offset*handles.size() + get_offset_base(handle);
 	}
 	
-	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes, std::vector<Index_T> *index_counts) {
+	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes, std::vector<Index_T> &index_counts) {
 		Math_Expr_FT *result;
 		if(index_sets.empty()) result = make_literal((s64)0);
 		for(int idx = 0; idx < index_sets.size(); ++idx) {
 			//TODO: check that counts are in the right index set
 			auto &index_set = index_sets[idx];
-			Math_Expr_FT *index = (*indexes)[index_set.id];
+			Math_Expr_FT *index = indexes[index_set.id];
 			if(!index)
 				return nullptr;
 			index = copy(index);
@@ -103,7 +103,7 @@ struct Multi_Array_Structure {
 			if(idx == 0)
 				result = index;
 			else {
-				result = make_binop('*', result, make_literal((s64)(*index_counts)[index_set.id].index));
+				result = make_binop('*', result, make_literal((s64)index_counts[index_set.id].index));
 				result = make_binop('+', result, index);
 			}
 		}
@@ -112,14 +112,14 @@ struct Multi_Array_Structure {
 		return result;
 	}
 	
-	s64 instance_count(std::vector<Index_T> *index_counts) {
+	s64 instance_count(std::vector<Index_T> &index_counts) {
 		s64 count = 1;
 		for(auto &index_set : index_sets)
-			count *= (s64)(*index_counts)[index_set.id].index;
+			count *= (s64)index_counts[index_set.id].index;
 		return count;
 	}
 	
-	s64 total_count(std::vector<Index_T> *index_counts) { 
+	s64 total_count(std::vector<Index_T> &index_counts) { 
 		return (s64)handles.size() * instance_count(index_counts);
 	}
 	
@@ -176,17 +176,17 @@ struct Structured_Storage {
 	
 	s64 get_offset_base(Handle_T handle);
 	s64 instance_count(Handle_T handle);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> *indexes);
-	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes);
+	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes);
+	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes);
 	
 	const std::vector<Entity_Id> &
 	get_index_sets(Handle_T handle);
 	
 	Math_Expr_FT *
-	get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes);
+	get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes);
 	
 	void
-	for_each(Handle_T, const std::function<void(std::vector<Index_T> *, s64)>&);
+	for_each(Handle_T, const std::function<void(std::vector<Index_T> &, s64)>&);
 	
 	String_View
 	get_handle_name(Handle_T handle);
@@ -305,25 +305,25 @@ Structured_Storage<Val_T, Handle_T>::get_offset_base(Handle_T handle) {
 template<typename Val_T, typename Handle_T> s64
 Structured_Storage<Val_T, Handle_T>::instance_count(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];
-	return structure[array_idx].instance_count(&parent->index_counts);
+	return structure[array_idx].instance_count(parent->index_counts);
 }
 
 template<typename Val_T, typename Handle_T> s64
-Structured_Storage<Val_T, Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> *indexes) {
+Structured_Storage<Val_T, Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
-	return structure[array_idx].get_offset(handle, indexes, &parent->index_counts);
+	return structure[array_idx].get_offset(handle, indexes, parent->index_counts);
 }
 
 template<typename Val_T, typename Handle_T> s64
-Structured_Storage<Val_T, Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> *indexes) {
+Structured_Storage<Val_T, Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
-	return structure[array_idx].get_offset_alternate(handle, indexes, &parent->index_counts);
+	return structure[array_idx].get_offset_alternate(handle, indexes, parent->index_counts);
 }
 	
 template<typename Val_T, typename Handle_T> Math_Expr_FT *
-Structured_Storage<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> *indexes) {
+Structured_Storage<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
-	auto code = structure[array_idx].get_offset_code(handle, indexes, &parent->index_counts);
+	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts);
 	if(!code)
 		fatal_error(Mobius_Error::internal, "We somehow referenced an index that was not properly initialized, get_offset_code(). Name of referenced variable was \"", get_handle_name(handle), "\".");
 	return code;
@@ -342,7 +342,7 @@ Structured_Storage<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Ha
 	s32 array_idx = 0;
 	for(auto &multi_array : this->structure) {
 		multi_array.begin_offset = offset;
-		offset += multi_array.total_count(&parent->index_counts);
+		offset += multi_array.total_count(parent->index_counts);
 		for(Handle_T handle : multi_array.handles)
 			handle_is_in_array[handle] = array_idx;
 		++array_idx;
@@ -353,14 +353,14 @@ Structured_Storage<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Ha
 }
 
 template<typename Val_T, typename Handle_T> void
-for_each_helper(Structured_Storage<Val_T, Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> *, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
+for_each_helper(Structured_Storage<Val_T, Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
 	Entity_Id index_set = indexes[level].index_set;
 	
 	if(level == indexes.size()-1) {
 		for(int idx = 0; idx < self->parent->index_counts[index_set.id].index; ++idx) {
 			indexes[level].index = idx;
-			s64 offset = self->get_offset_alternate(handle, &indexes);
-			do_stuff(&indexes, offset);
+			s64 offset = self->get_offset_alternate(handle, indexes);
+			do_stuff(indexes, offset);
 		}
 	} else {
 		for(int idx = 0; idx < self->parent->index_counts[index_set.id].index; ++idx) {
@@ -371,13 +371,13 @@ for_each_helper(Structured_Storage<Val_T, Handle_T> *self, Handle_T handle, cons
 }
 
 template<typename Val_T, typename Handle_T> void
-Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> *, s64)> &do_stuff) {
+Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array[handle];
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;
 	if(index_sets.empty()) {
-		s64 offset = get_offset_alternate(handle, &indexes);
-		do_stuff(&indexes, offset);
+		s64 offset = get_offset_alternate(handle, indexes);
+		do_stuff(indexes, offset);
 		return;
 	}
 	indexes.resize(index_sets.size());
@@ -391,13 +391,13 @@ Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::functi
 // TODO: Debug why this one doesn't work. It is in principle nicer.
 #if 0
 template<typename Val_T, typename Handle_T> void
-Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> *, s64)> &do_stuff) {
+Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array[handle];
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;
 	if(index_sets.empty()) {
 		s64 offset = get_offset_alternate(handle, &indexes);
-		do_stuff(&indexes, offset);
+		do_stuff(indexes, offset);
 		return;
 	}
 	indexes.resize(index_sets.size());
@@ -411,7 +411,7 @@ Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::functi
 	while(true) {
 		if((indexes[level].index != parent->index_counts[level].index) && (level == bottom)) {
 			s64 offset = get_offset_alternate(handle, &indexes);
-			do_stuff(&indexes, offset);
+			do_stuff(indexes, offset);
 		}
 		if(level == bottom)
 			indexes[level].index++;
@@ -426,7 +426,7 @@ Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::functi
 		/*
 		if(level == bottom) {
 			s64 offset = get_offset_alternate(handle, &indexes);
-			do_stuff(&indexes, offset);
+			do_stuff(indexes, offset);
 		}
 		indexes[level].index++;
 		if(indexes[level].index == parent->index_counts[level].index) {

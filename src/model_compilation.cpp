@@ -122,12 +122,12 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 	Math_Expr_FT *offset_code = nullptr;
 	s64 back_step;
 	if(ident->variable_type == Variable_Type::parameter) {
-		offset_code = model_app->parameter_data.get_offset_code(ident->parameter, &index_expr);
+		offset_code = model_app->parameter_data.get_offset_code(ident->parameter, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
-		offset_code = model_app->series_data.get_offset_code(ident->series, &index_expr);
+		offset_code = model_app->series_data.get_offset_code(ident->series, index_expr);
 		back_step = model_app->series_data.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
-		offset_code = model_app->result_data.get_offset_code(ident->state_var, &index_expr);
+		offset_code = model_app->result_data.get_offset_code(ident->state_var, index_expr);
 		back_step = model_app->result_data.total_count;
 	}
 	
@@ -156,7 +156,7 @@ make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, 
 }
 
 Math_Expr_FT *
-add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *var_ident, Var_Id var_id_agg, std::vector<Math_Expr_FT *> *indexes, Entity_Id neighbor_id = invalid_entity_id) {
+add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *var_ident, Var_Id var_id_agg, std::vector<Math_Expr_FT *> &indexes, Entity_Id neighbor_id = invalid_entity_id) {
 
 	Math_Expr_FT *offset_code_agg;
 	Math_Expr_FT *index_ref = nullptr;
@@ -165,7 +165,7 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		// The aggregation was pointed at a neighboring index, not the same index as the current one.
 		auto neighbor = model_app->model->modules[0]->neighbors[neighbor_id];
 		
-		auto cur_idx = (*indexes)[neighbor->index_set.id];
+		auto cur_idx = indexes[neighbor->index_set.id];
 		
 		// TODO: for directed_trees, if the index count is 1, we know that this can't possibly go anywhere, and can be omitted, so we should just return a no-op.
 		if(neighbor->type != Neighbor_Structure_Type::directed_tree)
@@ -177,9 +177,9 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		index->value_type = Value_Type::integer;
 		index->exprs.push_back(index_offset);
 		
-		(*indexes)[neighbor->index_set.id] = index;
+		indexes[neighbor->index_set.id] = index;
 		offset_code_agg = model_app->result_data.get_offset_code(var_id_agg, indexes);
-		(*indexes)[neighbor->index_set.id] = cur_idx;  // Reset it for use by others;
+		indexes[neighbor->index_set.id] = cur_idx;  // Reset it for use by others;
 		index_ref = index;
 	} else
 		offset_code_agg = model_app->result_data.get_offset_code(var_id_agg, indexes);
@@ -266,7 +266,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					//fatal_error(Mobius_Error::internal, "Some variable \"", var->name, "\" unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
-				auto offset_code = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+				auto offset_code = model_app->result_data.get_offset_code(instr->var_id, indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset_code);
 				assignment->exprs.push_back(fun);
@@ -274,22 +274,22 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '-', fun, instr->source_or_target_id, &indexes);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '-', fun, instr->source_or_target_id, indexes);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, &indexes, instr->neighbor);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->neighbor);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, &indexes, instr->neighbor);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->neighbor);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				
-				auto offset = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+				auto offset = model_app->result_data.get_offset_code(instr->var_id, indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset);
 				assignment->exprs.push_back(make_literal((s64)0));
@@ -332,7 +332,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			
 			put_var_lookup_indexes(fun, model_app, indexes);
 			
-			auto offset_var = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+			auto offset_var = model_app->result_data.get_offset_code(instr->var_id, indexes);
 			auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
 			auto assignment = new Math_Expr_FT(Math_Expr_Type::derivative_assignment);
 			assignment->exprs.push_back(offset_deriv);

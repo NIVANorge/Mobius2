@@ -199,7 +199,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 			
 			std::vector<Index_T> indexes_int(expected_index_sets.size());
 			if(header.indexes.empty()) {
-				s64 offset = app->series_data.get_offset_alternate(id, &indexes_int);
+				s64 offset = app->series_data.get_offset_alternate(id, indexes_int);
 				offsets[header_idx].push_back(offset);
 				continue;
 			}
@@ -219,7 +219,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 					++index_idx;
 				}
 				
-				s64 offset = app->series_data.get_offset_alternate(id, &indexes_int);
+				s64 offset = app->series_data.get_offset_alternate(id, indexes_int);
 				offsets[header_idx].push_back(offset);
 			}
 		}
