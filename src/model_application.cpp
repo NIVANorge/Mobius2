@@ -75,25 +75,29 @@ Model_Application::set_up_series_structure(Series_Metadata *metadata) {
 	
 	std::vector<Multi_Array_Structure<Var_Id>> structure;
 	
-	std::map<std::vector<Entity_Id>, std::vector<Var_Id>> series_by_index_sets;
+	//TODO: This doesn't properly handle missing series, I think.
 	
-	std::vector<Entity_Id> empty;
-	for(auto series_id : model->series) {
-		std::vector<Entity_Id> *index_sets = &empty;
-		if(metadata) {
-			auto find = metadata->index_sets.find(series_id);
-			if(find != metadata->index_sets.end())
-				index_sets = &find->second;
+	if(metadata) {
+		std::map<std::vector<Entity_Id>, std::vector<Var_Id>> series_by_index_sets;
+		
+		std::vector<Entity_Id> empty;
+		for(auto series_id : model->series) {
+			std::vector<Entity_Id> *index_sets = &empty;
+			if(metadata) {
+				auto find = metadata->index_sets.find(series_id);
+				if(find != metadata->index_sets.end())
+					index_sets = &find->second;
+			}
+			
+			series_by_index_sets[*index_sets].push_back(series_id);
 		}
 		
-		series_by_index_sets[*index_sets].push_back(series_id);
-	}
-	
-	for(auto pair : series_by_index_sets) {
-		std::vector<Entity_Id> index_sets = pair.first;
-		std::vector<Var_Id>    handles    = pair.second;
-		Multi_Array_Structure<Var_Id> array(std::move(index_sets), std::move(handles));
-		structure.push_back(std::move(array));
+		for(auto pair : series_by_index_sets) {
+			std::vector<Entity_Id> index_sets = pair.first;
+			std::vector<Var_Id>    handles    = pair.second;
+			Multi_Array_Structure<Var_Id> array(std::move(index_sets), std::move(handles));
+			structure.push_back(std::move(array));
+		}
 	}
 	
 	series_data.set_up(std::move(structure));
@@ -385,6 +389,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			process_par_group_index_sets(model, &par_group, par_group_index_sets, &module.name);
 	}
 	
+	//if(!par_group_index_sets.empty())
 	set_up_parameter_structure(&par_group_index_sets);
 	
 	process_parameters(this, &data_set->global_pars);
@@ -396,31 +401,35 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			process_parameters(this, &par_group, &module);
 	}
 	
-	Series_Metadata metadata;
-	metadata.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
-	metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
-	
-	for(auto &series : data_set->series) {
-		process_series_metadata(this, &series, &metadata);
-	}
-	
-	set_up_series_structure(&metadata);
-	s64 time_steps = 0;
-	if(metadata.any_data_at_all) {
-		time_steps = steps_between(metadata.start_date, metadata.end_date, timestep_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
-	}
-	else if(model->series.count() != 0) {
-		//TODO: use the model run start and end date.
-		// Or better yet, we could just bake in series data as literals in the code. in this case.
-	}
-	warning_print("Input dates: ", metadata.start_date.to_string());
-	warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
-	series_data.allocate(time_steps);
-	// TODO: fill default NaN values in the series data for some types of series!
-	series_data.start_date = metadata.start_date;
-	
-	for(auto &series : data_set->series) {
-		process_series(this, &series, metadata.end_date);
+	if(!data_set->series.empty()) {
+		Series_Metadata metadata;
+		metadata.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
+		metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
+		
+		for(auto &series : data_set->series) {
+			process_series_metadata(this, &series, &metadata);
+		}
+		
+		set_up_series_structure(&metadata);
+		s64 time_steps = 0;
+		if(metadata.any_data_at_all) {
+			time_steps = steps_between(metadata.start_date, metadata.end_date, timestep_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
+		}
+		else if(model->series.count() != 0) {
+			//TODO: use the model run start and end date.
+			// Or better yet, we could just bake in series data as literals in the code. in this case.
+		}
+		warning_print("Input dates: ", metadata.start_date.to_string());
+		warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
+		series_data.allocate(time_steps);
+		// TODO: fill default NaN values in the series data for some types of series!
+		series_data.start_date = metadata.start_date;
+		
+		for(auto &series : data_set->series) {
+			process_series(this, &series, metadata.end_date);
+		}
+	} else {
+		set_up_series_structure(nullptr);
 	}
 	
 	//TODO: unload the loaded file data from the data_set. But if we stored string data from it, we would have to copy that over.

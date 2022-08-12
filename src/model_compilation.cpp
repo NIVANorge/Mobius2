@@ -141,9 +141,22 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 
 
 Math_Expr_FT *
-add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Var_Id var_id, Var_Id var_id_agg, std::vector<Math_Expr_FT *> *indexes, Math_Expr_FT *unit_conv = nullptr, Entity_Id neighbor_id = invalid_entity_id, Math_Expr_FT *weight = nullptr) {
-	auto offset_code_var     = model_app->result_data.get_offset_code(var_id, indexes);
+make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, Math_Expr_FT *unit_conv = nullptr) {
 	
+	auto var_ident = make_state_var_identifier(var_id);
+	
+	if(unit_conv)
+		var_ident = make_binop('*', var_ident, unit_conv);
+	
+	if(weight)
+		var_ident = make_binop('*', var_ident, weight);
+	
+	return var_ident;
+}
+
+Math_Expr_FT *
+add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *var_ident, Var_Id var_id_agg, std::vector<Math_Expr_FT *> *indexes, Entity_Id neighbor_id = invalid_entity_id) {
+
 	Math_Expr_FT *offset_code_agg;
 	Math_Expr_FT *index_ref = nullptr;
 	
@@ -172,17 +185,6 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Var_Id
 	
 	auto agg_ident = make_state_var_identifier(var_id_agg);
 	agg_ident->exprs.push_back(offset_code_agg);
-	
-	auto var_ident = make_state_var_identifier(var_id);
-	var_ident->exprs.push_back(offset_code_var);
-	
-	// NOTE: the unit conversion applies to what reaches the target.
-	if(unit_conv)
-		var_ident = make_binop('*', var_ident, unit_conv);
-	
-	if(weight) {
-		var_ident = make_binop('*', var_ident, weight);
-	}
 	
 	auto sum_or_difference = make_binop(oper, agg_ident, var_ident);
 	
@@ -252,8 +254,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				auto var = model->state_vars[instr->var_id];
 				
 				// NOTE: Either of these aggregates do not compute themselves. Instead they are added to by a separate instruction.
-				
-				// TODO: This check should be unnecessary.
+				// NOTE: These tests are just to not trip the safety tripline below.
 				if(var->flags & State_Variable::Flags::f_in_flux_neighbor) continue;
 				if(var->flags & State_Variable::Flags::f_is_aggregate) continue; 
 				
@@ -266,7 +267,6 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					put_var_lookup_indexes(fun, model_app, indexes);
 					
 					auto offset_code = model_app->result_data.get_offset_code(instr->var_id, &indexes);
-					
 					auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 					assignment->exprs.push_back(offset_code);
 					assignment->exprs.push_back(fun);
@@ -275,13 +275,19 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					fatal_error(Mobius_Error::internal, "Some variable \"", var->name, "\" unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '-', instr->var_id, instr->source_or_target_id, &indexes);
+				auto var_ident = make_possibly_weighted_var_ident(instr->var_id);
+				put_var_lookup_indexes(var_ident, model_app, indexes);
+				
+				auto result = add_or_subtract_var_from_agg_var(model_app, '-', var_ident, instr->source_or_target_id, &indexes);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				
 				auto unit_conv = model->state_vars[instr->var_id]->unit_conversion_tree;
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', instr->var_id, instr->source_or_target_id, &indexes, unit_conv, instr->neighbor);
+				auto var_ident = make_possibly_weighted_var_ident(instr->var_id, nullptr, unit_conv);
+				put_var_lookup_indexes(var_ident, model_app, indexes);
+				
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', var_ident, instr->source_or_target_id, &indexes, instr->neighbor);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
@@ -294,19 +300,19 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
 				
-				auto var = model->state_vars[instr->var_id];
 				auto agg_var = model->state_vars[instr->source_or_target_id];
 				
 				auto weight = agg_var->aggregation_weight_tree;
 				if(!weight && !is_valid(instr->neighbor))  // NOTE: no default weight for neighbor fluxes.
 					fatal_error(Mobius_Error::internal, "Somehow we got an aggregation without code for computing the weight.");
 				
-				if(weight) {
+				if(weight)
 					weight = copy(weight);
-					put_var_lookup_indexes(weight, model_app, indexes);
-				}
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', instr->var_id, instr->source_or_target_id, &indexes, nullptr, instr->neighbor, weight);
+				auto var_ident = make_possibly_weighted_var_ident(instr->var_id, weight, nullptr);
+				put_var_lookup_indexes(var_ident, model_app, indexes);
+				
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', var_ident, instr->source_or_target_id, &indexes, instr->neighbor);
 				scope->exprs.push_back(result);
 			}
 		}

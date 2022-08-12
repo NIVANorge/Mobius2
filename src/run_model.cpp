@@ -31,6 +31,7 @@ void run_model(Model_Application *model_app) {
 		if(input_offset + time_steps > model_app->series_data.time_steps)
 			fatal_error(Mobius_Error::api_usage, "Tried to run the model for longer than there exists time series input data.\n");
 	} else {
+		// TODO: This is not that good, because what then if somebody change the run dates and run again?
 		model_app->series_data.allocate(time_steps);
 		model_app->series_data.start_date = start_date;
 	}

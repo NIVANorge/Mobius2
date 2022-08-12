@@ -3,41 +3,38 @@ model("Simple test model") {
 	
 	md : module("So very simple", 1, 1, 0) {
 		
-		habitat : compartment("Habitat")
-		world   : compartment("World")
+		a : compartment("A")
+		#b : compartment("B")
 		
-		grp : habitat.par_group("Habitat parameters") {
-			par1 : par_real("My par", unit(), 100)
-			par2 : par_int("My int", unit(), 5)
-			par3 : par_bool("My bool", true)
-			par4 : par_enum("My enum", milk) { orange milk forest }
-		}
+		q : quantity("q")
 		
-		a : quantity("A")
-		habitat.has(a, unit(), "Habitat A") .initial { par1 }
-		world  .has(a, unit(), "World A")   .initial { 0 }
+		a.has(q, unit(), "A.q") .initial { 100 }
+		#b.has(q, unit(), "B.q") .initial { 0   }
 		
-		flux(habitat.a, world.a, "The Flow") {
-			0.1 * habitat.a
+		flix : flux(a.q, out, "The flux") {
+			5
 		}
 	}
 	
-	habitat : compartment("Habitat")
-	world   : compartment("World")
-	a : quantity("A")
+	a : compartment("A")
+	#b : compartment("B")
 	
-	hi : index_set("Habitat index")
-	wi : index_set("World index")
-	#sol : solver("My solver", "INCADascru", 0.1)
-	#habitat.a.solve(sol)
-	#world.a.solve(sol)
+	q : quantity("q")
 	
-	habitat.distribute(wi, hi)
-	world.distribute(wi)
-	
-	habitat.par_group("Weights") {
-		agg_wt : par_real("Aggregation weight", unit(), 0.9)
+	a.par_group("Weights") {
+		agg : par_real("Aggregation weight", unit(), 0.1)
 	}
 	
-	aggregation_weight(habitat, world) { agg_wt }
+	i : index_set("Index")
+	
+	a.distribute(i)
+	
+	nb : i.neighbor("Index neighbor", directed_tree)
+	
+	md.flix.to(nb)
+	
+	sol : solver("solver", "INCADascru", 0.1)
+	
+	a.q.solve(sol)
+	
 }
