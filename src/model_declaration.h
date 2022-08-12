@@ -47,7 +47,7 @@ State_Variable {
 
 	Entity_Id entity_id;  // This is the ID of the declaration, either has(...) or flux(...)
 	
-	Entity_Id solver;
+	//Entity_Id solver; // We don't want this here since it encourages messy code in model_compilation. We only want to store the solvers on the model instructions.
 	
 	Entity_Id neighbor; // For a flux that points at a neighbor.
 	
@@ -62,7 +62,7 @@ State_Variable {
 	Entity_Id      agg_to_compartment;
 	
 	// If this is the target variable of a neighbor flux, neighbor_agg points to the aggregation variable for the neighbor flux.
-	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es).
+	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es) (which is the same as the source).
 	Var_Id         neighbor_agg;
 	
 	Math_Expr_FT *function_tree;
@@ -76,7 +76,7 @@ State_Variable {
 	Dependency_Set unit_conv_depends;
 	
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), solver(invalid_entity_id), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), /*solver(invalid_entity_id),*/ flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
 };
 
 struct Var_Registry {

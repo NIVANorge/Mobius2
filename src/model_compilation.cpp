@@ -567,13 +567,34 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		instr.var_id = var_id;
 		instr.code = fun;
 		
-		if(!initial)              // the initial step is a purely discrete setup step, no ODE integration.
-			instr.solver = var->solver;
-		
 		instructions[var_id.id] = std::move(instr);
 	}
 	
-	// TODO: just set up solvers for quantities and fluxes here instead of having that as a field on the state variable at all.
+	
+	// Put solvers on instructions for computing ODE variables.
+	// Solvers are propagated to other instructions later based on need.
+	if(!initial) {
+		
+		// NOTE: We tested the validity of the solve declaration in the model composition already, so we don't do it again here.
+		for(auto id : model->modules[0]->solves) {
+			auto solve = model->modules[0]->solves[id];
+			Var_Id var_id = model->state_vars[solve->loc];
+			
+			instructions[var_id.id].solver = solve->solver;
+		}
+		
+		for(auto var_id : model->state_vars) {
+			auto var = model->state_vars[var_id];
+			// Fluxes with an ODE variable as source is given the same solver as it.
+			if(var->type == Decl_Type::flux && is_located(var->loc1)) {
+				instructions[var_id.id].solver = instructions[model->state_vars[var->loc1].id].solver;
+			}
+			// Also set the solver for an aggregation variable for a neighbor flux.
+			if(var->flags & State_Variable::Flags::f_in_flux_neighbor) {
+				instructions[var_id.id].solver = instructions[var->neighbor_agg.id].solver;
+			}
+		}
+	}
 	
 	for(auto var_id : model->state_vars) {
 		auto instr = &instructions[var_id.id];
@@ -586,7 +607,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instr->depends_on_instruction.insert(dep.var_id.id);
 			instr->inherits_index_sets_from_instruction.insert(dep.var_id.id);
 		}
-		
+	
 		// TODO: the following is very messy. Maybe move the cases of is_aggregate and has_aggregate out?
 		
 		auto var = model->state_vars[var_id];
@@ -597,6 +618,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		bool is_aggregate  = var->flags & State_Variable::Flags::f_is_aggregate;
 		bool has_aggregate = var->flags & State_Variable::Flags::f_has_aggregate;
 		
+		auto var_solver = instr->solver;
+		
 		if(has_aggregate) {
 			// var (var_id) is now the variable that is being aggregated.
 			// instr is the instruction to compute it
@@ -605,7 +628,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// If we are on a solver we need to put in an instruction to clear the aggregation variable to 0 between each time it is needed.
 			int clear_idx;
-			if(is_valid(var->solver)) {
+			if(is_valid(var_solver)) {
 				clear_idx = instructions.size();
 				instructions.push_back({});
 			}
@@ -627,16 +650,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto agg_to_comp = model->find_entity<Reg_Type::compartment>(aggr_var->agg_to_compartment);
 			agg_instr->inherits_index_sets_from_instruction.clear();
 			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
-			agg_instr->solver = var->solver;
+			agg_instr->solver = var_solver;
 			agg_instr->depends_on_instruction.insert(add_to_aggr_idx); // The value of the aggregate is only done after we have finished summing to it.
 			
 			// Build the clear instruction
 			// TODO: we seem to actually need this one also in the non-solver case, but it causes a crash. Investigate!
-			if(is_valid(var->solver)) {
+			if(is_valid(var_solver)) {
 				add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
 				
 				clear_instr->type = Model_Instruction::Type::clear_state_var;
-				clear_instr->solver = var->solver;
+				clear_instr->solver = var_solver;
 				clear_instr->var_id = var->agg;     // The var_id of the clear_instr indicates which variable we want to clear.
 				
 				clear_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
@@ -647,7 +670,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			add_to_aggr_instr->source_or_target_id = var->agg;
 			add_to_aggr_instr->depends_on_instruction.insert(var_id.id); // We can only sum the value in after it is computed.
 			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed.
-			add_to_aggr_instr->solver = var->solver;
+			add_to_aggr_instr->solver = var_solver;
 			
 			if(var->type == Decl_Type::flux && is_located(loc2)) {
 				// If the aggregated variable is a flux, we potentially may have to tell it to get the right index sets.
@@ -663,7 +686,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			if(initial)
 				fatal_error(Mobius_Error::internal, "Got a neighbor flux in the initial step.");
-			if(!is_valid(var->solver))
+			if(!is_valid(var_solver))
 				fatal_error(Mobius_Error::internal, "Got aggregation variable for neighbor fluxes without a solver.");
 			
 			//warning_print("************ Found it\n");
@@ -687,7 +710,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto clear_instr       = &instructions[clear_id];
 				
 				clear_instr->type = Model_Instruction::Type::clear_state_var;
-				clear_instr->solver = var->solver;
+				clear_instr->solver = var_solver;
 				clear_instr->var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
 				clear_instr->inherits_index_sets_from_instruction.insert(add_to_aggr_id);
 				
@@ -700,7 +723,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
 				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed.
 				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need one per target of the neighbor fluxes.
-				add_to_aggr_instr->solver = var->solver;
+				add_to_aggr_instr->solver = var_solver;
 				add_to_aggr_instr->neighbor = var_flux->neighbor;
 				
 				// This says that the clear_id has to be in a separate for loop from this instruction
@@ -720,7 +743,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(is_located(loc1) && !is_aggregate) {
 			source_id = model->state_vars[loc1];
 			Model_Instruction *source = &instructions[source_id.id];
-			source_solver = model->state_vars[source_id]->solver;
+			source_solver = source->solver;
 		
 			if (is_valid(source_solver)) { // NOTE: ODE variables have separate code for computing the derivative.
 				source->inherits_index_sets_from_instruction.insert(var_id.id);
@@ -774,7 +797,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				target_id = model->state_vars[loc2];
 			
 			Model_Instruction *target = &instructions[target_id.id];
-			Entity_Id target_solver = model->state_vars[target_id]->solver;
+			Entity_Id target_solver = target->solver;
 			
 			if(is_valid(target_solver)) {
 				if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.

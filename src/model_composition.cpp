@@ -263,23 +263,6 @@ Mobius_Model::compose() {
 			var->unit_conversion_tree = nullptr;
 	}
 	
-	warning_print("Put solvers begin.\n");
-	// NOTE: this only puts a solver on ODE quantities. It is propagated to other state variables later. First to fluxes having this as their source (below),
-	//   then to other model instructions during compilation.
-	for(auto id : modules[0]->solves) {
-		auto solve = modules[0]->solves[id];
-		Var_Id var_id = state_vars[solve->loc];
-		if(!is_valid(var_id)) {
-			solve->source_location.print_error_header();
-			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
-		}
-		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
-		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			solve->source_location.print_error_header();
-			fatal_error("Solvers can only be put on quantities, not on properties.");
-		}
-		state_vars[var_id]->solver = solve->solver;
-	}
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
 	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.
@@ -379,17 +362,34 @@ Mobius_Model::compose() {
 		}
 	}
 	
+	// NOTE: Unfortunately we need to know about solvers here, but we don't want to store the solver on the State Variable since that encourages messy code in model_compilation.
+	std::vector<int> has_solver;
+	has_solver.resize(state_vars.count(), 0);
+	
+	for(auto id : modules[0]->solves) {
+		auto solve = modules[0]->solves[id];
+		Var_Id var_id = state_vars[solve->loc];
+		if(!is_valid(var_id)) {
+			solve->source_location.print_error_header();
+			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
+		}
+		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
+		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
+			solve->source_location.print_error_header();
+			fatal_error("Solvers can only be put on quantities, not on properties.");
+		}
+		has_solver[var_id.id] = 1;
+	}
+	
 	warning_print("Generate state vars for in_flux_neighbor.\n");
 	// TODO: generate aggregation variables for the neighbor flux.
 	for(auto var_id : may_need_neighbor_target) {
-		
-		auto solver = state_vars[var_id]->solver;
-		if(!is_valid(solver)) continue;
+		if(!has_solver[var_id.id]) continue;
 		
 		Var_Id n_agg_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux_neighbor"); //TODO: generate a better name
 		auto n_agg_var = state_vars[n_agg_id];
 		n_agg_var->flags = State_Variable::Flags::f_in_flux_neighbor;
-		n_agg_var->solver = solver;
+		//n_agg_var->solver = solver;
 		n_agg_var->neighbor_agg = var_id;
 		
 		state_vars[var_id]->neighbor_agg = n_agg_id;
@@ -411,18 +411,6 @@ Mobius_Model::compose() {
 			replace_flagged(state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
 	}
 
-	// All fluxes are given the same solver as the flux source.
-	// TODO: why do we really have to do this here? Could it be done on an instruction basis in model_compilation ?
-	for(auto var_id : state_vars) {
-		auto var = state_vars[var_id];
-		if(var->type == Decl_Type::flux) {
-			if(is_located(var->loc1)) {
-				auto source_id = state_vars[var->loc1];
-				var->solver = state_vars[source_id]->solver;
-			}
-		}
-	}
-	
 	// NOTE: This reads dependencies that are explicitly referenced in the variable's function code. Other dependencies are resolved during compilation.
 	warning_print("Dependencies begin.\n");
 	for(auto var_id : state_vars) {
