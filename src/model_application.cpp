@@ -75,8 +75,6 @@ Model_Application::set_up_series_structure(Series_Metadata *metadata) {
 	
 	std::vector<Multi_Array_Structure<Var_Id>> structure;
 	
-	//TODO: This doesn't properly handle missing series, I think.
-	
 	if(metadata) {
 		std::map<std::vector<Entity_Id>, std::vector<Var_Id>> series_by_index_sets;
 		
@@ -98,9 +96,30 @@ Model_Application::set_up_series_structure(Series_Metadata *metadata) {
 			Multi_Array_Structure<Var_Id> array(std::move(index_sets), std::move(handles));
 			structure.push_back(std::move(array));
 		}
+	} else {
+		std::vector<Var_Id> handles;
+		for(auto series_id : model->series)
+			handles.push_back(series_id);
+		Multi_Array_Structure<Var_Id> array({}, std::move(handles));
+		structure.push_back(std::move(array));
 	}
 	
 	series_data.set_up(std::move(structure));
+}
+
+void
+Model_Application::allocate_series_data(s64 time_steps) {
+	// NOTE: They are by default cleared to 0
+	series_data.allocate(time_steps);
+	
+	for(auto series_id : model->series) {
+		if(!(model->series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
+		
+		series_data.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
+			for(s64 step = 0; step < time_steps; ++step)
+				*series_data.get_value(offset, step) = std::numeric_limits<double>::quiet_NaN();
+		});
+	}
 }
 
 void
@@ -126,15 +145,8 @@ Model_Application::set_up_neighbor_structure() {
 	neighbor_data.allocate();
 	
 	for(int idx = 0; idx < neighbor_data.total_count; ++idx)
-		neighbor_data.data[idx] = -1;                          // To signify that it doesn't point at anything.
+		neighbor_data.data[idx] = -1;                          // To signify that it doesn't point at anything (yet).
 };
-
-//TODO: we could remove this one for now:
-void 
-Model_Application::set_indexes(Entity_Id index_set, Array<String_View> names) {
-	index_counts[index_set.id] = {index_set, (s32)names.count};
-	//TODO: actually store the names.
-}
 
 bool
 Model_Application::all_indexes_are_set() {
@@ -421,9 +433,10 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		}
 		warning_print("Input dates: ", metadata.start_date.to_string());
 		warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
-		series_data.allocate(time_steps);
-		// TODO: fill default NaN values in the series data for some types of series!
+	
 		series_data.start_date = metadata.start_date;
+		
+		allocate_series_data(time_steps);
 		
 		for(auto &series : data_set->series) {
 			process_series(this, &series, metadata.end_date);

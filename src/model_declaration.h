@@ -29,16 +29,19 @@ Dependency_Set {
 	std::set<State_Var_Dependency>  on_state_var;
 };
 
+// TODO; Hmm, It is kind of weird that we use the same State_Variable struct both for series and state variables. There is also no guard against using a var_id belonging to a series to look up a state variable or vice versa.
+
 struct
 State_Variable {
 	Decl_Type type; //either flux, quantity or property
 	
 	enum Flags {
-		f_none             = 0x0, 
-		f_in_flux          = 0x1,
-		f_in_flux_neighbor = 0x2,
-		f_is_aggregate     = 0x4, 
-		f_has_aggregate    = 0x8,
+		f_none                = 0x00, 
+		f_in_flux             = 0x01,
+		f_in_flux_neighbor    = 0x02,
+		f_is_aggregate        = 0x04, 
+		f_has_aggregate       = 0x08,
+		f_clear_series_to_nan = 0x10,
 	} flags;
 	
 	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.
@@ -72,7 +75,7 @@ State_Variable {
 	Math_Expr_FT *aggregation_weight_tree;
 	Math_Expr_FT *unit_conversion_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), /*solver(invalid_entity_id),*/ flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
 };
 
 struct Var_Registry {

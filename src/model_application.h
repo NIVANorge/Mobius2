@@ -257,6 +257,8 @@ Model_Application {
 	void set_up_series_structure(Series_Metadata *metadata = nullptr);
 	void set_up_neighbor_structure();
 	
+	void allocate_series_data(s64 time_steps);
+	
 	Date_Time get_start_date_parameter();
 	Date_Time get_end_date_parameter();
 	
