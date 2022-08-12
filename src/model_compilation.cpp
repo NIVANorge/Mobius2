@@ -87,8 +87,7 @@ bool
 topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vector<int> &push_to, std::vector<Model_Instruction> &instructions, bool initial) {
 	Model_Instruction *instr = &instructions[instr_idx];
 	
-	if(!is_valid(instr->var_id) || instr->type == Model_Instruction::Type::invalid) return true; //TODO: I think these two can only happen in conjunction, when there is an initial value that we don't want to compute. Clean that up!
-	if(initial && !model->state_vars[instr->var_id]->initial_function_tree) return true;
+	if(instr->type == Model_Instruction::Type::invalid) return true;
 	
 	if(instr->visited) return true;
 	if(instr->temp_visited) {
@@ -509,7 +508,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
 		}
 		
-		//warning_print("Instruction for variable, ", var->name, "\n");
 		Model_Instruction instr;
 		instr.type = Model_Instruction::Type::compute_state_var;
 		instr.var_id = var_id;
@@ -544,13 +542,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		}
 	}
 	
+	// Generate instructions needed to compute special variables.
+	
 	for(auto var_id : model->state_vars) {
 		auto instr = &instructions[var_id.id];
 		
-		if(!is_valid(instr->var_id)) continue; // NOTE: this can happen in the initial step. In that case we don't want to compute all variables necessarily.
+		if(instr->type == Model_Instruction::Type::invalid) continue; // NOTE: this can happen in the initial step. In that case we don't want to compute all variables necessarily.
 	
-		// TODO: the following is very messy. Maybe move the cases of is_aggregate and has_aggregate out?
-		
 		auto var = model->state_vars[var_id];
 		
 		auto loc1 = var->loc1;
@@ -707,7 +705,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 								
 				// The flux itself has to be computed once per instance of the source.
 				// 		The reason for this is that for discrete fluxes we generate a   flux := min(flux, source) in order to not send the source negative.
-				instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id);
+				// Should no longer be necessary to fix this here with the new dependency system.
+				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id);
 				
 				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
