@@ -250,51 +250,40 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
 			
+			auto fun = instr->code;
+			
+			if(fun) {
+				fun = copy(fun);
+			
+				//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
+				put_var_lookup_indexes(fun, model_app, indexes);
+			} else if (instr->type != Model_Instruction::Type::clear_state_var)
+				continue;
+				//TODO: we coud set an explicit no-op flag on the instruction. If the flag is set, we expect a nullptr fun, otherwise a valid one.
+				
+				//else if(var->type != Decl_Type::quantity)
+					//fatal_error(Mobius_Error::internal, "Some variable \"", var->name, "\" unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
-				auto var = model->state_vars[instr->var_id];
 				
-				// NOTE: Either of these aggregates do not compute themselves. Instead they are added to by a separate instruction.
-				// NOTE: These tests are just to not trip the safety tripline below.
-				if(var->flags & State_Variable::Flags::f_in_flux_neighbor) continue;
-				if(var->flags & State_Variable::Flags::f_is_aggregate) continue; 
+				auto offset_code = model_app->result_data.get_offset_code(instr->var_id, &indexes);
+				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
+				assignment->exprs.push_back(offset_code);
+				assignment->exprs.push_back(fun);
+				scope->exprs.push_back(assignment);
 				
-				auto fun = instr->code;
-				
-				if(fun) {
-					fun = copy(fun);
-				
-					//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
-					put_var_lookup_indexes(fun, model_app, indexes);
-					
-					auto offset_code = model_app->result_data.get_offset_code(instr->var_id, &indexes);
-					auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
-					assignment->exprs.push_back(offset_code);
-					assignment->exprs.push_back(fun);
-					scope->exprs.push_back(assignment);
-				} else if(var->type != Decl_Type::quantity)
-					fatal_error(Mobius_Error::internal, "Some variable \"", var->name, "\" unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
 				
-				auto var_ident = instr->code;
-				put_var_lookup_indexes(var_ident, model_app, indexes);
-				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '-', var_ident, instr->source_or_target_id, &indexes);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '-', fun, instr->source_or_target_id, &indexes);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				
-				auto var_ident = instr->code;
-				put_var_lookup_indexes(var_ident, model_app, indexes);
-				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', var_ident, instr->source_or_target_id, &indexes, instr->neighbor);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, &indexes, instr->neighbor);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
 				
-				auto var_ident = instr->code;
-				put_var_lookup_indexes(var_ident, model_app, indexes);
-				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', var_ident, instr->source_or_target_id, &indexes, instr->neighbor);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, &indexes, instr->neighbor);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
@@ -305,7 +294,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				assignment->exprs.push_back(make_literal((s64)0));
 				scope->exprs.push_back(assignment);
 				
-			} 
+			}
 		}
 		
 		//NOTE: delete again to not leak (note that if any of these are used, they are copied, so we are free to delete the originals).
@@ -334,6 +323,11 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			
 			// NOTE: the code for an ode variable computes the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
 			auto fun = instr->code;
+			
+			if(!fun)
+				fatal_error(Mobius_Error::internal, "ODE variables should always be provided with generated code in instruction_codegen, but we got one without.");
+			
+			fun = copy(fun);
 			
 			put_var_lookup_indexes(fun, model_app, indexes);
 			
