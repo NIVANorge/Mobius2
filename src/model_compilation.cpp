@@ -252,31 +252,15 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				auto var = model->state_vars[instr->var_id];
 				
 				// NOTE: Either of these aggregates do not compute themselves. Instead they are added to by a separate instruction.
+				
+				// TODO: This check should be unnecessary.
 				if(var->flags & State_Variable::Flags::f_in_flux_neighbor) continue;
 				if(var->flags & State_Variable::Flags::f_is_aggregate) continue; 
 				
 				auto fun = instr->code;
-				//auto fun = var->function_tree;
-				//if(initial)
-				//	fun = var->initial_function_tree;
 				
 				if(fun) {
 					fun = copy(fun);
-					
-					if(!is_valid(batch->solver) && var->type == Decl_Type::flux) {
-						// note: create something like
-						// 		flux = min(flux, source)
-						// NOTE: it is a design decision by the framework to not allow negative fluxes, otherwise the flux would get a much more
-						//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
-						// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
-						
-						auto loc1 = model->state_vars[instr->var_id]->loc1;
-						if(loc1.type == Location_Type::located) {
-							Var_Id source_id = model->state_vars[loc1];
-							auto source = make_state_var_identifier(source_id);
-							fun = make_intrinsic_function_call(Value_Type::real, "min", fun, source);
-						}
-					}
 				
 					//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
 					put_var_lookup_indexes(fun, model_app, indexes);
@@ -983,6 +967,22 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 		if(instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = model->state_vars[instr.var_id];
 			
+			if(var->type == Decl_Type::flux && !is_valid(instr.solver) && instr.code) {
+			
+				// note: create something like
+				// 		flux = min(flux, source)
+				// NOTE: it is a design decision by the framework to not allow negative fluxes, otherwise the flux would get a much more
+				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
+				// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
+						
+				auto loc1 = var->loc1;
+				if(loc1.type == Location_Type::located) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
+					Var_Id source_id = model->state_vars[loc1];
+					auto source_ref = make_state_var_identifier(source_id);
+					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
+				}
+			}
+			
 			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
 			//   Make a lookup accelleration for this?
 			
@@ -1002,7 +1002,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				}
 				instr.code = flux_sum;
 			}
-		
+			
+			// Codegen for the derivative of state variables:
 			if(var->type == Decl_Type::quantity && is_valid(instr.solver)) {
 				Math_Expr_FT *fun;
 				auto neigh_agg = var->neighbor_agg; // aggregation variable for values coming from neighbor fluxes.
