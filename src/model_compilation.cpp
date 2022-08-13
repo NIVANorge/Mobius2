@@ -563,7 +563,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// instr is the instruction to compute it
 			
 			auto aggr_var = model->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
-			//warning_print("******* aggr_var->type is ", name(aggr_var->type), "\n");
+			
 			// If we are on a solver we need to put in an instruction to clear the aggregation variable to 0 between each time it is needed.
 			int clear_idx;
 			if(is_valid(var_solver)) {
@@ -587,7 +587,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
 			auto agg_to_comp = model->find_entity<Reg_Type::compartment>(aggr_var->agg_to_compartment);
-			agg_instr->inherits_index_sets_from_instruction.clear();
+			//agg_instr->inherits_index_sets_from_instruction.clear(); // Should be unnecessary. We just constructed it.
+			
 			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
 			agg_instr->solver = var_solver;
 			agg_instr->depends_on_instruction.insert(add_to_aggr_idx); // The value of the aggregate is only done after we have finished summing to it.
@@ -608,7 +609,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			add_to_aggr_instr->var_id = var_id;
 			add_to_aggr_instr->source_or_target_id = var->agg;
 			add_to_aggr_instr->depends_on_instruction.insert(var_id.id); // We can only sum the value in after it is computed.
-			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed.
+			//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed. Unnecessary to declare since it is handled by new dependency system.
+			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var->agg.id); // We need to look it up every time we sum to it.
 			add_to_aggr_instr->solver = var_solver;
 			
 			if(var->type == Decl_Type::flux && is_located(aggr_var->loc2)) {
@@ -660,7 +662,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->source_or_target_id = var_id;
 				add_to_aggr_instr->depends_on_instruction.insert(clear_id); // Only start summing up after we cleared to 0.
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
-				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed.
+				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
 				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need one per target of the neighbor fluxes.
 				add_to_aggr_instr->solver = var_solver;
 				add_to_aggr_instr->neighbor = var_flux->neighbor;
@@ -670,7 +672,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var->neighbor_agg.id); // TODO: Is this necessary, or do we just have to insert the particular index set of the neighbor relation?
-				// This is not needed because the target is always an ODE.
+				// This is not needed because the target is always an ODE:
 				//instructions[var->neighbor_agg.id].depends_on_instruction.insert(var_id.id); // The target must be computed after the aggregation variable.
 			}
 		}
@@ -693,7 +695,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				sub_source_instr.var_id = var_id;
 				
 				sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
-				sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux.
+				//sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux. Should no longer be needed with new dependency system
 				sub_source_instr.inherits_index_sets_from_instruction.insert(source_id.id); // and it has to be done per instance of the source.
 				
 				sub_source_instr.source_or_target_id = source_id;
@@ -745,7 +747,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_target_instr.var_id = var_id;
 				
 				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
-				add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux
+				//add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux. Should no longer be needed to be declared explicitly with new dependency system.
 				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 				add_target_instr.source_or_target_id = target_id;
 				if(is_neighbor) {
