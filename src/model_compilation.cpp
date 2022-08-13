@@ -563,7 +563,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// instr is the instruction to compute it
 			
 			auto aggr_var = model->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
-			
+			//warning_print("******* aggr_var->type is ", name(aggr_var->type), "\n");
 			// If we are on a solver we need to put in an instruction to clear the aggregation variable to 0 between each time it is needed.
 			int clear_idx;
 			if(is_valid(var_solver)) {
@@ -593,7 +593,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			agg_instr->depends_on_instruction.insert(add_to_aggr_idx); // The value of the aggregate is only done after we have finished summing to it.
 			
 			// Build the clear instruction
-			// TODO: we seem to actually need this one also in the non-solver case, but it causes a crash. Investigate!
+			// TODO: we sometimes seem to also need this one also in the non-solver case, but it causes a crash. Investigate!
 			if(is_valid(var_solver)) {
 				add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
 				
@@ -611,12 +611,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed.
 			add_to_aggr_instr->solver = var_solver;
 			
-			if(var->type == Decl_Type::flux && is_located(loc2)) {
+			if(var->type == Decl_Type::flux && is_located(aggr_var->loc2)) {
 				// If the aggregated variable is a flux, we potentially may have to tell it to get the right index sets.
 				
 				//note: this is only ok for auto-generated aggregations. Not if somebody called aggregate() on a flux explicitly, because then it is not necessarily the target of the flux that wants to know the aggregate.
 				// But I guess you can't explicitly reference fluxes in code any way. We have to keep in mind that if that is implemented though.
-				auto target_id = model->state_vars[loc2];
+				auto target_id = model->state_vars[aggr_var->loc2];
 				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var->agg.id);
 			}
 		}
@@ -967,8 +967,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : model->state_vars) {
 					auto flux_var = model->state_vars[flux_id];
 					// NOTE: by design we don't include neighbor fluxes in the in_flux. May change that later.
-					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && model->state_vars[flux_var->loc2] == var->in_flux_target
-							&& !(flux_var->flags & State_Variable::Flags::f_has_aggregate)) { //NOTE: if it has an aggregate, we should only count the aggregate, not this on its own.
+					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && model->state_vars[flux_var->loc2] == var->in_flux_target) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						if(flux_var->unit_conversion_tree)
 							flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
@@ -991,13 +990,13 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					auto flux = model->state_vars[flux_id];
 					if(flux->type != Decl_Type::flux) continue;
 					
-					if(is_located(flux->loc1) && model->state_vars[flux->loc1] == instr.var_id && !(flux->flags & State_Variable::Flags::f_is_aggregate)) {
+					if(is_located(flux->loc1) && model->state_vars[flux->loc1] == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						fun = make_binop('-', fun, flux_ref);
 					}
 					
 					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
-					if(is_located(flux->loc2) && !is_valid(flux->neighbor) && model->state_vars[flux->loc2] == instr.var_id && !(flux->flags & State_Variable::Flags::f_has_aggregate)) {
+					if(is_located(flux->loc2) && !is_valid(flux->neighbor) && model->state_vars[flux->loc2] == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						// NOTE: the unit conversion applies to what reaches the target.
 						if(flux->unit_conversion_tree)
@@ -1063,7 +1062,6 @@ Model_Application::compile() {
 	
 	// NOTE: state var inherits all index set dependencies from its initial code.
 	for(auto var_id : model->state_vars) {
-		//if(model->state_vars[var_id]->flags & State_Variable::Flags::f_is_aggregate) continue;  // NOTE: these were already "hard coded", and should not be overwritten.
 		auto &init_idx = initial_instructions[var_id.id].index_sets;
 		
 		instructions[var_id.id].index_sets.insert(init_idx.begin(), init_idx.end());

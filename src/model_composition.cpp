@@ -439,12 +439,12 @@ Mobius_Model::compose() {
 			agg_var->aggregation_weight_tree = agg_weight;
 			
 			var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
-			agg_var->loc1 = var->loc1;
-			//TODO: we would like to be able to do the following as it would make a lot of operations in model_application more natural, but currently it happens to break something (what?)
-			//var->loc2.type = Location_Type::nowhere;  //note:test
-			//agg_var->loc1.type = Location_Type::nowhere; //note:test
-			
+
+			// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:
+			agg_var->loc1.type = Location_Type::nowhere;
 			agg_var->loc2 = var->loc2;
+			var->loc2.type = Location_Type::nowhere;
+			
 			agg_var->unit_conversion_tree = var->unit_conversion_tree;
 			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
 			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
