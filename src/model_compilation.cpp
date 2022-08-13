@@ -387,7 +387,7 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 		}
 	}
 	
-	
+	// Let index set dependencies propagate from state variable to state variable. (For instance if a looks up the value of b, a needs to be indexed over (at least) the same index sets as b. This could propagate down a long chain of dependencies, so we have to keep iterating until nothing changes.
 	bool changed;
 	for(int it = 0; it < 100; ++it) {
 		changed = false;

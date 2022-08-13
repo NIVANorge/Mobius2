@@ -153,7 +153,6 @@ Token_Stream::putback_char() {
 
 inline bool
 is_single_char_token(char c) {
-	//TODO: Maybe include [ and ] also.
 	return c == '!' || (c >= '%' && c <= '/') || (c >= ':' && c <= '?') || (c >= '{' && c <= '}') || c == '^' || c=='[' || c==']';
 }
 

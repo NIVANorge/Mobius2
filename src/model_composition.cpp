@@ -132,18 +132,41 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 }
 
 void
-restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type) {
-	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type);
+restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
+	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if(ident->variable_type != Variable_Type::local 
 			&& ident->variable_type != Variable_Type::parameter) {
 			expr->location.print_error_header();
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
-		}
+		} else if (ident->variable_type == Variable_Type::parameter)
+			parameter_refs.insert(ident->parameter);
 	}
 }
 
+
+bool
+parameter_indexes_below_compartment(Mobius_Model *model, Entity_Id par_id, Entity_Id compartment_id) {
+	auto par = model->find_entity<Reg_Type::parameter>(par_id);
+	auto par_comp_id = model->find_entity<Reg_Type::par_group>(par->par_group)->compartment;
+	// TODO: invalid compartment should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
+	if(!is_valid(par_comp_id)) return false; 
+	auto par_comp = model->find_entity<Reg_Type::compartment>(par_comp_id);
+	
+	// TODO: need a better system for looking up things that automatically gives us the global one if it exists.
+	if(is_valid(par_comp->global_id))
+		par_comp = model->modules[0]->compartments[par_comp->global_id];
+	auto comp = model->find_entity<Reg_Type::compartment>(compartment_id);
+	if(is_valid(comp->global_id))
+		comp = model->modules[0]->compartments[comp->global_id];
+	
+	for(auto index_set : par_comp->index_sets) {
+		if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set) == comp->index_sets.end())
+			return false;
+	}
+	return true;
+}
 
 void
 Mobius_Model::compose() {
@@ -227,8 +250,9 @@ Mobius_Model::compose() {
 			
 			if(is_located(flux->source)) {
 				for(auto &unit_conv : modules[0]->compartments[flux->source.compartment]->unit_convs) {
-					if(flux->source == unit_conv.source && flux->target == unit_conv.target) 
+					if(flux->source == unit_conv.source && flux->target == unit_conv.target) {
 						unit_conv_ast = unit_conv.code;
+					}
 				}
 			}
 		} else if(var->type == Decl_Type::property || var->type == Decl_Type::quantity) {
@@ -258,7 +282,17 @@ Mobius_Model::compose() {
 			auto res_data2 = res_data;
 			res_data2.module_id = 0;
 			var->unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
-			restrictive_lookups(var->unit_conversion_tree, Decl_Type::unit_conversion);
+			std::set<Entity_Id> parameter_refs;
+			restrictive_lookups(var->unit_conversion_tree, Decl_Type::unit_conversion, parameter_refs);
+			// TODO: check index sets of parameter_refs
+			
+			for(auto par_id : parameter_refs) {
+				bool ok = parameter_indexes_below_compartment(this, par_id, var->loc1.compartment);
+				if(!ok) {
+					unit_conv_ast->location.print_error_header();
+					fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
+				}
+			}
 		} else
 			var->unit_conversion_tree = nullptr;
 	}
@@ -301,7 +335,16 @@ Mobius_Model::compose() {
 					// Note: the module id is always 0 here since aggregation_weight should only be declared in model scope.
 					Function_Resolve_Data res_data = { this, 0, invalid_entity_id };
 					agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
-					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight);
+					std::set<Entity_Id> parameter_refs;
+					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
+					
+					for(auto par_id : parameter_refs) {
+						bool ok = parameter_indexes_below_compartment(this, par_id, var->loc1.compartment);
+						if(!ok) {
+							agg.code->location.print_error_header();
+							fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over."); 
+						}
+					}
 					break;
 				}
 			}
@@ -412,9 +455,28 @@ Mobius_Model::compose() {
 	}
 
 	
-	//TODO: we have to make a system where we throw an error for variables if they reference something that can have more indexes than they themselves are allowed to! This also has to check the unit conversions and aggregation weights.
-	   // ( but user could specify an aggregate() on the reference to avoid it. We then also have to make a state var for that aggregation.
-	// NOTE: we could just do this in the index set dependency resolution, but that would not trip in all cases, and it would be harder to detect why it happened (to give good error message).
+	// See if the code for computing a variable looks up other values that index by an index set that the compartment of the variable does not index over.
+	// No, do it in model_application instead.
+	/*
+	for(auto var_id : state_vars) {
+		auto var = state_vars[var_id];
+		
+		std::vector<Entity_Id> *index_sets;
+		
+		if(is_located(var->loc1))
+			index_sets = &find_entity<Reg_Type::compartment>(var->loc1.compartment)->index_sets;
+		else if(is_located(var->loc2))
+			index_sets = &find_entity<Reg_Type::compartment>(var->loc2.compartment)->index_sets;
+		else
+			fatal_error(Mobius_Error::internal, "Got a state variable \"", var->name, "\" that has non-located loc1 and loc2.");
+		
+		if(var->function_tree) {
+			Dependency_Set dep;
+			register_dependencies(var->function_tree, &dep);
+		}
+	}
+	*/
+	
 	
 	is_composed = true;
 }
