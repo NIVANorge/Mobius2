@@ -175,4 +175,10 @@ process_declaration(Mobius_Model *model, Decl_AST *decl);
 Mobius_Model *
 load_model(String_View file_name);
 
+bool
+location_indexes_below_location(Mobius_Model *model, Value_Location &loc, Value_Location &below_loc);
+
+bool
+parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Value_Location &below_loc);
+
 #endif // MOBIUS_MODEL_DECLARATION_H

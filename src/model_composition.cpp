@@ -145,27 +145,39 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 	}
 }
 
-
 bool
-parameter_indexes_below_compartment(Mobius_Model *model, Entity_Id par_id, Entity_Id compartment_id) {
-	auto par = model->find_entity<Reg_Type::parameter>(par_id);
-	auto par_comp_id = model->find_entity<Reg_Type::par_group>(par->par_group)->compartment;
-	// TODO: invalid compartment should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
-	if(!is_valid(par_comp_id)) return false; 
-	auto par_comp = model->find_entity<Reg_Type::compartment>(par_comp_id);
+location_indexes_below_location(Mobius_Model *model, Value_Location &loc, Value_Location &below_loc) {
 	
-	// TODO: need a better system for looking up things that automatically gives us the global one if it exists.
-	if(is_valid(par_comp->global_id))
-		par_comp = model->modules[0]->compartments[par_comp->global_id];
-	auto comp = model->find_entity<Reg_Type::compartment>(compartment_id);
-	if(is_valid(comp->global_id))
-		comp = model->modules[0]->compartments[comp->global_id];
+	if(!is_located(loc) || !is_located(below_loc))
+		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
+	// TODO: when we implement distributing substances over index sets, we have to take that into account here.
+	auto comp       = model->find_entity<Reg_Type::compartment>(loc.compartment); //NOTE: right now we are only guaranteed that loc.compartment is valid. See note in parameter_indexes_below_location.
+	auto below_comp = model->find_entity<Reg_Type::compartment>(below_loc.compartment);
 	
-	for(auto index_set : par_comp->index_sets) {
-		if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set) == comp->index_sets.end())
+	for(auto index_set : comp->index_sets) {
+		if(std::find(below_comp->index_sets.begin(), below_comp->index_sets.end(), index_set) == below_comp->index_sets.end())
 			return false;
 	}
 	return true;
+}
+
+bool
+parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Value_Location &below_loc) {
+	auto par = model->find_entity<Reg_Type::parameter>(par_id);
+	auto par_comp_id = model->find_entity<Reg_Type::par_group>(par->par_group)->compartment;
+	// TODO: invalid compartment should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
+	if(!is_valid(par_comp_id)) return false;
+	// TODO: need a better system for looking up things that automatically gives us the global one if it exists.
+	auto par_comp = model->find_entity<Reg_Type::compartment>(par_comp_id);
+	if(is_valid(par_comp->global_id))
+		par_comp_id = par_comp->global_id;
+	
+	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
+	Value_Location loc;
+	loc.type = Location_Type::located;
+	loc.compartment = par_comp_id;
+	
+	return location_indexes_below_location(model, loc, below_loc);
 }
 
 void
@@ -287,7 +299,7 @@ Mobius_Model::compose() {
 			// TODO: check index sets of parameter_refs
 			
 			for(auto par_id : parameter_refs) {
-				bool ok = parameter_indexes_below_compartment(this, par_id, var->loc1.compartment);
+				bool ok = parameter_indexes_below_location(this, par_id, var->loc1);
 				if(!ok) {
 					unit_conv_ast->location.print_error_header();
 					fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
@@ -339,7 +351,7 @@ Mobius_Model::compose() {
 					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
 					
 					for(auto par_id : parameter_refs) {
-						bool ok = parameter_indexes_below_compartment(this, par_id, var->loc1.compartment);
+						bool ok = parameter_indexes_below_location(this, par_id, var->loc1);
 						if(!ok) {
 							agg.code->location.print_error_header();
 							fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over."); 

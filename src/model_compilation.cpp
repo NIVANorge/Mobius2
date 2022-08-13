@@ -362,28 +362,56 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 	
 	// Collect direct dependencies coming from lookups in the declared functions of the variables.
 	
-	
 	for(auto &instr : instructions) {
-		//auto var_id = instr.var_id;
+		Value_Location loc;
+		loc.type = Location_Type::nowhere;
+		if(instr.type == Model_Instruction::Type::compute_state_var && is_valid(instr.var_id)) {
+			loc = model->state_vars[instr.var_id]->loc1;
+			//TODO: There is a question about what to do with fluxes with source nowhere. Should we then check the target instead like we do here?
+			//TODO: we just have to test how that works.
+			if(!is_located(loc))
+				loc = model->state_vars[instr.var_id]->loc2;
+		}
+		
 		
 		if(!instr.code) continue;
 		
 		Dependency_Set code_depends;
 		register_dependencies(instr.code, &code_depends);
 		
+		// TODO: It may be better to have these correctness tests in model_composition, but then we would have to look up the dependency sets twice (can't keep them because some of the function trees undergo codegen in between).
+		
 		for(auto par_id : code_depends.on_parameter) {
 			auto index_sets = model_app->parameter_data.get_index_sets(par_id);
 			instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
+			
+			// NOTE: Even though the parameter could have fewer index set dependencies in this particular model application, we want to ensure general model correctness.
+			if(is_located(loc) && !parameter_indexes_below_location(model, par_id, loc)) {
+				// TODO: we should print the location of the code where this happened, but that is a bit obscured by now. Store that value location on the instruction?
+				fatal_error(Mobius_Error::model_building, "The code for the state variable \"", model->state_vars[instr.var_id]->name, "\" looks up the parameter \"", model->find_entity<Reg_Type::parameter>(par_id)->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the compartment of the state variable.");
+			}
 		}
 		for(auto series_id : code_depends.on_series) {
 			auto index_sets = model_app->series_data.get_index_sets(series_id);
 			instr.index_sets.insert(index_sets.begin(), index_sets.end());
+			
+			if(is_located(loc) && !location_indexes_below_location(model, model->series[series_id]->loc1, loc)) {
+				// TODO: we should print the location of the code where this happened, but that is a bit obscured by now. Store that value location on the instruction?
+				fatal_error(Mobius_Error::model_building, "The code for the state variable \"", model->state_vars[instr.var_id]->name, "\" looks up the input series \"", model->series[series_id]->name, "\". This series belongs to a compartment that is distributed over a higher number of index sets than the compartment of the state variable.");
+			}
 		}
 		
 		for(auto dep : code_depends.on_state_var) {
 			if(dep.type == dep_type_none)
 				instr.depends_on_instruction.insert(dep.var_id.id);
 			instr.inherits_index_sets_from_instruction.insert(dep.var_id.id);
+			
+			// NOTE: Technically we should not be able to look up fluxes directly, but a generated state variable could. Maybe we should just exclude the generated ones from this test (they should be correct any way). If it is not a flux, dep_var->loc1 will always be located.
+			auto dep_var = model->state_vars[dep.var_id];
+			if(is_located(loc) && is_located(dep_var->loc1) && !(dep_var->flags & State_Variable::f_is_aggregate) && !location_indexes_below_location(model, dep_var->loc1, loc)) {
+				// TODO: we should print the location of the code where this happened, but that is a bit obscured by now. Store that value location on the instruction?
+				fatal_error(Mobius_Error::model_building, "The code for the state variable \"", model->state_vars[instr.var_id]->name, "\" looks up the state variable \"", dep_var->name, "\". This state variable belongs to a compartment that is distributed over a higher number of index sets than the compartment of the original state variable.");
+			}
 		}
 	}
 	
