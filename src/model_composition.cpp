@@ -133,6 +133,7 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 
 void
 restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
+	//TODO : Should we just reuse register_dependencies() ?
 	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
@@ -178,6 +179,62 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Value_Lo
 	loc.compartment = par_comp_id;
 	
 	return location_indexes_below_location(model, loc, below_loc);
+}
+
+void
+check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *function, State_Variable *var, bool initial) {
+	Dependency_Set code_depends;
+	register_dependencies(function, &code_depends);
+	
+	// NOTE: We should not have undergone codegen yet, so the source location of the top node of the function should be valid.
+	Source_Location source_loc = function->location;
+	
+	Value_Location loc = var->loc1;
+	loc = var->loc1;
+	//TODO: There is a question about what to do with fluxes with source nowhere. Should we then check the target like we do here?
+	//TODO: we just have to test how that works.
+	if(!is_located(loc))
+		loc = var->loc2;
+
+	if(!is_located(loc))
+		fatal_error(Mobius_Error::internal, "Somehow a totally unlocated variable checked in check_valid_distribution_of_dependencies().");
+	
+	// TODO: It may be better to have these correctness tests in model_composition, but then we would have to look up the dependency sets twice (can't keep them because some of the function trees undergo codegen in between).
+	
+	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
+	
+	for(auto par_id : code_depends.on_parameter) {
+		if(!parameter_indexes_below_location(model, par_id, loc)) {
+			source_loc.print_error_header();
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", model->find_entity<Reg_Type::parameter>(par_id)->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the the state variable.");
+		}
+	}
+	for(auto series_id : code_depends.on_series) {
+		if(!location_indexes_below_location(model, model->series[series_id]->loc1, loc)) {
+			source_loc.print_error_header();
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", model->series[series_id]->name, "\". This series belongs to a compartment that is distributed over a higher number of index sets than the state variable.");
+		}
+	}
+	
+	for(auto dep : code_depends.on_state_var) {
+		auto dep_var = model->state_vars[dep.var_id];
+		
+		// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
+		if(dep_var->flags & State_Variable::Flags::f_in_flux)
+			dep_var = model->state_vars[dep_var->in_flux_target];
+		
+		// If it is an aggregate, index set dependencies will be generated to be correct.
+		if(dep_var->flags & State_Variable::Flags::f_is_aggregate)
+			continue;
+		
+		if(dep_var->type == Decl_Type::flux || !is_located(dep_var->loc1))
+			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
+		
+		if(!location_indexes_below_location(model, dep_var->loc1, loc)) {
+			source_loc.print_error_header();
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the the prior.");
+		}
+	}
 }
 
 void
@@ -312,22 +369,17 @@ Mobius_Model::compose() {
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
 	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.
+	// Or what about last(aggregate(in_flux(bla))) ?
 	
-	// note: We always generate an aggregate if the source compartment has more indexes than the target compartment.
-	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the aggregate is trivial
+	// note: We always generate an aggregate if the source compartment of a flux has more indexes than the target compartment.
+	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		if(var->type != Decl_Type::flux) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
-		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
-		auto target = find_entity<Reg_Type::compartment>(var->loc2.compartment);
-		
-		for(auto index_set : source->index_sets)
-			if(std::find(target->index_sets.begin(), target->index_sets.end(), index_set) == target->index_sets.end()) {
-				needs_aggregate[var_id.id].first.insert(var->loc2.compartment);   //NOTE: The aggregate is going to be "looked up from" the target compartment of the flux in this case.
-				break;
-			}
+		if(!location_indexes_below_location(this, var->loc1, var->loc2))
+			needs_aggregate[var_id.id].first.insert(var->loc2.compartment);
 	}
 	
 	warning_print("Generate state vars for aggregates.\n");
@@ -388,7 +440,7 @@ Mobius_Model::compose() {
 			
 			var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 			agg_var->loc1 = var->loc1;
-			//TODO: we would like to be able to do the following (as it would make a lot of checks more natural), but it happens to break something (what?)
+			//TODO: we would like to be able to do the following as it would make a lot of operations in model_application more natural, but currently it happens to break something (what?)
 			//var->loc2.type = Location_Type::nowhere;  //note:test
 			//agg_var->loc1.type = Location_Type::nowhere; //note:test
 			
@@ -467,27 +519,15 @@ Mobius_Model::compose() {
 	}
 
 	
-	// See if the code for computing a variable looks up other values that index by an index set that the compartment of the variable does not index over.
-	// No, do it in model_application instead.
-	/*
+	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
 		
-		std::vector<Entity_Id> *index_sets;
-		
-		if(is_located(var->loc1))
-			index_sets = &find_entity<Reg_Type::compartment>(var->loc1.compartment)->index_sets;
-		else if(is_located(var->loc2))
-			index_sets = &find_entity<Reg_Type::compartment>(var->loc2.compartment)->index_sets;
-		else
-			fatal_error(Mobius_Error::internal, "Got a state variable \"", var->name, "\" that has non-located loc1 and loc2.");
-		
-		if(var->function_tree) {
-			Dependency_Set dep;
-			register_dependencies(var->function_tree, &dep);
-		}
+		if(var->function_tree)
+			check_valid_distribution_of_dependencies(this, var->function_tree, var, false);
+		if(var->initial_function_tree)
+			check_valid_distribution_of_dependencies(this, var->initial_function_tree, var, true);
 	}
-	*/
 	
 	
 	is_composed = true;
