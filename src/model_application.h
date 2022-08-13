@@ -226,7 +226,7 @@ Model_Application {
 	Mobius_Model *model;
 	
 	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), is_compiled(false),
-		data_set(nullptr), alloc(1024), timestep_size {} {
+		data_set(nullptr), alloc(1024) {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
@@ -239,6 +239,10 @@ Model_Application {
 			index_counts[index_set.id].index_set = index_set;
 			index_counts[index_set.id].index = 0;
 		}
+		
+		// TODO: make time step size configurable.
+		timestep_size.unit      = Time_Step_Unit::second;
+		timestep_size.magnitude = 86400;
 		
 		initialize_llvm();
 		llvm_data = create_llvm_module();   //TODO: free it on destruction!
@@ -254,7 +258,7 @@ Model_Application {
 	
 	void build_from_data_set(Data_Set *data_set);
 	
-	Time_Step_Size                                   timestep_size;
+	Time_Step_Size                                  timestep_size;
 	
 	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;
 	Structured_Storage<double, Var_Id>              series_data;

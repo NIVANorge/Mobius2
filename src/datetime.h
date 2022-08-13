@@ -176,7 +176,7 @@ public:
 
 
 enum class
-Time_Step_Unit {
+Time_Step_Unit : s32 {
 	second = 0,
 	month  = 1,
 	//year   = 2,   // could have some optimizations in the code below if we know the step size is in whole years

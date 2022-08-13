@@ -31,7 +31,7 @@ c_api_build_from_model_and_data_file(char * model_file, char * data_file) {
 
 DLLEXPORT void
 c_api_run_model(Model_Application *app) {
-	
+
 	run_model(app);
 }
 
@@ -58,6 +58,7 @@ c_api_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
 	if(is_valid(comp_id)) {
 		result.type   = Model_Entity_Reference::Type::compartment;
 		result.entity = comp_id;
+		result.module = app->model->modules[0];
 		return result;
 	}
 
@@ -204,17 +205,26 @@ c_api_get_steps(Model_Application *app, s16 type) {
 	return 0;
 }
 
+// TODO: Getting the name should be a separate call though.
 DLLEXPORT void
-c_api_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out) {
+c_api_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size) {
 	if(!time_steps_out) return;
 	
 	s64 offset;
-	if(type == 1)
+	String_View name;
+	if(type == 1) {
 		offset = get_offset_by_index_names(app, &app->result_data, var_id, index_names, indexes_count);
-	else if (type == 2)
+		name = app->model->state_vars[var_id]->name;
+	} else if (type == 2) {
 		offset = get_offset_by_index_names(app, &app->series_data, var_id, index_names, indexes_count);
+		name = app->model->series[var_id]->name;
+	}
 	if(offset < 0)
 		fatal_error(Mobius_Error::api_usage, "Wrong index for series in c_api_get_series_data().");
+	
+	if(name.count > name_out_size)
+		name.count = name_out_size;
+	sprintf(name_out, "%.*s", name.count, name.data);
 	
 	for(s64 step = 0; step < time_steps_out; ++step) {
 		double value;
@@ -226,3 +236,30 @@ c_api_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **in
 	}
 }
 
+struct
+Time_Step_Size2 {
+	s32 unit;
+	s32 magnitude;
+};
+
+// It somehow messes with the C calling convention if we pass a Time_Step_Size, so we have to convert it :O
+DLLEXPORT Time_Step_Size2
+c_api_get_time_step_size(Model_Application *app) {
+	Time_Step_Size2 result;
+	result.unit = (s32)app->timestep_size.unit;
+	result.magnitude = app->timestep_size.magnitude;
+	
+	return result;
+}
+
+DLLEXPORT char *
+c_api_get_start_date(Model_Application *app, s16 type) {
+	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
+	String_View str;
+	if(type == 1)
+		str = app->result_data.start_date.to_string();
+	else if(type == 2)
+		str = app->series_data.start_date.to_string();
+	
+	return str.data;
+}

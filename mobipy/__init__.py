@@ -1,6 +1,7 @@
 
 import ctypes
 import numpy as np
+import pandas as pd
 
 #NOTE: Just sketching out for now. It is not implemented fully yet.
 
@@ -18,6 +19,9 @@ class Model_Entity_Reference(ctypes.Structure) :
 	
 class Var_Reference(ctypes.Structure) :
 	_fields_ = [("id", ctypes.c_int32), ("type", ctypes.c_int16)]
+	
+class Time_Step_Size(ctypes.Structure) :
+	_fields_ = [("unit", ctypes.c_int32), ("magnitude", ctypes.c_int32)]
 
 dll.c_api_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
 dll.c_api_build_from_model_and_data_file.restype  = ctypes.c_void_p
@@ -42,9 +46,15 @@ dll.c_api_get_var_reference.restype  = Var_Reference
 dll.c_api_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int16]
 dll.c_api_get_steps.restype = ctypes.c_int64
 
-dll.c_api_get_series_data.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int16, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
+dll.c_api_get_series_data.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int16, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64, ctypes.c_char_p, ctypes.c_int64]
 
 dll.c_api_run_model.argtypes = [ctypes.c_void_p]
+
+dll.c_api_get_time_step_size.argtypes = [ctypes.c_void_p]
+dll.c_api_get_time_step_size.restype  = Time_Step_Size
+
+dll.c_api_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int16]
+dll.c_api_get_start_date.restype = ctypes.c_char_p
 
 
 def _c_str(string) :
@@ -76,8 +86,8 @@ class Model_Application :
 			raise RuntimeError("Invalid model entity handle %s" % handle_name)
 		elif ref.type == 1 :
 			return Module(ref.module, self.ptr) 
-		#elif ref.type == 2 :
-		#	return Compartment(ref.entity, self.ptr)   #TODO: this also needs a module ptr.
+		elif ref.type == 2 :
+			return Compartment(ref.entity, self.ptr, ref.module)
 		else :
 			raise RuntimeError("Unimplemented model entity reference type")
 		
@@ -159,13 +169,24 @@ class Series :
 		if not isinstance(indexes, list) :
 			raise RuntimeError("Expected a list object for the indexes")
 			
-		#In the end this should be a pandas series, but for now make a vector
 		time_steps = dll.c_api_get_steps(self.app_ptr, self.type)
 		series = (ctypes.c_double * time_steps)()
 		
-		dll.c_api_get_series_data(self.app_ptr, self.id, self.type, _pack_indexes(indexes), len(indexes), series, time_steps)
+		namebuf = ctypes.create_string_buffer(512)
+		dll.c_api_get_series_data(self.app_ptr, self.id, self.type, _pack_indexes(indexes), len(indexes), series, time_steps, namebuf, 512)
 		
-		return np.array(series, copy=False)
+		
+		start_date = dll.c_api_get_start_date(self.app_ptr, self.type).decode('utf-8')
+		start_date = pd.to_datetime(start_date)
+
+		step_size = dll.c_api_get_time_step_size(self.app_ptr)
+		step_type = 'S' if step_size.unit == 0 else 'MS'
+		freq='%d%s' % (step_size.magnitude, step_type)
+		
+		dates = pd.date_range(start=start_date, periods=time_steps, freq=freq)
+		# We have to do this, otherwise some operations on it crashes:
+		dates = pd.Series(data = dates, name = 'Date')
+		return pd.Series(data=np.array(series, copy=False), index=dates, name=namebuf.value.decode('utf-8'))
 
 
 
