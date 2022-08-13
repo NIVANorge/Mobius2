@@ -78,7 +78,7 @@ name(Decl_Type type) {
 }
 
 enum class
-Value_Type {
+Value_Type : s32 {
 	unresolved = 0, none, real, integer, boolean,    // NOTE: enum would resolve to bool.
 };
 

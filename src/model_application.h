@@ -217,18 +217,23 @@ Series_Metadata {
 	Series_Metadata() : any_data_at_all(false) {}
 };
 
+struct Index_Name {
+	String_View name;
+};
+
 struct
 Model_Application {
 	Mobius_Model *model;
 	
 	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), is_compiled(false),
-		data_set(nullptr), timestep_size {} {
+		data_set(nullptr), alloc(1024), timestep_size {} {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
 		auto global = model->modules[0];
 		
 		index_counts.resize(global->index_sets.count());
+		index_names.resize(global->index_sets.count());
 		
 		for(auto index_set : global->index_sets) {
 			index_counts[index_set.id].index_set = index_set;
@@ -239,7 +244,10 @@ Model_Application {
 		llvm_data = create_llvm_module();   //TODO: free it on destruction!
 	}
 	
+	Linear_Allocator                                alloc; // For storing index names
+	
 	std::vector<Index_T>                            index_counts;
+	std::vector<string_map<Index_T>>                index_names;
 	
 	void set_indexes(Entity_Id index_set, Array<String_View> names);
 	bool all_indexes_are_set();
@@ -252,6 +260,9 @@ Model_Application {
 	Structured_Storage<double, Var_Id>              series_data;
 	Structured_Storage<double, Var_Id>              result_data;
 	Structured_Storage<s64, Neighbor_T>             neighbor_data;
+	
+	void set_indexes(Entity_Id index_set, std::vector<String_View> &indexes);
+	Index_T get_index(Entity_Id index_set, String_View name);
 	
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
 	void set_up_series_structure(Series_Metadata *metadata = nullptr);

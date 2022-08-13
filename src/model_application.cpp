@@ -338,6 +338,28 @@ void
 process_series(Model_Application *app, Series_Set_Info *series_info, Date_Time end_date);
 
 void
+Model_Application::set_indexes(Entity_Id index_set, std::vector<String_View> &indexes) {
+	index_counts[index_set.id] = Index_T {index_set, (s32)indexes.size()};
+	s32 idx = 0;
+	for(auto index : indexes) {
+		String_View new_name = alloc.copy_string_view(index);
+		index_names[index_set.id][new_name] = Index_T {index_set, idx++};
+	}
+}
+
+Index_T
+Model_Application::get_index(Entity_Id index_set, String_View name) {
+	auto &map = index_names[index_set.id];
+	Index_T result;
+	result.index_set = invalid_entity_id;
+	result.index = -1;  //TODO: Should we throw an error here instead?
+	auto find = map.find(name);
+	if(find != map.end())
+		return find->second;
+	return result;
+}
+
+void
 Model_Application::build_from_data_set(Data_Set *data_set) {
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to build model application after it was compiled.");
@@ -353,8 +375,12 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			index_set.name.print_error_header();
 			fatal_error("\"", index_set.name.string_value, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		}
-		index_counts[id.id] = { id, (s32)index_set.indexes.count() };
-		// TODO: do we need to store the index names in the model app, or can we just keep the reference to the data_set ?
+		//index_counts[id.id] = { id, (s32)index_set.indexes.count() };
+		std::vector<String_View> names;
+		names.reserve(index_set.indexes.count());
+		for(auto &index : index_set.indexes)
+			names.push_back(index.name.string_value);
+		set_indexes(id, names);
 	}
 	
 	//TODO: not sure how to handle directed trees when it comes to discrete fluxes. Should we sort the indexes in order?

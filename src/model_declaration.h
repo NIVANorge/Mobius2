@@ -134,7 +134,7 @@ Mobius_Model {
 	String_View doc_string;
 	
 	
-	Mobius_Model() : allocator(1024*1024) {}    //NOTE: for now, the allocator is just to store / build string names... Should maybe get rid of it.
+	Mobius_Model() : allocator(1024*4) {}    //NOTE: for now, the allocator is just to store / build string names..
 	
 	// TODO: destructor.
 	

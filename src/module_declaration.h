@@ -317,6 +317,14 @@ Registry : Registry_Base {
 	}
 	
 	Entity_Id
+	find_by_handle_name(String_View handle_name) {
+		auto find = handle_name_to_handle.find(handle_name);
+		if(find != handle_name_to_handle.end())
+			return find->second;
+		return invalid_entity_id;
+	}
+	
+	Entity_Id
 	create_compiler_internal(String_View handle_name, Decl_Type decl_type, String_View name = "");
 	
 	Entity_Id
