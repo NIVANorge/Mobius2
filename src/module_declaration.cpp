@@ -1122,9 +1122,6 @@ load_model(String_View file_name) {
 	
 	model->model_name = single_arg(decl, 0)->string_value;
 	
-	//note: it is a bit annoying that we can't reuse Registry or Var_Registry for this, but it would also be too gnarly to factor out any more functionality from those, I think.
-	string_map<s16> module_ids;    /// Oops, we should definitely reuse the handles_in_scope in the global module so that we don't get name clashes with other entities...
-	
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
 	if(body->doc_string.type == Token_Type::quoted_string)
@@ -1182,11 +1179,11 @@ load_model(String_View file_name) {
 						s16 module_id = model->load_module(file_name, module_name);
 						auto hn = module_spec->handle_name.string_value;
 						if(hn) {
-							if(module_ids.find(hn) != module_ids.end()) {
+							if(model->module_ids.find(hn) != model->module_ids.end()) {
 								module_spec->handle_name.print_error_header();
 								fatal_error("Re-declaration of handle ", hn, ".");
 							}
-							module_ids[hn] = module_id;
+							model->module_ids[hn] = module_id;
 						}
 					}
 				} break;
@@ -1197,11 +1194,11 @@ load_model(String_View file_name) {
 					model->modules.push_back(module);
 					auto hn = child->handle_name.string_value;
 					if(hn) {
-						if(module_ids.find(hn) != module_ids.end()) {
+						if(model->module_ids.find(hn) != model->module_ids.end()) {
 							child->handle_name.print_error_header();
 							fatal_error("Re-declaration of handle ", hn, ".");
 						}
-						module_ids[hn] = module_id;
+						model->module_ids[hn] = module_id;
 					}
 				} break;
 			}
@@ -1214,7 +1211,7 @@ load_model(String_View file_name) {
 		for(Decl_AST *child : body->child_decls) {
 			switch (child->type) {
 				case Decl_Type::to : {
-					process_to_declaration(model, &module_ids, child);
+					process_to_declaration(model, &model->module_ids, child);
 				} break;
 				
 				case Decl_Type::index_set : {

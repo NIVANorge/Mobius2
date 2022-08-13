@@ -164,6 +164,8 @@ Mobius_Model {
 	Linear_Allocator allocator;
 	
 	std::vector<Module_Declaration *> modules;
+	//note: it is a bit annoying that we can't reuse Registry or Var_Registry for this, but it would also be too gnarly to factor out any more functionality from those, I think.
+	string_map<s16> module_ids;  // Maps the handle name to the id.
 	
 	Var_Registry state_vars;
 	Var_Registry series;

@@ -35,6 +35,35 @@ c_api_run_model(Model_Application *app) {
 	run_model(app);
 }
 
+struct Model_Entity_Reference {
+	enum class Type : s16 {
+		//NOTE: Don't change values of these without updating mobipy.
+		invalid = 0, module = 1, compartment = 2,
+	} type;
+	Module_Declaration *module;
+	Entity_Id           entity;
+};
+
+DLLEXPORT Model_Entity_Reference
+c_api_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
+	Model_Entity_Reference result;
+	result.type = Model_Entity_Reference::Type::invalid;
+	auto find = app->model->module_ids.find(handle_name);
+	if(find != app->model->module_ids.end()) {
+		result.type   = Model_Entity_Reference::Type::module;
+		result.module = app->model->modules[find->second];
+		return result;
+	} 
+	Entity_Id comp_id = app->model->modules[0]->compartments.find_by_handle_name(handle_name);
+	if(is_valid(comp_id)) {
+		result.type   = Model_Entity_Reference::Type::compartment;
+		result.entity = comp_id;
+		return result;
+	}
+
+	return result;
+}
+
 DLLEXPORT Module_Declaration *
 c_api_get_module_reference_by_name(Model_Application *app, char *name) {
 	// TODO: better system to look up module by name
@@ -46,26 +75,45 @@ c_api_get_module_reference_by_name(Model_Application *app, char *name) {
 	return nullptr;
 }
 
-// TODO: should also have one to get it by handle name. But then we need to store the module handle names.
-
-// TODO: get global module.
-
 struct
-DLL_Parameter_Reference {
-	Entity_Id par_id;
+Module_Entity_Reference {
+	enum class Type : s16 {
+		invalid = 0, parameter = 1, compartment = 2, prop_or_quant = 3, flux = 4,
+	} type;
+	Entity_Id entity;
 	Value_Type value_type;
 };
 
-DLLEXPORT DLL_Parameter_Reference
-c_api_get_parameter_reference_by_handle_name(Module_Declaration *module, char *handle_name) {
-	DLL_Parameter_Reference result;
-	result.par_id = module->parameters.find_by_handle_name(handle_name);
-	if(is_valid(result.par_id))
-		result.value_type = get_value_type(module->parameters[result.par_id]->decl_type);
-	else
-		fatal_error(Mobius_Error::api_usage, "\"", handle_name, "\" is not the name of a parameter in the module \"", module->module_name, "\".");
+DLLEXPORT Module_Entity_Reference
+c_api_get_module_entity_by_handle(Module_Declaration *module, char *handle_name) {
+	Module_Entity_Reference result;
+	result.type = Module_Entity_Reference::Type::invalid;
+	Entity_Id entity = module->find_handle(handle_name);
+	if(!is_valid(entity))
+		return result;
+	result.entity = entity;
 	
-	//warning_print("Found parameter id ", result.par_id.id, " module ", result.par_id.module_id, "\n");
+	if(entity.reg_type == Reg_Type::parameter) {
+		result.type = Module_Entity_Reference::Type::parameter;
+		result.value_type = get_value_type(module->parameters[entity]->decl_type);
+		return result;
+	} else if(entity.reg_type == Reg_Type::compartment) {
+		result.type = Module_Entity_Reference::Type::compartment;
+		// TODO: again this system is bad!
+		auto comp = module->compartments[result.entity];
+		if(is_valid(comp->global_id))
+			result.entity = comp->global_id;
+		return result;
+	} else if(entity.reg_type == Reg_Type::property_or_quantity) {
+		result.type = Module_Entity_Reference::Type::prop_or_quant;
+		auto prop = module->properties_and_quantities[result.entity];
+		if(is_valid(prop->global_id))
+			result.entity = prop->global_id;
+		return result;
+	} else if(entity.reg_type == Reg_Type::flux) {
+		result.type = Module_Entity_Reference::Type::flux;
+		return result;
+	}
 	
 	return result;
 }
@@ -88,34 +136,93 @@ get_offset_by_index_names(Model_Application *app, Structured_Storage<Val_T, Hand
 }
 
 DLLEXPORT void
-c_api_set_parameter_real(Model_Application *app, DLL_Parameter_Reference ref, char **index_names, s64 indexes_count, double value) {
+c_api_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value) {
 	
-	if(ref.value_type != Value_Type::real)
-		fatal_error(Mobius_Error::api_usage, "Wrong type for parameter in c_api_set_parameter_real().");
-	
-	s64 offset = get_offset_by_index_names(app, &app->parameter_data, ref.par_id, index_names, indexes_count);
+	s64 offset = get_offset_by_index_names(app, &app->parameter_data, par_id, index_names, indexes_count);
 	if(offset < 0)
 		fatal_error(Mobius_Error::api_usage, "Wrong index for parameter in c_api_set_parameter_real().");
 	
 	Parameter_Value val;
 	val.val_real = value;
 	
-	//warning_print("se value: offset: ", offset, " id : ", ref.par_id.id, " module ", ref.par_id.module_id, "\n");
-	
 	*app->parameter_data.get_value(offset) = val;
 }
 
 DLLEXPORT double
-c_api_get_parameter_real(Model_Application *app, DLL_Parameter_Reference ref, char **index_names, s64 indexes_count) {
+c_api_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
 	
-	if(ref.value_type != Value_Type::real)
-		fatal_error(Mobius_Error::api_usage, "Wrong type for parameter in c_api_get_parameter_real().");
-	
-	s64 offset = get_offset_by_index_names(app, &app->parameter_data, ref.par_id, index_names, indexes_count);
+	s64 offset = get_offset_by_index_names(app, &app->parameter_data, par_id, index_names, indexes_count);
 	if(offset < 0)
 		fatal_error(Mobius_Error::api_usage, "Wrong index for parameter in c_api_get_parameter_real().");
 	
 	double value = (*app->parameter_data.get_value(offset)).val_real;
-	//warning_print("se value: offset: ", offset, " id : ", ref.par_id.id, " module ", ref.par_id.module_id, " value: ", value, "\n");
 	return value;
 }
+
+struct
+Var_Reference {
+	Var_Id id;
+	s16 type;    //TODO: This should be baked into the Var_Id instead!!
+};
+
+DLLEXPORT Var_Reference
+c_api_get_var_reference(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
+	Value_Location loc;
+	loc.neighbor = invalid_entity_id; // For safety, but probably not needed.
+	loc.type = Location_Type::located;
+	loc.compartment = comp_id;
+	loc.property_or_quantity = prop_id;
+	
+	Var_Reference result;
+	result.type = 0;
+	
+	auto find = app->model->state_vars.location_to_id.find(loc);
+	if(find != app->model->state_vars.location_to_id.end()) {
+		result.type = 1;
+		result.id = find->second;
+		return result;
+	}
+	auto find2 = app->model->series.location_to_id.find(loc);
+	if(find2 != app->model->series.location_to_id.end()) {
+		result.type = 2;
+		result.id = find2->second;
+		return result;
+	}
+	
+	return result;
+}
+
+DLLEXPORT s64
+c_api_get_steps(Model_Application *app, s16 type) {
+	if(type == 1) {
+		if(!app->result_data.has_been_set_up)
+			return 0;
+		return app->result_data.time_steps;
+	} else if(type == 2) {
+		return app->series_data.time_steps;
+	}
+	return 0;
+}
+
+DLLEXPORT void
+c_api_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out) {
+	if(!time_steps_out) return;
+	
+	s64 offset;
+	if(type == 1)
+		offset = get_offset_by_index_names(app, &app->result_data, var_id, index_names, indexes_count);
+	else if (type == 2)
+		offset = get_offset_by_index_names(app, &app->series_data, var_id, index_names, indexes_count);
+	if(offset < 0)
+		fatal_error(Mobius_Error::api_usage, "Wrong index for series in c_api_get_series_data().");
+	
+	for(s64 step = 0; step < time_steps_out; ++step) {
+		double value;
+		if(type == 1)
+			value = *app->result_data.get_value(offset, step);
+		else
+			value = *app->series_data.get_value(offset, step);
+		series_out[step] = value;
+	}
+}
+
