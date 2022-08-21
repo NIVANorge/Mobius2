@@ -6,7 +6,7 @@ what if we do:
 
 discrete_order {
 	melt
-	sub(melt)
+	#sub(melt)
 	refreeze
 	#add(refreeze)    #can infer that they are right after refreeze if that is not declared.
 	#sub(refreeze)
@@ -19,9 +19,9 @@ discrete_order {
 	code {
 		compute(a);
 		compute(b);
-		a = a * q/(a + b);
-		b = b * q/(a + b);
-		q -= a + b;
+		sum := a + b
+		a <- a * q/sum
+		b <- b * q/sum
 	}
 
 

@@ -1,0 +1,49 @@
+
+
+library("Meteorology", 0, 0, 1) {
+	
+	latent_heat_of_vaporization : function(T_celsius) {   # Harrison 1963
+		2.501 - 2.361e-3 * T_celsius
+	}
+	
+	mean_barometric_pressure : function(elevation)    {   # Doorenbos, Pruitt 1977
+		101.3 - elev*(0.01152 - 0.544e-6*elev)
+	}
+	
+	psychrometric_constant : function(meanbar, dhvap) {   # Brunt 1952
+		1.013e-3 * meanbar / (0.622 * dhvap)
+	}
+	
+	saturation_vapor_pressure : function(T_celsius)   {   # Tetens 1930, Murray 1967
+		exp( (16.78*T_celsius - 116.9) / (T_celsius + 237.3) )
+	}
+	
+	slope_of_saturation_pressure_curve : function(T_celsius, svap) {
+		4098.0 * svap / (T_celsius + 237.3)^2
+	}
+	
+}
+
+
+library("Radiation", 0, 0, 1) {
+	
+	#emissivity : function(emiss0, emiss1, avap) {
+	#	emiss1*sqrt(avap)) - emiss0
+	#}
+	
+	#TODO: need to be able to load library from library (but only have the scope of that be local) to get e.g. pi
+	
+	solar_constant : constant("Solar constant", unit(W m-2), 1361)
+	
+	daily_average_extraterrestrial_radiation : function(latitude, day_of_year) {
+		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/365.0);
+		solar_declination      := 0.409*sin(2*pi*day_of_year/365.0 - 1.39);
+		lat_rad                := latitude * pi / 180.0
+		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination));        # ooops, need to implement acos and tan
+		
+		solar_constant * (1/pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
+	}
+	
+	# TODO: Make hourly_average_extraterrestrial_radiation
+	
+}

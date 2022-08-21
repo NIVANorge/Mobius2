@@ -6,7 +6,7 @@ library("Thermodynamics") {
 	boltzmann        : constant("Boltzmann constant",        unit(J, K -1),         1.380649e-23)
 	stefan_boltzmann : constant("Stefan-Boltzmann constant", unit(W, m -2, K -4),   5.670373e-8)
 	
-	deg_c_to_K : function(T_celsius)          {   T_celsius + 273.15   }  ##TODO: when we get automatic unit checking, we have to force the unit conversion here.
+	deg_c_to_K : function(T_celsius)          {   T_celsius + 273.15   }  # TODO: when we get automatic unit checking, we have to force the unit conversion here.
 	
 	K_to_deg_c : function(T_kelvin)           {   T_kelvin  - 273.15   }
 	

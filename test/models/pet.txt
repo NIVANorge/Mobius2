@@ -15,3 +15,34 @@ module("Degree-day PET", 1, 0, 0) {
 	
 	soil.has(pet, unit(m m, day -1))                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
 }
+
+
+module("Priestley-Taylor PET", 1, 0, 0) {
+	
+	load("../stdlib/atmosphere.txt", "Meteorology")
+	
+	air       : compartment("Atmosphere")
+	soil      : compartment("Soil")
+	
+	soil.par_group("Potential evapotranspiration") {
+		elev : par_real("Elevation", unit(m), 0)       #TODO : another parameter that should be reused between modules. We need a system for it.
+		apet : par_real("PET multiplication factor", unit(), 1.28, 0.3, 4.0)
+	}
+	
+	pet    : property("Potential evapotranspiration")
+	temp   : property("Temperature") #, unit(deg_c)
+	
+	# TODO: We should have alternative modules to compute these if they are not available as time series.
+	net_lw : property("Net longwave")
+	net_sw : property("Net shortwave")
+	
+	soil.has(pet, unit(m m, day -1)) {                 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
+		meanbar := mean_barometric_pressure(elev)
+		dhvap   := latent_heat_of_vaporization(air.temp)
+		psy     := psychrometric_constant(meanbar, dhvap)
+		svap    := saturation_vapor_pressure(air.temp)
+		slope   := slope_of_saturation_pressure_curve(air.temp, svap)
+		rad     := (net_sw + net_lw)*86400.0/1e6   # convert W/m2 to MJ/m2/day    TODO: do conversion differently when we have a system for it.
+		max(0.0, apet * (slope / (slope + psy)) * (rad / dhvap))
+	}
+}

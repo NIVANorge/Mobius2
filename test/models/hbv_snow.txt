@@ -45,4 +45,13 @@ With some extra spice.
 
 	melt_runoff :
 	flux(snow_box.water, out, "Melt runoff")        {   max(0, water - snow*snow_liq)  }  # Not necessary to write snow_box.water and snow_box.snow since the compartment can be inferred from the flux declaration
+	
+	# TODO: Implement specifying order of computing discrete fluxes.
+	# 'add' and 'sub' specifies when the flux is added/subtracted to/from the target/source. If nothing else is specified, it happens right after the flux is computed.
+	#discrete_order {
+	#	melt
+	#	refreeze
+	#	add(melt)          # What was melted in this time step is not available for refreeze the same time step (though that can't happen anyway... hmm...)
+	#	runoff
+	#}
 }
