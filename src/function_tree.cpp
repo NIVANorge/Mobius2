@@ -112,6 +112,17 @@ make_for_loop() {
 	return for_loop;
 }
 
+Math_Expr_FT *
+make_simple_if(Math_Expr_FT *first, Math_Expr_FT *condition, Math_Expr_FT *otherwise) {
+	auto if_expr = new Math_Expr_FT();
+	if_expr->expr_type = Math_Expr_Type::if_chain;
+	if_expr->value_type = first->value_type;
+	if_expr->exprs.push_back(first);
+	if_expr->exprs.push_back(condition);
+	if_expr->exprs.push_back(otherwise);
+	return if_expr;
+}
+
 
 void try_cast(Math_Expr_FT **a, Math_Expr_FT **b) {
 	if((*a)->value_type != Value_Type::real && (*b)->value_type == Value_Type::real)

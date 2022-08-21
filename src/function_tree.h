@@ -140,6 +140,9 @@ make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_
 Math_Expr_FT *
 make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 
+Math_Expr_FT *
+make_simple_if(Math_Expr_FT *first, Math_Expr_FT *condition, Math_Expr_FT *otherwise);
+
 inline Math_Expr_FT *
 make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	return make_binop((Token_Type)oper, lhs, rhs);
@@ -147,6 +150,9 @@ make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 
 Math_Block_FT *
 make_for_loop();
+
+
+
 
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr, Scope_Data *scope = nullptr);

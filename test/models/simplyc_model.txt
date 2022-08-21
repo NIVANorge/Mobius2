@@ -11,5 +11,5 @@ Description
 	oc : quantity("Organic carbon")
 	
 	soil.water.oc.solve(simply_solver)
-	
+	river.water.oc.solve(simply_solver)
 }

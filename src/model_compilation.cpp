@@ -950,11 +950,32 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				auto source = model->state_vars[var->loc1];
 				auto dissolved_in = model->state_vars[above(var->loc1)];
-				//TODO: safe_divide !
-				auto conc = make_binop('/', make_state_var_identifier(source), make_state_var_identifier(dissolved_in));
-				instr.code = make_binop('*', conc, make_state_var_identifier(var->dissolved_flux));
 				
-			} else if(var->type == Decl_Type::flux && !is_valid(instr.solver) && instr.code) {
+				/*
+				# NOTE: all this jigamarole just creates 
+				actual_conc := {
+					conc := source / dissolved_in
+					conc if is_finite(conc), 
+					0    otherwise
+				}
+				actual_conc * dissolved_flux
+				*/
+				
+				auto block = new Math_Block_FT();
+				block->value_type = Value_Type::real;
+				auto conc = make_binop('/', make_state_var_identifier(source), make_state_var_identifier(dissolved_in));
+				auto conc_ref = add_local_var(block, conc);
+				auto cond = make_intrinsic_function_call(Value_Type::boolean, "is_finite", conc_ref);
+				auto if_expr = make_simple_if(conc_ref, cond, make_literal((double)0.0));
+				block->exprs.push_back(if_expr);
+				
+				instr.code = make_binop('*', block, make_state_var_identifier(var->dissolved_flux));
+				
+			}
+			
+			// Restrict discrete fluxes to not overtax their source.
+			
+			if(var->type == Decl_Type::flux && !is_valid(instr.solver) && instr.code) {
 			
 				// note: create something like
 				// 		flux = min(flux, source)
