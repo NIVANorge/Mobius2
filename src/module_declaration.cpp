@@ -440,6 +440,7 @@ make_global(Module_Declaration *module, Value_Location *loc) {
 Value_Location
 make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity) {
 	Value_Location result;
+	result.n_dissolved = 0;
 	result.type = Location_Type::located;
 	auto comp = model->find_entity<Reg_Type::compartment>(compartment);
 	if(is_valid(comp->global_id))

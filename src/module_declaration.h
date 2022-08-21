@@ -77,20 +77,24 @@ get_parameter_value(Token *token, Token_Type type) {
 }
 
 enum class
-Location_Type {
+Location_Type : s32 {
 	nowhere, out, located, neighbor,
 };
+
+constexpr int max_dissolved_chain = 2;
 
 struct
 Value_Location {
 	//TODO: this becomes more complicated with dissolved quantities etc.
 	Location_Type type;
+	s32 n_dissolved;         //NOTE: it is here for better packing.
 	
-	union {
-		Entity_Id compartment;
-		Entity_Id neighbor;
-	};
+	Entity_Id neighbor; // This should only be referenced if type == neighbor
+	
+	// These should only be referenced if type == located.
+	Entity_Id compartment;
 	Entity_Id property_or_quantity;
+	Entity_Id dissolved_in[max_dissolved_chain];
 };
 
 inline bool
@@ -98,7 +102,7 @@ is_located(Value_Location loc) {
 	return loc.type == Location_Type::located;
 }
 
-constexpr Value_Location invalid_value_location = {Location_Type::nowhere, invalid_entity_id, invalid_entity_id};
+constexpr Value_Location invalid_value_location = {Location_Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id};
 
 inline bool
 is_valid(Value_Location a) {
@@ -107,20 +111,42 @@ is_valid(Value_Location a) {
 
 inline bool
 operator==(const Value_Location &a, const Value_Location &b) {
-	return a.type == b.type && a.compartment == b.compartment && a.property_or_quantity == b.property_or_quantity;
+	if(a.type != b.type) return false;
+	if(a.type == Location_Type::neighbor) return a.neighbor == b.neighbor;
+	if(a.type == Location_Type::located) {
+		if(a.compartment != b.compartment || a.property_or_quantity != b.property_or_quantity || a.n_dissolved != b.n_dissolved) return false;
+		for(int idx = 0; idx < a.n_dissolved; ++idx)
+			if(a.dissolved_in[idx] != b.dissolved_in[idx]) return false;
+	}
+	return true;
+}
+
+inline int
+entity_id_hash(const Entity_Id &id) {
+	return 97*id.module_id + id.id;
 }
 
 struct
 Value_Location_Hash {
 	int operator()(const Value_Location &loc) const {
 		if(loc.type != Location_Type::located)
-			fatal_error(Mobius_Error::internal, "Tried to look up the state variable of a non-located value.");
+			fatal_error(Mobius_Error::internal, "Tried to hash a non-located value location.");
 		// hopefully this one is ok...
+		
+		constexpr int mod = 10889;
+		int res = entity_id_hash(loc.compartment);
+		res = (res*11 + entity_id_hash(loc.property_or_quantity)) % mod;
+		for(int idx = 0; idx < loc.n_dissolved; ++idx)
+			res = (res*11 + entity_id_hash(loc.dissolved_in[idx])) % mod;
+		
+		return res;
+		/*
 		return
 			 loc.compartment.module_id
 		+ 23*loc.compartment.id
 		+ 97*loc.property_or_quantity.module_id
 		+ 2237*loc.property_or_quantity.id;
+		*/
 		// NOTE: no point using the reg_type here since they should be the same always (for now).
 	}
 };

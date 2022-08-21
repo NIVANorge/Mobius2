@@ -26,7 +26,7 @@ template<typename Handle_T> struct Hash_Fun {
 };
 
 template<> struct Hash_Fun<Entity_Id> {
-	int operator()(const Entity_Id& id) const { return 97*id.module_id + id.id; }
+	int operator()(const Entity_Id& id) const { return entity_id_hash(id); }
 };
 
 template<> struct Hash_Fun<Var_Id> {
