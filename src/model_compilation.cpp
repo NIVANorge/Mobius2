@@ -501,7 +501,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(!initial && var->type != Decl_Type::quantity && 
 				!(var->flags & State_Variable::Flags::f_is_aggregate) && 
 				!(var->flags & State_Variable::Flags::f_in_flux_neighbor) &&
-				!(var->flags & State_Variable::Flags::f_in_flux))
+				!(var->flags & State_Variable::Flags::f_in_flux) &&
+				!(var->flags & State_Variable::Flags::f_dissolved_flux))
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			if(initial)
 				continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
@@ -943,7 +944,17 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 		if(instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = model->state_vars[instr.var_id];
 			
-			if(var->type == Decl_Type::flux && !is_valid(instr.solver) && instr.code) {
+			// Codegen for fluxes of dissolved variables
+			
+			if(var->type == Decl_Type::flux && (var->flags & State_Variable::Flags::f_dissolved_flux) ) {
+				
+				auto source = model->state_vars[var->loc1];
+				auto dissolved_in = model->state_vars[above(var->loc1)];
+				//TODO: safe_divide !
+				auto conc = make_binop('/', make_state_var_identifier(source), make_state_var_identifier(dissolved_in));
+				instr.code = make_binop('*', conc, make_state_var_identifier(var->dissolved_flux));
+				
+			} else if(var->type == Decl_Type::flux && !is_valid(instr.solver) && instr.code) {
 			
 				// note: create something like
 				// 		flux = min(flux, source)

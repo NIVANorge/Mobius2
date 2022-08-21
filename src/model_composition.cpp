@@ -251,12 +251,14 @@ Mobius_Model::compose() {
 	
 	warning_print("State var registration begin.\n");
 	
-	int idx = -1;
-	for(auto module : modules) {
-		++idx;
-		if(idx == 0) continue;
+	std::vector<Var_Id> dissolvedes;
+	
+	for(int n_dissolved = 0; n_dissolved < max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
+		int module_id = -1;
+		for(auto module : modules) {
+			++module_id;
+			if(module_id == 0) continue;
 		
-		for(int n_dissolved = 0; n_dissolved < max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
 			for(Entity_Id id : module->hases) {
 				auto has = module->hases[id];
 				if(has->value_location.n_dissolved != n_dissolved) continue;
@@ -265,7 +267,7 @@ Mobius_Model::compose() {
 					auto diss_in = find_entity(has->value_location.dissolved_in[idx]);
 					if(diss_in->decl_type != Decl_Type::quantity) {
 						has->location.print_error_header();
-						fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->handle_name, "\" is a property, not a quantity.");
+						fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
 					}
 				}
 				Decl_Type type = find_entity(has->value_location.property_or_quantity)->decl_type;
@@ -274,18 +276,27 @@ Mobius_Model::compose() {
 						has->location.print_error_header();
 						fatal_error("Properties can only be assigned to compartments, not to quantities.");   //TODO: (for now!)
 					}
+					Value_Location above_loc = above(has->value_location);
+					
+					auto above_var = state_vars[above_loc];
+					if(!is_valid(above_var)) {
+						has->location.print_error_header();
+						fatal_error("The located quantity that this \"has\" declaration is assigned to has not itself been created using a \"has\" declaration.");
+					}
 				}
 				
 				bool is_series = !has->code && (type != Decl_Type::quantity); // TODO: this can't be determined this way! We have instead to do a pass later to see if it was given code somewhere else!
-				register_state_variable(this, Decl_Type::has, id, is_series);
+				Var_Id var_id = register_state_variable(this, Decl_Type::has, id, is_series);
+				if(n_dissolved > 0)
+					dissolvedes.push_back(var_id);
 			}
 		}
 	}
 	
-	idx = -1;
+	int module_id = -1;
 	for(auto module : modules) {
-		++idx;
-		if(idx == 0) continue;
+		++module_id;
+		if(module_id == 0) continue;
 		
 		for(Entity_Id id : module->fluxes) {
 			auto flux = module->fluxes[id];
@@ -294,6 +305,49 @@ Mobius_Model::compose() {
 			check_flux_location(this, flux->location, flux->target);
 			
 			register_state_variable(this, Decl_Type::flux, id, false);
+		}
+	}
+	
+	warning_print("Generate fluxes for dissolved quantities.\n");
+	
+	
+	for(auto var_id : dissolvedes) {
+		auto var = state_vars[var_id];
+		// these are already guaranteed since we put it in dissolvedes..
+		//if(var->type != Decl_Type::quantity) continue;
+		//if(var->loc1.n_dissolved == 0) continue;
+		
+		auto above_loc = above(var->loc1);
+		std::vector<Var_Id> generate;
+		for(auto flux_id : state_vars) {
+			auto flux = state_vars[flux_id];
+			if(flux->type != Decl_Type::flux) continue;
+			if(!(flux->loc1 == above_loc)) continue;
+			if(is_located(flux->loc2)) {
+				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
+				auto below_loc = below(flux->loc2, var->loc1.property_or_quantity);
+				auto below_var = state_vars[below_loc];
+				if(!is_valid(below_var)) continue;
+			}
+			
+			// TODO: need system to exclude some fluxes for this quantity (e.g. evapotranspiration should not carry DOC).
+			generate.push_back(flux_id);
+		}
+		
+		Value_Location source = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
+		
+		for(auto flux_id : generate) {
+			Var_Id gen_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, "dissolved_flux"); //TODO: generate a better name
+			auto gen = state_vars[gen_id];
+			auto flux = state_vars[flux_id];
+			gen->flags = State_Variable::Flags::f_dissolved_flux;
+			gen->dissolved_flux = flux_id;
+			gen->loc1 = source;
+			gen->loc2.type = flux->loc2.type;
+			if(is_located(flux->loc2))
+				gen->loc2 = below(flux->loc2, source.property_or_quantity);
+			if(is_valid(flux->neighbor))
+				gen->neighbor = flux->neighbor;
 		}
 	}
 
@@ -316,15 +370,19 @@ Mobius_Model::compose() {
 		Entity_Id in_compartment = invalid_entity_id;
 		Entity_Id from_compartment = invalid_entity_id;
 		if(var->type == Decl_Type::flux) {
-			auto flux = find_entity<Reg_Type::flux>(var->entity_id);
-			ast = flux->code;
-			bool target_is_located = is_located(flux->target) && !flux->target_was_out; // Note: the target could have been re-directed by the model. We only care about how it was declared
-			if(is_located(flux->source)) {
-				from_compartment = flux->source.compartment;
-				if(!target_is_located || flux->source == flux->target)	
+			bool target_was_out = false;
+			if(is_valid(var->entity_id)) {
+				auto flux_decl = find_entity<Reg_Type::flux>(var->entity_id);
+				target_was_out = flux_decl->target_was_out;
+				ast = flux_decl->code;
+			}
+			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. We only care about how it was declared
+			if(is_located(var->loc1)) {
+				from_compartment = var->loc1.compartment;
+				if(!target_is_located || var->loc1 == var->loc2)	
 					in_compartment = from_compartment;
 			} else if(target_is_located) {
-				in_compartment = flux->target.compartment;
+				in_compartment = var->loc2.compartment;
 			}
 			if(!is_valid(from_compartment)) from_compartment = in_compartment;
 			// note : the only case where from_compartment != in_compartment is when both source and target are located, but different. In that case in_compartment is invalid, but from_compartment is not.
@@ -334,11 +392,10 @@ Mobius_Model::compose() {
 				may_need_neighbor_target.insert(state_vars[var->loc1]); // We only need these for non-discrete variables.
 			}
 			
-			if(is_located(flux->source)) {
-				for(auto &unit_conv : modules[0]->compartments[flux->source.compartment]->unit_convs) {
-					if(flux->source == unit_conv.source && flux->target == unit_conv.target) {
+			if(is_located(var->loc1)) {
+				for(auto &unit_conv : modules[0]->compartments[var->loc1.compartment]->unit_convs) {
+					if(var->loc1 == unit_conv.source && var->loc2 == unit_conv.target)
 						unit_conv_ast = unit_conv.code;
-					}
 				}
 			}
 		} else if(var->type == Decl_Type::property || var->type == Decl_Type::quantity) {
@@ -382,7 +439,7 @@ Mobius_Model::compose() {
 		} else
 			var->unit_conversion_tree = nullptr;
 	}
-	
+
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
 	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.

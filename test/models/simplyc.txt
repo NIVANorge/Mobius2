@@ -1,0 +1,19 @@
+
+
+module("SimplyC", 1, 0, 0) {
+"""
+Just for testing for now
+"""
+
+	soil : compartment("Soil")
+	river : compartment("River")
+
+	water : quantity("Water")
+	oc    : quantity("Organic carbon")
+	
+	
+	#TODO: allow specifying the conc unit
+	#TODO: we have to do something about the name system for these.
+	soil.water.has(oc, unit(k g), "Soil water DOC") .initial { 5 }
+	river.water.has(oc, unit(k g), "River water DOC") .initial { 3 }
+}

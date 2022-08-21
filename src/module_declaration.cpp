@@ -433,6 +433,10 @@ make_global(Module_Declaration *module, Value_Location *loc) {
 		if(is_valid(comp_id)) loc->compartment = comp_id;
 		auto quant_id = module->properties_and_quantities[loc->property_or_quantity]->global_id;
 		if(is_valid(quant_id)) loc->property_or_quantity = quant_id;
+		for(int idx = 0; idx < loc->n_dissolved; ++idx) {
+			auto quant_id = module->properties_and_quantities[loc->dissolved_in[idx]]->global_id;
+			if(is_valid(quant_id)) loc->dissolved_in[idx] = quant_id;
+		}
 	}
 }
 
@@ -924,16 +928,25 @@ process_declaration<Reg_Type::solver>(Module_Declaration *module, Decl_AST *decl
 
 template<> Entity_Id
 process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl) {
-	match_declaration(decl, {{Decl_Type::solver}}, 2, false);
+	match_declaration(decl, {{Decl_Type::solver}}, -1, false);
 	
 	auto id = module->solves.find_or_create(nullptr, nullptr, decl);
 	auto solve = module->solves[id];
 	
+	int chain_size = decl->decl_chain.size();
+	if(chain_size < 2 || chain_size > 2 + max_dissolved_chain) {
+		decl->location.print_error_header();
+		fatal_error("There must be a .-separated chain before the \"solve\" declaration that is a valid located quantity. E.g. <compartment>.<quantity>.solve(...)");
+	}
+	
 	auto compartment       = module->compartments.find_or_create(&decl->decl_chain[0]);
-	auto quantity          = module->properties_and_quantities.find_or_create(&decl->decl_chain[1]);
+	auto quantity          = module->properties_and_quantities.find_or_create(&decl->decl_chain.back());
 	solve->loc.type        = Location_Type::located;
 	solve->loc.compartment = compartment;
 	solve->loc.property_or_quantity = quantity;
+	solve->loc.n_dissolved = chain_size - 2;
+	for(int idx = 1; idx < chain_size-1; ++idx)
+		solve->loc.dissolved_in[idx-1] = module->properties_and_quantities.find_or_create(&decl->decl_chain[idx]);
 	
 	solve->solver          = resolve_argument<Reg_Type::solver>(module, decl, 0);
 	

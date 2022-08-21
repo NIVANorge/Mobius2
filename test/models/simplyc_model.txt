@@ -1,0 +1,15 @@
+
+
+model("SimplyC") {
+"""
+Description
+"""
+	extend("simplyq_model.txt")
+	
+	load("simplyc.txt", sc : module("SimplyC"))
+	
+	oc : quantity("Organic carbon")
+	
+	soil.water.oc.solve(simply_solver)
+	
+}

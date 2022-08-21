@@ -105,7 +105,7 @@ is_located(Value_Location loc) {
 constexpr Value_Location invalid_value_location = {Location_Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id};
 
 inline bool
-is_valid(Value_Location a) {
+is_valid(Value_Location a) { //TODO: is this needed at all?
 	return (a.type != Location_Type::located) || (is_valid(a.compartment) && is_valid(a.property_or_quantity));
 }
 
@@ -119,6 +119,28 @@ operator==(const Value_Location &a, const Value_Location &b) {
 			if(a.dissolved_in[idx] != b.dissolved_in[idx]) return false;
 	}
 	return true;
+}
+
+inline Value_Location
+above(const Value_Location &loc) {
+	Value_Location result = loc;
+	if(loc.n_dissolved == 0)
+		fatal_error(Mobius_Error::internal, "Tried to find a value location above one that is not dissolved in anything.");
+	result.n_dissolved--;
+	result.property_or_quantity = loc.dissolved_in[loc.n_dissolved-1];
+	return result;
+}
+
+inline Value_Location
+below(const Value_Location &loc, Entity_Id quantity) {
+	Value_Location result = loc;
+	if(loc.n_dissolved == max_dissolved_chain)
+		fatal_error(Mobius_Error::internal, "Tried to find a value location with a dissolved chain that is too long.");
+	result.n_dissolved++;
+	result.dissolved_in[loc.n_dissolved] = loc.property_or_quantity;
+	result.property_or_quantity = quantity;
+	
+	return result;
 }
 
 inline int
@@ -140,18 +162,8 @@ Value_Location_Hash {
 			res = (res*11 + entity_id_hash(loc.dissolved_in[idx])) % mod;
 		
 		return res;
-		/*
-		return
-			 loc.compartment.module_id
-		+ 23*loc.compartment.id
-		+ 97*loc.property_or_quantity.module_id
-		+ 2237*loc.property_or_quantity.id;
-		*/
-		// NOTE: no point using the reg_type here since they should be the same always (for now).
 	}
 };
-
-
 
 struct
 Entity_Registration_Base {

@@ -36,21 +36,20 @@ State_Variable {
 	Decl_Type type; //either flux, quantity or property
 	
 	enum Flags {
-		f_none                = 0x00, 
+		f_none                = 0x00,
 		f_in_flux             = 0x01,
 		f_in_flux_neighbor    = 0x02,
 		f_is_aggregate        = 0x04, 
 		f_has_aggregate       = 0x08,
 		f_clear_series_to_nan = 0x10,
+		f_dissolved_flux      = 0x20,
 	} flags;
 	
 	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.
 	
 	String_View name;
 
-	Entity_Id entity_id;  // This is the ID of the declaration, either has(...) or flux(...)
-	
-	//Entity_Id solver; // We don't want this here since it encourages messy code in model_compilation. We only want to store the solvers on the model instructions.
+	Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either has(...) or flux(...)
 	
 	Entity_Id neighbor; // For a flux that points at a neighbor.
 	
@@ -69,6 +68,9 @@ State_Variable {
 	// If this is the target variable of a neighbor flux, neighbor_agg points to the aggregation variable for the neighbor flux.
 	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es) (which is the same as the source).
 	Var_Id         neighbor_agg;
+	
+	// If this is a generated flux for a dissolved quantity, dissolved_flux is the respective flux of the quantity that the source of this flux is dissolved in.
+	Var_Id         dissolved_flux;
 	
 	Math_Expr_FT *function_tree;
 	Math_Expr_FT *initial_function_tree;
@@ -90,7 +92,7 @@ struct Var_Registry {
 	}
 	
 	Var_Id operator[](Value_Location loc) {
-		if(!is_valid(loc) || loc.type != Location_Type::located)
+		if(!is_valid(loc) || !is_located(loc))
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid location.");
 		auto find = location_to_id.find(loc);
 		if(find == location_to_id.end())
@@ -107,7 +109,7 @@ struct Var_Registry {
 	}
 	
 	Var_Id register_var(State_Variable var, Value_Location loc) {
-		if(is_valid(loc) && loc.type == Location_Type::located) {
+		if(is_valid(loc) && is_located(loc)) {
 			Var_Id id = (*this)[loc];
 			if(is_valid(id))
 				fatal_error(Mobius_Error::internal, "Re-registering a variable."); //TODO: hmm, this only catches cases where the location was valid.
@@ -115,7 +117,7 @@ struct Var_Registry {
 		
 		vars.push_back(var);
 		Var_Id id = {(s32)vars.size()-1};
-		if(is_valid(loc) && loc.type == Location_Type::located)
+		if(is_valid(loc) && is_located(loc))
 			location_to_id[loc] = id;
 		name_to_id[var.name].insert(id);
 		return id;
