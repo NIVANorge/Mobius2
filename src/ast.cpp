@@ -56,26 +56,6 @@ get_body_type(Decl_Type decl_type) {
 	return Body_Type::none;
 }
 
-/*
-void print_expr(Math_Expr_AST *expr) {
-	warning_print("(");
-	if(expr->type == Math_Expr_Type::binary_operator) {
-		auto binop = reinterpret_cast<Binary_Operator_AST *>(expr);
-		print_expr(binop->exprs[0]);
-		warning_print(name(binop->oper));
-		print_expr(binop->exprs[1]);
-	} else if(expr->type == Math_Expr_Type::literal) {
-		auto literal = reinterpret_cast<Literal_AST *>(expr);
-		warning_print(literal->value.double_value());
-	} else if(expr->type == Math_Expr_Type::unary_operator) {
-		warning_print('-');
-	} else {
-		warning_print("something");
-	}
-	warning_print(")");
-}
-*/
-
 Decl_AST *
 parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	Decl_AST *decl = new Decl_AST();
@@ -227,37 +207,6 @@ parse_decl(Token_Stream *stream) {
 		} else
 			break;
 	}
-	
-	#if 0
-	{
-		warning_print("decl:\n");
-		if(decl->handle_name.string_value.count)
-			warning_print("handle: ", decl->handle_name.string_value, "\n");
-		warning_print("chain: ");
-		for (Token &token : decl->decl_chain)
-			warning_print(token.string_value, " ");
-		warning_print("\nargs: ");
-		for (Argument_AST *arg : decl->args) {
-			for(Token &token : arg->sub_chain)
-				warning_print(token.string_value, arg->chain_sep);
-			warning_print(",");
-		}
-		warning_print("\n");
-		
-		
-		
-		for(auto body : decl->bodies) {
-			if(body->type == Body_Type::function) {
-				auto *func = reinterpret_cast<Function_Body_AST *>(body);
-				for(auto expr : func->block->exprs) {
-					print_expr(expr);
-					warning_print(";\n");
-				}
-			}
-		}
-		warning_print("\n\n");
-	}
-	#endif
 	
 	return decl;
 }

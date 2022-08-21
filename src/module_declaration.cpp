@@ -466,7 +466,7 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 			{Decl_Type::property, Token_Type::quoted_string},
 			{Decl_Type::property, Decl_Type::unit, Token_Type::quoted_string},
 		},
-		1, true, -1, true);
+		-1, true, -1, true);
 	
 	Token *name = nullptr;
 	if(which == 2) name = single_arg(decl, 1);
@@ -475,9 +475,20 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	auto id  = module->hases.find_or_create(&decl->handle_name, name, decl);
 	auto has = module->hases[id];
 	
-	// TODO: can eventually be tied to a quantity not only a compartment.
+	int chain_size = decl->decl_chain.size();
+	if(chain_size == 0 || chain_size > max_dissolved_chain + 1) {
+		decl->decl_chain.back().print_error_header();
+		fatal_error("A \"has\" declaration must either be of the form compartment.has(property_or_quantity) or compartment.<chain>.has(quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_dissolved_chain, " long.");
+	}
+	
+	// TODO: can eventually be tied to just a quantity not only a compartment or compartment.quantities
 	has->value_location.type = Location_Type::located;
 	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
+	if(chain_size > 1) {
+		for(int idx = 1; idx < chain_size; ++idx)
+			has->value_location.dissolved_in[idx-1] = module->properties_and_quantities.find_or_create(&decl->decl_chain[idx]);
+	}
+	has->value_location.n_dissolved = chain_size - 1;
 	has->value_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
 		
 	if(which == 1 || which == 3)
@@ -925,7 +936,6 @@ process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl)
 	solve->loc.property_or_quantity = quantity;
 	
 	solve->solver          = resolve_argument<Reg_Type::solver>(module, decl, 0);
-	solve->source_location = decl->location;
 	
 	return id;
 }

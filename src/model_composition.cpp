@@ -256,12 +256,29 @@ Mobius_Model::compose() {
 		++idx;
 		if(idx == 0) continue;
 		
-		for(Entity_Id id : module->hases) {
-			auto has = module->hases[id];
-			
-			Decl_Type type = find_entity(has->value_location.property_or_quantity)->decl_type;
-			bool is_series = !has->code && (type != Decl_Type::quantity); // TODO: this can't be determined this way! We have instead to do a pass later to see if not it was given code somewhere else!
-			register_state_variable(this, Decl_Type::has, id, is_series);
+		for(int n_dissolved = 0; n_dissolved < max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
+			for(Entity_Id id : module->hases) {
+				auto has = module->hases[id];
+				if(has->value_location.n_dissolved != n_dissolved) continue;
+				
+				for(int idx = 0; idx < n_dissolved; ++idx) {
+					auto diss_in = find_entity(has->value_location.dissolved_in[idx]);
+					if(diss_in->decl_type != Decl_Type::quantity) {
+						has->location.print_error_header();
+						fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->handle_name, "\" is a property, not a quantity.");
+					}
+				}
+				Decl_Type type = find_entity(has->value_location.property_or_quantity)->decl_type;
+				if(n_dissolved > 0) {
+					if(type != Decl_Type::quantity) {
+						has->location.print_error_header();
+						fatal_error("Properties can only be assigned to compartments, not to quantities.");   //TODO: (for now!)
+					}
+				}
+				
+				bool is_series = !has->code && (type != Decl_Type::quantity); // TODO: this can't be determined this way! We have instead to do a pass later to see if it was given code somewhere else!
+				register_state_variable(this, Decl_Type::has, id, is_series);
+			}
 		}
 	}
 	
@@ -477,12 +494,12 @@ Mobius_Model::compose() {
 		auto solve = modules[0]->solves[id];
 		Var_Id var_id = state_vars[solve->loc];
 		if(!is_valid(var_id)) {
-			solve->source_location.print_error_header();
+			solve->location.print_error_header();
 			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
 		}
 		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			solve->source_location.print_error_header();
+			solve->location.print_error_header();
 			fatal_error("Solvers can only be put on quantities, not on properties.");
 		}
 		has_solver[var_id.id] = 1;

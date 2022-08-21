@@ -298,7 +298,6 @@ template<> struct
 Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
 	Entity_Id solver;
 	Value_Location loc;
-	Source_Location source_location;
 };
 
 template<> struct
