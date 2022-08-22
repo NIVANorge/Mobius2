@@ -3,12 +3,6 @@
 
 #include <string>
 
-/*
-inline Dependency_Set *
-get_dep(Mobius_Model *model, Var_Id var_id, bool initial) { 
-	return initial ? &model->state_vars[var_id]->initial_depends : &model->state_vars[var_id]->depends;
-}
-*/
 
 struct
 Model_Instruction {
@@ -409,6 +403,55 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 }
 
 void
+debug_print_instruction(Mobius_Model *model, Model_Instruction *instr) {
+	if(instr->type == Model_Instruction::Type::compute_state_var)
+		warning_print("\"", model->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
+		warning_print("\"", model->state_vars[instr->source_or_target_id]->name, "\" -= \"", model->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
+		if(is_valid(instr->neighbor)) warning_print("neighbor(");
+		warning_print("\"", model->state_vars[instr->source_or_target_id]->name, "\"");
+		if(is_valid(instr->neighbor)) warning_print(")");
+		warning_print(" += \"", model->state_vars[instr->var_id]->name, "\"\n");
+	} else if(instr->type == Model_Instruction::Type::clear_state_var)
+		warning_print("\"", model->state_vars[instr->var_id]->name, "\" = 0\n");
+	else if(instr->type == Model_Instruction::Type::add_to_aggregate)
+		warning_print("\"", model->state_vars[instr->source_or_target_id]->name, "\" += \"", model->state_vars[instr->var_id]->name, "\" * weight\n");
+}
+
+void
+debug_print_batch_array(Mobius_Model *model, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
+	for(auto &pre_batch : arrays) {
+		warning_print("\t[");;
+		for(auto index_set : pre_batch.index_sets)
+			warning_print("\"", model->find_entity<Reg_Type::index_set>(index_set)->name, "\" ");
+		warning_print("]\n");
+		for(auto instr_id : pre_batch.instr_ids) {
+			warning_print("\t\t");
+			auto instr = &instructions[instr_id];
+			debug_print_instruction(model, instr);
+		}
+	}
+}
+
+void
+debug_print_batch_structure(Mobius_Model *model, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
+	warning_print("\n**** batch structure ****\n");
+	for(auto &batch : batches) {
+		if(is_valid(batch.solver))
+			warning_print("  solver \"", model->find_entity<Reg_Type::solver>(batch.solver)->name, "\" :\n");
+		else
+			warning_print("  discrete :\n");
+		debug_print_batch_array(model, batch.arrays, instructions);
+		if(is_valid(batch.solver)) {
+			warning_print("\t(ODE):\n");
+			debug_print_batch_array(model, batch.arrays_ode, instructions);
+		}
+	}
+	warning_print("\n\n");
+}
+
+void
 build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &batch_out, bool initial) {
 	Mobius_Model *model = model_app->model;
 	
@@ -416,9 +459,6 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 	
 	for(int instr_id : instrs) {
 		Model_Instruction *instr = &instructions[instr_id];
-		
-		//auto var = model->state_vars[instr->var_id];
-		//warning_print("var is ", var->name, "\n");
 		
 		int earliest_possible_batch = batch_out.size();
 		int earliest_suitable_pos   = batch_out.size();
@@ -455,31 +495,9 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 		}
 	}
 	
-#if 1
+#if 0
 	warning_print("\n****", initial ? " initial" : "", " batch structure ****\n");
-	for(auto &pre_batch : batch_out) {
-		warning_print("[");;
-		for(auto index_set : pre_batch.index_sets)
-			warning_print("\"", model->find_entity<Reg_Type::index_set>(index_set)->name, "\" ");
-		warning_print("]\n");
-		for(auto instr_id : pre_batch.instr_ids) {
-			warning_print("\t");
-			auto instr = &instructions[instr_id];
-			if(instr->type == Model_Instruction::Type::compute_state_var)
-				warning_print(model->state_vars[instr->var_id]->name, "\n");
-			else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
-				warning_print(model->state_vars[instr->source_or_target_id]->name, " -= ", model->state_vars[instr->var_id]->name, "\n");
-			else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
-				if(is_valid(instr->neighbor)) warning_print("neighbor(");
-				warning_print(model->state_vars[instr->source_or_target_id]->name);
-				if(is_valid(instr->neighbor)) warning_print(")");
-				warning_print(" += ", model->state_vars[instr->var_id]->name, "\n");
-			} else if(instr->type == Model_Instruction::Type::clear_state_var)
-				warning_print(model->state_vars[instr->var_id]->name, " = 0\n");
-			else if(instr->type == Model_Instruction::Type::add_to_aggregate)
-				warning_print(model->state_vars[instr->source_or_target_id]->name, " += ", model->state_vars[instr->var_id]->name, " * weight\n");
-		}
-	}
+	debug_print_batch_array(model, batch_out, instructions)
 	warning_print("\n\n");
 #endif
 	
@@ -897,10 +915,95 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 			else
 				batches_out.insert(batches_out.begin() + first_suitable_location, std::move(batch));
 		}
-		
-		//TODO: more passes to better group non-solver batches in a minimal way.
-		
 	}
+	
+	//NOTE: we do more passes to try and group instructions in an optimal way.
+	
+	bool changed = false;
+	for(int it = 0; it < 10; ++it) {
+		changed = false;
+		
+		int batch_idx = 0;
+		for(auto &batch : batches_out) {
+			int instr_idx = batch.instrs.size() - 1;
+			while(instr_idx >= 0) {
+				int instr_id = batch.instrs[instr_idx];
+				
+				bool cont = false;
+				// If another instruction behind us in the same batch depends on us, we are not allowed to move!
+				for(int instr_behind_idx = instr_idx+1; instr_behind_idx < batch.instrs.size(); ++instr_behind_idx) {
+					int behind_id = batch.instrs[instr_behind_idx];
+					auto behind = &instructions[behind_id];
+					if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
+						cont = true;
+						break;
+					}
+				}
+				if(cont) {
+					--instr_idx;
+					continue;
+				}
+				
+				int last_suitable_batch_idx = batch_idx;
+				for(int batch_behind_idx = batch_idx + 1; batch_behind_idx < batches_out.size(); ++batch_behind_idx) {
+					Batch &batch_behind = batches_out[batch_behind_idx];
+					if((batch_behind.solver == batch.solver) || (!is_valid(batch_behind.solver) && !is_valid(batch.solver)))
+						last_suitable_batch_idx = batch_behind_idx;
+					bool batch_depends_on_us = false;
+					for(int instr_behind_idx = 0; instr_behind_idx < batch_behind.instrs.size(); ++instr_behind_idx) {
+						int behind_id = batch_behind.instrs[instr_behind_idx];
+						auto behind = &instructions[behind_id];
+						if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
+							batch_depends_on_us = true;
+							break;
+						}
+					}
+					if(batch_depends_on_us || batch_behind_idx == batches_out.size()-1) {
+						if(last_suitable_batch_idx != batch_idx) {
+							// We are allowed to move. Move to the beginning of the first other batch that is suitable.
+							Batch &insert_to = batches_out[last_suitable_batch_idx];
+							insert_to.instrs.insert(insert_to.instrs.begin(), instr_id);
+							batch.instrs.erase(batch.instrs.begin()+instr_idx); // NOTE: it is safe to do this since we are iterating instr_idx from the end to the beginning
+							changed = true;
+						}
+						break;
+					}
+				}
+				--instr_idx;
+			}
+			++batch_idx;
+		}
+		
+		if(!changed) break;
+	}
+	if(changed)
+		fatal_error(Mobius_Error::internal, "Unable to optimize instruction batch grouping in the allotted amount of iterations.");
+	
+	// Remove batches that were emptied as a result of the step above.
+	int batch_idx = batches_out.size()-1;
+	while(batch_idx >= 0) {
+		Batch &batch = batches_out[batch_idx];
+		if(batch.instrs.empty())
+			batches_out.erase(batches_out.begin() + batch_idx);  // NOTE: ok since we are iterating batch_idx backwards.
+		--batch_idx;
+	}
+	
+	// TODO: We need to verify that each solver is only given one batch!! Ideally we should just group instructions by solver initially and then sort the groups (where each discrete instruction is just given its own group)?
+	
+#if 0
+	warning_print("*** Batches before internal structuring: ***\n");
+	for(auto &batch : batches_out) {
+		if(is_valid(batch.solver))
+			warning_print("  solver(\"", model->find_entity<Reg_Type::solver>(batch.solver)->name, "\") :\n");
+		else
+			warning_print("  discrete :\n");
+		for(int instr_id : batch.instrs) {
+			warning_print("\t\t");
+			debug_print_instruction(model, &instructions[instr_id]);
+		}
+	}
+	warning_print("\n\n");
+#endif
 }
 
 
@@ -1141,6 +1244,8 @@ Model_Application::compile() {
 			build_batch_arrays(this, vars_ode, instructions, batch.arrays_ode, false);
 		}
 	}
+	
+	debug_print_batch_structure(model, batches, instructions);
 	
 	set_up_result_structure(this, batches, instructions);
 	
