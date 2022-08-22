@@ -10,7 +10,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 	river    : compartment("River")
 	
 	water    : quantity("Water")
-	sediment : quantity("Sediment")
+	sed      : quantity("Sediment")
 
 	soil.par_group("Soil erodibility") {
 		c_cov      : par_real("Vegetation cover factor", unit(), 0.2, 0, 1, "Vegetation cover factor, describing ratio between long-term erosion under the land use class, compared to under bare soil of the same soil type, slope, etc. Source from (R)USLE literature and area-weight as necessary to obtain a single value for the land class.")
@@ -33,7 +33,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 		a_catch : par_real("Catchment area", unit(k m 2), 51.7)
 	}
 	
-	river.has(sediment, unit(k g), "Suspended sediments") .initial { 0 }                      #TODO: It should be river.water.has(...)
+	river.water.has(sed, unit(k g), "Suspended sediments") .initial { 0 }                      #TODO: It should be river.water.has(...)
 
 	soil.has(c_cover : property("Time dependent vegetation cover factor"), unit()) {
 		E_risk_period := 60.0
@@ -57,14 +57,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 	river.has(e_fact, unit(), "Erosion factor river")                  {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed   }
 	
 	# TODO: river.water.sediment
-	flux(nowhere, river.sediment, "Sediment mobilization")             {   aggregate(soil.e_fact) * e_fact   }
-	
-	# TODO: this one should become unnecessary when we get dissolveds figured out
-	flow : property("Flow")
-	flux(river.sediment, nowhere, "River sediment flux")               {   86400*flow * safe_divide(sediment, water)   }
-	
-	# Likewise, this would be auto-generated.
-	river.has(ss_conc : property("Suspended sediment concentration"), unit(m g, l-1)) { 1e-3*safe_divide(sediment, water)  }
+	flux(nowhere, river.water.sed, "Sediment mobilization")             {   aggregate(soil.e_fact) * e_fact   }
 }
 
 
