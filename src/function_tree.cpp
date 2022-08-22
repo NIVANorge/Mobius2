@@ -241,8 +241,9 @@ fatal_error_trace(Scope_Data *scope) {
 	}
 }
 
-void
-try_to_locate_variable(Identifier_FT *new_ident, Entity_Id first, Entity_Id second, String_View n1, String_View n2, Source_Location sl, Module_Declaration *module, Mobius_Model *model, Scope_Data *scope) {
+
+Value_Location
+try_to_locate_variable(Entity_Id first, Entity_Id second, String_View n1, String_View n2, Source_Location sl, Mobius_Model *model, Scope_Data *scope) {
 	if(first.reg_type != Reg_Type::compartment) {
 		sl.print_error_header();
 		if(n1)
@@ -262,6 +263,30 @@ try_to_locate_variable(Identifier_FT *new_ident, Entity_Id first, Entity_Id seco
 	}
 	
 	Value_Location loc = make_value_location(model, first, second);
+	return loc;
+}
+
+
+Value_Location
+try_to_locate_dissolved(Value_Location &loc, Entity_Id diss, String_View n, Source_Location sl, Mobius_Model *model, Scope_Data *scope) {
+	// NOTE: We don't have to check that it is a quantity (not a property) here since if it isn't, it can't be a valid state variable (and that is caught in set_identifier_location)
+	if(diss.reg_type != Reg_Type::property_or_quantity) {
+		sl.print_error_header();
+		error_print("The name \"", n, "\" does not refer to a quantity.");
+		fatal_error_trace(scope);
+	}
+	if(loc.n_dissolved == max_dissolved_chain) {
+		sl.print_error_header();
+		error_print("Too many elements in chain.");
+		fatal_error_trace(scope);
+	}
+	Value_Location result = add_dissolved(model, loc, diss);
+	return result;
+}
+
+
+void
+set_identifier_location(Mobius_Model *model, Identifier_FT *new_ident, Value_Location &loc, Source_Location sl, Scope_Data *scope) {
 	Var_Id var_id = model->state_vars[loc];
 	if(is_valid(var_id)) {
 		new_ident->variable_type = Variable_Type::state_var;
@@ -270,10 +295,10 @@ try_to_locate_variable(Identifier_FT *new_ident, Entity_Id first, Entity_Id seco
 	} else {
 		var_id = model->series[loc];
 		if(!is_valid(var_id)) {
-			//TODO: this check is actually not sufficient if we want to require that the has declaration should have happened in the same module.
-			// Maybe that is not that important (?).
 			sl.print_error_header();
-			error_print("There is no \"has\" declaration tying \"", n2, "\" to the compartment \"", model->find_entity(first)->name, "\".\n");
+			error_print("The location ");
+			error_print_location(model, loc);
+			error_print(" has not been created using a \"has\" declaration.");
 			fatal_error_trace(scope);
 		}
 		new_ident->variable_type = Variable_Type::series;
@@ -321,10 +346,12 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 			auto new_ident = new Identifier_FT();
 			result = new_ident;
 			
+			int chain_size = ident->chain.size();
+			
 			bool isfun = is_inside_function(scope);
 			bool found_local = false;
-			String_View n1 = ident->chain[0].string_value;;
-			if(ident->chain.size() == 1)
+			String_View n1 = ident->chain[0].string_value;
+			if(chain_size == 1)
 				found_local = find_local_variable(new_ident, n1, scope);
 			
 			if(isfun && !found_local) {
@@ -334,7 +361,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 			}
 			
 			if(!found_local) {
-				if(ident->chain.size() == 1) {
+				if(chain_size == 1) {
 					Entity_Id id = module->find_handle(n1);
 					if(id.reg_type == Reg_Type::parameter) {
 
@@ -352,7 +379,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 							error_print("The name \"", n1, "\" can not properly be resolved since the compartment can not be inferred from the context.\n");
 							fatal_error_trace(scope);
 						}
-						try_to_locate_variable(new_ident, data->in_compartment, id, {}, n1, ident->chain[0].location, module, data->model, scope);
+						// TODO: We need to be able to infer from context if we just refer to a dissolved substance also.
+						auto loc = try_to_locate_variable(data->in_compartment, id, {}, n1, ident->chain[0].location, data->model, scope);
+						set_identifier_location(data->model, new_ident, loc, ident->chain[0].location, scope);
 					} else if (id.reg_type == Reg_Type::constant) {
 						delete new_ident; // A little stupid to do it that way, but oh well.
 						result = make_literal(module->constants[id]->value);
@@ -362,13 +391,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
 						fatal_error_trace(scope);
 					}
-				} else if(ident->chain.size() == 2) {
+				} else if(chain_size >= 2) {
 					// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
 					String_View n2 = ident->chain[1].string_value;
 					Entity_Id first  = module->find_handle(n1);
 					
 					//TODO: may need fixup for special more identifiers.
-					if(n1 == "time") {
+					if(chain_size == 2 && n1 == "time") {
 						if(false){}
 						#define TIME_VALUE(name, bits) \
 						else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
@@ -380,7 +409,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 							fatal_error_trace(scope);
 						}
 						new_ident->value_type = Value_Type::integer;
-					} else if(first.reg_type == Reg_Type::parameter) {
+					} else if(chain_size == 2 && first.reg_type == Reg_Type::parameter) {
 						auto parameter = module->parameters[first];
 						if(parameter->decl_type != Decl_Type::par_enum) {
 							ident->chain[0].print_error_header();
@@ -400,8 +429,14 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 						result->value_type = Value_Type::boolean;   // Ooops, make_binop does not give correct type for comparison operators.
 					} else {
 						Entity_Id second = module->find_handle(n2);
-					
-						try_to_locate_variable(new_ident, first, second, n1, n2, ident->chain[0].location, module, data->model, scope);
+						auto loc = try_to_locate_variable(first, second, n1, n2, ident->chain[0].location, data->model, scope);
+						
+						for(int idx = 0; idx < chain_size-2; ++idx) {
+							String_View n = ident->chain[idx+2].string_value;
+							Entity_Id diss = module->find_handle(n);
+							loc = try_to_locate_dissolved(loc, diss, n, ident->chain[0].location, data->model, scope);
+						}
+						set_identifier_location(data->model, new_ident, loc, ident->chain[0].location, scope);
 					}
 				} else {
 					ident->chain[0].print_error_header();

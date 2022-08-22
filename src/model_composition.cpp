@@ -37,7 +37,8 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 			} 
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
-	}
+	} else if (type == Decl_Type::has)
+		var.type = Decl_Type::property;
 	
 	auto name = given_name;
 	if(!name && is_valid(id))
@@ -57,20 +58,27 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	return invalid_var;
 }
 
-
 void
-check_flux_location(Mobius_Model *model, Source_Location source_loc, Value_Location loc) {
+check_flux_location(Mobius_Model *model, Source_Location source_loc, Value_Location &loc) {
 	if(loc.type != Location_Type::located) return;
 	auto hopefully_a_quantity = model->find_entity(loc.property_or_quantity);
 	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 		source_loc.print_error_header();
 		fatal_error("Fluxes can only be assigned to quantities. \"", hopefully_a_quantity->handle_name, "\" is a property, not a quantity.");
 	}
+	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
+		auto hopefully_a_quantity = model->find_entity(loc.dissolved_in[idx]);
+		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
+			source_loc.print_error_header();
+			fatal_error("Fluxes can only be assigned to quantities. \"", hopefully_a_quantity->handle_name, "\" is a property, not a quantity.");
+		}
+	}
 	Var_Id var_id = model->state_vars[loc];
 	if(!is_valid(var_id)) {
-		auto compartment = model->find_entity(loc.compartment);
 		source_loc.print_error_header();
-		fatal_error("The compartment \"", compartment->handle_name, "\" does not have the quantity \"", hopefully_a_quantity->handle_name, "\".");
+		error_print("The variable location ");
+		error_print_location(model, loc);
+		fatal_error(" has not been created using a \"has\" declaration.");
 	}
 }
 
@@ -241,6 +249,10 @@ void
 Mobius_Model::compose() {
 	warning_print("compose begin\n");
 	
+	
+	//TODO: make better name generation system!
+	char varname[1024];
+	
 	/*
 	TODO: we have to check for mismatching has declarations or re-declaration of code multiple places.
 		only if there is no code anywhere can we be sure that it is a series.
@@ -276,7 +288,7 @@ Mobius_Model::compose() {
 						has->location.print_error_header();
 						fatal_error("Properties can only be assigned to compartments, not to quantities.");   //TODO: (for now!)
 					}
-					Value_Location above_loc = above(has->value_location);
+					Value_Location above_loc = remove_dissolved(has->value_location);
 					
 					auto above_var = state_vars[above_loc];
 					if(!is_valid(above_var)) {
@@ -317,7 +329,7 @@ Mobius_Model::compose() {
 		//if(var->type != Decl_Type::quantity) continue;
 		//if(var->loc1.n_dissolved == 0) continue;
 		
-		auto above_loc = above(var->loc1);
+		auto above_loc = remove_dissolved(var->loc1);
 		std::vector<Var_Id> generate;
 		for(auto flux_id : state_vars) {
 			auto flux = state_vars[flux_id];
@@ -325,7 +337,7 @@ Mobius_Model::compose() {
 			if(!(flux->loc1 == above_loc)) continue;
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
-				auto below_loc = below(flux->loc2, var->loc1.property_or_quantity);
+				auto below_loc = add_dissolved(this, flux->loc2, var->loc1.property_or_quantity);
 				auto below_var = state_vars[below_loc];
 				if(!is_valid(below_var)) continue;
 			}
@@ -335,19 +347,30 @@ Mobius_Model::compose() {
 		}
 		
 		Value_Location source = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
+		String_View var_name = var->name;
+		
+		sprintf(varname, "conc(%.*s)", var_name.count, var_name.data);
+		Var_Id gen_conc_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, allocator.copy_string_view(varname));
+		auto conc_var = state_vars[gen_conc_id];
+		conc_var->flags = State_Variable::Flags::f_dissolved_conc;
+		conc_var->dissolved_conc = var_id;
+		state_vars[var_id]->dissolved_conc = gen_conc_id;
 		
 		for(auto flux_id : generate) {
-			Var_Id gen_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, "dissolved_flux"); //TODO: generate a better name
-			auto gen = state_vars[gen_id];
+			String_View flux_name = state_vars[flux_id]->name;
+			sprintf(varname, "dissolved_flux(%.*s, %.*s)", var_name.count, var_name.data, flux_name.count, flux_name.data);
+			Var_Id gen_flux_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, allocator.copy_string_view(varname));
+			auto gen_flux = state_vars[gen_flux_id];
 			auto flux = state_vars[flux_id];
-			gen->flags = State_Variable::Flags::f_dissolved_flux;
-			gen->dissolved_flux = flux_id;
-			gen->loc1 = source;
-			gen->loc2.type = flux->loc2.type;
+			gen_flux->flags = State_Variable::Flags::f_dissolved_flux;
+			gen_flux->dissolved_flux = flux_id;
+			gen_flux->dissolved_conc = gen_conc_id;
+			gen_flux->loc1 = source;
+			gen_flux->loc2.type = flux->loc2.type;
 			if(is_located(flux->loc2))
-				gen->loc2 = below(flux->loc2, source.property_or_quantity);
+				gen_flux->loc2 = add_dissolved(this, flux->loc2, source.property_or_quantity);
 			if(is_valid(flux->neighbor))
-				gen->neighbor = flux->neighbor;
+				gen_flux->neighbor = flux->neighbor;
 		}
 	}
 
@@ -358,11 +381,13 @@ Mobius_Model::compose() {
 	
 	Var_Map in_flux_map;
 	Var_Map2 needs_aggregate;
+	Var_Map2 needs_aggregate_initial;
 	
 	std::set<Var_Id> may_need_neighbor_target;
 	
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
+		
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
 		Math_Expr_AST *unit_conv_ast = nullptr;
@@ -398,7 +423,7 @@ Mobius_Model::compose() {
 						unit_conv_ast = unit_conv.code;
 				}
 			}
-		} else if(var->type == Decl_Type::property || var->type == Decl_Type::quantity) {
+		} else if((var->type == Decl_Type::property || var->type == Decl_Type::quantity) && is_valid(var->entity_id)) {
 			auto has = find_entity<Reg_Type::has>(var->entity_id);
 			ast      = has->code;
 			init_ast = has->initial_code;
@@ -417,7 +442,7 @@ Mobius_Model::compose() {
 			//warning_print("found initial function tree for ", var->name, "\n");
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
-			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
+			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate_initial, var_id, from_compartment, true);
 		} else
 			var->initial_function_tree = nullptr;
 		
@@ -439,6 +464,9 @@ Mobius_Model::compose() {
 		} else
 			var->unit_conversion_tree = nullptr;
 	}
+	
+	if(needs_aggregate_initial.size() > 0)
+		fatal_error(Mobius_Error::internal, "aggregate() declarations inside initial value code is not yet supported.");
 
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
@@ -465,7 +493,6 @@ Mobius_Model::compose() {
 		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
 		
 		for(auto to_compartment : need_agg.second.first) {
-			//warning_print("********* Create an aggregate\n");
 			
 			Math_Expr_FT *agg_weight = nullptr;
 			for(auto &agg : source->aggregations) {
@@ -501,11 +528,8 @@ Mobius_Model::compose() {
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
-			//TODO: make better name generation system!
-			char varname[1024];
 			sprintf(varname, "aggregate(%.*s)", var->name.count, var->name.data);
-			auto varname2 = allocator.copy_string_view(varname);
-			Var_Id agg_id = register_state_variable(this, var->type, invalid_entity_id, false, varname2);
+			Var_Id agg_id = register_state_variable(this, var->type, invalid_entity_id, false, allocator.copy_string_view(varname));
 			
 			auto agg_var = state_vars[agg_id];
 			agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
@@ -563,7 +587,8 @@ Mobius_Model::compose() {
 	}
 	
 	warning_print("Generate state vars for in_flux_neighbor.\n");
-	// TODO: generate aggregation variables for the neighbor flux.
+	// TODO: What happens if there are multiple neighbor fluxes for the same variable?
+	//   currently it looks like only the last one will be added to the target in the end ( neighbor_agg is overwritten by the last one we create ).
 	for(auto var_id : may_need_neighbor_target) {
 		if(!has_solver[var_id.id]) continue;
 		

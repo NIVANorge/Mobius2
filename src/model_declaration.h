@@ -43,6 +43,7 @@ State_Variable {
 		f_has_aggregate       = 0x08,
 		f_clear_series_to_nan = 0x10,
 		f_dissolved_flux      = 0x20,
+		f_dissolved_conc      = 0x40,
 	} flags;
 	
 	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.
@@ -69,7 +70,10 @@ State_Variable {
 	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es) (which is the same as the source).
 	Var_Id         neighbor_agg;
 	
-	// If this is a generated flux for a dissolved quantity, dissolved_flux is the respective flux of the quantity that the source of this flux is dissolved in.
+	// If this is a generated flux for a dissolved quantity (f_dissolved_flux is set), dissolved_conc is the respective generated conc of the quantity. dissolved_flux is the flux of the quantity that this one is dissolved in.
+	// If this is the generated conc (f_dissolved_conc is set), dissolved_conc is the variable for the mass of the quantity.
+	// If none of the flags are set and this is the mass of the quantity, dissolved_conc also points to the conc.
+	Var_Id         dissolved_conc;
 	Var_Id         dissolved_flux;
 	
 	Math_Expr_FT *function_tree;
@@ -91,7 +95,7 @@ struct Var_Registry {
 		return &vars[id.id];
 	}
 	
-	Var_Id operator[](Value_Location loc) {
+	Var_Id operator[](Value_Location &loc) {
 		if(!is_valid(loc) || !is_located(loc))
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid location.");
 		auto find = location_to_id.find(loc);

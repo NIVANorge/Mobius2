@@ -440,7 +440,7 @@ make_global(Module_Declaration *module, Value_Location *loc) {
 	}
 }
 
-// NOTE: This one should not be called on a module where all declarations are not loaded yet. This is because the global ids don't exist before the corresponding entity is declared, and it could be declared before it is referenced.
+// NOTE: The following three should not be called on a module where all declarations are not loaded yet. This is because the global ids don't exist before the corresponding entity is declared, and it could be declared before it is referenced.
 Value_Location
 make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity) {
 	Value_Location result;
@@ -457,6 +457,32 @@ make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id proper
 		result.property_or_quantity = prop->global_id;
 	else
 		result.property_or_quantity = property_or_quantity;
+	
+	return result;
+}
+
+Value_Location
+remove_dissolved(const Value_Location &loc) {
+	Value_Location result = loc;
+	if(loc.n_dissolved == 0)
+		fatal_error(Mobius_Error::internal, "Tried to find a value location above one that is not dissolved in anything.");
+	result.n_dissolved--;
+	result.property_or_quantity = loc.dissolved_in[loc.n_dissolved-1];
+	return result;
+}
+
+Value_Location
+add_dissolved(Mobius_Model *model, const Value_Location &loc, Entity_Id quantity) {
+	Value_Location result = loc;
+	if(loc.n_dissolved == max_dissolved_chain)
+		fatal_error(Mobius_Error::internal, "Tried to find a value location with a dissolved chain that is too long.");
+	result.n_dissolved++;
+	result.dissolved_in[loc.n_dissolved] = loc.property_or_quantity;
+	
+	auto quant = model->find_entity<Reg_Type::property_or_quantity>(quantity);
+	if(is_valid(quant->global_id)) quantity = quant->global_id;
+	
+	result.property_or_quantity = quantity;
 	
 	return result;
 }
@@ -530,9 +556,14 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 
 void
 process_location_argument(Module_Declaration *module, Decl_AST *decl, int which, Value_Location *location, bool allow_unspecified) {
-	std::vector<Token> *symbol = &decl->args[which]->sub_chain;
-	if(symbol->size() == 1 && allow_unspecified) {
-		Token *token = &(*symbol)[0];
+	if(decl->args[which]->decl) {
+		decl->args[which]->decl->location.print_error_header();
+		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
+	}
+	std::vector<Token> &symbol = decl->args[which]->sub_chain;
+	int count = symbol.size();
+	if(count == 1 && allow_unspecified) {
+		Token *token = &symbol[0];
 		if(token->string_value == "nowhere")
 			location->type = Location_Type::nowhere;
 		else if(token->string_value == "out") {
@@ -545,13 +576,22 @@ process_location_argument(Module_Declaration *module, Decl_AST *decl, int which,
 			token->print_error_header();
 			fatal_error("Invalid variable location.");
 		}
-	} else if (symbol->size() == 2) {
+	} else if (count >= 2 && count <= max_dissolved_chain + 2) {
+		if(decl->args[which]->chain_sep != '.') {
+			symbol[0].print_error_header();
+			fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
+		}
 		location->type     = Location_Type::located;
-		location->compartment = module->compartments.find_or_create(&(*symbol)[0]);
-		location->property_or_quantity   = module->properties_and_quantities.find_or_create(&(*symbol)[1]);    //NOTE: this does not guarantee that this is a quantity and not a property, so that must be checked in post.
+		location->compartment = module->compartments.find_or_create(&symbol[0]);
+		//NOTE: this does not guarantee that these are quantities and not properties, so that is checked in post (in model_composition).
+		for(int idx = 0; idx < count-2; ++idx) {
+			location->dissolved_in[idx] = module->properties_and_quantities.find_or_create(&symbol[idx+1]);
+		}
+		location->n_dissolved            = count-2;
+		location->property_or_quantity   = module->properties_and_quantities.find_or_create(&symbol.back());    
 	} else {
-		//TODO: this should eventually be allowed when having dissolved quantities
-		(*symbol)[0].print_error_header();
+		//TODO: Give a reason for why it failed
+		symbol[0].print_error_header();
 		fatal_error("Invalid variable location.");
 	}
 }
@@ -1286,5 +1326,21 @@ load_model(String_View file_name) {
 	check_for_missing_declarations(global_scope);
 	
 	return model;
+}
+
+
+void
+error_print_location(Mobius_Model *model, Value_Location &loc) {
+	//TODO: only works for located ones right now.
+	//TODO: this only works if these compartments and quantities were declared with a handle in the model scope. It "forgets" what handle was used in the scope of the original declaration of the location! Maybe print the "name" instead of the "handle_name" ???
+	
+	auto comp = model->find_entity(loc.compartment);
+	error_print(comp->handle_name, '.');
+	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
+		auto quant = model->find_entity(loc.dissolved_in[idx]);
+		error_print(quant->handle_name, '.');
+	}
+	auto quant = model->find_entity(loc.property_or_quantity);
+	error_print(quant->handle_name);
 }
 

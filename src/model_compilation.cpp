@@ -502,7 +502,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				!(var->flags & State_Variable::Flags::f_is_aggregate) && 
 				!(var->flags & State_Variable::Flags::f_in_flux_neighbor) &&
 				!(var->flags & State_Variable::Flags::f_in_flux) &&
-				!(var->flags & State_Variable::Flags::f_dissolved_flux))
+				!(var->flags & State_Variable::Flags::f_dissolved_flux) &&
+				!(var->flags & State_Variable::Flags::f_dissolved_conc))
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			if(initial)
 				continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
@@ -946,31 +947,31 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Codegen for fluxes of dissolved variables
 			
-			if(var->type == Decl_Type::flux && (var->flags & State_Variable::Flags::f_dissolved_flux) ) {
-				
-				auto source = model->state_vars[var->loc1];
-				auto dissolved_in = model->state_vars[above(var->loc1)];
-				
+			if(var->type == Decl_Type::property && (var->flags & State_Variable::Flags::f_dissolved_conc) ) {
+				auto mass = var->dissolved_conc;
+				auto mass_var = model->state_vars[mass];
+				auto dissolved_in = model->state_vars[remove_dissolved(mass_var->loc1)];
 				/*
 				# NOTE: all this jigamarole just creates 
 				actual_conc := {
-					conc := source / dissolved_in
+					conc := mass / dissolved_in
 					conc if is_finite(conc), 
 					0    otherwise
 				}
-				actual_conc * dissolved_flux
 				*/
-				
 				auto block = new Math_Block_FT();
 				block->value_type = Value_Type::real;
-				auto conc = make_binop('/', make_state_var_identifier(source), make_state_var_identifier(dissolved_in));
+				auto conc = make_binop('/', make_state_var_identifier(mass), make_state_var_identifier(dissolved_in));
 				auto conc_ref = add_local_var(block, conc);
 				auto cond = make_intrinsic_function_call(Value_Type::boolean, "is_finite", conc_ref);
 				auto if_expr = make_simple_if(conc_ref, cond, make_literal((double)0.0));
 				block->exprs.push_back(if_expr);
 				
-				instr.code = make_binop('*', block, make_state_var_identifier(var->dissolved_flux));
-				
+				instr.code = block;
+			}
+			
+			if(var->type == Decl_Type::flux && (var->flags & State_Variable::Flags::f_dissolved_flux) ) {
+				instr.code = make_binop('*', make_state_var_identifier(var->dissolved_conc), make_state_var_identifier(var->dissolved_flux));
 			}
 			
 			// Restrict discrete fluxes to not overtax their source.
