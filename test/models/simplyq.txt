@@ -39,6 +39,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 		flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-2*flow/qqinfl)) - 1)
 	}
 	
+	evap :
 	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - 0.01^(water/fc))   }  # = pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
 	
 	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {

@@ -31,10 +31,10 @@ General model description.
 	
 	simply_solver : solver("Simply solver", "INCADascru", 0.1)
 	
-	soil.water.solve(simply_solver)
-	gw.water.solve(simply_solver)
-	river.water.solve(simply_solver)
-	
+	simply_solver.solve(soil.water)
+	simply_solver.solve(gw.water)
+	simply_solver.solve(river.water)
+
 	##### Link fluxes between compartments and specify aggregation between compartments that are distributed differently, and unit conversions where volumes are different
 
 	sn.p_rain     .to(soil.water)

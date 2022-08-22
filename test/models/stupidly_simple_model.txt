@@ -34,7 +34,6 @@ model("Simple test model") {
 	md.flix.to(nb)
 	
 	sol : solver("solver", "INCADascru", 0.1)
-	
-	a.q.solve(sol)
+	sol.solve(a.q)
 	
 }

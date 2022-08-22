@@ -322,7 +322,7 @@ Mobius_Model::compose() {
 	
 	warning_print("Generate fluxes for dissolved quantities.\n");
 	
-	
+	// TODO: Not sure if this system works correctly for chain-dissolved quantities yet (dissolved in dissolved)!
 	for(auto var_id : dissolvedes) {
 		auto var = state_vars[var_id];
 		// these are already guaranteed since we put it in dissolvedes..
@@ -341,6 +341,9 @@ Mobius_Model::compose() {
 				auto below_var = state_vars[below_loc];
 				if(!is_valid(below_var)) continue;
 			}
+			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
+			auto flux_reg = find_entity<Reg_Type::flux>(flux->entity_id);
+			if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;  
 			
 			// TODO: need system to exclude some fluxes for this quantity (e.g. evapotranspiration should not carry DOC).
 			generate.push_back(flux_id);

@@ -251,6 +251,8 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Value_Location   target;
 	bool target_was_out;           // We some times need info about if the target was re-directed by a 'to' declaration.
 	
+	std::vector<Value_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
+	
 	Math_Block_AST  *code;
 };
 

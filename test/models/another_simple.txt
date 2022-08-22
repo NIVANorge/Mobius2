@@ -36,7 +36,7 @@ model("Another simple") {
 	pnb : idx.neighbor("Place neighbor", directed_tree)
 	
 	sol : solver("My solver", "INCADascru", 0.1)
-	place.stuff.solve(sol)
+	sol.solve(place.stuff)
 	
 	sp.the_flow.to(pnb)
 }

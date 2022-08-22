@@ -889,7 +889,7 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 	auto find = module_ids->find(module_handle);
 	if(find == module_ids->end()) {
 		decl->decl_chain[0].print_error_header();
-		fatal_error("The module handle \"", module_handle, "\" was not declared.");
+		fatal_error("The module identifier \"", module_handle, "\" was not declared.");
 	}
 	s16 module_id = find->second;
 	Module_Declaration *module = model->modules[module_id];
@@ -905,13 +905,8 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 	
 	auto &chain = decl->args[0]->sub_chain;
 	
-	if(chain.size() == 2) {
-		Token *comp_tk = &chain[0];
-		Token *quant_tk = &chain[1];
-		auto comp_id  = expect_exists(model->modules[0], comp_tk, Reg_Type::compartment);
-		auto quant_id = expect_exists(model->modules[0], quant_tk, Reg_Type::property_or_quantity);
-		
-		flux->target = make_value_location(model, comp_id, quant_id);
+	if(chain.size() >= 2) {
+		process_location_argument(model->modules[0], decl, 0, &flux->target, false);
 	} else if (chain.size() == 1) {
 		Token *neigh_tk = &chain[0];
 		auto neigh_id = expect_exists(model->modules[0], neigh_tk, Reg_Type::neighbor);
@@ -923,9 +918,46 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 		fatal_error("This is not a well-formatted flux target. Expected something on the form compartment.quantity or neighbor .");
 	}
 	
-	//warning_print("Trying to direct flux ", flux_handle, " to ", model->find_entity<Reg_Type::compartment>(comp_id)->name, " ", model->find_entity<Reg_Type::property_or_quantity>(quant_id)->name, ".\n");
+	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to just look them up here.
+}
+
+void
+process_no_carry_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AST *decl) {
+	// Oops, lots of code duplication from process_to_declaration
+	match_declaration(decl, {{Token_Type::identifier}}, 2, false);
 	
-	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to call this.
+	String_View module_handle = decl->decl_chain[0].string_value;
+	auto find = module_ids->find(module_handle);
+	if(find == module_ids->end()) {
+		decl->decl_chain[0].print_error_header();
+		fatal_error("The module identifier \"", module_handle, "\" was not declared.");
+	}
+	s16 module_id = find->second;
+	Module_Declaration *module = model->modules[module_id];
+	
+	Token *flux_handle = &decl->decl_chain[1];
+	Entity_Id flux_id = expect_exists(module, flux_handle, Reg_Type::flux);
+	
+	auto flux = module->fluxes[flux_id];
+	
+	Value_Location loc;
+	process_location_argument(model->modules[0], decl, 0, &loc, false);
+	
+	bool found = false;
+	auto above = loc;
+	while(above.n_dissolved > 0) {
+		above = remove_dissolved(above);
+		if(above == flux->source) {
+			found = true;
+			break;
+		}
+	}
+	if(!found) {
+		decl->location.print_error_header();
+		fatal_error("This flux could not have carried this quantity since the latter is not dissolved in the source of the flux.");
+	}
+	
+	flux->no_carry.push_back(loc);
 }
 
 template<> Entity_Id
@@ -968,27 +1000,13 @@ process_declaration<Reg_Type::solver>(Module_Declaration *module, Decl_AST *decl
 
 template<> Entity_Id
 process_declaration<Reg_Type::solve>(Module_Declaration *module, Decl_AST *decl) {
-	match_declaration(decl, {{Decl_Type::solver}}, -1, false);
+	match_declaration(decl, {{Token_Type::identifier}}, 1, false);
 	
 	auto id = module->solves.find_or_create(nullptr, nullptr, decl);
 	auto solve = module->solves[id];
 	
-	int chain_size = decl->decl_chain.size();
-	if(chain_size < 2 || chain_size > 2 + max_dissolved_chain) {
-		decl->location.print_error_header();
-		fatal_error("There must be a .-separated chain before the \"solve\" declaration that is a valid located quantity. E.g. <compartment>.<quantity>.solve(...)");
-	}
-	
-	auto compartment       = module->compartments.find_or_create(&decl->decl_chain[0]);
-	auto quantity          = module->properties_and_quantities.find_or_create(&decl->decl_chain.back());
-	solve->loc.type        = Location_Type::located;
-	solve->loc.compartment = compartment;
-	solve->loc.property_or_quantity = quantity;
-	solve->loc.n_dissolved = chain_size - 2;
-	for(int idx = 1; idx < chain_size-1; ++idx)
-		solve->loc.dissolved_in[idx-1] = module->properties_and_quantities.find_or_create(&decl->decl_chain[idx]);
-	
-	solve->solver          = resolve_argument<Reg_Type::solver>(module, decl, 0);
+	solve->solver = module->solvers.find_or_create(&decl->decl_chain[0]);
+	process_location_argument(module, decl, 0, &solve->loc, false);
 	
 	return id;
 }
@@ -1276,6 +1294,10 @@ load_model(String_View file_name) {
 			switch (child->type) {
 				case Decl_Type::to : {
 					process_to_declaration(model, &model->module_ids, child);
+				} break;
+				
+				case Decl_Type::no_carry : {
+					process_no_carry_declaration(model, &model->module_ids, child);
 				} break;
 				
 				case Decl_Type::index_set : {

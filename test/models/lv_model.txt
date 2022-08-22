@@ -31,8 +31,8 @@ model("Predator-prey test model") {
 	prey : quantity("Prey")
 	
 	sol : solver("LV-Solver", "INCADascru", 0.1)
-	habitat.pred.solve(sol)
-	habitat.prey.solve(sol)
+	sol.solve(habitat.prey)
+	sol.solve(habitat.pred)
 	
 	hi : index_set("Habitat index")
 	habitat.distribute(hi)
