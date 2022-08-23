@@ -196,7 +196,7 @@ parse_decl(Token_Stream *stream) {
 			else if(body_type == Body_Type::function) {
 				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
 				
-				// Note: fold_minus causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
+				// Note: fold_minus=false causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
 				stream->fold_minus = false; 
 				function_body->block = parse_math_block(stream, next.location);
 				stream->fold_minus = true;
@@ -249,6 +249,7 @@ parse_function_call(Token_Stream *stream) {
 
 int
 find_binary_operator(Token_Stream *stream, Token_Type *t) {
+	// The number returned is the operator precedence. High means that it is computed first.
 	Token peek = stream->peek_token();
 	*t = peek.type;
 	char c = (char)*t;
@@ -438,8 +439,6 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_modifiers) {
 	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
 	
-	//TODO: need much better error messages!
-	
 	if(!allow_chain && !decl->decl_chain.empty()) {
 		decl->decl_chain[0].print_error_header();
 		fatal_error("This should not be a chained declaration.");
@@ -450,7 +449,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	}
 	if(!allow_handle && decl->handle_name.string_value.count > 0) {
 		decl->handle_name.print_error_header();
-		fatal_error("This declaration should not have a handle");
+		fatal_error("This declaration should not be assigned to an identifier");
 	}
 	
 	int found_match = -1;

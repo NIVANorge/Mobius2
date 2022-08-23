@@ -81,7 +81,7 @@ State_Variable {
 	Math_Expr_FT *aggregation_weight_tree;
 	Math_Expr_FT *unit_conversion_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
 };
 
 struct Var_Registry {

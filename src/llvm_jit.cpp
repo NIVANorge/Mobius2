@@ -348,12 +348,14 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::intrin_name, arg_types); \
 			result = data->builder->CreateCall(fun, { a }); \
 		}
+	// could name the function call std::string(function.data, function.data+function.count);
 	#define MAKE_INTRINSIC2(name, intrin_name, ret_type, type1, type2)
 	#include "intrinsics.incl"
 	#undef MAKE_INTRINSIC1
 	#undef MAKE_INTRINSIC2
 	else if(function == "is_finite") {
-		// NOTE: This checks if the mantissa bits are all 1.
+		// NOTE: This checks if the mantissa bits are not all 1. (If they are it is either an inf or a nan).
+		//   TODO: It could be that on some very rare platforms the bytes are in opposite order, and this may break (?)
 		auto mask = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0x7ff0000000000000));
 		result = data->builder->CreateBitCast(a, llvm::Type::getInt64Ty(*data->context));
 		result = data->builder->CreateAnd(result, mask);

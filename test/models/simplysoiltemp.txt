@@ -1,0 +1,33 @@
+
+module("Simply soil temperature", 0, 0, 0) {
+"""
+TODO: description
+NOTE: not finished, just for testing some systems
+
+TODO: this should probably be rewritten with mobius2 systems and units in mind.
+"""
+
+	air      : compartment("Atmosphere")
+	soil     : compartment("Soil")
+	snow_box : compartment("Snow box")
+	
+	snow     : quantity("Snow (water equivalents)")
+	
+	temp     : property("Temperature")
+	coup     : property("COUP soil temperature")
+	
+	soil.par_group("Snow temperature general") {
+		depthst : par_real("Snow depth / soil temperature factor", unit(c m -1), -0.2, -3.0, -0.001)
+		init_st : par_real("Initial soil temperature", unit(deg_c), 10, -30, 40)
+	}
+	
+	soil.par_group("Snow temperature land") {
+		stc     : par_real("Soil thermal conductivity / specific heat capacity", unit(m 2, M s -1), 0.4, 0.01, 0.8)
+	}
+	
+	soil.has(coup, unit(deg_c)) {
+		last(coup) + 86400 * (1e-6 * stc  / (2*0.15)^2) * (air.temp - last(coup))
+	} .initial { init_st }
+	
+	soil.has(temp, unit(deg_c), "Soil temperature") {  coup * exp(depthst * snow_box.snow)	}
+}

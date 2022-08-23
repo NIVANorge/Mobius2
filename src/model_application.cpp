@@ -203,28 +203,27 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	}
 }
 
+Module_Declaration *
+does_module_exist(Mobius_Model *model, Module_Info *module_info) {
+	Module_Declaration *module = nullptr;
+	
+	for(auto mod : model->modules)
+		if(mod->module_name == module_info->name.string_value) {
+			module = mod;
+			break;
+		}
+	return module;
+}
+
 void
-process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Module_Info *module_info = nullptr) {
+process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Module_Declaration *module = nullptr) {
 	
 	if(!app->parameter_data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
 	
 	Mobius_Model *model = app->model;
 	
-	Module_Declaration *module = nullptr;
-	if(module_info) {
-		// TODO: make a better way to look up module by name
-		for(auto mod : model->modules)
-			if(mod->module_name == module_info->name.string_value) {
-				module = mod;
-				break;
-			}
-		if(!module) {
-			module_info->name.print_warning_header();
-			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module_info->name.string_value, "\". This data block will be ignored.\n\n");
-			return;
-		}
-	} else
+	if(!module)
 		module = model->modules[0];
 	
 	// TODO: Match module versions, and be lenient on errors if versions don't match.
@@ -435,8 +434,14 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		process_parameters(this, &par_group);
 	}
 	for(auto &module : data_set->modules) {
+		Module_Declaration *mod = does_module_exist(model, &module);
+		if(!mod) {
+			module.name.print_warning_header();
+			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name.string_value, "\". This data block will be ignored.\n\n");
+			continue;
+		}
 		for(auto &par_group : module.par_groups)
-			process_parameters(this, &par_group, &module);
+			process_parameters(this, &par_group, mod);
 	}
 	
 	if(!data_set->series.empty()) {

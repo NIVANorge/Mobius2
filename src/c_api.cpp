@@ -12,7 +12,7 @@
 // NOTE: This is just some preliminary testing of the C api. Will build it out properly later.
 
 DLLEXPORT Model_Application *
-c_api_build_from_model_and_data_file(char * model_file, char * data_file) {
+mobius_build_from_model_and_data_file(char * model_file, char * data_file) {
 	
 	Mobius_Model *model = load_model(model_file);
 	model->compose();
@@ -30,7 +30,7 @@ c_api_build_from_model_and_data_file(char * model_file, char * data_file) {
 }
 
 DLLEXPORT void
-c_api_run_model(Model_Application *app) {
+mobius_run_model(Model_Application *app) {
 
 	run_model(app);
 }
@@ -45,7 +45,7 @@ struct Model_Entity_Reference {
 };
 
 DLLEXPORT Model_Entity_Reference
-c_api_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
+mobius_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
 	Model_Entity_Reference result;
 	result.type = Model_Entity_Reference::Type::invalid;
 	auto find = app->model->module_ids.find(handle_name);
@@ -66,7 +66,7 @@ c_api_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
 }
 
 DLLEXPORT Module_Declaration *
-c_api_get_module_reference_by_name(Model_Application *app, char *name) {
+mobius_get_module_reference_by_name(Model_Application *app, char *name) {
 	// TODO: better system to look up module by name
 	for(auto module : app->model->modules) {
 		if(module->module_name == name)
@@ -86,7 +86,7 @@ Module_Entity_Reference {
 };
 
 DLLEXPORT Module_Entity_Reference
-c_api_get_module_entity_by_handle(Module_Declaration *module, char *handle_name) {
+mobius_get_module_entity_by_handle(Module_Declaration *module, char *handle_name) {
 	Module_Entity_Reference result;
 	result.type = Module_Entity_Reference::Type::invalid;
 	Entity_Id entity = module->find_handle(handle_name);
@@ -137,11 +137,11 @@ get_offset_by_index_names(Model_Application *app, Structured_Storage<Val_T, Hand
 }
 
 DLLEXPORT void
-c_api_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value) {
+mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value) {
 	
 	s64 offset = get_offset_by_index_names(app, &app->parameter_data, par_id, index_names, indexes_count);
 	if(offset < 0)
-		fatal_error(Mobius_Error::api_usage, "Wrong index for parameter in c_api_set_parameter_real().");
+		fatal_error(Mobius_Error::api_usage, "Wrong index for parameter in mobius_set_parameter_real().");
 	
 	Parameter_Value val;
 	val.val_real = value;
@@ -150,14 +150,32 @@ c_api_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_
 }
 
 DLLEXPORT double
-c_api_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
+mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
 	
 	s64 offset = get_offset_by_index_names(app, &app->parameter_data, par_id, index_names, indexes_count);
 	if(offset < 0)
-		fatal_error(Mobius_Error::api_usage, "Wrong index for parameter in c_api_get_parameter_real().");
+		fatal_error(Mobius_Error::api_usage, "Wrong index for parameter in mobius_get_parameter_real().");
 	
 	double value = (*app->parameter_data.get_value(offset)).val_real;
 	return value;
+}
+
+
+DLLEXPORT Value_Location
+mobius_get_value_location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
+	Value_Location loc;
+	loc.neighbor = invalid_entity_id; // For safety, but probably not needed.
+	loc.type = Location_Type::located;
+	loc.compartment = comp_id;
+	loc.property_or_quantity = prop_id;
+	loc.n_dissolved = 0; //TODO!
+	
+	return loc;
+}
+
+DLLEXPORT Value_Location
+mobius_get_dissolved_location(Model_Application *app, Value_Location loc, Entity_Id prop_id) {
+	return add_dissolved(app->model, loc, prop_id);
 }
 
 struct
@@ -167,13 +185,7 @@ Var_Reference {
 };
 
 DLLEXPORT Var_Reference
-c_api_get_var_reference(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
-	Value_Location loc;
-	loc.neighbor = invalid_entity_id; // For safety, but probably not needed.
-	loc.type = Location_Type::located;
-	loc.compartment = comp_id;
-	loc.property_or_quantity = prop_id;
-	
+mobius_get_var_reference(Model_Application *app, Value_Location loc) {
 	Var_Reference result;
 	result.type = 0;
 	
@@ -193,8 +205,22 @@ c_api_get_var_reference(Model_Application *app, Entity_Id comp_id, Entity_Id pro
 	return result;
 }
 
+DLLEXPORT Var_Reference
+mobius_get_conc_reference(Model_Application *app, Value_Location loc) {
+	Var_Reference res = mobius_get_var_reference(app, loc);
+	if(res.type == 2) res.type = 0; // Input series don't have concentrations.
+	if(res.type == 0) return res;
+	
+	auto var = app->model->state_vars[res.id];
+	if(is_valid(var->dissolved_conc))
+		res.id = var->dissolved_conc;
+	else
+		res.type = 0;
+	return res;
+}
+
 DLLEXPORT s64
-c_api_get_steps(Model_Application *app, s16 type) {
+mobius_get_steps(Model_Application *app, s16 type) {
 	if(type == 1) {
 		if(!app->result_data.has_been_set_up)
 			return 0;
@@ -207,7 +233,7 @@ c_api_get_steps(Model_Application *app, s16 type) {
 
 // TODO: Getting the name should be a separate call though.
 DLLEXPORT void
-c_api_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size) {
+mobius_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size) {
 	if(!time_steps_out) return;
 	
 	s64 offset;
@@ -220,7 +246,7 @@ c_api_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **in
 		name = app->model->series[var_id]->name;
 	}
 	if(offset < 0)
-		fatal_error(Mobius_Error::api_usage, "Wrong index for series in c_api_get_series_data().");
+		fatal_error(Mobius_Error::api_usage, "Wrong index for series in mobius_get_series_data().");
 	
 	if(name.count > name_out_size)
 		name.count = name_out_size;
@@ -244,7 +270,7 @@ Time_Step_Size2 {
 
 // It somehow messes with the C calling convention if we pass a Time_Step_Size, so we have to convert it :O
 DLLEXPORT Time_Step_Size2
-c_api_get_time_step_size(Model_Application *app) {
+mobius_get_time_step_size(Model_Application *app) {
 	Time_Step_Size2 result;
 	result.unit = (s32)app->timestep_size.unit;
 	result.magnitude = app->timestep_size.magnitude;
@@ -253,7 +279,7 @@ c_api_get_time_step_size(Model_Application *app) {
 }
 
 DLLEXPORT char *
-c_api_get_start_date(Model_Application *app, s16 type) {
+mobius_get_start_date(Model_Application *app, s16 type) {
 	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
 	String_View str;
 	if(type == 1)

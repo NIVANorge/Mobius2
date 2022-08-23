@@ -96,5 +96,31 @@ module("SimplyQ river", 1, 0, 0) {
 	}
 }
 
+module("Simply soil temperature", 0, 0, 0) {
+	par_group("Snow temperature general") {
+		par_real("Snow depth / soil temperature factor") [-0.2 ]
+		par_real("Initial soil temperature") [ 10 ]
+	}
+	
+	par_group("Snow temperature land") [ "Landscape units" ] {
+		par_real("Soil thermal conductivity / specific heat capacity") [ 0.4 0.4 0.4 ]
+	}
+}
+
+module("SimplyC", 1, 0, 0) {
+	par_group("DOC general") {
+		par_real("Baseline soil DOC dissolution rate") [ 1 ]
+		par_real("Soil temperature DOC creation linear coefficient") [ 0 ]
+	}
+	
+	par_group("DOC land") ["Landscape units"] {
+		par_real("Baseline soil DOC concentration") [ 10 8 5 ]
+	}
+	
+	par_group("DOC deep soil") {
+		#par_enum("Groundwater DOC computation type") [ soil_avg ]
+		par_real("Groundwater DOC half-life") [ 80 ]
+	}
+}
 
 

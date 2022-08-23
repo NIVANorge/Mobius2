@@ -397,6 +397,8 @@ ole_get_date(VARIANT *var, Date_Time *date_out) {
 	return false;
 }
 
+#include "../third_party/fast_double_parser/fast_double_parser.h"
+
 double
 ole_get_double(VARIANT *var) {
 	double result = std::numeric_limits<double>::quiet_NaN();
@@ -418,8 +420,9 @@ ole_get_double(VARIANT *var) {
 			if(*c == ',') *c = '.';   //NOTE: Replace ',' with '.' in case of nonstandard formats.
 			++c;
 		}
-		int count = sscanf(buf, "%f", &result);
-		if(count != 1) result = std::numeric_limits<double>::quiet_NaN();
+		//int count = sscanf(buf, "%f", &result);
+		const char *endptr = fast_double_parser::parse_number(buf, &result);
+		if(!endptr) result = std::numeric_limits<double>::quiet_NaN();
 		ole_destroy_string(var);
 	}
 	
