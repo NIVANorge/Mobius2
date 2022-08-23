@@ -62,8 +62,8 @@ model("Giblet-Thrasher test model") {
 	prey : quantity("Giblets")
 	
 	sol : solver("LV-Solver", "INCADascru", 0.1)
-	habitat.pred.solve(sol)
-	habitat.prey.solve(sol)
+	sol.solve(habitat.pred)
+	sol.solve(habitat.prey)
 	
 	hi : index_set("Habitat index")
 	habitat.distribute(hi)

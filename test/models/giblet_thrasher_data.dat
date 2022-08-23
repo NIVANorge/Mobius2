@@ -5,7 +5,7 @@ neighbor("Migration route", "Habitat index") [
 	"Bogs"   -> "Plateau"
 ]
 
-module("Giblet-Thasher", 1, 0, 0) {
+module("Giblet-Thrasher", 1, 0, 0) {
 	par_group("General parameters") {
 		par_int ("Giblet preferred birthday") [ 120 ]
 		par_real("Giblet propensity to migrate") [ 0.05 ]

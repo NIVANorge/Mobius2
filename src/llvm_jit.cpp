@@ -156,6 +156,17 @@ get_jitted_batch_function(const std::string &fun_name) {
 struct Scope_Local_Vars;
 llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
 
+void
+jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
+	auto int_64_ty      = llvm::Type::getInt64Ty(*data->context);
+	auto neigh_array_ty = llvm::ArrayType::get(int_64_ty, constants->neighbor_data_count);
+	std::vector<llvm::Constant *> values(constants->neighbor_data_count);
+	for(s64 idx = 0; idx < values.size(); ++idx)
+		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(64, constants->neighbor_data[idx], true));
+	auto const_array_init = llvm::ConstantArray::get(neigh_array_ty, values);
+	//TODO: are we responsible for owning this now, or does the module own the data?
+	llvm::GlobalVariable* global_neighbor_data = new llvm::GlobalVariable(*data->module, neigh_array_ty, true, llvm::GlobalValue::ExternalLinkage, const_array_init, "global_neighbor_data");
+}
 
 void
 jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module_Data *data) {
@@ -176,14 +187,14 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	data->dt_struct_type = dt_ty;
 	
 	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, int_64_ptr_ty, dt_ptr_ty
+		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty
 		};
 		
 	llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
 	llvm::Function *fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	
 	// Hmm, is it important to set the argument names, or could we skip it?
-	const char *argnames[6] = {"parameters", "series", "state_vars", "solver_workspace", "neighbor_info", "date_time"};
+	const char *argnames[5] = {"parameters", "series", "state_vars", "solver_workspace", "date_time"};
 	std::vector<llvm::Value *> args;
 	int idx = 0;
 	for(auto &arg : fun->args()) {
@@ -539,12 +550,14 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 			} else if(ident->variable_type == Variable_Type::neighbor_info) {
-				result = data->builder->CreateGEP(int_64_ty, args[4], offset, "neighbor_info_lookup");
+				auto global_neighbor_data = data->module->getGlobalVariable("global_neighbor_data");
+				//warning_print("global_neighbor_data is ", global_neighbor_data, "\n");
+				result = data->builder->CreateGEP(int_64_ty, global_neighbor_data, offset, "neighbor_info_lookup");
 				result = data->builder->CreateLoad(int_64_ty, result, "neighbor_info");
 			}
 			#define TIME_VALUE(name, bits) \
 			else if(++struct_pos, ident->variable_type == Variable_Type::time_##name) { \
-				result = data->builder->CreateStructGEP(data->dt_struct_type, args[5], struct_pos, #name); \
+				result = data->builder->CreateStructGEP(data->dt_struct_type, args[4], struct_pos, #name); \
 				result = data->builder->CreateLoad(int_##bits##_ty, result); \
 				if(bits != 64) \
 					result = data->builder->CreateSExt(result, int_64_ty, "cast"); \

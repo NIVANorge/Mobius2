@@ -1182,6 +1182,8 @@ Model_Application::compile() {
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before input series data was set up.");
 	if(!parameter_data.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before parameter data was set up.");
+	if(!neighbor_data.has_been_set_up)
+		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before neighbor data was set up.");
 	
 	warning_print("Create instruction arrays\n");
 	std::vector<Model_Instruction> initial_instructions;
@@ -1248,6 +1250,12 @@ Model_Application::compile() {
 	debug_print_batch_structure(model, batches, instructions);
 	
 	set_up_result_structure(this, batches, instructions);
+	
+	LLVM_Constant_Data constants;
+	constants.neighbor_data       = neighbor_data.data;
+	constants.neighbor_data_count = neighbor_data.total_count;
+	
+	jit_add_global_data(llvm_data, &constants);
 	
 	warning_print("Generate inital run code\n");
 	this->initial_batch.run_code = generate_run_code(this, &initial_batch, initial_instructions, true);
