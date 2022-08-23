@@ -209,8 +209,6 @@ class Series :
 		return pd.Series(data=np.array(series, copy=False), index=dates, name=namebuf.value.decode('utf-8'))
 	
 	def __getattr__(self, handle_name) :
-		if(handle_name == 'conc') :
-			return Conc_Series(self.loc, self.app_ptr, self.module_ptr)
 			
 		if self.loc.n_dissolved == max_dissolved_chain :
 			raise RuntimeError("Can not have that many chained dissolved substances")
@@ -233,7 +231,8 @@ class Conc_Series(Series) :
 	def __getattr__(self, handle_name) :
 		raise RuntimeError("Can't look up sub-proerties of a conc")
 		
-		
+def conc(series) :
+	return Conc_Series(series.loc, series.app_ptr, series.module_ptr)
 
 # Usage code
 #     simplyq = Model_Application.build_from_model_and_data_file("simplyq_model.txt", "simplyq_data_tarland.dat")
