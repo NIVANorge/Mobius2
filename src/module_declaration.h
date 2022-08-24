@@ -242,8 +242,10 @@ Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 	//Entity_Id    conc_unit;
 	
 	Math_Block_AST *code;
+	bool initial_is_conc;
 	Math_Block_AST *initial_code;
-	Math_Block_AST *override_conc_code;
+	bool override_is_conc;
+	Math_Block_AST *override_code;
 };
 
 template<> struct

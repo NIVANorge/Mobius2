@@ -77,12 +77,14 @@ State_Variable {
 	Var_Id         dissolved_flux;
 	
 	Math_Expr_FT *function_tree;
+	bool initial_is_conc;
 	Math_Expr_FT *initial_function_tree;
 	Math_Expr_FT *aggregation_weight_tree;
 	Math_Expr_FT *unit_conversion_tree;
-	Math_Expr_FT *override_conc_tree;
+	bool override_is_conc;
+	Math_Expr_FT *override_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
 };
 
 struct Var_Registry {

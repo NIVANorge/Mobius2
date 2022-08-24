@@ -394,7 +394,8 @@ Mobius_Model::compose() {
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
 		Math_Expr_AST *unit_conv_ast = nullptr;
-		Math_Expr_AST *override_conc_ast = nullptr;
+		Math_Expr_AST *override_ast = nullptr;
+		bool override_is_conc = false;
 		
 		Entity_Id in_compartment = invalid_entity_id;
 		Entity_Id from_compartment = invalid_entity_id;
@@ -431,11 +432,12 @@ Mobius_Model::compose() {
 			auto has = find_entity<Reg_Type::has>(var->entity_id);
 			ast      = has->code;
 			init_ast = has->initial_code;
-			override_conc_ast = has->override_conc_code;
+			override_ast = has->override_code;
+			override_is_conc = has->override_is_conc;
 			
-			if(override_conc_ast && (var->type != Decl_Type::quantity || var->loc1.n_dissolved == 0)) {
-				override_conc_ast->location.print_error_header();
-				fatal_error("Got a \".initial_conc\" block for a non-dissolved variable.");
+			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && (var->loc1.n_dissolved == 0)))) {
+				override_ast->location.print_error_header();
+				fatal_error("Either got an \".override\" block on a property or a \".override_conc\" block on a non-dissolved variable.");
 			}
 			
 			from_compartment = in_compartment = has->value_location.compartment;
@@ -450,7 +452,7 @@ Mobius_Model::compose() {
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
 		if(init_ast) {
-			//warning_print("found initial function tree for ", var->name, "\n");
+			//TODO: handle initial_is_conc!
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
 			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate_initial, var_id, from_compartment, true);
@@ -463,8 +465,7 @@ Mobius_Model::compose() {
 			var->unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
 			std::set<Entity_Id> parameter_refs;
 			restrictive_lookups(var->unit_conversion_tree, Decl_Type::unit_conversion, parameter_refs);
-			// TODO: check index sets of parameter_refs
-			
+
 			for(auto par_id : parameter_refs) {
 				bool ok = parameter_indexes_below_location(this, par_id, var->loc1);
 				if(!ok) {
@@ -475,13 +476,14 @@ Mobius_Model::compose() {
 		} else
 			var->unit_conversion_tree = nullptr;
 		
-		if(override_conc_ast) {
-			var->override_conc_tree = make_cast(resolve_function_tree(override_conc_ast, &res_data), Value_Type::real);
+		if(override_ast) {
+			var->override_tree = make_cast(resolve_function_tree(override_ast, &res_data), Value_Type::real);
+			var->override_is_conc = override_is_conc;
 			// TODO: Should audit this one for flags also!
 			
 			//TODO: what do we do with fluxes that has this as a source ?
 		} else
-			var->override_conc_tree = nullptr;
+			var->override_tree = nullptr;
 	}
 	
 	if(needs_aggregate_initial.size() > 0)
@@ -604,6 +606,8 @@ Mobius_Model::compose() {
 		}
 		has_solver[var_id.id] = 1;
 	}
+	
+	// TODO: Should we give an error if there is a neighbor flux on an overridden variable?
 	
 	warning_print("Generate state vars for in_flux_neighbor.\n");
 	// TODO: What happens if there are multiple neighbor fluxes for the same variable?

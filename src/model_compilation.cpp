@@ -705,11 +705,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			source_id = model->state_vars[loc1];
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = source->solver;
-		
-			//if (is_valid(source_solver)) { // NOTE: ODE variables have separate code for computing the derivative.
-				//source->inherits_index_sets_from_instruction.insert(var_id.id);
-			//} else {
-			if(!is_valid(source_solver)) {
+				
+			if(!is_valid(source_solver) && !model->state_vars[source_id]->override_tree) {
 				Model_Instruction sub_source_instr;
 				sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
 				sub_source_instr.var_id = var_id;
@@ -756,12 +753,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			Model_Instruction *target = &instructions[target_id.id];
 			Entity_Id target_solver = target->solver;
 			
-			/*if(is_valid(target_solver)) {
-				if(source_solver != target_solver) {         // If the target is run on another solver than this flux, then we need to sort the target after this flux is computed.
-					target->depends_on_instruction.insert(var_id.id);
-				}
-			} else {*/
-			if(!is_valid(target_solver)) {
+			if(!is_valid(target_solver) && !model->state_vars[target_id]->override_tree) {
 				Model_Instruction add_target_instr;
 				add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
 				add_target_instr.var_id = var_id;
@@ -1048,16 +1040,20 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 		if(instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = model->state_vars[instr.var_id];
 			
-			// Codegen for concs of dissolved variables
+			// Directly override the mass of a quantity
+			if(var->type == Decl_Type::quantity && var->override_tree && !var->override_is_conc) {
+				instr.code = var->override_tree;
+			}
 			
+			// Codegen for concs of dissolved variables
 			if(var->type == Decl_Type::property && (var->flags & State_Variable::Flags::f_dissolved_conc) ) {
 				
 				auto mass = var->dissolved_conc;
 				auto mass_var = model->state_vars[mass];
 				auto dissolved_in = model->state_vars[remove_dissolved(mass_var->loc1)];
 				
-				if(mass_var->override_conc_tree) {
-					instr.code = mass_var->override_conc_tree;
+				if(mass_var->override_tree && mass_var->override_is_conc) {
+					instr.code = mass_var->override_tree;
 					
 					// If we override the conc, the mass is instead  conc*volume_we_are_dissolved_in .
 					auto mass_instr = &instructions[mass.id];
@@ -1132,7 +1128,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			}
 			
 			// Codegen for the derivative of state variables:
-			if(var->type == Decl_Type::quantity && is_valid(instr.solver)) {
+			if(var->type == Decl_Type::quantity && is_valid(instr.solver) && !var->override_tree) {
 				Math_Expr_FT *fun;
 				auto neigh_agg = var->neighbor_agg; // aggregation variable for values coming from neighbor fluxes.
 				if(is_valid(neigh_agg))
@@ -1254,7 +1250,7 @@ Model_Application::compile() {
 			std::vector<int> vars_ode;
 			for(int var : batch.instrs) {
 				auto var_ref = model->state_vars[instructions[var].var_id];
-				if(var_ref->type == Decl_Type::quantity && !var_ref->override_conc_tree)      // NOTE: if we override the conc of a var, we instead compute the mass from the conc.
+				if(var_ref->type == Decl_Type::quantity && !var_ref->override_tree)      // NOTE: if we override the conc or value of var, we instead compute the mass from the conc.
 					vars_ode.push_back(var);
 				else
 					vars.push_back(var);

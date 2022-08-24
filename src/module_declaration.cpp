@@ -532,18 +532,21 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 			function->opens_at.print_error_header();
 			fatal_error("Bodies belonging to declarations of type \"has\" can only have one modifier.");
 		} else if(function->modifiers.size() == 1) {
-			if(function->modifiers[0].string_value == "initial") {
+			auto str = function->modifiers[0].string_value;
+			if(str == "initial" || str == "initial_conc") {
 				if(has->initial_code) {
 					function->opens_at.print_error_header();
-					fatal_error("Declaration has more than one \".initial\" block.");
+					fatal_error("Declaration has more than one \".initial\" or \".initial_conc\" block.");
 				}
 				has->initial_code = function->block;
-			} else if(function->modifiers[0].string_value == "override_conc") {
-				if(has->override_conc_code) {
+				has->initial_is_conc = (str == "initial_conc");
+			} else if(str == "override" || str == "override_conc") {
+				if(has->override_code) {
 					function->opens_at.print_error_header();
-					fatal_error("Declaration has more than one \".override_conc\" block.");
+					fatal_error("Declaration has more than one \".override\" or \".override_conc\" block.");
 				}
-				has->override_conc_code = function->block;
+				has->override_code = function->block;
+				has->initial_is_conc = (str == "override_conc");
 			} else {
 				function->opens_at.print_error_header();
 				fatal_error("Expected either no function body tags, \".initial\" or \".override_conc\".");   //TODO: should maybe come up with a better name than "tag" (?)
