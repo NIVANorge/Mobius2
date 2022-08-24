@@ -1,0 +1,93 @@
+
+module("SimplyP", 0, 5, 0) {
+"""
+Write the description
+"""	
+	
+	load("../../stdlib/basic_math.txt", "Basic")
+	
+	soil  : compartment("Soil")
+	gw    : compartment("Groundwater")
+	river : compartment("River")
+	
+	water : quantity("Water")
+	tdp   : quantity("Total dissolved phosphorous")
+	plab  : quantity("Labile phosphorous")
+	pp    : quantity("Particulate phosphorous")
+	
+	flow  : property("Flow")
+	
+	soil.par_group("Soil P") {
+		m_soil_m2 : par_real("Soil mass per m2", unit(k g, m-2), 95, 0, 200)
+		
+		#init_epc0
+		#init_soil_p_conc
+		#inactive_soil_p_conc
+	}
+	
+	gw.par_group("Groundwater P") {
+		gw_tdp : par_real("Groundwater TDP concentration", unit(m g, l-1), 0.02, 0. 10)
+	}
+	
+	river.par_group("River P") {
+		#eff_tdp
+		#pp_enrich
+	}
+	
+	soil.has(epc0 : property("EPC0"), unit(m g, l-1)) {
+		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
+		safe_divide(last(plab), kf * m_soil)
+	} .initial { init_epc0 }
+	
+	# TODO: implement .override_volume
+	soil.water.has(tdp, unit(k g, k m-2), "Soil TDP mass") .override_volume {
+		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
+		a := (p_input + kf*m_soil*epc0)
+		b := (kf*m_soil + last(flow)) / last(water)
+		a/b + (last(tdp) - a/b)*exp(-b)
+	} .initial_conc {     #TODO: implement initial_conc
+		init_epc0
+	}
+	
+	soil.has(plab, unit(k g, k m-2), "Soil labile P mass") .override_volume {
+		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
+		a      := (p_input + kf*m_soil*epc0)
+		bV     := (kf*m_soil + last(flow))
+		b      := bV / last(water)
+		sorp   := (kf*m_soil)*( (1/bV)*(a + (last(tdp) - a/b)*(1 - exp(-b))) - epc0)
+		last(plab) + sorp
+	} .initial {
+		m_soil := m_soil_m2*1e6
+		1e-6 * (init_soil_p_conc - inactive_soil_p_conc) * m_soil
+	}
+	
+	#NOTE: could use the inbuilt concentration system for this, but we don't model varying soil mass, so it is a bit superfluous
+	soil.has(plabconc : property("Labile P concentration"), unit(m g, k g-1)) {  plab / m_soil_m2  }
+	
+	gw.water.has(tdp, unit(k g, k m-2), "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
+	
+	
+	river.water.has(tdp, unit(k g), "River TDP") .initial_conc { gw_tdp }
+	
+	flux(nowhere, river.water.tdp, "River effluent TDP") { eff_tdp }
+	
+	
+	river.water.has(pp, unit(k g), "River PP") .initial_conc { 0 }
+	
+	double Msoil = PARAMETER(MSoilPerM2) * 1e6;
+		double P_inactive = 1e-6*PARAMETER(SoilInactivePConcentration)*Msoil;
+		return (RESULT(SoilLabilePMass) + P_inactive) * PARAMETER(CatchmentArea) * RESULT(ReachSedimentInputCoefficient);
+	
+	e_fact : property("Erosion factor")
+	
+	soil.has(pp_fact : property("PP mobilization factor"), unit()) {       #TODO unit
+		p_inactive := inactive_soil_p_conc * m_soil
+		(plab + p_inactive) * soil.e_fact
+	}
+	
+	flux(nowhere, river.water.pp, "PP mobilization") {
+		river.e_fact * a_catch * aggregate(soil.pp_fact) * pp_enrich
+	}
+}
+
+
