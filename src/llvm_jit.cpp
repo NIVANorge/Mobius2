@@ -25,10 +25,7 @@
 
 #include "llvm_jit.h"
 
-//TODO: replace this with own error handler
-static llvm::ExitOnError ExitOnErr;
-
-bool   llvm_initialized = false;
+static bool llvm_initialized = false;
 static std::unique_ptr<llvm::orc::KaleidoscopeJIT> global_jit;
 
 void
@@ -39,8 +36,11 @@ initialize_llvm() {
 	llvm::InitializeNativeTargetAsmPrinter();
 	llvm::InitializeNativeTargetAsmParser();
 	
-	// TODO: we don't want ExitOnErr, instead log error message first.
-	global_jit = ExitOnErr(llvm::orc::KaleidoscopeJIT::Create());
+	auto result = llvm::orc::KaleidoscopeJIT::Create();
+	if(result)
+		global_jit = std::move(*result);
+	else 
+		fatal_error(Mobius_Error::internal, "Failed to initialize LLVM.");
 	
 	llvm_initialized = true;
 }
@@ -50,6 +50,9 @@ LLVM_Module_Data {
 	std::unique_ptr<llvm::LLVMContext>         context;
 	std::unique_ptr<llvm::Module>              module;
 	std::unique_ptr<llvm::IRBuilder<>>         builder;
+	llvm::orc::ResourceTrackerSP               resource_tracker;
+	
+	llvm::GlobalVariable                      *global_neighbor_data;
 	
 	llvm::Type                                *dt_struct_type;
 };
@@ -79,7 +82,7 @@ create_llvm_module() {
 void
 jit_compile_module(LLVM_Module_Data *data) {
 	
-	// TODO: rabbit hole on optimizations/passes and see how the affect complex models!
+	// TODO: rabbit hole on optimizations/passes and see how they affect complex models!
 	llvm::LoopAnalysisManager     lam;
 	llvm::FunctionAnalysisManager fam;
 	llvm::CGSCCAnalysisManager    cgam;
@@ -104,17 +107,21 @@ jit_compile_module(LLVM_Module_Data *data) {
 	warning_print("Compiled module is:\n", os.str());
 	#endif
 	
-	auto rt = global_jit->getMainJITDylib().createResourceTracker();                           //TODO: keep this around so that we can   ExitOnErr(rt->remove());  to free memory used by jit.
+	data->resource_tracker = global_jit->getMainJITDylib().createResourceTracker();
 	auto tsm = llvm::orc::ThreadSafeModule(std::move(data->module), std::move(data->context));
-	//TODO: don't exitonerr, instead log.
-	ExitOnErr(global_jit->addModule(std::move(tsm), rt));
+	auto maybe_error = global_jit->addModule(std::move(tsm), data->resource_tracker);
+	if(maybe_error)
+		fatal_error(Mobius_Error::internal, "Failed to jit compile module.");
 	
 	//TODO: Put a flag on the data to signify that it is now compiled (can't add more stuff to it), and properly error handle in other procs.
 }
 
 void
 free_llvm_module(LLVM_Module_Data *data) {
-	// TODO!!!
+	auto maybe_error = data->resource_tracker->remove();
+	if(maybe_error)
+		fatal_error(Mobius_Error::internal, "Failed to free LLVM jit resources.");
+	
 	delete data;
 }
 
@@ -122,12 +129,15 @@ batch_function *
 get_jitted_batch_function(const std::string &fun_name) {
 	warning_print("Lookup of function from jitted module.\n");
 	
-	// TODO: don't do ExitOnErr, instead log error first.
-	auto symbol = ExitOnErr(global_jit->lookup(fun_name));
-	// Get the symbol's address and cast it to the right type so we can call it as a native function.
-	batch_function *fun_ptr = (batch_function *)(intptr_t)symbol.getAddress();
+	auto result = global_jit->lookup(fun_name);
+	if(result) {
+		// Get the symbol's address and cast it to the right type so we can call it as a native function.
+		batch_function *fun_ptr = (batch_function *)(intptr_t)result->getAddress();
+		return fun_ptr;
+	} else
+		fatal_error(Mobius_Error::internal, "Failed to find function ", fun_name, " in LLVM module.");
 
-	return fun_ptr;
+	return nullptr;
 }
 
 /*
@@ -164,8 +174,8 @@ jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
 	for(s64 idx = 0; idx < values.size(); ++idx)
 		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(64, constants->neighbor_data[idx], true));
 	auto const_array_init = llvm::ConstantArray::get(neigh_array_ty, values);
-	//TODO: are we responsible for owning this now, or does the module own the data?
-	llvm::GlobalVariable* global_neighbor_data = new llvm::GlobalVariable(*data->module, neigh_array_ty, true, llvm::GlobalValue::ExternalLinkage, const_array_init, "global_neighbor_data");
+	//NOTE: we are not responsible for the ownership of this one even though we allocate it with new.
+	data->global_neighbor_data = new llvm::GlobalVariable(*data->module, neigh_array_ty, true, llvm::GlobalValue::ExternalLinkage, const_array_init, "global_neighbor_data");
 }
 
 void
@@ -550,9 +560,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 			} else if(ident->variable_type == Variable_Type::neighbor_info) {
-				auto global_neighbor_data = data->module->getGlobalVariable("global_neighbor_data");
-				//warning_print("global_neighbor_data is ", global_neighbor_data, "\n");
-				result = data->builder->CreateGEP(int_64_ty, global_neighbor_data, offset, "neighbor_info_lookup");
+				result = data->builder->CreateGEP(int_64_ty, data->global_neighbor_data, offset, "neighbor_info_lookup");
 				result = data->builder->CreateLoad(int_64_ty, result, "neighbor_info");
 			}
 			#define TIME_VALUE(name, bits) \

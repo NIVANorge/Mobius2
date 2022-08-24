@@ -248,6 +248,11 @@ Model_Application {
 		llvm_data = create_llvm_module();   //TODO: free it on destruction!
 	}
 	
+	~Model_Application() {
+		// TODO: should probably free more stuff.
+		free_llvm_module(llvm_data);
+	}
+	
 	Linear_Allocator                                alloc; // For storing index names
 	
 	std::vector<Index_T>                            index_counts;
