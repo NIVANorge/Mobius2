@@ -151,7 +151,8 @@ make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 Math_Block_FT *
 make_for_loop();
 
-
+Math_Expr_FT *
+make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 
 
 Math_Expr_FT *

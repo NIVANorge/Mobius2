@@ -523,12 +523,15 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				!(var->flags & State_Variable::Flags::f_dissolved_flux) &&
 				!(var->flags & State_Variable::Flags::f_dissolved_conc))
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
-			if(initial)
-				continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
+			//if(initial)
+			//	continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
 		}
 		
 		Model_Instruction instr;
 		instr.type = Model_Instruction::Type::compute_state_var;
+		
+		if(!fun && initial)
+			instr.type = Model_Instruction::Type::invalid;
 		instr.var_id = var_id;
 		instr.code = fun;
 		
@@ -1031,14 +1034,48 @@ set_up_result_structure(Model_Application *model_app, std::vector<Batch> &batche
 }
 
 void
-instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions) {
+instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
 	auto model = app->model;
+	
+	if(initial) {
+		for(auto &instr : instructions) {
+			
+			// Initial values for dissolved quantities
+			if(instr.type == Model_Instruction::Type::compute_state_var && instr.code && is_valid(instr.var_id)) {
+				
+				auto var = model->state_vars[instr.var_id];  // var is the mass/volume of the quantity
+				
+				auto conc = var->dissolved_conc;
+				// NOTE: it is easier just to set it for both the mass and conc as we process the mass
+				if(is_valid(conc) && !(var->flags & State_Variable::Flags::f_dissolved_conc) && !(var->flags & State_Variable::Flags::f_dissolved_flux)) {
+					auto dissolved_in = model->state_vars[remove_dissolved(var->loc1)];
+						
+					if(var->initial_is_conc) {
+						// conc is given. compute mass
+						instructions[conc.id].code = instr.code;
+						instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+						instr.code = make_binop('*', make_state_var_identifier(conc), make_state_var_identifier(dissolved_in));
+					} else {
+						// mass is given. compute conc.
+						// TODO: do we really need the initial conc always though?
+						instructions[conc.id].code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
+						instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+					}
+				}
+			}
+		}
+		
+		return;  // for now. Eventually we will have aggregate variables for initial instructions too, and they need codegen
+	}
 	
 	for(auto &instr : instructions) {
 		
 		if(instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = model->state_vars[instr.var_id];
+			
+			//TODO: For overridden quantities they could just be removed from the solver. Also they shouldn't get any index set dependencies from fluxes connected to them.
+			//    not sure about the best way to do it (or where).
 			
 			// Directly override the mass of a quantity
 			if(var->type == Decl_Type::quantity && var->override_tree && !var->override_is_conc) {
@@ -1054,32 +1091,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
 					instr.code = mass_var->override_tree;
-					
+
 					// If we override the conc, the mass is instead  conc*volume_we_are_dissolved_in .
 					auto mass_instr = &instructions[mass.id];
-					mass_instr->code = make_binop('*',
-						make_state_var_identifier(instr.var_id),
-						make_state_var_identifier(dissolved_in)
-						);
+					mass_instr->code = make_binop('*', make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
 				} else {
-					
-					/*
-					# NOTE: all this jigamarole just creates 
-					actual_conc := {
-						conc := mass / dissolved_in
-						conc if is_finite(conc), 
-						0    otherwise
-					}
-					*/
-					auto block = new Math_Block_FT();
-					block->value_type = Value_Type::real;
-					auto conc = make_binop('/', make_state_var_identifier(mass), make_state_var_identifier(dissolved_in));
-					auto conc_ref = add_local_var(block, conc);
-					auto cond = make_intrinsic_function_call(Value_Type::boolean, "is_finite", conc_ref);
-					auto if_expr = make_simple_if(conc_ref, cond, make_literal((double)0.0));
-					block->exprs.push_back(if_expr);
-					
-					instr.code = block;
+					instr.code = make_safe_divide(make_state_var_identifier(mass), make_state_var_identifier(dissolved_in));
 				}
 			}
 			
@@ -1206,8 +1223,9 @@ Model_Application::compile() {
 	for(auto &instr : instructions)
 		if(instr.type == Model_Instruction::Type::invalid)
 			fatal_error(Mobius_Error::internal, "Did not set up instruction types properly.");
-		
-	instruction_codegen(this, instructions);
+	
+	instruction_codegen(this, initial_instructions, true);
+	instruction_codegen(this, instructions, false);
 
 	warning_print("Resolve index sets dependencies begin.\n");
 	resolve_index_set_dependencies(this, initial_instructions, true);

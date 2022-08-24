@@ -123,6 +123,25 @@ make_simple_if(Math_Expr_FT *first, Math_Expr_FT *condition, Math_Expr_FT *other
 	return if_expr;
 }
 
+Math_Expr_FT *
+make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
+	/*
+	Equivalent to:
+	
+	res := lhs / rhs
+	res if is_finite(res),
+	0   otherwise
+	*/
+	auto block = new Math_Block_FT();
+	block->value_type = Value_Type::real;
+	auto res = make_binop('/', lhs, rhs);
+	auto res_ref = add_local_var(block, res);
+	auto cond = make_intrinsic_function_call(Value_Type::boolean, "is_finite", res_ref);
+	auto if_expr = make_simple_if(res_ref, cond, make_literal((double)0.0));
+	block->exprs.push_back(if_expr);
+	return block;
+}
+
 
 void try_cast(Math_Expr_FT **a, Math_Expr_FT **b) {
 	if((*a)->value_type != Value_Type::real && (*b)->value_type == Value_Type::real)

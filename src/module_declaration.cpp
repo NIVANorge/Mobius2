@@ -546,7 +546,7 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 					fatal_error("Declaration has more than one \".override\" or \".override_conc\" block.");
 				}
 				has->override_code = function->block;
-				has->initial_is_conc = (str == "override_conc");
+				has->override_is_conc = (str == "override_conc");
 			} else {
 				function->opens_at.print_error_header();
 				fatal_error("Expected either no function body tags, \".initial\" or \".override_conc\".");   //TODO: should maybe come up with a better name than "tag" (?)

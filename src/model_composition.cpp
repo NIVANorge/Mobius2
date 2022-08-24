@@ -396,6 +396,7 @@ Mobius_Model::compose() {
 		Math_Expr_AST *unit_conv_ast = nullptr;
 		Math_Expr_AST *override_ast = nullptr;
 		bool override_is_conc = false;
+		bool initial_is_conc = false;
 		
 		Entity_Id in_compartment = invalid_entity_id;
 		Entity_Id from_compartment = invalid_entity_id;
@@ -434,6 +435,7 @@ Mobius_Model::compose() {
 			init_ast = has->initial_code;
 			override_ast = has->override_code;
 			override_is_conc = has->override_is_conc;
+			initial_is_conc  = has->initial_is_conc;
 			
 			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && (var->loc1.n_dissolved == 0)))) {
 				override_ast->location.print_error_header();
@@ -456,6 +458,12 @@ Mobius_Model::compose() {
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
 			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate_initial, var_id, from_compartment, true);
+			var->initial_is_conc = initial_is_conc;
+			
+			if(initial_is_conc && (var->type != Decl_Type::quantity ||(var->loc1.n_dissolved == 0))) {
+				init_ast->location.print_error_header();
+				fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
+			}
 		} else
 			var->initial_function_tree = nullptr;
 		

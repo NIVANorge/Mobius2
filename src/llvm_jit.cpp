@@ -175,7 +175,11 @@ jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
 		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(64, constants->neighbor_data[idx], true));
 	auto const_array_init = llvm::ConstantArray::get(neigh_array_ty, values);
 	//NOTE: we are not responsible for the ownership of this one even though we allocate it with new.
-	data->global_neighbor_data = new llvm::GlobalVariable(*data->module, neigh_array_ty, true, llvm::GlobalValue::ExternalLinkage, const_array_init, "global_neighbor_data");
+	data->global_neighbor_data = new llvm::GlobalVariable(
+		*data->module, neigh_array_ty, true, 
+		llvm::GlobalValue::ExternalLinkage,
+		//llvm::GlobalValue::InternalLinkage, 
+		const_array_init, "global_neighbor_data");
 }
 
 void
