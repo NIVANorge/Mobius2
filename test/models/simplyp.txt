@@ -40,7 +40,7 @@ Write the description
 	} .initial { init_epc0 }
 	
 	# TODO: implement .override_volume
-	soil.water.has(tdp, unit(k g, k m-2), "Soil TDP mass") .override_volume {
+	soil.water.has(tdp, unit(k g, k m-2), "Soil TDP mass") .override {
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		a := (p_input + kf*m_soil*epc0)
 		b := (kf*m_soil + last(flow)) / last(water)
@@ -49,7 +49,7 @@ Write the description
 		init_epc0
 	}
 	
-	soil.has(plab, unit(k g, k m-2), "Soil labile P mass") .override_volume {
+	soil.has(plab, unit(k g, k m-2), "Soil labile P mass") .override {
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		a      := (p_input + kf*m_soil*epc0)
 		bV     := (kf*m_soil + last(flow))
@@ -73,10 +73,6 @@ Write the description
 	
 	
 	river.water.has(pp, unit(k g), "River PP") .initial_conc { 0 }
-	
-	double Msoil = PARAMETER(MSoilPerM2) * 1e6;
-		double P_inactive = 1e-6*PARAMETER(SoilInactivePConcentration)*Msoil;
-		return (RESULT(SoilLabilePMass) + P_inactive) * PARAMETER(CatchmentArea) * RESULT(ReachSedimentInputCoefficient);
 	
 	e_fact : property("Erosion factor")
 	
