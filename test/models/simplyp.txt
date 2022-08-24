@@ -76,9 +76,10 @@ Write the description
 	
 	e_fact : property("Erosion factor")
 	
-	soil.has(pp_fact : property("PP mobilization factor"), unit()) {       #TODO unit
-		p_inactive := inactive_soil_p_conc * m_soil
-		(plab + p_inactive) * soil.e_fact
+	#NOTE: could also just have pp "dissolved in" ss ...
+	
+	soil.has(pp_fact : property("PP mobilization factor"), unit(k g, k m-2, day-1)) {       #TODO unit
+		(plabconc + inactive_soil_p_conc) * soil.e_fact
 	}
 	
 	flux(nowhere, river.water.pp, "PP mobilization") {
