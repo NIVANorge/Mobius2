@@ -24,8 +24,9 @@ Not finished, just for testing some systems.
 	}
 	
 	gw.par_group("DOC deep soil") {
-		#gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { soil_avg half_life const }   # also need override_conc
+		#gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { soil_avg half_life const }
 		gwdochl    : par_real("Groundwater DOC half-life", unit(day -1), 80, 1, 500)
+		gwdocconc   : par_real("Groundwater DOC concentration", unit(m g, l-1), 3, 0, 20)
 	}
 	
 	temp : property("Temperature")
@@ -34,7 +35,11 @@ Not finished, just for testing some systems.
 	#TODO: we have to do something about the name system for these.
 	#TODO: make .initial_conc
 	soil.water.has (oc, unit(k g, k m -2), "Soil water DOC") .initial { water * basedoc }
-	gw.water.has   (oc, unit(k g, k m -2), "Deep soil DOC")  .initial { 0 } #TODO: see below. 
+	
+	#TODO: see below. 
+	gw.water.has   (oc, unit(k g, k m -2), "Deep soil DOC")  .initial { 0 } .override_conc {  gwdocconc  }
+	#gw.water.has   (oc, unit(k g, k m -2), "Deep soil DOC")  .initial { 0 }
+	
 	river.water.has(oc, unit(k g), "River water DOC") .initial { 0 } #TODO: aggregate() does not work for initial values! # { water * aggregate(soil.water.oc) }
 	
 	flux(nowhere, soil.water.oc, "Soil DOC production") {  max(0, water*cdoc*(1 + kt1*temp))  }

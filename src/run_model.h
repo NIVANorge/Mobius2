@@ -29,7 +29,8 @@ Model_Run_State {
 typedef void batch_function(double *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time);
 
 inline void
-call_fun(batch_function *fun, Model_Run_State *run_state) {
+call_fun(batch_function *fun, Model_Run_State *run_state, double t = 0.0) {
+	run_state->solver_t = t;
 #if MOBIUS_EMULATE
 	emulate_expression(reinterpret_cast<Math_Expr_FT *>(fun), run_state, nullptr);
 #else

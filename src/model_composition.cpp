@@ -394,6 +394,7 @@ Mobius_Model::compose() {
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
 		Math_Expr_AST *unit_conv_ast = nullptr;
+		Math_Expr_AST *override_conc_ast = nullptr;
 		
 		Entity_Id in_compartment = invalid_entity_id;
 		Entity_Id from_compartment = invalid_entity_id;
@@ -430,6 +431,13 @@ Mobius_Model::compose() {
 			auto has = find_entity<Reg_Type::has>(var->entity_id);
 			ast      = has->code;
 			init_ast = has->initial_code;
+			override_conc_ast = has->override_conc_code;
+			
+			if(override_conc_ast && (var->type != Decl_Type::quantity || var->loc1.n_dissolved == 0)) {
+				override_conc_ast->location.print_error_header();
+				fatal_error("Got a \".initial_conc\" block for a non-dissolved variable.");
+			}
+			
 			from_compartment = in_compartment = has->value_location.compartment;
 		}
 				
@@ -466,6 +474,14 @@ Mobius_Model::compose() {
 			}
 		} else
 			var->unit_conversion_tree = nullptr;
+		
+		if(override_conc_ast) {
+			var->override_conc_tree = make_cast(resolve_function_tree(override_conc_ast, &res_data), Value_Type::real);
+			// TODO: Should audit this one for flags also!
+			
+			//TODO: what do we do with fluxes that has this as a source ?
+		} else
+			var->override_conc_tree = nullptr;
 	}
 	
 	if(needs_aggregate_initial.size() > 0)

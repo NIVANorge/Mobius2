@@ -240,9 +240,10 @@ Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 	Value_Location value_location;
 	Entity_Id      unit;
 	//Entity_Id    conc_unit;
-	//String_View 
+	
 	Math_Block_AST *code;
 	Math_Block_AST *initial_code;
+	Math_Block_AST *override_conc_code;
 };
 
 template<> struct

@@ -1048,30 +1048,46 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 		if(instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = model->state_vars[instr.var_id];
 			
-			// Codegen for fluxes of dissolved variables
+			// Codegen for concs of dissolved variables
 			
 			if(var->type == Decl_Type::property && (var->flags & State_Variable::Flags::f_dissolved_conc) ) {
+				
 				auto mass = var->dissolved_conc;
 				auto mass_var = model->state_vars[mass];
 				auto dissolved_in = model->state_vars[remove_dissolved(mass_var->loc1)];
-				/*
-				# NOTE: all this jigamarole just creates 
-				actual_conc := {
-					conc := mass / dissolved_in
-					conc if is_finite(conc), 
-					0    otherwise
-				}
-				*/
-				auto block = new Math_Block_FT();
-				block->value_type = Value_Type::real;
-				auto conc = make_binop('/', make_state_var_identifier(mass), make_state_var_identifier(dissolved_in));
-				auto conc_ref = add_local_var(block, conc);
-				auto cond = make_intrinsic_function_call(Value_Type::boolean, "is_finite", conc_ref);
-				auto if_expr = make_simple_if(conc_ref, cond, make_literal((double)0.0));
-				block->exprs.push_back(if_expr);
 				
-				instr.code = block;
+				if(mass_var->override_conc_tree) {
+					instr.code = mass_var->override_conc_tree;
+					
+					// If we override the conc, the mass is instead  conc*volume_we_are_dissolved_in .
+					auto mass_instr = &instructions[mass.id];
+					mass_instr->code = make_binop('*',
+						make_state_var_identifier(instr.var_id),
+						make_state_var_identifier(dissolved_in)
+						);
+				} else {
+					
+					/*
+					# NOTE: all this jigamarole just creates 
+					actual_conc := {
+						conc := mass / dissolved_in
+						conc if is_finite(conc), 
+						0    otherwise
+					}
+					*/
+					auto block = new Math_Block_FT();
+					block->value_type = Value_Type::real;
+					auto conc = make_binop('/', make_state_var_identifier(mass), make_state_var_identifier(dissolved_in));
+					auto conc_ref = add_local_var(block, conc);
+					auto cond = make_intrinsic_function_call(Value_Type::boolean, "is_finite", conc_ref);
+					auto if_expr = make_simple_if(conc_ref, cond, make_literal((double)0.0));
+					block->exprs.push_back(if_expr);
+					
+					instr.code = block;
+				}
 			}
+			
+			// Codegen for fluxes of dissolved variables
 			
 			if(var->type == Decl_Type::flux && (var->flags & State_Variable::Flags::f_dissolved_flux) ) {
 				instr.code = make_binop('*', make_state_var_identifier(var->dissolved_conc), make_state_var_identifier(var->dissolved_flux));
@@ -1237,7 +1253,8 @@ Model_Application::compile() {
 			std::vector<int> vars;
 			std::vector<int> vars_ode;
 			for(int var : batch.instrs) {
-				if(model->state_vars[instructions[var].var_id]->type == Decl_Type::quantity)
+				auto var_ref = model->state_vars[instructions[var].var_id];
+				if(var_ref->type == Decl_Type::quantity && !var_ref->override_conc_tree)      // NOTE: if we override the conc of a var, we instead compute the mass from the conc.
 					vars_ode.push_back(var);
 				else
 					vars.push_back(var);

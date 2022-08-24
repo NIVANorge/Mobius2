@@ -538,9 +538,15 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 					fatal_error("Declaration has more than one \".initial\" block.");
 				}
 				has->initial_code = function->block;
+			} else if(function->modifiers[0].string_value == "override_conc") {
+				if(has->override_conc_code) {
+					function->opens_at.print_error_header();
+					fatal_error("Declaration has more than one \".override_conc\" block.");
+				}
+				has->override_conc_code = function->block;
 			} else {
 				function->opens_at.print_error_header();
-				fatal_error("Expected either no function body modifiers, or \".initial\".");   //TODO: should maybe come up with a better name than "modifier" (?)
+				fatal_error("Expected either no function body tags, \".initial\" or \".override_conc\".");   //TODO: should maybe come up with a better name than "tag" (?)
 			}
 		} else {
 			if(has->code) {
