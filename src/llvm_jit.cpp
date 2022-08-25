@@ -98,6 +98,8 @@ create_llvm_module() {
 	auto doubleTy = llvm::Type::getDoubleTy(*data->context);
 	llvm::FunctionType *fun_type = llvm::FunctionType::get(doubleTy, {doubleTy}, false);
 	
+	//TODO: If one calls tan(atan(a)) it does know that it should optimize it out in that it just returns a, but for some reason it still calls atan(a). Why? Does it not know that atan does not have side effects, and in that case, can we tell it by passing an attributelist here?
+	
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_tan, fun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_atan, fun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_acos, fun_type);

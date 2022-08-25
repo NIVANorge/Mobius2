@@ -9,15 +9,17 @@ model("Another simple") {
 		place.par_group("Flow pars") {
 			flow_mag   : par_real("Flow magnitude", unit(), 5)
 			init_stuff : par_real("Initial stuff", unit(), 10)
+			bla : par_real("bla", unit(), 1)
 		}
 		
 		#place.has(the_series : property("The series"))
 		
 		place.has(test : property("Test")) {
-			t := 3.14 * (time.day_of_year-180) / 365.0
+			#t := 3.14 * (time.day_of_year-180) / 365.0
 			#sin(t)/cos(t)
 			#tan(t)
-			4*atan(1)
+			atan(tan(bla))
+			#tan(bla)
 		}
 		
 		#place.has(record : property("Record")) {
