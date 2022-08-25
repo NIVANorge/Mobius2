@@ -11,23 +11,26 @@ model("Another simple") {
 			init_stuff : par_real("Initial stuff", unit(), 10)
 		}
 		
-		place.has(the_series : property("The series"))
+		#place.has(the_series : property("The series"))
 		
 		place.has(test : property("Test")) {
-			flow_mag-1
+			t := 3.14 * (time.day_of_year-180) / 365.0
+			#sin(t)/cos(t)
+			#tan(t)
+			4*atan(1)
 		}
 		
-		place.has(record : property("Record")) {
-			the_series
-		}
+		#place.has(record : property("Record")) {
+		#	the_series
+		#}
 		
-		place.has(stuff : quantity("Stuff"), unit()) .initial { init_stuff }
+		#place.has(stuff : quantity("Stuff"), unit()) .initial { init_stuff }
 		
-		the_flow : flux(place.stuff, out, "The flow") { flow_mag*stuff }
+		#the_flow : flux(place.stuff, out, "The flow") { flow_mag*stuff }
 	}
 	
 	place : compartment("Place")
-	stuff : quantity("Stuff")
+	#stuff : quantity("Stuff")
 	
 	
 	idx : index_set("Place index")
@@ -35,8 +38,8 @@ model("Another simple") {
 	
 	pnb : idx.neighbor("Place neighbor", directed_tree)
 	
-	sol : solver("My solver", "INCADascru", 0.1)
-	sol.solve(place.stuff)
+	#sol : solver("My solver", "INCADascru", 0.1)
+	#sol.solve(place.stuff)
 	
-	sp.the_flow.to(pnb)
+	#sp.the_flow.to(pnb)
 }

@@ -18,9 +18,19 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Passes/PassBuilder.h"
+
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
+//#include "llvm/Support/TargetSelect.h"
+//#include "llvm/Support/raw_ostream.h"
+//#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 
 #include "llvm_jit.h"
@@ -52,6 +62,9 @@ LLVM_Module_Data {
 	std::unique_ptr<llvm::IRBuilder<>>         builder;
 	llvm::orc::ResourceTrackerSP               resource_tracker;
 	
+	std::unique_ptr<llvm::TargetLibraryInfoImpl> libinfoimpl;
+	std::unique_ptr<llvm::TargetLibraryInfo>     libinfo;
+	
 	llvm::GlobalVariable                      *global_neighbor_data;
 	
 	llvm::Type                                *dt_struct_type;
@@ -75,7 +88,21 @@ create_llvm_module() {
 	// TODO: maybe set the fast math flags a bit more granularly.
 	// we should monitor better how they affect model correctness and/or interfers with is_finite
 	data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
-
+	
+	
+	// Add libc math functions that dont have intrinsics
+	
+	auto triple = llvm::sys::getDefaultTargetTriple();
+	data->libinfoimpl = std::make_unique<llvm::TargetLibraryInfoImpl>(llvm::Triple(triple));
+	data->libinfo     = std::make_unique<llvm::TargetLibraryInfo>(*data->libinfoimpl);
+	auto doubleTy = llvm::Type::getDoubleTy(*data->context);
+	llvm::FunctionType *fun_type = llvm::FunctionType::get(doubleTy, {doubleTy}, false);
+	
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_tan, fun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_atan, fun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_acos, fun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_asin, fun_type);
+	
 	return data;
 }
 
@@ -100,7 +127,7 @@ jit_compile_module(LLVM_Module_Data *data) {
 	
 	mpm.run(*data->module, mam);
 	
-	#if 0
+	#if 1
 	std::string module_ir_text;
 	llvm::raw_string_ostream os(module_ir_text);
 	os << *data->module;
@@ -385,8 +412,15 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 		result = data->builder->CreateBitCast(a, llvm::Type::getInt64Ty(*data->context));
 		result = data->builder->CreateAnd(result, mask);
 		result = data->builder->CreateICmpNE(result, mask);
-	} else
-		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in build_intrinsic_ir().");
+	} else {
+		std::string fun_name(function.data, function.data+function.count);
+		auto fun = data->module->getFunction(fun_name);
+		if(!fun) {
+			fatal_error(Mobius_Error::internal, "Unhandled or unsupported function \"", function, "\" in build_intrinsic_ir().");
+		}
+		result = data->builder->CreateCall(fun, a);
+	}
+		
 	
 	return result;
 }

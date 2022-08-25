@@ -18,12 +18,13 @@ module("So simple", 1, 0, 0) {
 }
 
 par_datetime("Start date") [ 1990-1-1 ]
-par_datetime("End date")   [ 1990-5-1 ]
+par_datetime("End date")   [ 1995-5-1 ]
 
 series [
-	"The series"[interp_spline]
+	"The series"[spline_interpolate]
 1989-1-1	1
 1990-1-12	3
 1990-2-15	1.1
 1990-6-1	1.9
+1995-12-31  28
 ]

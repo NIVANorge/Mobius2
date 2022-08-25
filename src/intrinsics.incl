@@ -11,10 +11,10 @@ MAKE_INTRINSIC1(log10, log10, log10, real, real)
 MAKE_INTRINSIC1(log2, log2, log2, real, real)
 MAKE_INTRINSIC1(cos, cos, cos, real, real)
 MAKE_INTRINSIC1(sin, sin, sin, real, real)
-MAKE_INTRINSIC1(is_finite, isfinite, fshr, boolean, real)    // Note fshr is just a stand-in for something we don't want to use.. We instead replace it with our own code in llvm_jit.cpp
+// Note fshr is just a stand-in for something we don't want to use since these don't exist as llvm intrinsics.. We instead replace it with our own code in llvm_jit.cpp
+MAKE_INTRINSIC1(is_finite, isfinite, fshr, boolean, real)
+MAKE_INTRINSIC1(tan, tan, fshr, real, real)
+MAKE_INTRINSIC1(acos, acos, fshr, real, real)
+MAKE_INTRINSIC1(asin, asin, fshr, real, real)
+MAKE_INTRINSIC1(atan, atan, fshr, real, real)
 
-// oops, these don't exist as llvm intrinsics. We have to import them instead
-//MAKE_INTRINSIC1(tan, tan, real, real)
-//MAKE_INTRINSIC1(acos, acos, real, real)
-//MAKE_INTRINSIC1(asin, asin, real, real)
-//MAKE_INTRINSIC1(atan, atan, real, real)
