@@ -6,7 +6,7 @@
 
 struct
 Model_Instruction {
-	enum class 
+	enum class
 	Type {
 		invalid,
 		compute_state_var,
@@ -521,7 +521,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				!(var->flags & State_Variable::Flags::f_in_flux_neighbor) &&
 				!(var->flags & State_Variable::Flags::f_in_flux) &&
 				!(var->flags & State_Variable::Flags::f_dissolved_flux) &&
-				!(var->flags & State_Variable::Flags::f_dissolved_conc))
+				!(var->flags & State_Variable::Flags::f_dissolved_conc) &&
+				!(var->flags & State_Variable::Flags::f_invalid))
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			//if(initial)
 			//	continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
@@ -529,6 +530,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		Model_Instruction instr;
 		instr.type = Model_Instruction::Type::compute_state_var;
+		
+		if(var->flags & State_Variable::Flags::f_invalid)
+			instr.type = Model_Instruction::Type::invalid;
 		
 		if(!fun && initial)
 			instr.type = Model_Instruction::Type::invalid;
@@ -561,6 +565,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(var->flags & State_Variable::Flags::f_in_flux_neighbor) {
 				instructions[var_id.id].solver = instructions[var->neighbor_agg.id].solver;
 			}
+			// Dissolved fluxes of fluxes with solvers must be on solvers
+			//TODO: make it work with dissolvedes of dissolvedes
+			//TODO: what if the source was on another solver than the dissolved? Another reason to force them to be the same (unless overridden)?
+			if(var->flags & State_Variable::Flags::f_dissolved_flux) {
+				instructions[var_id.id].solver = instructions[var->dissolved_flux.id].solver;
+			}
 		}
 	}
 	
@@ -589,10 +599,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// If we are on a solver we need to put in an instruction to clear the aggregation variable to 0 between each time it is needed.
 			int clear_idx;
-			if(is_valid(var_solver)) {
+			//if(is_valid(var_solver)) {
 				clear_idx = instructions.size();
 				instructions.push_back({});
-			}
+			//}
 			int add_to_aggr_idx = instructions.size();
 			instructions.push_back({});
 			
@@ -618,7 +628,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// Build the clear instruction
 			// TODO: we sometimes seem to also need this one also in the non-solver case, but it causes a crash. Investigate!
-			if(is_valid(var_solver)) {
+			//if(is_valid(var_solver)) {
 				add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
 				
 				clear_instr->type = Model_Instruction::Type::clear_state_var;
@@ -626,7 +636,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				clear_instr->var_id = var->agg;     // The var_id of the clear_instr indicates which variable we want to clear.
 				
 				clear_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
-			}
+			//}
 			
 			add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
 			add_to_aggr_instr->var_id = var_id;
@@ -833,6 +843,9 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 	warning_print("Propagate solvers\n");
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		auto instr = &instructions[instr_id];
+		
+		if(instr->type == Model_Instruction::Type::invalid) continue;
+		
 		if(is_valid(instr->solver)) {
 			for(int dep : instr->depends_on_instruction)
 				propagate_solvers(model, dep, instr->solver, instructions);
@@ -842,6 +855,8 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 	warning_print("Remove ode dependencies\n");
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		auto &instr = instructions[instr_id];
+		
+		if(instr.type == Model_Instruction::Type::invalid) continue;
 		
 		if(is_valid(instr.solver)) {
 			// Remove dependency of any instruction on an ode variable if they are on the same solver.
@@ -865,6 +880,8 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 	warning_print("Sorting begin\n");
 	std::vector<int> sorted_instructions;
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
+		if(instructions[instr_id].type == Model_Instruction::Type::invalid) continue;
+		
 		bool success = topological_sort_instructions_visit(model, instr_id, sorted_instructions, instructions, false);
 		if(!success) mobius_error_exit();
 	}
@@ -1133,6 +1150,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				Math_Expr_FT *flux_sum = make_literal(0.0);
 				for(auto flux_id : model->state_vars) {
 					auto flux_var = model->state_vars[flux_id];
+					if(flux_var->flags & State_Variable::Flags::f_invalid) continue;
 					// NOTE: by design we don't include neighbor fluxes in the in_flux. May change that later.
 					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && model->state_vars[flux_var->loc2] == var->in_flux_target) {
 						auto flux_ref = make_state_var_identifier(flux_id);
@@ -1155,6 +1173,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				for(Var_Id flux_id : model->state_vars) {
 					auto flux = model->state_vars[flux_id];
+					if(flux->flags & State_Variable::Flags::f_invalid) continue;
 					if(flux->type != Decl_Type::flux) continue;
 					
 					if(is_located(flux->loc1) && model->state_vars[flux->loc1] == instr.var_id) {
@@ -1220,9 +1239,10 @@ Model_Application::compile() {
 	build_instructions(this, initial_instructions, true);
 	build_instructions(this, instructions, false);
 	
-	for(auto &instr : instructions)
-		if(instr.type == Model_Instruction::Type::invalid)
-			fatal_error(Mobius_Error::internal, "Did not set up instruction types properly.");
+	// We can't check it like this anymore, because we can now invalidate instructions due to state variables being invalidated.
+	//for(auto &instr : instructions)
+	//	if(instr.type == Model_Instruction::Type::invalid)
+	//		fatal_error(Mobius_Error::internal, "Did not set up instruction types properly.");
 	
 	instruction_codegen(this, initial_instructions, true);
 	instruction_codegen(this, instructions, false);

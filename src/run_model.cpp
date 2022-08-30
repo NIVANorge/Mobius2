@@ -8,7 +8,7 @@
 
 void run_model(Model_Application *model_app) {
 	
-	warning_print("begin emulate model run.\n");
+	warning_print("begin model run.\n");
 	
 	if(!model_app->is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to run model before it was compiled.");

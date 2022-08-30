@@ -16,12 +16,12 @@ TODO: this should probably be rewritten with mobius2 systems and units in mind.
 	temp     : property("Temperature")
 	coup     : property("COUP soil temperature")
 	
-	soil.par_group("Snow temperature general") {
+	soil.par_group("Soil temperature general") {
 		depthst : par_real("Snow depth / soil temperature factor", unit(c m -1), -0.2, -3.0, -0.001)
 		init_st : par_real("Initial soil temperature", unit(deg_c), 10, -30, 40)
 	}
 	
-	soil.par_group("Snow temperature land") {
+	soil.par_group("Soil temperature land") {
 		stc     : par_real("Soil thermal conductivity / specific heat capacity", unit(m 2, M s -1), 0.4, 0.01, 0.8)
 	}
 	

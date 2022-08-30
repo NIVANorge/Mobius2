@@ -8,7 +8,7 @@ Data_Set::write_to_file(String_View file_name) {
 }
 
 void
-read_string_list(Token_Stream *stream, std::vector<Token> &push_to) {
+read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident = false) {
 	stream->expect_token('[');
 	while(true) {
 		Token token = stream->peek_token();
@@ -16,7 +16,10 @@ read_string_list(Token_Stream *stream, std::vector<Token> &push_to) {
 			stream->read_token();
 			break;
 		}
-		stream->expect_quoted_string();
+		if(ident)
+			stream->expect_identifier();
+		else
+			stream->expect_quoted_string();
 		push_to.push_back(token);
 	}
 }
@@ -189,12 +192,12 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 void
 parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect_count) {
 	auto decl = parse_decl_header(stream);
-	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
+	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 	auto par = par_group->pars.find_or_create(single_arg(decl, 0));
 	par->type = decl->type;
 	if(par->type == Decl_Type::par_enum) {
 		std::vector<Token> list;
-		read_string_list(stream, list);
+		read_string_list(stream, list, true);
 		for(auto &item : list) par->values_enum.push_back(item.string_value);
 	} else {
 		stream->expect_token('[');

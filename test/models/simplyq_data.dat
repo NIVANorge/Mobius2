@@ -8,7 +8,7 @@ index_set("Landscape units") [ "Arable" "Improved grasslands" "Semi-natural" ]
 index_set("Subcatchment") [ "Coull" "Boyne" ]
 
 neighbor("Downstream", "Subcatchment") [
-	"Coull" -> "Boyne"               # Coull points at Boyne.
+	"Coull" -> "Boyne"               # Coull flows into Boyne.
 ]
 
 series("simplyq_series.dat")
@@ -97,7 +97,7 @@ module("SimplyQ river", 1, 0, 0) {
 }
 
 module("Simply soil temperature", 0, 0, 0) {
-	par_group("Snow temperature general") {
+	par_group("Soil temperature general") {
 		par_real("Snow depth / soil temperature factor")
 		[-0.2 ]
 		
@@ -105,7 +105,7 @@ module("Simply soil temperature", 0, 0, 0) {
 		[ 10 ]
 	}
 	
-	par_group("Snow temperature land") [ "Landscape units" ] {
+	par_group("Soil temperature land") [ "Landscape units" ] {
 		par_real("Soil thermal conductivity / specific heat capacity")
 		[ 0.4 0.4 0.4 ]
 	}

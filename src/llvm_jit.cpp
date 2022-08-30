@@ -95,8 +95,8 @@ create_llvm_module() {
 	auto triple = llvm::sys::getDefaultTargetTriple();
 	data->libinfoimpl = std::make_unique<llvm::TargetLibraryInfoImpl>(llvm::Triple(triple));
 	data->libinfo     = std::make_unique<llvm::TargetLibraryInfo>(*data->libinfoimpl);
-	auto doubleTy = llvm::Type::getDoubleTy(*data->context);
-	llvm::FunctionType *fun_type = llvm::FunctionType::get(doubleTy, {doubleTy}, false);
+	auto double_ty = llvm::Type::getDoubleTy(*data->context);
+	llvm::FunctionType *fun_type = llvm::FunctionType::get(double_ty, {double_ty}, false);
 	
 	//TODO: If one calls tan(atan(a)) it does know that it should optimize it out in that it just returns a, but for some reason it still calls atan(a). Why? Does it not know that atan does not have side effects, and in that case, can we tell it by passing an attributelist here?
 	
@@ -129,7 +129,7 @@ jit_compile_module(LLVM_Module_Data *data) {
 	
 	mpm.run(*data->module, mam);
 	
-	#if 1
+	#if 0
 	std::string module_ir_text;
 	llvm::raw_string_ostream os(module_ir_text);
 	os << *data->module;
@@ -299,7 +299,7 @@ llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, 
 		if(type != Value_Type::boolean) fatal_error(Mobius_Error::internal, "build_unary_ir() negation on non-boolean.");
 		result = data->builder->CreateNot(arg, "nottemp");
 	} else
-		fatal_error(Mobius_Error::internal, "apply_unary() unhandled operator ", name(oper), " .");
+		fatal_error(Mobius_Error::internal, "build_unary_ir() unhandled operator ", name(oper), " .");
 	return result;
 }
 

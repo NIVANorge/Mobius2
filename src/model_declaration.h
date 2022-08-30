@@ -44,6 +44,7 @@ State_Variable {
 		f_clear_series_to_nan = 0x10,
 		f_dissolved_flux      = 0x20,
 		f_dissolved_conc      = 0x40,
+		f_invalid             = 0x1000,
 	} flags;
 	
 	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.

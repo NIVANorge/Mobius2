@@ -343,7 +343,7 @@ Mobius_Model::compose() {
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
 			auto flux_reg = find_entity<Reg_Type::flux>(flux->entity_id);
-			if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;  
+			if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
 			
 			// TODO: need system to exclude some fluxes for this quantity (e.g. evapotranspiration should not carry DOC).
 			generate.push_back(flux_id);
@@ -494,6 +494,30 @@ Mobius_Model::compose() {
 			var->override_tree = nullptr;
 	}
 	
+	// Invalidate dissolved fluxes if both source and target is overridden.
+	
+	for(auto var_id : state_vars) {
+		auto var = state_vars[var_id];
+		if(var->flags & State_Variable::Flags::f_dissolved_flux) {
+			bool valid_source = true;
+			if(is_located(var->loc1)) {
+				auto source = state_vars[state_vars[var->loc1]];
+				if(source->override_tree)
+					valid_source = false;
+			} else
+				valid_source = false;
+			bool valid_target = true;
+			if(is_located(var->loc2)) {
+				auto target = state_vars[state_vars[var->loc2]];
+				if(target->override_tree)
+					valid_target = false;
+			} else
+				valid_target = false;
+			if(!valid_source && !valid_target)
+				var->flags = (State_Variable::Flags)(var->flags | State_Variable::Flags::f_invalid);
+		}
+	}
+	
 	if(needs_aggregate_initial.size() > 0)
 		fatal_error(Mobius_Error::internal, "aggregate() declarations inside initial value code is not yet supported.");
 
@@ -506,6 +530,7 @@ Mobius_Model::compose() {
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
+		if(var->flags & State_Variable::Flags::f_invalid) continue;
 		if(var->type != Decl_Type::flux) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
@@ -652,6 +677,7 @@ Mobius_Model::compose() {
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
+		if(var->flags & State_Variable::Flags::f_invalid) continue;
 		
 		if(var->function_tree)
 			check_valid_distribution_of_dependencies(this, var->function_tree, var, false);
