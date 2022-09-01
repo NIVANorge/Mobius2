@@ -55,8 +55,8 @@ Array {
 	inline size_t size() { return count; }
 };
 
-template<typename T> bool operator==
-(const Array<T> &a, const Array<T> &b) {
+template<typename T>
+bool operator==(const Array<T> &a, const Array<T> &b) {
 	if(a.count != b.count) return false;
 	for(size_t idx = 0; idx < a.count; ++idx)
 		if(a[idx] != b[idx]) return false;
@@ -74,6 +74,11 @@ struct String_View : Array<char> {
 		count = strlen(c_string);
 		data  = (char *)c_string;
 	}
+	
+	String_View(const std::string &string) {
+		count = string.size();
+		data  = (char *)string.data();
+	}
 
 	String_View substring(size_t start, size_t count) const {
 		//TODO: Should this do error handling?
@@ -83,16 +88,22 @@ struct String_View : Array<char> {
 		return result;
 	}
 	
-	bool operator==(const char *c_string) {
+	bool operator==(const char *c_string) const {
 		return *this == String_View(c_string);
 	}
 	
-	bool operator!=(const char *c_string) {
+	bool operator!=(const char *c_string) const {
 		return !(*this == c_string);
 	}
 	
 	operator bool() { return data && count; }
+	
+	operator std::string() { return std::move(std::string(data, data+count)); }
 };
+
+bool operator==(const String_View &a, const std::string &b) {
+	return a == b.data();
+}
 
 inline std::ostream&
 operator<<(std::ostream& stream, const String_View& str) {

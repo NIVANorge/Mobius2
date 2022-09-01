@@ -191,7 +191,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 			
 			if(header.indexes.empty()) {
 				if(!expected_index_sets.empty()) {
-					header.location.print_error_header();
+					header.loc.print_error_header();
 					//TODO: need better error diagnostics here, because the number of index sets expected could have come from another data block or file.
 					fatal_error("Expected ", expected_index_sets.size(), " indexes for series \"", header.name, "\".");
 				}
@@ -211,7 +211,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 					Entity_Id index_set = model->modules[0]->index_sets.find_by_name(index.first);
 					Entity_Id expected = expected_index_sets[index_idx];
 					if(index_set != expected) {
-						header.location.print_error_header();
+						header.loc.print_error_header();
 						//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
 						fatal_error("Expected \"", model->modules[0]->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
 					}
@@ -246,7 +246,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 			|| (header.flags & series_data_interp_spline)) {
 			
 			if(!series->has_date_vector) {
-				header.location.print_error_header();
+				header.loc.print_error_header();
 				fatal_error("Interpolation is only available when a date is provided per row of data.");
 			}
 			interpolate(app, series->dates, series->raw_values[col], offsets[col], header.flags, end_date);

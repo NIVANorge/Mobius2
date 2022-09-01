@@ -82,7 +82,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 	
 	while(true) {
 		Series_Header_Info header;
-		header.location = token.location;
+		header.loc = token.location;
 		header.name = stream->expect_quoted_string();
 		while(true) {
 			token = stream->peek_token();
@@ -91,7 +91,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 			stream->read_token();
 			token = stream->peek_token();
 			if(token.type == Token_Type::quoted_string) {
-				std::vector<std::pair<String_View, int>> indexes;
+				std::vector<std::pair<std::string, int>> indexes;
 				while(true) {
 					stream->read_token();
 					auto index_set = data_set->index_sets.expect_exists(&token, "index_set");
@@ -99,7 +99,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 					token = stream->peek_token();
 					stream->expect_quoted_string();
 					int index      = index_set->indexes.expect_exists_idx(&token, "index");
-					indexes.push_back(std::pair<String_View, int>{index_set->name.string_value, index});
+					indexes.push_back(std::pair<std::string, int>{index_set->name, index});
 					token = stream->peek_token();
 					if((char)token.type == ']') {
 						stream->read_token();
@@ -193,7 +193,8 @@ void
 parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect_count) {
 	auto decl = parse_decl_header(stream);
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
-	auto par = par_group->pars.find_or_create(single_arg(decl, 0));
+	Token *arg = single_arg(decl, 0);
+	auto par = par_group->pars.find_or_create(arg->string_value, arg->location);
 	par->type = decl->type;
 	if(par->type == Decl_Type::par_enum) {
 		std::vector<Token> list;
@@ -235,7 +236,7 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 
 	auto name = single_arg(decl, 0);
-	auto group = module->par_groups.find_or_create(name);
+	auto group = module->par_groups.find_or_create(name->string_value, name->location);
 	
 	int expect_count = 1;
 	Token token = stream->peek_token();
@@ -269,12 +270,12 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 
 #if OLE_AVAILABLE
 void
-read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Linear_Allocator *alloc);
+read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles);
 #endif
 
 void
 Data_Set::read_from_file(String_View file_name) {
-	if(main_file) {
+	if(main_file != "") {
 		fatal_error(Mobius_Error::api_usage, "Tried make a data set read from a file ", file_name, ", but it already contains data from the file ", main_file, ".");
 	}
 	main_file = file_name;
@@ -293,7 +294,7 @@ Data_Set::read_from_file(String_View file_name) {
 		Token token = stream.peek_token();
 		if(token.type == Token_Type::eof) break;
 		else if(token.type == Token_Type::quoted_string) {
-			if(doc_string) {
+			if(doc_string != "") {
 				token.print_error_header();
 				fatal_error("Duplicate doc strings for data set.");
 			}
@@ -309,21 +310,21 @@ Data_Set::read_from_file(String_View file_name) {
 			match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
 			
 			auto name = single_arg(decl, 0);
-			auto data = index_sets.find_or_create(name);
+			auto data = index_sets.find_or_create(name->string_value, name->location);
 			std::vector<Token> indexes;
 			read_string_list(&stream, indexes);
 			for(int idx = 0; idx < indexes.size(); ++idx)
-				data->indexes.find_or_create(&indexes[idx]);
+				data->indexes.find_or_create(indexes[idx].string_value, indexes[idx].location);
 			delete decl;
 		} else if(token.string_value == "neighbor") {
 			auto decl = parse_decl_header(&stream);
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, 0, false);
 			
 			auto name = single_arg(decl, 0);
-			auto data = neighbors.find_or_create(name);
+			auto data = neighbors.find_or_create(name->string_value, name->location);
 			
 			Index_Set_Info *index_set = index_sets.expect_exists(single_arg(decl, 1), "index_set");
-			data->index_set = index_set->name.string_value;
+			data->index_set = index_set->name;
 			data->points_at.resize(index_set->indexes.count(), -1);
 			read_neighbor_data(&stream, data, index_set);
 			delete decl;
@@ -346,7 +347,7 @@ Data_Set::read_from_file(String_View file_name) {
 					#if OLE_AVAILABLE
 					String_View relative = make_path_relative_to(other_file_name, file_name);
 					ole_open_spreadsheet(relative, &handles);
-					read_series_data_from_spreadsheet(this, &handles, &alloc);
+					read_series_data_from_spreadsheet(this, &handles);
 					#else
 					single_arg(decl, 0)->print_error_header();
 					fatal_error("Spreadsheet reading only available on Windows.");
@@ -384,7 +385,7 @@ Data_Set::read_from_file(String_View file_name) {
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
 			
 			auto name = single_arg(decl, 0);
-			auto module = modules.find_or_create(name);
+			auto module = modules.find_or_create(name->string_value, name->location);
 			module->major    = single_arg(decl, 1)->val_int;
 			module->minor    = single_arg(decl, 2)->val_int;
 			module->revision = single_arg(decl, 3)->val_int;

@@ -155,14 +155,14 @@ Model_Application::all_indexes_are_set() {
 }
 
 void
-process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, Token *module_name = nullptr) {
+process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, const std::string &module_name = "") {
 	auto global_module = model->modules[0];
 	
 	Module_Declaration *module = nullptr;
-	if(module_name) {
+	if(module_name != "") {
 		// TODO: make a better way to look up module by name
 		for(auto mod : model->modules)
-			if(mod->module_name == module_name->string_value) {
+			if(mod->module_name == module_name) {
 				module = mod;
 				break;
 			}
@@ -171,7 +171,7 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	} else
 		module = model->modules[0];
 	
-	auto par_group_id = module->par_groups.find_by_name(&par_group->name);
+	auto par_group_id = module->par_groups.find_by_name(par_group->name);
 	if(!is_valid(par_group_id)) {
 		// NOTE: we do error handling on this on the second pass.
 		return;
@@ -194,8 +194,8 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 				fatal_error(Mobius_Error::internal, "We got an invalid index set for a parameter group from the data set.");
 			
 			if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set_id) == compartment->index_sets.end()) {
-				par_group->name.print_error_header();
-				fatal_error("The par_group \"", par_group->name.string_value, "\" can not be indexed with the index set \"", name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
+				par_group->loc.print_error_header();
+				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
 			}
 			
 			par_group_index_sets[par_group_id].push_back(index_set_id);
@@ -208,7 +208,7 @@ does_module_exist(Mobius_Model *model, Module_Info *module_info) {
 	Module_Declaration *module = nullptr;
 	
 	for(auto mod : model->modules)
-		if(mod->module_name == module_info->name.string_value) {
+		if(mod->module_name == module_info->name) {
 			module = mod;
 			break;
 		}
@@ -230,27 +230,27 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	
 	// TODO: oops module->module_name is not the right thing to use for the global module (unless we set that name to something sensible?).
 	
-	auto par_group_id = module->par_groups.find_by_name(&par_group_info->name);
+	auto par_group_id = module->par_groups.find_by_name(par_group_info->name);
 	if(!is_valid(par_group_id)) {
-		par_group_info->name.print_error_header();
-		fatal_error("The module \"", module->module_name, "\" does not contain the parameter group \"", par_group_info->name.string_value, ".");
+		par_group_info->loc.print_error_header();
+		fatal_error("The module \"", module->module_name, "\" does not contain the parameter group \"", par_group_info->name, ".");
 		//TODO: say what file the module was declared in?
 	}
 	//auto par_group = module->par_groups[par_group_id];
 	
 	for(auto &par : par_group_info->pars) {
 		//warning_print(par.name.string_value, "\n");
-		auto par_id = module->parameters.find_by_name(&par.name);
+		auto par_id = module->parameters.find_by_name(par.name);
 		Entity_Registration<Reg_Type::parameter> *param;
 		if(!is_valid(par_id) || (param = module->parameters[par_id])->par_group != par_group_id) {
 			// NOTE: this also covers the case where par_id is invalid.
-			par.name.print_error_header();
-			fatal_error("The parameter group \"", par_group_info->name.string_value, "\" in the module \"", module->module_name, "\" does not contain a parameter named \"", par.name.string_value, "\".");
+			par.loc.print_error_header();
+			fatal_error("The parameter group \"", par_group_info->name, "\" in the module \"", module->module_name, "\" does not contain a parameter named \"", par.name, "\".");
 		}
 		
 		if(param->decl_type != par.type) {
-			par.name.print_error_header();
-			fatal_error("The parameter \"", par.name.string_value, "\" should be of type ", name(param->decl_type), ", not of type ", name(par.type), ".");
+			par.loc.print_error_header();
+			fatal_error("The parameter \"", par.name, "\" should be of type ", name(param->decl_type), ", not of type ", name(par.type), ".");
 		}
 		
 		// TODO: Double check that we have a valid amount of values for the parameter.
@@ -271,8 +271,8 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 					}
 				}
 				if(!found) {
-					par.name.print_error_header();
-					fatal_error("\"", par.values_enum[idx], "\" is not a valid value for the enum parameter \"", par.name.string_value, "\".");
+					par.loc.print_error_header();
+					fatal_error("\"", par.values_enum[idx], "\" is not a valid value for the enum parameter \"", par.name, "\".");
 				}
 				value.val_integer = idx2;
 			} else
@@ -323,7 +323,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 				auto comp_id     = model->series[id]->loc1.compartment;
 				auto compartment = model->modules[0]->compartments[comp_id];
 				if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
-					header.location.print_error_header();
+					header.loc.print_error_header();
 					fatal_error(Mobius_Error::parsing, "Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
 				}
 				metadata->index_sets[id].push_back(index_set);
@@ -369,37 +369,37 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	auto global_module = model->modules[0];
 	
 	for(auto &index_set : data_set->index_sets) {
-		auto id = global_module->index_sets.find_by_name(&index_set.name);
+		auto id = global_module->index_sets.find_by_name(index_set.name);
 		if(!is_valid(id)) {
-			index_set.name.print_error_header();
-			fatal_error("\"", index_set.name.string_value, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
+			index_set.loc.print_error_header();
+			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		}
 		//index_counts[id.id] = { id, (s32)index_set.indexes.count() };
 		std::vector<String_View> names;
 		names.reserve(index_set.indexes.count());
 		for(auto &index : index_set.indexes)
-			names.push_back(index.name.string_value);
+			names.push_back(index.name);
 		set_indexes(id, names);
 	}
 	
 	//TODO: not sure how to handle directed trees when it comes to discrete fluxes. Should we sort the indexes in order?
 	
 	for(auto &neighbor : data_set->neighbors) {
-		auto neigh_id = global_module->neighbors.find_by_name(&neighbor.name);
+		auto neigh_id = global_module->neighbors.find_by_name(neighbor.name);
 		if(!is_valid(neigh_id)) {
-			neighbor.name.print_error_header();
-			fatal_error("\"", neighbor.name.string_value, "\" has not been declared as a neighbor structure in the model.");
+			neighbor.loc.print_error_header();
+			fatal_error("\"", neighbor.name, "\" has not been declared as a neighbor structure in the model.");
 		}
 		// note: this one must be valid because we already checked it against the index sets in the data set, and the data set index sets were already checked against the model above.
 		auto index_set = global_module->index_sets.find_by_name(neighbor.index_set);
 		auto nbd = global_module->neighbors[neigh_id];
 		if(nbd->index_set != index_set) {
-			neighbor.name.print_error_header();
-			fatal_error("The neighbor structure \"", neighbor.name.string_value, "\" was not attached to the index set \"", neighbor.index_set, "\" in the model \"", model->model_name, "\"");
+			neighbor.loc.print_error_header();
+			fatal_error("The neighbor structure \"", neighbor.name, "\" was not attached to the index set \"", neighbor.index_set, "\" in the model \"", model->model_name, "\"");
 		}
 		if(nbd->type == Neighbor_Structure_Type::directed_tree) {
 			if(neighbor.type != Neighbor_Info::Type::graph) {
-				neighbor.name.print_error_header();
+				neighbor.loc.print_error_header();
 				fatal_error("Neighbor structures of type directed_tree can only be set up using graph data.");
 			}
 			if(!neighbor_data.has_been_set_up)
@@ -423,7 +423,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		process_par_group_index_sets(model, &par_group, par_group_index_sets);
 	for(auto &module : data_set->modules) {
 		for(auto &par_group : module.par_groups)
-			process_par_group_index_sets(model, &par_group, par_group_index_sets, &module.name);
+			process_par_group_index_sets(model, &par_group, par_group_index_sets, module.name);
 	}
 	
 	//if(!par_group_index_sets.empty())
@@ -436,8 +436,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto &module : data_set->modules) {
 		Module_Declaration *mod = does_module_exist(model, &module);
 		if(!mod) {
-			module.name.print_warning_header();
-			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name.string_value, "\". This data block will be ignored.\n\n");
+			module.loc.print_warning_header();
+			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
 			continue;
 		}
 		for(auto &par_group : module.par_groups)

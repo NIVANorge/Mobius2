@@ -8,7 +8,7 @@
 #include <limits>
 
 void
-read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Linear_Allocator *alloc) {
+read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 	
 	int n_tabs = ole_get_num_tabs(handles);
 	
@@ -89,7 +89,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 		// ********* Parse the header data
 		//warning_print("Parse header data\n");
 		
-		String_View current_input_name = "";
+		std::string current_input_name = "";
 		for(int col = 0; col < search_len; ++col) {
 			VARIANT name = ole_get_matrix_value(&matrix, 1, col+2, handles);
 			
@@ -98,14 +98,13 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 			ole_get_string(&name, buf, buf_size);
 			if(strlen(buf) > 0) {
 				got_name_this_column = true;
-				String_View input_name = alloc->copy_string_view(buf);
-				current_input_name = input_name;
-			} else if (!current_input_name) {
+				current_input_name = buf;
+			} else if (current_input_name == "") {
 				ole_close_due_to_error(handles, tab, 2, 1);
 				fatal_error("Missing an input name.");
 			}
 			
-			std::vector<std::pair<String_View, int>> indexes;
+			std::vector<std::pair<std::string, int>> indexes;
 			for(int row = 0; row < index_sets.size(); ++row) {
 				
 				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+1, handles);
@@ -114,10 +113,10 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Line
 					int index = index_sets[row]->indexes.expect_exists_idx(buf);
 					if(index < 0) {
 						ole_close_due_to_error(handles, tab, row+2, col+1);
-						fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_sets[row]->name.string_value, "\".");
+						fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_sets[row]->name, "\".");
 					}
 					
-					indexes.push_back({index_sets[row]->name.string_value, index});
+					indexes.push_back({index_sets[row]->name, index});
 				}
 			}
 			if(!got_name_this_column && indexes.empty()) // There was no name on top and no indexes. This means the end of data.

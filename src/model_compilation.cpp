@@ -121,6 +121,10 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 		offset_code = model_app->series_data.get_offset_code(ident->series, index_expr);
 		back_step = model_app->series_data.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
+		auto var = model_app->model->state_vars[ident->state_var];
+		if(var->flags & State_Variable::Flags::f_invalid)
+			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
+		
 		offset_code = model_app->result_data.get_offset_code(ident->state_var, index_expr);
 		back_step = model_app->result_data.total_count;
 	}

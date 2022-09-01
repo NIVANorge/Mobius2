@@ -16,10 +16,10 @@
 template<typename Info_Type> struct
 Info_Registry {
 	
-	string_map<int>        name_to_id;
+	std::unordered_map<std::string, int>        name_to_id;
 	std::vector<Info_Type> data;
 	
-	bool has(String_View name) { return name_to_id.find(name) != name_to_id.end(); }
+	//bool has(String_View name) { return name_to_id.find(name) != name_to_id.end(); }
 	
 	Info_Type *operator[](int idx) {
 		if(idx < 0 || idx >= data.size())
@@ -48,18 +48,19 @@ Info_Registry {
 		if(idx >= 0) return &data[idx];
 		return nullptr;
 	}
-	Info_Type *find_or_create(Token *name, bool allow_duplicate=false) {
-		auto find = name_to_id.find(name->string_value);
+	Info_Type *find_or_create(const std::string &name, Source_Location loc, bool allow_duplicate=false) {
+		auto find = name_to_id.find(name);
 		if(find != name_to_id.end()) {
 			if(!allow_duplicate) {
-				name->print_error_header();
+				loc.print_error_header();
 				fatal_error("Re-declaration of \"", name, "\".");
 			}
 			return &data[find->second];
 		}
-		name_to_id[name->string_value] = (int)data.size();
+		name_to_id[name] = (int)data.size();
 		data.push_back({});
-		data.back().name = *name;
+		data.back().name = name;
+		data.back().loc = loc;
 		return &data.back();
 	}
 	int count() { return data.size(); }
@@ -69,20 +70,23 @@ Info_Registry {
 };
 
 struct
-Index_Info {
-	Token name;
+Info_Type_Base {
+	std::string name;
+	Source_Location loc;
 };
 
 struct
-Index_Set_Info {
-	Token name;
+Index_Info : Info_Type_Base {
+};
+
+struct
+Index_Set_Info : Info_Type_Base {
 	Info_Registry<Index_Info> indexes;
 };
 
 struct
-Neighbor_Info {    // This obviously has to be either subclased or have different data when having other neighbor structure types.
-	Token name;
-	String_View index_set;
+Neighbor_Info : Info_Type_Base {    // This obviously has to be either subclased or have different data when having other neighbor structure types.
+	std::string index_set;
 	
 	enum class Type {
 		none,
@@ -94,24 +98,20 @@ Neighbor_Info {    // This obviously has to be either subclased or have differen
 };
 
 struct
-Par_Info {
-	Token name;
+Par_Info : Info_Type_Base {
 	Decl_Type type;
 	std::vector<Parameter_Value> values;
-	std::vector<String_View> values_enum; // Can't resolve them to int yet.
+	std::vector<std::string> values_enum; // Can't resolve them to int yet.
 };
 
 struct
-Par_Group_Info {
-	Token name;
-	
-	std::vector<String_View> index_sets;
+Par_Group_Info : Info_Type_Base {
+	std::vector<std::string> index_sets;
 	Info_Registry<Par_Info> pars;
 };
 
 struct
-Module_Info {
-	Token name;
+Module_Info : Info_Type_Base {
 	int major, minor, revision;
 	
 	Info_Registry<Par_Group_Info> par_groups;
@@ -141,10 +141,8 @@ set_flag(Series_Data_Flags *flags, String_View name) {
 }
 
 struct
-Series_Header_Info {
-	Source_Location location;
-	String_View name;
-	std::vector<std::vector<std::pair<String_View, int>>> indexes;
+Series_Header_Info : Info_Type_Base {
+	std::vector<std::vector<std::pair<std::string, int>>> indexes;
 	Series_Data_Flags flags;
 	
 	Series_Header_Info() : flags(series_data_none) {}
@@ -152,7 +150,7 @@ Series_Header_Info {
 
 struct
 Series_Set_Info {
-	String_View file_name;
+	std::string file_name;
 	Date_Time start_date;
 	Date_Time end_date;
 	s64       time_steps;
@@ -168,20 +166,17 @@ struct
 Data_Set {
 	
 	File_Data_Handler file_handler;
-	Linear_Allocator  alloc;          // Hmm only needed to copy input names from excel. Kind of wasteful. Store stuff as std::string instead? Or get alloc from somewhere else?
 	
-	Data_Set() : alloc(1024) {
-		global_pars.name = {};
-		global_pars.name.string_value = "System";
-		global_pars.name.type = Token_Type::quoted_string;
+	Data_Set() {
+		global_pars.name = "System";
 	}
 	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
 	
-	String_View main_file;
+	std::string main_file;
 	
-	String_View doc_string;
+	std::string doc_string;
 	
 	Par_Group_Info global_pars;     // This is typically just for "Start date" and "End date"
 	Module_Info    global_module;   // This is for par groups that are not in a module but were declared in the model directly.
