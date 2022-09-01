@@ -49,13 +49,19 @@ File_Data_Handler {
 			load_name = make_path_relative_to(file_name, relative);
 		auto find = loaded_files.find(load_name);
 		if(find != loaded_files.end()) {
-			delete find->second.data;
+			free(find->second.data);
 			loaded_files.erase(find);
 		}
 	}
 	
-	~File_Data_Handler() {
+	void
+	unload_all() {
 		for(auto find : loaded_files) free(find.second.data);
+		loaded_files.clear();
+	}
+	
+	~File_Data_Handler() {
+		unload_all();
 	}
 };
 

@@ -362,9 +362,6 @@ Data_Set::read_from_file(String_View file_name) {
 					Series_Set_Info &data = series.back();
 					data.file_name = other_file_name;
 					read_series_data_block(this, &other_stream, &data);
-					
-					// NOTE: we can't do this because the header data points into it. It has to be unloaded after processing.
-					//file_handler.unload(other_file_name, file_name);
 				}
 				delete decl;
 			} else {
@@ -414,6 +411,5 @@ Data_Set::read_from_file(String_View file_name) {
 	ole_close_app_and_spreadsheet(&handles);
 #endif
 	
-	// NOTE: We can't do this yet because we have string data pointing into it! It has to be done after processing
-	//file_handler.unload(file_name);
+	file_handler.unload_all(); // Free the file data.
 }

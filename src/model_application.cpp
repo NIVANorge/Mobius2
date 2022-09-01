@@ -162,7 +162,7 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	if(module_name != "") {
 		// TODO: make a better way to look up module by name
 		for(auto mod : model->modules)
-			if(mod->module_name == module_name) {
+			if(mod->module_name == module_name.data()) {
 				module = mod;
 				break;
 			}
@@ -208,7 +208,7 @@ does_module_exist(Mobius_Model *model, Module_Info *module_info) {
 	Module_Declaration *module = nullptr;
 	
 	for(auto mod : model->modules)
-		if(mod->module_name == module_info->name) {
+		if(mod->module_name == module_info->name.data()) {
 			module = mod;
 			break;
 		}
@@ -265,7 +265,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 				s64 idx2 = 0;
 				bool found = false;
 				for(; idx2 < param->enum_values.size(); ++idx2) {
-					if(param->enum_values[idx2] == par.values_enum[idx]) {
+					if(param->enum_values[idx2] == par.values_enum[idx].data()) {
 						found = true;
 						break;
 					}

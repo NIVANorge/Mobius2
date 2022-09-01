@@ -100,10 +100,11 @@ struct String_View : Array<char> {
 	
 	operator std::string() { return std::move(std::string(data, data+count)); }
 };
-
+/*
 bool operator==(const String_View &a, const std::string &b) {
 	return a == b.data();
 }
+*/
 
 inline std::ostream&
 operator<<(std::ostream& stream, const String_View& str) {
