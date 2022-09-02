@@ -2,9 +2,97 @@
 #include "data_set.h"
 #include "ole_wrapper.h"
 
+
+void
+write_parameter_to_file(FILE *file, Par_Info &info, bool double_newline = true) {
+
+	fprintf(file, "%s(\"%s\")\n[ ", name(info.type), info.name.data());
+	if(info.type == Decl_Type::par_enum) {
+		for(std::string &val : info.values_enum)
+			fprintf(file, "%s ", val.data());
+	} else { 
+		// TODO: matrix formatting
+		for(Parameter_Value &val : info.values) {
+			switch(info.type) {
+				case Decl_Type::par_real : {
+					fprintf(file, ".%15g ", val.val_real);
+				} break;
+				
+				case Decl_Type::par_bool : {
+					fprintf(file, "%s ", val.val_boolean ? "true" : "false");
+				} break;
+				
+				case Decl_Type::par_int : {
+					fprintf(file, "%lld ", (long long)val.val_integer);
+				} break;
+				
+				case Decl_Type::par_datetime : {
+					fprintf(file, "%s ", val.val_datetime.to_string());
+				} break;
+			}
+		}
+	}
+	fprintf(file, "]\n");
+	if(double_newline)
+		fprintf(file, "\n");
+}
+
+void
+write_par_group_to_file(FILE *file, Par_Group_Info &par_group, bool double_newline = true) {
+	fprintf(file, "par_group(\"%s\") {\n", par_group.name.data());
+	int idx = 0;
+	for(auto &par : par_group.pars)
+		write_parameter_to_file(file, par, idx++ != par_group.pars.count()-1);
+		
+	fprintf(file, "}\n");
+	if(double_newline)
+		fprintf(file, "\n");
+}
+
+void
+write_module_to_file(FILE *file, Module_Info &module) {
+	fprintf(file, "module(\"%s\", %d, %d, %d) {\n", module.name.data(), module.major, module.minor, module.revision);
+	int idx = 0;
+	for(auto &par_group : module.par_groups)
+		write_par_group_to_file(file, par_group, idx++ != module.par_groups.count()-1);
+	fprintf(file, "}\n\n");
+}
+
+void
+write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series) {
+	if(series.file_name != main_file) {
+		fatal_error(Mobius_Error::internal, "Inlining series data in main data file is not yet supported!.");
+	}
+	
+	//TODO: We should also know if
+	//TODO: What do we do if the file we save to is in a different folder than the original. Should we update all the relative paths of the included files?
+	
+	fprintf(file, "series(\"%s\")\n\n", series.file_name.data());
+}
+
 void
 Data_Set::write_to_file(String_View file_name) {
-	fatal_error(Mobius_Error::internal, "Write to file not implemented");
+	//fatal_error(Mobius_Error::internal, "Write to file not implemented");
+	
+	FILE *file = open_file(main_file.data(), "w");
+	
+	if(doc_string != "") {
+		fprintf(file, "\"\"\"\n%s\n\"\"\"", doc_string.data());
+	}
+	
+	for(auto &ser : series)
+		write_series_to_file(file, main_file, ser);
+	
+	for(auto &par : global_pars.pars)
+		write_parameter_to_file(file, par);
+	
+	for(auto &par_group : global_module.par_groups)
+		write_par_group_to_file(file, par_group);
+	
+	for(auto &module : modules)
+		write_module_to_file(file, module);
+	
+	fclose(file);
 }
 
 void
