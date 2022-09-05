@@ -4,6 +4,49 @@
 
 
 void
+write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
+	
+	fprintf(file, "index_set(\"%s\") [ ", index_set.name.data());
+	for(auto &index : index_set.indexes)
+		fprintf(file, "\"%s\" ", index.name.data());
+	fprintf(file, "]\n\n");
+}
+
+
+void
+write_neighbor_info_to_file(FILE *file, Neighbor_Info &neighbor, Data_Set *data_set) {
+	if(neighbor.type != Neighbor_Info::Type::graph)
+		fatal_error(Mobius_Error::internal, "Unimplemented neighbor info type in Data_Set::write_to_file.");
+	
+	fprintf(file, "neighbor(\"%s\", \"%s\") {", neighbor.name.data(), neighbor.index_set.data());
+	
+	Index_Set_Info *index_set = data_set->index_sets.expect_exists(neighbor.index_set);
+	if(!index_set)
+		fatal_error(Mobius_Error::internal, "Data set does not have index set that was registered with neighbor info.");
+	// TODO!
+	//   non-trivial problem to format this the best way possible... :(
+	//   could keep around structure from previously loaded file, but that doesn't help if the data is edited e.g. in the user interface.
+	
+	// Current solution: works nicely if indexes are declared in the order they are chained.
+	// Note that the data is always correct, it is just not necessarily the most compact representation of the graph.
+	
+	int next = -1;
+	for(int idx = 0; idx < index_set->indexes.count(); ++idx) {
+		int points_at = neighbor.points_at[idx];
+		if(points_at >= 0) {
+			if(idx != next) {
+				fprintf(file, "\n\"%s\" ", index_set->indexes[idx]->name.data());
+			}
+			fprintf(file, " -> \"%s\"", index_set->indexes[points_at]->name.data());
+			
+			next = points_at;
+		}
+	}
+	
+	fprintf(file, "\n}\n\n");
+}
+
+void
 write_parameter_to_file(FILE *file, Par_Info &info, bool double_newline = true) {
 
 	fprintf(file, "%s(\"%s\")\n[ ", name(info.type), info.name.data());
@@ -39,7 +82,16 @@ write_parameter_to_file(FILE *file, Par_Info &info, bool double_newline = true) 
 
 void
 write_par_group_to_file(FILE *file, Par_Group_Info &par_group, bool double_newline = true) {
-	fprintf(file, "par_group(\"%s\") {\n", par_group.name.data());
+	fprintf(file, "par_group(\"%s\") ", par_group.name.data());
+	if(par_group.index_sets.size() > 0) {
+		fprintf(file, "[ ");
+		int idx = 0;
+		for(auto index_set : par_group.index_sets) {
+			fprintf(file, "\"%s\" ", index_set.data());
+		}
+		fprintf(file, "] ");
+	}
+	fprintf(file, "{\n");
 	int idx = 0;
 	for(auto &par : par_group.pars)
 		write_parameter_to_file(file, par, idx++ != par_group.pars.count()-1);
@@ -79,6 +131,9 @@ Data_Set::write_to_file(String_View file_name) {
 	if(doc_string != "") {
 		fprintf(file, "\"\"\"\n%s\n\"\"\"", doc_string.data());
 	}
+	
+	for(auto &index_set : index_sets)
+		write_index_set_to_file(file, index_set);
 	
 	for(auto &ser : series)
 		write_series_to_file(file, main_file, ser);

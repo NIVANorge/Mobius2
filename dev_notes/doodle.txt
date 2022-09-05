@@ -1,5 +1,15 @@
 
 
+fjord_arm : (top_water middle_water* bottom_water).distribute_unique(fjord_layer)
+((river|lake)* fjord_arm).distribute(sc)
+
+downstream : sc.neighbor("Downstream", directed_tree)
+
+# How to link it up when river arrives in fjord/lake ?
+# If it is statically determined, ok, but what if it requires a computation?
+
+
+
 
 
     # For initial groundwater flow, could we do something like
