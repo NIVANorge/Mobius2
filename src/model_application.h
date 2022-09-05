@@ -233,6 +233,7 @@ Model_Application {
 		auto global = model->modules[0];
 		
 		index_counts.resize(global->index_sets.count());
+		index_names_map.resize(global->index_sets.count());
 		index_names.resize(global->index_sets.count());
 		
 		for(auto index_set : global->index_sets) {
@@ -256,13 +257,15 @@ Model_Application {
 	Linear_Allocator                                alloc; // For storing index names
 	
 	std::vector<Index_T>                            index_counts;
-	std::vector<string_map<Index_T>>                index_names;
+	std::vector<string_map<Index_T>>                index_names_map;
+	std::vector<std::vector<String_View>>           index_names;
 	
 	void set_indexes(Entity_Id index_set, std::vector<String_View> &indexes);
 	Index_T get_index(Entity_Id index_set, String_View name);
 	bool all_indexes_are_set();
 	
 	void build_from_data_set(Data_Set *data_set);
+	void save_to_data_set();
 	
 	Time_Step_Size                                  timestep_size;
 	

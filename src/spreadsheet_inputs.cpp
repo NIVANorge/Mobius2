@@ -59,7 +59,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 				}
 				
 				// Otherwise, if it is some non-date string we assume it to be the name of an index set.
-				auto index_set = data_set->index_sets.expect_exists(buf);
+				auto index_set = data_set->index_sets.find(buf);
 				if(!index_set) {
 					ole_close_due_to_error(handles, tab, 1, 2+row);
 					fatal_error("The index set ", buf, " was not previously declared in the data set.");
@@ -110,7 +110,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+1, handles);
 				ole_get_string(&index_name, buf, buf_size);
 				if(strlen(buf) > 0) {
-					int index = index_sets[row]->indexes.expect_exists_idx(buf);
+					int index = index_sets[row]->indexes.find_idx(buf);
 					if(index < 0) {
 						ole_close_due_to_error(handles, tab, row+2, col+1);
 						fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_sets[row]->name, "\".");

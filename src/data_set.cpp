@@ -18,9 +18,9 @@ write_neighbor_info_to_file(FILE *file, Neighbor_Info &neighbor, Data_Set *data_
 	if(neighbor.type != Neighbor_Info::Type::graph)
 		fatal_error(Mobius_Error::internal, "Unimplemented neighbor info type in Data_Set::write_to_file.");
 	
-	fprintf(file, "neighbor(\"%s\", \"%s\") {", neighbor.name.data(), neighbor.index_set.data());
+	fprintf(file, "neighbor(\"%s\", \"%s\") [", neighbor.name.data(), neighbor.index_set.data());
 	
-	Index_Set_Info *index_set = data_set->index_sets.expect_exists(neighbor.index_set);
+	Index_Set_Info *index_set = data_set->index_sets.find(neighbor.index_set);
 	if(!index_set)
 		fatal_error(Mobius_Error::internal, "Data set does not have index set that was registered with neighbor info.");
 	// TODO!
@@ -35,7 +35,7 @@ write_neighbor_info_to_file(FILE *file, Neighbor_Info &neighbor, Data_Set *data_
 		int points_at = neighbor.points_at[idx];
 		if(points_at >= 0) {
 			if(idx != next) {
-				fprintf(file, "\n\"%s\" ", index_set->indexes[idx]->name.data());
+				fprintf(file, "\n\t\"%s\" ", index_set->indexes[idx]->name.data());
 			}
 			fprintf(file, " -> \"%s\"", index_set->indexes[points_at]->name.data());
 			
@@ -43,13 +43,38 @@ write_neighbor_info_to_file(FILE *file, Neighbor_Info &neighbor, Data_Set *data_
 		}
 	}
 	
-	fprintf(file, "\n}\n\n");
+	fprintf(file, "\n]\n\n");
 }
 
 void
-write_parameter_to_file(FILE *file, Par_Info &info, bool double_newline = true) {
+print_tabs(FILE *file, int ntabs) {
+	if(ntabs <= 0) return;
+	if(ntabs == 1) {
+		fprintf(file, "\t");
+		return;
+	}
+	if(ntabs == 2) {
+		fprintf(file, "\t\t");
+		return;
+	}
+	if(ntabs == 3) {
+		fprintf(file, "\t\t\t");
+		return;
+	}
+	if(ntabs == 4) {
+		fprintf(file, "\t\t\t\t");
+		return;
+	}
+}
 
-	fprintf(file, "%s(\"%s\")\n[ ", name(info.type), info.name.data());
+void
+write_parameter_to_file(FILE *file, Par_Info &info, int tabs, bool double_newline = true) {
+	
+	print_tabs(file, tabs);
+	fprintf(file, "%s(\"%s\")\n", name(info.type), info.name.data());
+	print_tabs(file, tabs);
+	fprintf(file, "[ ");
+	
 	if(info.type == Decl_Type::par_enum) {
 		for(std::string &val : info.values_enum)
 			fprintf(file, "%s ", val.data());
@@ -58,7 +83,7 @@ write_parameter_to_file(FILE *file, Par_Info &info, bool double_newline = true) 
 		for(Parameter_Value &val : info.values) {
 			switch(info.type) {
 				case Decl_Type::par_real : {
-					fprintf(file, ".%15g ", val.val_real);
+					fprintf(file, "%.15g ", val.val_real);
 				} break;
 				
 				case Decl_Type::par_bool : {
@@ -70,7 +95,9 @@ write_parameter_to_file(FILE *file, Par_Info &info, bool double_newline = true) 
 				} break;
 				
 				case Decl_Type::par_datetime : {
-					fprintf(file, "%s ", val.val_datetime.to_string());
+					char buf[64];
+					val.val_datetime.to_string(buf);
+					fprintf(file, "%s ", buf);
 				} break;
 			}
 		}
@@ -81,7 +108,8 @@ write_parameter_to_file(FILE *file, Par_Info &info, bool double_newline = true) 
 }
 
 void
-write_par_group_to_file(FILE *file, Par_Group_Info &par_group, bool double_newline = true) {
+write_par_group_to_file(FILE *file, Par_Group_Info &par_group, int tabs, bool double_newline = true) {
+	print_tabs(file, tabs);
 	fprintf(file, "par_group(\"%s\") ", par_group.name.data());
 	if(par_group.index_sets.size() > 0) {
 		fprintf(file, "[ ");
@@ -94,8 +122,9 @@ write_par_group_to_file(FILE *file, Par_Group_Info &par_group, bool double_newli
 	fprintf(file, "{\n");
 	int idx = 0;
 	for(auto &par : par_group.pars)
-		write_parameter_to_file(file, par, idx++ != par_group.pars.count()-1);
-		
+		write_parameter_to_file(file, par, tabs+1, idx++ != par_group.pars.count()-1);
+	
+	print_tabs(file, tabs);
 	fprintf(file, "}\n");
 	if(double_newline)
 		fprintf(file, "\n");
@@ -103,17 +132,17 @@ write_par_group_to_file(FILE *file, Par_Group_Info &par_group, bool double_newli
 
 void
 write_module_to_file(FILE *file, Module_Info &module) {
-	fprintf(file, "module(\"%s\", %d, %d, %d) {\n", module.name.data(), module.major, module.minor, module.revision);
+	fprintf(file, "module(\"%s\", %d, %d, %d) {\n", module.name.data(), module.version.major, module.version.minor, module.version.revision);
 	int idx = 0;
 	for(auto &par_group : module.par_groups)
-		write_par_group_to_file(file, par_group, idx++ != module.par_groups.count()-1);
+		write_par_group_to_file(file, par_group, 1, idx++ != module.par_groups.count()-1);
 	fprintf(file, "}\n\n");
 }
 
 void
 write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series) {
-	if(series.file_name != main_file) {
-		fatal_error(Mobius_Error::internal, "Inlining series data in main data file is not yet supported!.");
+	if(series.file_name == main_file) {
+		fatal_error(Mobius_Error::internal, "Inlining series data in main data file is not yet supported!");
 	}
 	
 	//TODO: We should also know if
@@ -126,23 +155,23 @@ void
 Data_Set::write_to_file(String_View file_name) {
 	//fatal_error(Mobius_Error::internal, "Write to file not implemented");
 	
-	FILE *file = open_file(main_file.data(), "w");
+	FILE *file = open_file(file_name, "w");
 	
 	if(doc_string != "") {
-		fprintf(file, "\"\"\"\n%s\n\"\"\"", doc_string.data());
+		fprintf(file, "\"\"\"\n%s\n\"\"\"\n\n", doc_string.data());
 	}
 	
 	for(auto &index_set : index_sets)
 		write_index_set_to_file(file, index_set);
 	
+	for(auto &neighbor : neighbors)
+		write_neighbor_info_to_file(file, neighbor, this);
+	
 	for(auto &ser : series)
 		write_series_to_file(file, main_file, ser);
 	
-	for(auto &par : global_pars.pars)
-		write_parameter_to_file(file, par);
-	
 	for(auto &par_group : global_module.par_groups)
-		write_par_group_to_file(file, par_group);
+		write_par_group_to_file(file, par_group, 0);
 	
 	for(auto &module : modules)
 		write_module_to_file(file, module);
@@ -337,7 +366,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 	auto decl = parse_decl_header(stream);
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 	Token *arg = single_arg(decl, 0);
-	auto par = par_group->pars.find_or_create(arg->string_value, arg->location);
+	auto par = par_group->pars.create(arg->string_value, arg->location);
 	par->type = decl->type;
 	if(par->type == Decl_Type::par_enum) {
 		std::vector<Token> list;
@@ -379,17 +408,23 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 
 	auto name = single_arg(decl, 0);
-	auto group = module->par_groups.find_or_create(name->string_value, name->location);
+	auto group = module->par_groups.create(name->string_value, name->location);
 	
 	int expect_count = 1;
 	Token token = stream->peek_token();
 	std::vector<Token> list;
 	if((char)token.type == '[') {
 		read_string_list(stream, list);
-		for(Token &item : list) {
-			auto index_set = data_set->index_sets.expect_exists(&item, "index_set");
-			group->index_sets.push_back(item.string_value);
-			expect_count *= index_set->indexes.count();
+		if(list.size() > 0) {
+			if(module == &data_set->global_module && name->string_value == "System") {
+				list[0].print_error_header();
+				fatal_error("The global \"System\" parameter group should not be indexed by index sets.");
+			}
+			for(Token &item : list) {
+				auto index_set = data_set->index_sets.expect_exists(&item, "index_set");
+				group->index_sets.push_back(item.string_value);
+				expect_count *= index_set->indexes.count();
+			}
 		}
 	}
 	
@@ -453,18 +488,18 @@ Data_Set::read_from_file(String_View file_name) {
 			match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
 			
 			auto name = single_arg(decl, 0);
-			auto data = index_sets.find_or_create(name->string_value, name->location);
+			auto data = index_sets.create(name->string_value, name->location);
 			std::vector<Token> indexes;
 			read_string_list(&stream, indexes);
 			for(int idx = 0; idx < indexes.size(); ++idx)
-				data->indexes.find_or_create(indexes[idx].string_value, indexes[idx].location);
+				data->indexes.create(indexes[idx].string_value, indexes[idx].location);
 			delete decl;
 		} else if(token.string_value == "neighbor") {
 			auto decl = parse_decl_header(&stream);
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, 0, false);
 			
 			auto name = single_arg(decl, 0);
-			auto data = neighbors.find_or_create(name->string_value, name->location);
+			auto data = neighbors.create(name->string_value, name->location);
 			
 			Index_Set_Info *index_set = index_sets.expect_exists(single_arg(decl, 1), "index_set");
 			data->index_set = index_set->name;
@@ -516,8 +551,8 @@ Data_Set::read_from_file(String_View file_name) {
 				read_series_data_block(this, &stream, &data);
 				stream.expect_token(']');
 			}
-		} else if(token.string_value == "par_datetime") {
-			parse_parameter_decl(&global_pars, &stream, 1);
+		//} else if(token.string_value == "par_datetime") {
+		//	parse_parameter_decl(&global_pars, &stream, 1);
 		} else if(token.string_value == "par_group") {
 			parse_par_group_decl(this, &global_module, &stream);
 		} else if(token.string_value == "module") {
@@ -525,10 +560,10 @@ Data_Set::read_from_file(String_View file_name) {
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
 			
 			auto name = single_arg(decl, 0);
-			auto module = modules.find_or_create(name->string_value, name->location);
-			module->major    = single_arg(decl, 1)->val_int;
-			module->minor    = single_arg(decl, 2)->val_int;
-			module->revision = single_arg(decl, 3)->val_int;
+			auto module = modules.create(name->string_value, name->location);
+			module->version.major    = single_arg(decl, 1)->val_int;
+			module->version.minor    = single_arg(decl, 2)->val_int;
+			module->version.revision = single_arg(decl, 3)->val_int;
 			
 			stream.expect_token('{');
 			while(true) {

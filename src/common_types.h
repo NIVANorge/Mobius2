@@ -39,6 +39,11 @@ Source_Location {
 	void print_warning_header();
 };
 
+struct
+Module_Version {
+	int major, minor, revision;
+};
+
 struct Var_Id {
 	s32 id;
 	

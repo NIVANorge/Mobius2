@@ -797,10 +797,10 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 	
 	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
 	
-	module->module_name  = single_arg(decl, 0)->string_value;
-	module->major        = single_arg(decl, 1)->val_int;
-	module->minor        = single_arg(decl, 2)->val_int;
-	module->revision     = single_arg(decl, 3)->val_int;
+	module->module_name          = single_arg(decl, 0)->string_value;
+	module->version.major        = single_arg(decl, 1)->val_int;
+	module->version.minor        = single_arg(decl, 2)->val_int;
+	module->version.revision     = single_arg(decl, 3)->val_int;
 
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 	

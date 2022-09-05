@@ -14,8 +14,10 @@ neighbor("Downstream", "Subcatchment") [
 series("simplyq_series.dat")
 #series("simplyq_series.xlsx")
 
-par_datetime("Start date") [ 2004-01-01 ]
-par_datetime("End date")   [ 2005-12-31 ]
+par_group("System") {
+	par_datetime("Start date") [ 2004-01-01 ]
+	par_datetime("End date")   [ 2005-12-31 ]
+}
 
 par_group("Land cover") ["Landscape units"] {
 	par_real("Land use proportions")

@@ -132,12 +132,11 @@ public:
 		return 0;
 	}
 	
-	inline String_View
-	to_string() const {
-		//Important: note that this one is overwritten whenever you call it. So you should make a copy of the string if you want to keep it.
+	inline void
+	to_string(char *buf) const {
 		s32 year, month, day, hour, minute, second;
 		year_month_day(&year, &month, &day);
-		static char buf[64];
+		
 		if(seconds_since_epoch % 86400 == 0)
 			sprintf(buf, "%04d-%02d-%02d", year, month, day);
 		else {
@@ -147,9 +146,14 @@ public:
 			s32 second = sod % 60;
 			sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
 		}
-		String_View result(buf);
-		
-		return result;
+	}
+	
+	inline String_View
+	to_string() const {
+		//Important: note that this one is overwritten whenever you call it. So you should make a copy of the string if you want to keep it.
+		static char buf[64];
+		to_string(buf);
+		return String_View(buf);
 	}
 	
 	bool

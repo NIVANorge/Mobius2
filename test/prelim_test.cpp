@@ -107,6 +107,8 @@ int main(int argc, char** argv) {
 		
 		write_result_data("results.dat", &app);
 		
+		app.save_to_data_set();
+		data_set.write_to_file("models/test_save_data.dat");
 	}
 	
 	delete model;

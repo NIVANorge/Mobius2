@@ -37,25 +37,22 @@ Info_Registry {
 	Info_Type *expect_exists(Token *name, String_View info_type) {
 		return &data[expect_exists_idx(name, info_type)];
 	}
-	int expect_exists_idx(String_View name) {
+	int find_idx(String_View name) {
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end())
 			return -1;
 		return find->second;
 	}
-	Info_Type *expect_exists(String_View name) {
-		int idx = expect_exists_idx(name);
+	Info_Type *find(String_View name) {
+		int idx = find_idx(name);
 		if(idx >= 0) return &data[idx];
 		return nullptr;
 	}
-	Info_Type *find_or_create(const std::string &name, Source_Location loc, bool allow_duplicate=false) {
+	Info_Type *create(const std::string &name, Source_Location loc) {
 		auto find = name_to_id.find(name);
 		if(find != name_to_id.end()) {
-			if(!allow_duplicate) {
-				loc.print_error_header();
-				fatal_error("Re-declaration of \"", name, "\".");
-			}
-			return &data[find->second];
+			loc.print_error_header();
+			fatal_error("Re-declaration of \"", name, "\".");
 		}
 		name_to_id[name] = (int)data.size();
 		data.push_back({});
@@ -64,6 +61,10 @@ Info_Registry {
 		return &data.back();
 	}
 	int count() { return data.size(); }
+	void clear() {
+		name_to_id.clear();
+		data.clear();
+	}
 	
 	Info_Type *begin() { return data.data(); }
 	Info_Type *end()   { return data.data() + data.size(); }
@@ -112,7 +113,7 @@ Par_Group_Info : Info_Type_Base {
 
 struct
 Module_Info : Info_Type_Base {
-	int major, minor, revision;
+	Module_Version version;
 	
 	Info_Registry<Par_Group_Info> par_groups;
 };
@@ -167,9 +168,7 @@ Data_Set {
 	
 	File_Data_Handler file_handler;
 	
-	Data_Set() {
-		global_pars.name = "System";
-	}
+	Data_Set() {}
 	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
@@ -178,7 +177,6 @@ Data_Set {
 	
 	std::string doc_string;
 	
-	Par_Group_Info global_pars;     // This is typically just for "Start date" and "End date"
 	Module_Info    global_module;   // This is for par groups that are not in a module but were declared in the model directly.
 	
 	Info_Registry<Index_Set_Info>  index_sets;

@@ -339,16 +339,20 @@ process_series(Model_Application *app, Series_Set_Info *series_info, Date_Time e
 void
 Model_Application::set_indexes(Entity_Id index_set, std::vector<String_View> &indexes) {
 	index_counts[index_set.id] = Index_T {index_set, (s32)indexes.size()};
+	index_names[index_set.id].resize(indexes.size());
 	s32 idx = 0;
 	for(auto index : indexes) {
 		String_View new_name = alloc.copy_string_view(index);
-		index_names[index_set.id][new_name] = Index_T {index_set, idx++};
+		index_names_map[index_set.id][new_name] = Index_T {index_set, idx};
+		index_names[index_set.id][idx] = new_name;
+		++idx;
 	}
+	
 }
 
 Index_T
 Model_Application::get_index(Entity_Id index_set, String_View name) {
-	auto &map = index_names[index_set.id];
+	auto &map = index_names_map[index_set.id];
 	Index_T result;
 	result.index_set = invalid_entity_id;
 	result.index = -1;  //TODO: Should we throw an error here instead?
@@ -426,10 +430,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			process_par_group_index_sets(model, &par_group, par_group_index_sets, module.name);
 	}
 	
-	//if(!par_group_index_sets.empty())
 	set_up_parameter_structure(&par_group_index_sets);
 	
-	process_parameters(this, &data_set->global_pars);
 	for(auto &par_group : data_set->global_module.par_groups) {
 		process_parameters(this, &par_group);
 	}
@@ -472,11 +474,86 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &series : data_set->series) {
 			process_series(this, &series, metadata.end_date);
 		}
-	} else {
+	} else
 		set_up_series_structure(nullptr);
+}
+
+void
+Model_Application::save_to_data_set() {
+	//TODO: We should probably just generate a data set in this case.
+	if(!data_set)
+		fatal_error(Mobius_Error::api_usage, "Tried to save model application to data set, but no data set was attached to the model application.");
+	
+	
+	// NOTE : For now we just write back the parameter values and index sets. Eventually we should write the entire structure when necessary.
+	
+	auto global = model->modules[0];
+	
+	for(auto index_set_id : global->index_sets) {
+		auto index_set = global->index_sets[index_set_id];
+		auto index_set_info = data_set->index_sets.find(index_set->name);
+		if(!index_set_info)
+			index_set_info = data_set->index_sets.create(index_set->name, {});
+		index_set_info->indexes.clear();
+		for(s32 idx = 0; idx < index_counts[index_set_id.id].index; ++idx) {
+			index_set_info->indexes.create(index_names[index_set_id.id][idx], {});
+		}
 	}
 	
-	//TODO: unload the loaded file data from the data_set. But if we stored string data from it, we would have to copy that over.
+	s16 module_id = 0;
+	for(auto module : model->modules) {
+		Module_Info *module_info = nullptr;
+		if(module_id == 0)
+			module_info = &data_set->global_module;
+		else
+			module_info = data_set->modules.find(module->module_name);
+		if(!module_info)
+			module_info = data_set->modules.create(module->module_name, {});
+		
+		module_info->version = module->version;
+		
+		for(auto par_group_id : module->par_groups) {
+			auto par_group = module->par_groups[par_group_id];
+			
+			Par_Group_Info *par_group_info = module_info->par_groups.find(par_group->name);
+			if(!par_group_info)
+				par_group_info = module_info->par_groups.create(par_group->name, {});
+			
+			par_group_info->index_sets.clear();
+			if(par_group->parameters.size() > 0) { // NOTE: not sure if empty should just be an error.
+				auto id0 = par_group->parameters[0];
+				auto &index_sets = parameter_data.get_index_sets(id0);
+				
+				for(auto index_set_id : index_sets) {
+					auto index_set = model->find_entity<Reg_Type::index_set>(index_set_id);
+					par_group_info->index_sets.push_back(index_set->name);
+				}
+			}
+			
+			for(auto par_id : par_group->parameters) {
+				auto par = module->parameters[par_id];
+				
+				auto par_info = par_group_info->pars.find(par->name);
+				if(!par_info)
+					par_info = par_group_info->pars.create(par->name, {});
+				
+				par_info->type = par->decl_type;
+				par_info->values.clear();
+				par_info->values_enum.clear();
+				
+				parameter_data.for_each(par_id, [&,this](std::vector<Index_T> &idxs, s64 offset) {
+					if(par_info->type == Decl_Type::par_enum) {
+						s64 ival = parameter_data.get_value(offset)->val_integer;
+						par_info->values_enum.push_back(par->enum_values[ival]);
+					} else {
+						par_info->values.push_back(*parameter_data.get_value(offset));
+					}
+				});
+			}
+		}
+		
+		++module_id;
+	}
 }
 
 

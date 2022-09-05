@@ -255,6 +255,11 @@ Token_Stream::read_string(Token *token) {
 		read_char(); read_char();
 		token->string_value.data += 2;
 		c = peek_char();
+		if(c == '\r') { //Skip initial carriage return
+			read_char();
+			++token->string_value.data;
+			c = peek_char();
+		}
 		if(c == '\n') { //Skip initial newline.
 			read_char();
 			++token->string_value.data;
@@ -276,6 +281,8 @@ Token_Stream::read_string(Token *token) {
 					--token->string_value.count;
 					if(token->string_value[token->string_value.count-1] == '\n')
 						--token->string_value.count;  // Trim away closing newline right before """ if it exists.
+					if(token->string_value[token->string_value.count-1] == '\r')
+						--token->string_value.count; // Trim away carriage return if it exists.
 					break;
 				}
 			} else {

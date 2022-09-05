@@ -197,7 +197,9 @@ Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
 	Entity_Id              compartment;  //TODO: could also be quantity
-	std::vector<Entity_Id> parameters;   //TODO: may not be necessary to store these here since the parameters already know what group they are in??
+	
+	//TODO: may not be necessary to store these here since the parameters already know what group they are in? Easier this way for serialization though.
+	std::vector<Entity_Id> parameters;
 };
 
 template<> struct
@@ -375,7 +377,7 @@ struct Mobius_Model;
 struct
 Module_Declaration {	
 	String_View module_name;
-	int major, minor, revision;
+	Module_Version version;
 	
 	s16 module_id;
 	Module_Declaration *global_scope;          //TODO: this is a bad name. It is the registration data for the model. Very little here is visible to the other modules.
