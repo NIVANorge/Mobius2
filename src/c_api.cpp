@@ -192,51 +192,44 @@ mobius_get_dissolved_location(Model_Application *app, Value_Location loc, Entity
 	return loc;
 }
 
-DLLEXPORT Var_Reference
-mobius_get_var_reference(Model_Application *app, Value_Location loc) {
-	Var_Reference result;
-	result.type = 0;
+DLLEXPORT Var_Id
+mobius_get_var_id(Model_Application *app, Value_Location loc) {
+	Var_Id result = invalid_var;
 	
 	try {
 		auto find = app->model->state_vars.location_to_id.find(loc);
-		if(find != app->model->state_vars.location_to_id.end()) {
-			result.type = 1;
-			result.id = find->second;
-			return result;
-		}
+		if(find != app->model->state_vars.location_to_id.end())
+			return find->second;
 		auto find2 = app->model->series.location_to_id.find(loc);
-		if(find2 != app->model->series.location_to_id.end()) {
-			result.type = 2;
-			result.id = find2->second;
-			return result;
-		}
+		if(find2 != app->model->series.location_to_id.end())
+			return find2->second;
 	} catch(int) {}
 	
 	return result;
 }
 
-DLLEXPORT Var_Reference
-mobius_get_conc_reference(Model_Application *app, Value_Location loc) {
+DLLEXPORT Var_Id
+mobius_get_conc_id(Model_Application *app, Value_Location loc) {
 	
-	Var_Reference res = mobius_get_var_reference(app, loc);
-	if(res.type == 2) res.type = 0; // Input series don't have concentrations.
-	if(res.type == 0) return res;
+	Var_Id res = mobius_get_var_id(app, loc);
+	if(res.type == 1) res.type = -1; // Input series don't have concentrations.
+	if(res.type == -1) return res;
 	
-	auto var = app->model->state_vars[res.id];
+	auto var = app->model->state_vars[res];
 	if(is_valid(var->dissolved_conc))
-		res.id = var->dissolved_conc;
+		res = var->dissolved_conc;
 	else
-		res.type = 0;
+		res.type = -1;
 	return res;
 }
 
 DLLEXPORT s64
 mobius_get_steps(Model_Application *app, s16 type) {
-	if(type == 1) {
+	if(type == 0) {
 		if(!app->result_data.has_been_set_up)
 			return 0;
 		return app->result_data.time_steps;
-	} else if(type == 2)
+	} else if(type == 1)
 		return app->series_data.time_steps;
 	
 	return 0;
@@ -244,16 +237,16 @@ mobius_get_steps(Model_Application *app, s16 type) {
 
 // TODO: Getting the name should be a separate call though.
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size) {
+mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size) {
 	if(!time_steps_out) return;
 	
 	try {
 		s64 offset;
 		String_View name;
-		if(type == 1) {
+		if(var_id.type == 0) {
 			offset = get_offset_by_index_names(app, &app->result_data, var_id, index_names, indexes_count);
 			name = app->model->state_vars[var_id]->name;
-		} else if (type == 2) {
+		} else if (var_id.type == 1) {
 			offset = get_offset_by_index_names(app, &app->series_data, var_id, index_names, indexes_count);
 			name = app->model->series[var_id]->name;
 		}
@@ -264,7 +257,7 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **i
 		
 		for(s64 step = 0; step < time_steps_out; ++step) {
 			double value;
-			if(type == 1)
+			if(var_id.type == 0)
 				value = *app->result_data.get_value(offset, step);
 			else
 				value = *app->series_data.get_value(offset, step);
@@ -284,9 +277,9 @@ DLLEXPORT char *
 mobius_get_start_date(Model_Application *app, s16 type) {
 	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
 	String_View str;
-	if(type == 1)
+	if(type == 0)
 		str = app->result_data.start_date.to_string();
-	else if(type == 2)
+	else if(type == 1)
 		str = app->series_data.start_date.to_string();
 	
 	return str.data;

@@ -86,7 +86,6 @@ Model_Application::set_up_series_structure(Series_Metadata *metadata) {
 				if(find != metadata->index_sets.end())
 					index_sets = &find->second;
 			}
-			
 			series_by_index_sets[*index_sets].push_back(series_id);
 		}
 		
@@ -476,6 +475,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		}
 	} else
 		set_up_series_structure(nullptr);
+	
+	warning_print("Model application set up with data.\n");
 }
 
 void

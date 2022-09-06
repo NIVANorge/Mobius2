@@ -88,12 +88,15 @@ State_Variable {
 	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
 };
 
+template <s32 var_type>
 struct Var_Registry {
 	std::vector<State_Variable> vars;
 	std::unordered_map<Value_Location, Var_Id, Value_Location_Hash> location_to_id;
 	string_map<std::set<Var_Id>>                                    name_to_id;
 	
 	State_Variable *operator[](Var_Id id) {
+		if(id.type != var_type)
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable of wrong type.");
 		if(!is_valid(id) || id.id >= vars.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
 		return &vars[id.id];
@@ -124,15 +127,15 @@ struct Var_Registry {
 		}
 		
 		vars.push_back(var);
-		Var_Id id = {(s32)vars.size()-1};
+		Var_Id id = {var_type, (s32)vars.size()-1};
 		if(is_valid(loc) && is_located(loc))
 			location_to_id[loc] = id;
 		name_to_id[var.name].insert(id);
 		return id;
 	}
 	
-	Var_Id begin() { return {0}; }
-	Var_Id end()   { return {(s32)vars.size()}; }
+	Var_Id begin() { return {var_type, 0}; }
+	Var_Id end()   { return {var_type, (s32)vars.size()}; }
 	size_t count() { return vars.size(); }
 };
 
@@ -177,8 +180,8 @@ Mobius_Model {
 	//note: it is a bit annoying that we can't reuse Registry or Var_Registry for this, but it would also be too gnarly to factor out any more functionality from those, I think.
 	string_map<s16> module_ids;  // Maps the handle name to the id.
 	
-	Var_Registry state_vars;
-	Var_Registry series;
+	Var_Registry<0> state_vars;
+	Var_Registry<1> series;
 };
 
 template<Reg_Type reg_type> Entity_Id

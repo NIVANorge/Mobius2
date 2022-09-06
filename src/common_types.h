@@ -46,7 +46,7 @@ Module_Version {
 };
 
 struct Var_Id {
-	//TODO: Type (state_var, series, ...)
+	s32 type;
 	s32 id;
 	
 	Var_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
@@ -58,7 +58,7 @@ is_valid(Var_Id id) {
 	return id.id >= 0;
 }
 
-constexpr Var_Id invalid_var = {-1};
+constexpr Var_Id invalid_var = {-1, -1};
 
 inline bool
 operator==(const Var_Id &a, const Var_Id &b) { return a.id == b.id; }

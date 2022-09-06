@@ -33,12 +33,6 @@ Module_Entity_Reference {
 	Value_Type value_type;
 };
 
-struct
-Var_Reference {
-	Var_Id id;
-	s16 type;    //TODO: This should be baked into the Var_Id instead!!
-};
-
 
 DLLEXPORT s64
 mobius_encountered_error(char *msg_out, s64 buf_len);
@@ -73,17 +67,17 @@ mobius_get_value_location(Model_Application *app, Entity_Id comp_id, Entity_Id p
 DLLEXPORT Value_Location
 mobius_get_dissolved_location(Model_Application *app, Value_Location loc, Entity_Id prop_id);
 
-DLLEXPORT Var_Reference
-mobius_get_var_reference(Model_Application *app, Value_Location loc);
+DLLEXPORT Var_Id
+mobius_get_var_id(Model_Application *app, Value_Location loc);
 
-DLLEXPORT Var_Reference
-mobius_get_conc_reference(Model_Application *app, Value_Location loc);
+DLLEXPORT Var_Id
+mobius_get_conc_id(Model_Application *app, Value_Location loc);
 
 DLLEXPORT s64
 mobius_get_steps(Model_Application *app, s16 type);
 
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, s16 type, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size);
+mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size);
 
 DLLEXPORT Time_Step_Size
 mobius_get_time_step_size(Model_Application *app);

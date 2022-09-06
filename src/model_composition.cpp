@@ -541,7 +541,7 @@ Mobius_Model::compose() {
 	warning_print("Generate state vars for aggregates.\n");
 		
 	for(auto &need_agg : needs_aggregate) {
-		auto var_id = Var_Id {need_agg.first};
+		auto var_id = Var_Id {0, need_agg.first};   //TODO: Not good way to do it!
 		auto var = state_vars[var_id];
 		
 		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
@@ -621,6 +621,9 @@ Mobius_Model::compose() {
 		}
 	}
 	
+	
+	
+	
 	// NOTE: Unfortunately we need to know about solvers here, but we don't want to store the solver on the State Variable since that encourages messy code in model_compilation.
 	std::vector<int> has_solver;
 	has_solver.resize(state_vars.count(), 0);
@@ -659,7 +662,7 @@ Mobius_Model::compose() {
 	
 	warning_print("Generate state vars for in_flux.\n");
 	for(auto &in_flux : in_flux_map) {
-		Var_Id target_id = {in_flux.first};
+		Var_Id target_id = {0, in_flux.first}; //TODO: Not good way to do it!
 		
 		Var_Id in_flux_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
 		auto in_flux_var = state_vars[in_flux_id];

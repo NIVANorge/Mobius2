@@ -23,8 +23,8 @@ max_dissolved_chain = 2
 class Value_Location(ctypes.Structure) :
 	_fields_ = [("type", ctypes.c_int32), ("n_dissolved", ctypes.c_int32), ("neighbor", Entity_Id), ("compartment", Entity_Id), ("property_or_quantity", Entity_Id), ("dissolved_in", max_dissolved_chain*Entity_Id)]
 	
-class Var_Reference(ctypes.Structure) :
-	_fields_ = [("id", ctypes.c_int32), ("type", ctypes.c_int16)]
+class Var_Id(ctypes.Structure) :
+	_fields_ = [("type", ctypes.c_int32), ("id", ctypes.c_int32)]
 	
 class Time_Step_Size(ctypes.Structure) :
 	_fields_ = [("unit", ctypes.c_int32), ("magnitude", ctypes.c_int32)]
@@ -58,16 +58,16 @@ dll.mobius_get_value_location.restype  = Value_Location
 dll.mobius_get_dissolved_location.argtypes = [ctypes.c_void_p, Value_Location, Entity_Id]
 dll.mobius_get_dissolved_location.restype  = Value_Location
 
-dll.mobius_get_var_reference.argtypes = [ctypes.c_void_p, Value_Location]
-dll.mobius_get_var_reference.restype  = Var_Reference
+dll.mobius_get_var_id.argtypes = [ctypes.c_void_p, Value_Location]
+dll.mobius_get_var_id.restype  = Var_Id
 
-dll.mobius_get_conc_reference.argtypes = [ctypes.c_void_p, Value_Location]
-dll.mobius_get_conc_reference.restype = Var_Reference
+dll.mobius_get_conc_id.argtypes = [ctypes.c_void_p, Value_Location]
+dll.mobius_get_conc_id.restype = Var_Id
 
 dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int16]
 dll.mobius_get_steps.restype = ctypes.c_int64
 
-dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int16, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64, ctypes.c_char_p, ctypes.c_int64]
+dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64, ctypes.c_char_p, ctypes.c_int64]
 
 dll.mobius_run_model.argtypes = [ctypes.c_void_p]
 
@@ -221,9 +221,9 @@ class Series :
 		self.module_ptr = module_ptr
 	
 	def _get_var(self) :
-		var = dll.mobius_get_var_reference(self.app_ptr, self.loc)
+		var = dll.mobius_get_var_id(self.app_ptr, self.loc)
 		check_for_errors()
-		if var.type == 0 :
+		if var.type == -1 :
 			raise RuntimeError("Could not find a state variable with that location.")
 		return var
 	
@@ -237,7 +237,7 @@ class Series :
 		series = (ctypes.c_double * time_steps)()
 		
 		namebuf = ctypes.create_string_buffer(512)
-		dll.mobius_get_series_data(self.app_ptr, var.id, var.type, _pack_indexes(indexes), len(indexes), series, time_steps, namebuf, 512)
+		dll.mobius_get_series_data(self.app_ptr, var, _pack_indexes(indexes), len(indexes), series, time_steps, namebuf, 512)
 		check_for_errors()
 		
 		start_date = dll.mobius_get_start_date(self.app_ptr, var.type).decode('utf-8')
@@ -270,9 +270,9 @@ class Series :
 class Conc_Series(Series) :
 	
 	def _get_var(self) :
-		var = dll.mobius_get_conc_reference(self.app_ptr, self.loc)
+		var = dll.mobius_get_conc_id(self.app_ptr, self.loc)
 		check_for_errors()
-		if var.type == 0 :
+		if var.type == -1 :
 			raise RuntimeError("Could not find a state variable with that location that has a concentration.")
 		return var
 	

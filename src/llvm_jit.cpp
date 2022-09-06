@@ -409,7 +409,9 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 	#undef MAKE_INTRINSIC2
 	else if(function == "is_finite") {
 		// NOTE: This checks if the mantissa bits are not all 1. (If they are it is either an inf or a nan).
-		//   TODO: It could be that on some very rare platforms the bytes are in opposite order, and this may break (?)
+		//   TODO: this could break on Big Endian architectures (unless both the int64 and float64 are swapped the same way.?)
+		//      we are not likely to encounter it, but should probably have an alternative for it just in case.
+		
 		auto mask = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0x7ff0000000000000));
 		result = data->builder->CreateBitCast(a, llvm::Type::getInt64Ty(*data->context));
 		result = data->builder->CreateAnd(result, mask);

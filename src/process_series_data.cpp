@@ -187,6 +187,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 		if(ids.empty()) continue; // TODO: additional_time_series.
 		
 		for(Var_Id id : ids) {
+			
 			const std::vector<Entity_Id> &expected_index_sets = app->series_data.get_index_sets(id);
 			
 			if(header.indexes.empty()) {
