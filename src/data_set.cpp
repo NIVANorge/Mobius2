@@ -528,7 +528,7 @@ Data_Set::read_from_file(String_View file_name) {
 					read_series_data_from_spreadsheet(this, &handles);
 					#else
 					single_arg(decl, 0)->print_error_header();
-					fatal_error("Spreadsheet reading only available on Windows.");
+					fatal_error("Spreadsheet reading is only available on Windows.");
 					#endif
 				} else {
 					//TODO: implement excel files
@@ -551,8 +551,6 @@ Data_Set::read_from_file(String_View file_name) {
 				read_series_data_block(this, &stream, &data);
 				stream.expect_token(']');
 			}
-		//} else if(token.string_value == "par_datetime") {
-		//	parse_parameter_decl(&global_pars, &stream, 1);
 		} else if(token.string_value == "par_group") {
 			parse_par_group_decl(this, &global_module, &stream);
 		} else if(token.string_value == "module") {

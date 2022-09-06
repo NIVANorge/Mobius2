@@ -242,7 +242,7 @@ Model_Application {
 		}
 		
 		// TODO: make time step size configurable.
-		timestep_size.unit      = Time_Step_Unit::second;
+		timestep_size.unit      = Time_Step_Size::second;
 		timestep_size.magnitude = 86400;
 		
 		initialize_llvm();

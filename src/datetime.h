@@ -178,24 +178,21 @@ public:
 	}
 };
 
-
-enum class
-Time_Step_Unit : s32 {
-	second = 0,
-	month  = 1,
-	//year   = 2,   // could have some optimizations in the code below if we know the step size is in whole years
-};
-
 struct Time_Step_Size {
-	Time_Step_Unit unit;
+	enum Unit : s32 {
+		second = 0,
+		month  = 1,
+		//year   = 2,   // could have some optimizations in the code below if we know the step size is in whole years
+	}              unit;
 	s32            magnitude;
 	
-	Time_Step_Size(Time_Step_Unit unit, s32 magnitude) : unit(unit), magnitude(magnitude) {}
-	Time_Step_Size() : unit(Time_Step_Unit::second), magnitude(86400) {}
+	// NOTE: We can't have these here, because it makes the struct C incompatible (even in its data layout, which I don't understand why), and we want to return it from the C API!
+	//Time_Step_Size(Unit unit, s32 magnitude) : unit(unit), magnitude(magnitude) {}
+	//Time_Step_Size() : unit(Unit::second), magnitude(86400) {}
 };
 
 struct Expanded_Date_Time {
-	// Note: IMPORTANT! The members coming from time_values.incl have to be at the top of this struct!
+	// Note: IMPORTANT! The members coming from time_values.incl have to be at the top of this struct! This is because the type has to be correctly specified when passing it to the LLVM-generated functions.
 	
 	#define TIME_VALUE(name, bits) s##bits name;
 	#include "time_values.incl"
@@ -217,13 +214,13 @@ struct Expanded_Date_Time {
 		compute_next_step_size();
 	}
 	
-	Expanded_Date_Time() : Expanded_Date_Time(Date_Time(), Time_Step_Size {Time_Step_Unit::second, 86400}) {}
+	Expanded_Date_Time() : Expanded_Date_Time(Date_Time(), Time_Step_Size {Time_Step_Size::second, 86400}) {}
 	
 	void
 	advance() {
 		++step;
 		date_time.seconds_since_epoch += step_length_in_seconds;
-		if(time_step.unit == Time_Step_Unit::second) {
+		if(time_step.unit == Time_Step_Size::Unit::second) {
 			second_of_day                 += step_length_in_seconds;
 			
 			s32 days       = second_of_day / 86400;
@@ -247,13 +244,13 @@ struct Expanded_Date_Time {
 			days_this_month = month_length(year, month);
 		}
 		
-		if(time_step.unit == Time_Step_Unit::month)
+		if(time_step.unit == Time_Step_Size::month)
 			compute_next_step_size();
 	}
 	
 	void
 	compute_next_step_size() {
-		if(time_step.unit == Time_Step_Unit::second)
+		if(time_step.unit == Time_Step_Size::second)
 			step_length_in_seconds = time_step.magnitude;
 		else {
 			step_length_in_seconds = 0;
@@ -280,7 +277,7 @@ divide_down(s64 a, s64 b) {
 inline s64
 steps_between(Date_Time from, Date_Time to, Time_Step_Size time_step) {
 	s64 diff;
-	if(time_step.unit == Time_Step_Unit::second)
+	if(time_step.unit == Time_Step_Size::second)
 		diff = to.seconds_since_epoch - from.seconds_since_epoch;
 	else {
 		s32 fy, fm, fd, ty, tm, td;

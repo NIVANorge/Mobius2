@@ -6,7 +6,7 @@
 
 
 
-void run_model(Model_Application *model_app) {
+bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	
 	warning_print("begin model run.\n");
 	
@@ -47,13 +47,13 @@ void run_model(Model_Application *model_app) {
 	
 	Model_Run_State run_state;
 	
-	run_state.parameters = model_app->parameter_data.data;
-	run_state.state_vars = model_app->result_data.data;
-	run_state.series     = model_app->series_data.data + series_count*input_offset;
-	run_state.neighbor_info = model_app->neighbor_data.data;
+	run_state.parameters       = model_app->parameter_data.data;
+	run_state.state_vars       = model_app->result_data.data;
+	run_state.series           = model_app->series_data.data + series_count*input_offset;
+	run_state.neighbor_info    = model_app->neighbor_data.data;
 	run_state.solver_workspace = nullptr;
-	run_state.date_time  = Expanded_Date_Time(start_date, model_app->timestep_size);
-	run_state.solver_t   = 0.0;
+	run_state.date_time        = Expanded_Date_Time(start_date, model_app->timestep_size);
+	run_state.solver_t         = 0.0;
 	
 	int solver_workspace_size = 0;
 	for(auto &batch : model_app->batches) {
@@ -96,6 +96,12 @@ void run_model(Model_Application *model_app) {
 		}
 		
 		run_state.series    += series_count;
+		
+		if(ms_timeout > 0) {
+			s64 ms = run_timer.get_milliseconds();
+			if(ms > ms_timeout)
+				return false;
+		}
 	}
 	
 	s64 cycles = run_timer.get_cycles();
@@ -104,4 +110,6 @@ void run_model(Model_Application *model_app) {
 	if(run_state.solver_workspace) free(run_state.solver_workspace);
 	
 	warning_print("Run time: ", ms, " milliseconds, ", cycles, " cycles.\n");
+	
+	return true;
 }

@@ -29,6 +29,12 @@ class Var_Reference(ctypes.Structure) :
 class Time_Step_Size(ctypes.Structure) :
 	_fields_ = [("unit", ctypes.c_int32), ("magnitude", ctypes.c_int32)]
 
+dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
+dll.mobius_encountered_error.restype = ctypes.c_int64
+	
+dll.mobius_encountered_warning.argtypes = [ctypes.c_char_p, ctypes.c_int64]
+dll.mobius_encountered_warning.restype = ctypes.c_int64
+
 dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
 dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
 
@@ -78,6 +84,33 @@ def _c_str(string) :
 def _pack_indexes(indexes) :
 	cindexes = [index.encode('utf-8') for index in indexes]
 	return (ctypes.c_char_p * len(cindexes))(*cindexes)
+	
+def check_for_errors() :
+	buflen = 1024
+	msgbuf = ctypes.create_string_buffer(buflen)
+	
+	warnmsg = ''
+	warning = False
+	warnlen = dll.mobius_encountered_warning(msgbuf, buflen)
+	while warnlen > 0 :
+		warning = True
+		warnmsg += msgbuf.value.decode('utf-8')
+		warnlen = dll.mobius_encountered_warning(msgbuf, buflen)
+		
+	if warning :
+		print(warnmsg)
+
+	error = False
+	errmsg = ''
+	errlen = dll.mobius_encountered_error(msgbuf, buflen)
+	while errlen > 0 :
+		error = True
+		errmsg += msgbuf.value.decode('utf-8')
+		errlen = dll.mobius_encountered_error(msgbuf, buflen)
+	
+	if error : raise RuntimeError(errmsg)
+	
+	
 
 class Model_Application :
 	def __init__(self, ptr) :
@@ -86,17 +119,21 @@ class Model_Application :
 	@classmethod
 	def build_from_model_and_data_file(cls, model_file, data_file) :
 		ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file))
+		check_for_errors()
 		return cls(ptr)
 		
 	def run(self) :
 		dll.mobius_run_model(self.ptr)
+		check_for_errors()
 		
 	def __getitem__(self, module_name) :
 		ptr = dll.mobius_get_module_reference_by_name(self.ptr, _c_str(module_name))
+		check_for_errors()
 		return Module(ptr, self.ptr)
 		
 	def __getattr__(self, handle_name) :
 		ref = dll.mobius_get_model_entity_by_handle(self.ptr, _c_str(handle_name))
+		check_for_errors()
 		if ref.type == 0 :
 			raise RuntimeError("Invalid model entity handle %s" % handle_name)
 		elif ref.type == 1 :
@@ -114,6 +151,7 @@ class Module :
 		
 	def __getattr__(self, handle_name) :
 		ref = dll.mobius_get_module_entity_by_handle(self.ptr, _c_str(handle_name))
+		check_for_errors()
 		if ref.type == 0 :
 			raise RuntimeError("Invalid module entity handle %s" % handle_name)
 		elif ref.type == 1 :
@@ -133,12 +171,15 @@ class Parameter :
 	def __getitem__(self, indexes) :
 		if not isinstance(indexes, list) :
 			raise RuntimeError("Expected a list object for the indexes")
-		return dll.mobius_get_parameter_real(self.app_ptr, self.par_id, _pack_indexes(indexes), len(indexes))
+		result = dll.mobius_get_parameter_real(self.app_ptr, self.par_id, _pack_indexes(indexes), len(indexes))
+		check_for_errors()
+		return result
 	
 	def __setitem__(self, indexes, value) :
 		if not isinstance(indexes, list) :
 			raise RuntimeError("Expected a list object for the indexes")
 		dll.mobius_set_parameter_real(self.app_ptr, self.par_id, _pack_indexes(indexes), len(indexes), value)
+		check_for_errors()
 		
 	def __getattr__(self, name) :
 		#TODO:
@@ -165,8 +206,10 @@ class Compartment :
 		
 	def __getattr__(self, handle_name) :
 		ref = dll.mobius_get_module_entity_by_handle(self.module_ptr, _c_str(handle_name))
+		check_for_errors()
 		if ref.type == 3 :
 			loc = dll.mobius_get_value_location(self.app_ptr, self.id, ref.entity)
+			check_for_errors()
 			return Series(loc, self.app_ptr, self.module_ptr)
 		else :
 			raise RuntimeError("Can only look up properties or quantities from compartments.")
@@ -179,6 +222,7 @@ class Series :
 	
 	def _get_var(self) :
 		var = dll.mobius_get_var_reference(self.app_ptr, self.loc)
+		check_for_errors()
 		if var.type == 0 :
 			raise RuntimeError("Could not find a state variable with that location.")
 		return var
@@ -194,10 +238,11 @@ class Series :
 		
 		namebuf = ctypes.create_string_buffer(512)
 		dll.mobius_get_series_data(self.app_ptr, var.id, var.type, _pack_indexes(indexes), len(indexes), series, time_steps, namebuf, 512)
-		
+		check_for_errors()
 		
 		start_date = dll.mobius_get_start_date(self.app_ptr, var.type).decode('utf-8')
 		start_date = pd.to_datetime(start_date)
+		check_for_errors()
 
 		step_size = dll.mobius_get_time_step_size(self.app_ptr)
 		step_type = 'S' if step_size.unit == 0 else 'MS'
@@ -214,8 +259,10 @@ class Series :
 			raise RuntimeError("Can not have that many chained dissolved substances")
 		
 		ref = dll.mobius_get_module_entity_by_handle(self.module_ptr, _c_str(handle_name))
+		check_for_errors()
 		if ref.type == 3 :
 			loc = dll.mobius_get_dissolved_location(self.app_ptr, self.loc, ref.entity)
+			check_for_errors()
 			return Series(loc, self.app_ptr, self.module_ptr)
 		else :
 			raise RuntimeError("Can only look up properties or quantities from compartments.")
@@ -224,6 +271,7 @@ class Conc_Series(Series) :
 	
 	def _get_var(self) :
 		var = dll.mobius_get_conc_reference(self.app_ptr, self.loc)
+		check_for_errors()
 		if var.type == 0 :
 			raise RuntimeError("Could not find a state variable with that location that has a concentration.")
 		return var

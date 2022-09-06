@@ -30,14 +30,13 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		
 		std::vector<Index_Set_Info *> index_sets;
 		
-		int search_len = 128; //NOTE: We only search for index sets among the first 1024 rows since anything more than that would be ridiculous.
+		int search_len = 128; //NOTE: We only search for index sets among the first 128 rows since anything more than that would be ridiculous.
 		auto matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles); 
 		
 		int potential_flag_row = -1;
 		int first_date_row = -1;
 		
 		// ***** parse the first column to see what index sets are used and on what row there are flags and where the date column starts
-		//warning_print("Parse first column\n");
 		
 		for(int row = 0; row < search_len; ++row) {
 			VARIANT value = ole_get_matrix_value(&matrix, 2+row, 1, handles);
@@ -49,7 +48,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 			
 			ole_get_string(&value, buf, buf_size);
 			
-			//WarningPrint("Looking at index set at tab ", Tab, " row ", Row+2, " name ", Buf, "\n");
 			if(strlen(buf) > 0) {
 				// Check if this is a date that was formatted as a string (especially important since Excel can't format dates before 1900 as other than strings).
 				//TODO: couldn't we instead call ole_get_date() above though and check for success?
@@ -67,7 +65,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 				index_sets.push_back(index_set);
 			} else {
 				// Empty row (or at least it did not have date or string format (TODO: check if there is some other data here).
-				// This could row could have flags for the time series
+				// This row could have flags for the time series
 				if(potential_flag_row > 0) {
 					ole_close_due_to_error(handles, tab, 1, 2+row);
 					fatal_error("There should not be empty cells in column A except in row 1, or potentially in the row right above the dates, or at the end.");
@@ -87,7 +85,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		matrix = ole_get_range_matrix(1, row_range, 2, 1 + search_len, handles); 
 		
 		// ********* Parse the header data
-		//warning_print("Parse header data\n");
 		
 		std::string current_input_name = "";
 		for(int col = 0; col < search_len; ++col) {
@@ -119,14 +116,14 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 					indexes.push_back({index_sets[row]->name, index});
 				}
 			}
-			if(!got_name_this_column && indexes.empty()) // There was no name on top and no indexes. This means the end of data.
+			if(!got_name_this_column && indexes.empty()) // There was no name on top of the column and no indexes. This means there are no more data columns
 				break;
 			
 			data.header_data.push_back({});
 			auto &header = data.header_data.back();
 			// TODO: Make system for having more than one index tuple.
 			header.name = current_input_name;
-			//header.location   //TODO!
+			//header.loc  //TODO! - make it possible for a Source_Location to refer to an excel cell.
 			header.indexes.push_back(std::move(indexes));
 			
 			if(potential_flag_row > 0) {
@@ -175,7 +172,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		data.time_steps = -1; //Signals that end date is recorded rather than time steps.
 		
 		// ********* Read all the dates in the date column
-		//warning_print("Read all dates\n");
 		
 		while(true) {
 			bool break_out = false;
@@ -190,7 +186,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 					break_out = true;
 					break;
 				}
-				//warning_print("Got date ", date.to_string(), "\n");
 				
 				if(date < data.start_date) data.start_date = date;
 				if(date > data.end_date)   data.end_date = date;
@@ -210,7 +205,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 			vals.resize(data.dates.size());
 		
 		// ***** Read in the actual input data values
-		//warning_print("Read input data values\n");
 		
 		matrix = ole_get_range_matrix(first_date_row, first_date_row + data.dates.size() - 1, 2, 1 + data.header_data.size(), handles);
 		
@@ -225,8 +219,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		
 		ole_destroy_matrix(&matrix);
 	}
-	
-	//warning_print("Excel reading finished.\n");
 }
 
 #endif // OLE_AVAILABLE

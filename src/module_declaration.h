@@ -10,56 +10,6 @@
 
 struct Module_Declaration;
 
-enum class
-Reg_Type : s16 {
-	unrecognized,
-	#define ENUM_VALUE(name) name,
-	#include "reg_types.incl"
-	#undef ENUM_VALUE
-};
-
-inline String_View
-name(Reg_Type type) {
-	#define ENUM_VALUE(name) if(type == Reg_Type::name) return #name;
-	#include "reg_types.incl"
-	#undef ENUM_VALUE
-	return "unrecognized";
-}
-
-struct
-Entity_Id {
-	s16      module_id;
-	Reg_Type reg_type;
-	s32      id;
-	
-	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
-	Entity_Id &operator++() { id++; return *this; }
-};
-
-inline bool
-operator==(const Entity_Id &a, const Entity_Id &b) {
-	return a.module_id == b.module_id && a.reg_type == b.reg_type && a.id == b.id;
-}
-
-inline bool
-operator!=(const Entity_Id &a, const Entity_Id &b) {
-	return a.module_id != b.module_id || a.id != b.id || a.reg_type != b.reg_type;
-}
-
-inline bool
-operator<(const Entity_Id &a, const Entity_Id &b) {
-	if(a.module_id == b.module_id) {
-		if(a.reg_type == b.reg_type)
-			return a.id < b.id;
-		return a.reg_type < b.reg_type;
-	}
-	return a.module_id < b.module_id;
-}
-
-constexpr Entity_Id invalid_entity_id = {-1, Reg_Type::unrecognized, -1};
-
-inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
-
 inline Parameter_Value
 get_parameter_value(Token *token, Token_Type type) {
 	if((type == Token_Type::integer || type == Token_Type::boolean) && token->type == Token_Type::real)
@@ -74,51 +24,6 @@ get_parameter_value(Token *token, Token_Type type) {
 	else
 		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
 	return result;
-}
-
-enum class
-Location_Type : s32 {
-	nowhere, out, located, neighbor,
-};
-
-constexpr int max_dissolved_chain = 2;
-
-struct
-Value_Location {
-	//TODO: this becomes more complicated with dissolved quantities etc.
-	Location_Type type;
-	s32 n_dissolved;         //NOTE: it is here for better packing.
-	
-	Entity_Id neighbor; // This should only be referenced if type == neighbor
-	
-	// These should only be referenced if type == located.
-	Entity_Id compartment;
-	Entity_Id property_or_quantity;
-	Entity_Id dissolved_in[max_dissolved_chain];
-};
-
-inline bool
-is_located(Value_Location &loc) {
-	return loc.type == Location_Type::located;
-}
-
-constexpr Value_Location invalid_value_location = {Location_Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id};
-
-inline bool
-is_valid(Value_Location &a) { //TODO: is this needed at all?
-	return (a.type != Location_Type::located) || (is_valid(a.compartment) && is_valid(a.property_or_quantity));
-}
-
-inline bool
-operator==(const Value_Location &a, const Value_Location &b) {
-	if(a.type != b.type) return false;
-	if(a.type == Location_Type::neighbor) return a.neighbor == b.neighbor;
-	if(a.type == Location_Type::located) {
-		if(a.compartment != b.compartment || a.property_or_quantity != b.property_or_quantity || a.n_dissolved != b.n_dissolved) return false;
-		for(int idx = 0; idx < a.n_dissolved; ++idx)
-			if(a.dissolved_in[idx] != b.dissolved_in[idx]) return false;
-	}
-	return true;
 }
 
 struct Mobius_Model;

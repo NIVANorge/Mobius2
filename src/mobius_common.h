@@ -37,19 +37,43 @@ name(Mobius_Error type) {
 	return "";
 }
 
-//NOTE: We allow the error handling to be replaced by the application. This is for instance useful for the python wrapper.
-#if !defined(MOBIUS_ERROR_OVERRIDE)
 inline void
 error_print() {}
+
+inline void
+warning_print() {}
+
+#if defined(MOBIUS_ERROR_STREAMS)
+#include <sstream>
+
+extern std::stringstream global_error_stream;
+extern std::stringstream global_warning_stream;
+
+template<typename T, typename... V> inline void
+error_print(T value, V... tail) {
+	global_error_stream << value;
+	error_print(tail...);
+}	
+
+template<typename T, typename... V> inline void
+warning_print(T value, V... tail) {
+	global_warning_stream << value;
+	warning_print(tail...);
+}
+
+inline void
+mobius_error_exit() {
+	error_print("\n\n");
+	throw 1;
+}
+
+#else
 
 template<typename T, typename... V> inline void
 error_print(T value, V... tail) {
 	std::cerr << value;
 	error_print(tail...);
 }	
-
-inline void
-warning_print() {}
 
 template<typename T, typename... V> inline void
 warning_print(T value, V... tail) {
