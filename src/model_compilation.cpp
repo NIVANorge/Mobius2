@@ -1241,6 +1241,7 @@ Model_Application::compile() {
 	build_instructions(this, initial_instructions, true);
 	build_instructions(this, instructions, false);
 	
+	warning_print("Instruction codegen\n");
 	// We can't check it like this anymore, because we can now invalidate instructions due to state variables being invalidated.
 	//for(auto &instr : instructions)
 	//	if(instr.type == Model_Instruction::Type::invalid)

@@ -192,6 +192,10 @@ struct Structured_Storage {
 	get_handle_name(Handle_T handle);
 	
 	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr) {}
+	
+	~Structured_Storage() {
+		if(data) free(data);
+	}
 };
 
 struct
@@ -225,7 +229,7 @@ struct
 Model_Application {
 	Mobius_Model *model;
 	
-	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), is_compiled(false),
+	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), additional_series_data(0, this), is_compiled(false),
 		data_set(nullptr), alloc(1024) {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
@@ -274,10 +278,15 @@ Model_Application {
 	Structured_Storage<double, Var_Id>              result_data;
 	Structured_Storage<s64, Neighbor_T>             neighbor_data;
 
+	Var_Registry<2>                                 additional_series;
+	Structured_Storage<double, Var_Id>              additional_series_data;
+	
 	
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
-	void set_up_series_structure(Series_Metadata *metadata = nullptr);
 	void set_up_neighbor_structure();
+	
+	template<s32 var_type> void
+	set_up_series_structure(Var_Registry<var_type> &reg, Structured_Storage<double, Var_Id> &data, Series_Metadata *metadata);
 	
 	void allocate_series_data(s64 time_steps);
 	

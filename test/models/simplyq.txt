@@ -67,10 +67,11 @@ The river part of the SimplyQ module.
 	water : quantity("Water")
 	
 	river.par_group("Reach parameters") {
-		slope          : par_real("Reach slope", unit(), 0.014)
-		len            : par_real("Reach length", unit(m), 10000)
-		c_mann         : par_real("Manning's roughness coefficient", unit(), 0.04)
-		init_flow      : par_real("Initial reach flow", unit(m 3, s-1), 1)
+		slope          : par_real("Reach slope", unit(),                     0.014, 0.00001,        3)
+		len            : par_real("Reach length", unit(m),                   10000,       0, 10000000)
+		c_mann         : par_real("Manning's roughness coefficient", unit(),  0.04,   0.012,      0.1, 
+			"Default of 0.04 is for clean winding natural channels. See e.g. Chow 1959 for a table of values for other channel types")
+		init_flow      : par_real("Initial reach flow", unit(m 3, s-1),          1,       0,     100)
 	}
 	
 	flow : property("Flow")

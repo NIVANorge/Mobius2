@@ -62,7 +62,7 @@ DLLEXPORT double
 mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
 
 DLLEXPORT Var_Location
-mobius_get_Var_Location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id);
+mobius_get_var_location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id);
 
 DLLEXPORT Var_Location
 mobius_get_dissolved_location(Model_Application *app, Var_Location loc, Entity_Id prop_id);
@@ -72,6 +72,9 @@ mobius_get_var_id(Model_Application *app, Var_Location loc);
 
 DLLEXPORT Var_Id
 mobius_get_conc_id(Model_Application *app, Var_Location loc);
+
+DLLEXPORT Var_Id
+mobius_get_additional_series_id(Model_Application *app, char *name);
 
 DLLEXPORT s64
 mobius_get_steps(Model_Application *app, s16 type);

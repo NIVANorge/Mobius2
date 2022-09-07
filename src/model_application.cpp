@@ -66,12 +66,12 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 	}
 }
 
-void
-Model_Application::set_up_series_structure(Series_Metadata *metadata) {
-	if(series_data.has_been_set_up)
-		fatal_error(Mobius_Error::internal, "Tried to set up input structure twice.");
+template<s32 var_type> void
+Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Structured_Storage<double, Var_Id> &data, Series_Metadata *metadata) {
+	if(data.has_been_set_up)
+		fatal_error(Mobius_Error::internal, "Tried to set up series structure twice.");
 	if(!all_indexes_are_set())
-		fatal_error(Mobius_Error::internal, "Tried to set up input structure before all index sets received indexes.");
+		fatal_error(Mobius_Error::internal, "Tried to set up series structure before all index sets received indexes.");
 	
 	std::vector<Multi_Array_Structure<Var_Id>> structure;
 	
@@ -79,7 +79,7 @@ Model_Application::set_up_series_structure(Series_Metadata *metadata) {
 		std::map<std::vector<Entity_Id>, std::vector<Var_Id>> series_by_index_sets;
 		
 		std::vector<Entity_Id> empty;
-		for(auto series_id : model->series) {
+		for(auto series_id : reg) {
 			std::vector<Entity_Id> *index_sets = &empty;
 			if(metadata) {
 				auto find = metadata->index_sets.find(series_id);
@@ -97,19 +97,20 @@ Model_Application::set_up_series_structure(Series_Metadata *metadata) {
 		}
 	} else {
 		std::vector<Var_Id> handles;
-		for(auto series_id : model->series)
+		for(auto series_id : reg)
 			handles.push_back(series_id);
 		Multi_Array_Structure<Var_Id> array({}, std::move(handles));
 		structure.push_back(std::move(array));
 	}
 	
-	series_data.set_up(std::move(structure));
+	data.set_up(std::move(structure));
 }
 
 void
 Model_Application::allocate_series_data(s64 time_steps) {
 	// NOTE: They are by default cleared to 0
 	series_data.allocate(time_steps);
+	additional_series_data.allocate(time_steps);
 	
 	for(auto series_id : model->series) {
 		if(!(model->series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
@@ -117,6 +118,15 @@ Model_Application::allocate_series_data(s64 time_steps) {
 		series_data.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
 				*series_data.get_value(offset, step) = std::numeric_limits<double>::quiet_NaN();
+		});
+	}
+	
+	for(auto series_id : additional_series) {
+		if(!(additional_series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
+		
+		additional_series_data.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
+			for(s64 step = 0; step < time_steps; ++step)
+				*additional_series_data.get_value(offset, step) = std::numeric_limits<double>::quiet_NaN();
 		});
 	}
 }
@@ -306,7 +316,16 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 		// NOTE: several time series could have been given the same name.
 		std::set<Var_Id> ids = model->series[header.name];
 		
-		if(ids.empty()) continue;  //TODO: in this case register it as an additional time series.
+		if(ids.empty()) {
+			//This series is not recognized as a model input, so it is an "additional series"
+			
+			State_Variable var;
+			var.name = app->alloc.copy_string_view(header.name.data());
+			var.flags = State_Variable::Flags::f_clear_series_to_nan;
+			
+			Var_Id var_id = app->additional_series.register_var(var, invalid_var_location);
+			ids.insert(var_id);
+		}
 		
 		if(header.indexes.empty()) continue;
 		
@@ -318,12 +337,13 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
-				
-				auto comp_id     = model->series[id]->loc1.compartment;
-				auto compartment = model->modules[0]->compartments[comp_id];
-				if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
-					header.loc.print_error_header();
-					fatal_error(Mobius_Error::parsing, "Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
+				if(id.type != 1) {// Only perform the check for model inputs, not additional series.
+					auto comp_id     = model->series[id]->loc1.compartment;
+					auto compartment = model->modules[0]->compartments[comp_id];
+					if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
+						header.loc.print_error_header();
+						fatal_error(Mobius_Error::parsing, "Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
+					}
 				}
 				metadata->index_sets[id].push_back(index_set);
 			}
@@ -454,7 +474,9 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			process_series_metadata(this, &series, &metadata);
 		}
 		
-		set_up_series_structure(&metadata);
+		set_up_series_structure(model->series, series_data, &metadata);
+		set_up_series_structure(additional_series, additional_series_data, &metadata);
+		
 		s64 time_steps = 0;
 		if(metadata.any_data_at_all) {
 			time_steps = steps_between(metadata.start_date, metadata.end_date, timestep_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
@@ -467,14 +489,16 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
 	
 		series_data.start_date = metadata.start_date;
+		additional_series_data.start_date = metadata.start_date;
 		
 		allocate_series_data(time_steps);
 		
-		for(auto &series : data_set->series) {
+		for(auto &series : data_set->series)
 			process_series(this, &series, metadata.end_date);
-		}
-	} else
-		set_up_series_structure(nullptr);
+	} else {
+		set_up_series_structure(model->series, series_data, nullptr);
+		set_up_series_structure(additional_series, additional_series_data, nullptr);
+	}
 	
 	warning_print("Model application set up with data.\n");
 }

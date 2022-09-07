@@ -103,7 +103,7 @@ struct Var_Registry {
 	}
 	
 	Var_Id operator[](Var_Location &loc) {
-		if(!is_valid(loc) || !is_located(loc))
+		if(!is_located(loc))
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid location.");
 		auto find = location_to_id.find(loc);
 		if(find == location_to_id.end())
@@ -120,7 +120,7 @@ struct Var_Registry {
 	}
 	
 	Var_Id register_var(State_Variable var, Var_Location loc) {
-		if(is_valid(loc) && is_located(loc)) {
+		if(is_located(loc)) {
 			Var_Id id = (*this)[loc];
 			if(is_valid(id))
 				fatal_error(Mobius_Error::internal, "Re-registering a variable."); //TODO: hmm, this only catches cases where the location was valid.
@@ -128,7 +128,7 @@ struct Var_Registry {
 		
 		vars.push_back(var);
 		Var_Id id = {var_type, (s32)vars.size()-1};
-		if(is_valid(loc) && is_located(loc))
+		if(is_located(loc))
 			location_to_id[loc] = id;
 		name_to_id[var.name].insert(id);
 		return id;

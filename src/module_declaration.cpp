@@ -922,7 +922,7 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 		flux->neighbor_target = neigh_id;
 	} else {
 		chain[0].print_error_header();
-		fatal_error("This is not a well-formatted flux target. Expected something on the form compartment.quantity or neighbor .");
+		fatal_error("This is not a well-formed flux target. Expected something on the form \"compartment.quantity\" or \"neighbor\".");
 	}
 	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to just look them up here.
 }

@@ -20,8 +20,8 @@ class Model_Entity_Reference(ctypes.Structure) :
 
 max_dissolved_chain = 2
 
-class Value_Location(ctypes.Structure) :
-	_fields_ = [("type", ctypes.c_int32), ("n_dissolved", ctypes.c_int32), ("neighbor", Entity_Id), ("compartment", Entity_Id), ("property_or_quantity", Entity_Id), ("dissolved_in", max_dissolved_chain*Entity_Id)]
+class Var_Location(ctypes.Structure) :
+	_fields_ = [("type", ctypes.c_int32), ("n_dissolved", ctypes.c_int32), ("compartment", Entity_Id), ("property_or_quantity", Entity_Id), ("dissolved_in", max_dissolved_chain*Entity_Id)]
 	
 class Var_Id(ctypes.Structure) :
 	_fields_ = [("type", ctypes.c_int32), ("id", ctypes.c_int32)]
@@ -52,17 +52,20 @@ dll.mobius_set_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POI
 dll.mobius_get_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
 dll.mobius_get_parameter_real.restype  = ctypes.c_double
 
-dll.mobius_get_value_location.argtypes = [ctypes.c_void_p, Entity_Id, Entity_Id]
-dll.mobius_get_value_location.restype  = Value_Location
+dll.mobius_get_var_location.argtypes = [ctypes.c_void_p, Entity_Id, Entity_Id]
+dll.mobius_get_var_location.restype  = Var_Location
 
-dll.mobius_get_dissolved_location.argtypes = [ctypes.c_void_p, Value_Location, Entity_Id]
-dll.mobius_get_dissolved_location.restype  = Value_Location
+dll.mobius_get_dissolved_location.argtypes = [ctypes.c_void_p, Var_Location, Entity_Id]
+dll.mobius_get_dissolved_location.restype  = Var_Location
 
-dll.mobius_get_var_id.argtypes = [ctypes.c_void_p, Value_Location]
+dll.mobius_get_var_id.argtypes = [ctypes.c_void_p, Var_Location]
 dll.mobius_get_var_id.restype  = Var_Id
 
-dll.mobius_get_conc_id.argtypes = [ctypes.c_void_p, Value_Location]
+dll.mobius_get_conc_id.argtypes = [ctypes.c_void_p, Var_Location]
 dll.mobius_get_conc_id.restype = Var_Id
+
+dll.mobius_get_additional_series_id.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+dll.mobius_get_additional_series_id.restype = Var_Id
 
 dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int16]
 dll.mobius_get_steps.restype = ctypes.c_int64
@@ -125,6 +128,11 @@ class Model_Application :
 	def run(self) :
 		dll.mobius_run_model(self.ptr)
 		check_for_errors()
+		
+	def additional_series(self, name) :
+		var = dll.mobius_get_additional_series_id(self.ptr, _c_str(name))
+		check_for_errors()
+		return Additional_Series(self.ptr, var)
 		
 	def __getitem__(self, module_name) :
 		ptr = dll.mobius_get_module_reference_by_name(self.ptr, _c_str(module_name))
@@ -208,7 +216,7 @@ class Compartment :
 		ref = dll.mobius_get_module_entity_by_handle(self.module_ptr, _c_str(handle_name))
 		check_for_errors()
 		if ref.type == 3 :
-			loc = dll.mobius_get_value_location(self.app_ptr, self.id, ref.entity)
+			loc = dll.mobius_get_var_location(self.app_ptr, self.id, ref.entity)
 			check_for_errors()
 			return Series(loc, self.app_ptr, self.module_ptr)
 		else :
@@ -277,7 +285,21 @@ class Conc_Series(Series) :
 		return var
 	
 	def __getattr__(self, handle_name) :
-		raise RuntimeError("Can't look up sub-proerties of a conc")
+		raise RuntimeError("Can't look up sub-properties of a conc")
+		
+
+class Additional_Series(Series) :
+	
+	def __init__(self, app_ptr, var) :
+		self.app_ptr = app_ptr
+		self.var  = var
+	
+	def _get_var(self) :
+		return self.var
+		
+	def __getattr__(self, handle_name) :
+		raise RuntimeError("Can't look up sub-properties of an additional series.")
+		
 		
 def conc(series) :
 	return Conc_Series(series.loc, series.app_ptr, series.module_ptr)

@@ -219,12 +219,7 @@ is_located(const Var_Location &loc) {
 	return loc.type == Var_Location::Type::located;
 }
 
-constexpr Var_Location invalid_var_location = {Var_Location::Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id};
-
-inline bool
-is_valid(Var_Location &a) { //TODO: is this needed at all?
-	return (a.type != Var_Location::Type::located) || (is_valid(a.compartment) && is_valid(a.property_or_quantity));
-}
+constexpr Var_Location invalid_var_location = {Var_Location::Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id, invalid_entity_id};
 
 inline bool
 operator==(const Var_Location &a, const Var_Location &b) {

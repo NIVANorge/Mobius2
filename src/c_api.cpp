@@ -173,9 +173,8 @@ mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index
 
 
 DLLEXPORT Var_Location
-mobius_get_Var_Location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
+mobius_get_var_location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
 	Var_Location loc;
-	loc.neighbor = invalid_entity_id; // For safety, but probably not needed.
 	loc.type = Var_Location::Type::located;
 	loc.compartment = comp_id;
 	loc.property_or_quantity = prop_id;
@@ -212,7 +211,7 @@ DLLEXPORT Var_Id
 mobius_get_conc_id(Model_Application *app, Var_Location loc) {
 	
 	Var_Id res = mobius_get_var_id(app, loc);
-	if(res.type == 1) res.type = -1; // Input series don't have concentrations.
+	if(res.type == 1 || res.type == 2) res.type = -1; // Input series don't have concentrations.
 	if(res.type == -1) return res;
 	
 	auto var = app->model->state_vars[res];
@@ -223,6 +222,19 @@ mobius_get_conc_id(Model_Application *app, Var_Location loc) {
 	return res;
 }
 
+DLLEXPORT Var_Id
+mobius_get_additional_series_id(Model_Application *app, char *name) {
+	
+	std::set<Var_Id> ids = app->additional_series[name];
+	
+	try {
+		if(ids.empty())
+			fatal_error(Mobius_Error::api_usage, "The series by the name \"", name, "\" was not provided in the input data.");
+	} catch(int) {}
+	
+	return *ids.begin();     // NOTE: For additional series there will only be one per name.
+}
+
 DLLEXPORT s64
 mobius_get_steps(Model_Application *app, s16 type) {
 	if(type == 0) {
@@ -231,6 +243,8 @@ mobius_get_steps(Model_Application *app, s16 type) {
 		return app->result_data.time_steps;
 	} else if(type == 1)
 		return app->series_data.time_steps;
+	else if(type == 2)
+		return app->additional_series_data.time_steps;
 	
 	return 0;
 }
@@ -249,6 +263,9 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 		} else if (var_id.type == 1) {
 			offset = get_offset_by_index_names(app, &app->series_data, var_id, index_names, indexes_count);
 			name = app->model->series[var_id]->name;
+		} else if (var_id.type == 2) {
+			offset = get_offset_by_index_names(app, &app->additional_series_data, var_id, index_names, indexes_count);
+			name = app->additional_series[var_id]->name;
 		}
 		
 		if(name.count > name_out_size)
@@ -259,8 +276,10 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 			double value;
 			if(var_id.type == 0)
 				value = *app->result_data.get_value(offset, step);
-			else
+			else if(var_id.type == 1)
 				value = *app->series_data.get_value(offset, step);
+			else if(var_id.type == 2)
+				value = *app->additional_series_data.get_value(offset, step);
 			series_out[step] = value;
 		}
 	} catch(int) {}
@@ -281,6 +300,8 @@ mobius_get_start_date(Model_Application *app, s16 type) {
 		str = app->result_data.start_date.to_string();
 	else if(type == 1)
 		str = app->series_data.start_date.to_string();
+	else if(type == 2)
+		str = app->additional_series_data.start_date.to_string();
 	
 	return str.data;
 }
