@@ -57,8 +57,8 @@ State_Variable {
 	
 	// If this is a quantity or property, loc1 is the location of this variable.
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
-	Value_Location loc1;
-	Value_Location loc2;
+	Var_Location   loc1;
+	Var_Location   loc2;
 	
 	// if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
 	Var_Id         agg;
@@ -91,7 +91,7 @@ State_Variable {
 template <s32 var_type>
 struct Var_Registry {
 	std::vector<State_Variable> vars;
-	std::unordered_map<Value_Location, Var_Id, Value_Location_Hash> location_to_id;
+	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
 	string_map<std::set<Var_Id>>                                    name_to_id;
 	
 	State_Variable *operator[](Var_Id id) {
@@ -102,7 +102,7 @@ struct Var_Registry {
 		return &vars[id.id];
 	}
 	
-	Var_Id operator[](Value_Location &loc) {
+	Var_Id operator[](Var_Location &loc) {
 		if(!is_valid(loc) || !is_located(loc))
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid location.");
 		auto find = location_to_id.find(loc);
@@ -119,7 +119,7 @@ struct Var_Registry {
 		return find->second;
 	}
 	
-	Var_Id register_var(State_Variable var, Value_Location loc) {
+	Var_Id register_var(State_Variable var, Var_Location loc) {
 		if(is_valid(loc) && is_located(loc)) {
 			Var_Id id = (*this)[loc];
 			if(is_valid(id))

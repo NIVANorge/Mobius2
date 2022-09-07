@@ -427,8 +427,8 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 
 // NOTE: This one should not be called on a module where all declarations are not loaded yet. This is because the global ids don't exist before the corresponding entity is declared, and it could be declared before it is referenced.
 void
-make_global(Module_Declaration *module, Value_Location *loc) {
-	if(loc->type == Location_Type::located && module->global_scope) {
+make_global(Module_Declaration *module, Var_Location *loc) {
+	if(is_located(*loc) && module->global_scope) {
 		auto comp_id = module->compartments[loc->compartment]->global_id;
 		if(is_valid(comp_id)) loc->compartment = comp_id;
 		auto quant_id = module->properties_and_quantities[loc->property_or_quantity]->global_id;
@@ -441,11 +441,11 @@ make_global(Module_Declaration *module, Value_Location *loc) {
 }
 
 // NOTE: The following three should not be called on a module where all declarations are not loaded yet. This is because the global ids don't exist before the corresponding entity is declared, and it could be declared before it is referenced.
-Value_Location
-make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity) {
-	Value_Location result;
+Var_Location
+make_var_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity) {
+	Var_Location result;
 	result.n_dissolved = 0;
-	result.type = Location_Type::located;
+	result.type = Var_Location::Type::located;
 	auto comp = model->find_entity<Reg_Type::compartment>(compartment);
 	if(is_valid(comp->global_id))
 		result.compartment = comp->global_id;
@@ -461,9 +461,9 @@ make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id proper
 	return result;
 }
 
-Value_Location
-remove_dissolved(const Value_Location &loc) {
-	Value_Location result = loc;
+Var_Location
+remove_dissolved(const Var_Location &loc) {
+	Var_Location result = loc;
 	if(loc.n_dissolved == 0)
 		fatal_error(Mobius_Error::internal, "Tried to find a value location above one that is not dissolved in anything.");
 	result.n_dissolved--;
@@ -471,9 +471,9 @@ remove_dissolved(const Value_Location &loc) {
 	return result;
 }
 
-Value_Location
-add_dissolved(Mobius_Model *model, const Value_Location &loc, Entity_Id quantity) {
-	Value_Location result = loc;
+Var_Location
+add_dissolved(Mobius_Model *model, const Var_Location &loc, Entity_Id quantity) {
+	Var_Location result = loc;
 	if(loc.n_dissolved == max_dissolved_chain)
 		fatal_error(Mobius_Error::internal, "Tried to find a value location with a dissolved chain that is too long.");
 	result.n_dissolved++;
@@ -512,14 +512,14 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	}
 	
 	// TODO: can eventually be tied to just a quantity not only a compartment or compartment.quantities
-	has->value_location.type = Location_Type::located;
-	has->value_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
+	has->var_location.type = Var_Location::Type::located;
+	has->var_location.compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
 	if(chain_size > 1) {
 		for(int idx = 1; idx < chain_size; ++idx)
-			has->value_location.dissolved_in[idx-1] = module->properties_and_quantities.find_or_create(&decl->decl_chain[idx]);
+			has->var_location.dissolved_in[idx-1] = module->properties_and_quantities.find_or_create(&decl->decl_chain[idx]);
 	}
-	has->value_location.n_dissolved = chain_size - 1;
-	has->value_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
+	has->var_location.n_dissolved = chain_size - 1;
+	has->var_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
 		
 	if(which == 1 || which == 3)
 		has->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
@@ -564,7 +564,7 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 }
 
 void
-process_location_argument(Module_Declaration *module, Decl_AST *decl, int which, Value_Location *location, bool allow_unspecified) {
+process_location_argument(Module_Declaration *module, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified) {
 	if(decl->args[which]->decl) {
 		decl->args[which]->decl->location.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
@@ -574,13 +574,13 @@ process_location_argument(Module_Declaration *module, Decl_AST *decl, int which,
 	if(count == 1 && allow_unspecified) {
 		Token *token = &symbol[0];
 		if(token->string_value == "nowhere")
-			location->type = Location_Type::nowhere;
+			location->type = Var_Location::Type::nowhere;
 		else if(token->string_value == "out") {
 			if(which == 0) {
 				token->print_error_header();
 				fatal_error("The source of a flux can never be \"out\".");
 			}
-			location->type = Location_Type::out;
+			location->type = Var_Location::Type::out;
 		} else {
 			token->print_error_header();
 			fatal_error("Invalid variable location.");
@@ -590,7 +590,7 @@ process_location_argument(Module_Declaration *module, Decl_AST *decl, int which,
 			symbol[0].print_error_header();
 			fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 		}
-		location->type     = Location_Type::located;
+		location->type     = Var_Location::Type::located;
 		location->compartment = module->compartments.find_or_create(&symbol[0]);
 		//NOTE: this does not guarantee that these are quantities and not properties, so that is checked in post (in model_composition).
 		for(int idx = 0; idx < count-2; ++idx) {
@@ -624,9 +624,9 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 	
 	process_location_argument(module, decl, 0, &flux->source, true);
 	process_location_argument(module, decl, 1, &flux->target, true);
-	flux->target_was_out = (flux->target.type == Location_Type::out);
+	flux->target_was_out = (flux->target.type == Var_Location::Type::out);
 	
-	if(flux->source == flux->target && flux->source.type == Location_Type::located) {
+	if(flux->source == flux->target && is_located(flux->source)) {
 		decl->location.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
@@ -859,7 +859,7 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 	
 	// NOTE: this has to be done after all declarations are processed. This is because the global id of a compartment, quantity or property does not exist before it is declared, and that could happen after it was referenced.
 	for(auto has : module->hases)
-		make_global(module, &module->hases[has]->value_location);
+		make_global(module, &module->hases[has]->var_location);
 	for(auto flux : module->fluxes) {
 		make_global(module, &module->fluxes[flux]->source);
 		make_global(module, &module->fluxes[flux]->target);
@@ -907,7 +907,7 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 	Entity_Id flux_id = expect_exists(module, flux_handle, Reg_Type::flux);
 	
 	auto flux = module->fluxes[flux_id];
-	if(flux->target.type != Location_Type::out) {
+	if(flux->target.type != Var_Location::Type::out) {
 		decl->decl_chain[1].print_error_header();
 		fatal_error("The flux \"", flux_handle->string_value, "\" does not have the target \"out\", and so we can't re-assign its target.");
 	}
@@ -919,14 +919,11 @@ process_to_declaration(Mobius_Model *model, string_map<s16> *module_ids, Decl_AS
 	} else if (chain.size() == 1) {
 		Token *neigh_tk = &chain[0];
 		auto neigh_id = expect_exists(model->modules[0], neigh_tk, Reg_Type::neighbor);
-		
-		flux->target.type     = Location_Type::neighbor;
-		flux->target.neighbor = neigh_id;
+		flux->neighbor_target = neigh_id;
 	} else {
 		chain[0].print_error_header();
 		fatal_error("This is not a well-formatted flux target. Expected something on the form compartment.quantity or neighbor .");
 	}
-	
 	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to just look them up here.
 }
 
@@ -949,7 +946,7 @@ process_no_carry_declaration(Mobius_Model *model, string_map<s16> *module_ids, D
 	
 	auto flux = module->fluxes[flux_id];
 	
-	Value_Location loc;
+	Var_Location loc;
 	process_location_argument(model->modules[0], decl, 0, &loc, false);
 	
 	bool found = false;
@@ -1361,7 +1358,7 @@ load_model(String_View file_name) {
 
 
 void
-error_print_location(Mobius_Model *model, Value_Location &loc) {
+error_print_location(Mobius_Model *model, Var_Location &loc) {
 	//TODO: only works for located ones right now.
 	//TODO: this only works if these compartments and quantities were declared with a handle in the model scope. It "forgets" what handle was used in the scope of the original declaration of the location! Maybe print the "name" instead of the "handle_name" ???
 	

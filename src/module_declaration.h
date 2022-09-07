@@ -28,11 +28,11 @@ get_parameter_value(Token *token, Token_Type type) {
 
 struct Mobius_Model;
 
-Value_Location
-remove_dissolved(const Value_Location &loc);
+Var_Location
+remove_dissolved(const Var_Location &loc);
 
-Value_Location
-add_dissolved(Mobius_Model *model, const Value_Location &loc, Entity_Id quantity);
+Var_Location
+add_dissolved(Mobius_Model *model, const Var_Location &loc, Entity_Id quantity);
 
 inline int
 entity_id_hash(const Entity_Id &id) {
@@ -40,9 +40,9 @@ entity_id_hash(const Entity_Id &id) {
 }
 
 struct
-Value_Location_Hash {
-	int operator()(const Value_Location &loc) const {
-		if(loc.type != Location_Type::located)
+Var_Location_Hash {
+	int operator()(const Var_Location &loc) const {
+		if(!is_located(loc))
 			fatal_error(Mobius_Error::internal, "Tried to hash a non-located value location.");
 		// hopefully this one is ok...
 		
@@ -57,7 +57,7 @@ Value_Location_Hash {
 };
 
 void
-error_print_location(Mobius_Model *model, Value_Location &loc);
+error_print_location(Mobius_Model *model, Var_Location &loc);
 
 
 struct
@@ -82,8 +82,8 @@ Aggregation_Data {
 
 struct
 Flux_Unit_Conversion_Data {
-	Value_Location source;
-	Value_Location target;
+	Var_Location source;
+	Var_Location target;
 	Math_Block_AST *code;
 };
 
@@ -144,7 +144,7 @@ Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
-	Value_Location value_location;
+	Var_Location   var_location;
 	Entity_Id      unit;
 	//Entity_Id    conc_unit;
 	
@@ -157,13 +157,16 @@ Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
-	Value_Location   source;
-	Value_Location   target;
+	Var_Location   source;
+	Var_Location   target;
 	bool target_was_out;           // We some times need info about if the target was re-directed by a 'to' declaration.
+	Entity_Id      neighbor_target;
 	
-	std::vector<Value_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
+	std::vector<Var_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
 	
 	Math_Block_AST  *code;
+	
+	Entity_Registration() : neighbor_target(invalid_entity_id), code(nullptr) {}
 };
 
 
@@ -211,7 +214,7 @@ Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
 	Entity_Id solver;
-	Value_Location loc;
+	Var_Location loc;
 };
 
 template<> struct
@@ -383,8 +386,8 @@ get_reg_type(Decl_Type decl_type) {
 	return Reg_Type::unrecognized;
 }
 
-Value_Location
-make_value_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity);
+Var_Location
+make_var_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity);
 
 Module_Declaration *
 process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl);

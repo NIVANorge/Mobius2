@@ -13,12 +13,12 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	var.type           = type;
 	var.entity_id      = id;
 	
-	Value_Location loc = invalid_value_location;
+	Var_Location loc = invalid_var_location;
 	
 	if(is_valid(id)) {
 		if(type == Decl_Type::has) {
 			auto has = model->find_entity<Reg_Type::has>(id);
-			loc = has->value_location;
+			loc = has->var_location;
 			var.loc1 = loc;
 			var.type = model->find_entity(loc.property_or_quantity)->decl_type;
 			//warning_print("Found state variable ", model->find_entity(loc.compartment)->handle_name, ".", model->find_entity(loc.property_or_quantity)->handle_name, "\n");
@@ -26,13 +26,12 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 			auto flux = model->find_entity<Reg_Type::flux>(id);
 			var.loc1 = flux->source;
 			var.loc2 = flux->target;
-			if(var.loc2.type == Location_Type::neighbor) {  //TODO: move this test somewhere else to make it cleaner.
+			if(is_valid(flux->neighbor_target)) {  //TODO: move this test somewhere else to make it cleaner.
 				if(!is_located(var.loc1)) {
 					flux->location.print_error_header();
 					fatal_error("You can't have a flux from nowhere to a neighbor.\n");
 				}
-				// NOTE: organizing it this way is more convenient to work with later:
-				var.neighbor = var.loc2.neighbor;
+				var.neighbor = flux->neighbor_target;
 				var.loc2 = var.loc1;
 			} 
 		} else
@@ -43,7 +42,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	auto name = given_name;
 	if(!name && is_valid(id))
 		name = model->find_entity(id)->name;
-	if(!name && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. Could generate "Compartmentname Quantityname" or something like that.
+	if(!name && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate "Compartmentname Quantityname" or something like that instead.
 		name = model->find_entity(loc.property_or_quantity)->name;
 		
 	var.name = name;
@@ -59,8 +58,8 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 }
 
 void
-check_flux_location(Mobius_Model *model, Source_Location source_loc, Value_Location &loc) {
-	if(loc.type != Location_Type::located) return;
+check_flux_location(Mobius_Model *model, Source_Location source_loc, Var_Location &loc) {
+	if(!is_located(loc)) return;
 	auto hopefully_a_quantity = model->find_entity(loc.property_or_quantity);
 	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 		source_loc.print_error_header();
@@ -155,7 +154,7 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 }
 
 bool
-location_indexes_below_location(Mobius_Model *model, Value_Location &loc, Value_Location &below_loc) {
+location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Location &below_loc) {
 	
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
@@ -171,7 +170,7 @@ location_indexes_below_location(Mobius_Model *model, Value_Location &loc, Value_
 }
 
 bool
-parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Value_Location &below_loc) {
+parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Location &below_loc) {
 	auto par = model->find_entity<Reg_Type::parameter>(par_id);
 	auto par_comp_id = model->find_entity<Reg_Type::par_group>(par->par_group)->compartment;
 	// TODO: invalid compartment should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
@@ -182,8 +181,8 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Value_Lo
 		par_comp_id = par_comp->global_id;
 	
 	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
-	Value_Location loc;
-	loc.type = Location_Type::located;
+	Var_Location loc;
+	loc.type = Var_Location::Type::located;
 	loc.compartment = par_comp_id;
 	
 	return location_indexes_below_location(model, loc, below_loc);
@@ -197,7 +196,7 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 	// NOTE: We should not have undergone codegen yet, so the source location of the top node of the function should be valid.
 	Source_Location source_loc = function->location;
 	
-	Value_Location loc = var->loc1;
+	Var_Location loc = var->loc1;
 	loc = var->loc1;
 	//TODO: There is a question about what to do with fluxes with source nowhere. Should we then check the target like we do here?
 	//TODO: we just have to test how that works.
@@ -273,22 +272,22 @@ Mobius_Model::compose() {
 		
 			for(Entity_Id id : module->hases) {
 				auto has = module->hases[id];
-				if(has->value_location.n_dissolved != n_dissolved) continue;
+				if(has->var_location.n_dissolved != n_dissolved) continue;
 				
 				for(int idx = 0; idx < n_dissolved; ++idx) {
-					auto diss_in = find_entity(has->value_location.dissolved_in[idx]);
+					auto diss_in = find_entity(has->var_location.dissolved_in[idx]);
 					if(diss_in->decl_type != Decl_Type::quantity) {
 						has->location.print_error_header();
 						fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
 					}
 				}
-				Decl_Type type = find_entity(has->value_location.property_or_quantity)->decl_type;
+				Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
 				if(n_dissolved > 0) {
 					if(type != Decl_Type::quantity) {
 						has->location.print_error_header();
 						fatal_error("Properties can only be assigned to compartments, not to quantities.");   //TODO: (for now!)
 					}
-					Value_Location above_loc = remove_dissolved(has->value_location);
+					Var_Location above_loc = remove_dissolved(has->var_location);
 					
 					auto above_var = state_vars[above_loc];
 					if(!is_valid(above_var)) {
@@ -349,7 +348,7 @@ Mobius_Model::compose() {
 			generate.push_back(flux_id);
 		}
 		
-		Value_Location source = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
+		Var_Location source  = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
 		String_View var_name = var->name;
 		
 		sprintf(varname, "conc(%.*s)", var_name.count, var_name.data);
@@ -442,7 +441,7 @@ Mobius_Model::compose() {
 				fatal_error("Either got an \".override\" block on a property or a \".override_conc\" block on a non-dissolved variable.");
 			}
 			
-			from_compartment = in_compartment = has->value_location.compartment;
+			from_compartment = in_compartment = has->var_location.compartment;
 		}
 				
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
@@ -593,9 +592,9 @@ Mobius_Model::compose() {
 			var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 
 			// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:
-			agg_var->loc1.type = Location_Type::nowhere;
+			agg_var->loc1.type = Var_Location::Type::nowhere;
 			agg_var->loc2 = var->loc2;
-			var->loc2.type = Location_Type::nowhere;
+			var->loc2.type = Var_Location::Type::nowhere;
 			
 			agg_var->unit_conversion_tree = var->unit_conversion_tree;
 			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.

@@ -199,21 +199,14 @@ constexpr Entity_Id invalid_entity_id = {-1, Reg_Type::unrecognized, -1};
 
 inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
 
-
-enum class
-Location_Type : s32 {
-	nowhere, out, located, neighbor,
-};
-
 constexpr int max_dissolved_chain = 2;
 
 struct
-Value_Location {
-	//TODO: this becomes more complicated with dissolved quantities etc.
-	Location_Type type;
+Var_Location {
+	enum class Type : s32 {
+		nowhere, out, located,
+	}   type;
 	s32 n_dissolved;         //NOTE: it is here for better packing.
-	
-	Entity_Id neighbor; // This should only be referenced if type == neighbor
 	
 	// These should only be referenced if type == located.
 	Entity_Id compartment;
@@ -222,22 +215,21 @@ Value_Location {
 };
 
 inline bool
-is_located(Value_Location &loc) {
-	return loc.type == Location_Type::located;
+is_located(const Var_Location &loc) {
+	return loc.type == Var_Location::Type::located;
 }
 
-constexpr Value_Location invalid_value_location = {Location_Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id};
+constexpr Var_Location invalid_var_location = {Var_Location::Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id};
 
 inline bool
-is_valid(Value_Location &a) { //TODO: is this needed at all?
-	return (a.type != Location_Type::located) || (is_valid(a.compartment) && is_valid(a.property_or_quantity));
+is_valid(Var_Location &a) { //TODO: is this needed at all?
+	return (a.type != Var_Location::Type::located) || (is_valid(a.compartment) && is_valid(a.property_or_quantity));
 }
 
 inline bool
-operator==(const Value_Location &a, const Value_Location &b) {
+operator==(const Var_Location &a, const Var_Location &b) {
 	if(a.type != b.type) return false;
-	if(a.type == Location_Type::neighbor) return a.neighbor == b.neighbor;
-	if(a.type == Location_Type::located) {
+	if(a.type == Var_Location::Type::located) {
 		if(a.compartment != b.compartment || a.property_or_quantity != b.property_or_quantity || a.n_dissolved != b.n_dissolved) return false;
 		for(int idx = 0; idx < a.n_dissolved; ++idx)
 			if(a.dissolved_in[idx] != b.dissolved_in[idx]) return false;

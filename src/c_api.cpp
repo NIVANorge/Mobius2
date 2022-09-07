@@ -172,11 +172,11 @@ mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index
 }
 
 
-DLLEXPORT Value_Location
-mobius_get_value_location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
-	Value_Location loc;
+DLLEXPORT Var_Location
+mobius_get_Var_Location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
+	Var_Location loc;
 	loc.neighbor = invalid_entity_id; // For safety, but probably not needed.
-	loc.type = Location_Type::located;
+	loc.type = Var_Location::Type::located;
 	loc.compartment = comp_id;
 	loc.property_or_quantity = prop_id;
 	loc.n_dissolved = 0; //TODO!
@@ -184,8 +184,8 @@ mobius_get_value_location(Model_Application *app, Entity_Id comp_id, Entity_Id p
 	return loc;
 }
 
-DLLEXPORT Value_Location
-mobius_get_dissolved_location(Model_Application *app, Value_Location loc, Entity_Id prop_id) {
+DLLEXPORT Var_Location
+mobius_get_dissolved_location(Model_Application *app, Var_Location loc, Entity_Id prop_id) {
 	try {
 		return add_dissolved(app->model, loc, prop_id);
 	} catch(int) {}
@@ -193,7 +193,7 @@ mobius_get_dissolved_location(Model_Application *app, Value_Location loc, Entity
 }
 
 DLLEXPORT Var_Id
-mobius_get_var_id(Model_Application *app, Value_Location loc) {
+mobius_get_var_id(Model_Application *app, Var_Location loc) {
 	Var_Id result = invalid_var;
 	
 	try {
@@ -209,7 +209,7 @@ mobius_get_var_id(Model_Application *app, Value_Location loc) {
 }
 
 DLLEXPORT Var_Id
-mobius_get_conc_id(Model_Application *app, Value_Location loc) {
+mobius_get_conc_id(Model_Application *app, Var_Location loc) {
 	
 	Var_Id res = mobius_get_var_id(app, loc);
 	if(res.type == 1) res.type = -1; // Input series don't have concentrations.

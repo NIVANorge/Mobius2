@@ -261,7 +261,7 @@ fatal_error_trace(Scope_Data *scope) {
 }
 
 
-Value_Location
+Var_Location
 try_to_locate_variable(Entity_Id first, Entity_Id second, String_View n1, String_View n2, Source_Location sl, Mobius_Model *model, Scope_Data *scope) {
 	if(first.reg_type != Reg_Type::compartment) {
 		sl.print_error_header();
@@ -281,13 +281,13 @@ try_to_locate_variable(Entity_Id first, Entity_Id second, String_View n1, String
 		fatal_error_trace(scope);
 	}
 	
-	Value_Location loc = make_value_location(model, first, second);
+	Var_Location loc = make_var_location(model, first, second);
 	return loc;
 }
 
 
-Value_Location
-try_to_locate_dissolved(Value_Location &loc, Entity_Id diss, String_View n, Source_Location sl, Mobius_Model *model, Scope_Data *scope) {
+Var_Location
+try_to_locate_dissolved(Var_Location &loc, Entity_Id diss, String_View n, Source_Location sl, Mobius_Model *model, Scope_Data *scope) {
 	// NOTE: We don't have to check that it is a quantity (not a property) here since if it isn't, it can't be a valid state variable (and that is caught in set_identifier_location)
 	if(diss.reg_type != Reg_Type::property_or_quantity) {
 		sl.print_error_header();
@@ -299,13 +299,13 @@ try_to_locate_dissolved(Value_Location &loc, Entity_Id diss, String_View n, Sour
 		error_print("Too many elements in chain.");
 		fatal_error_trace(scope);
 	}
-	Value_Location result = add_dissolved(model, loc, diss);
+	Var_Location result = add_dissolved(model, loc, diss);
 	return result;
 }
 
 
 void
-set_identifier_location(Mobius_Model *model, Identifier_FT *new_ident, Value_Location &loc, Source_Location sl, Scope_Data *scope) {
+set_identifier_location(Mobius_Model *model, Identifier_FT *new_ident, Var_Location &loc, Source_Location sl, Scope_Data *scope) {
 	Var_Id var_id = model->state_vars[loc];
 	if(is_valid(var_id)) {
 		new_ident->variable_type = Variable_Type::state_var;

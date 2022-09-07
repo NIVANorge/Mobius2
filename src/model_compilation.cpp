@@ -1137,11 +1137,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
 				// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
 				
-				auto loc1 = var->loc1;
-				if(loc1.type == Location_Type::located) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
-					Var_Id source_id = model->state_vars[loc1];
+				if(is_located(var->loc1)) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
+					Var_Id source_id = model->state_vars[var->loc1];
 					auto source_ref = reinterpret_cast<Identifier_FT *>(make_state_var_identifier(source_id));
-					//source_ref->flags = (Identifier_Flags)(source_ref->flags & ident_flags_last_result);
 					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 				}
 			}
