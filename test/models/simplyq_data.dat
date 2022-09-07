@@ -11,8 +11,8 @@ neighbor("Downstream", "Subcatchment") [
 	"Coull" -> "Boyne"               # Coull flows into Boyne.
 ]
 
-#series("simplyq_series.dat")
-series("simplyq_series.xlsx")
+series("simplyq_series.dat")
+#series("simplyq_series.xlsx")
 
 par_group("System") {
 	par_datetime("Start date") [ 2004-01-01 ]

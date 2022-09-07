@@ -297,15 +297,17 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 	
 	auto model = app->model;
 	
-	if(series->time_steps == 0 || (series->time_steps < 0 && series->dates.empty()))   // Ignore empty data block.
+	if( (series->has_date_vector && series->dates.empty())   || 
+		(!series->has_date_vector && series->time_steps==0) )   // Ignore empty data block.
 		return;
 	
 	if(series->start_date < metadata->start_date) metadata->start_date = series->start_date;
+	
 	Date_Time end_date = series->end_date;
-	if(series->time_steps >= 0) {  // Recorded time steps instead of end date
+	if(!series->has_date_vector) {
 		Expanded_Date_Time dt(series->start_date, app->timestep_size);
-		for(s64 step = 0; step < series->time_steps-1; ++step) // NOTE: For 1 time step, start_date = end_date (they are inclusive).
-			dt.advance(); //TODO: Is there a more efficient way to do this?
+		for(s64 ts = 0; ts < series->time_steps-1; ++ts)
+			dt.advance();
 		end_date = dt.date_time;
 	}
 	if(end_date > metadata->end_date) metadata->end_date = end_date;

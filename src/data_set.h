@@ -153,8 +153,8 @@ struct
 Series_Set_Info {
 	std::string file_name;
 	Date_Time start_date;
-	Date_Time end_date;
-	s64       time_steps;
+	Date_Time end_date;    // Invalid if the series doesn't have a date vector.
+	s64       time_steps;  // For series that don't have a date vector.
 	bool has_date_vector;
 	std::vector<Series_Header_Info>  header_data;
 	std::vector<Date_Time>           dates;

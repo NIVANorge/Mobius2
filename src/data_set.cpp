@@ -339,15 +339,12 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 			if(token.type != Token_Type::date)
 				break;
 		}
-		if(!data->dates.empty()) {
-			data->start_date = start_date;
-			data->end_date = end_date;
-			data->time_steps = -1;    // This signals that the end_date is recorded instead of the time_steps;
-		} else
-			data->time_steps = 0;
+		data->start_date = start_date;
+		data->end_date = end_date;
 		
 	} else {
 		data->time_steps = 0;
+		
 		while(true) {
 			for(int col = 0; col < rowlen; ++col) {
 				double val = stream->expect_real();

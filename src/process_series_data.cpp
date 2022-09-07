@@ -240,9 +240,10 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 	// NOTE: Start date is set up to be the same for series and additional series.
 	s64 first_step = steps_between(app->series_data.start_date, series->start_date, app->timestep_size);
 	
-	s64 nrows = series->time_steps;
+	int nrows = series->time_steps;
 	if(series->has_date_vector)
 		nrows = series->dates.size();
+	
 	int ncols = offsets.size();
 	
 	if(ncols != series->raw_values.size())

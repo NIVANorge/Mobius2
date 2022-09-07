@@ -169,7 +169,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		
 		data.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
 		data.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
-		data.time_steps = -1; //Signals that end date is recorded rather than time steps.
 		
 		// ********* Read all the dates in the date column
 		
