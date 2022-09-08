@@ -78,6 +78,8 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 		
 		//TODO: We should allow the user to specify that the value should never be negative (or just have this as a default?)
 		
+		//TODO:   ********** There seems to be something incorrect! It doesn't look like the "strain" in the joints is minimal...
+		
 		int n_pt  = (int)x_vals.size();
 		
 		std::vector<double> b_col(n_pt);
@@ -129,7 +131,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 		// Back-solve the upper triangular system to obtain the Ks
 		k_col[n_pt-1] = b_col[n_pt-1]/diag[n_pt-1];
 		for(int row = n_pt-2; row >= 0; --row) {
-			k_col[row] = (b_col[row+1] - off_diag[row]*k_col[row+1]) / diag[row];
+			k_col[row] = (b_col[row] - off_diag[row]*k_col[row+1]) / diag[row];
 		}
 		
 		for(int row = 0; row < n_pt-1; ++row) {
@@ -160,7 +162,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 	}
 	
 	// If there is some segment missing at the beginning and end (and the "inside" flag is not set), fill them in with a constant equal to the first/last value.
-	if(!flags & series_data_interp_inside) {
+	if(!(flags & series_data_interp_inside)) {
 		int first = order[0];
 		int last  = order[x_vals.size()-1];
 		if(x_vals[first] > storage->start_date)
