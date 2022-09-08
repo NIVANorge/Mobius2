@@ -408,7 +408,7 @@ Mobius_Model::compose() {
 	
 	Var_Map in_flux_map;
 	Var_Map2 needs_aggregate;
-	Var_Map2 needs_aggregate_initial;
+	//Var_Map2 needs_aggregate_initial;
 	
 	std::set<Var_Id> may_need_neighbor_target;
 	
@@ -483,7 +483,7 @@ Mobius_Model::compose() {
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
 			replace_conc(this, var->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
-			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate_initial, var_id, from_compartment, true);
+			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			var->initial_is_conc = initial_is_conc;
 			
 			if(initial_is_conc && (var->type != Decl_Type::quantity ||(var->loc1.n_dissolved == 0))) {
@@ -514,7 +514,7 @@ Mobius_Model::compose() {
 			var->override_tree = make_cast(resolve_function_tree(override_ast, &res_data), Value_Type::real);
 			var->override_is_conc = override_is_conc;
 			replace_conc(this, var->override_tree);
-			find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
+			find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			// TODO: Should audit this one for flags also!
 			
 			//TODO: what do we do with fluxes that has this as a source ?
@@ -546,8 +546,8 @@ Mobius_Model::compose() {
 		}
 	}
 	
-	if(needs_aggregate_initial.size() > 0)
-		fatal_error(Mobius_Error::internal, "aggregate() declarations inside initial value code is not yet supported.");
+	//if(needs_aggregate_initial.size() > 0)
+	//	fatal_error(Mobius_Error::internal, "aggregate() declarations inside initial value code is not yet supported.");
 
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
@@ -572,8 +572,6 @@ Mobius_Model::compose() {
 		auto var_id = Var_Id {0, need_agg.first};   //TODO: Not good way to do it!
 		auto var = state_vars[var_id];
 		
-		warning_print("**** Make aggregate for ", var->name, "\n");
-		
 		auto loc1 = var->loc1;
 		if(var->flags & State_Variable::Flags::f_dissolved_conc)
 			loc1 = state_vars[var->dissolved_conc]->loc1;
@@ -581,8 +579,6 @@ Mobius_Model::compose() {
 		auto source = find_entity<Reg_Type::compartment>(loc1.compartment);
 		
 		for(auto to_compartment : need_agg.second.first) {
-			
-			warning_print("to_compartment is ", find_entity(to_compartment)->name, "\n");
 			
 			Math_Expr_FT *agg_weight = nullptr;
 			for(auto &agg : source->aggregations) {
@@ -656,6 +652,8 @@ Mobius_Model::compose() {
 					replace_flagged(lu->function_tree, var_id, agg_id, ident_flags_aggregate);
 				if(lu->override_tree)
 					replace_flagged(lu->override_tree, var_id, agg_id, ident_flags_aggregate);
+				if(lu->initial_function_tree)
+					replace_flagged(lu->initial_function_tree, var_id, agg_id, ident_flags_aggregate);
 			}
 		}
 	}

@@ -501,12 +501,59 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 	
 #if 0
 	warning_print("\n****", initial ? " initial" : "", " batch structure ****\n");
-	debug_print_batch_array(model, batch_out, instructions)
+	debug_print_batch_array(model, batch_out, instructions);
 	warning_print("\n\n");
 #endif
 	
 	// TODO: more passes!
 }
+
+
+void
+create_initial_vars_for_lookups(Mobius_Model *model, Math_Expr_FT *expr, std::vector<Model_Instruction> &instructions) {
+	for(auto arg : expr->exprs) create_initial_vars_for_lookups(model, arg, instructions);
+	
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if(ident->variable_type == Variable_Type::state_var) {
+			auto instr = &instructions[ident->state_var.id];
+			
+			if(instr->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
+			
+			// This function wants to look up the value of another variable, but it doesn't have initial code. If it has regular code, we can substitute that!
+			
+			auto var = model->state_vars[ident->state_var];
+			//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
+				
+			instr->type = Model_Instruction::Type::compute_state_var;
+			instr->var_id = ident->state_var;
+			if(var->function_tree) {
+				instr->code = var->function_tree;
+				// Have to do this recursively, since it may not happen in the outer loop.
+				create_initial_vars_for_lookups(model, instr->code, instructions);
+			} else
+				instr->code = nullptr;
+			
+			// If it is an aggregation variable, whatever it aggregates also must be computed.
+			if(var->flags & State_Variable::Flags::f_is_aggregate) {
+				auto instr2 = &instructions[var->agg.id];
+				
+				if(instr2->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
+				
+				auto var2 = model->state_vars[var->agg];
+				
+				instr2->type = Model_Instruction::Type::compute_state_var;
+				instr2->var_id = var->agg;
+				if(var2->function_tree) {
+					instr2->code = var2->function_tree;
+					create_initial_vars_for_lookups(model, instr2->code, instructions);
+				} else
+					instr2->code = nullptr;
+			}
+		}
+	}
+}
+
 
 void
 build_instructions(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
@@ -544,6 +591,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		instr.code = fun;
 		
 		instructions[var_id.id] = std::move(instr);
+	}
+	
+	if(initial) {
+		for(auto var_id : model->state_vars) {
+			auto instr = &instructions[var_id.id];
+			if(instr->type == Model_Instruction::Type::invalid) continue;
+			if(!instr->code) continue;
+			
+			create_initial_vars_for_lookups(model, instr->code, instructions);
+		}
 	}
 	
 	
@@ -588,7 +645,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	for(auto var_id : model->state_vars) {
 		auto instr = &instructions[var_id.id];
 		
-		if(instr->type == Model_Instruction::Type::invalid) continue; // NOTE: this can happen in the initial step. In that case we don't want to compute all variables necessarily.
+		if(instr->type == Model_Instruction::Type::invalid) continue;
 	
 		auto var = model->state_vars[var_id];
 		
@@ -603,6 +660,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(has_aggregate) {
 			// var (var_id) is now the variable that is being aggregated.
 			// instr is the instruction to compute it
+			
+			if(initial) {
+				warning_print("*** *** *** initial agg for ", var->name, "\n");
+			}
 			
 			auto aggr_var = model->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
 			
@@ -1086,12 +1147,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			}
 		}
 		
-		return;  // for now. Eventually we will have aggregate variables for initial instructions too, and they need codegen
+		//return;  // for now. Eventually we will have aggregate variables for initial instructions too, and they need codegen
 	}
 	
 	for(auto &instr : instructions) {
 		
-		if(instr.type == Model_Instruction::Type::compute_state_var) {
+		if(!initial && instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = model->state_vars[instr.var_id];
 			
 			//TODO: For overridden quantities they could just be removed from the solver. Also they shouldn't get any index set dependencies from fluxes connected to them.
@@ -1273,7 +1334,6 @@ Model_Application::compile() {
 	
 	warning_print("Sort initial.\n");
 	// Sort the initial instructions too.
-	// TODO: we should allow for the code for a state var (properties at least) to act as its initial code like in Mobius1, so we should have a separate sorting system here.
 	for(int instr_id = 0; instr_id < initial_instructions.size(); ++instr_id) {
 		bool success = topological_sort_instructions_visit(model, instr_id, initial_batch.instrs, initial_instructions, true);
 		if(!success) mobius_error_exit();
@@ -1300,6 +1360,9 @@ Model_Application::compile() {
 			build_batch_arrays(this, vars_ode, instructions, batch.arrays_ode, false);
 		}
 	}
+	
+	warning_print("**** initial batch:\n");
+	debug_print_batch_array(model, initial_batch.arrays, initial_instructions);
 	
 	debug_print_batch_structure(model, batches, instructions);
 	

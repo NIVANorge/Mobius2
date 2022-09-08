@@ -28,7 +28,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	}
 	
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
-	gw  .has(water, unit(m m), "Groundwater volume") .initial { 0 } # TODO!
+	gw  .has(water, unit(m m), "Groundwater volume") .initial { 10 }  #TODO!
 
 	pet  : property("Potential evapotranspiration")
 	
