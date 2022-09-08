@@ -130,6 +130,9 @@ module("SimplyC", 1, 0, 0) {
 	par_group("DOC deep soil") {
 		par_real("Groundwater DOC half-life")
 		[ 80 ]
+		
+		par_enum("Groundwater DOC computation type")
+		[ soil_avg ]
 	}
 }
 

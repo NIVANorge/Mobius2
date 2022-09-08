@@ -138,6 +138,27 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 	}
 }
 
+#include <bitset>
+
+void
+replace_conc(Mobius_Model *model, Math_Expr_FT *expr) {
+	for(auto arg : expr->exprs) replace_conc(model, arg);
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		
+		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		if((ident->variable_type == Variable_Type::state_var) && (ident->flags & ident_flags_conc)) {
+			
+			auto var = model->state_vars[ident->state_var];
+			if(!is_valid(var->dissolved_conc)) {
+				expr->location.print_error_header();
+				fatal_error("This variable does not have a concentration");
+			}
+			ident->state_var = var->dissolved_conc;
+			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_conc);
+		}
+	}
+}
+
 void
 restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
 	//TODO : Should we just reuse register_dependencies() ?
@@ -234,12 +255,16 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 		if(dep_var->flags & State_Variable::Flags::f_is_aggregate)
 			continue;
 		
+		// If it is a conc, check vs the mass instead.
+		if(dep_var->flags & State_Variable::Flags::f_dissolved_conc)
+			dep_var = model->state_vars[dep_var->dissolved_conc];
+		
 		if(dep_var->type == Decl_Type::flux || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
 		if(!location_indexes_below_location(model, dep_var->loc1, loc)) {
 			source_loc.print_error_header();
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the the prior.");
+			fatal_error(err_begin, var->name, "\" looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the the prior.");
 		}
 	}
 }
@@ -319,7 +344,7 @@ Mobius_Model::compose() {
 		}
 	}
 	
-	warning_print("Generate fluxes for dissolved quantities.\n");
+	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
 	
 	// TODO: Not sure if this system works correctly for chain-dissolved quantities yet (dissolved in dissolved)!
 	for(auto var_id : dissolvedes) {
@@ -443,11 +468,12 @@ Mobius_Model::compose() {
 			
 			from_compartment = in_compartment = has->var_location.compartment;
 		}
-				
+		
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
 		Function_Resolve_Data res_data = { this, var->entity_id.module_id, in_compartment };
 		if(ast) {
 			var->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
+			replace_conc(this, var->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
 			find_other_flags(var->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 		} else
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
@@ -456,6 +482,7 @@ Mobius_Model::compose() {
 			//TODO: handle initial_is_conc!
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
+			replace_conc(this, var->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
 			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate_initial, var_id, from_compartment, true);
 			var->initial_is_conc = initial_is_conc;
 			
@@ -486,6 +513,8 @@ Mobius_Model::compose() {
 		if(override_ast) {
 			var->override_tree = make_cast(resolve_function_tree(override_ast, &res_data), Value_Type::real);
 			var->override_is_conc = override_is_conc;
+			replace_conc(this, var->override_tree);
+			find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			// TODO: Should audit this one for flags also!
 			
 			//TODO: what do we do with fluxes that has this as a source ?
@@ -543,9 +572,17 @@ Mobius_Model::compose() {
 		auto var_id = Var_Id {0, need_agg.first};   //TODO: Not good way to do it!
 		auto var = state_vars[var_id];
 		
-		auto source = find_entity<Reg_Type::compartment>(var->loc1.compartment);
+		warning_print("**** Make aggregate for ", var->name, "\n");
+		
+		auto loc1 = var->loc1;
+		if(var->flags & State_Variable::Flags::f_dissolved_conc)
+			loc1 = state_vars[var->dissolved_conc]->loc1;
+		
+		auto source = find_entity<Reg_Type::compartment>(loc1.compartment);
 		
 		for(auto to_compartment : need_agg.second.first) {
+			
+			warning_print("to_compartment is ", find_entity(to_compartment)->name, "\n");
 			
 			Math_Expr_FT *agg_weight = nullptr;
 			for(auto &agg : source->aggregations) {
@@ -557,7 +594,7 @@ Mobius_Model::compose() {
 					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
 					
 					for(auto par_id : parameter_refs) {
-						bool ok = parameter_indexes_below_location(this, par_id, var->loc1);
+						bool ok = parameter_indexes_below_location(this, par_id, loc1);
 						if(!ok) {
 							agg.code->location.print_error_header();
 							fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over."); 
@@ -615,7 +652,10 @@ Mobius_Model::compose() {
 
 				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
 				
-				replace_flagged(lu->function_tree, var_id, agg_id, ident_flags_aggregate);
+				if(lu->function_tree)
+					replace_flagged(lu->function_tree, var_id, agg_id, ident_flags_aggregate);
+				if(lu->override_tree)
+					replace_flagged(lu->override_tree, var_id, agg_id, ident_flags_aggregate);
 			}
 		}
 	}

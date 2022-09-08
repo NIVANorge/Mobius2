@@ -83,7 +83,7 @@ Write the description
 	
 	#NOTE: could also just have pp "dissolved in" ss ...
 	
-	soil.has(pp_fact : property("PP mobilization factor"), unit(k g, k m-2, day-1)) {       #TODO unit
+	soil.has(pp_fact : property("PP mobilization factor"), unit(k g, k m-2, day-1)) {
 		(plabconc + inactive_soil_p_conc) * soil.e_fact * pp_enrich
 	}
 	

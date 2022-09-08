@@ -575,6 +575,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(var->flags & State_Variable::Flags::f_dissolved_flux) {
 				instructions[var_id.id].solver = instructions[var->dissolved_flux.id].solver;
 			}
+			
+			// Also for concs. Can be overkill some times, but safer just to do it.
+			if(var->flags & State_Variable::Flags::f_dissolved_conc) {
+				instructions[var_id.id].solver = instructions[var->dissolved_conc.id].solver;
+			}
 		}
 	}
 	
@@ -601,12 +606,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			auto aggr_var = model->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
 			
-			// If we are on a solver we need to put in an instruction to clear the aggregation variable to 0 between each time it is needed.
-			int clear_idx;
-			//if(is_valid(var_solver)) {
-				clear_idx = instructions.size();
-				instructions.push_back({});
-			//}
+			// We need to clear the aggregation variable to 0 between each time it is needed.
+			int clear_idx = instructions.size();
+			instructions.push_back({});
+			
 			int add_to_aggr_idx = instructions.size();
 			instructions.push_back({});
 			
@@ -631,16 +634,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			agg_instr->depends_on_instruction.insert(add_to_aggr_idx); // The value of the aggregate is only done after we have finished summing to it.
 			
 			// Build the clear instruction
-			// TODO: we sometimes seem to also need this one also in the non-solver case, but it causes a crash. Investigate!
-			//if(is_valid(var_solver)) {
-				add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
-				
-				clear_instr->type = Model_Instruction::Type::clear_state_var;
-				clear_instr->solver = var_solver;
-				clear_instr->var_id = var->agg;     // The var_id of the clear_instr indicates which variable we want to clear.
-				
-				clear_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
-			//}
+			add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
+			clear_instr->type = Model_Instruction::Type::clear_state_var;
+			clear_instr->solver = var_solver;
+			clear_instr->var_id = var->agg;     // The var_id of the clear_instr indicates which variable we want to clear.
+			clear_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
+
 			
 			add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
 			add_to_aggr_instr->var_id = var_id;
@@ -1291,7 +1290,8 @@ Model_Application::compile() {
 			std::vector<int> vars_ode;
 			for(int var : batch.instrs) {
 				auto var_ref = model->state_vars[instructions[var].var_id];
-				if(var_ref->type == Decl_Type::quantity && !var_ref->override_tree)      // NOTE: if we override the conc or value of var, we instead compute the mass from the conc.
+				// NOTE: if we override the conc or value of var, we instead compute the mass from the conc.
+				if((var_ref->type == Decl_Type::quantity) && (instructions[var].type == Model_Instruction::Type::compute_state_var) && !var_ref->override_tree)
 					vars_ode.push_back(var);
 				else
 					vars.push_back(var);
