@@ -550,6 +550,7 @@ create_initial_vars_for_lookups(Mobius_Model *model, Math_Expr_FT *expr, std::ve
 				} else
 					instr2->code = nullptr;
 			}
+			//TODO: if it is a conc and is not computed, do we need to check if the mass variable has an initial conc?
 		}
 	}
 }

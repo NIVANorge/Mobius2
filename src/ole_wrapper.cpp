@@ -232,7 +232,7 @@ ole_close_app_and_spreadsheet(OLE_Handles *handles) {
 void
 ole_close_due_to_error(OLE_Handles *handles, int tab, int col, int row) {
 	begin_error(Mobius_Error::ole);
-	error_print("In file \"", handles->file_path, "\"");
+	error_print("In file \"", handles->file_path, "\" ");
 	if(tab >= 0) {
 		VARIANT var_id = ole_int4_variant(tab + 1);
 		IDispatch *sheet = ole_get_object(handles->app, L"Sheets", &var_id);
@@ -240,14 +240,14 @@ ole_close_due_to_error(OLE_Handles *handles, int tab, int col, int row) {
 			VARIANT name = ole_get_value(sheet, L"Name");
 			char buf[512];
 			ole_get_string(&name, buf, 512);
-			error_print(" tab \"", buf, "\"");
+			error_print("tab \"", buf, "\" ");
 			sheet->Release();
 		}
 	}
 	if(col >= 1 && row >= 1) {
 		char buf[32];
 		col_row_to_cell(col, row, &buf[0]);
-		error_print(" cell ", buf);
+		error_print("cell ", buf);
 	}
 	ole_close_app_and_spreadsheet(handles);
 }
@@ -360,11 +360,15 @@ ole_get_range_matrix(int from_row, int to_row, int from_col, int to_col, OLE_Han
 VARIANT
 ole_get_matrix_value(OLE_Matrix *matrix, int row, int col, OLE_Handles *handles) {
 	VARIANT result = ole_new_variant();
-	long indices[2] = {row - matrix->base_row + 1, col - matrix->base_col + 1};
+	
+	int rel_row = row - matrix->base_row + 1;
+	int rel_col = col - matrix->base_col + 1;
+
+	long indices[2] = {rel_row, rel_col};
 	HRESULT hr = SafeArrayGetElement(matrix->var.parray, indices, (void *)&result);
 	if(hr != S_OK) {
 		ole_close_due_to_error(handles);
-		fatal_error("Error when indexing matrix. Row: ", row, " Col: ", col, " (relative to matrix).");
+		fatal_error("Error when indexing matrix. Row ", row, " Col ", col, ". Relative to matrix: Row ", rel_row, " Col ", rel_col, ".");
 	}
 	
 	return result;

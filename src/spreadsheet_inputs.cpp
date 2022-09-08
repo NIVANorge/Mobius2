@@ -39,7 +39,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		// ***** parse the first column to see what index sets are used and on what row there are flags and where the date column starts
 		
 		for(int row = 0; row < search_len; ++row) {
-			VARIANT value = ole_get_matrix_value(&matrix, 2+row, 1, handles);
+			VARIANT value = ole_get_matrix_value(&matrix, row+2, 1, handles);
 
 			if(value.vt == VT_DATE) {
 				first_date_row = row+2;
@@ -71,7 +71,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 					fatal_error("There should not be empty cells in column A except in row 1, or potentially in the row right above the dates, or at the end.");
 				}
 				potential_flag_row = row+2;
-				break;
 			}
 		}
 		
@@ -80,6 +79,8 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		int row_range = (int)(1+index_sets.size());
 		if(potential_flag_row > 0) row_range = potential_flag_row;
 		search_len = 256;
+		
+		warning_print("Potential flag row is ", potential_flag_row, "\n");
 		
 		//TODO: Ideally also do this in a loop in case there are more than 256 columns!
 		matrix = ole_get_range_matrix(1, row_range, 2, 1 + search_len, handles); 
@@ -127,7 +128,8 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 			header.indexes.push_back(std::move(indexes));
 			
 			if(potential_flag_row > 0) {
-				VARIANT flags_var = ole_get_matrix_value(&matrix, first_date_row-1, col+1, handles);
+				
+				VARIANT flags_var = ole_get_matrix_value(&matrix, potential_flag_row, col+2, handles);
 				ole_get_string(&flags_var, buf, buf_size);
 				
 				//warning_print("Flag string \"", buf, "\" tab ", tab, "\n");
@@ -139,7 +141,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 						if(token.type == Token_Type::identifier) {
 							bool success = set_flag(&header.flags, token.string_value);
 							if(!success) {
-								ole_close_due_to_error(handles, tab, col+2, first_date_row-1);
+								ole_close_due_to_error(handles, tab, col+2, potential_flag_row);
 								fatal_error("Unrecognized input flag \"", token.string_value, "\".");
 							}
 						//} else if ((char)token.type == '[') {
@@ -147,7 +149,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 						} else if (token.type == Token_Type::eof) {
 							break;
 						} else {
-							ole_close_due_to_error(handles, tab, col+2, first_date_row-1);
+							ole_close_due_to_error(handles, tab, col+2, potential_flag_row);
 							fatal_error("Unexpected token \"", token.string_value, "\".");
 						}
 					}
