@@ -78,8 +78,6 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 		
 		//TODO: We should allow the user to specify that the value should never be negative (or just have this as a default?)
 		
-		//TODO:   ********** There seems to be something incorrect! It doesn't look like the "strain" in the joints is minimal...
-		
 		int n_pt  = (int)x_vals.size();
 		
 		std::vector<double> b_col(n_pt);
