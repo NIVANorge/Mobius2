@@ -14,7 +14,7 @@ TODO: this should probably be rewritten with mobius2 systems and units in mind.
 	snow     : quantity("Snow (water equivalents)")
 	
 	temp     : property("Temperature")
-	coup     : property("COUP soil temperature")
+	coup     : property("COUP temperature")
 	
 	soil.par_group("Soil temperature general") {
 		depthst : par_real("Snow depth / soil temperature factor", unit(c m -1), -0.2, -3.0, -0.001)

@@ -218,6 +218,11 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 			for(auto &indexes : header.indexes) {
 				int index_idx = 0;
 				
+				if(indexes.size() != expected_index_sets.size()) {
+					header.loc.print_error_header();
+					fatal_error("Got wrong number of index sets for input series.");
+				}
+				
 				for(auto &index : indexes) {
 					Entity_Id index_set = model->modules[0]->index_sets.find_by_name(index.first);
 					Entity_Id expected = expected_index_sets[index_idx];

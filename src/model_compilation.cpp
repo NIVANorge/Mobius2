@@ -529,7 +529,7 @@ create_initial_vars_for_lookups(Mobius_Model *model, Math_Expr_FT *expr, std::ve
 			instr->var_id = ident->state_var;
 			if(var->function_tree) {
 				instr->code = var->function_tree;
-				// Have to do this recursively, since it may not happen in the outer loop.
+				// Have to do this recursively, since we may already have passed it in the outer loop.
 				create_initial_vars_for_lookups(model, instr->code, instructions);
 			} else
 				instr->code = nullptr;

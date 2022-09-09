@@ -59,7 +59,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 				// Otherwise, if it is some non-date string we assume it to be the name of an index set.
 				auto index_set = data_set->index_sets.find(buf);
 				if(!index_set) {
-					ole_close_due_to_error(handles, tab, 1, 2+row);
+					ole_close_due_to_error(handles, tab, 1, row+2);
 					fatal_error("The index set ", buf, " was not previously declared in the data set.");
 				}
 				index_sets.push_back(index_set);
@@ -67,7 +67,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 				// Empty row (or at least it did not have date or string format (TODO: check if there is some other data here).
 				// This row could have flags for the time series
 				if(potential_flag_row > 0) {
-					ole_close_due_to_error(handles, tab, 1, 2+row);
+					ole_close_due_to_error(handles, tab, 1, row+2);
 					fatal_error("There should not be empty cells in column A except in row 1, or potentially in the row right above the dates, or at the end.");
 				}
 				potential_flag_row = row+2;
@@ -105,12 +105,12 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 			std::vector<std::pair<std::string, int>> indexes;
 			for(int row = 0; row < index_sets.size(); ++row) {
 				
-				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+1, handles);
+				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+2, handles);
 				ole_get_string(&index_name, buf, buf_size);
 				if(strlen(buf) > 0) {
 					int index = index_sets[row]->indexes.find_idx(buf);
 					if(index < 0) {
-						ole_close_due_to_error(handles, tab, row+2, col+1);
+						ole_close_due_to_error(handles, tab, row+2, col+2);
 						fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_sets[row]->name, "\".");
 					}
 					
@@ -124,7 +124,12 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 			auto &header = data.header_data.back();
 			// TODO: Make system for having more than one index tuple.
 			header.name = current_input_name;
-			//header.loc  //TODO! - make it possible for a Source_Location to refer to an excel cell.
+			header.loc.filename = handles->file_path;
+			header.loc.type = Source_Location::Type::spreadsheet;
+			header.loc.column = col+2;
+			header.loc.line   = 1;
+			header.loc.tab    = tab+1;
+			
 			header.indexes.push_back(std::move(indexes));
 			
 			if(potential_flag_row > 0) {

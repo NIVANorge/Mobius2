@@ -33,12 +33,20 @@ name(Token_Type type) {
 struct
 Source_Location {
 	String_View filename;
+	enum class Type : s16 {
+		internal = 0, text_file, spreadsheet,
+	} type;
+	s16 tab;
 	s32 line, column;
 	
 	void print_error();
 	void print_error_header();
 	void print_warning_header();
 };
+
+char *
+col_row_to_cell(int col, int row, char *buf);
+
 
 struct
 Module_Version {

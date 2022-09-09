@@ -178,28 +178,6 @@ ole_get_string(VARIANT *var, char *buf_out, size_t buf_len) {
 	}
 }
 
-char *
-col_row_to_cell(int col, int row, char *buf) {
-	int num_A_Z = 'Z' - 'A' + 1;
-	int n_col = col;
-	while (n_col > 0) {
-		int letter = n_col/num_A_Z;
-		if (letter == 0) {
-			letter = n_col;
-			*buf = char('A' + letter - 1);
-			buf++;
-			break;
-		} else {
-			n_col -= letter*num_A_Z;
-			*buf = char('A' + letter - 1);
-			buf++;
-		}
-	}
-	itoa(row, buf, 10)+1;   //TODO: the +1 doesn't do anything? Remove.
-	while(*buf != 0) ++buf;
-	return buf;
-}
-
 void
 ole_close_spreadsheet(OLE_Handles *handles) {
 	if(handles->sheet) handles->sheet->Release();

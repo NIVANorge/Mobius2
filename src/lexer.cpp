@@ -3,13 +3,40 @@
 
 #include <limits>
 
+
+//NOTE: This is to produce excel-style cell names, like "K32". Doesn't really belong to this file except that this is where we decided to do the print Source_Location implementation.
+char *
+col_row_to_cell(int col, int row, char *buf) {
+	int num_A_Z = 'Z' - 'A' + 1;
+	int n_col = col;
+	while (n_col > 0) {
+		int letter = n_col/num_A_Z;
+		if (letter == 0) {
+			letter = n_col;
+			*buf = char('A' + letter - 1);
+			buf++;
+			break;
+		} else {
+			n_col -= letter*num_A_Z;
+			*buf = char('A' + letter - 1);
+			buf++;
+		}
+	}
+	itoa(row, buf, 10);
+	while(*buf != 0) ++buf;
+	return buf;
+}
+
 void
 Source_Location::print_error() {
-	if(filename.data) 
+	if(type == Type::text_file)
 		error_print("file ", filename, " line ", line+1, " column ", column, ":\n");
-	else
+	else if(type == Type::spreadsheet) {
+		static char buf[64];
+		col_row_to_cell(column, line, buf);
+		error_print("file ", filename, " tab ", tab, " cell ", buf, ":\n");
+	} else
 		error_print("(compiler internal)\n");
-	//TODO: maybe instead put a flag on the source location saying if it is a file or internal, to make it explicit. May also want to provide more info about where it was generated.
 }
 
 void
@@ -21,10 +48,14 @@ Source_Location::print_error_header() {
 
 void
 Source_Location::print_warning_header() {
-	if(filename.data) 
-		error_print("WARNING: In file ", filename, " line ", line+1, " column ", column, ":\n");
-	else
-		error_print("(compiler internal)\n");
+	if(type == Type::text_file)
+		warning_print("file ", filename, " line ", line+1, " column ", column, ":\n");
+	else if(type == Type::spreadsheet) {
+		static char buf[64];
+		col_row_to_cell(column, line, buf);
+		warning_print("file ", filename, " cell ", buf, ":\n");
+	} else
+		warning_print("(compiler internal)\n");
 }
 
 void
@@ -167,6 +198,9 @@ Token_Stream::read_token_base(Token *token) {
 	
 	bool skip_comment = false;
 	
+	token->location.filename = filename;
+	token->location.type = Source_Location::Type::text_file;
+	
 	while(true) {
 		char c = read_char();
 		
@@ -177,9 +211,7 @@ Token_Stream::read_token_base(Token *token) {
 		
 		//NOTE: This is very subtle, but this clause has to be below the check for SkipComment, if we are in a comment we have to check for \n, (and \n isspace and would be skipped by this continue)
 		if(isspace(c)) continue; // Always skip whitespace between tokens.
-	
-	
-		token->location.filename = filename;
+
 		token->location.line = line;
 		token->location.column = column;
 		

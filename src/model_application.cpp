@@ -81,8 +81,10 @@ Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Structur
 		for(auto series_id : reg) {
 			std::vector<Entity_Id> *index_sets = &empty;
 			if(metadata) {
-				auto find = metadata->index_sets.find(series_id);
-				if(find != metadata->index_sets.end())
+				auto *info = series_id.type == 1 ? &metadata->index_sets : &metadata->index_sets_additional;
+				
+				auto find = info->find(series_id);
+				if(find != info->end())
 					index_sets = &find->second;
 			}
 			series_by_index_sets[*index_sets].push_back(series_id);
@@ -345,7 +347,10 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 						fatal_error(Mobius_Error::parsing, "Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
 					}
 				}
-				metadata->index_sets[id].push_back(index_set);
+				if(id.type == 1)
+					metadata->index_sets[id].push_back(index_set);
+				else
+					metadata->index_sets_additional[id].push_back(index_set);
 			}
 		}
 	}

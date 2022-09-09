@@ -18,7 +18,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 		doy_autumn : par_int ("Day of year when soil erodibility is max for autumn-grown crops", unit(day), 304, 30, 335)
 		p_spring   : par_real("Proportion of spring-grown crops", unit(), 0.65, 0, 1)
 		loadred    : par_real("Reduction of load in sediment", unit(), 0, 0, 1)
-		response_s : par_enum("Cover factor shape", smooth) { triangular smooth flat }
+		shp        : par_enum("Cover factor shape", flat) { flat triangular smooth }
 	}
 	
 	soil.par_group("Land slope") {
@@ -38,13 +38,13 @@ This is a simple sediment transport module created as a part of SimplyP.
 	soil.has(c_cover : property("Time dependent vegetation cover factor"), unit()) {
 		E_risk_period := 60.0
 		spring := {
-			wedge_response(time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if response_s.triangular,
-			bump_response (time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if response_s.smooth,
+			wedge_response(time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
+			bump_response (time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.smooth,
 			c_cov                                                                                                                        otherwise
 		}
 		autumn := {
-			wedge_response(time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if response_s.triangular,
-			bump_response (time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if response_s.smooth,
+			wedge_response(time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
+			bump_response (time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if shp.smooth,
 			c_cov                                                                                                                        otherwise
 		}
 		spring*p_spring + autumn*(1 - p_spring)

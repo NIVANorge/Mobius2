@@ -19,7 +19,3 @@ Description
 	unit_conversion(soil.water.tdp, river.water.tdp) {  a_catch  }
 	unit_conversion(gw.water.tdp, river.water.tdp)   {  a_catch  }
 }
-
-
-#mg/l * mm = 10-3 g / 10-3 m3 * 10-3 m
-#= kg / m2
