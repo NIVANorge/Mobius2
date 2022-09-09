@@ -26,7 +26,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 			auto flux = model->find_entity<Reg_Type::flux>(id);
 			var.loc1 = flux->source;
 			var.loc2 = flux->target;
-			if(is_valid(flux->neighbor_target)) {  //TODO: move this test somewhere else to make it cleaner.
+			if(is_valid(flux->neighbor_target)) {
 				if(!is_located(var.loc1)) {
 					flux->location.print_error_header(Mobius_Error::model_building);
 					fatal_error("You can't have a flux from nowhere to a neighbor.\n");
@@ -48,6 +48,8 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	var.name = name;
 	if(!var.name)
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
+	
+	//warning_print("**** register ", var.name, is_series ? " as series" : "as state var", "\n");
 	
 	if(is_series)
 		return model->series.register_var(var, loc);
@@ -267,25 +269,62 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 	}
 }
 
+inline bool 
+has_code(Entity_Registration<Reg_Type::has> *has) {
+	return has->code || has->initial_code || has->override_code;
+}
+
 void
 Mobius_Model::compose() {
 	warning_print("compose begin\n");
 	
-	
 	//TODO: make better name generation system!
 	char varname[1024];
 	
-	/*
-	TODO: we have to check for mismatching has declarations or re-declaration of code multiple places.
-		only if there is no code anywhere can we be sure that it is a series.
-		So maybe a pass first to check this, *then* do the state var registration.
-	*/
 	
-	// TODO: we should check that all referenced entities in all modules have actually been declared ( has_been_declared flag on Entity_Registration )
+	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
+	// also make sure there are no conflicting has declarations of the same var_location (across modules)
+	std::unordered_map<Var_Location, Entity_Id, Var_Location_Hash> has_location;
+	
+	int module_id = -1;
+	for(auto module : modules) {
+		++module_id;
+		if(module_id == 0) continue;
+		
+		for(Entity_Id id : module->hases) {
+			auto has = module->hases[id];
+			
+			// TODO: check for mismatching units between declarations.
+			Entity_Registration<Reg_Type::has> *has2;
+			auto find = has_location.find(has->var_location);
+			if(find != has_location.end()) {
+				has2 = find_entity<Reg_Type::has>(find->second);
+				
+				if(has_code(has) && has_code(has2)) {
+					has->location.print_error_header();
+					error_print("Only one has declaration for the same variable location can have code associated with it. There is a conflicting declaration here:\n");
+					has2->location.print_error();
+					mobius_error_exit();
+				}
+			}
+			
+			Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
+			// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
+			if(type == Decl_Type::property && has_code(has))
+				has_location[has->var_location] = id;
+			
+			// Note: for quantities, we can have some that don't have code associated with them at all, and we still need to choose one canonical one to use for the state variable registration below.
+			//     (thus quantities can also not be input series)
+			if(type == Decl_Type::quantity && (!has2 || !has_code(has2)))
+				has_location[has->var_location] = id;
+		}
+	}
 	
 	warning_print("State var registration begin.\n");
 	
 	std::vector<Var_Id> dissolvedes;
+	
+	// TODO: we could move some of the checks in this loop to the above loop.
 	
 	for(int n_dissolved = 0; n_dissolved < max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
 		int module_id = -1;
@@ -315,19 +354,26 @@ Mobius_Model::compose() {
 					auto above_var = state_vars[above_loc];
 					if(!is_valid(above_var)) {
 						has->location.print_error_header(Mobius_Error::model_building);
-						fatal_error("The located quantity that this \"has\" declaration is assigned to has not itself been created using a \"has\" declaration.");
+						//error_print_location(this, above_loc);
+						fatal_error("The located quantity that this \"has\" declaration is assigned to has itself not been created using a \"has\" declaration.");
 					}
 				}
 				
-				bool is_series = !has->code && (type != Decl_Type::quantity); // TODO: this can't be determined this way! We have instead to do a pass later to see if it was given code somewhere else!
-				Var_Id var_id = register_state_variable(this, Decl_Type::has, id, is_series);
-				if(n_dissolved > 0)
-					dissolvedes.push_back(var_id);
+				auto find = has_location.find(has->var_location);
+				if(find == has_location.end()) {
+					// No declaration provided code for this series, so it is an input series.
+					register_state_variable(this, Decl_Type::has, id, true);
+				} else if (id == find->second) {
+					// This is the particular has declaration that provided the code, so we register a state variable using this one.
+					Var_Id var_id = register_state_variable(this, Decl_Type::has, id, false);
+					if(n_dissolved > 0)
+						dissolvedes.push_back(var_id);
+				}
 			}
 		}
 	}
 	
-	int module_id = -1;
+	module_id = -1;
 	for(auto module : modules) {
 		++module_id;
 		if(module_id == 0) continue;
