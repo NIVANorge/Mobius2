@@ -40,8 +40,8 @@ Source_Location::print_error() {
 }
 
 void
-Source_Location::print_error_header() {
-	begin_error(Mobius_Error::parsing);
+Source_Location::print_error_header(Mobius_Error type) {
+	begin_error(type);
 	error_print("In ");
 	print_error();
 }

@@ -28,7 +28,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 			var.loc2 = flux->target;
 			if(is_valid(flux->neighbor_target)) {  //TODO: move this test somewhere else to make it cleaner.
 				if(!is_located(var.loc1)) {
-					flux->location.print_error_header();
+					flux->location.print_error_header(Mobius_Error::model_building);
 					fatal_error("You can't have a flux from nowhere to a neighbor.\n");
 				}
 				var.neighbor = flux->neighbor_target;
@@ -62,19 +62,19 @@ check_flux_location(Mobius_Model *model, Source_Location source_loc, Var_Locatio
 	if(!is_located(loc)) return;
 	auto hopefully_a_quantity = model->find_entity(loc.property_or_quantity);
 	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-		source_loc.print_error_header();
+		source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("Fluxes can only be assigned to quantities. \"", hopefully_a_quantity->handle_name, "\" is a property, not a quantity.");
 	}
 	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
 		auto hopefully_a_quantity = model->find_entity(loc.dissolved_in[idx]);
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			source_loc.print_error_header();
+			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("Fluxes can only be assigned to quantities. \"", hopefully_a_quantity->handle_name, "\" is a property, not a quantity.");
 		}
 	}
 	Var_Id var_id = model->state_vars[loc];
 	if(!is_valid(var_id)) {
-		source_loc.print_error_header();
+		source_loc.print_error_header(Mobius_Error::model_building);
 		error_print("The variable location ");
 		error_print_location(model, loc);
 		fatal_error(" has not been created using a \"has\" declaration.");
@@ -88,7 +88,7 @@ remove_lasts(Math_Expr_FT *expr, bool make_error) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && (ident->flags & ident_flags_last_result)) {
 			if(make_error) {
-				expr->location.print_error_header();
+				expr->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect a last() in an initial value function.");
 			}
 			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_last_result);
@@ -106,14 +106,14 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if(ident->flags & ident_flags_in_flux) {
 			if(make_error_in_flux) {
-				expr->location.print_error_header();
+				expr->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect an in_flux() in an initial value function.");
 			}
 			in_fluxes[ident->state_var.id].push_back(looked_up_by);
 		}
 		if(ident->flags & ident_flags_aggregate) {
 			if(!is_valid(lookup_compartment)) {
-				expr->location.print_error_header();
+				expr->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("Can't use aggregate() in this function body because it does not belong to a compartment.");
 			}
 				
@@ -150,7 +150,7 @@ replace_conc(Mobius_Model *model, Math_Expr_FT *expr) {
 			
 			auto var = model->state_vars[ident->state_var];
 			if(!is_valid(var->dissolved_conc)) {
-				expr->location.print_error_header();
+				expr->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("This variable does not have a concentration");
 			}
 			ident->state_var = var->dissolved_conc;
@@ -167,7 +167,7 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if(ident->variable_type != Variable_Type::local 
 			&& ident->variable_type != Variable_Type::parameter) {
-			expr->location.print_error_header();
+			expr->location.print_error_header(Mobius_Error::model_building);
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
 		} else if (ident->variable_type == Variable_Type::parameter)
 			parameter_refs.insert(ident->parameter);
@@ -231,13 +231,13 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 	
 	for(auto par_id : code_depends.on_parameter) {
 		if(!parameter_indexes_below_location(model, par_id, loc)) {
-			source_loc.print_error_header();
+			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", model->find_entity<Reg_Type::parameter>(par_id)->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the the state variable.");
 		}
 	}
 	for(auto series_id : code_depends.on_series) {
 		if(!location_indexes_below_location(model, model->series[series_id]->loc1, loc)) {
-			source_loc.print_error_header();
+			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", model->series[series_id]->name, "\". This series belongs to a compartment that is distributed over a higher number of index sets than the state variable.");
 		}
 	}
@@ -261,7 +261,7 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
 		if(!location_indexes_below_location(model, dep_var->loc1, loc)) {
-			source_loc.print_error_header();
+			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(err_begin, var->name, "\" looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the the prior.");
 		}
 	}
@@ -300,21 +300,21 @@ Mobius_Model::compose() {
 				for(int idx = 0; idx < n_dissolved; ++idx) {
 					auto diss_in = find_entity(has->var_location.dissolved_in[idx]);
 					if(diss_in->decl_type != Decl_Type::quantity) {
-						has->location.print_error_header();
+						has->location.print_error_header(Mobius_Error::model_building);
 						fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
 					}
 				}
 				Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
 				if(n_dissolved > 0) {
 					if(type != Decl_Type::quantity) {
-						has->location.print_error_header();
+						has->location.print_error_header(Mobius_Error::model_building);
 						fatal_error("Properties can only be assigned to compartments, not to quantities.");   //TODO: (for now!)
 					}
 					Var_Location above_loc = remove_dissolved(has->var_location);
 					
 					auto above_var = state_vars[above_loc];
 					if(!is_valid(above_var)) {
-						has->location.print_error_header();
+						has->location.print_error_header(Mobius_Error::model_building);
 						fatal_error("The located quantity that this \"has\" declaration is assigned to has not itself been created using a \"has\" declaration.");
 					}
 				}
@@ -460,7 +460,7 @@ Mobius_Model::compose() {
 			initial_is_conc  = has->initial_is_conc;
 			
 			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && (var->loc1.n_dissolved == 0)))) {
-				override_ast->location.print_error_header();
+				override_ast->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("Either got an \".override\" block on a property or a \".override_conc\" block on a non-dissolved variable.");
 			}
 			
@@ -485,7 +485,7 @@ Mobius_Model::compose() {
 			var->initial_is_conc = initial_is_conc;
 			
 			if(initial_is_conc && (var->type != Decl_Type::quantity ||(var->loc1.n_dissolved == 0))) {
-				init_ast->location.print_error_header();
+				init_ast->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
 			}
 		} else
@@ -501,7 +501,7 @@ Mobius_Model::compose() {
 			for(auto par_id : parameter_refs) {
 				bool ok = parameter_indexes_below_location(this, par_id, var->loc1);
 				if(!ok) {
-					unit_conv_ast->location.print_error_header();
+					unit_conv_ast->location.print_error_header(Mobius_Error::model_building);
 					fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
 				}
 			}
@@ -590,7 +590,7 @@ Mobius_Model::compose() {
 					for(auto par_id : parameter_refs) {
 						bool ok = parameter_indexes_below_location(this, par_id, loc1);
 						if(!ok) {
-							agg.code->location.print_error_header();
+							agg.code->location.print_error_header(Mobius_Error::model_building);
 							fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over."); 
 						}
 					}
@@ -667,12 +667,12 @@ Mobius_Model::compose() {
 		auto solve = modules[0]->solves[id];
 		Var_Id var_id = state_vars[solve->loc];
 		if(!is_valid(var_id)) {
-			solve->location.print_error_header();
+			solve->location.print_error_header(Mobius_Error::model_building);
 			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
 		}
 		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			solve->location.print_error_header();
+			solve->location.print_error_header(Mobius_Error::model_building);
 			fatal_error("Solvers can only be put on quantities, not on properties.");
 		}
 		has_solver[var_id.id] = 1;

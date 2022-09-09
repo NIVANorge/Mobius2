@@ -40,7 +40,7 @@ Source_Location {
 	s32 line, column;
 	
 	void print_error();
-	void print_error_header();
+	void print_error_header(Mobius_Error type = Mobius_Error::parsing);
 	void print_warning_header();
 };
 
