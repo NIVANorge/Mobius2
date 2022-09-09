@@ -339,12 +339,13 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
-				if(id.type != 1) {// Only perform the check for model inputs, not additional series.
+				if(id.type == 1) {// Only perform the check for model inputs, not additional series.
 					auto comp_id     = model->series[id]->loc1.compartment;
 					auto compartment = model->modules[0]->compartments[comp_id];
+
 					if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
 						header.loc.print_error_header();
-						fatal_error(Mobius_Error::parsing, "Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
+						fatal_error("Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
 					}
 				}
 				if(id.type == 1)
