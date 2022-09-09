@@ -38,6 +38,10 @@ Write the description
 		eff_tdp   : par_real("Effluent TDP inputs", unit(k g, day-1), 0.1, 0, 10)
 	}
 	
+	#NOTE: This creates a reference to a parameter defined in the model.
+	a_catch : par_real("Catchment area", unit(k m 2))
+	
+	
 	soil.has(epc0 : property("EPC0"), unit(m g, l-1)) {
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		safe_divide(last(plab), kf * m_soil)
@@ -88,7 +92,6 @@ Write the description
 	}
 	
 	flux(nowhere, river.water.pp, "PP mobilization") {
-		a_catch := 51.7 #TODO: allow fetching params from model
 		river.e_fact * a_catch * aggregate(soil.pp_fact)
 	}
 }

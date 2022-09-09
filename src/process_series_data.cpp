@@ -43,7 +43,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 			int atp1 = order[row + 1];
 			fill_constant_range(app, dates[at], dates[atp1], y_vals[at], write_offsets, storage);
 		}
-	} else if(flags & series_data_interp_linear) {
+	} else if(flags & series_data_interp_linear || ((flags & series_data_interp_spline) && x_vals.size() <= 2) ) {
 		for(int row = 0; row < dates.size()-1; ++row) {
 			int at   = order[row];
 			int atp1 = order[row + 1];
@@ -74,7 +74,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 	} else if(flags & series_data_interp_spline) {
 		//TODO: This is a straight-forward implementation of the math, but we don't know how numerically stable it is?
 		
-		//TODO: The way we fill end points (InsideOnly != false) is not good now. It should either be constant or more specific. May also want to force option to have first derivatives in the end points be 0.
+		//TODO: The way we fill end points (series_data_interp_inside) is not good now. It should either be constant or more specific. May also want to force option to have first derivatives in the end points be 0.
 		
 		//TODO: We should allow the user to specify that the value should never be negative (or just have this as a default?)
 		

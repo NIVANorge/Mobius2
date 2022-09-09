@@ -28,10 +28,10 @@ This is a simple sediment transport module created as a part of SimplyP.
 	river.par_group("River erosion") {
 		ksed  : par_real("Erosion scaling factor", unit(), 15, 0, 100)
 		psed  : par_real("Erosion power factor", unit(), 2, 0.1, 5)
-		
-		# TODO: allow importing external parameter instead!
-		a_catch : par_real("Catchment area", unit(k m 2), 51.7)
 	}
+	
+	# NOTE: This creates a reference to a parameter defined in the model.
+	a_catch : par_real("Catchment area", unit(k m 2))
 	
 	river.water.has(sed, unit(k g), "Suspended sediments") .initial { 0 }                      #TODO: It should be river.water.has(...)
 

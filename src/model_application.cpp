@@ -33,9 +33,8 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 			if(!found) {
 				auto comp_id = module->par_groups[group_id]->compartment;
 				if(is_valid(comp_id)) {  // It is invalid for the "System" parameter group.
-					auto compartment = module->compartments[comp_id];
-					if(is_valid(compartment->global_id))
-						compartment = model->modules[0]->compartments[compartment->global_id];
+					comp_id = module->get_global(comp_id);
+					auto compartment = model->find_entity<Reg_Type::compartment>(comp_id);
 					index_sets = &compartment->index_sets;
 				}
 			}
@@ -193,9 +192,8 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	
 	auto pgd          = module->par_groups[par_group_id];
 	if(is_valid(pgd->compartment)) {  // It is invalid for the "System" par group
-		auto compartment  = module->compartments[pgd->compartment];
-		if(is_valid(compartment->global_id))
-			compartment = global_module->compartments[compartment->global_id];
+		auto comp_id = module->get_global(pgd->compartment);
+		auto compartment  = model->find_entity<Reg_Type::compartment>(comp_id);
 		
 		for(String_View name : par_group->index_sets) {
 			auto index_set_id = global_module->index_sets.find_by_name(name);

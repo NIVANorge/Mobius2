@@ -167,6 +167,12 @@ Mobius_Model {
 		return modules[id.module_id]->find_entity<reg_type>(id);
 	}
 	
+	Entity_Id get_global(Entity_Id id) {
+		Entity_Id global_id = find_entity(id)->global_id;
+		if(is_valid(global_id)) return global_id;
+		return id;
+	}
+	
 	s16 load_module(String_View file_name, String_View module_name);
 	
 	bool is_composed = false;

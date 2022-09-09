@@ -112,16 +112,10 @@ mobius_get_module_entity_by_handle(Module_Declaration *module, char *handle_name
 			return result;
 		} else if(entity.reg_type == Reg_Type::compartment) {
 			result.type = Module_Entity_Reference::Type::compartment;
-			// TODO: again this system is bad!
-			auto comp = module->compartments[result.entity];
-			if(is_valid(comp->global_id))
-				result.entity = comp->global_id;
-			return result;
+			result.entity = module->get_global(result.entity);
 		} else if(entity.reg_type == Reg_Type::property_or_quantity) {
 			result.type = Module_Entity_Reference::Type::prop_or_quant;
-			auto prop = module->properties_and_quantities[result.entity];
-			if(is_valid(prop->global_id))
-				result.entity = prop->global_id;
+			result.entity = module->get_global(result.entity);
 			return result;
 		} else if(entity.reg_type == Reg_Type::flux) {
 			result.type = Module_Entity_Reference::Type::flux;

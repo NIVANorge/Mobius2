@@ -67,6 +67,7 @@ Entity_Registration_Base {
 	Source_Location location;            // if it has_been_declared, this should be the declaration location, otherwise it should be the location where it was last referenced.
 	String_View     handle_name;
 	String_View     name;
+	Entity_Id       global_id;
 };
 
 template<Reg_Type reg_type> struct
@@ -89,14 +90,10 @@ Flux_Unit_Conversion_Data {
 
 template<> struct
 Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
-	Entity_Id global_id;
-	
 	// NOTE: These will only be set in the "global" module.
 	std::vector<Entity_Id> index_sets; //TODO: more info about distribution?
 	std::vector<Aggregation_Data> aggregations; 
 	std::vector<Flux_Unit_Conversion_Data> unit_convs;
-	
-	Entity_Registration() : global_id(invalid_entity_id) {}
 };
 
 template<> struct
@@ -136,10 +133,8 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
-	Entity_Id    global_id;
 	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
-	
-	Entity_Registration() : global_id(invalid_entity_id) {}
+
 };
 
 template<> struct
@@ -342,8 +337,10 @@ Module_Declaration {
 	
 	template<Reg_Type reg_type> Entity_Registration<reg_type> *
 	find_entity(Entity_Id id) {
+		if(!is_valid(id))
+			fatal_error(Mobius_Error::internal, "Invalid id passed to find_entity().");
 		if(id.reg_type != reg_type)
-			fatal_error(Mobius_Error::internal, "Incorrect type passed to find_entity().");
+			fatal_error(Mobius_Error::internal, "Incorrect type passed to find_entity(). Expected ", name(reg_type), ", got ", name(id.reg_type), ".");
 		return reinterpret_cast<Entity_Registration<reg_type> *>(find_entity(id));
 	}
 	
@@ -355,6 +352,12 @@ Module_Declaration {
 			result = find->second;
 		return result;
 	}
+	
+	Entity_Id get_global(Entity_Id id) {
+		Entity_Id global_id = find_entity(id)->global_id;
+		if(is_valid(global_id)) return global_id;
+		return id;
+	}
 };
 
 template<Reg_Type reg_type> Entity_Registration<reg_type> *
@@ -364,7 +367,7 @@ Registry<reg_type>::operator[](Entity_Id id) {
 	else if(id.module_id != parent->module_id)
 		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a handle from a different module.");
 	else if(id.reg_type != reg_type)
-		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a handle of a wrong type.");
+		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a handle of a wrong type. Expected ", name(reg_type), " got ", name(id.reg_type), ".");
 	else if(id.id >= registrations.size())
 		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a handle that was out of bounds.");
 	return &registrations[id.id];

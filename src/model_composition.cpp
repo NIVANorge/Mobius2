@@ -197,9 +197,7 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Loca
 	// TODO: invalid compartment should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
 	if(!is_valid(par_comp_id)) return false;
 	// TODO: need a better system for looking up things that automatically gives us the global one if it exists.
-	auto par_comp = model->find_entity<Reg_Type::compartment>(par_comp_id);
-	if(is_valid(par_comp->global_id))
-		par_comp_id = par_comp->global_id;
+	par_comp_id = model->get_global(par_comp_id);
 	
 	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
 	Var_Location loc;

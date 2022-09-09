@@ -80,7 +80,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		if(potential_flag_row > 0) row_range = potential_flag_row;
 		search_len = 256;
 		
-		warning_print("Potential flag row is ", potential_flag_row, "\n");
+		//warning_print("Potential flag row is ", potential_flag_row, "\n");
 		
 		//TODO: Ideally also do this in a loop in case there are more than 256 columns!
 		matrix = ole_get_range_matrix(1, row_range, 2, 1 + search_len, handles); 

@@ -383,15 +383,18 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 				if(chain_size == 1) {
 					Entity_Id id = module->find_handle(n1);
 					if(id.reg_type == Reg_Type::parameter) {
-
-						if(module->parameters[id]->decl_type == Decl_Type::par_enum) {
+						
+						id = module->get_global(id);
+						auto par = data->model->find_entity<Reg_Type::parameter>(id);
+						
+						if(par->decl_type == Decl_Type::par_enum) {
 							ident->chain[0].print_error_header();
 							error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
 							fatal_error_trace(scope);
 						}
 						new_ident->variable_type = Variable_Type::parameter;
 						new_ident->parameter = id;
-						new_ident->value_type = get_value_type(module->parameters[id]->decl_type);
+						new_ident->value_type = get_value_type(par->decl_type);
 					} else if (id.reg_type == Reg_Type::property_or_quantity) {
 						if(!is_valid(data->in_compartment)) {
 							ident->chain[0].print_error_header();
@@ -429,7 +432,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 						}
 						new_ident->value_type = Value_Type::integer;
 					} else if(chain_size == 2 && first.reg_type == Reg_Type::parameter) {
-						auto parameter = module->parameters[first];
+						first = module->get_global(first);
+						auto parameter = data->model->find_entity<Reg_Type::parameter>(first);
+						
 						if(parameter->decl_type != Decl_Type::par_enum) {
 							ident->chain[0].print_error_header();
 							error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");

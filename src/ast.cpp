@@ -457,6 +457,10 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	for(const auto &pattern : patterns) {
 		++idx;
 		if(decl->args.size() < pattern.size()) continue;
+		if(decl->args.size()==0 && pattern.size()==0) {
+			found_match = true;
+			break;
+		}
 		
 		bool cont = false;
 		auto match = pattern.begin();
@@ -485,7 +489,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		break;
 	}
 	
-	if(found_match == -1 && patterns.size() > 0) {
+	if(found_match == -1) {
 		decl->location.print_error_header();
 		error_print("The arguments to the declaration \"", name(decl->type), "\" don't match any recognized pattern. The recognized patterns are:\n");
 		for(const auto &pattern : patterns) {

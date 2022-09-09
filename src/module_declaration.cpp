@@ -168,6 +168,7 @@ Registry<reg_type>::find_or_create(Token *handle_name, Token *name, Decl_AST *de
 	
 	auto registration = &registrations[found_id.id];
 	
+	registration->global_id       = invalid_entity_id;
 	// note: this overwrites the handle name if it was already registered, but that is not really a problem (since it is the same).
 	// also, we want the location to be overwritten with the declaration.
 	if(is_valid(handle_name)) {
@@ -397,19 +398,42 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 	return id;
 }
 
+Entity_Id
+process_par_ref_declaration(Module_Declaration *module, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::unit}});
+	
+	auto id       = module->parameters.standard_declaration(decl);
+	auto par      = module->parameters[id];
+	
+	par->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
+	
+	auto name = single_arg(decl, 0);
+	
+	if(module->global_scope) {
+		par->global_id = module->global_scope->parameters.find_or_create(nullptr, name);    //NOTE: We expect this one to have been declared in the model scope.
+		
+		if(!is_valid(par->global_id)) {
+			decl->location.print_error_header();
+			fatal_error("Reference to a parameter that was not declared in model scope.");
+		}
+		//TODO: When we have functioning units, check that the units are the same between the two declarations.
+	}
+}
+
 template<> Entity_Id
 process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}}, 1);
-
-	auto id        = module->par_groups.standard_declaration(decl);
-	auto par_group = module->par_groups[id];
+	match_declaration(decl, {{Token_Type::quoted_string}}, 1, false);
 	
 	//TODO: Do we always need to require that a par group is tied a compartment?
 	//TODO: Actually, it could be tied to a quantity too, once we get to implement that!
+	
+	auto id        = module->par_groups.standard_declaration(decl);
+	auto par_group = module->par_groups[id];
+	
 	par_group->compartment = module->compartments.find_or_create(&decl->decl_chain[0]);
 	
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
-	
+
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool || child->type == Decl_Type::par_enum) {
 			auto par_id = process_declaration<Reg_Type::parameter>(module, child);
@@ -429,14 +453,10 @@ process_declaration<Reg_Type::par_group>(Module_Declaration *module, Decl_AST *d
 void
 make_global(Module_Declaration *module, Var_Location *loc) {
 	if(is_located(*loc) && module->global_scope) {
-		auto comp_id = module->compartments[loc->compartment]->global_id;
-		if(is_valid(comp_id)) loc->compartment = comp_id;
-		auto quant_id = module->properties_and_quantities[loc->property_or_quantity]->global_id;
-		if(is_valid(quant_id)) loc->property_or_quantity = quant_id;
-		for(int idx = 0; idx < loc->n_dissolved; ++idx) {
-			auto quant_id = module->properties_and_quantities[loc->dissolved_in[idx]]->global_id;
-			if(is_valid(quant_id)) loc->dissolved_in[idx] = quant_id;
-		}
+		loc->compartment = module->get_global(loc->compartment);
+		loc->property_or_quantity = module->get_global(loc->property_or_quantity);
+		for(int idx = 0; idx < loc->n_dissolved; ++idx)
+			loc->dissolved_in[idx] = module->get_global(loc->dissolved_in[idx]);
 	}
 }
 
@@ -446,17 +466,8 @@ make_var_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property
 	Var_Location result;
 	result.n_dissolved = 0;
 	result.type = Var_Location::Type::located;
-	auto comp = model->find_entity<Reg_Type::compartment>(compartment);
-	if(is_valid(comp->global_id))
-		result.compartment = comp->global_id;
-	else
-		result.compartment = compartment;
-	
-	auto prop = model->find_entity<Reg_Type::property_or_quantity>(property_or_quantity);
-	if(is_valid(prop->global_id))
-		result.property_or_quantity = prop->global_id;
-	else
-		result.property_or_quantity = property_or_quantity;
+	result.compartment = model->get_global(compartment);
+	result.property_or_quantity = model->get_global(property_or_quantity);
 	
 	return result;
 }
@@ -479,10 +490,7 @@ add_dissolved(Mobius_Model *model, const Var_Location &loc, Entity_Id quantity) 
 	result.n_dissolved++;
 	result.dissolved_in[loc.n_dissolved] = loc.property_or_quantity;
 	
-	auto quant = model->find_entity<Reg_Type::property_or_quantity>(quantity);
-	if(is_valid(quant->global_id)) quantity = quant->global_id;
-	
-	result.property_or_quantity = quantity;
+	result.property_or_quantity = model->get_global(quantity);
 	
 	return result;
 }
@@ -639,7 +647,7 @@ process_declaration<Reg_Type::flux>(Module_Declaration *module, Decl_AST *decl) 
 
 template<> Entity_Id
 process_declaration<Reg_Type::function>(Module_Declaration *module, Decl_AST *decl) {
-	match_declaration(decl, {});
+	match_declaration(decl, {{{Token_Type::identifier, true}}});
 	
 	auto id =  module->functions.find_or_create(&decl->handle_name, nullptr, decl);
 	auto function = module->functions[id];
@@ -846,6 +854,13 @@ process_module_declaration(Mobius_Model *model, Module_Declaration *global_scope
 			
 			case Decl_Type::load : {
 				process_load_library_declaration(module, child);
+			} break;
+			
+			case Decl_Type::par_real :
+			case Decl_Type::par_int  :
+			case Decl_Type::par_bool :
+			case Decl_Type::par_enum : {
+				process_par_ref_declaration(module, child);
 			} break;
 			
 			default : {
@@ -1227,7 +1242,7 @@ load_model(String_View file_name) {
 	
 	//TODO: now we just throw everything into a single namespace, but what happens if we have re-declarations of handles because of multiple extensions?
 	
-	//note: this must happen before we load the modules, otherwise these declarations would be re-declarations into the global scope of something that was created by the modules.
+	//note: this must happen before we load the modules so that entities in the modules can have a global_id that reference things declared in model scope.
 	for(auto &extend : extend_models) {
 		auto body = reinterpret_cast<Decl_Body_AST *>(extend.second->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
@@ -1242,6 +1257,10 @@ load_model(String_View file_name) {
 				
 				case Decl_Type::neighbor : {
 					process_declaration<Reg_Type::neighbor>(global_scope, child);  // NOTE: we also put this here since we expect we will need referencing it inside modules eventually.
+				} break;
+				
+				case Decl_Type::par_group : {
+					process_declaration<Reg_Type::par_group>(global_scope, child);
 				} break;
 			}
 		}
@@ -1322,10 +1341,6 @@ load_model(String_View file_name) {
 					process_declaration<Reg_Type::solve>(global_scope, child);
 				} break;
 				
-				case Decl_Type::par_group : {
-					process_declaration<Reg_Type::par_group>(global_scope, child);
-				} break;
-				
 				case Decl_Type::aggregation_weight : {
 					process_aggregation_weight_declaration(global_scope, child);
 				} break;
@@ -1334,6 +1349,7 @@ load_model(String_View file_name) {
 					process_unit_conversion_declaration(global_scope, child);
 				} break;
 				
+				case Decl_Type::par_group :
 				case Decl_Type::extend :
 				case Decl_Type::compartment :
 				case Decl_Type::quantity :
@@ -1363,12 +1379,15 @@ error_print_location(Mobius_Model *model, Var_Location &loc) {
 	//TODO: this only works if these compartments and quantities were declared with a handle in the model scope. It "forgets" what handle was used in the scope of the original declaration of the location! Maybe print the "name" instead of the "handle_name" ???
 	
 	auto comp = model->find_entity(loc.compartment);
-	error_print(comp->handle_name, '.');
+	//error_print(comp->handle_name, '.');
+	error_print("\"", comp->name, "\".");
 	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
 		auto quant = model->find_entity(loc.dissolved_in[idx]);
-		error_print(quant->handle_name, '.');
+		//error_print(quant->handle_name, '.');
+		error_print("\"", quant->name, "\".");
 	}
 	auto quant = model->find_entity(loc.property_or_quantity);
-	error_print(quant->handle_name);
+	//error_print(quant->handle_name);
+	error_print("\"", quant->name, "\"");
 }
 
