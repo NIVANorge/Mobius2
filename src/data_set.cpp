@@ -255,7 +255,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 	while(true) {
 		Series_Header_Info header;
 		header.loc = token.location;
-		header.name = stream->expect_quoted_string();
+		header.name = std::string(stream->expect_quoted_string());
 		while(true) {
 			token = stream->peek_token();
 			if((char)token.type != '[')
@@ -453,7 +453,7 @@ Data_Set::read_from_file(String_View file_name) {
 	if(main_file != "") {
 		fatal_error(Mobius_Error::api_usage, "Tried make a data set read from a file ", file_name, ", but it already contains data from the file ", main_file, ".");
 	}
-	main_file = file_name;
+	main_file = std::string(file_name);
 	
 	//TODO: have a file handler instead
 	auto file_data = file_handler.load_file(file_name);
@@ -473,7 +473,7 @@ Data_Set::read_from_file(String_View file_name) {
 				token.print_error_header();
 				fatal_error("Duplicate doc strings for data set.");
 			}
-			doc_string = stream.expect_quoted_string();
+			doc_string = std::string(stream.expect_quoted_string());
 			continue;
 		} else if(token.type != Token_Type::identifier) {
 			token.print_error_header();
@@ -535,7 +535,7 @@ Data_Set::read_from_file(String_View file_name) {
 					
 					series.push_back({});
 					Series_Set_Info &data = series.back();
-					data.file_name = other_file_name;
+					data.file_name = std::string(other_file_name);
 					read_series_data_block(this, &other_stream, &data);
 				}
 				delete decl;
@@ -544,7 +544,7 @@ Data_Set::read_from_file(String_View file_name) {
 				stream.expect_token('[');
 				series.push_back({});
 				Series_Set_Info &data = series.back();
-				data.file_name = file_name;
+				data.file_name = std::string(file_name);
 				read_series_data_block(this, &stream, &data);
 				stream.expect_token(']');
 			}

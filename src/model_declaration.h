@@ -102,7 +102,7 @@ struct Var_Registry {
 		return &vars[id.id];
 	}
 	
-	Var_Id operator[](Var_Location &loc) {
+	Var_Id operator[](const Var_Location &loc) {
 		if(!is_located(loc))
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid location.");
 		auto find = location_to_id.find(loc);
@@ -111,7 +111,8 @@ struct Var_Registry {
 		return find->second;
 	}
 	
-	const std::set<Var_Id> &operator[](String_View name) {
+	//NOTE: wanted this to return a reference, but then it can't return {} when something is not found.
+	const std::set<Var_Id> operator[](String_View name) {
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end())
 			return {};

@@ -608,30 +608,3 @@ Token_Stream::expect_identifier() {
 	Token token = expect_token(Token_Type::identifier);
 	return token.string_value;
 }
-
-/*
-void
-Token_Stream::ReadQuotedStringList(std::vector<token_string> &ListOut)
-{
-	ExpectToken('{');
-	while(true)
-	{
-		token Token = ReadToken();
-		
-		if(Token.Type == TokenType_QuotedString)
-			ListOut.push_back(Token.StringValue);
-		else if(Token.Type == '}')
-			break;
-		else if(Token.Type == TokenType_EOF)
-		{
-			PrintErrorHeader();
-			FatalError("End of file before list was ended.\n");
-		}
-		else
-		{
-			PrintErrorHeader();
-			FatalError("Unexpected token.\n");
-		}
-	}
-}
-*/

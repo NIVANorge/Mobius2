@@ -355,8 +355,8 @@ process_declaration<Reg_Type::parameter>(Module_Declaration *module, Decl_AST *d
 			parameter->min_val             = get_parameter_value(single_arg(decl, 3), Token_Type::integer);
 			parameter->max_val             = get_parameter_value(single_arg(decl, 4), Token_Type::integer);
 		} else {
-			parameter->min_val.val_real    = std::numeric_limits<s64>::lowest();
-			parameter->max_val.val_real    = std::numeric_limits<s64>::max();
+			parameter->min_val.val_integer = std::numeric_limits<s64>::lowest();
+			parameter->max_val.val_integer = std::numeric_limits<s64>::max();
 		}        
 	} else if (decl->type == Decl_Type::par_bool) {
 		parameter->min_val.val_boolean = false;
@@ -418,6 +418,8 @@ process_par_ref_declaration(Module_Declaration *module, Decl_AST *decl) {
 		}
 		//TODO: When we have functioning units, check that the units are the same between the two declarations.
 	}
+	
+	return id;
 }
 
 template<> Entity_Id

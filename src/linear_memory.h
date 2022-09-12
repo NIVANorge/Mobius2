@@ -23,13 +23,13 @@ alloc_cleared(size_t count){
 //Array that does not own its data, but instead lives in "linear memory".
 
 template<typename T> struct
-Array {
+Array_View {
 	
 	T      *data;
 	size_t  count;
 	
-	Array() : data(nullptr), count(0) {};
-	Array(T *data, size_t count) : data(data), count(count) {};
+	Array_View() : data(nullptr), count(0) {};
+	Array_View(T *data, size_t count) : data(data), count(count) {};
 	
 	inline T& operator[](size_t index) {
 #ifdef MOBIUS_TEST_INDEX_OVERFLOW
@@ -56,7 +56,7 @@ Array {
 };
 
 template<typename T>
-bool operator==(const Array<T> &a, const Array<T> &b) {
+bool operator==(const Array_View<T> &a, const Array_View<T> &b) {
 	if(a.count != b.count) return false;
 	for(size_t idx = 0; idx < a.count; ++idx)
 		if(a[idx] != b[idx]) return false;
@@ -66,9 +66,9 @@ bool operator==(const Array<T> &a, const Array<T> &b) {
 
 //NOTE: This is a length-based string that does not have ownership of its data. Good for making substrings without having to reallocate.
 
-struct String_View : Array<char> {
+struct String_View : Array_View<char> {
 
-	String_View() : Array() {}
+	String_View() : Array_View() {}
 	
 	String_View(const char *c_string) {
 		count = strlen(c_string);
@@ -211,25 +211,25 @@ Linear_Allocator {
 		return result;
 	}
 	
-	template<typename T> Array<T>
+	template<typename T> Array_View<T>
 	new_array(size_t count) {
-		Array<T> result;
+		Array_View<T> result;
 		result.count = count;
 		result.data  = allocate<T>(count);
 		return result;
 	}
 	
-	template<typename T> Array<T>
-	copy_array(Array<T> source) {
-		Array<T> result;
+	template<typename T> Array_View<T>
+	copy_array(Array_View<T> source) {
+		Array_View<T> result;
 		result.count = source.count;
 		result.data  = copy_memory<T>(source.data, source.count);
 		return result;
 	}
 	
-	template<class Container> Array<typename Container::value_type>
+	template<class Container> Array_View<typename Container::value_type>
 	copy_container_to_array(Linear_Allocator *allocator, Container *source) {
-		Array<typename Container::value_type> result;
+		Array_View<typename Container::value_type> result;
 		result.count = source->size();
 		result.data  = allocate<typename Container::value_type>(result.count);
 		size_t idx = 0;

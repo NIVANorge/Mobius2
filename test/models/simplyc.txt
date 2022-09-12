@@ -51,8 +51,7 @@ Not finished, just for testing some systems.
 	}
 
 	
-	river.water.has(oc, unit(k g), "River water DOC") #.initial_conc { 0 } #TODO: aggregate() does not work for initial values! # { aggregate(conc(soil.water.oc)) }
-	.initial_conc { conc(gw.water.oc) }
+	river.water.has(oc, unit(k g), "River water DOC") .initial_conc { conc(gw.water.oc) }
 	
 	flux(nowhere, soil.water.oc, "Soil DOC production") {  max(0, water*cdoc*(1 + kt1*temp - kso4*air.so4))  }
 	

@@ -139,7 +139,7 @@ enum class
 Variable_Type {
 	parameter, series, state_var, neighbor_info, local, 
 	// "special" state variables
-	#define TIME_VALUE(name, bits, pos) time_##name,
+	#define TIME_VALUE(name, bits) time_##name,
 	#include "time_values.incl"
 	#undef TIME_VALUE
 	// Maybe also computed_parameter eventually.

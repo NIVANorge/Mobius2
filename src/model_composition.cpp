@@ -295,7 +295,7 @@ Mobius_Model::compose() {
 			auto has = module->hases[id];
 			
 			// TODO: check for mismatching units between declarations.
-			Entity_Registration<Reg_Type::has> *has2;
+			Entity_Registration<Reg_Type::has> *has2 = nullptr;
 			auto find = has_location.find(has->var_location);
 			if(find != has_location.end()) {
 				has2 = find_entity<Reg_Type::has>(find->second);

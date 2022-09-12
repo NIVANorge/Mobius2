@@ -134,7 +134,7 @@ public:
 	
 	inline void
 	to_string(char *buf) const {
-		s32 year, month, day, hour, minute, second;
+		s32 year, month, day;
 		year_month_day(&year, &month, &day);
 		
 		if(seconds_since_epoch % 86400 == 0)

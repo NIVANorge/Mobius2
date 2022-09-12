@@ -276,7 +276,7 @@ Scope_Local_Vars {
 };
 
 llvm::Value *
-get_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
+find_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 	if(!scope)
 		fatal_error(Mobius_Error::internal, "Mis-counting of scopes in ir building.");
 	while(scope->scope_id != scope_id) {
@@ -395,7 +395,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 	llvm::Value *result = nullptr;
 	if(false) {}
 	#define MAKE_INTRINSIC1(name, emul, intrin_name, ret_type, type1) \
-		else if(function == #name && #intrin_name != "fshr") { \
+		else if(function == #name && strcmp(#intrin_name, "fshr")!=0) { \
 			if(type != Value_Type::type1) \
 				fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in build_intrinsic_ir()."); \
 			std::vector<llvm::Type *> arg_types = { get_llvm_type(Value_Type::type1, data) }; \
@@ -600,7 +600,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 				result = data->builder->CreateGEP(double_ty, args[1], offset, "series_lookup");
 				result = data->builder->CreateLoad(double_ty, result, "series");
 			} else if(ident->variable_type == Variable_Type::local) {
-				result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+				result = find_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 			} else if(ident->variable_type == Variable_Type::neighbor_info) {
 				result = data->builder->CreateGEP(int_64_ty, data->global_neighbor_data, offset, "neighbor_info_lookup");
 				result = data->builder->CreateLoad(int_64_ty, result, "neighbor_info");

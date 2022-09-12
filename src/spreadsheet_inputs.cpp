@@ -26,7 +26,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		data_set->series.push_back({});
 		Series_Set_Info &data = data_set->series.back();
 		data.has_date_vector = true;
-		data.file_name = handles->file_path;
+		data.file_name = std::string(handles->file_path);
 		
 		std::vector<Index_Set_Info *> index_sets;
 		
