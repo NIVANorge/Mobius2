@@ -8,7 +8,7 @@
 #include <limits>
 
 void
-read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
+read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, String_View file_name) {
 	
 	int n_tabs = ole_get_num_tabs(handles);
 	
@@ -26,7 +26,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles) {
 		data_set->series.push_back({});
 		Series_Set_Info &data = data_set->series.back();
 		data.has_date_vector = true;
-		data.file_name = std::string(handles->file_path);
+		data.file_name = std::string(file_name);
 		
 		std::vector<Index_Set_Info *> index_sets;
 		

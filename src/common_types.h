@@ -252,6 +252,8 @@ inline bool operator<(const Index_T &a, const Index_T &b) {
 	return a.index < b.index;
 }
 
+constexpr Index_T invalid_index = {invalid_entity_id, -1};
+
 
 
 #endif // MOBIUS_COMMON_TYPES_H

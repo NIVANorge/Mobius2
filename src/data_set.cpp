@@ -1,4 +1,6 @@
 
+#include <set>
+
 #include "data_set.h"
 #include "ole_wrapper.h"
 
@@ -140,12 +142,17 @@ write_module_to_file(FILE *file, Module_Info &module) {
 }
 
 void
-write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series) {
+write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series, std::set<std::string> &already_processed) {
 	if(series.file_name == main_file) {
 		fatal_error(Mobius_Error::internal, "Inlining series data in main data file is not yet supported!");
 	}
 	
-	//TODO: We should also know if
+	// NOTE: If we read from an excel file, it will produce one Series_Set_Info record per page, but we only want to write out one import of the file.
+	if(already_processed.find(main_file) != already_processed.end())
+		return;
+	
+	already_processed.insert(main_file);
+	
 	//TODO: What do we do if the file we save to is in a different folder than the original. Should we update all the relative paths of the included files?
 	
 	fprintf(file, "series(\"%s\")\n\n", series.file_name.data());
@@ -167,8 +174,9 @@ Data_Set::write_to_file(String_View file_name) {
 	for(auto &neighbor : neighbors)
 		write_neighbor_info_to_file(file, neighbor, this);
 	
+	std::set<std::string> already_processed;
 	for(auto &ser : series)
-		write_series_to_file(file, main_file, ser);
+		write_series_to_file(file, main_file, ser, already_processed);
 	
 	for(auto &par_group : global_module.par_groups)
 		write_par_group_to_file(file, par_group, 0);
@@ -445,7 +453,7 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 
 #if OLE_AVAILABLE
 void
-read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles);
+read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, String_View file_name);
 #endif
 
 void
@@ -522,7 +530,7 @@ Data_Set::read_from_file(String_View file_name) {
 					#if OLE_AVAILABLE
 					String_View relative = make_path_relative_to(other_file_name, file_name);
 					ole_open_spreadsheet(relative, &handles);
-					read_series_data_from_spreadsheet(this, &handles);
+					read_series_data_from_spreadsheet(this, &handles, other_file_name);
 					#else
 					single_arg(decl, 0)->print_error_header();
 					fatal_error("Spreadsheet reading is only available on Windows.");
