@@ -240,4 +240,9 @@ operator==(const Var_Location &a, const Var_Location &b) {
 	return true;
 }
 
+struct Index_T {
+	Entity_Id index_set;
+	s32       index;
+};
+
 #endif // MOBIUS_COMMON_TYPES_H

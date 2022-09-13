@@ -123,6 +123,14 @@ public:
 		}
 	}
 	
+	inline void
+	hour_minute_second(s32 *hour_out, s32 *minute_out, s32 *second_out) const {
+		s64 sod = second_of_day();
+		*hour_out = (sod / 3600);
+		*minute_out = (sod / 60) % 60;
+		*second_out = sod % 60;
+	}
+	
 	inline s64
 	second_of_day() const {
 		if(seconds_since_epoch >= 0)
@@ -140,10 +148,8 @@ public:
 		if(seconds_since_epoch % 86400 == 0)
 			sprintf(buf, "%04d-%02d-%02d", year, month, day);
 		else {
-			s64 sod = second_of_day();
-			s32 hour = (sod / 3600);
-			s32 minute = (sod / 60) % 60;
-			s32 second = sod % 60;
+			s32 hour, minute, second;
+			hour_minute_second(&hour, &minute, &second);
 			sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
 		}
 	}

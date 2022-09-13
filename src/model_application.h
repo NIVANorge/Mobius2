@@ -9,11 +9,6 @@
 #include <functional>
 
 
-struct Index_T {
-	Entity_Id index_set;
-	s32       index;
-};
-
 struct Neighbor_T {
 	Entity_Id neighbor;
 	s32       info_id;
