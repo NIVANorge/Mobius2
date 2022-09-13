@@ -243,6 +243,15 @@ operator==(const Var_Location &a, const Var_Location &b) {
 struct Index_T {
 	Entity_Id index_set;
 	s32       index;
+	
+	Index_T& operator++() { index++; return *this; }
 };
+
+inline bool operator<(const Index_T &a, const Index_T &b) {
+	//TODO: should we do sanity check on the index_set here?
+	return a.index < b.index;
+}
+
+
 
 #endif // MOBIUS_COMMON_TYPES_H
