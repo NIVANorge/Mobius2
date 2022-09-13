@@ -16,7 +16,7 @@ par_group("System") {
 	[ 2004-01-01 ]
 
 	par_datetime("End date")
-	[ 2005-12-31 ]
+	[ 2005-05-30 ]
 }
 
 par_group("Land cover") [ "Landscape units" ] {
