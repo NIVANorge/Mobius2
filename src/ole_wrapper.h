@@ -2,7 +2,7 @@
 #ifndef MOBIUS_OLE_WRAPPER_H
 #define MOBIUS_OLE_WRAPPER_H
 
-#if defined(_WIN32) || defined(_MSC_VER)
+#if defined(_WIN32) || defined(_MSC_VER) || defined(_WIN64)
 
 #include "lexer.h"
 #define NOMINMAX

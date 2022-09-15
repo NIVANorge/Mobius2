@@ -77,7 +77,8 @@ public:
 		//Computes the day of year (Starting at january 1st = day 1)
 		s32 year = 1970;
 		s32 doy = 0;
-		s64 seconds_left = seconds_since_epoch;
+		s64 seconds_left = seconds_since_epoch - second_of_day();
+		
 		if(seconds_left > 0) {
 			while(true) {
 				s64 seconds_this_year = year_length(year)*24*60*60;
@@ -100,7 +101,6 @@ public:
 				}
 				else break;
 			}
-			//s64 seconds_this_year = year_length(year)*24*60*60;
 			doy = (seconds_this_year - seconds_left) / (24*60*60);
 		}
 		
@@ -181,6 +181,13 @@ public:
 	operator+=(const Date_Time &other) {
 		seconds_since_epoch += other.seconds_since_epoch;
 		return *this;
+	}
+	
+	Date_Time
+	operator+(s64 seconds) {
+		Date_Time result = *this;
+		result.seconds_since_epoch += seconds;
+		return result;
 	}
 };
 
