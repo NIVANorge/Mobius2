@@ -8,7 +8,7 @@
 
 bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	
-	warning_print("begin model run.\n");
+	//warning_print("begin model run.\n");
 	
 	if(!model_app->is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to run model before it was compiled.");
@@ -40,7 +40,7 @@ bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	model_app->result_data.allocate(time_steps);
 	model_app->result_data.start_date = start_date;
 	
-	warning_print("got past allocation\n");
+	//warning_print("got past allocation\n");
 	
 	int var_count    = model_app->result_data.total_count;
 	int series_count = model_app->series_data.total_count;
@@ -63,7 +63,7 @@ bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	if(solver_workspace_size > 0)
 		run_state.solver_workspace = (double *)malloc(sizeof(double)*solver_workspace_size);
 	
-	warning_print("begin run\n");
+	//warning_print("begin run\n");
 	
 
 #if MOBIUS_EMULATE
@@ -104,12 +104,12 @@ bool run_model(Model_Application *model_app, s64 ms_timeout) {
 		}
 	}
 	
-	s64 cycles = run_timer.get_cycles();
-	s64 ms     = run_timer.get_milliseconds();
+	//s64 cycles = run_timer.get_cycles();
+	//s64 ms     = run_timer.get_milliseconds();
 	
 	if(run_state.solver_workspace) free(run_state.solver_workspace);
 	
-	warning_print("Run time: ", ms, " milliseconds, ", cycles, " cycles.\n");
+	//warning_print("Run time: ", ms, " milliseconds, ", cycles, " cycles.\n");
 	
 	return true;
 }

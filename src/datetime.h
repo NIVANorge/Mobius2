@@ -31,7 +31,7 @@ month_length(s32 year, s32 month) {
 inline s32
 month_offset(s32 year, s32 month) {
 	//NOTE: Returns the number of the days in this year before this month starts. The months are indexed from 1 in this context.
-	static s32 offset[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+	static s32 offset[13] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
 	s32 days = offset[month-1];
 	if(month > 2 && is_leap_year(year)) ++days;
 	return days;
