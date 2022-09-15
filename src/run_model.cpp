@@ -20,13 +20,13 @@ bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	if(start_date > end_date)
 		fatal_error(Mobius_Error::api_usage, "The end date of the model run was set to be later than the start date.\n");
 	
-	s64 time_steps = steps_between(start_date, end_date, model_app->timestep_size) + 1; // +1 since end date is inclusive.
+	s64 time_steps = steps_between(start_date, end_date, model_app->time_step_size) + 1; // +1 since end date is inclusive.
 	
 	s64 input_offset = 0;
 	if(model_app->series_data.data) {
 		if(start_date < model_app->series_data.start_date)
 			fatal_error(Mobius_Error::api_usage, "Tried to start the model run at an earlier time than there exists time series input data.\n");
-		input_offset = steps_between(model_app->series_data.start_date, start_date, model_app->timestep_size);
+		input_offset = steps_between(model_app->series_data.start_date, start_date, model_app->time_step_size);
 		
 		if(input_offset + time_steps > model_app->series_data.time_steps)
 			fatal_error(Mobius_Error::api_usage, "Tried to run the model for longer than there exists time series input data.\n");
@@ -52,7 +52,7 @@ bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	run_state.series           = model_app->series_data.data + series_count*input_offset;
 	run_state.neighbor_info    = model_app->neighbor_data.data;
 	run_state.solver_workspace = nullptr;
-	run_state.date_time        = Expanded_Date_Time(start_date, model_app->timestep_size);
+	run_state.date_time        = Expanded_Date_Time(start_date, model_app->time_step_size);
 	run_state.solver_t         = 0.0;
 	
 	int solver_workspace_size = 0;

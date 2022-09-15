@@ -297,19 +297,16 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 	
 	auto model = app->model;
 	
-	if( (series->has_date_vector && series->dates.empty())   || 
+	if( (series->has_date_vector && series->dates.empty())   ||
 		(!series->has_date_vector && series->time_steps==0) )   // Ignore empty data block.
 		return;
 	
 	if(series->start_date < metadata->start_date) metadata->start_date = series->start_date;
 	
 	Date_Time end_date = series->end_date;
-	if(!series->has_date_vector) {
-		Expanded_Date_Time dt(series->start_date, app->timestep_size);
-		for(s64 ts = 0; ts < series->time_steps-1; ++ts)
-			dt.advance();
-		end_date = dt.date_time;
-	}
+	if(!series->has_date_vector)
+		end_date = advance(series->start_date, app->time_step_size, series->time_steps-1);
+	
 	if(end_date > metadata->end_date) metadata->end_date = end_date;
 	
 	metadata->any_data_at_all = true;
@@ -485,7 +482,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		
 		s64 time_steps = 0;
 		if(metadata.any_data_at_all) {
-			time_steps = steps_between(metadata.start_date, metadata.end_date, timestep_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
+			time_steps = steps_between(metadata.start_date, metadata.end_date, time_step_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
 		}
 		else if(model->series.count() != 0) {
 			//TODO: use the model run start and end date.

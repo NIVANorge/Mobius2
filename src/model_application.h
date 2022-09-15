@@ -186,7 +186,7 @@ struct Structured_Storage {
 	String_View
 	get_handle_name(Handle_T handle);
 	
-	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr) {}
+	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr), time_steps(0) {}
 	
 	~Structured_Storage() {
 		if(data) free(data);
@@ -242,8 +242,8 @@ Model_Application {
 		}
 		
 		// TODO: make time step size configurable.
-		timestep_size.unit      = Time_Step_Size::second;
-		timestep_size.magnitude = 86400;
+		time_step_size.unit      = Time_Step_Size::second;
+		time_step_size.magnitude = 86400;
 		
 		initialize_llvm();
 		llvm_data = create_llvm_module();   //TODO: free it on destruction!
@@ -267,7 +267,7 @@ Model_Application {
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set();
 	
-	Time_Step_Size                                  timestep_size;
+	Time_Step_Size                                  time_step_size;
 	
 	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;
 	Structured_Storage<double, Var_Id>              series_data;

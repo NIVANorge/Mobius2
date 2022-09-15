@@ -283,7 +283,7 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 DLLEXPORT Time_Step_Size
 mobius_get_time_step_size(Model_Application *app) {
 	
-	return app->timestep_size;
+	return app->time_step_size;
 }
 
 DLLEXPORT char *

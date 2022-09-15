@@ -298,5 +298,14 @@ steps_between(Date_Time from, Date_Time to, Time_Step_Size time_step) {
 	return divide_down(diff, (s64)time_step.magnitude);
 }
 
+// TODO: This could probably be optimized
+inline Date_Time
+advance(const Date_Time &dt, Time_Step_Size ts, s64 steps) {
+	Expanded_Date_Time edt(dt, ts);
+	for(s64 step = 0; step < steps; ++step)
+		edt.advance();
+	return edt.date_time;
+}
+
 
 #endif // DATETIME_H
