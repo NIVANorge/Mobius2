@@ -152,9 +152,9 @@ struct Structured_Storage {
 	
 	//TODO: there should be a version of this one that checks for out of bounds indexing. But we also want the fast one that doesn't
 	Val_T  *
-	get_value(s64 offset_for_val, s64 time_step = 0) {
+	get_value(s64 offset, s64 time_step = 0) {
 		s64 step = std::max(time_step + initial_step, (s64)0);
-		return data + offset_for_val + step*total_count;
+		return data + offset + step*total_count;
 	}
 	
 	void 

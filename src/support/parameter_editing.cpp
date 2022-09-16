@@ -1,6 +1,6 @@
 
 #include "parameter_editing.h"
-#include "model_application.h"
+#include "../model_application.h"
 
 void
 recursive_update_parameter(int level, std::vector<Index_T> &current_indexes, const Indexed_Parameter &par_data, Model_Application *app, Parameter_Value val) {

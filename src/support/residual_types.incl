@@ -1,0 +1,16 @@
+/* 
+	The third argument is:
+	0 if the stat increases with higher error
+	1 if the stat decreases with higher error
+	-1 if there is no simple correlation.
+*/
+
+SET_RESIDUAL(mean_error, "Mean error (bias)", -1)
+SET_RESIDUAL(mae, "MAE", 0)
+SET_RESIDUAL(rmse, "RMSE", 0)
+SET_RESIDUAL(ns, "N-S", 1)
+SET_RESIDUAL(log_ns, "log N-S", 1)
+SET_RESIDUAL(r2, "r2", 1)
+SET_RESIDUAL(idx_agr, "Idx. of agr.", 1)
+SET_RESIDUAL(kge, "KGE", 1)
+SET_RESIDUAL(srcc, "Spearman's RCC", 1)
