@@ -37,6 +37,11 @@ month_offset(s32 year, s32 month) {
 	return days;
 }
 
+inline s32
+week_of_year(s32 day_of_year) {
+	return day_of_year / 7 + 1;
+}
+
 struct Date_Time {
 
 public:
@@ -138,6 +143,14 @@ public:
 		else
 			return (seconds_since_epoch % 86400 + 86400) % 86400;
 		return 0;
+	}
+	
+	inline s32
+	day_of_week() const {
+		s64 sec = seconds_since_epoch - second_of_day(); // Hmm, maybe not necessary. Or probably it is for negative days?
+		s32 day = (sec / 86400) % 7;
+		if(day < 0) day += 7;
+		return (day + 3) % 7 + 1; // 1970-1-1 was a thursday.
 	}
 	
 	inline void
