@@ -305,10 +305,15 @@ steps_between(Date_Time from, Date_Time to, Time_Step_Size time_step) {
 	return divide_down(diff, (s64)time_step.magnitude);
 }
 
-// TODO: This could probably be optimized
 inline Date_Time
-advance(const Date_Time &dt, Time_Step_Size ts, s64 steps) {
-	Expanded_Date_Time edt(dt, ts);
+advance(const Date_Time &dt, Time_Step_Size time_step, s64 steps) {
+	if(time_step.unit == Time_Step_Size::second) {
+		Date_Time result = dt;
+		result.seconds_since_epoch += time_step.magnitude * steps;
+		return result;
+	}
+	// TODO: This part could probably be optimized:
+	Expanded_Date_Time edt(dt, time_step);
 	for(s64 step = 0; step < steps; ++step)
 		edt.advance();
 	return edt.date_time;
