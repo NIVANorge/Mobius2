@@ -103,8 +103,8 @@ compute_residual_stats(Residual_Stats *stats, Structured_Storage<double, Var_Id>
 	double sum_log_obs = 0.0;
 	double sum_log_sq = 0.0;
 	
-	double min = std::numeric_limits<double>::min();
-	double max = std::numeric_limits<double>::max();
+	double min = std::numeric_limits<double>::max();
+	double max = std::numeric_limits<double>::min();
 	
 	std::vector<double> finite_obs(0);
 	std::vector<double> finite_sim(0);
