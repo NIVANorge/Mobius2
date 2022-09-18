@@ -80,7 +80,7 @@ module("SimplyQ land", 0, 5, 0) {
 
 	par_group("Groundwater") {
 		par_real("Groundwater time constant")
-		[ 100 ]
+		[ 70 ]
 	}
 }
 
@@ -96,7 +96,7 @@ module("SimplyQ river", 0, 0, 1) {
 		[ 0.04 ]
 
 		par_real("Initial reach flow")
-		[ 1 ]
+		[ 0.5 ]
 	}
 }
 
@@ -149,7 +149,7 @@ module("SimplyP", 0, 5, 0) {
 
 	par_group("Soil P") [ "Landscape units" ] {
 		par_real("Initial soil TDP concentration and EPC0")
-		[ 0.1 0.1 0 ]
+		[ 0.07 0.07 0 ]
 
 		par_real("Initial total soil P content")
 		[ 1458 1458 873 ]
@@ -163,7 +163,7 @@ module("SimplyP", 0, 5, 0) {
 
 	par_group("Groundwater P") {
 		par_real("Groundwater TDP concentration")
-		[ 0.02 ]
+		[ 0.01 ]
 	}
 
 	par_group("River P") {

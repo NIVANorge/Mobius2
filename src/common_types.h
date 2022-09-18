@@ -258,6 +258,8 @@ inline bool operator==(const Index_T &a, const Index_T &b) {
 
 constexpr Index_T invalid_index = {invalid_entity_id, -1};
 
+inline bool
+is_valid(Index_T &index) { return is_valid(index.index_set) && index.index >= 0; }
 
 
 #endif // MOBIUS_COMMON_TYPES_H

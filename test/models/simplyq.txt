@@ -27,8 +27,13 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 		tc_g    : par_real("Groundwater time constant", unit(day -1),       30,  1,  400)
 	}
 	
+	a_catch : par_real("Catchment area", unit(k m 2))
+	river : compartment("River")
+	
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
-	gw  .has(water, unit(m m), "Groundwater volume") .initial { 10 }  #TODO!
+	gw  .has(water, unit(m m), "Groundwater volume") .initial {
+		tc_g * river.flow * 86.4 / a_catch
+	}  #TODO: Inverse unit conversion should also be automatic
 
 	pet  : property("Potential evapotranspiration")
 	
@@ -36,7 +41,8 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	flux(soil.water, out, "Quick flow") {
 		drylim := 0.9		# Could be a parameter. Stops quick flow below drylim*fc
 		flow   := in_flux(water)
-		flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)
+		#flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)
+		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/3.14
 	}
 	
 	evap :
