@@ -225,8 +225,11 @@ struct
 Model_Application {
 	Mobius_Model *model;
 	
+	// NOTE: should only be used by copy()
+	Model_Application() : model(nullptr), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), additional_series_data(0, this), is_compiled(false), alloc(0), data_set(nullptr), is_main_app(false) {}
+	
 	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), additional_series_data(0, this), is_compiled(false),
-		data_set(nullptr), alloc(1024) {
+		data_set(nullptr), alloc(1024), is_main_app(true) {
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
@@ -251,8 +254,11 @@ Model_Application {
 	
 	~Model_Application() {
 		// TODO: should probably free more stuff.
-		free_llvm_module(llvm_data);
+		if(is_main_app)
+			free_llvm_module(llvm_data);
 	}
+	
+	bool is_main_app; //TODO: need better system for this!
 	
 	Linear_Allocator                                alloc; // For storing index names
 	
@@ -266,6 +272,8 @@ Model_Application {
 	
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set();
+	
+	Model_Application *copy();
 	
 	Time_Step_Size                                  time_step_size;
 	

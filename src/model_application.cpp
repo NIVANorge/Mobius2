@@ -599,5 +599,27 @@ Model_Application::get_end_date_parameter() {
 	return parameter_data.get_value(offset)->val_datetime;
 }
 
-
+Model_Application *
+Model_Application::copy() {
+	//TODO: Right now this does way more work than it needs to. It should ideally only need to keep a reference to all of the structure stuff, and only have its own version of the actual parameter and result data.
+	Model_Application *result = new Model_Application();
+	*result = *this;
+	if(parameter_data.data) {
+		result->parameter_data.data = nullptr;
+		result->parameter_data.allocate();
+		memcpy(result->parameter_data.data, parameter_data.data, parameter_data.total_count);
+	}
+	if(result_data.data) {  //TODO: option to keep a copy of the results.
+		result->result_data.data = nullptr;
+		result->result_data.time_steps = 0;
+	}
+	// TODO: this does not work very nicely
+	result->parameter_data.parent = result;
+	result->result_data.parent = result;
+	result->series_data.parent = result;
+	result->additional_series_data.parent = result;
+	result->neighbor_data.parent = result;
+	// TODO: option to copy the input data (not just have a reference to the same data)
+	return result;
+}
 
