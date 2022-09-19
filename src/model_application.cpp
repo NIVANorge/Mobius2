@@ -619,6 +619,7 @@ Model_Application::copy() {
 	result->series_data.parent = result;
 	result->additional_series_data.parent = result;
 	result->neighbor_data.parent = result;
+	result->is_main_app = false;
 	// TODO: option to copy the input data (not just have a reference to the same data)
 	return result;
 }
