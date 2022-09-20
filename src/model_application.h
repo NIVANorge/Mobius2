@@ -167,13 +167,14 @@ struct Storage_Structure {
 	Storage_Structure(Model_Application *parent) : parent(parent), has_been_set_up(false), total_count(0) {}
 };
 
-template<typename Val_T, typename Handle_T, s64 initial_step = 0>
+template<typename Val_T, typename Handle_T>
 struct Data_Storage {
-	Data_Storage(Storage_Structure<Val_T, Handle_T> *structure) : structure(structure) {}
+	Data_Storage(Storage_Structure<Val_T, Handle_T> *structure, s64 initial_step = 0) : structure(structure), initial_step(initial_step) {}
 	
 	Storage_Structure<Val_T, Handle_T> *structure;
 	Val_T *data = nullptr;
 	s64           time_steps;
+	s64           initial_step;
 	Date_Time     start_date;
 	bool is_owning = false;
 	
@@ -236,7 +237,7 @@ struct Model_Data {
 	
 	Data_Storage<Parameter_Value, Entity_Id>  parameters;
 	Data_Storage<double, Var_Id>              series;
-	Data_Storage<double, Var_Id, 1>           results;
+	Data_Storage<double, Var_Id>              results;
 	Data_Storage<s64, Neighbor_T>             neighbors;
 	Data_Storage<double, Var_Id>              additional_series;
 	

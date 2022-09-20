@@ -598,7 +598,7 @@ Model_Data::get_end_date_parameter() {
 
 Model_Data::Model_Data(Model_Application *app) :
 	app(app), parameters(&app->parameter_structure), series(&app->series_structure),
-	results(&app->result_structure), neighbors(&app->neighbor_structure),
+	results(&app->result_structure, 1), neighbors(&app->neighbor_structure),
 	additional_series(&app->additional_series_structure) {
 }
 
