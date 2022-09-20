@@ -173,9 +173,9 @@ struct Data_Storage {
 	
 	Storage_Structure<Val_T, Handle_T> *structure;
 	Val_T *data = nullptr;
-	s64           time_steps;
+	s64           time_steps = 0;
 	s64           initial_step;
-	Date_Time     start_date;
+	Date_Time     start_date = {};
 	bool is_owning = false;
 	
 	void free_data() {
@@ -202,8 +202,9 @@ struct Data_Storage {
 		free_data();
 		this->time_steps = time_steps;
 		this->start_date = start_date;
-		data = (Val_T *) malloc(alloc_size());
-		memset(data, 0, alloc_size());
+		size_t sz = alloc_size();
+		data = (Val_T *) malloc(sz);
+		memset(data, 0, sz);
 		is_owning = true;
 	};
 	
