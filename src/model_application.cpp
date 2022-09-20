@@ -608,10 +608,10 @@ Model_Data::copy() {
 	Model_Data *cpy = new Model_Data(app);
 	
 	cpy->parameters.copy_from(&this->parameters);
+	cpy->results.copy_from(&this->results);
 	cpy->series.refer_to(&this->series);
 	cpy->additional_series.refer_to(&this->additional_series);
 	cpy->neighbors.refer_to(&this->neighbors);
-	// NOTE: result_structure should not copy or refer (at least for default) since the point is that there will be a model run to generate new data for this one.
 	return cpy;
 }
 	
