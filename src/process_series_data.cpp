@@ -5,19 +5,18 @@
 #include <algorithm>
 
 void
-fill_constant_range(Model_Application *app, Date_Time d0, Date_Time d1, double y, std::vector<s64> &write_offsets, Structured_Storage<double, Var_Id> *storage) {
-	s64 first = steps_between(storage->start_date, d0, app->time_step_size);
-	s64 last  = steps_between(storage->start_date, d1, app->time_step_size);
+fill_constant_range(Model_Application *app, Date_Time d0, Date_Time d1, double y, std::vector<s64> &write_offsets, Data_Storage<double, Var_Id> *data) {
+	s64 first = steps_between(data->start_date, d0, app->time_step_size);
+	s64 last  = steps_between(data->start_date, d1, app->time_step_size);
 	for(s64 ts = first; ts <= last; ++ts) {
-		for(s64 offset : write_offsets) {
-			*storage->get_value(offset, ts) = y;
-		}
+		for(s64 offset : write_offsets)
+			*data->get_value(offset, ts) = y;
 	}
 }
 
 void
 interpolate(Model_Application *app, std::vector<Date_Time> &dates, 
-	std::vector<double> &vals, std::vector<s64> &write_offsets, Series_Data_Flags &flags, Date_Time end_date, Structured_Storage<double, Var_Id> *storage) {
+	std::vector<double> &vals, std::vector<s64> &write_offsets, Series_Data_Flags &flags, Date_Time end_date, Data_Storage<double, Var_Id> *data) {
 	
 	std::vector<Date_Time> x_vals;
 	std::vector<double>    y_vals;
@@ -41,7 +40,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 		for(int row = 0; row < x_vals.size()-1; ++row) {
 			int at   = order[row];
 			int atp1 = order[row + 1];
-			fill_constant_range(app, dates[at], dates[atp1], y_vals[at], write_offsets, storage);
+			fill_constant_range(app, dates[at], dates[atp1], y_vals[at], write_offsets, data);
 		}
 	} else if(flags & series_data_interp_linear || ((flags & series_data_interp_spline) && x_vals.size() <= 2) ) {
 		for(int row = 0; row < dates.size()-1; ++row) {
@@ -56,8 +55,8 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 			Expanded_Date_Time date(first, app->time_step_size);
 			double x_range = (double)(last.seconds_since_epoch - first.seconds_since_epoch);
 				
-			s64 step      = steps_between(storage->start_date, first, app->time_step_size);
-			s64 last_step = steps_between(storage->start_date, last,  app->time_step_size);
+			s64 step      = steps_between(data->start_date, first, app->time_step_size);
+			s64 last_step = steps_between(data->start_date, last,  app->time_step_size);
 			
 			date.step = step;
 				
@@ -66,7 +65,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 					double t = (double)(date.date_time.seconds_since_epoch - first.seconds_since_epoch) / x_range;
 					double y = t*y1 + (1.0 - t)*y0;
 					for(s64 offset : write_offsets)
-						*storage->get_value(offset, date.step) = y;
+						*data->get_value(offset, date.step) = y;
 				}
 				date.advance();
 			}
@@ -142,8 +141,8 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 			double a =  k_col[row]*x_range - y_range;
 			double b = -k_col[row+1]*x_range + y_range;
 			
-			s64 step      = steps_between(storage->start_date, x_vals[at],   app->time_step_size);
-			s64 last_step = steps_between(storage->start_date, x_vals[atp1], app->time_step_size);
+			s64 step      = steps_between(data->start_date, x_vals[at],   app->time_step_size);
+			s64 last_step = steps_between(data->start_date, x_vals[atp1], app->time_step_size);
 			
 			date.step = step;
 			
@@ -152,7 +151,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 				double y = (1.0-t)*y_vals[at] + t*y_vals[atp1] + t*(1.0-t)*( (1.0-t)*a + t*b );
 				
 				for(s64 offset : write_offsets)
-					*storage->get_value(offset, date.step) = y;
+					*data->get_value(offset, date.step) = y;
 				
 				date.advance();
 			}
@@ -163,10 +162,10 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 	if(!(flags & series_data_interp_inside)) {
 		int first = order[0];
 		int last  = order[x_vals.size()-1];
-		if(x_vals[first] > storage->start_date)
-			fill_constant_range(app, storage->start_date, x_vals[first], y_vals[first], write_offsets, storage);
+		if(x_vals[first] > data->start_date)
+			fill_constant_range(app, data->start_date, x_vals[first], y_vals[first], write_offsets, data);
 		if(x_vals[last] < end_date)
-			fill_constant_range(app, x_vals[last], end_date, y_vals[last], write_offsets, storage);
+			fill_constant_range(app, x_vals[last], end_date, y_vals[last], write_offsets, data);
 	}
 }
 
@@ -187,18 +186,18 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 	for(auto header : series->header_data) {
 		std::set<Var_Id> ids = model->series[header.name];
 		
-		auto *storage = &app->series_data;
+		auto *data = &app->data.series;
 		series_type[header_idx] = 1;
 		
 		if(ids.empty()) {
 			ids = app->additional_series[header.name];
-			storage = &app->additional_series_data;
+			data = &app->data.additional_series;
 			series_type[header_idx] = 2;
 		}
 		
 		for(Var_Id id : ids) {
 			
-			const std::vector<Entity_Id> &expected_index_sets = storage->get_index_sets(id);
+			const std::vector<Entity_Id> &expected_index_sets = data->structure->get_index_sets(id);
 			
 			if(header.indexes.empty()) {
 				if(!expected_index_sets.empty()) {
@@ -210,7 +209,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 			
 			std::vector<Index_T> indexes_int(expected_index_sets.size());
 			if(header.indexes.empty()) {
-				s64 offset = storage->get_offset_alternate(id, indexes_int);
+				s64 offset = data->structure->get_offset_alternate(id, indexes_int);
 				offsets[header_idx].push_back(offset);
 				continue;
 			}
@@ -235,7 +234,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 					++index_idx;
 				}
 				
-				s64 offset = storage->get_offset_alternate(id, indexes_int);
+				s64 offset = data->structure->get_offset_alternate(id, indexes_int);
 				offsets[header_idx].push_back(offset);
 			}
 		}
@@ -243,7 +242,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 	}
 	
 	// NOTE: Start date is set up to be the same for series and additional series.
-	s64 first_step = steps_between(app->series_data.start_date, series->start_date, app->time_step_size);
+	s64 first_step = steps_between(app->data.series.start_date, series->start_date, app->time_step_size);
 	
 	int nrows = series->time_steps;
 	if(series->has_date_vector)
@@ -260,7 +259,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 	for(int col = 0; col < ncols; ++col) {
 		auto &header = series->header_data[col];
 		
-		Structured_Storage<double, Var_Id> *storage = series_type[col]==1 ? &app->series_data : &app->additional_series_data;
+		Data_Storage<double, Var_Id> *data = series_type[col]==1 ? &app->data.series : &app->data.additional_series;
 		
 		if(    (header.flags & series_data_interp_step) 
 			|| (header.flags & series_data_interp_linear)
@@ -270,16 +269,16 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 				header.loc.print_error_header();
 				fatal_error("Interpolation is only available when a date is provided per row of data.");
 			}
-			interpolate(app, series->dates, series->raw_values[col], offsets[col], header.flags, end_date, storage);
+			interpolate(app, series->dates, series->raw_values[col], offsets[col], header.flags, end_date, data);
 		} else {
 			for(s64 row = 0; row < nrows; ++row) {
 				s64 ts = first_step + row;
 				if(series->has_date_vector)
-					ts = steps_between(storage->start_date, series->dates[row], app->time_step_size);
+					ts = steps_between(data->start_date, series->dates[row], app->time_step_size);
 				
 				double val = series->raw_values[col][row];
 				for(s64 offset : offsets[col])
-					*storage->get_value(offset, ts) = val;
+					*data->get_value(offset, ts) = val;
 			}
 		}
 	}

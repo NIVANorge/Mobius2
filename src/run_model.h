@@ -39,8 +39,12 @@ call_fun(batch_function *fun, Model_Run_State *run_state, double t = 0.0) {
 }
 
 struct Model_Application;
+struct Model_Data;
 
 bool
-run_model(Model_Application *model_app, s64 ms_timeout = -1);
+run_model(Model_Data *model_data, s64 ms_timeout = -1);
+
+bool
+run_model(Model_Application *app, s64 ms_timeout = -1);
 
 #endif // MOBIUS_RUN_MODEL_H

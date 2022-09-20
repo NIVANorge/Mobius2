@@ -116,17 +116,17 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 	Math_Expr_FT *offset_code = nullptr;
 	s64 back_step;
 	if(ident->variable_type == Variable_Type::parameter) {
-		offset_code = model_app->parameter_data.get_offset_code(ident->parameter, index_expr);
+		offset_code = model_app->parameter_structure.get_offset_code(ident->parameter, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
-		offset_code = model_app->series_data.get_offset_code(ident->series, index_expr);
-		back_step = model_app->series_data.total_count;
+		offset_code = model_app->series_structure.get_offset_code(ident->series, index_expr);
+		back_step = model_app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
 		auto var = model_app->model->state_vars[ident->state_var];
 		if(var->flags & State_Variable::Flags::f_invalid)
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
-		offset_code = model_app->result_data.get_offset_code(ident->state_var, index_expr);
-		back_step = model_app->result_data.total_count;
+		offset_code = model_app->result_structure.get_offset_code(ident->state_var, index_expr);
+		back_step = model_app->result_structure.total_count;
 	}
 	
 	//TODO: Should check that we are not at the initial step
@@ -169,18 +169,18 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		if(neighbor->type != Neighbor_Structure_Type::directed_tree)
 			fatal_error(Mobius_Error::internal, "Unhandled neighbor type in add_or_subtract_flux_from_var()");
 		
-		auto index_offset = model_app->neighbor_data.get_offset_code({neighbor_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
+		auto index_offset = model_app->neighbor_structure.get_offset_code({neighbor_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
 		auto index = new Identifier_FT();
 		index->variable_type = Variable_Type::neighbor_info;
 		index->value_type = Value_Type::integer;
 		index->exprs.push_back(index_offset);
 		
 		indexes[neighbor->index_set.id] = index;
-		offset_code_agg = model_app->result_data.get_offset_code(var_id_agg, indexes);
+		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
 		indexes[neighbor->index_set.id] = cur_idx;  // Reset it for use by others;
 		index_ref = index;
 	} else
-		offset_code_agg = model_app->result_data.get_offset_code(var_id_agg, indexes);
+		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
 	
 	auto agg_ident = make_state_var_identifier(var_id_agg);
 	agg_ident->exprs.push_back(offset_code_agg);
@@ -264,7 +264,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 					//fatal_error(Mobius_Error::internal, "Some variable \"", var->name, "\" unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
-				auto offset_code = model_app->result_data.get_offset_code(instr->var_id, indexes);
+				auto offset_code = model_app->result_structure.get_offset_code(instr->var_id, indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset_code);
 				assignment->exprs.push_back(fun);
@@ -287,7 +287,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				
-				auto offset = model_app->result_data.get_offset_code(instr->var_id, indexes);
+				auto offset = model_app->result_structure.get_offset_code(instr->var_id, indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset);
 				assignment->exprs.push_back(make_literal((s64)0));
@@ -310,7 +310,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 	
 	// NOTE: The way we do things here rely on the fact that all ODEs of the same batch (and time step) are stored contiguously in memory. If that changes, the indexing of derivatives will break!
 	//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
-	s64 init_pos = model_app->result_data.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
+	s64 init_pos = model_app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
 	for(auto &array : batch->arrays_ode) {
 		Math_Expr_FT *scope = create_nested_for_loops(model_app, top_scope, array, indexes);
 				
@@ -330,7 +330,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			
 			put_var_lookup_indexes(fun, model_app, indexes);
 			
-			auto offset_var = model_app->result_data.get_offset_code(instr->var_id, indexes);
+			auto offset_var = model_app->result_structure.get_offset_code(instr->var_id, indexes);
 			auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
 			auto assignment = new Math_Expr_FT(Math_Expr_Type::derivative_assignment);
 			assignment->exprs.push_back(offset_deriv);
@@ -369,11 +369,11 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 		register_dependencies(instr.code, &code_depends);
 		
 		for(auto par_id : code_depends.on_parameter) {
-			auto index_sets = model_app->parameter_data.get_index_sets(par_id);
+			auto index_sets = model_app->parameter_structure.get_index_sets(par_id);
 			instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
 		}
 		for(auto series_id : code_depends.on_series) {
-			auto index_sets = model_app->series_data.get_index_sets(series_id);
+			auto index_sets = model_app->series_structure.get_index_sets(series_id);
 			instr.index_sets.insert(index_sets.begin(), index_sets.end());
 		}
 		
@@ -1099,7 +1099,7 @@ add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Batch_Array &ar
 
 void
 set_up_result_structure(Model_Application *model_app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
-	if(model_app->result_data.has_been_set_up)
+	if(model_app->result_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up result structure twice.");
 	if(!model_app->all_indexes_are_set())
 		fatal_error(Mobius_Error::internal, "Tried to set up result structure before all index sets received indexes.");
@@ -1112,7 +1112,7 @@ set_up_result_structure(Model_Application *model_app, std::vector<Batch> &batche
 		for(auto &array : batch.arrays_ode)  add_array(structure, array, instructions);
 	}
 	
-	model_app->result_data.set_up(std::move(structure));
+	model_app->result_structure.set_up(std::move(structure));
 }
 
 void
@@ -1289,11 +1289,11 @@ Model_Application::compile() {
 	if(!all_indexes_are_set())
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before all index sets had received indexes.");
 	
-	if(!series_data.has_been_set_up)
+	if(!series_structure.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before input series data was set up.");
-	if(!parameter_data.has_been_set_up)
+	if(!parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before parameter data was set up.");
-	if(!neighbor_data.has_been_set_up)
+	if(!neighbor_structure.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before neighbor data was set up.");
 	
 	warning_print("Create instruction arrays\n");
@@ -1370,8 +1370,8 @@ Model_Application::compile() {
 	set_up_result_structure(this, batches, instructions);
 	
 	LLVM_Constant_Data constants;
-	constants.neighbor_data       = neighbor_data.data;
-	constants.neighbor_data_count = neighbor_data.total_count;
+	constants.neighbor_data       = data.neighbors.data;
+	constants.neighbor_data_count = neighbor_structure.total_count;
 	
 	jit_add_global_data(llvm_data, &constants);
 	
@@ -1391,11 +1391,11 @@ Model_Application::compile() {
 			new_batch.h          = solver->h;
 			new_batch.hmin       = solver->hmin;
 			// NOTE: same as noted above, all ODEs have to be stored contiguously.
-			new_batch.first_ode_offset = result_data.get_offset_base(instructions[batch.arrays_ode[0].instr_ids[0]].var_id);
+			new_batch.first_ode_offset = result_structure.get_offset_base(instructions[batch.arrays_ode[0].instr_ids[0]].var_id);
 			new_batch.n_ode = 0;
 			for(auto &array : batch.arrays_ode) {         // Hmm, this is a bit inefficient, but oh well.
 				for(int instr_id : array.instr_ids)
-					new_batch.n_ode += result_data.instance_count(instructions[instr_id].var_id);
+					new_batch.n_ode += result_structure.instance_count(instructions[instr_id].var_id);
 			}
 		}
 		

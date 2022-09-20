@@ -132,12 +132,9 @@ struct Multi_Array_Structure {
 
 struct Model_Application;
 
+// TODO: rename to storage structure
 template<typename Val_T, typename Handle_T>
-struct Structured_Storage {
-	Val_T    *data;
-	s64       time_steps;
-	Date_Time start_date;
-	s64       initial_step; //Matching the (local) start date.
+struct Storage_Structure {
 	s64       total_count;
 	bool      has_been_set_up;
 	
@@ -149,25 +146,6 @@ struct Structured_Storage {
 	//TODO: need much more error checking in these!
 	
 	void set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure);
-	
-	//TODO: there should be a version of this one that checks for out of bounds indexing. But we also want the fast one that doesn't
-	Val_T  *
-	get_value(s64 offset, s64 time_step = 0) {
-		s64 step = std::max(time_step + initial_step, (s64)0);
-		return data + offset + step*total_count;
-	}
-	
-	void 
-	allocate(s64 time_steps = 1) {
-		if(!has_been_set_up)
-			fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
-		if(data) free(data);
-		this->time_steps = time_steps;
-		s64 alloc_size = sizeof(Val_T) * total_count * (time_steps + initial_step);
-		data = (Val_T *) malloc(alloc_size);
-		memset(data, 0, alloc_size);
-	};
-	//TODO: also start_date
 	
 	s64 get_offset_base(Handle_T handle);
 	s64 instance_count(Handle_T handle);
@@ -186,11 +164,85 @@ struct Structured_Storage {
 	String_View
 	get_handle_name(Handle_T handle);
 	
-	Structured_Storage(s64 initial_step, Model_Application *parent) : initial_step(initial_step), parent(parent), has_been_set_up(false), data(nullptr), time_steps(0) {}
+	Storage_Structure(Model_Application *parent) : parent(parent), has_been_set_up(false), total_count(0) {}
+};
+
+template<typename Val_T, typename Handle_T, s64 initial_step = 0>
+struct Data_Storage {
+	Data_Storage(Storage_Structure<Val_T, Handle_T> *structure) : structure(structure) {}
 	
-	~Structured_Storage() {
-		if(data) free(data);
+	Storage_Structure<Val_T, Handle_T> *structure;
+	Val_T *data = nullptr;
+	s64           time_steps;
+	Date_Time     start_date;
+	bool is_owning = false;
+	
+	void free_data() {
+		if(data && is_owning) free(data);
+		data = nullptr;
+		time_steps = 0;
+		is_owning = false;
 	}
+	
+	//TODO: there should be a version of this one that checks for out of bounds indexing (or non-allocated data). But we also want the fast one that doesn't
+	Val_T  *
+	get_value(s64 offset, s64 time_step = 0) {
+		s64 step = std::max(time_step + initial_step, (s64)0);
+		return data + offset + step*structure->total_count;
+	}
+	
+	size_t
+	alloc_size() { return sizeof(Val_T) * structure->total_count * (time_steps + initial_step); }
+	
+	void 
+	allocate(s64 time_steps = 1, Date_Time start_date = {}) {
+		if(!structure->has_been_set_up)
+			fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
+		free_data();
+		this->time_steps = time_steps;
+		this->start_date = start_date;
+		data = (Val_T *) malloc(alloc_size());
+		memset(data, 0, alloc_size());
+		is_owning = true;
+	};
+	
+	// TODO: we could have some kind of tracking of references so that we at least get an error message if the source is deleted before all references are.
+	void refer_to(Data_Storage<Val_T, Handle_T> *source) {
+		if(structure != source->structure)
+			fatal_error(Mobius_Error::internal, "Tried to make a data storage refer to another one that belongs to a different storage structure.");
+		free_data();
+		data = source->data;
+		time_steps = source->time_steps;
+		start_date = source->start_date;
+		is_owning = false;
+	}
+	
+	void copy_from(Data_Storage<Val_T, Handle_T> *source, bool size_only = false) {
+		if(structure != source->structure)
+			fatal_error(Mobius_Error::internal, "Tried to make a data storage copy from another one that belongs to a different storage structure.");
+		free_data();
+		allocate(source->time_steps, source->start_date);
+		if(!size_only)
+			memcpy(data, source->data, alloc_size());
+	}
+	
+	~Data_Storage() { free_data(); }
+};
+
+struct Model_Data {
+	Model_Data(Model_Application *app);
+
+	Model_Application *app;
+	
+	Data_Storage<Parameter_Value, Entity_Id>  parameters;
+	Data_Storage<double, Var_Id>              series;
+	Data_Storage<double, Var_Id, 1>           results;
+	Data_Storage<s64, Neighbor_T>             neighbors;
+	Data_Storage<double, Var_Id>              additional_series;
+	
+	Model_Data *copy();
+	Date_Time get_start_date_parameter();
+	Date_Time get_end_date_parameter();
 };
 
 struct
@@ -223,13 +275,11 @@ struct Index_Name {
 
 struct
 Model_Application {
-	Mobius_Model *model;
 	
-	// NOTE: should only be used by copy()
-	Model_Application() : model(nullptr), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), additional_series_data(0, this), is_compiled(false), alloc(0), data_set(nullptr), is_main_app(false) {}
-	
-	Model_Application(Mobius_Model *model) : model(model), parameter_data(0, this), series_data(0, this), result_data(1, this), neighbor_data(0, this), additional_series_data(0, this), is_compiled(false),
-		data_set(nullptr), alloc(1024), is_main_app(true) {
+	Model_Application(Mobius_Model *model) : 
+		model(model), parameter_structure(this), series_structure(this), result_structure(this), neighbor_structure(this), 
+		additional_series_structure(this), is_compiled(false), data_set(nullptr), alloc(1024), data(this) {
+			
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
@@ -254,17 +304,37 @@ Model_Application {
 	
 	~Model_Application() {
 		// TODO: should probably free more stuff.
-		if(is_main_app)
-			free_llvm_module(llvm_data);
+		free_llvm_module(llvm_data);
 	}
 	
-	bool is_main_app; //TODO: need better system for this!
+	Mobius_Model                                   *model;
+	Model_Data                                      data;
 	
 	Linear_Allocator                                alloc; // For storing index names
 	
 	std::vector<Index_T>                            index_counts;
 	std::vector<string_map<Index_T>>                index_names_map;
 	std::vector<std::vector<String_View>>           index_names;
+	
+	Time_Step_Size                                  time_step_size;
+	
+	Var_Registry<2>                                 additional_series;
+	
+	Storage_Structure<Parameter_Value, Entity_Id>  parameter_structure;
+	Storage_Structure<double, Var_Id>              series_structure;
+	Storage_Structure<double, Var_Id>              result_structure;
+	Storage_Structure<s64, Neighbor_T>             neighbor_structure;
+	Storage_Structure<double, Var_Id>              additional_series_structure;
+	
+	Data_Set              *data_set;
+	
+	LLVM_Module_Data      *llvm_data;
+	
+	Run_Batch              initial_batch;
+	std::vector<Run_Batch> batches;
+	
+	bool is_compiled;
+	
 	
 	void set_indexes(Entity_Id index_set, std::vector<String_View> &indexes);
 	Index_T get_index(Entity_Id index_set, String_View name);
@@ -273,92 +343,71 @@ Model_Application {
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set();
 	
-	Model_Application *copy();
-	
-	Time_Step_Size                                  time_step_size;
-	
-	Structured_Storage<Parameter_Value, Entity_Id>  parameter_data;
-	Structured_Storage<double, Var_Id>              series_data;
-	Structured_Storage<double, Var_Id>              result_data;
-	Structured_Storage<s64, Neighbor_T>             neighbor_data;
-
-	Var_Registry<2>                                 additional_series;
-	Structured_Storage<double, Var_Id>              additional_series_data;
-	
-	
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
 	void set_up_neighbor_structure();
 	
 	template<s32 var_type> void
-	set_up_series_structure(Var_Registry<var_type> &reg, Structured_Storage<double, Var_Id> &data, Series_Metadata *metadata);
+	set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<double, Var_Id> &data, Series_Metadata *metadata);
 	
-	void allocate_series_data(s64 time_steps);
+	// TODO: this one should maybe be on the Model_Data struct instead
+	void allocate_series_data(s64 time_steps, Date_Time start_date);
 	
-	Date_Time get_start_date_parameter();
-	Date_Time get_end_date_parameter();
-	
-	bool is_compiled;
 	void compile();
-	
-	Data_Set              *data_set;
-	
-	LLVM_Module_Data      *llvm_data;
-	
-	Run_Batch              initial_batch;
-	std::vector<Run_Batch> batches;
 };
 
 
 template<> inline String_View
-Structured_Storage<Parameter_Value, Entity_Id>::get_handle_name(Entity_Id par) {
+Storage_Structure<Parameter_Value, Entity_Id>::get_handle_name(Entity_Id par) {
 	return parent->model->find_entity<Reg_Type::parameter>(par)->name;
 }
 
 template<> inline String_View
-Structured_Storage<double, Var_Id>::get_handle_name(Var_Id var_id) {
-	// TODO: oof, this is a hack and prone to break. We should have another way of determining if we are in the state vars or series structure.
-	if(initial_step == 0)
+Storage_Structure<double, Var_Id>::get_handle_name(Var_Id var_id) {
+	if(var_id.type == 0)
+		return parent->model->state_vars[var_id]->name;
+	else if(var_id.type == 1)
 		return parent->model->series[var_id]->name;
-	return parent->model->state_vars[var_id]->name;
+	else
+		return parent->additional_series[var_id]->name;
 }
 
 template<> inline String_View
-Structured_Storage<s64, Neighbor_T>::get_handle_name(Neighbor_T nb) {
+Storage_Structure<s64, Neighbor_T>::get_handle_name(Neighbor_T nb) {
 	return parent->model->find_entity<Reg_Type::neighbor>(nb.neighbor)->name;
 }
 
 template<typename Val_T, typename Handle_T> const std::vector<Entity_Id> &
-Structured_Storage<Val_T, Handle_T>::get_index_sets(Handle_T handle) {
+Storage_Structure<Val_T, Handle_T>::get_index_sets(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].index_sets;
 }
 
 template<typename Val_T, typename Handle_T> s64
-Structured_Storage<Val_T, Handle_T>::get_offset_base(Handle_T handle) {
+Storage_Structure<Val_T, Handle_T>::get_offset_base(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].get_offset_base(handle);
 }
 
 template<typename Val_T, typename Handle_T> s64
-Structured_Storage<Val_T, Handle_T>::instance_count(Handle_T handle) {
+Storage_Structure<Val_T, Handle_T>::instance_count(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].instance_count(parent->index_counts);
 }
 
 template<typename Val_T, typename Handle_T> s64
-Structured_Storage<Val_T, Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
+Storage_Structure<Val_T, Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].get_offset(handle, indexes, parent->index_counts);
 }
 
 template<typename Val_T, typename Handle_T> s64
-Structured_Storage<Val_T, Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
+Storage_Structure<Val_T, Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].get_offset_alternate(handle, indexes, parent->index_counts);
 }
 	
 template<typename Val_T, typename Handle_T> Math_Expr_FT *
-Structured_Storage<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes) {
+Storage_Structure<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts);
 	if(!code)
@@ -367,7 +416,7 @@ Structured_Storage<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vecto
 }
 
 template<typename Val_T, typename Handle_T> void
-Structured_Storage<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure) {
+Storage_Structure<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure) {
 	//TODO: check that index_counts are properly set up in parent.
 	
 	if(has_been_set_up)
@@ -390,7 +439,7 @@ Structured_Storage<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Ha
 }
 
 template<typename Val_T, typename Handle_T> void
-for_each_helper(Structured_Storage<Val_T, Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
+for_each_helper(Storage_Structure<Val_T, Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
 	Entity_Id index_set = indexes[level].index_set;
 	
 	if(level == indexes.size()-1) {
@@ -408,7 +457,7 @@ for_each_helper(Structured_Storage<Val_T, Handle_T> *self, Handle_T handle, cons
 }
 
 template<typename Val_T, typename Handle_T> void
-Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
+Storage_Structure<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array[handle];
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;
@@ -428,7 +477,7 @@ Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::functi
 // TODO: Debug why this one doesn't work. It is in principle nicer.
 #if 0
 template<typename Val_T, typename Handle_T> void
-Structured_Storage<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
+Storage_Structure<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array[handle];
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;

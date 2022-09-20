@@ -8,8 +8,8 @@ recursive_update_parameter(int level, std::vector<Index_T> &current_indexes, con
 	
 	if(level == par_data.indexes.size() || !is_valid(par_data.indexes[level].index_set)) {
 		// Do the actual update.
-		s64 offset = app->parameter_data.get_offset(par_data.id, current_indexes);
-		*app->parameter_data.get_value(offset) = val;
+		s64 offset = app->parameter_structure.get_offset(par_data.id, current_indexes);
+		*app->parameter_structure.get_value(offset) = val;
 	} else {
 		if(par_data.locks[level]) {
 			//NOTE: this assumes that the index sets in par_data.indexes are ordered the same as in app->index_counts !

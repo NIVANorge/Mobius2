@@ -127,7 +127,7 @@ mobius_get_module_entity_by_handle(Module_Declaration *module, char *handle_name
 }
 
 template<typename Val_T, typename Handle_T> s64
-get_offset_by_index_names(Model_Application *app, Structured_Storage<Val_T, Handle_T> *storage, Handle_T handle, char **index_names, s64 indexes_count) {
+get_offset_by_index_names(Model_Application *app, Storage_Structure<Val_T, Handle_T> *storage, Handle_T handle, char **index_names, s64 indexes_count) {
 	
 	const std::vector<Entity_Id> &index_sets = storage->get_index_sets(handle);
 	if(index_sets.size() != indexes_count)
@@ -145,21 +145,21 @@ get_offset_by_index_names(Model_Application *app, Structured_Storage<Val_T, Hand
 DLLEXPORT void
 mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value) {
 	try {
-		s64 offset = get_offset_by_index_names(app, &app->parameter_data, par_id, index_names, indexes_count);
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
 		
 		Parameter_Value val;
 		val.val_real = value;
 		
-		*app->parameter_data.get_value(offset) = val;
+		*app->data.parameters.get_value(offset) = val;
 	} catch(int) {}
 }
 
 DLLEXPORT double
 mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
 	try {
-		s64 offset = get_offset_by_index_names(app, &app->parameter_data, par_id, index_names, indexes_count);
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
 		
-		double value = (*app->parameter_data.get_value(offset)).val_real;
+		double value = (*app->data.parameters.get_value(offset)).val_real;
 		return value;
 	} catch(int) {}
 	return 0.0;
@@ -232,13 +232,13 @@ mobius_get_additional_series_id(Model_Application *app, char *name) {
 DLLEXPORT s64
 mobius_get_steps(Model_Application *app, s16 type) {
 	if(type == 0) {
-		if(!app->result_data.has_been_set_up)
+		if(!app->result_structure.has_been_set_up)
 			return 0;
-		return app->result_data.time_steps;
+		return app->data.results.time_steps;
 	} else if(type == 1)
-		return app->series_data.time_steps;
+		return app->data.series.time_steps;
 	else if(type == 2)
-		return app->additional_series_data.time_steps;
+		return app->data.additional_series.time_steps;
 	
 	return 0;
 }
@@ -252,13 +252,13 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 		s64 offset;
 		String_View name;
 		if(var_id.type == 0) {
-			offset = get_offset_by_index_names(app, &app->result_data, var_id, index_names, indexes_count);
+			offset = get_offset_by_index_names(app, &app->result_structure, var_id, index_names, indexes_count);
 			name = app->model->state_vars[var_id]->name;
 		} else if (var_id.type == 1) {
-			offset = get_offset_by_index_names(app, &app->series_data, var_id, index_names, indexes_count);
+			offset = get_offset_by_index_names(app, &app->series_structure, var_id, index_names, indexes_count);
 			name = app->model->series[var_id]->name;
 		} else if (var_id.type == 2) {
-			offset = get_offset_by_index_names(app, &app->additional_series_data, var_id, index_names, indexes_count);
+			offset = get_offset_by_index_names(app, &app->additional_series_structure, var_id, index_names, indexes_count);
 			name = app->additional_series[var_id]->name;
 		}
 		
@@ -269,11 +269,11 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 		for(s64 step = 0; step < time_steps_out; ++step) {
 			double value;
 			if(var_id.type == 0)
-				value = *app->result_data.get_value(offset, step);
+				value = *app->data.results.get_value(offset, step);
 			else if(var_id.type == 1)
-				value = *app->series_data.get_value(offset, step);
+				value = *app->data.series.get_value(offset, step);
 			else if(var_id.type == 2)
-				value = *app->additional_series_data.get_value(offset, step);
+				value = *app->data.additional_series.get_value(offset, step);
 			series_out[step] = value;
 		}
 	} catch(int) {}
@@ -291,11 +291,11 @@ mobius_get_start_date(Model_Application *app, s16 type) {
 	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
 	String_View str;
 	if(type == 0)
-		str = app->result_data.start_date.to_string();
+		str = app->data.results.start_date.to_string();
 	else if(type == 1)
-		str = app->series_data.start_date.to_string();
+		str = app->data.series.start_date.to_string();
 	else if(type == 2)
-		str = app->additional_series_data.start_date.to_string();
+		str = app->data.additional_series.start_date.to_string();
 	
 	return str.data;
 }

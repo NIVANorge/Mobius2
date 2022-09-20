@@ -6,57 +6,57 @@
 
 
 
-bool run_model(Model_Application *model_app, s64 ms_timeout) {
+bool
+run_model(Model_Data *data, s64 ms_timeout) {
 	
 	//warning_print("begin model run.\n");
 	
-	if(!model_app->is_compiled)
+	Model_Application *app = data->app;
+	Mobius_Model *model    = app->model;
+	if(!app->is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to run model before it was compiled.");
-	Mobius_Model *model = model_app->model;
 	
-	Date_Time start_date = model_app->get_start_date_parameter();
-	Date_Time end_date   = model_app->get_end_date_parameter();
+	Date_Time start_date = data->get_start_date_parameter();
+	Date_Time end_date   = data->get_end_date_parameter();
 	
 	if(start_date > end_date)
 		fatal_error(Mobius_Error::api_usage, "The end date of the model run was set to be later than the start date.\n");
 	
-	s64 time_steps = steps_between(start_date, end_date, model_app->time_step_size) + 1; // +1 since end date is inclusive.
+	s64 time_steps = steps_between(start_date, end_date, app->time_step_size) + 1; // +1 since end date is inclusive.
 	
 	s64 input_offset = 0;
-	if(model_app->series_data.data) {
-		if(start_date < model_app->series_data.start_date)
+	if(data->series.data) {
+		if(start_date < data->series.start_date)
 			fatal_error(Mobius_Error::api_usage, "Tried to start the model run at an earlier time than there exists time series input data.\n");
-		input_offset = steps_between(model_app->series_data.start_date, start_date, model_app->time_step_size);
+		input_offset = steps_between(data->series.start_date, start_date, app->time_step_size);
 		
-		if(input_offset + time_steps > model_app->series_data.time_steps)
+		if(input_offset + time_steps > data->series.time_steps)
 			fatal_error(Mobius_Error::api_usage, "Tried to run the model for longer than there exists time series input data.\n");
-	} else if (model_app->series_data.total_count > 0) {
+	} else if (app->series_structure.total_count > 0) {
 		// TODO: This is not that good, because what then if somebody change the run dates and run again?
 		// note: it is a bit of a fringe case though. Will only happen if somebody run without any input data when some was expected.
-		model_app->allocate_series_data(time_steps);
-		model_app->series_data.start_date = start_date;
+		app->allocate_series_data(time_steps, start_date);
 	}
 	
-	model_app->result_data.allocate(time_steps);
-	model_app->result_data.start_date = start_date;
+	app->data.results.allocate(time_steps, start_date);
 	
 	//warning_print("got past allocation\n");
 	
-	int var_count    = model_app->result_data.total_count;
-	int series_count = model_app->series_data.total_count;
+	int var_count    = app->result_structure.total_count;
+	int series_count = app->series_structure.total_count;
 	
 	Model_Run_State run_state;
 	
-	run_state.parameters       = model_app->parameter_data.data;
-	run_state.state_vars       = model_app->result_data.data;
-	run_state.series           = model_app->series_data.data + series_count*input_offset;
-	run_state.neighbor_info    = model_app->neighbor_data.data;
+	run_state.parameters       = data->parameters.data;
+	run_state.state_vars       = data->results.data;
+	run_state.series           = data->series.data + series_count*input_offset;
+	run_state.neighbor_info    = data->neighbors.data;
 	run_state.solver_workspace = nullptr;
-	run_state.date_time        = Expanded_Date_Time(start_date, model_app->time_step_size);
+	run_state.date_time        = Expanded_Date_Time(start_date, app->time_step_size);
 	run_state.solver_t         = 0.0;
 	
 	int solver_workspace_size = 0;
-	for(auto &batch : model_app->batches) {
+	for(auto &batch : app->batches) {
 		if(batch.solver_fun)
 			solver_workspace_size = std::max(solver_workspace_size, 4*batch.n_ode); // TODO:    the 4*  is INCA-Dascru specific. Make it general somehow.
 	}
@@ -76,15 +76,14 @@ bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	run_state.date_time.step = -1;
 
 	// Initial values:
-	call_fun(BATCH_FUNCTION(model_app->initial_batch), &run_state);
+	call_fun(BATCH_FUNCTION(app->initial_batch), &run_state);
 
-	
 	for(run_state.date_time.step = 0; run_state.date_time.step < time_steps; run_state.date_time.advance()) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
 		run_state.state_vars+=var_count;
 		
 		//TODO: we *could* also generate code for this for loop to avoid the ifs (but branch prediction should work well since the branches don't change)
-		for(auto &batch : model_app->batches) {
+		for(auto &batch : app->batches) {
 			if(!batch.solver_fun)
 				call_fun(BATCH_FUNCTION(batch), &run_state);
 			else {
@@ -112,4 +111,9 @@ bool run_model(Model_Application *model_app, s64 ms_timeout) {
 	//warning_print("Run time: ", ms, " milliseconds, ", cycles, " cycles.\n");
 	
 	return true;
+}
+
+bool
+run_model(Model_Application *app, s64 ms_timeout) {
+	return run_model(&app->data, ms_timeout);
 }

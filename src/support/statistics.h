@@ -53,10 +53,10 @@ inline double quantile_of_sorted(double *data, s64 size, double q) {
 
 
 void
-compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *settings, Structured_Storage<double, Var_Id> *data, s64 offset, s64 ts_begin, s64 len);
+compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *settings, Data_Storage<double, Var_Id> *data, s64 offset, s64 ts_begin, s64 len);
 
 void
-compute_residual_stats(Residual_Stats *stats, Structured_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Structured_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, bool compute_rcc);
+compute_residual_stats(Residual_Stats *stats, Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, bool compute_rcc);
 
 
 #endif // MOBIUS_STATISTICS_H

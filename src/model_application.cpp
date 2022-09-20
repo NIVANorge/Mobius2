@@ -8,7 +8,7 @@
 
 void
 Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets) {
-	if(parameter_data.has_been_set_up)
+	if(parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up parameter structure twice.");
 	if(!all_indexes_are_set())
 		fatal_error(Mobius_Error::internal, "Tried to set up parameter structure before all index sets received indexes.");
@@ -51,22 +51,22 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 		structure.push_back(std::move(array));
 	}
 	
-	parameter_data.set_up(std::move(structure));
-	parameter_data.allocate();
+	parameter_structure.set_up(std::move(structure));
+	data.parameters.allocate();
 	
 	// Write default parameter values
 	for(auto module : model->modules) {
 		for(auto par : module->parameters) {
 			Parameter_Value val = model->find_entity<Reg_Type::parameter>(par)->default_val;
-			parameter_data.for_each(par, [&](auto indexes, s64 offset) {
-				*(parameter_data.get_value(offset)) = val;
+			parameter_structure.for_each(par, [&](auto indexes, s64 offset) {
+				*(data.parameters.get_value(offset)) = val;
 			});
 		}
 	}
 }
 
 template<s32 var_type> void
-Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Structured_Storage<double, Var_Id> &data, Series_Metadata *metadata) {
+Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<double, Var_Id> &data, Series_Metadata *metadata) {
 	if(data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up series structure twice.");
 	if(!all_indexes_are_set())
@@ -108,33 +108,33 @@ Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Structur
 }
 
 void
-Model_Application::allocate_series_data(s64 time_steps) {
+Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	// NOTE: They are by default cleared to 0
-	series_data.allocate(time_steps);
-	additional_series_data.allocate(time_steps);
+	data.series.allocate(time_steps, start_date);
+	data.additional_series.allocate(time_steps, start_date);
 	
 	for(auto series_id : model->series) {
 		if(!(model->series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
 		
-		series_data.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
+		series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
-				*series_data.get_value(offset, step) = std::numeric_limits<double>::quiet_NaN();
+				*data.series.get_value(offset, step) = std::numeric_limits<double>::quiet_NaN();
 		});
 	}
 	
 	for(auto series_id : additional_series) {
 		if(!(additional_series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
 		
-		additional_series_data.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
+		additional_series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
-				*additional_series_data.get_value(offset, step) = std::numeric_limits<double>::quiet_NaN();
+				*data.additional_series.get_value(offset, step) = std::numeric_limits<double>::quiet_NaN();
 		});
 	}
 }
 
 void
 Model_Application::set_up_neighbor_structure() {
-	if(neighbor_data.has_been_set_up)
+	if(neighbor_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up neighbor structure twice.");
 	if(!all_indexes_are_set())
 		fatal_error(Mobius_Error::internal, "Tried to set up neighbor structure before all index sets received indexes.");
@@ -151,11 +151,11 @@ Model_Application::set_up_neighbor_structure() {
 		Multi_Array_Structure<Neighbor_T> array({neighbor->index_set}, std::move(handles));
 		structure.push_back(array);
 	}
-	neighbor_data.set_up(std::move(structure));
-	neighbor_data.allocate();
+	neighbor_structure.set_up(std::move(structure));
+	data.neighbors.allocate();
 	
-	for(int idx = 0; idx < neighbor_data.total_count; ++idx)
-		neighbor_data.data[idx] = -1;                          // To signify that it doesn't point at anything (yet).
+	for(int idx = 0; idx < neighbor_structure.total_count; ++idx)
+		data.neighbors.data[idx] = -1;                          // To signify that it doesn't point at anything (yet).
 };
 
 bool
@@ -227,7 +227,7 @@ does_module_exist(Mobius_Model *model, Module_Info *module_info) {
 void
 process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Module_Declaration *module = nullptr) {
 	
-	if(!app->parameter_data.has_been_set_up)
+	if(!app->parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
 	
 	Mobius_Model *model = app->model;
@@ -263,12 +263,12 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		}
 		
 		// TODO: Double check that we have a valid amount of values for the parameter.
-		s64 expect_count = app->parameter_data.instance_count(par_id);
+		s64 expect_count = app->parameter_structure.instance_count(par_id);
 		if((par.type == Decl_Type::par_enum && expect_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && expect_count != par.values.size()))
 			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly).");
 		
 		int idx = 0;
-		app->parameter_data.for_each(par_id, [&idx, &app, &param, &par](auto idxs, s64 offset) {
+		app->parameter_structure.for_each(par_id, [&idx, &app, &param, &par](auto idxs, s64 offset) {
 			Parameter_Value value;
 			if(par.type == Decl_Type::par_enum) {
 				s64 idx2 = 0;
@@ -287,7 +287,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 			} else
 				value = par.values[idx];
 			++idx;
-			*app->parameter_data.get_value(offset) = value;
+			*app->data.parameters.get_value(offset) = value;
 		});
 	}
 }
@@ -428,7 +428,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 				neighbor.loc.print_error_header();
 				fatal_error("Neighbor structures of type directed_tree can only be set up using graph data.");
 			}
-			if(!neighbor_data.has_been_set_up)
+			if(!neighbor_structure.has_been_set_up)
 				set_up_neighbor_structure();
 			if(neighbor.points_at.size() != index_counts[index_set.id].index)
 				fatal_error(Mobius_Error::internal, "Somehow the neighbor data in a data set did not have a size matching the amount of indexes in the associated index set.");
@@ -436,8 +436,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			for(int idx = 0; idx < index_counts[index_set.id].index; ++idx) { // TODO: make ++ and < operators for Index_T instead!
 				indexes[0].index = idx;
 				int info_id = 0;  // directed trees only have one info point (id 0), which is the points_at information.
-				s64 offset = neighbor_data.get_offset_alternate({neigh_id, info_id}, indexes);
-				*neighbor_data.get_value(offset) = (s64)neighbor.points_at[idx];
+				s64 offset = neighbor_structure.get_offset_alternate({neigh_id, info_id}, indexes);
+				*data.neighbors.get_value(offset) = (s64)neighbor.points_at[idx];
 			}
 		} else {
 			fatal_error(Mobius_Error::internal, "Unsupported neighbor structure type in build_from_data_set().");
@@ -477,8 +477,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			process_series_metadata(this, &series, &metadata);
 		}
 		
-		set_up_series_structure(model->series, series_data, &metadata);
-		set_up_series_structure(additional_series, additional_series_data, &metadata);
+		set_up_series_structure(model->series, series_structure, &metadata);
+		set_up_series_structure(additional_series, additional_series_structure, &metadata);
 		
 		s64 time_steps = 0;
 		if(metadata.any_data_at_all) {
@@ -491,16 +491,13 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		warning_print("Input dates: ", metadata.start_date.to_string());
 		warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
 	
-		series_data.start_date = metadata.start_date;
-		additional_series_data.start_date = metadata.start_date;
-		
-		allocate_series_data(time_steps);
+		allocate_series_data(time_steps, metadata.start_date);
 		
 		for(auto &series : data_set->series)
 			process_series(this, &series, metadata.end_date);
 	} else {
-		set_up_series_structure(model->series, series_data, nullptr);
-		set_up_series_structure(additional_series, additional_series_data, nullptr);
+		set_up_series_structure(model->series, series_structure, nullptr);
+		set_up_series_structure(additional_series, additional_series_structure, nullptr);
 	}
 	
 	warning_print("Model application set up with data.\n");
@@ -550,7 +547,7 @@ Model_Application::save_to_data_set() {
 			par_group_info->index_sets.clear();
 			if(par_group->parameters.size() > 0) { // NOTE: not sure if empty should just be an error.
 				auto id0 = par_group->parameters[0];
-				auto &index_sets = parameter_data.get_index_sets(id0);
+				auto &index_sets = parameter_structure.get_index_sets(id0);
 				
 				for(auto index_set_id : index_sets) {
 					auto index_set = model->find_entity<Reg_Type::index_set>(index_set_id);
@@ -569,12 +566,12 @@ Model_Application::save_to_data_set() {
 				par_info->values.clear();
 				par_info->values_enum.clear();
 				
-				parameter_data.for_each(par_id, [&,this](std::vector<Index_T> &idxs, s64 offset) {
+				parameter_structure.for_each(par_id, [&,this](std::vector<Index_T> &idxs, s64 offset) {
 					if(par_info->type == Decl_Type::par_enum) {
-						s64 ival = parameter_data.get_value(offset)->val_integer;
+						s64 ival = data.parameters.get_value(offset)->val_integer;
 						par_info->values_enum.push_back(par->enum_values[ival]);
 					} else {
-						par_info->values.push_back(*parameter_data.get_value(offset));
+						par_info->values.push_back(*data.parameters.get_value(offset));
 					}
 				});
 			}
@@ -586,41 +583,37 @@ Model_Application::save_to_data_set() {
 
 
 Date_Time
-Model_Application::get_start_date_parameter() {
-	auto id = model->modules[0]->parameters.find_by_name("Start date");
-	auto offset = parameter_data.get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
-	return parameter_data.get_value(offset)->val_datetime;
+Model_Data::get_start_date_parameter() {
+	auto id = app->model->modules[0]->parameters.find_by_name("Start date");
+	auto offset = parameters.structure->get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
+	return parameters.get_value(offset)->val_datetime;
 }
 
 Date_Time
-Model_Application::get_end_date_parameter() {
-	auto id = model->modules[0]->parameters.find_by_name("End date");
-	auto offset = parameter_data.get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
-	return parameter_data.get_value(offset)->val_datetime;
+Model_Data::get_end_date_parameter() {
+	auto id = app->model->modules[0]->parameters.find_by_name("End date");
+	auto offset = parameters.structure->get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
+	return parameters.get_value(offset)->val_datetime;
 }
 
-Model_Application *
-Model_Application::copy() {
-	//TODO: Right now this does way more work than it needs to. It should ideally only need to keep a reference to all of the structure stuff, and only have its own version of the actual parameter and result data.
-	Model_Application *result = new Model_Application();
-	*result = *this;
-	if(parameter_data.data) {
-		result->parameter_data.data = nullptr;
-		result->parameter_data.allocate();
-		memcpy(result->parameter_data.data, parameter_data.data, parameter_data.total_count);
-	}
-	if(result_data.data) {  //TODO: option to keep a copy of the results.
-		result->result_data.data = nullptr;
-		result->result_data.time_steps = 0;
-	}
-	// TODO: this does not work very nicely
-	result->parameter_data.parent = result;
-	result->result_data.parent = result;
-	result->series_data.parent = result;
-	result->additional_series_data.parent = result;
-	result->neighbor_data.parent = result;
-	result->is_main_app = false;
-	// TODO: option to copy the input data (not just have a reference to the same data)
-	return result;
+Model_Data::Model_Data(Model_Application *app) :
+	app(app), parameters(&app->parameter_structure), series(&app->series_structure),
+	results(&app->result_structure), neighbors(&app->neighbor_structure),
+	additional_series(&app->additional_series_structure) {
 }
+
+// TODO: this should take flags on what to copy and what to keep a reference of!
+Model_Data *
+Model_Data::copy() {
+	Model_Data *cpy = new Model_Data(app);
+	
+	cpy->parameters.copy_from(&this->parameters);
+	cpy->series.refer_to(&this->series);
+	cpy->additional_series.refer_to(&this->additional_series);
+	cpy->neighbors.refer_to(&this->neighbors);
+	// NOTE: result_structure should not copy or refer (at least for default) since the point is that there will be a model run to generate new data for this one.
+	return cpy;
+}
+	
+
 

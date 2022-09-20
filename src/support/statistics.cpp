@@ -4,7 +4,7 @@
 #include "statistics.h"
 
 void
-compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *settings, Structured_Storage<double, Var_Id> *data, s64 offset, s64 ts_begin, s64 len) {
+compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *settings, Data_Storage<double, Var_Id> *data, s64 offset, s64 ts_begin, s64 len) {
 	
 	constexpr double nan = std::numeric_limits<double>::quiet_NaN();
 	double sum = 0.0;
@@ -91,7 +91,7 @@ compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *setting
 }
 
 void
-compute_residual_stats(Residual_Stats *stats, Structured_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Structured_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, bool compute_rcc) {
+compute_residual_stats(Residual_Stats *stats, Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, bool compute_rcc) {
 	double sum = 0.0;
 	double sum_abs = 0.0;
 	double sum_sq = 0.0;
