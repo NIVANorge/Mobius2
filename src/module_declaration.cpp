@@ -1184,6 +1184,7 @@ read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, Stri
 	return decl;
 }
 
+//TODO: This means that loaded_out gets sorted by the file name, but we want it to be sorted in order of addition.
 bool
 load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, string_map<Decl_AST *> &loaded_out, String_View rel_path) {
 	auto body = reinterpret_cast<Decl_Body_AST *>(from_decl->bodies[0]);
