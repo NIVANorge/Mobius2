@@ -222,13 +222,12 @@ struct Data_Storage {
 	void copy_from(Data_Storage<Val_T, Handle_T> *source, bool size_only = false) {
 		if(structure != source->structure)
 			fatal_error(Mobius_Error::internal, "Tried to make a data storage copy from another one that belongs to a different storage structure.");
+		free_data();
 		if(source->time_steps > 0) {
-			free_data();
 			allocate(source->time_steps, source->start_date);
 			if(!size_only)
 				memcpy(data, source->data, alloc_size());
 		} else {
-			time_steps = 0;
 			start_date = source->start_date;
 		}
 	}

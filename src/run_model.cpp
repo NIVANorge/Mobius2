@@ -38,7 +38,7 @@ run_model(Model_Data *data, s64 ms_timeout) {
 		app->allocate_series_data(time_steps, start_date);
 	}
 	
-	app->data.results.allocate(time_steps, start_date);
+	data->results.allocate(time_steps, start_date);
 	
 	//warning_print("got past allocation\n");
 	
