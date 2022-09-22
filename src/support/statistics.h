@@ -62,23 +62,39 @@ get_stat(Time_Series_Stats *stats, Stat_Type type) {
 inline double
 get_stat(Residual_Stats *stats, Residual_Type type) {
 	switch(type) {
-		#define SET_RESIDUAL(handle, name) case Residual_Type::handle : { return stats->handle; } break;
+		#define SET_RESIDUAL(handle, name, type) case Residual_Type::handle : { return stats->handle; } break;
 		#include "residual_types.incl"
 		#undef SET_RESIDUAL
 	}
 	return std::numeric_limits<double>::quiet_NaN();
 }
 
-inline double
-get_stat(Time_Series_Stats *stats, Residual_Stats *residual_stats, int type) {
-	if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)
-		return get_stat(stats, (Stat_Type)type);
-	else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end)
-		return get_stat(residual_stats, (Residual_Type)type);
-	fatal_error(Mobius_Error::api_usage, "Unidentified type in get_stat()");
-	return std::numeric_limits<double>::quiet_NaN();
+int
+is_stat_type(int type) {
+	if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)              return 0;
+	else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end) return 1;
+	fatal_error(Mobius_Error::api_usage, "Unidentified stat type in is_type() (statistics.h)");
+	return -1;
 }
 
+int is_positive_good(Residual_Type res_type) {
+	switch(res_type) {
+		#define SET_RESIDUAL(handle, name, type) case Residual_Type::handle : { return type; } break;
+		#include "residual_types.incl"
+		#undef SET_RESIDUAL
+	}
+	return -1;
+}
+
+inline double
+get_stat(Time_Series_Stats *stats, Residual_Stats *residual_stats, int type) {
+	int typetype = is_stat_type(type)
+	if(typetype == 0)
+		return get_stat(stats, (Stat_Type)type);
+	else if(typetype == 1)
+		return get_stat(residual_stats, (Residual_Type)type);
+	return std::numeric_limits<double>::quiet_NaN();
+}
 
 struct
 Statistics_Settings {

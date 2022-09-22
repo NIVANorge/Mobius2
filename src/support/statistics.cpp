@@ -10,7 +10,9 @@ compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *setting
 	double sum = 0.0;
 	double sum_abs_diff = 0.0;
 	s64 finite_count = 0;
-	double ef = settings->eckhardt_filter_param;
+	double ef = 0.895;
+	if(settings)
+		ef = settings->eckhardt_filter_param;
 	
 	std::vector<double> sorted_data;
 	sorted_data.reserve(len);
@@ -63,12 +65,14 @@ compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *setting
 		variance = nan;
 	}
 	
-	stats->percentiles.resize(settings->percentiles.size());
-	for(int idx = 0; idx < settings->percentiles.size(); ++idx) {
-		if(finite_count > 0)
-			stats->percentiles[idx] = quantile_of_sorted(sorted_data.data(), sorted_data.size(), settings->percentiles[idx]*0.01);
-		else
-			stats->percentiles[idx] = nan;
+	if(settings) {
+		stats->percentiles.resize(settings->percentiles.size());
+		for(int idx = 0; idx < settings->percentiles.size(); ++idx) {
+			if(finite_count > 0)
+				stats->percentiles[idx] = quantile_of_sorted(sorted_data.data(), sorted_data.size(), settings->percentiles[idx]*0.01);
+			else
+				stats->percentiles[idx] = nan;
+		}
 	}
 	
 	if(finite_count > 0) {
