@@ -256,6 +256,10 @@ inline bool operator==(const Index_T &a, const Index_T &b) {
 	return a.index_set == b.index_set && a.index == b.index;
 }
 
+inline bool operator!=(const Index_T &a, const Index_T &b) {
+	return a.index_set != b.index_set || a.index != b.index;
+}
+
 constexpr Index_T invalid_index = {invalid_entity_id, -1};
 
 inline bool

@@ -39,6 +39,14 @@ Stat_Type {
 };
 
 enum class
+Stat_Class {
+	stat = 0,
+	residual = 1,
+	log_likelihood = 2,  //Not yet used..
+	none,
+};
+
+enum class
 Residual_Type {
 	offset = (int)Stat_Type::end + 1,
 	#define SET_RESIDUAL(handle, name, type) handle,
@@ -69,15 +77,16 @@ get_stat(Residual_Stats *stats, Residual_Type type) {
 	return std::numeric_limits<double>::quiet_NaN();
 }
 
-int
-is_stat_type(int type) {
-	if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)              return 0;
-	else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end) return 1;
+inline Stat_Class
+is_stat_class(int type) {
+	if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)              return Stat_Class::stat;
+	else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end) return Stat_Class::residual;
 	fatal_error(Mobius_Error::api_usage, "Unidentified stat type in is_type() (statistics.h)");
-	return -1;
+	return Stat_Class::none;
 }
 
-int is_positive_good(Residual_Type res_type) {
+inline int
+is_positive_good(Residual_Type res_type) {
 	switch(res_type) {
 		#define SET_RESIDUAL(handle, name, type) case Residual_Type::handle : { return type; } break;
 		#include "residual_types.incl"
@@ -88,10 +97,10 @@ int is_positive_good(Residual_Type res_type) {
 
 inline double
 get_stat(Time_Series_Stats *stats, Residual_Stats *residual_stats, int type) {
-	int typetype = is_stat_type(type)
-	if(typetype == 0)
+	Stat_Class typetype = is_stat_class(type);
+	if(typetype == Stat_Class::stat)
 		return get_stat(stats, (Stat_Type)type);
-	else if(typetype == 1)
+	else if(typetype == Stat_Class::residual)
 		return get_stat(residual_stats, (Residual_Type)type);
 	return std::numeric_limits<double>::quiet_NaN();
 }
@@ -102,7 +111,8 @@ Statistics_Settings {
 	double eckhardt_filter_param = 0.925;
 };
 
-inline double median_of_sorted(double *data, s64 size) {
+inline double
+median_of_sorted(double *data, s64 size) {
 	size_t idx = size / 2;
 	if(size % 2 == 0)
 		return 0.5*(data[idx] + data[idx+1]);
@@ -110,7 +120,8 @@ inline double median_of_sorted(double *data, s64 size) {
 		return data[idx];
 }
 
-inline double quantile_of_sorted(double *data, s64 size, double q) {
+inline double
+quantile_of_sorted(double *data, s64 size, double q) {
 	//TODO: Should we make this interpolate to be more in line with median?
 	s64 idx = std::ceil(q * (double)(size - 1));
 	return data[idx];

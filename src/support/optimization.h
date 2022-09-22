@@ -13,7 +13,7 @@ Optimization_Target {
 	int stat_type;
 	// TODO: err pars for MCMC
 	double weight;
-	Date_Times start, end;
+	Date_Time start, end;
 	
 	// NOTE: These should be set up based on begin, end and whatever the start and end date of the model run is.
 	s64 sim_stat_offset = -1, obs_stat_offset = -1, stat_ts = -1;
@@ -33,7 +33,7 @@ Optimization_Model {
 	
 	Optimization_Model(Model_Data *data, std::vector<Indexed_Parameter> &parameters, std::vector<Optimization_Target> &targets, double *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
 	
-	double operator(double *values);
+	double operator()(double *values);
 	
 	bool                              maximize, use_expr;
 	s64                               ms_timeout, n_timeouts, n_evals;

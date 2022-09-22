@@ -33,3 +33,16 @@ set_parameter_value(const Indexed_Parameter &par_data, Model_Data *data, Paramet
 	
 	recursive_update_parameter(0, current_indexes, par_data, data, val);
 }
+
+bool
+parameter_is_subset_of(const Indexed_Parameter &par, const Indexed_Parameter &compare_to) {
+	if(par.id == compare_to.id) {
+		for(int idx = 0; idx < par.indexes.size(); ++idx) {
+			if(compare_to.locks[idx]) continue;
+			if(par.locks[idx]) return false;
+			if(compare_to.indexes[idx] != par.indexes[idx]) return false;
+		}
+		return true;
+	}
+	return false;
+}

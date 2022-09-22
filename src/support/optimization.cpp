@@ -22,13 +22,14 @@ set_parameters(Model_Data *data, const std::vector<Indexed_Parameter> &parameter
 double
 evaluate_target(Model_Data *data, Optimization_Target *target) {
 	//TODO: if multiple targets have the same start and end, it could be wasteful to re-compute the stats for each target, so we could cache them.
+	//   We should also have some short-circuit to not compute some of the more expensive statistics if we only need a simple one.
 	
-	int typetype = is_stat_type(target->stat_type);
-	if(typetype == 0) {
+	Stat_Class typetype = is_stat_class(target->stat_type);
+	if(typetype == Stat_Class::stat) {
 		Time_Series_Stats stats;
 		compute_time_series_stats(&stats, nullptr, &data->results, target->sim_offset, target->sim_stat_offset, target->sim_ts);
 		return get_stat(&stats, (Stat_Type)target->stat_type);
-	} else if(typetype == 1) {
+	} else if(typetype == Stat_Class::residual) {
 		Residual_Stats residual_stats;
 		auto obs_data = target->obs_series_type == 1 ? &data->series : &data->additional_series;
 		compute_residual_stats(&residual_stats, &data->results, target->sim_offset, target->sim_stat_offset, obs_data, target->obs_offset, 
