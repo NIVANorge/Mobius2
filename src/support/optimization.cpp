@@ -38,7 +38,7 @@ evaluate_target(Model_Data *data, Optimization_Target *target) {
 	return std::numeric_limits<double>::quiet_NaN();
 }
 
-Optimization_Model::Optimization_Model()
+Optimization_Model::Optimization_Model(Model_Data *data, std::vector<Indexed_Parameter> &parameters, std::vector<Optimization_Target> &targets, double *initial_pars, const Optim_Callback &callback, s64 ms_timeout)
 	: data(data), parameters(&parameters), targets(&targets), ms_timeout(ms_timeout) {
 		
 	Date_Time input_start = data->series.start_date;
@@ -67,6 +67,14 @@ Optimization_Model::Optimization_Model()
 		}
 	}
 	
+	this->callback = nullptr; // To not have it call back in initial score computation.
+	if(initial_pars)
+		best_score = initial_score = (*this)(initial_pars);
+	else
+		best_score = initial_score = maximize ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
+	
+	this->callback = callback;
+	n_evals    = 0;
 	n_timeouts = 0;
 	use_expr = false; //TODO!
 }
@@ -84,6 +92,12 @@ double Optimization_Model::operator(double *values) {
 	double agg = 0.0;
 	for(Optimization_Target &target : *targets)
 		agg += target.weight * evaluate_target(data, &target);
+	
+	best_score = maximize ? std::max(best_score, agg) : std::min(best_score, agg);
+	
+	++n_evals;
+	if(callback)
+		callback(n_evals, n_timeouts, initial_score, best_score);
 	
 	return agg;
 }

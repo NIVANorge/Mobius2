@@ -26,18 +26,22 @@ set_parameters(Model_Data *data, const std::vector<Indexed_Parameter> &parameter
 double
 evaluate_target(Model_Data *data, Optimization_Target *target);
 
+typedef std::function<void(int, int, double, double)> Optim_Callback;
+
 struct
 Optimization_Model {
 	
-	Optimization_Model(Model_Data *data, std::vector<Indexed_Parameter> &parameters, std::vector<Optimization_Target> &targets, s64 ms_timeout = -1);
+	Optimization_Model(Model_Data *data, std::vector<Indexed_Parameter> &parameters, std::vector<Optimization_Target> &targets, double *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
 	
 	double operator(double *values);
 	
 	bool                              maximize, use_expr;
-	s64                               ms_timeout, n_timeouts;
+	s64                               ms_timeout, n_timeouts, n_evals;
+	double                            best_score, initial_score;
 	Model_Data                       *data;
 	std::vector<Indexed_Parameter>   *parameters;
 	std::vector<Optimization_Target> *targets;
+	Optim_Callback callback;
 };
 
 
