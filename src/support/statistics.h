@@ -7,12 +7,11 @@
 
 struct
 Time_Series_Stats {
-	std::vector<double> percentiles;
-	
 	#define SET_STATISTIC(handle, name) double handle;
 	#include "stat_types.incl"
 	#undef SET_STATISTIC
 	
+	std::vector<double> percentiles;
 	double initial_value;
 	s64 data_points;
 	bool initialized = false;
@@ -20,7 +19,6 @@ Time_Series_Stats {
 
 struct
 Residual_Stats {
-	
 	#define SET_RESIDUAL(handle, name, type) double handle;
 	#include "residual_types.incl"
 	#undef SET_RESIDUAL
@@ -30,6 +28,57 @@ Residual_Stats {
 	s64 data_points;
 	bool initialized = false;
 };
+
+enum class
+Stat_Type {
+	offset = 0,
+	#define SET_STATISTIC(handle, name) handle,
+	#include "stat_types.incl"
+	#undef SET_STATISTIC
+	end,
+};
+
+enum class
+Residual_Type {
+	offset = (int)Stat_Type::end + 1,
+	#define SET_RESIDUAL(handle, name, type) handle,
+	#include "residual_types.incl"
+	#undef SET_RESIDUAL
+	end,
+};
+
+inline double
+get_stat(Time_Series_Stats *stats, Stat_Type type) {
+	// NOTE: would like this to work, but it doesn't:
+	//return *(((double *)stats) + (int)type - (int)Stat_Type::offset - 1);
+	switch(type) {
+		#define SET_STATISTIC(handle, name) case Stat_Type::handle : { return stats->handle; } break;
+		#include "stat_types.incl"
+		#undef SET_STATISTIC
+	}
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+inline double
+get_stat(Residual_Stats *stats, Residual_Type type) {
+	switch(type) {
+		#define SET_RESIDUAL(handle, name) case Residual_Type::handle : { return stats->handle; } break;
+		#include "residual_types.incl"
+		#undef SET_RESIDUAL
+	}
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+inline double
+get_stat(Time_Series_Stats *stats, Residual_Stats *residual_stats, int type) {
+	if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)
+		return get_stat(stats, (Stat_Type)type);
+	else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end)
+		return get_stat(residual_stats, (Residual_Type)type);
+	fatal_error(Mobius_Error::api_usage, "Unidentified type in get_stat()");
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
 
 struct
 Statistics_Settings {
