@@ -122,7 +122,7 @@ double Optimization_Model::evaluate(const double *values) {
 	
 	best_score = maximize ? std::max(best_score, agg) : std::min(best_score, agg);
 	
-	//warning_print("best score ", best_score, " agg ", agg, "\n");
+	warning_print("best is ", best_score, " agg is ", agg, "\n");
 	
 	++n_evals;
 	if(callback)

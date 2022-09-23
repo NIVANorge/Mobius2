@@ -20,7 +20,8 @@ struct Dlib_Optimization_Model : public Optimization_Model {
 	double operator()(const column_vector &par_values) {
 		std::vector<double> par_vals(par_values.size());
 		for(int idx = 0; idx < par_values.size(); ++idx) par_vals[idx] = par_values(idx);
-		return optim_score(par_vals.data());
+		double result = evaluate(par_vals.data());
+		return maximize ? result : -result;
 	}
 };
 

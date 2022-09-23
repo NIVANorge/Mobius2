@@ -35,7 +35,6 @@ Optimization_Model {
 	Optimization_Model(Model_Data *data, std::vector<Indexed_Parameter> &parameters, std::vector<Optimization_Target> &targets, double *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
 	
 	double evaluate(const double *values);
-	inline double optim_score(const double *values) { return maximize ? evaluate(values) : -evaluate(values); }
 	
 	bool                              maximize, use_expr;
 	s64                               ms_timeout, n_timeouts, n_evals;
