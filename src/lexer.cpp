@@ -574,7 +574,7 @@ Token_Stream::expect_real() {
 	return value;
 }
 
-u64
+s64
 Token_Stream::expect_int() {
 	Token token = expect_token(Token_Type::integer);
 	return token.val_int;

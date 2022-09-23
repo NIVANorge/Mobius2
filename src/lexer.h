@@ -73,7 +73,7 @@ Token_Stream {
 	Token_Stream(String_View filename, String_View file_data) : filename(filename), file_data(file_data), line(0), column(0), previous_column(0), allow_date_time_tokens(false), at_char(-1), fold_minus(true) {
 		
 		//NOTE: In case the file has a BOM (byte order mark), which Notepad tends to do on Windows.
-		if(file_data.count >= 3 
+		if(file_data.count >= 3
 				&& file_data[0] == (char) 0xEF
 				&& file_data[1] == (char) 0xBB
 				&& file_data[2] == (char) 0xBF)
@@ -86,7 +86,7 @@ Token_Stream {
 	Token expect_token(char);
 	
 	double       expect_real();
-	u64          expect_int();
+	s64          expect_int();
 	bool         expect_bool();
 	Date_Time    expect_datetime();
 	String_View  expect_quoted_string();

@@ -39,20 +39,20 @@ Stat_Type {
 };
 
 enum class
-Stat_Class {
-	stat = 0,
-	residual = 1,
-	log_likelihood = 2,  //Not yet used..
-	none,
-};
-
-enum class
 Residual_Type {
 	offset = (int)Stat_Type::end + 1,
 	#define SET_RESIDUAL(handle, name, type) handle,
 	#include "residual_types.incl"
 	#undef SET_RESIDUAL
 	end,
+};
+
+enum class
+Stat_Class {
+	stat = 0,
+	residual = 1,
+	log_likelihood = 2,  //Not yet used..
+	none,
 };
 
 inline double
@@ -83,6 +83,15 @@ is_stat_class(int type) {
 	else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end) return Stat_Class::residual;
 	fatal_error(Mobius_Error::api_usage, "Unidentified stat type in is_type() (statistics.h)");
 	return Stat_Class::none;
+}
+
+inline String_View
+stat_name(int type) {
+	#define SET_STATISTIC(handle, name) if(type == (int)Stat_Type::handle) return name;
+	#include "stat_types.incl"
+	#undef SET_STATISTIC
+	#define SET_RESIDUAL(handle, name, type) if(type == (int)Residual_Type::handle) return name;
+	return "";
 }
 
 inline int

@@ -1,0 +1,7 @@
+
+If you are building Mobius2 with the dlib optimizer, you need to download dlib and put the sources here so that e.g. the path Mobius2\third_party\dlib\global_optimization\global_function_search.cpp . exists. You should only need to include the following two files in your project:
+dlib\global_optimization\global_function_search.cpp
+dlib\threads\thread_pool_extension.cpp
+dlib\test_for_odr_violations.cpp
+
+Sources can be obtained from dlib.net . Remember to read their license.
