@@ -132,8 +132,8 @@ struct Multi_Array_Structure {
 
 struct Model_Application;
 
-// TODO: rename to storage structure
-template<typename Val_T, typename Handle_T>
+// TODO: remove Val_T template parameter (it is unused)
+template<typename Handle_T>
 struct Storage_Structure {
 	s64       total_count;
 	bool      has_been_set_up;
@@ -169,9 +169,9 @@ struct Storage_Structure {
 
 template<typename Val_T, typename Handle_T>
 struct Data_Storage {
-	Data_Storage(Storage_Structure<Val_T, Handle_T> *structure, s64 initial_step = 0) : structure(structure), initial_step(initial_step) {}
+	Data_Storage(Storage_Structure<Handle_T> *structure, s64 initial_step = 0) : structure(structure), initial_step(initial_step) {}
 	
-	Storage_Structure<Val_T, Handle_T> *structure;
+	Storage_Structure<Handle_T> *structure;
 	Val_T *data = nullptr;
 	s64           time_steps = 0;
 	s64           initial_step;
@@ -326,11 +326,11 @@ Model_Application {
 	
 	Var_Registry<2>                                 additional_series;
 	
-	Storage_Structure<Parameter_Value, Entity_Id>  parameter_structure;
-	Storage_Structure<double, Var_Id>              series_structure;
-	Storage_Structure<double, Var_Id>              result_structure;
-	Storage_Structure<s64, Neighbor_T>             neighbor_structure;
-	Storage_Structure<double, Var_Id>              additional_series_structure;
+	Storage_Structure<Entity_Id>   parameter_structure;
+	Storage_Structure<Var_Id>      series_structure;
+	Storage_Structure<Var_Id>      result_structure;
+	Storage_Structure<Neighbor_T>  neighbor_structure;
+	Storage_Structure<Var_Id>      additional_series_structure;
 	
 	Data_Set              *data_set;
 	
@@ -353,7 +353,7 @@ Model_Application {
 	void set_up_neighbor_structure();
 	
 	template<s32 var_type> void
-	set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<double, Var_Id> &data, Series_Metadata *metadata);
+	set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata);
 	
 	// TODO: this one should maybe be on the Model_Data struct instead
 	void allocate_series_data(s64 time_steps, Date_Time start_date);
@@ -363,12 +363,12 @@ Model_Application {
 
 
 template<> inline String_View
-Storage_Structure<Parameter_Value, Entity_Id>::get_handle_name(Entity_Id par) {
+Storage_Structure<Entity_Id>::get_handle_name(Entity_Id par) {
 	return parent->model->find_entity<Reg_Type::parameter>(par)->name;
 }
 
 template<> inline String_View
-Storage_Structure<double, Var_Id>::get_handle_name(Var_Id var_id) {
+Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
 	if(var_id.type == 0)
 		return parent->model->state_vars[var_id]->name;
 	else if(var_id.type == 1)
@@ -378,42 +378,42 @@ Storage_Structure<double, Var_Id>::get_handle_name(Var_Id var_id) {
 }
 
 template<> inline String_View
-Storage_Structure<s64, Neighbor_T>::get_handle_name(Neighbor_T nb) {
+Storage_Structure<Neighbor_T>::get_handle_name(Neighbor_T nb) {
 	return parent->model->find_entity<Reg_Type::neighbor>(nb.neighbor)->name;
 }
 
-template<typename Val_T, typename Handle_T> const std::vector<Entity_Id> &
-Storage_Structure<Val_T, Handle_T>::get_index_sets(Handle_T handle) {
+template<typename Handle_T> const std::vector<Entity_Id> &
+Storage_Structure<Handle_T>::get_index_sets(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].index_sets;
 }
 
-template<typename Val_T, typename Handle_T> s64
-Storage_Structure<Val_T, Handle_T>::get_offset_base(Handle_T handle) {
+template<typename Handle_T> s64
+Storage_Structure<Handle_T>::get_offset_base(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].get_offset_base(handle);
 }
 
-template<typename Val_T, typename Handle_T> s64
-Storage_Structure<Val_T, Handle_T>::instance_count(Handle_T handle) {
+template<typename Handle_T> s64
+Storage_Structure<Handle_T>::instance_count(Handle_T handle) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].instance_count(parent->index_counts);
 }
 
-template<typename Val_T, typename Handle_T> s64
-Storage_Structure<Val_T, Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
+template<typename Handle_T> s64
+Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].get_offset(handle, indexes, parent->index_counts);
 }
 
-template<typename Val_T, typename Handle_T> s64
-Storage_Structure<Val_T, Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
+template<typename Handle_T> s64
+Storage_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].get_offset_alternate(handle, indexes, parent->index_counts);
 }
 	
-template<typename Val_T, typename Handle_T> Math_Expr_FT *
-Storage_Structure<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes) {
+template<typename Handle_T> Math_Expr_FT *
+Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts);
 	if(!code)
@@ -421,8 +421,8 @@ Storage_Structure<Val_T, Handle_T>::get_offset_code(Handle_T handle, std::vector
 	return code;
 }
 
-template<typename Val_T, typename Handle_T> void
-Storage_Structure<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure) {
+template<typename Handle_T> void
+Storage_Structure<Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure) {
 	//TODO: check that index_counts are properly set up in parent.
 	
 	if(has_been_set_up)
@@ -444,8 +444,8 @@ Storage_Structure<Val_T, Handle_T>::set_up(std::vector<Multi_Array_Structure<Han
 	has_been_set_up = true;
 }
 
-template<typename Val_T, typename Handle_T> void
-for_each_helper(Storage_Structure<Val_T, Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
+template<typename Handle_T> void
+for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
 	Entity_Id index_set = indexes[level].index_set;
 	
 	if(level == indexes.size()-1) {
@@ -462,8 +462,8 @@ for_each_helper(Storage_Structure<Val_T, Handle_T> *self, Handle_T handle, const
 	}
 }
 
-template<typename Val_T, typename Handle_T> void
-Storage_Structure<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
+template<typename Handle_T> void
+Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array[handle];
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;
@@ -482,8 +482,8 @@ Storage_Structure<Val_T, Handle_T>::for_each(Handle_T handle, const std::functio
 
 // TODO: Debug why this one doesn't work. It is in principle nicer.
 #if 0
-template<typename Val_T, typename Handle_T> void
-Storage_Structure<Val_T, Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
+template<typename Handle_T> void
+Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array[handle];
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;

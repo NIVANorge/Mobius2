@@ -66,7 +66,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 }
 
 template<s32 var_type> void
-Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<double, Var_Id> &data, Series_Metadata *metadata) {
+Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata) {
 	if(data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up series structure twice.");
 	if(!all_indexes_are_set())

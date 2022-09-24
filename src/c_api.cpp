@@ -127,7 +127,7 @@ mobius_get_module_entity_by_handle(Module_Declaration *module, char *handle_name
 }
 
 template<typename Val_T, typename Handle_T> s64
-get_offset_by_index_names(Model_Application *app, Storage_Structure<Val_T, Handle_T> *storage, Handle_T handle, char **index_names, s64 indexes_count) {
+get_offset_by_index_names(Model_Application *app, Storage_Structure<Handle_T> *storage, Handle_T handle, char **index_names, s64 indexes_count) {
 	
 	const std::vector<Entity_Id> &index_sets = storage->get_index_sets(handle);
 	if(index_sets.size() != indexes_count)
