@@ -2,8 +2,6 @@
 #include "optimization.h"
 
 
-//#include <CtrlLib/CtrlLib.h> // TODO: for debugging only. REMOVE!
-
 int
 set_parameters(Model_Data *data, const std::vector<Indexed_Parameter> &parameters, const double *values, bool use_expr) {
 	Parameter_Value val;

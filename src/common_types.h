@@ -53,6 +53,26 @@ Module_Version {
 	int major, minor, revision;
 };
 
+inline bool operator<=(const Module_Version &a, const Module_Version &b) {
+	if(a.major < b.major) return true;
+	if(a.major == b.major) {
+		if(a.minor < b.minor) return true;
+		if(a.minor == b.minor)
+			return a.revision <= b.revision;
+	}
+	return false;
+}
+
+inline bool operator<(const Module_Version &a, const Module_Version &b) {
+	if(a.major < b.major) return true;
+	if(a.major == b.major) {
+		if(a.minor < b.minor) return true;
+		if(a.minor == b.minor)
+			return a.revision < b.revision;
+	}
+	return false;
+}
+
 struct Var_Id {
 	s32 type;
 	s32 id;

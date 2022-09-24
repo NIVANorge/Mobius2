@@ -4,7 +4,6 @@
 
 #include "optimization.h"
 
-//#include <winsock2.h> //TODO: REMOVE!
 //#define DLIB_NO_GUI_SUPPORT  //NOTE: Turns off dlib's own GUI since we are using upp.
 
 #include "../../third_party/dlib/optimization.h"

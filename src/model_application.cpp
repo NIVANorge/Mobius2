@@ -164,19 +164,26 @@ Model_Application::all_indexes_are_set() {
 	return true;
 }
 
+Module_Declaration *
+does_module_exist(Mobius_Model *model, const std::string &module_name) {
+	Module_Declaration *module = nullptr;
+	// TODO: make a better way to look up module by name
+	for(auto mod : model->modules)
+		if(mod->module_name == module_name.data()) {
+			module = mod;
+			break;
+		}
+	return module;
+}
+
 void
 process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, const std::string &module_name = "") {
 	auto global_module = model->modules[0];
 	
 	Module_Declaration *module = nullptr;
 	if(module_name != "") {
-		// TODO: make a better way to look up module by name
-		for(auto mod : model->modules)
-			if(mod->module_name == module_name.data()) {
-				module = mod;
-				break;
-			}
-		if(!module)    //NOTE: we do errror handling on this on the second pass when we load the actual data.
+		module = does_module_exist(model, module_name);
+		if(!module)    //NOTE: we do error handling on missing modules on the second pass when we load the actual data.
 			return;
 	} else
 		module = model->modules[0];
@@ -192,7 +199,7 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 		return;
 	}
 	
-	auto pgd          = module->par_groups[par_group_id];
+	auto pgd = module->par_groups[par_group_id];
 	if(is_valid(pgd->compartment)) {  // It is invalid for the "System" par group
 		auto comp_id = module->get_global(pgd->compartment);
 		auto compartment  = model->find_entity<Reg_Type::compartment>(comp_id);
@@ -212,20 +219,8 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	}
 }
 
-Module_Declaration *
-does_module_exist(Mobius_Model *model, Module_Info *module_info) {
-	Module_Declaration *module = nullptr;
-	
-	for(auto mod : model->modules)
-		if(mod->module_name == module_info->name.data()) {
-			module = mod;
-			break;
-		}
-	return module;
-}
-
 void
-process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Module_Declaration *module = nullptr) {
+process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Module_Info *module_info = nullptr, Module_Declaration *module = nullptr) {
 	
 	if(!app->parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
@@ -237,22 +232,23 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	
 	// TODO: Match module versions, and be lenient on errors if versions don't match.
 	
-	// TODO: oops module->module_name is not the right thing to use for the global module (unless we set that name to something sensible?).
-	
 	auto par_group_id = module->par_groups.find_by_name(par_group_info->name);
 	if(!is_valid(par_group_id)) {
 		par_group_info->loc.print_error_header();
+		// TODO: oops module->module_name is not the right thing to use for the global module (unless we set that name to something sensible?).
 		fatal_error("The module \"", module->module_name, "\" does not contain the parameter group \"", par_group_info->name, ".");
 		//TODO: say what file the module was declared in?
 	}
-	//auto par_group = module->par_groups[par_group_id];
+	
+	bool module_is_outdated = module_info && module && (module_info->version < module->version);
 	
 	for(auto &par : par_group_info->pars) {
-		//warning_print(par.name.string_value, "\n");
 		auto par_id = module->parameters.find_by_name(par.name);
 		Entity_Registration<Reg_Type::parameter> *param;
 		if(!is_valid(par_id) || (param = module->parameters[par_id])->par_group != par_group_id) {
-			// NOTE: this also covers the case where par_id is invalid.
+			if(module_is_outdated) {
+				warning_print("The parameter group \"", par_group_info->name, "\" in the module \"", module->module_name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed.\n");
+			}
 			par.loc.print_error_header();
 			fatal_error("The parameter group \"", par_group_info->name, "\" in the module \"", module->module_name, "\" does not contain a parameter named \"", par.name, "\".");
 		}
@@ -262,7 +258,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 			fatal_error("The parameter \"", par.name, "\" should be of type ", name(param->decl_type), ", not of type ", name(par.type), ".");
 		}
 		
-		// TODO: Double check that we have a valid amount of values for the parameter.
+		// TODO: just print a warning and fill in default values (or trim off values) ?
 		s64 expect_count = app->parameter_structure.instance_count(par_id);
 		if((par.type == Decl_Type::par_enum && expect_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && expect_count != par.values.size()))
 			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly).");
@@ -458,14 +454,14 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		process_parameters(this, &par_group);
 	}
 	for(auto &module : data_set->modules) {
-		Module_Declaration *mod = does_module_exist(model, &module);
+		Module_Declaration *mod = does_module_exist(model, module.name);
 		if(!mod) {
 			module.loc.print_warning_header();
 			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
 			continue;
 		}
 		for(auto &par_group : module.par_groups)
-			process_parameters(this, &par_group, mod);
+			process_parameters(this, &par_group, &module, mod);
 	}
 	
 	if(!data_set->series.empty()) {
@@ -473,20 +469,18 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		metadata.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
 		metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
 		
-		for(auto &series : data_set->series) {
+		for(auto &series : data_set->series)
 			process_series_metadata(this, &series, &metadata);
-		}
 		
 		set_up_series_structure(model->series, series_structure, &metadata);
 		set_up_series_structure(additional_series, additional_series_structure, &metadata);
 		
 		s64 time_steps = 0;
-		if(metadata.any_data_at_all) {
+		if(metadata.any_data_at_all)
 			time_steps = steps_between(metadata.start_date, metadata.end_date, time_step_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
-		}
 		else if(model->series.count() != 0) {
 			//TODO: use the model run start and end date.
-			// Or better yet, we could just bake in series data as literals in the code. in this case.
+			// Or better yet, we could just bake in series default values as literals in the code. in this case.
 		}
 		warning_print("Input dates: ", metadata.start_date.to_string());
 		warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");

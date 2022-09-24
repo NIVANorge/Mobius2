@@ -55,7 +55,7 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	for(auto var_id : model->state_vars) {
 		String_View name = model->state_vars[var_id]->name;
 		//if(name != "Quick flow" && name != "in_flux") continue;
-		model_app->result_data.for_each(var_id, [&](std::vector<Index_T> &indexes, s64 offset) {
+		model_app->result_structure.for_each(var_id, [&](std::vector<Index_T> &indexes, s64 offset) {
 			fprintf(file, "\"%.*s\"[", name.count, name.data);
 			for(auto index : indexes) fprintf(file, "%d ", index.index);
 			fprintf(file, "]\t");
@@ -64,9 +64,9 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	}
 	fprintf(file, "\n");
 
-	for(s64 ts = -1; ts < model_app->result_data.time_steps; ++ts) {
+	for(s64 ts = -1; ts < model_app->data.results.time_steps; ++ts) {
 		for(s64 offset : offsets) {
-			fprintf(file, "%f\t", *(model_app->result_data.get_value(offset, ts)));
+			fprintf(file, "%f\t", *(model_app->data.results.get_value(offset, ts)));
 		}
 		fprintf(file, "\n");
 	}

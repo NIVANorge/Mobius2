@@ -1,8 +1,6 @@
 
 #include "dlib_optimization.h"
 
-//#include <CtrlLib/CtrlLib.h> // TODO: for debugging only. REMOVE!
-
 column_vector
 to_dlib_vec(double *data, int len) {
 	column_vector result(len);
