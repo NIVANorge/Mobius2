@@ -32,7 +32,7 @@ evaluate_target(Model_Data *data, Optimization_Target *target) {
 		return get_stat(&stats, (Stat_Type)target->stat_type);
 	} else if(typetype == Stat_Class::residual) {
 		Residual_Stats residual_stats;
-		auto obs_data = target->obs_id.type == 1 ? &data->series : &data->additional_series;
+		auto obs_data = target->obs_id.type == Var_Id::Type::series ? &data->series : &data->additional_series;
 		compute_residual_stats(&residual_stats, &data->results, target->sim_offset, target->sim_stat_offset, obs_data, target->obs_offset,
 			target->obs_stat_offset, target->stat_ts, target->stat_type == (int)Residual_Type::srcc);
 		return get_stat(&residual_stats, (Residual_Type)target->stat_type);
@@ -63,7 +63,7 @@ Optimization_Model::Optimization_Model(Model_Data *data, std::vector<Indexed_Par
 		
 		target.sim_offset = data->results.structure->get_offset(target.sim_id, target.indexes);
 		if(is_valid(target.obs_id)) {
-			auto obs_data = target.obs_id.type == 1 ? &data->series : &data->additional_series;
+			auto obs_data = target.obs_id.type == Var_Id::Type::series ? &data->series : &data->additional_series;
 			target.obs_offset = obs_data->structure->get_offset(target.obs_id, target.indexes);
 		}
 		

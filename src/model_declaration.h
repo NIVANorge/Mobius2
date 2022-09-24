@@ -88,7 +88,7 @@ State_Variable {
 	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
 };
 
-template <s32 var_type>
+template <Var_Id::Type var_type>
 struct Var_Registry {
 	std::vector<State_Variable> vars;
 	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
@@ -187,8 +187,8 @@ Mobius_Model {
 	//note: it is a bit annoying that we can't reuse Registry or Var_Registry for this, but it would also be too gnarly to factor out any more functionality from those, I think.
 	string_map<s16> module_ids;  // Maps the handle name to the id.
 	
-	Var_Registry<0> state_vars;
-	Var_Registry<1> series;
+	Var_Registry<Var_Id::Type::state_var> state_vars;
+	Var_Registry<Var_Id::Type::series>    series;
 };
 
 template<Reg_Type reg_type> Entity_Id

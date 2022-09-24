@@ -324,7 +324,7 @@ Model_Application {
 	
 	Time_Step_Size                                  time_step_size;
 	
-	Var_Registry<2>                                 additional_series;
+	Var_Registry<Var_Id::Type::additional_series>    additional_series;
 	
 	Storage_Structure<Entity_Id>   parameter_structure;
 	Storage_Structure<Var_Id>      series_structure;
@@ -352,7 +352,7 @@ Model_Application {
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
 	void set_up_neighbor_structure();
 	
-	template<s32 var_type> void
+	template<Var_Id::Type var_type> void
 	set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata);
 	
 	// TODO: this one should maybe be on the Model_Data struct instead
@@ -369,9 +369,9 @@ Storage_Structure<Entity_Id>::get_handle_name(Entity_Id par) {
 
 template<> inline String_View
 Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
-	if(var_id.type == 0)
+	if(var_id.type == Var_Id::Type::state_var)
 		return parent->model->state_vars[var_id]->name;
-	else if(var_id.type == 1)
+	else if(var_id.type == Var_Id::Type::series)
 		return parent->model->series[var_id]->name;
 	else
 		return parent->additional_series[var_id]->name;

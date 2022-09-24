@@ -65,7 +65,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 	}
 }
 
-template<s32 var_type> void
+template<Var_Id::Type var_type> void
 Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata) {
 	if(data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up series structure twice.");
@@ -81,7 +81,7 @@ Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Storage_
 		for(auto series_id : reg) {
 			std::vector<Entity_Id> *index_sets = &empty;
 			if(metadata) {
-				auto *info = series_id.type == 1 ? &metadata->index_sets : &metadata->index_sets_additional;
+				auto *info = series_id.type == Var_Id::Type::series ? &metadata->index_sets : &metadata->index_sets_additional;
 				
 				auto find = info->find(series_id);
 				if(find != info->end())
@@ -332,16 +332,16 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
-				if(id.type == 1) {// Only perform the check for model inputs, not additional series.
+				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
 					auto comp_id     = model->series[id]->loc1.compartment;
 					auto compartment = model->modules[0]->compartments[comp_id];
 
 					if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
 						header.loc.print_error_header();
-						fatal_error("Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");	
+						fatal_error("Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");
 					}
 				}
-				if(id.type == 1)
+				if(id.type == Var_Id::Type::series)
 					metadata->index_sets[id].push_back(index_set);
 				else
 					metadata->index_sets_additional[id].push_back(index_set);

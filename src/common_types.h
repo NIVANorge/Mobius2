@@ -74,7 +74,9 @@ inline bool operator<(const Module_Version &a, const Module_Version &b) {
 }
 
 struct Var_Id {
-	s32 type;
+	enum class Type : s32 {
+		none = -1, state_var, series, additional_series
+	} type;
 	s32 id;
 	
 	Var_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
@@ -86,7 +88,7 @@ is_valid(Var_Id id) {
 	return id.id >= 0;
 }
 
-constexpr Var_Id invalid_var = {-1, -1};
+constexpr Var_Id invalid_var = { Var_Id::Type::none, -1 };
 
 inline bool
 operator==(const Var_Id &a, const Var_Id &b) { return a.id == b.id; }

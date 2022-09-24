@@ -126,7 +126,7 @@ mobius_get_module_entity_by_handle(Module_Declaration *module, char *handle_name
 	return result;
 }
 
-template<typename Val_T, typename Handle_T> s64
+template<typename Handle_T> s64
 get_offset_by_index_names(Model_Application *app, Storage_Structure<Handle_T> *storage, Handle_T handle, char **index_names, s64 indexes_count) {
 	
 	const std::vector<Entity_Id> &index_sets = storage->get_index_sets(handle);
@@ -205,14 +205,14 @@ DLLEXPORT Var_Id
 mobius_get_conc_id(Model_Application *app, Var_Location loc) {
 	
 	Var_Id res = mobius_get_var_id(app, loc);
-	if(res.type == 1 || res.type == 2) res.type = -1; // Input series don't have concentrations.
-	if(res.type == -1) return res;
+	if(res.type == Var_Id::Type::series || res.type == Var_Id::Type::additional_series) res.type = Var_Id::Type::none; // Input series don't have concentrations.
+	if(res.type == Var_Id::Type::none) return res;
 	
 	auto var = app->model->state_vars[res];
 	if(is_valid(var->dissolved_conc))
 		res = var->dissolved_conc;
 	else
-		res.type = -1;
+		res.type = Var_Id::Type::none;
 	return res;
 }
 
@@ -251,13 +251,13 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 	try {
 		s64 offset;
 		String_View name;
-		if(var_id.type == 0) {
+		if(var_id.type == Var_Id::Type::state_var) {
 			offset = get_offset_by_index_names(app, &app->result_structure, var_id, index_names, indexes_count);
 			name = app->model->state_vars[var_id]->name;
-		} else if (var_id.type == 1) {
+		} else if (var_id.type == Var_Id::Type::series) {
 			offset = get_offset_by_index_names(app, &app->series_structure, var_id, index_names, indexes_count);
 			name = app->model->series[var_id]->name;
-		} else if (var_id.type == 2) {
+		} else if (var_id.type == Var_Id::Type::additional_series) {
 			offset = get_offset_by_index_names(app, &app->additional_series_structure, var_id, index_names, indexes_count);
 			name = app->additional_series[var_id]->name;
 		}
@@ -268,11 +268,11 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 		
 		for(s64 step = 0; step < time_steps_out; ++step) {
 			double value;
-			if(var_id.type == 0)
+			if(var_id.type == Var_Id::Type::state_var)
 				value = *app->data.results.get_value(offset, step);
-			else if(var_id.type == 1)
+			else if(var_id.type == Var_Id::Type::series)
 				value = *app->data.series.get_value(offset, step);
-			else if(var_id.type == 2)
+			else if(var_id.type == Var_Id::Type::additional_series)
 				value = *app->data.additional_series.get_value(offset, step);
 			series_out[step] = value;
 		}
