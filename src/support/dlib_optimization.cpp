@@ -30,9 +30,7 @@ run_optimization(Dlib_Optimization_Model &opt_model, double *min_vals, double *m
 		dlib::find_max_global(opt_model, min_bound, max_bound, dlib::max_function_calls(max_function_calls), dlib::FOREVER, epsilon, initial_evals);
 	
 	double new_score = opt_model.maximize ? result.y : -result.y;
-	opt_model.best_score = new_score; //NOTE: we have to do this since find_max_global works with a copy of the opt_model.
-	
-	warning_print("best ", new_score, " initial ", opt_model.initial_score, "\n");
+	opt_model.best_score = new_score; //NOTE: we have to do this since find_max_global works with a copy of the opt_model, thus the best_score is not stored in the original instance.
 	
 	if( (opt_model.maximize && (new_score <= opt_model.initial_score)) || (!opt_model.maximize && (new_score >= opt_model.initial_score)) || !std::isfinite(new_score) )
 		return false;

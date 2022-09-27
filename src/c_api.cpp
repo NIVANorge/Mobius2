@@ -230,14 +230,14 @@ mobius_get_additional_series_id(Model_Application *app, char *name) {
 }
 
 DLLEXPORT s64
-mobius_get_steps(Model_Application *app, s16 type) {
-	if(type == 0) {
+mobius_get_steps(Model_Application *app, Stat_Class type) {
+	if(type == Stat_Class::state_var) {
 		if(!app->result_structure.has_been_set_up)
 			return 0;
 		return app->data.results.time_steps;
-	} else if(type == 1)
+	} else if(type == Stat_Class::series)
 		return app->data.series.time_steps;
-	else if(type == 2)
+	else if(type == Stat_Class::additional_series)
 		return app->data.additional_series.time_steps;
 	
 	return 0;
@@ -287,14 +287,14 @@ mobius_get_time_step_size(Model_Application *app) {
 }
 
 DLLEXPORT char *
-mobius_get_start_date(Model_Application *app, s16 type) {
+mobius_get_start_date(Model_Application *app, Stat_Class type) {
 	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
 	String_View str;
-	if(type == 0)
+	if(type == Stat_Class::state_var)
 		str = app->data.results.start_date.to_string();
-	else if(type == 1)
+	else if(type == Stat_Class::series)
 		str = app->data.series.start_date.to_string();
-	else if(type == 2)
+	else if(type == Stat_Class::additional_series)
 		str = app->data.additional_series.start_date.to_string();
 	
 	return str.data;

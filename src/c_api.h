@@ -77,7 +77,7 @@ DLLEXPORT Var_Id
 mobius_get_additional_series_id(Model_Application *app, char *name);
 
 DLLEXPORT s64
-mobius_get_steps(Model_Application *app, s16 type);
+mobius_get_steps(Model_Application *app, Stat_Class type);
 
 DLLEXPORT void
 mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size);
@@ -86,7 +86,7 @@ DLLEXPORT Time_Step_Size
 mobius_get_time_step_size(Model_Application *app);
 
 DLLEXPORT char *
-mobius_get_start_date(Model_Application *app, s16 type);
+mobius_get_start_date(Model_Application *app, Stat_Class type);
 
 
 

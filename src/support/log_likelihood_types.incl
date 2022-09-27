@@ -1,0 +1,6 @@
+// The third argument is the number of error parameters to the error structure.
+
+SET_LOG_LIKELIHOOD(normal, "Normal", 1)
+SET_LOG_LIKELIHOOD(normal_h, "Normal hetereoskedastic", 1)
+SET_LOG_LIKELIHOOD(wls, "WLS", 2)
+SET_LOG_LIKELIHOOD(wlsar1, "WLS-AR1", 3)

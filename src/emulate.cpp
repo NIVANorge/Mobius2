@@ -231,11 +231,6 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 	return result;
 }
 
-
-
-
-
-
 struct
 Scope_Local_Vars {
 	s32 scope_id;

@@ -67,7 +67,7 @@ dll.mobius_get_conc_id.restype = Var_Id
 dll.mobius_get_additional_series_id.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 dll.mobius_get_additional_series_id.restype = Var_Id
 
-dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int16]
+dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 dll.mobius_get_steps.restype = ctypes.c_int64
 
 dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64, ctypes.c_char_p, ctypes.c_int64]
@@ -77,7 +77,7 @@ dll.mobius_run_model.argtypes = [ctypes.c_void_p]
 dll.mobius_get_time_step_size.argtypes = [ctypes.c_void_p]
 dll.mobius_get_time_step_size.restype  = Time_Step_Size
 
-dll.mobius_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int16]
+dll.mobius_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 dll.mobius_get_start_date.restype = ctypes.c_char_p
 
 

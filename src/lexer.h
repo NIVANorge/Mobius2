@@ -72,7 +72,7 @@ Token_Stream {
 	
 	Token_Stream(String_View filename, String_View file_data) : filename(filename), file_data(file_data), line(0), column(0), previous_column(0), allow_date_time_tokens(false), at_char(-1), fold_minus(true) {
 		
-		//NOTE: In case the file has a BOM (byte order mark), which Notepad tends to do on Windows.
+		//NOTE: In case the file has a BOM (byte order mark), which Notepad tends to add on Windows.
 		if(file_data.count >= 3
 				&& file_data[0] == (char) 0xEF
 				&& file_data[1] == (char) 0xBB
@@ -94,8 +94,6 @@ Token_Stream {
 	
 	bool allow_date_time_tokens;
 	bool fold_minus;
-	//void ReadQuotedStringList(std::vector<token_string> &ListOut);
-	//void ReadParameterSeries(std::vector<parameter_value> &ListOut, const parameter_spec &Spec);
 
 private:
 	String_View filename;
