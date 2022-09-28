@@ -35,6 +35,7 @@ Math_Block_FT : Math_Expr_FT {
 };
 
 //NOTE: we don't want to use enum class here, because it doesn't autocast to int, making bitwise operations annoying :(
+	// although TODO, just scope it inside the Identifier_FT
 enum Identifier_Flags : u32 {
 	ident_flags_none        = 0x0,
 	ident_flags_last_result = 0x1,

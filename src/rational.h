@@ -2,6 +2,8 @@
 #ifndef MOBIUS_RATIONAL_H
 #define MOBIUS_RATIONAL_H
 
+#include <ostream>
+
 template<typename T>
 struct
 Rational {
@@ -17,6 +19,8 @@ Rational {
 	Rational() : Rational(0) {}
 	
 	operator double() { return (double)nom / (double)denom; }
+	
+	std::ostream &operator<<(std::ostream &os);
 };
 
 template<typename T> inline Rational<T>

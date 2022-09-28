@@ -21,7 +21,8 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 			loc = has->var_location;
 			var.loc1 = loc;
 			var.type = model->find_entity(loc.property_or_quantity)->decl_type;
-			//warning_print("Found state variable ", model->find_entity(loc.compartment)->handle_name, ".", model->find_entity(loc.property_or_quantity)->handle_name, "\n");
+			if(is_valid(has->unit)) 
+				var.unit = model->find_entity<Reg_Type::unit>(has->unit)->data;
 		} else if (type == Decl_Type::flux) {
 			auto flux = model->find_entity<Reg_Type::flux>(id);
 			var.loc1 = flux->source;
@@ -34,6 +35,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 				var.neighbor = flux->neighbor_target;
 				var.loc2 = var.loc1;
 			}
+			// TODO: the flux unit should always be (unit of what is transported) / (time step unit)
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	} else if (type == Decl_Type::has)
@@ -326,7 +328,7 @@ Mobius_Model::compose() {
 	
 	// TODO: we could move some of the checks in this loop to the above loop.
 	
-	for(int n_dissolved = 0; n_dissolved < max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
+	for(int n_dissolved = 0; n_dissolved <= max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
 		int module_id = -1;
 		for(auto module : modules) {
 			++module_id;
@@ -396,6 +398,7 @@ Mobius_Model::compose() {
 		// these are already guaranteed since we put it in dissolvedes..
 		//if(var->type != Decl_Type::quantity) continue;
 		//if(var->loc1.n_dissolved == 0) continue;
+		//find_entity
 		
 		auto above_loc = remove_dissolved(var->loc1);
 		std::vector<Var_Id> generate;
@@ -410,8 +413,10 @@ Mobius_Model::compose() {
 				if(!is_valid(below_var)) continue;
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
-			auto flux_reg = find_entity<Reg_Type::flux>(flux->entity_id);
-			if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
+			if(is_valid(flux->entity_id)) { // If this flux was itself generated, it won't have a valid entity id.
+				auto flux_reg = find_entity<Reg_Type::flux>(flux->entity_id);
+				if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
+			}
 			
 			// TODO: need system to exclude some fluxes for this quantity (e.g. evapotranspiration should not carry DOC).
 			generate.push_back(flux_id);
@@ -419,8 +424,10 @@ Mobius_Model::compose() {
 		
 		Var_Location source  = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
 		String_View var_name = var->name;
+		auto dissolved_in_id = state_vars[above_loc];
+		auto dissolved_in = state_vars[dissolved_in_id];
 		
-		sprintf(varname, "conc(%.*s)", var_name.count, var_name.data);
+		sprintf(varname, "concentration(%.*s, %.*s)", var_name.count, var_name.data, dissolved_in->name.count, dissolved_in->name.data);
 		Var_Id gen_conc_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, allocator.copy_string_view(varname));
 		auto conc_var = state_vars[gen_conc_id];
 		conc_var->flags = State_Variable::Flags::f_dissolved_conc;
@@ -702,9 +709,6 @@ Mobius_Model::compose() {
 		}
 	}
 	
-	
-	
-	
 	// NOTE: Unfortunately we need to know about solvers here, but we don't want to store the solver on the State Variable since that encourages messy code in model_compilation.
 	std::vector<int> has_solver;
 	has_solver.resize(state_vars.count(), 0);
@@ -713,6 +717,7 @@ Mobius_Model::compose() {
 		auto solve = modules[0]->solves[id];
 		Var_Id var_id = state_vars[solve->loc];
 		if(!is_valid(var_id)) {
+			//error_print_location(this, solve->loc);
 			solve->location.print_error_header(Mobius_Error::model_building);
 			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
 		}

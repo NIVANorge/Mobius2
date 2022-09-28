@@ -52,7 +52,7 @@ General model description.
 	#TODO: it would be nice if we could declare lu_prop.sums_to(lu, 1).  #This would allow for run-time checks and also sometimes compile-time optimizations.
 	
 	river.par_group("Catchment data") {
-		a_catch  : par_real("Catchment area", unit(km 2), 51.7)
+		a_catch  : par_real("Catchment area", unit(k m 2), 51.7)
 	}
 	
 	aggregation_weight(soil, gw) { lu_prop }

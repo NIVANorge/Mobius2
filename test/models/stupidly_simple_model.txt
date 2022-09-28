@@ -1,39 +1,27 @@
 
 model("Simple test model") {
 	
+	extend("simplyq_model.txt")
+	
 	md : module("So very simple", 1, 1, 0) {
 		
-		a : compartment("A")
-		#b : compartment("B")
+		soil : compartment("Soil")
 		
-		q : quantity("q")
+		water : quantity("water")
+		oc    : quantity("organic carbon")
+		tox   : quantity("toxin")
 		
-		a.has(q, unit(), "A.q") .initial { 100 }
-		#b.has(q, unit(), "B.q") .initial { 0   }
+		soil.has(oc, unit(), "SOC") .initial { 500 }
+		soil.water.has(oc, unit(), "DOC")
 		
-		flix : flux(a.q, out, "The flux") {
-			5
-		}
+		soil.water.has(tox, unit(), "Truly dissolved toxin")
+		soil.oc.has(tox, unit(), "Adsorbed toxin")
+		soil.water.oc.has(tox, unit(), "DOC-bound toxin")
+		
+		#TODO: finish this!
+	
 	}
-	
-	a : compartment("A")
-	#b : compartment("B")
-	
-	q : quantity("q")
-	
-	a.par_group("Weights") {
-		agg : par_real("Aggregation weight", unit(), 0.1)
-	}
-	
-	i : index_set("Index")
-	
-	a.distribute(i)
-	
-	nb : i.neighbor("Index neighbor", directed_tree)
-	
-	md.flix.to(nb)
 	
 	sol : solver("solver", "INCADascru", 0.1)
-	sol.solve(a.q)
-	
+
 }

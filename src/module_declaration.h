@@ -5,6 +5,7 @@
 #include "ast.h"
 #include "ode_solvers.h"
 #include "run_model.h"
+#include "units.h"
 
 #include <unordered_map>
 
@@ -58,6 +59,8 @@ Var_Location_Hash {
 
 void
 error_print_location(Mobius_Model *model, Var_Location &loc);
+void
+debug_print_location(Mobius_Model *model, Var_Location &loc);
 
 
 struct
@@ -92,7 +95,7 @@ template<> struct
 Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
 	// NOTE: These will only be set in the "global" module.
 	std::vector<Entity_Id> index_sets; //TODO: more info about distribution?
-	std::vector<Aggregation_Data> aggregations; 
+	std::vector<Aggregation_Data> aggregations;
 	std::vector<Flux_Unit_Conversion_Data> unit_convs;
 };
 
@@ -116,6 +119,8 @@ Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 	std::vector<String_View> enum_values;
 	
 	String_View     description;
+	
+	Entity_Registration() : unit(invalid_entity_id), par_group(invalid_entity_id) {}
 };
 
 inline s64
@@ -128,7 +133,8 @@ enum_int_value(Entity_Registration<Reg_Type::parameter> *reg, String_View name) 
 
 template<> struct
 Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
-	// TODO: put data here.
+	
+	Unit_Data data;
 };
 
 template<> struct
@@ -394,5 +400,8 @@ make_var_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property
 
 Module_Declaration *
 process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl);
+
+void
+set_unit_data(Unit_Data &data, Decl_AST *decl);
 
 #endif // MOBIUS_MODEL_BUILDER_H

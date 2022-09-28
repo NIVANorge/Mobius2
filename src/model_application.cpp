@@ -317,10 +317,12 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			State_Variable var;
 			var.name = app->alloc.copy_string_view(header.name.data());
 			var.flags = State_Variable::Flags::f_clear_series_to_nan;
+			var.unit = header.unit;
 			
 			Var_Id var_id = app->additional_series.register_var(var, invalid_var_location);
 			ids.insert(var_id);
 		}
+		//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions (when we implement that)?
 		
 		if(header.indexes.empty()) continue;
 		
@@ -332,6 +334,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
+				
 				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
 					auto comp_id     = model->series[id]->loc1.compartment;
 					auto compartment = model->modules[0]->compartments[comp_id];
@@ -406,6 +409,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	//TODO: not sure how to handle directed trees when it comes to discrete fluxes. Should we sort the indexes in order?
 	
+	if(!neighbor_structure.has_been_set_up)
+		set_up_neighbor_structure();
 	for(auto &neighbor : data_set->neighbors) {
 		auto neigh_id = global_module->neighbors.find_by_name(neighbor.name);
 		if(!is_valid(neigh_id)) {
@@ -424,8 +429,6 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 				neighbor.loc.print_error_header();
 				fatal_error("Neighbor structures of type directed_tree can only be set up using graph data.");
 			}
-			if(!neighbor_structure.has_been_set_up)
-				set_up_neighbor_structure();
 			if(neighbor.points_at.size() != index_counts[index_set.id].index)
 				fatal_error(Mobius_Error::internal, "Somehow the neighbor data in a data set did not have a size matching the amount of indexes in the associated index set.");
 			std::vector<Index_T> indexes = {{index_set, 0}};

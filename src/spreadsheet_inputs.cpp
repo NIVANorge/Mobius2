@@ -4,6 +4,7 @@
 #if OLE_AVAILABLE
 
 #include "data_set.h"
+#include "module_declaration.h" // This is for set_unit_data only. We could maybe move that to untangle some stuff.
 
 #include <limits>
 
@@ -31,7 +32,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 		std::vector<Index_Set_Info *> index_sets;
 		
 		int search_len = 128; //NOTE: We only search for index sets among the first 128 rows since anything more than that would be ridiculous.
-		auto matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles); 
+		auto matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles);
 		
 		int potential_flag_row = -1;
 		int first_date_row = -1;
@@ -83,7 +84,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 		//warning_print("Potential flag row is ", potential_flag_row, "\n");
 		
 		//TODO: Ideally also do this in a loop in case there are more than 256 columns!
-		matrix = ole_get_range_matrix(1, row_range, 2, 1 + search_len, handles); 
+		matrix = ole_get_range_matrix(1, row_range, 2, 1 + search_len, handles);
 		
 		// ********* Parse the header data
 		
@@ -140,17 +141,24 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				//warning_print("Flag string \"", buf, "\" tab ", tab, "\n");
 				if(strlen(buf) > 0) {
 					// TODO: make it possible to turn off errors in the stream and instead have it return an invalid token, so that it doesn't quit the program on us.
+					// TODO: or make it possible to have it have a custom source location for its error printing (since we support spreadsheet location types now)
 					Token_Stream stream("", buf);
 					while(true) {
-						Token token = stream.read_token();
+						Token token = stream.peek_token();
 						if(token.type == Token_Type::identifier) {
 							bool success = set_flag(&header.flags, token.string_value);
-							if(!success) {
+							if(success) {
+								stream.read_token();
+								continue;
+							} else if(token.string_value != "unit") {
 								ole_close_due_to_error(handles, tab, col+2, potential_flag_row);
 								fatal_error("Unrecognized input flag \"", token.string_value, "\".");
 							}
-						//} else if ((char)token.type == '[') {
-							// TODO: parse unit info once units are implemented
+							// it is a unit
+							Decl_AST *unit_decl = parse_decl_header(&stream, nullptr);
+							set_unit_data(header.unit, unit_decl);
+							delete unit_decl;
+							
 						} else if (token.type == Token_Type::eof) {
 							break;
 						} else {

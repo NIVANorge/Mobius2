@@ -8,17 +8,19 @@
 #include "lexer.h"
 
 #include <vector>
+#include <string>
 
-//TODO: this system may be too rigid. Should allow user-defined ones too.
-//TODO: make many more!
+// NOTE year and month can't quite be denoted in seconds since the years and months have variable length
 enum class
-Unit_Atom {                                     //TODO: better name?
-	meter = 0, second, gram, mol, deg_c, max
+Base_Unit {
+	m = 0, s, g, mol, deg_c, deg, month, year, max
 };
 
 enum class
-Compound_Unit { // Note: start of this must match Unit_Atom
-	meter = 0, second, gram, mol, deg_c, newton, minute, hour, day,
+Compound_Unit { 
+	#define COMPOUND_UNIT(handle, name) handle,
+	#include "compound_units.incl"
+	#undef COMPOUND_UNIT
 };
 
 
@@ -33,9 +35,12 @@ struct
 Standardized_Unit {
 	Rational<s64> multiplier;
 	Rational<s16> magnitude;
-	Rational<s16> powers[(int)Unit_Atom::max];
-	
+	Rational<s16> powers[(int)Base_Unit::max];
 	// this represents a unit on the form   multiplier * 10^magnitude * m^powers[0] * s^powers[1] ....
+	
+	Standardized_Unit() : multiplier(1), magnitude(0) {
+		for(int idx = 0; idx < (int)Base_Unit::max; ++idx) powers[idx] = 0;
+	}
 };
 
 struct
@@ -43,10 +48,13 @@ Unit_Data {
 	std::vector<Declared_Unit_Part> declared_form;
 	Standardized_Unit               standard_form;
 	
+	std::string to_utf8();
+	// TODO: also to_latex etc.
+	
 	void set_standard_form();
 };
 
 Declared_Unit_Part
-parse_unit(const std::vector<Token> *tokens);
+parse_unit(std::vector<Token> *tokens);
 
 #endif // MOBIUS_UNITS_H

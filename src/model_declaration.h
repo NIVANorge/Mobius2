@@ -53,6 +53,8 @@ State_Variable {
 
 	Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either has(...) or flux(...)
 	
+	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
+	
 	Entity_Id neighbor; // For a flux that points at a neighbor.
 	
 	// If this is a quantity or property, loc1 is the location of this variable.
@@ -104,7 +106,7 @@ struct Var_Registry {
 	
 	Var_Id operator[](const Var_Location &loc) {
 		if(!is_located(loc))
-			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid location.");
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable using a non-located location.");
 		auto find = location_to_id.find(loc);
 		if(find == location_to_id.end())
 			return invalid_var;

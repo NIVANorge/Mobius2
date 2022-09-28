@@ -7,6 +7,7 @@
 
 #include "linear_memory.h"
 #include "ast.h"
+#include "units.h"
 
 // NOTE: the idea is that this class should not have to know about the rest of the framework except for what is needed for the ast parser and lexer.
 
@@ -145,6 +146,7 @@ struct
 Series_Header_Info : Info_Type_Base {
 	std::vector<std::vector<std::pair<std::string, int>>> indexes;
 	Series_Data_Flags flags;
+	Unit_Data         unit;
 	
 	Series_Header_Info() : flags(series_data_none) {}
 };

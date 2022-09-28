@@ -2,6 +2,7 @@
 #include "module_declaration.h"
 #include "model_declaration.h"
 #include <algorithm>
+#include <unordered_set>
 
 bool
 Arg_Pattern::matches(Argument_AST *arg) const {
@@ -295,19 +296,29 @@ process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, 
 	return id;
 }
 
-template<> Entity_Id
-process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) {
-	
+void
+set_unit_data(Unit_Data &data, Decl_AST *decl) {
 	for(Argument_AST *arg : decl->args) {
 		if(!Arg_Pattern().matches(arg)) {
 			decl->location.print_error_header();
 			fatal_error("Invalid argument to unit declaration.");
 		}
 	}
+	for(auto arg : decl->args)
+		data.declared_form.push_back(parse_unit(&arg->sub_chain));
+	data.set_standard_form();
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::unit>(Module_Declaration *module, Decl_AST *decl) {
 	
-	// TODO: implement this!
+	auto id   = module->units.find_or_create(&decl->handle_name, nullptr, decl);
+	auto unit = module->units[id];
 	
-	return invalid_entity_id;
+	// TODO: we could de-duplicate based on the standard form.
+	set_unit_data(unit->data, decl);
+	
+	return id;
 }
 
 template<> Entity_Id
@@ -530,7 +541,7 @@ process_declaration<Reg_Type::has>(Module_Declaration *module, Decl_AST *decl) {
 	}
 	has->var_location.n_dissolved = chain_size - 1;
 	has->var_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(module, decl, 0);
-		
+	
 	if(which == 1 || which == 3)
 		has->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
 	else
@@ -1184,9 +1195,8 @@ read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, Stri
 	return decl;
 }
 
-//TODO: This means that loaded_out gets sorted by the file name, but we want it to be sorted in order of addition.
 bool
-load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, string_map<Decl_AST *> &loaded_out, String_View rel_path) {
+load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unordered_set<String_View, String_View_Hash> &loaded_paths, std::vector<Decl_AST *> &loaded_decls, String_View rel_path) {
 	auto body = reinterpret_cast<Decl_Body_AST *>(from_decl->bodies[0]);
 	
 	for(Decl_AST *child : body->child_decls) {
@@ -1199,17 +1209,18 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, string_ma
 			String_View normalized_path;
 			auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
 			
-			if(loaded_out.find(normalized_path) != loaded_out.end()) {
+			if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
 				begin_error(Mobius_Error::parsing);
 				error_print("There is circularity in the model extensions:\n", extend_file_name, "\n");
 				delete extend_model;
 				return false;
 			}
 			
-			loaded_out[normalized_path] = extend_model;
+			loaded_paths.insert(normalized_path);
+			loaded_decls.push_back(extend_model);
 			
 			// Load extensions of extensions.
-			bool success = load_model_extensions(handler, extend_model, loaded_out, normalized_path);
+			bool success = load_model_extensions(handler, extend_model, loaded_paths, loaded_decls, normalized_path);
 			if(!success) {
 				error_print(extend_file_name, "\n");
 				return false;
@@ -1239,15 +1250,17 @@ load_model(String_View file_name) {
 	
 	register_intrinsics(global_scope);
 	
-	string_map<Decl_AST *> extend_models;
-	extend_models[file_name] = decl;
-	load_model_extensions(&model->file_handler, decl, extend_models, file_name);
+	std::unordered_set<String_View, String_View_Hash> loaded_files = { file_name };
+	std::vector<Decl_AST *> extend_models = { decl };
+	load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name);
+	
+	std::reverse(extend_models.begin(), extend_models.end()); // Reverse inclusion order so that the modules from the base model are listed first in e.g. MobiView2. 
 	
 	//TODO: now we just throw everything into a single namespace, but what happens if we have re-declarations of handles because of multiple extensions?
 	
-	//note: this must happen before we load the modules so that entities in the modules can have a global_id that reference things declared in model scope.
+	//note: this loop must currently happen before we load the modules so that entities in the modules can have a global_id that reference things declared in model scope.
 	for(auto &extend : extend_models) {
-		auto body = reinterpret_cast<Decl_Body_AST *>(extend.second->bodies[0]);
+		auto body = reinterpret_cast<Decl_Body_AST *>(extend->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
 			switch (child->type) {
 				case Decl_Type::compartment : {
@@ -1273,7 +1286,7 @@ load_model(String_View file_name) {
 	
 	// We then have to do all loads before we start linking things up.
 	for(auto &extend : extend_models) {
-		auto body = reinterpret_cast<Decl_Body_AST *>(extend.second->bodies[0]);
+		auto body = reinterpret_cast<Decl_Body_AST *>(extend->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
 			//TODO: do libraries also.
 			
@@ -1316,7 +1329,7 @@ load_model(String_View file_name) {
 	}
 	
 	for(auto &extend : extend_models) {
-		auto body = reinterpret_cast<Decl_Body_AST *>(extend.second->bodies[0]);
+		auto body = reinterpret_cast<Decl_Body_AST *>(extend->bodies[0]);
 		
 		for(Decl_AST *child : body->child_decls) {
 			switch (child->type) {
@@ -1375,22 +1388,30 @@ load_model(String_View file_name) {
 	return model;
 }
 
-
+// TODO: just make a <<(std::ostream)  operator on the Var_Location instead so that you can put it directly in the error_print or warning_print
 void
 error_print_location(Mobius_Model *model, Var_Location &loc) {
 	//TODO: only works for located ones right now.
-	//TODO: this only works if these compartments and quantities were declared with a handle in the model scope. It "forgets" what handle was used in the scope of the original declaration of the location! Maybe print the "name" instead of the "handle_name" ???
-	
 	auto comp = model->find_entity(loc.compartment);
-	//error_print(comp->handle_name, '.');
 	error_print("\"", comp->name, "\".");
 	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
 		auto quant = model->find_entity(loc.dissolved_in[idx]);
-		//error_print(quant->handle_name, '.');
 		error_print("\"", quant->name, "\".");
 	}
 	auto quant = model->find_entity(loc.property_or_quantity);
-	//error_print(quant->handle_name);
 	error_print("\"", quant->name, "\"");
+}
+
+void
+debug_print_location(Mobius_Model *model, Var_Location &loc) {
+	//TODO: only works for located ones right now.
+	auto comp = model->find_entity(loc.compartment);
+	warning_print("\"", comp->name, "\".");
+	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
+		auto quant = model->find_entity(loc.dissolved_in[idx]);
+		warning_print("\"", quant->name, "\".");
+	}
+	auto quant = model->find_entity(loc.property_or_quantity);
+	warning_print("\"", quant->name, "\"");
 }
 
