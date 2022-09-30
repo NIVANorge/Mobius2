@@ -198,7 +198,6 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		
 		// TODO: Instead of having the branch we could have the index point at some random existing value, then multiply with a weight which is 0 if there is no target, and 1 otherwise.
 		auto condition = make_binop(Token_Type::geq, index_ref, make_literal((s64)0));
-		condition->value_type = Value_Type::boolean; // TODO: make make_binop do this correctly
 		auto if_chain = new Math_Expr_FT();
 		if_chain->expr_type = Math_Expr_Type::if_chain;
 		if_chain->exprs.push_back(assignment);

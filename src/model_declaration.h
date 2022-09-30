@@ -159,14 +159,14 @@ Mobius_Model {
 	Entity_Registration_Base *
 	find_entity(Entity_Id id) {
 		if(id.module_id < 0 || id.module_id >= (s16)modules.size())
-			fatal_error(Mobius_Error::internal, "find_entity() with invalid module id.");
+			fatal_error(Mobius_Error::internal, "find_entity() with invalid module id: ", id.module_id);
 		return modules[id.module_id]->find_entity(id);
 	}
 	
 	template<Reg_Type reg_type> Entity_Registration<reg_type> *
 	find_entity(Entity_Id id) {
 		if(id.module_id < 0 || id.module_id >= (s16)modules.size())
-			fatal_error(Mobius_Error::internal, "find_entity() with invalid module id.");
+			fatal_error(Mobius_Error::internal, "find_entity<Reg_Type>() with invalid module id: ", id.module_id);
 		return modules[id.module_id]->find_entity<reg_type>(id);
 	}
 	

@@ -231,10 +231,20 @@ inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && i
 
 constexpr int max_dissolved_chain = 2;
 
+/*
+TODO: it may simplify the code several places if it is instead like this:
+struct
+Var_Location {
+	enum class Type : s32 { ... } type;
+	s32 n_components;
+	Entity_Id components[max_var_loc_components];
+};
+*/
+
 struct
 Var_Location {
 	enum class Type : s32 {
-		nowhere, out, located,
+		nowhere=0, out, located,
 	}   type;
 	s32 n_dissolved;         //NOTE: it is here for better packing.
 	

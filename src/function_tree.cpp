@@ -92,12 +92,20 @@ make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_
 	return fun;
 }
 
+inline bool
+is_boolean_operator(Token_Type op) {
+	char c = (char)op;
+	return (op == Token_Type::leq || op == Token_Type::geq || c == '=' || c == '&' || c == '|' || c == '<' || c == '>');
+}
+
 Math_Expr_FT *
 make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	if(lhs->value_type != rhs->value_type)
 		fatal_error(Mobius_Error::internal, "Mismatching types of arguments in make_binop().");
 	auto binop = new Operator_FT(Math_Expr_Type::binary_operator);
 	binop->value_type = lhs->value_type;
+	if(is_boolean_operator(oper))
+		binop->value_type = Value_Type::boolean;
 	binop->oper = oper;
 	binop->exprs.push_back(lhs);
 	binop->exprs.push_back(rhs);
@@ -260,70 +268,88 @@ fatal_error_trace(Scope_Data *scope) {
 	}
 }
 
-
-Var_Location
-try_to_locate_variable(Entity_Id first, Entity_Id second, String_View n1, String_View n2, Source_Location sl, Mobius_Model *model, Scope_Data *scope) {
-	if(first.reg_type != Reg_Type::compartment) {
-		sl.print_error_header();
-		if(n1)
-			error_print("The name \"", n1, "\" does not refer to a compartment or enum parameter.");
-		else
-			error_print("Unable to resolve compartment of variable."); // This should actually not happen currently. If we called this without a compartment handle, it means we already resolved the compartment
-		fatal_error_trace(scope);
-	}
-	
-	if(second.reg_type != Reg_Type::property_or_quantity) {
-		sl.print_error_header();
-		if(n1)
-			error_print("The name \"", n2, "\" does not refer to a quantity or property.");
-		else
-			error_print("The name \"", n2, "\" does not refer to a variable.");
-		fatal_error_trace(scope);
-	}
-	
-	Var_Location loc = make_var_location(model, first, second);
-	return loc;
+//TODO: could probably be factored as a utility function for the model. Similar to functionality in MobiView and c_api. Try to make a better api for accessing state variables in general.
+inline Var_Id
+find_var_at_location(Var_Location &loc, Mobius_Model *model) {
+	auto var_id = model->state_vars[loc];
+	if(!is_valid(var_id))
+	var_id = model->series[loc];
+	return var_id;
 }
 
-
+// TODO: factor out and merge with the other make_var_location
+// or just wait for improved scope system and Var_Location definition.
 Var_Location
-try_to_locate_dissolved(Var_Location &loc, Entity_Id diss, String_View n, Source_Location sl, Mobius_Model *model, Scope_Data *scope) {
-	// NOTE: We don't have to check that it is a quantity (not a property) here since if it isn't, it can't be a valid state variable (and that is caught in set_identifier_location)
-	if(diss.reg_type != Reg_Type::property_or_quantity) {
-		sl.print_error_header();
-		error_print("The name \"", n, "\" does not refer to a quantity.");
-		fatal_error_trace(scope);
+make_var_location(const std::vector<Entity_Id> &chain) {
+	Var_Location result = {};
+	result.type = Var_Location::Type::located;
+	result.n_dissolved = 0;
+	result.compartment = chain[0];
+	if(chain.size() > 2) {
+		result.n_dissolved = chain.size()-2;
+		for(int idx = 0; idx < result.n_dissolved; ++idx)
+			result.dissolved_in[idx] = chain[idx+1];
 	}
-	if(loc.n_dissolved == max_dissolved_chain) {
-		sl.print_error_header();
-		error_print("Too many elements in chain.");
-		fatal_error_trace(scope);
-	}
-	Var_Location result = add_dissolved(model, loc, diss);
+	result.property_or_quantity = chain.back();
 	return result;
 }
 
+Var_Id
+try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Mobius_Model *model, Scope_Data *scope) {
+	if(chain[0].reg_type == Reg_Type::compartment) {
+		// In this case, assume this is a full location specifier.
+		//TODO test that the chain is valid in the sense of the middle ones being quantities and the last being property or quantity.
+		//also validity of chain size.
+		Var_Location loc = make_var_location(chain);
+		return find_var_at_location(loc, model);
+	}
+	// TODO: test validity of the chain in the sense of the first ones being quantities and the last being property or quantity.
+	
+	Var_Id result = invalid_var;
+	if(!is_located(context))
+		return result;
+	
+	// Try out various combinations based on the context.
+	std::vector<Entity_Id> context_chain;
+	context_chain.push_back(context.compartment);
+	for(int idx = 0; idx < context.n_dissolved; ++idx)
+		context_chain.push_back(context.dissolved_in[idx]);
+	context_chain.push_back(context.property_or_quantity); // TODO: maybe try this only if it is a quantity..
+	
+	// NOTE: we test the "closest" locations first, then go back. E.g.  temp will match to soil.water.temp in the context of soil.water if soil.water.temp exists, otherwise try soil.temp .
+	while(true) {
+		if(context_chain.size() + chain.size() > max_dissolved_chain + 2) {
+			context_chain.pop_back();
+			continue;
+		}
+		std::vector<Entity_Id> try_chain = context_chain;
+		try_chain.insert(try_chain.end(), chain.begin(), chain.end());
+		Var_Location loc = make_var_location(try_chain);
+		result = find_var_at_location(loc, model);
+		if(is_valid(result))
+			return result;
+		if(context_chain.empty())
+			return result;
+		context_chain.pop_back();
+	}
+}
 
 void
-set_identifier_location(Mobius_Model *model, Identifier_FT *new_ident, Var_Location &loc, Source_Location sl, Scope_Data *scope) {
-	Var_Id var_id = model->state_vars[loc];
-	if(is_valid(var_id)) {
-		new_ident->variable_type = Variable_Type::state_var;
-		new_ident->state_var     = var_id;
-		new_ident->value_type    = Value_Type::real;
-	} else {
-		var_id = model->series[loc];
-		if(!is_valid(var_id)) {
-			sl.print_error_header();
-			error_print("The location ");
-			error_print_location(model, loc);
-			error_print(" has not been created using a \"has\" declaration.");
-			fatal_error_trace(scope);
-		}
-		new_ident->variable_type = Variable_Type::series;
-		new_ident->series = var_id;
-		new_ident->value_type    = Value_Type::real;
+set_identifier_location(Mobius_Model *model, Identifier_FT *ident, Var_Id var_id, Source_Location sl, Scope_Data *scope) {
+	if(!is_valid(var_id)) {
+		sl.print_error_header();
+		//TODO: could print the identifier here, just take the token chain as an argument.
+		error_print("The identifier specified does not refer to a valid location that has been created using a \"has\" declaration.");
+		fatal_error_trace(scope);
 	}
+	if(var_id.type == Var_Id::Type::state_var) {
+		ident->variable_type = Variable_Type::state_var;
+		ident->state_var     = var_id;
+	} else {
+		ident->variable_type = Variable_Type::series;
+		ident->series        = var_id;
+	}
+	ident->value_type = Value_Type::real;
 }
 
 Math_Expr_FT *
@@ -382,6 +408,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 			if(!found_local) {
 				if(chain_size == 1) {
 					Entity_Id id = module->find_handle(n1);
+					
 					if(id.reg_type == Reg_Type::parameter) {
 						
 						id = module->get_global(id);
@@ -396,14 +423,14 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 						new_ident->parameter = id;
 						new_ident->value_type = get_value_type(par->decl_type);
 					} else if (id.reg_type == Reg_Type::property_or_quantity) {
-						if(!is_valid(data->in_compartment)) {
+						if(!is_located(data->in_loc)) {
 							ident->chain[0].print_error_header();
 							error_print("The name \"", n1, "\" can not properly be resolved since the compartment can not be inferred from the context.\n");
 							fatal_error_trace(scope);
 						}
-						// TODO: We need to be able to infer from context if we just refer to a dissolved substance also.
-						auto loc = try_to_locate_variable(data->in_compartment, id, {}, n1, ident->chain[0].location, data->model, scope);
-						set_identifier_location(data->model, new_ident, loc, ident->chain[0].location, scope);
+						id = module->get_global(id);
+						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, data->model, scope);
+						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope);
 					} else if (id.reg_type == Reg_Type::constant) {
 						delete new_ident; // A little stupid to do it that way, but oh well.
 						result = make_literal(module->constants[id]->value);
@@ -450,17 +477,20 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 						new_ident->parameter = first;
 						new_ident->value_type = Value_Type::integer;
 						result = make_binop('=', new_ident, make_literal(val));
-						result->value_type = Value_Type::boolean;   // Ooops, make_binop does not give correct type for comparison operators.
 					} else {
-						Entity_Id second = module->find_handle(n2);
-						auto loc = try_to_locate_variable(first, second, n1, n2, ident->chain[0].location, data->model, scope);
-						
-						for(int idx = 0; idx < chain_size-2; ++idx) {
-							String_View n = ident->chain[idx+2].string_value;
-							Entity_Id diss = module->find_handle(n);
-							loc = try_to_locate_dissolved(loc, diss, n, ident->chain[0].location, data->model, scope);
+						std::vector<Entity_Id> chain;
+						for(int idx = 0; idx < chain_size; ++idx) {
+							Entity_Id id = module->find_handle(ident->chain[idx].string_value);
+							if(!is_valid(id)) {
+								ident->chain[idx].print_error_header();
+								error_print("The name \"", ident->chain[idx].string_value, "\" is not the name of an entity declared in this scope.");
+								fatal_error_trace(scope);
+							}
+							id = module->get_global(id);
+							chain.push_back(id);
 						}
-						set_identifier_location(data->model, new_ident, loc, ident->chain[0].location, scope);
+						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, data->model, scope);
+						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope);
 					}
 				} else {
 					ident->chain[0].print_error_header();

@@ -473,7 +473,9 @@ Mobius_Model::compose() {
 		bool override_is_conc = false;
 		bool initial_is_conc = false;
 		
-		Entity_Id in_compartment = invalid_entity_id;
+		//TODO: it would probably be better to default in_loc to be loc1 regardless (except when loc1 is not located).
+		Var_Location in_loc;
+		in_loc.type = Var_Location::Type::nowhere;
 		Entity_Id from_compartment = invalid_entity_id;
 		if(var->type == Decl_Type::flux) {
 			bool target_was_out = false;
@@ -482,16 +484,16 @@ Mobius_Model::compose() {
 				target_was_out = flux_decl->target_was_out;
 				ast = flux_decl->code;
 			}
-			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. We only care about how it was declared
+			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
 				from_compartment = var->loc1.compartment;
-				if(!target_is_located || var->loc1 == var->loc2)	
-					in_compartment = from_compartment;
+				if(!target_is_located || var->loc1 == var->loc2)
+					in_loc = var->loc1;
 			} else if(target_is_located) {
-				in_compartment = var->loc2.compartment;
+				in_loc = var->loc2;
 			}
-			if(!is_valid(from_compartment)) from_compartment = in_compartment;
-			// note : the only case where from_compartment != in_compartment is when both source and target are located, but different. In that case in_compartment is invalid, but from_compartment is not.
+			if(!is_valid(from_compartment)) from_compartment = in_loc.compartment;
+			// note : the only case where from_compartment != in_loc.compartment is when both source and target are located, but different. In that case in_loc is invalid, but from_compartment is not.
 			
 			if(is_valid(var->neighbor)) {
 				Var_Id target_id = state_vars[var->loc1]; // loc1==loc2 for neighbor fluxes.
@@ -516,12 +518,12 @@ Mobius_Model::compose() {
 				override_ast->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("Either got an \".override\" block on a property or a \".override_conc\" block on a non-dissolved variable.");
 			}
-			
-			from_compartment = in_compartment = has->var_location.compartment;
+			in_loc = has->var_location;
+			from_compartment = in_loc.compartment;
 		}
 		
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
-		Function_Resolve_Data res_data = { this, var->entity_id.module_id, in_compartment };
+		Function_Resolve_Data res_data = { this, var->entity_id.module_id, in_loc };
 		if(ast) {
 			var->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
 			replace_conc(this, var->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
@@ -635,7 +637,7 @@ Mobius_Model::compose() {
 			for(auto &agg : source->aggregations) {
 				if(agg.to_compartment == to_compartment) {
 					// Note: the module id is always 0 here since aggregation_weight should only be declared in model scope.
-					Function_Resolve_Data res_data = { this, 0, invalid_entity_id };
+					Function_Resolve_Data res_data = { this, 0, {} };
 					agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
 					std::set<Entity_Id> parameter_refs;
 					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
@@ -644,7 +646,7 @@ Mobius_Model::compose() {
 						bool ok = parameter_indexes_below_location(this, par_id, loc1);
 						if(!ok) {
 							agg.code->location.print_error_header(Mobius_Error::model_building);
-							fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over."); 
+							fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over.");
 						}
 					}
 					break;

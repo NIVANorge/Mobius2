@@ -106,7 +106,7 @@ struct
 Function_Resolve_Data {
 	Mobius_Model *model;
 	s32 module_id;
-	Entity_Id in_compartment;
+	Var_Location in_loc;
 };
 
 Math_Expr_FT *
