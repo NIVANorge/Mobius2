@@ -1388,7 +1388,7 @@ load_model(String_View file_name) {
 	return model;
 }
 
-// TODO: just make a <<(std::ostream)  operator on the Var_Location instead so that you can put it directly in the error_print or warning_print
+// NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the model to get the names..
 void
 error_print_location(Mobius_Model *model, Var_Location &loc) {
 	//TODO: only works for located ones right now.

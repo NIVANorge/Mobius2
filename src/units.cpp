@@ -8,12 +8,26 @@
 Rational<s16>
 parse_si_prefix(Token *token) {
 	String_View m = token->string_value;
-	if(m == "k") return 3;
+	if(m == "Y") return 24;
+	else if(m == "Z") return 21;
+	else if(m == "E") return 18;
+	else if(m == "P") return 15;
+	else if(m == "T") return 12;
+	else if(m == "G") return 9;
+	else if(m == "M") return 6;
+	else if(m == "k") return 3;
 	else if(m == "h") return 2;
 	else if(m == "da") return 1;
 	else if(m == "d") return -1;
 	else if(m == "c") return -2;
 	else if(m == "m") return -3;
+	else if(m == "mu") return -6; // TODO: Would have to update the lexer to read "µ" as an identifier if this should recognize that symbol.
+	else if(m == "n") return -9;
+	else if(m == "p") return -12;
+	else if(m == "f") return -15;
+	else if(m == "a") return -18;
+	else if(m == "z") return -21;
+	else if(m == "y") return -24;
 	
 	//token->print_error_header();
 	//fatal_error("Unrecognized SI prefix ", m, " .");
@@ -24,8 +38,8 @@ parse_si_prefix(Token *token) {
 // TODO: Complete this
 const char *
 get_si_prefix(int pow10) {
-	static const char *prefixes[] = {"k", "h", "da", "", "d", "c", "m"};
-	int idx = 3-pow10;
+	static const char *prefixes[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100µ", "10µ", "µ", "100n", "10n", "n"};
+	int idx = 9-pow10;
 	return prefixes[idx];
 }
 
@@ -48,7 +62,7 @@ parse_compound_unit(Token *token) {
 Declared_Unit_Part
 parse_unit(std::vector<Token> *tokens) {
 	if(tokens->empty())
-		fatal_error(Mobius_Error::internal, "Received empty set of tokens for unit in parse_unit().");
+		fatal_error(Mobius_Error::internal, "Received empty list of tokens for unit in parse_unit().");
 	Declared_Unit_Part result;
 	bool error = false;
 	int size = tokens->size();
@@ -177,7 +191,7 @@ Unit_Data::to_utf8() {
 	};
 	
 	if(declared_form.empty())
-		return "(dimensionless)";
+		return "dimensionless";
 
 	std::stringstream ss;
 	int idx = 0;

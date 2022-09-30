@@ -1,0 +1,19 @@
+
+//TODO: this system may be too rigid. Should allow user-defined ones too.
+//TODO: make many more!
+
+// Note: start of this must match Base_Unit in units.h
+COMPOUND_UNIT(m, "m")
+COMPOUND_UNIT(s, "s")
+COMPOUND_UNIT(g, "g")
+COMPOUND_UNIT(mol, "mol")
+COMPOUND_UNIT(deg_c, "°C")
+COMPOUND_UNIT(deg, "°")
+COMPOUND_UNIT(month, "month")
+COMPOUND_UNIT(year, "year")
+COMPOUND_UNIT(N, "N")
+COMPOUND_UNIT(min, "min")
+COMPOUND_UNIT(hr, "hr")
+COMPOUND_UNIT(day, "day")
+COMPOUND_UNIT(l, "l")
+COMPOUND_UNIT(ha, "ha")

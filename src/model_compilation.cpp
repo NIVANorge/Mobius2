@@ -1147,8 +1147,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				}
 			}
 		}
-		
-		//return;  // for now. Eventually we will have aggregate variables for initial instructions too, and they need codegen
 	}
 	
 	for(auto &instr : instructions) {
