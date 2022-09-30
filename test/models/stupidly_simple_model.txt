@@ -3,25 +3,41 @@ model("Simple test model") {
 	
 	extend("simplyq_model.txt")
 	
+	load("simplysoiltemp.txt", st : module("Simply soil temperature"))
+	
 	md : module("So very simple", 1, 1, 0) {
 		
 		soil : compartment("Soil")
 		
-		water : quantity("water")
-		oc    : quantity("organic carbon")
-		tox   : quantity("toxin")
+		water : quantity("Water")
+		oc    : quantity("Organic carbon")
+		tox   : quantity("Toxin")
 		
-		soil.has(oc, unit(), "SOC") .initial { 500 }
-		soil.water.has(oc, unit(), "DOC")
+		soil.has(oc, unit(k g, k m-2), "SOC") .initial { 500 }
 		
-		soil.water.has(tox, unit(), "Truly dissolved toxin")
-		soil.oc.has(tox, unit(), "Adsorbed toxin")
-		soil.water.oc.has(tox, unit(), "DOC-bound toxin")
+		soil.water.has(oc, unit(k g, k m-2), "DOC")
+		
+		soil.water.has(tox, unit(n g, k m-2), "Truly dissolved toxin")
+		soil.oc.has(tox, unit(n g, k m-2), "Adsorbed toxin")
+		soil.water.oc.has(tox, unit(n g, k m-2), "DOC-bound toxin")
 		
 		#TODO: finish this!
+		temp : property("Temperature")
+		
+		koc : property("Water-SOC partitioning coefficient") #{ temp * 3 }
+		
+		soil.water.has(koc, "Soil water-SOC partitioning coefficient") { 5 }
 	
 	}
 	
-	sol : solver("solver", "INCADascru", 0.1)
+	oc  : quantity("Organic carbon")
+	tox : quantity("Toxin")
+	
+	simply_solver.solve(soil.water.oc)
+	simply_solver.solve(soil.water.tox)
+	simply_solver.solve(soil.water.oc.tox)
+	
+	sw.evap.no_carry(soil.water.oc)
+	sw.evap.no_carry(soil.water.tox)
 
 }

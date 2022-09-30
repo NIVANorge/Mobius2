@@ -32,7 +32,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
 	gw  .has(water, unit(m m), "Groundwater volume") .initial {
-		tc_g * river.flow * 86.4 / a_catch
+		tc_g * river.water.flow * 86.4 / a_catch
 	}  #TODO: Inverse unit conversion should also be automatic
 
 	pet  : property("Potential evapotranspiration")
@@ -48,15 +48,15 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	evap :
 	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - 0.01^(water/fc))   }  # = pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
 	
-	soil.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
+	soil.water.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
 		rate := (water - fc)/tc_s
 		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the rate on between water volumes of fc and 1.01*fc
 	}
 	
 	soil_runoff :
-	flux(soil.water, out, "Soil runoff")            {   soil.flow * (1 - bfi)   }
+	flux(soil.water, out, "Soil runoff")            {   flow * (1 - bfi)   }
 	
-	flux(soil.water, gw.water, "Recharge")          {   soil.flow * bfi   }
+	flux(soil.water, gw.water, "Recharge")          {   soil.water.flow * bfi   }
 	
 	gw_runoff :
 	flux(gw.water, out, "Groundwater runoff")       {   water / tc_g   }
@@ -88,7 +88,7 @@ The river part of the SimplyQ module.
 		width * depth * len
 	}
 
-	river.has(flow, unit(m 3, s -1), "Reach flow")    { 0.28 * (water * sqrt(slope) / (len * c_mann))^1.5   } .initial { init_flow }
+	river.water.has(flow, unit(m 3, s -1), "Reach flow")    { 0.28 * (water * sqrt(slope) / (len * c_mann))^1.5   } .initial { init_flow }
 	
 	reach_out :
 	flux(river.water, out, "Reach flow flux")     {	 flow * 86400  }                  #NOTE: explicit unit conversion should be removed once we get automatic unit checks 

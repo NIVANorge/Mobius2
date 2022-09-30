@@ -51,7 +51,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	if(!var.name)
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
 	
-	//warning_print("**** register ", var.name, is_series ? " as series" : "as state var", "\n");
+	//warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
 	
 	if(is_series)
 		return model->series.register_var(var, loc);
@@ -345,12 +345,14 @@ Mobius_Model::compose() {
 						fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
 					}
 				}
-				Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
+				
 				if(n_dissolved > 0) {
+					/*
 					if(type != Decl_Type::quantity) {
 						has->location.print_error_header(Mobius_Error::model_building);
 						fatal_error("Properties can only be assigned to compartments, not to quantities.");   //TODO: (for now!)
 					}
+					*/
 					Var_Location above_loc = remove_dissolved(has->var_location);
 					
 					auto above_var = state_vars[above_loc];
@@ -361,14 +363,19 @@ Mobius_Model::compose() {
 					}
 				}
 				
+				Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
 				auto find = has_location.find(has->var_location);
 				if(find == has_location.end()) {
 					// No declaration provided code for this series, so it is an input series.
+					if(n_dissolved > 0) {
+						has->location.print_error_header(Mobius_Error::model_building);
+						fatal_error("For now we don't support input series with chained locations.");
+					}
 					register_state_variable(this, Decl_Type::has, id, true);
 				} else if (id == find->second) {
 					// This is the particular has declaration that provided the code, so we register a state variable using this one.
 					Var_Id var_id = register_state_variable(this, Decl_Type::has, id, false);
-					if(n_dissolved > 0)
+					if(n_dissolved > 0 && type == Decl_Type::quantity)
 						dissolvedes.push_back(var_id);
 				}
 			}

@@ -1390,7 +1390,7 @@ load_model(String_View file_name) {
 
 // NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the model to get the names..
 void
-error_print_location(Mobius_Model *model, Var_Location &loc) {
+error_print_location(Mobius_Model *model, const Var_Location &loc) {
 	//TODO: only works for located ones right now.
 	auto comp = model->find_entity(loc.compartment);
 	error_print("\"", comp->name, "\".");
@@ -1403,7 +1403,7 @@ error_print_location(Mobius_Model *model, Var_Location &loc) {
 }
 
 void
-debug_print_location(Mobius_Model *model, Var_Location &loc) {
+debug_print_location(Mobius_Model *model, const Var_Location &loc) {
 	//TODO: only works for located ones right now.
 	auto comp = model->find_entity(loc.compartment);
 	warning_print("\"", comp->name, "\".");

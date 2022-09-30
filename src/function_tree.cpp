@@ -296,6 +296,13 @@ make_var_location(const std::vector<Entity_Id> &chain) {
 
 Var_Id
 try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Mobius_Model *model, Scope_Data *scope) {
+
+	if(chain.size() > max_dissolved_chain + 2) {
+		tokens[0].print_error_header();
+		error_print("Too long chain of identifiers.");
+		fatal_error_trace(scope);
+	}
+
 	if(chain[0].reg_type == Reg_Type::compartment) {
 		// In this case, assume this is a full location specifier.
 		//TODO test that the chain is valid in the sense of the middle ones being quantities and the last being property or quantity.

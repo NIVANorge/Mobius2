@@ -61,7 +61,7 @@ Write the description
 		pin    := p_input * 100.0/356.0
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		a      := (pin + kf*m_soil*epc0)
-		bV     := (kf*m_soil + last(flow))
+		bV     := (kf*m_soil + last(water.flow))
 		b      := bV / last(water)
 		sorp   := (kf*m_soil)*( (1/bV)*(a + (last(water.tdp) - a/b)*(1 - exp(-b))) - epc0)
 		last(plab) + sorp

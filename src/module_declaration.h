@@ -58,9 +58,9 @@ Var_Location_Hash {
 };
 
 void
-error_print_location(Mobius_Model *model, Var_Location &loc);
+error_print_location(Mobius_Model *model, const Var_Location &loc);
 void
-debug_print_location(Mobius_Model *model, Var_Location &loc);
+debug_print_location(Mobius_Model *model, const Var_Location &loc);
 
 
 struct
