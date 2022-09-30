@@ -7,7 +7,9 @@ model("Simple test model") {
 	
 	md : module("So very simple", 1, 1, 0) {
 		
+		air  : compartment("Atmosphere")
 		soil : compartment("Soil")
+		river : compartment("River")
 		
 		water : quantity("Water")
 		oc    : quantity("Organic carbon")
@@ -24,9 +26,12 @@ model("Simple test model") {
 		#TODO: finish this!
 		temp : property("Temperature")
 		
-		koc : property("Water-SOC partitioning coefficient") #{ temp * 3 }
+		river.has(temp, "River temperature") { air.temp } #TODO
 		
-		soil.water.has(koc, "Soil water-SOC partitioning coefficient") { 5 }
+		koc : property("Water-SOC partitioning coefficient") { temp * 3 }
+		
+		soil.water.has(koc, "Soil water-SOC partitioning coefficient")
+		river.water.has(koc, "River water-SOC partitioning coefficient")
 	
 	}
 	

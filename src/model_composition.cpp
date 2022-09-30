@@ -296,13 +296,15 @@ Mobius_Model::compose() {
 		for(Entity_Id id : module->hases) {
 			auto has = module->hases[id];
 			
+			bool found_code = has_code(has);
+			
 			// TODO: check for mismatching units between declarations.
 			Entity_Registration<Reg_Type::has> *has2 = nullptr;
 			auto find = has_location.find(has->var_location);
 			if(find != has_location.end()) {
 				has2 = find_entity<Reg_Type::has>(find->second);
 				
-				if(has_code(has) && has_code(has2)) {
+				if(found_code && has_code(has2)) {
 					has->location.print_error_header();
 					error_print("Only one has declaration for the same variable location can have code associated with it. There is a conflicting declaration here:\n");
 					has2->location.print_error();
@@ -310,9 +312,15 @@ Mobius_Model::compose() {
 				}
 			}
 			
+			if(!found_code) {
+				// If it is a property, the property itself could have default code.
+				auto prop = find_entity<Reg_Type::property_or_quantity>(has->var_location.property_or_quantity);
+				if(prop->default_code) found_code = true;
+			}
+			
 			Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
 			// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
-			if(type == Decl_Type::property && has_code(has))
+			if(type == Decl_Type::property && found_code)
 				has_location[has->var_location] = id;
 			
 			// Note: for quantities, we can have some that don't have code associated with them at all, and we still need to choose one canonical one to use for the state variable registration below.
@@ -520,6 +528,10 @@ Mobius_Model::compose() {
 			override_ast = has->override_code;
 			override_is_conc = has->override_is_conc;
 			initial_is_conc  = has->initial_is_conc;
+			
+			if(!ast) {
+				ast = find_entity<Reg_Type::property_or_quantity>(has->var_location.property_or_quantity)->default_code;
+			}
 			
 			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && (var->loc1.n_dissolved == 0)))) {
 				override_ast->location.print_error_header(Mobius_Error::model_building);

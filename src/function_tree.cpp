@@ -342,11 +342,12 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 }
 
 void
-set_identifier_location(Mobius_Model *model, Identifier_FT *ident, Var_Id var_id, Source_Location sl, Scope_Data *scope) {
+set_identifier_location(Mobius_Model *model, Identifier_FT *ident, Var_Id var_id, Source_Location sl, Scope_Data *scope, Var_Location &context) {
 	if(!is_valid(var_id)) {
 		sl.print_error_header();
 		//TODO: could print the identifier here, just take the token chain as an argument.
-		error_print("The identifier specified does not refer to a valid location that has been created using a \"has\" declaration.");
+		error_print("The identifier specified does not resolve to a valid location that has been created using a \"has\" declaration. It was being resolved in the following context: ");
+		error_print_location(model, context);
 		fatal_error_trace(scope);
 	}
 	if(var_id.type == Var_Id::Type::state_var) {
@@ -437,7 +438,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 						}
 						id = module->get_global(id);
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, data->model, scope);
-						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope);
+						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope, data->in_loc);
 					} else if (id.reg_type == Reg_Type::constant) {
 						delete new_ident; // A little stupid to do it that way, but oh well.
 						result = make_literal(module->constants[id]->value);
@@ -497,7 +498,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 							chain.push_back(id);
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, data->model, scope);
-						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope);
+						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope, data->in_loc);
 					}
 				} else {
 					ident->chain[0].print_error_header();

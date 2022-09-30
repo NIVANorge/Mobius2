@@ -271,7 +271,7 @@ process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, 
 		{
 			{Token_Type::quoted_string},
 			//{Token_Type::quoted_string, Decl_Type::unit},
-		});
+		}, 0, true, -1);
 		
 	auto name = single_arg(decl, 0);
 	
@@ -287,6 +287,16 @@ process_declaration<Reg_Type::property_or_quantity>(Module_Declaration *module, 
 	auto property = module->properties_and_quantities[id];
 	
 	property->global_id = global_id;
+	
+	if(!decl->bodies.empty()) {
+		if(decl->bodies.size() > 1) {
+			decl->location.print_error_header();
+			fatal_error("Expected at most one body for property declaration.");
+		}
+		// TODO : have to guard against clashes between different modules here!
+		auto fun = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+		module->global_scope->properties_and_quantities[global_id]->default_code = fun->block;
+	}
 	/*
 	if(which == 1)
 		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);

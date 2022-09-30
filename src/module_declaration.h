@@ -140,7 +140,12 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
 	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
-
+	
+	// TODO: we need to store what scope this default_code was declared in so that it can be resolved in that scope.
+	// Or maybe even require that it can only be used in that scope.
+	Math_Block_AST *default_code;
+	
+	Entity_Registration() : default_code(nullptr) {}
 };
 
 template<> struct
