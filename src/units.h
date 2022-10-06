@@ -6,6 +6,7 @@
 #include "mobius_common.h"
 #include "rational.h"
 #include "lexer.h"
+#include "ast.h"
 
 #include <vector>
 #include <string>
@@ -56,5 +57,8 @@ Unit_Data {
 
 Declared_Unit_Part
 parse_unit(std::vector<Token> *tokens);
+
+void
+set_unit_data(Unit_Data &data, Decl_AST *decl);
 
 #endif // MOBIUS_UNITS_H

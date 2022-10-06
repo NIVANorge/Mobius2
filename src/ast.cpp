@@ -524,3 +524,40 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	
 	return found_match;
 }
+
+bool
+Arg_Pattern::matches(Argument_AST *arg) const {
+	Token_Type check_type = token_type;
+	
+	switch(pattern_type) {
+		case Type::unit_literal : {
+			int count = arg->sub_chain.size();
+			if(!arg->decl && (count == 1 || (count <= 3 && arg->chain_sep == ' ')))
+				return true; //NOTE: only potentially true. Must be properly checked in the process_unit_declaration
+			return false;
+		} break;
+	
+		case Type::decl : {
+			if(arg->decl && (get_reg_type(arg->decl->type) == get_reg_type(decl_type))) return true;
+			//NOTE: we could still have an identifier that could potentially resolve to this type
+			check_type = Token_Type::identifier;
+		} // fall through to the next case to see if we have an identifier (chain).
+		
+		case Type::value : {
+			if(arg->sub_chain.size() == 1) {
+				if(check_type == Token_Type::real)
+					return is_numeric(arg->sub_chain[0].type);
+				return arg->sub_chain[0].type == check_type;
+			}
+			else if(arg->sub_chain.size() > 1 && check_type == Token_Type::identifier) {
+				if(arg->chain_sep != '.') return false;
+				for(Token &token : arg->sub_chain) {
+					if(token.type != Token_Type::identifier)
+						return false;
+				}
+				return true;
+			}
+		}
+	}
+	return false;
+}

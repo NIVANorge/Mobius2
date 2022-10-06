@@ -40,8 +40,6 @@ run_model(Model_Data *data, s64 ms_timeout) {
 	
 	data->results.allocate(time_steps, start_date);
 	
-	//warning_print("got past allocation\n");
-	
 	int var_count    = app->result_structure.total_count;
 	int series_count = app->series_structure.total_count;
 	

@@ -28,7 +28,7 @@ col_row_to_cell(int col, int row, char *buf) {
 }
 
 void
-Source_Location::print_error() {
+Source_Location::print_error() const {
 	if(type == Type::text_file)
 		error_print("file ", filename, " line ", line+1, " column ", column, ":\n");
 	else if(type == Type::spreadsheet) {
@@ -40,14 +40,14 @@ Source_Location::print_error() {
 }
 
 void
-Source_Location::print_error_header(Mobius_Error type) {
+Source_Location::print_error_header(Mobius_Error type) const {
 	begin_error(type);
 	error_print("In ");
 	print_error();
 }
 
 void
-Source_Location::print_warning_header() {
+Source_Location::print_warning_header() const {
 	if(type == Type::text_file)
 		warning_print("file ", filename, " line ", line+1, " column ", column, ":\n");
 	else if(type == Type::spreadsheet) {

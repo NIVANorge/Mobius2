@@ -141,7 +141,7 @@ module("SimplyP", 0, 5, 0) {
 		[ 95 ]
 
 		par_real("Phosphorous sorption coefficient")
-		[ 0.00585 ]
+		[ 0.01 ]
 
 		par_real("Particulate P enrichment factor")
 		[ 1.2 ]
@@ -149,7 +149,7 @@ module("SimplyP", 0, 5, 0) {
 
 	par_group("Soil P") [ "Landscape units" ] {
 		par_real("Initial soil TDP concentration and EPC0")
-		[ 0.07 0.07 0 ]
+		[ 0 0.07 0 ]
 
 		par_real("Initial total soil P content")
 		[ 1458 1458 873 ]
@@ -158,17 +158,17 @@ module("SimplyP", 0, 5, 0) {
 		[ 873 873 873 ]
 
 		par_real("Net annual P input to soil")
-		[ 10 10 0 ]
+		[ 5.58411489104156 10 0 ]
 	}
 
 	par_group("Groundwater P") {
 		par_real("Groundwater TDP concentration")
-		[ 0.01 ]
+		[ 0 ]
 	}
 
 	par_group("River P") {
 		par_real("Effluent TDP inputs")
-		[ 0.1 ]
+		[ 0.499584062101628 ]
 	}
 }
 

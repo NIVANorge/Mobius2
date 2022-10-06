@@ -8,10 +8,11 @@
 #endif
 
 #include "datetime.h"
+#include "common_types.h"
 
-//#if MOBIUS_EMULATE          // Hmm, why doesn't this work? Not that nice to require it as a dependency of this file unless wanted.
+#if MOBIUS_EMULATE
 #include "emulate.h"
-//#endif
+#endif
 
 struct
 Model_Run_State {
@@ -19,7 +20,7 @@ Model_Run_State {
 	double             *state_vars;
 	double             *series;
 	double             *solver_workspace;
-	s64                *neighbor_info;    //NOTE: this is only used if we are in emulate... For llvm we bake these in as constants
+	s64                *neighbor_info;    //NOTE: this is only used if we are in MOBIUS_EMULATE mode... For llvm we bake these in as constants
 	Expanded_Date_Time  date_time;
 	double              solver_t;      //NOTE: not currently used, but we could expose it to the model code later or interpolate the date_time using it.
 	

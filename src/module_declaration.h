@@ -142,7 +142,6 @@ Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
 	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
 	
 	// TODO: we need to store what scope this default_code was declared in so that it can be resolved in that scope.
-	// Or maybe even require that it can only be used in that scope.
 	Math_Block_AST *default_code;
 	
 	Entity_Registration() : default_code(nullptr) {}
@@ -390,23 +389,10 @@ Entity_Id Registry<reg_type>::begin() { return {parent->module_id, reg_type, 0};
 template<Reg_Type reg_type>
 Entity_Id Registry<reg_type>::end()   { return {parent->module_id, reg_type, (s32)registrations.size()}; }
 
-inline Reg_Type
-get_reg_type(Decl_Type decl_type) {
-	switch(decl_type) {
-	#define ENUM_VALUE(decl_type, _a, reg_type) case Decl_Type::decl_type : return Reg_Type::reg_type;
-	#include "decl_types.incl"
-	#undef ENUM_VALUE
-	}
-	return Reg_Type::unrecognized;
-}
-
 Var_Location
 make_var_location(Mobius_Model *model, Entity_Id compartment, Entity_Id property_or_quantity);
 
 Module_Declaration *
 process_module_declaration(Module_Declaration *global_scope, s16 module_id, Decl_AST *decl);
-
-void
-set_unit_data(Unit_Data &data, Decl_AST *decl);
 
 #endif // MOBIUS_MODEL_BUILDER_H

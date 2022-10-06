@@ -236,3 +236,15 @@ Unit_Data::to_utf8() {
 	return ss.str();
 }
 
+void
+set_unit_data(Unit_Data &data, Decl_AST *decl) {
+	for(Argument_AST *arg : decl->args) {
+		if(!Arg_Pattern().matches(arg)) {
+			decl->location.print_error_header();
+			fatal_error("Invalid argument to unit declaration.");
+		}
+	}
+	for(auto arg : decl->args)
+		data.declared_form.push_back(parse_unit(&arg->sub_chain));
+	data.set_standard_form();
+}

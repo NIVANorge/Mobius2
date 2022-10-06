@@ -28,10 +28,10 @@ model("Simple test model") {
 		
 		river.has(temp, "River temperature") { air.temp } #TODO
 		
-		koc : property("Water-SOC partitioning coefficient") { temp * 3 }
+		k_oc : property("Water-SOC partitioning coefficient") { temp * 3 }
 		
-		soil.water.has(koc, "Soil water-SOC partitioning coefficient")
-		river.water.has(koc, "River water-SOC partitioning coefficient")
+		soil.water.has(k_oc, "Soil water-SOC partitioning coefficient")
+		river.water.has(k_oc, "River water-SOC partitioning coefficient")
 	
 	}
 	

@@ -4,44 +4,14 @@ model("Another simple") {
 
 	sp : module("So simple", 1, 0, 0) {
 	
-		place : compartment("Place")
+		a : compartment("A")
 		
-		place.par_group("Flow pars") {
-			flow_mag   : par_real("Flow magnitude", unit(), 5)
-			init_stuff : par_real("Initial stuff", unit(), 10)
-			bla : par_real("bla", unit(), 1)
+		a.par_group("Pars") {
+			b : par_real("test", unit(), 0)
 		}
 		
-		#place.has(the_series : property("The series"))
-		
-		place.has(test : property("Test")) {
-			#t := 3.14 * (time.day_of_year-180) / 365.0
-			#sin(t)/cos(t)
-			#tan(t)
-			atan(tan(bla))
-			#tan(bla)
+		a.has(c : property("test")) {
+			b * sin(time.day_of_year * 2.0 * pi / 365.0)
 		}
-		
-		#place.has(record : property("Record")) {
-		#	the_series
-		#}
-		
-		#place.has(stuff : quantity("Stuff"), unit()) .initial { init_stuff }
-		
-		#the_flow : flux(place.stuff, out, "The flow") { flow_mag*stuff }
 	}
-	
-	place : compartment("Place")
-	#stuff : quantity("Stuff")
-	
-	
-	idx : index_set("Place index")
-	place.distribute(idx)
-	
-	pnb : idx.neighbor("Place neighbor", directed_tree)
-	
-	#sol : solver("My solver", "INCADascru", 0.1)
-	#sol.solve(place.stuff)
-	
-	#sp.the_flow.to(pnb)
 }

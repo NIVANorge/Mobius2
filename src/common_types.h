@@ -39,9 +39,9 @@ Source_Location {
 	s16 tab;
 	s32 line, column;
 	
-	void print_error();
-	void print_error_header(Mobius_Error type = Mobius_Error::parsing);
-	void print_warning_header();
+	void print_error() const;
+	void print_error_header(Mobius_Error type = Mobius_Error::parsing) const;
+	void print_warning_header() const;
 };
 
 char *
@@ -193,6 +193,16 @@ name(Reg_Type type) {
 	#include "reg_types.incl"
 	#undef ENUM_VALUE
 	return "unrecognized";
+}
+
+inline Reg_Type
+get_reg_type(Decl_Type decl_type) {
+	switch(decl_type) {
+	#define ENUM_VALUE(decl_type, _a, reg_type) case Decl_Type::decl_type : return Reg_Type::reg_type;
+	#include "decl_types.incl"
+	#undef ENUM_VALUE
+	}
+	return Reg_Type::unrecognized;
 }
 
 struct
