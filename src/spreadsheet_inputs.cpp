@@ -4,7 +4,7 @@
 #if OLE_AVAILABLE
 
 #include "data_set.h"
-#include "module_declaration.h" // This is for set_unit_data only. We could maybe move that to untangle some stuff.
+#include "model_declaration.h" // This is for set_unit_data only. We could maybe move that to units.h untangle some stuff.
 
 #include <limits>
 

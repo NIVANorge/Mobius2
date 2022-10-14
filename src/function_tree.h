@@ -4,7 +4,7 @@
 #define MOBIUS_FUNCTION_TREE_H
 
 #include "common_types.h"
-#include "module_declaration.h"
+#include "model_declaration.h"
 
 //NOTE: this is really just a copy of the AST, but we want to put additional data on it.
 //NOTE: we *could* put the extra data in the AST, but it is not that clean. We will also want to copy the tree any way when we resolve properties that are attached to multiple other entities.
@@ -73,7 +73,7 @@ Literal_FT : Math_Expr_FT {
 struct
 Function_Call_FT : Math_Expr_FT {
 	Function_Type fun_type;
-	String_View   fun_name;
+	std::string   fun_name;
 	
 	Function_Call_FT() : Math_Expr_FT(Math_Expr_Type::function_call) { };
 };
@@ -88,7 +88,7 @@ Operator_FT : Math_Expr_FT {
 
 struct
 Local_Var_FT : Math_Expr_FT {
-	String_View   name;
+	std::string   name;
 	bool          is_used;
 	
 	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
@@ -100,17 +100,17 @@ struct Mobius_Model;
 struct Math_Expr_AST;
 struct Dependency_Set;
 
-struct Scope_Data;
+struct Function_Scope;
 
 struct
 Function_Resolve_Data {
 	Mobius_Model *model;
-	s32 module_id;
+	Decl_Scope   *scope;
 	Var_Location in_loc;
 };
 
 Math_Expr_FT *
-resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Data *scope = nullptr);
+resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope = nullptr);
 
 void
 register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends);
@@ -134,10 +134,10 @@ Math_Expr_FT *
 make_local_var_reference(s32 index, s32 scope_id, Value_Type value_type);
 
 Math_Expr_FT *
-make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg);
+make_intrinsic_function_call(Value_Type value_type, const std::string &name, Math_Expr_FT *arg);
 
 Math_Expr_FT *
-make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2);
+make_intrinsic_function_call(Value_Type value_type, const std::string &name, Math_Expr_FT *arg1, Math_Expr_FT *arg2);
 
 Math_Expr_FT *
 make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs);
@@ -158,7 +158,7 @@ make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr, Scope_Data *scope = nullptr);
+prune_tree(Math_Expr_FT *expr, Function_Scope *scope = nullptr);
 
 Math_Expr_FT *
 copy(Math_Expr_FT *source);

@@ -1,7 +1,6 @@
 
 
 #include "function_tree.h"
-#include "model_declaration.h"
 #include "emulate.h"
 #include "units.h"
 
@@ -72,7 +71,7 @@ add_local_var(Math_Block_FT *scope, Math_Expr_FT *val) {
 }
 
 Math_Expr_FT *
-make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg) {
+make_intrinsic_function_call(Value_Type value_type, const std::string &name, Math_Expr_FT *arg) {
 	auto fun = new Function_Call_FT();
 	fun->value_type = value_type;
 	fun->fun_name   = name;
@@ -82,7 +81,7 @@ make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_
 }
 
 Math_Expr_FT *
-make_intrinsic_function_call(Value_Type value_type, String_View name, Math_Expr_FT *arg1, Math_Expr_FT *arg2) {
+make_intrinsic_function_call(Value_Type value_type, const std::string &name, Math_Expr_FT *arg1, Math_Expr_FT *arg2) {
 	auto fun = new Function_Call_FT();
 	fun->value_type = value_type;
 	fun->fun_name   = name;
@@ -164,7 +163,7 @@ void make_casts_for_binary_expr(Math_Expr_FT **left, Math_Expr_FT **right) {
 }
 
 void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
-	String_View n = name->string_value;
+	std::string n = name->string_value;
 	if(false) {}
 	#define MAKE_INTRINSIC1(fun_name, emul, llvm, ret_type, type1) \
 		else if(n == #fun_name) { \
@@ -190,15 +189,15 @@ void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 }
 
 struct
-Scope_Data {
-	Scope_Data *parent;
+Function_Scope {
+	Function_Scope *parent;
 	Math_Block_FT *block;
-	String_View function_name;
+	std::string function_name;
 	
-	Scope_Data() : parent(nullptr), block(nullptr), function_name("") {}
+	Function_Scope() : parent(nullptr), block(nullptr), function_name("") {}
 };
 
-void resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Data *scope) {
+void resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
 	//TODO allow error check on expected number of arguments
 	for(auto arg : ast->exprs) {
 		ft->exprs.push_back(resolve_function_tree(arg, data, scope));
@@ -206,7 +205,7 @@ void resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Da
 }
 
 bool
-find_local_variable(Identifier_FT *ident, String_View name, Scope_Data *scope) {
+find_local_variable(Identifier_FT *ident, const std::string &name, Function_Scope *scope) {
 	if(!scope) return false;
 	
 	auto block = scope->block;
@@ -228,14 +227,14 @@ find_local_variable(Identifier_FT *ident, String_View name, Scope_Data *scope) {
 			++idx;
 		}
 	}
-	if(!scope->function_name)  //NOTE: scopes should not "bleed through" function substitutions.
+	if(scope->function_name.empty())  //NOTE: scopes should not "bleed through" function substitutions.
 		return find_local_variable(ident, name, scope->parent);
 	return false;
 }
 
 bool
-is_inside_function(Scope_Data *scope, String_View name) {
-	Scope_Data *sc = scope;
+is_inside_function(Function_Scope *scope, const std::string &name) {
+	Function_Scope *sc = scope;
 	while(true) {
 		if(!sc) return false;
 		if(sc->function_name == name) return true;
@@ -245,22 +244,22 @@ is_inside_function(Scope_Data *scope, String_View name) {
 }
 
 bool
-is_inside_function(Scope_Data *scope) {
-	Scope_Data *sc = scope;
+is_inside_function(Function_Scope *scope) {
+	Function_Scope *sc = scope;
 	while(true) {
 		if(!sc) return false;
-		if(sc->function_name) return true;
+		if(!sc->function_name.empty()) return true;
 		sc = sc->parent;
 	}
 	return false;
 }
 
 void
-fatal_error_trace(Scope_Data *scope) {
-	Scope_Data *sc = scope;
+fatal_error_trace(Function_Scope *scope) {
+	Function_Scope *sc = scope;
 	while(true) {
 		if(!sc) mobius_error_exit();
-		if(sc->function_name) {
+		if(!sc->function_name.empty()) {
 			error_print("In function \"", sc->function_name, "\", called from ");
 			sc->block->location.print_error();
 		}
@@ -295,7 +294,7 @@ make_var_location(const std::vector<Entity_Id> &chain) {
 }
 
 Var_Id
-try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Mobius_Model *model, Scope_Data *scope) {
+try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Mobius_Model *model, Function_Scope *scope) {
 
 	if(chain.size() > max_dissolved_chain + 2) {
 		tokens[0].print_error_header();
@@ -342,12 +341,12 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 }
 
 void
-set_identifier_location(Mobius_Model *model, Identifier_FT *ident, Var_Id var_id, Source_Location sl, Scope_Data *scope, Var_Location &context) {
+set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_Id var_id, Source_Location sl, Function_Scope *scope) {
 	if(!is_valid(var_id)) {
 		sl.print_error_header();
 		//TODO: could print the identifier here, just take the token chain as an argument.
 		error_print("The identifier specified does not resolve to a valid location that has been created using a \"has\" declaration. It was being resolved in the following context: ");
-		error_print_location(model, context);
+		error_print_location(data->scope, data->in_loc);
 		fatal_error_trace(scope);
 	}
 	if(var_id.type == Var_Id::Type::state_var) {
@@ -361,7 +360,7 @@ set_identifier_location(Mobius_Model *model, Identifier_FT *ident, Var_Id var_id
 }
 
 Math_Expr_FT *
-resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Data *scope) {
+resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
 	Math_Expr_FT *result = nullptr;
 	
 #define DEBUGGING_NOW 0
@@ -369,12 +368,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 	warning_print("begin ", name(ast->type), "\n");
 #endif
 	
-	Module_Declaration *module = data->model->modules[data->module_id];
+	Decl_Scope &decl_scope = *data->scope;
+	
 	switch(ast->type) {
 		
 		case Math_Expr_Type::block : {
 			auto new_block = new Math_Block_FT();
-			Scope_Data new_scope;
+			Function_Scope new_scope;
 			new_scope.parent = scope;
 			new_scope.block = new_block;
 			
@@ -403,24 +403,28 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 			
 			bool isfun = is_inside_function(scope);
 			bool found_local = false;
-			String_View n1 = ident->chain[0].string_value;
+			std::string n1 = ident->chain[0].string_value;
 			if(chain_size == 1)
 				found_local = find_local_variable(new_ident, n1, scope);
 			
 			if(isfun && !found_local) {
 				ident->chain[0].print_error_header();
-				error_print("The name \"", n1, "\" is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
+				error_print("The name '", n1, "' is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
 				fatal_error_trace(scope);
 			}
 			
 			if(!found_local) {
 				if(chain_size == 1) {
-					Entity_Id id = module->find_handle(n1);
+					auto reg = decl_scope[n1];
+					if(!reg) {
+						ident->chain[0].print_error_header();
+						error_print("The name '", n1, "' is not the name of a local variable or entity declared or loaded in this scope.\n");
+					}
+					Entity_Id id = reg->id;
 					
 					if(id.reg_type == Reg_Type::parameter) {
 						
-						id = module->get_global(id);
-						auto par = data->model->find_entity<Reg_Type::parameter>(id);
+						auto par = data->model->parameters[id];
 						
 						if(par->decl_type == Decl_Type::par_enum) {
 							ident->chain[0].print_error_header();
@@ -436,12 +440,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 							error_print("The name \"", n1, "\" can not properly be resolved since the compartment can not be inferred from the context.\n");
 							fatal_error_trace(scope);
 						}
-						id = module->get_global(id);
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, data->model, scope);
-						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope, data->in_loc);
+						set_identifier_location(data, new_ident, var_id, ident->chain[0].location, scope);
 					} else if (id.reg_type == Reg_Type::constant) {
 						delete new_ident; // A little stupid to do it that way, but oh well.
-						result = make_literal(module->constants[id]->value);
+						result = make_literal(data->model->constants[id]->value);
 						// TODO: remember unit when that is implemented.
 					} else {
 						ident->chain[0].print_error_header();
@@ -450,55 +453,66 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 					}
 				} else if(chain_size >= 2) {
 					// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
-					String_View n2 = ident->chain[1].string_value;
-					Entity_Id first  = module->find_handle(n1);
+					std::string n2 = ident->chain[1].string_value;
 					
 					//TODO: may need fixup for special more identifiers.
-					if(chain_size == 2 && n1 == "time") {
-						if(false){}
-						#define TIME_VALUE(name, bits) \
-						else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
-						#include "time_values.incl"
-						#undef TIME_VALUE
-						else {
-							ident->chain[1].print_error_header();
-							error_print("The time structure does not have a member \"", n2, "\".\n");
-							fatal_error_trace(scope);
-						}
-						new_ident->value_type = Value_Type::integer;
-					} else if(chain_size == 2 && first.reg_type == Reg_Type::parameter) {
-						first = module->get_global(first);
-						auto parameter = data->model->find_entity<Reg_Type::parameter>(first);
-						
-						if(parameter->decl_type != Decl_Type::par_enum) {
-							ident->chain[0].print_error_header();
-							error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
-							fatal_error_trace(scope);
-						}
-						s64 val = enum_int_value(parameter, n2);
-						if(val < 0) {
-							ident->chain[1].print_error_header();
-							error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
-							fatal_error_trace(scope);
-						}
-						new_ident->variable_type = Variable_Type::parameter;
-						new_ident->parameter = first;
-						new_ident->value_type = Value_Type::integer;
-						result = make_binop('=', new_ident, make_literal(val));
-					} else {
-						std::vector<Entity_Id> chain;
-						for(int idx = 0; idx < chain_size; ++idx) {
-							Entity_Id id = module->find_handle(ident->chain[idx].string_value);
-							if(!is_valid(id)) {
-								ident->chain[idx].print_error_header();
-								error_print("The name \"", ident->chain[idx].string_value, "\" is not the name of an entity declared in this scope.");
+					bool resolved = false;
+					if(chain_size == 2) {
+						if(n1 == "time") {
+							if(false){}
+							#define TIME_VALUE(name, bits) \
+							else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
+							#include "time_values.incl"
+							#undef TIME_VALUE
+							else {
+								ident->chain[1].print_error_header();
+								error_print("The time structure does not have a member \"", n2, "\".\n");
 								fatal_error_trace(scope);
 							}
-							id = module->get_global(id);
-							chain.push_back(id);
+							new_ident->value_type = Value_Type::integer;
+							resolved = true;
+						} else {
+							auto reg = decl_scope[n1];
+							if(!reg) {
+								ident->chain[0].print_error_header();
+								error_print("The name '", n1, "' is not the name of an entity declared or loaded in this scope.\n");
+							}
+							if(reg->id.reg_type == Reg_Type::parameter) {
+								auto parameter = data->model->parameters[reg->id];
+								
+								if(parameter->decl_type != Decl_Type::par_enum) {
+									ident->chain[0].print_error_header();
+									error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
+									fatal_error_trace(scope);
+								}
+								s64 val = enum_int_value(parameter, n2);
+								if(val < 0) {
+									ident->chain[1].print_error_header();
+									error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
+									fatal_error_trace(scope);
+								}
+								new_ident->variable_type = Variable_Type::parameter;
+								new_ident->parameter = reg->id;
+								new_ident->value_type = Value_Type::integer;
+								result = make_binop('=', new_ident, make_literal(val));
+								resolved = true;
+							}
+						}
+					}
+					if(!resolved) {
+						std::vector<Entity_Id> chain;
+						for(int idx = 0; idx < chain_size; ++idx) {
+							std::string str = ident->chain[idx].string_value;
+							auto reg = decl_scope[str];
+							if(!reg) {
+								ident->chain[idx].print_error_header();
+								error_print("The name \"", str, "\" is not the name of an entity declared in this scope.");
+								fatal_error_trace(scope);
+							}
+							chain.push_back(reg->id);
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, data->model, scope);
-						set_identifier_location(data->model, new_ident, var_id, ident->chain[0].location, scope, data->in_loc);
+						set_identifier_location(data, new_ident, var_id, ident->chain[0].location, scope);
 					}
 				} else {
 					ident->chain[0].print_error_header();
@@ -521,7 +535,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 		case Math_Expr_Type::function_call : {
 			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
 			
-			auto fun_name = fun->name.string_value;
+			std::string fun_name = fun->name.string_value;
 			
 			// First check for "special" calls that are not really function calls.
 			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc") {
@@ -562,7 +576,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 				// Otherwise it should have been registered as an entity.
 				
 				// TODO: it is a bit problematic that a function can see all other functions in the scope it was imported into...
-				
+				auto reg = decl_scope[fun_name];
+				if(!reg) {
+					fun->name.print_error_header();
+					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
+					fatal_error_trace(scope);
+				}
+				auto fun_decl = data->model->functions[reg->id];
+				auto fun_type = fun_decl->fun_type;
+				/*
 				Entity_Id fun_id = module->find_handle(fun_name);
 				bool local = is_valid(fun_id);
 				if(!local && module->global_scope) fun_id = module->global_scope->find_handle(fun_name);
@@ -584,11 +606,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
 					fatal_error_trace(scope);
 				}
-				
+				*/
 				//TODO: should be replaced with check in resolve_arguments
 				if(fun->exprs.size() != fun_decl->args.size()) {
 					fun->name.print_error_header();
-					error_print("Wrong number of arguments to function \"", fun_name, "\". Expected ", module->functions[fun_id]->args.size(), ", got ", fun->exprs.size(), ".\n");
+					error_print("Wrong number of arguments to function \"", fun_name, "\". Expected ", fun_decl->args.size(), ", got ", fun->exprs.size(), ".\n");
 					fatal_error_trace(scope);
 				}
 				
@@ -624,12 +646,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 						inlined_fun->exprs[argidx] = inlined_arg;
 					}
 					
-					Scope_Data new_scope;
+					Function_Scope new_scope;
 					new_scope.parent = scope;
 					new_scope.block = inlined_fun;
 					new_scope.function_name = fun_name;
 					
-					inlined_fun->exprs.push_back(resolve_function_tree(fun_decl->code, data, &new_scope));
+					Function_Resolve_Data sub_data = *data;
+					sub_data.scope = data->model->get_scope(fun_decl->code_scope);  // Resolve the function body in the scope of the library it was imported from (if relevant).
+					
+					inlined_fun->exprs.push_back(resolve_function_tree(fun_decl->code, &sub_data, &new_scope));
 					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
 					
 					result = inlined_fun;
@@ -743,11 +768,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 		case Math_Expr_Type::local_var : {
 			
 			auto local = reinterpret_cast<Local_Var_AST *>(ast);
+			std::string local_name = local->name.string_value;
 			
 			for(auto loc : scope->block->exprs) {
 				if(loc->expr_type == Math_Expr_Type::local_var) {
 					auto loc2 = reinterpret_cast<Local_Var_FT *>(loc);
-					if(loc2->name == local->name.string_value) {
+					
+					if(loc2->name == local_name) {
 						local->location.print_error_header();
 						error_print("Re-declaration of local variable \"", loc2->name, "\" in the same scope.\n");
 						fatal_error_trace(scope);
@@ -759,7 +786,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Scope_Dat
 			
 			resolve_arguments(new_local, ast, data, scope);
 			
-			new_local->name = local->name.string_value;
+			new_local->name = local_name;
 			new_local->value_type = new_local->exprs[0]->value_type;
 			
 			result = new_local;
@@ -862,13 +889,13 @@ replace_iteration_index(Math_Expr_FT *expr, s32 block_id) {
 }
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
+prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 	
 	// Try to simplify the math expression if some components can be evaluated to constants at compile time.
 	//    Some of this could be left to llvm, but it is beneficial make the job easier for llvm, and we do see improvements from some of these optimizations.
 	
-	Scope_Data *old_scope = scope;
-	Scope_Data new_scope;
+	Function_Scope *old_scope = scope;
+	Function_Scope new_scope;
 	if(expr->expr_type == Math_Expr_Type::block) {
 		new_scope.parent = scope;
 		new_scope.block = reinterpret_cast<Math_Block_FT *>(expr);
@@ -1070,7 +1097,7 @@ prune_tree(Math_Expr_FT *expr, Scope_Data *scope) {
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
 			if(ident->variable_type == Variable_Type::local) {
-				Scope_Data *sc = scope;
+				Function_Scope *sc = scope;
 				while(sc->block->unique_block_id != ident->local_var.scope_id) {
 					sc = sc->parent;
 					if(!sc)

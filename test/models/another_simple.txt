@@ -5,6 +5,11 @@ model("Another simple") {
 	sp : module("So simple", 1, 0, 0) {
 	
 		a : compartment("A")
+		q : quantity("Q")
+		
+		a.has(q, unit(), "QA") .initial {
+			b
+		}
 		
 		a.par_group("Pars") {
 			b : par_real("test", unit(), 0)
@@ -14,4 +19,15 @@ model("Another simple") {
 			b * sin(time.day_of_year * 2.0 * pi / 365.0)
 		}
 	}
+	
+	sw : module("Another simple", 1, 0, 0) {
+		
+		a : compartment("A")
+		q : quantity("Q")
+		
+		flux(a.q, nowhere, "The flux") { 5 }
+		
+	}
+	
+	a.compartment("A")
 }

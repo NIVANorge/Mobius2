@@ -4,7 +4,7 @@
 
 library("Basic") {
 
-	pi : constant("π", unit(), 3.141592653589793238)
+	#pi : constant("π", unit(), 3.141592653589793238)
 	
 	safe_divide : function(a, b) {
 		r := a/b

@@ -1,4 +1,6 @@
 
+#ifndef MOBIUS_LLVM_JIT_H
+#define MOBIUS_LLVM_JIT_H
 
 #include "function_tree.h"
 #include "run_model.h"
@@ -30,3 +32,6 @@ jit_add_batch(Math_Expr_FT *expr, const std::string &function_name, LLVM_Module_
 
 batch_function *
 get_jitted_batch_function(const std::string &function_name);
+
+
+#endif // MOBIUS_LLVM_JIT_H

@@ -1,5 +1,6 @@
 
 #include "model_application.h"
+#include "function_tree.h"
 
 #include <string>
 
@@ -14,10 +15,10 @@ Model_Instruction {
 		add_flux_to_target,
 		clear_state_var,
 		add_to_aggregate,
-	}      type;
+	}                   type;
 	
-	Var_Id var_id;
-	Var_Id source_or_target_id;
+	Var_Id              var_id;
+	Var_Id              source_or_target_id;
 	Entity_Id           neighbor;
 	
 	Entity_Id           solver;
@@ -161,7 +162,7 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 	
 	if(is_valid(neighbor_id)) {
 		// The aggregation was pointed at a neighboring index, not the same index as the current one.
-		auto neighbor = model_app->model->modules[0]->neighbors[neighbor_id];
+		auto neighbor = model_app->model->neighbors[neighbor_id];
 		
 		auto cur_idx = indexes[neighbor->index_set.id];
 		
@@ -212,7 +213,7 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 
 Math_Expr_FT *
 create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, Batch_Array &array, std::vector<Math_Expr_FT *> &indexes) {
-	for(auto &index_set : model_app->model->modules[0]->index_sets)
+	for(auto &index_set : model_app->model->index_sets)
 		indexes[index_set.id] = nullptr;    //note: just so that it is easy to catch if we somehow use an index we shouldn't
 		
 	Math_Block_FT *scope = top_scope;
@@ -240,7 +241,7 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 	auto model = model_app->model;
 	auto top_scope = new Math_Block_FT();
 	
-	std::vector<Math_Expr_FT *> indexes(model->modules[0]->index_sets.count());
+	std::vector<Math_Expr_FT *> indexes(model->index_sets.count());
 	
 	for(auto &array : batch->arrays) {
 		Math_Expr_FT *scope = create_nested_for_loops(model_app, top_scope, array, indexes);
@@ -427,7 +428,7 @@ debug_print_batch_array(Mobius_Model *model, std::vector<Batch_Array> &arrays, s
 	for(auto &pre_batch : arrays) {
 		warning_print("\t[");;
 		for(auto index_set : pre_batch.index_sets)
-			warning_print("\"", model->find_entity<Reg_Type::index_set>(index_set)->name, "\" ");
+			warning_print("\"", model->index_sets[index_set]->name, "\" ");
 		warning_print("]\n");
 		for(auto instr_id : pre_batch.instr_ids) {
 			warning_print("\t\t");
@@ -442,7 +443,7 @@ debug_print_batch_structure(Mobius_Model *model, std::vector<Batch> &batches, st
 	warning_print("\n**** batch structure ****\n");
 	for(auto &batch : batches) {
 		if(is_valid(batch.solver))
-			warning_print("  solver \"", model->find_entity<Reg_Type::solver>(batch.solver)->name, "\" :\n");
+			warning_print("  solver \"", model->solvers[batch.solver]->name, "\" :\n");
 		else
 			warning_print("  discrete :\n");
 		debug_print_batch_array(model, batch.arrays, instructions);
@@ -609,8 +610,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	if(!initial) {
 		
 		// NOTE: We tested the validity of the solve declaration in the model composition already, so we don't do it again here.
-		for(auto id : model->modules[0]->solves) {
-			auto solve = model->modules[0]->solves[id];
+		for(auto id : model->solves) {
+			auto solve = model->solves[id];
 			Var_Id var_id = model->state_vars[solve->loc];
 			
 			instructions[var_id.id].solver = solve->solver;
@@ -687,7 +688,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
-			auto agg_to_comp = model->find_entity<Reg_Type::compartment>(aggr_var->agg_to_compartment);
+			auto agg_to_comp = model->compartments[aggr_var->agg_to_compartment];
 			//agg_instr->inherits_index_sets_from_instruction.clear(); // Should be unnecessary. We just constructed it.
 			
 			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
@@ -811,7 +812,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			fatal_error(Mobius_Error::internal, "Somehow a neighbor flux got an aggregate");
 		
 		if(is_neighbor) {
-			auto neighbor = model->find_entity<Reg_Type::neighbor>(var->neighbor);
+			auto neighbor = model->neighbors[var->neighbor];
 			if(neighbor->type != Neighbor_Structure_Type::directed_tree)
 				fatal_error(Mobius_Error::internal, "Unsupported neighbor structure in build_instructions().");
 			// NOTE: the source and target id for the neighbor-flux are the same, but loc2 doesn't record the target in this case, so we use the source_id.
@@ -1070,7 +1071,7 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 	warning_print("*** Batches before internal structuring: ***\n");
 	for(auto &batch : batches_out) {
 		if(is_valid(batch.solver))
-			warning_print("  solver(\"", model->find_entity<Reg_Type::solver>(batch.solver)->name, "\") :\n");
+			warning_print("  solver(\"", model->solvers[batch.solver]->name, "\") :\n");
 		else
 			warning_print("  discrete :\n");
 		for(int instr_id : batch.instrs) {
@@ -1366,6 +1367,8 @@ Model_Application::compile() {
 	
 	set_up_result_structure(this, batches, instructions);
 	
+	//TODO: add back in!
+	
 	LLVM_Constant_Data constants;
 	constants.neighbor_data       = data.neighbors.data;
 	constants.neighbor_data_count = neighbor_structure.total_count;
@@ -1383,7 +1386,7 @@ Model_Application::compile() {
 		Run_Batch new_batch;
 		new_batch.run_code = generate_run_code(this, &batch, instructions, false);
 		if(is_valid(batch.solver)) {
-			auto solver = model->find_entity<Reg_Type::solver>(batch.solver);
+			auto solver = model->solvers[batch.solver];
 			new_batch.solver_fun = solver->solver_fun;
 			new_batch.h          = solver->h;
 			new_batch.hmin       = solver->hmin;

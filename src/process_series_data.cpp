@@ -223,12 +223,12 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 				}
 				
 				for(auto &index : indexes) {
-					Entity_Id index_set = model->modules[0]->index_sets.find_by_name(index.first);
+					Entity_Id index_set = model->index_sets.find_by_name(index.first);
 					Entity_Id expected = expected_index_sets[index_idx];
 					if(index_set != expected) {
 						header.loc.print_error_header();
 						//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
-						fatal_error("Expected \"", model->modules[0]->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
+						fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
 					}
 					indexes_int[index_idx] = {index_set, (s32)index.second};
 					++index_idx;

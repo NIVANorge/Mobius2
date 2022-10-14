@@ -394,7 +394,7 @@ get_llvm_type(Value_Type type, LLVM_Module_Data *data) {
 }
 
 llvm::Value *
-build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_Module_Data *data) {
+build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function, LLVM_Module_Data *data) {
 	llvm::Value *result = nullptr;
 	if(false) {}
 	#define MAKE_INTRINSIC1(name, emul, intrin_name, ret_type, type1) \
@@ -405,7 +405,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::intrin_name, arg_types); \
 			result = data->builder->CreateCall(fun, { a }); \
 		}
-	// could name the function call std::string(function.data, function.data+function.count);
+	// could name the function call
 	#define MAKE_INTRINSIC2(name, intrin_name, ret_type, type1, type2)
 	#include "intrinsics.incl"
 	#undef MAKE_INTRINSIC1
@@ -420,8 +420,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 		result = data->builder->CreateAnd(result, mask);
 		result = data->builder->CreateICmpNE(result, mask);
 	} else {
-		std::string fun_name(function.data, function.data+function.count);
-		auto fun = data->module->getFunction(fun_name);
+		auto fun = data->module->getFunction(function);
 		if(!fun) {
 			fatal_error(Mobius_Error::internal, "Unhandled or unsupported function \"", function, "\" in build_intrinsic_ir().");
 		}
@@ -433,7 +432,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, String_View function, LLVM_M
 }
 
 llvm::Value *
-build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type type2, String_View function, LLVM_Module_Data *data) {
+build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type type2, const std::string &function, LLVM_Module_Data *data) {
 	//TODO: use MAKE_INTRINSIC2 macro here?
 	llvm::Value *result;
 	bool ismin = function == "min";

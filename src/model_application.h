@@ -20,8 +20,9 @@ template<typename Handle_T> struct Hash_Fun {
 	int operator()(const Handle_T&) const;
 };
 
+// TODO: it is a bit wasteful to hash these first two at all, they could just be indexes into a vector.
 template<> struct Hash_Fun<Entity_Id> {
-	int operator()(const Entity_Id& id) const { return entity_id_hash(id); }
+	int operator()(const Entity_Id& id) const { return id.id; }
 };
 
 template<> struct Hash_Fun<Var_Id> {
@@ -161,7 +162,7 @@ struct Storage_Structure {
 	void
 	for_each(Handle_T, const std::function<void(std::vector<Index_T> &, s64)>&);
 	
-	String_View
+	const std::string &
 	get_handle_name(Handle_T handle);
 	
 	Storage_Structure(Model_Application *parent) : parent(parent), has_been_set_up(false), total_count(0) {}
@@ -276,7 +277,7 @@ Series_Metadata {
 };
 
 struct Index_Name {
-	String_View name;
+	std::string name;
 };
 
 struct
@@ -284,18 +285,16 @@ Model_Application {
 	
 	Model_Application(Mobius_Model *model) : 
 		model(model), parameter_structure(this), series_structure(this), result_structure(this), neighbor_structure(this), 
-		additional_series_structure(this), is_compiled(false), data_set(nullptr), alloc(1024), data(this) {
+		additional_series_structure(this), is_compiled(false), data_set(nullptr), data(this) {
 			
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
 		
-		auto global = model->modules[0];
+		index_counts.resize(model->index_sets.count());
+		index_names_map.resize(model->index_sets.count());
+		index_names.resize(model->index_sets.count());
 		
-		index_counts.resize(global->index_sets.count());
-		index_names_map.resize(global->index_sets.count());
-		index_names.resize(global->index_sets.count());
-		
-		for(auto index_set : global->index_sets) {
+		for(auto index_set : model->index_sets) {
 			index_counts[index_set.id].index_set = index_set;
 			index_counts[index_set.id].index = 0;
 		}
@@ -305,7 +304,7 @@ Model_Application {
 		time_step_size.magnitude = 86400;
 		
 		initialize_llvm();
-		llvm_data = create_llvm_module();   //TODO: free it on destruction!
+		llvm_data = create_llvm_module();
 	}
 	
 	~Model_Application() {
@@ -316,11 +315,9 @@ Model_Application {
 	Mobius_Model                                   *model;
 	Model_Data                                      data;
 	
-	Linear_Allocator                                alloc; // For storing index names
-	
 	std::vector<Index_T>                            index_counts;
 	std::vector<string_map<Index_T>>                index_names_map;
-	std::vector<std::vector<String_View>>           index_names;
+	std::vector<std::vector<std::string>>           index_names;
 	
 	Time_Step_Size                                  time_step_size;
 	
@@ -334,16 +331,15 @@ Model_Application {
 	
 	Data_Set              *data_set;
 	
-	LLVM_Module_Data      *llvm_data;
+	LLVM_Module_Data      *llvm_data;  //TODO: put back in
 	
 	Run_Batch              initial_batch;
 	std::vector<Run_Batch> batches;
 	
 	bool is_compiled;
 	
-	
-	void set_indexes(Entity_Id index_set, std::vector<String_View> &indexes);
-	Index_T get_index(Entity_Id index_set, String_View name);
+	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes);
+	Index_T get_index(Entity_Id index_set, const std::string &name);
 	bool all_indexes_are_set();
 	
 	void build_from_data_set(Data_Set *data_set);
@@ -362,12 +358,12 @@ Model_Application {
 };
 
 
-template<> inline String_View
+template<> inline const std::string&
 Storage_Structure<Entity_Id>::get_handle_name(Entity_Id par) {
-	return parent->model->find_entity<Reg_Type::parameter>(par)->name;
+	return parent->model->parameters[par]->name;
 }
 
-template<> inline String_View
+template<> inline const std::string&
 Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
 	if(var_id.type == Var_Id::Type::state_var)
 		return parent->model->state_vars[var_id]->name;
@@ -377,9 +373,9 @@ Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
 		return parent->additional_series[var_id]->name;
 }
 
-template<> inline String_View
+template<> inline const std::string &
 Storage_Structure<Neighbor_T>::get_handle_name(Neighbor_T nb) {
-	return parent->model->find_entity<Reg_Type::neighbor>(nb.neighbor)->name;
+	return parent->model->neighbors[nb.neighbor]->name;
 }
 
 template<typename Handle_T> const std::vector<Entity_Id> &

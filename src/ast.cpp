@@ -43,7 +43,7 @@ get_decl_type(Token *string_name, Body_Type *body_type_out) {
 	#undef ENUM_VALUE
 	
 	string_name->print_error_header();
-	fatal_error("Unrecognized declaration type \"", string_name->string_value, "\".");
+	fatal_error("Unrecognized declaration type '", string_name->string_value, "'.");
 	
 	return Decl_Type::unrecognized;
 }
@@ -72,7 +72,6 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	
 	if((char)next.type == '.') {
 		read_identifier_chain(stream, '.', &decl->decl_chain);
-		
 		next = stream->read_token();
 	}
 	
@@ -126,8 +125,7 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 				next.print_error_header();
 				fatal_error("Expected a ) or a ,");
 			}
-		}
-		else {
+		} else {
 			next.print_error_header();
 			fatal_error("Misformatted declaration argument list."); //TODO: better error message.
 		}
@@ -192,8 +190,7 @@ parse_decl(Token_Stream *stream) {
 						fatal_error("Expected a doc string, a declaration, or a }");
 					}
 				}
-			}
-			else if(body_type == Body_Type::function) {
+			} else if(body_type == Body_Type::function) {
 				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
 				
 				// Note: fold_minus=false causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
@@ -223,7 +220,7 @@ parse_function_call(Token_Stream *stream) {
 		Token token = stream->peek_token();
 		if(token.type == Token_Type::eof) {
 			token.print_error_header();
-			error_print("End of file while parsing function argument list for function \"", function->name.string_value, "\" starting at:\n");
+			error_print("End of file while parsing function argument list for function '", function->name.string_value, "' starting at:\n");
 			function->name.print_error_location();
 			mobius_error_exit();
 		} else if((char)token.type == ')') {
@@ -246,10 +243,9 @@ parse_function_call(Token_Stream *stream) {
 	return function;
 }
 
-
 int
 find_binary_operator(Token_Stream *stream, Token_Type *t) {
-	// The number returned is the operator precedence. High means that it is computed first.
+	// The number returned is the operator precedence. High means that it has a higher precedence.
 	Token peek = stream->peek_token();
 	*t = peek.type;
 	char c = (char)*t;
@@ -270,29 +266,24 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 	
 	while(true) {
 		Token_Type oper;
-		if(int cur_prec = find_binary_operator(stream, &oper)) {	
-			if(cur_prec < prev_prec)
-				return lhs;
-			
-			Token token = stream->read_token(); // consume the operator
-			
-			Math_Expr_AST *rhs = parse_primary_expr(stream);
-			
-			Token_Type oper_next;
-			if(int next_prec = find_binary_operator(stream, &oper_next)) {
-				if(cur_prec < next_prec)
-					rhs = potentially_parse_binary_operation_rhs(stream, cur_prec + 1, rhs);
-			}
-			
-			Binary_Operator_AST *binop = new Binary_Operator_AST();
-			binop->oper = oper;
-			binop->exprs.push_back(lhs);
-			binop->exprs.push_back(rhs);
-			binop->location = token.location;
-			lhs = binop;
-			
-		} else
+		int cur_prec = find_binary_operator(stream, &oper);
+		if(!cur_prec || (cur_prec < prev_prec))
 			return lhs;
+		
+		Token token = stream->read_token(); // consume the operator
+		Math_Expr_AST *rhs = parse_primary_expr(stream);
+		
+		Token_Type oper_next;
+		int next_prec = find_binary_operator(stream, &oper_next);
+		if(next_prec && (cur_prec < next_prec))
+			rhs = potentially_parse_binary_operation_rhs(stream, cur_prec + 1, rhs);
+		
+		Binary_Operator_AST *binop = new Binary_Operator_AST();
+		binop->oper = oper;
+		binop->exprs.push_back(lhs);
+		binop->exprs.push_back(rhs);
+		binop->location = token.location;
+		lhs = binop;
 	}
 }
 
@@ -384,7 +375,7 @@ parse_potential_if_expr(Token_Stream *stream) {
 			}
 			
 			token.print_error_header();
-			fatal_error("Expected an \"if\" or an \"otherwise\".");
+			fatal_error("Expected an 'if' or an 'otherwise'.");
 		}
 		
 		return if_expr;
@@ -397,7 +388,6 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 	auto block = new Math_Block_AST();
 	block->location = opens_at;
 	
-	//int semicolons = 0;
 	while(true) {
 		Token token = stream->peek_token();
 		if(token.type == Token_Type::eof) {
@@ -491,7 +481,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	
 	if(found_match == -1) {
 		decl->location.print_error_header();
-		error_print("The arguments to the declaration \"", name(decl->type), "\" don't match any recognized pattern. The recognized patterns are:\n");
+		error_print("The arguments to the declaration of type '", name(decl->type), "' don't match any recognized pattern. The recognized patterns are:\n");
 		for(const auto &pattern : patterns) {
 			error_print("(");
 			auto match = pattern.begin();

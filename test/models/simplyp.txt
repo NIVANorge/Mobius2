@@ -24,10 +24,10 @@ Write the description
 	}
 	
 	soil.par_group("Soil P") {
-		init_epc0 : par_real("Initial soil TDP concentration and EPC0", unit(m g, l-1), 0.1, 0, 10)
-		init_soil_p_conc : par_real("Initial total soil P content", unit(m g, k g-1), 1458, 0, 10000)
+		init_epc0            : par_real("Initial soil TDP concentration and EPC0", unit(m g, l-1), 0.1, 0, 10)
+		init_soil_p_conc     : par_real("Initial total soil P content", unit(m g, k g-1), 1458, 0, 10000)
 		inactive_soil_p_conc : par_real("Inactive soil P content", unit(m g, k g-1), 873, 0, 10000)
-		p_input : par_real("Net annual P input to soil", unit(k g, ha-1, year-1), 10, -100, 100)
+		p_input              : par_real("Net annual P input to soil", unit(k g, ha-1, year-1), 10, -100, 100)
 	}
 	
 	gw.par_group("Groundwater P") {
@@ -71,7 +71,7 @@ Write the description
 	}
 	
 	#NOTE: could use the inbuilt concentration system for this, but we don't model varying soil mass, so it is a bit superfluous
-	soil.has(plabconc : property("Labile P concentration"), unit(m g, k g-1)) {  plab / m_soil_m2  }
+	soil.plab.has(plabconc : property("Labile P concentration"), unit(m g, k g-1)) {  plab / m_soil_m2  }
 	
 	gw.water.has(tdp, unit(k g, k m-2), "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
 	
@@ -86,12 +86,12 @@ Write the description
 	
 	#NOTE: could also just have pp "dissolved in" ss ...
 	
-	soil.has(pp_fact : property("PP mobilization factor"), unit(k g, k m-2, day-1)) {
-		(plabconc + inactive_soil_p_conc) * soil.e_fact * pp_enrich
+	soil.plab.has(pp_fact : property("PP mobilization factor"), unit(k g, k m-2, day-1)) {
+		(plabconc + inactive_soil_p_conc) * e_fact * pp_enrich
 	}
 	
 	flux(nowhere, river.water.pp, "PP mobilization") {
-		river.e_fact * a_catch * aggregate(soil.pp_fact)
+		river.e_fact * a_catch * aggregate(soil.plab.pp_fact)
 	}
 }
 

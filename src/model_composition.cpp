@@ -2,12 +2,11 @@
 #include "model_declaration.h"
 #include "function_tree.h"
 
-
 #include <sstream>
 
 
 Var_Id
-register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool is_series, String_View given_name = "") {
+register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool is_series, const std::string given_name = "") {
 	
 	State_Variable var = {};
 	var.type           = type;
@@ -17,19 +16,19 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	
 	if(is_valid(id)) {
 		if(type == Decl_Type::has) {
-			auto has = model->find_entity<Reg_Type::has>(id);
+			auto has = model->hases[id];
 			loc = has->var_location;
 			var.loc1 = loc;
-			var.type = model->find_entity(loc.property_or_quantity)->decl_type;
+			var.type = model->properties_and_quantities[loc.property_or_quantity]->decl_type;
 			if(is_valid(has->unit)) 
-				var.unit = model->find_entity<Reg_Type::unit>(has->unit)->data;
+				var.unit = model->units[has->unit]->data;
 		} else if (type == Decl_Type::flux) {
-			auto flux = model->find_entity<Reg_Type::flux>(id);
+			auto flux = model->fluxes[id];
 			var.loc1 = flux->source;
 			var.loc2 = flux->target;
 			if(is_valid(flux->neighbor_target)) {
 				if(!is_located(var.loc1)) {
-					flux->location.print_error_header(Mobius_Error::model_building);
+					flux->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("You can't have a flux from nowhere to a neighbor.\n");
 				}
 				var.neighbor = flux->neighbor_target;
@@ -42,16 +41,16 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 		var.type = Decl_Type::property;
 	
 	auto name = given_name;
-	if(!name && is_valid(id))
+	if(name.empty() && is_valid(id))
 		name = model->find_entity(id)->name;
-	if(!name && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate "Compartmentname Quantityname" or something like that instead.
+	if(name.empty() && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate "Compartmentname Quantityname" or something like that instead.
 		name = model->find_entity(loc.property_or_quantity)->name;
 		
 	var.name = name;
-	if(!var.name)
+	if(var.name.empty())
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
 	
-	//warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
+	warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
 	
 	if(is_series)
 		return model->series.register_var(var, loc);
@@ -62,26 +61,26 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 }
 
 void
-check_flux_location(Mobius_Model *model, Source_Location source_loc, Var_Location &loc) {
+check_flux_location(Mobius_Model *model, Decl_Scope *scope, Source_Location source_loc, Var_Location &loc) {
 	if(!is_located(loc)) return;
 	auto hopefully_a_quantity = model->find_entity(loc.property_or_quantity);
 	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 		source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("Fluxes can only be assigned to quantities. \"", hopefully_a_quantity->handle_name, "\" is a property, not a quantity.");
+		fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.property_or_quantity], "' is a property, not a quantity.");
 	}
 	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
 		auto hopefully_a_quantity = model->find_entity(loc.dissolved_in[idx]);
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Fluxes can only be assigned to quantities. \"", hopefully_a_quantity->handle_name, "\" is a property, not a quantity.");
+			fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.dissolved_in[idx]], "' is a property, not a quantity.");
 		}
 	}
 	Var_Id var_id = model->state_vars[loc];
 	if(!is_valid(var_id)) {
 		source_loc.print_error_header(Mobius_Error::model_building);
 		error_print("The variable location ");
-		error_print_location(model, loc);
-		fatal_error(" has not been created using a \"has\" declaration.");
+		error_print_location(scope, loc);
+		fatal_error(" has not been created using a 'has' declaration.");
 	}
 }
 
@@ -184,8 +183,8 @@ location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Loca
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
 	// TODO: when we implement distributing substances over index sets, we have to take that into account here.
-	auto comp       = model->find_entity<Reg_Type::compartment>(loc.compartment); //NOTE: right now we are only guaranteed that loc.compartment is valid. See note in parameter_indexes_below_location.
-	auto below_comp = model->find_entity<Reg_Type::compartment>(below_loc.compartment);
+	auto comp       = model->compartments[loc.compartment]; //NOTE: right now we are only guaranteed that loc.compartment is valid. See note in parameter_indexes_below_location.
+	auto below_comp = model->compartments[below_loc.compartment];
 	
 	for(auto index_set : comp->index_sets) {
 		if(std::find(below_comp->index_sets.begin(), below_comp->index_sets.end(), index_set) == below_comp->index_sets.end())
@@ -196,12 +195,10 @@ location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Loca
 
 bool
 parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Location &below_loc) {
-	auto par = model->find_entity<Reg_Type::parameter>(par_id);
-	auto par_comp_id = model->find_entity<Reg_Type::par_group>(par->par_group)->compartment;
+	auto par = model->parameters[par_id];
+	auto par_comp_id = model->par_groups[par->par_group]->compartment;
 	// TODO: invalid compartment should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
 	if(!is_valid(par_comp_id)) return false;
-	// TODO: need a better system for looking up things that automatically gives us the global one if it exists.
-	par_comp_id = model->get_global(par_comp_id);
 	
 	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
 	Var_Location loc;
@@ -236,7 +233,7 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 	for(auto par_id : code_depends.on_parameter) {
 		if(!parameter_indexes_below_location(model, par_id, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", model->find_entity<Reg_Type::parameter>(par_id)->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the the state variable.");
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", model->parameters[par_id]->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the the state variable.");
 		}
 	}
 	for(auto series_id : code_depends.on_series) {
@@ -288,46 +285,41 @@ Mobius_Model::compose() {
 	// also make sure there are no conflicting has declarations of the same var_location (across modules)
 	std::unordered_map<Var_Location, Entity_Id, Var_Location_Hash> has_location;
 	
-	int module_id = -1;
-	for(auto module : modules) {
-		++module_id;
-		if(module_id == 0) continue;
+	
+	for(Entity_Id id : hases) {
+		auto has = hases[id];
 		
-		for(Entity_Id id : module->hases) {
-			auto has = module->hases[id];
+		bool found_code = has_code(has);
+		
+		// TODO: check for mismatching units between declarations.
+		Entity_Registration<Reg_Type::has> *has2 = nullptr;
+		auto find = has_location.find(has->var_location);
+		if(find != has_location.end()) {
+			has2 = hases[find->second];
 			
-			bool found_code = has_code(has);
-			
-			// TODO: check for mismatching units between declarations.
-			Entity_Registration<Reg_Type::has> *has2 = nullptr;
-			auto find = has_location.find(has->var_location);
-			if(find != has_location.end()) {
-				has2 = find_entity<Reg_Type::has>(find->second);
-				
-				if(found_code && has_code(has2)) {
-					has->location.print_error_header();
-					error_print("Only one has declaration for the same variable location can have code associated with it. There is a conflicting declaration here:\n");
-					has2->location.print_error();
-					mobius_error_exit();
-				}
+			if(found_code && has_code(has2)) {
+				has->source_loc.print_error_header();
+				error_print("Only one has declaration for the same variable location can have code associated with it. There is a conflicting declaration here:\n");
+				has2->source_loc.print_error();
+				mobius_error_exit();
 			}
-			
-			if(!found_code) {
-				// If it is a property, the property itself could have default code.
-				auto prop = find_entity<Reg_Type::property_or_quantity>(has->var_location.property_or_quantity);
-				if(prop->default_code) found_code = true;
-			}
-			
-			Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
-			// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
-			if(type == Decl_Type::property && found_code)
-				has_location[has->var_location] = id;
-			
-			// Note: for quantities, we can have some that don't have code associated with them at all, and we still need to choose one canonical one to use for the state variable registration below.
-			//     (thus quantities can also not be input series)
-			if(type == Decl_Type::quantity && (!has2 || !has_code(has2)))
-				has_location[has->var_location] = id;
 		}
+		
+		if(!found_code) {
+			// If it is a property, the property itself could have default code.
+			auto prop = properties_and_quantities[has->var_location.property_or_quantity];
+			if(prop->default_code) found_code = true;
+		}
+		
+		Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
+		// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
+		if(type == Decl_Type::property && found_code)
+			has_location[has->var_location] = id;
+		
+		// Note: for quantities, we can have some that don't have code associated with them at all, and we still need to choose one canonical one to use for the state variable registration below.
+		//     (thus quantities can also not be input series)
+		if(type == Decl_Type::quantity && (!has2 || !has_code(has2)))
+			has_location[has->var_location] = id;
 	}
 	
 	warning_print("State var registration begin.\n");
@@ -337,72 +329,55 @@ Mobius_Model::compose() {
 	// TODO: we could move some of the checks in this loop to the above loop.
 	
 	for(int n_dissolved = 0; n_dissolved <= max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
-		int module_id = -1;
-		for(auto module : modules) {
-			++module_id;
-			if(module_id == 0) continue;
-		
-			for(Entity_Id id : module->hases) {
-				auto has = module->hases[id];
-				if(has->var_location.n_dissolved != n_dissolved) continue;
-				
-				for(int idx = 0; idx < n_dissolved; ++idx) {
-					auto diss_in = find_entity(has->var_location.dissolved_in[idx]);
-					if(diss_in->decl_type != Decl_Type::quantity) {
-						has->location.print_error_header(Mobius_Error::model_building);
-						fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
-					}
+		for(Entity_Id id : hases) {
+			auto has = hases[id];
+			if(has->var_location.n_dissolved != n_dissolved) continue;
+			
+			for(int idx = 0; idx < n_dissolved; ++idx) {
+				auto diss_in = find_entity(has->var_location.dissolved_in[idx]);
+				if(diss_in->decl_type != Decl_Type::quantity) {
+					has->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
 				}
+			}
+			
+			if(n_dissolved > 0) {
+				Var_Location above_loc = remove_dissolved(has->var_location);
 				
+				auto above_var = state_vars[above_loc];
+				if(!is_valid(above_var)) {
+					has->source_loc.print_error_header(Mobius_Error::model_building);
+					//error_print_location(this, above_loc);
+					fatal_error("The located quantity that this \"has\" declaration is assigned to has itself not been created using a \"has\" declaration.");
+				}
+			}
+			
+			Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
+			auto find = has_location.find(has->var_location);
+			if(find == has_location.end()) {
+				// No declaration provided code for this series, so it is an input series.
 				if(n_dissolved > 0) {
-					/*
-					if(type != Decl_Type::quantity) {
-						has->location.print_error_header(Mobius_Error::model_building);
-						fatal_error("Properties can only be assigned to compartments, not to quantities.");   //TODO: (for now!)
-					}
-					*/
-					Var_Location above_loc = remove_dissolved(has->var_location);
-					
-					auto above_var = state_vars[above_loc];
-					if(!is_valid(above_var)) {
-						has->location.print_error_header(Mobius_Error::model_building);
-						//error_print_location(this, above_loc);
-						fatal_error("The located quantity that this \"has\" declaration is assigned to has itself not been created using a \"has\" declaration.");
-					}
+					has->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("For now we don't support input series with chained locations.");
 				}
-				
-				Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
-				auto find = has_location.find(has->var_location);
-				if(find == has_location.end()) {
-					// No declaration provided code for this series, so it is an input series.
-					if(n_dissolved > 0) {
-						has->location.print_error_header(Mobius_Error::model_building);
-						fatal_error("For now we don't support input series with chained locations.");
-					}
-					register_state_variable(this, Decl_Type::has, id, true);
-				} else if (id == find->second) {
-					// This is the particular has declaration that provided the code, so we register a state variable using this one.
-					Var_Id var_id = register_state_variable(this, Decl_Type::has, id, false);
-					if(n_dissolved > 0 && type == Decl_Type::quantity)
-						dissolvedes.push_back(var_id);
-				}
+				register_state_variable(this, Decl_Type::has, id, true);
+			} else if (id == find->second) {
+				// This is the particular has declaration that provided the code, so we register a state variable using this one.
+				Var_Id var_id = register_state_variable(this, Decl_Type::has, id, false);
+				if(n_dissolved > 0 && type == Decl_Type::quantity)
+					dissolvedes.push_back(var_id);
 			}
 		}
 	}
 	
-	module_id = -1;
-	for(auto module : modules) {
-		++module_id;
-		if(module_id == 0) continue;
-		
-		for(Entity_Id id : module->fluxes) {
-			auto flux = module->fluxes[id];
+	for(Entity_Id id : fluxes) {
+		auto flux = fluxes[id];
 
-			check_flux_location(this, flux->location, flux->source);
-			check_flux_location(this, flux->location, flux->target);
-			
-			register_state_variable(this, Decl_Type::flux, id, false);
-		}
+		auto scope = get_scope(flux->code_scope);
+		check_flux_location(this, scope, flux->source_loc, flux->source);
+		check_flux_location(this, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
+		
+		register_state_variable(this, Decl_Type::flux, id, false);
 	}
 	
 	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
@@ -423,13 +398,13 @@ Mobius_Model::compose() {
 			if(!(flux->loc1 == above_loc)) continue;
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
-				auto below_loc = add_dissolved(this, flux->loc2, var->loc1.property_or_quantity);
+				auto below_loc = add_dissolved(flux->loc2, var->loc1.property_or_quantity);
 				auto below_var = state_vars[below_loc];
 				if(!is_valid(below_var)) continue;
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
 			if(is_valid(flux->entity_id)) { // If this flux was itself generated, it won't have a valid entity id.
-				auto flux_reg = find_entity<Reg_Type::flux>(flux->entity_id);
+				auto flux_reg = fluxes[flux->entity_id];
 				if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
 			}
 			
@@ -438,21 +413,21 @@ Mobius_Model::compose() {
 		}
 		
 		Var_Location source  = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
-		String_View var_name = var->name;
+		std::string &var_name = var->name;
 		auto dissolved_in_id = state_vars[above_loc];
 		auto dissolved_in = state_vars[dissolved_in_id];
 		
-		sprintf(varname, "concentration(%.*s, %.*s)", var_name.count, var_name.data, dissolved_in->name.count, dissolved_in->name.data);
-		Var_Id gen_conc_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, allocator.copy_string_view(varname));
+		sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
+		Var_Id gen_conc_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, varname);
 		auto conc_var = state_vars[gen_conc_id];
 		conc_var->flags = State_Variable::Flags::f_dissolved_conc;
 		conc_var->dissolved_conc = var_id;
 		state_vars[var_id]->dissolved_conc = gen_conc_id;
 		
 		for(auto flux_id : generate) {
-			String_View flux_name = state_vars[flux_id]->name;
-			sprintf(varname, "dissolved_flux(%.*s, %.*s)", var_name.count, var_name.data, flux_name.count, flux_name.data);
-			Var_Id gen_flux_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, allocator.copy_string_view(varname));
+			std::string &flux_name = state_vars[flux_id]->name;
+			sprintf(varname, "dissolved_flux(%s, %s)", var_name.data(), flux_name.data());
+			Var_Id gen_flux_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, varname);
 			auto gen_flux = state_vars[gen_flux_id];
 			auto flux = state_vars[flux_id];
 			gen_flux->flags = State_Variable::Flags::f_dissolved_flux;
@@ -461,7 +436,7 @@ Mobius_Model::compose() {
 			gen_flux->loc1 = source;
 			gen_flux->loc2.type = flux->loc2.type;
 			if(is_located(flux->loc2))
-				gen_flux->loc2 = add_dissolved(this, flux->loc2, source.property_or_quantity);
+				gen_flux->loc2 = add_dissolved(flux->loc2, source.property_or_quantity);
 			if(is_valid(flux->neighbor))
 				gen_flux->neighbor = flux->neighbor;
 		}
@@ -492,12 +467,18 @@ Mobius_Model::compose() {
 		Var_Location in_loc;
 		in_loc.type = Var_Location::Type::nowhere;
 		Entity_Id from_compartment = invalid_entity_id;
+		
+		Decl_Scope *code_scope       = nullptr;
+		Decl_Scope *other_code_scope = nullptr;
+		Decl_Scope *unit_conv_scope  = nullptr;
+		
 		if(var->type == Decl_Type::flux) {
 			bool target_was_out = false;
 			if(is_valid(var->entity_id)) {
-				auto flux_decl = find_entity<Reg_Type::flux>(var->entity_id);
+				auto flux_decl = fluxes[var->entity_id];
 				target_was_out = flux_decl->target_was_out;
 				ast = flux_decl->code;
+				code_scope = get_scope(flux_decl->code_scope);
 			}
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
@@ -516,21 +497,28 @@ Mobius_Model::compose() {
 			}
 			
 			if(is_located(var->loc1)) {
-				for(auto &unit_conv : modules[0]->compartments[var->loc1.compartment]->unit_convs) {
-					if(var->loc1 == unit_conv.source && var->loc2 == unit_conv.target)
-						unit_conv_ast = unit_conv.code;
+				for(auto &unit_conv : compartments[var->loc1.compartment]->unit_convs) {
+					if(var->loc1 == unit_conv.source && var->loc2 == unit_conv.target) {
+						unit_conv_ast   = unit_conv.code;
+						unit_conv_scope = get_scope(unit_conv.code_scope);
+					}
 				}
 			}
 		} else if((var->type == Decl_Type::property || var->type == Decl_Type::quantity) && is_valid(var->entity_id)) {
-			auto has = find_entity<Reg_Type::has>(var->entity_id);
+			auto has = hases[var->entity_id];
 			ast      = has->code;
 			init_ast = has->initial_code;
 			override_ast = has->override_code;
 			override_is_conc = has->override_is_conc;
 			initial_is_conc  = has->initial_is_conc;
+			code_scope = get_scope(has->code_scope);
+			other_code_scope = code_scope;
 			
 			if(!ast) {
-				ast = find_entity<Reg_Type::property_or_quantity>(has->var_location.property_or_quantity)->default_code;
+				auto prop = properties_and_quantities[has->var_location.property_or_quantity];
+				ast = prop->default_code;
+				if(ast)
+					code_scope = get_scope(prop->code_scope);
 			}
 			
 			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && (var->loc1.n_dissolved == 0)))) {
@@ -542,7 +530,7 @@ Mobius_Model::compose() {
 		}
 		
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
-		Function_Resolve_Data res_data = { this, var->entity_id.module_id, in_loc };
+		Function_Resolve_Data res_data = { this, code_scope, in_loc };
 		if(ast) {
 			var->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
 			replace_conc(this, var->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
@@ -550,6 +538,7 @@ Mobius_Model::compose() {
 		} else
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
+		res_data.scope = other_code_scope;
 		if(init_ast) {
 			//TODO: handle initial_is_conc!
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
@@ -567,7 +556,7 @@ Mobius_Model::compose() {
 		
 		if(unit_conv_ast) {
 			auto res_data2 = res_data;
-			res_data2.module_id = 0;
+			res_data2.scope = unit_conv_scope;
 			var->unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
 			std::set<Entity_Id> parameter_refs;
 			restrictive_lookups(var->unit_conversion_tree, Decl_Type::unit_conversion, parameter_refs);
@@ -576,7 +565,7 @@ Mobius_Model::compose() {
 				bool ok = parameter_indexes_below_location(this, par_id, var->loc1);
 				if(!ok) {
 					unit_conv_ast->location.print_error_header(Mobius_Error::model_building);
-					fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
+					fatal_error("The parameter \"", (*unit_conv_scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
 				}
 			}
 		} else
@@ -648,7 +637,7 @@ Mobius_Model::compose() {
 		if(var->flags & State_Variable::Flags::f_dissolved_conc)
 			loc1 = state_vars[var->dissolved_conc]->loc1;
 		
-		auto source = find_entity<Reg_Type::compartment>(loc1.compartment);
+		auto source = compartments[loc1.compartment];
 		
 		for(auto to_compartment : need_agg.second.first) {
 			
@@ -656,7 +645,8 @@ Mobius_Model::compose() {
 			for(auto &agg : source->aggregations) {
 				if(agg.to_compartment == to_compartment) {
 					// Note: the module id is always 0 here since aggregation_weight should only be declared in model scope.
-					Function_Resolve_Data res_data = { this, 0, {} };
+					auto scope = get_scope(agg.code_scope);
+					Function_Resolve_Data res_data = { this, scope, {} };
 					agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
 					std::set<Entity_Id> parameter_refs;
 					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
@@ -665,14 +655,14 @@ Mobius_Model::compose() {
 						bool ok = parameter_indexes_below_location(this, par_id, loc1);
 						if(!ok) {
 							agg.code->location.print_error_header(Mobius_Error::model_building);
-							fatal_error("The parameter \"", find_entity<Reg_Type::parameter>(par_id)->handle_name, "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over.");
+							fatal_error("The parameter \"", (*scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over.");
 						}
 					}
 					break;
 				}
 			}
 			if(!agg_weight) {
-				auto target = find_entity<Reg_Type::compartment>(to_compartment);
+				auto target = compartments[to_compartment];
 				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
 				if(var->type == Decl_Type::flux) {
 					
@@ -686,8 +676,8 @@ Mobius_Model::compose() {
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
-			sprintf(varname, "aggregate(%.*s)", var->name.count, var->name.data);
-			Var_Id agg_id = register_state_variable(this, var->type, invalid_entity_id, false, allocator.copy_string_view(varname));
+			sprintf(varname, "aggregate(%s)", var->name.data());
+			Var_Id agg_id = register_state_variable(this, var->type, invalid_entity_id, false, varname);
 			
 			auto agg_var = state_vars[agg_id];
 			agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
@@ -734,17 +724,17 @@ Mobius_Model::compose() {
 	std::vector<int> has_solver;
 	has_solver.resize(state_vars.count(), 0);
 	
-	for(auto id : modules[0]->solves) {
-		auto solve = modules[0]->solves[id];
+	for(auto id : solves) {
+		auto solve = solves[id];
 		Var_Id var_id = state_vars[solve->loc];
 		if(!is_valid(var_id)) {
 			//error_print_location(this, solve->loc);
-			solve->location.print_error_header(Mobius_Error::model_building);
+			solve->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
 		}
 		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			solve->location.print_error_header(Mobius_Error::model_building);
+			solve->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("Solvers can only be put on quantities, not on properties.");
 		}
 		has_solver[var_id.id] = 1;
@@ -783,7 +773,6 @@ Mobius_Model::compose() {
 			replace_flagged(state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
 	}
 
-	
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	for(auto var_id : state_vars) {
 		auto var = state_vars[var_id];
@@ -795,12 +784,30 @@ Mobius_Model::compose() {
 			check_valid_distribution_of_dependencies(this, var->initial_function_tree, var, true);
 	}
 	
+	// Free memory of loaded source files and all abstract syntax trees.
+	file_handler.unload_all();
+	
+	delete main_decl;
+	main_decl = nullptr;
+	// NOTE: can't just iterate over all modules, because some could be inlined in the main decl. We can only free directly the ones that were loaded as top declarations.
+	for(auto &file : parsed_decls) {
+		for(auto &parsed : file.second) {
+			if(parsed.second.reg_type == Reg_Type::module) {
+				auto module = modules[parsed.second];
+				delete module->decl;
+				module->decl = nullptr;
+			} else if(parsed.second.reg_type == Reg_Type::library) {
+				auto lib = libraries[parsed.second];
+				delete lib->decl;
+				lib->decl = nullptr;
+			}
+		}
+	}
+	// NOTE: this also invalidates all other ASTs since they point into the top decl ASTs. Maybe we should null them too.
+	// The intention in any case is that all of them are translated into processed forms by this point and are no longer needed.
 	
 	is_composed = true;
 }
-
-
-
 
 
 

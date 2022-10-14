@@ -207,7 +207,6 @@ get_reg_type(Decl_Type decl_type) {
 
 struct
 Entity_Id {
-	s16      module_id;
 	Reg_Type reg_type;
 	s32      id;
 	
@@ -217,27 +216,24 @@ Entity_Id {
 
 inline bool
 operator==(const Entity_Id &a, const Entity_Id &b) {
-	return a.module_id == b.module_id && a.reg_type == b.reg_type && a.id == b.id;
+	return a.reg_type == b.reg_type && a.id == b.id;
 }
 
 inline bool
 operator!=(const Entity_Id &a, const Entity_Id &b) {
-	return a.module_id != b.module_id || a.id != b.id || a.reg_type != b.reg_type;
+	return a.id != b.id || a.reg_type != b.reg_type;
 }
 
 inline bool
 operator<(const Entity_Id &a, const Entity_Id &b) {
-	if(a.module_id == b.module_id) {
-		if(a.reg_type == b.reg_type)
-			return a.id < b.id;
-		return a.reg_type < b.reg_type;
-	}
-	return a.module_id < b.module_id;
+	if(a.reg_type == b.reg_type)
+		return a.id < b.id;
+	return a.reg_type < b.reg_type;
 }
 
-constexpr Entity_Id invalid_entity_id = {-1, Reg_Type::unrecognized, -1};
+constexpr Entity_Id invalid_entity_id = {Reg_Type::unrecognized, -1};
 
-inline bool is_valid(Entity_Id id) { return id.module_id >= 0 && id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
+inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
 
 constexpr int max_dissolved_chain = 2;
 
