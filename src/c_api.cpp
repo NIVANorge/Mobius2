@@ -63,63 +63,67 @@ mobius_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
 	result.type = Model_Entity_Reference::Type::invalid;
 	
 	try {
-		auto find = app->model->module_ids.find(handle_name);
-		if(find != app->model->module_ids.end()) {
-			result.type   = Model_Entity_Reference::Type::module;
-			result.module = app->model->modules[find->second];
-			return result;
-		} 
-		Entity_Id comp_id = app->model->modules[0]->compartments.find_by_handle_name(handle_name);
-		if(is_valid(comp_id)) {
-			result.type   = Model_Entity_Reference::Type::compartment;
-			result.entity = comp_id;
-			result.module = app->model->modules[0];
-			return result;
+		auto reg = app->model->model_decl_scope[handle_name];
+		
+		if(reg && !reg->external) {
+			result.id = reg->id;
+			if(reg->id.reg_type == Reg_Type::module) {
+				result.type = Model_Entity_Reference::Type::module;
+				return result;
+			}
+			if( reg->id.reg_type == Reg_Type::compartment) {
+				result.type = Model_Entity_Reference::Type::compartment;
+				return result;
+			}
 		}
 	} catch(int) {}
 
 	return result;
 }
 
-DLLEXPORT Module_Declaration *
+DLLEXPORT Model_Entity_Reference
 mobius_get_module_reference_by_name(Model_Application *app, char *name) {
+	Model_Entity_Reference result;
+	result.type = Model_Entity_Reference::Type::invalid;
+	
 	try {
-		// TODO: better system to look up module by name
-		for(auto module : app->model->modules) {
-			if(module->module_name == name)
-				return module;
-		}
-		fatal_error(Mobius_Error::api_usage, "\"", name, "\" is not a module in the model \"", app->model->model_name, "\".");
+		auto id = app->model->modules.find_by_name(name);
+		result.id = id;
+		
+		if(!is_valid(id))
+			fatal_error(Mobius_Error::api_usage, "\"", name, "\" is not a module in the model \"", app->model->model_name, "\".");
 	} catch(int) {}
 	
-	return nullptr;
+	return result;
 }
 
-DLLEXPORT Module_Entity_Reference
-mobius_get_module_entity_by_handle(Module_Declaration *module, char *handle_name) {
-	Module_Entity_Reference result;
-	result.type = Module_Entity_Reference::Type::invalid;
+DLLEXPORT Model_Entity_Reference
+mobius_get_module_entity_by_handle(Model_Application *app, Model_Entity_Reference module, char *handle_name) {
+	
+	auto model = app->model;
+	Decl_Scope *scope = model->get_scope(module.id);
+	
+	Model_Entity_Reference result;
+	result.type = Model_Entity_Reference::Type::invalid;
 	
 	try {
-		Entity_Id entity = module->find_handle(handle_name);
-		if(!is_valid(entity))
+		auto reg = (*scope)[handle_name];
+		if(!reg)
 			return result;
-		result.entity = entity;
+		auto id = reg->id;
+		//TODO: do we disallow externals here?
 		
-		if(entity.reg_type == Reg_Type::parameter) {
-			result.type = Module_Entity_Reference::Type::parameter;
-			result.value_type = get_value_type(module->parameters[entity]->decl_type);
-			return result;
-		} else if(entity.reg_type == Reg_Type::compartment) {
-			result.type = Module_Entity_Reference::Type::compartment;
-			result.entity = module->get_global(result.entity);
-		} else if(entity.reg_type == Reg_Type::property_or_quantity) {
-			result.type = Module_Entity_Reference::Type::prop_or_quant;
-			result.entity = module->get_global(result.entity);
-			return result;
-		} else if(entity.reg_type == Reg_Type::flux) {
-			result.type = Module_Entity_Reference::Type::flux;
-			return result;
+		result.id = id;
+		
+		if(id.reg_type == Reg_Type::parameter) {
+			result.type = Model_Entity_Reference::Type::parameter;
+			result.value_type = get_value_type(model->parameters[id]->decl_type);
+		} else if(id.reg_type == Reg_Type::compartment) {
+			result.type = Model_Entity_Reference::Type::compartment;
+		} else if(id.reg_type == Reg_Type::property_or_quantity) {
+			result.type = Model_Entity_Reference::Type::prop_or_quant;
+		} else if(id.reg_type == Reg_Type::flux) {
+			result.type = Model_Entity_Reference::Type::flux;
 		}
 	} catch(int) {}
 	
@@ -178,9 +182,9 @@ mobius_get_var_location(Model_Application *app, Entity_Id comp_id, Entity_Id pro
 }
 
 DLLEXPORT Var_Location
-mobius_get_dissolved_location(Model_Application *app, Var_Location loc, Entity_Id prop_id) {
+mobius_get_dissolved_location(Var_Location loc, Entity_Id prop_id) {
 	try {
-		return add_dissolved(app->model, loc, prop_id);
+		return add_dissolved(loc, prop_id);
 	} catch(int) {}
 	return loc;
 }
@@ -230,14 +234,14 @@ mobius_get_additional_series_id(Model_Application *app, char *name) {
 }
 
 DLLEXPORT s64
-mobius_get_steps(Model_Application *app, Stat_Class type) {
-	if(type == Stat_Class::state_var) {
+mobius_get_steps(Model_Application *app, Var_Id::Type type) {
+	if(type == Var_Id::Type::state_var) {
 		if(!app->result_structure.has_been_set_up)
 			return 0;
 		return app->data.results.time_steps;
-	} else if(type == Stat_Class::series)
+	} else if(type == Var_Id::Type::series)
 		return app->data.series.time_steps;
-	else if(type == Stat_Class::additional_series)
+	else if(type == Var_Id::Type::additional_series)
 		return app->data.additional_series.time_steps;
 	
 	return 0;
@@ -287,14 +291,14 @@ mobius_get_time_step_size(Model_Application *app) {
 }
 
 DLLEXPORT char *
-mobius_get_start_date(Model_Application *app, Stat_Class type) {
+mobius_get_start_date(Model_Application *app, Var_Id::Type type) {
 	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
 	String_View str;
-	if(type == Stat_Class::state_var)
+	if(type == Var_Id::Type::state_var)
 		str = app->data.results.start_date.to_string();
-	else if(type == Stat_Class::series)
+	else if(type == Var_Id::Type::series)
 		str = app->data.series.start_date.to_string();
-	else if(type == Stat_Class::additional_series)
+	else if(type == Var_Id::Type::additional_series)
 		str = app->data.additional_series.start_date.to_string();
 	
 	return str.data;

@@ -39,7 +39,7 @@ Decl_Scope {
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr);
 	void check_for_missing_decls(Mobius_Model *model);
 	
-	Scope_Entity *operator[](std::string &handle) {
+	Scope_Entity *operator[](const std::string &handle) {
 		auto find = visible_entities.find(handle);
 		if(find != visible_entities.end())
 			return &find->second;

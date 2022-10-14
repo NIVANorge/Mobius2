@@ -10,13 +10,10 @@ dll = ctypes.CDLL("../test/c_api.dll")
 # Volatile! These structure must match the corresponding in the c++ code
 # TODO: we should really have a way to auto-generate them...
 class Entity_Id(ctypes.Structure) :
-	_fields_ = [("module_id", ctypes.c_int16), ("reg_type", ctypes.c_int16), ("id", ctypes.c_int32)]
+	_fields_ = [("reg_type", ctypes.c_int16), ("id", ctypes.c_int32)]
 
-class Module_Entity_Reference(ctypes.Structure) :
-	_fields_ = [("type", ctypes.c_int16), ("entity", Entity_Id), ("value_type", ctypes.c_int32)]
-	
 class Model_Entity_Reference(ctypes.Structure) :
-	_fields_ = [("type", ctypes.c_int16), ("module", ctypes.c_void_p), ("entity", Entity_Id)]
+	_fields_ = [("type", ctypes.c_int16), ("entity", Entity_Id), ("value_type", ctypes.c_int32)]
 
 max_dissolved_chain = 2
 
@@ -42,10 +39,10 @@ dll.mobius_get_model_entity_by_handle.argtypes = [ctypes.c_void_p, ctypes.c_char
 dll.mobius_get_model_entity_by_handle.restype = Model_Entity_Reference
 
 dll.mobius_get_module_reference_by_name.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-dll.mobius_get_module_reference_by_name.restype  = ctypes.c_void_p
+dll.mobius_get_module_reference_by_name.restype  = Model_Entity_Reference
 
-dll.mobius_get_module_entity_by_handle.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-dll.mobius_get_module_entity_by_handle.restype = Module_Entity_Reference
+dll.mobius_get_module_entity_by_handle.argtypes = [ctypes.c_void_p, Model_Entity_Reference, ctypes.c_char_p]
+dll.mobius_get_module_entity_by_handle.restype = Model_Entity_Reference
 
 dll.mobius_set_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_double]
 
@@ -55,7 +52,7 @@ dll.mobius_get_parameter_real.restype  = ctypes.c_double
 dll.mobius_get_var_location.argtypes = [ctypes.c_void_p, Entity_Id, Entity_Id]
 dll.mobius_get_var_location.restype  = Var_Location
 
-dll.mobius_get_dissolved_location.argtypes = [ctypes.c_void_p, Var_Location, Entity_Id]
+dll.mobius_get_dissolved_location.argtypes = [Var_Location, Entity_Id]
 dll.mobius_get_dissolved_location.restype  = Var_Location
 
 dll.mobius_get_var_id.argtypes = [ctypes.c_void_p, Var_Location]
@@ -145,27 +142,28 @@ class Model_Application :
 		if ref.type == 0 :
 			raise RuntimeError("Invalid model entity handle %s" % handle_name)
 		elif ref.type == 1 :
-			return Module(ref.module, self.ptr) 
-		elif ref.type == 2 :
-			return Compartment(ref.entity, self.ptr, ref.module)
+			return Module(ref, self.ptr) 
+		elif ref.type == 3 :
+			invalid_ref = Module_Entity_Reference(type = 0, entity = Entity_Id(reg_type = -1, id = -1), value_type = 0)
+			return Compartment(ref.entity, self.ptr, invalid_ref)
 		else :
 			raise RuntimeError("Unimplemented model entity reference type")
 		
 		
 class Module :
-	def __init__(self, ptr, app_ptr) :
-		self.ptr     = ptr
+	def __init__(self, ref, app_ptr) :
+		self.ref     = ref
 		self.app_ptr = app_ptr
 		
 	def __getattr__(self, handle_name) :
-		ref = dll.mobius_get_module_entity_by_handle(self.ptr, _c_str(handle_name))
+		ref = dll.mobius_get_module_entity_by_handle(self.app_ptr, self.ref, _c_str(handle_name))
 		check_for_errors()
 		if ref.type == 0 :
 			raise RuntimeError("Invalid module entity handle %s" % handle_name)
-		elif ref.type == 1 :
-			return Parameter(ref.entity, self.app_ptr)
 		elif ref.type == 2 :
-			return Compartment(ref.entity, self.app_ptr, self.ptr)
+			return Parameter(ref.entity, self.app_ptr)
+		elif ref.type == 3 :
+			return Compartment(ref.entity, self.app_ptr, self.ref)
 		else :
 			raise RuntimeError("Can't reference entities of that type directly (at least for now)")
 	
@@ -207,26 +205,29 @@ class Parameter :
 			raise RuntimeError("Unknown field %s for Parameter" % name)
 		
 class Compartment :
-	def __init__(self, id, app_ptr, module_ptr) :
-		self.module_ptr = module_ptr
+	def __init__(self, id, app_ptr, module_ref) :
+		self.module_ref = module_ref
 		self.app_ptr = app_ptr
 		self.id = id
 		
 	def __getattr__(self, handle_name) :
-		ref = dll.mobius_get_module_entity_by_handle(self.module_ptr, _c_str(handle_name))
+		ref = dll.mobius_get_module_entity_by_handle(self.app_ptr, self.module_ref, _c_str(handle_name))
 		check_for_errors()
-		if ref.type == 3 :
+		print("ref type is %d" % ref.type)
+		#if ref.type == 0 :
+		#	raise RuntimeError("The handle %s was not found in this scope" % handle_name)
+		if ref.type == 4 :
 			loc = dll.mobius_get_var_location(self.app_ptr, self.id, ref.entity)
 			check_for_errors()
-			return Series(loc, self.app_ptr, self.module_ptr)
-		else :
-			raise RuntimeError("Can only look up properties or quantities from compartments.")
+			return Series(loc, self.app_ptr, self.module_ref)
+		#else :
+		#	raise RuntimeError("Can only look up properties or quantities from compartments.")
 		
 class Series :
-	def __init__(self, loc, app_ptr, module_ptr) :
+	def __init__(self, loc, app_ptr, module_ref) :
 		self.loc = loc
 		self.app_ptr = app_ptr
-		self.module_ptr = module_ptr
+		self.module_ref = module_ref
 	
 	def _get_var(self) :
 		var = dll.mobius_get_var_id(self.app_ptr, self.loc)
@@ -266,12 +267,12 @@ class Series :
 		if self.loc.n_dissolved == max_dissolved_chain :
 			raise RuntimeError("Can not have that many chained dissolved substances")
 		
-		ref = dll.mobius_get_module_entity_by_handle(self.module_ptr, _c_str(handle_name))
+		ref = dll.mobius_get_module_entity_by_handle(self.app_ptr, self.module_ref, _c_str(handle_name))
 		check_for_errors()
 		if ref.type == 3 :
-			loc = dll.mobius_get_dissolved_location(self.app_ptr, self.loc, ref.entity)
+			loc = dll.mobius_get_dissolved_location(self.loc, ref.entity)
 			check_for_errors()
-			return Series(loc, self.app_ptr, self.module_ptr)
+			return Series(loc, self.app_ptr, self.module_ref)
 		else :
 			raise RuntimeError("Can only look up properties or quantities from compartments.")
 
