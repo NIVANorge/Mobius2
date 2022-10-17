@@ -274,7 +274,7 @@ Registry : Registry_Base {
 	
 	Entity_Registration<reg_type> *operator[](Entity_Id id);
 	
-	size_t count() { return registrations.size(); }
+	s64 count() { return (s64)registrations.size(); }
 	
 	Entity_Id begin() { return { reg_type, 0 }; }
 	Entity_Id end() { return { reg_type, (s32)registrations.size() }; }
@@ -482,28 +482,35 @@ Mobius_Model {
 	
 	template<Reg_Type reg_type> struct
 	By_Scope {
-		By_Scope(Decl_Scope *scope) {
-			it.scope = scope;
-			while(it.it->second.id.reg_type != reg_type || it.it->second.external || it.it != it.scope->visible_entities.end()) ++it.it;
-			end_it.it = it.scope->visible_entities.end();
+		By_Scope(Decl_Scope *scope) : scope(scope) {
+			end_it.scope = scope;
+			end_it.it = scope->all_ids.end();
 		}
 		
 		struct
 		Scope_It {
-			std::unordered_map<std::string, Scope_Entity>::iterator it;
+			std::unordered_set<Entity_Id>::iterator it;
 			Decl_Scope *scope;
 			Scope_It &operator++() {
-				do it++; while(it != scope->visible_entities.end() || it->second.id.reg_type != reg_type || it->second.external);
+				do it++; while(it != scope->all_ids.end() && (it->reg_type != reg_type));
 				return *this;
 			}
-			Entity_Id operator*() { return it->second.id; }
+			Entity_Id operator*() { return *it; }
 			bool operator!=(const Scope_It &other) { return it != other.it; }
 		};
 		
-		Scope_It it, end_it;
+		Scope_It end_it;
+		Decl_Scope *scope;
 		
-		Scope_It &begin() { return it; }
-		Scope_It &end() { return end_it; }
+		Scope_It begin() {
+			Scope_It it;
+			it.scope = scope;
+			it.it = scope->all_ids.begin();
+			while((it.it->reg_type != reg_type) && it != end_it)
+				++it.it;
+			return it;
+		}
+		Scope_It end() { return end_it; }
 	};
 	
 	template<Reg_Type reg_type> By_Scope<reg_type>

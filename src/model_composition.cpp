@@ -50,7 +50,7 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	if(var.name.empty())
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
 	
-	warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
+	//warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
 	
 	if(is_series)
 		return model->series.register_var(var, loc);
