@@ -49,7 +49,7 @@ dll.mobius_set_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POI
 dll.mobius_get_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
 dll.mobius_get_parameter_real.restype  = ctypes.c_double
 
-dll.mobius_get_var_location.argtypes = [ctypes.c_void_p, Entity_Id, Entity_Id]
+dll.mobius_get_var_location.argtypes = [Entity_Id, Entity_Id]
 dll.mobius_get_var_location.restype  = Var_Location
 
 dll.mobius_get_dissolved_location.argtypes = [Var_Location, Entity_Id]
@@ -144,7 +144,7 @@ class Model_Application :
 		elif ref.type == 1 :
 			return Module(ref, self.ptr) 
 		elif ref.type == 3 :
-			invalid_ref = Module_Entity_Reference(type = 0, entity = Entity_Id(reg_type = -1, id = -1), value_type = 0)
+			invalid_ref = Model_Entity_Reference(type = 0, entity = Entity_Id(reg_type = -1, id = -1), value_type = 0)
 			return Compartment(ref.entity, self.ptr, invalid_ref)
 		else :
 			raise RuntimeError("Unimplemented model entity reference type")
@@ -213,11 +213,10 @@ class Compartment :
 	def __getattr__(self, handle_name) :
 		ref = dll.mobius_get_module_entity_by_handle(self.app_ptr, self.module_ref, _c_str(handle_name))
 		check_for_errors()
-		print("ref type is %d" % ref.type)
 		#if ref.type == 0 :
 		#	raise RuntimeError("The handle %s was not found in this scope" % handle_name)
 		if ref.type == 4 :
-			loc = dll.mobius_get_var_location(self.app_ptr, self.id, ref.entity)
+			loc = dll.mobius_get_var_location(self.id, ref.entity)
 			check_for_errors()
 			return Series(loc, self.app_ptr, self.module_ref)
 		#else :
@@ -269,12 +268,14 @@ class Series :
 		
 		ref = dll.mobius_get_module_entity_by_handle(self.app_ptr, self.module_ref, _c_str(handle_name))
 		check_for_errors()
-		if ref.type == 3 :
+		if ref.type == 4 :
 			loc = dll.mobius_get_dissolved_location(self.loc, ref.entity)
 			check_for_errors()
 			return Series(loc, self.app_ptr, self.module_ref)
-		else :
-			raise RuntimeError("Can only look up properties or quantities from compartments.")
+		#TODO: Why do we get a ref.type == 0 here some times?
+		#else :
+		#	print('ref type is %d' % ref.type)
+		#	raise RuntimeError("Can only look up properties or quantities from compartments.")
 
 class Conc_Series(Series) :
 	

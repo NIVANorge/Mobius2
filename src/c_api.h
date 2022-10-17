@@ -36,13 +36,13 @@ DLLEXPORT void
 mobius_run_model(Model_Application *app);
 
 DLLEXPORT Model_Entity_Reference
-mobius_get_model_entity_by_handle(Model_Application *app, char *handle_name); //MODIFIED!
+mobius_get_model_entity_by_handle(Model_Application *app, char *handle_name);
 
 DLLEXPORT Model_Entity_Reference
-mobius_get_module_reference_by_name(Model_Application *app, char *name); //MODIFIED!
+mobius_get_module_reference_by_name(Model_Application *app, char *name);
 
 DLLEXPORT Model_Entity_Reference
-mobius_get_module_entity_by_handle(Model_Application *app, Model_Entity_Reference module, char *handle_name); //MODIFIED!
+mobius_get_module_entity_by_handle(Model_Application *app, Model_Entity_Reference module, char *handle_name);
 
 DLLEXPORT void
 mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value);
@@ -51,10 +51,10 @@ DLLEXPORT double
 mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
 
 DLLEXPORT Var_Location
-mobius_get_var_location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id);
+mobius_get_var_location(Entity_Id comp_id, Entity_Id prop_id);
 
 DLLEXPORT Var_Location
-mobius_get_dissolved_location(Var_Location loc, Entity_Id prop_id);    //MODIFIED!
+mobius_get_dissolved_location(Var_Location loc, Entity_Id prop_id);
 
 DLLEXPORT Var_Id
 mobius_get_var_id(Model_Application *app, Var_Location loc);

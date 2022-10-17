@@ -316,7 +316,7 @@ Model_Application {
 	Model_Data                                      data;
 	
 	std::vector<Index_T>                            index_counts;
-	std::vector<string_map<Index_T>>                index_names_map;
+	std::vector<std::unordered_map<std::string, Index_T>>                index_names_map;
 	std::vector<std::vector<std::string>>           index_names;
 	
 	Time_Step_Size                                  time_step_size;

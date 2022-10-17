@@ -365,7 +365,6 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			index_set.loc.print_error_header();
 			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		}
-		//index_counts[id.id] = { id, (s32)index_set.indexes.count() };
 		std::vector<std::string> names;
 		names.reserve(index_set.indexes.count());
 		for(auto &index : index_set.indexes)

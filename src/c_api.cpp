@@ -171,7 +171,7 @@ mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index
 
 
 DLLEXPORT Var_Location
-mobius_get_var_location(Model_Application *app, Entity_Id comp_id, Entity_Id prop_id) {
+mobius_get_var_location(Entity_Id comp_id, Entity_Id prop_id) {
 	Var_Location loc;
 	loc.type = Var_Location::Type::located;
 	loc.compartment = comp_id;
