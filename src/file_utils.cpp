@@ -15,17 +15,22 @@ open_file(String_View file_name, String_View mode) {
 	file = fopen(filename8.data(), mode8.data());
 #endif
 
-	if(!file)
-		fatal_error(Mobius_Error::file, "Tried to open file \"", file_name, "\", but was not able to.");
+	//if(!file)
+	//	fatal_error(Mobius_Error::file, "Tried to open file \"", file_name, "\", but was not able to.");
 
 	return file;
 }
 
 String_View
-read_entire_file(String_View file_name) {
+read_entire_file(String_View file_name, Source_Location from) {
 	String_View file_data;
 	
 	FILE *file = open_file(file_name, "rb");
+	if(!file) {
+		if(from.type != Source_Location::Type::internal)
+			from.print_error_header(Mobius_Error::file);
+		fatal_error("Unable to open file \"", file_name, "\".");
+	}
 
 	fseek(file, 0, SEEK_END);
 	file_data.count = ftell(file);
@@ -37,9 +42,8 @@ read_entire_file(String_View file_name) {
 	}
 	
 	char *data = (char *)malloc(file_data.count + 1);
-	
 	if(!data)
-		fatal_error(Mobius_Error::file, "Unable to allocate enough memory to read in file ", file_name);
+		fatal_error(Mobius_Error::file, "Unable to allocate enough memory to load file ", file_name);
 
 	size_t read_size = fread((void *)data, 1, file_data.count, file); // NOTE: Casting away constness, but it doesn't matter since we just allocated it ourselves.
 	fclose(file);
@@ -128,7 +132,7 @@ get_extension(String_View file_name, bool *success) {
 
 
 String_View
-File_Data_Handler::load_file(String_View file_name, String_View relative, String_View *normalized_path_out) {
+File_Data_Handler::load_file(String_View file_name, Source_Location from, String_View relative, String_View *normalized_path_out) {
 	String_View load_name = file_name;
 	if(relative)
 		load_name = make_path_relative_to(file_name, relative);
@@ -138,7 +142,7 @@ File_Data_Handler::load_file(String_View file_name, String_View relative, String
 		return find->second;
 	}
 	load_name = allocator.copy_string_view(load_name);
-	String_View data = read_entire_file(load_name);
+	String_View data = read_entire_file(load_name, from);
 	loaded_files[load_name] = data;
 	if(normalized_path_out) *normalized_path_out = load_name;
 	

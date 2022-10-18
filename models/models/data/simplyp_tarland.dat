@@ -1,5 +1,5 @@
 """
-Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
+You can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView2 (which does not happen to comments).
 """
 
 index_set("Landscape units") [ "Arable" "Improved grasslands" "Semi-natural" ]
@@ -9,7 +9,7 @@ index_set("Subcatchment") [ "Coull" ]
 neighbor("Downstream", "Subcatchment") [
 ]
 
-series("simplyq_series.xlsx")
+series("tarland_series.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")

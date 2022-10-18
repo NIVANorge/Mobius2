@@ -10,7 +10,6 @@
 
 #include "ast.h"
 #include "ode_solvers.h"
-//#include "run_model.h"
 #include "units.h"
 
 struct
@@ -137,6 +136,7 @@ Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 	std::vector<std::string> enum_values;
 	
 	std::string     description;
+	std::string     symbol;
 	
 	Entity_Registration() : unit(invalid_entity_id), par_group(invalid_entity_id) {}
 };
@@ -280,16 +280,13 @@ Registry : Registry_Base {
 	Entity_Id end() { return { reg_type, (s32)registrations.size() }; }
 };
 
-enum
-Dependency_Type : u32 {
-	dep_type_none             = 0x0,
-	dep_type_earlier_step     = 0x1,
-};
-
 struct
 State_Var_Dependency {
+	enum Type : u32 {
+		none =         0x0,
+		earlier_step = 0x1,
+	}                 type;
 	Var_Id            var_id;
-	Dependency_Type   type;
 };
 
 inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) { if(a.var_id < b.var_id) return true; return (u32)a.type < (u32)b.type; }
@@ -300,8 +297,6 @@ Dependency_Set {
 	std::set<Var_Id>                on_series;
 	std::set<State_Var_Dependency>  on_state_var;
 };
-
-// TODO; Hmm, It is kind of weird that we use the same State_Variable struct both for series and state variables. There is also no guard against using a var_id belonging to a series to look up a state variable or vice versa.
 
 struct Math_Expr_FT;
 
@@ -321,6 +316,8 @@ Var_Location_Hash {
 		return res;
 	}
 };
+
+// TODO; Hmm, It is a bit superfluous to have a State_Variable record for input series since most of the contents are not relevant for that.
 
 struct
 State_Variable {

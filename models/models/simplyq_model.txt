@@ -6,12 +6,11 @@ General model description.
 	
 	###### Import modules
 	
-	#add_directory("../../Modules")
+	#add_directory("../modules") #TODO: implement
 	
-	
-	load("hbv_snow.txt",  sn : module("HBVSnow"))
-	load("simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
-	load("pet.txt",       pe : module("Degree-day PET"))
+	load("../modules/hbv_snow.txt",  sn : module("HBVSnow"))
+	load("../modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
+	load("../modules/pet.txt",        pe : module("Degree-day PET"))
 	
 	soil  : compartment("Soil")
 	gw    : compartment("Groundwater")

@@ -6,7 +6,7 @@ Description
 """
 	extend("simplyq_model.txt")
 	
-	load("simplysed.txt", ss : module("SimplySed"))
+	load("../modules/simplysed.txt", ss : module("SimplySed"))
 	
 	sed : quantity("Sediment")
 	

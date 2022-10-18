@@ -378,7 +378,7 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 		}
 		
 		for(auto dep : code_depends.on_state_var) {
-			if(dep.type == dep_type_none)
+			if(dep.type == State_Var_Dependency::Type::none)
 				instr.depends_on_instruction.insert(dep.var_id.id);
 			instr.inherits_index_sets_from_instruction.insert(dep.var_id.id);
 		}

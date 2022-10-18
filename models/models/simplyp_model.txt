@@ -4,7 +4,7 @@ Description
 """
 	extend("simplysed_model.txt")
 	
-	load("simplyp.txt", sp : module("SimplyP"))
+	load("../modules/simplyp.txt", sp : module("SimplyP"))
 	
 	tdp   : quantity("Total dissolved phosphorous")
 	plab  : quantity("Labile phosphorous")

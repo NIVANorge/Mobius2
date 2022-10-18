@@ -477,7 +477,7 @@ Data_Set::read_from_file(String_View file_name) {
 		Token token = stream.peek_token();
 		if(token.type == Token_Type::eof) break;
 		else if(token.type == Token_Type::quoted_string) {
-			if(doc_string != "") {
+			if(!doc_string.empty()) {
 				token.print_error_header();
 				fatal_error("Duplicate doc strings for data set.");
 			}
@@ -536,8 +536,7 @@ Data_Set::read_from_file(String_View file_name) {
 					fatal_error("Spreadsheet reading is only available on Windows.");
 					#endif
 				} else {
-					//TODO: implement excel files
-					String_View other_data = file_handler.load_file(other_file_name, file_name);
+					String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->location, file_name);
 					Token_Stream other_stream(other_file_name, other_data);
 					other_stream.allow_date_time_tokens = true;
 					

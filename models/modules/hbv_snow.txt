@@ -2,8 +2,11 @@
 
 module("HBVSnow", 1,0,0) {
 """
-A nice snow module.
-With some extra spice.
+This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
+
+[NVE home page](https://www.nve.no/vann-og-vassdrag/vannets-kretslop/analysemetoder-og-modeller/hbv-modellen/)
+
+[Model description](https://www.uio.no/studier/emner/matnat/geofag/nedlagte-emner/GEO4430/v06/undervisningsmateriale/HBVMOD.PDF)
 """
 	air        : compartment("Atmosphere")
 	snow_box   : compartment("Snow box")

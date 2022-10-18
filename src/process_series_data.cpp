@@ -174,25 +174,25 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 	std::vector<std::vector<s64>> offsets;
 	offsets.resize(series->header_data.size());
 	
-	std::vector<int> series_type;
+	std::vector<Var_Id::Type> series_type;
 	series_type.resize(series->header_data.size());
 	
 	auto model = app->model;
 	
 	// TODO: Maybe make an overwrite guard. I.e. record what input series have already been provided (which we have to do any way),
-	//		then check agains that if there is an overwrite.
+	//		then check against that if there is an overwrite.
 	
 	int header_idx = 0;
 	for(auto header : series->header_data) {
 		std::set<Var_Id> ids = model->series[header.name];
 		
 		auto *data = &app->data.series;
-		series_type[header_idx] = 1;
+		series_type[header_idx] = Var_Id::Type::series;
 		
 		if(ids.empty()) {
 			ids = app->additional_series[header.name];
 			data = &app->data.additional_series;
-			series_type[header_idx] = 2;
+			series_type[header_idx] = Var_Id::Type::additional_series;
 		}
 		
 		for(Var_Id id : ids) {
@@ -259,7 +259,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 	for(int col = 0; col < ncols; ++col) {
 		auto &header = series->header_data[col];
 		
-		Data_Storage<double, Var_Id> *data = series_type[col]==1 ? &app->data.series : &app->data.additional_series;
+		Data_Storage<double, Var_Id> *data = series_type[col]==Var_Id::Type::series ? &app->data.series : &app->data.additional_series;
 		
 		if(    (header.flags & series_data_interp_step) 
 			|| (header.flags & series_data_interp_linear)

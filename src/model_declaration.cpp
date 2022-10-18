@@ -260,7 +260,7 @@ resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int whi
 
 Decl_AST *
 read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, String_View *normalized_path_out = nullptr) {
-	String_View model_data = handler->load_file(file_name, rel_path, normalized_path_out);
+	String_View model_data = handler->load_file(file_name, {}, rel_path, normalized_path_out);
 	
 	Token_Stream stream(file_name, model_data);
 	Decl_AST *decl = parse_decl(&stream);
@@ -333,12 +333,12 @@ register_intrinsics(Mobius_Model *model) {
 }
 
 Entity_Id
-load_top_decl_from_file(Mobius_Model *model, Decl_Scope *scope, String_View rel_path, const std::string &decl_name, Decl_Type type) {
+load_top_decl_from_file(Mobius_Model *model, Source_Location from, Decl_Scope *scope, String_View rel_path, const std::string &decl_name, Decl_Type type) {
 	
 	String_View normalized_path;
 	auto path_ptr = &normalized_path;
 	
-	String_View file_data = model->file_handler.load_file(rel_path, model->path, path_ptr);
+	String_View file_data = model->file_handler.load_file(rel_path, from, model->path, path_ptr);
 	
 	//warning_print("Try to load ", decl_name, " from ", *path_ptr, "\n");
 	
@@ -435,7 +435,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			location->dissolved_in[idx] = model->properties_and_quantities.find_or_create(&symbol[idx+1], scope);
 		}
 		location->n_dissolved            = count-2;
-		location->property_or_quantity   = model->properties_and_quantities.find_or_create(&symbol.back(), scope);    
+		location->property_or_quantity   = model->properties_and_quantities.find_or_create(&symbol.back(), scope);
 	} else {
 		//TODO: Give a reason for why it failed
 		symbol[0].print_error_header();
@@ -489,6 +489,8 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 	auto id        = model->parameters.standard_declaration(scope, decl);
 	auto parameter = model->parameters[id];
 	
+	if(decl->handle_name.string_value)
+		parameter->symbol = decl->handle_name.string_value;   // NOTE: This should be ok since parameters can only be declared uniquely in one place
 	int mt0 = 2;
 	if(token_type == Token_Type::boolean) mt0--;
 	if(decl->type != Decl_Type::par_enum)
@@ -511,7 +513,7 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 		} else {
 			parameter->min_val.val_integer = std::numeric_limits<s64>::lowest();
 			parameter->max_val.val_integer = std::numeric_limits<s64>::max();
-		}        
+		}
 	} else if (decl->type == Decl_Type::par_bool) {
 		parameter->min_val.val_boolean = false;
 		parameter->max_val.val_boolean = true;
@@ -793,9 +795,9 @@ bool
 process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Decl_Scope *to_scope, std::vector<Entity_Id> &loaded_now);
 
 Entity_Id
-load_library(Mobius_Model *model, Decl_Scope *to_scope, std::vector<Entity_Id> &loaded_now, String_View rel_path, std::string &decl_name, Source_Location load_loc) {
+load_library(Mobius_Model *model, Source_Location from, Decl_Scope *to_scope, std::vector<Entity_Id> &loaded_now, String_View rel_path, std::string &decl_name, Source_Location load_loc) {
 	
-	Entity_Id lib_id = load_top_decl_from_file(model, to_scope, rel_path, decl_name, Decl_Type::library);
+	Entity_Id lib_id = load_top_decl_from_file(model, from, to_scope, rel_path, decl_name, Decl_Type::library);
 
 	if(std::find(loaded_now.begin(), loaded_now.end(), lib_id) != loaded_now.end()) {
 		begin_error(Mobius_Error::parsing);
@@ -855,7 +857,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Decl_Scope
 		match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, 0, true, 0);
 		std::string library_name = single_arg(lib_load_decl, 0)->string_value;
 
-		Entity_Id child_lib_id = load_library(model, to_scope, loaded_now, file_name, library_name, lib_load_decl->location);
+		Entity_Id child_lib_id = load_library(model, single_arg(decl, 0)->location, to_scope, loaded_now, file_name, library_name, lib_load_decl->location);
 		if(!is_valid(child_lib_id)) {
 			error_print(file_name, " ", library_name, "\n");
 			return false;
@@ -1203,7 +1205,7 @@ load_model(String_View file_name) {
 	std::vector<Decl_AST *> extend_models = { decl };
 	load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name);
 	
-	std::reverse(extend_models.begin(), extend_models.end()); // Reverse inclusion order so that the modules from the base model are listed first in e.g. MobiView2. 
+	std::reverse(extend_models.begin(), extend_models.end()); // Reverse inclusion order so that the modules from the base model are listed first in e.g. MobiView2.
 	
 	//TODO: now we just throw everything into a single model decl scope, but what happens if we have re-declarations of handles because of multiple extensions?
 
@@ -1259,12 +1261,12 @@ load_model(String_View file_name) {
 						match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
 						
 						auto module_name = single_arg(module_spec, 0)->string_value;
-						auto module_id = load_top_decl_from_file(model, scope, file_name, module_name, Decl_Type::module);					
+						auto module_id = load_top_decl_from_file(model, single_arg(child, 0)->location, scope, file_name, module_name, Decl_Type::module);
 						
 						std::string module_handle = "";
 						if(module_spec->handle_name.string_value)
 							module_handle = module_spec->handle_name.string_value;
-						scope->add_local(module_handle, module_spec->location, module_id); 
+						scope->add_local(module_handle, module_spec->location, module_id);
 						
 						process_module_declaration(model, module_id);
 					}

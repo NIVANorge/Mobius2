@@ -1138,9 +1138,9 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 		if(ident->variable_type == Variable_Type::parameter)
 			depends->on_parameter.insert(ident->parameter);
 		else if(ident->variable_type == Variable_Type::state_var) {
-			State_Var_Dependency dep {ident->state_var, dep_type_none};
+			State_Var_Dependency dep {State_Var_Dependency::Type::none, ident->state_var};
 			if(ident->flags & ident_flags_last_result)
-				dep.type = (Dependency_Type)(dep.type | dep_type_earlier_step);
+				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::earlier_step);
 			
 			depends->on_state_var.insert(dep);
 		}
