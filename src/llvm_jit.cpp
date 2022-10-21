@@ -150,9 +150,13 @@ jit_compile_module(LLVM_Module_Data *data) {
 
 void
 free_llvm_module(LLVM_Module_Data *data) {
-	auto maybe_error = data->resource_tracker->remove();
-	if(maybe_error)
-		fatal_error(Mobius_Error::internal, "Failed to free LLVM jit resources.");
+	if(!data) return;
+	
+	if(data->resource_tracker) {
+		auto maybe_error = data->resource_tracker->remove();
+		if(maybe_error)
+			fatal_error(Mobius_Error::internal, "Failed to free LLVM jit resources.");
+	}
 	
 	delete data;
 }

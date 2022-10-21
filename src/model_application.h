@@ -258,7 +258,7 @@ Model_Application {
 	
 	Model_Application(Mobius_Model *model) : 
 		model(model), parameter_structure(this), series_structure(this), result_structure(this), neighbor_structure(this), 
-		additional_series_structure(this), is_compiled(false), data_set(nullptr), data(this) {
+		additional_series_structure(this), is_compiled(false), data_set(nullptr), data(this), llvm_data(nullptr) {
 			
 		if(!model->is_composed)
 			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");

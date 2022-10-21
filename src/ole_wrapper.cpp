@@ -192,10 +192,10 @@ void
 ole_close_app_and_spreadsheet(OLE_Handles *handles) {
 	bool app_open = handles->app;
 	
+	ole_close_spreadsheet(handles);
+	
 	if(handles->app)
 		ole_auto_wrap(DISPATCH_METHOD, NULL, handles->app, L"Quit", 0);
-	
-	ole_close_spreadsheet(handles);
 	
 	if(handles->app) handles->app->Release();
 	handles->app = nullptr;

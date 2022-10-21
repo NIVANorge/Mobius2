@@ -258,10 +258,8 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				put_var_lookup_indexes(fun, model_app, indexes);
 			} else if (instr->type != Model_Instruction::Type::clear_state_var)
 				continue;
-				//TODO: we coud set an explicit no-op flag on the instruction. If the flag is set, we expect a nullptr fun, otherwise a valid one.
+				//TODO: we coud set an explicit no-op flag on the instruction. If the flag is set, we expect a nullptr fun, otherwise a valid one. Then throw error if there is something unexpected.
 				
-				//else if(var->type != Decl_Type::quantity)
-					//fatal_error(Mobius_Error::internal, "Some variable \"", var->name, "\" unexpectedly did not get a function tree before generate_run_code(). This should have been detected at an earlier stage.");
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
 				auto offset_code = model_app->result_structure.get_offset_code(instr->var_id, indexes);
@@ -576,8 +574,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				!(var->flags & State_Variable::Flags::f_dissolved_conc) &&
 				!(var->flags & State_Variable::Flags::f_invalid))
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
-			//if(initial)
-			//	continue;     //TODO: we should reproduce the functionality from Mobius1 where the function_tree can act as the initial_function_tree (but only if it is referenced by another state var). But for now we just skip it.
 		}
 		
 		Model_Instruction instr;
@@ -662,9 +658,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// var (var_id) is now the variable that is being aggregated.
 			// instr is the instruction to compute it
 			
-			if(initial) {
-				warning_print("*** *** *** initial agg for ", var->name, "\n");
-			}
+			//if(initial) {
+			//	warning_print("*** *** *** initial agg for ", var->name, "\n");
+			//}
 			
 			auto aggr_var = model->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
 			
