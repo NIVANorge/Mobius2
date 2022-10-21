@@ -197,41 +197,14 @@ struct Data_Storage {
 	alloc_size() { return sizeof(Val_T) * structure->total_count * (time_steps + initial_step); }
 	
 	void 
-	allocate(s64 time_steps = 1, Date_Time start_date = {}) {
-		if(!structure->has_been_set_up)
-			fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
-		free_data();
-		this->time_steps = time_steps;
-		this->start_date = start_date;
-		size_t sz = alloc_size();
-		data = (Val_T *) malloc(sz);
-		memset(data, 0, sz);
-		is_owning = true;
-	};
+	allocate(s64 time_steps = 1, Date_Time start_date = {});
 	
 	// TODO: we could have some kind of tracking of references so that we at least get an error message if the source is deleted before all references are.
-	void refer_to(Data_Storage<Val_T, Handle_T> *source) {
-		if(structure != source->structure)
-			fatal_error(Mobius_Error::internal, "Tried to make a data storage refer to another one that belongs to a different storage structure.");
-		free_data();
-		data = source->data;
-		time_steps = source->time_steps;
-		start_date = source->start_date;
-		is_owning = false;
-	}
+	void
+	refer_to(Data_Storage<Val_T, Handle_T> *source);
 	
-	void copy_from(Data_Storage<Val_T, Handle_T> *source, bool size_only = false) {
-		if(structure != source->structure)
-			fatal_error(Mobius_Error::internal, "Tried to make a data storage copy from another one that belongs to a different storage structure.");
-		free_data();
-		if(source->time_steps > 0) {
-			allocate(source->time_steps, source->start_date);
-			if(!size_only)
-				memcpy(data, source->data, alloc_size());
-		} else {
-			start_date = source->start_date;
-		}
-	}
+	void
+	copy_from(Data_Storage<Val_T, Handle_T> *source, bool size_only = false);
 	
 	~Data_Storage() { free_data(); }
 };
@@ -312,16 +285,16 @@ Model_Application {
 		free_llvm_module(llvm_data);
 	}
 	
-	Mobius_Model                                   *model;
-	Model_Data                                      data;
+	Mobius_Model                                            *model;
+	Model_Data                                               data;
 	
-	std::vector<Index_T>                            index_counts;
-	std::vector<std::unordered_map<std::string, Index_T>>                index_names_map;
-	std::vector<std::vector<std::string>>           index_names;
+	std::vector<Index_T>                                     index_counts;
+	std::vector<std::unordered_map<std::string, Index_T>>    index_names_map;
+	std::vector<std::vector<std::string>>                    index_names;
 	
-	Time_Step_Size                                  time_step_size;
+	Time_Step_Size                                           time_step_size;
 	
-	Var_Registry<Var_Id::Type::additional_series>    additional_series;
+	Var_Registry<Var_Id::Type::additional_series>            additional_series;
 	
 	Storage_Structure<Entity_Id>   parameter_structure;
 	Storage_Structure<Var_Id>      series_structure;
@@ -476,7 +449,7 @@ Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(
 	for_each_helper(this, handle, do_stuff, indexes, 0);
 }
 
-// TODO: Debug why this one doesn't work. It is in principle nicer.
+// TODO: Debug why this one doesn't work. It is in principle nicer (not requiring recursion).
 #if 0
 template<typename Handle_T> void
 Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {

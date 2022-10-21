@@ -1110,13 +1110,13 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 						if((loc->expr_type == Math_Expr_Type::local_var) 
 							&& (index == ident->local_var.index) 
 							&& (loc->exprs[0]->expr_type == Math_Expr_Type::literal)) {
-								auto literal = new Literal_FT();
-								auto loc2        = reinterpret_cast<Local_Var_FT *>(loc);
-								auto loc_literal = reinterpret_cast<Literal_FT *>(loc->exprs[0]);
-								literal->value =      loc_literal->value;
+								auto literal        = new Literal_FT();
+								auto loc2           = reinterpret_cast<Local_Var_FT *>(loc);
+								auto loc_literal    = reinterpret_cast<Literal_FT *>(loc->exprs[0]);
+								literal->value      = loc_literal->value;
 								literal->value_type = loc_literal->value_type;
-								literal->location = ident->location;
-								loc2->is_used = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
+								literal->location   = ident->location;
+								loc2->is_used       = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
 								delete expr;
 								return literal;
 						}

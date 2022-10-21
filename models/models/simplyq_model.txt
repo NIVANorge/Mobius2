@@ -10,7 +10,7 @@ General model description.
 	
 	load("../modules/hbv_snow.txt",  sn : module("HBVSnow"))
 	load("../modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
-	load("../modules/pet.txt",        pe : module("Degree-day PET"))
+	load("../modules/pet.txt",       pe : module("Degree-day PET"))
 	
 	soil  : compartment("Soil")
 	gw    : compartment("Groundwater")

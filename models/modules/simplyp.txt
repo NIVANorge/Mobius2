@@ -1,7 +1,22 @@
 
 module("SimplyP", 0, 5, 0) {
 """
-Write the description
+SimplyP is a parsimonious phosphorus model. It was originally implemented in Python and published as
+
+[Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
+
+For news, updates and references, see [the model's github home page](https://github.com/NIVANorge/Mobius/tree/master/Applications/SimplyP)
+
+New to version 0.4:
+Landscape units are dynamic and user-specified instead of hardcoded.
+Sediment and hydrology equations are factored out into separate modules (SimplyQ, SimplySed)
+
+New to version 0.3:
+More realistic hydrology.
+
+[Detailed development log](https://github.com/NIVANorge/Mobius/blob/master/Applications/SimplyP/SimplyP_development_log.txt)
+
+For reference, here is [the original Python implementation of SimplyP](https://github.com/LeahJB/SimplyP), which is no longer being developed.
 """	
 	
 	load("../../stdlib/basic_math.txt", library("Basic"))

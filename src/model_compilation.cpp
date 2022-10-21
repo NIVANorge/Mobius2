@@ -1367,8 +1367,6 @@ Model_Application::compile() {
 	
 	set_up_result_structure(this, batches, instructions);
 	
-	//TODO: add back in!
-	
 	LLVM_Constant_Data constants;
 	constants.neighbor_data       = data.neighbors.data;
 	constants.neighbor_data_count = neighbor_structure.total_count;

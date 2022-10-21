@@ -91,11 +91,11 @@ is_valid(Var_Id id) {
 constexpr Var_Id invalid_var = { Var_Id::Type::none, -1 };
 
 inline bool
-operator==(const Var_Id &a, const Var_Id &b) { return a.id == b.id; }
+operator==(const Var_Id &a, const Var_Id &b) { return a.type == b.type && a.id == b.id; }
 inline bool
-operator!=(const Var_Id &a, const Var_Id &b) { return a.id != b.id; }
+operator!=(const Var_Id &a, const Var_Id &b) { return a.type != b.type || a.id != b.id; }
 inline bool
-operator<(const Var_Id &a, const Var_Id &b) { return a.id < b.id; }
+operator<(const Var_Id &a, const Var_Id &b) { return a.id < b.id; } // Ideally this only gets called on ids with the same type..
 
 
 enum class

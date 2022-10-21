@@ -280,11 +280,9 @@ Mobius_Model::compose() {
 	//TODO: make better name generation system!
 	char varname[1024];
 	
-	
 	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
 	// also make sure there are no conflicting has declarations of the same var_location (across modules)
 	std::unordered_map<Var_Location, Entity_Id, Var_Location_Hash> has_location;
-	
 	
 	for(Entity_Id id : hases) {
 		auto has = hases[id];

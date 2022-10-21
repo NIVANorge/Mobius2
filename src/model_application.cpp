@@ -545,6 +545,44 @@ Model_Application::save_to_data_set() {
 	}
 }
 
+template<typename Val_T, typename Handle_T> void 
+Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
+	if(!structure->has_been_set_up)
+		fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
+	free_data();
+	this->time_steps = time_steps;
+	this->start_date = start_date;
+	size_t sz = alloc_size();
+	data = (Val_T *) malloc(sz);
+	memset(data, 0, sz);
+	is_owning = true;
+}
+
+template<typename Val_T, typename Handle_T> void
+Data_Storage<Val_T, Handle_T>::refer_to(Data_Storage<Val_T, Handle_T> *source) {
+	if(structure != source->structure)
+		fatal_error(Mobius_Error::internal, "Tried to make a data storage refer to another one that belongs to a different storage structure.");
+	free_data();
+	data = source->data;
+	time_steps = source->time_steps;
+	start_date = source->start_date;
+	is_owning = false;
+}
+
+template<typename Val_T, typename Handle_T> void
+Data_Storage<Val_T, Handle_T>::copy_from(Data_Storage<Val_T, Handle_T> *source, bool size_only) {
+	if(structure != source->structure)
+		fatal_error(Mobius_Error::internal, "Tried to make a data storage copy from another one that belongs to a different storage structure.");
+	free_data();
+	if(source->time_steps > 0) {
+		allocate(source->time_steps, source->start_date);
+		if(!size_only)
+			memcpy(data, source->data, alloc_size());
+	} else {
+		start_date = source->start_date;
+	}
+}
+
 Date_Time
 Model_Data::get_start_date_parameter() {
 	auto id = app->model->parameters.find_by_name("Start date");
