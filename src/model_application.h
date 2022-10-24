@@ -405,26 +405,7 @@ struct Index_Name {
 struct
 Model_Application {
 	
-	Model_Application(Mobius_Model *model) : 
-		model(model), parameter_structure(this), series_structure(this), result_structure(this), neighbor_structure(this), 
-		additional_series_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
-		
-		index_counts.resize(model->index_sets.count());
-		index_names_map.resize(model->index_sets.count());
-		index_names.resize(model->index_sets.count());
-		
-		for(auto index_set : model->index_sets) {
-			index_counts[index_set.id].index_set = index_set;
-			index_counts[index_set.id].index = 0;
-		}
-		
-		// TODO: make time step size configurable.
-		time_step_size.unit      = Time_Step_Size::second;
-		time_step_size.magnitude = 86400;
-		
-		initialize_llvm();
-		llvm_data = create_llvm_module();
-	}
+	Model_Application(Mobius_Model *model);
 	
 	~Model_Application() {
 		// TODO: should probably free more stuff.
@@ -450,15 +431,16 @@ Model_Application {
 	Storage_Structure<Var_Id>                                series_structure;
 	Storage_Structure<Var_Id>                                additional_series_structure;
 	
-	Data_Set              *data_set;
+	Data_Set                                                *data_set;
 	
-	LLVM_Module_Data      *llvm_data;  //TODO: put back in
+	LLVM_Module_Data                                        *llvm_data;
 	
-	Run_Batch              initial_batch;
-	std::vector<Run_Batch> batches;
+	Run_Batch                                                initial_batch;
+	std::vector<Run_Batch>                                   batches;
 	
-	bool is_compiled = false;
-	bool is_composed = false;
+	bool                                                     is_compiled = false;
+	std::vector<Entity_Id>                                   baked_parameters;       // Hmm, may not be the best to have this here.
+
 	
 	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes);
 	Index_T get_index(Entity_Id index_set, const std::string &name);
@@ -476,7 +458,7 @@ Model_Application {
 	// TODO: this one should maybe be on the Model_Data struct instead
 	void allocate_series_data(s64 time_steps, Date_Time start_date);
 	
-	void compose();
+	//void compose();
 	void compile();
 };
 

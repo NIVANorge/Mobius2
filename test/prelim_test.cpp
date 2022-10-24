@@ -93,8 +93,6 @@ int main(int argc, char** argv) {
 	{
 		Model_Application app(model);
 		
-		app.compose();
-		
 		Data_Set data_set;
 		data_set.read_from_file(input_file);
 		

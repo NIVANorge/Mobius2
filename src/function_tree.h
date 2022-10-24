@@ -107,6 +107,7 @@ Function_Resolve_Data {
 	Model_Application *app;
 	Decl_Scope        *scope;
 	Var_Location       in_loc;
+	std::vector<Entity_Id> *baked_parameters;
 };
 
 Math_Expr_FT *

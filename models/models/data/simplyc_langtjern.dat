@@ -52,7 +52,7 @@ module("HBVSnow", 1, 0, 0) {
 }
 
 module("SimplyQ land", 0, 5, 0) {
-	par_group("Hydrology general") [ "Subcatchment" "Landscape units" ] {
+	par_group("Hydrology general") {
 		par_real("Baseflow index")
 		[ 0.485492149817654 ]
 
@@ -60,7 +60,7 @@ module("SimplyQ land", 0, 5, 0) {
 		[ 160.059149394341 ]
 	}
 
-	par_group("Hydrology land") [ "Subcatchment" "Landscape units" ] {
+	par_group("Hydrology land") [ "Landscape units" ] {
 		par_real("Field capacity")
 		[ 120 ]
 
@@ -68,7 +68,7 @@ module("SimplyQ land", 0, 5, 0) {
 		[ 2.48486976249477 ]
 	}
 
-	par_group("Groundwater") [ "Subcatchment" ] {
+	par_group("Groundwater") {
 		par_real("Groundwater time constant")
 		[ 30.0527746167028 ]
 	}
@@ -91,7 +91,7 @@ module("SimplyQ river", 0, 0, 1) {
 }
 
 module("Degree-day PET", 1, 0, 0) {
-	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
+	par_group("Potential evapotranspiration") [ "Landscape units" ] {
 		par_real("Deegree-day factor for evapotranspiration")
 		[ 0.12 ]
 
@@ -104,7 +104,7 @@ module("Priestley-Taylor PET", 0, 0, 16) {
 }
 
 module("Simply soil temperature", 0, 0, 0) {
-	par_group("Soil temperature general") [ "Subcatchment" "Landscape units" ] {
+	par_group("Soil temperature general") {
 		par_real("Snow depth / soil temperature factor")
 		[ -0.2 ]
 
@@ -112,14 +112,14 @@ module("Simply soil temperature", 0, 0, 0) {
 		[ 10 ]
 	}
 
-	par_group("Soil temperature land") [ "Subcatchment" "Landscape units" ] {
+	par_group("Soil temperature land") [ "Landscape units" ] {
 		par_real("Soil thermal conductivity / specific heat capacity")
 		[ 0.03 ]
 	}
 }
 
 module("SimplyC", 1, 0, 0) {
-	par_group("DOC general") [ "Subcatchment" "Landscape units" ] {
+	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
 		[ 10 ]
 
@@ -133,12 +133,12 @@ module("SimplyC", 1, 0, 0) {
 		[ 0.00276834666700925 ]
 	}
 
-	par_group("DOC land") [ "Subcatchment" "Landscape units" ] {
+	par_group("DOC land") [ "Landscape units" ] {
 		par_real("Baseline soil DOC concentration")
 		[ 11.5 ]
 	}
 
-	par_group("DOC deep soil") [ "Subcatchment" ] {
+	par_group("DOC deep soil") {
 		par_enum("Groundwater DOC computation type")
 		[ soil_avg ]
 

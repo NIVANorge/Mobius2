@@ -361,6 +361,30 @@ set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_I
 }
 
 Math_Expr_FT *
+fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::vector<Entity_Id> *baked_parameters) {
+	if(expr->expr_type != Math_Expr_Type::identifier_chain) return expr;
+	
+	auto ident = reinterpret_cast<Identifier_FT *>(expr);
+	if(ident->variable_type != Variable_Type::parameter) return expr; //TODO: Could maybe eventually bake others.
+	auto par_id = ident->parameter;
+	if(std::find(baked_parameters->begin(), baked_parameters->end(), par_id) == baked_parameters->end()) return expr;
+	
+	// NOTE: currently we only do this for single-instanced parameters.
+	s64 offset = app->parameter_structure.get_offset_base(par_id);
+	Parameter_Value val = *app->data.parameters.get_value(offset);
+	
+	auto literal = new Literal_FT();
+	literal->value_type = ident->value_type;
+	literal->location   = ident->location;
+	literal->value      = val;
+	
+	warning_print("Baking ", app->model->parameters[par_id]->name, "\n");
+	
+	delete ident;
+	return literal;
+}
+
+Math_Expr_FT *
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
 	Math_Expr_FT *result = nullptr;
 	
@@ -498,7 +522,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 								new_ident->variable_type = Variable_Type::parameter;
 								new_ident->parameter = reg->id;
 								new_ident->value_type = Value_Type::integer;
-								result = make_binop('=', new_ident, make_literal(val));
+								auto ft = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
+								result = make_binop('=', ft, make_literal(val));
 								resolved = true;
 							}
 						}
@@ -524,6 +549,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					fatal_error_trace(scope);
 				}
 			}
+			
+			result = fixup_potentially_baked_value(app, result, data->baked_parameters);
 		} break;
 		
 		case Math_Expr_Type::literal : {

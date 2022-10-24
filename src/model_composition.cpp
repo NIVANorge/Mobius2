@@ -5,6 +5,32 @@
 #include <sstream>
 //#include <bitset>
 
+void
+prelim_compose(Model_Application *app);
+
+Model_Application::Model_Application(Mobius_Model *model) : 
+	model(model), parameter_structure(this), series_structure(this), result_structure(this), neighbor_structure(this), 
+	additional_series_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
+	
+	index_counts.resize(model->index_sets.count());
+	index_names_map.resize(model->index_sets.count());
+	index_names.resize(model->index_sets.count());
+	
+	for(auto index_set : model->index_sets) {
+		index_counts[index_set.id].index_set = index_set;
+		index_counts[index_set.id].index = 0;
+	}
+	
+	// TODO: make time step size configurable.
+	time_step_size.unit      = Time_Step_Size::second;
+	time_step_size.magnitude = 86400;
+	
+	initialize_llvm();
+	llvm_data = create_llvm_module();
+	
+	prelim_compose(this);
+}
+
 Var_Id
 register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bool is_series, const std::string given_name = "") {
 	
@@ -277,11 +303,10 @@ has_code(Entity_Registration<Reg_Type::has> *has) {
 }
 
 void
-Model_Application::compose() {
+prelim_compose(Model_Application *app) {
 	warning_print("compose begin\n");
 	
-	//TODO: make better name generation system!
-	char varname[1024];
+	auto model = app->model;
 	
 	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
 	// also make sure there are no conflicting has declarations of the same var_location (across modules)
@@ -325,10 +350,10 @@ Model_Application::compose() {
 	
 	warning_print("State var registration begin.\n");
 	
-	std::vector<Var_Id> dissolvedes;
+	std::vector<Var_Id> dissolvedes; 
 	
 	// TODO: we could move some of the checks in this loop to the above loop.
-	
+
 	for(int n_dissolved = 0; n_dissolved <= max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
 		for(Entity_Id id : model->hases) {
 			auto has = model->hases[id];
@@ -345,7 +370,7 @@ Model_Application::compose() {
 			if(n_dissolved > 0) {
 				Var_Location above_loc = remove_dissolved(has->var_location);
 				
-				auto above_var = state_vars[above_loc];
+				auto above_var = app->state_vars[above_loc];
 				if(!is_valid(above_var)) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					//error_print_location(this, above_loc);
@@ -361,10 +386,10 @@ Model_Application::compose() {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("For now we don't support input series with chained locations.");
 				}
-				register_state_variable(this, Decl_Type::has, id, true);
+				register_state_variable(app, Decl_Type::has, id, true);
 			} else if (id == find->second) {
 				// This is the particular has declaration that provided the code, so we register a state variable using this one.
-				Var_Id var_id = register_state_variable(this, Decl_Type::has, id, false);
+				Var_Id var_id = register_state_variable(app, Decl_Type::has, id, false);
 				if(n_dissolved > 0 && type == Decl_Type::quantity)
 					dissolvedes.push_back(var_id);
 			}
@@ -375,17 +400,20 @@ Model_Application::compose() {
 		auto flux = model->fluxes[id];
 
 		auto scope = model->get_scope(flux->code_scope);
-		check_flux_location(this, scope, flux->source_loc, flux->source);
-		check_flux_location(this, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
+		check_flux_location(app, scope, flux->source_loc, flux->source);
+		check_flux_location(app, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
 		
-		register_state_variable(this, Decl_Type::flux, id, false);
+		register_state_variable(app, Decl_Type::flux, id, false);
 	}
 	
 	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
 	
-	// TODO: Not sure if this system works correctly for chain-dissolved quantities yet (dissolved in dissolved)!
+	//TODO: make better name generation system!
+	char varname[1024];
+	
+	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
 	for(auto var_id : dissolvedes) {
-		auto var = state_vars[var_id];
+		auto var = app->state_vars[var_id];
 		// these are already guaranteed since we put it in dissolvedes..
 		//if(var->type != Decl_Type::quantity) continue;
 		//if(var->loc1.n_dissolved == 0) continue;
@@ -393,14 +421,14 @@ Model_Application::compose() {
 		
 		auto above_loc = remove_dissolved(var->loc1);
 		std::vector<Var_Id> generate;
-		for(auto flux_id : state_vars) {
-			auto flux = state_vars[flux_id];
+		for(auto flux_id : app->state_vars) {
+			auto flux = app->state_vars[flux_id];
 			if(flux->type != Decl_Type::flux) continue;
 			if(!(flux->loc1 == above_loc)) continue;
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
 				auto below_loc = add_dissolved(flux->loc2, var->loc1.property_or_quantity);
-				auto below_var = state_vars[below_loc];
+				auto below_var = app->state_vars[below_loc];
 				if(!is_valid(below_var)) continue;
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
@@ -415,22 +443,22 @@ Model_Application::compose() {
 		
 		Var_Location source  = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
 		std::string &var_name = var->name;
-		auto dissolved_in_id = state_vars[above_loc];
-		auto dissolved_in = state_vars[dissolved_in_id];
+		auto dissolved_in_id = app->state_vars[above_loc];
+		auto dissolved_in = app->state_vars[dissolved_in_id];
 		
 		sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
-		Var_Id gen_conc_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, varname);
-		auto conc_var = state_vars[gen_conc_id];
+		Var_Id gen_conc_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname);
+		auto conc_var = app->state_vars[gen_conc_id];
 		conc_var->flags = State_Variable::Flags::f_dissolved_conc;
 		conc_var->dissolved_conc = var_id;
-		state_vars[var_id]->dissolved_conc = gen_conc_id;
+		app->state_vars[var_id]->dissolved_conc = gen_conc_id;
 		
 		for(auto flux_id : generate) {
-			std::string &flux_name = state_vars[flux_id]->name;
+			std::string &flux_name = app->state_vars[flux_id]->name;
 			sprintf(varname, "dissolved_flux(%s, %s)", var_name.data(), flux_name.data());
-			Var_Id gen_flux_id = register_state_variable(this, Decl_Type::flux, invalid_entity_id, false, varname);
-			auto gen_flux = state_vars[gen_flux_id];
-			auto flux = state_vars[flux_id];
+			Var_Id gen_flux_id = register_state_variable(app, Decl_Type::flux, invalid_entity_id, false, varname);
+			auto gen_flux = app->state_vars[gen_flux_id];
+			auto flux = app->state_vars[flux_id];
 			gen_flux->flags = State_Variable::Flags::f_dissolved_flux;
 			gen_flux->dissolved_flux = flux_id;
 			gen_flux->dissolved_conc = gen_conc_id;
@@ -442,6 +470,29 @@ Model_Application::compose() {
 				gen_flux->neighbor = flux->neighbor;
 		}
 	}
+}
+
+
+void
+compose_and_resolve(Model_Application *app) {
+	
+	//TODO: Would like to take other baked_parameters as argument to this function.
+	
+	auto model = app->model;
+	
+	for(auto par_id : model->parameters) {
+		auto par = model->parameters[par_id];
+		if(par->decl_type == Decl_Type::par_bool || par->decl_type == Decl_Type::par_enum) {
+			s64 count = app->parameter_structure.instance_count(par_id);
+			if(app->parameter_structure.instance_count(par_id) == 1) {// TODO: Would like to get rid of this requirement, but without it we may end up needing a separate code tree per index tuple for a given state variable :(
+				app->baked_parameters.push_back(par_id);
+				//warning_print("Baking parameter \"", par->name, "\".\n");
+			}
+		}
+	}
+	
+	//TODO: make better name generation system!
+	char varname[1024];
 
 	warning_print("Function tree resolution begin.\n");
 	
@@ -454,8 +505,8 @@ Model_Application::compose() {
 	
 	std::set<Var_Id> may_need_neighbor_target;
 	
-	for(auto var_id : state_vars) {
-		auto var = state_vars[var_id];
+	for(auto var_id : app->state_vars) {
+		auto var = app->state_vars[var_id];
 		
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
@@ -493,8 +544,8 @@ Model_Application::compose() {
 			// note : the only case where from_compartment != in_loc.compartment is when both source and target are located, but different. In that case in_loc is invalid, but from_compartment is not.
 			
 			if(is_valid(var->neighbor)) {
-				Var_Id target_id = state_vars[var->loc1]; // loc1==loc2 for neighbor fluxes.
-				may_need_neighbor_target.insert(state_vars[var->loc1]); // We only need these for non-discrete variables.
+				Var_Id target_id = app->state_vars[var->loc1]; // loc1==loc2 for neighbor fluxes.
+				may_need_neighbor_target.insert(app->state_vars[var->loc1]); // We only need these for non-discrete variables.
 			}
 			
 			if(is_located(var->loc1)) {
@@ -531,10 +582,10 @@ Model_Application::compose() {
 		}
 		
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
-		Function_Resolve_Data res_data = { this, code_scope, in_loc };
+		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters };
 		if(ast) {
 			var->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
-			replace_conc(this, var->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
+			replace_conc(app, var->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
 			find_other_flags(var->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 		} else
 			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
@@ -544,7 +595,7 @@ Model_Application::compose() {
 			//TODO: handle initial_is_conc!
 			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var->initial_function_tree, true);
-			replace_conc(this, var->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
+			replace_conc(app, var->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
 			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			var->initial_is_conc = initial_is_conc;
 			
@@ -575,7 +626,7 @@ Model_Application::compose() {
 		if(override_ast) {
 			var->override_tree = make_cast(resolve_function_tree(override_ast, &res_data), Value_Type::real);
 			var->override_is_conc = override_is_conc;
-			replace_conc(this, var->override_tree);
+			replace_conc(app, var->override_tree);
 			find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			// TODO: Should audit this one for flags also!
 			
@@ -586,19 +637,19 @@ Model_Application::compose() {
 	
 	// Invalidate dissolved fluxes if both source and target is overridden.
 	
-	for(auto var_id : state_vars) {
-		auto var = state_vars[var_id];
+	for(auto var_id : app->state_vars) {
+		auto var = app->state_vars[var_id];
 		if(var->flags & State_Variable::Flags::f_dissolved_flux) {
 			bool valid_source = true;
 			if(is_located(var->loc1)) {
-				auto source = state_vars[state_vars[var->loc1]];
+				auto source = app->state_vars[app->state_vars[var->loc1]];
 				if(source->override_tree)
 					valid_source = false;
 			} else
 				valid_source = false;
 			bool valid_target = true;
 			if(is_located(var->loc2)) {
-				auto target = state_vars[state_vars[var->loc2]];
+				auto target = app->state_vars[app->state_vars[var->loc2]];
 				if(target->override_tree)
 					valid_target = false;
 			} else
@@ -618,8 +669,8 @@ Model_Application::compose() {
 	
 	// note: We always generate an aggregate if the source compartment of a flux has more indexes than the target compartment.
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
-	for(auto var_id : state_vars) {
-		auto var = state_vars[var_id];
+	for(auto var_id : app->state_vars) {
+		auto var = app->state_vars[var_id];
 		if(var->flags & State_Variable::Flags::f_invalid) continue;
 		if(var->type != Decl_Type::flux) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
@@ -632,11 +683,11 @@ Model_Application::compose() {
 		
 	for(auto &need_agg : needs_aggregate) {
 		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};   //TODO: Not good way to do it!
-		auto var = state_vars[var_id];
+		auto var = app->state_vars[var_id];
 		
 		auto loc1 = var->loc1;
 		if(var->flags & State_Variable::Flags::f_dissolved_conc)
-			loc1 = state_vars[var->dissolved_conc]->loc1;
+			loc1 = app->state_vars[var->dissolved_conc]->loc1;
 		
 		auto source = model->compartments[loc1.compartment];
 		
@@ -647,7 +698,7 @@ Model_Application::compose() {
 				if(agg.to_compartment == to_compartment) {
 					// Note: the module id is always 0 here since aggregation_weight should only be declared in model scope.
 					auto scope = model->get_scope(agg.code_scope);
-					Function_Resolve_Data res_data = { this, scope, {} };
+					Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
 					agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
 					std::set<Entity_Id> parameter_refs;
 					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
@@ -677,14 +728,14 @@ Model_Application::compose() {
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
 			sprintf(varname, "aggregate(%s)", var->name.data());
-			Var_Id agg_id = register_state_variable(this, var->type, invalid_entity_id, false, varname);
+			Var_Id agg_id = register_state_variable(app, var->type, invalid_entity_id, false, varname);
 			
-			auto agg_var = state_vars[agg_id];
+			auto agg_var = app->state_vars[agg_id];
 			agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
 			agg_var->agg = var_id;
 			agg_var->aggregation_weight_tree = agg_weight;
 			
-			var = state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
+			var = app->state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 
 			// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:
 			agg_var->loc1.type = Var_Location::Type::nowhere;
@@ -696,10 +747,10 @@ Model_Application::compose() {
 			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
 			var->unit_conversion_tree = nullptr;
 			agg_var->agg_to_compartment = to_compartment;
-			state_vars[var_id]->agg = agg_id;
+			app->state_vars[var_id]->agg = agg_id;
 			
 			for(auto looked_up_by : need_agg.second.second) {
-				auto lu = state_vars[looked_up_by];
+				auto lu = app->state_vars[looked_up_by];
 				
 				Entity_Id lu_compartment = lu->loc1.compartment;
 				if(!is_located(lu->loc1)) {
@@ -722,11 +773,11 @@ Model_Application::compose() {
 	
 	// NOTE: Unfortunately we need to know about solvers here, but we don't want to store the solver on the State Variable since that encourages messy code in model_compilation.
 	std::vector<int> has_solver;
-	has_solver.resize(state_vars.count(), 0);
+	has_solver.resize(app->state_vars.count(), 0);
 	
 	for(auto id : model->solves) {
 		auto solve = model->solves[id];
-		Var_Id var_id = state_vars[solve->loc];
+		Var_Id var_id = app->state_vars[solve->loc];
 		if(!is_valid(var_id)) {
 			//error_print_location(this, solve->loc);
 			solve->source_loc.print_error_header(Mobius_Error::model_building);
@@ -748,21 +799,21 @@ Model_Application::compose() {
 	for(auto var_id : may_need_neighbor_target) {
 		if(!has_solver[var_id.id]) continue;
 		
-		Var_Id n_agg_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux_neighbor"); //TODO: generate a better name
-		auto n_agg_var = state_vars[n_agg_id];
+		Var_Id n_agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux_neighbor"); //TODO: generate a better name
+		auto n_agg_var = app->state_vars[n_agg_id];
 		n_agg_var->flags = State_Variable::Flags::f_in_flux_neighbor;
 		//n_agg_var->solver = solver;
 		n_agg_var->neighbor_agg = var_id;
 		
-		state_vars[var_id]->neighbor_agg = n_agg_id;
+		app->state_vars[var_id]->neighbor_agg = n_agg_id;
 	}
 	
 	warning_print("Generate state vars for in_flux.\n");
 	for(auto &in_flux : in_flux_map) {
 		Var_Id target_id = {Var_Id::Type::state_var, in_flux.first}; //TODO: Not good way to do it!
 		
-		Var_Id in_flux_id = register_state_variable(this, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
-		auto in_flux_var = state_vars[in_flux_id];
+		Var_Id in_flux_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
+		auto in_flux_var = app->state_vars[in_flux_id];
 		
 		in_flux_var->in_flux_target        = target_id;
 		in_flux_var->function_tree         = nullptr; // This is instead generated in model_compilation
@@ -770,18 +821,18 @@ Model_Application::compose() {
 		in_flux_var->flags = (State_Variable::Flags)(in_flux_var->flags | State_Variable::f_in_flux);
 		
 		for(auto rep_id : in_flux.second)
-			replace_flagged(state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
+			replace_flagged(app->state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
 	}
 
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
-	for(auto var_id : state_vars) {
-		auto var = state_vars[var_id];
+	for(auto var_id : app->state_vars) {
+		auto var = app->state_vars[var_id];
 		if(var->flags & State_Variable::Flags::f_invalid) continue;
 		
 		if(var->function_tree)
-			check_valid_distribution_of_dependencies(this, var->function_tree, var, false);
+			check_valid_distribution_of_dependencies(app, var->function_tree,         var, false);
 		if(var->initial_function_tree)
-			check_valid_distribution_of_dependencies(this, var->initial_function_tree, var, true);
+			check_valid_distribution_of_dependencies(app, var->initial_function_tree, var, true);
 	}
 	
 	
@@ -809,8 +860,6 @@ Model_Application::compose() {
 	// NOTE: this also invalidates all other ASTs since they point into the top decl ASTs. Maybe we should null them too.
 	// The intention in any case is that all of them are translated into processed forms by this point and are no longer needed.
 	*/
-	
-	is_composed = true;
 }
 
 

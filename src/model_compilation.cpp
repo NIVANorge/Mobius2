@@ -1276,9 +1276,10 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
+compose_and_resolve(Model_Application *app);
+
+void
 Model_Application::compile() {
-	if(!is_composed)
-		fatal_error(Mobius_Error::internal, "Tried to compile a model application before it was composed.");
 	
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application twice.");
@@ -1292,6 +1293,8 @@ Model_Application::compile() {
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before parameter data was set up.");
 	if(!neighbor_structure.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before neighbor data was set up.");
+	
+	compose_and_resolve(this);
 	
 	warning_print("Create instruction arrays\n");
 	std::vector<Model_Instruction> initial_instructions;
