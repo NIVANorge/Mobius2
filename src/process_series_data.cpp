@@ -184,7 +184,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 	
 	int header_idx = 0;
 	for(auto header : series->header_data) {
-		std::set<Var_Id> ids = model->series[header.name];
+		std::set<Var_Id> ids = app->series[header.name];
 		
 		auto *data = &app->data.series;
 		series_type[header_idx] = Var_Id::Type::series;

@@ -8,6 +8,156 @@
 
 #include <functional>
 
+struct
+State_Var_Dependency {
+	enum Type : u32 {
+		none =         0x0,
+		earlier_step = 0x1,
+	}                 type;
+	Var_Id            var_id;
+};
+
+inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) { if(a.var_id < b.var_id) return true; return (u32)a.type < (u32)b.type; }
+
+struct
+Dependency_Set {
+	std::set<Entity_Id>             on_parameter;
+	std::set<Var_Id>                on_series;
+	std::set<State_Var_Dependency>  on_state_var;
+};
+
+struct Math_Expr_FT;
+
+struct
+Var_Location_Hash {
+	int operator()(const Var_Location &loc) const {
+		if(!is_located(loc))
+			fatal_error(Mobius_Error::internal, "Tried to hash a non-located value location.");
+		
+		// hopefully this one is ok...
+		constexpr int mod = 10889;
+		int res = loc.compartment.id;
+		res = (res*11 + loc.property_or_quantity.id) % mod;
+		for(int idx = 0; idx < loc.n_dissolved; ++idx)
+			res = (res*11 + loc.dissolved_in[idx].id) % mod;
+		
+		return res;
+	}
+};
+
+// TODO; Hmm, It is a bit superfluous to have a State_Variable record for input series since most of the contents are not relevant for that.
+
+struct
+State_Variable {
+	Decl_Type type; //either flux, quantity or property
+	
+	enum Flags {
+		f_none                = 0x00,
+		f_in_flux             = 0x01,
+		f_in_flux_neighbor    = 0x02,
+		f_is_aggregate        = 0x04, 
+		f_has_aggregate       = 0x08,
+		f_clear_series_to_nan = 0x10,
+		f_dissolved_flux      = 0x20,
+		f_dissolved_conc      = 0x40,
+		f_invalid             = 0x1000,
+	} flags;
+	
+	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.
+	
+	std::string name;
+
+	Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either has(...) or flux(...)
+	
+	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
+	
+	Entity_Id neighbor; // For a flux that points at a neighbor.
+	
+	// If this is a quantity or property, loc1 is the location of this variable.
+	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
+	Var_Location   loc1;
+	Var_Location   loc2;
+	
+	// if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
+	Var_Id         agg;
+	Entity_Id      agg_to_compartment;
+	
+	// if f_in_flux is set (this is the aggregation variable for the in fluxes), agg points at the quantity that is the target of the fluxes.
+	Var_Id         in_flux_target;
+	
+	// If this is the target variable of a neighbor flux, neighbor_agg points to the aggregation variable for the neighbor flux.
+	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es) (which is the same as the source).
+	Var_Id         neighbor_agg;
+	
+	// If this is a generated flux for a dissolved quantity (f_dissolved_flux is set), dissolved_conc is the respective generated conc of the quantity. dissolved_flux is the flux of the quantity that this one is dissolved in.
+	// If this is the generated conc (f_dissolved_conc is set), dissolved_conc is the variable for the mass of the quantity.
+	// If none of the flags are set and this is the mass of the quantity, dissolved_conc also points to the conc.
+	Var_Id         dissolved_conc;
+	Var_Id         dissolved_flux;
+	
+	Math_Expr_FT *function_tree;
+	bool initial_is_conc;
+	Math_Expr_FT *initial_function_tree;
+	Math_Expr_FT *aggregation_weight_tree;
+	Math_Expr_FT *unit_conversion_tree;
+	bool override_is_conc;
+	Math_Expr_FT *override_tree;
+	
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
+};
+
+template <Var_Id::Type var_type>
+struct Var_Registry {
+	std::vector<State_Variable> vars;
+	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
+	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
+	
+	State_Variable *operator[](Var_Id id) {
+		if(id.type != var_type)
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable of wrong type.");
+		if(!is_valid(id) || id.id >= vars.size())
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
+		return &vars[id.id];
+	}
+	
+	Var_Id operator[](const Var_Location &loc) {
+		if(!is_located(loc))
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable using a non-located location.");
+		auto find = location_to_id.find(loc);
+		if(find == location_to_id.end())
+			return invalid_var;
+		return find->second;
+	}
+	
+	//NOTE: wanted this to return a reference, but then it can't return {} when something is not found.
+	const std::set<Var_Id> operator[](std::string name) {
+		auto find = name_to_id.find(name);
+		if(find == name_to_id.end())
+			return {};
+			//fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid name \"", name, "\".");
+		return find->second;
+	}
+	
+	Var_Id register_var(State_Variable var, Var_Location loc) {
+		if(is_located(loc)) {
+			Var_Id id = (*this)[loc];
+			if(is_valid(id))
+				fatal_error(Mobius_Error::internal, "Re-registering a variable."); //TODO: hmm, this only catches cases where the location was valid.
+		}
+		
+		vars.push_back(var);
+		Var_Id id = {var_type, (s32)vars.size()-1};
+		if(is_located(loc))
+			location_to_id[loc] = id;
+		name_to_id[var.name].insert(id);
+		return id;
+	}
+	
+	Var_Id begin() { return {var_type, 0}; }
+	Var_Id end()   { return {var_type, (s32)vars.size()}; }
+	size_t count() { return vars.size(); }
+};
+
 
 struct Neighbor_T {
 	Entity_Id neighbor;
@@ -257,10 +407,7 @@ Model_Application {
 	
 	Model_Application(Mobius_Model *model) : 
 		model(model), parameter_structure(this), series_structure(this), result_structure(this), neighbor_structure(this), 
-		additional_series_structure(this), is_compiled(false), data_set(nullptr), data(this), llvm_data(nullptr) {
-			
-		if(!model->is_composed)
-			fatal_error(Mobius_Error::internal, "Tried to create a model application before the model was composed.");
+		additional_series_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
 		
 		index_counts.resize(model->index_sets.count());
 		index_names_map.resize(model->index_sets.count());
@@ -293,13 +440,15 @@ Model_Application {
 	
 	Time_Step_Size                                           time_step_size;
 	
+	Var_Registry<Var_Id::Type::state_var>                    state_vars;
+	Var_Registry<Var_Id::Type::series>                       series;
 	Var_Registry<Var_Id::Type::additional_series>            additional_series;
 	
-	Storage_Structure<Entity_Id>   parameter_structure;
-	Storage_Structure<Var_Id>      series_structure;
-	Storage_Structure<Var_Id>      result_structure;
-	Storage_Structure<Neighbor_T>  neighbor_structure;
-	Storage_Structure<Var_Id>      additional_series_structure;
+	Storage_Structure<Entity_Id>                             parameter_structure;
+	Storage_Structure<Neighbor_T>                            neighbor_structure;
+	Storage_Structure<Var_Id>                                result_structure;
+	Storage_Structure<Var_Id>                                series_structure;
+	Storage_Structure<Var_Id>                                additional_series_structure;
 	
 	Data_Set              *data_set;
 	
@@ -308,7 +457,8 @@ Model_Application {
 	Run_Batch              initial_batch;
 	std::vector<Run_Batch> batches;
 	
-	bool is_compiled;
+	bool is_compiled = false;
+	bool is_composed = false;
 	
 	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes);
 	Index_T get_index(Entity_Id index_set, const std::string &name);
@@ -326,6 +476,7 @@ Model_Application {
 	// TODO: this one should maybe be on the Model_Data struct instead
 	void allocate_series_data(s64 time_steps, Date_Time start_date);
 	
+	void compose();
 	void compile();
 };
 
@@ -338,9 +489,9 @@ Storage_Structure<Entity_Id>::get_handle_name(Entity_Id par) {
 template<> inline const std::string&
 Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
 	if(var_id.type == Var_Id::Type::state_var)
-		return parent->model->state_vars[var_id]->name;
+		return parent->state_vars[var_id]->name;
 	else if(var_id.type == Var_Id::Type::series)
-		return parent->model->series[var_id]->name;
+		return parent->series[var_id]->name;
 	else
 		return parent->additional_series[var_id]->name;
 }

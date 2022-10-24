@@ -49,11 +49,9 @@ void read_input_data(String_View file_name, Model_Application *model_app) {
 void write_result_data(String_View file_name, Model_Application *model_app) {
 	FILE *file = open_file(file_name, "w");
 	
-	auto model = model_app->model;
-	
 	std::vector<s64> offsets;
-	for(auto var_id : model->state_vars) {
-		String_View name = model->state_vars[var_id]->name;
+	for(auto var_id : model_app->state_vars) {
+		String_View name = model_app->state_vars[var_id]->name;
 		//if(name != "Quick flow" && name != "in_flux") continue;
 		model_app->result_structure.for_each(var_id, [&](std::vector<Index_T> &indexes, s64 offset) {
 			fprintf(file, "\"%.*s\"[", name.count, name.data);
@@ -89,12 +87,13 @@ int main(int argc, char** argv) {
 		input_file = argv[2];
 	
 	Mobius_Model *model = load_model(model_file);
-	model->compose();
 	
-	std::cout << "Composition done.\n";
+	std::cout << "Loading done.\n";
 	
 	{
 		Model_Application app(model);
+		
+		app.compose();
 		
 		Data_Set data_set;
 		data_set.read_from_file(input_file);

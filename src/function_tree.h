@@ -96,7 +96,7 @@ Local_Var_FT : Math_Expr_FT {
 
 
 
-struct Mobius_Model;
+struct Model_Application;
 struct Math_Expr_AST;
 struct Dependency_Set;
 
@@ -104,9 +104,9 @@ struct Function_Scope;
 
 struct
 Function_Resolve_Data {
-	Mobius_Model *model;
-	Decl_Scope   *scope;
-	Var_Location in_loc;
+	Model_Application *app;
+	Decl_Scope        *scope;
+	Var_Location       in_loc;
 };
 
 Math_Expr_FT *

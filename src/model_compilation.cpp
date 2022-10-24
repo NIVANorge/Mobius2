@@ -54,32 +54,32 @@ struct Batch {
 
 
 inline void
-error_print_instruction(Mobius_Model *model, Model_Instruction *instr) {
+error_print_instruction(Model_Application *app, Model_Instruction *instr) {
 	if(instr->type == Model_Instruction::Type::compute_state_var)
-		error_print("\"", model->state_vars[instr->var_id]->name, "\"");
+		error_print("\"", app->state_vars[instr->var_id]->name, "\"");
 	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
-		error_print("(\"", model->state_vars[instr->source_or_target_id]->name, "\" -= \"", model->state_vars[instr->var_id]->name, "\")");
+		error_print("(\"", app->state_vars[instr->source_or_target_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\")");
 	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
 		error_print("(");
 		if(is_valid(instr->neighbor))
 			error_print("neighbor(");
-		error_print("\"", model->state_vars[instr->source_or_target_id]->name, "\"");
+		error_print("\"", app->state_vars[instr->source_or_target_id]->name, "\"");
 		if(is_valid(instr->neighbor))
 			error_print(")");
-		error_print(" += \"", model->state_vars[instr->var_id]->name, "\")");
+		error_print(" += \"", app->state_vars[instr->var_id]->name, "\")");
 	}
 }
 
 inline void
-print_partial_dependency_trace(Mobius_Model *model, Model_Instruction *we, Model_Instruction *dep) {
-	error_print_instruction(model, dep);
+print_partial_dependency_trace(Model_Application *app, Model_Instruction *we, Model_Instruction *dep) {
+	error_print_instruction(app, dep);
 	error_print(" <-- ");
-	error_print_instruction(model, we);
+	error_print_instruction(app, we);
 	error_print("\n");
 }
 
 bool
-topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vector<int> &push_to, std::vector<Model_Instruction> &instructions, bool initial) {
+topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::vector<int> &push_to, std::vector<Model_Instruction> &instructions, bool initial) {
 	Model_Instruction *instr = &instructions[instr_idx];
 	
 	if(instr->type == Model_Instruction::Type::invalid) return true;
@@ -94,9 +94,9 @@ topological_sort_instructions_visit(Mobius_Model *model, int instr_idx, std::vec
 	}
 	instr->temp_visited = true;
 	for(int dep : instr->depends_on_instruction) {
-		bool success = topological_sort_instructions_visit(model, dep, push_to, instructions, initial);
+		bool success = topological_sort_instructions_visit(app, dep, push_to, instructions, initial);
 		if(!success) {
-			print_partial_dependency_trace(model, instr, &instructions[dep]);
+			print_partial_dependency_trace(app, instr, &instructions[dep]);
 			return false;
 		}
 	}
@@ -122,7 +122,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 		offset_code = model_app->series_structure.get_offset_code(ident->series, index_expr);
 		back_step = model_app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
-		auto var = model_app->model->state_vars[ident->state_var];
+		auto var = model_app->state_vars[ident->state_var];
 		if(var->flags & State_Variable::Flags::f_invalid)
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
@@ -405,49 +405,49 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 }
 
 void
-debug_print_instruction(Mobius_Model *model, Model_Instruction *instr) {
+debug_print_instruction(Model_Application *app, Model_Instruction *instr) {
 	if(instr->type == Model_Instruction::Type::compute_state_var)
-		warning_print("\"", model->state_vars[instr->var_id]->name, "\"\n");
+		warning_print("\"", app->state_vars[instr->var_id]->name, "\"\n");
 	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
-		warning_print("\"", model->state_vars[instr->source_or_target_id]->name, "\" -= \"", model->state_vars[instr->var_id]->name, "\"\n");
+		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\"\n");
 	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
 		if(is_valid(instr->neighbor)) warning_print("neighbor(");
-		warning_print("\"", model->state_vars[instr->source_or_target_id]->name, "\"");
+		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\"");
 		if(is_valid(instr->neighbor)) warning_print(")");
-		warning_print(" += \"", model->state_vars[instr->var_id]->name, "\"\n");
+		warning_print(" += \"", app->state_vars[instr->var_id]->name, "\"\n");
 	} else if(instr->type == Model_Instruction::Type::clear_state_var)
-		warning_print("\"", model->state_vars[instr->var_id]->name, "\" = 0\n");
+		warning_print("\"", app->state_vars[instr->var_id]->name, "\" = 0\n");
 	else if(instr->type == Model_Instruction::Type::add_to_aggregate)
-		warning_print("\"", model->state_vars[instr->source_or_target_id]->name, "\" += \"", model->state_vars[instr->var_id]->name, "\" * weight\n");
+		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\" * weight\n");
 }
 
 void
-debug_print_batch_array(Mobius_Model *model, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
+debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
 	for(auto &pre_batch : arrays) {
 		warning_print("\t[");;
 		for(auto index_set : pre_batch.index_sets)
-			warning_print("\"", model->index_sets[index_set]->name, "\" ");
+			warning_print("\"", app->model->index_sets[index_set]->name, "\" ");
 		warning_print("]\n");
 		for(auto instr_id : pre_batch.instr_ids) {
 			warning_print("\t\t");
 			auto instr = &instructions[instr_id];
-			debug_print_instruction(model, instr);
+			debug_print_instruction(app, instr);
 		}
 	}
 }
 
 void
-debug_print_batch_structure(Mobius_Model *model, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
+debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
 	warning_print("\n**** batch structure ****\n");
 	for(auto &batch : batches) {
 		if(is_valid(batch.solver))
-			warning_print("  solver \"", model->solvers[batch.solver]->name, "\" :\n");
+			warning_print("  solver \"", app->model->solvers[batch.solver]->name, "\" :\n");
 		else
 			warning_print("  discrete :\n");
-		debug_print_batch_array(model, batch.arrays, instructions);
+		debug_print_batch_array(app, batch.arrays, instructions);
 		if(is_valid(batch.solver)) {
 			warning_print("\t(ODE):\n");
-			debug_print_batch_array(model, batch.arrays_ode, instructions);
+			debug_print_batch_array(app, batch.arrays_ode, instructions);
 		}
 	}
 	warning_print("\n\n");
@@ -508,8 +508,8 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 
 
 void
-create_initial_vars_for_lookups(Mobius_Model *model, Math_Expr_FT *expr, std::vector<Model_Instruction> &instructions) {
-	for(auto arg : expr->exprs) create_initial_vars_for_lookups(model, arg, instructions);
+create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std::vector<Model_Instruction> &instructions) {
+	for(auto arg : expr->exprs) create_initial_vars_for_lookups(app, arg, instructions);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
@@ -520,7 +520,7 @@ create_initial_vars_for_lookups(Mobius_Model *model, Math_Expr_FT *expr, std::ve
 			
 			// This function wants to look up the value of another variable, but it doesn't have initial code. If it has regular code, we can substitute that!
 			
-			auto var = model->state_vars[ident->state_var];
+			auto var = app->state_vars[ident->state_var];
 			//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
 				
 			instr->type = Model_Instruction::Type::compute_state_var;
@@ -528,7 +528,7 @@ create_initial_vars_for_lookups(Mobius_Model *model, Math_Expr_FT *expr, std::ve
 			if(var->function_tree) {
 				instr->code = var->function_tree;
 				// Have to do this recursively, since we may already have passed it in the outer loop.
-				create_initial_vars_for_lookups(model, instr->code, instructions);
+				create_initial_vars_for_lookups(app, instr->code, instructions);
 			} else
 				instr->code = nullptr;
 			
@@ -538,13 +538,13 @@ create_initial_vars_for_lookups(Mobius_Model *model, Math_Expr_FT *expr, std::ve
 				
 				if(instr2->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
 				
-				auto var2 = model->state_vars[var->agg];
+				auto var2 = app->state_vars[var->agg];
 				
 				instr2->type = Model_Instruction::Type::compute_state_var;
 				instr2->var_id = var->agg;
 				if(var2->function_tree) {
 					instr2->code = var2->function_tree;
-					create_initial_vars_for_lookups(model, instr2->code, instructions);
+					create_initial_vars_for_lookups(app, instr2->code, instructions);
 				} else
 					instr2->code = nullptr;
 			}
@@ -559,10 +559,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	
 	auto model = app->model;
 	
-	instructions.resize(model->state_vars.count());
+	instructions.resize(app->state_vars.count());
 	
-	for(auto var_id : model->state_vars) {
-		auto var = model->state_vars[var_id];
+	for(auto var_id : app->state_vars) {
+		auto var = app->state_vars[var_id];
 		auto fun = var->function_tree;
 		if(initial) fun = var->initial_function_tree;
 		if(!fun) {
@@ -591,12 +591,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	}
 	
 	if(initial) {
-		for(auto var_id : model->state_vars) {
+		for(auto var_id : app->state_vars) {
 			auto instr = &instructions[var_id.id];
 			if(instr->type == Model_Instruction::Type::invalid) continue;
 			if(!instr->code) continue;
 			
-			create_initial_vars_for_lookups(model, instr->code, instructions);
+			create_initial_vars_for_lookups(app, instr->code, instructions);
 		}
 	}
 	
@@ -608,16 +608,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		// NOTE: We tested the validity of the solve declaration in the model composition already, so we don't do it again here.
 		for(auto id : model->solves) {
 			auto solve = model->solves[id];
-			Var_Id var_id = model->state_vars[solve->loc];
+			Var_Id var_id = app->state_vars[solve->loc];
 			
 			instructions[var_id.id].solver = solve->solver;
 		}
 		
-		for(auto var_id : model->state_vars) {
-			auto var = model->state_vars[var_id];
+		for(auto var_id : app->state_vars) {
+			auto var = app->state_vars[var_id];
 			// Fluxes with an ODE variable as source is given the same solver as it.
 			if(var->type == Decl_Type::flux && is_located(var->loc1)) {
-				instructions[var_id.id].solver = instructions[model->state_vars[var->loc1].id].solver;
+				instructions[var_id.id].solver = instructions[app->state_vars[var->loc1].id].solver;
 			}
 			// Also set the solver for an aggregation variable for a neighbor flux.
 			if(var->flags & State_Variable::Flags::f_in_flux_neighbor) {
@@ -639,12 +639,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	
 	// Generate instructions needed to compute special variables.
 	
-	for(auto var_id : model->state_vars) {
+	for(auto var_id : app->state_vars) {
 		auto instr = &instructions[var_id.id];
 		
 		if(instr->type == Model_Instruction::Type::invalid) continue;
 	
-		auto var = model->state_vars[var_id];
+		auto var = app->state_vars[var_id];
 		
 		auto loc1 = var->loc1;
 		auto loc2 = var->loc2;
@@ -662,7 +662,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			//	warning_print("*** *** *** initial agg for ", var->name, "\n");
 			//}
 			
-			auto aggr_var = model->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
+			auto aggr_var = app->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
 			
 			// We need to clear the aggregation variable to 0 between each time it is needed.
 			int clear_idx = instructions.size();
@@ -712,7 +712,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				//note: this is only ok for auto-generated aggregations. Not if somebody called aggregate() on a flux explicitly, because then it is not necessarily the target of the flux that wants to know the aggregate.
 				// But I guess you can't explicitly reference fluxes in code any way. We have to keep in mind that if that is implemented though.
-				auto target_id = model->state_vars[aggr_var->loc2];
+				auto target_id = app->state_vars[aggr_var->loc2];
 				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var->agg.id);
 			}
 		}
@@ -730,11 +730,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// var->neighbor_agg  is the final quantity state variable for the target.
 			
 			// Find all the neighbor fluxes pointing to the target.
-			for(auto var_id_flux : model->state_vars) {
-				auto var_flux = model->state_vars[var_id_flux];
+			for(auto var_id_flux : app->state_vars) {
+				auto var_flux = app->state_vars[var_id_flux];
 				
 				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->neighbor)) continue;
-				if(model->state_vars[var_flux->loc1] != var->neighbor_agg) continue;
+				if(app->state_vars[var_flux->loc1] != var->neighbor_agg) continue;
 				
 				// Create instruction to add the in flux to the target aggregate.
 				int clear_id = instructions.size();
@@ -776,11 +776,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		Entity_Id source_solver = invalid_entity_id;
 		Var_Id source_id;
 		if(is_located(loc1) && !is_aggregate) {
-			source_id = model->state_vars[loc1];
+			source_id = app->state_vars[loc1];
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = source->solver;
 				
-			if(!is_valid(source_solver) && !model->state_vars[source_id]->override_tree) {
+			if(!is_valid(source_solver) && !app->state_vars[source_id]->override_tree) {
 				Model_Instruction sub_source_instr;
 				sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
 				sub_source_instr.var_id = var_id;
@@ -822,12 +822,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(is_neighbor)
 				target_id = source_id;	
 			else
-				target_id = model->state_vars[loc2];
+				target_id = app->state_vars[loc2];
 			
 			Model_Instruction *target = &instructions[target_id.id];
 			Entity_Id target_solver = target->solver;
 			
-			if(!is_valid(target_solver) && !model->state_vars[target_id]->override_tree) {
+			if(!is_valid(target_solver) && !app->state_vars[target_id]->override_tree) {
 				Model_Instruction add_target_instr;
 				add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
 				add_target_instr.var_id = var_id;
@@ -857,9 +857,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 
 // give all properties the solver if it is "between" quantities or fluxes with that solver in the dependency tree.
-bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
+bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
 	auto instr = &instructions[instr_id];
-	Decl_Type decl_type = model->state_vars[instr->var_id]->type;
+	Decl_Type decl_type = app->state_vars[instr->var_id]->type;
 	
 	if(instr->solver == solver)
 		return true;
@@ -869,7 +869,7 @@ bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std:
 	
 	bool found = false;
 	for(int dep : instr->depends_on_instruction) {
-		if(propagate_solvers(model, dep, solver, instructions))
+		if(propagate_solvers(app, dep, solver, instructions))
 			found = true;
 	}
 	if(found) {
@@ -877,7 +877,7 @@ bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std:
 			// ooops, we already wanted to put it on another solver.
 			//TODO: we must give a much better error message here. This is not parseable to regular users.
 			// print a dependency trace or something like that!
-			fatal_error(Mobius_Error::model_building, "The state variable \"", model->state_vars[instr->var_id]->name, "\" is lodged between multiple ODE solvers.");
+			fatal_error(Mobius_Error::model_building, "The state variable \"", app->state_vars[instr->var_id]->name, "\" is lodged between multiple ODE solvers.");
 		}
 		
 		if(decl_type != Decl_Type::quantity)
@@ -888,7 +888,7 @@ bool propagate_solvers(Mobius_Model *model, int instr_id, Entity_Id solver, std:
 	return found;
 }
 
-void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
+void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
 	// create one batch per solver
 	// if a quantity has a solver, it goes in that batch.
 	// a flux goes in the batch of its source always, (same with the subtraction of that flux).
@@ -909,7 +909,7 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 		
 		if(is_valid(instr->solver)) {
 			for(int dep : instr->depends_on_instruction)
-				propagate_solvers(model, dep, instr->solver, instructions);
+				propagate_solvers(app, dep, instr->solver, instructions);
 		}
 	}
 	
@@ -924,16 +924,16 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 			std::vector<int> remove;
 			for(int other_id : instr.depends_on_instruction) {
 				auto &other_instr = instructions[other_id];
-				if(other_instr.solver == instr.solver && model->state_vars[other_instr.var_id]->type == Decl_Type::quantity)
+				if(other_instr.solver == instr.solver && app->state_vars[other_instr.var_id]->type == Decl_Type::quantity)
 					remove.push_back(other_id);
 			}
 			for(int rem : remove)
 				instr.depends_on_instruction.erase(rem);
-		} else if (model->state_vars[instr.var_id]->type == Decl_Type::flux) {
+		} else if (app->state_vars[instr.var_id]->type == Decl_Type::flux) {
 			// Remove dependency of discrete fluxes on their sources. Discrete fluxes are ordered in a specific way, and the final value of the source comes after the flux is subtracted.
-			auto var = model->state_vars[instr.var_id];
+			auto var = app->state_vars[instr.var_id];
 			if(is_located(var->loc1)) {
-				instr.depends_on_instruction.erase(model->state_vars[var->loc1].id);
+				instr.depends_on_instruction.erase(app->state_vars[var->loc1].id);
 			}
 		}
 	}
@@ -943,7 +943,7 @@ void create_batches(Mobius_Model *model, std::vector<Batch> &batches_out, std::v
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		if(instructions[instr_id].type == Model_Instruction::Type::invalid) continue;
 		
-		bool success = topological_sort_instructions_visit(model, instr_id, sorted_instructions, instructions, false);
+		bool success = topological_sort_instructions_visit(app, instr_id, sorted_instructions, instructions, false);
 		if(!success) mobius_error_exit();
 	}
 	
@@ -1122,12 +1122,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Initial values for dissolved quantities
 			if(instr.type == Model_Instruction::Type::compute_state_var && instr.code && is_valid(instr.var_id)) {
 				
-				auto var = model->state_vars[instr.var_id];  // var is the mass/volume of the quantity
+				auto var = app->state_vars[instr.var_id];  // var is the mass/volume of the quantity
 				
 				auto conc = var->dissolved_conc;
 				// NOTE: it is easier just to set it for both the mass and conc as we process the mass
 				if(is_valid(conc) && !(var->flags & State_Variable::Flags::f_dissolved_conc) && !(var->flags & State_Variable::Flags::f_dissolved_flux)) {
-					auto dissolved_in = model->state_vars[remove_dissolved(var->loc1)];
+					auto dissolved_in = app->state_vars[remove_dissolved(var->loc1)];
 						
 					if(var->initial_is_conc) {
 						// conc is given. compute mass
@@ -1148,7 +1148,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 	for(auto &instr : instructions) {
 		
 		if(!initial && instr.type == Model_Instruction::Type::compute_state_var) {
-			auto var = model->state_vars[instr.var_id];
+			auto var = app->state_vars[instr.var_id];
 			
 			//TODO: For overridden quantities they could just be removed from the solver. Also they shouldn't get any index set dependencies from fluxes connected to them.
 			//    not sure about the best way to do it (or where).
@@ -1162,8 +1162,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->type == Decl_Type::property && (var->flags & State_Variable::Flags::f_dissolved_conc) ) {
 				
 				auto mass = var->dissolved_conc;
-				auto mass_var = model->state_vars[mass];
-				auto dissolved_in = model->state_vars[remove_dissolved(mass_var->loc1)];
+				auto mass_var = app->state_vars[mass];
+				auto dissolved_in = app->state_vars[remove_dissolved(mass_var->loc1)];
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
 					instr.code = mass_var->override_tree;
@@ -1193,7 +1193,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
 				
 				if(is_located(var->loc1)) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
-					Var_Id source_id = model->state_vars[var->loc1];
+					Var_Id source_id = app->state_vars[var->loc1];
 					auto source_ref = reinterpret_cast<Identifier_FT *>(make_state_var_identifier(source_id));
 					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 				}
@@ -1205,11 +1205,11 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for in_fluxes:
 			if(var->flags & State_Variable::Flags::f_in_flux) {
 				Math_Expr_FT *flux_sum = make_literal(0.0);
-				for(auto flux_id : model->state_vars) {
-					auto flux_var = model->state_vars[flux_id];
+				for(auto flux_id : app->state_vars) {
+					auto flux_var = app->state_vars[flux_id];
 					if(flux_var->flags & State_Variable::Flags::f_invalid) continue;
 					// NOTE: by design we don't include neighbor fluxes in the in_flux. May change that later.
-					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && model->state_vars[flux_var->loc2] == var->in_flux_target) {
+					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && app->state_vars[flux_var->loc2] == var->in_flux_target) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						if(flux_var->unit_conversion_tree)
 							flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
@@ -1228,18 +1228,18 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				else
 					fun = make_literal((double)0.0);
 				
-				for(Var_Id flux_id : model->state_vars) {
-					auto flux = model->state_vars[flux_id];
+				for(Var_Id flux_id : app->state_vars) {
+					auto flux = app->state_vars[flux_id];
 					if(flux->flags & State_Variable::Flags::f_invalid) continue;
 					if(flux->type != Decl_Type::flux) continue;
 					
-					if(is_located(flux->loc1) && model->state_vars[flux->loc1] == instr.var_id) {
+					if(is_located(flux->loc1) && app->state_vars[flux->loc1] == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						fun = make_binop('-', fun, flux_ref);
 					}
 					
 					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
-					if(is_located(flux->loc2) && !is_valid(flux->neighbor) && model->state_vars[flux->loc2] == instr.var_id) {
+					if(is_located(flux->loc2) && !is_valid(flux->neighbor) && app->state_vars[flux->loc2] == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						// NOTE: the unit conversion applies to what reaches the target.
 						if(flux->unit_conversion_tree)
@@ -1256,12 +1256,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::add_flux_to_target) {
 			
-			auto unit_conv = model->state_vars[instr.var_id]->unit_conversion_tree;
+			auto unit_conv = app->state_vars[instr.var_id]->unit_conversion_tree;
 			instr.code = make_possibly_weighted_var_ident(instr.var_id, nullptr, unit_conv);
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
 			
-			auto agg_var = model->state_vars[instr.source_or_target_id];
+			auto agg_var = app->state_vars[instr.source_or_target_id];
 			
 			auto weight = agg_var->aggregation_weight_tree;
 			if(!weight && !is_valid(instr.neighbor))  // NOTE: no default weight for neighbor fluxes.
@@ -1277,6 +1277,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 
 void
 Model_Application::compile() {
+	if(!is_composed)
+		fatal_error(Mobius_Error::internal, "Tried to compile a model application before it was composed.");
+	
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application twice.");
 	
@@ -1309,7 +1312,7 @@ Model_Application::compile() {
 	resolve_index_set_dependencies(this, initial_instructions, true);
 	
 	// NOTE: state var inherits all index set dependencies from its initial code.
-	for(auto var_id : model->state_vars) {
+	for(auto var_id : state_vars) {
 		auto &init_idx = initial_instructions[var_id.id].index_sets;
 		
 		instructions[var_id.id].index_sets.insert(init_idx.begin(), init_idx.end());
@@ -1318,11 +1321,11 @@ Model_Application::compile() {
 	resolve_index_set_dependencies(this, instructions, false);
 	
 	// similarly, the initial state of a varialble has to be indexed like the variable. (this is just for simplicity in the code generation, so that a value is assigned to every instance of the variable, but it can cause re-computation of the same value many times. Probably not an issue since it is just for a single time step.)
-	for(auto var_id : model->state_vars)
+	for(auto var_id : state_vars)
 		initial_instructions[var_id.id].index_sets = instructions[var_id.id].index_sets;
 	
 	std::vector<Batch> batches;
-	create_batches(model, batches, instructions);
+	create_batches(this, batches, instructions);
 	
 	Batch initial_batch;
 	initial_batch.solver = invalid_entity_id;
@@ -1330,7 +1333,7 @@ Model_Application::compile() {
 	warning_print("Sort initial.\n");
 	// Sort the initial instructions too.
 	for(int instr_id = 0; instr_id < initial_instructions.size(); ++instr_id) {
-		bool success = topological_sort_instructions_visit(model, instr_id, initial_batch.instrs, initial_instructions, true);
+		bool success = topological_sort_instructions_visit(this, instr_id, initial_batch.instrs, initial_instructions, true);
 		if(!success) mobius_error_exit();
 	}
 	
@@ -1344,7 +1347,7 @@ Model_Application::compile() {
 			std::vector<int> vars;
 			std::vector<int> vars_ode;
 			for(int var : batch.instrs) {
-				auto var_ref = model->state_vars[instructions[var].var_id];
+				auto var_ref = state_vars[instructions[var].var_id];
 				// NOTE: if we override the conc or value of var, we instead compute the mass from the conc.
 				if((var_ref->type == Decl_Type::quantity) && (instructions[var].type == Model_Instruction::Type::compute_state_var) && !var_ref->override_tree)
 					vars_ode.push_back(var);
@@ -1357,9 +1360,8 @@ Model_Application::compile() {
 	}
 	
 	warning_print("**** initial batch:\n");
-	debug_print_batch_array(model, initial_batch.arrays, initial_instructions);
-	
-	debug_print_batch_structure(model, batches, instructions);
+	debug_print_batch_array(this, initial_batch.arrays, initial_instructions);
+	debug_print_batch_structure(this, batches, instructions);
 	
 	set_up_result_structure(this, batches, instructions);
 	

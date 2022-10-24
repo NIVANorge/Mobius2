@@ -105,8 +105,8 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	data.series.allocate(time_steps, start_date);
 	data.additional_series.allocate(time_steps, start_date);
 	
-	for(auto series_id : model->series) {
-		if(!(model->series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
+	for(auto series_id : series) {
+		if(!(series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
 		
 		series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -281,7 +281,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 
 	for(auto &header : series->header_data) {
 		// NOTE: several time series could have been given the same name.
-		std::set<Var_Id> ids = model->series[header.name];
+		std::set<Var_Id> ids = app->series[header.name];
 		
 		if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
@@ -307,7 +307,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			for(auto id : ids) {
 				
 				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
-					auto comp_id     = model->series[id]->loc1.compartment;
+					auto comp_id     = app->series[id]->loc1.compartment;
 					auto compartment = model->compartments[comp_id];
 
 					if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
@@ -440,13 +440,13 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &series : data_set->series)
 			process_series_metadata(this, &series, &metadata);
 		
-		set_up_series_structure(model->series, series_structure, &metadata);
+		set_up_series_structure(series,            series_structure,            &metadata);
 		set_up_series_structure(additional_series, additional_series_structure, &metadata);
 		
 		s64 time_steps = 0;
 		if(metadata.any_data_at_all)
 			time_steps = steps_between(metadata.start_date, metadata.end_date, time_step_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
-		else if(model->series.count() != 0) {
+		else if(series.count() != 0) {
 			//TODO: use the model run start and end date.
 			// Or better yet, we could just bake in series default values as literals in the code. in this case.
 		}
@@ -458,7 +458,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &series : data_set->series)
 			process_series(this, &series, metadata.end_date);
 	} else {
-		set_up_series_structure(model->series, series_structure, nullptr);
+		set_up_series_structure(series,            series_structure,            nullptr);
 		set_up_series_structure(additional_series, additional_series_structure, nullptr);
 	}
 	

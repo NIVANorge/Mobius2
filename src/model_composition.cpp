@@ -1,16 +1,18 @@
 
-#include "model_declaration.h"
+#include "model_application.h"
 #include "function_tree.h"
 
 #include <sstream>
-
+//#include <bitset>
 
 Var_Id
-register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool is_series, const std::string given_name = "") {
+register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bool is_series, const std::string given_name = "") {
 	
 	State_Variable var = {};
 	var.type           = type;
 	var.entity_id      = id;
+	
+	auto model = app->model;
 	
 	Var_Location loc = invalid_var_location;
 	
@@ -53,16 +55,19 @@ register_state_variable(Mobius_Model *model, Decl_Type type, Entity_Id id, bool 
 	//warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
 	
 	if(is_series)
-		return model->series.register_var(var, loc);
+		return app->series.register_var(var, loc);
 	else
-		return model->state_vars.register_var(var, loc);
+		return app->state_vars.register_var(var, loc);
 	
 	return invalid_var;
 }
 
 void
-check_flux_location(Mobius_Model *model, Decl_Scope *scope, Source_Location source_loc, Var_Location &loc) {
+check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location source_loc, Var_Location &loc) {
 	if(!is_located(loc)) return;
+	
+	auto model = app->model;
+	
 	auto hopefully_a_quantity = model->find_entity(loc.property_or_quantity);
 	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 		source_loc.print_error_header(Mobius_Error::model_building);
@@ -75,7 +80,7 @@ check_flux_location(Mobius_Model *model, Decl_Scope *scope, Source_Location sour
 			fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.dissolved_in[idx]], "' is a property, not a quantity.");
 		}
 	}
-	Var_Id var_id = model->state_vars[loc];
+	Var_Id var_id = app->state_vars[loc];
 	if(!is_valid(var_id)) {
 		source_loc.print_error_header(Mobius_Error::model_building);
 		error_print("The variable location ");
@@ -141,17 +146,15 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 	}
 }
 
-#include <bitset>
-
 void
-replace_conc(Mobius_Model *model, Math_Expr_FT *expr) {
-	for(auto arg : expr->exprs) replace_conc(model, arg);
+replace_conc(Model_Application *app, Math_Expr_FT *expr) {
+	for(auto arg : expr->exprs) replace_conc(app, arg);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if((ident->variable_type == Variable_Type::state_var) && (ident->flags & ident_flags_conc)) {
 			
-			auto var = model->state_vars[ident->state_var];
+			auto var = app->state_vars[ident->state_var];
 			if(!is_valid(var->dissolved_conc)) {
 				expr->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("This variable does not have a concentration");
@@ -209,7 +212,7 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Loca
 }
 
 void
-check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *function, State_Variable *var, bool initial) {
+check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, State_Variable *var, bool initial) {
 	Dependency_Set code_depends;
 	register_dependencies(function, &code_depends);
 	
@@ -231,24 +234,24 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
 	
 	for(auto par_id : code_depends.on_parameter) {
-		if(!parameter_indexes_below_location(model, par_id, loc)) {
+		if(!parameter_indexes_below_location(app->model, par_id, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", model->parameters[par_id]->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the the state variable.");
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", app->model->parameters[par_id]->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the the state variable.");
 		}
 	}
 	for(auto series_id : code_depends.on_series) {
-		if(!location_indexes_below_location(model, model->series[series_id]->loc1, loc)) {
+		if(!location_indexes_below_location(app->model, app->series[series_id]->loc1, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", model->series[series_id]->name, "\". This series belongs to a compartment that is distributed over a higher number of index sets than the state variable.");
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", app->series[series_id]->name, "\". This series belongs to a compartment that is distributed over a higher number of index sets than the state variable.");
 		}
 	}
 	
 	for(auto dep : code_depends.on_state_var) {
-		auto dep_var = model->state_vars[dep.var_id];
+		auto dep_var = app->state_vars[dep.var_id];
 		
 		// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
 		if(dep_var->flags & State_Variable::Flags::f_in_flux)
-			dep_var = model->state_vars[dep_var->in_flux_target];
+			dep_var = app->state_vars[dep_var->in_flux_target];
 		
 		// If it is an aggregate, index set dependencies will be generated to be correct.
 		if(dep_var->flags & State_Variable::Flags::f_is_aggregate)
@@ -256,12 +259,12 @@ check_valid_distribution_of_dependencies(Mobius_Model *model, Math_Expr_FT *func
 		
 		// If it is a conc, check vs the mass instead.
 		if(dep_var->flags & State_Variable::Flags::f_dissolved_conc)
-			dep_var = model->state_vars[dep_var->dissolved_conc];
+			dep_var = app->state_vars[dep_var->dissolved_conc];
 		
 		if(dep_var->type == Decl_Type::flux || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
-		if(!location_indexes_below_location(model, dep_var->loc1, loc)) {
+		if(!location_indexes_below_location(app->model, dep_var->loc1, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(err_begin, var->name, "\" looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the the prior.");
 		}
@@ -274,7 +277,7 @@ has_code(Entity_Registration<Reg_Type::has> *has) {
 }
 
 void
-Mobius_Model::compose() {
+Model_Application::compose() {
 	warning_print("compose begin\n");
 	
 	//TODO: make better name generation system!
@@ -284,8 +287,8 @@ Mobius_Model::compose() {
 	// also make sure there are no conflicting has declarations of the same var_location (across modules)
 	std::unordered_map<Var_Location, Entity_Id, Var_Location_Hash> has_location;
 	
-	for(Entity_Id id : hases) {
-		auto has = hases[id];
+	for(Entity_Id id : model->hases) {
+		auto has = model->hases[id];
 		
 		bool found_code = has_code(has);
 		
@@ -293,7 +296,7 @@ Mobius_Model::compose() {
 		Entity_Registration<Reg_Type::has> *has2 = nullptr;
 		auto find = has_location.find(has->var_location);
 		if(find != has_location.end()) {
-			has2 = hases[find->second];
+			has2 = model->hases[find->second];
 			
 			if(found_code && has_code(has2)) {
 				has->source_loc.print_error_header();
@@ -305,11 +308,11 @@ Mobius_Model::compose() {
 		
 		if(!found_code) {
 			// If it is a property, the property itself could have default code.
-			auto prop = properties_and_quantities[has->var_location.property_or_quantity];
+			auto prop = model->properties_and_quantities[has->var_location.property_or_quantity];
 			if(prop->default_code) found_code = true;
 		}
 		
-		Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
+		Decl_Type type = model->find_entity(has->var_location.property_or_quantity)->decl_type;
 		// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
 		if(type == Decl_Type::property && found_code)
 			has_location[has->var_location] = id;
@@ -327,12 +330,12 @@ Mobius_Model::compose() {
 	// TODO: we could move some of the checks in this loop to the above loop.
 	
 	for(int n_dissolved = 0; n_dissolved <= max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
-		for(Entity_Id id : hases) {
-			auto has = hases[id];
+		for(Entity_Id id : model->hases) {
+			auto has = model->hases[id];
 			if(has->var_location.n_dissolved != n_dissolved) continue;
 			
 			for(int idx = 0; idx < n_dissolved; ++idx) {
-				auto diss_in = find_entity(has->var_location.dissolved_in[idx]);
+				auto diss_in = model->find_entity(has->var_location.dissolved_in[idx]);
 				if(diss_in->decl_type != Decl_Type::quantity) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
@@ -350,7 +353,7 @@ Mobius_Model::compose() {
 				}
 			}
 			
-			Decl_Type type = find_entity(has->var_location.property_or_quantity)->decl_type;
+			Decl_Type type = model->find_entity(has->var_location.property_or_quantity)->decl_type;
 			auto find = has_location.find(has->var_location);
 			if(find == has_location.end()) {
 				// No declaration provided code for this series, so it is an input series.
@@ -368,10 +371,10 @@ Mobius_Model::compose() {
 		}
 	}
 	
-	for(Entity_Id id : fluxes) {
-		auto flux = fluxes[id];
+	for(Entity_Id id : model->fluxes) {
+		auto flux = model->fluxes[id];
 
-		auto scope = get_scope(flux->code_scope);
+		auto scope = model->get_scope(flux->code_scope);
 		check_flux_location(this, scope, flux->source_loc, flux->source);
 		check_flux_location(this, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
 		
@@ -402,7 +405,7 @@ Mobius_Model::compose() {
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
 			if(is_valid(flux->entity_id)) { // If this flux was itself generated, it won't have a valid entity id.
-				auto flux_reg = fluxes[flux->entity_id];
+				auto flux_reg = model->fluxes[flux->entity_id];
 				if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
 			}
 			
@@ -473,10 +476,10 @@ Mobius_Model::compose() {
 		if(var->type == Decl_Type::flux) {
 			bool target_was_out = false;
 			if(is_valid(var->entity_id)) {
-				auto flux_decl = fluxes[var->entity_id];
+				auto flux_decl = model->fluxes[var->entity_id];
 				target_was_out = flux_decl->target_was_out;
 				ast = flux_decl->code;
-				code_scope = get_scope(flux_decl->code_scope);
+				code_scope = model->get_scope(flux_decl->code_scope);
 			}
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
@@ -495,28 +498,28 @@ Mobius_Model::compose() {
 			}
 			
 			if(is_located(var->loc1)) {
-				for(auto &unit_conv : compartments[var->loc1.compartment]->unit_convs) {
+				for(auto &unit_conv : model->compartments[var->loc1.compartment]->unit_convs) {
 					if(var->loc1 == unit_conv.source && var->loc2 == unit_conv.target) {
 						unit_conv_ast   = unit_conv.code;
-						unit_conv_scope = get_scope(unit_conv.code_scope);
+						unit_conv_scope = model->get_scope(unit_conv.code_scope);
 					}
 				}
 			}
 		} else if((var->type == Decl_Type::property || var->type == Decl_Type::quantity) && is_valid(var->entity_id)) {
-			auto has = hases[var->entity_id];
+			auto has = model->hases[var->entity_id];
 			ast      = has->code;
 			init_ast = has->initial_code;
 			override_ast = has->override_code;
 			override_is_conc = has->override_is_conc;
 			initial_is_conc  = has->initial_is_conc;
-			code_scope = get_scope(has->code_scope);
+			code_scope = model->get_scope(has->code_scope);
 			other_code_scope = code_scope;
 			
 			if(!ast) {
-				auto prop = properties_and_quantities[has->var_location.property_or_quantity];
+				auto prop = model->properties_and_quantities[has->var_location.property_or_quantity];
 				ast = prop->default_code;
 				if(ast)
-					code_scope = get_scope(prop->code_scope);
+					code_scope = model->get_scope(prop->code_scope);
 			}
 			
 			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && (var->loc1.n_dissolved == 0)))) {
@@ -560,7 +563,7 @@ Mobius_Model::compose() {
 			restrictive_lookups(var->unit_conversion_tree, Decl_Type::unit_conversion, parameter_refs);
 
 			for(auto par_id : parameter_refs) {
-				bool ok = parameter_indexes_below_location(this, par_id, var->loc1);
+				bool ok = parameter_indexes_below_location(model, par_id, var->loc1);
 				if(!ok) {
 					unit_conv_ast->location.print_error_header(Mobius_Error::model_building);
 					fatal_error("The parameter \"", (*unit_conv_scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
@@ -621,7 +624,7 @@ Mobius_Model::compose() {
 		if(var->type != Decl_Type::flux) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
-		if(!location_indexes_below_location(this, var->loc1, var->loc2))
+		if(!location_indexes_below_location(model, var->loc1, var->loc2))
 			needs_aggregate[var_id.id].first.insert(var->loc2.compartment);
 	}
 	
@@ -635,7 +638,7 @@ Mobius_Model::compose() {
 		if(var->flags & State_Variable::Flags::f_dissolved_conc)
 			loc1 = state_vars[var->dissolved_conc]->loc1;
 		
-		auto source = compartments[loc1.compartment];
+		auto source = model->compartments[loc1.compartment];
 		
 		for(auto to_compartment : need_agg.second.first) {
 			
@@ -643,14 +646,14 @@ Mobius_Model::compose() {
 			for(auto &agg : source->aggregations) {
 				if(agg.to_compartment == to_compartment) {
 					// Note: the module id is always 0 here since aggregation_weight should only be declared in model scope.
-					auto scope = get_scope(agg.code_scope);
+					auto scope = model->get_scope(agg.code_scope);
 					Function_Resolve_Data res_data = { this, scope, {} };
 					agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
 					std::set<Entity_Id> parameter_refs;
 					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
 					
 					for(auto par_id : parameter_refs) {
-						bool ok = parameter_indexes_below_location(this, par_id, loc1);
+						bool ok = parameter_indexes_below_location(model, par_id, loc1);
 						if(!ok) {
 							agg.code->location.print_error_header(Mobius_Error::model_building);
 							fatal_error("The parameter \"", (*scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over.");
@@ -660,10 +663,9 @@ Mobius_Model::compose() {
 				}
 			}
 			if(!agg_weight) {
-				auto target = compartments[to_compartment];
+				auto target = model->compartments[to_compartment];
 				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
 				if(var->type == Decl_Type::flux) {
-					
 					fatal_error(Mobius_Error::model_building, "The flux \"", var->name, "\" goes from compartment \"", source->name, "\" to compartment, \"", target->name, "\", but the first compartment is distributed over a higher number of index sets than the second. This is only allowed if you specify an aggregation_weight between the two compartments.");
 				} else {
 					fatal_error(Mobius_Error::model_building, "Missing aggregation_weight for variable ", var->name, " between compartments \"", source->name, "\" and \"", target->name, "\".\n");
@@ -722,15 +724,15 @@ Mobius_Model::compose() {
 	std::vector<int> has_solver;
 	has_solver.resize(state_vars.count(), 0);
 	
-	for(auto id : solves) {
-		auto solve = solves[id];
+	for(auto id : model->solves) {
+		auto solve = model->solves[id];
 		Var_Id var_id = state_vars[solve->loc];
 		if(!is_valid(var_id)) {
 			//error_print_location(this, solve->loc);
 			solve->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
 		}
-		auto hopefully_a_quantity = find_entity(solve->loc.property_or_quantity);
+		auto hopefully_a_quantity = model->find_entity(solve->loc.property_or_quantity);
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 			solve->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("Solvers can only be put on quantities, not on properties.");
@@ -782,6 +784,9 @@ Mobius_Model::compose() {
 			check_valid_distribution_of_dependencies(this, var->initial_function_tree, var, true);
 	}
 	
+	
+	// TODO: we can't really free everything here since the ASTs may need to be reused to build a new model app.
+	/*
 	// Free memory of loaded source files and all abstract syntax trees.
 	file_handler.unload_all();
 	
@@ -803,6 +808,7 @@ Mobius_Model::compose() {
 	}
 	// NOTE: this also invalidates all other ASTs since they point into the top decl ASTs. Maybe we should null them too.
 	// The intention in any case is that all of them are translated into processed forms by this point and are no longer needed.
+	*/
 	
 	is_composed = true;
 }

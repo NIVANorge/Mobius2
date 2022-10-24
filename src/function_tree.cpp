@@ -3,6 +3,7 @@
 #include "function_tree.h"
 #include "emulate.h"
 #include "units.h"
+#include "model_application.h"
 
 void
 Math_Block_FT::set_id() {
@@ -269,10 +270,10 @@ fatal_error_trace(Function_Scope *scope) {
 
 //TODO: could probably be factored as a utility function for the model. Similar to functionality in MobiView and c_api. Try to make a better api for accessing state variables in general.
 inline Var_Id
-find_var_at_location(Var_Location &loc, Mobius_Model *model) {
-	auto var_id = model->state_vars[loc];
+find_var_at_location(Var_Location &loc, Model_Application *app) {
+	auto var_id = app->state_vars[loc];
 	if(!is_valid(var_id))
-	var_id = model->series[loc];
+	var_id = app->series[loc];
 	return var_id;
 }
 
@@ -294,7 +295,7 @@ make_var_location(const std::vector<Entity_Id> &chain) {
 }
 
 Var_Id
-try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Mobius_Model *model, Function_Scope *scope) {
+try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Model_Application *app, Function_Scope *scope) {
 
 	if(chain.size() > max_dissolved_chain + 2) {
 		tokens[0].print_error_header();
@@ -307,7 +308,7 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 		//TODO test that the chain is valid in the sense of the middle ones being quantities and the last being property or quantity.
 		//also validity of chain size.
 		Var_Location loc = make_var_location(chain);
-		return find_var_at_location(loc, model);
+		return find_var_at_location(loc, app);
 	}
 	// TODO: test validity of the chain in the sense of the first ones being quantities and the last being property or quantity.
 	
@@ -331,7 +332,7 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 		std::vector<Entity_Id> try_chain = context_chain;
 		try_chain.insert(try_chain.end(), chain.begin(), chain.end());
 		Var_Location loc = make_var_location(try_chain);
-		result = find_var_at_location(loc, model);
+		result = find_var_at_location(loc, app);
 		if(is_valid(result))
 			return result;
 		if(context_chain.empty())
@@ -369,6 +370,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 #endif
 	
 	Decl_Scope &decl_scope = *data->scope;
+	
+	auto app   = data->app;
+	auto model = data->app->model;
 	
 	switch(ast->type) {
 		
@@ -424,7 +428,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					
 					if(id.reg_type == Reg_Type::parameter) {
 						
-						auto par = data->model->parameters[id];
+						auto par = model->parameters[id];
 						
 						if(par->decl_type == Decl_Type::par_enum) {
 							ident->chain[0].print_error_header();
@@ -440,11 +444,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							error_print("The name \"", n1, "\" can not properly be resolved since the compartment can not be inferred from the context.\n");
 							fatal_error_trace(scope);
 						}
-						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, data->model, scope);
+						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
 						set_identifier_location(data, new_ident, var_id, ident->chain[0].location, scope);
 					} else if (id.reg_type == Reg_Type::constant) {
 						delete new_ident; // A little stupid to do it that way, but oh well.
-						result = make_literal(data->model->constants[id]->value);
+						result = make_literal(model->constants[id]->value);
 						// TODO: remember unit when that is implemented.
 					} else {
 						ident->chain[0].print_error_header();
@@ -478,7 +482,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 								error_print("The name '", n1, "' is not the name of an entity declared or loaded in this scope.\n");
 							}
 							if(reg->id.reg_type == Reg_Type::parameter) {
-								auto parameter = data->model->parameters[reg->id];
+								auto parameter = model->parameters[reg->id];
 								
 								if(parameter->decl_type != Decl_Type::par_enum) {
 									ident->chain[0].print_error_header();
@@ -511,7 +515,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							}
 							chain.push_back(reg->id);
 						}
-						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, data->model, scope);
+						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
 						set_identifier_location(data, new_ident, var_id, ident->chain[0].location, scope);
 					}
 				} else {
@@ -582,7 +586,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
 					fatal_error_trace(scope);
 				}
-				auto fun_decl = data->model->functions[reg->id];
+				auto fun_decl = model->functions[reg->id];
 				auto fun_type = fun_decl->fun_type;
 				
 				//TODO: should be replaced with check in resolve_arguments
@@ -630,15 +634,14 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					new_scope.function_name = fun_name;
 					
 					Function_Resolve_Data sub_data = *data;
-					sub_data.scope = data->model->get_scope(fun_decl->code_scope);  // Resolve the function body in the scope of the library it was imported from (if relevant).
+					sub_data.scope = model->get_scope(fun_decl->code_scope);  // Resolve the function body in the scope of the library it was imported from (if relevant).
 					
 					inlined_fun->exprs.push_back(resolve_function_tree(fun_decl->code, &sub_data, &new_scope));
 					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
 					
 					result = inlined_fun;
-				} else {
+				} else
 					fatal_error(Mobius_Error::internal, "Unhandled function type.");
-				}
 			}
 		} break;
 		
