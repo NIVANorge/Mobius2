@@ -13,17 +13,17 @@ Inside Visual Studio, select the Release build and build it (you can also build 
 
 Depending on how you chose to set things up you will have a path to the clone of the llvm repository and a path to your build of LLVM. The build of Mobius2 will need to link to files in both of these paths.
 
-My setup ( for instance Mobius2/tests/compile.bat , which is the one you should start with ) assumes specific paths to these:
+My setup ( for instance Mobius2/test/compile.bat , which is the one you should start with ) assumes specific paths to these:
 - C:\Data\llvm
 - C:\Data\build     -- this one is particularly badly named.
 
 but we should definitely have a better system for it, and that is possible with Cmake.
 
-To run visual studio from the command line (which is what you do in compile.bat ), you also need to run vcvars64 , which is what I do in Mobius2/tests/setupvc.bat , but your path to vcvars64 may be different.
+To run visual studio from the command line (which is what you do in compile.bat ), you also need to run vcvars64 , which is what I do in Mobius2/test/setupvc.bat , but your path to vcvars64 may be different.
 
 ## Build Mobius2
 
-To build the preliminary test, you only need to run Mobius2/tests/compile.bat (if all the paths in it are correct)
+To build the preliminary test, you only need to run Mobius2/test/compile.bat (if all the paths in it are correct)
 
 It will produce prelim_test.exe, which you can run using
 
