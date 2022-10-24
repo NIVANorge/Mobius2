@@ -27,7 +27,7 @@ To build the preliminary test, you only need to run Mobius2/test/compile.bat (if
 
 It will produce prelim_test.exe, which you can run using
 
-	prelim_test.exe ../models/models/simplyq_model.txt ../models/models/data/tarland_simplyq.dat
+	prelim_test.exe ../models/models/simplyq_model.txt ../models/models/data/simplyq_tarland.dat
 
 It produces a results.dat file.
 
