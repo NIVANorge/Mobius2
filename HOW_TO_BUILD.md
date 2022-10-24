@@ -23,11 +23,11 @@ To run visual studio from the command line (which is what you do in compile.bat 
 
 ## Build Mobius2
 
-To build the preliminary test, you only need to run compile.bat (if all the paths in it are correct)
+To build the preliminary test, you only need to run Mobius2/tests/compile.bat (if all the paths in it are correct)
 
 It will produce prelim_test.exe, which you can run using
 
-prelim_test.exe ../models/models/simplyq_model.txt ../models/models/data/tarland_simplyq.dat
+	prelim_test.exe ../models/models/simplyq_model.txt ../models/models/data/tarland_simplyq.dat
 
 It produces a results.dat file.
 
