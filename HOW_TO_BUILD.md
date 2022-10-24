@@ -32,6 +32,7 @@ It will produce prelim_test.exe, which you can run using
 It produces a results.dat file.
 
 ## Building MobiView
+**Don't worry about this for now**
 
 MobiView is the GUI. It is a separate repository
 https://github.com/NIVANorge/MobiView2
