@@ -8,8 +8,8 @@ LLVM is the library that is used to compile intermediate representations of code
 You can install and build LLVM on Windows using this guide:
 https://llvm.org/docs/GettingStartedVS.html
 
-You will end up with an llvm.sln file that you can open in Visual Studio Community edition.
-Select the Release build and build it (you can also build the Debug build, but both will take a couple of hours to build).
+If you have made it to step 13., you will have an llvm.sln file in your build folder that you can open in Visual Studio Community edition.
+Inside Visual Studio, select the Release build and build it (you can also build the Debug build, but both will take a couple of hours to build, and I haven't set up a debug build for Mobius2 yet).
 
 Depending on how you chose to set things up you will have a path to the clone of the llvm repository and a path to your build of LLVM. The build of Mobius2 will need to link to files in both of these paths.
 
