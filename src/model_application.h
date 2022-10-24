@@ -20,7 +20,7 @@ template<typename Handle_T> struct Hash_Fun {
 	int operator()(const Handle_T&) const;
 };
 
-// TODO: it is a bit wasteful to hash these first two at all, they could just be indexes into a vector.
+// TODO: it is a bit wasteful to usa a hash map for these first two at all, they could just be indexes into a vector.
 template<> struct Hash_Fun<Entity_Id> {
 	int operator()(const Entity_Id& id) const { return id.id; }
 };
@@ -54,7 +54,6 @@ struct Multi_Array_Structure {
 		auto find = handle_location.find(handle);
 		if(find == handle_location.end()) fatal_error(Mobius_Error::internal, "Didn't find handle in Multi_Array_Structure.");
 		*/
-		//warning_print("local loc: ",begin_offset + handle_location[handle], "\n");
 		return begin_offset + handle_location[handle];
 	}
 	

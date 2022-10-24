@@ -383,13 +383,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			for(auto expr : new_block->exprs)
 				if(expr->expr_type == Math_Expr_Type::local_var) ++new_block->n_locals;
 			
+			// the value of a block is the value of the last expression in the block.
 			Math_Expr_FT *last = new_block->exprs.back();
 			if(last->value_type == Value_Type::none) {
 				last->location.print_error_header();
 				error_print("The last statement in a block must evaluate to a value.\n");
 				fatal_error_trace(scope);
 			}
-			// the value of a block is the value of the last expression in the block.
 			new_block->value_type = last->value_type;
 			result = new_block;
 		} break;
@@ -584,29 +584,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 				auto fun_decl = data->model->functions[reg->id];
 				auto fun_type = fun_decl->fun_type;
-				/*
-				Entity_Id fun_id = module->find_handle(fun_name);
-				bool local = is_valid(fun_id);
-				if(!local && module->global_scope) fun_id = module->global_scope->find_handle(fun_name);
 				
-				bool found = is_valid(fun_id) && fun_id.reg_type == Reg_Type::function;
-				
-				Entity_Registration<Reg_Type::function> *fun_decl;
-				Function_Type fun_type;
-				
-				if(found) {
-					fun_decl = data->model->find_entity<Reg_Type::function>(fun_id);
-					fun_type = fun_decl->fun_type;
-				}
-				
-				found = found && (local || (fun_type == Function_Type::intrinsic));    // Only intrinsics are visible from the model scope.
-				
-				if(!found) {
-					fun->name.print_error_header();
-					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
-					fatal_error_trace(scope);
-				}
-				*/
 				//TODO: should be replaced with check in resolve_arguments
 				if(fun->exprs.size() != fun_decl->args.size()) {
 					fun->name.print_error_header();
