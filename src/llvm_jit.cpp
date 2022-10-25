@@ -580,6 +580,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
 			llvm::Value *result = nullptr;
 			
+			
+			
 			llvm::Value *offset = nullptr;
 			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
 				|| ident->variable_type == Variable_Type::neighbor_info) {
@@ -620,7 +622,10 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			}
 			#include "time_values.incl"
 			#undef TIME_VALUE
-			else {
+			else if(ident->variable_type == Variable_Type::no_override) {
+				ident->location.print_error_header(Mobius_Error::model_building);
+				fatal_error("This 'no_override' is not in a branch that could be resolved at compile time."); // TODO: should probably check for that before this.
+			} else {
 				fatal_error(Mobius_Error::internal, "Unhandled variable type in build_expression_ir().");
 			}
 			return result;

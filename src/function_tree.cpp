@@ -430,19 +430,28 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			int chain_size = ident->chain.size();
 			
 			bool isfun = is_inside_function(scope);
-			bool found_local = false;
-			std::string n1 = ident->chain[0].string_value;
-			if(chain_size == 1)
-				found_local = find_local_variable(new_ident, n1, scope);
+			bool found = false;
 			
-			if(isfun && !found_local) {
+			std::string n1 = ident->chain[0].string_value;
+			
+			if(chain_size == 1) {
+				if(!isfun && n1 == "no_override") {
+					new_ident->variable_type = Variable_Type::no_override;
+					new_ident->value_type = Value_Type::real;
+					found = true;
+				} else
+					found = find_local_variable(new_ident, n1, scope);
+			}
+			
+			if(isfun && !found) {
 				ident->chain[0].print_error_header();
 				error_print("The name '", n1, "' is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
 				fatal_error_trace(scope);
 			}
 			
-			if(!found_local) {
+			if(!found) {
 				if(chain_size == 1) {
+					
 					auto reg = decl_scope[n1];
 					if(!reg) {
 						ident->chain[0].print_error_header();

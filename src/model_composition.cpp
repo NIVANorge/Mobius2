@@ -624,13 +624,22 @@ compose_and_resolve(Model_Application *app) {
 			var->unit_conversion_tree = nullptr;
 		
 		if(override_ast) {
-			var->override_tree = make_cast(resolve_function_tree(override_ast, &res_data), Value_Type::real);
-			var->override_is_conc = override_is_conc;
-			replace_conc(app, var->override_tree);
-			find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
-			// TODO: Should audit this one for flags also!
-			
-			//TODO: what do we do with fluxes that has this as a source ?
+			auto override_tree = prune_tree(resolve_function_tree(override_ast, &res_data));
+			bool no_override = false;
+			if(override_tree->expr_type == Math_Expr_Type::identifier_chain) {
+				auto ident = reinterpret_cast<Identifier_FT *>(override_tree);
+				no_override = (ident->variable_type == Variable_Type::no_override);
+			}
+			if(no_override)
+				var->override_tree = nullptr;
+			else {
+				var->override_tree = make_cast(override_tree, Value_Type::real);
+				var->override_is_conc = override_is_conc;
+				replace_conc(app, var->override_tree);
+				find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
+				// TODO: Should audit this one for flags also!
+				// TODO: what do we do with fluxes that has this as a source ?
+			}
 		} else
 			var->override_tree = nullptr;
 	}
