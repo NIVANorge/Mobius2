@@ -1,6 +1,64 @@
 
 #include "ast.h"
 
+/*
+	The basis for any Mobius2 model specification is a "declaration". Any source file contains a sequence of declarations, and each of these can have sub-declarations.
+	
+	This file contains functionality to take a token stream and parse it as a declaration (possibly recursively).
+	
+	The general form of a declaration is
+	
+		identifier : identifier.identifier... .identifier.decl_type(arg, ...) .tag_1 { body_1 } ... .tag_n { body_n }
+	
+	The first identifier is the "handle" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
+	In some cases you can make a declaration without a handle.
+	
+	The sequence of identifiers following the : is called the declaration chain. It typically attaches the declaration to a location specified by other identifiers. The chain can be empty.
+	
+	The decl_type is an identifier that belongs to 
+	
+	There are 4 types of arguments:
+		- value : Something that is a valid parameter value, for instance
+			0.1, true, -5,
+			etc.
+			or a quoted string.
+		- identifier (chain). Either a single identifier, or a .-separated chain of identifiers.
+		- decl  -  Another declaration as an argument to this one.
+		- unit. This is only allowed as arguments to unit() declarations. They are generally on the form
+			si_prefix unit_symbol number
+		  e.g.    k m 2
+			which means square kilometers. The si_prefix and number can be omitted if not needed. This should be given separate documentation.
+	If the declaration has one quoted string argument (and possibly other arguments), that string is the "name" of the declaration.
+	
+	
+	Not all declarations have bodies.
+	Bodies can have 0 or more tags (usually just one used to distinguish between multiple bodies).
+	There are two overarching types of bodies, and which one is used depends on the decl_type
+		Decl body:
+			This contains just a sequence of other declarations. It can also contain one quoted string, called the docstring of the body.
+		Function body:
+			This contains a mathematical expression. This should be given separate documentation.
+	
+	
+	Examples
+	
+	module("Snow", 0, 0, 1) {
+		air  : compartment("Atmosphere")
+		soil : compartment("Soil")
+		
+		soil.par_group("Snow parameters") {
+			ddf_melt   : par_real("Degree-day snow melt factor", unit(m m, deg_c-1), 0.1, 0, 2)
+		}
+		
+		pot_melt : property("Potential snow melt")
+		temp     : property("Temperature")
+		
+		soil.has(pot_melt, unit(m m, day-1)) {
+			air.temp * ddf_melt
+		}
+	}
+*/
+
 
 Argument_AST::~Argument_AST() { delete decl; }
 Function_Body_AST::~Function_Body_AST() { delete block; }

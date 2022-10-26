@@ -15,9 +15,6 @@ open_file(String_View file_name, String_View mode) {
 	file = fopen(filename8.data(), mode8.data());
 #endif
 
-	//if(!file)
-	//	fatal_error(Mobius_Error::file, "Tried to open file \"", file_name, "\", but was not able to.");
-
 	return file;
 }
 

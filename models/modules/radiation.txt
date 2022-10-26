@@ -7,7 +7,7 @@ module("Downwelling shortwave", 1, 0, 0) {
 	load("../stdlib/atmospheric.txt", "Radiation")
 	
 	air     : compartment("Atmosphere")
-	ground  : compartment_type("Ground")            #in model can have soil.is(ground) and lake.is(ground) etc.
+	ground  : compartment_type("Ground surface")            #in model can have soil.is(ground) and lake.is(ground) etc.
 	
 	down_sw : property("Downwelling shortwave")
 	cc      : property("Cloud cover")
@@ -15,6 +15,7 @@ module("Downwelling shortwave", 1, 0, 0) {
 	# soil.extern_par_group("Land properties")
 	# elev : par_real(
 	# latitude : par_real
+	# Or instead just have latitude be a model parameter.
 	
 	# formula of elevation and cloud cover.
 	ground.has(down_sw, unit(W, m -2) {
@@ -36,7 +37,7 @@ module("Net shortwave", 1, 0, 0) {
 	
 	ground.par_group("Land albedo") {                     # TODO: How to make this one work in practice ? lu and lake could be distributed differently for instance.
 		lalb : par_real("Land albedo", unit(), 0.23, 0, 1)
-		salb : par_real("Snow albedo", unit(), 0.8, 0, 1)
+		salb : par_real("Snow albedo", unit(), 0.8,  0, 1)
 	}
 	
 	ground.has(net_sw, unit(W, m-2)) {

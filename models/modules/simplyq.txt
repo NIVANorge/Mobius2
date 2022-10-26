@@ -60,6 +60,10 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	gw_runoff :
 	flux(gw.water, out, "Groundwater runoff")       {   water / tc_g   }
+	
+	soil.has(test : property("Test"), unit()) {
+		sin(2.0*pi*time.day_of_year / time.days_this_year)
+	}
 }
 
 

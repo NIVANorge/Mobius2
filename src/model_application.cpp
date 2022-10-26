@@ -307,7 +307,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			for(auto id : ids) {
 				
 				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
-					auto comp_id     = app->series[id]->loc1.compartment;
+					auto comp_id     = app->series[id]->loc1.first();
 					auto compartment = model->compartments[comp_id];
 
 					if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {

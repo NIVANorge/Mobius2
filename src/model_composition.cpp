@@ -47,7 +47,7 @@ register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bo
 			auto has = model->hases[id];
 			loc = has->var_location;
 			var.loc1 = loc;
-			var.type = model->properties_and_quantities[loc.property_or_quantity]->decl_type;
+			var.type = model->properties_and_quantities[loc.last()]->decl_type;
 			if(is_valid(has->unit)) 
 				var.unit = model->units[has->unit]->data;
 		} else if (type == Decl_Type::flux) {
@@ -72,7 +72,7 @@ register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bo
 	if(name.empty() && is_valid(id))
 		name = model->find_entity(id)->name;
 	if(name.empty() && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate "Compartmentname Quantityname" or something like that instead.
-		name = model->find_entity(loc.property_or_quantity)->name;
+		name = model->find_entity(loc.last())->name;
 		
 	var.name = name;
 	if(var.name.empty())
@@ -94,18 +94,20 @@ check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location s
 	
 	auto model = app->model;
 	
-	auto hopefully_a_quantity = model->find_entity(loc.property_or_quantity);
+	auto hopefully_a_quantity = model->find_entity(loc.last());
 	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 		source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.property_or_quantity], "' is a property, not a quantity.");
+		fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.last()], "' is a property, not a quantity.");
 	}
-	for(int idx = 0; idx < loc.n_dissolved; ++idx) {
-		auto hopefully_a_quantity = model->find_entity(loc.dissolved_in[idx]);
+	/*
+	for(int idx = 1; idx < loc.n_components; ++idx) {
+		auto hopefully_a_quantity = model->find_entity(loc.components[idx]);
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.dissolved_in[idx]], "' is a property, not a quantity.");
+			fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.components[idx]], "' is a property, not a quantity.");
 		}
 	}
+	*/
 	Var_Id var_id = app->state_vars[loc];
 	if(!is_valid(var_id)) {
 		source_loc.print_error_header(Mobius_Error::model_building);
@@ -212,8 +214,8 @@ location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Loca
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
 	// TODO: when we implement distributing substances over index sets, we have to take that into account here.
-	auto comp       = model->compartments[loc.compartment]; //NOTE: right now we are only guaranteed that loc.compartment is valid. See note in parameter_indexes_below_location.
-	auto below_comp = model->compartments[below_loc.compartment];
+	auto comp       = model->compartments[loc.first()]; //NOTE: right now we are only guaranteed that loc.first() is valid. See note in parameter_indexes_below_location.
+	auto below_comp = model->compartments[below_loc.first()];
 	
 	for(auto index_set : comp->index_sets) {
 		if(std::find(below_comp->index_sets.begin(), below_comp->index_sets.end(), index_set) == below_comp->index_sets.end())
@@ -232,7 +234,8 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Loca
 	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
 	Var_Location loc;
 	loc.type = Var_Location::Type::located;
-	loc.compartment = par_comp_id;
+	loc.n_components = 1;
+	loc.components[0] = par_comp_id;
 	
 	return location_indexes_below_location(model, loc, below_loc);
 }
@@ -333,11 +336,11 @@ prelim_compose(Model_Application *app) {
 		
 		if(!found_code) {
 			// If it is a property, the property itself could have default code.
-			auto prop = model->properties_and_quantities[has->var_location.property_or_quantity];
+			auto prop = model->properties_and_quantities[has->var_location.last()];
 			if(prop->default_code) found_code = true;
 		}
 		
-		Decl_Type type = model->find_entity(has->var_location.property_or_quantity)->decl_type;
+		Decl_Type type = model->find_entity(has->var_location.last())->decl_type;
 		// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
 		if(type == Decl_Type::property && found_code)
 			has_location[has->var_location] = id;
@@ -354,20 +357,20 @@ prelim_compose(Model_Application *app) {
 	
 	// TODO: we could move some of the checks in this loop to the above loop.
 
-	for(int n_dissolved = 0; n_dissolved <= max_dissolved_chain; ++n_dissolved) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
+	for(int n_components = 2; n_components <= max_var_loc_components; ++n_components) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
 		for(Entity_Id id : model->hases) {
 			auto has = model->hases[id];
-			if(has->var_location.n_dissolved != n_dissolved) continue;
+			if(has->var_location.n_components != n_components) continue;
 			
-			for(int idx = 0; idx < n_dissolved; ++idx) {
-				auto diss_in = model->find_entity(has->var_location.dissolved_in[idx]);
+			for(int idx = 1; idx < n_components-1; ++idx) {
+				auto diss_in = model->find_entity(has->var_location.components[idx]);
 				if(diss_in->decl_type != Decl_Type::quantity) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
 				}
 			}
 			
-			if(n_dissolved > 0) {
+			if(has->var_location.is_dissolved()) {
 				Var_Location above_loc = remove_dissolved(has->var_location);
 				
 				auto above_var = app->state_vars[above_loc];
@@ -378,11 +381,11 @@ prelim_compose(Model_Application *app) {
 				}
 			}
 			
-			Decl_Type type = model->find_entity(has->var_location.property_or_quantity)->decl_type;
+			Decl_Type type = model->find_entity(has->var_location.last())->decl_type;
 			auto find = has_location.find(has->var_location);
 			if(find == has_location.end()) {
 				// No declaration provided code for this series, so it is an input series.
-				if(n_dissolved > 0) {
+				if(has->var_location.is_dissolved()) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("For now we don't support input series with chained locations.");
 				}
@@ -390,7 +393,7 @@ prelim_compose(Model_Application *app) {
 			} else if (id == find->second) {
 				// This is the particular has declaration that provided the code, so we register a state variable using this one.
 				Var_Id var_id = register_state_variable(app, Decl_Type::has, id, false);
-				if(n_dissolved > 0 && type == Decl_Type::quantity)
+				if(has->var_location.is_dissolved() && type == Decl_Type::quantity)
 					dissolvedes.push_back(var_id);
 			}
 		}
@@ -427,7 +430,7 @@ prelim_compose(Model_Application *app) {
 			if(!(flux->loc1 == above_loc)) continue;
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
-				auto below_loc = add_dissolved(flux->loc2, var->loc1.property_or_quantity);
+				auto below_loc = add_dissolved(flux->loc2, var->loc1.last());
 				auto below_var = app->state_vars[below_loc];
 				if(!is_valid(below_var)) continue;
 			}
@@ -465,7 +468,7 @@ prelim_compose(Model_Application *app) {
 			gen_flux->loc1 = source;
 			gen_flux->loc2.type = flux->loc2.type;
 			if(is_located(flux->loc2))
-				gen_flux->loc2 = add_dissolved(flux->loc2, source.property_or_quantity);
+				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
 			if(is_valid(flux->neighbor))
 				gen_flux->neighbor = flux->neighbor;
 		}
@@ -534,14 +537,14 @@ compose_and_resolve(Model_Application *app) {
 			}
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
-				from_compartment = var->loc1.compartment;
+				from_compartment = var->loc1.first();
 				if(!target_is_located || var->loc1 == var->loc2)
 					in_loc = var->loc1;
 			} else if(target_is_located) {
 				in_loc = var->loc2;
 			}
-			if(!is_valid(from_compartment)) from_compartment = in_loc.compartment;
-			// note : the only case where from_compartment != in_loc.compartment is when both source and target are located, but different. In that case in_loc is invalid, but from_compartment is not.
+			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
+			// note : the only case where from_compartment != in_loc.first() is when both source and target are located, but different. In that case in_loc is invalid, but from_compartment is not.
 			
 			if(is_valid(var->neighbor)) {
 				Var_Id target_id = app->state_vars[var->loc1]; // loc1==loc2 for neighbor fluxes.
@@ -549,7 +552,7 @@ compose_and_resolve(Model_Application *app) {
 			}
 			
 			if(is_located(var->loc1)) {
-				for(auto &unit_conv : model->compartments[var->loc1.compartment]->unit_convs) {
+				for(auto &unit_conv : model->compartments[var->loc1.first()]->unit_convs) {
 					if(var->loc1 == unit_conv.source && var->loc2 == unit_conv.target) {
 						unit_conv_ast   = unit_conv.code;
 						unit_conv_scope = model->get_scope(unit_conv.code_scope);
@@ -567,18 +570,18 @@ compose_and_resolve(Model_Application *app) {
 			other_code_scope = code_scope;
 			
 			if(!ast) {
-				auto prop = model->properties_and_quantities[has->var_location.property_or_quantity];
+				auto prop = model->properties_and_quantities[has->var_location.last()];
 				ast = prop->default_code;
 				if(ast)
 					code_scope = model->get_scope(prop->code_scope);
 			}
 			
-			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && (var->loc1.n_dissolved == 0)))) {
+			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
 				override_ast->location.print_error_header(Mobius_Error::model_building);
-				fatal_error("Either got an \".override\" block on a property or a \".override_conc\" block on a non-dissolved variable.");
+				fatal_error("Either got an '.override' block on a property or a '.override_conc' block on a non-dissolved variable.");
 			}
 			in_loc = has->var_location;
-			from_compartment = in_loc.compartment;
+			from_compartment = in_loc.first();
 		}
 		
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
@@ -599,7 +602,7 @@ compose_and_resolve(Model_Application *app) {
 			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			var->initial_is_conc = initial_is_conc;
 			
-			if(initial_is_conc && (var->type != Decl_Type::quantity ||(var->loc1.n_dissolved == 0))) {
+			if(initial_is_conc && (var->type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
 				init_ast->location.print_error_header(Mobius_Error::model_building);
 				fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
 			}
@@ -685,7 +688,7 @@ compose_and_resolve(Model_Application *app) {
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
 		if(!location_indexes_below_location(model, var->loc1, var->loc2))
-			needs_aggregate[var_id.id].first.insert(var->loc2.compartment);
+			needs_aggregate[var_id.id].first.insert(var->loc2.first());
 	}
 	
 	warning_print("Generate state vars for aggregates.\n");
@@ -698,7 +701,7 @@ compose_and_resolve(Model_Application *app) {
 		if(var->flags & State_Variable::Flags::f_dissolved_conc)
 			loc1 = app->state_vars[var->dissolved_conc]->loc1;
 		
-		auto source = model->compartments[loc1.compartment];
+		auto source = model->compartments[loc1.first()];
 		
 		for(auto to_compartment : need_agg.second.first) {
 			
@@ -761,9 +764,9 @@ compose_and_resolve(Model_Application *app) {
 			for(auto looked_up_by : need_agg.second.second) {
 				auto lu = app->state_vars[looked_up_by];
 				
-				Entity_Id lu_compartment = lu->loc1.compartment;
+				Entity_Id lu_compartment = lu->loc1.first();
 				if(!is_located(lu->loc1)) {
-					lu_compartment = lu->loc2.compartment;
+					lu_compartment = lu->loc2.first();
 					if(!is_located(lu->loc2))
 						fatal_error(Mobius_Error::internal, "We somehow allowed a non-located state variable to look up an aggregate.");
 				}
@@ -792,7 +795,7 @@ compose_and_resolve(Model_Application *app) {
 			solve->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
 		}
-		auto hopefully_a_quantity = model->find_entity(solve->loc.property_or_quantity);
+		auto hopefully_a_quantity = model->find_entity(solve->loc.last());
 		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
 			solve->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("Solvers can only be put on quantities, not on properties.");

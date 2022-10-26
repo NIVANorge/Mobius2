@@ -36,10 +36,9 @@ Var_Location_Hash {
 		
 		// hopefully this one is ok...
 		constexpr int mod = 10889;
-		int res = loc.compartment.id;
-		res = (res*11 + loc.property_or_quantity.id) % mod;
-		for(int idx = 0; idx < loc.n_dissolved; ++idx)
-			res = (res*11 + loc.dissolved_in[idx].id) % mod;
+		int res = 0;
+		for(int idx = 0; idx < loc.n_components; ++idx)
+			res = (res*11 + loc.components[idx].id) % mod;
 		
 		return res;
 	}
@@ -183,12 +182,6 @@ template<> struct Hash_Fun<Neighbor_T> {
 	int operator()(const Neighbor_T& id) const { return 97*id.neighbor.id + id.info_id; }
 };
 
-/*
-inline bool
-is_valid(Index_T index) {
-	return is_valid(index.index_set) && index.index >= 0;
-}
-*/
 
 template<typename Handle_T>
 struct Multi_Array_Structure {

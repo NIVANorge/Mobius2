@@ -235,18 +235,24 @@ constexpr Entity_Id invalid_entity_id = {Reg_Type::unrecognized, -1};
 
 inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
 
-constexpr int max_dissolved_chain = 2;
+//constexpr int max_dissolved_chain = 2;
 
-/*
-TODO: it may simplify the code several places if it is instead like this:
+constexpr int max_var_loc_components = 4;
+
 struct
 Var_Location {
-	enum class Type : s32 { ... } type;
-	s32 n_components;
+	enum class Type : s32 {
+		nowhere=0, out, located,
+	}   type;
+	s32 n_components;         //NOTE: it is here for better packing.
 	Entity_Id components[max_var_loc_components];
+	
+	Entity_Id &first() { return components[0]; }
+	Entity_Id &last() { return components[n_components-1]; }
+	bool is_dissolved() const { return n_components > 2; }
 };
-*/
 
+/*
 struct
 Var_Location {
 	enum class Type : s32 {
@@ -259,6 +265,7 @@ Var_Location {
 	Entity_Id property_or_quantity;
 	Entity_Id dissolved_in[max_dissolved_chain];
 };
+*/
 
 inline bool
 is_located(const Var_Location &loc) {
@@ -270,11 +277,15 @@ constexpr Var_Location invalid_var_location = {Var_Location::Type::nowhere, 0, i
 inline bool
 operator==(const Var_Location &a, const Var_Location &b) {
 	if(a.type != b.type) return false;
+	if(a.n_components != b.n_components) return false;
+	for(int idx = 0; idx < a.n_components; ++idx)
+		if(a.components[idx] != b.components[idx]) return false;
+	/*
 	if(a.type == Var_Location::Type::located) {
 		if(a.compartment != b.compartment || a.property_or_quantity != b.property_or_quantity || a.n_dissolved != b.n_dissolved) return false;
 		for(int idx = 0; idx < a.n_dissolved; ++idx)
 			if(a.dissolved_in[idx] != b.dissolved_in[idx]) return false;
-	}
+	}*/
 	return true;
 }
 

@@ -423,19 +423,16 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			token->print_error_header();
 			fatal_error("Invalid variable location.");
 		}
-	} else if (count >= 2 && count <= max_dissolved_chain + 2) {
+	} else if (count >= 2 && count <= max_var_loc_components) {
 		if(decl->args[which]->chain_sep != '.') {
 			symbol[0].print_error_header();
 			fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 		}
 		location->type     = Var_Location::Type::located;
-		location->compartment = model->compartments.find_or_create(&symbol[0], scope);
-		//NOTE: this does not guarantee that these are quantities and not properties, so that is checked in post (in model_composition).
-		for(int idx = 0; idx < count-2; ++idx) {
-			location->dissolved_in[idx] = model->properties_and_quantities.find_or_create(&symbol[idx+1], scope);
-		}
-		location->n_dissolved            = count-2;
-		location->property_or_quantity   = model->properties_and_quantities.find_or_create(&symbol.back(), scope);
+		location->components[0] = model->compartments.find_or_create(&symbol[0], scope);
+		for(int idx = 1; idx < count; ++idx)
+			location->components[idx] = model->properties_and_quantities.find_or_create(&symbol[idx], scope);
+		location->n_components        = count;
 	} else {
 		//TODO: Give a reason for why it failed
 		symbol[0].print_error_header();
@@ -575,7 +572,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 			model->parameters[par_id]->par_group = id;
 		} else {
 			child->location.print_error_header();
-			fatal_error("Did not expect a declaration of type ", name(child->type), " inside a par_group declaration.");
+			fatal_error("Did not expect a declaration of type '", name(child->type), "' inside a par_group declaration.");
 		}
 	}
 	//TODO: process doc string(s) in the par group?
@@ -683,20 +680,18 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	auto has = model->hases[id];
 	
 	int chain_size = decl->decl_chain.size();
-	if(chain_size == 0 || chain_size > max_dissolved_chain + 1) {
+	if(chain_size == 0 || chain_size > max_var_loc_components - 1) {
 		decl->decl_chain.back().print_error_header();
-		fatal_error("A 'has' declaration must either be of the form compartment.has(property_or_quantity) or compartment.<chain>.has(quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_dissolved_chain, " long.");
+		fatal_error("A 'has' declaration must either be of the form compartment.has(property_or_quantity) or compartment.<chain>.has(quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_var_loc_components-2, " long.");
 	}
 	
 	// TODO: can eventually be tied to just a quantity not only a compartment or compartment.quantities
 	has->var_location.type = Var_Location::Type::located;
-	has->var_location.compartment = model->compartments.find_or_create(&decl->decl_chain[0], scope);
-	if(chain_size > 1) {
-		for(int idx = 1; idx < chain_size; ++idx)
-			has->var_location.dissolved_in[idx-1] = model->properties_and_quantities.find_or_create(&decl->decl_chain[idx], scope);
-	}
-	has->var_location.n_dissolved = chain_size - 1;
-	has->var_location.property_or_quantity = resolve_argument<Reg_Type::property_or_quantity>(model, scope, decl, 0);
+	has->var_location.components[0] = model->compartments.find_or_create(&decl->decl_chain[0], scope);
+	for(int idx = 1; idx < chain_size; ++idx)
+		has->var_location.components[idx] = model->properties_and_quantities.find_or_create(&decl->decl_chain[idx], scope);
+	has->var_location.n_components = chain_size + 1;
+	has->var_location.components[chain_size] = resolve_argument<Reg_Type::property_or_quantity>(model, scope, decl, 0);
 	
 	if(which == 1 || which == 3)
 		has->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
@@ -1019,7 +1014,7 @@ process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *d
 	
 	bool found = false;
 	auto above = loc;
-	while(above.n_dissolved > 0) {
+	while(above.is_dissolved()) {
 		above = remove_dissolved(above);
 		if(above == flux->source) {
 			found = true;
@@ -1146,7 +1141,7 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	data.code = reinterpret_cast<Function_Body_AST *>(decl->bodies[0])->block;
 	data.code_scope = scope->parent_id;
 	
-	model->compartments[data.source.compartment]->unit_convs.push_back(data);
+	model->compartments[data.source.first()]->unit_convs.push_back(data);
 }
 
 bool
@@ -1355,37 +1350,31 @@ load_model(String_View file_name) {
 Var_Location
 remove_dissolved(const Var_Location &loc) {
 	Var_Location result = loc;
-	if(loc.n_dissolved == 0)
-		fatal_error(Mobius_Error::internal, "Tried to find a value location above one that is not dissolved in anything.");
-	result.n_dissolved--;
-	result.property_or_quantity = loc.dissolved_in[loc.n_dissolved-1];
+	if(!loc.is_dissolved())
+		fatal_error(Mobius_Error::internal, "Tried to find a variable location above one that is not dissolved in anything.");
+	result.n_components--;
 	return result;
 }
 
 Var_Location
 add_dissolved(const Var_Location &loc, Entity_Id quantity) {
 	Var_Location result = loc;
-	if(loc.n_dissolved == max_dissolved_chain)
-		fatal_error(Mobius_Error::internal, "Tried to find a value location with a dissolved chain that is too long.");
-	result.n_dissolved++;
-	result.dissolved_in[loc.n_dissolved] = loc.property_or_quantity;
-	result.property_or_quantity = quantity;
+	if(loc.n_components == max_var_loc_components)
+		fatal_error(Mobius_Error::internal, "Tried to find a variable location with a dissolved chain that is too long.");
+	result.n_components++;
+	result.components[result.n_components-1] = quantity;
 	return result;
 }
 
 // NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the scope to get the names..
 void
 error_print_location(Decl_Scope *scope, const Var_Location &loc) {
-	error_print((*scope)[loc.compartment], ".");
-	for(int idx = 0; idx < loc.n_dissolved; ++idx)
-		error_print((*scope)[loc.dissolved_in[idx]], ".");
-	error_print((*scope)[loc.property_or_quantity]);
+	for(int idx = 0; idx < loc.n_components; ++idx)
+		error_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
 }
 
 void
 debug_print_location(Decl_Scope *scope, const Var_Location &loc) {
-	warning_print((*scope)[loc.compartment], ".");
-	for(int idx = 0; idx < loc.n_dissolved; ++idx)
-		warning_print((*scope)[loc.dissolved_in[idx]], ".");
-	warning_print((*scope)[loc.property_or_quantity]);
+	for(int idx = 0; idx < loc.n_components; ++idx)
+		warning_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
 }

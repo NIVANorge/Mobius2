@@ -1171,9 +1171,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					// If we override the conc, the mass is instead  conc*volume_we_are_dissolved_in .
 					auto mass_instr = &instructions[mass.id];
 					mass_instr->code = make_binop('*', make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
-				} else {
+				} else
 					instr.code = make_safe_divide(make_state_var_identifier(mass), make_state_var_identifier(dissolved_in));
-				}
 			}
 			
 			// Codegen for fluxes of dissolved variables

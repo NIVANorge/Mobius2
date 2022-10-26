@@ -33,7 +33,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 	# NOTE: This creates a reference to a parameter defined in the model.
 	a_catch : par_real("Catchment area", unit(k m 2))
 	
-	river.water.has(sed, unit(k g), "Suspended sediments") .initial { 0 }                      #TODO: It should be river.water.has(...)
+	river.water.has(sed, unit(k g), "Suspended sediments") .initial { 0 }
 
 	soil.has(c_cover : property("Time dependent vegetation cover factor"), unit()) {
 		E_risk_period := 60.0
@@ -57,8 +57,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 	# TODO: determine if in_flux also counts "neighbor" fluxes, and in that case give an alternative that doesn't
 	# TODO: have to discard the unit of this one when that is implemented.
 	river.has(e_fact, unit(), "Erosion factor river")                   {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed   }
-	
-	# TODO: river.water.sediment
+
 	flux(nowhere, river.water.sed, "Sediment mobilization")             {   aggregate(soil.e_fact) * e_fact   }
 }
 

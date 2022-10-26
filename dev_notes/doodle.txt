@@ -1,5 +1,36 @@
 
 
+
+
+
+
+
+What about instead of having
+
+	soil.has(temp, unit(deg_c)) {
+		#bla
+	}
+	
+We have
+
+	soil.temp.exists(unit(deg_c)) {
+		#bla
+	}
+or
+	create(soil.temp, unit(deg_c)) {
+		#bla
+	}
+	
+
+Then the entire location name "soil.temp" appears as one, and is easier to search for
+
+
+
+
+
+
+
+
 fjord_arm : (top_water middle_water* bottom_water).distribute_unique(fjord_layer)
 ((river|lake)* fjord_arm).distribute(sc)
 

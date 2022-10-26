@@ -277,27 +277,21 @@ find_var_at_location(Var_Location &loc, Model_Application *app) {
 	return var_id;
 }
 
-// TODO: factor out and merge with the other make_var_location
-// or just wait for improved scope system and Var_Location definition.
+
 Var_Location
 make_var_location(const std::vector<Entity_Id> &chain) {
 	Var_Location result = {};
 	result.type = Var_Location::Type::located;
-	result.n_dissolved = 0;
-	result.compartment = chain[0];
-	if(chain.size() > 2) {
-		result.n_dissolved = chain.size()-2;
-		for(int idx = 0; idx < result.n_dissolved; ++idx)
-			result.dissolved_in[idx] = chain[idx+1];
-	}
-	result.property_or_quantity = chain.back();
+	result.n_components = chain.size();
+	for(int idx = 0; idx < result.n_components; ++idx)
+		result.components[idx] = chain[idx];
 	return result;
 }
 
 Var_Id
 try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Model_Application *app, Function_Scope *scope) {
 
-	if(chain.size() > max_dissolved_chain + 2) {
+	if(chain.size() > max_var_loc_components) {
 		tokens[0].print_error_header();
 		error_print("Too long chain of identifiers.");
 		fatal_error_trace(scope);
@@ -318,14 +312,12 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 	
 	// Try out various combinations based on the context.
 	std::vector<Entity_Id> context_chain;
-	context_chain.push_back(context.compartment);
-	for(int idx = 0; idx < context.n_dissolved; ++idx)
-		context_chain.push_back(context.dissolved_in[idx]);
-	context_chain.push_back(context.property_or_quantity); // TODO: maybe try this only if it is a quantity..
+	for(int idx = 0; idx < context.n_components; ++idx)
+		context_chain.push_back(context.components[idx]); // TODO: maybe try the last one only if it is a quantity..
 	
 	// NOTE: we test the "closest" locations first, then go back. E.g.  temp will match to soil.water.temp in the context of soil.water if soil.water.temp exists, otherwise try soil.temp .
 	while(true) {
-		if(context_chain.size() + chain.size() > max_dissolved_chain + 2) {
+		if(context_chain.size() + chain.size() > max_var_loc_components) {
 			context_chain.pop_back();
 			continue;
 		}
