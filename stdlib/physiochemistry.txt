@@ -12,7 +12,7 @@ library("Thermodynamics") {
 	
 	black_body_radiation : function(T_kelvin) {   stefan_boltzmann * T_kelvin^4   }
 	
-	entropy_adjust_log10 : function(log10ref, ref_T_kelvin, T_kelvin, dU) {
+	enthalpy_adjust_log10 : function(log10ref, ref_T_kelvin, T_kelvin, dU) {
 		log10ref - (dU/(1e-3*ideal_gas*ln(10)) * (1/T_kelvin - 1/ref_T_kelvin))
 	}
 	
@@ -26,8 +26,8 @@ library("Chemistry") {
 
 library("Ions") {
 	
-	ca_mol_wt        : constant("Ca molecular weight", unit(g mol-1), 40.078)
-	ca_valency       : constant("Ca valency", unit(eq, mol -1), 2)
+	ca_mol_wt        : constant("Ca molecular weight", unit(g, mol-1), 40.078)
+	ca_valency       : constant("Ca valency", unit(eq, mol-1), 2)
 	
 	# etc.
 	

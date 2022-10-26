@@ -1,0 +1,43 @@
+
+
+
+module("SimplyTox", 0, 0, 1) {
+"""
+Testing functionality for now.
+"""
+	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"))
+
+	soil  : compartment("Soil")
+	dsoil : compartment("Slow-accessible soil")
+	
+	water : quantity("Water")
+	oc    : quantity("Organic carbon")
+	tox   : quantity("Toxin")
+	
+	temp  : property("Temperature")
+	
+	tox.par_group("Physiochemistry") {
+		molmass     : par_real("Contaminant molar mass", unit(g, mol-1), 50, 0, 1000)
+		molvol      : par_real("Contaminant molar volume", unit(c m 3, mol-1), 20, 0, 1000)
+		dUaw        : par_real("Enthalpy of phase transfer between air and water", unit(k J, mol-1), 0, -100, 100)
+		dUow        : par_real("Enthalpy of phase transfer between octanol and water", unit(k J, mol-1), 0, -100, 100)
+		dUoa        : par_real("Enthalpy of phase transfer between octanol and air", unit(k J, mol-1), 0, -100, 100)
+		kH25        : par_real("Henry's constant at 25°C", unit(Pa, m 3, mol-1), 0, 0, 100)  #TODO: better default?
+		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", unit(), 0, -10, 10)
+		log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", unit(), 0, -10, 10)
+	}
+	
+	soil.has(oc, unit(k g, m-2))
+	dsoil.has(oc, unit(k g, m-2))
+	
+	soil.water.has(tox, unit(n g, m-2))
+	soil.oc.has(tox, unit(n g, m-2))
+	dsoil.oc.has(tox, unit(n g, m-2))
+	
+	Kow   : property("Octanol-water partitioning coefficient") {
+		log10Kow := enthalpy_adjust_log10(log10Kow25, deg_c_to_K(25), deg_c_to_K(temp), dUow)
+		10^log10Kow
+	}
+	
+	
+}

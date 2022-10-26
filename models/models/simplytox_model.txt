@@ -1,0 +1,14 @@
+
+model("SimplyTox") {
+	extend("simplyc_model.txt")
+	
+	load("../modules/simplytox.txt", module("SimplyTox"))
+	
+	tox   : quantity("Toxin")
+	
+	dsoil : compartment("Slow-accessible soil")
+	
+	simply_solver.solve(soil.oc.tox)
+	simply_solver.solve(dsoil.oc.tox)
+	simply_solver.solve(soil.water.tox)
+}
