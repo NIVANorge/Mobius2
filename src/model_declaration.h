@@ -108,10 +108,21 @@ Flux_Unit_Conversion_Data {
 };
 
 template<> struct
-Entity_Registration<Reg_Type::compartment> : Entity_Registration_Base {
-	std::vector<Entity_Id> index_sets; //TODO: more info about distribution?
+Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
+	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
+	
+	// For compartments:
 	std::vector<Aggregation_Data> aggregations;
 	std::vector<Flux_Unit_Conversion_Data> unit_convs;
+	
+	// For compartments and quantities:
+	std::vector<Entity_Id> index_sets; //TODO: more info about distribution?
+	
+	// For properties:
+	Math_Block_AST *default_code;
+	Entity_Id code_scope;  // NOTE: module id where default code was provided.
+	
+	Entity_Registration() : default_code(nullptr) {}
 };
 
 template<> struct
@@ -139,16 +150,6 @@ Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 	std::string     symbol;
 	
 	Entity_Registration() : unit(invalid_entity_id), par_group(invalid_entity_id) {}
-};
-
-template<> struct
-Entity_Registration<Reg_Type::property_or_quantity> : Entity_Registration_Base {
-	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
-	
-	Math_Block_AST *default_code;
-	Entity_Id code_scope;  // NOTE: module id where default code was provided.
-	
-	Entity_Registration() : default_code(nullptr) {}
 };
 
 template<> struct
@@ -290,12 +291,11 @@ Mobius_Model {
 	Registry<Reg_Type::module>      modules;
 	Registry<Reg_Type::library>     libraries;
 	Registry<Reg_Type::unit>        units;
-	Registry<Reg_Type::compartment> compartments;
 	Registry<Reg_Type::par_group>   par_groups;
 	Registry<Reg_Type::parameter>   parameters;
 	Registry<Reg_Type::function>    functions;
 	Registry<Reg_Type::constant>    constants;
-	Registry<Reg_Type::property_or_quantity>    properties_and_quantities;
+	Registry<Reg_Type::component>   components;  // compartment, quantity, property
 	Registry<Reg_Type::has>         hases;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::index_set>   index_sets;

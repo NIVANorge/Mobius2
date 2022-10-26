@@ -297,7 +297,7 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 		fatal_error_trace(scope);
 	}
 
-	if(chain[0].reg_type == Reg_Type::compartment) {
+	if(app->model->components[chain[0]]->decl_type == Decl_Type::compartment) {
 		// In this case, assume this is a full location specifier.
 		//TODO test that the chain is valid in the sense of the middle ones being quantities and the last being property or quantity.
 		//also validity of chain size.
@@ -463,10 +463,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						new_ident->variable_type = Variable_Type::parameter;
 						new_ident->parameter = id;
 						new_ident->value_type = get_value_type(par->decl_type);
-					} else if (id.reg_type == Reg_Type::property_or_quantity) {
+					} else if (id.reg_type == Reg_Type::component) {
 						if(!is_located(data->in_loc)) {
 							ident->chain[0].print_error_header();
-							error_print("The name \"", n1, "\" can not properly be resolved since the compartment can not be inferred from the context.\n");
+							error_print("The name \"", n1, "\" can not properly be resolved since the location can not be inferred from the context.\n");
 							fatal_error_trace(scope);
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);

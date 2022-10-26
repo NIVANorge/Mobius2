@@ -684,7 +684,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
-			auto agg_to_comp = model->compartments[aggr_var->agg_to_compartment];
+			auto agg_to_comp = model->components[aggr_var->agg_to_compartment];
 			//agg_instr->inherits_index_sets_from_instruction.clear(); // Should be unnecessary. We just constructed it.
 			
 			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());

@@ -29,8 +29,8 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 		if(!found) {
 			auto comp_id = model->par_groups[group_id]->compartment;
 			if(is_valid(comp_id)) {  // It is invalid for the "System" parameter group.
-				auto compartment = model->compartments[comp_id];
-				index_sets = &compartment->index_sets;
+				auto comp = model->components[comp_id];
+				index_sets = &comp->index_sets;
 			}
 		}
 	
@@ -176,16 +176,16 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	
 	auto pgd = model->par_groups[group_id];
 	if(is_valid(pgd->compartment)) {  // It is invalid for the "System" par group
-		auto compartment  = model->compartments[pgd->compartment];
+		auto comp  = model->components[pgd->compartment];
 		
 		for(std::string &name : par_group->index_sets) {
 			auto index_set_id = model->index_sets.find_by_name(name);
 			if(!is_valid(index_set_id))
 				fatal_error(Mobius_Error::internal, "We got an invalid index set for a parameter group from the data set.");
 			
-			if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set_id) == compartment->index_sets.end()) {
+			if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) == comp->index_sets.end()) {
 				par_group->loc.print_error_header();
-				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
+				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
 			}
 			
 			par_group_index_sets[group_id].push_back(index_set_id);
@@ -308,11 +308,11 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 				
 				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
 					auto comp_id     = app->series[id]->loc1.first();
-					auto compartment = model->compartments[comp_id];
+					auto comp        = model->components[comp_id];
 
-					if(std::find(compartment->index_sets.begin(), compartment->index_sets.end(), index_set) == compartment->index_sets.end()) {
+					if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set) == comp->index_sets.end()) {
 						header.loc.print_error_header();
-						fatal_error("Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", compartment->name, "\" is not distributed over that index set.");
+						fatal_error("Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set.");
 					}
 				}
 				if(id.type == Var_Id::Type::series)

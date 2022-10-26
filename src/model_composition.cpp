@@ -31,6 +31,29 @@ Model_Application::Model_Application(Mobius_Model *model) :
 	prelim_compose(this);
 }
 
+void
+check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_Location &source_loc) {
+	// Technically we shouldn't encounter an "out" at this point, but that is checked for separately in check_flux_location
+	if(loc.type == Var_Location::Type::nowhere || loc.type == Var_Location::Type::out) return;
+	auto first = model->components[loc.first()];
+	if(first->decl_type != Decl_Type::compartment) {
+		source_loc.print_error_header(Mobius_Error::model_building);
+		fatal_error("The first component of a variable location must be a compartment");
+	}
+	for(int idx = 1; idx < loc.n_components-1; ++idx) {
+		auto comp = model->components[loc.components[idx]];
+		if(comp->decl_type != Decl_Type::quantity) {
+			source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("Only quantities can be the middle components of a variable location.");
+		}
+	}
+	auto last = model->components[loc.last()];
+	if(last->decl_type == Decl_Type::compartment) {
+		source_loc.print_error_header(Mobius_Error::model_building);
+		fatal_error("The last component of a variable location must be a property or quantity.");
+	}
+}
+
 Var_Id
 register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bool is_series, const std::string given_name = "") {
 	
@@ -47,13 +70,17 @@ register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bo
 			auto has = model->hases[id];
 			loc = has->var_location;
 			var.loc1 = loc;
-			var.type = model->properties_and_quantities[loc.last()]->decl_type;
+			check_if_var_loc_is_well_formed(model, var.loc1, has->source_loc);
+			var.type = model->components[loc.last()]->decl_type;
 			if(is_valid(has->unit)) 
 				var.unit = model->units[has->unit]->data;
 		} else if (type == Decl_Type::flux) {
 			auto flux = model->fluxes[id];
 			var.loc1 = flux->source;
 			var.loc2 = flux->target;
+			// These may not be needed, since we would check if the locations exist in any case (and the source location is confusing as it stands here).
+			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
+			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
 			if(is_valid(flux->neighbor_target)) {
 				if(!is_located(var.loc1)) {
 					flux->source_loc.print_error_header(Mobius_Error::model_building);
@@ -213,9 +240,9 @@ location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Loca
 	
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
-	// TODO: when we implement distributing substances over index sets, we have to take that into account here.
-	auto comp       = model->compartments[loc.first()]; //NOTE: right now we are only guaranteed that loc.first() is valid. See note in parameter_indexes_below_location.
-	auto below_comp = model->compartments[below_loc.first()];
+	// TODO: when we implement distributing quantities over index sets, we have to take that into account here.
+	auto comp       = model->components[loc.first()]; //NOTE: right now we are only guaranteed that loc.first() is valid. See note in parameter_indexes_below_location.
+	auto below_comp = model->components[below_loc.first()];
 	
 	for(auto index_set : comp->index_sets) {
 		if(std::find(below_comp->index_sets.begin(), below_comp->index_sets.end(), index_set) == below_comp->index_sets.end())
@@ -336,7 +363,7 @@ prelim_compose(Model_Application *app) {
 		
 		if(!found_code) {
 			// If it is a property, the property itself could have default code.
-			auto prop = model->properties_and_quantities[has->var_location.last()];
+			auto prop = model->components[has->var_location.last()];
 			if(prop->default_code) found_code = true;
 		}
 		
@@ -361,14 +388,6 @@ prelim_compose(Model_Application *app) {
 		for(Entity_Id id : model->hases) {
 			auto has = model->hases[id];
 			if(has->var_location.n_components != n_components) continue;
-			
-			for(int idx = 1; idx < n_components-1; ++idx) {
-				auto diss_in = model->find_entity(has->var_location.components[idx]);
-				if(diss_in->decl_type != Decl_Type::quantity) {
-					has->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only compartments or quantities can be assigned something using a \"has\". \"", diss_in->name, "\" is a property, not a quantity.");
-				}
-			}
 			
 			if(has->var_location.is_dissolved()) {
 				Var_Location above_loc = remove_dissolved(has->var_location);
@@ -540,9 +559,9 @@ compose_and_resolve(Model_Application *app) {
 				from_compartment = var->loc1.first();
 				if(!target_is_located || var->loc1 == var->loc2)
 					in_loc = var->loc1;
-			} else if(target_is_located) {
+			} else if(target_is_located) 
 				in_loc = var->loc2;
-			}
+			
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
 			// note : the only case where from_compartment != in_loc.first() is when both source and target are located, but different. In that case in_loc is invalid, but from_compartment is not.
 			
@@ -552,7 +571,7 @@ compose_and_resolve(Model_Application *app) {
 			}
 			
 			if(is_located(var->loc1)) {
-				for(auto &unit_conv : model->compartments[var->loc1.first()]->unit_convs) {
+				for(auto &unit_conv : model->components[var->loc1.first()]->unit_convs) {
 					if(var->loc1 == unit_conv.source && var->loc2 == unit_conv.target) {
 						unit_conv_ast   = unit_conv.code;
 						unit_conv_scope = model->get_scope(unit_conv.code_scope);
@@ -570,10 +589,10 @@ compose_and_resolve(Model_Application *app) {
 			other_code_scope = code_scope;
 			
 			if(!ast) {
-				auto prop = model->properties_and_quantities[has->var_location.last()];
-				ast = prop->default_code;
+				auto comp = model->components[has->var_location.last()];
+				ast = comp->default_code;
 				if(ast)
-					code_scope = model->get_scope(prop->code_scope);
+					code_scope = model->get_scope(comp->code_scope);
 			}
 			
 			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
@@ -701,7 +720,7 @@ compose_and_resolve(Model_Application *app) {
 		if(var->flags & State_Variable::Flags::f_dissolved_conc)
 			loc1 = app->state_vars[var->dissolved_conc]->loc1;
 		
-		auto source = model->compartments[loc1.first()];
+		auto source = model->components[loc1.first()];
 		
 		for(auto to_compartment : need_agg.second.first) {
 			
@@ -726,7 +745,7 @@ compose_and_resolve(Model_Application *app) {
 				}
 			}
 			if(!agg_weight) {
-				auto target = model->compartments[to_compartment];
+				auto target = model->components[to_compartment];
 				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
 				if(var->type == Decl_Type::flux) {
 					fatal_error(Mobius_Error::model_building, "The flux \"", var->name, "\" goes from compartment \"", source->name, "\" to compartment, \"", target->name, "\", but the first compartment is distributed over a higher number of index sets than the second. This is only allowed if you specify an aggregation_weight between the two compartments.");

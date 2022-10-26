@@ -203,13 +203,12 @@ Registry<reg_type>::standard_declaration(Decl_Scope *scope, Decl_AST *decl) {
 Registry_Base *
 Mobius_Model::registry(Reg_Type reg_type) {
 	switch(reg_type) {
-		case Reg_Type::compartment :              return &compartments;
 		case Reg_Type::par_group :                return &par_groups;
 		case Reg_Type::parameter :                return &parameters;
 		case Reg_Type::unit :                     return &units;
 		case Reg_Type::module :                   return &modules;
 		case Reg_Type::library :                  return &libraries;
-		case Reg_Type::property_or_quantity :     return &properties_and_quantities;
+		case Reg_Type::component :                return &components;
 		case Reg_Type::has :                      return &hases;
 		case Reg_Type::flux :                     return &fluxes;
 		case Reg_Type::function :                 return &functions;
@@ -429,9 +428,8 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 		}
 		location->type     = Var_Location::Type::located;
-		location->components[0] = model->compartments.find_or_create(&symbol[0], scope);
-		for(int idx = 1; idx < count; ++idx)
-			location->components[idx] = model->properties_and_quantities.find_or_create(&symbol[idx], scope);
+		for(int idx = 0; idx < count; ++idx)
+			location->components[idx] = model->components.find_or_create(&symbol[idx], scope);
 		location->n_components        = count;
 	} else {
 		//TODO: Give a reason for why it failed
@@ -455,11 +453,81 @@ process_declaration<Reg_Type::unit>(Mobius_Model *model, Decl_Scope *scope, Decl
 }
 
 template<> Entity_Id
+process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	// NOTE: the Decl_Type is either compartment, property or quantity.
+	
+	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
+	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
+	int which = match_declaration(decl,
+		{
+			{Token_Type::quoted_string},
+			//{Token_Type::quoted_string, Decl_Type::unit},
+		}, 0, true, -1);
+		
+	auto id          = model->components.standard_declaration(scope, decl);
+	auto component   = model->components[id];
+	
+	if(!decl->bodies.empty()) {
+		if(decl->type != Decl_Type::property) {
+			decl->location.print_error_header();
+			fatal_error("Only properties can have default code, not quantities.");
+		}
+		if(decl->bodies.size() > 1) {
+			decl->location.print_error_header();
+			fatal_error("Expected at most one body for property declaration.");
+		}
+		// TODO : have to guard against clashes between different modules here!
+		auto fun = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+		component->default_code = fun->block;
+		component->code_scope = scope->parent_id;
+	}
+	/*
+	if(which == 1)
+		component->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
+	else
+		component->unit = invalid_entity_id;
+	*/
+	return id;
+}
+
+/*
+template<> Entity_Id
 process_declaration<Reg_Type::compartment>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	Entity_Id id = model->compartments.standard_declaration(scope, decl);
 
 	return id;
 }
+
+template<> inline Entity_Id
+process_declaration<Reg_Type::property_or_quantity>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
+	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
+	int which = match_declaration(decl,
+		{
+			{Token_Type::quoted_string},
+			//{Token_Type::quoted_string, Decl_Type::unit},
+		}, 0, true, -1);
+		
+	auto id       = model->properties_and_quantities.standard_declaration(scope, decl);
+	auto property = model->properties_and_quantities[id];
+	
+	if(!decl->bodies.empty()) {
+		if(decl->type != Decl_Type::property) {
+			decl->location.print_error_header();
+			fatal_error("Only properties can have default code, not quantities.");
+		}
+		if(decl->bodies.size() > 1) {
+			decl->location.print_error_header();
+			fatal_error("Expected at most one body for property declaration.");
+		}
+		// TODO : have to guard against clashes between different modules here!
+		auto fun = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+		property->default_code = fun->block;
+		property->code_scope = scope->parent_id;
+	}
+	return id;
+}
+*/
 
 template<> Entity_Id
 process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
@@ -561,7 +629,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	auto id        = model->par_groups.standard_declaration(scope, decl);
 	auto par_group = model->par_groups[id];
 	
-	par_group->compartment = model->compartments.find_or_create(&decl->decl_chain[0], scope);
+	par_group->compartment = model->components.find_or_create(&decl->decl_chain[0], scope); // TODO: rename par_group->component
 	
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 
@@ -625,42 +693,6 @@ process_declaration<Reg_Type::constant>(Mobius_Model *model, Decl_Scope *scope, 
 	return id;
 }
 
-template<> inline Entity_Id
-process_declaration<Reg_Type::property_or_quantity>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
-	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
-	int which = match_declaration(decl,
-		{
-			{Token_Type::quoted_string},
-			//{Token_Type::quoted_string, Decl_Type::unit},
-		}, 0, true, -1);
-		
-	auto id       = model->properties_and_quantities.standard_declaration(scope, decl);
-	auto property = model->properties_and_quantities[id];
-	
-	if(!decl->bodies.empty()) {
-		if(decl->type != Decl_Type::property) {
-			decl->location.print_error_header();
-			fatal_error("Only properties can have default code, not quantities.");
-		}
-		if(decl->bodies.size() > 1) {
-			decl->location.print_error_header();
-			fatal_error("Expected at most one body for property declaration.");
-		}
-		// TODO : have to guard against clashes between different modules here!
-		auto fun = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
-		property->default_code = fun->block;
-		property->code_scope = scope->parent_id;
-	}
-	/*
-	if(which == 1)
-		property->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
-	else
-		property->unit = invalid_entity_id;
-	*/
-	return id;
-}
-
 template<> Entity_Id
 process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	int which = match_declaration(decl,
@@ -687,11 +719,10 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	// TODO: can eventually be tied to just a quantity not only a compartment or compartment.quantities
 	has->var_location.type = Var_Location::Type::located;
-	has->var_location.components[0] = model->compartments.find_or_create(&decl->decl_chain[0], scope);
-	for(int idx = 1; idx < chain_size; ++idx)
-		has->var_location.components[idx] = model->properties_and_quantities.find_or_create(&decl->decl_chain[idx], scope);
+	for(int idx = 0; idx < chain_size; ++idx)
+		has->var_location.components[idx] = model->components.find_or_create(&decl->decl_chain[idx], scope);
 	has->var_location.n_components = chain_size + 1;
-	has->var_location.components[chain_size] = resolve_argument<Reg_Type::property_or_quantity>(model, scope, decl, 0);
+	has->var_location.components[chain_size] = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
 	
 	if(which == 1 || which == 3)
 		has->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
@@ -885,13 +916,11 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 	// TODO: this may still break for in-argument declarations that happen after a reference, but that is probably rare..
 	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
-			case Decl_Type::compartment : {
-				process_declaration<Reg_Type::compartment>(model, &module->scope, child);
-			} break;
 			
+			case Decl_Type::compartment :
 			case Decl_Type::quantity :
 			case Decl_Type::property : {
-				process_declaration<Reg_Type::property_or_quantity>(model, &module->scope, child);
+				process_declaration<Reg_Type::component>(model, &module->scope, child);
 			} break;
 			
 			case Decl_Type::par_real :
@@ -1106,12 +1135,20 @@ void
 process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	match_declaration(decl, {{{Decl_Type::index_set, true}}}, 1, false);
 	
-	auto compartment = model->compartments.find_or_create(&decl->decl_chain[0], scope);
+	//auto comp_id = model->components.find_or_create(&decl->decl_chain[0], scope);
+	auto comp_id = expect_exists(scope, &decl->decl_chain[0], Reg_Type::component);
+	auto component = model->components[comp_id];
+	
+	if(component->decl_type == Decl_Type::property) {
+		decl->decl_chain[0].location.print_error_header(Mobius_Error::model_building);
+		fatal_error("Only compartments and quantities can be distributed, not properties");
+	}
 	
 	//TODO: some guard against overlapping / contradictory declarations.
+	// TODO: guard against distribute on properties.
 	for(int idx = 0; idx < decl->args.size(); ++idx) {
 		auto index_set = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
-		model->compartments[compartment]->index_sets.push_back(index_set);
+		component->index_sets.push_back(index_set);
 	}
 }
 
@@ -1119,13 +1156,18 @@ void
 process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	match_declaration(decl, {{Decl_Type::compartment, Decl_Type::compartment}}, 0, false);
 	
-	auto from_comp = resolve_argument<Reg_Type::compartment>(model, scope, decl, 0);
-	auto to_comp   = resolve_argument<Reg_Type::compartment>(model, scope, decl, 1);
+	auto from_comp = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
+	auto to_comp   = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
+	
+	if(model->components[from_comp]->decl_type != Decl_Type::compartment || model->components[to_comp]->decl_type != Decl_Type::compartment) {
+		decl->location.print_error_header(Mobius_Error::model_building);
+		fatal_error("Aggregations can only be declared between compartments");
+	}
 	
 	//TODO: some guard against overlapping / contradictory declarations.
 	//TODO: guard against nonsensical declarations (e.g. going between the same compartment).
 	auto function = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
-	model->compartments[from_comp]->aggregations.push_back({to_comp, function->block, scope->parent_id});
+	model->components[from_comp]->aggregations.push_back({to_comp, function->block, scope->parent_id});
 }
 
 void
@@ -1141,7 +1183,9 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	data.code = reinterpret_cast<Function_Body_AST *>(decl->bodies[0])->block;
 	data.code_scope = scope->parent_id;
 	
-	model->compartments[data.source.first()]->unit_convs.push_back(data);
+	// TODO: Ideally we should check here that the location is valid. But it could be messy wrt order of declarations.
+	
+	model->components[data.source.first()]->unit_convs.push_back(data);
 }
 
 bool
@@ -1206,19 +1250,15 @@ load_model(String_View file_name) {
 
 	auto scope = &model->model_decl_scope;
 	
-	
 	// We need to process these first since some other declarations rely on these existing, such as par_group.
 	for(auto &extend : extend_models) {
 		auto body = reinterpret_cast<Decl_Body_AST *>(extend->bodies[0]);
 		
 		for(Decl_AST *child : body->child_decls) {
 			switch (child->type) {
-				case Decl_Type::compartment : {
-					process_declaration<Reg_Type::compartment>(model, scope, child);
-				} break;
-				
+				case Decl_Type::compartment :
 				case Decl_Type::quantity : {
-					process_declaration<Reg_Type::property_or_quantity>(model, scope, child);
+					process_declaration<Reg_Type::component>(model, scope, child);
 				} break;
 				
 				case Decl_Type::neighbor : {
