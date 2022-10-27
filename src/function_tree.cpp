@@ -338,8 +338,12 @@ set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_I
 	if(!is_valid(var_id)) {
 		sl.print_error_header();
 		//TODO: could print the identifier here, just take the token chain as an argument.
-		error_print("The identifier specified does not resolve to a valid location that has been created using a \"has\" declaration. It was being resolved in the following context: ");
-		error_print_location(data->scope, data->in_loc);
+		error_print("The identifier specified does not resolve to a valid location that has been created using a \"has\" declaration. ");
+		if(is_located(data->in_loc)) {
+			error_print("It was being resolved in the following context: ");
+			error_print_location(data->scope, data->in_loc);
+		} else
+			error_print("The location can not be inferred from the context.");
 		fatal_error_trace(scope);
 	}
 	if(var_id.type == Var_Id::Type::state_var) {
@@ -435,6 +439,14 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					found = find_local_variable(new_ident, n1, scope);
 			}
 			
+			auto reg = decl_scope[n1];
+			if(!found && chain_size == 1 && reg && reg->id.reg_type == Reg_Type::constant) {
+				delete new_ident; // A little stupid to do it that way, but oh well.
+				result = make_literal(model->constants[reg->id]->value);
+				// TODO: remember unit when that is implemented.
+				found = true;
+			}
+			
 			if(isfun && !found) {
 				ident->chain[0].print_error_header();
 				error_print("The name '", n1, "' is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
@@ -443,8 +455,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			if(!found) {
 				if(chain_size == 1) {
-					
-					auto reg = decl_scope[n1];
 					if(!reg) {
 						ident->chain[0].print_error_header();
 						error_print("The name '", n1, "' is not the name of a local variable or entity declared or loaded in this scope.\n");
@@ -471,10 +481,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
 						set_identifier_location(data, new_ident, var_id, ident->chain[0].location, scope);
-					} else if (id.reg_type == Reg_Type::constant) {
-						delete new_ident; // A little stupid to do it that way, but oh well.
-						result = make_literal(model->constants[id]->value);
-						// TODO: remember unit when that is implemented.
 					} else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");

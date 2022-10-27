@@ -27,7 +27,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 			}
 		}
 		if(!found) {
-			auto comp_id = model->par_groups[group_id]->compartment;
+			auto comp_id = model->par_groups[group_id]->component;
 			if(is_valid(comp_id)) {  // It is invalid for the "System" parameter group.
 				auto comp = model->components[comp_id];
 				index_sets = &comp->index_sets;
@@ -175,8 +175,8 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	}
 	
 	auto pgd = model->par_groups[group_id];
-	if(is_valid(pgd->compartment)) {  // It is invalid for the "System" par group
-		auto comp  = model->components[pgd->compartment];
+	if(is_valid(pgd->component)) {  // It is invalid for the "System" par group
+		auto comp  = model->components[pgd->component];
 		
 		for(std::string &name : par_group->index_sets) {
 			auto index_set_id = model->index_sets.find_by_name(name);
@@ -185,7 +185,7 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 			
 			if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) == comp->index_sets.end()) {
 				par_group->loc.print_error_header();
-				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
+				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the component \"", comp->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
 			}
 			
 			par_group_index_sets[group_id].push_back(index_set_id);
@@ -372,6 +372,11 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		set_indexes(id, names);
 	}
 	
+	std::vector<std::string> gen_index = { "(generated)" };
+	for(auto index_set : model->index_sets) {
+		if(index_counts[index_set.id].index == 0)
+			set_indexes(index_set, gen_index);
+	}
 	//TODO: not sure how to handle directed trees when it comes to discrete fluxes. Should we sort the indexes in order?
 	
 	if(!neighbor_structure.has_been_set_up)

@@ -240,7 +240,23 @@ location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Loca
 	
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
-	// TODO: when we implement distributing quantities over index sets, we have to take that into account here.
+	
+	for(int idx1 = 0; idx1 < loc.n_components; ++idx1) {
+		for(auto index_set : model->components[loc.components[idx1]]->index_sets) {
+			bool found = false;
+			for(auto idx2 = 0; idx2 < below_loc.n_components; ++idx2) {
+				for(auto index_set2 : model->components[below_loc.components[idx2]]->index_sets) {
+					if(index_set == index_set2) {
+						found = true;
+						break;
+					}
+				}
+				if(found) break;
+			}
+			if(!found) return false;
+		}
+	}
+	/*
 	auto comp       = model->components[loc.first()]; //NOTE: right now we are only guaranteed that loc.first() is valid. See note in parameter_indexes_below_location.
 	auto below_comp = model->components[below_loc.first()];
 	
@@ -248,14 +264,15 @@ location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Loca
 		if(std::find(below_comp->index_sets.begin(), below_comp->index_sets.end(), index_set) == below_comp->index_sets.end())
 			return false;
 	}
+	*/
 	return true;
 }
 
 bool
 parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Location &below_loc) {
 	auto par = model->parameters[par_id];
-	auto par_comp_id = model->par_groups[par->par_group]->compartment;
-	// TODO: invalid compartment should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
+	auto par_comp_id = model->par_groups[par->par_group]->component;
+	// TODO: invalid component should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
 	if(!is_valid(par_comp_id)) return false;
 	
 	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
@@ -292,13 +309,13 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	for(auto par_id : code_depends.on_parameter) {
 		if(!parameter_indexes_below_location(app->model, par_id, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", app->model->parameters[par_id]->name, "\". This parameter belongs to a compartment that is distributed over a higher number of index sets than the the state variable.");
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", app->model->parameters[par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the the state variable.");
 		}
 	}
 	for(auto series_id : code_depends.on_series) {
 		if(!location_indexes_below_location(app->model, app->series[series_id]->loc1, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", app->series[series_id]->name, "\". This series belongs to a compartment that is distributed over a higher number of index sets than the state variable.");
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", app->series[series_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the state variable.");
 		}
 	}
 	
@@ -557,13 +574,12 @@ compose_and_resolve(Model_Application *app) {
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
 				from_compartment = var->loc1.first();
-				if(!target_is_located || var->loc1 == var->loc2)
-					in_loc = var->loc1;
+				//if(!target_is_located || var->loc1 == var->loc2)    // Hmm, it seems to make more sense to always let the source be the context if it is located.
+				in_loc = var->loc1;
 			} else if(target_is_located) 
 				in_loc = var->loc2;
 			
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
-			// note : the only case where from_compartment != in_loc.first() is when both source and target are located, but different. In that case in_loc is invalid, but from_compartment is not.
 			
 			if(is_valid(var->neighbor)) {
 				Var_Id target_id = app->state_vars[var->loc1]; // loc1==loc2 for neighbor fluxes.

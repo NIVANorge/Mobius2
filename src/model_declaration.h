@@ -127,12 +127,12 @@ Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	Entity_Id              compartment;  //TODO: could also be quantity
+	Entity_Id              component;
 	
 	//TODO: may not be necessary to store these here since the parameters already know what group they are in? Easier this way for serialization though.
 	std::vector<Entity_Id> parameters;
 	
-	Entity_Registration() : compartment(invalid_entity_id) {}
+	Entity_Registration() : component(invalid_entity_id) {}
 };
 
 template<> struct

@@ -8,6 +8,12 @@ model("SimplyTox") {
 	
 	dsoil : compartment("Slow-accessible soil")
 	
+	dsoil.distribute(sc, lu)
+	
+	tox_idx : index_set("Toxin type")
+	
+	tox.distribute(tox_idx)
+	
 	simply_solver.solve(soil.oc.tox)
 	simply_solver.solve(dsoil.oc.tox)
 	simply_solver.solve(soil.water.tox)

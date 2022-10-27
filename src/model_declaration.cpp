@@ -311,7 +311,7 @@ register_intrinsics(Mobius_Model *model) {
 	
 	system->parameters.push_back(start_id);
 	system->parameters.push_back(end_id);
-	system->compartment = invalid_entity_id;
+	system->component = invalid_entity_id;
 	
 	Date_Time default_start(1970, 1, 1);
 	Date_Time default_end(1970, 1, 16);
@@ -623,13 +623,13 @@ template<> Entity_Id
 process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::quoted_string}}, 1, false);
 	
-	//TODO: Do we always need to require that a par group is tied to a compartment?
-	//TODO: Actually, it could be tied to a quantity too, once we get to implement that!
+	//TODO: Do we always need to require that a par group is tied to a component?
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
 	auto par_group = model->par_groups[id];
 	
-	par_group->compartment = model->components.find_or_create(&decl->decl_chain[0], scope); // TODO: rename par_group->component
+	par_group->component = model->components.find_or_create(&decl->decl_chain[0], scope);
+	// TODO: It should be checked that the component is not a property..
 	
 	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
 

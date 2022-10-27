@@ -25,19 +25,44 @@ Testing functionality for now.
 		kH25        : par_real("Henry's constant at 25°C", unit(Pa, m 3, mol-1), 0, 0, 100)  #TODO: better default?
 		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", unit(), 0, -10, 10)
 		log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", unit(), 0, -10, 10)
+		rwoc        : par_real("Water-SOC rate coefficient", unit(), 0.5, 0, 3)
 	}
+	
+	soil.par_group("Soil carbon") {
+		mocf        : par_real("Soil organic carbon, fast accessible", unit(k g, m-2), 30, 0, 300)
+		mocs        : par_real("Soil organic carbon, slow accessible", unit(k g, m-2), 3, 0, 300)
+	}
+	
+	#TODO: actually have to be able to do something like this:
+	#  soil.tox.par_group()
+	# but that syntax could be confusing...
 	
 	soil.has(oc, unit(k g, m-2))
 	dsoil.has(oc, unit(k g, m-2))
 	
-	soil.water.has(tox, unit(n g, m-2))
-	soil.oc.has(tox, unit(n g, m-2))
-	dsoil.oc.has(tox, unit(n g, m-2))
+	soil.water.has(tox, unit(n g, m-2), "Soil water toxin")
+	soil.oc.has(tox, unit(n g, m-2),    "Fast-accessible SOC toxin")    .initial { mocf }
+	dsoil.oc.has(tox, unit(n g, m-2),   "Slow-accessible SOC toxin")    .initial { mocs }
 	
 	Kow   : property("Octanol-water partitioning coefficient") {
 		log10Kow := enthalpy_adjust_log10(log10Kow25, deg_c_to_K(25), deg_c_to_K(temp), dUow)
 		10^log10Kow
 	}
 	
+	Koc   : property("SOC-water partitioning coefficient") {
+		rhoSOC := 1900.0 # kg/m^3
+		rOC    := 0.41   # Empirical constant.
+		Kow * rOC / rhoSOC
+	}
+	
+	soil.water.tox.has(Kow, unit())
+	soil.water.tox.has(Koc, unit(m 3, k g-1))
+	
+	flux(soil.water.tox, soil.oc.tox, "Water-SOC contaminant exchange") {
+		rwoc*(conc(water.tox)*Koc - conc(oc.tox))
+	}
 	
 }
+
+
+
