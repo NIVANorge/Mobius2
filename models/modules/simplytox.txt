@@ -7,6 +7,7 @@ Testing functionality for now.
 """
 	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"))
 
+	air   : compartment("Atmosphere")
 	soil  : compartment("Soil")
 	dsoil : compartment("Slow-accessible soil")
 	
@@ -25,7 +26,8 @@ Testing functionality for now.
 		kH25        : par_real("Henry's constant at 25°C", unit(Pa, m 3, mol-1), 0, 0, 100)  #TODO: better default?
 		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", unit(), 0, -10, 10)
 		log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", unit(), 0, -10, 10)
-		rwoc        : par_real("Water-SOC rate coefficient", unit(), 0.5, 0, 3)
+		rwoc        : par_real("Water-SOC rate coefficient", unit(), 0.5, 0, 3)  #TODO: unit
+		rfs         : par_real("Fast-Slow rate coefficient", unit(), 0.05, 0, 3) #TODO: unit
 	}
 	
 	soil.par_group("Soil carbon") {
@@ -37,12 +39,19 @@ Testing functionality for now.
 	#  soil.tox.par_group()
 	# but that syntax could be confusing...
 	
-	soil.has(oc, unit(k g, m-2))
-	dsoil.has(oc, unit(k g, m-2))
+	soil.has(oc, unit(k g, m-2))  .initial { mocf }
+	dsoil.has(oc, unit(k g, m-2)) .initial { mocs }
 	
 	soil.water.has(tox, unit(n g, m-2), "Soil water toxin")
-	soil.oc.has(tox, unit(n g, m-2),    "Fast-accessible SOC toxin")    .initial { mocf }
-	dsoil.oc.has(tox, unit(n g, m-2),   "Slow-accessible SOC toxin")    .initial { mocs }
+	soil.oc.has(tox, unit(n g, m-2),    "Fast-accessible SOC toxin")
+	dsoil.oc.has(tox, unit(n g, m-2),   "Slow-accessible SOC toxin")    
+	
+	air.has(prconc : property("Contaminant conc in precip"), unit(n g, m-3))
+	precip : property("Precipitation")
+	
+	flux(nowhere, soil.water.tox, "Contaminant wet deposition") {
+		air.precip * air.prconc * 1000    # NOTE: convert mm to m.
+	}
 	
 	Kow   : property("Octanol-water partitioning coefficient") {
 		log10Kow := enthalpy_adjust_log10(log10Kow25, deg_c_to_K(25), deg_c_to_K(temp), dUow)
@@ -62,6 +71,9 @@ Testing functionality for now.
 		rwoc*(conc(water.tox)*Koc - conc(oc.tox))
 	}
 	
+	flux(soil.oc.tox, dsoil.oc.tox, "Fast-Slow contaminant exchange") {
+		rfs*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
+	}
 }
 
 
