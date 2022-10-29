@@ -33,15 +33,12 @@ mobius_build_from_model_and_data_file(char * model_file, char * data_file) {
 	
 	try {
 		Mobius_Model *model = load_model(model_file);
-		model->compose();
-		
 		auto app = new Model_Application(model);
 			
 		Data_Set *data_set = new Data_Set;
 		data_set->read_from_file(data_file);
 		
 		app->build_from_data_set(data_set);
-
 		app->compile();
 		
 		return app;
@@ -67,11 +64,11 @@ mobius_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
 		
 		if(reg && !reg->external) {
 			result.id = reg->id;
-			if(reg->id.reg_type == Reg_Type::module) {
+			Decl_Type type = app->model->find_entity(reg->id)->decl_type;
+			if(type == Decl_Type::module) {
 				result.type = Model_Entity_Reference::Type::module;
 				return result;
-			}
-			if( reg->id.reg_type == Reg_Type::compartment) {
+			} else if(type == Decl_Type::compartment) {
 				result.type = Model_Entity_Reference::Type::compartment;
 				return result;
 			}
@@ -115,12 +112,14 @@ mobius_get_module_entity_by_handle(Model_Application *app, Model_Entity_Referenc
 		
 		result.id = id;
 		
+		Decl_Type type = model->find_entity(id)->decl_type;
+		
 		if(id.reg_type == Reg_Type::parameter) {
 			result.type = Model_Entity_Reference::Type::parameter;
 			result.value_type = get_value_type(model->parameters[id]->decl_type);
-		} else if(id.reg_type == Reg_Type::compartment) {
+		} else if(type == Decl_Type::compartment) {
 			result.type = Model_Entity_Reference::Type::compartment;
-		} else if(id.reg_type == Reg_Type::property_or_quantity) {
+		} else if(type == Decl_Type::property || type == Decl_Type::quantity) {
 			result.type = Model_Entity_Reference::Type::prop_or_quant;
 		} else if(id.reg_type == Reg_Type::flux) {
 			result.type = Model_Entity_Reference::Type::flux;
@@ -174,10 +173,9 @@ DLLEXPORT Var_Location
 mobius_get_var_location(Entity_Id comp_id, Entity_Id prop_id) {
 	Var_Location loc;
 	loc.type = Var_Location::Type::located;
-	loc.compartment = comp_id;
-	loc.property_or_quantity = prop_id;
-	loc.n_dissolved = 0; //TODO!
-	
+	loc.n_components = 2;
+	loc.components[0] = comp_id;
+	loc.components[1] = prop_id;
 	return loc;
 }
 
@@ -194,11 +192,11 @@ mobius_get_var_id(Model_Application *app, Var_Location loc) {
 	Var_Id result = invalid_var;
 	
 	try {
-		auto find = app->model->state_vars.location_to_id.find(loc);
-		if(find != app->model->state_vars.location_to_id.end())
+		auto find = app->state_vars.location_to_id.find(loc);
+		if(find != app->state_vars.location_to_id.end())
 			return find->second;
-		auto find2 = app->model->series.location_to_id.find(loc);
-		if(find2 != app->model->series.location_to_id.end())
+		auto find2 = app->series.location_to_id.find(loc);
+		if(find2 != app->series.location_to_id.end())
 			return find2->second;
 	} catch(int) {}
 	
@@ -212,7 +210,7 @@ mobius_get_conc_id(Model_Application *app, Var_Location loc) {
 	if(res.type == Var_Id::Type::series || res.type == Var_Id::Type::additional_series) res.type = Var_Id::Type::none; // Input series don't have concentrations.
 	if(res.type == Var_Id::Type::none) return res;
 	
-	auto var = app->model->state_vars[res];
+	auto var = app->state_vars[res];
 	if(is_valid(var->dissolved_conc))
 		res = var->dissolved_conc;
 	else
@@ -257,10 +255,10 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 		String_View name;
 		if(var_id.type == Var_Id::Type::state_var) {
 			offset = get_offset_by_index_names(app, &app->result_structure, var_id, index_names, indexes_count);
-			name = app->model->state_vars[var_id]->name;
+			name = app->state_vars[var_id]->name;
 		} else if (var_id.type == Var_Id::Type::series) {
 			offset = get_offset_by_index_names(app, &app->series_structure, var_id, index_names, indexes_count);
-			name = app->model->series[var_id]->name;
+			name = app->series[var_id]->name;
 		} else if (var_id.type == Var_Id::Type::additional_series) {
 			offset = get_offset_by_index_names(app, &app->additional_series_structure, var_id, index_names, indexes_count);
 			name = app->additional_series[var_id]->name;

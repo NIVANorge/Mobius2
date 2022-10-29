@@ -15,10 +15,10 @@ class Entity_Id(ctypes.Structure) :
 class Model_Entity_Reference(ctypes.Structure) :
 	_fields_ = [("type", ctypes.c_int16), ("entity", Entity_Id), ("value_type", ctypes.c_int32)]
 
-max_dissolved_chain = 2
+max_var_loc_components = 4
 
 class Var_Location(ctypes.Structure) :
-	_fields_ = [("type", ctypes.c_int32), ("n_dissolved", ctypes.c_int32), ("compartment", Entity_Id), ("property_or_quantity", Entity_Id), ("dissolved_in", max_dissolved_chain*Entity_Id)]
+	_fields_ = [("type", ctypes.c_int32), ("n_components", ctypes.c_int32), ("components", max_var_loc_components*Entity_Id)]
 	
 class Var_Id(ctypes.Structure) :
 	_fields_ = [("type", ctypes.c_int32), ("id", ctypes.c_int32)]
@@ -263,7 +263,7 @@ class Series :
 	
 	def __getattr__(self, handle_name) :
 			
-		if self.loc.n_dissolved == max_dissolved_chain :
+		if self.loc.n_components == max_var_loc_components :
 			raise RuntimeError("Can not have that many chained dissolved substances")
 		
 		ref = dll.mobius_get_module_entity_by_handle(self.app_ptr, self.module_ref, _c_str(handle_name))

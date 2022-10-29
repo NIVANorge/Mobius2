@@ -3,26 +3,67 @@
 
 
 
+	
+	soilc : template("Soil carbon processes")
 
+	soilc.par_group("DOC general") {
+		cdoc       : par_real("Baseline soil DOC dissolution rate", unit(m g, l-1, day-1), 1, 0, 10)
+		#etc
+	}
 
-What about instead of having
+	soilc.water.has (oc, unit(k g, k m -2), "Soil water DOC") .initial_conc { basedoc }
 
-	soil.has(temp, unit(deg_c)) {
+	flux(nowhere, soilc.water.oc, "Soil DOC production") {  max(0, water*cdoc*(1 + temp*(kt1 + kt2*temp) - kso4*air.so4))  }
+	
+# In model
+	soil.uses(soilc)
+# or:
+	
+	pm : template("Photo-mineralization")
+	
+	pm.par_group("Photo-mineralization") {
+		cs : par_real("Optical, cross-section", unit(n m), 0)
+	}
+	
+	flux(pm, nowhere, "Photo-mineralization") {   #Non-uniqueness of names is exacerbated
+		# some formula
+	}
+	
+# then
+	river.water.oc.uses(pm)
+	lake.water.oc.uses(pm)
+# Issues:
+	# In the second example, the process is tied to a specific location, instead of being able to talk to different locations inside the same compartment. Could be nice.
+	
+	# But gives potentially too many instances of the same par group. (actually in both examples) E.g in this case it is clear that we only want one instance of optical cross-section.
+	
+	# The multiple instances are not index sets, so we can't just limit the distribution of the par_group, there is actually a separate instance per 'uses'.
+	
+	# Solution:
+		# make index_set like mechanic for this?
+		
+	
+	
+	
+
+# What about instead of having
+
+	soil.has(temp, unit(deg_c), "Soil temperature") {
 		#bla
 	}
 	
-We have
+# We have
 
-	soil.temp.exists(unit(deg_c)) {
+	soil.temp.exists(unit(deg_c), "Soil temperature") {
 		#bla
 	}
-or
-	create(soil.temp, unit(deg_c)) {
+# or
+	create(soil.temp, unit(deg_c), "Soil temperature") {
 		#bla
 	}
 	
 
-Then the entire location name "soil.temp" appears as one, and is easier to search for
+# Then the entire location name "soil.temp" appears as one, and is easier to search for
 
 
 

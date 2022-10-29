@@ -185,7 +185,7 @@ module("SimplyTox", 0, 0, 1) {
 		[ 0.005 ]
 	}
 
-	par_group("Soil carbon") [ "Subcatchment" "Landscape units" ] {
+	par_group("Soil carbon") [ "Landscape units" ] {
 		par_real("Soil organic carbon, fast accessible")
 		[ 30 ]
 
