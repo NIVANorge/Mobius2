@@ -17,4 +17,9 @@ model("SimplyTox") {
 	simply_solver.solve(soil.oc.tox)
 	simply_solver.solve(dsoil.oc.tox)
 	simply_solver.solve(soil.water.tox)
+	simply_solver.solve(soil.water.oc.tox)
+	simply_solver.solve(river.water.tox)
+	simply_solver.solve(river.water.oc.tox)
+	
+	sw.evap.no_carry(soil.water.tox)
 }

@@ -12,6 +12,7 @@ neighbor("Downstream", "Subcatchment") [
 ]
 
 series("langtjern.xlsx")
+series("tox_test.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
@@ -178,7 +179,7 @@ module("SimplyTox", 0, 0, 1) {
 		par_real("log10 Octanol-air partitioning coefficient at 25°C")
 		[ 0 ]
 
-		par_real("Water-SOC rate coefficient")
+		par_real("Water-OC rate coefficient")
 		[ 0.5 ]
 
 		par_real("Fast-Slow rate coefficient")

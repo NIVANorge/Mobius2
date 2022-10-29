@@ -849,7 +849,6 @@ compose_and_resolve(Model_Application *app) {
 		Var_Id n_agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux_neighbor"); //TODO: generate a better name
 		auto n_agg_var = app->state_vars[n_agg_id];
 		n_agg_var->flags = State_Variable::Flags::f_in_flux_neighbor;
-		//n_agg_var->solver = solver;
 		n_agg_var->neighbor_agg = var_id;
 		
 		app->state_vars[var_id]->neighbor_agg = n_agg_id;

@@ -1314,10 +1314,11 @@ load_model(String_View file_name) {
 					model->modules[module_id]->decl = child;
 					model->modules[module_id]->scope.parent_id = module_id;
 					
-					std::string module_handle = "";
-					if(child->handle_name.string_value)
-						module_handle = child->handle_name.string_value;
-					scope->add_local(module_handle, child->location, module_id);
+					// This is taken care of by standard_declaration :
+					//std::string module_handle = "";
+					//if(child->handle_name.string_value)
+					//	module_handle = child->handle_name.string_value;
+					//scope->add_local(module_handle, child->location, module_id);
 					
 					process_module_declaration(model, module_id);
 				} break;
