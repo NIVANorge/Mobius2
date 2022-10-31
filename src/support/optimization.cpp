@@ -21,7 +21,7 @@ set_parameters(Model_Data *data, const std::vector<Indexed_Parameter> &parameter
 }
 
 double
-evaluate_target(Model_Data *data, Optimization_Target *target) {
+evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param) {
 	//TODO: if multiple targets have the same start and end, it could be wasteful to re-compute the stats for each target, so we could cache them.
 	//   We should also have some short-circuit to not compute some of the more expensive statistics if we only need a simple one.
 	
@@ -36,6 +36,10 @@ evaluate_target(Model_Data *data, Optimization_Target *target) {
 		compute_residual_stats(&residual_stats, &data->results, target->sim_offset, target->sim_stat_offset, obs_data, target->obs_offset,
 			target->obs_stat_offset, target->stat_ts, target->stat_type == (int)Residual_Type::srcc);
 		return get_stat(&residual_stats, (Residual_Type)target->stat_type);
+	} else if(typetype == Stat_Class::log_likelihood) {
+		auto obs_data = target->obs_id.type == Var_Id::Type::series ? &data->series : &data->additional_series;
+		return compute_ll(&data->results, target->sim_offset, target->sim_stat_offset, obs_data, target->obs_offset, target->obs_stat_offset,
+			target->stat_ts, err_param, (LL_Type)target->stat_type);
 	}
 	return std::numeric_limits<double>::quiet_NaN();
 }
@@ -115,8 +119,18 @@ double Optimization_Model::evaluate(const double *values) {
 	}
 	
 	double agg = 0.0;
-	for(Optimization_Target &target : *targets)
-		agg += target.weight * evaluate_target(data, &target);
+	for(Optimization_Target &target : *targets) {
+		double val;
+		if(is_stat_class(target.stat_type) == Stat_Class::log_likelihood) {
+			std::vector<double> err_param(err_par_count((LL_Type)target.stat_type));
+			for(int idx = 0; idx < err_param.size(); idx)
+				err_param[idx] = values[target.err_par_idx[idx]];
+			val = evaluate_target(data, &target, err_param.data());
+		} else {
+			val = evaluate_target(data, &target);
+		}
+		agg += target.weight * val;
+	}
 	
 	best_score = maximize ? std::max(best_score, agg) : std::min(best_score, agg);
 	

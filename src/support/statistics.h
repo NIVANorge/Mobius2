@@ -116,6 +116,16 @@ is_positive_good(Residual_Type res_type) {
 	return -1;
 }
 
+inline int
+err_par_count(LL_Type ll_type) {
+	switch(ll_type) {
+		#define SET_LOG_LIKELIHOOD(handle, name, count) case LL_Type::handle : { return count; } break;
+		#include "log_likelihood_types.incl"
+		#undef SET_LOG_LIKELIHOOD
+	}
+	return -1;
+}
+
 inline double
 get_stat(Time_Series_Stats *stats, Residual_Stats *residual_stats, int type) {
 	Stat_Class typetype = is_stat_class(type);
@@ -158,12 +168,12 @@ compute_residual_stats(Residual_Stats *stats, Data_Storage<double, Var_Id> *data
 // MCMC stuff:
 
 double
-compute_ll(Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, const std::vector<double> &err_param, LL_Type ll_type);
+compute_ll(Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, double *err_param, LL_Type ll_type);
 
 void
-add_random_error(double* series, s64 time_steps, const std::vector<double> &err_param, LL_Type ll_type, std::mt19937_64 &gen);
+add_random_error(double* series, s64 time_steps, double *err_param, LL_Type ll_type, std::mt19937_64 &gen);
 
 void
-compute_standard_residuals(double *obs, double *sim, s64 time_steps, const std::vector<double> &err_param, LL_Type ll_type, std::vector<double> &resid_out);
+compute_standard_residuals(double *obs, double *sim, s64 time_steps, double *err_param, LL_Type ll_type, std::vector<double> &resid_out);
 
 #endif // MOBIUS_STATISTICS_H

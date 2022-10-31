@@ -10,9 +10,9 @@ struct
 Optimization_Target {
 	Var_Id sim_id, obs_id;
 	std::vector<Index_T> indexes;
+	std::vector<int>     err_par_idx;
 	
 	int stat_type;
-	// TODO: err pars for MCMC
 	double weight;
 	Date_Time start, end;
 	
@@ -25,7 +25,7 @@ int
 set_parameters(Model_Data *data, const std::vector<Indexed_Parameter> &parameters, const double *values, bool use_expr);
 
 double
-evaluate_target(Model_Data *data, Optimization_Target *target);
+evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param = nullptr);
 
 typedef std::function<void(int, int, double, double)> Optim_Callback;
 

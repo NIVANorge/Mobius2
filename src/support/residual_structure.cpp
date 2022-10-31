@@ -10,7 +10,7 @@ log_pdf_normal(double x, double mu, double sigma_squared) {
 }
 
 double
-compute_ll(Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, const std::vector<double> &err_param, LL_Type ll_type) {
+compute_ll(Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, double *err_param, LL_Type ll_type) {
 	double result = 0.0;
 	double prev_eta = std::numeric_limits<double>::infinity();
 	
@@ -61,7 +61,7 @@ compute_ll(Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_
 }
 
 void
-add_random_error(double* series, s64 time_steps, const std::vector<double> &err_param, LL_Type ll_type, std::mt19937_64 &gen) {
+add_random_error(double* series, s64 time_steps, double *err_param, LL_Type ll_type, std::mt19937_64 &gen) {
 	double prev_eta = std::numeric_limits<double>::infinity();
 	
 	// TODO: could also just keep around a std::normal_distribution<double> distr(0.0, 1.0) and then scale the results of it...
@@ -107,7 +107,7 @@ add_random_error(double* series, s64 time_steps, const std::vector<double> &err_
 }
 
 void
-compute_standard_residuals(double *obs, double *sim, s64 time_steps, const std::vector<double> &err_param, LL_Type ll_type, std::vector<double> &resid_out) {
+compute_standard_residuals(double *obs, double *sim, s64 time_steps, double *err_param, LL_Type ll_type, std::vector<double> &resid_out) {
 	double prev_eta = std::numeric_limits<double>::infinity();
 	
 	for(s64 ts = 0; ts < time_steps; ++ts) {
