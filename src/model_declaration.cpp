@@ -490,45 +490,6 @@ process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope,
 	return id;
 }
 
-/*
-template<> Entity_Id
-process_declaration<Reg_Type::compartment>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	Entity_Id id = model->compartments.standard_declaration(scope, decl);
-
-	return id;
-}
-
-template<> inline Entity_Id
-process_declaration<Reg_Type::property_or_quantity>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
-	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
-	int which = match_declaration(decl,
-		{
-			{Token_Type::quoted_string},
-			//{Token_Type::quoted_string, Decl_Type::unit},
-		}, 0, true, -1);
-		
-	auto id       = model->properties_and_quantities.standard_declaration(scope, decl);
-	auto property = model->properties_and_quantities[id];
-	
-	if(!decl->bodies.empty()) {
-		if(decl->type != Decl_Type::property) {
-			decl->location.print_error_header();
-			fatal_error("Only properties can have default code, not quantities.");
-		}
-		if(decl->bodies.size() > 1) {
-			decl->location.print_error_header();
-			fatal_error("Expected at most one body for property declaration.");
-		}
-		// TODO : have to guard against clashes between different modules here!
-		auto fun = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
-		property->default_code = fun->block;
-		property->code_scope = scope->parent_id;
-	}
-	return id;
-}
-*/
-
 template<> Entity_Id
 process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	Token_Type token_type = get_token_type(decl->type);

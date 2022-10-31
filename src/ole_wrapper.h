@@ -7,6 +7,7 @@
 #include "lexer.h"
 #define NOMINMAX
 #include <windows.h>
+#include <stringapiset.h> // For some reason this is included with windows.h in release mode, but not debug mode...
 
 #define OLE_AVAILABLE 1
 
