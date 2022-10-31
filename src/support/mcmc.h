@@ -1,5 +1,5 @@
 
-
+#include "monte_carlo.h"
 
 enum MCMC_Sampler {
 	affine_stretch,
@@ -8,4 +8,5 @@ enum MCMC_Sampler {
 	metropolis_hastings,
 };
 
-bool run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*log_likelihood)(void *, int, int), void *ll_state, MC_Data &data, bool (*callback)(void *, int), void *callback_state, int initial_step);
+bool run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*log_likelihood)(void *, int, int), void *ll_state,
+		MC_Data &data, bool (*callback)(void *, int), void *callback_state, int callback_interval, int initial_step);

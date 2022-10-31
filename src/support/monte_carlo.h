@@ -1,4 +1,6 @@
 
+#include "../mobius_common.h"
+
 struct
 MC_Data {
 	
@@ -31,10 +33,11 @@ MC_Data {
 		par_data = nullptr;
 		ll_data  = nullptr;
 	}
+	
+	s64 n_steps = 0, n_walkers = 0, n_pars = 0;
+	s64 n_accepted = 0;
 
 private :
 	double *par_data = nullptr;
 	double *ll_data  = nullptr;
-	s64 n_steps = 0, n_walkers = 0, n_pars = 0;
-	s64 n_accepted = 0;
 };

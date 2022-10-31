@@ -1,4 +1,5 @@
 
+#include "monte_carlo.h"
 
 void
 MC_Data::allocate(s64 n_walkers, s64 n_pars, s64 n_steps) {

@@ -1,6 +1,10 @@
 
 #include "mcmc.h"
 
+#include <thread>
+#include <random>
+#include <mutex>
+
 /*
 //NOTE: Using Box-Muller to draw independent normally distributed variables since u++ doesn't have a random normal distribution, and we don't
 	    //want to use <random> since it is not thread safe.
@@ -25,10 +29,17 @@ void DrawIndependentStandardNormals(double *NormalsOut, int Size)
 }
 */
 
-typedef bool (*sampler_move)(double *, double *, int, int, int, int, int, MC_Data &, double (*log_likelihhood)(void *, int, int), void *);
+struct
+Random_State {
+	std::mt19937_64 gen;
+	std::mutex      gen_mutex;
+};
 
-bool affine_stretch(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
-	double (*log_likelihhood)(void *, int, int), void *ll_state) {
+typedef void (*sampler_move)(double *, double *, int, int, int, int, int, MC_Data &, Random_State *rand_state, double (*log_likelihhood)(void *, int, int), void *);
+
+void
+affine_stretch_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
+	Random_State *rand_state, double (*log_likelihhood)(void *, int, int), void *ll_state) {
 	/*
 	This is a simple C++ implementation of the Affine-invariant ensemble sampler from https://github.com/dfm/emcee
 	
@@ -36,19 +47,25 @@ bool affine_stretch(double *sampler_params, double *scale, int step, int walker,
 
 	*/
 	
+	// Draw needed random values
+	double u, r;
+	int ensemble_walker;
+	{
+		std::uniform_real_distribution<double> distu(0.0, 1.0);
+		std::uniform_int_distribution<>        disti(0, n_ensemble);
+		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
+		u = distu(rand_state->gen); //uniform between 0,1
+		r = distu(rand_state->gen);
+		ensemble_walker = disti(rand_state->gen) + first_ensemble_walker; //NOTE: Only works for the particular way the Ensembles are ordered right now.
+	}
+	
 	double a = sampler_params[0];
 	bool accepted = true;
-	double prev_ll = data.score_values(walker, step-1);
+	double prev_ll = data.score_value(walker, step-1);
 	
-	//NOTE: The random generators are supposed to be thread safe.
-	// Draw a random stretch factor
-	//TODO: replace with something that is not upp dependent
-	double u = Randomf(); //uniform between 0,1
 	double zz = (a - 1.0)*u + 1.0;
 	zz = zz*zz/a;
-	
-	int ensemble_walker = (int)Random(n_ensemble) + first_ensemble_walker; //NOTE: Only works for the particular way the Ensembles are ordered right now.
-	
+		
 	for(int par = 0; par < data.n_pars; ++par) {
 		double x_j = data(ensemble_walker, par, ensemble_step);
 		double x_k = data(walker, par, step-1);
@@ -56,8 +73,6 @@ bool affine_stretch(double *sampler_params, double *scale, int step, int walker,
 	}
 	
 	double ll = log_likelihhood(ll_state, walker, step);
-	double r = Randomf();
-	
 	double q = std::pow(zz, (double)data.n_pars-1.0)*std::exp(ll-prev_ll);
 	
 	if(!std::isfinite(ll) || r > q) { // Reject the proposed step
@@ -69,7 +84,82 @@ bool affine_stretch(double *sampler_params, double *scale, int step, int walker,
 	}
 	
 	data.score_value(walker, step) = ll;
-	return accepted;
+	
+	if(accepted) {
+		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
+		data.n_accepted++;
+	}
+}
+
+#define MCMC_MULTITHREAD 1
+
+bool run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*log_likelihood)(void *, int, int), void *ll_state, MC_Data &data, bool (*callback)(void *, int), void *callback_state, int callback_interval, int initial_step) {
+	sampler_move move;
+	switch(method) {
+		case MCMC_Sampler::affine_stretch :
+			move = affine_stretch_move;
+			break;
+		/*
+		case MCMCMethod_AffineWalk :
+			Move = AffineWalkMove;
+			break;
+		case MCMCMethod_DifferentialEvolution :
+			Move = DifferentialEvolutionMove;
+			break;
+		case MCMCMethod_MetropolisHastings :
+			Move = MetropolisMove;
+			break;
+			*/
+		default:
+			fatal_error(Mobius_Error::api_usage, "MCMC method not implemented!");
+	}
+	
+	int n_ens1 = data.n_walkers / 2;
+	int n_ens2 = data.n_walkers - n_ens1;
+	
+	// Compute the LLs of the initial walkers (Can be paralellized too, but probably unnecessary)
+	// NOTE: This assumes that data(walker, par, 0) has been filled with an initial ensemble.
+	if(initial_step == 0) //NOTE: If the initial step is not 0, this is a continuation of an earlier run, and so the LL value will already have been computed.
+		for(int walker = 0; walker < data.n_walkers; ++walker)
+			data.score_value(walker, 0) = log_likelihood(ll_state, walker, 0);
+
+	Random_State rand_state; // TODO: maybe seed the state randomly.
+
+	std::vector<std::thread> workers;
+	
+	for(int step = initial_step + 1; step < data.n_steps; ++step) {
+		int first_ensemble_walker = n_ens1;
+		int ensemble_step         = step-1;
+		
+		for(int walker = 0; walker < n_ens1; ++walker) {
+			workers.push_back(std::thread([&]() {
+				move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens2, data, &rand_state, log_likelihood, ll_state);
+			}));
+		}
+		for(auto &worker : workers)
+			if(worker.joinable()) worker.join();
+		workers.clear();
+		
+		first_ensemble_walker = 0;
+		ensemble_step         = step;
+		
+		for(int walker = n_ens1; walker < data.n_walkers; ++walker) {
+			workers.push_back(std::thread([&]() {
+				move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens1, data, &rand_state, log_likelihood, ll_state);
+			}));
+		}
+		for(auto &worker : workers)
+			if(worker.joinable()) worker.join();
+		workers.clear();
+		
+		bool halt = false;
+		if(((step-initial_step) % callback_interval == 0) || (step == data.n_steps-1))
+			halt = !callback(callback_state, step);
+		
+		if(halt) return false;
+	}
+	
+	return true;
 }
 
 /*
