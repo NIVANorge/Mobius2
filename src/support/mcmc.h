@@ -1,7 +1,8 @@
 
 #include "monte_carlo.h"
 
-enum MCMC_Sampler {
+enum class
+MCMC_Sampler {
 	affine_stretch,
 	affine_walk,
 	differential_evolution,

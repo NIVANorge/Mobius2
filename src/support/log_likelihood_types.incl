@@ -1,4 +1,4 @@
-// The third argument is the number of error parameters to the error structure.
+// The third argument is the number of error parameters to the residual distribution.
 
 SET_LOG_LIKELIHOOD(normal, "Normal", 1)
 SET_LOG_LIKELIHOOD(normal_h, "Normal hetereoskedastic", 1)

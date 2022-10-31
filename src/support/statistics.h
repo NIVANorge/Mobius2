@@ -5,6 +5,8 @@
 #include "../model_application.h"
 #include "../common_types.h"
 
+#include <random>
+
 struct
 Time_Series_Stats {
 	#define SET_STATISTIC(handle, name) double handle;
@@ -48,6 +50,15 @@ Residual_Type {
 };
 
 enum class
+LL_Type {
+	offset = (int)Residual_Type::end + 1,
+	#define SET_LOG_LIKELIHOOD(handle, name, type) handle,
+	#include "log_likelihood_types.incl"
+	#undef SET_LOG_LIKELIHOOD
+	end,
+};
+
+enum class
 Stat_Class {
 	stat = 0,
 	residual = 1,
@@ -81,6 +92,7 @@ inline Stat_Class
 is_stat_class(int type) {
 	if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)              return Stat_Class::stat;
 	else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end) return Stat_Class::residual;
+	else if(type > (int)LL_Type::offset && type < (int)LL_Type::end)             return Stat_Class::log_likelihood;
 	fatal_error(Mobius_Error::api_usage, "Unidentified stat type in is_type() (statistics.h)");
 	return Stat_Class::none;
 }
@@ -143,5 +155,15 @@ compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *setting
 void
 compute_residual_stats(Residual_Stats *stats, Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, bool compute_rcc);
 
+// MCMC stuff:
+
+double
+compute_ll(Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_obs, s64 ts_begin_obs, s64 len, const std::vector<double> &err_param, LL_Type ll_type);
+
+void
+add_random_error(double* series, s64 time_steps, const std::vector<double> &err_param, LL_Type ll_type, std::mt19937_64 &gen);
+
+void
+compute_standard_residuals(double *obs, double *sim, s64 time_steps, const std::vector<double> &err_param, LL_Type ll_type, std::vector<double> &resid_out);
 
 #endif // MOBIUS_STATISTICS_H
