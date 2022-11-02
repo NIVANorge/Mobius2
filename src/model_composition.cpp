@@ -481,7 +481,7 @@ prelim_compose(Model_Application *app) {
 		}
 		
 		Var_Location source  = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
-		std::string &var_name = var->name;
+		std::string var_name = var->name; // Same: Have to copy, not take reference.
 		auto dissolved_in_id = app->state_vars[above_loc];
 		auto dissolved_in = app->state_vars[dissolved_in_id];
 		

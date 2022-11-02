@@ -37,7 +37,7 @@ Testing functionality for now.
 	
 	#TODO: actually have to be able to do something like this:
 	#  soil.tox.par_group()
-	# but that syntax could be confusing...
+	# but that syntax could be confusing since soil.tox is not a valid location.
 	
 	soil.has(oc, unit(k g, m-2))  .initial { mocf }
 	dsoil.has(oc, unit(k g, m-2)) .initial { mocs }

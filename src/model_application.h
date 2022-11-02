@@ -17,7 +17,10 @@ State_Var_Dependency {
 	Var_Id            var_id;
 };
 
-inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) { if(a.var_id < b.var_id) return true; return (u32)a.type < (u32)b.type; }
+inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) {
+	if(a.var_id == b.var_id) return (u32)a.type < (u32)b.type;
+	return a.var_id.id < b.var_id.id;
+}
 
 struct
 Dependency_Set {
@@ -312,14 +315,14 @@ struct Storage_Structure {
 
 template<typename Val_T, typename Handle_T>
 struct Data_Storage {
-	Data_Storage(Storage_Structure<Handle_T> *structure, s64 initial_step = 0) : structure(structure), initial_step(initial_step) {}
+	Data_Storage(Storage_Structure<Handle_T> *structure, s64 initial_step = 0) : structure(structure), initial_step(initial_step), data(nullptr), is_owning(false) {}
 	
 	Storage_Structure<Handle_T> *structure;
-	Val_T *data = nullptr;
+	Val_T *data;
 	s64           time_steps = 0;
 	s64           initial_step;
 	Date_Time     start_date = {};
-	bool is_owning = false;
+	bool is_owning;
 	
 	void free_data() {
 		if(data && is_owning) free(data);
@@ -338,7 +341,7 @@ struct Data_Storage {
 	size_t
 	alloc_size() { return sizeof(Val_T) * structure->total_count * (time_steps + initial_step); }
 	
-	void 
+	void
 	allocate(s64 time_steps = 1, Date_Time start_date = {});
 	
 	// TODO: we could have some kind of tracking of references so that we at least get an error message if the source is deleted before all references are.
@@ -362,7 +365,7 @@ struct Model_Data {
 	Data_Storage<s64, Neighbor_T>             neighbors;
 	Data_Storage<double, Var_Id>              additional_series;
 	
-	Model_Data *copy();
+	Model_Data *copy(bool copy_results = true);
 	Date_Time get_start_date_parameter();
 	Date_Time get_end_date_parameter();
 };

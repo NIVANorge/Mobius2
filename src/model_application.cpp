@@ -554,13 +554,16 @@ template<typename Val_T, typename Handle_T> void
 Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
 	if(!structure->has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
-	free_data();
-	this->time_steps = time_steps;
 	this->start_date = start_date;
+	if(this->time_steps != time_steps || !is_owning) {
+		free_data();
+		this->time_steps = time_steps;
+		size_t sz = alloc_size();
+		data = (Val_T *) malloc(sz);
+		is_owning = true;
+	} 
 	size_t sz = alloc_size();
-	data = (Val_T *) malloc(sz);
 	memset(data, 0, sz);
-	is_owning = true;
 }
 
 template<typename Val_T, typename Handle_T> void
@@ -610,11 +613,12 @@ Model_Data::Model_Data(Model_Application *app) :
 
 // TODO: this should take flags on what to copy and what to keep a reference of!
 Model_Data *
-Model_Data::copy() {
+Model_Data::copy(bool copy_results) {
 	Model_Data *cpy = new Model_Data(app);
 	
 	cpy->parameters.copy_from(&this->parameters);
-	cpy->results.copy_from(&this->results);
+	if(copy_results)
+		cpy->results.copy_from(&this->results);
 	cpy->series.refer_to(&this->series);
 	cpy->additional_series.refer_to(&this->additional_series);
 	cpy->neighbors.refer_to(&this->neighbors);

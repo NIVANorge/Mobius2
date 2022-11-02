@@ -16,7 +16,7 @@
 	flux(nowhere, soilc.water.oc, "Soil DOC production") {  max(0, water*cdoc*(1 + temp*(kt1 + kt2*temp) - kso4*air.so4))  }
 	
 # In model
-	soil.uses(soilc)
+	soil.apply(soilc)
 # or:
 	
 	pm : template("Photo-mineralization")
@@ -30,8 +30,8 @@
 	}
 	
 # then
-	river.water.oc.uses(pm)
-	lake.water.oc.uses(pm)
+	river.water.oc.apply(pm)
+	lake.water.oc.apply(pm)
 # Issues:
 	# In the second example, the process is tied to a specific location, instead of being able to talk to different locations inside the same compartment. Could be nice.
 	

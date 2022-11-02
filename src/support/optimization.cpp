@@ -123,7 +123,7 @@ double Optimization_Model::evaluate(const double *values) {
 		double val;
 		if(is_stat_class(target.stat_type) == Stat_Class::log_likelihood) {
 			std::vector<double> err_param(err_par_count((LL_Type)target.stat_type));
-			for(int idx = 0; idx < err_param.size(); idx)
+			for(int idx = 0; idx < err_param.size(); ++idx)
 				err_param[idx] = values[target.err_par_idx[idx]];
 			val = evaluate_target(data, &target, err_param.data());
 		} else {

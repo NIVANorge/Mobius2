@@ -17,6 +17,8 @@ General model description.
 	river : compartment("River")
 	water : quantity("Water")
 	
+	#soil : identify(sw.soil, pe.soil, sn.soil)
+	
 	###### Distribute modules over index sets and set solvers
 	
 	sc : index_set("Subcatchment")

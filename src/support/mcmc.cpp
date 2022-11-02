@@ -35,11 +35,11 @@ Random_State {
 	std::mutex      gen_mutex;
 };
 
-typedef void (*sampler_move)(double *, double *, int, int, int, int, int, MC_Data &, Random_State *rand_state, double (*log_likelihhood)(void *, int, int), void *);
+typedef void (*sampler_move)(double *, double *, int, int, int, int, int, MC_Data &, Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *);
 
 void
 affine_stretch_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
-	Random_State *rand_state, double (*log_likelihhood)(void *, int, int), void *ll_state) {
+	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state) {
 	/*
 	This is a simple C++ implementation of the Affine-invariant ensemble sampler from https://github.com/dfm/emcee
 	
@@ -72,7 +72,7 @@ affine_stretch_move(double *sampler_params, double *scale, int step, int walker,
 		data(walker, par, step) = x_j + zz*(x_k - x_j);
 	}
 	
-	double ll = log_likelihhood(ll_state, walker, step);
+	double ll = log_likelihood(ll_state, walker, step);
 	double q = std::pow(zz, (double)data.n_pars-1.0)*std::exp(ll-prev_ll);
 	
 	if(!std::isfinite(ll) || r > q) { // Reject the proposed step
@@ -119,20 +119,25 @@ bool run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, doubl
 	
 	// Compute the LLs of the initial walkers (Can be paralellized too, but probably unnecessary)
 	// NOTE: This assumes that data(walker, par, 0) has been filled with an initial ensemble.
+	
+	// NOTE: current implementation relies on this not being threaded because it needs to
+	// allocate space for the results in the main thread so that it can be freed in the main
+	// thread ( threads can't delete stuff from other threads ).
 	if(initial_step == 0) //NOTE: If the initial step is not 0, this is a continuation of an earlier run, and so the LL value will already have been computed.
 		for(int walker = 0; walker < data.n_walkers; ++walker)
 			data.score_value(walker, 0) = log_likelihood(ll_state, walker, 0);
-
+	
 	Random_State rand_state; // TODO: maybe seed the state randomly.
 
 	std::vector<std::thread> workers;
+	workers.reserve(data.n_walkers);
 	
 	for(int step = initial_step + 1; step < data.n_steps; ++step) {
 		int first_ensemble_walker = n_ens1;
 		int ensemble_step         = step-1;
 		
 		for(int walker = 0; walker < n_ens1; ++walker) {
-			workers.push_back(std::thread([&]() {
+			workers.push_back(std::thread([&, walker]() {
 				move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens2, data, &rand_state, log_likelihood, ll_state);
 			}));
 		}
@@ -144,7 +149,7 @@ bool run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, doubl
 		ensemble_step         = step;
 		
 		for(int walker = n_ens1; walker < data.n_walkers; ++walker) {
-			workers.push_back(std::thread([&]() {
+			workers.push_back(std::thread([&, walker]() {
 				move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens1, data, &rand_state, log_likelihood, ll_state);
 			}));
 		}
