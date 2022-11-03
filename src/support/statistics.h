@@ -97,13 +97,32 @@ is_stat_class(int type) {
 	return Stat_Class::none;
 }
 
-inline String_View
+inline std::string
 stat_name(int type) {
 	#define SET_STATISTIC(handle, name) if(type == (int)Stat_Type::handle) return name;
 	#include "stat_types.incl"
 	#undef SET_STATISTIC
 	#define SET_RESIDUAL(handle, name, type) if(type == (int)Residual_Type::handle) return name;
+	#include "residual_types.incl"
+	#undef SET_RESIDUAL
+	#define SET_LOG_LIKELIHOOD(handle, name, n_err) if(type == (int)LL_Type::handle) return name;
+	#include "log_likelihood_types.incl"
+	#undef SET_LOG_LIKELIHOOD
 	return "";
+}
+
+inline int
+stat_type_from_name(const std::string &lookup) {
+	#define SET_STATISTIC(handle, name) if(lookup == name) return (int)Stat_Type::handle;
+	#include "stat_types.incl"
+	#undef SET_STATISTIC
+	#define SET_RESIDUAL(handle, name, type) if(lookup == name) return (int)Residual_Type::handle;
+	#include "residual_types.incl"
+	#undef SET_RESIDUAL
+	#define SET_LOG_LIKELIHOOD(handle, name, n_err) if(lookup == name) return (int)LL_Type::handle;
+	#include "log_likelihood_types.incl"
+	#undef SET_LOG_LIKELIHOOD
+	return 0;
 }
 
 inline int

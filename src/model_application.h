@@ -131,13 +131,21 @@ struct Var_Registry {
 		return find->second;
 	}
 	
-	//NOTE: wanted this to return a reference, but then it can't return {} when something is not found.
-	const std::set<Var_Id> operator[](std::string name) {
+	const std::set<Var_Id> &operator[](const std::string &name) {
+		static std::set<Var_Id> empty_set = {};
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end())
-			return {};
+			return empty_set;
 			//fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid name \"", name, "\".");
 		return find->second;
+	}
+	
+	// TODO: The serialization system needs to be much better since names are currently not unique.
+	std::string serialize  (Var_Id id) { return (*this)[id]->name; }
+	Var_Id      deserialize(const std::string &name) {
+		auto &ids = (*this)[name];
+		if(ids.empty()) return invalid_var;
+		return *ids.begin();
 	}
 	
 	Var_Id register_var(State_Variable var, Var_Location loc) {

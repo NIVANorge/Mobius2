@@ -52,7 +52,7 @@ affine_stretch_move(double *sampler_params, double *scale, int step, int walker,
 	int ensemble_walker;
 	{
 		std::uniform_real_distribution<double> distu(0.0, 1.0);
-		std::uniform_int_distribution<>        disti(0, n_ensemble);
+		std::uniform_int_distribution<>        disti(0, n_ensemble-1);
 		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
 		u = distu(rand_state->gen); //uniform between 0,1
 		r = distu(rand_state->gen);

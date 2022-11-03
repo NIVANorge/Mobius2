@@ -1,6 +1,56 @@
 
 
+	# Rethinking the entire index set system?
+	
+	# Fundamental need is to have some kind of distribution that you distribute things over to create copies of the same sub-model specification.
+	# + connectivity between different things.
+	
+	# Rename "neighbor" to "connectivity" ?
 
+	# System accomodates different kinds of specifications:
+	#	- distribution of things that work in parallel
+	#   - specific connection of one system into a part of another.
+
+
+
+	#Non-unique names of entities, can instead in model scope:
+
+		soil : identify(sw.soil, pe.soil, sn.soil)
+
+	#problems
+	#	- can be clashes between different names in different modules.
+	#	- parameters still have to have unique names within their parameter group.
+		
+	#Alternative:	
+	#	- fully use the (yet to be designed) template system for everything that is not hydrodynamic.
+
+
+	# Replace
+	downstream : sc.neighbor("Downstream", directed_tree)
+
+	# With?
+	
+	lake_layers : index_set("Lake layers", one_dimensional)
+	
+	lake : lake_layers.distribute() { lake_top_layer, *lake_layer, lake_bottom_layer }
+	sc.distribute() { *[river, lake] }
+	
+	downstream : neighbor("Downstream", directed_tree)
+	
+	rw.reach_out.to(downstream)
+	lw.lake_out.to(downstream)
+
+	# in data:
+	
+	neighbor("Downstream") [
+		"r1" -> "r2" -> "l1":0 -> "r3"
+		"ar1" -> "ar2" -> "l1":0
+	]
+
+
+	downsoil : neighbor("Soil flow path", directed_tree)
+	
+	sw.soil_runoff.to(downsoil, river.water)  # Default is to send it to river.water (if no other is given).
 
 
 	
