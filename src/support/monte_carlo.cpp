@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include "monte_carlo.h"
 
 void
@@ -63,4 +64,27 @@ MC_Data::get_map_index(int burnin, int cur_step, int &best_walker, int &best_ste
 			}
 		}
 	}
+}
+
+s64
+MC_Data::flatten(s64 burnin, s64 &up_to_step, std::vector<std::vector<double>> &flattened_out, bool sort) {
+	if(up_to_step < 0) up_to_step = n_steps - 1;
+	s64 out_steps = up_to_step - burnin;
+	if(out_steps <= 0) return 0;
+	flattened_out.resize(n_pars);
+			
+	s64 n_vals = out_steps * n_walkers;
+	
+	for(int par = 0; par < n_pars; ++par) {
+		flattened_out[par].resize(n_vals);
+		
+		for(int walker = 0; walker < n_walkers; ++walker) {
+			for(int step = burnin; step < up_to_step; ++step)
+				flattened_out[par][walker*out_steps + step - burnin] = (*this)(walker, par, step);
+		}
+		
+		if(sort)
+			std::sort(flattened_out[par].begin(), flattened_out[par].end());
+	}
+	return n_vals;
 }

@@ -1,4 +1,8 @@
 
+#ifndef MOBIUS_MONTE_CARLO_H
+#define MOBIUS_MONTE_CARLO_H
+
+#include <vector>
 #include "../mobius_common.h"
 
 struct
@@ -34,6 +38,8 @@ MC_Data {
 		ll_data  = nullptr;
 	}
 	
+	s64 flatten(s64 burnin, s64 &up_to_step, std::vector<std::vector<double>> &flattened_out, bool sort = true);
+	
 	s64 n_steps = 0, n_walkers = 0, n_pars = 0;
 	s64 n_accepted = 0;
 
@@ -41,3 +47,5 @@ private :
 	double *par_data = nullptr;
 	double *ll_data  = nullptr;
 };
+
+#endif // MOBIUS_MONTE_CARLO_H
