@@ -359,8 +359,7 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context), llvm::Type::getInt32Ty(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::powi, arg_types);
 			result = data->builder->CreateCall(fun, { lhs, rhs });
-		}
-		else if(type2 == Value_Type::real) {
+		} else if(type2 == Value_Type::real) {
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::pow, arg_types);
 			result = data->builder->CreateCall(fun, { lhs, rhs });
@@ -425,12 +424,10 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function,
 		result = data->builder->CreateICmpNE(result, mask);
 	} else {
 		auto fun = data->module->getFunction(function);
-		if(!fun) {
+		if(!fun)
 			fatal_error(Mobius_Error::internal, "Unhandled or unsupported function \"", function, "\" in build_intrinsic_ir().");
-		}
 		result = data->builder->CreateCall(fun, a);
 	}
-		
 	
 	return result;
 }
@@ -439,7 +436,7 @@ llvm::Value *
 build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type type2, const std::string &function, LLVM_Module_Data *data) {
 	//TODO: use MAKE_INTRINSIC2 macro here?
 	llvm::Value *result;
-	bool ismin = function == "min";
+	bool ismin = (function == "min");
 	if(ismin || function == "max") {
 		if(type1 != type2) fatal_error(Mobius_Error::internal, "Mismatching types in build_intrinsic_ir()."); //this should have been eliminated at a different stage.
 		
@@ -495,9 +492,8 @@ build_if_chain_ir(Math_Expr_FT **exprs, int exprs_size, Scope_Local_Vars *locals
 	fun->getBasicBlockList().push_back(merge_block);
 	data->builder->SetInsertPoint(merge_block);
 	
-	if(exprs[0]->value_type == Value_Type::none) {
+	if(exprs[0]->value_type == Value_Type::none)
 		return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be read by anyone.
-	}
 	
 	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
 	
@@ -579,8 +575,6 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
 			llvm::Value *result = nullptr;
-			
-			
 			
 			llvm::Value *offset = nullptr;
 			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series

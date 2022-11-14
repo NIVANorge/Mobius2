@@ -6,8 +6,8 @@ module("Degree-day PET", 1, 0, 0) {
 	soil      : compartment("Soil")
 
 	soil.par_group("Potential evapotranspiration") {
-		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1), 0.12)
-		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c), 0)
+		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1), 0.12, 0.05, 0.2)
+		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c), 0, -5, 5)
 	}
 	
 	pet  : property("Potential evapotranspiration")

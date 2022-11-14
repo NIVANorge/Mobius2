@@ -78,7 +78,7 @@ run_model(Model_Data *data, s64 ms_timeout) {
 
 	for(run_state.date_time.step = 0; run_state.date_time.step < time_steps; run_state.date_time.advance()) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
-		run_state.state_vars+=var_count;
+		run_state.state_vars += var_count;
 		
 		//TODO: we *could* also generate code for this for loop to avoid the ifs (but branch prediction should work well since the branches don't change)
 		for(auto &batch : app->batches) {

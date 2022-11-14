@@ -4,30 +4,6 @@
 #include <thread>
 #include <random>
 
-/*
-//NOTE: Using Box-Muller to draw independent normally distributed variables since u++ doesn't have a random normal distribution, and we don't
-	    //want to use <random> since it is not thread safe.
-void DrawIndependentStandardNormals(double *NormalsOut, int Size)
-{
-	double Z2;
-	for(int Idx = 0; Idx < Size; ++Idx)
-	{
-		if(Idx % 2 == 0)
-		{
-			double U1 = Randomf();
-			double U2 = Randomf();
-			double A = std::sqrt(-2.0*std::log(U1));
-			double Z1 = A*std::cos(2.0*M_PI*U2);
-			       Z2 = A*std::sin(2.0*M_PI*U2);
-			       
-			NormalsOut[Idx] = Z1;
-		}
-		else
-			NormalsOut[Idx] = Z2;
-	}
-}
-*/
-
 typedef void (*sampler_move)(double *, double *, int, int, int, int, int, MC_Data &, Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *);
 
 void

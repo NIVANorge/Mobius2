@@ -51,7 +51,7 @@ compute_ll(Data_Storage<double, Var_Id> *data_sim, s64 offset_sim, s64 ts_begin_
 					result += -std::log(std_dev) + log_pdf_normal(y, 0.0, 1.0);
 				}
 				prev_eta = eta;
-			}
+			} break;
 			
 			default :
 				fatal_error(Mobius_Error::internal, "Error structure not implemented");
@@ -98,7 +98,7 @@ add_random_error(double* series, s64 time_steps, double *err_param, LL_Type ll_t
 			
 				series[ts] += std_dev*eta;
 				prev_eta = eta;
-			}
+			} break;
 			
 			default :
 				fatal_error(Mobius_Error::internal, "Error structure not implemented");

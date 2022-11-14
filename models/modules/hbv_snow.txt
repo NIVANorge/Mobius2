@@ -12,12 +12,12 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	snow_box   : compartment("Snow box")
 	
 	snow_box.par_group("Snow") {
-		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, "Some description")
-		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0, -4, 4, "More description")
-		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0)
-		refr_eff  : par_real("Refreeze efficiency", unit(), 0.5)
-		snow_liq  : par_real("Liquid water fraction", unit(), 0.5)
-		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 0)
+		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, 0, 5, "Linear correlation between rate of snow melt and air temperature")
+		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0, -4, 4)
+		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0, -4, 4)
+		refr_eff  : par_real("Refreeze efficiency", unit(), 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
+		snow_liq  : par_real("Liquid water fraction", unit(), 0.5, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before it is released")
+		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 0, 0, 50000)
 	}
 	
 	snow  : quantity("Snow (water equivalents)")
