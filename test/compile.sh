@@ -18,7 +18,10 @@ prelim_test.cpp \
 ../src/units.cpp \
 ../src/ode_solvers.cpp \
 ../src/file_utils.cpp \
+ -I/usr/lib/llvm-14/include \
 -std=c++14 \
+-ldflags \
+-libs \
 -D_CRT_SECURE_NO_DEPRECATE \
 -D_CRT_SECURE_NO_WARNINGS \
 -D_CRT_NONSTDC_NO_DEPRECATE \
@@ -30,4 +33,4 @@ prelim_test.cpp \
 -D__STDC_CONSTANT_MACROS \
 -D__STDC_FORMAT_MACROS \
 -D__STDC_LIMIT_MACROS \
--O2 
+-O2
