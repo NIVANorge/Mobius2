@@ -1,0 +1,14 @@
+version: '3.5'
+services:
+  mobius:
+    image: mobius
+    build: .
+    entrypoint: ""
+    command:
+    - sleep 
+    - infinity
+    volumes:
+      - ./src:/mobius/src
+      - ./test:/mobius/test
+      - ./models:/mobius/models
+      - ./stdlib:/mobius/stdlib
