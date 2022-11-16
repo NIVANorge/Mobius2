@@ -12,3 +12,4 @@ services:
       - ./test:/mobius/test
       - ./models:/mobius/models
       - ./stdlib:/mobius/stdlib
+      - ./third_party:/mobius/third_party
