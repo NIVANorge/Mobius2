@@ -61,6 +61,65 @@ affine_stretch_move(double *sampler_params, double *scale, int step, int walker,
 }
 
 void
+affine_walk_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
+	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state) {
+		
+	int s0 = (int)sampler_params[0];
+	bool accepted = true;
+	double prev_ll = data.score_value(walker, step-1);
+	
+	double r;
+	// Could this be rewritten without the vectors?
+	std::vector<double> z(s0);
+	std::vector<int> ens(s0);
+	{
+		std::uniform_real_distribution<double> distu;
+		std::normal_distribution<double>       distn;
+		std::uniform_int_distribution<>        disti(0, n_ensemble-1);
+		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
+		
+		r = distu(rand_state->gen);
+		for(int s = 0; s < s0; ++s) {
+			// NOTE: Unlike in Differential Evolution, the members of the sub-ensemble could be repeating (or at least it is not otherwise mentioned in the paper).
+			ens[s] = disti(rand_state->gen) + first_ensemble_walker;
+			z[s]   = distn(rand_state->gen);
+		}
+	}
+		
+	for(int par = 0; par < data.n_pars; ++par) {
+		double x_k = data(walker, par, step-1);
+		double x_s_mean = 0.0;
+		for(int s = 0; s < s0; ++s)
+			x_s_mean += data(ens[s], par, ensemble_step);
+		x_s_mean /= (double)s0;
+		double w = 0.0;
+		for(int s = 0; s < s0; ++s) {
+			double x_j = data(ens[s], par, ensemble_step);
+			w += z[s]*(x_j - x_s_mean);
+		}
+		w /= (double)s0; // NOTE: This is not specified in the paper, but without it the algorithm gives very poor results, and it seems to be more mathematically sound.
+		data(walker, par, step) = x_k + w;
+	}
+
+	double ll = log_likelihood(ll_state, walker, step);
+	double q = ll - prev_ll;
+	
+	if(!std::isfinite(ll) || std::log(r) > q) { // Reject the proposal
+		for(int par = 0; par < data.n_pars; ++par)
+			data(walker, par, step) = data(walker, par, step-1);
+		ll = prev_ll;
+		accepted = false;
+	}
+	
+	data.score_value(walker, step) = ll;
+	
+	if(accepted) {
+		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
+		data.n_accepted++;
+	}
+}
+
+void
 differential_evolution_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
 	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state)
 {
@@ -186,11 +245,11 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 		case MCMC_Sampler::metropolis_hastings :
 			move = metropolis_move;
 			break;
-		/*
-		case MCMCMethod_AffineWalk :
-			Move = AffineWalkMove;
+	
+		case MCMC_Sampler::affine_walk :
+			move = affine_walk_move;
 			break;
-		*/
+	
 		default:
 			fatal_error(Mobius_Error::api_usage, "MCMC method not implemented!");
 	}
@@ -250,96 +309,3 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 	
 	return true;
 }
-
-/*
-
-bool AffineWalkMove(double *SamplerParams, double *Scale, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
-	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
-{
-	int S0 = (int)SamplerParams[0];
-	
-	bool Accepted = true;
-	
-	double PrevLL = Data->LLValue(Walker, Step-1);
-	
-	double *Z = (double *)malloc(S0*sizeof(double));
-	int    *Ens = (int *)malloc(S0*sizeof(int));
-	
-	DrawIndependentStandardNormals(Z, S0);
-	
-	double Z2;
-	for(int S = 0; S < S0; ++S)
-		Ens[S] = (int)Random(S0); // NOTE: Unlike in Differential Evolution, the members of the sub-ensemble could be repeating (or at least I can't see it mentioned in the paper).
-	
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		double Xk = (*Data)(Walker, Par, Step-1);
-		double Xsmean = 0.0;
-		for(int S = 0; S < S0; ++S)
-		{
-			int EnsembleWalker = Ens[S] + FirstEnsembleWalker;
-			Xsmean += (*Data)(EnsembleWalker, Par, EnsembleStep);
-		}
-		Xsmean /= (double)S0;
-		double W = 0.0;
-		for(int S = 0; S < S0; ++S)
-		{
-			int EnsembleWalker = Ens[S] + FirstEnsembleWalker;
-			double Xj = (*Data)(EnsembleWalker, Par, EnsembleStep);
-			W += Z[S]*(Xj - Xsmean);
-		}
-		(*Data)(Walker, Par, Step) = Xk + W;
-	}
-	
-	free(Z);
-	free(Ens);
-	
-	double LL = LogLikelyhood(LLFunState, Walker, Step);
-	double R = Randomf();
-	
-	double Q = LL-PrevLL;
-	
-	if(!std::isfinite(LL) || std::log(R) > Q)  // Reject the proposal
-	{
-		for(int Par = 0; Par < Data->NPars; ++Par)
-			(*Data)(Walker, Par, Step) = (*Data)(Walker, Par, Step-1);
-			
-		LL = PrevLL;
-		Accepted = false;
-	}
-	
-	Data->LLValue(Walker, Step) = LL;
-	return Accepted;
-}
-
-
-void DrawLatinHyperCubeSamples(mcmc_data *Data, double *MinBound, double *MaxBound)
-{
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		double Span = (MaxBound[Par] - MinBound[Par]);
-		for(int Sample = 0; Sample < Data->NSteps; ++Sample)
-			(*Data)(0, Par, Sample) = MinBound[Par] + Span * (((double)Sample + Randomf()) / ((double)Data->NSteps));
-		
-		// Shuffle
-		for(int Sample = 0; Sample < Data->NSteps; ++Sample)
-		{
-			int Swap = Random(Data->NSteps);
-			double Temp = (*Data)(0, Par, Sample);
-			(*Data)(0, Par, Sample) = (*Data)(0, Par, Swap);
-			(*Data)(0, Par, Swap) = Temp;
-		}
-	}
-}
-
-void DrawUniformSamples(mcmc_data *Data, double *MinBound, double *MaxBound)
-{
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		double Span = (MaxBound[Par] - MinBound[Par]);
-		for(int Sample = 0; Sample < Data->NSteps; ++Sample)
-			(*Data)(0, Par, Sample) = MinBound[Par] + Randomf()*Span;
-	}
-}
-
-*/

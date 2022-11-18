@@ -44,15 +44,13 @@ library("Meteorology", 0, 0, 1) {
 
 library("Radiation", 0, 0, 1) {
 	
-	#TODO: need to be able to load library from library (but only have the scope of that be local) to get e.g. pi
-	
 	solar_constant : constant("Solar constant", unit(W m-2), 1361)
 	
 	daily_average_extraterrestrial_radiation : function(latitude, day_of_year, days_this_year) {
-		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year);
-		solar_declination      := 0.409*sin(2*pi*day_of_year/days_this_year - 1.39);
+		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year)
+		solar_declination      := 0.409*sin(2*pi*day_of_year/days_this_year - 1.39)
 		lat_rad                := latitude * pi / 180.0
-		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination));        # ooops, need to implement acos and tan
+		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination))
 		
 		solar_constant * (1/pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
 	}
