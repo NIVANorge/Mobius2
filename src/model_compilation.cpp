@@ -466,19 +466,19 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 		int earliest_suitable_pos   = batch_out.size();
 		
 		for(int sub_batch_idx = batch_out.size()-1; sub_batch_idx >= 0 ; --sub_batch_idx) {
-			auto array = &batch_out[sub_batch_idx];
+			auto sub_batch = &batch_out[sub_batch_idx];
 			
 			bool blocked = false;
 			bool found_dependency = false;
 			
-			for(auto other_id : array->instr_ids) {
+			for(auto other_id : sub_batch->instr_ids) {
 				if(instr->depends_on_instruction.find(other_id) != instr->depends_on_instruction.end())
 					found_dependency = true;
 				if(instr->instruction_is_blocking.find(other_id) != instr->instruction_is_blocking.end())
 					blocked = true;
 			}
 			
-			if(array->index_sets == instr->index_sets && !blocked)
+			if(sub_batch->index_sets == instr->index_sets && !blocked)
 				earliest_possible_batch = sub_batch_idx;
 			
 			if(found_dependency || blocked) break;
@@ -487,14 +487,84 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 		if(earliest_possible_batch != batch_out.size()) {
 			batch_out[earliest_possible_batch].instr_ids.push_back(instr_id);
 		} else {
-			Batch_Array pre_batch;
-			pre_batch.index_sets = instr->index_sets;
-			pre_batch.instr_ids.push_back(instr_id);
+			Batch_Array sub_batch;
+			sub_batch.index_sets = instr->index_sets;
+			sub_batch.instr_ids.push_back(instr_id);
 			if(earliest_suitable_pos == batch_out.size())
-				batch_out.push_back(std::move(pre_batch));
+				batch_out.push_back(std::move(sub_batch));
 			else
-				batch_out.insert(batch_out.begin()+earliest_suitable_pos, std::move(pre_batch));
+				batch_out.insert(batch_out.begin()+earliest_suitable_pos, std::move(sub_batch));
 		}
+	}
+	
+	// NOTE: Do more passes to try and group instructions in an optimal way:
+	
+	bool changed = false;
+	for(int it = 0; it < 10; ++it) {
+		changed = false;
+		
+		int batch_idx = 0;
+		for(auto &sub_batch : batch_out) {
+			int instr_idx = sub_batch.instr_ids.size() - 1;
+			while(instr_idx > 0) {
+				int instr_id = sub_batch.instr_ids[instr_idx];
+				bool cont = false;
+				// If another instruction behind us in the same batch depends on us, we are not allowed to move!
+				for(int instr_behind_idx = instr_idx+1; instr_behind_idx < sub_batch.instr_ids.size(); ++instr_behind_idx) {
+					int behind_id = sub_batch.instr_ids[instr_behind_idx];
+					auto behind = &instructions[behind_id];
+					if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
+						cont = true;
+						break;
+					}
+				}
+				if(cont) {
+					--instr_idx;
+					continue;
+				}
+				
+				int last_suitable_batch_idx = batch_idx;
+				for(int batch_behind_idx = batch_idx + 1; batch_behind_idx < batch_out.size(); ++batch_behind_idx) {
+					auto &batch_behind = batch_out[batch_behind_idx];
+					if(batch_behind.index_sets == sub_batch.index_sets)
+						last_suitable_batch_idx = batch_behind_idx;
+					bool batch_depends_on_us = false;
+					for(int instr_behind_idx = 0; instr_behind_idx < batch_behind.instr_ids.size(); ++instr_behind_idx) {
+						auto behind_id = batch_behind.instr_ids[instr_behind_idx];
+						auto behind = &instructions[behind_id];
+						if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
+							batch_depends_on_us = true;
+							break;
+						}
+					}
+					if(batch_depends_on_us || batch_behind_idx == batch_out.size()-1) {
+						if(last_suitable_batch_idx != batch_idx) {
+							// We are allowed to move. Move to the beginning of the first other batch that is suitable.
+							auto &insert_to = batch_out[last_suitable_batch_idx];
+							insert_to.instr_ids.insert(insert_to.instr_ids.begin(), instr_id);
+							sub_batch.instr_ids.erase(sub_batch.instr_ids.begin() + instr_idx);
+							changed = true;
+						}
+						break;
+					}
+				}
+				--instr_idx;
+			}
+			++batch_idx;
+		}
+		
+		if(!changed) break;
+	}
+	if(changed)
+		fatal_error(Mobius_Error::internal, "Unable to optimize instruction sub batch grouping in the allotted amount of iterations.");
+	
+	// Remove batches that were emptied as a result of the step above.
+	int batch_idx = batch_out.size()-1;
+	while(batch_idx >= 0) {
+		auto &sub_batch = batch_out[batch_idx];
+		if(sub_batch.instr_ids.empty())
+			batch_out.erase(batch_out.begin() + batch_idx);  // NOTE: ok since we are iterating batch_idx backwards.
+		--batch_idx;
 	}
 	
 #if 0
@@ -913,7 +983,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		}
 	}
 	
-	warning_print("Remove ode dependencies\n");
+	warning_print("Remove ODE dependencies\n");
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		auto &instr = instructions[instr_id];
 		
