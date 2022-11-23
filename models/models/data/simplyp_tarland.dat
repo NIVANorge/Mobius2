@@ -128,10 +128,10 @@ module("SimplySed", 0, 5, 0) {
 
 	par_group("River erosion") [ "Subcatchment" ] {
 		par_real("Erosion scaling factor")
-		[ 15 ]
+		[ 3.3 ]
 
 		par_real("Erosion power factor")
-		[ 2 ]
+		[ 2.5 ]
 	}
 }
 
@@ -170,5 +170,8 @@ module("SimplyP", 0, 5, 0) {
 		par_real("Effluent TDP inputs")
 		[ 0.499584062101628 ]
 	}
+}
+
+module("Priestley-Taylor PET", 0, 0, 16) {
 }
 
