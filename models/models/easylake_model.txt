@@ -1,0 +1,15 @@
+
+model("EasyLake standalone") {
+	
+	load("../modules/easylake.txt", el : module("EasyLake"))
+	
+	sol : solver("EasyLake solver", "INCADascru", 0.1)
+	
+	epi : compartment("Epilimnion")
+	hyp : compartment("Hypolimnion")
+	
+	water : quantity("Water")
+	
+	sol.solve(epi.water)
+	sol.solve(hyp.water)
+}

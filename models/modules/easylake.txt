@@ -1,0 +1,43 @@
+
+
+module("EasyLake", 0, 1, 0) {
+"""
+TODO: description
+"""
+	
+	epi : compartment("Epilimnion")
+	hyp : compartment("Hypolimnion")
+	
+	
+	epi.par_group("Lake physical") {
+		# TODO: copy the nice min-max values and comments from mobius 1 EasyLake
+		A_surf    : par_real("Lake surface area", unit(m 2), 107183, 0, 1e8)
+		z_outflow : par_real("Lake depth at which outflow is 0", unit(m), 10, 0.1, 1000)
+		z_epi     : par_real("Initial epilimnion thickness", unit(m), 2, 0.1, 10)
+		#th_bank   : par_real("Lake shore slope", unit(), 0.4, 0, 4)
+		rate_l    : par_real("Rating function linear component", unit(m 2, s-1), 10, 0, 1000)
+	}
+	
+	water : quantity("Water")
+	
+	epi.has(precip : property("Precipitation"), unit(m m, day-1))
+	epi.has(inflow : property("Lake inflow"), unit(m 3, s-1))
+	
+	hyp.has(water, unit(m 3), "Hypolimnion volume") .initial {
+		z := z_outflow - z_epi
+		A := A_surf * (z/z_outflow)
+		0.5 * A * z
+	}
+	
+	epi.has(water, unit(m 3), "Epilimnion volume") .initial {   0.5 * A_surf * z_outflow - hyp.water   }
+	
+	flux(nowhere, epi.water, "Precip to lake") {   precip * A_surf * 1e-3   }
+	
+	epi.has(lake_depth : property("Lake depth"), unit(m)) {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	
+	epi.has(outflow : property("Lake outflow"), unit(m 3, s-1)) {   max(0, rate_l*(lake_depth - z_outflow))   }
+
+	flux(epi.water, out, "Lake outflow flux") {   86400 * outflow   }
+	
+	flux(nowhere, epi.water, "Lake inflow flux") {   86400 * inflow   }
+}
