@@ -4,23 +4,39 @@ module("EasyLake", 0, 1, 0) {
 """
 TODO: description
 """
+
+	load("../../stdlib/atmospheric.txt", library("Meteorology"))
+	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"))
 	
-	epi : compartment("Epilimnion")
-	hyp : compartment("Hypolimnion")
+	air  : compartment("Atmosphere")
+	lake : compartment("Lake")
+	# Right now this is a bit awkward since epi and hyp are really subcompartments of the lake
+	epi  : compartment("Epilimnion")
+	hyp  : compartment("Hypolimnion")
 	
 	
-	epi.par_group("Lake physical") {
+	lake.par_group("Lake physical") {
 		# TODO: copy the nice min-max values and comments from mobius 1 EasyLake
 		A_surf    : par_real("Lake surface area", unit(m 2), 107183, 0, 1e8)
 		z_outflow : par_real("Lake depth at which outflow is 0", unit(m), 10, 0.1, 1000)
 		z_epi     : par_real("Initial epilimnion thickness", unit(m), 2, 0.1, 10)
 		#th_bank   : par_real("Lake shore slope", unit(), 0.4, 0, 4)
 		rate_l    : par_real("Rating function linear component", unit(m 2, s-1), 10, 0, 1000)
+		t_epi     : par_real("Initial epilimnion temperature", unit(deg_c), 15, 0, 50)
+		t_bot     : par_real("Bottom temperature", unit(deg_c), 4, 0, 50)
 	}
 	
 	water : quantity("Water")
+	heat  : quantity("Thermal energy")
 	
-	epi.has(precip : property("Precipitation"), unit(m m, day-1))
+	temp  : property("Temperature")
+	
+	air.has(wind   : property("Wind speed"), unit(m, s-1))
+	air.has(precip : property("Precipitation"), unit(m m, day-1))
+	air.has(temp, unit(deg_c), "Air temperature")
+	air.has(r_hum  : property("Relative humidity"), unit())
+	air.has(pressure : property("Pressure"), unit(h Pa), "Air pressure")
+	
 	epi.has(inflow : property("Lake inflow"), unit(m 3, s-1))
 	
 	hyp.has(water, unit(m 3), "Hypolimnion volume") .initial {
@@ -29,15 +45,125 @@ TODO: description
 		0.5 * A * z
 	}
 	
-	epi.has(water, unit(m 3), "Epilimnion volume") .initial {   0.5 * A_surf * z_outflow - hyp.water   }
+	epi.has(water, unit(m 3), "Epilimnion volume")     .initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
-	flux(nowhere, epi.water, "Precip to lake") {   precip * A_surf * 1e-3   }
+	flux(nowhere, epi.water, "Precip to lake")                  {   air.precip * A_surf * 1e-3   }
 	
-	epi.has(lake_depth : property("Lake depth"), unit(m)) {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	epi.has(lake_depth : property("Lake depth"), unit(m))       {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
 	epi.has(outflow : property("Lake outflow"), unit(m 3, s-1)) {   max(0, rate_l*(lake_depth - z_outflow))   }
 
-	flux(epi.water, out, "Lake outflow flux") {   86400 * outflow   }
+	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }
 	
-	flux(nowhere, epi.water, "Lake inflow flux") {   86400 * inflow   }
+	flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
+	
+	
+	
+	cpa  : constant("Specific heat capacity of air",    unit(J, k g-1, K-1), 1008)
+	Rdry : constant("Specific gas constant of dry air", unit(J, k g-1, K-1), 287.058)
+	Rvap : constant("Specific gas constant of vapor",   unit(J, k g-1, K-1), 461.495)
+	rho_water : constant("Water density", unit(k g, m-3), 997)
+	C_water   : constant("Specific heat capacity of water", unit(J, k g-1, K), 4186)
+	
+	lake.has(heat, unit(J)) .initial {
+		mass      := (epi.water + hyp.water)*rho_water
+		deg_c_to_K(epi.temp) * mass * C_water  # TODO: initial mean temperature is lower than epi temp
+	}
+	
+	#TODO: units for the following!
+	
+	lake.has(stab : property("Stability"), unit()) {
+		ww := air.wind + 1e-10
+		s0 := 0.25*(epi.temp - air.temp) / (ww*ww)
+		s0*abs(s0)/(abs(s0) + 0.01)
+	}
+	
+	stab_modify : function(wind, stab, a) {
+		0                                     if wind = 0,
+		0.1 + 0.03*stab * 0.9*exp(4.8*stab)   if stab < 0 & stab > -3.3,
+		0                                     if stab < 0,
+		1 + a*sqrt(stab)                   otherwise
+	}
+	
+	lake.has(ced : property("Transfer coefficient for latent heat flux"), unit()) {
+		w    := air.wind + 1e-12
+		{
+			0     + 1.23  *exp(-0.16*ln(w))        if w < 2.2,
+			0.969 + 0.0521*w                       if w < 5,
+			1.18  + 0.01  *w                       if w < 8,
+			1.196 + 0.008 *w - 0.0004*(w-8)^2      if w < 25,
+			1.68  - 0.016 *w                       otherwise
+		} * 1e-3 * stab_modify(w, stab, 0.63)
+	}
+	
+	lake.has(chd : property("Transfer coefficent for sensible heat flux"), unit()) {
+		w    := air.wind + 1e-12
+		{
+			0     + 1.185 *exp(-0.157*ln(w))       if w < 2.2,
+			0.927 + 0.0546*w                       if w < 5,
+			1.15  + 0.01  *w                       if w < 8,
+			1.17  + 0.0075*w - 0.00045*(w-8)^2     if w < 25,
+			1.652 - 0.017 *w                       otherwise
+		} * 1e-3 * stab_modify(w, stab, 0.63)
+	}
+	
+	#epi.has(cdd : property("Surface stress coefficient"), unit()) {
+	#	w    := wind + 1e-12
+	#	{
+	#		0     + 1.08  *exp(-0.15*ln(w))        if wind < 2.2,
+	#		0.771 + 0.0858*w                       if wind < 5,
+	#		0.867 + 0.0667*w                       if wind < 8,
+	#		1.2   + 0.0025*w                       if wind < 25,
+	#		0     - 0.07  *w                       otherwise
+	#	} * 1e-3 * stab_modify(wind, stab, 0.47)
+	#}
+	
+	# TODO: put some of this stuff into atmospheric module or library?
+	
+	lake.has(lvap : property("Latent heat of vaporization"), unit()) {
+		(2.5 - 0.00234*epi.temp)*1e6
+	}
+	
+	spec_hum : function(pressure, vapor_pressure) {
+		conv := 0.62198  # Converting molar ratio to mass ratio
+		conv * vapor_pressure / (pressure - vapor_pressure)
+	}
+	
+	air.has(avap : property("Actual vapor pressure"), unit(h Pa)) {
+		svap := saturation_vapor_pressure_lowe(air.temp)
+		air.r_hum * 0.01 * svap
+	}
+	
+	lake.has(s_hum : property("Saturation specific humidity"), unit()) {
+		svap := saturation_vapor_pressure_lowe(epi.temp)
+		spec_hum(air.pressure, svap)
+	}
+	
+	lake.has(a_hum : property("Actual specific humidity"), unit()) {
+		spec_hum(air.pressure, air.avap)
+	}
+	
+	air.has(rho : property("Air density"), unit(k g, m-3)) {
+		tk := deg_c_to_K(air.temp)
+		((pressure - avap)/(tk*Rdry) + avap/(tk*Rvap)) * 100    # *100 to convert HPa -> Pa
+	}
+	
+	# TODO: Some of the surface fluxes should be modified for ice
+	flux(nowhere, lake.heat, "Latent heat flux")   {   86400.0 * A_surf * (ced * lvap * air.rho * air.wind * (a_hum - s_hum))   }
+	
+	flux(nowhere, lake.heat, "Sensible heat flux") {   86400.0 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - epi.temp))   }
+	
+	flux(epi.water, nowhere, "Evaporation") {
+		rho_ref := 1025
+		(air.rho / rho_ref) * lake.chd * air.wind * (lake.a_hum - lake.s_hum) * (-86400)
+	}
+	
+	lake.has(temp, unit(deg_c), "Mean lake temperature") {
+		mass      := (epi.water + hyp.water)*rho_water
+		K_to_deg_c(heat / (mass * C_water))
+	}
+	
+	epi.has(temp, unit(deg_c), "Epilimnion temperature") { lake.temp } #TODO!
+		.initial { t_epi }
+	
 }

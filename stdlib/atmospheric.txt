@@ -1,6 +1,7 @@
 
 
-library("Meteorology", 0, 0, 1) {
+library("Meteorology") {
+	# TODO: allow version numbers on 
 	
 	#TODO: Better documentation, esp. of units!
 	
@@ -32,7 +33,7 @@ library("Meteorology", 0, 0, 1) {
 		a4 := 3.031240396e-6
 		a5 := 2.034080948e-8
 		a6 := 6.136820929e-11
-		t  := T_celsius
+		t  := T_celsius*1              #ooops, problems with the syntax make themselves apparent :(
 		(a0 + t*(a1 + t*(a2 + t*(a3 + t*(a4 + t*(a5 + t*a6))))))
 	}
 	
@@ -42,7 +43,7 @@ library("Meteorology", 0, 0, 1) {
 	
 }
 
-library("Radiation", 0, 0, 1) {
+library("Radiation") {
 	
 	solar_constant : constant("Solar constant", unit(W m-2), 1361)
 	

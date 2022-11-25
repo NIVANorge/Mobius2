@@ -7,9 +7,12 @@ model("EasyLake standalone") {
 	
 	epi : compartment("Epilimnion")
 	hyp : compartment("Hypolimnion")
+	lake : compartment("Lake")
 	
 	water : quantity("Water")
+	heat  : quantity("Thermal energy")
 	
 	sol.solve(epi.water)
 	sol.solve(hyp.water)
+	sol.solve(lake.heat)
 }
