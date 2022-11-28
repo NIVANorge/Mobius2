@@ -52,9 +52,9 @@ TODO: description
 	
 	flux(nowhere, epi.water, "Precip to lake")                  {   air.precip * A_surf * 1e-3   }
 	
-	epi.has(lake_depth : property("Lake depth"), unit(m))       {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	lake.has(depth : property("Depth"), unit(m))       {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
-	epi.has(outflow : property("Lake outflow"), unit(m 3, s-1)) {   max(0, rate_l*(lake_depth - z_outflow))   }
+	epi.water.has(outflow : property("Flow"), unit(m 3, s-1)) {   max(0, rate_l*(lake.depth - z_outflow))   }
 
 	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }
 	
@@ -93,7 +93,7 @@ TODO: description
 		0                                     if wind = 0,
 		0.1 + 0.03*stab * 0.9*exp(4.8*stab)   if stab < 0 & stab > -3.3,
 		0                                     if stab < 0,
-		1 + a*sqrt(stab)                   otherwise
+		1 + a*sqrt(stab)                      otherwise
 	}
 	
 	lake.has(ced : property("Transfer coefficient for latent heat flux"), unit()) {
@@ -174,20 +174,19 @@ TODO: description
 	
 	flux(nowhere, lake.heat, "Net shortwave") {
 		albedo := 0.045  # TODO adjust for ice albedo
-		net_rad := (1 - albedo) * air.g_rad    # TODO: option to use module that computes it from cloud cover instead?
+		#net_rad := (1 - albedo) * (1 - epi.ice.attn) * air.g_rad    # TODO: option to use module that computes it from cloud cover instead?
+		net_rad := (1 - albedo) * air.g_rad
 		86400 * A_surf * net_rad
 	}
 	
-	flux(nowhere, lake.heat, "Net radiation") {
+	flux(nowhere, lake.heat, "Net longwave") {
 		albedo := 0.045
 		net_rad := (1 - albedo)*air.lwd - lwu    # W/m2
 		0                              if epi.ice.indicator,
 		86400 * A_surf * net_rad       otherwise
 	}
 	
-	flux(nowhere, lake.heat, "Melt cooling") {
-		86400 * A_surf * epi.ice.energy
-	}
+	flux(nowhere, lake.heat, "Freeze heating") {   86400 * A_surf * epi.ice.energy   }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
 	
 	# TODO: Some of the surface fluxes should be modified for ice
 	flux(nowhere, lake.heat, "Latent heat flux") {
@@ -201,24 +200,25 @@ TODO: description
 	
 	flux(epi.water, nowhere, "Evaporation") {
 		rho_ref := 1025
-		0                                                                                    if epi.ice.indicator,
-		(air.rho / rho_ref) * lake.chd * air.wind * (lake.a_hum - lake.s_hum) * (-86400)     otherwise
+		0                                                                                       if epi.ice.indicator,
+		(air.rho / rho_ref) * lake.chd * air.wind * (lake.a_hum - lake.s_hum) * (-86400*A_surf) otherwise
 	}
 	
 	flux(lake.heat, nowhere, "Outflow heat") {
 		# Would be cleaner if we had epi.water.has(heat, ..), hyp.water.has(heat, ..) but we don't have the semantics for subdividing the total lake heat between them...
 		epi_heat_dens := deg_c_to_K(epi.temp) * rho_water * C_water
-		86400 * epi.outflow * epi_heat_dens
+		86400 * epi.water.outflow * epi_heat_dens
 	}
 	
 	flux(nowhere, lake.heat, "Inflow heat") {
-		inflow_temp := max(0.4, air.temp)
-		in_heat_dens := deg_c_to_K(inflow_temp) * rho_water * C_water
+		inflow_t := max(0.4, air.temp)
+		in_heat_dens := deg_c_to_K(inflow_t) * rho_water * C_water
 		86400 * epi.inflow * in_heat_dens
 	}
 	
 	flux(nowhere, lake.heat, "Precipitation heat") {
-		1e-3 * A_surf * air.precip * rho_water * C_water * deg_c_to_K(air.temp)   if air.temp >= 0,
+		precip_t := max(0.4, air.temp)
+		1e-3 * A_surf * air.precip * rho_water * C_water * deg_c_to_K(precip_t)   if air.temp >= 0,
 		0                                                                         otherwise
 	}
 	
@@ -235,12 +235,12 @@ TODO: description
 	
 	epi.has(ice, unit(m), "Ice thickness") .initial { 0 } #TODO: parameter
 	
-	epi.ice.has(energy : property("Melt energy"), unit(W, m-2)) {
+	epi.ice.has(energy : property("Freeze energy"), unit(W, m-2)) {
 		z_surf := 1   #  Thickness of water layer that ice formation can draw energy from.
-		K_ice := 200   # freezing thermal conductivity or heat transfer coefficient 
+		K_ice := 200   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
 		e := (ice_temp - epi.temp)*z_surf*K_ice
 		
-		0        if ice < 1e-6 & e < 0,
+		0        if (ice.indicator & e > 0) | (ice < 1e-6 & e < 0),    # No melting when there is no ice   TODO: don't know why the first clause is needed since it isn't in Mobius1...
 		e        otherwise
 	}
 	
@@ -252,19 +252,22 @@ TODO: description
 	}
 	
 	flux(nowhere, epi.ice, "Ice change") {
-		albedo := 0.045 #TODO: remove this
-		sw := air.g_rad * attn
-		1*(energy + {
+		(energy + {
 			{
 				#NOTE: Stefan's law, but turned into ODE equation:
-				# ice_n = sqrt(ice_{n-1}^2 + Y)
-				# -> d(ice^2)/dt = Y
+				# ice_n = sqrt(ice_{n-1}^2 + Y)  with   Y = 2*lambda_ice*(ice_temp - ice_t)
+				# => d(ice^2)/dt = Y
 				# and d(ice^2)/dt = 2*ice*d(ice)/dt
+				# => d(ice)/dt = Y / (2*ice)
 				factor := 1 / (10 + ice)
 				ice_t := (factor * ice_temp + air.temp) / (1 + factor)   # Approximation of ice temperature. TODO: separate state var?
-				2 * lambda_ice * (ice_temp - ice_t) / (2 * ice)
+				lambda_ice * (ice_temp - ice_t) / ice
 			}                                             if air.temp <= ice_temp & indicator,
-			- ((1-albedo)*(air.lwd + sw) - lake.lwu)      if indicator,  #TODO: should just reuse other computation
+			{   #TODO: should just reuse computation for surface net shortwave ?
+				albedo := 0.045
+				#0 - ((1-albedo)*(air.lwd + air.g_rad*attn) - lake.lwu)
+				0 - (1-albedo)*air.g_rad*attn
+			}                                             if indicator,  
 			0                                             otherwise
 		}) * 86400 / (rho_ice * l_freeze)
 		+ {
@@ -273,5 +276,5 @@ TODO: description
 		}
 	}
 	
-	
+	#TODO: there is something not quite right in that it doesn't produce quite the same results as Mobius1 EasyLake for the ice cover.
 }
