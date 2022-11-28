@@ -41,6 +41,9 @@ library("Meteorology") {
 		4098.0 * svap / (T_celsius + 237.3)^2
 	}
 	
+	dew_point_temperature : function(vapor_pressure) {  # Henderson-Sellers 1984
+		34.07 + 4157.0 / ln(2.1718e8 / vapor_pressure)
+	}
 }
 
 library("Radiation") {

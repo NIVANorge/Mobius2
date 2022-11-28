@@ -1,0 +1,26 @@
+series("langtjern_lake.xlsx")
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 2015-01-01 ]
+
+	par_datetime("End date")
+	[ 2018-09-30 ]
+}
+
+module("EasyLake", 0, 1, 0) {
+	par_group("Lake physical") {
+		par_real("Lake surface area")
+		[ 107183 ]
+
+		par_real("Lake depth at which outflow is 0")
+		[ 10 ]
+
+		par_real("Initial epilimnion thickness")
+		[ 2 ]
+
+		par_real("Rating function linear component")
+		[ 0.9 ]
+	}
+}
+

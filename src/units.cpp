@@ -110,6 +110,11 @@ Unit_Data::set_standard_form() {
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
 			standard_form.magnitude += 3*part.power;  // J = 10^3 g m^2 s^-2
+		} else if(part.unit == Compound_Unit::W) {
+			standard_form.powers[(int)Base_Unit::g] += part.power;
+			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
+			standard_form.powers[(int)Base_Unit::s] -= 3*part.power;
+			standard_form.magnitude += 3*part.power;  // W = 10^3 g m^2 s^-3
 		} else if(part.unit == Compound_Unit::l) {
 			standard_form.powers[(int)Base_Unit::m] += 3*part.power;
 			standard_form.magnitude -= 3*part.power;   // l = 10^-3 m^3

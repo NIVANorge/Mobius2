@@ -370,23 +370,6 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 	return result;
 }
 
-llvm::Value *build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to_type, LLVM_Module_Data *data) {
-	if(from_type == Value_Type::real) {
-		fatal_error(Mobius_Error::internal, "Cast from real to other type not implemented");
-	} else if (from_type == Value_Type::integer) {
-		if(to_type == Value_Type::real) {
-			return data->builder->CreateSIToFP(val, llvm::Type::getDoubleTy(*data->context), "castitof");
-		}
-		fatal_error(Mobius_Error::internal, "Cast from integer to boolean type not implemented");
-	} else if (from_type == Value_Type::boolean) {
-		if(to_type == Value_Type::integer)
-			return data->builder->CreateZExt(val, llvm::Type::getInt64Ty(*data->context), "castbtoi");
-		else if(to_type == Value_Type::real)
-			return data->builder->CreateUIToFP(val, llvm::Type::getDoubleTy(*data->context), "castbtof");
-	}
-	fatal_error(Mobius_Error::internal, "Unimplemented cast in ir building.");
-}
-
 llvm::Type *
 get_llvm_type(Value_Type type, LLVM_Module_Data *data) {
 	if(type == Value_Type::real)    return llvm::Type::getDoubleTy(*data->context);
@@ -394,6 +377,30 @@ get_llvm_type(Value_Type type, LLVM_Module_Data *data) {
 	if(type == Value_Type::boolean) return llvm::Type::getInt1Ty(*data->context);
 	fatal_error(Mobius_Error::internal, "Tried to look up llvm type of unrecognized type.");
 	return llvm::Type::getInt64Ty(*data->context);
+}
+
+llvm::Value *build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to_type, LLVM_Module_Data *data) {
+	
+	auto llvm_to_type = get_llvm_type(to_type, data);
+	
+	if(from_type == Value_Type::real) {
+		if(to_type == Value_Type::boolean) {
+			auto tmp = data->builder->CreateFPToSI(val, llvm_to_type, "castftoi"); // Do this before comparison to get rid of negative 0. TODO: check what the behaviour of overflow is here...
+			return data->builder->CreateICmpNE(tmp, llvm::ConstantInt::get(*data->context, llvm::APInt(1, 0)), "netmp");  // Force the value to be 0 or 1
+		} else
+			fatal_error(Mobius_Error::internal, "Cast from real to int not implemented");
+	} else if (from_type == Value_Type::integer) {
+		if(to_type == Value_Type::real)
+			return data->builder->CreateSIToFP(val, llvm_to_type, "castitof");
+		else if (to_type == Value_Type::boolean)
+			return data->builder->CreateICmpNE(val, llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0)), "netmp");  // Force value to be 0 or 1
+	} else if (from_type == Value_Type::boolean) {
+		if(to_type == Value_Type::integer)
+			return data->builder->CreateZExt(val, llvm_to_type, "castbtoi");
+		else if(to_type == Value_Type::real)
+			return data->builder->CreateUIToFP(val, llvm_to_type, "castbtof");
+	}
+	fatal_error(Mobius_Error::internal, "Unimplemented cast in ir building.");
 }
 
 llvm::Value *

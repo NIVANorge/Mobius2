@@ -370,6 +370,7 @@ Registry<reg_type>::operator[](Entity_Id id) {
 	return &registrations[id.id];
 }
 
+//TODO: Does this function need to be in this header?
 inline Parameter_Value
 get_parameter_value(Token *token, Token_Type type) {
 	if((type == Token_Type::integer || type == Token_Type::boolean) && token->type == Token_Type::real)
@@ -377,7 +378,7 @@ get_parameter_value(Token *token, Token_Type type) {
 	Parameter_Value result;
 	if(type == Token_Type::real)
 		result.val_real = token->double_value();
-	else if(type == Token_Type::integer) 
+	else if(type == Token_Type::integer)
 		result.val_integer = token->val_int;
 	else if(type == Token_Type::boolean)
 		result.val_boolean = token->val_bool;

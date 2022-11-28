@@ -47,7 +47,11 @@ module("Net shortwave", 1, 0, 0) {
 		}
 		down_sw * (1 - alb)
 	}
-	
+}
+
+module("Downwelling longwave", 1, 0, 0) {
+	air      : compartment("Atmosphere")
+
 }
 
 

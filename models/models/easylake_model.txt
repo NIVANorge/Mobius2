@@ -11,8 +11,10 @@ model("EasyLake standalone") {
 	
 	water : quantity("Water")
 	heat  : quantity("Thermal energy")
+	ice   : quantity("Ice")
 	
 	sol.solve(epi.water)
 	sol.solve(hyp.water)
 	sol.solve(lake.heat)
+	sol.solve(epi.ice)
 }

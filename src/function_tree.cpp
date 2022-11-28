@@ -100,7 +100,7 @@ is_boolean_operator(Token_Type op) {
 
 Math_Expr_FT *
 make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
-	if(lhs->value_type != rhs->value_type)
+	if((char)oper != '^' && (lhs->value_type != rhs->value_type))                   // Should we have a separate check for validity of '^' ?
 		fatal_error(Mobius_Error::internal, "Mismatching types of arguments in make_binop().");
 	auto binop = new Operator_FT(Math_Expr_Type::binary_operator);
 	binop->value_type = lhs->value_type;
@@ -462,6 +462,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					if(!reg) {
 						ident->chain[0].print_error_header();
 						error_print("The name '", n1, "' is not the name of a local variable or entity declared or loaded in this scope.\n");
+						fatal_error_trace(scope);
 					}
 					Entity_Id id = reg->id;
 					
@@ -614,12 +615,25 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					var->flags = (Identifier_Flags)(var->flags | ident_flags_conc);
 				
 				result = var;
+			/*} else if (fun_name == "bool") {
+				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
+				resolve_arguments(new_fun, ast, data, scope);
+				if(new_fun->exprs.size() != 1) {
+					fun->name.print_error_header();
+					error_print("A ", fun_name, "() call only takes one argument.\n");
+					fatal_error_trace(scope);
+				}
+				auto expr = new_fun->exprs[0];
+				new_fun->exprs.clear();
+				delete new_fun;
+				result = make_cast(expr, Value_Type::boolean);
+			*/
 			} else {
 				// Otherwise it should have been registered as an entity.
 				
 				// TODO: it is a bit problematic that a function can see all other functions in the scope it was imported into...
 				auto reg = decl_scope[fun_name];
-				if(!reg) {
+				if(!reg || reg->id.reg_type != Reg_Type::function) {
 					fun->name.print_error_header();
 					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
 					fatal_error_trace(scope);
@@ -701,11 +715,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 				new_unary->value_type = new_unary->exprs[0]->value_type;
 			} else if((char)unary->oper == '!') {
+				// TODO: we have to see if implicit casting to bool is an OK feature, or if we should make it explicit.
+				new_unary->exprs[0] = make_cast(new_unary->exprs[0], Value_Type::boolean);
+				/*
 				if(new_unary->exprs[0]->value_type != Value_Type::boolean) {
 					new_unary->exprs[0]->location.print_error_header();
 					error_print("Negation must have an argument of type boolean.\n");
 					fatal_error_trace(scope);
 				}
+				*/
 				new_unary->value_type = Value_Type::boolean;
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled unary operator type in resolve_function_tree().");
@@ -723,11 +741,16 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			char op = (char)binary->oper;
 			
 			if(op == '|' || op == '&') {
+				// TODO: we have to see if implicit casting to bool is an OK feature, or if we should make it explicit.
+				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::boolean);
+				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::boolean);
+				/*
 				if(new_binary->exprs[0]->value_type != Value_Type::boolean || new_binary->exprs[1]->value_type != Value_Type::boolean) {
 					binary->location.print_error_header();
-					error_print("Operator ", name(binary->oper), " can only take boolean arguments.\n");
+					error_print("The operator ", name(binary->oper), " can only take boolean arguments.\n");
 					fatal_error_trace(scope);
 				}
+				*/
 				new_binary->value_type = Value_Type::boolean;
 			} else if (op == '^') {
 				//Note: we could implement pow for lhs of type int too, but llvm does not have an intrinsic for it, and there is unlikely to be any use case.
@@ -764,11 +787,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			// Cast all possible result values up to the same type
 			Value_Type value_type = new_if->exprs[0]->value_type;
 			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
+				new_if->exprs[idx+1] = make_cast(new_if->exprs[idx+1], Value_Type::boolean);
+				// TODO: we have to see if implicit casting to bool is an OK feature or if we should make it explicit
+				/*
 				if(new_if->exprs[idx+1]->value_type != Value_Type::boolean) {
 					new_if->exprs[idx+1]->location.print_error_header();
 					error_print("Value of condition in if expression must be of type boolean.\n");
 					fatal_error_trace(scope);
 				}
+				*/
 				if(new_if->exprs[idx]->value_type == Value_Type::real) value_type = Value_Type::real;
 				else if(new_if->exprs[idx]->value_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::boolean;
 			}
@@ -858,9 +885,9 @@ optimize_pow_int(Math_Expr_FT *lhs, s64 p) {
 		}
 		else if(p == -2)
 			result->exprs.push_back(make_binop('/', make_literal(1.0), make_binop('*', ref, ref)));
-	} else {
+	} else
 		result = make_binop('^', lhs, make_literal(p));  // Fallback on powi
-	}
+	
 	return result;
 }
 
