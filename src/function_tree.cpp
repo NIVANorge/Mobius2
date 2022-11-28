@@ -334,11 +334,15 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 }
 
 void
-set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_Id var_id, Source_Location sl, Function_Scope *scope) {
+set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_Id var_id, std::vector<Token> &chain, Function_Scope *scope) {
+	Source_Location sl = chain[0].location;
 	if(!is_valid(var_id)) {
 		sl.print_error_header();
-		//TODO: could print the identifier here, just take the token chain as an argument.
-		error_print("The identifier specified does not resolve to a valid location that has been created using a \"has\" declaration. ");
+		error_print("The identifier\n");
+		int idx = 0;
+		for(Token &token : chain)
+			error_print(token.string_value, idx++ == chain.size()-1 ? "" : ".");
+		error_print("\ncan not be inferred as a valid variable location that has been created using a 'has' declaration. ");
 		if(is_located(data->in_loc)) {
 			error_print("It was being resolved in the following context: ");
 			error_print_location(data->scope, data->in_loc);
@@ -480,7 +484,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							fatal_error_trace(scope);
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
-						set_identifier_location(data, new_ident, var_id, ident->chain[0].location, scope);
+						set_identifier_location(data, new_ident, var_id, ident->chain, scope);
 					} else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
@@ -548,7 +552,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							chain.push_back(reg->id);
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
-						set_identifier_location(data, new_ident, var_id, ident->chain[0].location, scope);
+						set_identifier_location(data, new_ident, var_id, ident->chain, scope);
 					}
 				} else {
 					ident->chain[0].print_error_header();
