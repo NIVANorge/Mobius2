@@ -103,7 +103,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 	
 	bool linked_to_universal = false;
 	if(is_valid(decl_name) && decl) {
-		if(decl->type == Decl_Type::compartment || decl->type == Decl_Type::quantity || decl->type == Decl_Type::property || decl->type == Decl_Type::neighbor
+		if(decl->type == Decl_Type::compartment || decl->type == Decl_Type::quantity || decl->type == Decl_Type::property || decl->type == Decl_Type::connection
 			|| decl->type == Decl_Type::par_real || decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_int || decl->type == Decl_Type::par_enum) {
 			//TODO: it may or may not be a good idea to have this functionality for properties. Let's find out how it works out in practice.
 			if(is_valid(result_id)) {
@@ -216,7 +216,7 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::solver :                   return &solvers;
 		case Reg_Type::solve :                    return &solves;
 		case Reg_Type::constant :                 return &constants;
-		case Reg_Type::neighbor :                 return &neighbors;
+		case Reg_Type::connection :               return &connections;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
@@ -980,11 +980,11 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	if(chain.size() >= 2) {
 		process_location_argument(model, scope, decl, 0, &flux->target, false);
 	} else if (chain.size() == 1) {
-		auto neigh_id = expect_exists(scope, &chain[0], Reg_Type::neighbor);
-		flux->neighbor_target = neigh_id;
+		auto neigh_id = expect_exists(scope, &chain[0], Reg_Type::connection);
+		flux->connection_target = neigh_id;
 	} else {
 		chain[0].print_error_header();
-		fatal_error("This is not a well-formed flux target. Expected something on the form 'compartment.quantity' or 'neighbor'.");
+		fatal_error("This is not a well-formed flux target. Expected something on the form 'compartment.quantity' or 'connection'.");
 	}
 	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to just look them up here.
 }
@@ -1071,28 +1071,28 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 }
 
 template<> Entity_Id
-process_declaration<Reg_Type::neighbor>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::identifier}});
 	
-	auto id       = model->neighbors.standard_declaration(scope, decl);
-	auto neighbor = model->neighbors[id];
+	auto id         = model->connections.standard_declaration(scope, decl);
+	auto connection = model->connections[id];
 	
 	auto body = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0]);
 	if(body->expr->type != Math_Expr_Type::regex_identifier) {
 		body->expr->location.print_error_header();
-		fatal_error("For now we only recognize single index sets for neighbors.");
+		fatal_error("For now we only recognize single index sets for connections.");
 	}
 	auto ident = reinterpret_cast<Regex_Identifier_AST *>(body->expr);
 	auto index_set             = model->index_sets.find_or_create(&ident->ident, scope);
 	String_View structure_type = single_arg(decl, 1)->string_value;
 	
-	neighbor->index_set = index_set;
-	model->index_sets[index_set]->neighbor_structure = id;
+	connection->index_set = index_set;
+	model->index_sets[index_set]->connection_structure = id;
 	if(structure_type == "directed_tree")
-		neighbor->type = Neighbor_Structure_Type::directed_tree;
+		connection->type = Connection_Structure_Type::directed_tree;
 	else {
 		single_arg(decl, 1)->print_error_header();
-		fatal_error("Unsupported neighbor structure type '", structure_type, "'.");
+		fatal_error("Unsupported connection structure type '", structure_type, "'.");
 	}
 	
 	return id;
@@ -1228,8 +1228,8 @@ load_model(String_View file_name) {
 					process_declaration<Reg_Type::component>(model, scope, child);
 				} break;
 				
-				case Decl_Type::neighbor : {
-					process_declaration<Reg_Type::neighbor>(model, scope, child);  // NOTE: we also put this here since we expect we will need referencing it inside modules eventually.
+				case Decl_Type::connection : {
+					process_declaration<Reg_Type::connection>(model, scope, child);  // NOTE: we also put this here since we expect we will need referencing it inside modules eventually.
 				} break;
 				
 				default : {
@@ -1335,7 +1335,7 @@ load_model(String_View file_name) {
 				case Decl_Type::par_group :
 				case Decl_Type::compartment :
 				case Decl_Type::quantity :
-				case Decl_Type::neighbor :
+				case Decl_Type::connection :
 				case Decl_Type::extend :
 				case Decl_Type::module :
 				case Decl_Type::load : {

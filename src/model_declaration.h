@@ -171,14 +171,14 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Var_Location   source;
 	Var_Location   target;
 	bool target_was_out;           // We some times need info about if the target was re-directed by a 'to' declaration.
-	Entity_Id      neighbor_target;
+	Entity_Id      connection_target;
 	
 	std::vector<Var_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
 	
 	Math_Block_AST  *code;
 	Entity_Id        code_scope;
 	
-	Entity_Registration() : neighbor_target(invalid_entity_id), code(nullptr) {}
+	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr) {}
 };
 
 enum class
@@ -214,19 +214,19 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
-	Entity_Id neighbor_structure;   // TODO: In time we could have several, e.g. for lateral vs vertical neighbors etc.
+	Entity_Id connection_structure;   // TODO: In time we could have several, e.g. for lateral vs vertical connections etc.
 	
-	Entity_Registration() : neighbor_structure(invalid_entity_id) {}
+	Entity_Registration() : connection_structure(invalid_entity_id) {}
 };
 
 enum class
-Neighbor_Structure_Type {
+Connection_Structure_Type {
 	unrecognized = 0, directed_tree,
 };
 
 template<> struct
-Entity_Registration<Reg_Type::neighbor> : Entity_Registration_Base {
-	Neighbor_Structure_Type type;
+Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
+	Connection_Structure_Type type;
 	Entity_Id index_set;
 };
 
@@ -301,7 +301,7 @@ Mobius_Model {
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
 	Registry<Reg_Type::solve>       solves;
-	Registry<Reg_Type::neighbor>    neighbors;
+	Registry<Reg_Type::connection>  connections;
 	
 	Decl_Scope model_decl_scope;
 	Decl_Scope global_scope;

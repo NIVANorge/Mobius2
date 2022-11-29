@@ -1,5 +1,55 @@
 
 
+
+
+
+
+
+	# New idea:
+	# 
+	# We don't have neighbor relations between index sets, we have them between compartments. Also rename to connection
+	# e.g.
+	
+	downstream : connection("Downstream", directed_tree) { (river|epi)* }  # 0 or more rivers or lake epilimnions interchanged.
+
+	# in data file:
+
+	r : compartment("River")
+	l : compartment("Lake")
+
+	# this doesn't allow us to do checking of indexes belonging to index sets, but that is maybe ok?
+	connection("Downstream") [
+		r"Coull" -> r"Boyne" -> l"Somelake"
+	]
+	
+	
+	# model file :
+	soil_flow : connection("Soil flow", directed_tree) { soil+ river }  # 1 or more soil boxes followed by a river.
+
+	# data file :
+	s : compartment("Soil")
+
+	connection("Soil flow") [
+		s"Forest" -> s"Bog" -> r            #This means for all r ... Could maybe even omit the 'r' since it is necessary by the model spec.
+		s"Coull""Forest" -> r"Coull"        #This means for this one in particular..
+	]
+
+
+	# layered lakes
+	
+	ll : index_set("Lake layer")
+	
+	lake_layering : connection("Lake layering", grid_1d) { lake_surf lake_layer* lake_bottom }
+	
+	# data file :
+	
+	index_set("Lake layer") [ grid(50) ]   # indexes are numeric from 0 to n-1   (n=50)
+
+	#connection("Lake layering")		# may not be needed, can be obvious given the above.
+	
+
+
+
 	# Rethinking the entire index set system?
 	
 	# Fundamental need is to have some kind of distribution that you distribute things over to create copies of the same sub-model specification.

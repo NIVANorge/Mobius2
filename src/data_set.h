@@ -87,7 +87,7 @@ Index_Set_Info : Info_Type_Base {
 };
 
 struct
-Neighbor_Info : Info_Type_Base {    // This obviously has to be either subclased or have different data when having other neighbor structure types.
+Connection_Info : Info_Type_Base {    // This obviously has to be either subclased or have different data when having other connection structure types.
 	std::string index_set;
 	
 	enum class Type {
@@ -96,7 +96,7 @@ Neighbor_Info : Info_Type_Base {    // This obviously has to be either subclased
 		} type;
 	std::vector<int> points_at;
 	
-	Neighbor_Info() : type(Type::none) {}
+	Connection_Info() : type(Type::none) {}
 };
 
 struct
@@ -182,7 +182,7 @@ Data_Set {
 	Module_Info    global_module;   // This is for par groups that are not in a module but were declared in the model directly.
 	
 	Info_Registry<Index_Set_Info>  index_sets;
-	Info_Registry<Neighbor_Info>   neighbors;
+	Info_Registry<Connection_Info> connections;
 	Info_Registry<Module_Info>     modules;
 	std::vector<Series_Set_Info>   series;
 };

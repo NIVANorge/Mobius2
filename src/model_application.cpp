@@ -125,29 +125,29 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 }
 
 void
-Model_Application::set_up_neighbor_structure() {
-	if(neighbor_structure.has_been_set_up)
-		fatal_error(Mobius_Error::internal, "Tried to set up neighbor structure twice.");
+Model_Application::set_up_connection_structure() {
+	if(connection_structure.has_been_set_up)
+		fatal_error(Mobius_Error::internal, "Tried to set up connection structure twice.");
 	if(!all_indexes_are_set())
-		fatal_error(Mobius_Error::internal, "Tried to set up neighbor structure before all index sets received indexes.");
+		fatal_error(Mobius_Error::internal, "Tried to set up connection structure before all index sets received indexes.");
 	
-	std::vector<Multi_Array_Structure<Neighbor_T>> structure;
-	for(auto neighbor_id : model->neighbors) {
-		auto neighbor = model->neighbors[neighbor_id];
+	std::vector<Multi_Array_Structure<Connection_T>> structure;
+	for(auto connection_id : model->connections) {
+		auto connection = model->connections[connection_id];
 		
-		if(neighbor->type != Neighbor_Structure_Type::directed_tree)
-			fatal_error(Mobius_Error::internal, "Unsupported neighbor structure type in set_up_neighbor_structure()");
+		if(connection->type != Connection_Structure_Type::directed_tree)
+			fatal_error(Mobius_Error::internal, "Unsupported connection structure type in set_up_connection_structure()");
 		
-		Neighbor_T handle = { neighbor_id, 0 };  // For now we only support one info point per index, which will be what the index points at.
-		std::vector<Neighbor_T> handles { handle };
-		Multi_Array_Structure<Neighbor_T> array({neighbor->index_set}, std::move(handles));
+		Connection_T handle = { connection_id, 0 };  // For now we only support one info point per index, which will be what the index points at.
+		std::vector<Connection_T> handles { handle };
+		Multi_Array_Structure<Connection_T> array({connection->index_set}, std::move(handles));
 		structure.push_back(array);
 	}
-	neighbor_structure.set_up(std::move(structure));
-	data.neighbors.allocate();
+	connection_structure.set_up(std::move(structure));
+	data.connections.allocate();
 	
-	for(int idx = 0; idx < neighbor_structure.total_count; ++idx)
-		data.neighbors.data[idx] = -1;                          // To signify that it doesn't point at anything (yet).
+	for(int idx = 0; idx < connection_structure.total_count; ++idx)
+		data.connections.data[idx] = -1;                          // To signify that it doesn't point at anything (yet).
 };
 
 bool
@@ -379,37 +379,37 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	}
 	//TODO: not sure how to handle directed trees when it comes to discrete fluxes. Should we sort the indexes in order?
 	
-	if(!neighbor_structure.has_been_set_up)
-		set_up_neighbor_structure();
-	for(auto &neighbor : data_set->neighbors) {
-		auto neigh_id = model->neighbors.find_by_name(neighbor.name);
-		if(!is_valid(neigh_id)) {
-			neighbor.loc.print_error_header();
-			fatal_error("\"", neighbor.name, "\" has not been declared as a neighbor structure in the model.");
+	if(!connection_structure.has_been_set_up)
+		set_up_connection_structure();
+	for(auto &connection : data_set->connections) {
+		auto conn_id = model->connections.find_by_name(connection.name);
+		if(!is_valid(conn_id)) {
+			connection.loc.print_error_header();
+			fatal_error("\"", connection.name, "\" has not been declared as a connection structure in the model.");
 		}
 		// note: this one must be valid because we already checked it against the index sets in the data set, and the data set index sets were already checked against the model above.
-		auto index_set = model->index_sets.find_by_name(neighbor.index_set);
-		auto nbd = model->neighbors[neigh_id];
+		auto index_set = model->index_sets.find_by_name(connection.index_set);
+		auto nbd = model->connections[conn_id];
 		if(nbd->index_set != index_set) {
-			neighbor.loc.print_error_header();
-			fatal_error("The neighbor structure \"", neighbor.name, "\" was not attached to the index set \"", neighbor.index_set, "\" in the model \"", model->model_name, "\"");
+			connection.loc.print_error_header();
+			fatal_error("The connection structure \"", connection.name, "\" was not attached to the index set \"", connection.index_set, "\" in the model \"", model->model_name, "\"");
 		}
-		if(nbd->type == Neighbor_Structure_Type::directed_tree) {
-			if(neighbor.type != Neighbor_Info::Type::graph) {
-				neighbor.loc.print_error_header();
-				fatal_error("Neighbor structures of type directed_tree can only be set up using graph data.");
+		if(nbd->type == Connection_Structure_Type::directed_tree) {
+			if(connection.type != Connection_Info::Type::graph) {
+				connection.loc.print_error_header();
+				fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
 			}
-			if(neighbor.points_at.size() != index_counts[index_set.id].index)
-				fatal_error(Mobius_Error::internal, "Somehow the neighbor data in a data set did not have a size matching the amount of indexes in the associated index set.");
+			if(connection.points_at.size() != index_counts[index_set.id].index)
+				fatal_error(Mobius_Error::internal, "Somehow the connection data in a data set did not have a size matching the amount of indexes in the associated index set.");
 			std::vector<Index_T> indexes = {{index_set, 0}};
 			for(int idx = 0; idx < index_counts[index_set.id].index; ++idx) { // TODO: make ++ and < operators for Index_T instead!
 				indexes[0].index = idx;
 				int info_id = 0;  // directed trees only have one info point (id 0), which is the points_at information.
-				s64 offset = neighbor_structure.get_offset_alternate({neigh_id, info_id}, indexes);
-				*data.neighbors.get_value(offset) = (s64)neighbor.points_at[idx];
+				s64 offset = connection_structure.get_offset_alternate({conn_id, info_id}, indexes);
+				*data.connections.get_value(offset) = (s64)connection.points_at[idx];
 			}
 		} else {
-			fatal_error(Mobius_Error::internal, "Unsupported neighbor structure type in build_from_data_set().");
+			fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
 		}
 	}
 	
@@ -607,7 +607,7 @@ Model_Data::get_end_date_parameter() {
 
 Model_Data::Model_Data(Model_Application *app) :
 	app(app), parameters(&app->parameter_structure), series(&app->series_structure),
-	results(&app->result_structure, 1), neighbors(&app->neighbor_structure),
+	results(&app->result_structure, 1), connections(&app->connection_structure),
 	additional_series(&app->additional_series_structure) {
 }
 
@@ -621,7 +621,7 @@ Model_Data::copy(bool copy_results) {
 		cpy->results.copy_from(&this->results);
 	cpy->series.refer_to(&this->series);
 	cpy->additional_series.refer_to(&this->additional_series);
-	cpy->neighbors.refer_to(&this->neighbors);
+	cpy->connections.refer_to(&this->connections);
 	return cpy;
 }
 	

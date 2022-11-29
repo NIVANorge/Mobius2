@@ -56,7 +56,7 @@ State_Variable {
 	enum Flags {
 		f_none                = 0x00,
 		f_in_flux             = 0x01,
-		f_in_flux_neighbor    = 0x02,
+		f_in_flux_connection  = 0x02,
 		f_is_aggregate        = 0x04, 
 		f_has_aggregate       = 0x08,
 		f_clear_series_to_nan = 0x10,
@@ -73,7 +73,7 @@ State_Variable {
 	
 	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
 	
-	Entity_Id neighbor; // For a flux that points at a neighbor.
+	Entity_Id connection; // For a flux that points at a connection.
 	
 	// If this is a quantity or property, loc1 is the location of this variable.
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
@@ -87,9 +87,9 @@ State_Variable {
 	// if f_in_flux is set (this is the aggregation variable for the in fluxes), agg points at the quantity that is the target of the fluxes.
 	Var_Id         in_flux_target;
 	
-	// If this is the target variable of a neighbor flux, neighbor_agg points to the aggregation variable for the neighbor flux.
-	// If this is the aggregate ( f_in_flux_neighbor is set ), neighbor_agg points to the target of the neighbor flux(es) (which is the same as the source).
-	Var_Id         neighbor_agg;
+	// If this is the target variable of a connection flux, connection_agg points to the aggregation variable for the connection flux.
+	// If this is the aggregate ( f_in_flux_connection is set ), connection_agg points to the target of the connection flux(es) (which is the same as the source).
+	Var_Id         connection_agg;
 	
 	// If this is a generated flux for a dissolved quantity (f_dissolved_flux is set), dissolved_conc is the respective generated conc of the quantity. dissolved_flux is the flux of the quantity that this one is dissolved in.
 	// If this is the generated conc (f_dissolved_conc is set), dissolved_conc is the variable for the mass of the quantity.
@@ -105,7 +105,7 @@ State_Variable {
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), neighbor(invalid_entity_id), neighbor_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), connection(invalid_entity_id), connection_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
 };
 
 template <Var_Id::Type var_type>
@@ -169,12 +169,12 @@ struct Var_Registry {
 };
 
 
-struct Neighbor_T {
-	Entity_Id neighbor;
+struct Connection_T {
+	Entity_Id connection;
 	s32       info_id;
 };
 
-inline bool operator==(const Neighbor_T &a, const Neighbor_T& b) { return a.neighbor == b.neighbor && a.info_id == b.info_id; }
+inline bool operator==(const Connection_T &a, const Connection_T& b) { return a.connection == b.connection && a.info_id == b.info_id; }
 
 template<typename Handle_T> struct Hash_Fun {
 	int operator()(const Handle_T&) const;
@@ -189,8 +189,8 @@ template<> struct Hash_Fun<Var_Id> {
 	int operator()(const Var_Id& id) const { return id.id; }
 };
 
-template<> struct Hash_Fun<Neighbor_T> {
-	int operator()(const Neighbor_T& id) const { return 97*id.neighbor.id + id.info_id; }
+template<> struct Hash_Fun<Connection_T> {
+	int operator()(const Connection_T& id) const { return 97*id.connection.id + id.info_id; }
 };
 
 
@@ -370,7 +370,7 @@ struct Model_Data {
 	Data_Storage<Parameter_Value, Entity_Id>  parameters;
 	Data_Storage<double, Var_Id>              series;
 	Data_Storage<double, Var_Id>              results;
-	Data_Storage<s64, Neighbor_T>             neighbors;
+	Data_Storage<s64, Connection_T>           connections;
 	Data_Storage<double, Var_Id>              additional_series;
 	
 	Model_Data *copy(bool copy_results = true);
@@ -430,7 +430,7 @@ Model_Application {
 	Var_Registry<Var_Id::Type::additional_series>            additional_series;
 	
 	Storage_Structure<Entity_Id>                             parameter_structure;
-	Storage_Structure<Neighbor_T>                            neighbor_structure;
+	Storage_Structure<Connection_T>                          connection_structure;
 	Storage_Structure<Var_Id>                                result_structure;
 	Storage_Structure<Var_Id>                                series_structure;
 	Storage_Structure<Var_Id>                                additional_series_structure;
@@ -454,7 +454,7 @@ Model_Application {
 	void save_to_data_set();
 	
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
-	void set_up_neighbor_structure();
+	void set_up_connection_structure();
 	
 	template<Var_Id::Type var_type> void
 	set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata);
@@ -483,8 +483,8 @@ Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
 }
 
 template<> inline const std::string &
-Storage_Structure<Neighbor_T>::get_handle_name(Neighbor_T nb) {
-	return parent->model->neighbors[nb.neighbor]->name;
+Storage_Structure<Connection_T>::get_handle_name(Connection_T nb) {
+	return parent->model->connections[nb.connection]->name;
 }
 
 template<typename Handle_T> const std::vector<Entity_Id> &

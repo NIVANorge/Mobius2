@@ -6,7 +6,7 @@ index_set("Landscape units") [ "Arable" "Improved grasslands" "Semi-natural" ]
 
 index_set("Subcatchment") [ "Coull" "Boyne" ]
 
-neighbor("Downstream", "Subcatchment") [
+connection("Downstream", "Subcatchment") [
 	"Coull"  -> "Boyne"
 ]
 

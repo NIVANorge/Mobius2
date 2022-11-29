@@ -9,7 +9,7 @@ void
 prelim_compose(Model_Application *app);
 
 Model_Application::Model_Application(Mobius_Model *model) : 
-	model(model), parameter_structure(this), series_structure(this), result_structure(this), neighbor_structure(this), 
+	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this), 
 	additional_series_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
 	
 	index_counts.resize(model->index_sets.count());
@@ -81,12 +81,12 @@ register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bo
 			// These may not be needed, since we would check if the locations exist in any case (and the source location is confusing as it stands here).
 			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
 			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
-			if(is_valid(flux->neighbor_target)) {
+			if(is_valid(flux->connection_target)) {
 				if(!is_located(var.loc1)) {
 					flux->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("You can't have a flux from nowhere to a neighbor.\n");
+					fatal_error("You can't have a flux from nowhere to a connection.\n");
 				}
-				var.neighbor = flux->neighbor_target;
+				var.connection = flux->connection_target;
 				var.loc2 = var.loc1;
 			}
 			// TODO: the flux unit should always be (unit of what is transported) / (time step unit)
@@ -505,8 +505,8 @@ prelim_compose(Model_Application *app) {
 			gen_flux->loc2.type = flux->loc2.type;
 			if(is_located(flux->loc2))
 				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
-			if(is_valid(flux->neighbor))
-				gen_flux->neighbor = flux->neighbor;
+			if(is_valid(flux->connection))
+				gen_flux->connection = flux->connection;
 		}
 	}
 }
@@ -542,7 +542,7 @@ compose_and_resolve(Model_Application *app) {
 	Var_Map2 needs_aggregate;
 	//Var_Map2 needs_aggregate_initial;
 	
-	std::set<Var_Id> may_need_neighbor_target;
+	std::set<Var_Id> may_need_connection_target;
 	
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
@@ -581,9 +581,9 @@ compose_and_resolve(Model_Application *app) {
 			
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
 			
-			if(is_valid(var->neighbor)) {
-				Var_Id target_id = app->state_vars[var->loc1]; // loc1==loc2 for neighbor fluxes.
-				may_need_neighbor_target.insert(app->state_vars[var->loc1]); // We only need these for non-discrete variables.
+			if(is_valid(var->connection)) {
+				Var_Id target_id = app->state_vars[var->loc1]; // loc1==loc2 for connection fluxes.
+				may_need_connection_target.insert(app->state_vars[var->loc1]); // We only need these for non-discrete variables.
 			}
 			
 			if(is_located(var->loc1)) {
@@ -838,20 +838,20 @@ compose_and_resolve(Model_Application *app) {
 		has_solver[var_id.id] = 1;
 	}
 	
-	// TODO: Should we give an error if there is a neighbor flux on an overridden variable?
+	// TODO: Should we give an error if there is a connection flux on an overridden variable?
 	
-	warning_print("Generate state vars for in_flux_neighbor.\n");
-	// TODO: What happens if there are multiple neighbor fluxes for the same variable?
-	//   currently it looks like only the last one will be added to the target in the end ( neighbor_agg is overwritten by the last one we create ).
-	for(auto var_id : may_need_neighbor_target) {
+	warning_print("Generate state vars for in_flux_connection.\n");
+	// TODO: What happens if there are multiple connection fluxes for the same variable?
+	//   currently it looks like only the last one will be added to the target in the end ( connection_agg is overwritten by the last one we create ).
+	for(auto var_id : may_need_connection_target) {
 		if(!has_solver[var_id.id]) continue;
 		
-		Var_Id n_agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux_neighbor"); //TODO: generate a better name
+		Var_Id n_agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux_connection"); //TODO: generate a better name
 		auto n_agg_var = app->state_vars[n_agg_id];
-		n_agg_var->flags = State_Variable::Flags::f_in_flux_neighbor;
-		n_agg_var->neighbor_agg = var_id;
+		n_agg_var->flags = State_Variable::Flags::f_in_flux_connection;
+		n_agg_var->connection_agg = var_id;
 		
-		app->state_vars[var_id]->neighbor_agg = n_agg_id;
+		app->state_vars[var_id]->connection_agg = n_agg_id;
 	}
 	
 	warning_print("Generate state vars for in_flux.\n");

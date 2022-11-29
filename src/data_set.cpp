@@ -16,15 +16,15 @@ write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
 
 
 void
-write_neighbor_info_to_file(FILE *file, Neighbor_Info &neighbor, Data_Set *data_set) {
-	if(neighbor.type != Neighbor_Info::Type::graph)
-		fatal_error(Mobius_Error::internal, "Unimplemented neighbor info type in Data_Set::write_to_file.");
+write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set) {
+	if(connection.type != Connection_Info::Type::graph)
+		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in Data_Set::write_to_file.");
 	
-	fprintf(file, "neighbor(\"%s\", \"%s\") [", neighbor.name.data(), neighbor.index_set.data());
+	fprintf(file, "connection(\"%s\", \"%s\") [", connection.name.data(), connection.index_set.data());
 	
-	Index_Set_Info *index_set = data_set->index_sets.find(neighbor.index_set);
+	Index_Set_Info *index_set = data_set->index_sets.find(connection.index_set);
 	if(!index_set)
-		fatal_error(Mobius_Error::internal, "Data set does not have index set that was registered with neighbor info.");
+		fatal_error(Mobius_Error::internal, "Data set does not have index set that was registered with connection info.");
 	// TODO!
 	//   non-trivial problem to format this the best way possible... :(
 	//   could keep around structure from previously loaded file, but that doesn't help if the data is edited e.g. in the user interface.
@@ -34,7 +34,7 @@ write_neighbor_info_to_file(FILE *file, Neighbor_Info &neighbor, Data_Set *data_
 	
 	int next = -1;
 	for(int idx = 0; idx < index_set->indexes.count(); ++idx) {
-		int points_at = neighbor.points_at[idx];
+		int points_at = connection.points_at[idx];
 		if(points_at >= 0) {
 			if(idx != next) {
 				fprintf(file, "\n\t\"%s\" ", index_set->indexes[idx]->name.data());
@@ -171,8 +171,8 @@ Data_Set::write_to_file(String_View file_name) {
 	for(auto &index_set : index_sets)
 		write_index_set_to_file(file, index_set);
 	
-	for(auto &neighbor : neighbors)
-		write_neighbor_info_to_file(file, neighbor, this);
+	for(auto &connection : connections)
+		write_connection_info_to_file(file, connection, this);
 	
 	std::set<std::string> already_processed;
 	for(auto &ser : series)
@@ -205,7 +205,7 @@ read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident =
 }
 
 void
-read_neighbor_sequence(Token *first, Token_Stream *stream, Neighbor_Info *info, Index_Set_Info *index_set) {
+read_connection_sequence(Token *first, Token_Stream *stream, Connection_Info *info, Index_Set_Info *index_set) {
 	
 	int idx_from = index_set->indexes.expect_exists_idx(first, "index");
 	stream->expect_token(Token_Type::arr_r);
@@ -216,9 +216,9 @@ read_neighbor_sequence(Token *first, Token_Stream *stream, Neighbor_Info *info, 
 	
 	Token token = stream->read_token();
 	if(token.type == Token_Type::arr_r)
-		read_neighbor_sequence(&second, stream, info, index_set);
+		read_connection_sequence(&second, stream, info, index_set);
 	else if(token.type == Token_Type::quoted_string) {
-		read_neighbor_sequence(&token, stream, info, index_set);
+		read_connection_sequence(&token, stream, info, index_set);
 	} else if((char)token.type == ']')
 		return;
 	else {
@@ -228,10 +228,10 @@ read_neighbor_sequence(Token *first, Token_Stream *stream, Neighbor_Info *info, 
 }
 
 void
-read_neighbor_data(Token_Stream *stream, Neighbor_Info *info, Index_Set_Info *index_set) {
+read_connection_data(Token_Stream *stream, Connection_Info *info, Index_Set_Info *index_set) {
 	stream->expect_token('[');
 	
-	info->type = Neighbor_Info::Type::graph;
+	info->type = Connection_Info::Type::graph;
 	
 	Token token = stream->read_token();
 	if((char)token.type == ']')
@@ -242,7 +242,7 @@ read_neighbor_data(Token_Stream *stream, Neighbor_Info *info, Index_Set_Info *in
 		fatal_error("Expected a ] or a quoted index name.");
 	}
 	
-	read_neighbor_sequence(&token, stream, info, index_set);
+	read_connection_sequence(&token, stream, info, index_set);
 }
 
 void
@@ -485,7 +485,7 @@ Data_Set::read_from_file(String_View file_name) {
 			continue;
 		} else if(token.type != Token_Type::identifier) {
 			token.print_error_header();
-			fatal_error("Expected an identifier (index_set, neighbor, series, module, par_group, or par_datetime)."); 
+			fatal_error("Expected an identifier (index_set, connection, series, module, par_group, or par_datetime)."); 
 		}
 		
 		if(token.string_value == "index_set") {
@@ -499,17 +499,17 @@ Data_Set::read_from_file(String_View file_name) {
 			for(int idx = 0; idx < indexes.size(); ++idx)
 				data->indexes.create(indexes[idx].string_value, indexes[idx].location);
 			delete decl;
-		} else if(token.string_value == "neighbor") {
+		} else if(token.string_value == "connection") {
 			auto decl = parse_decl_header(&stream);
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, 0, false, 0);
 			
 			auto name = single_arg(decl, 0);
-			auto data = neighbors.create(name->string_value, name->location);
+			auto data = connections.create(name->string_value, name->location);
 			
 			Index_Set_Info *index_set = index_sets.expect_exists(single_arg(decl, 1), "index_set");
 			data->index_set = index_set->name;
 			data->points_at.resize(index_set->indexes.count(), -1);
-			read_neighbor_data(&stream, data, index_set);
+			read_connection_data(&stream, data, index_set);
 			delete decl;
 		} else if(token.string_value == "series") {
 			Token token2 = stream.peek_token(1);

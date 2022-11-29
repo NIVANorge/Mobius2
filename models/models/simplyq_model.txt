@@ -24,7 +24,7 @@ General model description.
 	sc : index_set("Subcatchment")
 	lu : index_set("Landscape units")
 	
-	downstream : neighbor("Downstream", directed_tree) { sc }
+	downstream : connection("Downstream", directed_tree) { sc }
 	
 	soil.distribute(sc, lu)
 	gw.distribute(sc)

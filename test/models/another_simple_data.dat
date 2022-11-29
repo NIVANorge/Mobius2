@@ -1,7 +1,7 @@
 
 index_set("A index") [  "Place A" "Place B" "Place C" ]
 
-neighbor("A graph", "A index") [
+connection("A graph", "A index") [
 	"Place A" -> "Place C"
 	"Place B" -> "Place C"
 ]

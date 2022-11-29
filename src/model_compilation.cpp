@@ -19,7 +19,7 @@ Model_Instruction {
 	
 	Var_Id              var_id;
 	Var_Id              source_or_target_id;
-	Entity_Id           neighbor;
+	Entity_Id           connection;
 	
 	Entity_Id           solver;
 	
@@ -34,7 +34,7 @@ Model_Instruction {
 	bool visited;
 	bool temp_visited;
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), neighbor(invalid_entity_id), type(Type::invalid), code(nullptr) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr) {};
 };
 
 struct
@@ -61,10 +61,10 @@ error_print_instruction(Model_Application *app, Model_Instruction *instr) {
 		error_print("(\"", app->state_vars[instr->source_or_target_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\")");
 	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
 		error_print("(");
-		if(is_valid(instr->neighbor))
-			error_print("neighbor(");
+		if(is_valid(instr->connection))
+			error_print("connection(");
 		error_print("\"", app->state_vars[instr->source_or_target_id]->name, "\"");
-		if(is_valid(instr->neighbor))
+		if(is_valid(instr->connection))
 			error_print(")");
 		error_print(" += \"", app->state_vars[instr->var_id]->name, "\")");
 	}
@@ -155,30 +155,30 @@ make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, 
 }
 
 Math_Expr_FT *
-add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *var_ident, Var_Id var_id_agg, std::vector<Math_Expr_FT *> &indexes, Entity_Id neighbor_id = invalid_entity_id) {
+add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *var_ident, Var_Id var_id_agg, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id = invalid_entity_id) {
 
 	Math_Expr_FT *offset_code_agg;
 	Math_Expr_FT *index_ref = nullptr;
 	
-	if(is_valid(neighbor_id)) {
-		// The aggregation was pointed at a neighboring index, not the same index as the current one.
-		auto neighbor = model_app->model->neighbors[neighbor_id];
+	if(is_valid(connection_id)) {
+		// The aggregation was pointed at a connected index, not the same index as the current one.
+		auto connection = model_app->model->connections[connection_id];
 		
-		auto cur_idx = indexes[neighbor->index_set.id];
+		auto cur_idx = indexes[connection->index_set.id];
 		
 		// TODO: for directed_trees, if the index count is 1, we know that this can't possibly go anywhere, and can be omitted, so we should just return a no-op.
-		if(neighbor->type != Neighbor_Structure_Type::directed_tree)
-			fatal_error(Mobius_Error::internal, "Unhandled neighbor type in add_or_subtract_flux_from_var()");
+		if(connection->type != Connection_Structure_Type::directed_tree)
+			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_flux_from_var()");
 		
-		auto index_offset = model_app->neighbor_structure.get_offset_code({neighbor_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
+		auto index_offset = model_app->connection_structure.get_offset_code({connection_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
 		auto index = new Identifier_FT();
-		index->variable_type = Variable_Type::neighbor_info;
+		index->variable_type = Variable_Type::connection_info;
 		index->value_type = Value_Type::integer;
 		index->exprs.push_back(index_offset);
 		
-		indexes[neighbor->index_set.id] = index;
+		indexes[connection->index_set.id] = index;
 		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
-		indexes[neighbor->index_set.id] = cur_idx;  // Reset it for use by others;
+		indexes[connection->index_set.id] = cur_idx;  // Reset it for use by others;
 		index_ref = index;
 	} else
 		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
@@ -194,7 +194,7 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 	assignment->value_type = Value_Type::none;
 	
 	if(index_ref) {
-		// We have to check that the index is not negative (meaning there are no neighbors)
+		// We have to check that the index is not negative (meaning there are no connections)
 		// NOTE: we don't have to copy the index_ref here, because it should have been copied in its previous use.
 		
 		// TODO: Instead of having the branch we could have the index point at some random existing value, then multiply with a weight which is 0 if there is no target, and 1 otherwise.
@@ -275,12 +275,12 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->neighbor);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->neighbor);
+				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
@@ -411,9 +411,9 @@ debug_print_instruction(Model_Application *app, Model_Instruction *instr) {
 	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
 		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\"\n");
 	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
-		if(is_valid(instr->neighbor)) warning_print("neighbor(");
+		if(is_valid(instr->connection)) warning_print("connection(");
 		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\"");
-		if(is_valid(instr->neighbor)) warning_print(")");
+		if(is_valid(instr->connection)) warning_print(")");
 		warning_print(" += \"", app->state_vars[instr->var_id]->name, "\"\n");
 	} else if(instr->type == Model_Instruction::Type::clear_state_var)
 		warning_print("\"", app->state_vars[instr->var_id]->name, "\" = 0\n");
@@ -640,7 +640,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(!fun) {
 			if(!initial && var->type != Decl_Type::quantity && 
 				!(var->flags & State_Variable::Flags::f_is_aggregate) && 
-				!(var->flags & State_Variable::Flags::f_in_flux_neighbor) &&
+				!(var->flags & State_Variable::Flags::f_in_flux_connection) &&
 				!(var->flags & State_Variable::Flags::f_in_flux) &&
 				!(var->flags & State_Variable::Flags::f_dissolved_flux) &&
 				!(var->flags & State_Variable::Flags::f_dissolved_conc) &&
@@ -691,9 +691,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(var->type == Decl_Type::flux && is_located(var->loc1)) {
 				instructions[var_id.id].solver = instructions[app->state_vars[var->loc1].id].solver;
 			}
-			// Also set the solver for an aggregation variable for a neighbor flux.
-			if(var->flags & State_Variable::Flags::f_in_flux_neighbor) {
-				instructions[var_id.id].solver = instructions[var->neighbor_agg.id].solver;
+			// Also set the solver for an aggregation variable for a connection flux.
+			if(var->flags & State_Variable::Flags::f_in_flux_connection) {
+				instructions[var_id.id].solver = instructions[var->connection_agg.id].solver;
 			}
 			// Dissolved fluxes of fluxes with solvers must be on solvers
 			//TODO: make it work with dissolvedes of dissolvedes
@@ -789,24 +789,24 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			}
 		}
 		
-		if(var->flags & State_Variable::Flags::f_in_flux_neighbor) {
+		if(var->flags & State_Variable::Flags::f_in_flux_connection) {
 			
 			if(initial)
-				fatal_error(Mobius_Error::internal, "Got a neighbor flux in the initial step.");
+				fatal_error(Mobius_Error::internal, "Got a connection flux in the initial step.");
 			if(!is_valid(var_solver))
-				fatal_error(Mobius_Error::internal, "Got aggregation variable for neighbor fluxes without a solver.");
+				fatal_error(Mobius_Error::internal, "Got aggregation variable for connection fluxes without a solver.");
 			
 			//warning_print("************ Found it\n");
 			
 			// var is the target aggregate
-			// var->neighbor_agg  is the final quantity state variable for the target.
+			// var->connection_agg  is the final quantity state variable for the target.
 			
-			// Find all the neighbor fluxes pointing to the target.
+			// Find all the connection fluxes pointing to the target.
 			for(auto var_id_flux : app->state_vars) {
 				auto var_flux = app->state_vars[var_id_flux];
 				
-				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->neighbor)) continue;
-				if(app->state_vars[var_flux->loc1] != var->neighbor_agg) continue;
+				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->connection)) continue;
+				if(app->state_vars[var_flux->loc1] != var->connection_agg) continue;
 				
 				// Create instruction to add the in flux to the target aggregate.
 				int clear_id = instructions.size();
@@ -829,17 +829,17 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->depends_on_instruction.insert(clear_id); // Only start summing up after we cleared to 0.
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
 				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
-				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need one per target of the neighbor fluxes.
+				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need one per target of the connection fluxes.
 				add_to_aggr_instr->solver = var_solver;
-				add_to_aggr_instr->neighbor = var_flux->neighbor;
+				add_to_aggr_instr->connection = var_flux->connection;
 				
 				// This says that the clear_id has to be in a separate for loop from this instruction
 				add_to_aggr_instr->instruction_is_blocking.insert(clear_id);
 				
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
-				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var->neighbor_agg.id); // TODO: Is this necessary, or do we just have to insert the particular index set of the neighbor relation?
+				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var->connection_agg.id); // TODO: Is this necessary, or do we just have to insert the particular index set of the connection relation?
 				// This is not needed because the target is always an ODE:
-				//instructions[var->neighbor_agg.id].depends_on_instruction.insert(var_id.id); // The target must be computed after the aggregation variable.
+				//instructions[var->connection_agg.id].depends_on_instruction.insert(var_id.id); // The target must be computed after the aggregation variable.
 			}
 		}
 		
@@ -875,23 +875,23 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
-		bool is_neighbor = is_valid(var->neighbor);
-		if(is_neighbor && has_aggregate)
-			fatal_error(Mobius_Error::internal, "Somehow a neighbor flux got an aggregate");
+		bool is_connection = is_valid(var->connection);
+		if(is_connection && has_aggregate)
+			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate");
 		
-		if(is_neighbor) {
-			auto neighbor = model->neighbors[var->neighbor];
-			if(neighbor->type != Neighbor_Structure_Type::directed_tree)
-				fatal_error(Mobius_Error::internal, "Unsupported neighbor structure in build_instructions().");
-			// NOTE: the source and target id for the neighbor-flux are the same, but loc2 doesn't record the target in this case, so we use the source_id.
+		if(is_connection) {
+			auto connection = model->connections[var->connection];
+			if(connection->type != Connection_Structure_Type::directed_tree)
+				fatal_error(Mobius_Error::internal, "Unsupported connection structure in build_instructions().");
+			// NOTE: the source and target id for the connection-flux are the same, but loc2 doesn't record the target in this case, so we use the source_id.
 			Model_Instruction *target = &instructions[source_id.id];
-			// If we have fluxes of two instances of the same quantity, we have to enforce that it is indexed by by the index set of that neighbor relation.
-			target->index_sets.insert(neighbor->index_set);
+			// If we have fluxes of two instances of the same quantity, we have to enforce that it is indexed by by the index set of that connection relation.
+			target->index_sets.insert(connection->index_set);
 		}
 		
-		if((is_located(loc2) || is_neighbor) && !has_aggregate) {
+		if((is_located(loc2) || is_connection) && !has_aggregate) {
 			Var_Id target_id;
-			if(is_neighbor)
+			if(is_connection)
 				target_id = source_id;	
 			else
 				target_id = app->state_vars[loc2];
@@ -908,13 +908,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				//add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux. Should no longer be needed to be declared explicitly with new dependency system.
 				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 				add_target_instr.source_or_target_id = target_id;
-				if(is_neighbor) {
+				if(is_connection) {
 					// the index sets already depend on the flux itself, which depends on the source, so we don't have to redeclare that.
-					add_target_instr.neighbor = var->neighbor;
+					add_target_instr.connection = var->connection;
 				}
 				
 				int add_idx = (int)instructions.size();
-				if(!is_neighbor)
+				if(!is_connection)
 					target->depends_on_instruction.insert(add_idx);
 				
 				// NOTE: this one is needed because of unit conversions, which could give an extra index set dependency to the add instruction.
@@ -1279,8 +1279,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : app->state_vars) {
 					auto flux_var = app->state_vars[flux_id];
 					if(flux_var->flags & State_Variable::Flags::f_invalid) continue;
-					// NOTE: by design we don't include neighbor fluxes in the in_flux. May change that later.
-					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->neighbor) && is_located(flux_var->loc2) && app->state_vars[flux_var->loc2] == var->in_flux_target) {
+					// NOTE: by design we don't include connection fluxes in the in_flux. May change that later.
+					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->connection) && is_located(flux_var->loc2) && app->state_vars[flux_var->loc2] == var->in_flux_target) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						if(flux_var->unit_conversion_tree)
 							flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
@@ -1293,7 +1293,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for the derivative of state variables:
 			if(var->type == Decl_Type::quantity && is_valid(instr.solver) && !var->override_tree) {
 				Math_Expr_FT *fun;
-				auto neigh_agg = var->neighbor_agg; // aggregation variable for values coming from neighbor fluxes.
+				auto neigh_agg = var->connection_agg; // aggregation variable for values coming from connection fluxes.
 				if(is_valid(neigh_agg))
 					fun = make_state_var_identifier(neigh_agg);
 				else
@@ -1310,7 +1310,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					}
 					
 					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
-					if(is_located(flux->loc2) && !is_valid(flux->neighbor) && app->state_vars[flux->loc2] == instr.var_id) {
+					if(is_located(flux->loc2) && !is_valid(flux->connection) && app->state_vars[flux->loc2] == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						// NOTE: the unit conversion applies to what reaches the target.
 						if(flux->unit_conversion_tree)
@@ -1335,7 +1335,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			auto agg_var = app->state_vars[instr.source_or_target_id];
 			
 			auto weight = agg_var->aggregation_weight_tree;
-			if(!weight && !is_valid(instr.neighbor))  // NOTE: no default weight for neighbor fluxes.
+			if(!weight && !is_valid(instr.connection))  // NOTE: no default weight for connection fluxes.
 				fatal_error(Mobius_Error::internal, "Somehow we got an aggregation without code for computing the weight.");
 			
 			if(weight)
@@ -1362,8 +1362,8 @@ Model_Application::compile() {
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before input series data was set up.");
 	if(!parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before parameter data was set up.");
-	if(!neighbor_structure.has_been_set_up)
-		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before neighbor data was set up.");
+	if(!connection_structure.has_been_set_up)
+		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before connection data was set up.");
 	
 	compose_and_resolve(this);
 	
@@ -1440,8 +1440,8 @@ Model_Application::compile() {
 	set_up_result_structure(this, batches, instructions);
 	
 	LLVM_Constant_Data constants;
-	constants.neighbor_data       = data.neighbors.data;
-	constants.neighbor_data_count = neighbor_structure.total_count;
+	constants.connection_data       = data.connections.data;
+	constants.connection_data_count = connection_structure.total_count;
 	
 	jit_add_global_data(llvm_data, &constants);
 	
