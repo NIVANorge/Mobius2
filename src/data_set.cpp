@@ -501,7 +501,7 @@ Data_Set::read_from_file(String_View file_name) {
 			delete decl;
 		} else if(token.string_value == "neighbor") {
 			auto decl = parse_decl_header(&stream);
-			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, 0, false);
+			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, 0, false, 0);
 			
 			auto name = single_arg(decl, 0);
 			auto data = neighbors.create(name->string_value, name->location);

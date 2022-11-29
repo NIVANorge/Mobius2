@@ -11,8 +11,12 @@ apply_cast(Typed_Value val, Value_Type to_type) {
 	Typed_Value result;
 	result.type = to_type;
 	if(val.type == to_type) fatal_error(Mobius_Error::internal, "apply_cast() to same type."); // this should have been eliminated at a different stage.
-	if(to_type == Value_Type::boolean) fatal_error(Mobius_Error::internal, "apply_cast() to bool not implemented."); // we don't cast to bool yet. May want to implement it later, but it is not really necessary.
-	if(to_type == Value_Type::real) {
+	if(to_type == Value_Type::boolean) {
+		if(val.type == Value_Type::real)
+			result.val_boolean = (bool)val.val_real;
+		else if(val.type == Value_Type::integer)
+			result.val_boolean = (bool)val.val_integer;
+	} else if(to_type == Value_Type::real) {
 		if(val.type == Value_Type::integer)
 			result.val_real = (double)val.val_integer;
 		else if(val.type == Value_Type::boolean)

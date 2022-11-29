@@ -7,27 +7,30 @@ model("Another simple") {
 		a : compartment("A")
 		q : quantity("Q")
 		
-		a.has(q, unit(), "QA") .initial {
-			b
-		}
+		a.has(q, unit(), "QA") .initial { b }
 		
 		a.par_group("Pars") {
-			b : par_real("test", unit(), 0)
+			b : par_real("initial q", unit(), 0)
 		}
 		
-		a.has(c : property("test")) {
-			b * sin(time.day_of_year * 2.0 * pi / 365.0)
+		q_out :
+		flux(a.q, out, "q out") {
+			5
 		}
 	}
 	
-	sw : module("Another simple", 1, 0, 0) {
-		
-		a : compartment("A")
-		q : quantity("Q")
-		
-		flux(a.q, nowhere, "The flux") { 5 }
-		
-	}
+	simply_solver : solver("Simply solver", "INCADascru", 0.1)
 	
-	a.compartment("A")
+	simply_solver.solve(a.q)
+	
+	i : index_set("A index")
+	
+	a : compartment("A")
+	q : quantity("Q")
+	
+	a.distribute(i)
+	
+	n : neighbor("A graph", directed_tree) { i }
+	
+	sp.q_out.to(n)
 }

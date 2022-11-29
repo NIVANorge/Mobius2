@@ -25,16 +25,9 @@ library("Meteorology") {
 		#P. R. Lowe, 1977, "An approximating polynomial for the computation of saturation vapor pressure, J. Appl. Meteor., 16, 100-103.
 		#Returns saturation vapor pressure in millibar=hectopascal
 		#TODO: that paper has a separate formula for T < 0
-		
-		a0 := 6.107799961
-		a1 := 4.436518521e-1
-		a2 := 1.428945805e-2
-		a3 := 2.650648471e-4
-		a4 := 3.031240396e-6
-		a5 := 2.034080948e-8
-		a6 := 6.136820929e-11
-		t  := T_celsius*1              #ooops, problems with the syntax make themselves apparent :(
-		(a0 + t*(a1 + t*(a2 + t*(a3 + t*(a4 + t*(a5 + t*a6))))))
+		t  := T_celsius
+		6.107799961 + t*(4.436518521e-1 + t*(1.428945805e-2 + t*(2.650648471e-4 + 
+			t*(3.031240396e-6 + t*(2.034080948e-8 + t*6.136820929e-11)))))
 	}
 	
 	slope_of_saturation_pressure_curve : function(T_celsius, svap) {
@@ -43,6 +36,12 @@ library("Meteorology") {
 	
 	dew_point_temperature : function(vapor_pressure) {  # Henderson-Sellers 1984
 		34.07 + 4157.0 / ln(2.1718e8 / vapor_pressure)
+	}
+	
+	specific_humidity_from_pressure : function(total_air_pressure, vapor_pressure) {
+		conv := 0.62198  # Converting molar ratio of vapor/air to mass ratio of vapor/air
+		mixing_ratio := conv * vapor_pressure / (total_air_pressure - vapor_pressure)
+		mixing_ratio / (1 + mixing_ratio)                 # NOTE: we could maybe just return the mixing_ratio since it is <<1, and thus that is an ok approximation.
 	}
 }
 

@@ -68,7 +68,7 @@ model("Giblet-Thrasher test model") {
 	hi : index_set("Habitat index")
 	habitat.distribute(hi)
 	
-	mig : hi.neighbor("Migration route", directed_tree)
+	mig : neighbor("Migration route", directed_tree) { hi }
 	md.migration.to(mig)          # TODO: Need a way to specify boundary conditions for fluxes. What happens to this flux when there is no neighbors?
 }
 

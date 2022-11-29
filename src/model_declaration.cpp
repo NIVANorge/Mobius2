@@ -1072,12 +1072,18 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 
 template<> Entity_Id
 process_declaration<Reg_Type::neighbor>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::identifier}}, 1);
+	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::identifier}});
 	
 	auto id       = model->neighbors.standard_declaration(scope, decl);
 	auto neighbor = model->neighbors[id];
 	
-	auto index_set             = model->index_sets.find_or_create(&decl->decl_chain[0], scope);
+	auto body = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0]);
+	if(body->expr->type != Math_Expr_Type::regex_identifier) {
+		body->expr->location.print_error_header();
+		fatal_error("For now we only recognize single index sets for neighbors.");
+	}
+	auto ident = reinterpret_cast<Regex_Identifier_AST *>(body->expr);
+	auto index_set             = model->index_sets.find_or_create(&ident->ident, scope);
 	String_View structure_type = single_arg(decl, 1)->string_value;
 	
 	neighbor->index_set = index_set;

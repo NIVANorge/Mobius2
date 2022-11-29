@@ -32,8 +32,23 @@
 	
 	lake_layers : index_set("Lake layers", one_dimensional)
 	
-	lake : lake_layers.distribute() { lake_top_layer, *lake_layer, lake_bottom_layer }
-	sc.distribute() { *[river, lake] }
+	lake : lake_layers.distribute() { lake_top_layer lake_layer* lake_bottom_layer }
+	
+	
+	# regex format :
+	# a b   a followed by b          - prioritize
+	# ? zero or one of preceding
+	# * zero or more of preceding    - prioritize
+	# + one or more of preceding
+	# a|b  a or b                    - prioritize
+	# ()  operator precedence        - prioritize
+	# (all symbols a b c etc. are names of compartments (or compartment groups if we make that))
+	
+	neighbor("Downstream", directed_tree) { (river|epi)* }
+	
+	
+	
+	
 	
 	downstream : neighbor("Downstream", directed_tree)
 	

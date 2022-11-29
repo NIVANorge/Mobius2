@@ -1,32 +1,20 @@
 
-index_set("Place index") [  "Place A" "Place B" "Place C" ]
+index_set("A index") [  "Place A" "Place B" "Place C" ]
 
-neighbor("Place neighbor", "Place index") [
+neighbor("A graph", "A index") [
 	"Place A" -> "Place C"
 	"Place B" -> "Place C"
 ]
 
-module("So simple", 1, 0, 0) {
-	par_group("Flow pars") ["Place index"] {
-		par_real("Flow magnitude") [
-			0.1 0.2 0.01
-		]
-		par_real("Initial stuff") [
-			10 20 0
-		]
-	}
-}
 
 par_group("System") {
 	par_datetime("Start date") [ 1990-1-1 ]
 	par_datetime("End date")   [ 1995-5-1 ]
 }
 
-series [
-	"The series"[spline_interpolate]
-1989-1-1	1
-1990-1-12	3
-1990-2-15	1.1
-1990-6-1	1.9
-1995-12-31  28
-]
+module("So simple", 1, 0, 0) {
+	par_group("Pars") ["A index"] {
+		par_real("initial q")
+		[ 100000 50 0]
+	}
+}

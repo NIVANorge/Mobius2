@@ -497,8 +497,9 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 		}
 	}
 	
-	// NOTE: Do more passes to try and group instructions in an optimal way:
 	
+	// NOTE: Do more passes to try and group instructions in an optimal way:
+#if 1
 	bool changed = false;
 	for(int it = 0; it < 10; ++it) {
 		changed = false;
@@ -523,20 +524,22 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 					continue;
 				}
 				
+				// We attempt to move instructions to a later batch if we are allowed to move past all the instructions in between.
 				int last_suitable_batch_idx = batch_idx;
 				for(int batch_behind_idx = batch_idx + 1; batch_behind_idx < batch_out.size(); ++batch_behind_idx) {
 					auto &batch_behind = batch_out[batch_behind_idx];
-					if(batch_behind.index_sets == sub_batch.index_sets)
-						last_suitable_batch_idx = batch_behind_idx;
 					bool batch_depends_on_us = false;
+					bool batch_is_blocked    = false;
 					for(int instr_behind_idx = 0; instr_behind_idx < batch_behind.instr_ids.size(); ++instr_behind_idx) {
 						auto behind_id = batch_behind.instr_ids[instr_behind_idx];
 						auto behind = &instructions[behind_id];
-						if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
+						if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end())
 							batch_depends_on_us = true;
-							break;
-						}
+						if(behind->instruction_is_blocking.find(instr_id) != behind->instruction_is_blocking.end())
+							batch_is_blocked = true;
 					}
+					if(!batch_is_blocked && (batch_behind.index_sets == sub_batch.index_sets))
+						last_suitable_batch_idx = batch_behind_idx;
 					if(batch_depends_on_us || batch_behind_idx == batch_out.size()-1) {
 						if(last_suitable_batch_idx != batch_idx) {
 							// We are allowed to move. Move to the beginning of the first other batch that is suitable.
@@ -566,14 +569,13 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 			batch_out.erase(batch_out.begin() + batch_idx);  // NOTE: ok since we are iterating batch_idx backwards.
 		--batch_idx;
 	}
+#endif
 	
 #if 0
 	warning_print("\n****", initial ? " initial" : "", " batch structure ****\n");
 	debug_print_batch_array(model, batch_out, instructions);
 	warning_print("\n\n");
 #endif
-	
-	// TODO: more passes!
 }
 
 

@@ -62,6 +62,7 @@
 
 Argument_AST::~Argument_AST() { delete decl; }
 Function_Body_AST::~Function_Body_AST() { delete block; }
+Regex_Body_AST::~Regex_Body_AST() { delete expr; }
 
 
 bool
@@ -209,9 +210,11 @@ parse_decl(Token_Stream *stream) {
 				body = new Decl_Body_AST();
 			} else if(body_type == Body_Type::function) {
 				body = new Function_Body_AST();
+			} else if(body_type == Body_Type::regex) {
+				body = new Regex_Body_AST();
 			} else if(body_type == Body_Type::none) {
 				next.print_error_header();
-				fatal_error("Declarations of type ", name(decl->type), " can't have declaration bodies.");
+				fatal_error("Declarations of type '", name(decl->type), "' can't have declaration bodies.");
 			}
 			body->opens_at = next.location;
 			
@@ -255,6 +258,9 @@ parse_decl(Token_Stream *stream) {
 				stream->fold_minus = false; 
 				function_body->block = parse_math_block(stream, next.location);
 				stream->fold_minus = true;
+			} else if(body_type == Body_Type::regex) {
+				auto regex_body = reinterpret_cast<Regex_Body_AST *>(body);
+				regex_body->expr = parse_regex_list(stream, next.location, true);
 			}
 			
 			decl->bodies.push_back(body);
@@ -453,8 +459,7 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 			error_print("End of file while parsing math block starting at:\n");
 			opens_at.print_error();
 			mobius_error_exit();
-		}
-		else if((char)token.type == '}') {
+		} else if((char)token.type == '}') {
 			stream->read_token();
 			if(block->exprs.size() == 0) {
 				token.print_error_header();
@@ -481,6 +486,111 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 	
 	return block;
 }
+
+
+Math_Expr_AST *
+potentially_parse_regex_unary(Token_Stream *stream, Math_Expr_AST *arg) {
+	Math_Expr_AST *result = arg;
+	Token token = stream->peek_token();
+	if((char)token.type == '?' || (char)token.type == '*' || (char)token.type == '+') {
+		auto unary = new Unary_Operator_AST();
+		unary->oper = token.type;
+		unary->exprs.push_back(arg);
+		result = unary;
+		stream->read_token();
+	} else
+		return result;
+	return potentially_parse_regex_unary(stream, result);
+}
+
+Math_Expr_AST *
+parse_primary_regex(Token_Stream *stream) {
+	
+	Math_Expr_AST *result = nullptr;
+	Token token = stream->peek_token();
+	if(token.type == Token_Type::identifier) {
+		auto ident = new Regex_Identifier_AST();
+		ident->ident = token;
+		ident->location = token.location;
+		result = ident;
+		stream->read_token();
+	} else if((char)token.type == '(') {
+		stream->read_token();
+		result = parse_regex_list(stream, token.location, false);
+	} else {
+		token.print_error_header();
+		fatal_error("Unexpected token '", token.string_value, "' while parsing regex.");
+	}
+	result = potentially_parse_regex_unary(stream, result);
+	
+	return result;
+}
+
+Math_Expr_AST *
+parse_regex_expr(Token_Stream *stream) {
+	std::vector<Math_Expr_AST *> exprs;
+	exprs.push_back(parse_primary_regex(stream));
+	while(true) {
+		Token token = stream->peek_token();
+		if((char)token.type == '|') {
+			stream->read_token(); // consume the |
+			exprs.push_back(parse_primary_regex(stream));
+		} else
+			break;
+	}
+	Math_Expr_AST *result = nullptr;
+	if(exprs.size() == 1)
+		result = exprs[0];
+	else {
+		result = new Regex_Or_Chain_AST();
+		result->exprs = exprs;
+		result->location = exprs[0]->location;
+	}
+	return result;
+}
+
+Math_Expr_AST *
+parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
+	std::vector<Math_Expr_AST *> exprs;
+	
+	while(true) {
+		Token token = stream->peek_token();
+		if(token.type == Token_Type::eof) {
+			token.print_error_header();
+			error_print("End of file while parsing regex block starting at:\n");
+			opens_at.print_error();
+			mobius_error_exit();
+		} else if((char)token.type == '}' || (outer && (char)token.type == ')')) {
+			stream->read_token();
+			if(!outer && (char)token.type == ')') {
+				token.print_error_header();
+				fatal_error("Terminating regex block before all parantheses are closed.");
+			}
+			if(exprs.size() == 0) {
+				token.print_error_header();
+				fatal_error("Empty regex block.");
+			}
+			break;
+		}
+		
+		auto expr = parse_regex_expr(stream);
+		exprs.push_back(expr);
+	}
+	
+	Math_Expr_AST *result = nullptr;
+	if(exprs.size() == 1)
+		result = exprs[0];
+	else {
+		result = new Math_Block_AST();
+		result->exprs = exprs;
+		result->location = exprs[0]->location;
+	}
+	
+	return result;
+}
+
+
+
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 

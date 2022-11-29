@@ -17,4 +17,15 @@ model("EasyLake standalone") {
 	sol.solve(hyp.water)
 	sol.solve(lake.heat)
 	sol.solve(epi.ice)
+	
+	lk : index_set("Lake")
+	
+	epi.distribute(lk)
+	hyp.distribute(lk)
+	lake.distribute(lk)
+	
+	
+	#downstream : neighbor("Downstream", directed_tree) {
+	#	*[epi river]
+	#}
 }

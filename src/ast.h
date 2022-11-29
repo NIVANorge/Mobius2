@@ -17,13 +17,14 @@ Body_Type {
 	none,
 	decl,
 	function,
+	regex,
 };
 
 struct
 Body_AST : Expr_AST {
 	std::vector<Token> modifiers;
-	Source_Location    opens_at;
 	Body_Type type;
+	Source_Location opens_at;                     //TODO: there should instead just be a source_loc on the Expr_AST (?)
 	
 	Body_AST(Body_Type type) : type(type) {};
 	virtual ~Body_AST() {};
@@ -99,10 +100,12 @@ Math_Expr_AST : Expr_AST {
 	~Math_Expr_AST() { for(auto expr : exprs) delete expr; }
 };
 
+// TODO: A lot of these structs are superfluous... Could have one called   Single_Token_AST, Chain_AST and Operator_AST, but just with different Math_Expr_Types
+//    Can also unify struct for Function_Body_AST and Regex_Body_AST.
+//    Also a bit confusing that they are called Math_Expr_whatever when we reuse them for regexes. Just rename to Expr_whatever ? However Expr_AST is already taken...
+
 struct
 Math_Block_AST : Math_Expr_AST {
-	Source_Location              opens_at; //TODO: remove, use location instead
-	
 	Math_Block_AST() : Math_Expr_AST(Math_Expr_Type::block) {};
 };
 
@@ -153,6 +156,29 @@ Local_Var_AST : Math_Expr_AST {
 	Local_Var_AST() : Math_Expr_AST(Math_Expr_Type::local_var) {};
 };
 
+struct
+Regex_Body_AST : Body_AST {
+	Math_Expr_AST               *expr;
+	
+	Regex_Body_AST() : Body_AST(Body_Type::regex) {};
+	~Regex_Body_AST();
+};
+
+struct
+Regex_Or_Chain_AST : Math_Expr_AST {
+	Regex_Or_Chain_AST() : Math_Expr_AST(Math_Expr_Type::regex_or_chain) {};
+};
+
+struct
+Regex_Identifier_AST : Math_Expr_AST {
+	Token                        ident;
+	
+	Regex_Identifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_identifier) {};
+};
+
+
+
+
 Decl_AST *
 parse_decl_header(Token_Stream *stream, Body_Type *body_type_out = nullptr);
 
@@ -170,6 +196,9 @@ parse_primary_expr(Token_Stream *stream);
 
 Math_Block_AST *
 parse_math_block(Token_Stream *stream, Source_Location opens_at);
+
+Math_Expr_AST *
+parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer);
 
 
 inline Token *
