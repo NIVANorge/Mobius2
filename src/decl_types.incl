@@ -1,3 +1,4 @@
+// Arguments are decl_type, body_type, reg_type
 ENUM_VALUE(model, decl, unrecognized)
 ENUM_VALUE(module, decl, module)
 ENUM_VALUE(library, decl, library)
@@ -21,9 +22,9 @@ ENUM_VALUE(par_real, none, parameter)
 ENUM_VALUE(par_int,  none, parameter)
 ENUM_VALUE(par_bool, none, parameter)
 ENUM_VALUE(par_enum, function, parameter)
-ENUM_VALUE(par_datetime, none, parameter)
+ENUM_VALUE(par_datetime, none, parameter)  // NOTE: This is only for data sets, not in model code
 ENUM_VALUE(constant, none, constant)
 ENUM_VALUE(function, function, function)
 ENUM_VALUE(has, function, has)
 ENUM_VALUE(flux, function, flux)
-ENUM_VALUE(series, none, unrecognized)
+ENUM_VALUE(series, none, unrecognized)    // NOTE: This one is only for data sets, not in model code.

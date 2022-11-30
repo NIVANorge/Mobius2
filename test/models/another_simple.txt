@@ -30,7 +30,7 @@ model("Another simple") {
 	
 	a.distribute(i)
 	
-	n : neighbor("A graph", directed_tree) { i }
+	n : connection("A graph", directed_tree) { a }
 	
 	sp.q_out.to(n)
 }

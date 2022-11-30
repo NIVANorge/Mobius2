@@ -86,15 +86,24 @@ Index_Set_Info : Info_Type_Base {
 	Info_Registry<Index_Info> indexes;
 };
 
+struct Compartment_Info : Info_Type_Base {
+	std::string handle;
+	std::vector<int> index_sets;
+};
+
+struct Compartment_Ref {
+	int id;
+	std::vector<int> indexes;
+};
+
 struct
-Connection_Info : Info_Type_Base {    // This obviously has to be either subclased or have different data when having other connection structure types.
-	std::string index_set;
-	
+Connection_Info : Info_Type_Base {    // This must either be subclased or have different data when we implement other connection structure types.
+
 	enum class Type {
 		none,
 		graph,
 		} type;
-	std::vector<int> points_at;
+	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
 	
 	Connection_Info() : type(Type::none) {}
 };
@@ -176,15 +185,15 @@ Data_Set {
 	void write_to_file(String_View file_name);
 	
 	std::string main_file;
-	
 	std::string doc_string;
 	
-	Module_Info    global_module;   // This is for par groups that are not in a module but were declared in the model directly.
-	
-	Info_Registry<Index_Set_Info>  index_sets;
-	Info_Registry<Connection_Info> connections;
-	Info_Registry<Module_Info>     modules;
-	std::vector<Series_Set_Info>   series;
+	Module_Info                     global_module;   // This is for par groups that are not in a module but were declared in the model directly.
+	Info_Registry<Index_Set_Info>   index_sets;
+	Info_Registry<Compartment_Info> compartments;
+	Info_Registry<Connection_Info>  connections;
+	Info_Registry<Module_Info>      modules;
+	std::vector<Series_Set_Info>    series;
+	std::unordered_map<std::string, int> compartment_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
 };
 
 

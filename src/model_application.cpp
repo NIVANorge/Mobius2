@@ -140,7 +140,13 @@ Model_Application::set_up_connection_structure() {
 		
 		Connection_T handle = { connection_id, 0 };  // For now we only support one info point per index, which will be what the index points at.
 		std::vector<Connection_T> handles { handle };
-		Multi_Array_Structure<Connection_T> array({connection->index_set}, std::move(handles));
+		
+		auto compartment = model->components[connection->compartment];
+		// NOTE :temporary!!!
+		if(compartment->index_sets.size() != 1)
+			fatal_error(Mobius_Error::internal, "Temporary limitation: Got a connection over a compartment that has more than one index set");
+		
+		Multi_Array_Structure<Connection_T> array({compartment->index_sets[0]}, std::move(handles));
 		structure.push_back(array);
 	}
 	connection_structure.set_up(std::move(structure));
@@ -385,9 +391,65 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		auto conn_id = model->connections.find_by_name(connection.name);
 		if(!is_valid(conn_id)) {
 			connection.loc.print_error_header();
-			fatal_error("\"", connection.name, "\" has not been declared as a connection structure in the model.");
+			fatal_error("The connection structure \"", connection.name, "\" has not been declared in the model.");
 		}
 		// note: this one must be valid because we already checked it against the index sets in the data set, and the data set index sets were already checked against the model above.
+		
+		auto cnd = model->connections[conn_id];
+		/*
+		if(cnd->index_set != index_set) {
+			connection.loc.print_error_header();
+			fatal_error("The connection structure \"", connection.name, "\" was not attached to the index set \"", connection.index_set, "\" in the model \"", model->model_name, "\"");
+		}
+		*/
+		if(cnd->type == Connection_Structure_Type::directed_tree) {
+			if(connection.type != Connection_Info::Type::graph) {
+				connection.loc.print_error_header();
+				fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
+			}
+			
+			Entity_Id comp_id = invalid_entity_id;
+			Entity_Id index_set_id = invalid_entity_id;
+			
+			for(auto &arr : connection.arrows) {
+				auto comp = data_set->compartments[arr.first.id];
+				auto comp_second = data_set->compartments[arr.second.id];
+				Entity_Id comp_id_first = model->components.find_by_name(comp->name);
+				if(!is_valid(comp_id_first) || model->components[comp_id_first]->decl_type != Decl_Type::compartment) { // Hmm, we could instead check the compartments separately
+					comp->loc.print_error_header();
+					fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model.");
+				}
+				if(arr.first.id != arr.second.id) {
+					comp->loc.print_error_header();
+					fatal_error("Temporary: We only support connections between one compartment at a time.");
+				}
+				comp_id = comp_id_first;
+				
+				auto compartment = model->components[comp_id];
+				if(compartment->index_sets.size() != 1) {
+					cnd->source_loc.print_error_header();
+					fatal_error("Temporary: We only support connections on compartments that are indexed by a single index set");
+				}
+				index_set_id = compartment->index_sets[0];
+				if(comp->index_sets.size() != 1 || data_set->index_sets[comp->index_sets[0]]->name != model->index_sets[index_set_id]->name) { //TODO: We eventually have to match this for multiple index sets.
+					comp->loc.print_error_header();
+					fatal_error("The index sets of the compartment \"", comp->name, "\" in the data set and the model don't match.");
+				}
+				
+				std::vector<Index_T> indexes = {Index_T {index_set_id, arr.first.indexes[0]}};
+				int info_id = 0;
+				s64 offset = connection_structure.get_offset_alternate({conn_id, info_id}, indexes);
+				*data.connections.get_value(offset) = (s64)arr.second.indexes[0];
+			}
+			// TODO: we will instead have to check that the connection structure matches the regex, but this is going to be complicated.
+			if(is_valid(comp_id) && cnd->compartment != comp_id) {
+				connection.loc.print_error_header();
+				fatal_error("This connection is only allowed for the compartment \"", model->components[cnd->compartment]->name, "\".");
+			}
+		} else
+			fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
+		
+		/*
 		auto index_set = model->index_sets.find_by_name(connection.index_set);
 		auto nbd = model->connections[conn_id];
 		if(nbd->index_set != index_set) {
@@ -408,9 +470,9 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 				s64 offset = connection_structure.get_offset_alternate({conn_id, info_id}, indexes);
 				*data.connections.get_value(offset) = (s64)connection.points_at[idx];
 			}
-		} else {
+		} else
 			fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
-		}
+		*/
 	}
 	
 	std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> par_group_index_sets;
@@ -492,6 +554,9 @@ Model_Application::save_to_data_set() {
 	for(int idx = -1; idx < model->modules.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
 		if(idx >= 0) module_id = { Reg_Type::module, idx };
+		
+		if(is_valid(module_id) && !model->modules[module_id]->has_been_processed)  // NOTE: This means that it was in a file that was loaded, but not actually included into the model.
+			continue;
 		
 		Module_Info *module_info = nullptr;
 		if(idx < 0)

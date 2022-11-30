@@ -17,6 +17,9 @@ write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
 
 void
 write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set) {
+	
+	//TODO: Must be reimplemented for the new format!
+	/*
 	if(connection.type != Connection_Info::Type::graph)
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in Data_Set::write_to_file.");
 	
@@ -46,6 +49,7 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 	}
 	
 	fprintf(file, "\n]\n\n");
+	*/
 }
 
 void
@@ -205,44 +209,77 @@ read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident =
 }
 
 void
-read_connection_sequence(Token *first, Token_Stream *stream, Connection_Info *info, Index_Set_Info *index_set) {
+read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartment_Ref *read_to) {
+	Token token = stream->peek_token();
+	stream->expect_identifier();
 	
-	int idx_from = index_set->indexes.expect_exists_idx(first, "index");
-	stream->expect_token(Token_Type::arr_r);
-	Token second = stream->peek_token();
-	stream->expect_quoted_string();
-	int idx_to = index_set->indexes.expect_exists_idx(&second, "index");
-	info->points_at[idx_from] = idx_to;
-	
-	Token token = stream->read_token();
-	if(token.type == Token_Type::arr_r)
-		read_connection_sequence(&second, stream, info, index_set);
-	else if(token.type == Token_Type::quoted_string) {
-		read_connection_sequence(&token, stream, info, index_set);
-	} else if((char)token.type == ']')
-		return;
-	else {
+	auto find = data_set->compartment_handle_to_id.find(token.string_value);
+	if(find == data_set->compartment_handle_to_id.end()) {
 		token.print_error_header();
-		fatal_error("Expected a ], an -> or a quoted index name.");
+		fatal_error("The handle '", token.string_value, "' does not refer to an already declared compartment.");
+	}
+	read_to->id = find->second;
+	auto comp_data = data_set->compartments[read_to->id];
+	std::vector<Token> index_names;
+	read_string_list(stream, index_names);
+	if(index_names.size() != comp_data->index_sets.size()) {
+		token.print_error_header();
+		fatal_error("The compartment '", token.string_value, "' should be indexed with ", comp_data->index_sets.size(), " indexes.");
+	}
+	for(int pos = 0; pos < index_names.size(); ++pos) {
+		auto index_set = data_set->index_sets[comp_data->index_sets[pos]];
+		int idx = index_set->indexes.expect_exists_idx(&index_names[pos], "index");
+		read_to->indexes.push_back(idx);
 	}
 }
 
 void
-read_connection_data(Token_Stream *stream, Connection_Info *info, Index_Set_Info *index_set) {
+read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_Stream *stream, Connection_Info *info) {
+	
+	std::pair<Compartment_Ref, Compartment_Ref> entry;
+	if(!first_in)
+		read_compartment_identifier(data_set, stream, &entry.first);
+	else
+		entry.first = *first_in;
+	
+	stream->expect_token(Token_Type::arr_r);
+	read_compartment_identifier(data_set, stream, &entry.second);
+	
+	info->arrows.push_back(entry);
+	
+	Token token = stream->peek_token();
+	if(token.type == Token_Type::arr_r) {
+		stream->read_token();
+		read_connection_sequence(data_set, &entry.second, stream, info);
+	} else if(token.type == Token_Type::identifier) {
+		read_connection_sequence(data_set, nullptr, stream, info);
+	} else if((char)token.type == ']') {
+		stream->read_token();
+		return;
+	} else {
+		token.print_error_header();
+		fatal_error("Expected a ], an -> or a compartment identifier.");
+	}
+}
+
+void
+read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *info) {
 	stream->expect_token('[');
 	
 	info->type = Connection_Info::Type::graph;
 	
-	Token token = stream->read_token();
-	if((char)token.type == ']')
+	Token token = stream->peek_token();
+	if((char)token.type == ']') {
+		stream->read_token();
 		return;
+	}
 		
-	if(token.type != Token_Type::quoted_string) {
+	if(token.type != Token_Type::identifier) {
 		token.print_error_header();
-		fatal_error("Expected a ] or a quoted index name.");
+		fatal_error("Expected a ] or the start of an compartment identifier.");
 	}
 	
-	read_connection_sequence(&token, stream, info, index_set);
+	read_connection_sequence(data_set, nullptr, stream, info);
 }
 
 void
@@ -408,8 +445,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 }
 
 void
-parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stream) {
-	auto decl = parse_decl_header(stream);
+parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stream, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 
 	auto name = single_arg(decl, 0);
@@ -446,8 +482,6 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 			fatal_error("Expected a } or a parameter declaration.");
 		}
 	}
-	
-	delete decl;
 }
 
 
@@ -485,106 +519,128 @@ Data_Set::read_from_file(String_View file_name) {
 			continue;
 		} else if(token.type != Token_Type::identifier) {
 			token.print_error_header();
-			fatal_error("Expected an identifier (index_set, connection, series, module, par_group, or par_datetime)."); 
+			fatal_error("Expected an identifier (index_set, compartment, connection, series, module, par_group, or par_datetime).");
 		}
 		
-		if(token.string_value == "index_set") {
-			auto decl = parse_decl_header(&stream);
-			match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
-			
-			auto name = single_arg(decl, 0);
-			auto data = index_sets.create(name->string_value, name->location);
-			std::vector<Token> indexes;
-			read_string_list(&stream, indexes);
-			for(int idx = 0; idx < indexes.size(); ++idx)
-				data->indexes.create(indexes[idx].string_value, indexes[idx].location);
-			delete decl;
-		} else if(token.string_value == "connection") {
-			auto decl = parse_decl_header(&stream);
-			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, 0, false, 0);
-			
-			auto name = single_arg(decl, 0);
-			auto data = connections.create(name->string_value, name->location);
-			
-			Index_Set_Info *index_set = index_sets.expect_exists(single_arg(decl, 1), "index_set");
-			data->index_set = index_set->name;
-			data->points_at.resize(index_set->indexes.count(), -1);
-			read_connection_data(&stream, data, index_set);
-			delete decl;
-		} else if(token.string_value == "series") {
-			Token token2 = stream.peek_token(1);
-			if((char)token2.type == '(') {
-				auto decl = parse_decl_header(&stream);
+		Decl_AST *decl = parse_decl_header(&stream);
+		
+		switch(decl->type) {
+			case Decl_Type::index_set : {
 				match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
 				
-				String_View other_file_name = single_arg(decl, 0)->string_value;
+				auto name = single_arg(decl, 0);
+				auto data = index_sets.create(name->string_value, name->location);
+				std::vector<Token> indexes;
+				read_string_list(&stream, indexes);
+				for(int idx = 0; idx < indexes.size(); ++idx)
+					data->indexes.create(indexes[idx].string_value, indexes[idx].location);
+			} break;
+			
+			case Decl_Type::compartment : {
+				match_declaration(decl, {{Token_Type::quoted_string}});
 				
-				if(file_handler.is_loaded(other_file_name, file_name)) {
-					token.print_error_header();
-					fatal_error("The file ", other_file_name, " has already been loaded.");
+				auto name = single_arg(decl, 0);
+				auto data = compartments.create(name->string_value, name->location);
+				int comp_id = compartments.find_idx(name->string_value);
+				data->handle = decl->handle_name.string_value;
+				if(decl->handle_name.string_value) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
+					compartment_handle_to_id[decl->handle_name.string_value] = comp_id;
+				std::vector<Token> idx_set_list;
+				read_string_list(&stream, idx_set_list);
+				for(auto &name : idx_set_list) {
+					int ref = index_sets.expect_exists_idx(&name, "index_set");
+					data->index_sets.push_back(ref);
 				}
+			} break;
+			
+			case Decl_Type::connection : {
+				match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 				
-				bool success;
-				String_View extension = get_extension(other_file_name, &success);
-				if(success && (extension == ".xlsx" || extension == ".xls")) {
-					#if OLE_AVAILABLE
-					String_View relative = make_path_relative_to(other_file_name, file_name);
-					ole_open_spreadsheet(relative, &handles);
-					read_series_data_from_spreadsheet(this, &handles, other_file_name);
-					#else
-					single_arg(decl, 0)->print_error_header();
-					fatal_error("Spreadsheet reading is only available on Windows.");
-					#endif
-				} else {
-					String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->location, file_name);
-					Token_Stream other_stream(other_file_name, other_data);
-					other_stream.allow_date_time_tokens = true;
+				auto name = single_arg(decl, 0);
+				auto data = connections.create(name->string_value, name->location);
+				
+				read_connection_data(this, &stream, data);
+			} break;
+			
+			case Decl_Type::series : {
+				int which = match_declaration(decl, {{Token_Type::quoted_string}, {}}, 0, false);
+				if(which == 0) {
+					String_View other_file_name = single_arg(decl, 0)->string_value;
 					
+					if(file_handler.is_loaded(other_file_name, file_name)) {
+						token.print_error_header();
+						fatal_error("The file ", other_file_name, " has already been loaded.");
+					}
+					
+					bool success;
+					String_View extension = get_extension(other_file_name, &success);
+					if(success && (extension == ".xlsx" || extension == ".xls")) {
+						#if OLE_AVAILABLE
+						String_View relative = make_path_relative_to(other_file_name, file_name);
+						ole_open_spreadsheet(relative, &handles);
+						read_series_data_from_spreadsheet(this, &handles, other_file_name);
+						#else
+						single_arg(decl, 0)->print_error_header();
+						fatal_error("Spreadsheet reading is only available on Windows.");
+						#endif
+					} else {
+						String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->location, file_name);
+						Token_Stream other_stream(other_file_name, other_data);
+						other_stream.allow_date_time_tokens = true;
+						
+						series.push_back({});
+						Series_Set_Info &data = series.back();
+						data.file_name = std::string(other_file_name);
+						read_series_data_block(this, &other_stream, &data);
+					}
+				} else {
+					stream.read_token();
+					stream.expect_token('[');
 					series.push_back({});
 					Series_Set_Info &data = series.back();
-					data.file_name = std::string(other_file_name);
-					read_series_data_block(this, &other_stream, &data);
+					data.file_name = std::string(file_name);
+					read_series_data_block(this, &stream, &data);
+					stream.expect_token(']');
 				}
-				delete decl;
-			} else {
-				stream.read_token();
-				stream.expect_token('[');
-				series.push_back({});
-				Series_Set_Info &data = series.back();
-				data.file_name = std::string(file_name);
-				read_series_data_block(this, &stream, &data);
-				stream.expect_token(']');
-			}
-		} else if(token.string_value == "par_group") {
-			parse_par_group_decl(this, &global_module, &stream);
-		} else if(token.string_value == "module") {
-			auto decl = parse_decl_header(&stream);
-			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
+			} break;
 			
-			auto name = single_arg(decl, 0);
-			auto module = modules.create(name->string_value, name->location);
-			module->version.major    = single_arg(decl, 1)->val_int;
-			module->version.minor    = single_arg(decl, 2)->val_int;
-			module->version.revision = single_arg(decl, 3)->val_int;
+			case Decl_Type::par_group : {
+				parse_par_group_decl(this, &global_module, &stream, decl);
+			} break;
+
+			case Decl_Type::module : {
+				match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
 			
-			stream.expect_token('{');
-			while(true) {
-				token = stream.peek_token();
-				if(token.type == Token_Type::identifier && token.string_value == "par_group") {
-					parse_par_group_decl(this, module, &stream);
-				} else if((char)token.type == '}') {
-					stream.read_token();
-					break;
-				} else {
-					token.print_error_header();
-					fatal_error("Expected a } or a par_group declaration.");
+				auto name = single_arg(decl, 0);
+				auto module = modules.create(name->string_value, name->location);
+				module->version.major    = single_arg(decl, 1)->val_int;
+				module->version.minor    = single_arg(decl, 2)->val_int;
+				module->version.revision = single_arg(decl, 3)->val_int;
+				
+				stream.expect_token('{');
+				while(true) {
+					token = stream.peek_token();
+					if(token.type == Token_Type::identifier && token.string_value == "par_group") {
+						Decl_AST *decl2 = parse_decl_header(&stream);
+						parse_par_group_decl(this, module, &stream, decl2);
+						delete decl2;
+					} else if((char)token.type == '}') {
+						stream.read_token();
+						break;
+					} else {
+						token.print_error_header();
+						fatal_error("Expected a } or a par_group declaration.");
+					}
 				}
-			}
+			} break;
 			
-		} else {
-			token.print_error_header();
-			fatal_error("Unknown declaration type \"", token.string_value, ".");
+			default : {
+				decl->location.print_error_header();
+				fatal_error("Did not expect a declaration of type '", name(decl->type), "' in a data set.");
+			} break;
 		}
+		
+		delete decl;
 	}
 	
 #if OLE_AVAILABLE

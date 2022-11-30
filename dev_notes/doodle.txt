@@ -1,14 +1,43 @@
 
 
 
+	# Other todos:  get rid of a lot of boilerplate!
+	# - automatically put dissolved substances on the same solvers as what they were dissolved in. Could alternatively let you remove them from the solver.
+	# - If a dissolved substance can flow somewhere, you don't have to declare that it is there (?) - but could be tricky wrt units.
 
 
 
+	# TODO: for connection data, instead of storing the index, we probably have to precompute and store the actual offset of the aggregation variable.
+	# That gives a very high-dimensional array in some cases though... But probably works fine.
+	# Otherwise we don't know what var_id_agg we need to look up from, when it could be multiple.
+	#	Hmm, we need the var_id_agg anyway since there could be different weighting/unit conversions for different targets!
+	#	This is kind of tricky.
+	#	Connection data must be:
+	#
+	#	For each connection
+	#		for each compartment in the connection (index tuple)
+	#			what does it point at (offset + info about weighting)
+	#
+	#	Connection_T is { connection_id, compartment_id, (maybe info point id, but we can ignore that for now?) }
+	#
+	#	Data is s64   . Could try to pack target offset and target id into the same thing. It is unlikely that we need more than s32 to store the offset (and we could guard for it).
+	#		However that complicates the code a bit since we need to do the extraction in llvm.
+	#       Alternative is to make two info points.
+	#       Actually, we don't pack in the target id, we just pack in a number that identifies what weight / unit conv. computation to use.
+	#
+	#       Get to work first: just store the offset, worry about weighting later.
 
 	# New idea:
 	# 
 	# We don't have neighbor relations between index sets, we have them between compartments. Also rename to connection
 	# e.g.
+	#
+	#    *********  this first part is first priority! Make the other ones work later.
+	
+	# Things to do to get this to work
+	# 	- store connection offsets instead of connection indexes (see above note)
+	#   - make connections be between compartments instead of between indexes.
+	#	- change the data format. (+ decide how it should be!)
 	
 	downstream : connection("Downstream", directed_tree) { (river|epi)* }  # 0 or more rivers or lake epilimnions interchanged.
 
@@ -22,7 +51,17 @@
 		r"Coull" -> r"Boyne" -> l"Somelake"
 	]
 	
+	#do we instead have to declare
+	r : compartment("River")[ "Subcatchment" ]
+	s : compartment("Soil")[ "Subcatchment" "Landscape units" ]
+	# that may be a bit annoying, but gives much more flex! And declares the index order locally, which is good!
+	# This could also allow us to not have to index all the indexes if some of them are to be implicit!
 	
+	#    *********  end first priority
+	
+	
+	
+
 	# model file :
 	soil_flow : connection("Soil flow", directed_tree) { soil+ river }  # 1 or more soil boxes followed by a river.
 
@@ -30,22 +69,51 @@
 	s : compartment("Soil")
 
 	connection("Soil flow") [
-		s"Forest" -> s"Bog" -> r            #This means for all r ... Could maybe even omit the 'r' since it is necessary by the model spec.
-		s"Coull""Forest" -> r"Coull"        #This means for this one in particular..
+		s."Forest" -> s."Bog" -> r.         #This means for all subcatchment indexes ... Could maybe even omit the 'r.' since it is necessary by the model spec. '.' is to say that it is the wildcard
+		s"Coull""Forest" -> r"Coull"        #This means for this subcatchment in particular..  Have to have the indexes in right order as distributed
+		s"Boyne". -> r.                     #All land units in this subcatchment go to the river.
 	]
 
 
 	# layered lakes
 	
-	ll : index_set("Lake layer")
+	lake_index  : index_set("Lake")
+	layer_index : index_set("Lake layer", lake_index)  # Separate instance of it per lake_index (?)
 	
-	lake_layering : connection("Lake layering", grid_1d) { lake_surf lake_layer* lake_bottom }
+	lake_layer.distribute(lake_index, lake_layer)
+	lake_sediment.distribute(lake_index)
+	
+	lake_layering : connection("Lake layering", grid_1d) { lake_layer* }
 	
 	# data file :
 	
-	index_set("Lake layer") [ grid(50) ]   # indexes are numeric from 0 to n-1   (n=50)
+	index_set("Lake layer") [ "Somelake" : enumerate(50) ]   # indexes are numeric from 0 to n-1   (n=50)
 
-	#connection("Lake layering")		# may not be needed, can be obvious given the above.
+	#connection("Lake layering")
+	# In this case the connection can be inferred since there is only one lake_surf and one lake_bottom per "Lake", and the lake_layers are already enumerated in order.
+	
+	l : compartment("Lake layer")
+	
+	connection("Downstream") [
+		r"Coull" -> r"Boyne" -> l"Somelake"0    # 0 is the 0th layer of the lake. Missing indexes could default to 0?
+	]
+	# Could also allow to refer to the label here (see below)
+	
+	
+	# To make specific processes for the top layer: Need something called 'labeled' where you label one of the compartments.
+	top_layer : layer.labeled("Top layer")
+	
+	flux(nowhere, top_layer.heat, "Surface heat flux")
+	
+	# in data file
+	labeled("Top layer") [ "Some lake":0 ]    # or just [ 0 ] if it is the same for all of them.
+	
+	# Connection flux between two layers..
+	flux(lake_layer.water.oc, lake_layering, "Diffusion") {
+		#etc.
+		# refer to the two compartments by 'first', 'second'
+	}
+	
 	
 
 

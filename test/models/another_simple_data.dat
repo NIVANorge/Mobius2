@@ -1,9 +1,10 @@
 
 index_set("A index") [  "Place A" "Place B" "Place C" ]
 
-connection("A graph", "A index") [
-	"Place A" -> "Place C"
-	"Place B" -> "Place C"
+a : compartment("A") [ "A index" ]
+connection("A graph") [
+	a["Place A"] -> a["Place C"]
+	a["Place B"] -> a["Place C"]
 ]
 
 

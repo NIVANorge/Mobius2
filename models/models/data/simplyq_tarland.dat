@@ -139,6 +139,6 @@ module("SimplyC", 1, 0, 0) {
 	}
 }
 
-module("Priestley-Taylor PET", 0, 0, 16) {
+module("Priestley-Taylor PET", 351262928, 57, 351263200) {
 }
 

@@ -164,7 +164,8 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		// The aggregation was pointed at a connected index, not the same index as the current one.
 		auto connection = model_app->model->connections[connection_id];
 		
-		auto cur_idx = indexes[connection->index_set.id];
+		auto index_set = model_app->model->components[connection->compartment]->index_sets[0]; // NOTE :temporary!!
+		auto cur_idx = indexes[index_set.id];
 		
 		// TODO: for directed_trees, if the index count is 1, we know that this can't possibly go anywhere, and can be omitted, so we should just return a no-op.
 		if(connection->type != Connection_Structure_Type::directed_tree)
@@ -176,9 +177,9 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		index->value_type = Value_Type::integer;
 		index->exprs.push_back(index_offset);
 		
-		indexes[connection->index_set.id] = index;
+		indexes[index_set.id] = index;
 		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
-		indexes[connection->index_set.id] = cur_idx;  // Reset it for use by others;
+		indexes[index_set.id] = cur_idx;  // Reset it for use by others;
 		index_ref = index;
 	} else
 		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
@@ -868,7 +869,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				source->depends_on_instruction.insert(sub_idx);
 								
 				// The flux itself has to be computed once per instance of the source.
-				// 		The reason for this is that for discrete fluxes we generate a   flux := min(flux, source) in order to not send the source negative.
+				// The reason for this is that for discrete fluxes we generate a
+				// flux := min(flux, source) in order to not send the source negative.
 				// Should no longer be necessary to fix this here with the new dependency system.
 				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id);
 				
@@ -886,13 +888,18 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// NOTE: the source and target id for the connection-flux are the same, but loc2 doesn't record the target in this case, so we use the source_id.
 			Model_Instruction *target = &instructions[source_id.id];
 			// If we have fluxes of two instances of the same quantity, we have to enforce that it is indexed by by the index set of that connection relation.
-			target->index_sets.insert(connection->index_set);
+			
+			//NOTE :temporary!
+			// Eventually we could check if there are cross-connections between certain indexes or not (and only enforce dependencies in the cross connections)
+			auto conn_comp = model->components[connection->compartment];
+			auto conn_idx_set = conn_comp->index_sets[0];
+			target->index_sets.insert(conn_idx_set);
 		}
 		
 		if((is_located(loc2) || is_connection) && !has_aggregate) {
 			Var_Id target_id;
 			if(is_connection)
-				target_id = source_id;	
+				target_id = source_id;
 			else
 				target_id = app->state_vars[loc2];
 			

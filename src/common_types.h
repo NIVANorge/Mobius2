@@ -208,7 +208,7 @@ get_reg_type(Decl_Type decl_type) {
 struct
 Entity_Id {
 	Reg_Type reg_type;
-	s32      id;
+	s32      id;			// This could probably be s16 (You won't have more than 32k different entitities of the same type (and we could detect it if it happens)). Needs to be reflected correctly in mobipy.
 	
 	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
 	Entity_Id &operator++() { id++; return *this; }

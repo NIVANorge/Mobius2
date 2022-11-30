@@ -977,12 +977,11 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	
 	auto &chain = decl->args[0]->sub_chain;
 	
-	if(chain.size() >= 2) {
+	if(chain.size() >= 2)
 		process_location_argument(model, scope, decl, 0, &flux->target, false);
-	} else if (chain.size() == 1) {
-		auto neigh_id = expect_exists(scope, &chain[0], Reg_Type::connection);
-		flux->connection_target = neigh_id;
-	} else {
+	else if (chain.size() == 1)
+		flux->connection_target = expect_exists(scope, &chain[0], Reg_Type::connection);
+	else {
 		chain[0].print_error_header();
 		fatal_error("This is not a well-formed flux target. Expected something on the form 'compartment.quantity' or 'connection'.");
 	}
@@ -1078,16 +1077,23 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	auto connection = model->connections[id];
 	
 	auto body = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0]);
-	if(body->expr->type != Math_Expr_Type::regex_identifier) {
+	if(body->expr->type != Math_Expr_Type::regex_identifier) {         //TODO: actually store a "compiled" regex instead.
 		body->expr->location.print_error_header();
 		fatal_error("For now we only recognize single index sets for connections.");
 	}
 	auto ident = reinterpret_cast<Regex_Identifier_AST *>(body->expr);
-	auto index_set             = model->index_sets.find_or_create(&ident->ident, scope);
+	auto compartment_id          = model->components.find_or_create(&ident->ident, scope);
+	auto compartment             = model->components[compartment_id];
+	/*       // This doesn't work. TODO: we have to check somewhere in post that this is indeed a compartment. This will probably be handled when we start to process regexes (?)
+	if(compartment->decl_type != Decl_Type::compartment) {
+		ident->ident.print_error_header();
+		fatal_error("Connections go between compartments. The identifier '", ident->ident.string_value, "' refers to a ", name(compartment->decl_type), ".");
+		// TODO: Could print where the identifier was declared.
+	}
+	*/
 	String_View structure_type = single_arg(decl, 1)->string_value;
 	
-	connection->index_set = index_set;
-	model->index_sets[index_set]->connection_structure = id;
+	connection->compartment = compartment_id;
 	if(structure_type == "directed_tree")
 		connection->type = Connection_Structure_Type::directed_tree;
 	else {

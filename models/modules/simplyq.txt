@@ -10,6 +10,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 
 	soil     : compartment("Soil")
 	gw       : compartment("Groundwater")
+	river    : compartment("River")
 	
 	water : quantity("Water")
 	
@@ -27,13 +28,12 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 		tc_g    : par_real("Groundwater time constant", unit(day -1),       30,  1,  400)
 	}
 	
-	a_catch : par_real("Catchment area", unit(k m 2))
-	river : compartment("River")
+	a_catch : par_real("Catchment area", unit(k m 2)) # NOTE: This is a reference to a parameter that must be declared in the model file.
 	
 	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
 	gw  .has(water, unit(m m), "Groundwater volume") .initial {
 		tc_g * river.water.flow * 86.4 / a_catch
-	}  #TODO: Inverse unit conversion should also be automatic
+	}
 
 	pet  : property("Potential evapotranspiration")
 	
@@ -42,11 +42,14 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 		drylim := 0.9		# Could be a parameter. Stops quick flow below drylim*fc
 		flow   := in_flux(water)
 		#flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)
-		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/3.14
+		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
 	}
 	
 	evap :
-	flux(soil.water, nowhere, "Evapotranspiration") {   pet*(1 - 0.01^(water/fc))   }  # = pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
+	flux(soil.water, nowhere, "Evapotranspiration") {   
+		#pet*(1 - 0.01^(water/fc))   # = pet*(1 - exp(ln(0.01)*water/fc)) #NOTE: these two are equivalent formulations due to optimizations.
+		s_response(water, 0.5*fc, fc, 0, pet)
+	}  
 	
 	soil.water.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
 		rate := (water - fc)/tc_s

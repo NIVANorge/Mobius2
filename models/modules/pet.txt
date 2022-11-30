@@ -33,16 +33,17 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	temp   : property("Temperature") #, unit(deg_c)
 	
 	# TODO: We should have alternative modules to compute these if they are not available as time series.
+	# TODO: Make these work nicely with the longwave and shortwave stuff in EasyLake
 	net_lw : property("Net longwave")
 	net_sw : property("Net shortwave")
 	
 	soil.has(pet, unit(m m, day -1)) {                 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
 		meanbar := mean_barometric_pressure(elev)
-		dhvap   := latent_heat_of_vaporization(air.temp)
-		psy     := psychrometric_constant(meanbar, dhvap)
+		lvap    := latent_heat_of_vaporization(air.temp)
+		psy     := psychrometric_constant(meanbar, lvap)
 		svap    := saturation_vapor_pressure(air.temp)
 		slope   := slope_of_saturation_pressure_curve(air.temp, svap)
 		rad     := (net_sw + net_lw)*86400.0/1e6   # convert W/m2 to MJ/m2/day    TODO: do conversion differently when we have a system for it.
-		max(0.0, apet * (slope / (slope + psy)) * (rad / dhvap))
+		max(0.0, apet * (slope / (slope + psy)) * (rad / lvap))
 	}
 }
