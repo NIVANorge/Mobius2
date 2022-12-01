@@ -1,4 +1,5 @@
-// Arguments are decl_type, body_type, reg_type
+// The arguments are Decl_Type, Body_Type, Reg_Type
+
 ENUM_VALUE(model, decl, unrecognized)
 ENUM_VALUE(module, decl, module)
 ENUM_VALUE(library, decl, library)

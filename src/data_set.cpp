@@ -14,42 +14,51 @@ write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
 	fprintf(file, "]\n\n");
 }
 
+void
+write_compartment_info_to_file(FILE *file, Compartment_Info &compartment, Data_Set *data_set) {
+	fprintf(file, "%s : compartment(\"%s\") [", compartment.handle.data(), compartment.name.data());
+	for(int idx_set_idx : compartment.index_sets) {
+		auto index_set = data_set->index_sets[idx_set_idx];
+		fprintf(file, " \"%s\"", index_set->name.data());
+	}
+	fprintf(file, " ]\n");
+}
+
+void
+write_compartment_identifier_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set) {
+	auto compartment = data_set->compartments[ref.id];
+	fprintf(file, "%s[", compartment->handle.data());
+	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
+		auto index_set = data_set->index_sets[compartment->index_sets[loc]];
+		fprintf(file, " \"%s\"", index_set->indexes[ref.indexes[loc]]);
+	}
+	fprintf(file, " ]");
+}
 
 void
 write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set) {
 	
-	//TODO: Must be reimplemented for the new format!
-	/*
 	if(connection.type != Connection_Info::Type::graph)
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in Data_Set::write_to_file.");
 	
-	fprintf(file, "connection(\"%s\", \"%s\") [", connection.name.data(), connection.index_set.data());
-	
-	Index_Set_Info *index_set = data_set->index_sets.find(connection.index_set);
-	if(!index_set)
-		fatal_error(Mobius_Error::internal, "Data set does not have index set that was registered with connection info.");
 	// TODO!
 	//   non-trivial problem to format this the best way possible... :(
-	//   could keep around structure from previously loaded file, but that doesn't help if the data is edited e.g. in the user interface.
-	
-	// Current solution: works nicely if indexes are declared in the order they are chained.
+	//   works nicely to print format that was got from previous file, but not if it was edited e.g. in user interface.
 	// Note that the data is always correct, it is just not necessarily the most compact representation of the graph.
 	
-	int next = -1;
-	for(int idx = 0; idx < index_set->indexes.count(); ++idx) {
-		int points_at = connection.points_at[idx];
-		if(points_at >= 0) {
-			if(idx != next) {
-				fprintf(file, "\n\t\"%s\" ", index_set->indexes[idx]->name.data());
-			}
-			fprintf(file, " -> \"%s\"", index_set->indexes[points_at]->name.data());
-			
-			next = points_at;
-		}
-	}
+	fprintf(file, "connection(\"%s\") [", connection.name.data());
 	
+	Compartment_Ref *prev = nullptr;
+	for(auto &pair : connection.arrows) {
+		if(!prev || !(pair.first == *prev)) {
+			fprintf(file, "\n\t");
+			write_compartment_identifier_to_file(file, pair.first, data_set);
+		}
+		fprintf(file, " -> ");
+		write_compartment_identifier_to_file(file, pair.second, data_set);
+		prev = &pair.second;
+	}
 	fprintf(file, "\n]\n\n");
-	*/
 }
 
 void
@@ -174,6 +183,9 @@ Data_Set::write_to_file(String_View file_name) {
 	
 	for(auto &index_set : index_sets)
 		write_index_set_to_file(file, index_set);
+	
+	for(auto &compartment : compartments)
+		write_compartment_info_to_file(file, compartment, this);
 	
 	for(auto &connection : connections)
 		write_connection_info_to_file(file, connection, this);

@@ -26,6 +26,10 @@
 	#       Actually, we don't pack in the target id, we just pack in a number that identifies what weight / unit conv. computation to use.
 	#
 	#       Get to work first: just store the offset, worry about weighting later.
+	#
+	#		Ouch, no, it becomes circular...
+	#		We have to set up the neighbor data in order to compile the model, but we need the model compiled before we can find the offset to the target.
+	#		What do we do instead ? Store target id AND indexes ?
 
 	# New idea:
 	# 

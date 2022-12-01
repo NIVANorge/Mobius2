@@ -6,8 +6,9 @@ index_set("Landscape units") [ "Arable" "Improved grasslands" "Semi-natural" ]
 
 index_set("Subcatchment") [ "Coull" "Boyne" ]
 
-connection("Downstream", "Subcatchment") [
-	"Coull"  -> "Boyne"
+r : compartment("River") [ "Subcatchment" ]
+connection("Downstream") [
+	r["Coull"]  -> r["Boyne"]
 ]
 
 series("tarland_series.xlsx")

@@ -96,6 +96,10 @@ struct Compartment_Ref {
 	std::vector<int> indexes;
 };
 
+inline bool operator==(const Compartment_Ref &a, const Compartment_Ref &b) {
+	return a.id == b.id && a.indexes == b.indexes;
+}
+
 struct
 Connection_Info : Info_Type_Base {    // This must either be subclased or have different data when we implement other connection structure types.
 

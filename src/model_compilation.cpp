@@ -1300,9 +1300,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for the derivative of state variables:
 			if(var->type == Decl_Type::quantity && is_valid(instr.solver) && !var->override_tree) {
 				Math_Expr_FT *fun;
-				auto neigh_agg = var->connection_agg; // aggregation variable for values coming from connection fluxes.
-				if(is_valid(neigh_agg))
-					fun = make_state_var_identifier(neigh_agg);
+				auto conn_agg = var->connection_agg; // aggregation variable for values coming from connection fluxes.
+				if(is_valid(conn_agg))
+					fun = make_state_var_identifier(conn_agg);
 				else
 					fun = make_literal((double)0.0);
 				

@@ -485,9 +485,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	set_up_parameter_structure(&par_group_index_sets);
 	
-	for(auto &par_group : data_set->global_module.par_groups) {
+	for(auto &par_group : data_set->global_module.par_groups)
 		process_parameters(this, &par_group);
-	}
 	for(auto &module : data_set->modules) {
 		Entity_Id module_id = model->modules.find_by_name(module.name);
 		if(!is_valid(module_id)) {

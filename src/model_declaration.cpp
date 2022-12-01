@@ -1084,7 +1084,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	auto ident = reinterpret_cast<Regex_Identifier_AST *>(body->expr);
 	auto compartment_id          = model->components.find_or_create(&ident->ident, scope);
 	auto compartment             = model->components[compartment_id];
-	/*       // This doesn't work. TODO: we have to check somewhere in post that this is indeed a compartment. This will probably be handled when we start to process regexes (?)
+	/*       // This doesn't work, because the registration of that compartment may not have been processed yet. TODO: we have to check somewhere in post that this is indeed a compartment. This will probably be handled when we start to process regexes (?)
 	if(compartment->decl_type != Decl_Type::compartment) {
 		ident->ident.print_error_header();
 		fatal_error("Connections go between compartments. The identifier '", ident->ident.string_value, "' refers to a ", name(compartment->decl_type), ".");

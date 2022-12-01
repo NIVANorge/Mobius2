@@ -205,14 +205,14 @@ llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *scope, st
 void
 jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
 	auto int_64_ty      = llvm::Type::getInt64Ty(*data->context);
-	auto neigh_array_ty = llvm::ArrayType::get(int_64_ty, constants->connection_data_count);
+	auto conn_array_ty = llvm::ArrayType::get(int_64_ty, constants->connection_data_count);
 	std::vector<llvm::Constant *> values(constants->connection_data_count);
 	for(s64 idx = 0; idx < values.size(); ++idx)
 		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(64, constants->connection_data[idx], true));
-	auto const_array_init = llvm::ConstantArray::get(neigh_array_ty, values);
+	auto const_array_init = llvm::ConstantArray::get(conn_array_ty, values);
 	//NOTE: we are not responsible for the ownership of this one even though we allocate it with new.
 	data->global_connection_data = new llvm::GlobalVariable(
-		*data->module, neigh_array_ty, true, 
+		*data->module, conn_array_ty, true, 
 		llvm::GlobalValue::ExternalLinkage,
 		//llvm::GlobalValue::InternalLinkage, 
 		const_array_init, "global_connection_data");

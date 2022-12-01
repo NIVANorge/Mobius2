@@ -24,7 +24,7 @@ General model description.
 	sc : index_set("Subcatchment")
 	lu : index_set("Landscape units")
 	
-	downstream : connection("Downstream", directed_tree) { sc }
+	downstream : connection("Downstream", directed_tree) { river }
 	
 	soil.distribute(sc, lu)
 	gw.distribute(sc)
@@ -61,7 +61,7 @@ General model description.
 	
 	# convert mm to m^3
 	unit_conversion(soil.water, river.water) { a_catch * 1000 }   #TODO: when we get automatic unit checking we should remove the 1000 !
-	unit_conversion(gw.water, river.water) { a_catch * 1000 }
+	unit_conversion(gw.water, river.water)   { a_catch * 1000 }
 	
 }
 
