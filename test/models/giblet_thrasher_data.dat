@@ -1,8 +1,9 @@
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 
-neighbor("Migration route", "Habitat index") [
-	"Forest" -> "Plateau"
-	"Bogs"   -> "Plateau"
+h : compartment("Habitat") [ "Habitat index" ]
+connection("Migration route") [
+	h["Forest"] -> h["Plateau"]
+	h["Bogs"]   -> h["Plateau"]
 ]
 
 module("Giblet-Thrasher", 1, 0, 0) {
@@ -26,7 +27,7 @@ par_group("System") {
 	par_datetime("End date")   [ 1995-1-1 ]
 }
 
-series [
+series() [
 	"Meteor strikes"["Habitat index" : "Plateau"]
 1990-1-1	0
 1990-1-12	1

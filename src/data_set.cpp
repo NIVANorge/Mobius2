@@ -606,7 +606,6 @@ Data_Set::read_from_file(String_View file_name) {
 						read_series_data_block(this, &other_stream, &data);
 					}
 				} else {
-					stream.read_token();
 					stream.expect_token('[');
 					series.push_back({});
 					Series_Set_Info &data = series.back();

@@ -28,7 +28,7 @@ model("Giblet-Thrasher test model") {
 		
 		habitat.has(meteor : property("Meteor strikes"), unit())
 		
-		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time- 60.0, birth_time, birth_time+60.0, 0.6, 1, 0.6) }
+		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0, birth_time, birth_time+60.0, 0.6, 1, 0.6) }
 		
 		flux(habitat.prey, nowhere, "Predation")        {  nomnom * prey * pred  }
 		
@@ -42,18 +42,16 @@ model("Giblet-Thrasher test model") {
 		#
 		# Need to implement the following:
 		#
-		# mig : neighbor("Migration route")
+		# mig : connection("Migration route", all_to_all) { habitat }
 		#
-		# Or is all of this on model scope? No, need a way to do it inside modules too to distinguish between fluxes in different directions (e.g. up/down)
+		# This can't all be in model scope, it must be in the module so that we can properly define the code for the flux
 		#
 		# par_group ("Migration weights", matrix(mig)) {
-		# 	mig_wt : par_real("Migration weights", mig, unit(), 0.1, 0, 1)
+		# 	mig_wt : par_real("Migration weights", unit(), 0.1, 0, 1)
 		# }
 		#			# no need to explicitly index the matrix when used in this context...
+		#           # keywords:    from, to
 		# flux(habitat.prey, mig) {  max(0, prey * mig_wt * (pred - to.pred) )
-		#
-		# model scope:
-		#	mig : hi.neighbor("Migration route", all_to_all)
 		#
 	}
 	
@@ -68,8 +66,8 @@ model("Giblet-Thrasher test model") {
 	hi : index_set("Habitat index")
 	habitat.distribute(hi)
 	
-	mig : neighbor("Migration route", directed_tree) { hi }
-	md.migration.to(mig)          # TODO: Need a way to specify boundary conditions for fluxes. What happens to this flux when there is no neighbors?
+	mig : connection("Migration route", directed_tree) { habitat }
+	md.migration.to(mig)          # TODO: Need a way to specify boundary conditions for fluxes. What happens to this flux when there is no outgoing connections?
 }
 
 
