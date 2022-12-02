@@ -171,10 +171,11 @@ struct Var_Registry {
 
 struct Connection_T {
 	Entity_Id connection;
+	Entity_Id source_compartment;
 	s32       info_id;
 };
 
-inline bool operator==(const Connection_T &a, const Connection_T& b) { return a.connection == b.connection && a.info_id == b.info_id; }
+inline bool operator==(const Connection_T &a, const Connection_T& b) { return a.connection == b.connection && a.source_compartment == b.source_compartment && a.info_id == b.info_id; }
 
 template<typename Handle_T> struct Hash_Fun {
 	int operator()(const Handle_T&) const;
@@ -190,7 +191,7 @@ template<> struct Hash_Fun<Var_Id> {
 };
 
 template<> struct Hash_Fun<Connection_T> {
-	int operator()(const Connection_T& id) const { return 97*id.connection.id + id.info_id; }
+	int operator()(const Connection_T& id) const { return 599*id.connection.id + 97*id.source_compartment.id + id.info_id; }   // No idea if the hash function is good, but it shouldn't matter that much.
 };
 
 

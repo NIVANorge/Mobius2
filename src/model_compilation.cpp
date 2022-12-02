@@ -164,14 +164,15 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		// The aggregation was pointed at a connected index, not the same index as the current one.
 		auto connection = model_app->model->connections[connection_id];
 		
-		auto index_set = model_app->model->components[connection->compartments[0]]->index_sets[0]; // NOTE :temporary!!
+		auto comp_id = connection->compartments[0]; // NOTE :temporary!!
+		auto index_set = model_app->model->components[comp_id]->index_sets[0]; // NOTE :temporary!!
 		auto cur_idx = indexes[index_set.id];
 		
 		// TODO: for directed_trees, if the index count is 1, we know that this can't possibly go anywhere, and can be omitted, so we should just return a no-op.
 		if(connection->type != Connection_Structure_Type::directed_tree)
-			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_flux_from_var()");
+			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_var_from_agg_var()");
 		
-		auto index_offset = model_app->connection_structure.get_offset_code({connection_id, 0}, indexes); // NOTE: the 0 signifies that this is "data point" 0, and directed trees only have one.
+		auto index_offset = model_app->connection_structure.get_offset_code({connection_id, comp_id, 1}, indexes); // NOTE: the 0 signifies that this is "data point" 1, which is the first index.
 		auto index = new Identifier_FT();
 		index->variable_type = Variable_Type::connection_info;
 		index->value_type = Value_Type::integer;
