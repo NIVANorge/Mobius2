@@ -227,7 +227,8 @@ Connection_Structure_Type {
 template<> struct
 Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
 	Connection_Structure_Type type;
-	Entity_Id compartment;    // TODO: This should eventually be data about the regex.
+	// TODO: This should eventually also have data about the regex.
+	std::vector<Entity_Id> compartments;
 };
 
 

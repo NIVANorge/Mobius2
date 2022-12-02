@@ -1076,24 +1076,38 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	auto id         = model->connections.standard_declaration(scope, decl);
 	auto connection = model->connections[id];
 	
-	auto body = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0]);
-	if(body->expr->type != Math_Expr_Type::regex_identifier) {         //TODO: actually store a "compiled" regex instead.
-		body->expr->location.print_error_header();
-		fatal_error("For now we only recognize single index sets for connections.");
+	// TODO: actually "compile" a regex and support more types
+	// TODO: we have to check somewhere in post that the handles are indeed a compartments (not quantity or property). This will probably be handled when we start to process regexes (?)
+	bool success = false;
+	auto expr = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
+	if(expr->type == Math_Expr_Type::regex_identifier) {
+		auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr);
+		auto compartment_id = model->components.find_or_create(&ident->ident, scope);
+		connection->compartments.push_back(compartment_id);
+		success = true;
+	} else if (expr->type == Math_Expr_Type::unary_operator) {
+		expr = expr->exprs[0];
+		if(expr->type == Math_Expr_Type::regex_or_chain) {
+			bool success2 = true;
+			for(auto expr2 : expr->exprs) {
+				if(expr2->type != Math_Expr_Type::regex_identifier) {
+					success2 = false;
+					break;
+				}
+				auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr2);
+				auto compartment_id = model->components.find_or_create(&ident->ident, scope);
+				connection->compartments.push_back(compartment_id);
+			}
+			success = success2;
+		}
 	}
-	auto ident = reinterpret_cast<Regex_Identifier_AST *>(body->expr);
-	auto compartment_id          = model->components.find_or_create(&ident->ident, scope);
-	auto compartment             = model->components[compartment_id];
-	/*       // This doesn't work, because the registration of that compartment may not have been processed yet. TODO: we have to check somewhere in post that this is indeed a compartment. This will probably be handled when we start to process regexes (?)
-	if(compartment->decl_type != Decl_Type::compartment) {
-		ident->ident.print_error_header();
-		fatal_error("Connections go between compartments. The identifier '", ident->ident.string_value, "' refers to a ", name(compartment->decl_type), ".");
-		// TODO: Could print where the identifier was declared.
-	}
-	*/
-	String_View structure_type = single_arg(decl, 1)->string_value;
 	
-	connection->compartment = compartment_id;
+	if(!success) {         //TODO: actually store a "compiled" regex instead.
+		expr->location.print_error_header();
+		fatal_error("Temporary: This is not a supported regex format for connections yet.");
+	}
+	
+	String_View structure_type = single_arg(decl, 1)->string_value;
 	if(structure_type == "directed_tree")
 		connection->type = Connection_Structure_Type::directed_tree;
 	else {

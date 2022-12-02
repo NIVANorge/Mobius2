@@ -164,7 +164,7 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		// The aggregation was pointed at a connected index, not the same index as the current one.
 		auto connection = model_app->model->connections[connection_id];
 		
-		auto index_set = model_app->model->components[connection->compartment]->index_sets[0]; // NOTE :temporary!!
+		auto index_set = model_app->model->components[connection->compartments[0]]->index_sets[0]; // NOTE :temporary!!
 		auto cur_idx = indexes[index_set.id];
 		
 		// TODO: for directed_trees, if the index count is 1, we know that this can't possibly go anywhere, and can be omitted, so we should just return a no-op.
@@ -891,7 +891,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			//NOTE :temporary!
 			// Eventually we could check if there are cross-connections between certain indexes or not (and only enforce dependencies in the cross connections)
-			auto conn_comp = model->components[connection->compartment];
+			auto conn_comp = model->components[connection->compartments[0]];
 			auto conn_idx_set = conn_comp->index_sets[0];
 			target->index_sets.insert(conn_idx_set);
 		}
