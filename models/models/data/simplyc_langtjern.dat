@@ -6,7 +6,7 @@ index_set("Landscape units") [ "Forest" ]
 
 index_set("Subcatchment") [ "Inlet" ]
 
-neighbor("Downstream", "Subcatchment") [
+connection("Downstream") [
 ]
 
 series("langtjern.xlsx")

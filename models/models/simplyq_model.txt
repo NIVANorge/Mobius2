@@ -8,9 +8,10 @@ General model description.
 	
 	#add_directory("../modules") #TODO: implement
 	
+	load("../modules/pet.txt",       pe : module("Degree-day PET"))
 	load("../modules/hbv_snow.txt",  sn : module("HBVSnow"))
 	load("../modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
-	load("../modules/pet.txt",       pe : module("Degree-day PET"))
+	
 	
 	soil  : compartment("Soil")
 	gw    : compartment("Groundwater")
@@ -23,8 +24,6 @@ General model description.
 	
 	sc : index_set("Subcatchment")
 	lu : index_set("Landscape units")
-	
-	downstream : connection("Downstream", directed_tree) { river }
 	
 	soil.distribute(sc, lu)
 	gw.distribute(sc)
@@ -44,7 +43,8 @@ General model description.
 	sw.soil_runoff.to(river.water)
 	sw.gw_runoff  .to(river.water)
 	
-	rw.reach_out  .to(downstream)
+	#downstream : connection("Downstream", directed_tree) { river }
+	#rw.reach_out  .to(downstream)
 	
 	soil.par_group("Land cover") {         #TODO: Should maybe have syntax to enforce a dependecy of this on landscape units (?)
 		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)

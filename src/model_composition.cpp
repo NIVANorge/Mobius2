@@ -397,7 +397,7 @@ prelim_compose(Model_Application *app) {
 	
 	warning_print("State var registration begin.\n");
 	
-	std::vector<Var_Id> dissolvedes; 
+	std::vector<Var_Id> dissolvedes;
 	
 	// TODO: we could move some of the checks in this loop to the above loop.
 

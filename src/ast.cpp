@@ -517,6 +517,7 @@ parse_primary_regex(Token_Stream *stream) {
 	} else if((char)token.type == '(') {
 		stream->read_token();
 		result = parse_regex_list(stream, token.location, false);
+		//stream->expect_token(')'); // no, this is already taken care of by parse_regex_list
 	} else {
 		token.print_error_header();
 		fatal_error("Unexpected token '", token.string_value, "' while parsing regex.");
@@ -560,11 +561,11 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
 			error_print("End of file while parsing regex block starting at:\n");
 			opens_at.print_error();
 			mobius_error_exit();
-		} else if((char)token.type == '}' || (outer && (char)token.type == ')')) {
+		} else if((char)token.type == '}' || (char)token.type == ')') {
 			stream->read_token();
-			if(!outer && (char)token.type == ')') {
+			if(outer && (char)token.type == ')' || !outer && (char)token.type == '}') {
 				token.print_error_header();
-				fatal_error("Terminating regex block before all parantheses are closed.");
+				fatal_error("Mismatching paranthesis type.");
 			}
 			if(exprs.size() == 0) {
 				token.print_error_header();

@@ -451,7 +451,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 				fatal_error("Invalid parameter value or ] .");
 			}
 		}
-		stream->expect_token(']');
+		stream->expect_token(']'); //TODO: should give better error message here, along (expected n values for parameter, ...)
 	}
 	delete decl;
 }

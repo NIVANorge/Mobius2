@@ -154,6 +154,7 @@ make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, 
 	return var_ident;
 }
 
+/*
 Math_Expr_FT *
 add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *var_ident, Var_Id var_id_agg, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id = invalid_entity_id) {
 
@@ -164,13 +165,12 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		// The aggregation was pointed at a connected index, not the same index as the current one.
 		auto connection = model_app->model->connections[connection_id];
 		
-		auto comp_id = connection->compartments[0]; // NOTE :temporary!!
-		auto index_set = model_app->model->components[comp_id]->index_sets[0]; // NOTE :temporary!!
-		auto cur_idx = indexes[index_set.id];
-		
-		// TODO: for directed_trees, if the index count is 1, we know that this can't possibly go anywhere, and can be omitted, so we should just return a no-op.
 		if(connection->type != Connection_Structure_Type::directed_tree)
 			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_var_from_agg_var()");
+		
+		auto comp_id = connection->compartments[0]; // NOTE :temporary!!
+		auto index_set = model_app->model->components[comp_id]->index_sets[0]; // NOTE :temporary!!
+		
 		
 		auto index_offset = model_app->connection_structure.get_offset_code({connection_id, comp_id, 1}, indexes); // NOTE: the 0 signifies that this is "data point" 1, which is the first index.
 		auto index = new Identifier_FT();
@@ -178,6 +178,7 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 		index->value_type = Value_Type::integer;
 		index->exprs.push_back(index_offset);
 		
+		auto cur_idx = indexes[index_set.id];// Store it so that we can restore it later.
 		indexes[index_set.id] = index;
 		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
 		indexes[index_set.id] = cur_idx;  // Reset it for use by others;
@@ -196,7 +197,7 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 	assignment->value_type = Value_Type::none;
 	
 	if(index_ref) {
-		// We have to check that the index is not negative (meaning there are no connections)
+		// We have to check that the target index is not negative (meaning there are no connections for this particular source)
 		// NOTE: we don't have to copy the index_ref here, because it should have been copied in its previous use.
 		
 		// TODO: Instead of having the branch we could have the index point at some random existing value, then multiply with a weight which is 0 if there is no target, and 1 otherwise.
@@ -211,6 +212,123 @@ add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_E
 	}
 	
 	return assignment;
+}
+*/
+
+Math_Expr_FT *
+add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_FT *value, char oper) {
+	auto target_ident = make_state_var_identifier(target_id);
+	target_ident->exprs.push_back(target_offset);
+	auto sum_or_difference = make_binop(oper, target_ident, value);
+	
+	auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
+	assignment->exprs.push_back(copy(target_offset));
+	assignment->exprs.push_back(sum_or_difference);
+	assignment->value_type = Value_Type::none;
+	return assignment;
+}
+
+Math_Expr_FT *
+add_value_to_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *value, Var_Id agg_id, std::vector<Math_Expr_FT *> &indexes, Var_Id connection_source = invalid_var, Entity_Id connection_id = invalid_entity_id) {
+	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
+
+	auto model = model_app->model;
+	
+	std::vector<Math_Expr_FT *> agg_offsets;
+	std::vector<Var_Id>         agg_ids;
+	
+	Math_Expr_FT *index_ref = nullptr;
+	
+	Entity_Id connection_source_comp = invalid_entity_id;
+
+	if(is_valid(connection_id)) {
+		
+		// Hmm, this line looks a bit messy..
+		connection_source_comp = model_app->state_vars[connection_source]->loc1.components[0];
+		
+		auto connection = model->connections[connection_id];
+		if(connection->type != Connection_Structure_Type::directed_tree)
+			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_var_from_agg_var()");
+		
+		// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
+		auto idx_offset = model_app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 1}, indexes);	// the 1 is because the index is stored at info id 1
+		auto target_index = new Identifier_FT();
+		target_index->variable_type = Variable_Type::connection_info;
+		target_index->value_type = Value_Type::integer;
+		target_index->exprs.push_back(idx_offset);
+		index_ref = target_index;
+		
+		for(auto target_compartment : connection->compartments) {
+			// NOTE for now we only support connections from a.xyz to b.xyz . Could allow for between different quantities later, but probably not needed (?)
+			//    in that case it could be more tricky to store the info..
+			auto target_loc = model_app->state_vars[connection_source]->loc1;
+			target_loc.components[0] = target_compartment;
+			
+			auto target_id = model_app->state_vars[target_loc];
+			auto target = model_app->state_vars[target_id];
+			auto var_id_agg = target->connection_agg;
+			agg_ids.push_back(var_id_agg);
+			
+			auto index_set_target = model->components[target_compartment]->index_sets[0]; //NOTE: temporary!!
+
+			auto cur_idx = indexes[index_set_target.id]; // Store it so that we can restore it later.
+			indexes[index_set_target.id] = target_index;
+			agg_offsets.push_back(model_app->result_structure.get_offset_code(var_id_agg, indexes));
+			indexes[index_set_target.id] = cur_idx;
+		}
+		
+	} else { // If there was no connection set, there is a different aggregation variable.
+		agg_ids.push_back(agg_id);
+		agg_offsets.push_back(model_app->result_structure.get_offset_code(agg_id, indexes));
+	}
+	
+	Math_Expr_FT *result = nullptr;
+	
+	if(agg_offsets.size() == 1)
+		result = add_value_to_state_var(agg_ids[0], agg_offsets[0], value, oper);
+	else {
+		// If there are multiple possible targets, we have to check which one.
+		auto connection = model->connections[connection_id];
+		
+		auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+		if_chain->value_type = Value_Type::none;
+		
+		auto idx_offset = model_app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
+		auto compartment_id = new Identifier_FT();
+		compartment_id->variable_type = Variable_Type::connection_info;
+		compartment_id->value_type = Value_Type::integer;
+		compartment_id->exprs.push_back(idx_offset);
+		
+		// TODO: should instead make a local variable of compartment_id so that it is not recomputed in every branch. But that requires a new scope.
+		for(int idx = 0; idx < agg_offsets.size(); ++idx) {
+			auto assignment = add_value_to_state_var(agg_ids[idx], agg_offsets[idx], value, oper);
+			auto condition = make_binop('=',
+					make_literal((s64)connection->compartments[idx].id),
+					copy(compartment_id)
+				);
+			if_chain->exprs.push_back(assignment);
+			if_chain->exprs.push_back(condition);
+		}
+		result = if_chain;
+		delete compartment_id; // remember not to do this if we make it a local var.
+	}
+	
+	if(index_ref) {
+		// We have to check that the target index is not negative (meaning there are no connections for this particular source)
+		// NOTE: we don't have to copy the index_ref here, because it should have been copied in its previous use.
+		
+		// TODO: Instead of having the branch we could have the index point at some random existing value, then multiply with a weight which is 0 if there is no target, and 1 otherwise.
+		auto condition = make_binop(Token_Type::geq, index_ref, make_literal((s64)0));
+		auto if_chain = new Math_Expr_FT();
+		if_chain->expr_type = Math_Expr_Type::if_chain;
+		if_chain->exprs.push_back(result);
+		if_chain->exprs.push_back(condition);
+		if_chain->exprs.push_back(make_literal((s64)0)); // The last "else" value is a dummy. We could make llvm and the emulator accept an if statement that doesn't have an else (?). Would also need to make the prune_tree understand it.
+		if_chain->value_type = Value_Type::none;
+		return if_chain;
+	}
+	
+	return result;
 }
 
 Math_Expr_FT *
@@ -271,18 +389,35 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				scope->exprs.push_back(assignment);
 				
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
-				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '-', fun, instr->source_or_target_id, indexes);
+
+				auto result = add_value_to_agg_var(model_app, '-', fun, instr->source_or_target_id, indexes);
+				//auto result = add_or_subtract_var_from_agg_var(model_app, '-', fun, instr->source_or_target_id, indexes);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
+				// TODO: this is annoying to do... We should store source_id and target_id separately on the instr. Also makes it less likely to make errors later
+				Var_Id source_id = invalid_var;
+				if(is_valid(instr->connection)) {
+					auto source_loc = model_app->state_vars[instr->var_id]->loc1;
+					source_id = model_app->state_vars[source_loc];
+				}
+				
+				auto result = add_value_to_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, source_id, instr->connection);
+				//auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
 				
-				auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
+				// TODO: see above!
+				Var_Id source_id = invalid_var;
+				if(is_valid(instr->connection)) {
+					auto source_loc = model_app->state_vars[instr->var_id]->loc1;
+					source_id = model_app->state_vars[source_loc];
+				}
+				
+				auto result = add_value_to_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, source_id, instr->connection);
+				//auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
@@ -899,7 +1034,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		if((is_located(loc2) || is_connection) && !has_aggregate) {
 			Var_Id target_id;
-			if(is_connection)
+			if(is_connection) // TODO: This is outdated. The target id should not be set for connection fluxes (as it could be variable)
 				target_id = source_id;
 			else
 				target_id = app->state_vars[loc2];

@@ -32,16 +32,16 @@ TODO: description
 	heat  : quantity("Thermal energy")
 	
 	temp  : property("Temperature")
+	precip : property("Precipitation")
 	
 	air.has(wind     : property("Wind speed"), unit(m, s-1))
-	air.has(precip   : property("Precipitation"), unit(m m, day-1))
-	air.has(temp, unit(deg_c),  "Air temperature")
+	# TODO: Declaration system for state variables is broken it seems... Can't redeclare these without conflict
+	#air.has(precip   : property("Precipitation"), unit(m m, day-1))
+	#air.has(temp, unit(deg_c),  "Air temperature")
 	air.has(r_hum    : property("Relative humidity"), unit())
 	air.has(pressure : property("Pressure"), unit(h Pa), "Air pressure")
 	air.has(cloud    : property("Cloud cover"), unit())
 	air.has(g_rad    : property("Global radiation"), unit(W, m-2))
-	
-	epi.has(inflow : property("Lake inflow"), unit(m 3, s-1))
 	
 	hyp.has(water, unit(m 3), "Hypolimnion volume") .initial {
 		z := z_outflow - z_epi
@@ -57,9 +57,12 @@ TODO: description
 	
 	epi.water.has(outflow : property("Flow"), unit(m 3, s-1)) {   max(0, rate_l*(lake.depth - z_outflow))   }
 
+	lake_out :
 	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }
 	
-	flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
+	# TODO: should have some way of turning this on/off depending on use case.
+	#epi.has(inflow : property("Lake inflow"), unit(m 3, s-1))
+	#flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
 	
 	
 	
@@ -191,17 +194,20 @@ TODO: description
 		(air.rho / rho_ref) * lake.chd * air.wind * (lake.a_hum - lake.s_hum) * (-86400*A_surf) otherwise
 	}
 	
-	flux(lake.heat, nowhere, "Outflow heat") {
-		# Would be cleaner if we had epi.water.has(heat, ..), hyp.water.has(heat, ..) but we don't have the semantics for subdividing the total lake heat between them...
-		epi_heat_dens := deg_c_to_K(epi.temp) * rho_water * C_water
-		86400 * epi.water.outflow * epi_heat_dens
-	}
 	
-	flux(nowhere, lake.heat, "Inflow heat") {
-		inflow_t := max(0.4, air.temp)
-		in_heat_dens := deg_c_to_K(inflow_t) * rho_water * C_water
-		86400 * epi.inflow * in_heat_dens
-	}
+	# TODO: need a creative system to make the inflow heat work when attached to simplyc.
+	
+	#flux(lake.heat, nowhere, "Outflow heat") {
+		# Would be cleaner if we had epi.water.has(heat, ..), hyp.water.has(heat, ..) but we don't have the semantics for subdividing the total lake heat between them...
+	#	epi_heat_dens := deg_c_to_K(epi.temp) * rho_water * C_water
+	#	86400 * epi.water.outflow * epi_heat_dens
+	#}
+	
+	#flux(nowhere, lake.heat, "Inflow heat") {
+	#	inflow_t := max(0.4, air.temp)
+	#	in_heat_dens := deg_c_to_K(inflow_t) * rho_water * C_water
+	#	86400 * epi.inflow * in_heat_dens
+	#}
 	
 	flux(nowhere, lake.heat, "Precipitation heat") {
 		precip_t := max(0.4, air.temp)
