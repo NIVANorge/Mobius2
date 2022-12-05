@@ -306,6 +306,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	
 	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
 	
+	// TODO: in this error messages we should really print out the two tuples of index sets.
 	for(auto par_id : code_depends.on_parameter) {
 		if(!parameter_indexes_below_location(app->model, par_id, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -582,6 +583,9 @@ compose_and_resolve(Model_Application *app) {
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
 			
 			if(is_valid(var->connection)) {
+				// TODO: INCOMPLETE! This must be rewritten to accomodate for multiple targets.
+				// TODO: remember to check that the source is one of the possible connection targets.
+				
 				Var_Id target_id = app->state_vars[var->loc1]; // loc1==loc2 for connection fluxes.
 				may_need_connection_target.insert(app->state_vars[var->loc1]); // We only need these for non-discrete variables.
 			}
@@ -844,6 +848,9 @@ compose_and_resolve(Model_Application *app) {
 	// TODO: What happens if there are multiple connection fluxes for the same variable?
 	//   currently it looks like only the last one will be added to the target in the end ( connection_agg is overwritten by the last one we create ).
 	for(auto var_id : may_need_connection_target) {
+		
+		//TODO INCOMPLETE   this only works for connections with a single possible target. REWRITE!
+		
 		if(!has_solver[var_id.id]) continue;
 		
 		Var_Id n_agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux_connection"); //TODO: generate a better name

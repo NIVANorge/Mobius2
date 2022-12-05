@@ -5,12 +5,18 @@ model("Another simple") {
 	sp : module("So simple", 1, 0, 0) {
 	
 		a : compartment("A")
+		b : compartment("B")
 		q : quantity("Q")
 		
-		a.has(q, unit(), "QA") .initial { b }
+		a.has(q, unit(), "QA") .initial { aq }
+		b.has(q, unit(), "QB") .initial { bq }
 		
-		a.par_group("Pars") {
-			b : par_real("initial q", unit(), 0)
+		a.par_group("A Pars") {
+			aq : par_real("initial a q", unit(), 0)
+		}
+		
+		b.par_group("B Pars") {
+			bq : par_real("initial b q", unit(), 0)
 		}
 		
 		q_out :
@@ -19,18 +25,21 @@ model("Another simple") {
 		}
 	}
 	
-	simply_solver : solver("Simply solver", "INCADascru", 0.1)
-	
-	simply_solver.solve(a.q)
+	sol : solver("Simply solver", "INCADascru", 0.1)
+	sol.solve(a.q)
+	sol.solve(b.q)
 	
 	i : index_set("A index")
+	j : index_set("B index")
 	
 	a : compartment("A")
+	b : compartment("B")
 	q : quantity("Q")
 	
 	a.distribute(i)
+	b.distribute(j)
 	
-	n : connection("A graph", directed_tree) { a }
+	n : connection("A graph", directed_tree) { (a|b)* }
 	
 	sp.q_out.to(n)
 }

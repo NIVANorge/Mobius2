@@ -132,7 +132,7 @@ jit_compile_module(LLVM_Module_Data *data) {
 	
 	mpm.run(*data->module, mam);
 	
-	#if 0
+	#if 1
 	std::string module_ir_text;
 	llvm::raw_string_ostream os(module_ir_text);
 	os << *data->module;

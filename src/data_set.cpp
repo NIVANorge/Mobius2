@@ -41,6 +41,8 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 	if(connection.type != Connection_Info::Type::graph)
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in Data_Set::write_to_file.");
 	
+	if(connection.arrows.empty()) return;
+	
 	// TODO!
 	//   non-trivial problem to format this the best way possible... :(
 	//   works nicely to print format that was got from previous file, but not if it was edited e.g. in user interface.

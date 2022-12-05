@@ -1,0 +1,34 @@
+
+model("EasyLake-SimplyQ") {
+	
+	extend("simplyq_model.txt")
+	load("../modules/easylake.txt", el : module("EasyLake"))
+	
+	epi : compartment("Epilimnion")
+	hyp : compartment("Hypolimnion")
+	lake : compartment("Lake")
+	
+	#water : quantity("Water")
+	heat  : quantity("Thermal energy")
+	ice   : quantity("Ice")
+	
+	simply_solver.solve(epi.water)
+	simply_solver.solve(hyp.water)
+	simply_solver.solve(lake.heat)
+	simply_solver.solve(epi.ice)
+	
+	lk : index_set("Lake")
+	
+	epi.distribute(lk)
+	hyp.distribute(lk)
+	lake.distribute(lk)
+	
+	# TODO: This should override what is in the simplyq model.
+	
+	# override(       # something like this...
+	downstream : connection("Downstream", directed_tree) { (river|epi)* }
+	# )
+	rw.reach_out  .to(downstream)
+	
+	el.lake_out.to(downstream)
+}

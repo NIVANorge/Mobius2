@@ -115,10 +115,10 @@ struct Var_Registry {
 	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
 	
 	State_Variable *operator[](Var_Id id) {
-		if(id.type != var_type)
-			fatal_error(Mobius_Error::internal, "Tried to look up a variable of wrong type.");
 		if(!is_valid(id) || id.id >= vars.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
+		if(id.type != var_type)
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable of wrong type.");
 		return &vars[id.id];
 	}
 	

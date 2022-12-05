@@ -229,10 +229,10 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *value, Var_Id agg_id, std::vector<Math_Expr_FT *> &indexes, Var_Id connection_source = invalid_var, Entity_Id connection_id = invalid_entity_id) {
+add_value_to_agg_var(Model_Application *app, char oper, Math_Expr_FT *value, Var_Id agg_id, std::vector<Math_Expr_FT *> &indexes, Var_Id connection_source = invalid_var, Entity_Id connection_id = invalid_entity_id) {
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
-	auto model = model_app->model;
+	auto model = app->model;
 	
 	std::vector<Math_Expr_FT *> agg_offsets;
 	std::vector<Var_Id>         agg_ids;
@@ -244,14 +244,14 @@ add_value_to_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *valu
 	if(is_valid(connection_id)) {
 		
 		// Hmm, this line looks a bit messy..
-		connection_source_comp = model_app->state_vars[connection_source]->loc1.components[0];
+		connection_source_comp = app->state_vars[connection_source]->loc1.components[0];
 		
 		auto connection = model->connections[connection_id];
 		if(connection->type != Connection_Structure_Type::directed_tree)
 			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_var_from_agg_var()");
 		
 		// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
-		auto idx_offset = model_app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 1}, indexes);	// the 1 is because the index is stored at info id 1
+		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 1}, indexes);	// the 1 is because the index is stored at info id 1
 		auto target_index = new Identifier_FT();
 		target_index->variable_type = Variable_Type::connection_info;
 		target_index->value_type = Value_Type::integer;
@@ -261,25 +261,31 @@ add_value_to_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *valu
 		for(auto target_compartment : connection->compartments) {
 			// NOTE for now we only support connections from a.xyz to b.xyz . Could allow for between different quantities later, but probably not needed (?)
 			//    in that case it could be more tricky to store the info..
-			auto target_loc = model_app->state_vars[connection_source]->loc1;
+			auto target_loc = app->state_vars[connection_source]->loc1;
 			target_loc.components[0] = target_compartment;
 			
-			auto target_id = model_app->state_vars[target_loc];
-			auto target = model_app->state_vars[target_id];
+			auto target_id = app->state_vars[target_loc];
+			auto target = app->state_vars[target_id];
 			auto var_id_agg = target->connection_agg;
+			
+			if(!is_valid(var_id_agg))
+				fatal_error(Mobius_Error::internal, "Tried to generate code to add a flux to a connection target, but the target doesn't have an aggregation variable for the connection.");
+			
 			agg_ids.push_back(var_id_agg);
+			
+			//warning_print("*** Attempt to connect ", app->state_vars[connection_source]->name, " to ", target->name, " using aggregation ", app->state_vars[var_id_agg]->name, "\n");
 			
 			auto index_set_target = model->components[target_compartment]->index_sets[0]; //NOTE: temporary!!
 
 			auto cur_idx = indexes[index_set_target.id]; // Store it so that we can restore it later.
 			indexes[index_set_target.id] = target_index;
-			agg_offsets.push_back(model_app->result_structure.get_offset_code(var_id_agg, indexes));
+			agg_offsets.push_back(app->result_structure.get_offset_code(var_id_agg, indexes));
 			indexes[index_set_target.id] = cur_idx;
 		}
 		
 	} else { // If there was no connection set, there is a different aggregation variable.
 		agg_ids.push_back(agg_id);
-		agg_offsets.push_back(model_app->result_structure.get_offset_code(agg_id, indexes));
+		agg_offsets.push_back(app->result_structure.get_offset_code(agg_id, indexes));
 	}
 	
 	Math_Expr_FT *result = nullptr;
@@ -293,7 +299,7 @@ add_value_to_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *valu
 		auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 		if_chain->value_type = Value_Type::none;
 		
-		auto idx_offset = model_app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
+		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
 		auto compartment_id = new Identifier_FT();
 		compartment_id->variable_type = Variable_Type::connection_info;
 		compartment_id->value_type = Value_Type::integer;
