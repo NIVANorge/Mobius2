@@ -263,7 +263,7 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	
 	Token token = stream->peek_token();
 	if(token.type == Token_Type::arr_r) {
-		stream->read_token();
+		//stream->read_token();
 		read_connection_sequence(data_set, &entry.second, stream, info);
 	} else if(token.type == Token_Type::identifier) {
 		read_connection_sequence(data_set, nullptr, stream, info);

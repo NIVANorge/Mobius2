@@ -43,8 +43,8 @@ General model description.
 	sw.soil_runoff.to(river.water)
 	sw.gw_runoff  .to(river.water)
 	
-	downstream : connection("Downstream", directed_tree) { river }
-	rw.reach_out  .to(downstream)
+	#downstream : connection("Downstream", directed_tree) { river }
+	#rw.reach_out  .to(downstream)
 	
 	soil.par_group("Land cover") {         #TODO: Should maybe have syntax to enforce a dependecy of this on landscape units (?)
 		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)

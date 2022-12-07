@@ -543,7 +543,7 @@ compose_and_resolve(Model_Application *app) {
 	Var_Map2 needs_aggregate;
 	//Var_Map2 needs_aggregate_initial;
 	
-	std::set<Var_Id> may_need_connection_target;
+	std::set<std::pair<Entity_Id, Var_Id>> may_need_connection_target;
 	
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
@@ -577,17 +577,14 @@ compose_and_resolve(Model_Application *app) {
 				from_compartment = var->loc1.first();
 				//if(!target_is_located || var->loc1 == var->loc2)    // Hmm, it seems to make more sense to always let the source be the context if it is located.
 				in_loc = var->loc1;
-			} else if(target_is_located) 
+			} else if(target_is_located)
 				in_loc = var->loc2;
 			
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
 			
 			if(is_valid(var->connection)) {
-				// TODO: INCOMPLETE! This must be rewritten to accomodate for multiple targets.
-				// TODO: remember to check that the source is one of the possible connection targets.
-				
-				Var_Id target_id = app->state_vars[var->loc1]; // loc1==loc2 for connection fluxes.
-				may_need_connection_target.insert(app->state_vars[var->loc1]); // We only need these for non-discrete variables.
+				Var_Id source_id = app->state_vars[var->loc1];
+				may_need_connection_target.insert({var->connection, source_id}); // We only need these for non-discrete variables.
 			}
 			
 			if(is_located(var->loc1)) {
@@ -709,10 +706,6 @@ compose_and_resolve(Model_Application *app) {
 				var->flags = (State_Variable::Flags)(var->flags | State_Variable::Flags::f_invalid);
 		}
 	}
-	
-	//if(needs_aggregate_initial.size() > 0)
-	//	fatal_error(Mobius_Error::internal, "aggregate() declarations inside initial value code is not yet supported.");
-
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
 	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.
@@ -847,18 +840,33 @@ compose_and_resolve(Model_Application *app) {
 	warning_print("Generate state vars for in_flux_connection.\n");
 	// TODO: What happens if there are multiple connection fluxes for the same variable?
 	//   currently it looks like only the last one will be added to the target in the end ( connection_agg is overwritten by the last one we create ).
-	for(auto var_id : may_need_connection_target) {
+	for(auto &pair : may_need_connection_target) {
 		
-		//TODO INCOMPLETE   this only works for connections with a single possible target. REWRITE!
+		auto &conn_id = pair.first;
+		auto &source_id  = pair.second;
 		
-		if(!has_solver[var_id.id]) continue;
+		auto connection = model->connections[conn_id];
 		
-		Var_Id n_agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux_connection"); //TODO: generate a better name
-		auto n_agg_var = app->state_vars[n_agg_id];
-		n_agg_var->flags = State_Variable::Flags::f_in_flux_connection;
-		n_agg_var->connection_agg = var_id;
-		
-		app->state_vars[var_id]->connection_agg = n_agg_id;
+		for(auto target_compartment : connection->compartments) {
+			auto target_loc = app->state_vars[source_id]->loc1;
+			target_loc.components[0] = target_compartment;
+			auto target_id = app->state_vars[target_loc];
+			
+			if(is_valid(app->state_vars[target_id]->connection_agg)) continue;
+			if(!has_solver[target_id.id]) {
+				// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
+				// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
+				connection->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Currently we only support connections between state variables that are on ODE solvers.");
+			} 
+			
+			sprintf(varname, "in_flux_connection(%s, %s)", connection->name.data(), app->state_vars[target_id]->name.data());
+			Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname); //TODO: generate a better name
+			auto agg_var = app->state_vars[agg_id];
+			agg_var->flags = State_Variable::Flags::f_in_flux_connection;
+			agg_var->connection_agg = target_id;
+			app->state_vars[target_id]->connection_agg = agg_id;
+		}
 	}
 	
 	warning_print("Generate state vars for in_flux.\n");

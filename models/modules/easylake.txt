@@ -55,7 +55,7 @@ TODO: description
 	
 	lake.has(depth : property("Depth"), unit(m))       {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
-	epi.water.has(outflow : property("Flow"), unit(m 3, s-1)) {   max(0, rate_l*(lake.depth - z_outflow))   }
+	epi.water.has(outflow : property("Flow"), unit(m 3, s-1), "Lake outflow") {   max(0, rate_l*(lake.depth - z_outflow))   }
 
 	lake_out :
 	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }

@@ -1088,6 +1088,10 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		} break;
 	
 		case Math_Expr_Type::if_chain : {
+			
+			if(expr->exprs.size() % 2 != 1)
+				fatal_error(Mobius_Error::internal, "Got malformed if chain in prune_tree.");
+			
 			std::vector<Math_Expr_FT *> remains;
 			bool found_true = false;
 			for(int idx = 0; idx < (int)expr->exprs.size()-1; idx+=2) {
@@ -1115,7 +1119,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 			}
 			if(found_true)
 				delete expr->exprs.back();
-			else	
+			else
 				remains.push_back(expr->exprs.back());
 			
 			if(remains.size() == 1) {
@@ -1143,18 +1147,20 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = reinterpret_cast<Identifier_FT *>(expr);
 			if(ident->variable_type == Variable_Type::local) {
+				if(!scope)
+					fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
 				Function_Scope *sc = scope;
 				while(sc->block->unique_block_id != ident->local_var.scope_id) {
 					sc = sc->parent;
 					if(!sc)
-						fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier.");
+						fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
 				}
 				Math_Block_FT *block = sc->block;
 				if(!block->is_for_loop) { // If the scope was a for loop, the identifier was pointing to the iteration index, and that can't be optimized away here.
 					int index = 0;
 					for(auto loc : block->exprs) {
-						if((loc->expr_type == Math_Expr_Type::local_var) 
-							&& (index == ident->local_var.index) 
+						if((loc->expr_type == Math_Expr_Type::local_var)
+							&& (index == ident->local_var.index)
 							&& (loc->exprs[0]->expr_type == Math_Expr_Type::literal)) {
 								auto literal        = new Literal_FT();
 								auto loc2           = reinterpret_cast<Local_Var_FT *>(loc);

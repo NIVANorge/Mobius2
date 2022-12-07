@@ -30,5 +30,5 @@ model("EasyLake-SimplyQ") {
 	# )
 	rw.reach_out  .to(downstream)
 	
-	el.lake_out.to(downstream)
+	#el.lake_out.to(downstream)
 }

@@ -239,15 +239,17 @@ struct Multi_Array_Structure {
 		return (s64)offset*handles.size() + get_offset_base(handle);
 	}
 	
-	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes, std::vector<Index_T> &index_counts) {
+	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes, std::vector<Index_T> &index_counts, Entity_Id &err_idx_set_out) {
 		Math_Expr_FT *result;
 		if(index_sets.empty()) result = make_literal((s64)0);
 		for(int idx = 0; idx < index_sets.size(); ++idx) {
 			//TODO: check that counts are in the right index set
 			auto &index_set = index_sets[idx];
 			Math_Expr_FT *index = indexes[index_set.id];
-			if(!index)
+			if(!index) {
+				err_idx_set_out = index_set;
 				return nullptr;
+			}
 			index = copy(index);
 			
 			if(idx == 0)
@@ -521,9 +523,11 @@ Storage_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<I
 template<typename Handle_T> Math_Expr_FT *
 Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
-	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts);
-	if(!code)
-		fatal_error(Mobius_Error::internal, "We somehow referenced an index that was not properly initialized, get_offset_code(). Name of referenced variable was \"", get_handle_name(handle), "\".");
+	Entity_Id err_idx_set;
+	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts, err_idx_set);
+	if(!code) {
+		fatal_error(Mobius_Error::internal, "A call to get_offset_code() somehow referenced an index that was not properly initialized. The name of the referenced variable was \"", get_handle_name(handle), "\". The index set was \"", parent->model->index_sets[err_idx_set]->name, "\".");
+	}
 	return code;
 }
 

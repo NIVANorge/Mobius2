@@ -1,6 +1,13 @@
 
 
 	
+	Never mind, we don't need this: can work around it.
+	#First pri: Fix if_chains so that they don't need the else clause
+	#	- first fix in prune_tree
+	#	- then in llvm_jit and emulate
+	
+	Here is the issue!!: See line 201 of model_compilation.
+	
 	
 	
 	Make variables of type Source_Location be named source_loc consistently to not confuse with other things.

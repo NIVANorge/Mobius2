@@ -19,13 +19,11 @@ model("Another simple") {
 			bq : par_real("initial b q", unit(), 0)
 		}
 		
-		q_out :
-		flux(a.q, out, "q out") {
-			5
-		}
+		a_out : flux(a.q, out, "a out") { 5	}
+		b_out : flux(b.q, out, "b out") { 3 }
 	}
 	
-	sol : solver("Simply solver", "INCADascru", 0.1)
+	sol : solver("Solver", "INCADascru", 0.1)
 	sol.solve(a.q)
 	sol.solve(b.q)
 	
@@ -39,7 +37,8 @@ model("Another simple") {
 	a.distribute(i)
 	b.distribute(j)
 	
-	n : connection("A graph", directed_tree) { (a|b)* }
+	n : connection("graph", directed_tree) { (b|a)* }
 	
-	sp.q_out.to(n)
+	sp.a_out.to(n)
+	sp.b_out.to(n)
 }

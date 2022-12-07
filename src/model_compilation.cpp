@@ -154,66 +154,6 @@ make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, 
 	return var_ident;
 }
 
-/*
-Math_Expr_FT *
-add_or_subtract_var_from_agg_var(Model_Application *model_app, char oper, Math_Expr_FT *var_ident, Var_Id var_id_agg, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id = invalid_entity_id) {
-
-	Math_Expr_FT *offset_code_agg;
-	Math_Expr_FT *index_ref = nullptr;
-	
-	if(is_valid(connection_id)) {
-		// The aggregation was pointed at a connected index, not the same index as the current one.
-		auto connection = model_app->model->connections[connection_id];
-		
-		if(connection->type != Connection_Structure_Type::directed_tree)
-			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_var_from_agg_var()");
-		
-		auto comp_id = connection->compartments[0]; // NOTE :temporary!!
-		auto index_set = model_app->model->components[comp_id]->index_sets[0]; // NOTE :temporary!!
-		
-		
-		auto index_offset = model_app->connection_structure.get_offset_code({connection_id, comp_id, 1}, indexes); // NOTE: the 0 signifies that this is "data point" 1, which is the first index.
-		auto index = new Identifier_FT();
-		index->variable_type = Variable_Type::connection_info;
-		index->value_type = Value_Type::integer;
-		index->exprs.push_back(index_offset);
-		
-		auto cur_idx = indexes[index_set.id];// Store it so that we can restore it later.
-		indexes[index_set.id] = index;
-		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
-		indexes[index_set.id] = cur_idx;  // Reset it for use by others;
-		index_ref = index;
-	} else
-		offset_code_agg = model_app->result_structure.get_offset_code(var_id_agg, indexes);
-	
-	auto agg_ident = make_state_var_identifier(var_id_agg);
-	agg_ident->exprs.push_back(offset_code_agg);
-	
-	auto sum_or_difference = make_binop(oper, agg_ident, var_ident);
-	
-	auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
-	assignment->exprs.push_back(copy(offset_code_agg));
-	assignment->exprs.push_back(sum_or_difference);
-	assignment->value_type = Value_Type::none;
-	
-	if(index_ref) {
-		// We have to check that the target index is not negative (meaning there are no connections for this particular source)
-		// NOTE: we don't have to copy the index_ref here, because it should have been copied in its previous use.
-		
-		// TODO: Instead of having the branch we could have the index point at some random existing value, then multiply with a weight which is 0 if there is no target, and 1 otherwise.
-		auto condition = make_binop(Token_Type::geq, index_ref, make_literal((s64)0));
-		auto if_chain = new Math_Expr_FT();
-		if_chain->expr_type = Math_Expr_Type::if_chain;
-		if_chain->exprs.push_back(assignment);
-		if_chain->exprs.push_back(condition);
-		if_chain->exprs.push_back(make_literal((s64)0)); // The last "else" value is a dummy. We could make llvm and the emulator accept an if statement that doesn't have an else (?). Would also need to make the prune_tree understand it.
-		if_chain->value_type = Value_Type::none;
-		return if_chain;
-	}
-	
-	return assignment;
-}
-*/
 
 Math_Expr_FT *
 add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_FT *value, char oper) {
@@ -233,106 +173,65 @@ add_value_to_agg_var(Model_Application *app, char oper, Math_Expr_FT *value, Var
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
-	
-	std::vector<Math_Expr_FT *> agg_offsets;
-	std::vector<Var_Id>         agg_ids;
-	
-	Math_Expr_FT *index_ref = nullptr;
-	
-	Entity_Id connection_source_comp = invalid_entity_id;
+	Math_Expr_FT *result = nullptr;
 
 	if(is_valid(connection_id)) {
 		
 		// Hmm, this line looks a bit messy..
-		connection_source_comp = app->state_vars[connection_source]->loc1.components[0];
+		Entity_Id source_compartment = app->state_vars[connection_source]->loc1.components[0];
 		
 		auto connection = model->connections[connection_id];
 		if(connection->type != Connection_Structure_Type::directed_tree)
 			fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_var_from_agg_var()");
 		
 		// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
-		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 1}, indexes);	// the 1 is because the index is stored at info id 1
+		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 1}, indexes);	// the 1 is because the target index is stored at info id 1
 		auto target_index = new Identifier_FT();
 		target_index->variable_type = Variable_Type::connection_info;
 		target_index->value_type = Value_Type::integer;
 		target_index->exprs.push_back(idx_offset);
-		index_ref = target_index;
 		
-		for(auto target_compartment : connection->compartments) {
-			// NOTE for now we only support connections from a.xyz to b.xyz . Could allow for between different quantities later, but probably not needed (?)
-			//    in that case it could be more tricky to store the info..
-			auto target_loc = app->state_vars[connection_source]->loc1;
-			target_loc.components[0] = target_compartment;
+		auto target_agg = app->state_vars[agg_id];
+		// This is also messy...
+		auto target_compartment = app->state_vars[target_agg->connection_agg]->loc1.components[0];
+		
+		auto index_set_target = model->components[target_compartment]->index_sets[0]; //NOTE: temporary!!
+		auto cur_idx = indexes[index_set_target.id]; // Store it so that we can restore it later.
+		indexes[index_set_target.id] = target_index;
+		auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+		indexes[index_set_target.id] = cur_idx;
+		
+		// If the target index is negative, this does not connect anywhere, so we have to make code to check for that.
+		auto condition = make_binop(Token_Type::geq, target_index, make_literal((s64)0));
+		
+		if(connection->compartments.size() > 1) {
+			// If there can be multiple valid targets compartments for the connection, we have to make code to see if the value should indeed be added to this aggregation variable.
 			
-			auto target_id = app->state_vars[target_loc];
-			auto target = app->state_vars[target_id];
-			auto var_id_agg = target->connection_agg;
+			auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
+			auto compartment_id = new Identifier_FT();
+			compartment_id->variable_type = Variable_Type::connection_info;
+			compartment_id->value_type = Value_Type::integer;
+			compartment_id->exprs.push_back(idx_offset);
 			
-			if(!is_valid(var_id_agg))
-				fatal_error(Mobius_Error::internal, "Tried to generate code to add a flux to a connection target, but the target doesn't have an aggregation variable for the connection.");
-			
-			agg_ids.push_back(var_id_agg);
-			
-			//warning_print("*** Attempt to connect ", app->state_vars[connection_source]->name, " to ", target->name, " using aggregation ", app->state_vars[var_id_agg]->name, "\n");
-			
-			auto index_set_target = model->components[target_compartment]->index_sets[0]; //NOTE: temporary!!
-
-			auto cur_idx = indexes[index_set_target.id]; // Store it so that we can restore it later.
-			indexes[index_set_target.id] = target_index;
-			agg_offsets.push_back(app->result_structure.get_offset_code(var_id_agg, indexes));
-			indexes[index_set_target.id] = cur_idx;
+			auto condition2 = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
+			condition = make_binop('&', condition, condition2);
 		}
-		
-	} else { // If there was no connection set, there is a different aggregation variable.
-		agg_ids.push_back(agg_id);
-		agg_offsets.push_back(app->result_structure.get_offset_code(agg_id, indexes));
-	}
-	
-	Math_Expr_FT *result = nullptr;
-	
-	if(agg_offsets.size() == 1)
-		result = add_value_to_state_var(agg_ids[0], agg_offsets[0], value, oper);
-	else {
-		// If there are multiple possible targets, we have to check which one.
-		auto connection = model->connections[connection_id];
 		
 		auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 		if_chain->value_type = Value_Type::none;
 		
-		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, connection_source_comp, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
-		auto compartment_id = new Identifier_FT();
-		compartment_id->variable_type = Variable_Type::connection_info;
-		compartment_id->value_type = Value_Type::integer;
-		compartment_id->exprs.push_back(idx_offset);
+		if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, oper));
+		if_chain->exprs.push_back(condition);
+		if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
 		
-		// TODO: should instead make a local variable of compartment_id so that it is not recomputed in every branch. But that requires a new scope.
-		for(int idx = 0; idx < agg_offsets.size(); ++idx) {
-			auto assignment = add_value_to_state_var(agg_ids[idx], agg_offsets[idx], value, oper);
-			auto condition = make_binop('=',
-					make_literal((s64)connection->compartments[idx].id),
-					copy(compartment_id)
-				);
-			if_chain->exprs.push_back(assignment);
-			if_chain->exprs.push_back(condition);
-		}
 		result = if_chain;
-		delete compartment_id; // remember not to do this if we make it a local var.
+	} else {
+		auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+		result = add_value_to_state_var(agg_id, agg_offset, value, oper);
 	}
 	
-	if(index_ref) {
-		// We have to check that the target index is not negative (meaning there are no connections for this particular source)
-		// NOTE: we don't have to copy the index_ref here, because it should have been copied in its previous use.
-		
-		// TODO: Instead of having the branch we could have the index point at some random existing value, then multiply with a weight which is 0 if there is no target, and 1 otherwise.
-		auto condition = make_binop(Token_Type::geq, index_ref, make_literal((s64)0));
-		auto if_chain = new Math_Expr_FT();
-		if_chain->expr_type = Math_Expr_Type::if_chain;
-		if_chain->exprs.push_back(result);
-		if_chain->exprs.push_back(condition);
-		if_chain->exprs.push_back(make_literal((s64)0)); // The last "else" value is a dummy. We could make llvm and the emulator accept an if statement that doesn't have an else (?). Would also need to make the prune_tree understand it.
-		if_chain->value_type = Value_Type::none;
-		return if_chain;
-	}
+	//warning_print("\n\n**** Agg instruction tree is :\n");
+	//print_tree(result, 0);
 	
 	return result;
 }
@@ -350,7 +249,7 @@ create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, 
 		
 		//NOTE: the scope of this item itself is replaced when it is inserted later.
 		// note: this is a reference to the iterator of the for loop.
-		indexes[index_set.id] = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer); 
+		indexes[index_set.id] = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
 		
 		scope = loop;
 	}
@@ -781,8 +680,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		auto fun = var->function_tree;
 		if(initial) fun = var->initial_function_tree;
 		if(!fun) {
-			if(!initial && var->type != Decl_Type::quantity && 
-				!(var->flags & State_Variable::Flags::f_is_aggregate) && 
+			if(!initial && var->type != Decl_Type::quantity &&
+				!(var->flags & State_Variable::Flags::f_is_aggregate) &&
 				!(var->flags & State_Variable::Flags::f_in_flux_connection) &&
 				!(var->flags & State_Variable::Flags::f_in_flux) &&
 				!(var->flags & State_Variable::Flags::f_dissolved_flux) &&
@@ -831,24 +730,22 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		for(auto var_id : app->state_vars) {
 			auto var = app->state_vars[var_id];
 			// Fluxes with an ODE variable as source is given the same solver as it.
-			if(var->type == Decl_Type::flux && is_located(var->loc1)) {
+			if(var->type == Decl_Type::flux && is_located(var->loc1))
 				instructions[var_id.id].solver = instructions[app->state_vars[var->loc1].id].solver;
-			}
+
 			// Also set the solver for an aggregation variable for a connection flux.
-			if(var->flags & State_Variable::Flags::f_in_flux_connection) {
+			if(var->flags & State_Variable::Flags::f_in_flux_connection)
 				instructions[var_id.id].solver = instructions[var->connection_agg.id].solver;
-			}
+
 			// Dissolved fluxes of fluxes with solvers must be on solvers
 			//TODO: make it work with dissolvedes of dissolvedes
 			//TODO: what if the source was on another solver than the dissolved? Another reason to force them to be the same (unless overridden)?
-			if(var->flags & State_Variable::Flags::f_dissolved_flux) {
+			if(var->flags & State_Variable::Flags::f_dissolved_flux)
 				instructions[var_id.id].solver = instructions[var->dissolved_flux.id].solver;
-			}
 			
 			// Also for concs. Can be overkill some times, but safer just to do it.
-			if(var->flags & State_Variable::Flags::f_dissolved_conc) {
+			if(var->flags & State_Variable::Flags::f_dissolved_conc)
 				instructions[var_id.id].solver = instructions[var->dissolved_conc.id].solver;
-			}
 		}
 	}
 	
@@ -941,46 +838,54 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			//warning_print("************ Found it\n");
 			
-			// var is the target aggregate
-			// var->connection_agg  is the final quantity state variable for the target.
+			int clear_id = instructions.size();
+			instructions.push_back({});
+			auto clear_instr       = &instructions[clear_id];
+			clear_instr->type = Model_Instruction::Type::clear_state_var;
+			clear_instr->solver = var_solver;
+			clear_instr->var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
+			clear_instr->inherits_index_sets_from_instruction.insert(var_id.id);
+			
+			// var is the aggregation variable for the target
+			// var->connection_agg  is the quantity state variable for the target.
 			
 			// Find all the connection fluxes pointing to the target.
 			for(auto var_id_flux : app->state_vars) {
 				auto var_flux = app->state_vars[var_id_flux];
 				
 				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->connection)) continue;
-				if(app->state_vars[var_flux->loc1] != var->connection_agg) continue;
-				
-				// Create instruction to add the in flux to the target aggregate.
-				int clear_id = instructions.size();
-				instructions.push_back({});
+			
+				// Create instruction to add the flux to the target aggregate.	
 				int add_to_aggr_id = instructions.size();
 				instructions.push_back({});
 				
-				auto clear_instr       = &instructions[clear_id];
-				
-				clear_instr->type = Model_Instruction::Type::clear_state_var;
-				clear_instr->solver = var_solver;
-				clear_instr->var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
-				clear_instr->inherits_index_sets_from_instruction.insert(add_to_aggr_id);
+				// TODO: Go over and refactor this stuff: !!
 				
 				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 				
+				add_to_aggr_instr->solver = var_solver;
+				add_to_aggr_instr->connection = var_flux->connection;
 				add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
 				add_to_aggr_instr->var_id = var_id_flux;
 				add_to_aggr_instr->source_or_target_id = var_id;
 				add_to_aggr_instr->depends_on_instruction.insert(clear_id); // Only start summing up after we cleared to 0.
+				add_to_aggr_instr->instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
 				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
-				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need one per target of the connection fluxes.
-				add_to_aggr_instr->solver = var_solver;
-				add_to_aggr_instr->connection = var_flux->connection;
 				
-				// This says that the clear_id has to be in a separate for loop from this instruction
-				add_to_aggr_instr->instruction_is_blocking.insert(clear_id);
+				// NOTE: The source of the flux could be different per target, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
+				auto source_comp = model->components[var_flux->loc1.components[0]];
+				add_to_aggr_instr->index_sets.insert(source_comp->index_sets.begin(), source_comp->index_sets.end()); //TODO: This should instead depend on the index sets involved in the connection relation..
 				
+				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
-				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var->connection_agg.id); // TODO: Is this necessary, or do we just have to insert the particular index set of the connection relation?
+				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var->connection_agg.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
+				
+				// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
+				auto target_compartment = app->state_vars[var->connection_agg]->loc1.components[0];
+				auto target_comp = model->components[target_compartment];
+				instructions[var->connection_agg.id].index_sets.insert(target_comp->index_sets.begin(), target_comp->index_sets.end());
+				
 				// This is not needed because the target is always an ODE:
 				//instructions[var->connection_agg.id].depends_on_instruction.insert(var_id.id); // The target must be computed after the aggregation variable.
 			}
@@ -1023,6 +928,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(is_connection && has_aggregate)
 			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate");
 		
+		/*
 		if(is_connection) {
 			auto connection = model->connections[var->connection];
 			if(connection->type != Connection_Structure_Type::directed_tree)
@@ -1037,6 +943,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto conn_idx_set = conn_comp->index_sets[0];
 			target->index_sets.insert(conn_idx_set);
 		}
+		*/
 		
 		if((is_located(loc2) || is_connection) && !has_aggregate) {
 			Var_Id target_id;
@@ -1591,6 +1498,11 @@ Model_Application::compile() {
 	LLVM_Constant_Data constants;
 	constants.connection_data       = data.connections.data;
 	constants.connection_data_count = connection_structure.total_count;
+	
+	warning_print("****Connection data is:\n");
+	for(int idx = 0; idx < constants.connection_data_count; ++idx)
+		warning_print(" ", constants.connection_data[idx]);
+	warning_print("\n");
 	
 	jit_add_global_data(llvm_data, &constants);
 	

@@ -132,7 +132,7 @@ jit_compile_module(LLVM_Module_Data *data) {
 	
 	mpm.run(*data->module, mam);
 	
-	#if 1
+	#if 0
 	std::string module_ir_text;
 	llvm::raw_string_ostream os(module_ir_text);
 	os << *data->module;
@@ -463,9 +463,9 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 
 
 llvm::Value *
-build_if_chain_ir(Math_Expr_FT **exprs, int exprs_size, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_if_chain_ir(Math_Expr_FT **exprs, size_t exprs_size, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
-	//TODO: we should probably optimize by having only one merge block and phi node!
+	//TODO: we could maybe optimize by having only one merge block and phi node!
 	
 	if(exprs_size % 2 != 1)
 		fatal_error(Mobius_Error::internal, "Got a malformed if statement in ir generation. This should have been detected at an earlier stage!");
@@ -685,6 +685,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		} break;
 
 		case Math_Expr_Type::if_chain : {
+			//warning_print("*** New if chain, size is ", expr->exprs.size(), "\n");
 			return build_if_chain_ir(expr->exprs.data(), expr->exprs.size(), locals, args, data);
 		} break;
 		

@@ -151,27 +151,6 @@ Model_Application::set_up_connection_structure() {
 			Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
 			structure.push_back(array);
 		}
-		
-		/*
-		Connection_T handle = { connection_id, 0 };  // For now we only support one info point per index, which will be what the index points at.
-		std::vector<Connection_T> handles { handle };
-		
-		Entity_Id index_set = invalid_entity_id;
-		for(Entity_Id comp_id : connection->compartments) {
-			auto compartment = model->components[comp_id];
-			
-			// NOTE :temporary!!! :
-			if(compartment->index_sets.size() != 1)
-				fatal_error(Mobius_Error::internal, "Temporary limitation: Got a connection over a compartment that has more than one index set");
-			Entity_Id index_set_2 = compartment->index_sets[0];
-			if(is_valid(index_set) && (index_set != index_set_2))
-				fatal_error(Mobius_Error::internal, "Temporary limitation: Got a connection between compartments that index over different index sets");
-			index_set = index_set_2;
-		}
-		
-		Multi_Array_Structure<Connection_T> array({index_set}, std::move(handles));
-		structure.push_back(array);
-		*/
 	}
 	connection_structure.set_up(std::move(structure));
 	data.connections.allocate();
