@@ -14,7 +14,7 @@
 // NOTE year and month can't quite be denoted in seconds since the years and months have variable length
 enum class
 Base_Unit {
-	m = 0, s, g, mol, deg_c, deg, month, year, max
+	m = 0, s, g, mol, deg_c, deg, month, year, K, max
 };
 
 enum class

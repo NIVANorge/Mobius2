@@ -26,9 +26,9 @@ model("EasyLake-SimplyQ") {
 	# TODO: This should override what is in the simplyq model.
 	
 	# override(       # something like this...
-	downstream : connection("Downstream", directed_tree) { (river|epi)* }
+	ds : connection("Downstream", directed_tree) { (epi|river)* }
 	# )
-	rw.reach_out  .to(downstream)
+	rw.reach_out  .to(ds)
 	
-	#el.lake_out.to(downstream)
+	#el.lake_out.to(ds)
 }

@@ -19,8 +19,8 @@ model("Another simple") {
 			bq : par_real("initial b q", unit(), 0)
 		}
 		
-		a_out : flux(a.q, out, "a out") { 5	}
-		b_out : flux(b.q, out, "b out") { 3 }
+		a_out : flux(a.q, out, "a out") { 0.002*q	}
+		b_out : flux(b.q, out, "b out") { 0.001*q }
 	}
 	
 	sol : solver("Solver", "INCADascru", 0.1)
