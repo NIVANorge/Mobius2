@@ -58,9 +58,9 @@ topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::
 }
 
 void
-resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_Instruction> &instructions, bool initial) {
+resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
-	Mobius_Model *model = model_app->model;
+	Mobius_Model *model = app->model;
 	
 	// Collect direct dependencies coming from lookups in the declared functions of the variables.
 	// NOTE: we can't just reuse the dependency sets we computed in model_composition, because some of the variables have undergone codegen between then.
@@ -73,11 +73,11 @@ resolve_index_set_dependencies(Model_Application *model_app, std::vector<Model_I
 		register_dependencies(instr.code, &code_depends);
 		
 		for(auto par_id : code_depends.on_parameter) {
-			auto index_sets = model_app->parameter_structure.get_index_sets(par_id);
+			auto index_sets = app->parameter_structure.get_index_sets(par_id);
 			instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
 		}
 		for(auto series_id : code_depends.on_series) {
-			auto index_sets = model_app->series_structure.get_index_sets(series_id);
+			auto index_sets = app->series_structure.get_index_sets(series_id);
 			instr.index_sets.insert(index_sets.begin(), index_sets.end());
 		}
 		
@@ -160,8 +160,8 @@ debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches,
 }
 
 void
-build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &batch_out, bool initial) {
-	Mobius_Model *model = model_app->model;
+build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &batch_out, bool initial) {
+	Mobius_Model *model = app->model;
 	
 	batch_out.clear();
 	
@@ -205,7 +205,7 @@ build_batch_arrays(Model_Application *model_app, std::vector<int> &instrs, std::
 	
 	
 	// NOTE: Do more passes to try and group instructions in an optimal way:
-#if 1
+#if 0
 	bool changed = false;
 	for(int it = 0; it < 10; ++it) {
 		changed = false;
@@ -886,10 +886,10 @@ add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Batch_Array &ar
 }
 
 void
-set_up_result_structure(Model_Application *model_app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
-	if(model_app->result_structure.has_been_set_up)
+set_up_result_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
+	if(app->result_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up result structure twice.");
-	if(!model_app->all_indexes_are_set())
+	if(!app->all_indexes_are_set())
 		fatal_error(Mobius_Error::internal, "Tried to set up result structure before all index sets received indexes.");
 	
 	// NOTE: we just copy the batch structure so that it is easier to optimize the run code for cache locality.
@@ -900,7 +900,7 @@ set_up_result_structure(Model_Application *model_app, std::vector<Batch> &batche
 		for(auto &array : batch.arrays_ode)  add_array(structure, array, instructions);
 	}
 	
-	model_app->result_structure.set_up(std::move(structure));
+	app->result_structure.set_up(std::move(structure));
 }
 
 void

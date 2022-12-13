@@ -51,9 +51,9 @@ TODO: description
 	
 	epi.has(water, unit(m 3), "Epilimnion volume")     .initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
-	flux(nowhere, epi.water, "Precip to lake")                  {   air.precip * A_surf * 1e-3   }
+	flux(nowhere, epi.water, "Precipitation to lake")           {   air.precip * A_surf * 1e-3   }
 	
-	lake.has(depth : property("Depth"), unit(m))       {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	lake.has(depth : property("Depth"), unit(m))                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
 	epi.water.has(outflow : property("Flow"), unit(m 3, s-1), "Lake outflow") {   max(0, rate_l*(lake.depth - z_outflow))   }
 

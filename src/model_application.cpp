@@ -397,9 +397,14 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 				fatal_error("The name \"", comp_target->name, "\" does not refer to a compartment that was declared in this model.");
 			}
 			// TODO: In the end we will instead have to check that the connection structure matches the regex, but this is going to be complicated.
+			// TODO: Could also print the location of the declaration of the connection.
 			if(std::find(cnd->compartments.begin(), cnd->compartments.end(), source_comp_id) == cnd->compartments.end()) {
 				connection.loc.print_error_header();
-				fatal_error("This connection is not allowed for the compartment \"", model->components[source_comp_id]->name, "\".");
+				fatal_error("The connection \"", cnd->name,"\" is not allowed for the compartment \"", model->components[source_comp_id]->name, "\".");
+			}
+			if(std::find(cnd->compartments.begin(), cnd->compartments.end(), target_comp_id) == cnd->compartments.end()) {
+				connection.loc.print_error_header();
+				fatal_error("The connection \"", cnd->name,"\" is not allowed for the compartment \"", model->components[source_comp_id]->name, "\".");
 			}
 			
 			auto compartment = model->components[source_comp_id];

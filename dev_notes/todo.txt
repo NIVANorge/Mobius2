@@ -1,24 +1,20 @@
 
 
+
+
 	
-	Never mind, we don't need this: can work around it.
-	#First pri: Fix if_chains so that they don't need the else clause
-	#	- first fix in prune_tree
-	#	- then in llvm_jit and emulate
-	
-	Here is the issue!!: See line 201 of model_compilation.
-	
-	
+
+	Override declarations.
+
+	Relative paths are always relative to the model source file, but this breaks when you do extend_model of a model from another folder.
 	
 	Make variables of type Source_Location be named source_loc consistently to not confuse with other things.
 	
-	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or nullpointer dereferences.
+	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or nullpointer dereferences/frees.
 	
 	Make it automatic that certain state variables are on solvers (dissolveds etc)
 	
-	Probably only allow connection fluxes between state variables that are on solvers.
-	
-	Clean up the State_Variable and Model_Instruction structs to make it less easy to have usage errors.
+	Clean up the State_Variable and Model_Instruction structs to make it less easy to have usage errors (maybe make accessors).
 	
 	
 	
@@ -44,8 +40,7 @@
 	Index set distribution of quantities
 		+ par groups on quantities
 		
-		
-		
+	Probably only allow connection fluxes between state variables that are on solvers. (Currently set to be the default)
 		
 		
 	

@@ -57,7 +57,7 @@ void
 instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial);
 
 Math_Expr_FT *
-generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_Instruction> &instructions, bool initial);
+generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instruction> &instructions, bool initial);
 
 
 #endif // MOBIUS_MODEL_CODEGEN_H

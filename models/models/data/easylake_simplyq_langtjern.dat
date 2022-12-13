@@ -4,14 +4,13 @@ index_set("Landscape units") [ "Forest" ]
 
 index_set("Subcatchment") [ "Inlet" ]
 
-l : compartment("Lake") [ "Lake" ]
+e : compartment("Epilimnion") [ "Lake" ]
 r : compartment("River") [ "Subcatchment" ]
 connection("Downstream") [
-	r[ "Inlet" ] -> l[ "Langtjern" ]
+	r[ "Inlet" ] -> e[ "Langtjern" ]
 ]
 
 series("langtjern_lake.xlsx")
-#series("langtjern.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
@@ -114,6 +113,16 @@ module("EasyLake", 0, 1, 0) {
 
 		par_real("Initial ice thickness")
 		[ 0.5 ]
+	}
+}
+
+module("Degree-day PET", 1, 0, 0) {
+	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
+		par_real("Deegree-day factor for evapotranspiration")
+		[ 0.12 ]
+
+		par_real("Minimal temperature for evapotranspiration")
+		[ 0 ]
 	}
 }
 

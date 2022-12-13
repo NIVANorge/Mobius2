@@ -180,9 +180,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::vector<Math_Expr_FT *> &index_expr) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, std::vector<Math_Expr_FT *> &index_expr) {
 	for(auto arg : expr->exprs)
-		put_var_lookup_indexes(arg, model_app, index_expr);
+		put_var_lookup_indexes(arg, app, index_expr);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
 	
@@ -190,17 +190,17 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *model_app, std::ve
 	Math_Expr_FT *offset_code = nullptr;
 	s64 back_step;
 	if(ident->variable_type == Variable_Type::parameter) {
-		offset_code = model_app->parameter_structure.get_offset_code(ident->parameter, index_expr);
+		offset_code = app->parameter_structure.get_offset_code(ident->parameter, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
-		offset_code = model_app->series_structure.get_offset_code(ident->series, index_expr);
-		back_step = model_app->series_structure.total_count;
+		offset_code = app->series_structure.get_offset_code(ident->series, index_expr);
+		back_step = app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
-		auto var = model_app->state_vars[ident->state_var];
+		auto var = app->state_vars[ident->state_var];
 		if(var->flags & State_Variable::Flags::f_invalid)
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
-		offset_code = model_app->result_structure.get_offset_code(ident->state_var, index_expr);
-		back_step = model_app->result_structure.total_count;
+		offset_code = app->result_structure.get_offset_code(ident->state_var, index_expr);
+		back_step = app->result_structure.total_count;
 	}
 	
 	//TODO: Should check that we are not at the initial step
@@ -294,14 +294,14 @@ add_value_to_agg_var(Model_Application *app, char oper, Math_Expr_FT *value, Var
 }
 
 Math_Expr_FT *
-create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, Batch_Array &array, std::vector<Math_Expr_FT *> &indexes) {
-	for(auto &index_set : model_app->model->index_sets)
+create_nested_for_loops(Model_Application *app, Math_Block_FT *top_scope, Batch_Array &array, std::vector<Math_Expr_FT *> &indexes) {
+	for(auto &index_set : app->model->index_sets)
 		indexes[index_set.id] = nullptr;    //note: just so that it is easy to catch if we somehow use an index we shouldn't
 		
 	Math_Block_FT *scope = top_scope;
 	for(auto &index_set : array.index_sets) {
 		auto loop = make_for_loop();
-		loop->exprs.push_back(make_literal((s64)model_app->index_counts[index_set.id].index));
+		loop->exprs.push_back(make_literal((s64)app->index_counts[index_set.id].index));
 		scope->exprs.push_back(loop);
 		
 		//NOTE: the scope of this item itself is replaced when it is inserted later.
@@ -319,14 +319,14 @@ create_nested_for_loops(Model_Application *model_app, Math_Block_FT *top_scope, 
 
 
 Math_Expr_FT *
-generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_Instruction> &instructions, bool initial) {
-	auto model = model_app->model;
+generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instruction> &instructions, bool initial) {
+	auto model = app->model;
 	auto top_scope = new Math_Block_FT();
 	
 	std::vector<Math_Expr_FT *> indexes(model->index_sets.count());
 	
 	for(auto &array : batch->arrays) {
-		Math_Expr_FT *scope = create_nested_for_loops(model_app, top_scope, array, indexes);
+		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes);
 		
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -337,14 +337,14 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				fun = copy(fun);
 			
 				//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
-				put_var_lookup_indexes(fun, model_app, indexes);
+				put_var_lookup_indexes(fun, app, indexes);
 			} else if (instr->type != Model_Instruction::Type::clear_state_var)
 				continue;
 				//TODO: we coud set an explicit no-op flag on the instruction. If the flag is set, we expect a nullptr fun, otherwise a valid one. Then throw error if there is something unexpected.
 				
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
-				auto offset_code = model_app->result_structure.get_offset_code(instr->var_id, indexes);
+				auto offset_code = app->result_structure.get_offset_code(instr->var_id, indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset_code);
 				assignment->exprs.push_back(fun);
@@ -352,8 +352,8 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				
 			} else if (instr->type == Model_Instruction::Type::subtract_flux_from_source) {
 
-				auto result = add_value_to_agg_var(model_app, '-', fun, instr->source_or_target_id, indexes);
-				//auto result = add_or_subtract_var_from_agg_var(model_app, '-', fun, instr->source_or_target_id, indexes);
+				auto result = add_value_to_agg_var(app, '-', fun, instr->source_or_target_id, indexes);
+				//auto result = add_or_subtract_var_from_agg_var(app, '-', fun, instr->source_or_target_id, indexes);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_flux_to_target) {
@@ -361,12 +361,12 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				// TODO: this is annoying to do... We should store source_id and target_id separately on the instr. Also makes it less likely to make errors later
 				Var_Id source_id = invalid_var;
 				if(is_valid(instr->connection)) {
-					auto source_loc = model_app->state_vars[instr->var_id]->loc1;
-					source_id = model_app->state_vars[source_loc];
+					auto source_loc = app->state_vars[instr->var_id]->loc1;
+					source_id = app->state_vars[source_loc];
 				}
 				
-				auto result = add_value_to_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, source_id, instr->connection);
-				//auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
+				auto result = add_value_to_agg_var(app, '+', fun, instr->source_or_target_id, indexes, source_id, instr->connection);
+				//auto result = add_or_subtract_var_from_agg_var(app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
@@ -374,20 +374,20 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 				// TODO: see above!
 				Var_Id source_id = invalid_var;
 				if(is_valid(instr->connection)) {
-					auto source_loc = model_app->state_vars[instr->var_id]->loc1;
-					source_id = model_app->state_vars[source_loc];
+					auto source_loc = app->state_vars[instr->var_id]->loc1;
+					source_id = app->state_vars[source_loc];
 				}
 				
-				auto result = add_value_to_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, source_id, instr->connection);
-				//auto result = add_or_subtract_var_from_agg_var(model_app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
+				auto result = add_value_to_agg_var(app, '+', fun, instr->source_or_target_id, indexes, source_id, instr->connection);
+				//auto result = add_or_subtract_var_from_agg_var(app, '+', fun, instr->source_or_target_id, indexes, instr->connection);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				
-				auto offset = model_app->result_structure.get_offset_code(instr->var_id, indexes);
+				auto offset = app->result_structure.get_offset_code(instr->var_id, indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset);
-				assignment->exprs.push_back(make_literal((s64)0));
+				assignment->exprs.push_back(make_literal((double)0));
 				scope->exprs.push_back(assignment);
 				
 			}
@@ -407,9 +407,9 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 	
 	// NOTE: The way we do things here rely on the fact that all ODEs of the same batch (and time step) are stored contiguously in memory. If that changes, the indexing of derivatives will break!
 	//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
-	s64 init_pos = model_app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
+	s64 init_pos = app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
 	for(auto &array : batch->arrays_ode) {
-		Math_Expr_FT *scope = create_nested_for_loops(model_app, top_scope, array, indexes);
+		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes);
 				
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -425,9 +425,9 @@ generate_run_code(Model_Application *model_app, Batch *batch, std::vector<Model_
 			
 			fun = copy(fun);
 			
-			put_var_lookup_indexes(fun, model_app, indexes);
+			put_var_lookup_indexes(fun, app, indexes);
 			
-			auto offset_var = model_app->result_structure.get_offset_code(instr->var_id, indexes);
+			auto offset_var = app->result_structure.get_offset_code(instr->var_id, indexes);
 			auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
 			auto assignment = new Math_Expr_FT(Math_Expr_Type::derivative_assignment);
 			assignment->exprs.push_back(offset_deriv);

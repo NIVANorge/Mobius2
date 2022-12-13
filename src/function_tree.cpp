@@ -342,7 +342,7 @@ set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_I
 		int idx = 0;
 		for(Token &token : chain)
 			error_print(token.string_value, idx++ == chain.size()-1 ? "" : ".");
-		error_print("\ncan not be inferred as a valid variable location that has been created using a 'has' declaration. ");
+		error_print("\ncan not be inferred as a valid state variable that has been created using a 'has' declaration. ");
 		if(is_located(data->in_loc)) {
 			error_print("It was being resolved in the following context: ");
 			error_print_location(data->scope, data->in_loc);
@@ -516,6 +516,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							if(!reg) {
 								ident->chain[0].print_error_header();
 								error_print("The name '", n1, "' is not the name of an entity declared or loaded in this scope.\n");
+								fatal_error_trace(scope);
 							}
 							if(reg->id.reg_type == Reg_Type::parameter) {
 								auto parameter = model->parameters[reg->id];
