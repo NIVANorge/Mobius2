@@ -187,10 +187,15 @@ TODO: description
 		86400 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - epi.temp))      otherwise
 	}
 	
-	flux(epi.water, nowhere, "Evaporation") {
+	epi.water.has(evap_mm : property("Evaporation per area"), unit(m m, day-1)) {
 		rho_ref := 1025
 		0                                                                         if epi.ice.indicator,
-		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400*A_surf)  otherwise
+		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400)*1000    otherwise
+	}
+	
+	evap :
+	flux(epi.water, nowhere, "Evaporation") {
+		evap_mm*A_surf/1000
 	}
 	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {

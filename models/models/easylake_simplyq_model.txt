@@ -21,6 +21,9 @@ model("EasyLake-SimplyQ") {
 	#el.lake_out.no_carry(epi.water.heat)
 	#rw.reach_out.no_carry(river.water.heat)
 	
+	# TODO: Should be able to just say no_carry(heat) (?)
+	el.evap.no_carry(epi.water.heat)       #TODO: Should it though ? Or is that already covered by the heat flux ? Predictions look better without it
+	
 	lk : index_set("Lake")
 	
 	epi.distribute(lk)
