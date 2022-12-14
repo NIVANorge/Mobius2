@@ -18,8 +18,8 @@ model("EasyLake-SimplyQ") {
 	simply_solver.solve(river.water.heat)
 	simply_solver.solve(epi.ice)
 	
-	el.lake_out.no_carry(epi.water.heat)
-	rw.reach_out.no_carry(river.water.heat)
+	#el.lake_out.no_carry(epi.water.heat)
+	#rw.reach_out.no_carry(river.water.heat)
 	
 	lk : index_set("Lake")
 	
@@ -32,6 +32,5 @@ model("EasyLake-SimplyQ") {
 	ds : connection("Downstream", directed_tree) { (river|epi)* }
 	# )
 	rw.reach_out  .to(ds)
-	
-	#el.lake_out.to(ds)
+	el.lake_out.to(ds)
 }

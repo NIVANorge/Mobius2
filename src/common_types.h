@@ -252,21 +252,6 @@ Var_Location {
 	bool is_dissolved() const { return n_components > 2; }
 };
 
-/*
-struct
-Var_Location {
-	enum class Type : s32 {
-		nowhere=0, out, located,
-	}   type;
-	s32 n_dissolved;         //NOTE: it is here for better packing.
-	
-	// These should only be referenced if type == located.
-	Entity_Id compartment;
-	Entity_Id property_or_quantity;
-	Entity_Id dissolved_in[max_dissolved_chain];
-};
-*/
-
 inline bool
 is_located(const Var_Location &loc) {
 	return loc.type == Var_Location::Type::located;
@@ -280,14 +265,10 @@ operator==(const Var_Location &a, const Var_Location &b) {
 	if(a.n_components != b.n_components) return false;
 	for(int idx = 0; idx < a.n_components; ++idx)
 		if(a.components[idx] != b.components[idx]) return false;
-	/*
-	if(a.type == Var_Location::Type::located) {
-		if(a.compartment != b.compartment || a.property_or_quantity != b.property_or_quantity || a.n_dissolved != b.n_dissolved) return false;
-		for(int idx = 0; idx < a.n_dissolved; ++idx)
-			if(a.dissolved_in[idx] != b.dissolved_in[idx]) return false;
-	}*/
 	return true;
 }
+
+inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
 
 struct Index_T {
 	Entity_Id index_set;

@@ -41,7 +41,7 @@ TODO: description
 	air.has(g_rad    : property("Global radiation"), unit(W, m-2))
 	
 	
-	epi.has(water, unit(m 3), "Epilimnion volume")     .initial {   0.5 * A_surf * z_outflow - hyp.water   }
+	epi.has(water, unit(m 3), "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
 	hyp.has(water, unit(m 3), "Hypolimnion volume") .initial {
 		z := z_outflow - z_epi

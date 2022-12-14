@@ -2,6 +2,12 @@
 
 
 
+
+
+
+
+	*****   First pri:
+		connection fluxes of dissolvedes seem to add to the base substance rather than the dissolved substance.
 	
 
 	Override declarations.
@@ -24,6 +30,8 @@
 	
 	
 
+
+	Let declarations in inlined modules be visible in the parent model scope (?)
 	
 	Processes not specified per compartment / quantity. Can be attached to those.
 		- something like compartment_type etc.

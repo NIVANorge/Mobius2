@@ -7,12 +7,17 @@ model("Another simple") {
 		a : compartment("A")
 		b : compartment("B")
 		q : quantity("Q")
+		r : quantity("R")
 		
-		a.has(q, unit(), "QA") .initial { aq }
-		b.has(q, unit(), "QB") .initial { bq }
+		a.has(q, unit(), "AQ") .initial { aq }
+		b.has(q, unit(), "BQ") .initial { bq }
+		
+		a.q.has(r, unit(), "AQR")
+		b.q.has(r, unit(), "BQR")
 		
 		a.par_group("A Pars") {
 			aq : par_real("initial a q", unit(), 0)
+			aqr : par_real("a q r input", unit(), 0)
 		}
 		
 		b.par_group("B Pars") {
@@ -20,12 +25,16 @@ model("Another simple") {
 		}
 		
 		a_out : flux(a.q, out, "a out") { 0.002*q	}
-		b_out : flux(b.q, out, "b out") { 0.001*q }
+		b_out : flux(b.q, out, "b out") { 0.001*q   }
+		
+		flux(nowhere, a.q.r, "R input") { aqr }
 	}
 	
 	sol : solver("Solver", "INCADascru", 0.1)
 	sol.solve(a.q)
 	sol.solve(b.q)
+	sol.solve(a.q.r)
+	sol.solve(b.q.r)
 	
 	i : index_set("A index")
 	j : index_set("B index")
@@ -33,6 +42,7 @@ model("Another simple") {
 	a : compartment("A")
 	b : compartment("B")
 	q : quantity("Q")
+	r : quantity("R")
 	
 	a.distribute(i)
 	b.distribute(j)

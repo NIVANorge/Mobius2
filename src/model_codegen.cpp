@@ -252,6 +252,8 @@ add_value_to_agg_var(Model_Application *app, char oper, Math_Expr_FT *value, Var
 		// This is also messy...
 		auto target_compartment = app->state_vars[target_agg->connection_agg]->loc1.components[0];
 		
+		//warning_print("*** Codegen for connection ", app->state_vars[connection_source]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
+		
 		auto index_set_target = model->components[target_compartment]->index_sets[0]; //NOTE: temporary!!
 		auto cur_idx = indexes[index_set_target.id]; // Store it so that we can restore it later.
 		indexes[index_set_target.id] = target_index;

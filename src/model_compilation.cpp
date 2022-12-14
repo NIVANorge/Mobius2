@@ -517,9 +517,19 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			for(auto var_id_flux : app->state_vars) {
 				auto var_flux = app->state_vars[var_id_flux];
 				
-				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->connection)) continue;
-			
-				// Create instruction to add the flux to the target aggregate.	
+				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->connection) || var_flux->connection != var->connection) continue;
+				
+				// Ouch, this is a pretty awkward test for whether or not the flux could connect to this variable using this connection...
+				{
+					Var_Location source_loc = var_flux->loc1;
+					Var_Location target_loc = app->state_vars[var->connection_agg]->loc1;
+					source_loc.components[0] = invalid_entity_id;
+					target_loc.components[0] = invalid_entity_id;
+					if(source_loc != target_loc) continue;
+				}
+				
+				
+				// Create instruction to add the flux to the target aggregate.
 				int add_to_aggr_id = instructions.size();
 				instructions.push_back({});
 				

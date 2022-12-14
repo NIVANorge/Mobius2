@@ -852,7 +852,15 @@ compose_and_resolve(Model_Application *app) {
 			target_loc.components[0] = target_compartment;
 			auto target_id = app->state_vars[target_loc];
 			
-			if(is_valid(app->state_vars[target_id]->connection_agg)) continue;
+			//warning_print("Considering connection from ", app->state_vars[source_id]->name, " to ", app->state_vars[target_id]->name, "\n");
+			
+			auto existing_agg = app->state_vars[target_id]->connection_agg;
+			if(is_valid(existing_agg)) {
+				if(app->state_vars[existing_agg]->connection != conn_id)
+					fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting the same state variable.");
+				continue;
+			}
+			
 			if(!has_solver[target_id.id]) {
 				// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
 				// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
@@ -865,8 +873,7 @@ compose_and_resolve(Model_Application *app) {
 			auto agg_var = app->state_vars[agg_id];
 			agg_var->flags = State_Variable::Flags::f_in_flux_connection;
 			agg_var->connection_agg = target_id;
-			//TODO: This doesn't quite work, because the current implementation allows several connections to use the same aggregation variable. That is something that should change eventually.
-			//agg_var->connection = conn_id;
+			agg_var->connection = conn_id;
 			app->state_vars[target_id]->connection_agg = agg_id;
 		}
 	}
