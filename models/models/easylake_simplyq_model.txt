@@ -3,25 +3,28 @@ model("EasyLake-SimplyQ") {
 	
 	extend("simplyq_model.txt")
 	load("../modules/easylake.txt", el : module("EasyLake"))
+	load("../modules/rivertemp.txt", module("RiverTemperature"))
 	
 	epi : compartment("Epilimnion")
 	hyp : compartment("Hypolimnion")
-	lake : compartment("Lake")
 	
-	#water : quantity("Water")
 	heat  : quantity("Thermal energy")
 	ice   : quantity("Ice")
 	
 	simply_solver.solve(epi.water)
 	simply_solver.solve(hyp.water)
-	simply_solver.solve(lake.heat)
+	simply_solver.solve(epi.water.heat)
+	simply_solver.solve(hyp.water.heat)
+	simply_solver.solve(river.water.heat)
 	simply_solver.solve(epi.ice)
+	
+	el.lake_out.no_carry(epi.water.heat)
+	rw.reach_out.no_carry(river.water.heat)
 	
 	lk : index_set("Lake")
 	
 	epi.distribute(lk)
 	hyp.distribute(lk)
-	lake.distribute(lk)
 	
 	# TODO: This should override what is in the simplyq model.
 	

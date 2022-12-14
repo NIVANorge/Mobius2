@@ -6,16 +6,16 @@ TODO: description
 """
 
 	load("../../stdlib/atmospheric.txt", library("Meteorology"))
-	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"))
+	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water temperature"))
 	
 	air  : compartment("Atmosphere")
-	lake : compartment("Lake")
+	#lake : compartment("Lake")
 	# Right now this is a bit awkward since epi and hyp are really subcompartments of the lake
 	epi  : compartment("Epilimnion")
 	hyp  : compartment("Hypolimnion")
 	
 	
-	lake.par_group("Lake physical") {
+	epi.par_group("Lake physical") {
 		# TODO: copy the nice min-max values and comments from mobius 1 EasyLake
 		A_surf    : par_real("Lake surface area", unit(m 2), 107183, 0, 1e8)
 		z_outflow : par_real("Lake depth at which outflow is 0", unit(m), 10, 0.1, 1000)
@@ -35,13 +35,13 @@ TODO: description
 	precip : property("Precipitation")
 	
 	air.has(wind     : property("Wind speed"), unit(m, s-1))
-	# TODO: Declaration system for state variables is broken it seems... Can't redeclare these without conflict
-	#air.has(precip   : property("Precipitation"), unit(m m, day-1))
-	#air.has(temp, unit(deg_c),  "Air temperature")
 	air.has(r_hum    : property("Relative humidity"), unit())
 	air.has(pressure : property("Pressure"), unit(h Pa), "Air pressure")
 	air.has(cloud    : property("Cloud cover"), unit())
 	air.has(g_rad    : property("Global radiation"), unit(W, m-2))
+	
+	
+	epi.has(water, unit(m 3), "Epilimnion volume")     .initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
 	hyp.has(water, unit(m 3), "Hypolimnion volume") .initial {
 		z := z_outflow - z_epi
@@ -49,13 +49,12 @@ TODO: description
 		0.5 * A * z
 	}
 	
-	epi.has(water, unit(m 3), "Epilimnion volume")     .initial {   0.5 * A_surf * z_outflow - hyp.water   }
-	
 	flux(nowhere, epi.water, "Precipitation to lake")           {   air.precip * A_surf * 1e-3   }
 	
-	lake.has(depth : property("Depth"), unit(m))                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	#TODO: instead let both hyp and epi have a depth and use a sum of those?
+	epi.has(depth : property("Lake depth"), unit(m))                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
-	epi.water.has(outflow : property("Flow"), unit(m 3, s-1), "Lake outflow") {   max(0, rate_l*(lake.depth - z_outflow))   }
+	epi.water.has(outflow : property("Flow"), unit(m 3, s-1), "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
 
 	lake_out :
 	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }
@@ -64,14 +63,10 @@ TODO: description
 	#epi.has(inflow : property("Lake inflow"), unit(m 3, s-1))
 	#flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
 	
-	
-	
 	cpa        : constant("Specific heat capacity of air",    unit(J, k g-1, K-1), 1008)
 	Rdry       : constant("Specific gas constant of dry air", unit(J, k g-1, K-1), 287.058)
 	Rvap       : constant("Specific gas constant of vapor",   unit(J, k g-1, K-1), 461.495)
-	rho_water  : constant("Water density", unit(k g, m-3), 997)
 	rho_ice    : constant("Ice density", unit(k g, m-3), 917)
-	C_water    : constant("Specific heat capacity of water", unit(J, k g-1, K), 4186)
 	l_freeze   : constant("Latent heat of freezing", unit(k g, m-3), 333500)
 	lambda_ice : constant("Ice heat conduction coefficient", unit(W, m-1, K-1), 2.1)
 	
@@ -79,17 +74,20 @@ TODO: description
 	th_frazil  : constant("Frazil threshold", unit(m), 0.05)
 	ice_temp   : constant("Ice formation temperature", unit(deg_c), 0)
 	
+	epi.water.has(heat, unit(J)) .initial {
+		water_temp_to_heat(water, t_epi)
+	}
 	
-	lake.has(heat, unit(J)) .initial {
-		mass      := (epi.water + hyp.water)*rho_water
-		deg_c_to_K(epi.temp) * mass * C_water  # TODO: initial mean temperature is lower than epi temp
+	hyp.water.has(heat, unit(J)) .initial {
+		# TODO: initial hypolimnion temperature should be lower.
+		water_temp_to_heat(water, t_epi)
 	}
 	
 	#TODO: units for the following!
 	
-	lake.has(stab : property("Stability"), unit()) {
+	epi.has(stab : property("Stability"), unit()) {
 		ww := air.wind + 1e-10
-		s0 := 0.25*(epi.temp - air.temp) / (ww*ww)
+		s0 := 0.25*(temp - air.temp) / (ww*ww)
 		s0*abs(s0)/(abs(s0) + 0.01)
 	}
 	
@@ -100,7 +98,7 @@ TODO: description
 		1 + 0.63*sqrt(stab)                      otherwise
 	}
 	
-	lake.has(ced : property("Transfer coefficient for latent heat flux"), unit()) {
+	epi.has(ced : property("Transfer coefficient for latent heat flux"), unit()) {
 		w    := air.wind + 1e-12
 		{
 			0     + 1.23  *exp(-0.16*ln(w))        if w < 2.2,
@@ -111,7 +109,7 @@ TODO: description
 		} * 1e-3 * stab_modify(w, stab)
 	}
 	
-	lake.has(chd : property("Transfer coefficent for sensible heat flux"), unit()) {
+	epi.has(chd : property("Transfer coefficent for sensible heat flux"), unit()) {
 		w    := air.wind + 1e-12
 		{
 			0     + 1.185 *exp(-0.157*ln(w))       if w < 2.2,
@@ -129,12 +127,12 @@ TODO: description
 		air.r_hum * 0.01 * svap
 	}
 	
-	lake.has(s_hum : property("Saturation specific humidity"), unit()) {
-		svap := saturation_vapor_pressure_lowe(epi.temp)
+	epi.has(s_hum : property("Saturation specific humidity"), unit()) {
+		svap := saturation_vapor_pressure_lowe(temp)
 		specific_humidity_from_pressure(air.pressure, svap)
 	}
 	
-	lake.has(a_hum : property("Actual specific humidity"), unit()) {
+	epi.has(a_hum : property("Actual specific humidity"), unit()) {
 		specific_humidity_from_pressure(air.pressure, air.a_vap)
 	}
 	
@@ -154,77 +152,69 @@ TODO: description
 		black_body_radiation(eff_t)
 	}
 	
-	lake.has(lwu : property("Emitted longwave radiation"), unit(W, m-2)) {
-		lake_t := deg_c_to_K(epi.temp)
+	epi.has(lwu : property("Emitted longwave radiation"), unit(W, m-2)) {
 		emissivity := 0.98
-		emissivity * black_body_radiation(lake_t)
+		emissivity * black_body_radiation(deg_c_to_K(temp))
 	}
 	
-	flux(nowhere, lake.heat, "Net shortwave") {
+	#TODO should be attn in epi also, and remainder to hyp
+	
+	flux(nowhere, epi.water.heat, "Net shortwave") {
 		albedo := 0.045  # TODO adjust for ice albedo
-		net_rad := (1 - albedo) * (1 - epi.ice.attn) * air.g_rad    # TODO: option to use module that computes it from cloud cover instead?
+		net_rad := (1 - albedo) * (1 - ice.attn) * air.g_rad    # TODO: option to use module that computes it from cloud cover instead?
 		86400 * A_surf * net_rad
 	}
 	
-	flux(nowhere, lake.heat, "Net longwave") {
+	flux(nowhere, epi.water.heat, "Net longwave") {
 		albedo := 0.045
 		net_rad := (1 - albedo)*air.lwd - lwu    # W/m2
 		0                              if epi.ice.indicator,
 		86400 * A_surf * net_rad       otherwise
 	}
 	
-	flux(nowhere, lake.heat, "Freeze heating") {   86400 * A_surf * epi.ice.energy   }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
+	flux(nowhere, epi.water.heat, "Freeze heating") {   86400 * A_surf * ice.energy   }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
 	
 	# TODO: Some of the surface fluxes should be modified for ice
-	flux(nowhere, lake.heat, "Latent heat flux") {
-		l_vap := latent_heat_of_vaporization(epi.temp) * 1e6    #TODO: figure out units, and why the multiply by 1e6 ?
+	flux(nowhere, epi.water.heat, "Latent heat flux") {
+		l_vap := latent_heat_of_vaporization(temp) * 1e6    #TODO: figure out units, and why the multiply by 1e6 ?
 		
 		0                                                                          if epi.ice.indicator,
 		86400 * A_surf * (ced * l_vap * air.rho * air.wind * (a_hum - s_hum))      otherwise
 	}
 	
-	flux(nowhere, lake.heat, "Sensible heat flux") {
+	flux(nowhere, epi.water.heat, "Sensible heat flux") {
 		0                                                                              if epi.ice.indicator,
 		86400 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - epi.temp))      otherwise
 	}
 	
 	flux(epi.water, nowhere, "Evaporation") {
 		rho_ref := 1025
-		0                                                                                       if epi.ice.indicator,
-		(air.rho / rho_ref) * lake.chd * air.wind * (lake.a_hum - lake.s_hum) * (-86400*A_surf) otherwise
+		0                                                                         if epi.ice.indicator,
+		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400*A_surf)  otherwise
 	}
 	
-	
-	# TODO: need a creative system to make the inflow heat work when attached to simplyc.
-	
-	#flux(lake.heat, nowhere, "Outflow heat") {
-		# Would be cleaner if we had epi.water.has(heat, ..), hyp.water.has(heat, ..) but we don't have the semantics for subdividing the total lake heat between them...
-	#	epi_heat_dens := deg_c_to_K(epi.temp) * rho_water * C_water
-	#	86400 * epi.water.outflow * epi_heat_dens
-	#}
-	
-	#flux(nowhere, lake.heat, "Inflow heat") {
-	#	inflow_t := max(0.4, air.temp)
-	#	in_heat_dens := deg_c_to_K(inflow_t) * rho_water * C_water
-	#	86400 * epi.inflow * in_heat_dens
-	#}
-	
-	flux(nowhere, lake.heat, "Precipitation heat") {
+	flux(nowhere, epi.water.heat, "Precipitation heat") {
 		precip_t := max(0.4, air.temp)
 		p_heat_dens := deg_c_to_K(precip_t) * rho_water * C_water
 		1e-3 * A_surf * air.precip * p_heat_dens
 	}
 	
-	lake.has(temp, unit(deg_c), "Mean lake temperature") {
-		mass      := (epi.water + hyp.water)*rho_water
-		K_to_deg_c(heat / (mass * C_water))
+	flux(epi.water.heat, hyp.water.heat, "Layer heat transfer") {
+		lake_heat := heat + hyp.water.heat
+		V := water + hyp.water
+		lake_mean_t := water_heat_to_temp(V, lake_heat)
+		epi_t_should_be := (lake_mean_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water)
+		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be)
+		5*(heat - epi_heat_should_be)    # The 5 is pretty arbitrary. Just to get a quick equilibration
 	}
 	
 	epi.has(temp, unit(deg_c), "Epilimnion temperature") {
-		V := hyp.water + epi.water
-		(lake.temp*V - 0.5*t_bot*hyp.water) / (epi.water + 0.5*hyp.water)
+		water_heat_to_temp(water, water.heat)
 	} .initial { t_epi }
 	
+	hyp.has(temp, unit(deg_c), "Hypolimnion temperature (mean)") {
+		water_heat_to_temp(water, water.heat)
+	}
 	
 	epi.has(ice, unit(m), "Ice thickness") .initial { init_ice }
 	

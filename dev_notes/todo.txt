@@ -7,6 +7,11 @@
 	Override declarations.
 
 	Relative paths are always relative to the model source file, but this breaks when you do extend_model of a model from another folder.
+	Same when including a library from another library...
+	
+	Allow redeclaration of constants without conflict (?)
+	
+	
 	
 	Make variables of type Source_Location be named source_loc consistently to not confuse with other things.
 	

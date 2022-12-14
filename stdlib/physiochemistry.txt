@@ -18,6 +18,23 @@ library("Thermodynamics") {
 	
 }
 
+library("Water temperature") {
+	#load("physiochemistry.txt", library("Thermodynamics"))   #TODO: Libraries loading other libraries is completely broken..
+	
+	rho_water  : constant("Water density", unit(k g, m-3), 997)
+	C_water    : constant("Specific heat capacity of water", unit(J, k g-1, K), 4186)
+	
+	water_temp_to_heat : function(V, T_celsius) {
+		#V*deg_c_to_K(T_celsius)*rho_water*C_water     #TODO: fix when library loading is fixed
+		V * (T_celsius + 273.15) * rho_water * C_water
+	}
+	
+	water_heat_to_temp : function(V, heat) {
+		(heat / (V*rho_water*C_water)) - 273.15        #TODO: fix when library loading is fixed
+		#K_to_deg_c(heat / (V*rho_water*C_water))
+	}
+}
+
 library("Chemistry") {
 
 	avogadro         : constant("Avogadro constant", unit(mol -1), 6.02214076e23)

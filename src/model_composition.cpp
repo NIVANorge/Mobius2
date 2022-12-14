@@ -865,6 +865,8 @@ compose_and_resolve(Model_Application *app) {
 			auto agg_var = app->state_vars[agg_id];
 			agg_var->flags = State_Variable::Flags::f_in_flux_connection;
 			agg_var->connection_agg = target_id;
+			//TODO: This doesn't quite work, because the current implementation allows several connections to use the same aggregation variable. That is something that should change eventually.
+			//agg_var->connection = conn_id;
 			app->state_vars[target_id]->connection_agg = agg_id;
 		}
 	}
