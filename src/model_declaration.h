@@ -219,9 +219,7 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
-	//Entity_Id connection_structure;   // TODO: In time we could have several, e.g. for lateral vs vertical connections etc.
 	
-	Entity_Registration() {};//: connection_structure(invalid_entity_id) {}
 };
 
 enum class
@@ -234,6 +232,8 @@ Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
 	Connection_Structure_Type type;
 	// TODO: This should eventually also have data about the regex.
 	std::vector<Entity_Id> compartments;
+	
+	Entity_Registration() : type(Connection_Structure_Type::unrecognized) {}
 };
 
 

@@ -6,6 +6,7 @@ model("EasyLake-SimplyC") {
 	module("EasyLake-C", 0, 0, 1) {
 		
 		epi : compartment("Epilimnion")
+		hyp : compartment("Hypolimnion")
 		
 		water : quantity("Water")
 		oc    : quantity("Organic carbon")
@@ -18,16 +19,18 @@ model("EasyLake-SimplyC") {
 		}
 		
 		epi.water.has(oc, unit(k g), "Epilimnion DOC") .initial_conc { init_c }
+		hyp.water.has(oc, unit(k g), "Hypolimnion DOC") .initial_conc { init_c }
 		
 		flux(epi.water.oc, nowhere, "Photo-mineralization") {
 			qy_doc := 0.1    # mg/mol DOC   Quantum yield
 			f_par  := 0.45   # Fract. of PAR in incoming solar radiation
 			e_par  := 240800.0 # J/mol  Average energy of PAR photons
+			
 			attn_epi := 1 # TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
 			
 			oc_doc * qy_doc * (f_par / e_par) * 86400.0 * sw * attn_epi * oc
 		}
 		
-		# TODO *****************   lacking hypolimnion oc and mixing !! (although mixing should be water flux between the compartments (?) in easylake itself.
+		# TODO: Some other sinks of DOC (otherwise hypolimnion conc is constant between mixing events, for instance.
 	}
 }

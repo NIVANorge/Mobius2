@@ -87,7 +87,7 @@ TODO: description
 	
 	epi.has(stab : property("Stability"), unit()) {
 		ww := air.wind + 1e-10
-		s0 := 0.25*(temp - air.temp) / (ww*ww)
+		s0 := 0.25*(water.temp - air.temp) / (ww*ww)
 		s0*abs(s0)/(abs(s0) + 0.01)
 	}
 	
@@ -128,7 +128,7 @@ TODO: description
 	}
 	
 	epi.has(s_hum : property("Saturation specific humidity"), unit()) {
-		svap := saturation_vapor_pressure_lowe(temp)
+		svap := saturation_vapor_pressure_lowe(water.temp)
 		specific_humidity_from_pressure(air.pressure, svap)
 	}
 	
@@ -154,7 +154,7 @@ TODO: description
 	
 	epi.has(lwu : property("Emitted longwave radiation"), unit(W, m-2)) {
 		emissivity := 0.98
-		emissivity * black_body_radiation(deg_c_to_K(temp))
+		emissivity * black_body_radiation(deg_c_to_K(water.temp))
 	}
 	
 	#TODO should be attn in epi also, and remainder to hyp
@@ -186,7 +186,7 @@ TODO: description
 	
 	flux(nowhere, epi.water.heat, "Sensible heat flux") {
 		0                                                                              if epi.ice.indicator,
-		86400 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - epi.temp))      otherwise
+		86400 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - temp))      otherwise
 	}
 	
 	epi.water.has(evap_mm : property("Evaporation per area"), unit(m m, day-1)) {
@@ -207,19 +207,19 @@ TODO: description
 	}
 	
 	flux(epi.water.heat, hyp.water.heat, "Layer heat transfer") {
-		lake_heat := heat + hyp.water.heat
+		lake_heat := water.heat + hyp.water.heat
 		V := water + hyp.water
-		lake_mean_t := water_heat_to_temp(V, lake_heat)
-		epi_t_should_be := (lake_mean_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water)
+		lake_t := water_heat_to_temp(V, lake_heat)
+		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water)
 		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be)
 		5*(heat - epi_heat_should_be)    # The 5 is pretty arbitrary. Just to get a quick equilibration
 	}
 	
-	epi.has(temp, unit(deg_c), "Epilimnion temperature") {
+	epi.water.has(temp, unit(deg_c), "Epilimnion temperature") {
 		water_heat_to_temp(water, water.heat)
 	} .initial { t_epi }
 	
-	hyp.has(temp, unit(deg_c), "Hypolimnion temperature (mean)") {
+	hyp.water.has(temp, unit(deg_c), "Hypolimnion temperature (mean)") {
 		water_heat_to_temp(water, water.heat)
 	}
 	
@@ -228,7 +228,7 @@ TODO: description
 	epi.ice.has(energy : property("Freeze energy"), unit(W, m-2)) {
 		z_surf := 1   #  Thickness of water layer that ice formation can draw energy from.
 		K_ice := 200   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
-		e := (ice_temp - epi.temp)*z_surf*K_ice
+		e := (ice_temp - epi.water.temp)*z_surf*K_ice
 		
 		0        if ice < 1e-6 & e < 0,    # No melting when there is no ice
 		e        otherwise
@@ -266,6 +266,21 @@ TODO: description
 		}
 	}
 	
-	#TODO: there is something not quite right in that it doesn't produce quite the same results as Mobius1 EasyLake for the ice cover.
-	# 1st conclusion : probably comes from variation in Epilimnion volume, but it actually may look like Mobius2 does it more correctly??
+	
+	# TODO: How does mixing interact with ice (?)
+	
+	epi.has(indicator, unit(), "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4 }
+	
+	
+	# NOTE: This moves an equal body of water up and down, which does not impact the wate volume, but does mix dissolved substances.
+	
+	mix_down :
+	flux(epi.water, hyp.water, "Mixing down") {
+		A_surf * depth * epi.indicator
+	}
+	
+	mix_up : 
+	flux(hyp.water, epi.water, "Mixing up") {
+		A_surf * epi.depth * epi.indicator
+	}
 }

@@ -94,34 +94,30 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 			}
 			if(decl && registrations[result_id.id].has_been_declared) {
 				decl->source_loc.print_error_header();
-				error_print("Re-declaration of entity '", handle->string_value, "'. It was already declared here: ");
+				error_print("Re-declaration of symbol '", handle->string_value, "'. It was already declared here: ");
 				entity->source_loc.print_error();
 				fatal_error();
 			}
 		}
 	}
 	
-	bool linked_to_universal = false;
+	bool linked_by_name = false;
 	if(is_valid(decl_name) && decl) {
 		if(decl->type == Decl_Type::compartment || decl->type == Decl_Type::quantity || decl->type == Decl_Type::property || decl->type == Decl_Type::connection
 			|| decl->type == Decl_Type::par_real || decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_int || decl->type == Decl_Type::par_enum
 			) {
-			//TODO: it may or may not be a good idea to have this functionality for properties. Let's find out how it works out in practice.
-			if(is_valid(result_id)) {
-				fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to its universal version using its id.");
-			}
+			
+			if(is_valid(result_id))
+				fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to an existing copy with that name.");
 			
 			std::string name = decl_name->string_value;
 			auto find = name_to_id.find(name);
 			if(find != name_to_id.end()) {
 				result_id = find->second;
-				linked_to_universal = true;
+				linked_by_name = true;
 			}
 		}
 	}
-	
-	//TODO: If decl_name is valid, some types are identified by the name, and can be looked up, but we need a better system for it.
-		//TODO: obviously also check for name clash.
 	
 	// It was not previously referenced. Create it instead.
 	if(!is_valid(result_id)) {
@@ -136,7 +132,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 	
 	auto &registration = registrations[result_id.id];
 	
-	if(decl && !linked_to_universal) {
+	if(decl && !linked_by_name) {
 		if(get_reg_type(decl->type) != reg_type) {
 			decl->source_loc.print_error_header(Mobius_Error::internal);
 			fatal_error("Registering declaration with a mismatching type.");
@@ -1092,13 +1088,20 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 
 template<> Entity_Id
 process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::identifier}});
+	int which = match_declaration(decl,
+	{
+		{Token_Type::quoted_string},
+		{Token_Type::quoted_string, Token_Type::identifier},
+	});
 	
 	auto id         = model->connections.standard_declaration(scope, decl);
 	auto connection = model->connections[id];
 	
 	// TODO: actually "compile" a regex and support more types
 	// TODO: we have to check somewhere in post that the handles are indeed a compartments (not quantity or property). This will probably be handled when we start to process regexes (?)
+	
+	connection->compartments.clear(); // NOTE: Needed since this could be a re-declaration.
+	
 	bool success = false;
 	auto expr = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
 	if(expr->type == Math_Expr_Type::regex_identifier) {
@@ -1128,12 +1131,14 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		fatal_error("Temporary: This is not a supported regex format for connections yet.");
 	}
 	
-	String_View structure_type = single_arg(decl, 1)->string_value;
-	if(structure_type == "directed_tree")
-		connection->type = Connection_Structure_Type::directed_tree;
-	else {
-		single_arg(decl, 1)->print_error_header();
-		fatal_error("Unsupported connection structure type '", structure_type, "'.");
+	if(which == 1) {
+		String_View structure_type = single_arg(decl, 1)->string_value;
+		if(structure_type == "directed_tree")
+			connection->type = Connection_Structure_Type::directed_tree;
+		else {
+			single_arg(decl, 1)->print_error_header();
+			fatal_error("Unsupported connection structure type '", structure_type, "'.");
+		}
 	}
 	
 	return id;

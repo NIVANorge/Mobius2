@@ -532,6 +532,14 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
+	for(auto conn_id : model->connections) {
+		auto conn = model->connections[conn_id];
+		if(conn->type == Connection_Structure_Type::unrecognized) {
+			conn->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("This connection never received a type. Declare it as connection(name, type) somewhere.");
+		}
+	}
+	
 	//TODO: make better name generation system!
 	char varname[1024];
 
@@ -816,27 +824,7 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
-	/*
-	// NOTE: Unfortunately we need to know about solvers here, but we don't want to store the solver on the State Variable since that encourages messy code in model_compilation.
-	std::vector<int> has_solver;
-	has_solver.resize(app->state_vars.count(), 0);
-	
-	for(auto id : model->solves) {
-		auto solve = model->solves[id];
-		Var_Id var_id = app->state_vars[solve->loc];
-		if(!is_valid(var_id)) {
-			//error_print_location(this, solve->loc);
-			solve->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
-		}
-		auto hopefully_a_quantity = model->find_entity(solve->loc.last());
-		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			solve->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Solvers can only be put on quantities.");
-		}
-		has_solver[var_id.id] = 1;
-	}
-	*/
+
 	
 	// TODO: Should we give an error if there is a connection flux on an overridden variable?
 	
@@ -864,15 +852,6 @@ compose_and_resolve(Model_Application *app) {
 					fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting the same state variable.");
 				continue;
 			}
-			
-			/*
-			if(!has_solver[target_id.id]) {
-				// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
-				// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
-				connection->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Currently we only support connections between state variables that are on ODE solvers. The state variable \"", app->state_vars[target_id]->name, "\" is not on a solver.");
-			}
-			*/
 			
 			sprintf(varname, "in_flux_connection(%s, %s)", connection->name.data(), app->state_vars[target_id]->name.data());
 			Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname); //TODO: generate a better name

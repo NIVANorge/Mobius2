@@ -17,6 +17,10 @@ model("EasyLake-SimplyQ") {
 	
 	el.evap.no_carry()       # By default don't carry dissolved substances in evapotranspiration
 	
+	# NOTE: can't let the mixing flux carry heat, or it disturbs the heat equilibration built into the model.
+	el.mix_down.no_carry(epi.water.heat)  #TODO: should be able to say no_carry(heat)  or something like that.
+	el.mix_up.no_carry(hyp.water.heat)
+	
 	lk : index_set("Lake")
 	
 	epi.distribute(lk)
@@ -24,9 +28,9 @@ model("EasyLake-SimplyQ") {
 	
 	# TODO: This should override what is in the simplyq model.  Or do we need a more advanced system, because what happens if we now try to add a SimplyC component for instance ?
 	
-	# override(       # something like this...
-	ds : connection("Downstream", directed_tree) { (river|epi)* }
-	# )
+	# NOTE: Just update the regex for the compartments.
+	connection("Downstream", directed_tree) { (river|epi)* } 
+	
 	rw.reach_out.to(ds)
 	el.lake_out .to(ds)
 }
