@@ -838,8 +838,7 @@ compose_and_resolve(Model_Application *app) {
 	// TODO: Should we give an error if there is a connection flux on an overridden variable?
 	
 	warning_print("Generate state vars for in_flux_connection.\n");
-	// TODO: What happens if there are multiple connection fluxes for the same variable?
-	//   currently it looks like only the last one will be added to the target in the end ( connection_agg is overwritten by the last one we create ).
+	// TODO: Support multiple connections for the same state variable.
 	for(auto &pair : may_need_connection_target) {
 		
 		auto &conn_id = pair.first;
@@ -851,6 +850,8 @@ compose_and_resolve(Model_Application *app) {
 			auto target_loc = app->state_vars[source_id]->loc1;
 			target_loc.components[0] = target_compartment;
 			auto target_id = app->state_vars[target_loc];
+			if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
+				continue;
 			
 			//warning_print("Considering connection from ", app->state_vars[source_id]->name, " to ", app->state_vars[target_id]->name, "\n");
 			
@@ -865,7 +866,7 @@ compose_and_resolve(Model_Application *app) {
 				// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
 				// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
 				connection->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Currently we only support connections between state variables that are on ODE solvers.");
+				fatal_error("Currently we only support connections between state variables that are on ODE solvers. The state variable \"", model->state_vars[target_id]->name, "\" is not on a solver.");
 			} 
 			
 			sprintf(varname, "in_flux_connection(%s, %s)", connection->name.data(), app->state_vars[target_id]->name.data());

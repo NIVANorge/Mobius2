@@ -19,7 +19,7 @@ model("EasyLake-SimplyQ") {
 	simply_solver.solve(epi.ice)
 	
 	# TODO: Should be able to just say no_carry(heat) (?)
-	el.evap.no_carry(epi.water.heat)       #TODO: Should it though ? Or is that already covered by the heat flux ? Predictions look better without it
+	el.evap.no_carry(epi.water.heat)       #Note this is already accounted for in other heat fluxes.
 	
 	lk : index_set("Lake")
 	

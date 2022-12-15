@@ -1186,7 +1186,6 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 
 bool
 load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unordered_set<String_View, String_View_Hash> &loaded_paths, std::vector<std::pair<String_View, Decl_AST *>> &loaded_decls, String_View rel_path) {
-	// REFACTOR: Could rewrite this so that we don't need to keep track of the loaded_paths set. We already have this info in loaded_decls.
 	
 	auto body = reinterpret_cast<Decl_Body_AST *>(from_decl->bodies[0]);
 	
@@ -1196,25 +1195,40 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unor
 			String_View extend_file_name = single_arg(child, 0)->string_value;
 			
 			// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
-			//  but right now that happens in the same function call.
+			//  but right now normalizing the path and loading the ast happens inside the same call in read_model_ast_from_file
 			String_View normalized_path;
 			auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
 			
 			if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
 				begin_error(Mobius_Error::parsing);
 				error_print("There is circularity in the model extensions:\n", extend_file_name, "\n");
-				delete extend_model;
+				delete extend_model; //TODO: see above
 				return false;
 			}
 			
-			loaded_paths.insert(normalized_path);
-			loaded_decls.push_back({normalized_path, extend_model});
+			// NOTE: this is for tracking circularity. We have to reset it for each branch we go down in the extension tree (but we allow multiple branches to extend the same model)
+			auto loaded_paths_sub = loaded_paths;
+			loaded_paths_sub.insert(normalized_path);
 			
-			// Load extensions of extensions.
-			bool success = load_model_extensions(handler, extend_model, loaded_paths, loaded_decls, normalized_path);
-			if(!success) {
-				error_print(extend_file_name, "\n");
-				return false;
+			// Make sure to only load it once.
+			bool found = false;
+			for(auto &pair : loaded_decls) {
+				if(pair.first == normalized_path) {
+					found = true;
+					break;
+				}
+			}
+			if(found)
+				delete extend_model; // TODO: see above
+			else {
+				loaded_decls.push_back( { normalized_path, extend_model } );
+			
+				// Load extensions of extensions.
+				bool success = load_model_extensions(handler, extend_model, loaded_paths_sub, loaded_decls, normalized_path);
+				if(!success) {
+					error_print(extend_file_name, "\n");
+					return false;
+				}
 			}
 		}
 	}
@@ -1240,7 +1254,9 @@ load_model(String_View file_name) {
 
 	std::unordered_set<String_View, String_View_Hash> loaded_files = { file_name };
 	std::vector<std::pair<String_View, Decl_AST *>> extend_models = { { file_name, decl} };
-	load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name);
+	bool success = load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name);
+	if(!success)
+		mobius_error_exit();
 	
 	std::reverse(extend_models.begin(), extend_models.end()); // Reverse inclusion order so that the modules from the base model are listed first in e.g. MobiView2.
 	

@@ -158,11 +158,13 @@ TODO: description
 	}
 	
 	#TODO should be attn in epi also, and remainder to hyp
+	epi.has(sw : property("Shortwave radiation"), unit(W, m-2)) {
+		albedo := 0.045  # TODO adjust for ice albedo (?)
+		(1 - albedo) * (1 - ice.attn) * air.g_rad	
+	}
 	
 	flux(nowhere, epi.water.heat, "Net shortwave") {
-		albedo := 0.045  # TODO adjust for ice albedo
-		net_rad := (1 - albedo) * (1 - ice.attn) * air.g_rad    # TODO: option to use module that computes it from cloud cover instead?
-		86400 * A_surf * net_rad
+		86400 * A_surf * sw
 	}
 	
 	flux(nowhere, epi.water.heat, "Net longwave") {

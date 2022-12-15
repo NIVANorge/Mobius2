@@ -615,7 +615,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	int idx = -1;
 	for(const auto &pattern : patterns) {
 		++idx;
-		if(decl->args.size() < pattern.size()) continue;
+		if(decl->args.size() < pattern.size() || (decl->args.size() > 0 && pattern.size() == 0)) continue;
 		if(decl->args.size()==0 && pattern.size()==0) {
 			found_match = true;
 			break;

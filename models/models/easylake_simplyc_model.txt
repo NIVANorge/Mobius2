@@ -1,0 +1,35 @@
+
+model("EasyLake-SimplyC") {
+	extend("easylake_simplyq_model.txt")
+	extend("simplyc_model.txt")
+	
+	module("EasyLake-C", 0, 0, 1) {
+		
+		epi : compartment("Epilimnion")
+		
+		water : quantity("Water")
+		oc    : quantity("Organic carbon")
+		
+		sw : property("Shortwave radiation")
+		
+		epi.par_group("Lake C") {
+			init_c : par_real("Initial lake DOC concentration", unit(m g, l-1), 0, 0, 1000)
+			oc_doc : par_real("Optical cross-section of DOC", unit(m 2, m g-1), 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
+		}
+		
+		epi.water.has(oc, unit(k g), "Epilimnion DOC") .initial_conc { init_c }
+		
+		flux(epi.water.oc, nowhere, "Photo-mineralization") {
+			qy_doc := 0.1    # mg/mol DOC   Quantum yield
+			f_par  := 0.45   # Fract. of PAR in incoming solar radiation
+			e_par  := 240800.0 # J/mol  Average energy of PAR photons
+			attn_epi := 1 # TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
+			
+			oc_doc * qy_doc * (f_par / e_par) * 86400.0 * sw * attn_epi * oc
+		}
+	}
+	
+	simply_solver.solve(epi.water.oc)
+	
+	el.evap.no_carry(epi.water.oc)
+}
