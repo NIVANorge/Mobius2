@@ -18,9 +18,6 @@ model("EasyLake-SimplyQ") {
 	simply_solver.solve(river.water.heat)
 	simply_solver.solve(epi.ice)
 	
-	#el.lake_out.no_carry(epi.water.heat)
-	#rw.reach_out.no_carry(river.water.heat)
-	
 	# TODO: Should be able to just say no_carry(heat) (?)
 	el.evap.no_carry(epi.water.heat)       #TODO: Should it though ? Or is that already covered by the heat flux ? Predictions look better without it
 	
@@ -29,11 +26,11 @@ model("EasyLake-SimplyQ") {
 	epi.distribute(lk)
 	hyp.distribute(lk)
 	
-	# TODO: This should override what is in the simplyq model.
+	# TODO: This should override what is in the simplyq model.  Or do we need a more advanced system, because what happens if we now try to add a SimplyC component for instance ?
 	
 	# override(       # something like this...
 	ds : connection("Downstream", directed_tree) { (river|epi)* }
 	# )
-	rw.reach_out  .to(ds)
-	el.lake_out.to(ds)
+	rw.reach_out.to(ds)
+	el.lake_out .to(ds)
 }

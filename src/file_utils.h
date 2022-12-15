@@ -32,22 +32,22 @@ File_Data_Handler {
 	File_Data_Handler() : allocator(1024*1024) {};
 	
 	String_View
-	load_file(String_View file_name, Source_Location from = {}, String_View relative = {}, String_View *normalized_path_out = nullptr);
+	load_file(String_View file_name, Source_Location from = {}, String_View relative_to = {}, String_View *normalized_path_out = nullptr);
 	
 	bool
-	is_loaded(String_View file_name, String_View relative) {
+	is_loaded(String_View file_name, String_View relative_to) {
 		String_View load_name = file_name;
-		if(relative)
-			load_name = make_path_relative_to(file_name, relative);
+		if(relative_to)
+			load_name = make_path_relative_to(file_name, relative_to);
 		auto find = loaded_files.find(load_name);
 		return find != loaded_files.end();
 	}
 	
 	void
-	unload(String_View file_name, String_View relative) {
+	unload(String_View file_name, String_View relative_to) {
 		String_View load_name = file_name;
-		if(relative)
-			load_name = make_path_relative_to(file_name, relative);
+		if(relative_to)
+			load_name = make_path_relative_to(file_name, relative_to);
 		auto find = loaded_files.find(load_name);
 		if(find != loaded_files.end()) {
 			free(find->second.data);

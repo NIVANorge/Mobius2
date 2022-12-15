@@ -69,6 +69,9 @@ Entity_Registration : Entity_Registration_Base {
 	Entity_Registration() = delete;  // NOTE: prevent instantiation of the completely generic version.
 };
 
+
+// REFACTOR: It doesn't look like there's a point in having module and library be separate reg types (?)
+
 template<> struct
 Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 	Module_Version version;
@@ -85,11 +88,12 @@ template<> struct
 Entity_Registration<Reg_Type::library> : Entity_Registration_Base {
 	Decl_Scope     scope;
 	Decl_AST      *decl;
-	bool           has_been_processed ;
+	bool           has_been_processed;
+	bool           is_being_processed;
 	std::string    doc_string;
 	std::string    normalized_path;
 	
-	Entity_Registration() : decl(nullptr), has_been_processed(false) {}
+	Entity_Registration() : decl(nullptr), has_been_processed(false), is_being_processed(false) {}
 };
 
 struct

@@ -203,10 +203,11 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer);
 
 inline Token *
 single_arg(Decl_AST *decl, int which) {
+	if(decl->args[which]->sub_chain.empty())
+		fatal_error(Mobius_Error::internal, "Tried to call single_arg() on an argument that is a decl argument.");
 	return &decl->args[which]->sub_chain[0];
 }
 
-//TODO: Don't have all the functions below inlined.
 //TODO: Make a general-purpose tagged union?
 struct Arg_Pattern {
 	enum class Type { value, decl, unit_literal };
