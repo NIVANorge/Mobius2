@@ -178,11 +178,12 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Entity_Id      connection_target;
 	
 	std::vector<Var_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
+	bool no_carry_by_default;
 	
 	Math_Block_AST  *code;
 	Entity_Id        code_scope;
 	
-	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr) {}
+	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr), no_carry_by_default(false) {}
 };
 
 enum class

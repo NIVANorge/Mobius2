@@ -7,14 +7,6 @@ Description
 	load("../modules/simplyp.txt", sp : module("SimplyP"))
 	
 	tdp   : quantity("Total dissolved phosphorous")
-	plab  : quantity("Labile phosphorous")
-	pp    : quantity("Particulate phosphorous")
-	
-	simply_solver.solve(gw.water.tdp)
-	simply_solver.solve(river.water.tdp)
-	simply_solver.solve(river.water.pp)
-	
-	sw.evap.no_carry(soil.water.tdp)  # Evapotranspiration should not carry TDP
 	
 	unit_conversion(soil.water.tdp, river.water.tdp) {  a_catch  }
 	unit_conversion(gw.water.tdp, river.water.tdp)   {  a_catch  }

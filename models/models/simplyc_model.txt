@@ -11,13 +11,6 @@ Description
 	
 	oc : quantity("Organic carbon")
 	
-	#TODO: not decided if these should be inferred by default from the fact that soil.water etc. are already on a solver.
-	simply_solver.solve(soil.water.oc)
-	simply_solver.solve(gw.water.oc)
-	simply_solver.solve(river.water.oc)
-	
-	sw.evap.no_carry(soil.water.oc)  # Evapotranspiration should not carry DOC
-	
 	unit_conversion(soil.water.oc, river.water.oc) {  1000 * a_catch  }    #NOTE: for now the 1000 is needed to convert (mg/l * mm) to kg/km2
 	unit_conversion(gw.water.oc, river.water.oc)   {  1000 * a_catch  }
 }

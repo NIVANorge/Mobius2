@@ -43,6 +43,8 @@ General model description.
 	sw.soil_runoff.to(river.water)
 	sw.gw_runoff  .to(river.water)
 	
+	sw.evap.no_carry()   # By default, don't carry dissolved substances in the evapotranspiration.
+	
 	downstream : connection("Downstream", directed_tree) { river }
 	rw.reach_out  .to(downstream)
 	

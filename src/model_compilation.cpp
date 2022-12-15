@@ -382,13 +382,38 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	// Put solvers on instructions for computing ODE variables.
 	// Solvers are propagated to other instructions later based on need.
 	if(!initial) {
-		
-		// NOTE: We tested the validity of the solve declaration in the model composition already, so we don't do it again here.
+
 		for(auto id : model->solves) {
 			auto solve = model->solves[id];
 			Var_Id var_id = app->state_vars[solve->loc];
 			
+			if(!is_valid(var_id)) {
+				//error_print_location(this, solve->loc);
+				solve->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
+			}
+			auto hopefully_a_quantity = model->find_entity(solve->loc.last());
+			if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
+				solve->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Solvers can only be put on quantities.");
+			}
+			
 			instructions[var_id.id].solver = solve->solver;
+		}
+		
+		// Automatically let dissolved substances have the solvers of what they are dissolved in.
+		// Do it in stages of number of components so that we propagate them out.
+		for(int n_components = 3; n_components <= max_var_loc_components; ++n_components) {
+			for(Var_Id var_id : app->state_vars) {
+				auto var = app->state_vars[var_id];
+				if(var->type != Decl_Type::quantity) continue;
+				if(var->loc1.n_components != n_components) continue;
+				
+				auto parent_loc = remove_dissolved(var->loc1);
+				auto parent_id = app->state_vars[parent_loc];
+				
+				instructions[var_id.id].solver = instructions[parent_id.id].solver;
+			}
 		}
 		
 		for(auto var_id : app->state_vars) {
@@ -398,12 +423,24 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].solver = instructions[app->state_vars[var->loc1].id].solver;
 
 			// Also set the solver for an aggregation variable for a connection flux.
-			if(var->flags & State_Variable::Flags::f_in_flux_connection)
+			if(var->flags & State_Variable::Flags::f_in_flux_connection) {
 				instructions[var_id.id].solver = instructions[var->connection_agg.id].solver;
+				
+				if(!is_valid(instructions[var_id.id].solver)) {
+					auto conn_var = app->state_vars[var->connection_agg];
+					auto has = model->hases[conn_var->entity_id];
+					// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
+					// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
+					auto conn = model->connections[var->connection];
+					has->source_loc.print_error_header(Mobius_Error::model_building);
+					error_print("This state variable is the target of a connection \"", conn->name, "\", declared here:\n");
+					conn->source_loc.print_error();
+					fatal_error("but the state variable is not on a solver. This is currently not allowed.");
+				}
+			}
 
 			// Dissolved fluxes of fluxes with solvers must be on solvers
-			//TODO: make it work with dissolvedes of dissolvedes
-			//TODO: what if the source was on another solver than the dissolved? Another reason to force them to be the same (unless overridden)?
+			//TODO: it seems to work on dissolvedes of dissolvedes, but this is only because they happen to be in the right order in the state_vars array. Should be more robust.
 			if(var->flags & State_Variable::Flags::f_dissolved_flux)
 				instructions[var_id.id].solver = instructions[var->dissolved_flux.id].solver;
 			
@@ -434,9 +471,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// var (var_id) is now the variable that is being aggregated.
 			// instr is the instruction to compute it
 			
-			//if(initial) {
-			//	warning_print("*** *** *** initial agg for ", var->name, "\n");
-			//}
+			//if(initial) warning_print("*** *** *** initial agg for ", var->name, "\n");
 			
 			auto aggr_var = app->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
 			

@@ -3,8 +3,6 @@
 
 
 	Override declarations.
-
-	Make variables of type Source_Location be named source_loc consistently to not confuse with other things.
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
 	
@@ -16,7 +14,7 @@
 	
 
 
-	Let declarations in inlined modules be visible in the parent model scope (?)
+	Let declarations in inlined modules be visible in the parent model scope (?) or other way around is maybe more reasonable.
 	
 	Processes not specified per compartment / quantity. Can be attached to those.
 		- something like compartment_type etc.
@@ -51,4 +49,8 @@
 		
 	Relative paths are always relative to the model source file, but this breaks when you do extend_model of a model from another folder.
 	Same when including a library from another library...
+	
+	Make variables of type Source_Location be named source_loc consistently to not confuse with other things.
+	
+	Allow fluxes to have a default no_carry()
 	

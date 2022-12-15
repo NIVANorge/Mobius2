@@ -999,7 +999,11 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 
 void
 process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::identifier}}, 2, false);
+	int which = match_declaration(decl,
+		{
+			{},
+			{Token_Type::identifier},
+		}, 2, false);
 	
 	auto module_id = expect_exists(scope, &decl->decl_chain[0], Reg_Type::module);
 	auto module = model->modules[module_id];
@@ -1007,24 +1011,28 @@ process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *d
 	auto flux_id = expect_exists(&module->scope, &decl->decl_chain[1], Reg_Type::flux);
 	auto flux = model->fluxes[flux_id];
 	
-	Var_Location loc;
-	process_location_argument(model, scope, decl, 0, &loc, false);
-	
-	bool found = false;
-	auto above = loc;
-	while(above.is_dissolved()) {
-		above = remove_dissolved(above);
-		if(above == flux->source) {
-			found = true;
-			break;
+	if(which == 0) {
+		flux->no_carry_by_default = true;
+	} else {
+		Var_Location loc;
+		process_location_argument(model, scope, decl, 0, &loc, false);
+		
+		bool found = false;
+		auto above = loc;
+		while(above.is_dissolved()) {
+			above = remove_dissolved(above);
+			if(above == flux->source) {
+				found = true;
+				break;
+			}
 		}
+		if(!found) {
+			decl->source_loc.print_error_header();
+			fatal_error("This flux could not have carried this quantity since the latter is not dissolved in the source of the flux.");
+		}
+		
+		flux->no_carry.push_back(loc);
 	}
-	if(!found) {
-		decl->source_loc.print_error_header();
-		fatal_error("This flux could not have carried this quantity since the latter is not dissolved in the source of the flux.");
-	}
-	
-	flux->no_carry.push_back(loc);
 }
 
 template<> Entity_Id
@@ -1074,6 +1082,10 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 	
 	solve->solver = model->solvers.find_or_create(&decl->decl_chain[0], scope);
 	process_location_argument(model, scope, decl, 0, &solve->loc, false);
+	if(solve->loc.is_dissolved()) {
+		single_arg(decl, 0)->source_loc.print_error_header(Mobius_Error::model_building);
+		fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
+	}
 	
 	return id;
 }

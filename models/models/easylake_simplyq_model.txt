@@ -13,13 +13,9 @@ model("EasyLake-SimplyQ") {
 	
 	simply_solver.solve(epi.water)
 	simply_solver.solve(hyp.water)
-	simply_solver.solve(epi.water.heat)
-	simply_solver.solve(hyp.water.heat)
-	simply_solver.solve(river.water.heat)
 	simply_solver.solve(epi.ice)
 	
-	# TODO: Should be able to just say no_carry(heat) (?)
-	el.evap.no_carry(epi.water.heat)       #Note this is already accounted for in other heat fluxes.
+	el.evap.no_carry()       # By default don't carry dissolved substances in evapotranspiration
 	
 	lk : index_set("Lake")
 	

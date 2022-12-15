@@ -7,8 +7,4 @@ Description
 	extend("simplyq_model.txt")
 	
 	load("../modules/simplysed.txt", ss : module("SimplySed"))
-	
-	sed : quantity("Sediment")
-	
-	simply_solver.solve(river.water.sed)
 }

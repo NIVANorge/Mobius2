@@ -27,9 +27,7 @@ model("EasyLake-SimplyC") {
 			
 			oc_doc * qy_doc * (f_par / e_par) * 86400.0 * sw * attn_epi * oc
 		}
+		
+		# TODO *****************   lacking hypolimnion oc and mixing !! (although mixing should be water flux between the compartments (?) in easylake itself.
 	}
-	
-	simply_solver.solve(epi.water.oc)
-	
-	el.evap.no_carry(epi.water.oc)
 }
