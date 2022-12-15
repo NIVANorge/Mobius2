@@ -135,7 +135,7 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	}
 	
 	// We generally have something on the form a.b.type(bla) . The chain is now {a, b, type}, but we want to store the type separately from the rest of the chain.
-	decl->location = decl->decl_chain.back().location;
+	decl->source_loc = decl->decl_chain.back().source_loc;
 	
 	Body_Type body_type;
 	decl->type = get_decl_type(&decl->decl_chain.back(), &body_type);
@@ -216,7 +216,7 @@ parse_decl(Token_Stream *stream) {
 				next.print_error_header();
 				fatal_error("Declarations of type '", name(decl->type), "' can't have declaration bodies.");
 			}
-			body->opens_at = next.location;
+			body->opens_at = next.source_loc;
 			
 			if(ch == '.') {
 				read_identifier_chain(stream, '.', &body->modifiers);
@@ -255,12 +255,12 @@ parse_decl(Token_Stream *stream) {
 				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
 				
 				// Note: fold_minus=false causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
-				stream->fold_minus = false; 
-				function_body->block = parse_math_block(stream, next.location);
+				stream->fold_minus = false;
+				function_body->block = parse_math_block(stream, next.source_loc);
 				stream->fold_minus = true;
 			} else if(body_type == Body_Type::regex) {
 				auto regex_body = reinterpret_cast<Regex_Body_AST *>(body);
-				regex_body->expr = parse_regex_list(stream, next.location, true);
+				regex_body->expr = parse_regex_list(stream, next.source_loc, true);
 			}
 			
 			decl->bodies.push_back(body);
@@ -278,7 +278,7 @@ parse_function_call(Token_Stream *stream) {
 	Function_Call_AST *function = new Function_Call_AST();
 	
 	function->name = stream->read_token();
-	function->location = function->name.location;
+	function->source_loc = function->name.source_loc;
 	stream->read_token(); // consume the '('
 	while(true) {
 		Token token = stream->peek_token();
@@ -346,7 +346,7 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 		binop->oper = oper;
 		binop->exprs.push_back(lhs);
 		binop->exprs.push_back(rhs);
-		binop->location = token.location;
+		binop->source_loc = token.source_loc;
 		lhs = binop;
 	}
 }
@@ -363,29 +363,29 @@ parse_primary_expr(Token_Stream *stream) {
 	Token token = stream->peek_token();
 	
 	if((char)token.type == '-' || (char)token.type == '!') {
-		Source_Location location = token.location;
+		Source_Location source_loc = token.source_loc;
 		stream->read_token();
 		auto unary = new Unary_Operator_AST();
 		unary->oper = token.type;
 		unary->exprs.push_back(parse_primary_expr(stream));
-		unary->location = location;
+		unary->source_loc = source_loc;
 		result = unary;
 	} else if((char)token.type == '{') {
 		stream->read_token();
-		result = parse_math_block(stream, token.location);
+		result = parse_math_block(stream, token.source_loc);
 	} else if (token.type == Token_Type::identifier) {
 		Token peek = stream->peek_token(1);
 		if((char)peek.type == '(') {
 			result = parse_function_call(stream);
 		} else {
 			auto val = new Identifier_Chain_AST();
-			val->location = token.location;
+			val->source_loc = token.source_loc;
 			read_identifier_chain(stream, '.', &val->chain, true);
 			result = val;
 		}
 	} else if (is_numeric_or_bool(token.type)) {
 		auto val = new Literal_AST();
-		val->location = token.location;
+		val->source_loc = token.source_loc;
 		stream->read_token();
 		val->value = token;
 		result = val;
@@ -410,13 +410,13 @@ parse_potential_if_expr(Token_Stream *stream) {
 	Math_Expr_AST *value = parse_math_expr(stream);
 	Token token = stream->peek_token();
 	if(token.type == Token_Type::identifier && token.string_value == "if") {
-		Source_Location location = token.location;
+		Source_Location source_loc = token.source_loc;
 		stream->read_token(); // consume the "if"
 		
 		Math_Expr_AST *condition = parse_math_expr(stream);
 		
 		auto if_expr = new If_Expr_AST();
-		if_expr->location = location;
+		if_expr->source_loc = source_loc;
 		if_expr->exprs.push_back(value);
 		if_expr->exprs.push_back(condition);
 		
@@ -450,7 +450,7 @@ parse_potential_if_expr(Token_Stream *stream) {
 Math_Block_AST *
 parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 	auto block = new Math_Block_AST();
-	block->location = opens_at;
+	block->source_loc = opens_at;
 	
 	while(true) {
 		Token token = stream->peek_token();
@@ -473,7 +473,7 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 		if(token.type == Token_Type::identifier && token2.type == Token_Type::def) {
 			auto local_var = new Local_Var_AST();
 			local_var->name = token;
-			local_var->location = token.location;
+			local_var->source_loc = token.source_loc;
 			stream->read_token(); stream->read_token();
 			auto expr = parse_math_expr(stream);
 			local_var->exprs.push_back(expr);
@@ -511,12 +511,12 @@ parse_primary_regex(Token_Stream *stream) {
 	if(token.type == Token_Type::identifier) {
 		auto ident = new Regex_Identifier_AST();
 		ident->ident = token;
-		ident->location = token.location;
+		ident->source_loc = token.source_loc;
 		result = ident;
 		stream->read_token();
 	} else if((char)token.type == '(') {
 		stream->read_token();
-		result = parse_regex_list(stream, token.location, false);
+		result = parse_regex_list(stream, token.source_loc, false);
 		//stream->expect_token(')'); // no, this is already taken care of by parse_regex_list
 	} else {
 		token.print_error_header();
@@ -545,7 +545,7 @@ parse_regex_expr(Token_Stream *stream) {
 	else {
 		result = new Regex_Or_Chain_AST();
 		result->exprs = exprs;
-		result->location = exprs[0]->location;
+		result->source_loc = exprs[0]->source_loc;
 	}
 	return result;
 }
@@ -584,7 +584,7 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
 	else {
 		result = new Math_Block_AST();
 		result->exprs = exprs;
-		result->location = exprs[0]->location;
+		result->source_loc = exprs[0]->source_loc;
 	}
 	
 	return result;
@@ -649,7 +649,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	}
 	
 	if(found_match == -1) {
-		decl->location.print_error_header();
+		decl->source_loc.print_error_header();
 		error_print("The arguments to the declaration of type '", name(decl->type), "' don't match any recognized pattern. The recognized patterns are:\n");
 		for(const auto &pattern : patterns) {
 			error_print("(");
@@ -668,14 +668,14 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	// NOTE: This check is only relevant if this type of declaration is allowed to have bodies at all. If a declaration that should not have a body gets one, that will be caught at the AST parsing stage.
 	Body_Type body_type = get_body_type(decl->type);
 	if(body_type != Body_Type::none && allow_body_count >= 0 && allow_body_count != decl->bodies.size()) {
-		decl->location.print_error_header();
+		decl->source_loc.print_error_header();
 		fatal_error("Expected ", allow_body_count, " bodies for this declaration, got ", decl->bodies.size(), ".");
 	}
 	
 	if(!allow_body_modifiers) {
 		for(auto body : decl->bodies) {
 			if(body->modifiers.size() > 0) {
-				decl->location.print_error_header();
+				decl->source_loc.print_error_header();
 				fatal_error("The bodies of this declaration should not have modifiers.");
 			}
 		}

@@ -2,21 +2,8 @@
 
 
 
-
-
-
-
-	*****   First pri:
-		connection fluxes of dissolvedes seem to add to the base substance rather than the dissolved substance.
-	
-
 	Override declarations.
 
-	Relative paths are always relative to the model source file, but this breaks when you do extend_model of a model from another folder.
-	Same when including a library from another library...
-	
-	
-	
 	Make variables of type Source_Location be named source_loc consistently to not confuse with other things.
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
@@ -25,7 +12,7 @@
 	
 	Clean up the State_Variable and Model_Instruction structs to make it less easy to have usage errors (maybe make accessors).
 	
-	
+	Finish connection system (for compartments of multiple index sets for instance).
 	
 
 
@@ -51,7 +38,9 @@
 	
 		
 		
-	DONE:
+	*****************   DONE:   ***********************
+	
+	connection fluxes of dissolvedes seem to add to the base substance rather than the dissolved substance.
 	
 	Make and test a SimplyTox    (partial at least)
 	
@@ -60,5 +49,6 @@
 		
 	Probably only allow connection fluxes between state variables that are on solvers. (Currently set to be the default)
 		
-		
+	Relative paths are always relative to the model source file, but this breaks when you do extend_model of a model from another folder.
+	Same when including a library from another library...
 	

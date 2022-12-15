@@ -44,7 +44,7 @@ Argument_AST : Expr_AST {
 struct
 Decl_AST : Expr_AST {
 	Token                        handle_name;
-	Source_Location              location;
+	Source_Location              source_loc;
 	Decl_Type                    type;
 	
 	std::vector<Token>           decl_chain;
@@ -94,7 +94,7 @@ struct
 Math_Expr_AST : Expr_AST {
 	Math_Expr_Type               type;
 	std::vector<Math_Expr_AST *> exprs;
-	Source_Location              location;
+	Source_Location              source_loc;
 	
 	Math_Expr_AST(Math_Expr_Type type) : type(type) {};
 	~Math_Expr_AST() { for(auto expr : exprs) delete expr; }

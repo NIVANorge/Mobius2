@@ -93,7 +93,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 				fatal_error("as a ", name(result_id.reg_type), ".");
 			}
 			if(decl && registrations[result_id.id].has_been_declared) {
-				decl->location.print_error_header();
+				decl->source_loc.print_error_header();
 				error_print("Re-declaration of entity '", handle->string_value, "'. It was already declared here: ");
 				entity->source_loc.print_error();
 				fatal_error();
@@ -131,18 +131,18 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 		auto &registration = registrations[result_id.id];
 		registration.has_been_declared = false;
 		if(is_valid(handle))
-			registration.source_loc = handle->location;
+			registration.source_loc = handle->source_loc;
 	}
 	
 	auto &registration = registrations[result_id.id];
 	
 	if(decl && !linked_to_universal) {
 		if(get_reg_type(decl->type) != reg_type) {
-			decl->location.print_error_header(Mobius_Error::internal);
+			decl->source_loc.print_error_header(Mobius_Error::internal);
 			fatal_error("Registering declaration with a mismatching type.");
 		}
 		
-		registration.source_loc = decl->location;
+		registration.source_loc = decl->source_loc;
 		registration.has_been_declared = true;
 		registration.decl_type = decl->type;
 		
@@ -151,7 +151,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 			//TODO: NOTE: for now names are globally scoped. This is necessary for some systems to work, but could cause problems in larger models. Make a better system later?
 			auto find = name_to_id.find(registration.name);
 			if(find != name_to_id.end()) {
-				decl->location.print_error_header();
+				decl->source_loc.print_error_header();
 				error_print("The name \"", registration.name, "\" was already used for another '", name(reg_type), "' declared here: ");
 				registrations[find->second.id].source_loc.print_error();
 				mobius_error_exit();
@@ -265,7 +265,7 @@ read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, Stri
 	Token_Stream stream(file_name, model_data);
 	Decl_AST *decl = parse_decl(&stream);
 	if(decl->type != Decl_Type::model || stream.peek_token().type != Token_Type::eof) {
-		decl->location.print_error_header();
+		decl->source_loc.print_error_header();
 		fatal_error("Model files should only have a single model declaration in the top scope.");
 	}
 	
@@ -364,7 +364,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, Decl_Scope *s
 			} else if (decl->type == Decl_Type::library) {
 				match_declaration(decl, {{Token_Type::quoted_string}});   //TODO: Should just have versions here too maybe..
 			} else {
-				decl->location.print_error_header();
+				decl->source_loc.print_error_header();
 				fatal_error("Module files should only have modules or libraries in the top scope. Encountered a ", name(decl->type), ".");
 			}
 			
@@ -390,7 +390,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, Decl_Scope *s
 			if(decl_name == found_name) {
 				result = id;
 				if(decl->type != type) {
-					decl->location.print_error_header();
+					decl->source_loc.print_error_header();
 					fatal_error(Mobius_Error::parsing, "The declaration '", decl_name, "' is of type ", name(decl->type), ", but was loaded as a ", name(type), ".");
 				}
 			}
@@ -406,7 +406,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, Decl_Scope *s
 void
 process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified) {
 	if(decl->args[which]->decl) {
-		decl->args[which]->decl->location.print_error_header();
+		decl->args[which]->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
 	std::vector<Token> &symbol = decl->args[which]->sub_chain;
@@ -472,11 +472,11 @@ process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope,
 	
 	if(!decl->bodies.empty()) {
 		if(decl->type != Decl_Type::property) {
-			decl->location.print_error_header();
+			decl->source_loc.print_error_header();
 			fatal_error("Only properties can have default code, not quantities.");
 		}
 		if(decl->bodies.size() > 1) {
-			decl->location.print_error_header();
+			decl->source_loc.print_error_header();
 			fatal_error("Expected at most one body for property declaration.");
 		}
 		// TODO : have to guard against clashes between different modules here!
@@ -559,12 +559,12 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 		auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);   // Re-purposing function body for a simple list... TODO: We should maybe have a separate body type for that
 		for(auto expr : body->block->exprs) {
 			if(expr->type != Math_Expr_Type::identifier_chain) {
-				expr->location.print_error_header();
+				expr->source_loc.print_error_header();
 				fatal_error("Expected a list of identifiers only.");
 			}
 			auto ident = reinterpret_cast<Identifier_Chain_AST *>(expr);
 			if(ident->chain.size() != 1) {
-				expr->location.print_error_header();
+				expr->source_loc.print_error_header();
 				fatal_error("Expected a list of identifiers only.");
 			}
 			parameter->enum_values.push_back(ident->chain[0].string_value);
@@ -603,7 +603,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 			par_group->parameters.push_back(par_id);
 			model->parameters[par_id]->par_group = id;
 		} else {
-			child->location.print_error_header();
+			child->source_loc.print_error_header();
 			fatal_error("Did not expect a declaration of type '", name(child->type), "' inside a par_group declaration.");
 		}
 	}
@@ -614,14 +614,18 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 
 template<> Entity_Id
 process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{{Token_Type::identifier, true}}});
+	match_declaration(decl,
+		{
+			{},
+			{{Token_Type::identifier, true}},
+		});
 	
 	auto id =  model->functions.find_or_create(&decl->handle_name, scope, nullptr, decl);
 	auto function = model->functions[id];
 	
 	for(auto arg : decl->args) {
 		if(arg->decl || arg->sub_chain.size() != 1) {
-			decl->location.print_error_header();
+			decl->source_loc.print_error_header();
 			fatal_error("The arguments to a function declaration should be just single identifiers.");
 		}
 		function->args.push_back(arg->sub_chain[0].string_value);
@@ -753,7 +757,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	flux->target_was_out = (flux->target.type == Var_Location::Type::out);
 	
 	if(flux->source == flux->target && is_located(flux->source)) {
-		decl->location.print_error_header();
+		decl->source_loc.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
@@ -774,7 +778,7 @@ process_par_ref_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *de
 	auto unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
 	
 	if(!model->model_decl_scope.has(id)) {
-		decl->location.print_error_header();
+		decl->source_loc.print_error_header();
 		fatal_error("Reference to a parameter \"", single_arg(decl, 0)->string_value, "\" that was not declared in the main model scope.");
 	}
 	
@@ -813,7 +817,7 @@ load_library(Mobius_Model *model, Decl_Scope *to_scope, String_View rel_path, St
 			} else if(child->type == Decl_Type::function) {
 				process_declaration<Reg_Type::function>(model, &lib->scope, child);
 			} else {
-				child->location.print_error_header();
+				child->source_loc.print_error_header();
 				fatal_error("Did not expect a declaration of type ", name(child->type), " inside a library declaration.");
 			}
 		}
@@ -833,7 +837,7 @@ load_library(Mobius_Model *model, Decl_Scope *to_scope, String_View rel_path, St
 
 void
 process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Decl_Scope *to_scope, String_View load_decl_path) {
-	int which = match_declaration(decl, 
+	int which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string, { Decl_Type::library, true } },
 			{{Decl_Type::library, true}},
@@ -855,7 +859,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Decl_Scope
 		match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, 0, true, 0);
 		std::string library_name = single_arg(lib_load_decl, 0)->string_value;
 
-		load_library(model, to_scope, file_name, relative_to, library_name, lib_load_decl->location);
+		load_library(model, to_scope, file_name, relative_to, library_name, lib_load_decl->source_loc);
 	}
 }
 
@@ -939,7 +943,7 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			} break;
 			
 			default : {
-				child->location.print_error_header();
+				child->source_loc.print_error_header();
 				fatal_error("Did not expect a declaration of type ", name(child->type), " inside a module declaration.");
 			};
 		}
@@ -1016,7 +1020,7 @@ process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *d
 		}
 	}
 	if(!found) {
-		decl->location.print_error_header();
+		decl->source_loc.print_error_header();
 		fatal_error("This flux could not have carried this quantity since the latter is not dissolved in the source of the flux.");
 	}
 	
@@ -1108,7 +1112,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	}
 	
 	if(!success) {         //TODO: actually store a "compiled" regex instead.
-		expr->location.print_error_header();
+		expr->source_loc.print_error_header();
 		fatal_error("Temporary: This is not a supported regex format for connections yet.");
 	}
 	
@@ -1132,7 +1136,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	auto component = model->components[comp_id];
 	
 	if(component->decl_type == Decl_Type::property) {
-		decl->decl_chain[0].location.print_error_header(Mobius_Error::model_building);
+		decl->decl_chain[0].source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("Only compartments and quantities can be distributed, not properties");
 	}
 	
@@ -1152,7 +1156,7 @@ process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, D
 	auto to_comp   = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
 	
 	if(model->components[from_comp]->decl_type != Decl_Type::compartment || model->components[to_comp]->decl_type != Decl_Type::compartment) {
-		decl->location.print_error_header(Mobius_Error::model_building);
+		decl->source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("Aggregations can only be declared between compartments");
 	}
 	
@@ -1294,12 +1298,12 @@ load_model(String_View file_name) {
 						match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
 						
 						auto module_name = single_arg(module_spec, 0)->string_value;
-						auto module_id = load_top_decl_from_file(model, single_arg(child, 0)->location, scope, file_name, model_path, module_name, Decl_Type::module);
+						auto module_id = load_top_decl_from_file(model, single_arg(child, 0)->source_loc, scope, file_name, model_path, module_name, Decl_Type::module);
 						
 						std::string module_handle = "";
 						if(module_spec->handle_name.string_value)
 							module_handle = module_spec->handle_name.string_value;
-						scope->add_local(module_handle, module_spec->location, module_id);
+						scope->add_local(module_handle, module_spec->source_loc, module_id);
 						
 						process_module_declaration(model, module_id);
 					}
@@ -1318,7 +1322,7 @@ load_model(String_View file_name) {
 					//std::string module_handle = "";
 					//if(child->handle_name.string_value)
 					//	module_handle = child->handle_name.string_value;
-					//scope->add_local(module_handle, child->location, module_id);
+					//scope->add_local(module_handle, child->source_loc, module_id);
 					
 					process_module_declaration(model, module_id);
 				} break;
@@ -1377,7 +1381,7 @@ load_model(String_View file_name) {
 				} break;
 				
 				default : {
-					child->location.print_error_header();
+					child->source_loc.print_error_header();
 					fatal_error("Did not expect a declaration of type ", name(child->type), " inside a model declaration.");
 				};
 			}

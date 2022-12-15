@@ -26,7 +26,7 @@ model("Another simple") {
 			bq : par_real("initial b q", unit(), 0)
 		}
 		
-		a_out : flux(a.q, out, "a out") { 0.002*q*fun(0)	}
+		a_out : flux(a.q, out, "a out") { 0.002*q*fun()	}
 		b_out : flux(b.q, out, "b out") { 0.001*q   }
 		
 		flux(nowhere, a.q.r, "R input") { aqr }

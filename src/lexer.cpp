@@ -60,17 +60,17 @@ Source_Location::print_warning_header() const {
 
 void
 Token::print_error_location() {
-	location.print_error();
+	source_loc.print_error();
 }
 
 void
 Token::print_error_header() {
-	location.print_error_header();
+	source_loc.print_error_header();
 }
 
 void
 Token::print_warning_header() {
-	location.print_warning_header();
+	source_loc.print_warning_header();
 }
 
 const Token *
@@ -199,8 +199,8 @@ Token_Stream::read_token_base(Token *token) {
 	
 	bool skip_comment = false;
 	
-	token->location.filename = filename;
-	token->location.type = Source_Location::Type::text_file;
+	token->source_loc.filename = filename;
+	token->source_loc.type = Source_Location::Type::text_file;
 	
 	while(true) {
 		char c = read_char();
@@ -213,8 +213,8 @@ Token_Stream::read_token_base(Token *token) {
 		//NOTE: This is very subtle, but this clause has to be below the check for SkipComment, if we are in a comment we have to check for \n, (and \n isspace and would be skipped by this continue)
 		if(isspace(c)) continue; // Always skip whitespace between tokens.
 
-		token->location.line = line;
-		token->location.column = column;
+		token->source_loc.line = line;
+		token->source_loc.column = column;
 		
 		// NOTE: Try to identify the type of the token.
 		

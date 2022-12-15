@@ -38,12 +38,12 @@ Token {
 	
 	Token() : val_date(), string_value(), type(Token_Type::unknown) {};
 	
-	Source_Location location;
+	Source_Location source_loc;
 	String_View     string_value;
 	union
 	{
 		s64       val_int;
-		// WARNING: DoubleValue should never be read directly, instead use double_value() below. This is because something that is a valid int could also be interpreted as a double.
+		// WARNING: val_double should never be read directly, instead use double_value() below. This is because something that is a valid int could also be interpreted as a double.
 		// TODO:    How to enforce that in the compiler without making too much boilerplate for accessing the other values?
 		double    val_double;
 		u64       val_bool;

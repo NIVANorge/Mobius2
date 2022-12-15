@@ -255,7 +255,7 @@ void
 set_unit_data(Unit_Data &data, Decl_AST *decl) {
 	for(Argument_AST *arg : decl->args) {
 		if(!Arg_Pattern().matches(arg)) {
-			decl->location.print_error_header();
+			decl->source_loc.print_error_header();
 			fatal_error("Invalid argument to unit declaration.");
 		}
 	}

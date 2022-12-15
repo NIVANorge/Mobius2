@@ -151,7 +151,7 @@ remove_lasts(Math_Expr_FT *expr, bool make_error) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && (ident->flags & ident_flags_last_result)) {
 			if(make_error) {
-				expr->location.print_error_header(Mobius_Error::model_building);
+				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect a last() in an initial value function.");
 			}
 			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_last_result);
@@ -169,14 +169,14 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
 		if(ident->flags & ident_flags_in_flux) {
 			if(make_error_in_flux) {
-				expr->location.print_error_header(Mobius_Error::model_building);
+				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect an in_flux() in an initial value function.");
 			}
 			in_fluxes[ident->state_var.id].push_back(looked_up_by);
 		}
 		if(ident->flags & ident_flags_aggregate) {
 			if(!is_valid(lookup_compartment)) {
-				expr->location.print_error_header(Mobius_Error::model_building);
+				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Can't use aggregate() in this function body because it does not belong to a compartment.");
 			}
 				
@@ -211,7 +211,7 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 			
 			auto var = app->state_vars[ident->state_var];
 			if(!is_valid(var->dissolved_conc)) {
-				expr->location.print_error_header(Mobius_Error::model_building);
+				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This variable does not have a concentration");
 			}
 			ident->state_var = var->dissolved_conc;
@@ -226,9 +226,9 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = reinterpret_cast<Identifier_FT *>(expr);
-		if(ident->variable_type != Variable_Type::local 
+		if(ident->variable_type != Variable_Type::local
 			&& ident->variable_type != Variable_Type::parameter) {
-			expr->location.print_error_header(Mobius_Error::model_building);
+			expr->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
 		} else if (ident->variable_type == Variable_Type::parameter)
 			parameter_refs.insert(ident->parameter);
@@ -290,7 +290,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	register_dependencies(function, &code_depends);
 	
 	// NOTE: We should not have undergone codegen yet, so the source location of the top node of the function should be valid.
-	Source_Location source_loc = function->location;
+	Source_Location source_loc = function->source_loc;
 	
 	Var_Location loc = var->loc1;
 	loc = var->loc1;
@@ -613,7 +613,7 @@ compose_and_resolve(Model_Application *app) {
 			}
 			
 			if(override_ast && (var->type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
-				override_ast->location.print_error_header(Mobius_Error::model_building);
+				override_ast->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Either got an '.override' block on a property or a '.override_conc' block on a non-dissolved variable.");
 			}
 			in_loc = has->var_location;
@@ -639,7 +639,7 @@ compose_and_resolve(Model_Application *app) {
 			var->initial_is_conc = initial_is_conc;
 			
 			if(initial_is_conc && (var->type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
-				init_ast->location.print_error_header(Mobius_Error::model_building);
+				init_ast->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
 			}
 		} else
@@ -655,7 +655,7 @@ compose_and_resolve(Model_Application *app) {
 			for(auto par_id : parameter_refs) {
 				bool ok = parameter_indexes_below_location(model, par_id, var->loc1);
 				if(!ok) {
-					unit_conv_ast->location.print_error_header(Mobius_Error::model_building);
+					unit_conv_ast->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("The parameter \"", (*unit_conv_scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
 				}
 			}
@@ -750,7 +750,7 @@ compose_and_resolve(Model_Application *app) {
 					for(auto par_id : parameter_refs) {
 						bool ok = parameter_indexes_below_location(model, par_id, loc1);
 						if(!ok) {
-							agg.code->location.print_error_header(Mobius_Error::model_building);
+							agg.code->source_loc.print_error_header(Mobius_Error::model_building);
 							fatal_error("The parameter \"", (*scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over.");
 						}
 					}

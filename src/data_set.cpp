@@ -313,7 +313,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 	
 	while(true) {
 		Series_Header_Info header;
-		header.loc = token.location;
+		header.loc = token.source_loc;
 		header.name = std::string(stream->expect_quoted_string());
 		while(true) {
 			token = stream->peek_token();
@@ -422,7 +422,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 	auto decl = parse_decl_header(stream);
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 	Token *arg = single_arg(decl, 0);
-	auto par = par_group->pars.create(arg->string_value, arg->location);
+	auto par = par_group->pars.create(arg->string_value, arg->source_loc);
 	par->type = decl->type;
 	if(par->type == Decl_Type::par_enum) {
 		std::vector<Token> list;
@@ -463,7 +463,7 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 
 	auto name = single_arg(decl, 0);
-	auto group = module->par_groups.create(name->string_value, name->location);
+	auto group = module->par_groups.create(name->string_value, name->source_loc);
 	
 	int expect_count = 1;
 	Token token = stream->peek_token();
@@ -543,18 +543,18 @@ Data_Set::read_from_file(String_View file_name) {
 				match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
 				
 				auto name = single_arg(decl, 0);
-				auto data = index_sets.create(name->string_value, name->location);
+				auto data = index_sets.create(name->string_value, name->source_loc);
 				std::vector<Token> indexes;
 				read_string_list(&stream, indexes);
 				for(int idx = 0; idx < indexes.size(); ++idx)
-					data->indexes.create(indexes[idx].string_value, indexes[idx].location);
+					data->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
 			} break;
 			
 			case Decl_Type::compartment : {
 				match_declaration(decl, {{Token_Type::quoted_string}});
 				
 				auto name = single_arg(decl, 0);
-				auto data = compartments.create(name->string_value, name->location);
+				auto data = compartments.create(name->string_value, name->source_loc);
 				int comp_id = compartments.find_idx(name->string_value);
 				data->handle = decl->handle_name.string_value;
 				if(decl->handle_name.string_value) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
@@ -571,7 +571,7 @@ Data_Set::read_from_file(String_View file_name) {
 				match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 				
 				auto name = single_arg(decl, 0);
-				auto data = connections.create(name->string_value, name->location);
+				auto data = connections.create(name->string_value, name->source_loc);
 				
 				read_connection_data(this, &stream, data);
 			} break;
@@ -598,7 +598,7 @@ Data_Set::read_from_file(String_View file_name) {
 						fatal_error("Spreadsheet reading is only available on Windows.");
 						#endif
 					} else {
-						String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->location, file_name);
+						String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
 						Token_Stream other_stream(other_file_name, other_data);
 						other_stream.allow_date_time_tokens = true;
 						
@@ -625,7 +625,7 @@ Data_Set::read_from_file(String_View file_name) {
 				match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
 			
 				auto name = single_arg(decl, 0);
-				auto module = modules.create(name->string_value, name->location);
+				auto module = modules.create(name->string_value, name->source_loc);
 				module->version.major    = single_arg(decl, 1)->val_int;
 				module->version.minor    = single_arg(decl, 2)->val_int;
 				module->version.revision = single_arg(decl, 3)->val_int;
@@ -648,7 +648,7 @@ Data_Set::read_from_file(String_View file_name) {
 			} break;
 			
 			default : {
-				decl->location.print_error_header();
+				decl->source_loc.print_error_header();
 				fatal_error("Did not expect a declaration of type '", name(decl->type), "' in a data set.");
 			} break;
 		}

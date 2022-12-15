@@ -17,7 +17,7 @@ make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	if(cast_to == expr->value_type) return expr;
 	
 	auto cast = new Math_Expr_FT(Math_Expr_Type::cast);
-	cast->location = expr->location;     // not sure if this is good, it is just so that it has a valid location.
+	cast->source_loc = expr->source_loc;     // not sure if this is good, it is just so that it has a valid location.
 	cast->value_type = cast_to;
 	cast->exprs.push_back(expr);
 	
@@ -262,7 +262,7 @@ fatal_error_trace(Function_Scope *scope) {
 		if(!sc) mobius_error_exit();
 		if(!sc->function_name.empty()) {
 			error_print("In function \"", sc->function_name, "\", called from ");
-			sc->block->location.print_error();
+			sc->block->source_loc.print_error();
 		}
 		sc = sc->parent;
 	}
@@ -335,7 +335,7 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 
 void
 set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_Id var_id, std::vector<Token> &chain, Function_Scope *scope) {
-	Source_Location sl = chain[0].location;
+	Source_Location sl = chain[0].source_loc;
 	if(!is_valid(var_id)) {
 		sl.print_error_header();
 		error_print("The identifier\n");
@@ -375,7 +375,7 @@ fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::v
 	
 	auto literal = new Literal_FT();
 	literal->value_type = ident->value_type;
-	literal->location   = ident->location;
+	literal->source_loc   = ident->source_loc;
 	literal->value      = val;
 	
 	warning_print("Baking ", app->model->parameters[par_id]->name, "\n");
@@ -414,7 +414,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			// the value of a block is the value of the last expression in the block.
 			Math_Expr_FT *last = new_block->exprs.back();
 			if(last->value_type == Value_Type::none) {
-				last->location.print_error_header();
+				last->source_loc.print_error_header();
 				error_print("The last statement in a block must evaluate to a value.\n");
 				fatal_error_trace(scope);
 			}
@@ -591,7 +591,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					fatal_error_trace(scope);
 				}
 				if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) {
-					new_fun->exprs[0]->location.print_error_header();
+					new_fun->exprs[0]->source_loc.print_error_header();
 					error_print("A ", fun_name, "() call can only be applied to a state variable or input series.\n");
 					fatal_error_trace(scope);
 				}
@@ -600,7 +600,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				delete new_fun;
 				bool can_series = (fun_name != "in_flux") && (fun_name != "conc");
 				if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series))) {
-					var->location.print_error_header();
+					var->source_loc.print_error_header();
 					error_print("A ", fun_name, "() call can only be applied to a state variable");
 					if(can_series) error_print(" or input series.\n");
 					else           error_print(".\n");
@@ -667,7 +667,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					}
 					// Inline in the function call as a new block with the arguments as local vars.
 					auto inlined_fun = new Math_Block_FT();
-					inlined_fun->location = fun->location; //NOTE: do this to get correct diagnostics in fatal_error_trace()
+					inlined_fun->source_loc = fun->source_loc; //NOTE: do this to get correct diagnostics in fatal_error_trace()
 					
 					resolve_arguments(inlined_fun, ast, data, scope);
 					
@@ -710,7 +710,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			if((char)unary->oper == '-') {
 				if(new_unary->exprs[0]->value_type == Value_Type::boolean) {
-					new_unary->exprs[0]->location.print_error_header();
+					new_unary->exprs[0]->source_loc.print_error_header();
 					error_print("Unary minus can not have an argument of type boolean.\n");
 					fatal_error_trace(scope);
 				}
@@ -720,7 +720,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				new_unary->exprs[0] = make_cast(new_unary->exprs[0], Value_Type::boolean);
 				/*
 				if(new_unary->exprs[0]->value_type != Value_Type::boolean) {
-					new_unary->exprs[0]->location.print_error_header();
+					new_unary->exprs[0]->source_loc.print_error_header();
 					error_print("Negation must have an argument of type boolean.\n");
 					fatal_error_trace(scope);
 				}
@@ -747,7 +747,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::boolean);
 				/*
 				if(new_binary->exprs[0]->value_type != Value_Type::boolean || new_binary->exprs[1]->value_type != Value_Type::boolean) {
-					binary->location.print_error_header();
+					binary->source_loc.print_error_header();
 					error_print("The operator ", name(binary->oper), " can only take boolean arguments.\n");
 					fatal_error_trace(scope);
 				}
@@ -760,7 +760,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				if(new_binary->exprs[1]->value_type == Value_Type::boolean) new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
 			} else if (op == '%') {
 				if(new_binary->exprs[0]->value_type == Value_Type::real || new_binary->exprs[1]->value_type == Value_Type::real) {
-					binary->location.print_error_header();
+					binary->source_loc.print_error_header();
 					error_print("Operator % can only take integer arguments.\n");
 					fatal_error_trace(scope);
 				}
@@ -822,7 +822,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					auto loc2 = reinterpret_cast<Local_Var_FT *>(loc);
 					
 					if(loc2->name == local_name) {
-						local->location.print_error_header();
+						local->source_loc.print_error_header();
 						error_print("Re-declaration of local variable \"", loc2->name, "\" in the same scope.\n");
 						fatal_error_trace(scope);
 					}
@@ -847,10 +847,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 	if(!result)
 		fatal_error(Mobius_Error::internal, "Result unassigned in resolve_function_tree().");
 	
-	result->location = ast->location;
+	result->source_loc = ast->source_loc;
 	
 	if(result->value_type == Value_Type::unresolved) {
-		ast->location.print_error_header();
+		ast->source_loc.print_error_header();
 		fatal_error("(internal error) did not resolve value type of expression.");
 	}
 	
@@ -911,7 +911,7 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
 		result = optimize_pow_int(lhs, rhs->value.val_integer);
 	
 	if(result != binary) {
-		result->location = binary->location;
+		result->source_loc = binary->source_loc;
 		binary->exprs.clear(); // to not invoke recursive destructor on lhs.
 		delete rhs;
 		delete binary;
@@ -956,7 +956,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		case Math_Expr_Type::block : {
 			auto block = reinterpret_cast<Math_Block_FT *>(expr);
 			if(block->is_for_loop
-				&& block->exprs[0]->expr_type == Math_Expr_Type::literal 
+				&& block->exprs[0]->expr_type == Math_Expr_Type::literal
 				&& reinterpret_cast<Literal_FT *>(block->exprs[0])->value.val_integer == 1) {   // Iteration count of for loop is 1, so the loop only executes once.
 				
 				delete block->exprs[0];
@@ -987,7 +987,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 			}
 			if(all_literal) {
 				auto literal = new Literal_FT();
-				literal->location = expr->location;
+				literal->source_loc = expr->source_loc;
 				literal->value_type = expr->value_type;
 				
 				if(expr->exprs.size() == 1) {
@@ -1015,7 +1015,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				auto literal = new Literal_FT();
 				literal->value = val;
 				literal->value_type = expr->value_type;
-				literal->location = expr->location;
+				literal->source_loc = expr->source_loc;
 				delete expr;
 				return literal;
 			}
@@ -1039,9 +1039,9 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 			} else {
 				// If one argument is a literal, we can still in some cases determine the result in advance.
 				if(lhs)
-					result = check_binop_reduction(binary->location, binary->oper, lhs->value, lhs->value_type, true);
+					result = check_binop_reduction(binary->source_loc, binary->oper, lhs->value, lhs->value_type, true);
 				else if(rhs)
-					result = check_binop_reduction(binary->location, binary->oper, rhs->value, rhs->value_type, false);
+					result = check_binop_reduction(binary->source_loc, binary->oper, rhs->value, rhs->value_type, false);
 			}
 			
 			if(result.type != Value_Type::unresolved) {
@@ -1061,7 +1061,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 					auto literal = new Literal_FT();
 					literal->value = result;
 					literal->value_type = expr->value_type;
-					literal->location = expr->location;
+					literal->source_loc = expr->source_loc;
 					delete expr;
 					return literal;
 				}
@@ -1139,7 +1139,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				auto literal = new Literal_FT();
 				literal->value = apply_cast({old_literal->value, old_literal->value_type}, expr->value_type);
 				literal->value_type = expr->value_type;
-				literal->location = expr->location;
+				literal->source_loc = expr->source_loc;
 				delete expr;
 				return literal;
 			}
@@ -1168,7 +1168,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 								auto loc_literal    = reinterpret_cast<Literal_FT *>(loc->exprs[0]);
 								literal->value      = loc_literal->value;
 								literal->value_type = loc_literal->value_type;
-								literal->location   = ident->location;
+								literal->source_loc   = ident->source_loc;
 								loc2->is_used       = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
 								delete expr;
 								return literal;
@@ -1243,7 +1243,7 @@ copy(Math_Expr_FT *source) {
 		} break;
 		
 		case Math_Expr_Type::if_chain :
-		case Math_Expr_Type::cast : 
+		case Math_Expr_Type::cast :
 		case Math_Expr_Type::state_var_assignment :
 		case Math_Expr_Type::derivative_assignment : {
 			result = copy_one<Math_Expr_FT>(source);

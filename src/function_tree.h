@@ -15,10 +15,10 @@ struct
 Math_Expr_FT {
 	Math_Expr_Type               expr_type;
 	Value_Type                   value_type;
-	Source_Location              location;
+	Source_Location              source_loc;
 	std::vector<Math_Expr_FT *>  exprs;
 	
-	Math_Expr_FT(Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), expr_type(expr_type), location() {};
+	Math_Expr_FT(Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), expr_type(expr_type), source_loc() {};
 	Math_Expr_FT() {}; //NOTE: we need this one in copy() (where the data is overwritten) but it should otherwise not be used!
 	~Math_Expr_FT() { for(auto expr : exprs) delete expr; };
 };
