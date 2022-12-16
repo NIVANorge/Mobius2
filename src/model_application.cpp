@@ -166,7 +166,7 @@ Model_Application::all_indexes_are_set() {
 }
 
 void
-process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, const std::string &module_name = "") {
+process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, const std::string &module_name = "") {
 
 	Entity_Id module_id = invalid_entity_id;
 	if(!module_name.empty()) {
@@ -187,7 +187,8 @@ process_par_group_index_sets(Mobius_Model *model, Par_Group_Info *par_group, std
 	if(is_valid(pgd->component)) {  // It is invalid for the "System" par group
 		auto comp  = model->components[pgd->component];
 		
-		for(std::string &name : par_group->index_sets) {
+		for(int index_set_idx : par_group->index_sets) {
+			auto &name = data_set->index_sets[index_set_idx]->name;
 			auto index_set_id = model->index_sets.find_by_name(name);
 			if(!is_valid(index_set_id))
 				fatal_error(Mobius_Error::internal, "We got an invalid index set for a parameter group from the data set.");
@@ -465,10 +466,10 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> par_group_index_sets;
 	for(auto &par_group : data_set->global_module.par_groups)
-		process_par_group_index_sets(model, &par_group, par_group_index_sets);
+		process_par_group_index_sets(model, data_set, &par_group, par_group_index_sets);
 	for(auto &module : data_set->modules) {
 		for(auto &par_group : module.par_groups)
-			process_par_group_index_sets(model, &par_group, par_group_index_sets, module.name);
+			process_par_group_index_sets(model, data_set, &par_group, par_group_index_sets, module.name);
 	}
 	
 	set_up_parameter_structure(&par_group_index_sets);
@@ -566,13 +567,16 @@ Model_Application::save_to_data_set() {
 				par_group_info = module_info->par_groups.create(par_group->name, {});
 			
 			par_group_info->index_sets.clear();
-			if(par_group->parameters.size() > 0) { // NOTE: not sure if empty should just be an error.
+			if(par_group->parameters.size() > 0) { // TODO: not sure if empty should just be an error.
 				auto id0 = par_group->parameters[0];
 				auto &index_sets = parameter_structure.get_index_sets(id0);
 				
 				for(auto index_set_id : index_sets) {
 					auto index_set = model->index_sets[index_set_id];
-					par_group_info->index_sets.push_back(index_set->name);
+					auto index_set_idx = data_set->index_sets.find_idx(index_set->name);
+					if(index_set_idx < 0)
+						fatal_error(Mobius_Error::internal, "Tried to set an index set for a parameter group in a data set, but the index set was not in the data set.");
+					par_group_info->index_sets.push_back(index_set_idx);
 				}
 			}
 			

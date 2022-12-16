@@ -1,9 +1,54 @@
 
 
 
-	# Other todos:  get rid of a lot of boilerplate!
-	# - automatically put dissolved substances on the same solvers as what they were dissolved in. Could alternatively let you remove them from the solver.
-	# - If a dissolved substance can flow somewhere, you don't have to declare that it is there (?) - but could be tricky wrt units.
+
+	# all_to_all   connection:
+
+	# Module
+
+	habitat.par_group("Migration") {
+		mig_wt : par_real("Migration weight")
+	}
+	
+	flux(habitat.pop, out) {
+		0.5 * (pop - to.pop) * mig_wt
+	}
+	
+	# Model:
+	
+	mig : connection("Migration path", all_to_all) { habitat }
+	
+	# 'to'   could be a stand-in in any flux for the compartment of the target of the flux (maybe). At least if the target is a connection.
+	# If it is just the compartment, what if we later allow connections between different quantities (?)
+	
+	# mig_wt is first indexed by the source, then the target (if it has a double indexing over one of the index sets)
+
+	### In data:
+
+	par_group("Migration") ["Habitat index", "Habitat index"] {
+		par_real("Migration weight") [
+			0   0.1 0.3
+			0.5 0   0
+			0.1 0.2 0
+		}
+	}
+	
+	# Should not specify connection data for this type since it is all_to_all.
+	
+	# Actually, may want to specify what index set the all-to-all is over... Is it better to do it in data to be consistent, or should it just be done in the model file?
+		# in case habitat is distributed over several index sets, but we only want the connection over one of them
+		
+		# Model
+			mig : connection("Migration path", all_to_all, habitat_index) { habitat }
+		# Data
+			h : compartment("Habitat") [ "Migration index" ]
+			connection("Migration path") [ h ]
+	# The latter one is better if we want to extend it to multiple compartments (need union index sets to specify weights in that case) or to multiple index sets.
+		# Should not be supported immediately, but 
+		
+	### Implementation side:
+		Batch and Model_Instruction needs to be able to have double dependencies 
+
 
 
 

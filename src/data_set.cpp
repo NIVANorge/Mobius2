@@ -85,20 +85,87 @@ print_tabs(FILE *file, int ntabs) {
 }
 
 void
-write_parameter_to_file(FILE *file, Par_Info &info, int tabs, bool double_newline = true) {
+write_parameter_recursive(FILE *file, Par_Info &par, int level, int *offset, std::vector<int> &index_counts, int tabs) {
+	
+	int count = index_counts[index_counts.size() - level - 1];
+	
+	if(level == 0) {
+		if(index_counts.size() != 1)
+			print_tabs(file, tabs);
+		for(int idx = 0; idx < count; ++idx) {
+			int val_idx = (*offset)++;
+			if(par.type == Decl_Type::par_enum) {
+				fprintf(file, "%s ", par.values_enum[val_idx].data());
+			} else {
+				Parameter_Value &val = par.values[val_idx];
+				switch(par.type) {
+					case Decl_Type::par_real : {
+						fprintf(file, "%.15g ", val.val_real);
+					} break;
+					
+					case Decl_Type::par_bool : {
+						fprintf(file, "%s ", val.val_boolean ? "true" : "false");
+					} break;
+					
+					case Decl_Type::par_int : {
+						fprintf(file, "%lld ", (long long)val.val_integer);
+					} break;
+					
+					case Decl_Type::par_datetime : {
+						char buf[64];
+						val.val_datetime.to_string(buf);
+						fprintf(file, "%s ", buf);
+					} break;
+				}
+			}
+		}
+	} else {
+		for(int idx = 0; idx < count; ++idx) {
+			write_parameter_recursive(file, par, level-1, offset, index_counts, tabs);
+			fprintf(file, "\n");
+			if(level >= 2)
+				fprintf(file, "\n");
+		}
+	}
+}
+
+void
+write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_group, Par_Info &par, int tabs, bool double_newline = true) {
+	
+	int total_count = 1;
+	std::vector<int> index_counts(par_group.index_sets.size());
+	if(index_counts.size() > 0) {
+		for(int idx = 0; idx < index_counts.size(); ++idx) {
+			index_counts[idx] = data_set->index_sets[par_group.index_sets[idx]]->indexes.count();
+			total_count *= index_counts[idx];
+		}
+	} else
+		index_counts.push_back(1);  // There is a single non-indexed value
+	
+	if((par.type == Decl_Type::par_enum && total_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && total_count != par.values.size()))
+		fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par.name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
 	
 	print_tabs(file, tabs);
-	fprintf(file, "%s(\"%s\")\n", name(info.type), info.name.data());
-	print_tabs(file, tabs);
-	fprintf(file, "[ ");
+	fprintf(file, "%s(\"%s\")", name(par.type), par.name.data());
+	if(index_counts.size() == 1) {
+		fprintf(file, "\n");
+		print_tabs(file, tabs);
+		fprintf(file, "[ ");
+	} else {
+		fprintf(file, " [\n");
+	}
 	
-	if(info.type == Decl_Type::par_enum) {
-		for(std::string &val : info.values_enum)
+	int offset = 0;
+	write_parameter_recursive(file, par, index_counts.size()-1, &offset, index_counts, tabs+1);
+	
+	/*
+	if(par.type == Decl_Type::par_enum) {
+		for(std::string &val : par.values_enum)
 			fprintf(file, "%s ", val.data());
-	} else { 
+	} else {
 		// TODO: matrix formatting
-		for(Parameter_Value &val : info.values) {
-			switch(info.type) {
+		for(Parameter_Value &val : par.values) {
+			switch(par.type) {
 				case Decl_Type::par_real : {
 					fprintf(file, "%.15g ", val.val_real);
 				} break;
@@ -119,27 +186,31 @@ write_parameter_to_file(FILE *file, Par_Info &info, int tabs, bool double_newlin
 			}
 		}
 	}
+	*/
+	if(index_counts.size() != 1)
+		print_tabs(file, tabs);
 	fprintf(file, "]\n");
 	if(double_newline)
 		fprintf(file, "\n");
 }
 
 void
-write_par_group_to_file(FILE *file, Par_Group_Info &par_group, int tabs, bool double_newline = true) {
+write_par_group_to_file(FILE *file, Data_Set *data_set, Par_Group_Info &par_group, int tabs, bool double_newline = true) {
 	print_tabs(file, tabs);
 	fprintf(file, "par_group(\"%s\") ", par_group.name.data());
 	if(par_group.index_sets.size() > 0) {
 		fprintf(file, "[ ");
 		int idx = 0;
-		for(auto index_set : par_group.index_sets) {
-			fprintf(file, "\"%s\" ", index_set.data());
+		for(int index_set_idx : par_group.index_sets) {
+			auto index_set = data_set->index_sets[index_set_idx];
+			fprintf(file, "\"%s\" ", index_set->name.data());
 		}
 		fprintf(file, "] ");
 	}
 	fprintf(file, "{\n");
 	int idx = 0;
 	for(auto &par : par_group.pars)
-		write_parameter_to_file(file, par, tabs+1, idx++ != par_group.pars.count()-1);
+		write_parameter_to_file(file, data_set, par_group, par, tabs+1, idx++ != par_group.pars.count()-1);
 	
 	print_tabs(file, tabs);
 	fprintf(file, "}\n");
@@ -148,11 +219,11 @@ write_par_group_to_file(FILE *file, Par_Group_Info &par_group, int tabs, bool do
 }
 
 void
-write_module_to_file(FILE *file, Module_Info &module) {
+write_module_to_file(FILE *file, Data_Set *data_set, Module_Info &module) {
 	fprintf(file, "module(\"%s\", %d, %d, %d) {\n", module.name.data(), module.version.major, module.version.minor, module.version.revision);
 	int idx = 0;
 	for(auto &par_group : module.par_groups)
-		write_par_group_to_file(file, par_group, 1, idx++ != module.par_groups.count()-1);
+		write_par_group_to_file(file, data_set, par_group, 1, idx++ != module.par_groups.count()-1);
 	fprintf(file, "}\n\n");
 }
 
@@ -197,10 +268,10 @@ Data_Set::write_to_file(String_View file_name) {
 		write_series_to_file(file, main_file, ser, already_processed);
 	
 	for(auto &par_group : global_module.par_groups)
-		write_par_group_to_file(file, par_group, 0);
+		write_par_group_to_file(file, this, par_group, 0);
 	
 	for(auto &module : modules)
-		write_module_to_file(file, module);
+		write_module_to_file(file, this, module);
 	
 	fclose(file);
 }
@@ -476,9 +547,9 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 				fatal_error("The global \"System\" parameter group should not be indexed by index sets.");
 			}
 			for(Token &item : list) {
-				auto index_set = data_set->index_sets.expect_exists(&item, "index_set");
-				group->index_sets.push_back(item.string_value);
-				expect_count *= index_set->indexes.count();
+				int index_set_idx = data_set->index_sets.expect_exists_idx(&item, "index_set");
+				group->index_sets.push_back(index_set_idx);
+				expect_count *= data_set->index_sets[index_set_idx]->indexes.count();
 			}
 		}
 	}

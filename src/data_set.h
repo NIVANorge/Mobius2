@@ -116,12 +116,12 @@ struct
 Par_Info : Info_Type_Base {
 	Decl_Type type;
 	std::vector<Parameter_Value> values;
-	std::vector<std::string> values_enum; // Can't resolve them to int yet.
+	std::vector<std::string> values_enum; // Can't resolve them to int without knowledge of the model, which we on purpose don't have here.
 };
 
 struct
 Par_Group_Info : Info_Type_Base {
-	std::vector<std::string> index_sets;
+	std::vector<int> index_sets;
 	Info_Registry<Par_Info> pars;
 };
 

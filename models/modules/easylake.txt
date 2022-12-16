@@ -9,8 +9,7 @@ TODO: description
 	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water temperature"))
 	
 	air  : compartment("Atmosphere")
-	#lake : compartment("Lake")
-	# Right now this is a bit awkward since epi and hyp are really subcompartments of the lake
+
 	epi  : compartment("Epilimnion")
 	hyp  : compartment("Hypolimnion")
 	
@@ -27,18 +26,20 @@ TODO: description
 		init_ice  : par_real("Initial ice thickness", unit(m), 0, 0, 10)
 	}
 	
-	water : quantity("Water")
-	ice   : quantity("Ice")
-	heat  : quantity("Thermal energy")
+	water  : quantity("Water")
+	ice    : quantity("Ice")
+	heat   : quantity("Thermal energy")
 	
-	temp  : property("Temperature")
+	temp   : property("Temperature")
 	precip : property("Precipitation")
 	
-	air.has(wind     : property("Wind speed"), unit(m, s-1))
+	air.has(temp,      unit(deg_c), "Air temperature")
+	air.has(precip,    unit(m m, day-1))
+	air.has(wind     : property("Wind speed"),        unit(m, s-1))
 	air.has(r_hum    : property("Relative humidity"), unit())
-	air.has(pressure : property("Pressure"), unit(h Pa), "Air pressure")
-	air.has(cloud    : property("Cloud cover"), unit())
-	air.has(g_rad    : property("Global radiation"), unit(W, m-2))
+	air.has(pressure : property("Pressure"),          unit(h Pa), "Air pressure")
+	air.has(cloud    : property("Cloud cover"),       unit())
+	air.has(g_rad    : property("Global radiation"),  unit(W, m-2))
 	
 	
 	epi.has(water, unit(m 3), "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }

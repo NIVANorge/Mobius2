@@ -1,4 +1,27 @@
 
+
+/*
+	This file is a part of a tightly linked system with model_compilation.cpp and model_codegen.cpp
+	
+	The functionality in this file is supposed to post-process declarations after model_declaration.cpp and check that they make sense,
+	and organize the data for use in later code generation.
+	
+	These are important preparation steps before proper code generation can start.
+	
+	Functionality includes:
+		- Figure out what state variables the model needs to keep track of
+			- State variables that were declared in the model
+			- Generate state variables for things like aggregates.
+			- Set up data for all the state variables that is needed in model run
+		- Resolve function code from ASTs.
+			- Resolve symbols and point them to the right state variables, parameters, etc.
+			- Consistency checks (many types)
+		- Bake parameter values that can be considered constant (value put directly into the code instead of being looked up from memory - allows optimizations)
+		- ...
+
+*/
+
+
 #include "model_application.h"
 #include "function_tree.h"
 
@@ -55,7 +78,7 @@ check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_L
 }
 
 Var_Id
-register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bool is_series, const std::string given_name = "") {
+register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bool is_series, const std::string &given_name = "") {
 	
 	State_Variable var = {};
 	var.type           = type;
@@ -96,8 +119,12 @@ register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bo
 		var.type = Decl_Type::property; // TODO: should be a separate type, or it could cause difficulty later.
 	
 	auto name = given_name;
-	if(name.empty() && is_valid(id))
-		name = model->find_entity(id)->name;
+	if(name.empty() && is_valid(id)) {
+		if(type == Decl_Type::flux)
+			name = model->fluxes[id]->name;
+		else
+			name = model->hases[id]->var_name;
+	} 
 	if(name.empty() && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate "Compartmentname Quantityname" or something like that instead.
 		name = model->find_entity(loc.last())->name;
 		
@@ -126,15 +153,7 @@ check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location s
 		source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.last()], "' is a property, not a quantity.");
 	}
-	/*
-	for(int idx = 1; idx < loc.n_components; ++idx) {
-		auto hopefully_a_quantity = model->find_entity(loc.components[idx]);
-		if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.components[idx]], "' is a property, not a quantity.");
-		}
-	}
-	*/
+	
 	Var_Id var_id = app->state_vars[loc];
 	if(!is_valid(var_id)) {
 		source_loc.print_error_header(Mobius_Error::model_building);
@@ -352,9 +371,18 @@ has_code(Entity_Registration<Reg_Type::has> *has) {
 
 void
 prelim_compose(Model_Application *app) {
-	warning_print("compose begin\n");
+	warning_print("Compose begin\n");
 	
 	auto model = app->model;
+	
+	for(auto conn_id : model->connections) {
+		auto conn = model->connections[conn_id];
+		if(conn->type == Connection_Structure_Type::unrecognized) {
+			conn->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("This connection never received a type. Declare it as connection(name, type) somewhere.");
+		}
+	}
+	
 	
 	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
 	// also make sure there are no conflicting has declarations of the same var_location (across modules)
@@ -365,7 +393,7 @@ prelim_compose(Model_Application *app) {
 		
 		bool found_code = has_code(has);
 		
-		// TODO: check for mismatching units between declarations.
+		// TODO: check for mismatching units and names between declarations.
 		Entity_Registration<Reg_Type::has> *has2 = nullptr;
 		auto find = has_location.find(has->var_location);
 		if(find != has_location.end()) {
@@ -414,7 +442,7 @@ prelim_compose(Model_Application *app) {
 				if(!is_valid(above_var)) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					//error_print_location(this, above_loc);
-					fatal_error("The located quantity that this \"has\" declaration is assigned to has itself not been created using a \"has\" declaration.");
+					fatal_error("The located quantity that this 'has' declaration is assigned to has itself not been created using a 'has' declaration.");
 				}
 			}
 			
@@ -422,6 +450,11 @@ prelim_compose(Model_Application *app) {
 			auto find = has_location.find(has->var_location);
 			if(find == has_location.end()) {
 				// No declaration provided code for this series, so it is an input series.
+				
+				// If was already registered by another module, we don't need to re-register it.
+				// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data.
+				if(is_valid(app->series[has->var_location])) continue; 
+				
 				if(has->var_location.is_dissolved()) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("For now we don't support input series with chained locations.");
@@ -454,10 +487,6 @@ prelim_compose(Model_Application *app) {
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
 	for(auto var_id : dissolvedes) {
 		auto var = app->state_vars[var_id];
-		// these are already guaranteed since we put it in dissolvedes..
-		//if(var->type != Decl_Type::quantity) continue;
-		//if(var->loc1.n_dissolved == 0) continue;
-		//find_entity
 		
 		auto above_loc = remove_dissolved(var->loc1);
 		std::vector<Var_Id> generate;
@@ -529,14 +558,6 @@ compose_and_resolve(Model_Application *app) {
 				app->baked_parameters.push_back(par_id);
 				//warning_print("Baking parameter \"", par->name, "\".\n");
 			}
-		}
-	}
-	
-	for(auto conn_id : model->connections) {
-		auto conn = model->connections[conn_id];
-		if(conn->type == Connection_Structure_Type::unrecognized) {
-			conn->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("This connection never received a type. Declare it as connection(name, type) somewhere.");
 		}
 	}
 	
@@ -686,7 +707,6 @@ compose_and_resolve(Model_Application *app) {
 				replace_conc(app, var->override_tree);
 				find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 				// TODO: Should audit this one for flags also!
-				// TODO: what do we do with fluxes that has this as a source ?
 			}
 		} else
 			var->override_tree = nullptr;
@@ -737,6 +757,7 @@ compose_and_resolve(Model_Application *app) {
 	for(auto &need_agg : needs_aggregate) {
 		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};   //TODO: Not good way to do it!
 		auto var = app->state_vars[var_id];
+		if(var->flags & State_Variable::Flags::f_invalid) continue;
 		
 		auto loc1 = var->loc1;
 		if(var->flags & State_Variable::Flags::f_dissolved_conc)
@@ -891,7 +912,9 @@ compose_and_resolve(Model_Application *app) {
 	}
 	
 	
-	// TODO: we can't really free everything here since the ASTs may need to be reused to build a new model app.
+	// TODO: we can't really free everything here since the ASTs may need to be reused to build a new model app if it is recompiled later.
+	//   however, we want to have memory management for these things eventually.
+	
 	/*
 	// Free memory of loaded source files and all abstract syntax trees.
 	file_handler.unload_all();

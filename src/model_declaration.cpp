@@ -668,17 +668,20 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 		},
 		-1, true, -1, true);
 	
-	Token *name = nullptr;
-	if(which == 2) name = single_arg(decl, 1);
-	else if(which == 3) name = single_arg(decl, 2);
-	
-	auto id  = model->hases.find_or_create(&decl->handle_name, scope, name, decl);
+	auto id  = model->hases.find_or_create(&decl->handle_name, scope, nullptr, decl);
 	auto has = model->hases[id];
+	
+	// NOTE: We don't register it with the name in find_or_create because that would cause name clashes if you re-declare variables (which should be allowed)
+	Token *name = nullptr;
+	if(which == 2)
+		has->var_name = single_arg(decl, 1)->string_value;
+	else if(which == 3)
+		has->var_name = single_arg(decl, 2)->string_value;
 	
 	int chain_size = decl->decl_chain.size();
 	if(chain_size == 0 || chain_size > max_var_loc_components - 1) {
 		decl->decl_chain.back().print_error_header();
-		fatal_error("A 'has' declaration must either be of the form compartment.has(property_or_quantity) or compartment.<chain>.has(quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_var_loc_components-2, " long.");
+		fatal_error("A 'has' declaration must either be of the form compartment.has(property_or_quantity) or compartment.<chain>.has(property_or_quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_var_loc_components-3, " long.");
 	}
 	
 	// TODO: can eventually be tied to just a quantity not only a compartment or compartment.quantities
@@ -1207,45 +1210,45 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unor
 	auto body = reinterpret_cast<Decl_Body_AST *>(from_decl->bodies[0]);
 	
 	for(Decl_AST *child : body->child_decls) {
-		if(child->type == Decl_Type::extend) {
-			match_declaration(child, {{Token_Type::quoted_string}});
-			String_View extend_file_name = single_arg(child, 0)->string_value;
+		if(child->type != Decl_Type::extend) continue;
 			
-			// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
-			//  but right now normalizing the path and loading the ast happens inside the same call in read_model_ast_from_file
-			String_View normalized_path;
-			auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
-			
-			if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
-				begin_error(Mobius_Error::parsing);
-				error_print("There is circularity in the model extensions:\n", extend_file_name, "\n");
-				delete extend_model; //TODO: see above
+		match_declaration(child, {{Token_Type::quoted_string}});
+		String_View extend_file_name = single_arg(child, 0)->string_value;
+		
+		// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
+		//  but right now normalizing the path and loading the ast happens inside the same call in read_model_ast_from_file
+		String_View normalized_path;
+		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+		
+		if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
+			begin_error(Mobius_Error::parsing);
+			error_print("There is circularity in the model extensions:\n", extend_file_name, "\n");
+			delete extend_model; //TODO: see above
+			return false;
+		}
+		
+		// NOTE: this is for tracking circularity. We have to reset it for each branch we go down in the extension tree (but we allow multiple branches to extend the same model)
+		auto loaded_paths_sub = loaded_paths;
+		loaded_paths_sub.insert(normalized_path);
+		
+		// Make sure to only load it once.
+		bool found = false;
+		for(auto &pair : loaded_decls) {
+			if(pair.first == normalized_path) {
+				found = true;
+				break;
+			}
+		}
+		if(found)
+			delete extend_model; // TODO: see above
+		else {
+			loaded_decls.push_back( { normalized_path, extend_model } );
+		
+			// Load extensions of extensions.
+			bool success = load_model_extensions(handler, extend_model, loaded_paths_sub, loaded_decls, normalized_path);
+			if(!success) {
+				error_print(extend_file_name, "\n");
 				return false;
-			}
-			
-			// NOTE: this is for tracking circularity. We have to reset it for each branch we go down in the extension tree (but we allow multiple branches to extend the same model)
-			auto loaded_paths_sub = loaded_paths;
-			loaded_paths_sub.insert(normalized_path);
-			
-			// Make sure to only load it once.
-			bool found = false;
-			for(auto &pair : loaded_decls) {
-				if(pair.first == normalized_path) {
-					found = true;
-					break;
-				}
-			}
-			if(found)
-				delete extend_model; // TODO: see above
-			else {
-				loaded_decls.push_back( { normalized_path, extend_model } );
-			
-				// Load extensions of extensions.
-				bool success = load_model_extensions(handler, extend_model, loaded_paths_sub, loaded_decls, normalized_path);
-				if(!success) {
-					error_print(extend_file_name, "\n");
-					return false;
-				}
 			}
 		}
 	}

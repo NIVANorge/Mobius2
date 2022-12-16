@@ -162,6 +162,8 @@ Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 	Entity_Id      unit;
 	//Entity_Id    conc_unit;
 	
+	std::string     var_name;
+	
 	Math_Block_AST *code;
 	bool initial_is_conc;
 	Math_Block_AST *initial_code;
