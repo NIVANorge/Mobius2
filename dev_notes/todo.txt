@@ -15,6 +15,10 @@
 	
 	Matrix formatting of parameters in the data file. (esp when we implement all_to_all connections).
 	
+	New system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
+	
+	
+	
 	
 	*** Intermediate-pri ***
 

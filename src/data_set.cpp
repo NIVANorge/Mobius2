@@ -25,7 +25,7 @@ write_compartment_info_to_file(FILE *file, Compartment_Info &compartment, Data_S
 }
 
 void
-write_compartment_identifier_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set) {
+write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set) {
 	auto compartment = data_set->compartments[ref.id];
 	fprintf(file, "%s[", compartment->handle.data());
 	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
@@ -54,10 +54,10 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 	for(auto &pair : connection.arrows) {
 		if(!prev || !(pair.first == *prev)) {
 			fprintf(file, "\n\t");
-			write_compartment_identifier_to_file(file, pair.first, data_set);
+			write_indexed_compartment_to_file(file, pair.first, data_set);
 		}
 		fprintf(file, " -> ");
-		write_compartment_identifier_to_file(file, pair.second, data_set);
+		write_indexed_compartment_to_file(file, pair.second, data_set);
 		prev = &pair.second;
 	}
 	fprintf(file, "\n]\n\n");

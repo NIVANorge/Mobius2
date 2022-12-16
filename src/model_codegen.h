@@ -5,6 +5,16 @@
 #include "common_types.h"
 #include "function_tree.h"
 
+
+struct
+Index_Set_Dependency {
+	Entity_Id id;
+	int order;
+	
+	Index_Set_Dependency(Entity_Id id) : id(id), order(1) {}
+	Index_Set_Dependency(Entity_Id id, int order) : id(id), order(order) {}
+};
+
 struct
 Model_Instruction {
 	enum class

@@ -187,7 +187,11 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 	if(is_valid(pgd->component)) {  // It is invalid for the "System" par group
 		auto comp  = model->components[pgd->component];
 		
-		for(int index_set_idx : par_group->index_sets) {
+		auto &index_sets = par_group_index_sets[group_id];
+		
+		for(int idx = 0; idx < par_group->index_sets.size(); ++idx) {
+			int index_set_idx = par_group->index_sets[idx];
+			
 			auto &name = data_set->index_sets[index_set_idx]->name;
 			auto index_set_id = model->index_sets.find_by_name(name);
 			if(!is_valid(index_set_id))
@@ -198,7 +202,16 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the component \"", comp->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
 			}
 			
-			par_group_index_sets[group_id].push_back(index_set_id);
+			// The last two index sets are allowed to be the same, but no other duplicates are allowed.
+			auto find = std::find(index_sets.begin(), index_sets.end(), index_set_id);
+			if(find != index_sets.end()) {
+				// If we are not currently processing the last index set or the duplicate is not the last one we inserted, there is an error
+				if(idx != par_group->index_sets.size()-1 || (++find) == index_sets.end()) {
+					par_group->loc.print_error_header();
+					fatal_error("Only the two last index sets of a parameter group are allowed to be duplicate.");
+				}
+			}
+			index_sets.push_back(index_set_id);
 		}
 	}
 }
