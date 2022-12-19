@@ -2,13 +2,19 @@
 #include "parameter_editing.h"
 #include "../model_application.h"
 
+// TODO: How do we handle locked index sets if there is a mat_col for that index set?
+
 void
 recursive_update_parameter(int level, std::vector<Index_T> &current_indexes, const Indexed_Parameter &par_data, Model_Data *data, Parameter_Value val) {
 	//TODO: This is not necessarily safe unless current_indexes.size() >= model->modules[0]->index_sets.count();
 	
 	if(level == par_data.indexes.size() || !is_valid(par_data.indexes[level].index_set)) {
 		// Do the actual update.
-		s64 offset = data->parameters.structure->get_offset(par_data.id, current_indexes);
+		s64 offset;
+		if(is_valid(par_data.mat_col))
+			offset = data->parameters.structure->get_offset(par_data.id, current_indexes, par_data.mat_col);
+		else
+			offset = data->parameters.structure->get_offset(par_data.id, current_indexes);
 		*data->parameters.get_value(offset) = val;
 	} else {
 		if(par_data.locks[level]) {
@@ -36,13 +42,12 @@ set_parameter_value(const Indexed_Parameter &par_data, Model_Data *data, Paramet
 
 bool
 parameter_is_subset_of(const Indexed_Parameter &par, const Indexed_Parameter &compare_to) {
-	if(par.id == compare_to.id) {
-		for(int idx = 0; idx < par.indexes.size(); ++idx) {
-			if(compare_to.locks[idx]) continue;
-			if(par.locks[idx]) return false;
-			if(compare_to.indexes[idx] != par.indexes[idx]) return false;
-		}
-		return true;
+	if(par.id != compare_to.id) return false;
+	for(int idx = 0; idx < par.indexes.size(); ++idx) {
+		if(compare_to.locks[idx]) continue;
+		if(par.locks[idx]) return false;
+		if(compare_to.indexes[idx] != par.indexes[idx]) return false;
 	}
-	return false;
+	if(compare_to.mat_col != par.mat_col) return false;
+	return true;
 }

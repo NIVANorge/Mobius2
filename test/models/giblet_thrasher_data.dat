@@ -20,6 +20,14 @@ module("Giblet-Thrasher", 1, 0, 0) {
 		par_real("Initial prey") [ 0.4 1 2 ]
 		par_real("Giblet birth rate") [ 0.2 0.1 0.3 ]
 	}
+	
+	par_group("Migration weights") [ "Habitat index" "Habitat index" ] {
+		par_real("Migration weight") [
+			0   0.5 0.5
+			0.8 0   0.2
+			0   1   0
+		]
+	}
 }
 
 par_group("System") {

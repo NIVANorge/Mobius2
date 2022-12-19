@@ -206,7 +206,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 			auto find = std::find(index_sets.begin(), index_sets.end(), index_set_id);
 			if(find != index_sets.end()) {
 				// If we are not currently processing the last index set or the duplicate is not the last one we inserted, there is an error
-				if(idx != par_group->index_sets.size()-1 || (++find) == index_sets.end()) {
+				if(idx != par_group->index_sets.size()-1 || (++find) != index_sets.end()) {
 					par_group->loc.print_error_header();
 					fatal_error("Only the two last index sets of a parameter group are allowed to be duplicate.");
 				}

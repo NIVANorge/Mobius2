@@ -8,11 +8,12 @@ struct Model_Data;
 
 struct Indexed_Parameter {
 	bool virt  = false;
-	Entity_Id id = invalid_entity_id;
+	Entity_Id            id =   invalid_entity_id;
 	std::vector<Index_T> indexes;
-	std::vector<u8> locks;     //NOTE: should be std::vector<bool>, but that has weird behavior.
-	std::string symbol;
-	std::string expr;
+	Index_T              mat_col = invalid_index;   // For if there is a matrix indexing over one of the index sets.
+	std::vector<u8>      locks;     //NOTE: should be std::vector<bool>, but that has weird behavior.
+	std::string          symbol;
+	std::string          expr;
 };
 
 void

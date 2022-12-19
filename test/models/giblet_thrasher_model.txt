@@ -39,6 +39,10 @@ model("Giblet-Thrasher test model") {
 		migration :
 		flux(habitat.prey, out, "Giblet migration") {  prey * pred * pmig  }
 		
+		habitat.par_group("Migration weights") {
+			mig_wt : par_real("Migration weight", unit(), 0.1, 0, 1)
+		}
+		
 		#
 		# Need to implement the following:
 		#

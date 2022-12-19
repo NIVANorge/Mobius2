@@ -222,6 +222,23 @@ struct Multi_Array_Structure {
 		return (s64)offset*handles.size() + get_offset_base(handle);
 	}
 	
+	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, std::vector<Index_T> &index_counts) {
+		// For if one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
+		s64 offset = 0;
+		bool once = false;
+		for(auto &index_set : index_sets) {
+			offset *= (s64)index_counts[index_set.id].index;
+			s64 index = (s64)indexes[index_set.id].index;
+			if(index_set == mat_col.index_set) {
+				if(once)
+					index = (s64)mat_col.index;
+				once = true;
+			}
+			offset += index;
+		}
+		return (s64)offset*handles.size() + get_offset_base(handle);
+	}
+	
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, std::vector<Index_T> &index_counts) {
 		if(indexes.size() != index_sets.size())
 			fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
@@ -307,6 +324,7 @@ struct Storage_Structure {
 	s64 get_offset_base(Handle_T handle);
 	s64 instance_count(Handle_T handle);
 	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes);
+	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col);
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes);
 	
 	const std::vector<Entity_Id> &
@@ -403,10 +421,6 @@ Series_Metadata {
 	std::unordered_map<Var_Id, std::vector<Entity_Id>, Hash_Fun<Var_Id>> index_sets;
 	std::unordered_map<Var_Id, std::vector<Entity_Id>, Hash_Fun<Var_Id>> index_sets_additional;
 	Series_Metadata() : any_data_at_all(false) {}
-};
-
-struct Index_Name {
-	std::string name;
 };
 
 struct
@@ -512,6 +526,12 @@ template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	return structure[array_idx].get_offset(handle, indexes, parent->index_counts);
+}
+
+template<typename Handle_T> s64
+Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col) {
+	auto array_idx = handle_is_in_array[handle];
+	return structure[array_idx].get_offset(handle, indexes, mat_col, parent->index_counts);
 }
 
 template<typename Handle_T> s64

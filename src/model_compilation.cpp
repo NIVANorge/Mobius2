@@ -5,6 +5,8 @@
 
 #include <string>
 
+// TODO: Find a way to unify code for the printouts (?).
+
 inline void
 error_print_instruction(Model_Application *app, Model_Instruction *instr) {
 	if(instr->type == Model_Instruction::Type::compute_state_var)
@@ -22,6 +24,54 @@ print_partial_dependency_trace(Model_Application *app, Model_Instruction *we, Mo
 	error_print(" <-- ");
 	error_print_instruction(app, we);
 	error_print("\n");
+}
+
+void
+debug_print_instruction(Model_Application *app, Model_Instruction *instr) {
+	if(instr->type == Model_Instruction::Type::compute_state_var)
+		warning_print("\"", app->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source)
+		warning_print("\"", app->state_vars[instr->source_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::add_discrete_flux_to_target)
+		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::clear_state_var)
+		warning_print("\"", app->state_vars[instr->var_id]->name, "\" = 0\n");
+	else if(instr->type == Model_Instruction::Type::add_to_connection_aggregate)
+		warning_print(app->state_vars[instr->target_id]->name, " += \"", app->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::add_to_aggregate)
+		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\" * weight\n");
+}
+
+void
+debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
+	for(auto &pre_batch : arrays) {
+		warning_print("\t[");;
+		for(auto index_set : pre_batch.index_sets)
+			warning_print("\"", app->model->index_sets[index_set]->name, "\" ");
+		warning_print("]\n");
+		for(auto instr_id : pre_batch.instr_ids) {
+			warning_print("\t\t");
+			auto instr = &instructions[instr_id];
+			debug_print_instruction(app, instr);
+		}
+	}
+}
+
+void
+debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
+	warning_print("\n**** batch structure ****\n");
+	for(auto &batch : batches) {
+		if(is_valid(batch.solver))
+			warning_print("  solver \"", app->model->solvers[batch.solver]->name, "\" :\n");
+		else
+			warning_print("  discrete :\n");
+		debug_print_batch_array(app, batch.arrays, instructions);
+		if(is_valid(batch.solver)) {
+			warning_print("\t(ODE):\n");
+			debug_print_batch_array(app, batch.arrays_ode, instructions);
+		}
+	}
+	warning_print("\n\n");
 }
 
 bool
@@ -105,54 +155,6 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 }
 
 void
-debug_print_instruction(Model_Application *app, Model_Instruction *instr) {
-	if(instr->type == Model_Instruction::Type::compute_state_var)
-		warning_print("\"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source)
-		warning_print("\"", app->state_vars[instr->source_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::add_discrete_flux_to_target) {
-		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\"\n");
-	} else if(instr->type == Model_Instruction::Type::clear_state_var)
-		warning_print("\"", app->state_vars[instr->var_id]->name, "\" = 0\n");
-	else if(instr->type == Model_Instruction::Type::add_to_connection_aggregate)
-		warning_print(app->state_vars[instr->target_id]->name, " += \"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::add_to_aggregate)
-		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\" * weight\n");
-}
-
-void
-debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
-	for(auto &pre_batch : arrays) {
-		warning_print("\t[");;
-		for(auto index_set : pre_batch.index_sets)
-			warning_print("\"", app->model->index_sets[index_set]->name, "\" ");
-		warning_print("]\n");
-		for(auto instr_id : pre_batch.instr_ids) {
-			warning_print("\t\t");
-			auto instr = &instructions[instr_id];
-			debug_print_instruction(app, instr);
-		}
-	}
-}
-
-void
-debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
-	warning_print("\n**** batch structure ****\n");
-	for(auto &batch : batches) {
-		if(is_valid(batch.solver))
-			warning_print("  solver \"", app->model->solvers[batch.solver]->name, "\" :\n");
-		else
-			warning_print("  discrete :\n");
-		debug_print_batch_array(app, batch.arrays, instructions);
-		if(is_valid(batch.solver)) {
-			warning_print("\t(ODE):\n");
-			debug_print_batch_array(app, batch.arrays_ode, instructions);
-		}
-	}
-	warning_print("\n\n");
-}
-
-void
 build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &batch_out, bool initial) {
 	Mobius_Model *model = app->model;
 	
@@ -198,7 +200,7 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 	
 	
 	// NOTE: Do more passes to try and group instructions in an optimal way:
-#if 0
+#if 1
 	bool changed = false;
 	for(int it = 0; it < 10; ++it) {
 		changed = false;
@@ -476,7 +478,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			instructions.push_back({});
 			
 			// The instruction for the aggr_var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
-			auto agg_instr = &instructions[var->agg.id];  
+			auto agg_instr = &instructions[var->agg.id];
 			
 			// The instruction for clearing to 0
 			auto clear_instr = &instructions[clear_idx];

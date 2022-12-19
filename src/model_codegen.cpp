@@ -341,9 +341,13 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
 				put_var_lookup_indexes(fun, app, indexes);
 				
-			} else if (instr->type != Model_Instruction::Type::clear_state_var)
-				continue;
-				//TODO: we coud set an explicit no-op flag on the instruction. If the flag is set, we expect a nullptr fun, otherwise a valid one. Then throw error if there is something unexpected.
+			} else if (instr->type != Model_Instruction::Type::clear_state_var) {
+				//NOTE: This could happen for discrete quantities since they are instead modified by add/subtract instructions. Same for some aggregation variables that are only modified by other instructions.
+				// TODO: Should we try to infer if it is ok that there is no code for this compute_state_var (?). Or maybe have a separate type for it when we expect there to be no actual computation and it is only a placeholder for a value (?). Or maybe have a flag for it on the State_Variable.
+				if(instr->type == Model_Instruction::Type::compute_state_var)
+					continue;
+				fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
+			}
 				
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
@@ -384,6 +388,8 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				assignment->exprs.push_back(make_literal((double)0));
 				scope->exprs.push_back(assignment);
 				
+			} else {
+				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");
 			}
 		}
 		
