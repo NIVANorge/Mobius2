@@ -9,17 +9,11 @@ inline void
 error_print_instruction(Model_Application *app, Model_Instruction *instr) {
 	if(instr->type == Model_Instruction::Type::compute_state_var)
 		error_print("\"", app->state_vars[instr->var_id]->name, "\"");
-	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
-		error_print("(\"", app->state_vars[instr->source_or_target_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\")");
-	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
-		error_print("(");
-		if(is_valid(instr->connection))
-			error_print("connection(");
-		error_print("\"", app->state_vars[instr->source_or_target_id]->name, "\"");
-		if(is_valid(instr->connection))
-			error_print(")");
-		error_print(" += \"", app->state_vars[instr->var_id]->name, "\")");
-	}
+	else if(instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source)
+		error_print("(\"", app->state_vars[instr->source_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\")");
+	else if(instr->type == Model_Instruction::Type::add_discrete_flux_to_target)
+		error_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\")");
+	// TODO: what about the other types (?)
 }
 
 inline void
@@ -114,17 +108,16 @@ void
 debug_print_instruction(Model_Application *app, Model_Instruction *instr) {
 	if(instr->type == Model_Instruction::Type::compute_state_var)
 		warning_print("\"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::subtract_flux_from_source)
-		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::add_flux_to_target) {
-		if(is_valid(instr->connection)) warning_print("connection(");
-		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\"");
-		if(is_valid(instr->connection)) warning_print(")");
-		warning_print(" += \"", app->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source)
+		warning_print("\"", app->state_vars[instr->source_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\"\n");
+	else if(instr->type == Model_Instruction::Type::add_discrete_flux_to_target) {
+		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\"\n");
 	} else if(instr->type == Model_Instruction::Type::clear_state_var)
 		warning_print("\"", app->state_vars[instr->var_id]->name, "\" = 0\n");
+	else if(instr->type == Model_Instruction::Type::add_to_connection_aggregate)
+		warning_print(app->state_vars[instr->target_id]->name, " += \"", app->state_vars[instr->var_id]->name, "\"\n");
 	else if(instr->type == Model_Instruction::Type::add_to_aggregate)
-		warning_print("\"", app->state_vars[instr->source_or_target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\" * weight\n");
+		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\" * weight\n");
 }
 
 void
@@ -512,7 +505,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
 			add_to_aggr_instr->var_id = var_id;
-			add_to_aggr_instr->source_or_target_id = var->agg;
+			add_to_aggr_instr->target_id = var->agg;
 			add_to_aggr_instr->depends_on_instruction.insert(var_id.id); // We can only sum the value in after it is computed.
 			//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed. Unnecessary to declare since it is handled by new dependency system.
 			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var->agg.id); // We need to look it up every time we sum to it.
@@ -574,9 +567,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				add_to_aggr_instr->solver = var_solver;
 				add_to_aggr_instr->connection = var_flux->connection;
-				add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
+				add_to_aggr_instr->type = Model_Instruction::Type::add_to_connection_aggregate;
 				add_to_aggr_instr->var_id = var_id_flux;
-				add_to_aggr_instr->source_or_target_id = var_id;
+				add_to_aggr_instr->source_id = app->state_vars[var_flux->loc1];
+				add_to_aggr_instr->target_id = var_id;
 				add_to_aggr_instr->depends_on_instruction.insert(clear_id); // Only start summing up after we cleared to 0.
 				add_to_aggr_instr->instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
@@ -611,14 +605,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 			if(!is_valid(source_solver) && !app->state_vars[source_id]->override_tree) {
 				Model_Instruction sub_source_instr;
-				sub_source_instr.type = Model_Instruction::Type::subtract_flux_from_source;
+				sub_source_instr.type = Model_Instruction::Type::subtract_discrete_flux_from_source;
 				sub_source_instr.var_id = var_id;
 				
 				sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
 				//sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux. Should no longer be needed with new dependency system
 				sub_source_instr.inherits_index_sets_from_instruction.insert(source_id.id); // and it has to be done per instance of the source.
 				
-				sub_source_instr.source_or_target_id = source_id;
+				sub_source_instr.source_id = source_id;
 				
 				//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. In the discrete case it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
 				int sub_idx = (int)instructions.size();
@@ -637,50 +631,33 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(is_connection && has_aggregate)
 			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate");
 		
-		/*
-		if(is_connection) {
-			auto connection = model->connections[var->connection];
-			if(connection->type != Connection_Structure_Type::directed_tree)
-				fatal_error(Mobius_Error::internal, "Unsupported connection structure in build_instructions().");
-			// NOTE: the source and target id for the connection-flux are the same, but loc2 doesn't record the target in this case, so we use the source_id.
-			Model_Instruction *target = &instructions[source_id.id];
-			// If we have fluxes of two instances of the same quantity, we have to enforce that it is indexed by by the index set of that connection relation.
-			
-			//NOTE :temporary!
-			// Eventually we could check if there are cross-connections between certain indexes or not (and only enforce dependencies in the cross connections)
-			auto conn_comp = model->components[connection->compartments[0]];
-			auto conn_idx_set = conn_comp->index_sets[0];
-			target->index_sets.insert(conn_idx_set);
-		}
-		*/
-		
-		if((is_located(loc2) || is_connection) && !has_aggregate) {
-			Var_Id target_id;
-			if(is_connection) // TODO: This is outdated. The target id should not be set for connection fluxes (as it could be variable)
-				target_id = source_id;
-			else
-				target_id = app->state_vars[loc2];
+		if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
+			Var_Id target_id = app->state_vars[loc2];
 			
 			Model_Instruction *target = &instructions[target_id.id];
 			Entity_Id target_solver = target->solver;
 			
 			if(!is_valid(target_solver) && !app->state_vars[target_id]->override_tree) {
 				Model_Instruction add_target_instr;
-				add_target_instr.type   = Model_Instruction::Type::add_flux_to_target;
+				add_target_instr.type   = Model_Instruction::Type::add_discrete_flux_to_target;
 				add_target_instr.var_id = var_id;
 				
 				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
 				//add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux. Should no longer be needed to be declared explicitly with new dependency system.
 				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
-				add_target_instr.source_or_target_id = target_id;
+				add_target_instr.target_id = target_id;
+				/*
+				if(is_located(loc1))
+					add_target_instr.source_id = app->state_vars[loc1]; // NOTE: This is needed if we enable connections for discrete fluxes again.
 				if(is_connection) {
 					// the index sets already depend on the flux itself, which depends on the source, so we don't have to redeclare that.
 					add_target_instr.connection = var->connection;
 				}
+				*/
 				
 				int add_idx = (int)instructions.size();
-				if(!is_connection)
-					target->depends_on_instruction.insert(add_idx);
+				//if(!is_connection)
+				target->depends_on_instruction.insert(add_idx);
 				
 				// NOTE: this one is needed because of unit conversions, which could give an extra index set dependency to the add instruction.
 				instructions[target_id.id].inherits_index_sets_from_instruction.insert(add_idx);

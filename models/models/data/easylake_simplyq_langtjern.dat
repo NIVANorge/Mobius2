@@ -17,7 +17,7 @@ par_group("System") {
 	[ 2015-01-01 ]
 
 	par_datetime("End date")
-	[ 2018-12-31 ]
+	[ 2018-10-01 ]
 }
 
 par_group("Catchment data") [ "Subcatchment" ] {
@@ -26,8 +26,9 @@ par_group("Catchment data") [ "Subcatchment" ] {
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
-	par_real("Land use proportions")
-	[ 1 ]
+	par_real("Land use proportions") [
+		1 
+	]
 }
 
 module("HBVSnow", 1, 0, 0) {
@@ -118,47 +119,57 @@ module("EasyLake", 0, 1, 0) {
 
 module("Degree-day PET", 1, 0, 0) {
 	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
-		par_real("Deegree-day factor for evapotranspiration")
-		[ 0.12 ]
+		par_real("Deegree-day factor for evapotranspiration") [
+			0.12 
+		]
 
-		par_real("Minimal temperature for evapotranspiration")
-		[ 0 ]
+		par_real("Minimal temperature for evapotranspiration") [
+			0 
+		]
 	}
 }
 
 module("Simply soil temperature", 0, 0, 0) {
 	par_group("Soil temperature general") [ "Subcatchment" "Landscape units" ] {
-		par_real("Snow depth / soil temperature factor")
-		[ -0.2 ]
+		par_real("Snow depth / soil temperature factor") [
+			-0.2 
+		]
 
-		par_real("Initial soil temperature")
-		[ 10 ]
+		par_real("Initial soil temperature") [
+			10 
+		]
 	}
 
 	par_group("Soil temperature land") [ "Subcatchment" "Landscape units" ] {
-		par_real("Soil thermal conductivity / specific heat capacity")
-		[ 0.4 ]
+		par_real("Soil thermal conductivity / specific heat capacity") [
+			0.4 
+		]
 	}
 }
 
 module("SimplyC", 1, 0, 0) {
 	par_group("DOC general") [ "Subcatchment" "Landscape units" ] {
-		par_real("Baseline soil DOC dissolution rate")
-		[ 1 ]
+		par_real("Baseline soil DOC dissolution rate") [
+			1 
+		]
 
-		par_real("Soil temperature DOC creation linear coefficient")
-		[ 0 ]
+		par_real("Soil temperature DOC creation linear coefficient") [
+			0 
+		]
 
-		par_real("Soil temperature DOC creation second-order coefficient")
-		[ 0 ]
+		par_real("Soil temperature DOC creation second-order coefficient") [
+			0 
+		]
 
-		par_real("Soil DOC linear SO4 dependence")
-		[ 0 ]
+		par_real("Soil DOC linear SO4 dependence") [
+			0 
+		]
 	}
 
 	par_group("DOC land") [ "Subcatchment" "Landscape units" ] {
-		par_real("Baseline soil DOC concentration")
-		[ 10 ]
+		par_real("Baseline soil DOC concentration") [
+			10 
+		]
 	}
 
 	par_group("DOC deep soil") [ "Subcatchment" ] {

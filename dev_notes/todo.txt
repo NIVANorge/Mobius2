@@ -12,6 +12,7 @@
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
 	
 	Clean up the State_Variable and Model_Instruction structs to make it less easy to have usage errors (maybe make accessors).
+		More instruction types to make it clearer (?) Separate out connections, also in codegen.
 	
 	Matrix formatting of parameters in the data file. (esp when we implement all_to_all connections).
 	

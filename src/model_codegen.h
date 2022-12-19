@@ -21,14 +21,16 @@ Model_Instruction {
 	Type {
 		invalid,
 		compute_state_var,
-		subtract_flux_from_source,
-		add_flux_to_target,
 		clear_state_var,
+		subtract_discrete_flux_from_source,
+		add_discrete_flux_to_target,
 		add_to_aggregate,
+		add_to_connection_aggregate,
 	}                   type;
 	
 	Var_Id              var_id;
-	Var_Id              source_or_target_id;
+	Var_Id              source_id;
+	Var_Id              target_id;
 	Entity_Id           connection;
 	
 	Entity_Id           solver;
@@ -44,7 +46,7 @@ Model_Instruction {
 	bool visited;
 	bool temp_visited;
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr) {};
 };
 
 struct
