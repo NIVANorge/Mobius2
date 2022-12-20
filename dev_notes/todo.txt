@@ -11,10 +11,8 @@
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
 	
-	Clean up the State_Variable and Model_Instruction structs to make it less easy to have usage errors (maybe make accessors).
-		More instruction types to make it clearer (?) Separate out connections, also in codegen.
-	
-	Matrix formatting of parameters in the data file. (esp when we implement all_to_all connections).
+	Clean up the State_Variable struct to make it less easy to have usage errors (maybe make accessors).
+		No, really! Do it!
 	
 	New system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 	
@@ -81,3 +79,5 @@
 	Make it automatic that certain state variables are on solvers (dissolveds)
 	
 	Allow multiple has declarations for the same variable (or fix existing system).
+	
+	Matrix formatting of parameters in the data file.

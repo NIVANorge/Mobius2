@@ -37,26 +37,11 @@ model("Giblet-Thrasher test model") {
 		flux(habitat.pred, nowhere, "Thrasher death")   {  pred * (pred_death + meteor_dth*meteor) }
 		
 		migration :
-		flux(habitat.prey, out, "Giblet migration") {  prey * pred * pmig  }
+		flux(habitat.prey, out, "Giblet migration") {  prey * pred * mig_wt  }
 		
 		habitat.par_group("Migration weights") {
 			mig_wt : par_real("Migration weight", unit(), 0.1, 0, 1)
 		}
-		
-		#
-		# Need to implement the following:
-		#
-		# mig : connection("Migration route", all_to_all) { habitat }
-		#
-		# This can't all be in model scope, it must be in the module so that we can properly define the code for the flux
-		#
-		# par_group ("Migration weights", matrix(mig)) {
-		# 	mig_wt : par_real("Migration weights", unit(), 0.1, 0, 1)
-		# }
-		#			# no need to explicitly index the matrix when used in this context...
-		#           # keywords:    from, to
-		# flux(habitat.prey, mig) {  max(0, prey * mig_wt * (pred - to.pred) )
-		#
 	}
 	
 	habitat : compartment("Habitat")
@@ -70,8 +55,8 @@ model("Giblet-Thrasher test model") {
 	hi : index_set("Habitat index")
 	habitat.distribute(hi)
 	
-	mig : connection("Migration route", directed_tree) { habitat }
-	md.migration.to(mig)          # TODO: Need a way to specify boundary conditions for fluxes. What happens to this flux when there is no outgoing connections?
+	mig : connection("Migration route", all_to_all) { habitat* }
+	md.migration.to(mig)
 }
 
 

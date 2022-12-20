@@ -225,17 +225,17 @@ Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 };
 
 enum class
-Connection_Structure_Type {
-	unrecognized = 0, directed_tree,
+Connection_Type {
+	unrecognized = 0, directed_tree, all_to_all,
 };
 
 template<> struct
 Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
-	Connection_Structure_Type type;
+	Connection_Type type;
 	// TODO: This should eventually also have data about the regex.
 	std::vector<Entity_Id> compartments;
 	
-	Entity_Registration() : type(Connection_Structure_Type::unrecognized) {}
+	Entity_Registration() : type(Connection_Type::unrecognized) {}
 };
 
 

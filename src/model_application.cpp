@@ -135,21 +135,25 @@ Model_Application::set_up_connection_structure() {
 	for(auto connection_id : model->connections) {
 		auto connection = model->connections[connection_id];
 		
-		if(connection->type != Connection_Structure_Type::directed_tree)
+		if(connection->type == Connection_Type::directed_tree) {
+
+			for(Entity_Id comp_id : connection->compartments) {
+				auto compartment = model->components[comp_id];
+				if(compartment->index_sets.size() != 1)
+					fatal_error(Mobius_Error::internal, "Temporary limitation: Got a connection over a compartment that has more than one index set");
+				
+				// TODO: group handles from multiple source compartments by index tuples.
+				Connection_T handle1 = { connection_id, comp_id, 0 };   // First info id for target compartment
+				Connection_T handle2 = { connection_id, comp_id, 1 };   // Second info id for target index   (TODO: need one per index set of target compartment eventually)
+				std::vector<Connection_T> handles { handle1, handle2 };
+				auto index_sets = compartment->index_sets; // Copy vector
+				Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
+				structure.push_back(array);
+			}
+		} else if (connection->type == Connection_Type::all_to_all) {
+			// There is no connection data associated with this one.
+		} else {
 			fatal_error(Mobius_Error::internal, "Unsupported connection structure type in set_up_connection_structure()");
-		
-		for(Entity_Id comp_id : connection->compartments) {
-			auto compartment = model->components[comp_id];
-			if(compartment->index_sets.size() != 1)
-				fatal_error(Mobius_Error::internal, "Temporary limitation: Got a connection over a compartment that has more than one index set");
-			
-			// TODO: group handles from multiple source compartments by index tuples.
-			Connection_T handle1 = { connection_id, comp_id, 0 };   // First info id for target compartment
-			Connection_T handle2 = { connection_id, comp_id, 1 };   // Second info id for target index   (TODO: need one per index set of target compartment eventually)
-			std::vector<Connection_T> handles { handle1, handle2 };
-			auto index_sets = compartment->index_sets; // Copy vector
-			Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
-			structure.push_back(array);
 		}
 	}
 	connection_structure.set_up(std::move(structure));
@@ -388,7 +392,7 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 
 	auto cnd = model->connections[conn_id];
 
-	if(cnd->type == Connection_Structure_Type::directed_tree) {
+	if(cnd->type == Connection_Type::directed_tree) {
 		if(connection.type != Connection_Info::Type::graph) {
 			connection.loc.print_error_header();
 			fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
@@ -440,6 +444,9 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			s64 offset1 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 1}, indexes);
 			*app->data.connections.get_value(offset1) = (s64)arr.second.indexes[0];
 		}
+	} else if (cnd->type == Connection_Type::all_to_all) {
+		connection.loc.print_error_header();
+		fatal_error("Connections of type all_to_all should not have any connection data associated to them.");
 	} else
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
 }

@@ -56,12 +56,12 @@ State_Variable {
 	enum Flags {
 		f_none                = 0x00,
 		f_in_flux             = 0x01,
-		f_in_flux_connection  = 0x02,
-		f_is_aggregate        = 0x04, 
-		f_has_aggregate       = 0x08,
-		f_clear_series_to_nan = 0x10,
-		f_dissolved_flux      = 0x20,
-		f_dissolved_conc      = 0x40,
+		f_connection_agg      = 0x02,
+		f_is_aggregate        = 0x08, 
+		f_has_aggregate       = 0x10,
+		f_clear_series_to_nan = 0x20,
+		f_dissolved_flux      = 0x40,
+		f_dissolved_conc      = 0x80,
 		f_invalid             = 0x1000,
 	} flags;
 	
@@ -89,7 +89,8 @@ State_Variable {
 	
 	// If this is the target variable of a connection flux, connection_agg points to the aggregation variable for the connection flux.
 	// If this is the aggregate ( f_in_flux_connection is set ), connection_agg points to the target of the connection flux(es) (which is the same as the source).
-	Var_Id         connection_agg;
+	Var_Id         connection_source_agg;
+	Var_Id         connection_target_agg;
 	
 	// If this is a generated flux for a dissolved quantity (f_dissolved_flux is set), dissolved_conc is the respective generated conc of the quantity. dissolved_flux is the flux of the quantity that this one is dissolved in.
 	// If this is the generated conc (f_dissolved_conc is set), dissolved_conc is the variable for the mass of the quantity.
@@ -105,7 +106,7 @@ State_Variable {
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), connection(invalid_entity_id), connection_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
+	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), connection(invalid_entity_id), connection_source_agg(invalid_var), connection_target_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
 };
 
 template <Var_Id::Type var_type>

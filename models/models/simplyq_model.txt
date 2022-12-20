@@ -45,7 +45,7 @@ General model description.
 	
 	sw.evap.no_carry()   # By default, don't carry dissolved substances in the evapotranspiration.
 	
-	ds : connection("Downstream", directed_tree) { river }
+	ds : connection("Downstream", directed_tree) { river* }
 	rw.reach_out  .to(ds)
 	
 	soil.par_group("Land cover") {         #TODO: Should maybe have syntax to enforce a dependecy of this on landscape units (?)

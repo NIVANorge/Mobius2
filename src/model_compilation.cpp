@@ -46,8 +46,12 @@ void
 debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
 	for(auto &pre_batch : arrays) {
 		warning_print("\t[");;
-		for(auto index_set : pre_batch.index_sets)
-			warning_print("\"", app->model->index_sets[index_set]->name, "\" ");
+		for(auto index_set : pre_batch.index_sets) {
+			warning_print("\"", app->model->index_sets[index_set.id]->name, "\"");
+			if(index_set.order > 1)
+				warning_print("^", index_set.order);
+			warning_print(" ");
+		}
 		warning_print("]\n");
 		for(auto instr_id : pre_batch.instr_ids) {
 			warning_print("\t\t");
@@ -101,6 +105,22 @@ topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::
 	return true;
 }
 
+bool
+insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_Dependency &to_insert) {
+	// Returns true if there is a change in dependencies
+	auto find = std::find_if(dependencies.begin(), dependencies.end(), [&](const Index_Set_Dependency &dep) -> bool { return dep.id == to_insert.id; });
+	
+	if(find == dependencies.end()) {
+		dependencies.insert(to_insert);
+		return true;
+	} else if(to_insert.order > find->order) {
+		dependencies.erase(find);
+		dependencies.insert(to_insert);
+		return true;
+	}
+	return false;
+}
+
 void
 resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
@@ -118,9 +138,18 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		
 		for(auto par_id : code_depends.on_parameter) {
 			auto index_sets = app->parameter_structure.get_index_sets(par_id);
-			instr.index_sets.insert(index_sets.begin(), index_sets.end()); //TODO: handle matrix parameters when we make those
+			
+			// NOTE: Specialized logic to handle if a parameter is indexing over the same index set twice.
+			//   Currently we only support this for the two last index sets being the same.
+			int sz = (int)index_sets.size();
+			if(sz >= 2 && index_sets[sz-2] == index_sets[sz-1]) {
+				for(int idx = 0; idx < sz-2; ++idx)
+					instr.index_sets.insert(index_sets[idx]);
+				instr.index_sets.insert({index_sets[sz-1], 2}); // Order 2 dependency.
+			} else
+				instr.index_sets.insert(index_sets.begin(), index_sets.end());
 		}
-		for(auto series_id : code_depends.on_series) {
+		for(auto series_id : code_depends.on_series) { // TODO: Should we support matrices here too (?)
 			auto index_sets = app->series_structure.get_index_sets(series_id);
 			instr.index_sets.insert(index_sets.begin(), index_sets.end());
 		}
@@ -139,13 +168,12 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		
 		for(auto &instr : instructions) {
 			
-			int before = instr.index_sets.size();
 			for(int dep : instr.inherits_index_sets_from_instruction) {
-				auto dep_idx = &instructions[dep].index_sets;
-				instr.index_sets.insert(dep_idx->begin(), dep_idx->end());
+				auto &dep_idx = instructions[dep].index_sets;
+				for(auto &dep_idx_set : dep_idx)
+					if(insert_dependency(instr.index_sets, dep_idx_set))
+						changed = true;
 			}
-			int after = instr.index_sets.size();
-			if(before != after) changed = true;
 		}
 		
 		if(!changed) break;
@@ -341,7 +369,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(!fun) {
 			if(!initial && var->type != Decl_Type::quantity &&
 				!(var->flags & State_Variable::Flags::f_is_aggregate) &&
-				!(var->flags & State_Variable::Flags::f_in_flux_connection) &&
+				!(var->flags & State_Variable::Flags::f_connection_agg) &&
 				!(var->flags & State_Variable::Flags::f_in_flux) &&
 				!(var->flags & State_Variable::Flags::f_dissolved_flux) &&
 				!(var->flags & State_Variable::Flags::f_dissolved_conc) &&
@@ -418,17 +446,19 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].solver = instructions[app->state_vars[var->loc1].id].solver;
 
 			// Also set the solver for an aggregation variable for a connection flux.
-			if(var->flags & State_Variable::Flags::f_in_flux_connection) {
-				instructions[var_id.id].solver = instructions[var->connection_agg.id].solver;
+			if(var->flags & State_Variable::Flags::f_connection_agg) {
+				Var_Id agg_of = is_valid(var->connection_target_agg) ? var->connection_target_agg : var->connection_source_agg;
+				
+				instructions[var_id.id].solver = instructions[agg_of.id].solver;
 				
 				if(!is_valid(instructions[var_id.id].solver)) {
-					auto conn_var = app->state_vars[var->connection_agg];
+					auto conn_var = app->state_vars[agg_of];
 					auto has = model->hases[conn_var->entity_id];
 					// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
 					// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
 					auto conn = model->connections[var->connection];
 					has->source_loc.print_error_header(Mobius_Error::model_building);
-					error_print("This state variable is the target of a connection \"", conn->name, "\", declared here:\n");
+					error_print("This state variable is the source or target of a connection \"", conn->name, "\", declared here:\n");
 					conn->source_loc.print_error();
 					fatal_error("but the state variable is not on a solver. This is currently not allowed.");
 				}
@@ -523,7 +553,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			}
 		}
 		
-		if(var->flags & State_Variable::Flags::f_in_flux_connection) {
+		if(var->flags & State_Variable::Flags::f_connection_agg) {
 			
 			if(initial)
 				fatal_error(Mobius_Error::internal, "Got a connection flux in the initial step.");
@@ -540,31 +570,41 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			clear_instr->var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
 			clear_instr->inherits_index_sets_from_instruction.insert(var_id.id);
 			
-			// var is the aggregation variable for the target
-			// var->connection_agg  is the quantity state variable for the target.
+			// Find all the connection fluxes pointing to the target (or going out from source)
 			
-			// Find all the connection fluxes pointing to the target.
+			Var_Id agg_for = var->connection_source_agg;
+			bool is_source = true;
+			if(is_valid(var->connection_target_agg)) {
+				agg_for = var->connection_target_agg;
+				is_source = false;
+			}
+			if(!is_valid(agg_for))
+				fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection aggregates");
+			
+			// var is the aggregation variable for the target (or source)
+			// agg_for  is the id of the quantity state variable for the target (or source).
+			
 			for(auto var_id_flux : app->state_vars) {
 				auto var_flux = app->state_vars[var_id_flux];
 				
 				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->connection) || var_flux->connection != var->connection) continue;
 				
-				// Ouch, this is a pretty awkward test for whether or not the flux could connect to this variable using this connection...
-				{
+				if(is_source) {
+					if(!is_located(var_flux->loc1) || app->state_vars[var_flux->loc1] != agg_for)
+						continue;
+				} else {
+					// Ouch, this is a pretty awkward test for whether or not the flux could connect to this variable using this connection...
+					// TODO: Should this test even be necessary though??
 					Var_Location source_loc = var_flux->loc1;
-					Var_Location target_loc = app->state_vars[var->connection_agg]->loc1;
+					Var_Location target_loc = app->state_vars[agg_for]->loc1;
 					source_loc.components[0] = invalid_entity_id;
 					target_loc.components[0] = invalid_entity_id;
 					if(source_loc != target_loc) continue;
 				}
 				
-				
 				// Create instruction to add the flux to the target aggregate.
 				int add_to_aggr_id = instructions.size();
 				instructions.push_back({});
-				
-				// TODO: Go over and refactor this stuff: !!
-				
 				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 				
 				add_to_aggr_instr->solver = var_solver;
@@ -578,18 +618,21 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
 				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
 				
-				// NOTE: The source of the flux could be different per target, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
-				auto source_comp = model->components[var_flux->loc1.components[0]];
-				add_to_aggr_instr->index_sets.insert(source_comp->index_sets.begin(), source_comp->index_sets.end()); //TODO: This should instead depend on the index sets involved in the connection relation..
-				
 				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
-				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var->connection_agg.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
+				instructions[var_id.id].inherits_index_sets_from_instruction.insert(agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
-				// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
-				auto target_compartment = app->state_vars[var->connection_agg]->loc1.components[0];
-				auto target_comp = model->components[target_compartment];
-				instructions[var->connection_agg.id].index_sets.insert(target_comp->index_sets.begin(), target_comp->index_sets.end());
+				// TODO: Do we need anything similar for the source aggregation ??
+				if(!is_source) {
+					auto source_comp = model->components[var_flux->loc1.components[0]];
+					auto target_comp = model->components[app->state_vars[agg_for]->loc1.components[0]];
+					
+					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
+					add_to_aggr_instr->index_sets.insert(source_comp->index_sets.begin(), source_comp->index_sets.end()); //TODO: This should instead depend on the index sets involved in the connection relation..
+					
+					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
+					instructions[agg_for.id].index_sets.insert(target_comp->index_sets.begin(), target_comp->index_sets.end());
+				}
 				
 				// This is not needed because the target is always an ODE:
 				//instructions[var->connection_agg.id].depends_on_instruction.insert(var_id.id); // The target must be computed after the aggregation variable.
@@ -898,7 +941,11 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 
 void
 add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Batch_Array &array, std::vector<Model_Instruction> &instructions) {
-	std::vector<Entity_Id> index_sets(array.index_sets.begin(), array.index_sets.end()); // TODO: eventually has to be more sophisticated if we have multiple-dependencies on the same index set.
+	std::vector<Entity_Id> index_sets;
+	for(auto &index_set : array.index_sets)
+		for(int order = 0; order < index_set.order; ++order)
+			index_sets.push_back(index_set.id);
+	
 	std::vector<Var_Id>    handles;
 	for(int instr_id : array.instr_ids) {
 		auto instr = &instructions[instr_id];

@@ -377,7 +377,7 @@ prelim_compose(Model_Application *app) {
 	
 	for(auto conn_id : model->connections) {
 		auto conn = model->connections[conn_id];
-		if(conn->type == Connection_Structure_Type::unrecognized) {
+		if(conn->type == Connection_Type::unrecognized) {
 			conn->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This connection never received a type. Declare it as connection(name, type) somewhere.");
 		}
@@ -542,11 +542,40 @@ prelim_compose(Model_Application *app) {
 	}
 }
 
+void
+register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, Entity_Id conn_id, char *varname) {
+	
+	auto connection = app->model->connections[conn_id];
+	
+	auto existing_agg = is_source ? app->state_vars[var_id]->connection_source_agg : app->state_vars[var_id]->connection_target_agg;
+	if(is_valid(existing_agg)) {
+		if(app->state_vars[existing_agg]->connection != conn_id)
+			fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting or being sourced in the same state variable.");
+		return;
+	}
+	
+	if(is_source)
+		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
+	else
+		sprintf(varname, "in_flux_connection_source(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
+	
+	Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname);
+	auto agg_var = app->state_vars[agg_id];
+	agg_var->flags = State_Variable::Flags::f_connection_agg;
+	if(is_source) {
+		app->state_vars[var_id]->connection_source_agg = agg_id;
+		agg_var->connection_source_agg = var_id;
+	} else {
+		app->state_vars[var_id]->connection_target_agg = agg_id;
+		agg_var->connection_target_agg = var_id;
+	}
+	agg_var->connection = conn_id;
+}
+
+
 
 void
 compose_and_resolve(Model_Application *app) {
-	
-	//TODO: Would like to take other baked_parameters as argument to this function.
 	
 	auto model = app->model;
 	
@@ -613,8 +642,9 @@ compose_and_resolve(Model_Application *app) {
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
 			
 			if(is_valid(var->connection)) {
+				auto conn = model->connections[var->connection];
 				Var_Id source_id = app->state_vars[var->loc1];
-				may_need_connection_target.insert({var->connection, source_id}); // We only need these for non-discrete variables.
+				may_need_connection_target.insert({var->connection, source_id});
 			}
 			
 			if(is_located(var->loc1)) {
@@ -686,7 +716,7 @@ compose_and_resolve(Model_Application *app) {
 				bool ok = parameter_indexes_below_location(model, par_id, var->loc1);
 				if(!ok) {
 					unit_conv_ast->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("The parameter \"", (*unit_conv_scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over."); 
+					fatal_error("The parameter \"", (*unit_conv_scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over.");
 				}
 			}
 		} else
@@ -755,7 +785,7 @@ compose_and_resolve(Model_Application *app) {
 	warning_print("Generate state vars for aggregates.\n");
 		
 	for(auto &need_agg : needs_aggregate) {
-		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};   //TODO: Not good way to do it!
+		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};
 		auto var = app->state_vars[var_id];
 		if(var->flags & State_Variable::Flags::f_invalid) continue;
 		
@@ -858,29 +888,45 @@ compose_and_resolve(Model_Application *app) {
 		
 		auto connection = model->connections[conn_id];
 		
-		for(auto target_compartment : connection->compartments) {
-			auto target_loc = app->state_vars[source_id]->loc1;
-			target_loc.components[0] = target_compartment;
-			auto target_id = app->state_vars[target_loc];
-			if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
-				continue;
-			
-			//warning_print("Considering connection from ", app->state_vars[source_id]->name, " to ", app->state_vars[target_id]->name, "\n");
-			
-			auto existing_agg = app->state_vars[target_id]->connection_agg;
-			if(is_valid(existing_agg)) {
-				if(app->state_vars[existing_agg]->connection != conn_id)
-					fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting the same state variable.");
-				continue;
+		if(connection->type == Connection_Type::directed_tree) {
+		
+			for(auto target_compartment : connection->compartments) {
+				auto target_loc = app->state_vars[source_id]->loc1;
+				target_loc.components[0] = target_compartment;
+				auto target_id = app->state_vars[target_loc];
+				if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
+					continue;
+				
+				//warning_print("Considering connection from ", app->state_vars[source_id]->name, " to ", app->state_vars[target_id]->name, "\n");
+				/*
+				auto existing_agg = app->state_vars[target_id]->connection_target_agg;
+				if(is_valid(existing_agg)) {
+					if(app->state_vars[existing_agg]->connection != conn_id)
+						fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting the same state variable.");
+					continue;
+				}
+				
+				sprintf(varname, "in_flux_connection(%s, %s)", connection->name.data(), app->state_vars[target_id]->name.data());
+				Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname); //TODO: generate a better name
+				auto agg_var = app->state_vars[agg_id];
+				agg_var->flags = State_Variable::Flags::f_in_flux_connection;
+				agg_var->connection_target_agg = target_id;
+				agg_var->connection = conn_id;
+				app->state_vars[target_id]->connection_target_agg = agg_id;
+				*/
+				register_connection_agg(app, false, target_id, conn_id, &varname[0]);
 			}
+		} else if (connection->type == Connection_Type::all_to_all) {
+			if(connection->compartments.size() != 1)
+				fatal_error(Mobius_Error::internal, "Expected exactly one compartment for all_to_all connection."); // Should have been detected earlier
 			
-			sprintf(varname, "in_flux_connection(%s, %s)", connection->name.data(), app->state_vars[target_id]->name.data());
-			Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname); //TODO: generate a better name
-			auto agg_var = app->state_vars[agg_id];
-			agg_var->flags = State_Variable::Flags::f_in_flux_connection;
-			agg_var->connection_agg = target_id;
-			agg_var->connection = conn_id;
-			app->state_vars[target_id]->connection_agg = agg_id;
+			// NOTE: all_to_all connections can (currently) only go from one state variable to another
+			// instance of itself ( the source_id ).
+			register_connection_agg(app, true, source_id, conn_id, &varname[0]);
+			register_connection_agg(app, false, source_id, conn_id, &varname[0]);
+			
+		} else {
+			fatal_error(Mobius_Error::internal, "Unsupported connection type in compose_and_resolve()");
 		}
 	}
 	

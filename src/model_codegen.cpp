@@ -126,11 +126,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for the derivative of state variables:
 			if(var->type == Decl_Type::quantity && is_valid(instr.solver) && !var->override_tree) {
 				Math_Expr_FT *fun;
-				auto conn_agg = var->connection_agg; // aggregation variable for values coming from connection fluxes.
-				if(is_valid(conn_agg))
-					fun = make_state_var_identifier(conn_agg);
+				// aggregation variable for values coming from connection fluxes.
+				if(is_valid(var->connection_target_agg))
+					fun = make_state_var_identifier(var->connection_target_agg);
 				else
 					fun = make_literal((double)0.0);
+				
+				if(is_valid(var->connection_source_agg))
+					fun = make_binop('-', fun, make_state_var_identifier(var->connection_source_agg));
 				
 				for(Var_Id flux_id : app->state_vars) {
 					auto flux = app->state_vars[flux_id];
@@ -138,11 +141,19 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					if(flux->type != Decl_Type::flux) continue;
 					
 					if(is_located(flux->loc1) && app->state_vars[flux->loc1] == instr.var_id) {
+						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
+						if(is_valid(flux->connection)) {
+							auto conn = model->connections[flux->connection];
+							if(conn->type == Connection_Type::all_to_all)
+								continue;   // NOTE: In this case we have set up an aggregation variable also for the source, so we should skip it.
+						}
+						
 						auto flux_ref = make_state_var_identifier(flux_id);
 						fun = make_binop('-', fun, flux_ref);
 					}
 					
 					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
+					//   maybe compicates code unnecessarily though.
 					if(is_located(flux->loc2) && !is_valid(flux->connection) && app->state_vars[flux->loc2] == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						// NOTE: the unit conversion applies to what reaches the target.
@@ -233,17 +244,15 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_connection_agg_var(Model_Application *app, char oper, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id) {
+add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id) {
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
-
-	// Hmm, this line looks a bit messy..
-	Entity_Id source_compartment = app->state_vars[source_id]->loc1.components[0];
 	
 	auto connection = model->connections[connection_id];
-	if(connection->type != Connection_Structure_Type::directed_tree)
-		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_or_subtract_var_from_agg_var()");
+	
+	// Hmm, this line looks a bit messy..
+	Entity_Id source_compartment = app->state_vars[source_id]->loc1.components[0];
 	
 	// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
 	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 1}, indexes);	// the 1 is because the target index is stored at info id 1
@@ -254,7 +263,7 @@ add_value_to_connection_agg_var(Model_Application *app, char oper, Math_Expr_FT 
 	
 	auto target_agg = app->state_vars[agg_id];
 	// This is also messy...
-	auto target_compartment = app->state_vars[target_agg->connection_agg]->loc1.components[0];
+	auto target_compartment = app->state_vars[target_agg->connection_target_agg]->loc1.components[0];
 	
 	//warning_print("*** *** Codegen for connection ", app->state_vars[source_id]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
 	
@@ -283,7 +292,7 @@ add_value_to_connection_agg_var(Model_Application *app, char oper, Math_Expr_FT 
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
 	
-	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, oper));
+	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
 	if_chain->exprs.push_back(condition);
 	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
 	
@@ -296,22 +305,70 @@ add_value_to_connection_agg_var(Model_Application *app, char oper, Math_Expr_FT 
 }
 
 Math_Expr_FT *
-create_nested_for_loops(Model_Application *app, Math_Block_FT *top_scope, Batch_Array &array, std::vector<Math_Expr_FT *> &indexes) {
-	for(auto &index_set : app->model->index_sets)
-		indexes[index_set.id] = nullptr;    //note: just so that it is easy to catch if we somehow use an index we shouldn't
+add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id) {
+	
+	// TODO: Depending on whether this is a source or target aggregation, we have to switch the indexes of value.
+	
+	// TODO: Implement.
+	
+	//fatal_error(Mobius_Error::internal, "Unimplemented codegen for aggregating all_to_all connection");
+	return make_literal((s64)0);
+}
+
+Math_Expr_FT *
+add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id) {
+	auto model = app->model;
+	
+	auto connection = model->connections[connection_id];
+	if(connection->type == Connection_Type::directed_tree) {
 		
+		return add_value_to_tree_connection(app, value, agg_id, source_id, indexes, connection_id);
+		
+	} else if (connection->type == Connection_Type::all_to_all) {
+		
+		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, connection_id);
+		
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");
+	
+	return nullptr;
+}
+
+Math_Expr_FT *
+create_nested_for_loops(Model_Application *app, Math_Block_FT *top_scope, Batch_Array &array, std::vector<Math_Expr_FT *> &indexes, Math_Expr_FT *&mat_col) {
+	for(auto &index_set : app->model->index_sets)
+		indexes[index_set.id] = nullptr;    //NOTE: just so that it is easy to catch if we somehow use an index we shouldn't
+	mat_col = nullptr;
+	
 	Math_Block_FT *scope = top_scope;
-	for(auto &index_set : array.index_sets) {
+	auto index_set = array.index_sets.begin();
+	for(int idx = 0; idx < array.index_sets.size(); ++idx) {
+		
 		auto loop = make_for_loop();
-		loop->exprs.push_back(make_literal((s64)app->index_counts[index_set.id].index));
+		loop->exprs.push_back(make_literal((s64)app->index_counts[index_set->id.id].index));
 		scope->exprs.push_back(loop);
 		
 		//NOTE: the scope of this item itself is replaced when it is inserted later.
 		// note: this is a reference to the iterator of the for loop.
-		indexes[index_set.id] = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
+		indexes[index_set->id.id] = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
 		
 		scope = loop;
+		
+		if(index_set->order != 1) {
+			if(idx != array.index_sets.size()-1) {
+				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency");
+			}
+			auto loop = make_for_loop();
+			loop->exprs.push_back(make_literal((s64)app->index_counts[index_set->id.id].index));
+			scope->exprs.push_back(loop);
+			mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
+			
+			scope = loop;
+		}
+		index_set++;
 	}
+	
+	// TODO: What are these three lines for: ??? Looks very strange.
 	auto body = new Math_Block_FT();
 	scope->exprs.push_back(body);
 	scope = body;
@@ -326,9 +383,10 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	auto top_scope = new Math_Block_FT();
 	
 	std::vector<Math_Expr_FT *> indexes(model->index_sets.count());
+	Math_Expr_FT *mat_col_index;
 	
 	for(auto &array : batch->arrays) {
-		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes);
+		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes, mat_col_index);
 		
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -377,7 +435,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
 				
-				auto result = add_value_to_connection_agg_var(app, '+', fun, instr->target_id, instr->source_id, indexes, instr->connection);
+				auto result = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, instr->connection);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
@@ -409,7 +467,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
 	s64 init_pos = app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
 	for(auto &array : batch->arrays_ode) {
-		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes);
+		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes, mat_col_index);
 				
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -434,6 +492,9 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			assignment->exprs.push_back(fun);
 			scope->exprs.push_back(assignment);
 		}
+		
+		// TODO: probably have to delete indexes here too ?? Or just get a better memory
+		// management system for them!
 	}
 	
 	//warning_print("\nTree before prune:\n");

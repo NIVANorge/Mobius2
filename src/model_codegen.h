@@ -15,6 +15,15 @@ Index_Set_Dependency {
 	Index_Set_Dependency(Entity_Id id, int order) : id(id), order(order) {}
 };
 
+inline bool operator<(const Index_Set_Dependency &a, const Index_Set_Dependency &b) {
+	if(a.order == b.order) return a.id < b.id;
+	return a.order < b.order;
+}
+
+inline bool operator==(const Index_Set_Dependency &a, const Index_Set_Dependency &b) {
+	return (a.order == b.order) && (a.id == b.id);
+}
+
 struct
 Model_Instruction {
 	enum class
@@ -35,7 +44,7 @@ Model_Instruction {
 	
 	Entity_Id           solver;
 	
-	std::set<Entity_Id> index_sets;
+	std::set<Index_Set_Dependency> index_sets;
 	
 	std::set<int> depends_on_instruction; // Instructions that must be executed before this one.
 	std::set<int> instruction_is_blocking; // Instructions that can not go in the same for loop as this one
@@ -51,8 +60,8 @@ Model_Instruction {
 
 struct
 Batch_Array {
-	std::vector<int>         instr_ids;
-	std::set<Entity_Id>      index_sets;
+	std::vector<int>               instr_ids;
+	std::set<Index_Set_Dependency> index_sets;
 };
 
 struct Batch {
