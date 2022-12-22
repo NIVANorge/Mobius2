@@ -634,9 +634,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					instructions[agg_for.id].index_sets.insert(target_comp->index_sets.begin(), target_comp->index_sets.end());
 					
 				} else if(model->connections[var->connection]->type == Connection_Type::all_to_all) {
-					auto source_comp = model->components[var_flux->loc1.components[0]];
-					//TODO: Should instead be the index set specified in the connection relation!
-					auto index_set = source_comp->index_sets[0];
+					auto source_comp = var_flux->loc1.components[0];
+					
+					auto &components = app->connection_components[var->connection.id];
+					if(components.size() != 1 || components[0].id != source_comp) {
+						fatal_error(Mobius_Error::internal, "Got an all_to_all connection for a component that the connection is not supported for.");
+					}
+					auto index_set = components[0].index_sets[0];
 					add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					instructions[agg_for.id].index_sets.insert(index_set);
 				}

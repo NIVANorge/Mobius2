@@ -1,48 +1,39 @@
 
 model("Simple test model") {
 	
-	extend("simplyq_model.txt")
-	
-	load("simplysoiltemp.txt", st : module("Simply soil temperature"))
-	
 	md : module("So very simple", 1, 1, 0) {
 		
-		air  : compartment("Atmosphere")
-		soil : compartment("Soil")
-		river : compartment("River")
+		a : compartment("A")
+		q : quantity("Q")
 		
-		water : quantity("Water")
-		oc    : quantity("Organic carbon")
-		tox   : quantity("Toxin")
+		a.has(q, unit(), "A Q") .initial { ia }
 		
-		soil.has(oc, unit(k g, k m-2), "SOC") .initial { 500 }
+		a.par_group("Init pars") {
+			ia : par_real("Init a", unit(), 0)
+		}
 		
-		soil.water.has(oc, unit(k g, k m-2), "DOC")
+		a.par_group("Flow pars") {
+			p : par_real("Flow fraction", unit(), 0, 0, 1)
+		}
 		
-		soil.water.has(tox, unit(n g, k m-2), "Truly dissolved toxin")
-		soil.oc.has(tox, unit(n g, k m-2), "Adsorbed toxin")
-		soil.water.oc.has(tox, unit(n g, k m-2), "DOC-bound toxin")
-		
-		#TODO: finish this!
-		temp : property("Temperature")
-		
-		river.has(temp, "River temperature") { air.temp } #TODO
-		
-		k_oc : property("Water-SOC partitioning coefficient") { temp * 3 }
-		
-		soil.water.has(k_oc, "Soil water-SOC partitioning coefficient")
-		river.water.has(k_oc, "River water-SOC partitioning coefficient")
-	
+		the_flow :
+		flux(a.q, out, "The flow") {
+			q * p
+		}
 	}
 	
-	oc  : quantity("Organic carbon")
-	tox : quantity("Toxin")
+	a : compartment("A")
+	q : quantity("Q")
 	
-	simply_solver.solve(soil.water.oc)
-	simply_solver.solve(soil.water.tox)
-	simply_solver.solve(soil.water.oc.tox)
-	
-	sw.evap.no_carry(soil.water.oc)
-	sw.evap.no_carry(soil.water.tox)
+	sol : solver("Solver", "INCADascru", 0.1)
+	sol.solve(a.q)
 
+	c : connection("Flow connection", all_to_all) { a* }
+	
+	md.the_flow.to(c)
+	
+	i : index_set("I")
+	j : index_set("J")
+	
+	a.distribute(i, j)
 }

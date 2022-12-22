@@ -10,6 +10,9 @@
 		ability to view all_to_all fluxes (or other matrix results) in MobiView.
 		all_to_all connections for quantities (not just compartments)
 	
+	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
+		Also only one matrix indexing for a given state variable (at least for now)
+		The challenge is providing good error messages.
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
 	

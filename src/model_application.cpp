@@ -378,12 +378,15 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	return result;
 }
 
-Entity_Id
+std::vector<Entity_Id>
 add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only, bool compartment_only, Source_Location loc) {
 	
-	auto model = app->model;
+	// TODO: In general we should be more nuanced with what source location we print for errors in this procedure.
 	
-	if(!is_valid(component_id) || (compartment_only && model->components[component_id]->decl_type != Decl_Type::compartment)) {
+	auto model = app->model;
+	auto component = model->components[component_id];
+	
+	if(!is_valid(component_id) || (compartment_only && component->decl_type != Decl_Type::compartment)) {
 		comp->loc.print_error_header();
 		if(compartment_only)
 			fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model.");
@@ -396,23 +399,29 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	// TODO: Could also print the location of the declaration of the connection.
 	if(std::find(cnd->components.begin(), cnd->components.end(), component_id) == cnd->components.end()) {
 		loc.print_error_header();
-		fatal_error("The connection \"", cnd->name,"\" is not allowed for the component \"", model->components[component_id]->name, "\".");
+		fatal_error("The connection \"", cnd->name,"\" is not allowed for the component \"", component->name, "\".");
 	}
 	
 	// ******* TODO: We eventually have to make this work for multiple index sets.
-	auto component = model->components[component_id];
-	if(component->index_sets.size() != 1) {
-		cnd->source_loc.print_error_header();
-		fatal_error("Temporary: We only support connections on compartments that are indexed by a single index set");
+	
+	if(single_index_only && comp->index_sets.size() != 1) {
+		loc.print_error_header();
+		fatal_error("This connection type only supports connections on components that are indexed by a single index set");
 	}
-	Entity_Id index_set_id = component->index_sets[0];
-	if(comp->index_sets.size() != 1 ||
-		(data_set->index_sets[comp->index_sets[0]]->name != model->index_sets[index_set_id]->name)) {
-		comp->loc.print_error_header();
-		fatal_error("The index sets of the component \"", comp->name, "\" in the data set and the model don't match.");
+	std::vector<Entity_Id> index_sets;
+	for(int idx_set_id : comp->index_sets) {
+		auto idx_set_info = data_set->index_sets[idx_set_id];
+		auto index_set = model->index_sets.find_by_name(idx_set_info->name);
+		if(!is_valid(index_set)) {
+			idx_set_info->loc.print_error_header();
+			fatal_error("The index set \"", idx_set_info->name, " does not exist in the model.");  // Actually, this has probably been checked somewhere else already.
+		}
+		if(std::find(component->index_sets.begin(), component->index_sets.end(), index_set) == component->index_sets.end()) {
+			loc.print_error_header();
+			fatal_error("The index sets indexing a component in a connection relation must also index that component in the model. The index set \"", idx_set_info->name, "\" does not index the component \"", component->name, "\" in the model");
+		}
+		index_sets.push_back(index_set);
 	}
-	std::vector<Entity_Id> index_sets = { index_set_id };
-	// *******  multiple index sets ...
 	
 	auto &components = app->connection_components[connection_id.id];
 	auto find = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
@@ -428,12 +437,11 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		components.push_back(std::move(comp));
 	}
 	
-	return index_set_id;
+	return index_sets;
 }
 
 void
 process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set) {
-	//TODO: not sure how to handle directed trees when it comes to discrete fluxes. Should we sort the indexes in order? Probably not feasible with the current system if there are connections between different types of compartment.
 	
 	auto model = app->model;
 	
@@ -446,7 +454,8 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 	auto cnd = model->connections[conn_id];
 
 	if(cnd->type == Connection_Type::directed_tree) {
-		if(connection.type != Connection_Info::Type::graph) {
+		// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
+		if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
 			connection.loc.print_error_header();
 			fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
 		}
@@ -458,21 +467,27 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			auto comp_target = data_set->components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
 			
-			Entity_Id index_set_id = add_connection_component(app, data_set, comp, conn_id, source_comp_id, false, true, connection.loc);
+			auto index_sets = add_connection_component(app, data_set, comp, conn_id, source_comp_id, false, true, connection.loc);
 			add_connection_component(app, data_set, comp_target, conn_id, target_comp_id, false, true, connection.loc);
 			
-			std::vector<Index_T> indexes = {Index_T {index_set_id, arr.first.indexes[0]}};
+			std::vector<Index_T> indexes;
+			for(int idx = 0; idx < index_sets.size(); ++idx) {
+				Index_T index = {index_sets[idx], arr.first.indexes[idx]};
+				indexes.push_back(index);
+			}
 			s64 offset0 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 0}, indexes);
 			*app->data.connections.get_value(offset0) = target_comp_id.id;
+			// TODO: Make this work with multiple target indexes!!
 			s64 offset1 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 1}, indexes);
 			*app->data.connections.get_value(offset1) = (s64)arr.second.indexes[0];
 		}
 		// TODO: In the end we will have to check that the connection structure matches the regex, but this is going to be complicated.
+		// TODO: Also have to check that it is actually a tree.
 		
 	} else if (cnd->type == Connection_Type::all_to_all) {
 		if(connection.type != Connection_Info::Type::single_component) {
 			connection.loc.print_error_header();
-			fatal_error("Connections of type all_to_all should just have a single component identifier in their data.");
+			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data.");
 		}
 		auto comp = data_set->components[connection.single_component_id];
 		Entity_Id comp_id = model->components.find_by_name(comp->name);

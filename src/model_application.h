@@ -438,6 +438,7 @@ struct
 Sub_Indexed_Component {
 	Entity_Id id;
 	std::vector<Entity_Id> index_sets;
+	// TODO: here we could store info of whether or not this could be a target (not only a source). Then prune aggregation variables when they are not relevant.
 };
 
 struct
