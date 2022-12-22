@@ -38,29 +38,33 @@ write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *da
 void
 write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set) {
 	
-	if(connection.type != Connection_Info::Type::graph)
-		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in Data_Set::write_to_file.");
-	
-	if(connection.arrows.empty()) return;
-	
-	// TODO!
-	//   non-trivial problem to format this the best way possible... :(
-	//   works nicely to print format that was got from previous file, but not if it was edited e.g. in user interface.
-	// Note that the data is always correct, it is just not necessarily the most compact representation of the graph.
-	
 	fprintf(file, "connection(\"%s\") [", connection.name.data());
 	
-	Compartment_Ref *prev = nullptr;
-	for(auto &pair : connection.arrows) {
-		if(!prev || !(pair.first == *prev)) {
-			fprintf(file, "\n\t");
-			write_indexed_compartment_to_file(file, pair.first, data_set);
+	if(connection.type == Connection_Info::Type::graph) {
+		if(connection.arrows.empty()) return;
+		
+		// TODO!
+		//   non-trivial problem to format this the best way possible... :(
+		//   works nicely to print format that was got from previous file, but not if it was edited e.g. in user interface.
+		// Note that the data is always correct, it is just not necessarily the most compact representation of the graph.
+		
+		Compartment_Ref *prev = nullptr;
+		for(auto &pair : connection.arrows) {
+			if(!prev || !(pair.first == *prev)) {
+				fprintf(file, "\n\t");
+				write_indexed_compartment_to_file(file, pair.first, data_set);
+			}
+			fprintf(file, " -> ");
+			write_indexed_compartment_to_file(file, pair.second, data_set);
+			prev = &pair.second;
 		}
-		fprintf(file, " -> ");
-		write_indexed_compartment_to_file(file, pair.second, data_set);
-		prev = &pair.second;
+		fprintf(file, "\n]\n\n");
+	} else if (connection.type == Connection_Info::Type::single_component) {
+		auto comp = data_set->components[connection.single_component_id];
+		fprintf(file, " %s ]\n\n", comp->handle.data());
+	} else {
+		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in write_to_file.");
 	}
-	fprintf(file, "\n]\n\n");
 }
 
 void

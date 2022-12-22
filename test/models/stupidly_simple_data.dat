@@ -1,31 +1,32 @@
-
 index_set("I") [ "I1" "I2" "I3" ]
+
 index_set("J") [ "J1" "J2" ]
 
 a : compartment("A") [ "J" ]
 connection("Flow connection") [ a ]
 
-module("So very simple", 1, 1, 0) {
-	
-	par_group("Init pars") ["I" "J"] {
-		par_real("Init a") [
-			0	1
-			1	2
-			4	0
-		]
-	}
-	
-	par_group("Flow pars") ["J" "J"] {
-		par_real("Flow fraction") [
-			0   0.1
-			0.1 0
-		]
-	}
-
-}
-
-
 par_group("System") {
-	par_datetime("Start date") [ 1990-1-1 ]
-	par_datetime("End date")   [ 1990-5-1 ]
+	par_datetime("Start date")
+	[ 1990-01-01 ]
+
+	par_datetime("End date")
+	[ 1990-05-01 ]
 }
+
+module("So very simple", 1, 1, 0) {
+	par_group("Init pars") [ "I" "J" ] {
+		par_real("Init a") [
+			0 1 
+			1 2 
+			4 0 
+		]
+	}
+
+	par_group("Flow pars") [ "J" "J" ] {
+		par_real("Flow fraction") [
+			0 0.1 
+			0.1 0 
+		]
+	}
+}
+

@@ -627,8 +627,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					auto source_comp = model->components[var_flux->loc1.components[0]];
 					auto target_comp = model->components[app->state_vars[agg_for]->loc1.components[0]];
 					
+					//TODO: Instead look up the index sets of the connection relation!
+					
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
-					add_to_aggr_instr->index_sets.insert(source_comp->index_sets.begin(), source_comp->index_sets.end()); //TODO: This should instead depend on the index sets involved in the connection relation..
+					add_to_aggr_instr->index_sets.insert(source_comp->index_sets.begin(), source_comp->index_sets.end());
 					
 					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
 					instructions[agg_for.id].index_sets.insert(target_comp->index_sets.begin(), target_comp->index_sets.end());
