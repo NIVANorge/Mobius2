@@ -233,7 +233,7 @@ template<> struct
 Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
 	Connection_Type type;
 	// TODO: This should eventually also have data about the regex.
-	std::vector<Entity_Id> compartments;
+	std::vector<Entity_Id> components;
 	
 	Entity_Registration() : type(Connection_Type::unrecognized) {}
 };
@@ -353,7 +353,7 @@ Mobius_Model {
 			Scope_It it;
 			it.scope = scope;
 			it.it = scope->all_ids.begin();
-			while((it.it->reg_type != reg_type) && it != end_it)
+			while(it != end_it && (it.it->reg_type != reg_type))
 				++it.it;
 			return it;
 		}

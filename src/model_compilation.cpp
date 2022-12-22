@@ -622,8 +622,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
-				// TODO: Do we need anything similar for the source aggregation ??
-				if(!is_source) {
+				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
+				if(model->connections[var->connection]->type == Connection_Type::directed_tree) {
 					auto source_comp = model->components[var_flux->loc1.components[0]];
 					auto target_comp = model->components[app->state_vars[agg_for]->loc1.components[0]];
 					
@@ -632,6 +632,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					
 					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
 					instructions[agg_for.id].index_sets.insert(target_comp->index_sets.begin(), target_comp->index_sets.end());
+					
+				} else if(model->connections[var->connection]->type == Connection_Type::all_to_all) {
+					auto source_comp = model->components[var_flux->loc1.components[0]];
+					//TODO: Should instead be the index set specified in the connection relation!
+					auto index_set = source_comp->index_sets[0];
+					add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
+					instructions[agg_for.id].index_sets.insert(index_set);
 				}
 				
 				// This is not needed because the target is always an ODE:

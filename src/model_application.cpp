@@ -137,7 +137,7 @@ Model_Application::set_up_connection_structure() {
 		
 		if(connection->type == Connection_Type::directed_tree) {
 
-			for(Entity_Id comp_id : connection->compartments) {
+			for(Entity_Id comp_id : connection->components) {
 				auto compartment = model->components[comp_id];
 				if(compartment->index_sets.size() != 1)
 					fatal_error(Mobius_Error::internal, "Temporary limitation: Got a connection over a compartment that has more than one index set");
@@ -378,6 +378,59 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	return result;
 }
 
+Entity_Id
+add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only, bool compartment_only, Source_Location loc) {
+	
+	auto model = app->model;
+	
+	if(!is_valid(component_id) || (compartment_only && model->components[component_id]->decl_type != Decl_Type::compartment)) {
+		comp->loc.print_error_header();
+		if(compartment_only)
+			fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model.");
+		else
+			fatal_error("The name \"", comp->name, "\" does not refer to a component that was declared in this model.");
+	}
+	
+	auto cnd = model->connections[connection_id];
+	
+	// TODO: Could also print the location of the declaration of the connection.
+	if(std::find(cnd->components.begin(), cnd->components.end(), component_id) == cnd->components.end()) {
+		loc.print_error_header();
+		fatal_error("The connection \"", cnd->name,"\" is not allowed for the component \"", model->components[component_id]->name, "\".");
+	}
+	
+	// ******* TODO: We eventually have to make this work for multiple index sets.
+	auto component = model->components[component_id];
+	if(component->index_sets.size() != 1) {
+		cnd->source_loc.print_error_header();
+		fatal_error("Temporary: We only support connections on compartments that are indexed by a single index set");
+	}
+	Entity_Id index_set_id = component->index_sets[0];
+	if(comp->index_sets.size() != 1 ||
+		(data_set->index_sets[comp->index_sets[0]]->name != model->index_sets[index_set_id]->name)) {
+		comp->loc.print_error_header();
+		fatal_error("The index sets of the component \"", comp->name, "\" in the data set and the model don't match.");
+	}
+	std::vector<Entity_Id> index_sets = { index_set_id };
+	// *******  multiple index sets ...
+	
+	auto &components = app->connection_components[connection_id.id];
+	auto find = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
+	if(find != components.end()) {
+		if(index_sets != find->index_sets) {
+			loc.print_error_header();
+			fatal_error("The component \"", app->model->components[component_id]->name, "\" appears twice in the same connection relation, but with different index set dependencies.");
+		}
+	} else {
+		Sub_Indexed_Component comp;
+		comp.id = component_id;
+		comp.index_sets = index_sets;
+		components.push_back(std::move(comp));
+	}
+	
+	return index_set_id;
+}
+
 void
 process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set) {
 	//TODO: not sure how to handle directed trees when it comes to discrete fluxes. Should we sort the indexes in order? Probably not feasible with the current system if there are connections between different types of compartment.
@@ -399,44 +452,14 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 		}
 		
 		for(auto &arr : connection.arrows) {
-			auto comp = data_set->compartments[arr.first.id];
+			auto comp = data_set->components[arr.first.id];
 			Entity_Id source_comp_id = model->components.find_by_name(comp->name);
 			
-			auto comp_target = data_set->compartments[arr.second.id];
+			auto comp_target = data_set->components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
 			
-			// TODO: The compartments could be checked in a separate check, we don't have to do it for every arrow in the connection structure.
-			if(!is_valid(source_comp_id) || model->components[source_comp_id]->decl_type != Decl_Type::compartment) {
-				comp->loc.print_error_header();
-				fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model.");
-			}
-			if(!is_valid(target_comp_id) || model->components[target_comp_id]->decl_type != Decl_Type::compartment) {
-				comp->loc.print_error_header();
-				fatal_error("The name \"", comp_target->name, "\" does not refer to a compartment that was declared in this model.");
-			}
-			// TODO: In the end we will instead have to check that the connection structure matches the regex, but this is going to be complicated.
-			// TODO: Could also print the location of the declaration of the connection.
-			if(std::find(cnd->compartments.begin(), cnd->compartments.end(), source_comp_id) == cnd->compartments.end()) {
-				connection.loc.print_error_header();
-				fatal_error("The connection \"", cnd->name,"\" is not allowed for the compartment \"", model->components[source_comp_id]->name, "\".");
-			}
-			if(std::find(cnd->compartments.begin(), cnd->compartments.end(), target_comp_id) == cnd->compartments.end()) {
-				connection.loc.print_error_header();
-				fatal_error("The connection \"", cnd->name,"\" is not allowed for the compartment \"", model->components[source_comp_id]->name, "\".");
-			}
-			
-			auto compartment = model->components[source_comp_id];
-			if(compartment->index_sets.size() != 1) {
-				cnd->source_loc.print_error_header();
-				fatal_error("Temporary: We only support connections on compartments that are indexed by a single index set");
-			}
-			Entity_Id index_set_id = compartment->index_sets[0];
-			if(comp->index_sets.size() != 1 ||
-				(data_set->index_sets[comp->index_sets[0]]->name != model->index_sets[index_set_id]->name)) {
-				//TODO: We eventually have to match this for multiple index sets.
-				comp->loc.print_error_header();
-				fatal_error("The index sets of the compartment \"", comp->name, "\" in the data set and the model don't match.");
-			}
+			Entity_Id index_set_id = add_connection_component(app, data_set, comp, conn_id, source_comp_id, false, true, connection.loc);
+			add_connection_component(app, data_set, comp_target, conn_id, target_comp_id, false, true, connection.loc);
 			
 			std::vector<Index_T> indexes = {Index_T {index_set_id, arr.first.indexes[0]}};
 			s64 offset0 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 0}, indexes);
@@ -444,9 +467,17 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			s64 offset1 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 1}, indexes);
 			*app->data.connections.get_value(offset1) = (s64)arr.second.indexes[0];
 		}
+		// TODO: In the end we will have to check that the connection structure matches the regex, but this is going to be complicated.
+		
 	} else if (cnd->type == Connection_Type::all_to_all) {
-		connection.loc.print_error_header();
-		fatal_error("Connections of type all_to_all should not have any connection data associated to them.");
+		if(connection.type != Connection_Info::Type::single_component) {
+			connection.loc.print_error_header();
+			fatal_error("Connections of type all_to_all should just have a single component identifier in their data.");
+		}
+		auto comp = data_set->components[connection.single_component_id];
+		Entity_Id comp_id = model->components.find_by_name(comp->name);
+		
+		add_connection_component(app, data_set, comp, conn_id, comp_id, true, true, connection.loc);
 	} else
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
 }
@@ -481,6 +512,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	if(!connection_structure.has_been_set_up)
 		set_up_connection_structure();
+	connection_components.resize(model->connections.count());
 	for(auto &connection : data_set->connections)
 		process_connection_data(this, connection, data_set);
 	

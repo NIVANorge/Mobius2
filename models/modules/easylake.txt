@@ -198,7 +198,7 @@ TODO: description
 	
 	evap :
 	flux(epi.water, nowhere, "Evaporation") {
-		evap_mm*A_surf/1000
+		evap_mm*A_surf/1000    # convert to m^3/day
 	}
 	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {

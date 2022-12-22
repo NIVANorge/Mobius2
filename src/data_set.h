@@ -86,7 +86,7 @@ Index_Set_Info : Info_Type_Base {
 	Info_Registry<Index_Info> indexes;
 };
 
-struct Compartment_Info : Info_Type_Base {
+struct Component_Info : Info_Type_Base {
 	std::string handle;
 	std::vector<int> index_sets;
 };
@@ -106,10 +106,12 @@ Connection_Info : Info_Type_Base {    // This must either be subclased or have d
 	enum class Type {
 		none,
 		graph,
+		single_component,
 		} type;
 	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
+	int single_component_id;
 	
-	Connection_Info() : type(Type::none) {}
+	Connection_Info() : type(Type::none), single_component_id(-1) {}
 };
 
 struct
@@ -193,7 +195,7 @@ Data_Set {
 	
 	Module_Info                     global_module;   // This is for par groups that are not in a module but were declared in the model directly.
 	Info_Registry<Index_Set_Info>   index_sets;
-	Info_Registry<Compartment_Info> compartments;
+	Info_Registry<Component_Info>   components;
 	Info_Registry<Connection_Info>  connections;
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;

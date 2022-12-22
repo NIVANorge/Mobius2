@@ -435,6 +435,12 @@ Series_Metadata {
 };
 
 struct
+Sub_Indexed_Component {
+	Entity_Id id;
+	std::vector<Entity_Id> index_sets;
+};
+
+struct
 Model_Application {
 	
 	Model_Application(Mobius_Model *model);
@@ -465,6 +471,8 @@ Model_Application {
 	
 	Data_Set                                                *data_set;
 	
+	std::vector<std::vector<Sub_Indexed_Component>>          connection_components;
+	
 	LLVM_Module_Data                                        *llvm_data;
 	
 	Run_Batch                                                initial_batch;
@@ -472,7 +480,6 @@ Model_Application {
 	
 	bool                                                     is_compiled = false;
 	std::vector<Entity_Id>                                   baked_parameters;       // Hmm, may not be the best to have this here.
-
 	
 	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes);
 	Index_T get_index(Entity_Id index_set, const std::string &name);

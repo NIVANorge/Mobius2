@@ -15,9 +15,9 @@ write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
 }
 
 void
-write_compartment_info_to_file(FILE *file, Compartment_Info &compartment, Data_Set *data_set) {
-	fprintf(file, "%s : compartment(\"%s\") [", compartment.handle.data(), compartment.name.data());
-	for(int idx_set_idx : compartment.index_sets) {
+write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *data_set) {
+	fprintf(file, "%s : compartment(\"%s\") [", component.handle.data(), component.name.data());
+	for(int idx_set_idx : component.index_sets) {
 		auto index_set = data_set->index_sets[idx_set_idx];
 		fprintf(file, " \"%s\"", index_set->name.data());
 	}
@@ -26,10 +26,10 @@ write_compartment_info_to_file(FILE *file, Compartment_Info &compartment, Data_S
 
 void
 write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set) {
-	auto compartment = data_set->compartments[ref.id];
-	fprintf(file, "%s[", compartment->handle.data());
+	auto component = data_set->components[ref.id];
+	fprintf(file, "%s[", component->handle.data());
 	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
-		auto index_set = data_set->index_sets[compartment->index_sets[loc]];
+		auto index_set = data_set->index_sets[component->index_sets[loc]];
 		fprintf(file, " \"%s\"", index_set->indexes[ref.indexes[loc]]);
 	}
 	fprintf(file, " ]");
@@ -257,8 +257,8 @@ Data_Set::write_to_file(String_View file_name) {
 	for(auto &index_set : index_sets)
 		write_index_set_to_file(file, index_set);
 	
-	for(auto &compartment : compartments)
-		write_compartment_info_to_file(file, compartment, this);
+	for(auto &component : components)
+		write_component_info_to_file(file, component, this);
 	
 	for(auto &connection : connections)
 		write_connection_info_to_file(file, connection, this);
@@ -301,15 +301,15 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 	auto find = data_set->compartment_handle_to_id.find(token.string_value);
 	if(find == data_set->compartment_handle_to_id.end()) {
 		token.print_error_header();
-		fatal_error("The handle '", token.string_value, "' does not refer to an already declared compartment.");
+		fatal_error("The handle '", token.string_value, "' does not refer to an already declared component.");
 	}
 	read_to->id = find->second;
-	auto comp_data = data_set->compartments[read_to->id];
+	auto comp_data = data_set->components[read_to->id];
 	std::vector<Token> index_names;
 	read_string_list(stream, index_names);
 	if(index_names.size() != comp_data->index_sets.size()) {
 		token.print_error_header();
-		fatal_error("The compartment '", token.string_value, "' should be indexed with ", comp_data->index_sets.size(), " indexes.");
+		fatal_error("The component '", token.string_value, "' should be indexed with ", comp_data->index_sets.size(), " indexes.");
 	}
 	for(int pos = 0; pos < index_names.size(); ++pos) {
 		auto index_set = data_set->index_sets[comp_data->index_sets[pos]];
@@ -343,15 +343,13 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 		return;
 	} else {
 		token.print_error_header();
-		fatal_error("Expected a ], an -> or a compartment identifier.");
+		fatal_error("Expected a ], an -> or a component identifier.");
 	}
 }
 
 void
 read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *info) {
 	stream->expect_token('[');
-	
-	info->type = Connection_Info::Type::graph;
 	
 	Token token = stream->peek_token();
 	if((char)token.type == ']') {
@@ -361,10 +359,26 @@ read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *
 		
 	if(token.type != Token_Type::identifier) {
 		token.print_error_header();
-		fatal_error("Expected a ] or the start of an compartment identifier.");
+		fatal_error("Expected a ] or the start of an component identifier.");
 	}
 	
-	read_connection_sequence(data_set, nullptr, stream, info);
+	auto token2 = stream->peek_token(1);
+	if((char)token2.type == '[') {
+		info->type = Connection_Info::Type::graph;
+		read_connection_sequence(data_set, nullptr, stream, info);
+	} else if ((char)token2.type == ']') {
+		info->type = Connection_Info::Type::single_component;
+		auto find = data_set->compartment_handle_to_id.find(token.string_value);
+		if(find == data_set->compartment_handle_to_id.end()) {
+			token.print_error_header();
+			fatal_error("The handle '", token.string_value, "' does not refer to an already declared component.");
+		}
+		info->single_component_id = find->second;
+		stream->read_token(); stream->read_token();
+	} else {
+		token.print_error_header();
+		fatal_error("Unrecognized connection data format.");
+	}
 }
 
 void
@@ -625,8 +639,8 @@ Data_Set::read_from_file(String_View file_name) {
 				match_declaration(decl, {{Token_Type::quoted_string}});
 				
 				auto name = single_arg(decl, 0);
-				auto data = compartments.create(name->string_value, name->source_loc);
-				int comp_id = compartments.find_idx(name->string_value);
+				auto data = components.create(name->string_value, name->source_loc);
+				int comp_id = components.find_idx(name->string_value);
 				data->handle = decl->handle_name.string_value;
 				if(decl->handle_name.string_value) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
 					compartment_handle_to_id[decl->handle_name.string_value] = comp_id;

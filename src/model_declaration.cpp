@@ -326,6 +326,8 @@ register_intrinsics(Mobius_Model *model) {
 	end->description   = "The end date is inclusive";
 	end->min_val.val_datetime = min_date;
 	end->max_val.val_datetime = max_date;
+	
+	//model->solvers.create("discrete", mod_scope, "Discrete", Decl_Type::solver);
 }
 
 Entity_Id
@@ -1079,8 +1081,10 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 	auto id = model->solves.find_or_create(nullptr, nullptr, nullptr, decl);
 	auto solve = model->solves[id];
 	
-	solve->solver = model->solvers.find_or_create(&decl->decl_chain[0], scope);
+	Entity_Id solver_id = model->solvers.find_or_create(&decl->decl_chain[0], scope);
+	solve->solver = solver_id;
 	process_location_argument(model, scope, decl, 0, &solve->loc, false);
+	
 	if(solve->loc.is_dissolved()) {
 		single_arg(decl, 0)->source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
@@ -1113,7 +1117,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		}
 	}
 	
-	connection->compartments.clear(); // NOTE: Needed since this could be a re-declaration.
+	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
 	
 	bool success = false;
 	auto expr = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
@@ -1129,7 +1133,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		if(expr->type == Math_Expr_Type::regex_identifier) {
 			auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr);
 			auto compartment_id = model->components.find_or_create(&ident->ident, scope);
-			connection->compartments.push_back(compartment_id);
+			connection->components.push_back(compartment_id);
 			success = true;
 		} else if(expr->type == Math_Expr_Type::regex_or_chain) {
 			bool success2 = true;
@@ -1140,7 +1144,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 				}
 				auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr2);
 				auto compartment_id = model->components.find_or_create(&ident->ident, scope);
-				connection->compartments.push_back(compartment_id);
+				connection->components.push_back(compartment_id);
 			}
 			success = success2;
 		}
@@ -1151,12 +1155,12 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		fatal_error("Temporary: This is not a supported regex format for connections yet.");
 	}
 	
-	if(connection->compartments.empty()) {
+	if(connection->components.empty()) {
 		expr->source_loc.print_error_header();
 		fatal_error("At least one compartment must be involved in a connection.");
 	}
 	
-	if(connection->type == Connection_Type::all_to_all && connection->compartments.size() > 1) {
+	if(connection->type == Connection_Type::all_to_all && connection->components.size() > 1) {
 		expr->source_loc.print_error_header();
 		fatal_error("All-to-all connections are only supported for one compartment type at a time.");
 	}

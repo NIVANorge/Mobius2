@@ -1,10 +1,7 @@
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 
-#h : compartment("Habitat") [ "Habitat index" ]
-#connection("Migration route") [
-#	h["Forest"] -> h["Plateau"]
-#	h["Bogs"]   -> h["Plateau"]
-#]
+h : compartment("Habitat") [ "Habitat index" ]
+connection("Migration route") [ h ]
 
 module("Giblet-Thrasher", 1, 0, 0) {
 	par_group("General parameters") {
@@ -32,7 +29,7 @@ module("Giblet-Thrasher", 1, 0, 0) {
 
 par_group("System") {
 	par_datetime("Start date") [ 1990-1-1 ]
-	par_datetime("End date")   [ 1995-1-1 ]
+	par_datetime("End date")   [ 2000-1-1 ]
 }
 
 series() [
@@ -42,5 +39,5 @@ series() [
 1990-6-1	1
 1992-4-21	1
 1994-3-15	1
-1995-1-1	0
+2000-1-1	0
 ]

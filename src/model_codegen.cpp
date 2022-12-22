@@ -276,8 +276,8 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 	// If the target index is negative, this does not connect anywhere, so we have to make code to check for that.
 	auto condition = make_binop(Token_Type::geq, target_index, make_literal((s64)0));
 	
-	if(connection->compartments.size() > 1) {
-		// If there can be multiple valid targets compartments for the connection, we have to make code to see if the value should indeed be added to this aggregation variable.
+	if(connection->components.size() > 1) {
+		// If there can be multiple valid targets components for the connection, we have to make code to see if the value should indeed be added to this aggregation variable.
 		
 		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
 		auto compartment_id = new Identifier_FT();

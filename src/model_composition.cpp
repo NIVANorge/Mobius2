@@ -890,7 +890,7 @@ compose_and_resolve(Model_Application *app) {
 		
 		if(connection->type == Connection_Type::directed_tree) {
 		
-			for(auto target_compartment : connection->compartments) {
+			for(auto target_compartment : connection->components) {
 				auto target_loc = app->state_vars[source_id]->loc1;
 				target_loc.components[0] = target_compartment;
 				auto target_id = app->state_vars[target_loc];
@@ -917,7 +917,7 @@ compose_and_resolve(Model_Application *app) {
 				register_connection_agg(app, false, target_id, conn_id, &varname[0]);
 			}
 		} else if (connection->type == Connection_Type::all_to_all) {
-			if(connection->compartments.size() != 1)
+			if(connection->components.size() != 1)
 				fatal_error(Mobius_Error::internal, "Expected exactly one compartment for all_to_all connection."); // Should have been detected earlier
 			
 			// NOTE: all_to_all connections can (currently) only go from one state variable to another
