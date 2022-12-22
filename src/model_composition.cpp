@@ -555,9 +555,9 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, E
 	}
 	
 	if(is_source)
-		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
-	else
 		sprintf(varname, "in_flux_connection_source(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
+	else
+		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
 	
 	Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname);
 	auto agg_var = app->state_vars[agg_id];

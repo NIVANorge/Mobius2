@@ -198,7 +198,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, std::vector<Math_Expr_FT *> &index_expr) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr) {
 	for(auto arg : expr->exprs)
 		put_var_lookup_indexes(arg, app, index_expr);
 	
@@ -244,7 +244,7 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id) {
+add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id) {
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
@@ -268,10 +268,10 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 	//warning_print("*** *** Codegen for connection ", app->state_vars[source_id]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
 	
 	auto index_set_target = model->components[target_compartment]->index_sets[0]; //NOTE: temporary!!
-	auto cur_idx = indexes[index_set_target.id]; // Store it so that we can restore it later.
-	indexes[index_set_target.id] = target_index;
+	auto cur_idx = indexes.indexes[index_set_target.id]; // Store it so that we can restore it later.
+	indexes.indexes[index_set_target.id] = target_index;
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
-	indexes[index_set_target.id] = cur_idx;
+	indexes.indexes[index_set_target.id] = cur_idx;
 	
 	// If the target index is negative, this does not connect anywhere, so we have to make code to check for that.
 	auto condition = make_binop(Token_Type::geq, target_index, make_literal((s64)0));
@@ -305,18 +305,33 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 }
 
 Math_Expr_FT *
-add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id) {
+add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id) {
 	
-	// TODO: Depending on whether this is a source or target aggregation, we have to switch the indexes of value.
+	bool is_source = true;
+	auto agg_var = app->state_vars[agg_id];
+	if(is_valid(agg_var->connection_source_agg))
+		is_source = true;
+	else if(is_valid(agg_var->connection_target_agg))
+		is_source = false;
+	else
+		fatal_error(Mobius_Error::internal, "Incorrect setup of all_to_all aggregation variables.");
 	
-	// TODO: Implement.
+	Math_Expr_FT *agg_offset = nullptr;
 	
-	//fatal_error(Mobius_Error::internal, "Unimplemented codegen for aggregating all_to_all connection");
-	return make_literal((s64)0);
+	if(is_source)
+		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+	else {
+		// We have to "transpose the matrix" so that we add this to the target instead corresponding to the index pair instead of the source.
+		indexes.transpose();
+		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+		indexes.transpose();
+	}
+	
+	return add_value_to_state_var(agg_id, agg_offset, value, '+'); // NOTE: it is a + regardless, since the subtraction happens explicitly when we use the value later.
 }
 
 Math_Expr_FT *
-add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, std::vector<Math_Expr_FT *> &indexes, Entity_Id connection_id) {
+add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id) {
 	auto model = app->model;
 	
 	auto connection = model->connections[connection_id];
@@ -334,18 +349,18 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	return nullptr;
 }
 
+// TODO: This could maybe be a member method of Index_Exprs
 Math_Expr_FT *
-create_nested_for_loops(Model_Application *app, Math_Block_FT *top_scope, Batch_Array &array, std::vector<Math_Expr_FT *> &indexes, Math_Expr_FT *&mat_col) {
-	for(auto &index_set : app->model->index_sets)
-		indexes[index_set.id] = nullptr;    //NOTE: just so that it is easy to catch if we somehow use an index we shouldn't
-	mat_col = nullptr;
+create_nested_for_loops(Math_Block_FT *top_scope, std::vector<Index_T> index_counts, std::set<Index_Set_Dependency> &index_sets, Index_Exprs &index_expr) {
+	
+	auto &indexes = index_expr.indexes;
 	
 	Math_Block_FT *scope = top_scope;
-	auto index_set = array.index_sets.begin();
-	for(int idx = 0; idx < array.index_sets.size(); ++idx) {
+	auto index_set = index_sets.begin();
+	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		
 		auto loop = make_for_loop();
-		loop->exprs.push_back(make_literal((s64)app->index_counts[index_set->id.id].index));
+		loop->exprs.push_back(make_literal((s64)index_counts[index_set->id.id].index));
 		scope->exprs.push_back(loop);
 		
 		//NOTE: the scope of this item itself is replaced when it is inserted later.
@@ -355,20 +370,20 @@ create_nested_for_loops(Model_Application *app, Math_Block_FT *top_scope, Batch_
 		scope = loop;
 		
 		if(index_set->order != 1) {
-			if(idx != array.index_sets.size()-1) {
-				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency");
+			if(idx != index_sets.size()-1 || index_set->order > 2) {
+				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency, or the order was larger than 2. Order: ", index_set->order);
 			}
 			auto loop = make_for_loop();
-			loop->exprs.push_back(make_literal((s64)app->index_counts[index_set->id.id].index));
+			loop->exprs.push_back(make_literal((s64)index_counts[index_set->id.id].index));
 			scope->exprs.push_back(loop);
-			mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
+			index_expr.mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
+			index_expr.mat_index_set = index_set->id;
 			
 			scope = loop;
 		}
 		index_set++;
 	}
 	
-	// TODO: What are these three lines for: ??? Looks very strange.
 	auto body = new Math_Block_FT();
 	scope->exprs.push_back(body);
 	scope = body;
@@ -382,11 +397,10 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	auto model = app->model;
 	auto top_scope = new Math_Block_FT();
 	
-	std::vector<Math_Expr_FT *> indexes(model->index_sets.count());
-	Math_Expr_FT *mat_col_index;
+	Index_Exprs indexes(app->model);
 	
 	for(auto &array : batch->arrays) {
-		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes, mat_col_index);
+		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app->index_counts, array.index_sets, indexes);
 		
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -451,8 +465,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			}
 		}
 		
-		//NOTE: delete again to not leak (note that if any of these are used, they are copied, so we are free to delete the originals).
-		for(auto expr : indexes) if(expr) delete expr;
+		indexes.clean();
 	}
 	
 	if(!is_valid(batch->solver) || initial) {
@@ -467,7 +480,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
 	s64 init_pos = app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
 	for(auto &array : batch->arrays_ode) {
-		Math_Expr_FT *scope = create_nested_for_loops(app, top_scope, array, indexes, mat_col_index);
+		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app->index_counts, array.index_sets, indexes);
 				
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -493,8 +506,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			scope->exprs.push_back(assignment);
 		}
 		
-		// TODO: probably have to delete indexes here too ?? Or just get a better memory
-		// management system for them!
+		indexes.clean();
 	}
 	
 	//warning_print("\nTree before prune:\n");

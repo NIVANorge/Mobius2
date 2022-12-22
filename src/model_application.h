@@ -196,6 +196,9 @@ template<> struct Hash_Fun<Connection_T> {
 };
 
 
+struct
+Index_Exprs;
+
 template<typename Handle_T>
 struct Multi_Array_Structure {
 	std::vector<Entity_Id> index_sets;
@@ -257,9 +260,12 @@ struct Multi_Array_Structure {
 		return (s64)offset*handles.size() + get_offset_base(handle);
 	}
 	
-	Math_Expr_FT *get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes, std::vector<Index_T> &index_counts, Entity_Id &err_idx_set_out) {
+	Math_Expr_FT *get_offset_code(Handle_T handle, Index_Exprs &index_exprs, std::vector<Index_T> &index_counts, Entity_Id &err_idx_set_out) {
+		
+		auto &indexes = index_exprs.indexes;
 		Math_Expr_FT *result;
 		if(index_sets.empty()) result = make_literal((s64)0);
+		int sz = index_sets.size();
 		for(int idx = 0; idx < index_sets.size(); ++idx) {
 			//TODO: check that counts are in the right index set
 			auto &index_set = index_sets[idx];
@@ -268,6 +274,10 @@ struct Multi_Array_Structure {
 				err_idx_set_out = index_set;
 				return nullptr;
 			}
+			// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
+			if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
+				index = index_exprs.mat_col;
+			
 			index = copy(index);
 			
 			if(idx == 0)
@@ -332,7 +342,7 @@ struct Storage_Structure {
 	get_index_sets(Handle_T handle);
 	
 	Math_Expr_FT *
-	get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes);
+	get_offset_code(Handle_T handle, Index_Exprs &indexes);
 	
 	void
 	for_each(Handle_T, const std::function<void(std::vector<Index_T> &, s64)>&);
@@ -485,6 +495,34 @@ Model_Application {
 };
 
 
+struct
+Index_Exprs {
+	std::vector<Math_Expr_FT *> indexes;
+	Math_Expr_FT               *mat_col;
+	Entity_Id                   mat_index_set;
+	
+	Index_Exprs(Mobius_Model *model) : mat_col(nullptr), indexes(model->index_sets.count(), nullptr), mat_index_set(invalid_entity_id) { }
+	~Index_Exprs() { clean(); }
+	
+	void clean() {
+		for(int idx = 0; idx < indexes.size(); ++idx) {
+			delete indexes[idx];
+			indexes[idx] = nullptr;
+		}
+		delete mat_col;
+		mat_col = nullptr;
+		mat_index_set = invalid_entity_id;
+	}
+	
+	void transpose() {
+		if(!is_valid(mat_index_set)) return;
+		auto tmp = mat_col;
+		mat_col = indexes[mat_index_set.id];
+		indexes[mat_index_set.id] = tmp;
+	}
+};
+
+
 template<> inline const std::string&
 Storage_Structure<Entity_Id>::get_handle_name(Entity_Id par) {
 	return parent->model->parameters[par]->name;
@@ -542,7 +580,7 @@ Storage_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<I
 }
 	
 template<typename Handle_T> Math_Expr_FT *
-Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, std::vector<Math_Expr_FT *> &indexes) {
+Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &indexes) {
 	auto array_idx = handle_is_in_array[handle];
 	Entity_Id err_idx_set;
 	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts, err_idx_set);
