@@ -439,7 +439,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	auto &components = app->connection_components[connection_id.id];
 	auto find = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
 	if(find != components.end()) {
-		if(index_sets != find->index_sets) {
+		if(index_sets != find->index_sets) { // This should no longer be necessary when we make component declarations local to the connection data in the data set.
 			loc.print_error_header();
 			fatal_error("The component \"", app->model->components[component_id]->name, "\" appears twice in the same connection relation, but with different index set dependencies.");
 		}

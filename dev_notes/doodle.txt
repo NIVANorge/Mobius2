@@ -1,5 +1,19 @@
 
 
+	# How to handle aggregation weights (and unit conversions) for connections.
+	
+	soil_flow : connection("Soil flow", directed_tree) { soil* river }
+	
+	aggregation_weight(soil, river) { lu_prop }
+	unit_conversion(soil.water, river.water) { a_catch * 1000 }   #TODO: when we get automatic unit checking we should remove the 1000 !
+	
+	# Should we need to specify that the aggregation weights are to be used for the connection, or is that automatic whenever such a connection is possible?
+	#    try automatic first, then see if there is a problem.
+	#       could be difficult when there are more than 2 compartments in the connection relation.
+	# 	 received flow at target is
+	#       for soil:   wt(source)/wt(target)  *  unit_conv(source)/unit_conv(target)      -- could also need unit conv if we allow flow between different subcatchments. Should check whether that is necessary, based on dependencies.
+	#       for river:   wt(source) * unit_conv(source)
+
 
 
 	# all_to_all   connection:

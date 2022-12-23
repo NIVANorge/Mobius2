@@ -3,11 +3,17 @@
 	Finish connection system 
 		multiple connections per variable
 		Other types of connections
-			one_dimensional
+			one_dimensional - along with integer indexed index sets.
 		'to' value fetching inside flux body (only for all-to-all connection fluxes (?)).
 		better checks for what fluxes can be put on what connections ..
 		check what parts of the connection are actually used (not just based on arrows in the data set, but also on what fluxes are put along the arrows).
 			e.g. what variables can actually be a target - only generate code for those etc.
+		**aggregation weights applied to graph arrows !!
+		
+		it is a bit overzealous to require specification of a regex for all_to_all connections.
+		regex checks.
+		
+		component declarations in the data set should be local to the connection data. Otherwise it makes things annoying.
 	
 	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 		Also only one matrix indexing for a given state variable (at least for now)
@@ -47,6 +53,10 @@
 	
 	
 	*** Low-pri ****
+		
+		Other types of connections
+			full graph (more than one outgoing vertex per node) (?)
+			
 		Override declarations.   --- not needed for connections since we found another way. Also, not certain what is the best way to do it.
 	
 		Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
