@@ -6,7 +6,7 @@
 		multiple connections per variable
 		Other types of connections
 			one_dimensional
-		'to' value fetching inside flux body.
+		'to' value fetching inside flux body (only for all-to-all connection fluxes (?)).
 		ability to view all_to_all fluxes (or other matrix results) in MobiView.
 		all_to_all connections for quantities (not just compartments)
 	

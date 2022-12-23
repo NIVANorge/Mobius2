@@ -35,8 +35,6 @@ model("Another simple") {
 	sol : solver("Solver", "INCADascru", 0.1)
 	sol.solve(a.q)
 	sol.solve(b.q)
-	sol.solve(a.q.r)
-	sol.solve(b.q.r)
 	
 	i : index_set("A index")
 	j : index_set("B index")

@@ -401,27 +401,32 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, Decl_Scope *s
 	return result;
 }
 
-void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified) {
+Entity_Id
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified, bool allow_connection = false) {
+	Entity_Id connection_id = invalid_entity_id;
+	
 	if(decl->args[which]->decl) {
 		decl->args[which]->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
 	std::vector<Token> &symbol = decl->args[which]->sub_chain;
 	int count = symbol.size();
-	if(count == 1 && allow_unspecified) {
+	bool success = false;
+	if(count == 1) {
 		Token *token = &symbol[0];
-		if(token->string_value == "nowhere")
-			location->type = Var_Location::Type::nowhere;
-		else if(token->string_value == "out") {
-			if(which == 0) {
-				token->print_error_header();
-				fatal_error("The source of a flux can never be 'out'.");
+		if(allow_unspecified) {
+			if(token->string_value == "nowhere") {
+				location->type = Var_Location::Type::nowhere;
+				success = true;
+			} else if(token->string_value == "out") {
+				location->type = Var_Location::Type::out;
+				success = true;
 			}
+		}
+		if (allow_connection && !success) {
 			location->type = Var_Location::Type::out;
-		} else {
-			token->print_error_header();
-			fatal_error("Invalid variable location.");
+			connection_id = model->connections.find_or_create(token, scope);
+			success = true;
 		}
 	} else if (count >= 2 && count <= max_var_loc_components) {
 		if(decl->args[which]->chain_sep != '.') {
@@ -432,11 +437,15 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		for(int idx = 0; idx < count; ++idx)
 			location->components[idx] = model->components.find_or_create(&symbol[idx], scope);
 		location->n_components        = count;
-	} else {
+		success = true;
+	}
+	
+	if(!success) {
 		//TODO: Give a reason for why it failed
 		symbol[0].print_error_header();
 		fatal_error("Invalid variable location.");
 	}
+	return connection_id;
 }
 
 template<Reg_Type reg_type> Entity_Id
@@ -754,9 +763,13 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	auto flux = model->fluxes[id];
 	
 	process_location_argument(model, scope, decl, 0, &flux->source, true);
-	process_location_argument(model, scope, decl, 1, &flux->target, true);
-	flux->target_was_out = (flux->target.type == Var_Location::Type::out);
+	flux->connection_target = process_location_argument(model, scope, decl, 1, &flux->target, true, true);
+	flux->target_was_out = ((flux->target.type == Var_Location::Type::out) && !is_valid(flux->connection_target));
 	
+	if(flux->source.type == Var_Location::Type::out) {
+		decl->source_loc.print_error_header();
+		fatal_error("The source of a flux can never be 'out'. Did you mean 'nowhere'?");
+	}
 	if(flux->source == flux->target && is_located(flux->source)) {
 		decl->source_loc.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
@@ -765,6 +778,81 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
 	flux->code = body->block;
 	flux->code_scope = scope->parent_id;
+	
+	return id;
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	int which = match_declaration(decl,
+	{
+		{Token_Type::quoted_string},
+		{Token_Type::quoted_string, Token_Type::identifier},
+	});
+	
+	auto id         = model->connections.standard_declaration(scope, decl);
+	auto connection = model->connections[id];
+	
+	// TODO: actually "compile" a regex and support more types
+	// TODO: we have to check somewhere in post that the handles are indeed a compartments (not quantity or property). This will probably be handled when we start to process regexes (?) (Although later we should allow connections between quantities also).
+	
+	if(which == 1) {
+		String_View structure_type = single_arg(decl, 1)->string_value;
+		if(structure_type == "directed_tree")	connection->type = Connection_Type::directed_tree;
+		else if(structure_type == "all_to_all") connection->type = Connection_Type::all_to_all;
+		else {
+			single_arg(decl, 1)->print_error_header();
+			fatal_error("Unsupported connection structure type '", structure_type, "'.");
+		}
+	}
+	
+	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
+	
+	bool success = false;
+	auto expr = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
+	if (expr->type == Math_Expr_Type::unary_operator) {
+		char oper_type = (char)reinterpret_cast<Unary_Operator_AST *>(expr)->oper;
+		if(oper_type != '*') {
+			expr->source_loc.print_error_header();
+			fatal_error("We currently only support the '*' operator in connection regexes.");
+		}
+		
+		expr = expr->exprs[0];
+		
+		if(expr->type == Math_Expr_Type::regex_identifier) {
+			auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr);
+			auto compartment_id = model->components.find_or_create(&ident->ident, scope);
+			connection->components.push_back(compartment_id);
+			success = true;
+		} else if(expr->type == Math_Expr_Type::regex_or_chain) {
+			bool success2 = true;
+			for(auto expr2 : expr->exprs) {
+				if(expr2->type != Math_Expr_Type::regex_identifier) {
+					success2 = false;
+					break;
+				}
+				auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr2);
+				auto compartment_id = model->components.find_or_create(&ident->ident, scope);
+				connection->components.push_back(compartment_id);
+			}
+			success = success2;
+		}
+	}
+	
+	if(!success) {
+		expr->source_loc.print_error_header();
+		fatal_error("Temporary: This is not a supported regex format for connections yet.");
+	}
+	
+	if(connection->components.empty()) {
+		expr->source_loc.print_error_header();
+		fatal_error("At least one compartment must be involved in a connection.");
+	}
+	
+	if(connection->type == Connection_Type::all_to_all && connection->components.size() > 1) {
+		expr->source_loc.print_error_header();
+		fatal_error("All-to-all connections are only supported for one compartment type at a time.");
+	}
 	
 	return id;
 }
@@ -901,6 +989,10 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			case Decl_Type::par_enum : {
 				process_par_ref_declaration(model, &module->scope, child);
 			} break;
+			
+			case Decl_Type::connection : {
+				process_declaration<Reg_Type::connection>(model, &module->scope, child);
+			} break;
 		}
 	}
 	
@@ -940,7 +1032,8 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			case Decl_Type::par_enum :
 			case Decl_Type::compartment :
 			case Decl_Type::property :
-			case Decl_Type::quantity : {  // already processed above
+			case Decl_Type::quantity : 
+			case Decl_Type::connection : {  // already processed above
 			} break;
 			
 			default : {
@@ -980,22 +1073,14 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	auto flux_id = expect_exists(&module->scope, &decl->decl_chain[1], Reg_Type::flux);
 	auto flux = model->fluxes[flux_id];
 	
-	if(flux->target.type != Var_Location::Type::out) {
+	if(flux->target.type != Var_Location::Type::out || is_valid(flux->connection_target)) {
 		decl->decl_chain[1].print_error_header();
 		fatal_error("The flux '", decl->decl_chain[1].string_value, "' does not have the target 'out', and so we can't re-assign its target.");
 	}
 	
 	auto &chain = decl->args[0]->sub_chain;
 	
-	if(chain.size() >= 2)
-		process_location_argument(model, scope, decl, 0, &flux->target, false);
-	else if (chain.size() == 1)
-		flux->connection_target = expect_exists(scope, &chain[0], Reg_Type::connection);
-	else {
-		chain[0].print_error_header();
-		fatal_error("This is not a well-formed flux target. Expected something on the form 'compartment.quantity' or 'connection'.");
-	}
-	// NOTE: in model scope, all compartment and quantity/property declarations are processed first, so it is ok to just look them up here.
+	flux->connection_target = process_location_argument(model, scope, decl, 0, &flux->target, false, true);
 }
 
 void
@@ -1088,81 +1173,6 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 	if(solve->loc.is_dissolved()) {
 		single_arg(decl, 0)->source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
-	}
-	
-	return id;
-}
-
-template<> Entity_Id
-process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	int which = match_declaration(decl,
-	{
-		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, Token_Type::identifier},
-	});
-	
-	auto id         = model->connections.standard_declaration(scope, decl);
-	auto connection = model->connections[id];
-	
-	// TODO: actually "compile" a regex and support more types
-	// TODO: we have to check somewhere in post that the handles are indeed a compartments (not quantity or property). This will probably be handled when we start to process regexes (?) (Although later we should allow connections between quantities also).
-	
-	if(which == 1) {
-		String_View structure_type = single_arg(decl, 1)->string_value;
-		if(structure_type == "directed_tree")	connection->type = Connection_Type::directed_tree;
-		else if(structure_type == "all_to_all") connection->type = Connection_Type::all_to_all;
-		else {
-			single_arg(decl, 1)->print_error_header();
-			fatal_error("Unsupported connection structure type '", structure_type, "'.");
-		}
-	}
-	
-	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
-	
-	bool success = false;
-	auto expr = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
-	if (expr->type == Math_Expr_Type::unary_operator) {
-		char oper_type = (char)reinterpret_cast<Unary_Operator_AST *>(expr)->oper;
-		if(oper_type != '*') {
-			expr->source_loc.print_error_header();
-			fatal_error("We currently only support the '*' operator in connection regexes.");
-		}
-		
-		expr = expr->exprs[0];
-		
-		if(expr->type == Math_Expr_Type::regex_identifier) {
-			auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr);
-			auto compartment_id = model->components.find_or_create(&ident->ident, scope);
-			connection->components.push_back(compartment_id);
-			success = true;
-		} else if(expr->type == Math_Expr_Type::regex_or_chain) {
-			bool success2 = true;
-			for(auto expr2 : expr->exprs) {
-				if(expr2->type != Math_Expr_Type::regex_identifier) {
-					success2 = false;
-					break;
-				}
-				auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr2);
-				auto compartment_id = model->components.find_or_create(&ident->ident, scope);
-				connection->components.push_back(compartment_id);
-			}
-			success = success2;
-		}
-	}
-	
-	if(!success) {
-		expr->source_loc.print_error_header();
-		fatal_error("Temporary: This is not a supported regex format for connections yet.");
-	}
-	
-	if(connection->components.empty()) {
-		expr->source_loc.print_error_header();
-		fatal_error("At least one compartment must be involved in a connection.");
-	}
-	
-	if(connection->type == Connection_Type::all_to_all && connection->components.size() > 1) {
-		expr->source_loc.print_error_header();
-		fatal_error("All-to-all connections are only supported for one compartment type at a time.");
 	}
 	
 	return id;

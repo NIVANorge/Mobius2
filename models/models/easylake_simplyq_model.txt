@@ -30,7 +30,5 @@ model("EasyLake-SimplyQ") {
 	
 	# NOTE: Just update the regex for the compartments.
 	connection("Downstream", directed_tree) { (river|epi)* } 
-	
-	rw.reach_out.to(ds)
 	el.lake_out .to(ds)
 }

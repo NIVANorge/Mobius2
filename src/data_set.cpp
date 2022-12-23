@@ -162,35 +162,6 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 	int offset = 0;
 	write_parameter_recursive(file, par, index_counts.size()-1, &offset, index_counts, tabs+1);
 	
-	/*
-	if(par.type == Decl_Type::par_enum) {
-		for(std::string &val : par.values_enum)
-			fprintf(file, "%s ", val.data());
-	} else {
-		// TODO: matrix formatting
-		for(Parameter_Value &val : par.values) {
-			switch(par.type) {
-				case Decl_Type::par_real : {
-					fprintf(file, "%.15g ", val.val_real);
-				} break;
-				
-				case Decl_Type::par_bool : {
-					fprintf(file, "%s ", val.val_boolean ? "true" : "false");
-				} break;
-				
-				case Decl_Type::par_int : {
-					fprintf(file, "%lld ", (long long)val.val_integer);
-				} break;
-				
-				case Decl_Type::par_datetime : {
-					char buf[64];
-					val.val_datetime.to_string(buf);
-					fprintf(file, "%s ", buf);
-				} break;
-			}
-		}
-	}
-	*/
 	if(index_counts.size() != 1)
 		print_tabs(file, tabs);
 	fprintf(file, "]\n");
