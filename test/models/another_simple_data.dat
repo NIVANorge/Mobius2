@@ -1,11 +1,11 @@
-index_set("A index") [ "Place A1" "Place A2" ]
+index_set("I") [ "I1" "I2" ]
 
-index_set("B index") [ "Place B" ]
+index_set("J") [ "J1" "J2" ]
 
-a : compartment("A") [ "A index" ]
-b : compartment("B") [ "B index" ]
+a : compartment("A") [ "J" ]
+b : compartment("B") [ ]
 connection("graph") [
-	a[ "Place A1" ] -> b[ "Place B" ] -> a[ "Place A2" ]
+	a[ "J1" ] -> a[ "J2" ] -> b[ ]
 ]
 
 par_group("System") {
@@ -17,14 +17,11 @@ par_group("System") {
 }
 
 module("So simple", 1, 0, 0) {
-	par_group("A Pars") [ "A index" ] {
-		par_real("initial a q")
-		[ 100000 50 ]
-	}
-
-	par_group("B Pars") {
-		par_real("initial b q")
-		[ 0 ]
+	par_group("A pars") [ "J" "I" ] {
+		par_real("Initial A.Q") [
+			1 10 
+			4 5 
+		]
 	}
 }
 

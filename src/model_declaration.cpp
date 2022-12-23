@@ -846,12 +846,12 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	
 	if(connection->components.empty()) {
 		expr->source_loc.print_error_header();
-		fatal_error("At least one compartment must be involved in a connection.");
+		fatal_error("At least one component must be involved in a connection.");
 	}
 	
 	if(connection->type == Connection_Type::all_to_all && connection->components.size() > 1) {
 		expr->source_loc.print_error_header();
-		fatal_error("All-to-all connections are only supported for one compartment type at a time.");
+		fatal_error("All-to-all connections are only supported for one component type at a time.");
 	}
 	
 	return id;

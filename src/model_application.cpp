@@ -124,6 +124,17 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	}
 }
 
+Sub_Indexed_Component &
+Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_id) {
+	if(connection_components.size() < conn_id.id+1)
+		fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection components in time before they are used.");
+	auto &components = connection_components[conn_id.id];
+	auto find = std::find_if(components.begin(), components.end(), [comp_id](auto &comp)->bool { return comp_id == comp.id; });
+	if(find == components.end())
+		fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection components in time before they are used.");
+	return *find;
+}
+
 void
 Model_Application::set_up_connection_structure() {
 	if(connection_structure.has_been_set_up)
@@ -136,17 +147,21 @@ Model_Application::set_up_connection_structure() {
 		auto connection = model->connections[connection_id];
 		
 		if(connection->type == Connection_Type::directed_tree) {
-
-			for(Entity_Id comp_id : connection->components) {
-				auto compartment = model->components[comp_id];
-				if(compartment->index_sets.size() != 1)
-					fatal_error(Mobius_Error::internal, "Temporary limitation: Got a connection over a compartment that has more than one index set");
-				
+			// TODO: This is a bit risky, we should actually check that connection_components is correctly set up;
+			int max_index_sets = 0;
+			for(auto &comp : connection_components[connection_id.id])
+				max_index_sets = std::max(max_index_sets, (int)comp.index_sets.size());
+			
+			// TODO: As an optimization, we could figure out the maximal number of indexes that could be targeted by each given source instead of having this global max.
+			for(auto &comp : connection_components[connection_id.id]) {
 				// TODO: group handles from multiple source compartments by index tuples.
-				Connection_T handle1 = { connection_id, comp_id, 0 };   // First info id for target compartment
-				Connection_T handle2 = { connection_id, comp_id, 1 };   // Second info id for target index   (TODO: need one per index set of target compartment eventually)
-				std::vector<Connection_T> handles { handle1, handle2 };
-				auto index_sets = compartment->index_sets; // Copy vector
+				Connection_T handle1 = { connection_id, comp.id, 0 };   // First info id for target compartment (indexed by the source compartment)
+				std::vector<Connection_T> handles { handle1 };
+				for(int id = 1; id <= max_index_sets; ++id) {
+					Connection_T handle2 = { connection_id, comp.id, id };   // Info id for target index of number id.
+					handles.push_back(handle2);
+				}
+				auto index_sets = comp.index_sets; // Copy vector
 				Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
 				structure.push_back(array);
 			}
@@ -378,7 +393,7 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	return result;
 }
 
-std::vector<Entity_Id>
+void
 add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only, bool compartment_only, Source_Location loc) {
 	
 	// TODO: In general we should be more nuanced with what source location we print for errors in this procedure.
@@ -386,12 +401,12 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	auto model = app->model;
 	auto component = model->components[component_id];
 	
-	if(!is_valid(component_id) || (compartment_only && component->decl_type != Decl_Type::compartment)) {
+	if(!is_valid(component_id) || (compartment_only && component->decl_type != Decl_Type::compartment) || (comp->decl_type != component->decl_type)) {
 		comp->loc.print_error_header();
 		if(compartment_only)
-			fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model.");
+			fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model. This connection type only supports compartments, not quantities.");
 		else
-			fatal_error("The name \"", comp->name, "\" does not refer to a component that was declared in this model.");
+			fatal_error("The name \"", comp->name, "\" does not refer to a ", name(comp->decl_type), " that was declared in this model.");
 	}
 	
 	auto cnd = model->connections[connection_id];
@@ -401,8 +416,6 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		loc.print_error_header();
 		fatal_error("The connection \"", cnd->name,"\" is not allowed for the component \"", component->name, "\".");
 	}
-	
-	// ******* TODO: We eventually have to make this work for multiple index sets.
 	
 	if(single_index_only && comp->index_sets.size() != 1) {
 		loc.print_error_header();
@@ -436,12 +449,10 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		comp.index_sets = index_sets;
 		components.push_back(std::move(comp));
 	}
-	
-	return index_sets;
 }
 
 void
-process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set) {
+pre_process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set) {
 	
 	auto model = app->model;
 	
@@ -452,7 +463,6 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 	}
 
 	auto cnd = model->connections[conn_id];
-
 	if(cnd->type == Connection_Type::directed_tree) {
 		// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
 		if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
@@ -467,19 +477,8 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			auto comp_target = data_set->components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
 			
-			auto index_sets = add_connection_component(app, data_set, comp, conn_id, source_comp_id, false, true, connection.loc);
+			add_connection_component(app, data_set, comp, conn_id, source_comp_id, false, true, connection.loc);
 			add_connection_component(app, data_set, comp_target, conn_id, target_comp_id, false, true, connection.loc);
-			
-			std::vector<Index_T> indexes;
-			for(int idx = 0; idx < index_sets.size(); ++idx) {
-				Index_T index = {index_sets[idx], arr.first.indexes[idx]};
-				indexes.push_back(index);
-			}
-			s64 offset0 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 0}, indexes);
-			*app->data.connections.get_value(offset0) = target_comp_id.id;
-			// TODO: Make this work with multiple target indexes!!
-			s64 offset1 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 1}, indexes);
-			*app->data.connections.get_value(offset1) = (s64)arr.second.indexes[0];
 		}
 		// TODO: In the end we will have to check that the connection structure matches the regex, but this is going to be complicated.
 		// TODO: Also have to check that it is actually a tree.
@@ -492,7 +491,48 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 		auto comp = data_set->components[connection.single_component_id];
 		Entity_Id comp_id = model->components.find_by_name(comp->name);
 		
-		add_connection_component(app, data_set, comp, conn_id, comp_id, true, true, connection.loc);
+		add_connection_component(app, data_set, comp, conn_id, comp_id, true, false, connection.loc);
+	} else
+		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
+}
+
+void
+process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set) {
+	
+	auto model = app->model;
+	
+	auto conn_id = model->connections.find_by_name(connection.name);
+	auto cnd = model->connections[conn_id];
+			
+	if(cnd->type == Connection_Type::directed_tree) {
+
+		for(auto &arr : connection.arrows) {
+			auto comp = data_set->components[arr.first.id];
+			Entity_Id source_comp_id = model->components.find_by_name(comp->name);
+			
+			auto comp_target = data_set->components[arr.second.id];
+			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
+			
+			auto &find = app->find_connection_component(conn_id, source_comp_id);
+		
+			auto &index_sets = find.index_sets;
+			std::vector<Index_T> indexes;
+			for(int idx = 0; idx < index_sets.size(); ++idx) {
+				Index_T index = {index_sets[idx], arr.first.indexes[idx]};
+				indexes.push_back(index);
+			}
+			s64 offset = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 0}, indexes);
+			*app->data.connections.get_value(offset) = target_comp_id.id;
+			
+			for(int idx = 0; idx < arr.second.indexes.size(); ++idx) {
+				int id = idx+1;
+				s64 offset1 = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, id}, indexes);
+				*app->data.connections.get_value(offset) = (s64)arr.second.indexes[idx];
+			}
+		}
+		
+	} else if (cnd->type == Connection_Type::all_to_all) {
+		// No data to set up for this one.
 	} else
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
 }
@@ -525,9 +565,12 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			set_indexes(index_set, gen_index);
 	}
 	
+	connection_components.resize(model->connections.count());
+	for(auto &connection : data_set->connections)
+		pre_process_connection_data(this, connection, data_set);
 	if(!connection_structure.has_been_set_up)
 		set_up_connection_structure();
-	connection_components.resize(model->connections.count());
+	
 	for(auto &connection : data_set->connections)
 		process_connection_data(this, connection, data_set);
 	

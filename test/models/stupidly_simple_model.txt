@@ -8,17 +8,16 @@ model("Simple test model") {
 		
 		a.has(q, unit(), "A Q") .initial { ia }
 		
-		a.par_group("Init pars") {
+		q.par_group("Init pars") {
 			ia : par_real("Init a", unit(), 0)
 		}
 		
-		a.par_group("Flow pars") {
+		q.par_group("Flow pars") {
 			p : par_real("Flow fraction", unit(), 0, 0, 1)
 		}
 		
-		c : connection("Flow connection", all_to_all) { a* }
-		
-		the_flow :
+		c : connection("Flow connection", all_to_all) { q* }
+
 		flux(a.q, c, "The flow") {
 			q * p
 		}
@@ -33,5 +32,5 @@ model("Simple test model") {
 	i : index_set("I")
 	j : index_set("J")
 	
-	a.distribute(i, j)
+	q.distribute(i, j)
 }

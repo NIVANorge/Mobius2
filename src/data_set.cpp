@@ -16,7 +16,7 @@ write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
 
 void
 write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *data_set) {
-	fprintf(file, "%s : compartment(\"%s\") [", component.handle.data(), component.name.data());
+	fprintf(file, "%s : %s(\"%s\") [", component.handle.data(), name(component.decl_type), component.name.data());
 	for(int idx_set_idx : component.index_sets) {
 		auto index_set = data_set->index_sets[idx_set_idx];
 		fprintf(file, " \"%s\"", index_set->name.data());
@@ -273,8 +273,8 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 	Token token = stream->peek_token();
 	stream->expect_identifier();
 	
-	auto find = data_set->compartment_handle_to_id.find(token.string_value);
-	if(find == data_set->compartment_handle_to_id.end()) {
+	auto find = data_set->component_handle_to_id.find(token.string_value);
+	if(find == data_set->component_handle_to_id.end()) {
 		token.print_error_header();
 		fatal_error("The handle '", token.string_value, "' does not refer to an already declared component.");
 	}
@@ -343,8 +343,8 @@ read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *
 		read_connection_sequence(data_set, nullptr, stream, info);
 	} else if ((char)token2.type == ']') {
 		info->type = Connection_Info::Type::single_component;
-		auto find = data_set->compartment_handle_to_id.find(token.string_value);
-		if(find == data_set->compartment_handle_to_id.end()) {
+		auto find = data_set->component_handle_to_id.find(token.string_value);
+		if(find == data_set->component_handle_to_id.end()) {
 			token.print_error_header();
 			fatal_error("The handle '", token.string_value, "' does not refer to an already declared component.");
 		}
@@ -610,15 +610,17 @@ Data_Set::read_from_file(String_View file_name) {
 					data->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
 			} break;
 			
-			case Decl_Type::compartment : {
+			case Decl_Type::compartment : 
+			case Decl_Type::quantity : {
 				match_declaration(decl, {{Token_Type::quoted_string}});
 				
 				auto name = single_arg(decl, 0);
 				auto data = components.create(name->string_value, name->source_loc);
 				int comp_id = components.find_idx(name->string_value);
+				data->decl_type = decl->type;
 				data->handle = decl->handle_name.string_value;
 				if(decl->handle_name.string_value) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
-					compartment_handle_to_id[decl->handle_name.string_value] = comp_id;
+					component_handle_to_id[decl->handle_name.string_value] = comp_id;
 				std::vector<Token> idx_set_list;
 				read_string_list(&stream, idx_set_list);
 				for(auto &name : idx_set_list) {

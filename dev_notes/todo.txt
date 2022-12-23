@@ -8,7 +8,7 @@
 			one_dimensional
 		'to' value fetching inside flux body (only for all-to-all connection fluxes (?)).
 		ability to view all_to_all fluxes (or other matrix results) in MobiView.
-		all_to_all connections for quantities (not just compartments)
+		better checks for what fluxes can be put on what connections ..
 	
 	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 		Also only one matrix indexing for a given state variable (at least for now)
@@ -86,3 +86,4 @@
 	
 	Other types of connections
 		all_to_all
+	all_to_all connections for quantities (not just compartments)

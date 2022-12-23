@@ -624,27 +624,44 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
 				if(model->connections[var->connection]->type == Connection_Type::directed_tree) {
-					auto source_comp = model->components[var_flux->loc1.components[0]];
-					auto target_comp = model->components[app->state_vars[agg_for]->loc1.components[0]];
+					Entity_Id source_comp_id = var_flux->loc1.components[0];
+					Entity_Id target_comp_id = app->state_vars[agg_for]->loc1.components[0];
 					
-					//TODO: Instead look up the index sets of the connection relation!
+					auto &find_source = app->find_connection_component(var->connection, source_comp_id);
+					auto &find_target = app->find_connection_component(var->connection, target_comp_id);
+					
+					// If the target compartment (not just what the connection indexes over) has an index set shared with the source connection, we must index the target variable over that.
+					auto target_comp = model->components[target_comp_id];
+					auto target_index_sets = find_target.index_sets; // vector copy;
+					for(auto index_set : find_source.index_sets) {
+						if(std::find(target_comp->index_sets.begin(), target_comp->index_sets.end(), index_set) != target_comp->index_sets.end())
+							target_index_sets.push_back(index_set);
+					}
 					
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
-					add_to_aggr_instr->index_sets.insert(source_comp->index_sets.begin(), source_comp->index_sets.end());
+					add_to_aggr_instr->index_sets.insert(find_source.index_sets.begin(), find_source.index_sets.end());
 					
 					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
-					instructions[agg_for.id].index_sets.insert(target_comp->index_sets.begin(), target_comp->index_sets.end());
+					instructions[agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
 					
 				} else if(model->connections[var->connection]->type == Connection_Type::all_to_all) {
-					auto source_comp = var_flux->loc1.components[0];
-					
 					auto &components = app->connection_components[var->connection.id];
-					if(components.size() != 1 || components[0].id != source_comp) {
+					auto source_comp = components[0].id;
+					
+					auto &flux_loc = var_flux->loc1;
+					bool found = false;
+					for(int idx = 0; idx < flux_loc.n_components; ++idx) {
+						if(flux_loc.components[idx] == source_comp) found = true;
+					}
+					if(components.size() != 1 || !found) {
+						// TODO: It seems like this check is not performed anywhere else (?)
 						fatal_error(Mobius_Error::internal, "Got an all_to_all connection for a component that the connection is not supported for.");
 					}
 					auto index_set = components[0].index_sets[0];
 					add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					instructions[agg_for.id].index_sets.insert(index_set);
+				} else {
+					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
 				}
 				
 				// This is not needed because the target is always an ODE:

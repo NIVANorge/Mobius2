@@ -439,6 +439,9 @@ Sub_Indexed_Component {
 	Entity_Id id;
 	std::vector<Entity_Id> index_sets;
 	// TODO: here we could store info of whether or not this could be a target (not only a source). Then prune aggregation variables when they are not relevant.
+	// bool can_be_target;                   // if this can be a target of the connection.
+	// std::set<Entity_Id> possible_targets; // what targets can have this as a source.
+	// int max_target_indexes;               // max indexes of a target that has this as the source
 };
 
 struct
@@ -486,6 +489,8 @@ Model_Application {
 	Index_T get_index(Entity_Id index_set, const std::string &name);
 	bool all_indexes_are_set();
 	
+	Sub_Indexed_Component &find_connection_component(Entity_Id conn_id, Entity_Id comp_id);
+	
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set();
 	
@@ -527,6 +532,16 @@ Index_Exprs {
 		auto tmp = mat_col;
 		mat_col = indexes[mat_index_set.id];
 		indexes[mat_index_set.id] = tmp;
+	}
+	
+	void swap(std::vector<Math_Expr_FT *> &other_indexes) {
+		for(int idx = 0; idx < indexes.size(); ++idx) {
+			if(other_indexes[idx]) {
+				auto tmp = indexes[idx];
+				indexes[idx] = other_indexes[idx];
+				other_indexes[idx] = tmp;
+			}
+		}
 	}
 };
 

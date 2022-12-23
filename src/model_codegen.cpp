@@ -249,42 +249,52 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 
 	auto model = app->model;
 	
-	auto connection = model->connections[connection_id];
-	
 	// Hmm, this line looks a bit messy..
 	Entity_Id source_compartment = app->state_vars[source_id]->loc1.components[0];
-	
-	// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
-	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 1}, indexes);	// the 1 is because the target index is stored at info id 1
-	auto target_index = new Identifier_FT();
-	target_index->variable_type = Variable_Type::connection_info;
-	target_index->value_type = Value_Type::integer;
-	target_index->exprs.push_back(idx_offset);
-	
 	auto target_agg = app->state_vars[agg_id];
 	// This is also messy...
 	auto target_compartment = app->state_vars[target_agg->connection_target_agg]->loc1.components[0];
 	
+	Math_Expr_FT *agg_offset = nullptr;
+	
+	auto find_target = app->find_connection_component(connection_id, target_compartment);
+	if(find_target.index_sets.size() > 0) {
+		std::vector<Math_Expr_FT *> target_indexes(model->index_sets.count(), nullptr);
+		for(int idx = 0; idx < find_target.index_sets.size(); ++idx) {
+			int id = idx+1;
+			auto index_set = find_target.index_sets[idx];
+			// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
+			auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, id}, indexes);
+			auto target_index = new Identifier_FT();
+			target_index->variable_type = Variable_Type::connection_info;
+			target_index->value_type = Value_Type::integer;
+			target_index->exprs.push_back(idx_offset);
+			target_indexes[index_set.id] = target_index;
+		}
+		indexes.swap(target_indexes); // Set the indexes of the target compartment for looking up the target
+		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+		indexes.swap(target_indexes); // Swap back in the ones we had before.
+		
+		for(int idx = 0; idx < target_indexes.size(); ++idx) // NOTE: If they were used, they were copied, so we delete them again now.
+			delete target_indexes[idx];
+	} else
+		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+	
 	//warning_print("*** *** Codegen for connection ", app->state_vars[source_id]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
 	
-	auto index_set_target = model->components[target_compartment]->index_sets[0]; //NOTE: temporary!!
-	auto cur_idx = indexes.indexes[index_set_target.id]; // Store it so that we can restore it later.
-	indexes.indexes[index_set_target.id] = target_index;
-	auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
-	indexes.indexes[index_set_target.id] = cur_idx;
+	// Code for looking up the id of the target compartment of the current source.
+	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
+	auto compartment_id = new Identifier_FT();
+	compartment_id->variable_type = Variable_Type::connection_info;
+	compartment_id->value_type = Value_Type::integer;
+	compartment_id->exprs.push_back(idx_offset);
 	
-	// If the target index is negative, this does not connect anywhere, so we have to make code to check for that.
-	auto condition = make_binop(Token_Type::geq, target_index, make_literal((s64)0));
-	
-	if(connection->components.size() > 1) {
-		// If there can be multiple valid targets components for the connection, we have to make code to see if the value should indeed be added to this aggregation variable.
+	// If the target compartment is negative, this source does not connect anywhere, so we have to make code to check for that.
+	auto condition = make_binop(Token_Type::geq, compartment_id, make_literal((s64)0));
+	if(app->connection_components[connection_id.id].size() > 1) {
+		// If there can be multiple valid target components for the connection, we have to make code to see if the value should indeed be added to this aggregation variable.
 		
-		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
-		auto compartment_id = new Identifier_FT();
-		compartment_id->variable_type = Variable_Type::connection_info;
-		compartment_id->value_type = Value_Type::integer;
-		compartment_id->exprs.push_back(idx_offset);
-		
+		// TODO: We could optimize to see if there are multiple valid targets for this particular source.
 		auto condition2 = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
 		condition = make_binop('&', condition, condition2);
 	}

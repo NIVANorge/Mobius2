@@ -4,51 +4,34 @@ model("Another simple") {
 
 	sp : module("So simple", 1, 0, 0) {
 	
-		load("recursive_library.txt", library("Library A"))
-		
 		a : compartment("A")
 		b : compartment("B")
 		q : quantity("Q")
-		r : quantity("R")
 		
-		a.has(q, unit(), "AQ") .initial { aq }
-		b.has(q, unit(), "BQ") .initial { bq }
+		c : connection("graph", directed_tree) { (a|b)* }
 		
-		a.q.has(r, unit(), "AQR")
-		b.q.has(r, unit(), "BQR")
-		
-		a.par_group("A Pars") {
-			aq : par_real("initial a q", unit(), 0)
-			aqr : par_real("a q r input", unit(), 0)
+		a.par_group("A pars") {
+			iaq : par_real("Initial A.Q", unit(), 10)
 		}
 		
-		b.par_group("B Pars") {
-			bq : par_real("initial b q", unit(), 0)
-		}
+		a.has(q, unit(), "A.Q") .initial { iaq }
+		b.has(q, unit(), "B.Q") .initial { 0 }
 		
-		a_out : flux(a.q, out, "a out") { 0.002*q*fun()	}
-		b_out : flux(b.q, out, "b out") { 0.001*q   }
-		
-		flux(nowhere, a.q.r, "R input") { aqr }
+		flux(a.q, c, "A.Q out") { q*0.1	}
+		#flux(b.q, c, "B.Q out") { q*0.01 }
 	}
 	
 	sol : solver("Solver", "INCADascru", 0.1)
 	sol.solve(a.q)
 	sol.solve(b.q)
 	
-	i : index_set("A index")
-	j : index_set("B index")
+	i : index_set("I")
+	j : index_set("J")
 	
 	a : compartment("A")
 	b : compartment("B")
 	q : quantity("Q")
-	r : quantity("R")
 	
-	a.distribute(i)
+	a.distribute(j, i)
 	b.distribute(j)
-	
-	n : connection("graph", directed_tree) { (b|a)* }
-	
-	sp.a_out.to(n)
-	sp.b_out.to(n)
 }

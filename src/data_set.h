@@ -87,6 +87,7 @@ Index_Set_Info : Info_Type_Base {
 };
 
 struct Component_Info : Info_Type_Base {
+	Decl_Type decl_type;
 	std::string handle;
 	std::vector<int> index_sets;
 };
@@ -199,7 +200,7 @@ Data_Set {
 	Info_Registry<Connection_Info>  connections;
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;
-	std::unordered_map<std::string, int> compartment_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
+	std::unordered_map<std::string, int> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
 };
 
 
