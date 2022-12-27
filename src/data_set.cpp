@@ -16,7 +16,10 @@ write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
 
 void
 write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *data_set) {
-	fprintf(file, "%s : %s(\"%s\") [", component.handle.data(), name(component.decl_type), component.name.data());
+	if(component.handle.empty())
+		fprintf(file, "\t%s(\"%s\") [", name(component.decl_type), component.name.data());
+	else
+		fprintf(file, "\t%s : %s(\"%s\") [", component.handle.data(), name(component.decl_type), component.name.data());
 	for(int idx_set_idx : component.index_sets) {
 		auto index_set = data_set->index_sets[idx_set_idx];
 		fprintf(file, " \"%s\"", index_set->name.data());
@@ -25,8 +28,8 @@ write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *da
 }
 
 void
-write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set) {
-	auto component = data_set->components[ref.id];
+write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set, Connection_Info &connection) {
+	auto component = connection.components[ref.id];
 	fprintf(file, "%s[", component->handle.data());
 	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
 		auto index_set = data_set->index_sets[component->index_sets[loc]];
@@ -38,7 +41,10 @@ write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *da
 void
 write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set) {
 	
-	fprintf(file, "connection(\"%s\") [", connection.name.data());
+	fprintf(file, "connection(\"%s\") [\n", connection.name.data());
+	
+	for(auto &component : connection.components)
+		write_component_info_to_file(file, component, data_set);
 	
 	if(connection.type == Connection_Info::Type::graph) {
 		if(connection.arrows.empty()) return;
@@ -52,16 +58,15 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 		for(auto &pair : connection.arrows) {
 			if(!prev || !(pair.first == *prev)) {
 				fprintf(file, "\n\t");
-				write_indexed_compartment_to_file(file, pair.first, data_set);
+				write_indexed_compartment_to_file(file, pair.first, data_set, connection);
 			}
 			fprintf(file, " -> ");
-			write_indexed_compartment_to_file(file, pair.second, data_set);
+			write_indexed_compartment_to_file(file, pair.second, data_set, connection);
 			prev = &pair.second;
 		}
 		fprintf(file, "\n]\n\n");
 	} else if (connection.type == Connection_Info::Type::single_component) {
-		auto comp = data_set->components[connection.single_component_id];
-		fprintf(file, " %s ]\n\n", comp->handle.data());
+		// Nothing else to write.
 	} else {
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in write_to_file.");
 	}
@@ -232,9 +237,6 @@ Data_Set::write_to_file(String_View file_name) {
 	for(auto &index_set : index_sets)
 		write_index_set_to_file(file, index_set);
 	
-	for(auto &component : components)
-		write_component_info_to_file(file, component, this);
-	
 	for(auto &connection : connections)
 		write_connection_info_to_file(file, connection, this);
 	
@@ -269,17 +271,17 @@ read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident =
 }
 
 void
-read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartment_Ref *read_to) {
+read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartment_Ref *read_to, Connection_Info *info) {
 	Token token = stream->peek_token();
 	stream->expect_identifier();
 	
-	auto find = data_set->component_handle_to_id.find(token.string_value);
-	if(find == data_set->component_handle_to_id.end()) {
+	auto find = info->component_handle_to_id.find(token.string_value);
+	if(find == info->component_handle_to_id.end()) {
 		token.print_error_header();
 		fatal_error("The handle '", token.string_value, "' does not refer to an already declared component.");
 	}
 	read_to->id = find->second;
-	auto comp_data = data_set->components[read_to->id];
+	auto comp_data = info->components[read_to->id];
 	std::vector<Token> index_names;
 	read_string_list(stream, index_names);
 	if(index_names.size() != comp_data->index_sets.size()) {
@@ -298,12 +300,12 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	
 	std::pair<Compartment_Ref, Compartment_Ref> entry;
 	if(!first_in)
-		read_compartment_identifier(data_set, stream, &entry.first);
+		read_compartment_identifier(data_set, stream, &entry.first, info);
 	else
 		entry.first = *first_in;
 	
 	stream->expect_token(Token_Type::arr_r);
-	read_compartment_identifier(data_set, stream, &entry.second);
+	read_compartment_identifier(data_set, stream, &entry.second, info);
 	
 	info->arrows.push_back(entry);
 	
@@ -331,7 +333,37 @@ read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *
 		stream->read_token();
 		return;
 	}
+	
+	while(true) {
+		auto token  = stream->peek_token();
+		auto token2 = stream->peek_token(1);
+		if(token.type != Token_Type::identifier || ((char)token2.type != ':' && (char)token2.type != '(')) break;
+			
+		Decl_AST *decl = parse_decl_header(stream);
+		match_declaration(decl, {{Token_Type::quoted_string}});
 		
+		auto name = single_arg(decl, 0);
+		auto data = info->components.create(name->string_value, name->source_loc);
+		int comp_id = info->components.find_idx(name->string_value);
+		data->decl_type = decl->type;
+		data->handle = decl->handle_name.string_value;
+		if(decl->handle_name.string_value) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
+			info->component_handle_to_id[decl->handle_name.string_value] = comp_id;
+		std::vector<Token> idx_set_list;
+		read_string_list(stream, idx_set_list);
+		for(auto &name : idx_set_list) {
+			int ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
+			data->index_sets.push_back(ref);
+		}
+		
+		delete decl;
+	}
+	
+	token = stream->peek_token();
+	if((char)token.type == ']') {
+		stream->read_token();
+		return;
+	}
 	if(token.type != Token_Type::identifier) {
 		token.print_error_header();
 		fatal_error("Expected a ] or the start of an component identifier.");
@@ -342,14 +374,8 @@ read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *
 		info->type = Connection_Info::Type::graph;
 		read_connection_sequence(data_set, nullptr, stream, info);
 	} else if ((char)token2.type == ']') {
-		info->type = Connection_Info::Type::single_component;
-		auto find = data_set->component_handle_to_id.find(token.string_value);
-		if(find == data_set->component_handle_to_id.end()) {
-			token.print_error_header();
-			fatal_error("The handle '", token.string_value, "' does not refer to an already declared component.");
-		}
-		info->single_component_id = find->second;
-		stream->read_token(); stream->read_token();
+		if(info->components.count() == 1)
+			info->type = Connection_Info::Type::single_component;
 	} else {
 		token.print_error_header();
 		fatal_error("Unrecognized connection data format.");
@@ -608,25 +634,6 @@ Data_Set::read_from_file(String_View file_name) {
 				read_string_list(&stream, indexes);
 				for(int idx = 0; idx < indexes.size(); ++idx)
 					data->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
-			} break;
-			
-			case Decl_Type::compartment : 
-			case Decl_Type::quantity : {
-				match_declaration(decl, {{Token_Type::quoted_string}});
-				
-				auto name = single_arg(decl, 0);
-				auto data = components.create(name->string_value, name->source_loc);
-				int comp_id = components.find_idx(name->string_value);
-				data->decl_type = decl->type;
-				data->handle = decl->handle_name.string_value;
-				if(decl->handle_name.string_value) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
-					component_handle_to_id[decl->handle_name.string_value] = comp_id;
-				std::vector<Token> idx_set_list;
-				read_string_list(&stream, idx_set_list);
-				for(auto &name : idx_set_list) {
-					int ref = index_sets.expect_exists_idx(&name, "index_set");
-					data->index_sets.push_back(ref);
-				}
 			} break;
 			
 			case Decl_Type::connection : {

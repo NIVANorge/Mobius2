@@ -474,6 +474,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							ident->chain[0].print_error_header();
 							error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
 							fatal_error_trace(scope);
+						} else if (par->decl_type == Decl_Type::par_datetime) {
+							ident->chain[0].print_error_header();
+							error_print("It is currently not supported to look up the value of date time parameters inside equations.\n");
+							fatal_error_trace(scope);
 						}
 						new_ident->variable_type = Variable_Type::parameter;
 						new_ident->parameter = id;

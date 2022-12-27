@@ -2,9 +2,11 @@ index_set("I") [ "I1" "I2" ]
 
 index_set("J") [ "J1" "J2" ]
 
-a : compartment("A") [ "J" ]
-b : compartment("B") [ ]
+
 connection("graph") [
+	a : compartment("A") [ "J" ]
+	b : compartment("B") [ ]
+	
 	a[ "J1" ] -> a[ "J2" ] -> b[ ]
 ]
 

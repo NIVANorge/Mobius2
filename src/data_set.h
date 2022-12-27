@@ -110,9 +110,11 @@ Connection_Info : Info_Type_Base {    // This must either be subclased or have d
 		single_component,
 		} type;
 	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
-	int single_component_id;
 	
-	Connection_Info() : type(Type::none), single_component_id(-1) {}
+	Info_Registry<Component_Info>        components;
+	std::unordered_map<std::string, int> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
+	
+	Connection_Info() : type(Type::none) {}
 };
 
 struct
@@ -196,11 +198,9 @@ Data_Set {
 	
 	Module_Info                     global_module;   // This is for par groups that are not in a module but were declared in the model directly.
 	Info_Registry<Index_Set_Info>   index_sets;
-	Info_Registry<Component_Info>   components;
 	Info_Registry<Connection_Info>  connections;
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;
-	std::unordered_map<std::string, int> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
 };
 
 

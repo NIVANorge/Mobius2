@@ -9,6 +9,10 @@ library("Basic") {
 		r if is_finite(r),
 		0 otherwise
 	}
+	
+	close : function(a, b, tol) {
+		abs(a - b) < tol
+	}
 }
 
 

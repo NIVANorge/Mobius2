@@ -258,11 +258,11 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 	Math_Expr_FT *agg_offset = nullptr;
 	
 	auto find_target = app->find_connection_component(connection_id, target_compartment);
-	if(find_target.index_sets.size() > 0) {
+	if(find_target->index_sets.size() > 0) {
 		std::vector<Math_Expr_FT *> target_indexes(model->index_sets.count(), nullptr);
-		for(int idx = 0; idx < find_target.index_sets.size(); ++idx) {
+		for(int idx = 0; idx < find_target->index_sets.size(); ++idx) {
 			int id = idx+1;
-			auto index_set = find_target.index_sets[idx];
+			auto index_set = find_target->index_sets[idx];
 			// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
 			auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, id}, indexes);
 			auto target_index = new Identifier_FT();

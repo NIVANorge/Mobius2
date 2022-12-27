@@ -182,21 +182,6 @@ get_jitted_batch_function(const std::string &fun_name) {
 	void evaluate_batch(Parameter_Value *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time);
 	
 	since there are no union types in llvm, we treat Parameter_Value as a double and use bitcast when we want it as other types.
-	
-	struct Expanded_Date_Time {
-		s32       year;                       //0
-		s32       month;                      //1
-		s32       day_of_year;                //2
-		s32       day_of_month;               //3
-		s64       second_of_day;              //4
-		
-		s32       days_this_year;             //5
-		s32       days_this_month;            //6
-		
-		s64       step;                       //7
-		s64       step_length_in_seconds;     //8
-		...
-	}
 */
 
 struct Scope_Local_Vars;
@@ -226,10 +211,11 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
 	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
 	
-	// NOTE: this is the one that must match the top of the Expanded_Date_Time structure:
+	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
 	std::vector<llvm::Type *> dt_member_types = {
-		int_32_ty, int_32_ty, int_32_ty, int_32_ty, int_64_ty, int_32_ty, int_32_ty, int_64_ty, int_64_ty,
+		#include "time_values.incl"
 	};
+	#undef TIME_VALUE
 	
 	llvm::StructType *dt_ty     = llvm::StructType::get(*data->context, dt_member_types);
 	llvm::Type       *dt_ptr_ty = llvm::PointerType::getUnqual(dt_ty);
@@ -267,7 +253,7 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	errstream.reserveExtraSpace(512);
 	bool errors = llvm::verifyFunction(*fun, &errstream);
 	if(errors) {
-		//TODO: clean up the llvm context stuff. This is needed if the error exit does not close the process, but if we instead are in the IDE or python and we just catch an exception.
+		//TODO: clean up the llvm context stuff. This is needed if the error exit does not close the process, but if we instead are in the GUI or python and we just catch an exception.
 		fatal_error(Mobius_Error::internal, "LLVM function verification failed for function \"", fun_name, "\" : ", errstream.str(), " .");
 	}
 	

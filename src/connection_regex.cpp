@@ -65,6 +65,10 @@ match_regex(Model_Application *app, Data_Set *data_set, Connection_Info *conn, E
 	
 	// TODO: check on conn->type
 	
+	// TODO: This doesn't quite work, since not all nodes are necessarily represented by a source arrow.
+	// Also we should maybe match free-standing nodes against the regex too. (e.g. if the regex is (i j), then an i without an arrow going out should not match.
+	// TODO: support things like i{n}, where n is an exact number of repetitions. i{n m} : between n and m repetitions.
+	
 	auto model = app->model;
 	auto connection = model->connections[conn_id];
 	Regex_Body_AST *regex = connection->regex;

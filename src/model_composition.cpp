@@ -896,24 +896,11 @@ compose_and_resolve(Model_Application *app) {
 				auto target_id = app->state_vars[target_loc];
 				if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
 					continue;
-				
-				//warning_print("Considering connection from ", app->state_vars[source_id]->name, " to ", app->state_vars[target_id]->name, "\n");
-				/*
-				auto existing_agg = app->state_vars[target_id]->connection_target_agg;
-				if(is_valid(existing_agg)) {
-					if(app->state_vars[existing_agg]->connection != conn_id)
-						fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting the same state variable.");
+				auto *conn_comp = app->find_connection_component(conn_id, target_compartment, false);
+				if(!conn_comp)
 					continue;
-				}
+				// TODO: Even if it is present in the connection data, it may not appear as a target, only as a source. Should also be checked eventually.
 				
-				sprintf(varname, "in_flux_connection(%s, %s)", connection->name.data(), app->state_vars[target_id]->name.data());
-				Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname); //TODO: generate a better name
-				auto agg_var = app->state_vars[agg_id];
-				agg_var->flags = State_Variable::Flags::f_in_flux_connection;
-				agg_var->connection_target_agg = target_id;
-				agg_var->connection = conn_id;
-				app->state_vars[target_id]->connection_target_agg = agg_id;
-				*/
 				register_connection_agg(app, false, target_id, conn_id, &varname[0]);
 			}
 		} else if (connection->type == Connection_Type::all_to_all) {

@@ -627,19 +627,19 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					Entity_Id source_comp_id = var_flux->loc1.components[0];
 					Entity_Id target_comp_id = app->state_vars[agg_for]->loc1.components[0];
 					
-					auto &find_source = app->find_connection_component(var->connection, source_comp_id);
-					auto &find_target = app->find_connection_component(var->connection, target_comp_id);
+					auto *find_source = app->find_connection_component(var->connection, source_comp_id);
+					auto *find_target = app->find_connection_component(var->connection, target_comp_id);
 					
 					// If the target compartment (not just what the connection indexes over) has an index set shared with the source connection, we must index the target variable over that.
 					auto target_comp = model->components[target_comp_id];
-					auto target_index_sets = find_target.index_sets; // vector copy;
-					for(auto index_set : find_source.index_sets) {
+					auto target_index_sets = find_target->index_sets; // vector copy;
+					for(auto index_set : find_source->index_sets) {
 						if(std::find(target_comp->index_sets.begin(), target_comp->index_sets.end(), index_set) != target_comp->index_sets.end())
 							target_index_sets.push_back(index_set);
 					}
 					
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
-					add_to_aggr_instr->index_sets.insert(find_source.index_sets.begin(), find_source.index_sets.end());
+					add_to_aggr_instr->index_sets.insert(find_source->index_sets.begin(), find_source->index_sets.end());
 					
 					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
 					instructions[agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());

@@ -124,15 +124,18 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	}
 }
 
-Sub_Indexed_Component &
-Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_id) {
+Sub_Indexed_Component *
+Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error) {
 	if(connection_components.size() < conn_id.id+1)
 		fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection components in time before they are used.");
 	auto &components = connection_components[conn_id.id];
 	auto find = std::find_if(components.begin(), components.end(), [comp_id](auto &comp)->bool { return comp_id == comp.id; });
-	if(find == components.end())
-		fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection components in time before they are used.");
-	return *find;
+	if(find == components.end()) {
+		if(make_error)
+			fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection components in time before they are used.");
+		return nullptr;
+	}
+	return &*find;
 }
 
 void
@@ -463,6 +466,18 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	}
 
 	auto cnd = model->connections[conn_id];
+	
+	bool single_index_only = false;
+	bool compartment_only = true;
+	if(cnd->type == Connection_Type::all_to_all) {
+		single_index_only = true;
+		compartment_only = false;
+	}
+	for(auto &comp : connection.components) {
+		Entity_Id comp_id = model->components.find_by_name(comp.name);
+		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.loc);
+	}
+	
 	if(cnd->type == Connection_Type::directed_tree) {
 		// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
 		if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
@@ -470,16 +485,15 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
 		}
 		
+		/*  //TODO: Use the arrows to store useful info about what components can be targets etc.
 		for(auto &arr : connection.arrows) {
-			auto comp = data_set->components[arr.first.id];
+			auto comp = connection.components[arr.first.id];
 			Entity_Id source_comp_id = model->components.find_by_name(comp->name);
 			
-			auto comp_target = data_set->components[arr.second.id];
+			auto comp_target = connection.components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
-			
-			add_connection_component(app, data_set, comp, conn_id, source_comp_id, false, true, connection.loc);
-			add_connection_component(app, data_set, comp_target, conn_id, target_comp_id, false, true, connection.loc);
 		}
+		*/
 		// TODO: In the end we will have to check that the connection structure matches the regex, but this is going to be complicated.
 		// TODO: Also have to check that it is actually a tree.
 		
@@ -488,10 +502,6 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			connection.loc.print_error_header();
 			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data.");
 		}
-		auto comp = data_set->components[connection.single_component_id];
-		Entity_Id comp_id = model->components.find_by_name(comp->name);
-		
-		add_connection_component(app, data_set, comp, conn_id, comp_id, true, false, connection.loc);
 	} else
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
 }
@@ -507,15 +517,15 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 	if(cnd->type == Connection_Type::directed_tree) {
 
 		for(auto &arr : connection.arrows) {
-			auto comp = data_set->components[arr.first.id];
+			auto comp = connection.components[arr.first.id];
 			Entity_Id source_comp_id = model->components.find_by_name(comp->name);
 			
-			auto comp_target = data_set->components[arr.second.id];
+			auto comp_target = connection.components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
 			
-			auto &find = app->find_connection_component(conn_id, source_comp_id);
+			auto *find = app->find_connection_component(conn_id, source_comp_id);
 		
-			auto &index_sets = find.index_sets;
+			auto &index_sets = find->index_sets;
 			std::vector<Index_T> indexes;
 			for(int idx = 0; idx < index_sets.size(); ++idx) {
 				Index_T index = {index_sets[idx], arr.first.indexes[idx]};

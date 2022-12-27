@@ -4,9 +4,10 @@ index_set("Landscape units") [ "Forest" ]
 
 index_set("Subcatchment") [ "Inlet" ]
 
-e : compartment("Epilimnion") [ "Lake" ]
-r : compartment("River") [ "Subcatchment" ]
 connection("Downstream") [
+	e : compartment("Epilimnion") [ "Lake" ]
+	r : compartment("River") [ "Subcatchment" ]
+
 	r[ "Inlet" ] -> e[ "Langtjern" ]
 ]
 
