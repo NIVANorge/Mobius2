@@ -50,7 +50,7 @@ State_Var {
 	// TODO: put these on  declared and dissolved_flux respectively!
 	// If this state variable is the mass of a dissolved quantity, the 'conc' variable is the concentration of it.
 	// If this state variable is the flux of a dissolved quantity, the 'conc' variable is the conc variable of the source of the flux.
-	Var_Id         conc;
+	//Var_Id         conc;
 	
 	// TODO: Some of the below could be moved to ::declared
 	Math_Expr_FT *function_tree;
@@ -61,7 +61,7 @@ State_Var {
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none), connection(invalid_entity_id), connection_source_agg(invalid_var), connection_target_agg(invalid_var), conc(invalid_var) {};
+	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none), connection(invalid_entity_id), connection_source_agg(invalid_var), connection_target_agg(invalid_var) {};
 };
 
 
@@ -74,9 +74,9 @@ template<> struct
 State_Var_Sub<State_Var::Type::declared> : State_Var {
 	Entity_Id      decl_id;          // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type::flux
 	//Entity_Id      connection;
-	//Var_Id       conc;
+	Var_Id         conc;
 	
-	State_Var_Sub() : decl_id(invalid_entity_id) {}
+	State_Var_Sub() : decl_id(invalid_entity_id), conc(invalid_var) {}
 };
 
 template<> struct
@@ -103,10 +103,10 @@ State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	//Var_Id         conc;
+	Var_Id         conc;
 	Var_Id         flux_of_medium;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
-	State_Var_Sub() : flux_of_medium(invalid_var) {}
+	State_Var_Sub() : flux_of_medium(invalid_var), conc(invalid_var) {}
 };
 
 /*

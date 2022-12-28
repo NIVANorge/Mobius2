@@ -26,24 +26,25 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Initial values for dissolved quantities
 			if(instr.type == Model_Instruction::Type::compute_state_var && instr.code && is_valid(instr.var_id)) {
+				auto var = app->state_vars[instr.var_id];  // var is the mass or volume of the quantity
 				
-				auto var = app->state_vars[instr.var_id];  // var is the mass/volume of the quantity
-				
-				auto conc = var->conc;
-				// NOTE: it is easier just to set it for both the mass and conc as we process the mass
-				if(is_valid(conc) && var->type == State_Var::Type::declared) {
-					auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
-						
-					if(var->initial_is_conc) {
-						// conc is given. compute mass
-						instructions[conc.id].code = instr.code;
-						instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
-						instr.code = make_binop('*', make_state_var_identifier(conc), make_state_var_identifier(dissolved_in));
-					} else {
-						// mass is given. compute conc.
-						// TODO: do we really need the initial conc always though?
-						instructions[conc.id].code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
-						instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+				if(var->type == State_Var::Type::declared) {
+					auto conc = as<State_Var::Type::declared>(var)->conc;
+					// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
+					if(is_valid(conc)) {
+						auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
+							
+						if(var->initial_is_conc) {
+							// conc is given. compute mass
+							instructions[conc.id].code = instr.code;
+							instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+							instr.code = make_binop('*', make_state_var_identifier(conc), make_state_var_identifier(dissolved_in));
+						} else {
+							// mass is given. compute conc.
+							// TODO: do we really need the initial conc always though?
+							instructions[conc.id].code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
+							instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+						}
 					}
 				}
 			}

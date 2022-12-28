@@ -238,20 +238,21 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 void
 replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 	for(auto arg : expr->exprs) replace_conc(app, arg);
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
-		if((ident->variable_type == Variable_Type::state_var) && (ident->flags & ident_flags_conc)) {
-			
-			auto var = app->state_vars[ident->state_var];
-			if(!is_valid(var->conc)) {
-				expr->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This variable does not have a concentration");
-			}
-			ident->state_var = var->conc;
-			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_conc);
-		}
+	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;	
+	auto ident = reinterpret_cast<Identifier_FT *>(expr);
+	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & ident_flags_conc)) return;
+	auto var = app->state_vars[ident->state_var];
+	
+	// TODO: We may get in trouble looking up aggregates of concs ?? Or do we replace them in the right order?? In any case, one has to take care with that.
+	if(var->type != State_Var::Type::declared)
+		fatal_error(Mobius_Error::internal, "Somehow we tried to look up the conc of a generated state variable");
+	auto var2 = as<State_Var::Type::declared>(var);
+	if(!is_valid(var2->conc)) {
+		expr->source_loc.print_error_header(Mobius_Error::model_building);
+		fatal_error("This variable does not have a concentration");
 	}
+	ident->state_var = var2->conc;
+	ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_conc);
 }
 
 void
@@ -522,7 +523,6 @@ prelim_compose(Model_Application *app) {
 				if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
 			}
 			
-			// TODO: need system to exclude some fluxes for this quantity (e.g. evapotranspiration should not carry DOC).
 			generate.push_back(flux_id);
 		}
 		
@@ -535,7 +535,7 @@ prelim_compose(Model_Application *app) {
 		Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, Decl_Type::has, invalid_entity_id, false, varname);
 		auto conc_var = as<State_Var::Type::dissolved_conc>(app->state_vars[gen_conc_id]);
 		conc_var->conc_of = var_id;
-		app->state_vars[var_id]->conc = gen_conc_id;
+		as<State_Var::Type::declared>(app->state_vars[var_id])->conc = gen_conc_id;
 		
 		for(auto flux_id : generate) {
 			std::string &flux_name = app->state_vars[flux_id]->name;
@@ -781,7 +781,6 @@ compose_and_resolve(Model_Application *app) {
 				var->override_is_conc = override_is_conc;
 				replace_conc(app, var->override_tree);
 				find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
-				// TODO: Should audit this one for flags also!
 			}
 		} else
 			var->override_tree = nullptr;
@@ -824,9 +823,6 @@ compose_and_resolve(Model_Application *app) {
 			may_need_connection_target.insert({var->connection, source_id});
 		}
 	}
-	
-	
-	
 	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
 	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.
