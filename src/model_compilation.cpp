@@ -434,19 +434,21 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		for(auto var_id : app->state_vars) {
 			auto var = app->state_vars[var_id];
+			if(var->flags & State_Var::Flags::invalid) continue;
+			
 			// Fluxes with an ODE variable as source is given the same solver as it.
 			if(var->decl_type == Decl_Type::flux && is_located(var->loc1))
 				instructions[var_id.id].solver = instructions[app->state_vars.id_of(var->loc1).id].solver;
 
 			// Also set the solver for an aggregation variable for a connection flux.
 			if(var->type == State_Var::Type::connection_aggregate) {
-				Var_Id agg_of = is_valid(var->connection_target_agg) ? var->connection_target_agg : var->connection_source_agg;
+				Var_Id agg_for = is_valid(var->connection_target_agg) ? var->connection_target_agg : var->connection_source_agg;
 				
-				instructions[var_id.id].solver = instructions[agg_of.id].solver;
+				instructions[var_id.id].solver = instructions[agg_for.id].solver;
 				
 				if(!is_valid(instructions[var_id.id].solver)) {
-					auto conn_var = app->state_vars[agg_of];
-					auto has = model->hases[conn_var->entity_id];
+					auto conn_var = as<State_Var::Type::declared>(app->state_vars[agg_for]);
+					auto has = model->hases[conn_var->decl_id];
 					// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
 					// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
 					auto conn = model->connections[var->connection];
@@ -459,12 +461,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 			// Dissolved fluxes of fluxes with solvers must be on solvers
 			//TODO: it seems to work on dissolvedes of dissolvedes, but this is only because they happen to be in the right order in the state_vars array. Should be more robust.
-			if(var->type == State_Var::Type::dissolved_flux)
-				instructions[var_id.id].solver = instructions[var->dissolved_flux.id].solver;
+			if(var->type == State_Var::Type::dissolved_flux) {
+				auto var2 = as<State_Var::Type::dissolved_flux>(var);
+				instructions[var_id.id].solver = instructions[var2->flux_of_medium.id].solver;
+			}
 			
 			// Also for concs. Can be overkill some times, but safer just to do it.
-			if(var->type == State_Var::Type::dissolved_conc)
-				instructions[var_id.id].solver = instructions[var->dissolved_conc.id].solver;
+			if(var->type == State_Var::Type::dissolved_conc) {
+				auto var2 = as<State_Var::Type::dissolved_conc>(var);
+				instructions[var_id.id].solver = instructions[var2->conc_of.id].solver;
+			}
 		}
 	}
 	

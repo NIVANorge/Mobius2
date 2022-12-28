@@ -31,7 +31,7 @@ State_Var {
 	
 	std::string name;
 
-	Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type::flux
+	//Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type::flux
 	
 	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
 	
@@ -47,12 +47,12 @@ State_Var {
 	Var_Id         connection_source_agg;
 	Var_Id         connection_target_agg;
 	
-	// If this is a generated flux for a dissolved quantity (f_dissolved_flux is set), dissolved_conc is the respective generated conc of the quantity. dissolved_flux is the flux of the quantity that this one is dissolved in.
-	// If this is the generated conc (f_dissolved_conc is set), dissolved_conc is the variable for the mass of the quantity.
-	// If none of the flags are set and this is the mass of the quantity, dissolved_conc also points to the conc.
-	Var_Id         dissolved_conc;
-	Var_Id         dissolved_flux;
+	// TODO: put these on  declared and dissolved_flux respectively!
+	// If this state variable is the mass of a dissolved quantity, the 'conc' variable is the concentration of it.
+	// If this state variable is the flux of a dissolved quantity, the 'conc' variable is the conc variable of the source of the flux.
+	Var_Id         conc;
 	
+	// TODO: Some of the below could be moved to ::declared
 	Math_Expr_FT *function_tree;
 	bool initial_is_conc;
 	Math_Expr_FT *initial_function_tree;
@@ -61,13 +61,22 @@ State_Var {
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none), connection(invalid_entity_id), connection_source_agg(invalid_var), connection_target_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
+	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none), connection(invalid_entity_id), connection_source_agg(invalid_var), connection_target_agg(invalid_var), conc(invalid_var) {};
 };
 
 
 template<State_Var::Type type> struct
 State_Var_Sub : State_Var {
 	// TODO: When all things are in place, don't allow instantiation of this one.
+};
+
+template<> struct
+State_Var_Sub<State_Var::Type::declared> : State_Var {
+	Entity_Id      decl_id;          // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type::flux
+	//Entity_Id      connection;
+	//Var_Id       conc;
+	
+	State_Var_Sub() : decl_id(invalid_entity_id) {}
 };
 
 template<> struct
@@ -85,15 +94,22 @@ State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
 	State_Var_Sub() : agg_of(invalid_var), agg_to_compartment(invalid_entity_id) {}
 };
 
-/*
 template<> struct
-State_Var_Sub<State_Var::Type::declared> : State_Var {
-	Entity_Id      decl_id;
-	//Entity_Id      connection;
-	//Var_Location   loc1;
-	//Var_Location   loc2;
+State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
+	Var_Id         conc_of;
 	
+	State_Var_Sub() : conc_of(invalid_var) {}
 };
+
+template<> struct
+State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
+	//Var_Id         conc;
+	Var_Id         flux_of_medium;         // The flux of the parent substance that whatever this flux transports is dissolved in.
+	
+	State_Var_Sub() : flux_of_medium(invalid_var) {}
+};
+
+/*
 
 template<> struct
 State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
@@ -102,16 +118,7 @@ State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 	bool           is_source;
 };
 
-template<> struct
-State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
-	Var_Id         conc_of;
-};
 
-template<> struct
-State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	Var_Id         conc;                    // The conc variable for what this flux transports
-	Var_Id         flux_of_dissolved_in;    // The flux of the parent substance that whatever this flux transports is dissolved in.
-};
 */
 
 template<State_Var::Type type>

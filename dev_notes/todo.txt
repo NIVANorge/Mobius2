@@ -66,6 +66,8 @@
 		
 		Let declarations in inlined modules be visible in the parent model scope (?) or other way around is maybe more reasonable.
 		
+		Iterating over state variables should skip invalid ones.
+		
 		
 	*****************   DONE:   ***********************
 	

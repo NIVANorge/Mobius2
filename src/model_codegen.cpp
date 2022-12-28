@@ -29,7 +29,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				auto var = app->state_vars[instr.var_id];  // var is the mass/volume of the quantity
 				
-				auto conc = var->dissolved_conc;
+				auto conc = var->conc;
 				// NOTE: it is easier just to set it for both the mass and conc as we process the mass
 				if(is_valid(conc) && var->type == State_Var::Type::declared) {
 					auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
@@ -66,7 +66,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for concs of dissolved variables
 			if(var->type == State_Var::Type::dissolved_conc) {
 				
-				auto mass = var->dissolved_conc;
+				auto mass = as<State_Var::Type::dissolved_conc>(var)->conc_of;
 				auto mass_var = app->state_vars[mass];
 				auto dissolved_in = app->state_vars.id_of(remove_dissolved(mass_var->loc1));
 				
@@ -83,7 +83,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for fluxes of dissolved variables
 			
 			if(var->type == State_Var::Type::dissolved_flux) {
-				instr.code = make_binop('*', make_state_var_identifier(var->dissolved_conc), make_state_var_identifier(var->dissolved_flux));
+				auto var2 = as<State_Var::Type::dissolved_flux>(var);
+				instr.code = make_binop('*', make_state_var_identifier(var2->conc), make_state_var_identifier(var2->flux_of_medium));
 			}
 			
 			// Restrict discrete fluxes to not overtax their source.

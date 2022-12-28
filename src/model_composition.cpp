@@ -116,9 +116,11 @@ register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id d
 	
 	var->type          = type;
 	var->decl_type     = decl_type;
-	var->entity_id     = decl_id;
 
 	if(is_valid(decl_id)) {
+		auto var2 = as<State_Var::Type::declared>(var);
+		var2->decl_id = decl_id;
+		
 		if(decl_id.reg_type == Reg_Type::has) {
 			auto has = model->hases[decl_id];
 			var->loc1 = loc;
@@ -242,11 +244,11 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 		if((ident->variable_type == Variable_Type::state_var) && (ident->flags & ident_flags_conc)) {
 			
 			auto var = app->state_vars[ident->state_var];
-			if(!is_valid(var->dissolved_conc)) {
+			if(!is_valid(var->conc)) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This variable does not have a concentration");
 			}
-			ident->state_var = var->dissolved_conc;
+			ident->state_var = var->conc;
 			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_conc);
 		}
 	}
@@ -365,8 +367,10 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			continue;
 		
 		// If it is a conc, check vs the mass instead.
-		if(dep_var->type == State_Var::Type::dissolved_conc)
-			dep_var = app->state_vars[dep_var->dissolved_conc];
+		if(dep_var->type == State_Var::Type::dissolved_conc) {
+			auto var2 = as<State_Var::Type::dissolved_conc>(dep_var);
+			dep_var = app->state_vars[var2->conc_of];
+		}
 		
 		if(dep_var->decl_type == Decl_Type::flux || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
@@ -512,8 +516,8 @@ prelim_compose(Model_Application *app) {
 				if(!is_valid(below_var)) continue;
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
-			if(is_valid(flux->entity_id)) { // If this flux was itself generated, it won't have a valid entity id.
-				auto flux_reg = model->fluxes[flux->entity_id];
+			if(flux->type == State_Var::Type::declared) { // If this flux was itself generated, it won't have a declaration to look at.
+				auto flux_reg = model->fluxes[as<State_Var::Type::declared>(flux)->decl_id];
 				if(flux_reg->no_carry_by_default) continue;
 				if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
 			}
@@ -529,19 +533,19 @@ prelim_compose(Model_Application *app) {
 		
 		sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
 		Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, Decl_Type::has, invalid_entity_id, false, varname);
-		auto conc_var = app->state_vars[gen_conc_id];
-		conc_var->dissolved_conc = var_id;
-		app->state_vars[var_id]->dissolved_conc = gen_conc_id;
+		auto conc_var = as<State_Var::Type::dissolved_conc>(app->state_vars[gen_conc_id]);
+		conc_var->conc_of = var_id;
+		app->state_vars[var_id]->conc = gen_conc_id;
 		
 		for(auto flux_id : generate) {
 			std::string &flux_name = app->state_vars[flux_id]->name;
 			sprintf(varname, "dissolved_flux(%s, %s)", var_name.data(), flux_name.data());
 			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, Decl_Type::flux, invalid_entity_id, false, varname);
-			auto gen_flux = app->state_vars[gen_flux_id];
+			auto gen_flux = as<State_Var::Type::dissolved_flux>(app->state_vars[gen_flux_id]);
 			auto flux = app->state_vars[flux_id];
 			gen_flux->type = State_Var::Type::dissolved_flux;
-			gen_flux->dissolved_flux = flux_id;
-			gen_flux->dissolved_conc = gen_conc_id;
+			gen_flux->flux_of_medium = flux_id;
+			gen_flux->conc = gen_conc_id;
 			gen_flux->loc1 = source;
 			gen_flux->loc2.type = flux->loc2.type;
 			if(is_located(flux->loc2))
@@ -671,12 +675,15 @@ compose_and_resolve(Model_Application *app) {
 	
 	Var_Map in_flux_map;
 	Var_Map2 needs_aggregate;
-	//Var_Map2 needs_aggregate_initial;
-	
-	std::set<std::pair<Entity_Id, Var_Id>> may_need_connection_target;
 	
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
+		
+		if(var->decl_type == Decl_Type::flux)
+			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);   // NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones.
+		
+		if(var->type != State_Var::Type::declared) continue;
+		auto var2 = as<State_Var::Type::declared>(var);
 		
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
@@ -692,14 +699,14 @@ compose_and_resolve(Model_Application *app) {
 		Decl_Scope *code_scope       = nullptr;
 		Decl_Scope *other_code_scope = nullptr;
 		
-		if(var->decl_type == Decl_Type::flux) {
+		if(var2->decl_id.reg_type == Reg_Type::flux) {
 			bool target_was_out = false;
-			if(is_valid(var->entity_id)) {
-				auto flux_decl = model->fluxes[var->entity_id];
-				target_was_out = flux_decl->target_was_out;
-				ast = flux_decl->code;
-				code_scope = model->get_scope(flux_decl->code_scope);
-			}
+			
+			auto flux_decl = model->fluxes[var2->decl_id];
+			target_was_out = flux_decl->target_was_out;
+			ast = flux_decl->code;
+			code_scope = model->get_scope(flux_decl->code_scope);
+			
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
 				from_compartment = var->loc1.first();
@@ -710,13 +717,8 @@ compose_and_resolve(Model_Application *app) {
 			
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
 			
-			if(is_valid(var->connection)) {
-				auto conn = model->connections[var->connection];
-				Var_Id source_id = app->state_vars.id_of(var->loc1);
-				may_need_connection_target.insert({var->connection, source_id});
-			}
-		} else if((var->decl_type == Decl_Type::property || var->decl_type == Decl_Type::quantity) && is_valid(var->entity_id)) {
-			auto has = model->hases[var->entity_id];
+		} else if(var2->decl_id.reg_type == Reg_Type::has) {
+			auto has = model->hases[var2->decl_id];
 			ast      = has->code;
 			init_ast = has->initial_code;
 			override_ast = has->override_code;
@@ -765,9 +767,6 @@ compose_and_resolve(Model_Application *app) {
 		} else
 			var->initial_function_tree = nullptr;
 		
-		if(var->decl_type == Decl_Type::flux)
-			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);
-		
 		if(override_ast) {
 			auto override_tree = prune_tree(resolve_function_tree(override_ast, &res_data));
 			bool no_override = false;
@@ -812,6 +811,23 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
+	// TODO: Is this necessary, or could we just do this directly when we build the connections below ??
+	// 	May have to do with aggregates of fluxes having that decl_type, and that is confusing? But they should not have connections any way.
+	std::set<std::pair<Entity_Id, Var_Id>> may_need_connection_target;
+	for(auto var_id : app->state_vars) {
+		auto var = app->state_vars[var_id];
+		if(var->decl_type != Decl_Type::flux || (var->flags & State_Var::Flags::invalid)) continue;
+		
+		if(is_valid(var->connection)) {
+			auto conn = model->connections[var->connection];
+			Var_Id source_id = app->state_vars.id_of(var->loc1);
+			may_need_connection_target.insert({var->connection, source_id});
+		}
+	}
+	
+	
+	
+	
 	// TODO: We could check if any of the so-far declared aggregates are not going to be needed and should be thrown out(?)
 	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.
 	// Or what about last(aggregate(in_flux(bla))) ?
@@ -836,8 +852,10 @@ compose_and_resolve(Model_Application *app) {
 		if(var->flags & State_Var::Flags::invalid) continue;
 		
 		auto loc1 = var->loc1;
-		if(var->type == State_Var::Type::dissolved_conc)
-			loc1 = app->state_vars[var->dissolved_conc]->loc1;
+		if(var->type == State_Var::Type::dissolved_conc) {
+			auto var2 = as<State_Var::Type::dissolved_conc>(var);
+			loc1 = app->state_vars[var2->conc_of]->loc1;
+		}
 		
 		auto source = model->components[loc1.first()];
 		
