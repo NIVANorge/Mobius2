@@ -94,12 +94,29 @@ Local_Var_FT : Math_Expr_FT {
 	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
 };
 
+struct
+State_Var_Dependency {
+	enum Type : u32 {
+		none =         0x0,
+		earlier_step = 0x1,
+	}                 type;
+	Var_Id            var_id;
+};
 
+inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) {
+	if(a.var_id == b.var_id) return (u32)a.type < (u32)b.type;
+	return a.var_id.id < b.var_id.id;
+}
+
+struct
+Dependency_Set {
+	std::set<Entity_Id>             on_parameter;
+	std::set<Var_Id>                on_series;
+	std::set<State_Var_Dependency>  on_state_var;
+};
 
 struct Model_Application;
 struct Math_Expr_AST;
-struct Dependency_Set;
-
 struct Function_Scope;
 
 struct

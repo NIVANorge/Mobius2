@@ -106,7 +106,7 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	data.additional_series.allocate(time_steps, start_date);
 	
 	for(auto series_id : series) {
-		if(!(series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
+		if(!(series[series_id]->flags & State_Variable::Flags::clear_series_to_nan)) continue;
 		
 		series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -115,7 +115,7 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	}
 	
 	for(auto series_id : additional_series) {
-		if(!(additional_series[series_id]->flags & State_Variable::Flags::f_clear_series_to_nan)) continue;
+		if(!(additional_series[series_id]->flags & State_Variable::Flags::clear_series_to_nan)) continue;
 		
 		additional_series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -332,7 +332,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			//This series is not recognized as a model input, so it is an "additional series"
 			State_Variable var;
 			var.name = header.name;
-			var.flags = State_Variable::Flags::f_clear_series_to_nan;
+			var.flags = State_Variable::Flags::clear_series_to_nan;
 			var.unit = header.unit;
 			
 			Var_Id var_id = app->additional_series.register_var(var, invalid_var_location);

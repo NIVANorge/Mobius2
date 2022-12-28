@@ -5,29 +5,10 @@
 #include "model_declaration.h"
 #include "llvm_jit.h"
 #include "data_set.h"
+#include "state_variable.h"
 
 #include <functional>
 
-struct
-State_Var_Dependency {
-	enum Type : u32 {
-		none =         0x0,
-		earlier_step = 0x1,
-	}                 type;
-	Var_Id            var_id;
-};
-
-inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) {
-	if(a.var_id == b.var_id) return (u32)a.type < (u32)b.type;
-	return a.var_id.id < b.var_id.id;
-}
-
-struct
-Dependency_Set {
-	std::set<Entity_Id>             on_parameter;
-	std::set<Var_Id>                on_series;
-	std::set<State_Var_Dependency>  on_state_var;
-};
 
 struct Math_Expr_FT;
 
@@ -45,68 +26,6 @@ Var_Location_Hash {
 		
 		return res;
 	}
-};
-
-// TODO; Hmm, It is a bit superfluous to have a State_Variable record for input series since most of the contents are not relevant for that.
-
-struct
-State_Variable {
-	Decl_Type type; //either flux, quantity or property
-	
-	enum Flags {
-		f_none                = 0x00,
-		f_in_flux             = 0x01,
-		f_connection_agg      = 0x02,
-		f_is_aggregate        = 0x08, 
-		f_has_aggregate       = 0x10,
-		f_clear_series_to_nan = 0x20,
-		f_dissolved_flux      = 0x40,
-		f_dissolved_conc      = 0x80,
-		f_invalid             = 0x1000,
-	} flags;
-	
-	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.
-	
-	std::string name;
-
-	Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type.flux
-	
-	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
-	
-	Entity_Id connection; // For a flux that points at a connection.
-	
-	// If this is a quantity or property, loc1 is the location of this variable.
-	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
-	Var_Location   loc1;
-	Var_Location   loc2;
-	
-	// if f_is_aggregate, this is what it aggregates. if f_has_aggregate, this is who aggregates it.
-	Var_Id         agg;
-	Entity_Id      agg_to_compartment;
-	
-	// if f_in_flux is set (this is the aggregation variable for the in fluxes), agg points at the quantity that is the target of the fluxes.
-	Var_Id         in_flux_target;
-	
-	// If this is the target variable of a connection flux, connection_agg points to the aggregation variable for the connection flux.
-	// If this is the aggregate ( f_in_flux_connection is set ), connection_agg points to the target of the connection flux(es) (which is the same as the source).
-	Var_Id         connection_source_agg;
-	Var_Id         connection_target_agg;
-	
-	// If this is a generated flux for a dissolved quantity (f_dissolved_flux is set), dissolved_conc is the respective generated conc of the quantity. dissolved_flux is the flux of the quantity that this one is dissolved in.
-	// If this is the generated conc (f_dissolved_conc is set), dissolved_conc is the variable for the mass of the quantity.
-	// If none of the flags are set and this is the mass of the quantity, dissolved_conc also points to the conc.
-	Var_Id         dissolved_conc;
-	Var_Id         dissolved_flux;
-	
-	Math_Expr_FT *function_tree;
-	bool initial_is_conc;
-	Math_Expr_FT *initial_function_tree;
-	Math_Expr_FT *aggregation_weight_tree;
-	Math_Expr_FT *unit_conversion_tree;
-	bool override_is_conc;
-	Math_Expr_FT *override_tree;
-	
-	State_Variable() : function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(f_none), agg(invalid_var), connection(invalid_entity_id), connection_source_agg(invalid_var), connection_target_agg(invalid_var), dissolved_conc(invalid_var), dissolved_flux(invalid_var) {};
 };
 
 template <Var_Id::Type var_type>
