@@ -31,7 +31,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				auto conc = var->dissolved_conc;
 				// NOTE: it is easier just to set it for both the mass and conc as we process the mass
-				if(is_valid(conc) && var->type == State_Variable::Type::declared) {
+				if(is_valid(conc) && var->type == State_Var::Type::declared) {
 					auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
 						
 					if(var->initial_is_conc) {
@@ -64,8 +64,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			}
 			
 			// Codegen for concs of dissolved variables
-			if(var->type == State_Variable::Type::dissolved_conc) {
-			//if(var->decl_type == Decl_Type::property && (var->flags & State_Variable::Flags::f_dissolved_conc) ) {
+			if(var->type == State_Var::Type::dissolved_conc) {
 				
 				auto mass = var->dissolved_conc;
 				auto mass_var = app->state_vars[mass];
@@ -83,8 +82,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Codegen for fluxes of dissolved variables
 			
-			if(var->type == State_Variable::Type::dissolved_flux) {
-			//if(var->decl_type == Decl_Type::flux && (var->flags & State_Variable::Flags::f_dissolved_flux) ) {
+			if(var->type == State_Var::Type::dissolved_flux) {
 				instr.code = make_binop('*', make_state_var_identifier(var->dissolved_conc), make_state_var_identifier(var->dissolved_flux));
 			}
 			
@@ -109,13 +107,15 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			//   Make a lookup accelleration for this?
 			
 			// Codegen for in_fluxes:
-			if(var->type == State_Variable::Type::in_flux_aggregate) {
+			if(var->type == State_Var::Type::in_flux_aggregate) {
+				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 				Math_Expr_FT *flux_sum = make_literal(0.0);
 				for(auto flux_id : app->state_vars) {
 					auto flux_var = app->state_vars[flux_id];
-					if(flux_var->flags & State_Variable::Flags::invalid) continue;
+					if(flux_var->flags & State_Var::Flags::invalid) continue;
 					// NOTE: by design we don't include connection fluxes in the in_flux. May change that later.
-					if(flux_var->decl_type == Decl_Type::flux && !is_valid(flux_var->connection) && is_located(flux_var->loc2) && app->state_vars.id_of(flux_var->loc2) == var->in_flux_target) {
+					//  find all fluxes that has the given target and sum them up.
+					if(flux_var->decl_type == Decl_Type::flux && !is_valid(flux_var->connection) && is_located(flux_var->loc2) && app->state_vars.id_of(flux_var->loc2) == var2->in_flux_to) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						if(flux_var->unit_conversion_tree)
 							flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
@@ -139,7 +139,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				for(Var_Id flux_id : app->state_vars) {
 					auto flux = app->state_vars[flux_id];
-					if(flux->flags & State_Variable::Flags::invalid) continue;
+					if(flux->flags & State_Var::Flags::invalid) continue;
 					if(flux->decl_type != Decl_Type::flux) continue;
 					
 					if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id) {
@@ -216,7 +216,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		back_step = app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
 		auto var = app->state_vars[ident->state_var];
-		if(var->flags & State_Variable::Flags::invalid)
+		if(var->flags & State_Var::Flags::invalid)
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
 		offset_code = app->result_structure.get_offset_code(ident->state_var, index_expr);

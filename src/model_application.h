@@ -30,16 +30,16 @@ Var_Location_Hash {
 
 template <Var_Id::Type var_type>
 struct Var_Registry {
-	std::vector<State_Variable> vars;
+	std::vector<State_Var *> vars;
 	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
 	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
 	
-	State_Variable *operator[](Var_Id id) {
+	State_Var *operator[](Var_Id id) {
 		if(!is_valid(id) || id.id >= vars.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
 		if(id.type != var_type)
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable of wrong type.");
-		return &vars[id.id];
+		return vars[id.id];
 	}
 	
 	Var_Id id_of(const Var_Location &loc) {
@@ -69,18 +69,20 @@ struct Var_Registry {
 		return *ids.begin();
 	}
 	
-	Var_Id register_var(State_Variable var, Var_Location loc) {
-		if(is_located(loc)) {
-			Var_Id id = id_of(loc);
-			if(is_valid(id))
-				fatal_error(Mobius_Error::internal, "Re-registering a variable."); //TODO: hmm, this only catches cases where the location was valid.
-		}
+	template<State_Var::Type type>
+	Var_Id register_var(Var_Location loc, const std::string &name) {
+		if(is_located(loc) && is_valid(id_of(loc)))
+			fatal_error(Mobius_Error::internal, "Re-registering a variable."); //TODO: hmm, this only catches cases where the location was valid.
 		
+		// TODO: Better memory allocation system for these... Ideally want them in contiguous memory..
+		// TODO: Need to delete them (or unique_ptr - like construction)
+		auto var = new State_Var_Sub<type>();
+		var->name = name;
 		vars.push_back(var);
 		Var_Id id = {var_type, (s32)vars.size()-1};
 		if(is_located(loc))
 			location_to_id[loc] = id;
-		name_to_id[var.name].insert(id);
+		name_to_id[name].insert(id);
 		return id;
 	}
 	

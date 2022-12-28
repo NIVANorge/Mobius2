@@ -26,7 +26,7 @@
 #include "function_tree.h"
 
 #include <sstream>
-//#include <bitset>
+
 
 void
 prelim_compose(Model_Application *app);
@@ -77,69 +77,82 @@ check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_L
 	}
 }
 
-Var_Id
-register_state_variable(Model_Application *app, Decl_Type type, Entity_Id id, bool is_series, const std::string &given_name = "") {
+template<State_Var::Type type> Var_Id
+register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id decl_id, bool is_series, const std::string &given_name = "") {
 	
-	State_Variable var = {};
-	var.decl_type      = type;
-	var.entity_id      = id;
+	// TODO: Ideally we want to remove decl_type as an argument here, but then it would have to be made irrelevant for non-declared variables.
 	
 	auto model = app->model;
 	
-	Var_Location loc = invalid_var_location;
+	if(type == State_Var::Type::declared && !is_valid(decl_id))
+		fatal_error(Mobius_Error::internal, "Didn't get a decl_id for a declared variable.");
 	
-	if(is_valid(id)) {
-		if(type == Decl_Type::has) {
-			auto has = model->hases[id];
-			loc = has->var_location;
-			var.loc1 = loc;
-			check_if_var_loc_is_well_formed(model, var.loc1, has->source_loc);
-			var.decl_type = model->components[loc.last()]->decl_type;
+	Var_Location loc = invalid_var_location;
+	if(is_valid(decl_id) && decl_id.reg_type == Reg_Type::has) {
+		auto has = model->hases[decl_id];
+		loc = has->var_location;
+		check_if_var_loc_is_well_formed(model, loc, has->source_loc);
+	}
+	
+	auto name = given_name;
+	if(name.empty() && is_valid(decl_id)) {
+		if(decl_id.reg_type == Reg_Type::flux)
+			name = model->fluxes[decl_id]->name;
+		else
+			name = model->hases[decl_id]->var_name;
+	}
+	if(name.empty() && decl_type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
+		name = model->find_entity(loc.last())->name;
+	
+	Var_Id var_id = invalid_var;
+	State_Var *var = nullptr;
+	if(is_series) {
+		var_id = app->series.register_var<type>(loc, name);
+		var = app->series[var_id];
+	} else {
+		var_id = app->state_vars.register_var<type>(loc, name);
+		var = app->state_vars[var_id];
+	}
+	
+	var->type          = type;
+	var->decl_type     = decl_type;
+	var->entity_id     = decl_id;
+
+	if(is_valid(decl_id)) {
+		if(decl_id.reg_type == Reg_Type::has) {
+			auto has = model->hases[decl_id];
+			var->loc1 = loc;
+			var->decl_type = model->components[loc.last()]->decl_type;
 			if(is_valid(has->unit))
-				var.unit = model->units[has->unit]->data;
-		} else if (type == Decl_Type::flux) {
-			auto flux = model->fluxes[id];
-			var.loc1 = flux->source;
-			var.loc2 = flux->target;
+				var->unit = model->units[has->unit]->data;
+		} else if (decl_id.reg_type == Reg_Type::flux) {
+			auto flux = model->fluxes[decl_id];
+			var->loc1 = flux->source;
+			var->loc2 = flux->target;
+			var->decl_type = Decl_Type::flux;
 			// These may not be needed, since we would check if the locations exist in any case (and the source location is confusing as it stands here).
 			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
 			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
 			if(is_valid(flux->connection_target)) {
-				if(!is_located(var.loc1)) {
-					flux->source_loc.print_error_header(Mobius_Error::model_building);
+				if(!is_located(var->loc1)) {
+					flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: This is not the correct place to check this. Also, the source loc is wrong if the flux was redirected.
 					fatal_error("You can't have a flux from nowhere to a connection.\n");
 				}
-				var.connection = flux->connection_target;
-				var.loc2 = var.loc1;
+				var->connection = flux->connection_target;
+				var->loc2 = var->loc1; //TODO: Dunno why this is done. Should try to not do it (but may have to fix errors elsewhere).
 			}
 			// TODO: the flux unit should always be (unit of what is transported) / (time step unit)
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
-	} else if (type == Decl_Type::has)
-		var.decl_type = Decl_Type::property; // TODO: should be a separate type, or it could cause difficulty later.
-	
-	auto name = given_name;
-	if(name.empty() && is_valid(id)) {
-		if(type == Decl_Type::flux)
-			name = model->fluxes[id]->name;
-		else
-			name = model->hases[id]->var_name;
-	}
-	if(name.empty() && type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate "Compartmentname Quantityname" or something like that instead.
-		name = model->find_entity(loc.last())->name;
+	} else if (decl_type == Decl_Type::has)
+		var->decl_type = Decl_Type::property; // TODO: This is very weird, why is it like this at all?
 		
-	var.name = name;
-	if(var.name.empty())
+	if(var->name.empty())
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
 	
 	//warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
 	
-	if(is_series)
-		return app->series.register_var(var, loc);
-	else
-		return app->state_vars.register_var(var, loc);
-	
-	return invalid_var;
+	return var_id;
 }
 
 void
@@ -304,7 +317,7 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Loca
 }
 
 void
-check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, State_Variable *var, bool initial) {
+check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, State_Var *var, bool initial) {
 	Dependency_Set code_depends;
 	register_dependencies(function, &code_depends);
 	
@@ -343,16 +356,16 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		auto dep_var = app->state_vars[dep.var_id];
 		
 		// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
-		if(dep_var->type == State_Variable::Type::in_flux_aggregate)
-			dep_var = app->state_vars[dep_var->in_flux_target];
+		if(dep_var->type == State_Var::Type::in_flux_aggregate)
+			dep_var = app->state_vars[as<State_Var::Type::in_flux_aggregate>(dep_var)->in_flux_to];
 		
 		// If it is an aggregate, index set dependencies will be generated to be correct.
 		//TODO: Do we need this here, or would it work anyway with the new system?
-		if(dep_var->type == State_Variable::Type::regular_aggregate)
+		if(dep_var->type == State_Var::Type::regular_aggregate)
 			continue;
 		
 		// If it is a conc, check vs the mass instead.
-		if(dep_var->type == State_Variable::Type::dissolved_conc)
+		if(dep_var->type == State_Var::Type::dissolved_conc)
 			dep_var = app->state_vars[dep_var->dissolved_conc];
 		
 		if(dep_var->decl_type == Decl_Type::flux || !is_located(dep_var->loc1))
@@ -457,10 +470,10 @@ prelim_compose(Model_Application *app) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("For now we don't support input series with chained locations.");
 				}
-				register_state_variable(app, Decl_Type::has, id, true);
+				register_state_variable<State_Var::Type::declared>(app, Decl_Type::has, id, true);
 			} else if (id == find->second) {
 				// This is the particular has declaration that provided the code, so we register a state variable using this one.
-				Var_Id var_id = register_state_variable(app, Decl_Type::has, id, false);
+				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, Decl_Type::has, id, false);
 				if(has->var_location.is_dissolved() && type == Decl_Type::quantity)
 					dissolvedes.push_back(var_id);
 			}
@@ -474,7 +487,7 @@ prelim_compose(Model_Application *app) {
 		check_flux_location(app, scope, flux->source_loc, flux->source);
 		check_flux_location(app, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
 		
-		register_state_variable(app, Decl_Type::flux, id, false);
+		register_state_variable<State_Var::Type::declared>(app, Decl_Type::flux, id, false);
 	}
 	
 	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
@@ -515,19 +528,18 @@ prelim_compose(Model_Application *app) {
 		auto dissolved_in = app->state_vars[dissolved_in_id];
 		
 		sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
-		Var_Id gen_conc_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname);
+		Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, Decl_Type::has, invalid_entity_id, false, varname);
 		auto conc_var = app->state_vars[gen_conc_id];
-		conc_var->type = State_Variable::Type::dissolved_conc;
 		conc_var->dissolved_conc = var_id;
 		app->state_vars[var_id]->dissolved_conc = gen_conc_id;
 		
 		for(auto flux_id : generate) {
 			std::string &flux_name = app->state_vars[flux_id]->name;
 			sprintf(varname, "dissolved_flux(%s, %s)", var_name.data(), flux_name.data());
-			Var_Id gen_flux_id = register_state_variable(app, Decl_Type::flux, invalid_entity_id, false, varname);
+			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, Decl_Type::flux, invalid_entity_id, false, varname);
 			auto gen_flux = app->state_vars[gen_flux_id];
 			auto flux = app->state_vars[flux_id];
-			gen_flux->type = State_Variable::Type::dissolved_flux;
+			gen_flux->type = State_Var::Type::dissolved_flux;
 			gen_flux->dissolved_flux = flux_id;
 			gen_flux->dissolved_conc = gen_conc_id;
 			gen_flux->loc1 = source;
@@ -619,9 +631,8 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, E
 	else
 		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
 	
-	Var_Id agg_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, varname);
+	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, Decl_Type::has, invalid_entity_id, false, varname);
 	auto agg_var = app->state_vars[agg_id];
-	agg_var->type = State_Variable::Type::connection_aggregate;
 	if(is_source) {
 		app->state_vars[var_id]->connection_source_agg = agg_id;
 		agg_var->connection_source_agg = var_id;
@@ -781,7 +792,7 @@ compose_and_resolve(Model_Application *app) {
 	
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
-		if(var->type == State_Variable::Type::dissolved_flux) {
+		if(var->type == State_Var::Type::dissolved_flux) {
 			bool valid_source = true;
 			if(is_located(var->loc1)) {
 				auto source = app->state_vars[app->state_vars.id_of(var->loc1)];
@@ -797,7 +808,7 @@ compose_and_resolve(Model_Application *app) {
 			} else
 				valid_target = false;
 			if(!valid_source && !valid_target)
-				var->flags = (State_Variable::Flags)(var->flags | State_Variable::Flags::invalid);
+				var->flags = (State_Var::Flags)(var->flags | State_Var::Flags::invalid);
 		}
 	}
 	
@@ -809,7 +820,7 @@ compose_and_resolve(Model_Application *app) {
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
-		if(var->flags & State_Variable::Flags::invalid) continue;
+		if(var->flags & State_Var::Flags::invalid) continue;
 		if(var->decl_type != Decl_Type::flux) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
@@ -822,10 +833,10 @@ compose_and_resolve(Model_Application *app) {
 	for(auto &need_agg : needs_aggregate) {
 		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};
 		auto var = app->state_vars[var_id];
-		if(var->flags & State_Variable::Flags::invalid) continue;
+		if(var->flags & State_Var::Flags::invalid) continue;
 		
 		auto loc1 = var->loc1;
-		if(var->type == State_Variable::Type::dissolved_conc)
+		if(var->type == State_Var::Type::dissolved_conc)
 			loc1 = app->state_vars[var->dissolved_conc]->loc1;
 		
 		auto source = model->components[loc1.first()];
@@ -843,19 +854,16 @@ compose_and_resolve(Model_Application *app) {
 					fatal_error(Mobius_Error::model_building, "Missing aggregation_weight for variable ", var->name, " between compartments \"", source->name, "\" and \"", target->name, "\".\n");
 				}
 			}
-			var->flags = (State_Variable::Flags)(var->flags | State_Variable::has_aggregate);
+			var->flags = (State_Var::Flags)(var->flags | State_Var::has_aggregate);
 			
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
 			sprintf(varname, "aggregate(%s)", var->name.data());
-			Var_Id agg_id = register_state_variable(app, var->decl_type, invalid_entity_id, false, varname);
+			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, var->decl_type, invalid_entity_id, false, varname);
 			
-			auto agg_var = app->state_vars[agg_id];
-			//agg_var->flags = (State_Variable::Flags)(agg_var->flags | State_Variable::f_is_aggregate);
-			// TODO: Should we copy flags?? Does this even work??
-			agg_var->type = State_Variable::Type::regular_aggregate;
-			agg_var->agg = var_id;
+			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[agg_id]);
+			agg_var->agg_of = var_id;
 			agg_var->aggregation_weight_tree = agg_weight;
 			
 			var = app->state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
@@ -870,7 +878,6 @@ compose_and_resolve(Model_Application *app) {
 			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
 			var->unit_conversion_tree = nullptr;
 			agg_var->agg_to_compartment = to_compartment;
-			app->state_vars[var_id]->agg = agg_id;
 			
 			for(auto looked_up_by : need_agg.second.second) {
 				auto lu = app->state_vars[looked_up_by];
@@ -940,11 +947,10 @@ compose_and_resolve(Model_Application *app) {
 	for(auto &in_flux : in_flux_map) {
 		Var_Id target_id = {Var_Id::Type::state_var, in_flux.first}; //TODO: Not good way to do it!
 		
-		Var_Id in_flux_id = register_state_variable(app, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
-		auto in_flux_var = app->state_vars[in_flux_id];
+		Var_Id in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
+		auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->state_vars[in_flux_id]);
 		
-		in_flux_var->in_flux_target        = target_id;
-		in_flux_var->type = State_Variable::Type::in_flux_aggregate;
+		in_flux_var->in_flux_to = target_id;
 		
 		for(auto rep_id : in_flux.second)
 			replace_flagged(app->state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
@@ -953,7 +959,7 @@ compose_and_resolve(Model_Application *app) {
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
-		if(var->flags & State_Variable::Flags::invalid) continue;
+		if(var->flags & State_Var::Flags::invalid) continue;
 		
 		if(var->function_tree)
 			check_valid_distribution_of_dependencies(app, var->function_tree,         var, false);

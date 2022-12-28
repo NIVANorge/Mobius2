@@ -334,20 +334,21 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 				instr->code = nullptr;
 			
 			// If it is an aggregation variable, whatever it aggregates also must be computed.
-			if(var->type == State_Variable::Type::regular_aggregate) {
-				auto instr2 = &instructions[var->agg.id];
+			if(var->type == State_Var::Type::regular_aggregate) {
+				auto var2 = as<State_Var::Type::regular_aggregate>(var);
 				
-				if(instr2->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
+				auto instr_agg_of = &instructions[var2->agg_of.id];
+				if(instr_agg_of->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
 				
-				auto var2 = app->state_vars[var->agg];
+				auto var_agg_of = app->state_vars[var2->agg_of];
 				
-				instr2->type = Model_Instruction::Type::compute_state_var;
-				instr2->var_id = var->agg;
-				if(var2->function_tree) {
-					instr2->code = var2->function_tree;
-					create_initial_vars_for_lookups(app, instr2->code, instructions);
+				instr_agg_of->type = Model_Instruction::Type::compute_state_var;
+				instr_agg_of->var_id = var2->agg_of;
+				if(var_agg_of->function_tree) {
+					instr_agg_of->code = var_agg_of->function_tree;
+					create_initial_vars_for_lookups(app, instr_agg_of->code, instructions);
 				} else
-					instr2->code = nullptr;
+					instr_agg_of->code = nullptr;
 			}
 			//TODO: if it is a conc and is not computed, do we need to check if the mass variable has an initial conc?
 		}
@@ -367,14 +368,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		auto fun = var->function_tree;
 		if(initial) fun = var->initial_function_tree;
 		if(!initial && !fun) {
-			if(!(var->flags & State_Variable::Flags::invalid) && var->type == State_Variable::Type::declared && var->decl_type != Decl_Type::quantity)
+			if(!(var->flags & State_Var::Flags::invalid) && var->type == State_Var::Type::declared && var->decl_type != Decl_Type::quantity)
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 		}
 		
 		Model_Instruction instr;
 		instr.type = Model_Instruction::Type::compute_state_var;
 		
-		if(var->flags & State_Variable::Flags::invalid)
+		if(var->flags & State_Var::Flags::invalid)
 			instr.type = Model_Instruction::Type::invalid;
 		
 		if(!fun && initial)
@@ -438,7 +439,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].solver = instructions[app->state_vars.id_of(var->loc1).id].solver;
 
 			// Also set the solver for an aggregation variable for a connection flux.
-			if(var->type == State_Variable::Type::connection_aggregate) {
+			if(var->type == State_Var::Type::connection_aggregate) {
 				Var_Id agg_of = is_valid(var->connection_target_agg) ? var->connection_target_agg : var->connection_source_agg;
 				
 				instructions[var_id.id].solver = instructions[agg_of.id].solver;
@@ -458,11 +459,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 			// Dissolved fluxes of fluxes with solvers must be on solvers
 			//TODO: it seems to work on dissolvedes of dissolvedes, but this is only because they happen to be in the right order in the state_vars array. Should be more robust.
-			if(var->type == State_Variable::Type::dissolved_flux)
+			if(var->type == State_Var::Type::dissolved_flux)
 				instructions[var_id.id].solver = instructions[var->dissolved_flux.id].solver;
 			
 			// Also for concs. Can be overkill some times, but safer just to do it.
-			if(var->type == State_Variable::Type::dissolved_conc)
+			if(var->type == State_Var::Type::dissolved_conc)
 				instructions[var_id.id].solver = instructions[var->dissolved_conc.id].solver;
 		}
 	}
@@ -476,21 +477,21 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	
 		auto var = app->state_vars[var_id];
 		
-		auto loc1 = var->loc1;
-		auto loc2 = var->loc2;
-		
-		bool is_aggregate  = var->type == State_Variable::Type::regular_aggregate;
-		bool has_aggregate = var->flags & State_Variable::Flags::has_aggregate;
+		bool is_aggregate  = var->type == State_Var::Type::regular_aggregate;
+		bool has_aggregate = var->flags & State_Var::Flags::has_aggregate;
 		
 		auto var_solver = instr->solver;
 		
-		if(has_aggregate) {
+		if(is_aggregate) {
 			// var (var_id) is now the variable that is being aggregated.
 			// instr is the instruction to compute it
 			
 			//if(initial) warning_print("*** *** *** initial agg for ", var->name, "\n");
+			auto var2 = as<State_Var::Type::regular_aggregate>(var);
+			auto agg_of = var2->agg_of;
+			var_solver = instructions[agg_of.id].solver;
 			
-			auto aggr_var = app->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
+			//auto aggr_var = app->state_vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
 			
 			// We need to clear the aggregation variable to 0 between each time it is needed.
 			int clear_idx = instructions.size();
@@ -499,12 +500,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			int add_to_aggr_idx = instructions.size();
 			instructions.push_back({});
 			
-			// The instruction for the aggr_var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
-			auto agg_instr = &instructions[var->agg.id];
-			
+			// The instruction for the var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
+			auto agg_instr = &instructions[var_id.id];
 			// The instruction for clearing to 0
 			auto clear_instr = &instructions[clear_idx];
-			
 			// The instruction that takes the value of var and adds it to aggr_var (with a weight)
 			auto add_to_aggr_instr = &instructions[add_to_aggr_idx];
 			
@@ -512,7 +511,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
-			auto agg_to_comp = model->components[aggr_var->agg_to_compartment];
+			auto agg_to_comp = model->components[var2->agg_to_compartment];
 			//agg_instr->inherits_index_sets_from_instruction.clear(); // Should be unnecessary. We just constructed it.
 			
 			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
@@ -523,29 +522,27 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
 			clear_instr->type = Model_Instruction::Type::clear_state_var;
 			clear_instr->solver = var_solver;
-			clear_instr->var_id = var->agg;     // The var_id of the clear_instr indicates which variable we want to clear.
+			clear_instr->var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
 			clear_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
 
-			
 			add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
-			add_to_aggr_instr->var_id = var_id;
-			add_to_aggr_instr->target_id = var->agg;
-			add_to_aggr_instr->depends_on_instruction.insert(var_id.id); // We can only sum the value in after it is computed.
+			add_to_aggr_instr->var_id = agg_of;
+			add_to_aggr_instr->target_id = var_id;
+			add_to_aggr_instr->depends_on_instruction.insert(agg_of.id); // We can only sum the value in after it is computed.
 			//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed. Unnecessary to declare since it is handled by new dependency system.
-			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var->agg.id); // We need to look it up every time we sum to it.
+			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need to look it up every time we sum to it.
 			add_to_aggr_instr->solver = var_solver;
 			
-			if(var->decl_type == Decl_Type::flux && is_located(aggr_var->loc2)) {
+			if(var->decl_type == Decl_Type::flux && is_located(var->loc2)) {
 				// If the aggregated variable is a flux, we potentially may have to tell it to get the right index sets.
 				
 				//note: this is only ok for auto-generated aggregations. Not if somebody called aggregate() on a flux explicitly, because then it is not necessarily the target of the flux that wants to know the aggregate.
 				// But I guess you can't explicitly reference fluxes in code any way. We have to keep in mind that if that is implemented though.
-				auto target_id = app->state_vars.id_of(aggr_var->loc2);
-				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var->agg.id);
+				auto target_id = app->state_vars.id_of(var->loc2);
+				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var_id.id);
 			}
-		}
-		
-		if(var->type == State_Variable::Type::connection_aggregate) {
+			
+		} else if(var->type == State_Var::Type::connection_aggregate) {
 			
 			if(initial)
 				fatal_error(Mobius_Error::internal, "Got a connection flux in the initial step.");
@@ -662,6 +659,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		}
 		
 		if(initial || var->decl_type != Decl_Type::flux) continue;
+		
+		
+		var = app->state_vars[var_id];
+		auto loc1 = var->loc1;
+		auto loc2 = var->loc2;
 		
 		Entity_Id source_solver = invalid_entity_id;
 		Var_Id source_id;

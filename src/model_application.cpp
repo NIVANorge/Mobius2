@@ -106,7 +106,7 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	data.additional_series.allocate(time_steps, start_date);
 	
 	for(auto series_id : series) {
-		if(!(series[series_id]->flags & State_Variable::Flags::clear_series_to_nan)) continue;
+		if(!(series[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
 		
 		series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -115,7 +115,7 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	}
 	
 	for(auto series_id : additional_series) {
-		if(!(additional_series[series_id]->flags & State_Variable::Flags::clear_series_to_nan)) continue;
+		if(!(additional_series[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
 		
 		additional_series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -330,12 +330,10 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 		
 		if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
-			State_Variable var;
-			var.name = header.name;
-			var.flags = State_Variable::Flags::clear_series_to_nan;
-			var.unit = header.unit;
-			
-			Var_Id var_id = app->additional_series.register_var(var, invalid_var_location);
+			Var_Id var_id = app->additional_series.register_var<State_Var::Type::declared>(invalid_var_location, header.name);
+			auto var = app->additional_series[var_id];
+			var->flags = State_Var::Flags::clear_series_to_nan;
+			var->unit = header.unit;
 			ids.insert(var_id);
 		}
 		//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions (when we implement that)?
