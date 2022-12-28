@@ -271,9 +271,9 @@ fatal_error_trace(Function_Scope *scope) {
 //TODO: could probably be factored as a utility function for the model. Similar to functionality in MobiView and c_api. Try to make a better api for accessing state variables in general.
 inline Var_Id
 find_var_at_location(Var_Location &loc, Model_Application *app) {
-	auto var_id = app->state_vars[loc];
+	auto var_id = app->state_vars.id_of(loc);
 	if(!is_valid(var_id))
-	var_id = app->series[loc];
+	var_id = app->series.id_of(loc);
 	return var_id;
 }
 

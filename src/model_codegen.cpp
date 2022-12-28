@@ -32,7 +32,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto conc = var->dissolved_conc;
 				// NOTE: it is easier just to set it for both the mass and conc as we process the mass
 				if(is_valid(conc) && !(var->flags & State_Variable::Flags::f_dissolved_conc) && !(var->flags & State_Variable::Flags::f_dissolved_flux)) {
-					auto dissolved_in = app->state_vars[remove_dissolved(var->loc1)];
+					auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
 						
 					if(var->initial_is_conc) {
 						// conc is given. compute mass
@@ -68,7 +68,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				auto mass = var->dissolved_conc;
 				auto mass_var = app->state_vars[mass];
-				auto dissolved_in = app->state_vars[remove_dissolved(mass_var->loc1)];
+				auto dissolved_in = app->state_vars.id_of(remove_dissolved(mass_var->loc1));
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
 					instr.code = mass_var->override_tree;
@@ -97,7 +97,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
 				
 				if(is_located(var->loc1)) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
-					Var_Id source_id = app->state_vars[var->loc1];
+					Var_Id source_id = app->state_vars.id_of(var->loc1);
 					auto source_ref = reinterpret_cast<Identifier_FT *>(make_state_var_identifier(source_id));
 					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 				}
@@ -113,7 +113,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					auto flux_var = app->state_vars[flux_id];
 					if(flux_var->flags & State_Variable::Flags::f_invalid) continue;
 					// NOTE: by design we don't include connection fluxes in the in_flux. May change that later.
-					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->connection) && is_located(flux_var->loc2) && app->state_vars[flux_var->loc2] == var->in_flux_target) {
+					if(flux_var->type == Decl_Type::flux && !is_valid(flux_var->connection) && is_located(flux_var->loc2) && app->state_vars.id_of(flux_var->loc2) == var->in_flux_target) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						if(flux_var->unit_conversion_tree)
 							flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
@@ -140,7 +140,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					if(flux->flags & State_Variable::Flags::f_invalid) continue;
 					if(flux->type != Decl_Type::flux) continue;
 					
-					if(is_located(flux->loc1) && app->state_vars[flux->loc1] == instr.var_id) {
+					if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id) {
 						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
 						if(is_valid(flux->connection)) {
 							auto conn = model->connections[flux->connection];
@@ -154,7 +154,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					
 					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
 					//   maybe compicates code unnecessarily though.
-					if(is_located(flux->loc2) && !is_valid(flux->connection) && app->state_vars[flux->loc2] == instr.var_id) {
+					if(is_located(flux->loc2) && !is_valid(flux->connection) && app->state_vars.id_of(flux->loc2) == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						// NOTE: the unit conversion applies to what reaches the target.
 						if(flux->unit_conversion_tree)

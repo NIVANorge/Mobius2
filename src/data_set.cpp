@@ -51,7 +51,7 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 		
 		// TODO!
 		//   non-trivial problem to format this the best way possible... :(
-		//   works nicely to print format that was got from previous file, but not if it was edited e.g. in user interface.
+		//   works nicely to print format that was got from previous file, but not if it was edited e.g. in user interface (if that is ever implemented).
 		// Note that the data is always correct, it is just not necessarily the most compact representation of the graph.
 		
 		Compartment_Ref *prev = nullptr;
@@ -66,6 +66,8 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 		}
 		fprintf(file, "\n]\n\n");
 	} else if (connection.type == Connection_Info::Type::single_component) {
+		// Nothing else to write.
+	} else if (connection.type == Connection_Info::Type::none) {
 		// Nothing else to write.
 	} else {
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in write_to_file.");

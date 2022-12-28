@@ -69,7 +69,7 @@ State_Variable {
 	
 	std::string name;
 
-	Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either has(...) or flux(...)
+	Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type.flux
 	
 	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
 	
@@ -123,7 +123,7 @@ struct Var_Registry {
 		return &vars[id.id];
 	}
 	
-	Var_Id operator[](const Var_Location &loc) {
+	Var_Id id_of(const Var_Location &loc) {
 		if(!is_located(loc))
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using a non-located location.");
 		auto find = location_to_id.find(loc);
@@ -132,6 +132,7 @@ struct Var_Registry {
 		return find->second;
 	}
 	
+	// TODO: This one should just be removed in favor of deserialize once we have fixed a system for that.
 	const std::set<Var_Id> &operator[](const std::string &name) {
 		static std::set<Var_Id> empty_set = {};
 		auto find = name_to_id.find(name);
@@ -151,7 +152,7 @@ struct Var_Registry {
 	
 	Var_Id register_var(State_Variable var, Var_Location loc) {
 		if(is_located(loc)) {
-			Var_Id id = (*this)[loc];
+			Var_Id id = id_of(loc);
 			if(is_valid(id))
 				fatal_error(Mobius_Error::internal, "Re-registering a variable."); //TODO: hmm, this only catches cases where the location was valid.
 		}

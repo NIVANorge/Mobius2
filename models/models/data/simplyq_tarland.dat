@@ -6,9 +6,10 @@ index_set("Landscape units") [ "Arable" "Improved grasslands" "Semi-natural" ]
 
 index_set("Subcatchment") [ "Coull" "Boyne" ]
 
-r : compartment("River") [ "Subcatchment" ]
 connection("Downstream") [
-	r["Coull"]  -> r["Boyne"]
+	r : compartment("River") [ "Subcatchment" ]
+
+	r[ "Coull" ] -> r[ "Boyne" ]
 ]
 
 series("tarland_series.xlsx")
@@ -22,8 +23,10 @@ par_group("System") {
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
-	par_real("Land use proportions")
-	[ 0.2 0.3 0.5 0.4 0.1 0.5 ]
+	par_real("Land use proportions") [
+		0.2 0.3 0.5 
+		0.4 0.1 0.5 
+	]
 }
 
 par_group("Catchment data") [ "Subcatchment" ] {
@@ -66,10 +69,10 @@ module("Degree-day PET", 1, 0, 0) {
 module("SimplyQ land", 0, 5, 0) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
-		[ 0.72 ]
+		[ 0.6 ]
 
 		par_real("Quick flow inflection point")
-		[ 400 ]
+		[ 1500 ]
 	}
 
 	par_group("Hydrology land") [ "Landscape units" ] {
@@ -82,7 +85,7 @@ module("SimplyQ land", 0, 5, 0) {
 
 	par_group("Groundwater") {
 		par_real("Groundwater time constant")
-		[ 42 ]
+		[ 75 ]
 	}
 }
 
@@ -98,7 +101,7 @@ module("SimplyQ river", 0, 0, 1) {
 		[ 0.04 0.04 ]
 
 		par_real("Initial reach flow")
-		[ 1 1 ]
+		[ 0.5 1 ]
 	}
 }
 
@@ -138,8 +141,5 @@ module("SimplyC", 1, 0, 0) {
 		par_enum("Groundwater DOC computation type")
 		[ soil_avg ]
 	}
-}
-
-module("Priestley-Taylor PET", 351262928, 57, 351263200) {
 }
 

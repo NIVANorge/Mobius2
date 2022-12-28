@@ -154,7 +154,7 @@ check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location s
 		fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.last()], "' is a property, not a quantity.");
 	}
 	
-	Var_Id var_id = app->state_vars[loc];
+	Var_Id var_id = app->state_vars.id_of(loc);
 	if(!is_valid(var_id)) {
 		source_loc.print_error_header(Mobius_Error::model_building);
 		error_print("The variable location ");
@@ -436,12 +436,9 @@ prelim_compose(Model_Application *app) {
 			if(has->var_location.n_components != n_components) continue;
 			
 			if(has->var_location.is_dissolved()) {
-				Var_Location above_loc = remove_dissolved(has->var_location);
-				
-				auto above_var = app->state_vars[above_loc];
+				auto above_var = app->state_vars.id_of(remove_dissolved(has->var_location));
 				if(!is_valid(above_var)) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
-					//error_print_location(this, above_loc);
 					fatal_error("The located quantity that this 'has' declaration is assigned to has itself not been created using a 'has' declaration.");
 				}
 			}
@@ -453,7 +450,7 @@ prelim_compose(Model_Application *app) {
 				
 				// If was already registered by another module, we don't need to re-register it.
 				// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data.
-				if(is_valid(app->series[has->var_location])) continue; 
+				if(is_valid(app->series.id_of(has->var_location))) continue;
 				
 				if(has->var_location.is_dissolved()) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
@@ -497,7 +494,7 @@ prelim_compose(Model_Application *app) {
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
 				auto below_loc = add_dissolved(flux->loc2, var->loc1.last());
-				auto below_var = app->state_vars[below_loc];
+				auto below_var = app->state_vars.id_of(below_loc);
 				if(!is_valid(below_var)) continue;
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
@@ -513,7 +510,7 @@ prelim_compose(Model_Application *app) {
 		
 		Var_Location source  = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
 		std::string var_name = var->name; // Same: Have to copy, not take reference.
-		auto dissolved_in_id = app->state_vars[above_loc];
+		auto dissolved_in_id = app->state_vars.id_of(above_loc);
 		auto dissolved_in = app->state_vars[dissolved_in_id];
 		
 		sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
@@ -540,6 +537,68 @@ prelim_compose(Model_Application *app) {
 				gen_flux->connection = flux->connection;
 		}
 	}
+}
+
+Math_Expr_FT *
+get_aggregation_weight(Model_Application *app, Var_Location &loc1, Entity_Id to_compartment) {
+	
+	auto model = app->model;
+	auto source = model->components[loc1.first()];
+	Math_Expr_FT *agg_weight = nullptr;
+	
+	for(auto &agg : source->aggregations) {
+		if(agg.to_compartment != to_compartment) continue;
+		
+		auto scope = model->get_scope(agg.code_scope);
+		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
+		agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
+		std::set<Entity_Id> parameter_refs;
+		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
+		
+		for(auto par_id : parameter_refs) {
+			bool ok = parameter_indexes_below_location(model, par_id, loc1);
+			if(!ok) {
+				agg.code->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("The parameter \"", (*scope)[par_id], "\" is distributed over index sets that the source of the aggregation weight is not distributed over.");
+			}
+		}
+		break;
+	}
+	
+	return agg_weight;
+}
+
+Math_Expr_FT *
+get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &loc2) {
+	
+	Math_Expr_FT *unit_conv = nullptr;
+	if(!is_located(loc1) || !is_located(loc2)) return unit_conv;
+	
+	auto model = app->model;
+	auto source = model->components[loc1.first()];
+	
+	for(auto &conv : source->unit_convs) {
+		if(loc1 != conv.source || loc2 != conv.target) continue;
+		
+		auto ast   = conv.code;
+		auto scope = model->get_scope(conv.code_scope);
+		
+		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
+		unit_conv = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
+		std::set<Entity_Id> parameter_refs;
+		restrictive_lookups(unit_conv, Decl_Type::unit_conversion, parameter_refs);
+
+		for(auto par_id : parameter_refs) {
+			bool ok = parameter_indexes_below_location(model, par_id, loc1);
+			if(!ok) {
+				ast->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("The parameter \"", (*scope)[par_id], "\" is distributed over index sets that the source of the unit conversion is not distributed over.");
+			}
+		}
+		break;
+	}
+	
+	return unit_conv;
 }
 
 void
@@ -609,7 +668,6 @@ compose_and_resolve(Model_Application *app) {
 		
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
-		Math_Expr_AST *unit_conv_ast = nullptr;
 		Math_Expr_AST *override_ast = nullptr;
 		bool override_is_conc = false;
 		bool initial_is_conc = false;
@@ -621,7 +679,6 @@ compose_and_resolve(Model_Application *app) {
 		
 		Decl_Scope *code_scope       = nullptr;
 		Decl_Scope *other_code_scope = nullptr;
-		Decl_Scope *unit_conv_scope  = nullptr;
 		
 		if(var->type == Decl_Type::flux) {
 			bool target_was_out = false;
@@ -643,17 +700,8 @@ compose_and_resolve(Model_Application *app) {
 			
 			if(is_valid(var->connection)) {
 				auto conn = model->connections[var->connection];
-				Var_Id source_id = app->state_vars[var->loc1];
+				Var_Id source_id = app->state_vars.id_of(var->loc1);
 				may_need_connection_target.insert({var->connection, source_id});
-			}
-			
-			if(is_located(var->loc1)) {
-				for(auto &unit_conv : model->components[var->loc1.first()]->unit_convs) {
-					if(var->loc1 == unit_conv.source && var->loc2 == unit_conv.target) {
-						unit_conv_ast   = unit_conv.code;
-						unit_conv_scope = model->get_scope(unit_conv.code_scope);
-					}
-				}
 			}
 		} else if((var->type == Decl_Type::property || var->type == Decl_Type::quantity) && is_valid(var->entity_id)) {
 			auto has = model->hases[var->entity_id];
@@ -705,22 +753,8 @@ compose_and_resolve(Model_Application *app) {
 		} else
 			var->initial_function_tree = nullptr;
 		
-		if(unit_conv_ast) {
-			auto res_data2 = res_data;
-			res_data2.scope = unit_conv_scope;
-			var->unit_conversion_tree = make_cast(resolve_function_tree(unit_conv_ast, &res_data2), Value_Type::real);
-			std::set<Entity_Id> parameter_refs;
-			restrictive_lookups(var->unit_conversion_tree, Decl_Type::unit_conversion, parameter_refs);
-
-			for(auto par_id : parameter_refs) {
-				bool ok = parameter_indexes_below_location(model, par_id, var->loc1);
-				if(!ok) {
-					unit_conv_ast->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("The parameter \"", (*unit_conv_scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the unit conversion is not distributed over.");
-				}
-			}
-		} else
-			var->unit_conversion_tree = nullptr;
+		if(var->type == Decl_Type::flux)
+			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);
 		
 		if(override_ast) {
 			auto override_tree = prune_tree(resolve_function_tree(override_ast, &res_data));
@@ -749,14 +783,14 @@ compose_and_resolve(Model_Application *app) {
 		if(var->flags & State_Variable::Flags::f_dissolved_flux) {
 			bool valid_source = true;
 			if(is_located(var->loc1)) {
-				auto source = app->state_vars[app->state_vars[var->loc1]];
+				auto source = app->state_vars[app->state_vars.id_of(var->loc1)];
 				if(source->override_tree)
 					valid_source = false;
 			} else
 				valid_source = false;
 			bool valid_target = true;
 			if(is_located(var->loc2)) {
-				auto target = app->state_vars[app->state_vars[var->loc2]];
+				auto target = app->state_vars[app->state_vars.id_of(var->loc2)];
 				if(target->override_tree)
 					valid_target = false;
 			} else
@@ -797,26 +831,8 @@ compose_and_resolve(Model_Application *app) {
 		
 		for(auto to_compartment : need_agg.second.first) {
 			
-			Math_Expr_FT *agg_weight = nullptr;
-			for(auto &agg : source->aggregations) {
-				if(agg.to_compartment == to_compartment) {
-					// Note: the module id is always 0 here since aggregation_weight should only be declared in model scope.
-					auto scope = model->get_scope(agg.code_scope);
-					Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
-					agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
-					std::set<Entity_Id> parameter_refs;
-					restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
-					
-					for(auto par_id : parameter_refs) {
-						bool ok = parameter_indexes_below_location(model, par_id, loc1);
-						if(!ok) {
-							agg.code->source_loc.print_error_header(Mobius_Error::model_building);
-							fatal_error("The parameter \"", (*scope)[par_id], "\" belongs to a compartment that is distributed over index sets that the source compartment of the aggregation weight is not distributed over.");
-						}
-					}
-					break;
-				}
-			}
+			Math_Expr_FT *agg_weight = get_aggregation_weight(app, loc1, to_compartment);
+			
 			if(!agg_weight) {
 				auto target = model->components[to_compartment];
 				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
@@ -893,7 +909,7 @@ compose_and_resolve(Model_Application *app) {
 			for(auto target_compartment : connection->components) {
 				auto target_loc = app->state_vars[source_id]->loc1;
 				target_loc.components[0] = target_compartment;
-				auto target_id = app->state_vars[target_loc];
+				auto target_id = app->state_vars.id_of(target_loc);
 				if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
 					continue;
 				auto *conn_comp = app->find_connection_component(conn_id, target_compartment, false);

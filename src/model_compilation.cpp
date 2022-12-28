@@ -408,7 +408,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 		for(auto id : model->solves) {
 			auto solve = model->solves[id];
-			Var_Id var_id = app->state_vars[solve->loc];
+			Var_Id var_id = app->state_vars.id_of(solve->loc);
 			
 			if(!is_valid(var_id)) {
 				//error_print_location(this, solve->loc);
@@ -431,10 +431,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto var = app->state_vars[var_id];
 				if(var->type != Decl_Type::quantity) continue;
 				if(var->loc1.n_components != n_components) continue;
-				
-				auto parent_loc = remove_dissolved(var->loc1);
-				auto parent_id = app->state_vars[parent_loc];
-				
+
+				auto parent_id = app->state_vars.id_of(remove_dissolved(var->loc1));
 				instructions[var_id.id].solver = instructions[parent_id.id].solver;
 			}
 		}
@@ -443,7 +441,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto var = app->state_vars[var_id];
 			// Fluxes with an ODE variable as source is given the same solver as it.
 			if(var->type == Decl_Type::flux && is_located(var->loc1))
-				instructions[var_id.id].solver = instructions[app->state_vars[var->loc1].id].solver;
+				instructions[var_id.id].solver = instructions[app->state_vars.id_of(var->loc1).id].solver;
 
 			// Also set the solver for an aggregation variable for a connection flux.
 			if(var->flags & State_Variable::Flags::f_connection_agg) {
@@ -548,7 +546,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				//note: this is only ok for auto-generated aggregations. Not if somebody called aggregate() on a flux explicitly, because then it is not necessarily the target of the flux that wants to know the aggregate.
 				// But I guess you can't explicitly reference fluxes in code any way. We have to keep in mind that if that is implemented though.
-				auto target_id = app->state_vars[aggr_var->loc2];
+				auto target_id = app->state_vars.id_of(aggr_var->loc2);
 				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var->agg.id);
 			}
 		}
@@ -590,7 +588,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				if(var_flux->type != Decl_Type::flux || !is_valid(var_flux->connection) || var_flux->connection != var->connection) continue;
 				
 				if(is_source) {
-					if(!is_located(var_flux->loc1) || app->state_vars[var_flux->loc1] != agg_for)
+					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != agg_for)
 						continue;
 				} else {
 					// Ouch, this is a pretty awkward test for whether or not the flux could connect to this variable using this connection...
@@ -611,7 +609,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->connection = var_flux->connection;
 				add_to_aggr_instr->type = Model_Instruction::Type::add_to_connection_aggregate;
 				add_to_aggr_instr->var_id = var_id_flux;
-				add_to_aggr_instr->source_id = app->state_vars[var_flux->loc1];
+				add_to_aggr_instr->source_id = app->state_vars.id_of(var_flux->loc1);
 				add_to_aggr_instr->target_id = var_id;
 				add_to_aggr_instr->depends_on_instruction.insert(clear_id); // Only start summing up after we cleared to 0.
 				add_to_aggr_instr->instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction
@@ -674,7 +672,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		Entity_Id source_solver = invalid_entity_id;
 		Var_Id source_id;
 		if(is_located(loc1) && !is_aggregate) {
-			source_id = app->state_vars[loc1];
+			source_id = app->state_vars.id_of(loc1);
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = source->solver;
 				
@@ -707,7 +705,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate");
 		
 		if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
-			Var_Id target_id = app->state_vars[loc2];
+			Var_Id target_id = app->state_vars.id_of(loc2);
 			
 			Model_Instruction *target = &instructions[target_id.id];
 			Entity_Id target_solver = target->solver;
@@ -821,9 +819,8 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		} else if (app->state_vars[instr.var_id]->type == Decl_Type::flux) {
 			// Remove dependency of discrete fluxes on their sources. Discrete fluxes are ordered in a specific way, and the final value of the source comes after the flux is subtracted.
 			auto var = app->state_vars[instr.var_id];
-			if(is_located(var->loc1)) {
-				instr.depends_on_instruction.erase(app->state_vars[var->loc1].id);
-			}
+			if(is_located(var->loc1))
+				instr.depends_on_instruction.erase(app->state_vars.id_of(var->loc1).id);
 		}
 	}
 	
