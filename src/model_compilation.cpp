@@ -442,16 +442,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 			// Also set the solver for an aggregation variable for a connection flux.
 			if(var->type == State_Var::Type::connection_aggregate) {
-				Var_Id agg_for = is_valid(var->connection_target_agg) ? var->connection_target_agg : var->connection_source_agg;
+				auto var2 = as<State_Var::Type::connection_aggregate>(var);
 				
-				instructions[var_id.id].solver = instructions[agg_for.id].solver;
+				instructions[var_id.id].solver = instructions[var2->agg_for.id].solver;
 				
 				if(!is_valid(instructions[var_id.id].solver)) {
-					auto conn_var = as<State_Var::Type::declared>(app->state_vars[agg_for]);
+					auto conn_var = as<State_Var::Type::declared>(app->state_vars[var2->agg_for]);
 					auto has = model->hases[conn_var->decl_id];
 					// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
 					// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
-					auto conn = model->connections[var->connection];
+					auto conn = model->connections[var2->connection];
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					error_print("This state variable is the source or target of a connection \"", conn->name, "\", declared here:\n");
 					conn->source_loc.print_error();
@@ -567,13 +567,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// Find all the connection fluxes pointing to the target (or going out from source)
 			
-			Var_Id agg_for = var->connection_source_agg;
-			bool is_source = true;
-			if(is_valid(var->connection_target_agg)) {
-				agg_for = var->connection_target_agg;
-				is_source = false;
-			}
-			if(!is_valid(agg_for))
+			auto var2 = as<State_Var::Type::connection_aggregate>(var);
+			if(!is_valid(var2->agg_for))
 				fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection aggregates");
 			
 			// var is the aggregation variable for the target (or source)
@@ -582,16 +577,17 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			for(auto var_id_flux : app->state_vars) {
 				auto var_flux = app->state_vars[var_id_flux];
 				
-				if(var_flux->decl_type != Decl_Type::flux || !is_valid(var_flux->connection) || var_flux->connection != var->connection) continue;
+				auto conn_id = connection_of_flux(var_flux);
+				if(var_flux->decl_type != Decl_Type::flux || !is_valid(conn_id) || conn_id != var2->connection) continue;
 				
-				if(is_source) {
-					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != agg_for)
+				if(var2->is_source) {
+					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != var2->agg_for)
 						continue;
 				} else {
 					// Ouch, this is a pretty awkward test for whether or not the flux could connect to this variable using this connection...
 					// TODO: Should this test even be necessary though??
 					Var_Location source_loc = var_flux->loc1;
-					Var_Location target_loc = app->state_vars[agg_for]->loc1;
+					Var_Location target_loc = app->state_vars[var2->agg_for]->loc1;
 					source_loc.components[0] = invalid_entity_id;
 					target_loc.components[0] = invalid_entity_id;
 					if(source_loc != target_loc) continue;
@@ -603,7 +599,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 				
 				add_to_aggr_instr->solver = var_solver;
-				add_to_aggr_instr->connection = var_flux->connection;
+				add_to_aggr_instr->connection = conn_id;
 				add_to_aggr_instr->type = Model_Instruction::Type::add_to_connection_aggregate;
 				add_to_aggr_instr->var_id = var_id_flux;
 				add_to_aggr_instr->source_id = app->state_vars.id_of(var_flux->loc1);
@@ -615,15 +611,15 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
-				instructions[var_id.id].inherits_index_sets_from_instruction.insert(agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
+				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
 				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
-				if(model->connections[var->connection]->type == Connection_Type::directed_tree) {
+				if(model->connections[var2->connection]->type == Connection_Type::directed_tree) {
 					Entity_Id source_comp_id = var_flux->loc1.components[0];
-					Entity_Id target_comp_id = app->state_vars[agg_for]->loc1.components[0];
+					Entity_Id target_comp_id = app->state_vars[var2->agg_for]->loc1.components[0];
 					
-					auto *find_source = app->find_connection_component(var->connection, source_comp_id);
-					auto *find_target = app->find_connection_component(var->connection, target_comp_id);
+					auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
+					auto *find_target = app->find_connection_component(var2->connection, target_comp_id);
 					
 					// If the target compartment (not just what the connection indexes over) has an index set shared with the source connection, we must index the target variable over that.
 					auto target_comp = model->components[target_comp_id];
@@ -637,10 +633,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					add_to_aggr_instr->index_sets.insert(find_source->index_sets.begin(), find_source->index_sets.end());
 					
 					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
-					instructions[agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
+					instructions[var2->agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
 					
-				} else if(model->connections[var->connection]->type == Connection_Type::all_to_all) {
-					auto &components = app->connection_components[var->connection.id];
+				} else if(model->connections[var2->connection]->type == Connection_Type::all_to_all) {
+					auto &components = app->connection_components[var2->connection.id];
 					auto source_comp = components[0].id;
 					
 					auto &flux_loc = var_flux->loc1;
@@ -654,7 +650,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					}
 					auto index_set = components[0].index_sets[0];
 					add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
-					instructions[agg_for.id].index_sets.insert(index_set);
+					instructions[var2->agg_for.id].index_sets.insert(index_set);
 				} else {
 					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
 				}
@@ -702,7 +698,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
-		bool is_connection = is_valid(var->connection);
+		bool is_connection = is_valid(connection_of_flux(var));
 		if(is_connection && has_aggregate)
 			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate");
 		

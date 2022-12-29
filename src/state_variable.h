@@ -31,26 +31,13 @@ State_Var {
 	
 	std::string name;
 
-	//Entity_Id entity_id;  // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type::flux
-	
 	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
-	
-	Entity_Id connection; // For a flux that points at a connection.
 	
 	// If this is a quantity or property, loc1 is the location of this variable.
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
 	Var_Location   loc1;
 	Var_Location   loc2;
 	
-	// If this is the target variable of a connection flux, connection_agg points to the aggregation variable for the connection flux.
-	// If this is the aggregate ( f_in_flux_connection is set ), connection_agg points to the target of the connection flux(es) (which is the same as the source).
-	Var_Id         connection_source_agg;
-	Var_Id         connection_target_agg;
-	
-	// TODO: put these on  declared and dissolved_flux respectively!
-	// If this state variable is the mass of a dissolved quantity, the 'conc' variable is the concentration of it.
-	// If this state variable is the flux of a dissolved quantity, the 'conc' variable is the conc variable of the source of the flux.
-	//Var_Id         conc;
 	
 	// TODO: Some of the below could be moved to ::declared
 	Math_Expr_FT *function_tree;
@@ -61,22 +48,28 @@ State_Var {
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none), connection(invalid_entity_id), connection_source_agg(invalid_var), connection_target_agg(invalid_var) {};
+	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none) {};
 };
 
 
 template<State_Var::Type type> struct
 State_Var_Sub : State_Var {
-	// TODO: When all things are in place, don't allow instantiation of this one.
+	State_Var_Sub() {
+		fatal_error(Mobius_Error::internal, "Instantiation of non-specified version of State_Var struct.");
+	}
 };
 
 template<> struct
 State_Var_Sub<State_Var::Type::declared> : State_Var {
-	Entity_Id      decl_id;          // This is the ID of the declaration (if the variable is not auto-generated), either Decl_Type::has or Decl_Type::flux
-	//Entity_Id      connection;
-	Var_Id         conc;
+	Entity_Id      decl_id;          // This is the ID of the declaration, either Decl_Type::has or Decl_Type::flux
+	Entity_Id      connection;       // Set if this is a flux on a connection.
+	Var_Id         conc;             // If this is a mass (or volume) variable of a dissolved quantity, conc is the variable for the concentration.
 	
-	State_Var_Sub() : decl_id(invalid_entity_id), conc(invalid_var) {}
+	// If this is the target variable of a connection flux, connection_agg points to the aggregation variable for the connection flux.
+	Var_Id         conn_source_agg;
+	Var_Id         conn_target_agg;
+	
+	State_Var_Sub() : decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), conn_source_agg(invalid_var), conn_target_agg(invalid_var) {}
 };
 
 template<> struct
@@ -88,8 +81,8 @@ State_Var_Sub<State_Var::Type::in_flux_aggregate> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
-	Var_Id         agg_of;
-	Entity_Id      agg_to_compartment;
+	Var_Id         agg_of;                // The variable this is an aggregate of
+	Entity_Id      agg_to_compartment;    // From which point of view we are aggregating.
 	
 	State_Var_Sub() : agg_of(invalid_var), agg_to_compartment(invalid_entity_id) {}
 };
@@ -103,23 +96,21 @@ State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	Var_Id         conc;
+	Entity_Id      connection;
+	Var_Id         conc;                   // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
 	State_Var_Sub() : flux_of_medium(invalid_var), conc(invalid_var) {}
 };
 
-/*
-
 template<> struct
 State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
-	//Entity_Id      connection;
-	Var_Id         agg_for;
-	bool           is_source;
+	Entity_Id      connection;
+	Var_Id         agg_for;     // The state variable this is an aggregate for fluxes going to or from.
+	bool           is_source;   // If it aggregates sources from or targets to that state var.
+	
+	State_Var_Sub() : connection(invalid_entity_id), agg_for(invalid_var) {}
 };
-
-
-*/
 
 template<State_Var::Type type>
 State_Var_Sub<type> *as(State_Var *var) {
@@ -130,6 +121,13 @@ State_Var_Sub<type> *as(State_Var *var) {
 	return reinterpret_cast<State_Var_Sub<type> *>(var);
 }
 
-
+inline Entity_Id
+connection_of_flux(State_Var *var) {
+	if(var->type == State_Var::Type::declared)
+		return as<State_Var::Type::declared>(var)->connection;
+	else if(var->type == State_Var::Type::dissolved_flux)
+		return as<State_Var::Type::dissolved_flux>(var)->connection;
+	return invalid_entity_id;
+}
 
 # endif // MOBIUS_STATE_VARIABLE_H

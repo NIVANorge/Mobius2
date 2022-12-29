@@ -112,45 +112,50 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->type == State_Var::Type::in_flux_aggregate) {
 				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 				Math_Expr_FT *flux_sum = make_literal(0.0);
+				//  find all fluxes that has the given target and sum them up.
 				for(auto flux_id : app->state_vars) {
 					auto flux_var = app->state_vars[flux_id];
 					if(flux_var->flags & State_Var::Flags::invalid) continue;
+					if(flux_var->decl_type != Decl_Type::flux) continue;
 					// NOTE: by design we don't include connection fluxes in the in_flux. May change that later.
-					//  find all fluxes that has the given target and sum them up.
-					if(flux_var->decl_type == Decl_Type::flux && !is_valid(flux_var->connection) && is_located(flux_var->loc2) && app->state_vars.id_of(flux_var->loc2) == var2->in_flux_to) {
-						auto flux_ref = make_state_var_identifier(flux_id);
-						if(flux_var->unit_conversion_tree)
-							flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
-						flux_sum = make_binop('+', flux_sum, flux_ref);
-					}
+					if(is_valid(connection_of_flux(flux_var))) continue;
+					if(!is_located(flux_var->loc2) || app->state_vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
+					
+					auto flux_ref = make_state_var_identifier(flux_id);
+					if(flux_var->unit_conversion_tree)
+						flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
+					flux_sum = make_binop('+', flux_sum, flux_ref);
 				}
 				instr.code = flux_sum;
 			}
 			
 			// Codegen for the derivative of state variables:
-			if(var->decl_type == Decl_Type::quantity && is_valid(instr.solver) && !var->override_tree) {
+			if(var->type == State_Var::Type::declared && var->decl_type == Decl_Type::quantity
+				&& is_valid(instr.solver) && !var->override_tree) {
 				Math_Expr_FT *fun;
+				auto var2 = as<State_Var::Type::declared>(var);
+				
 				// aggregation variable for values coming from connection fluxes.
-				if(is_valid(var->connection_target_agg))
-					fun = make_state_var_identifier(var->connection_target_agg);
+				if(is_valid(var2->conn_target_agg))
+					fun = make_state_var_identifier(var2->conn_target_agg);
 				else
 					fun = make_literal((double)0.0);
 				
-				if(is_valid(var->connection_source_agg))
-					fun = make_binop('-', fun, make_state_var_identifier(var->connection_source_agg));
+				if(is_valid(var2->conn_source_agg))
+					fun = make_binop('-', fun, make_state_var_identifier(var2->conn_source_agg));
 				
 				for(Var_Id flux_id : app->state_vars) {
 					auto flux = app->state_vars[flux_id];
 					if(flux->flags & State_Var::Flags::invalid) continue;
 					if(flux->decl_type != Decl_Type::flux) continue;
 					
+					auto conn_id = connection_of_flux(flux);
+					
 					if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id) {
+						// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
 						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
-						if(is_valid(flux->connection)) {
-							auto conn = model->connections[flux->connection];
-							if(conn->type == Connection_Type::all_to_all)
-								continue;   // NOTE: In this case we have set up an aggregation variable also for the source, so we should skip it.
-						}
+						if(is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all)
+							continue;
 						
 						auto flux_ref = make_state_var_identifier(flux_id);
 						fun = make_binop('-', fun, flux_ref);
@@ -158,7 +163,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					
 					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
 					//   maybe compicates code unnecessarily though.
-					if(is_located(flux->loc2) && !is_valid(flux->connection) && app->state_vars.id_of(flux->loc2) == instr.var_id) {
+					if(is_located(flux->loc2) && !is_valid(conn_id) && app->state_vars.id_of(flux->loc2) == instr.var_id) {
 						auto flux_ref = make_state_var_identifier(flux_id);
 						// NOTE: the unit conversion applies to what reaches the target.
 						if(flux->unit_conversion_tree)
@@ -255,9 +260,9 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 	
 	// Hmm, this line looks a bit messy..
 	Entity_Id source_compartment = app->state_vars[source_id]->loc1.components[0];
-	auto target_agg = app->state_vars[agg_id];
+	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
 	// This is also messy...
-	auto target_compartment = app->state_vars[target_agg->connection_target_agg]->loc1.components[0];
+	auto target_compartment = app->state_vars[target_agg->agg_for]->loc1.components[0];
 	
 	Math_Expr_FT *agg_offset = nullptr;
 	
@@ -321,18 +326,11 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 Math_Expr_FT *
 add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id) {
 	
-	bool is_source = true;
-	auto agg_var = app->state_vars[agg_id];
-	if(is_valid(agg_var->connection_source_agg))
-		is_source = true;
-	else if(is_valid(agg_var->connection_target_agg))
-		is_source = false;
-	else
-		fatal_error(Mobius_Error::internal, "Incorrect setup of all_to_all aggregation variables.");
-	
+	auto agg_var = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
+
 	Math_Expr_FT *agg_offset = nullptr;
 	
-	if(is_source)
+	if(agg_var->is_source)
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 	else {
 		// We have to "transpose the matrix" so that we add this to the target instead corresponding to the index pair instead of the source.

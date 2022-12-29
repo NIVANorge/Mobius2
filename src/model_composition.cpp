@@ -140,7 +140,7 @@ register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id d
 					flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: This is not the correct place to check this. Also, the source loc is wrong if the flux was redirected.
 					fatal_error("You can't have a flux from nowhere to a connection.\n");
 				}
-				var->connection = flux->connection_target;
+				var2->connection = flux->connection_target;
 				var->loc2 = var->loc1; //TODO: Dunno why this is done. Should try to not do it (but may have to fix errors elsewhere).
 			}
 			// TODO: the flux unit should always be (unit of what is transported) / (time step unit)
@@ -550,8 +550,9 @@ prelim_compose(Model_Application *app) {
 			gen_flux->loc2.type = flux->loc2.type;
 			if(is_located(flux->loc2))
 				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
-			if(is_valid(flux->connection))
-				gen_flux->connection = flux->connection;
+			auto conn_id = connection_of_flux(flux);
+			if(is_valid(conn_id))
+				gen_flux->connection = conn_id;
 		}
 	}
 }
@@ -623,9 +624,11 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, E
 	
 	auto connection = app->model->connections[conn_id];
 	
-	auto existing_agg = is_source ? app->state_vars[var_id]->connection_source_agg : app->state_vars[var_id]->connection_target_agg;
+	auto var = as<State_Var::Type::declared>(app->state_vars[var_id]);
+	
+	auto existing_agg = is_source ? var->conn_source_agg : var->conn_target_agg;
 	if(is_valid(existing_agg)) {
-		if(app->state_vars[existing_agg]->connection != conn_id)
+		if(as<State_Var::Type::connection_aggregate>(app->state_vars[existing_agg])->connection != conn_id)
 			fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting or being sourced in the same state variable.");
 		return;
 	}
@@ -636,15 +639,16 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, E
 		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
 	
 	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, Decl_Type::has, invalid_entity_id, false, varname);
-	auto agg_var = app->state_vars[agg_id];
-	if(is_source) {
-		app->state_vars[var_id]->connection_source_agg = agg_id;
-		agg_var->connection_source_agg = var_id;
-	} else {
-		app->state_vars[var_id]->connection_target_agg = agg_id;
-		agg_var->connection_target_agg = var_id;
-	}
+	auto agg_var = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
+	agg_var->agg_for = var_id;
+	agg_var->is_source = is_source;
 	agg_var->connection = conn_id;
+	
+	var = as<State_Var::Type::declared>(app->state_vars[var_id]);
+	if(is_source)
+		var->conn_source_agg = agg_id;
+	else
+		var->conn_target_agg = agg_id;
 }
 
 
@@ -817,10 +821,11 @@ compose_and_resolve(Model_Application *app) {
 		auto var = app->state_vars[var_id];
 		if(var->decl_type != Decl_Type::flux || (var->flags & State_Var::Flags::invalid)) continue;
 		
-		if(is_valid(var->connection)) {
-			auto conn = model->connections[var->connection];
+		auto conn_id = connection_of_flux(var);
+		if(is_valid(conn_id)) {
+			auto conn = model->connections[conn_id];
 			Var_Id source_id = app->state_vars.id_of(var->loc1);
-			may_need_connection_target.insert({var->connection, source_id});
+			may_need_connection_target.insert({conn_id, source_id});
 		}
 	}
 	
