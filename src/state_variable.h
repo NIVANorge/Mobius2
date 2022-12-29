@@ -5,9 +5,6 @@
 
 struct
 State_Var {
-	// TODO: The concept of the decl_type for the variable is a bit wishywashy for generated (non-declared) variables. It is still used so that e.g aggregates can have the same decl_type as the
-	//   variable they aggregate, but this may not be best practice..
-	Decl_Type decl_type; //either flux, quantity or property
 	
 	// TODO: This contains a lot of data that is irrelevant for input series. But annoying to have to factor it out. Could be put in yet another intermediate struct??
 	
@@ -24,6 +21,7 @@ State_Var {
 		none                = 0x00,
 		has_aggregate       = 0x01,
 		clear_series_to_nan = 0x02,
+		flux                = 0x04,
 		invalid             = 0x1000,
 	} flags;
 	
@@ -49,6 +47,10 @@ State_Var {
 	Math_Expr_FT *override_tree;
 	
 	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none) {};
+	
+	// Because these are very common queries
+	bool is_flux() { return (flags & flux);	}
+	bool is_valid() { return !(flags & invalid); }
 };
 
 
@@ -61,6 +63,7 @@ State_Var_Sub : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::declared> : State_Var {
+	Decl_Type      decl_type;        // either flux, quantity or property. Note that this is not the same as the decl_type of the declaration. It is instead the type of the variable that is declared.
 	Entity_Id      decl_id;          // This is the ID of the declaration, either Decl_Type::has or Decl_Type::flux
 	Entity_Id      connection;       // Set if this is a flux on a connection.
 	Var_Id         conc;             // If this is a mass (or volume) variable of a dissolved quantity, conc is the variable for the concentration.

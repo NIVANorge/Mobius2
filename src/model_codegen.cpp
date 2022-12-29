@@ -60,8 +60,10 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			//    not sure about the best way to do it (or where).
 			
 			// Directly override the mass of a quantity
-			if(var->decl_type == Decl_Type::quantity && var->override_tree && !var->override_is_conc) {
-				instr.code = var->override_tree;
+			if(var->type == State_Var::Type::declared) {
+				auto var2 = as<State_Var::Type::declared>(var);
+				if(var2->decl_type == Decl_Type::quantity && var2->override_tree && !var2->override_is_conc)
+					instr.code = var->override_tree;
 			}
 			
 			// Codegen for concs of dissolved variables
@@ -90,7 +92,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Restrict discrete fluxes to not overtax their source.
 			
-			if(var->decl_type == Decl_Type::flux && !is_valid(instr.solver) && instr.code) {
+			if(var->is_flux() && !is_valid(instr.solver) && instr.code) {
 			
 				// note: create something like
 				// 		flux = min(flux, source)
@@ -115,8 +117,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				//  find all fluxes that has the given target and sum them up.
 				for(auto flux_id : app->state_vars) {
 					auto flux_var = app->state_vars[flux_id];
-					if(flux_var->flags & State_Var::Flags::invalid) continue;
-					if(flux_var->decl_type != Decl_Type::flux) continue;
+					if(!flux_var->is_valid() || !flux_var->is_flux()) continue;
 					// NOTE: by design we don't include connection fluxes in the in_flux. May change that later.
 					if(is_valid(connection_of_flux(flux_var))) continue;
 					if(!is_located(flux_var->loc2) || app->state_vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
@@ -130,48 +131,50 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			}
 			
 			// Codegen for the derivative of state variables:
-			if(var->type == State_Var::Type::declared && var->decl_type == Decl_Type::quantity
-				&& is_valid(instr.solver) && !var->override_tree) {
-				Math_Expr_FT *fun;
+			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
-				
-				// aggregation variable for values coming from connection fluxes.
-				if(is_valid(var2->conn_target_agg))
-					fun = make_state_var_identifier(var2->conn_target_agg);
-				else
-					fun = make_literal((double)0.0);
-				
-				if(is_valid(var2->conn_source_agg))
-					fun = make_binop('-', fun, make_state_var_identifier(var2->conn_source_agg));
-				
-				for(Var_Id flux_id : app->state_vars) {
-					auto flux = app->state_vars[flux_id];
-					if(flux->flags & State_Var::Flags::invalid) continue;
-					if(flux->decl_type != Decl_Type::flux) continue;
+				if(var2->decl_type == Decl_Type::quantity
+					&& is_valid(instr.solver) && !var->override_tree) {
+					Math_Expr_FT *fun;
 					
-					auto conn_id = connection_of_flux(flux);
 					
-					if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id) {
-						// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
-						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
-						if(is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all)
-							continue;
+					// aggregation variable for values coming from connection fluxes.
+					if(is_valid(var2->conn_target_agg))
+						fun = make_state_var_identifier(var2->conn_target_agg);
+					else
+						fun = make_literal((double)0.0);
+					
+					if(is_valid(var2->conn_source_agg))
+						fun = make_binop('-', fun, make_state_var_identifier(var2->conn_source_agg));
+					
+					for(Var_Id flux_id : app->state_vars) {
+						auto flux = app->state_vars[flux_id];
+						if(!flux->is_valid() || !flux->is_flux()) continue;
 						
-						auto flux_ref = make_state_var_identifier(flux_id);
-						fun = make_binop('-', fun, flux_ref);
+						auto conn_id = connection_of_flux(flux);
+						
+						if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id) {
+							// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
+							// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
+							if(is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all)
+								continue;
+							
+							auto flux_ref = make_state_var_identifier(flux_id);
+							fun = make_binop('-', fun, flux_ref);
+						}
+						
+						// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
+						//   maybe compicates code unnecessarily though.
+						if(is_located(flux->loc2) && !is_valid(conn_id) && app->state_vars.id_of(flux->loc2) == instr.var_id) {
+							auto flux_ref = make_state_var_identifier(flux_id);
+							// NOTE: the unit conversion applies to what reaches the target.
+							if(flux->unit_conversion_tree)
+								flux_ref = make_binop('*', flux_ref, flux->unit_conversion_tree);
+							fun = make_binop('+', fun, flux_ref);
+						}
 					}
-					
-					// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
-					//   maybe compicates code unnecessarily though.
-					if(is_located(flux->loc2) && !is_valid(conn_id) && app->state_vars.id_of(flux->loc2) == instr.var_id) {
-						auto flux_ref = make_state_var_identifier(flux_id);
-						// NOTE: the unit conversion applies to what reaches the target.
-						if(flux->unit_conversion_tree)
-							flux_ref = make_binop('*', flux_ref, flux->unit_conversion_tree);
-						fun = make_binop('+', fun, flux_ref);
-					}
+					instr.code = fun;
 				}
-				instr.code = fun;
 			}
 			
 		} else if (instr.type == Model_Instruction::Type::subtract_discrete_flux_from_source) {

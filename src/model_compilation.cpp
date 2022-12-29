@@ -365,10 +365,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
+		if(!var->is_valid()) continue;
+		
 		auto fun = var->function_tree;
 		if(initial) fun = var->initial_function_tree;
 		if(!initial && !fun) {
-			if(!(var->flags & State_Var::Flags::invalid) && var->type == State_Var::Type::declared && var->decl_type != Decl_Type::quantity)
+			if(var->type == State_Var::Type::declared && as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity)
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 		}
 		
@@ -424,7 +426,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		for(int n_components = 3; n_components <= max_var_loc_components; ++n_components) {
 			for(Var_Id var_id : app->state_vars) {
 				auto var = app->state_vars[var_id];
-				if(var->decl_type != Decl_Type::quantity) continue;
+				if(!var->is_valid() || var->type != State_Var::Type::declared) continue;
+				auto var2 = as<State_Var::Type::declared>(var);
+				if(var2->decl_type != Decl_Type::quantity) continue;
 				if(var->loc1.n_components != n_components) continue;
 
 				auto parent_id = app->state_vars.id_of(remove_dissolved(var->loc1));
@@ -434,10 +438,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		for(auto var_id : app->state_vars) {
 			auto var = app->state_vars[var_id];
-			if(var->flags & State_Var::Flags::invalid) continue;
+			if(!var->is_valid()) continue;
 			
 			// Fluxes with an ODE variable as source is given the same solver as it.
-			if(var->decl_type == Decl_Type::flux && is_located(var->loc1))
+			if(var->is_flux() && is_located(var->loc1))
 				instructions[var_id.id].solver = instructions[app->state_vars.id_of(var->loc1).id].solver;
 
 			// Also set the solver for an aggregation variable for a connection flux.
@@ -539,7 +543,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need to look it up every time we sum to it.
 			add_to_aggr_instr->solver = var_solver;
 			
-			if(var->decl_type == Decl_Type::flux && is_located(var->loc2)) {
+			if(var->is_flux() && is_located(var->loc2)) {
 				// If the aggregated variable is a flux, we potentially may have to tell it to get the right index sets.
 				
 				//note: this is only ok for auto-generated aggregations. Not if somebody called aggregate() on a flux explicitly, because then it is not necessarily the target of the flux that wants to know the aggregate.
@@ -578,7 +582,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto var_flux = app->state_vars[var_id_flux];
 				
 				auto conn_id = connection_of_flux(var_flux);
-				if(var_flux->decl_type != Decl_Type::flux || !is_valid(conn_id) || conn_id != var2->connection) continue;
+				if(!var_flux->is_valid() || !var_flux->is_flux() || !is_valid(conn_id) || conn_id != var2->connection) continue;
 				
 				if(var2->is_source) {
 					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != var2->agg_for)
@@ -660,8 +664,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			}
 		}
 		
-		if(initial || var->decl_type != Decl_Type::flux) continue;
-		
+		if(initial || !var->is_flux()) continue;
 		
 		var = app->state_vars[var_id];
 		auto loc1 = var->loc1;
@@ -744,8 +747,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 // give all properties the solver if it is "between" quantities or fluxes with that solver in the dependency tree.
 bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
 	auto instr = &instructions[instr_id];
-	Decl_Type decl_type = app->state_vars[instr->var_id]->decl_type;
-	
+
 	if(instr->solver == solver)
 		return true;
 	if(instr->visited)
@@ -765,7 +767,8 @@ bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, s
 			fatal_error(Mobius_Error::model_building, "The state variable \"", app->state_vars[instr->var_id]->name, "\" is lodged between multiple ODE solvers.");
 		}
 		
-		if(decl_type != Decl_Type::quantity)
+		auto var = app->state_vars[instr->var_id];
+		if(var->type != State_Var::Type::declared || as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity)
 			instr->solver = solver;
 	}
 	instr->visited = false;
@@ -809,12 +812,15 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 			std::vector<int> remove;
 			for(int other_id : instr.depends_on_instruction) {
 				auto &other_instr = instructions[other_id];
-				if(other_instr.solver == instr.solver && app->state_vars[other_instr.var_id]->decl_type == Decl_Type::quantity)
+				auto other_var = app->state_vars[other_instr.var_id];
+				bool is_quantity = other_var->type == State_Var::Type::declared &&
+					as<State_Var::Type::declared>(other_var)->decl_type == Decl_Type::quantity;
+				if(other_instr.solver == instr.solver && is_quantity)
 					remove.push_back(other_id);
 			}
 			for(int rem : remove)
 				instr.depends_on_instruction.erase(rem);
-		} else if (app->state_vars[instr.var_id]->decl_type == Decl_Type::flux) {
+		} else if (app->state_vars[instr.var_id]->is_flux()) {
 			// Remove dependency of discrete fluxes on their sources. Discrete fluxes are ordered in a specific way, and the final value of the source comes after the flux is subtracted.
 			auto var = app->state_vars[instr.var_id];
 			if(is_located(var->loc1))
@@ -1076,7 +1082,12 @@ Model_Application::compile() {
 			for(int var : batch.instrs) {
 				auto var_ref = state_vars[instructions[var].var_id];
 				// NOTE: if we override the conc or value of var, we instead compute the mass from the conc.
-				if((var_ref->decl_type == Decl_Type::quantity) && (instructions[var].type == Model_Instruction::Type::compute_state_var) && !var_ref->override_tree)
+				bool is_ode = false;
+				if(instructions[var].type == Model_Instruction::Type::compute_state_var && var_ref->type == State_Var::Type::declared) {
+					auto var2 = as<State_Var::Type::declared>(var_ref);
+					is_ode = (var2->decl_type == Decl_Type::quantity) && !var2->override_tree;
+				}
+				if(is_ode)
 					vars_ode.push_back(var);
 				else
 					vars.push_back(var);

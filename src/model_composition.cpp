@@ -115,7 +115,6 @@ register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id d
 	}
 	
 	var->type          = type;
-	var->decl_type     = decl_type;
 
 	if(is_valid(decl_id)) {
 		auto var2 = as<State_Var::Type::declared>(var);
@@ -124,14 +123,15 @@ register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id d
 		if(decl_id.reg_type == Reg_Type::has) {
 			auto has = model->hases[decl_id];
 			var->loc1 = loc;
-			var->decl_type = model->components[loc.last()]->decl_type;
+			var2->decl_type = model->components[loc.last()]->decl_type;
 			if(is_valid(has->unit))
 				var->unit = model->units[has->unit]->data;
 		} else if (decl_id.reg_type == Reg_Type::flux) {
 			auto flux = model->fluxes[decl_id];
 			var->loc1 = flux->source;
 			var->loc2 = flux->target;
-			var->decl_type = Decl_Type::flux;
+			var2->decl_type = Decl_Type::flux;
+			var2->flags = (State_Var::Flags)(var2->flags | State_Var::Flags::flux);
 			// These may not be needed, since we would check if the locations exist in any case (and the source location is confusing as it stands here).
 			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
 			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
@@ -146,8 +146,7 @@ register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id d
 			// TODO: the flux unit should always be (unit of what is transported) / (time step unit)
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
-	} else if (decl_type == Decl_Type::has)
-		var->decl_type = Decl_Type::property; // TODO: This is very weird, why is it like this at all?
+	}
 		
 	if(var->name.empty())
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
@@ -373,7 +372,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			dep_var = app->state_vars[var2->conc_of];
 		}
 		
-		if(dep_var->decl_type == Decl_Type::flux || !is_located(dep_var->loc1))
+		if(dep_var->is_flux() || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
 		if(!location_indexes_below_location(app->model, dep_var->loc1, loc)) {
@@ -508,7 +507,7 @@ prelim_compose(Model_Application *app) {
 		std::vector<Var_Id> generate;
 		for(auto flux_id : app->state_vars) {
 			auto flux = app->state_vars[flux_id];
-			if(flux->decl_type != Decl_Type::flux) continue;
+			if(!flux->is_valid() || !flux->is_flux()) continue;
 			if(!(flux->loc1 == above_loc)) continue;
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
@@ -545,6 +544,7 @@ prelim_compose(Model_Application *app) {
 			auto flux = app->state_vars[flux_id];
 			gen_flux->type = State_Var::Type::dissolved_flux;
 			gen_flux->flux_of_medium = flux_id;
+			gen_flux->flags = (State_Var::Flags)(gen_flux->flags | State_Var::Flags::flux);
 			gen_flux->conc = gen_conc_id;
 			gen_flux->loc1 = source;
 			gen_flux->loc2.type = flux->loc2.type;
@@ -683,7 +683,7 @@ compose_and_resolve(Model_Application *app) {
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
 		
-		if(var->decl_type == Decl_Type::flux)
+		if(var->is_flux())
 			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);   // NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones.
 		
 		if(var->type != State_Var::Type::declared) continue;
@@ -738,7 +738,7 @@ compose_and_resolve(Model_Application *app) {
 					code_scope = model->get_scope(comp->code_scope);
 			}
 			
-			if(override_ast && (var->decl_type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
+			if(override_ast && (var2->decl_type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
 				override_ast->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Either got an '.override' block on a property or a '.override_conc' block on a non-dissolved variable.");
 			}
@@ -764,7 +764,7 @@ compose_and_resolve(Model_Application *app) {
 			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			var->initial_is_conc = initial_is_conc;
 			
-			if(initial_is_conc && (var->decl_type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
+			if(initial_is_conc && (var2->decl_type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
 				init_ast->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
 			}
@@ -819,7 +819,7 @@ compose_and_resolve(Model_Application *app) {
 	std::set<std::pair<Entity_Id, Var_Id>> may_need_connection_target;
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
-		if(var->decl_type != Decl_Type::flux || (var->flags & State_Var::Flags::invalid)) continue;
+		if(!var->is_valid() || !var->is_flux()) continue;
 		
 		auto conn_id = connection_of_flux(var);
 		if(is_valid(conn_id)) {
@@ -837,8 +837,7 @@ compose_and_resolve(Model_Application *app) {
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
-		if(var->flags & State_Var::Flags::invalid) continue;
-		if(var->decl_type != Decl_Type::flux) continue;
+		if(!var->is_valid() || !var->is_flux()) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
 		if(!location_indexes_below_location(model, var->loc1, var->loc2))
@@ -867,7 +866,7 @@ compose_and_resolve(Model_Application *app) {
 			if(!agg_weight) {
 				auto target = model->components[to_compartment];
 				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
-				if(var->decl_type == Decl_Type::flux) {
+				if(var->is_flux()) {
 					fatal_error(Mobius_Error::model_building, "The flux \"", var->name, "\" goes from compartment \"", source->name, "\" to compartment, \"", target->name, "\", but the first compartment is distributed over a higher number of index sets than the second. This is only allowed if you specify an aggregation_weight between the two compartments.");
 				} else {
 					fatal_error(Mobius_Error::model_building, "Missing aggregation_weight for variable ", var->name, " between compartments \"", source->name, "\" and \"", target->name, "\".\n");
@@ -879,11 +878,13 @@ compose_and_resolve(Model_Application *app) {
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
 			sprintf(varname, "aggregate(%s)", var->name.data());
-			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, var->decl_type, invalid_entity_id, false, varname);
+			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, Decl_Type::property, invalid_entity_id, false, varname);
 			
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[agg_id]);
 			agg_var->agg_of = var_id;
 			agg_var->aggregation_weight_tree = agg_weight;
+			if(var->is_flux())
+				agg_var->flags = (State_Var::Flags)(agg_var->flags | State_Var::Flags::flux);
 			
 			var = app->state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 
