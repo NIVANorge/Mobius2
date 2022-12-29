@@ -221,7 +221,7 @@ struct Multi_Array_Structure {
 		return count;
 	}
 	
-	s64 total_count(std::vector<Index_T> &index_counts) { 
+	s64 total_count(std::vector<Index_T> &index_counts) {
 		return (s64)handles.size() * instance_count(index_counts);
 	}
 	
@@ -360,10 +360,12 @@ struct
 Sub_Indexed_Component {
 	Entity_Id id;
 	std::vector<Entity_Id> index_sets;
-	// TODO: here we could store info of whether or not this could be a target (not only a source). Then prune aggregation variables when they are not relevant.
-	// bool can_be_target;                   // if this can be a target of the connection.
-	// std::set<Entity_Id> possible_targets; // what targets can have this as a source.
-	// int max_target_indexes;               // max indexes of a target that has this as the source
+	
+	bool can_be_target;                   // if this can be a target of the connection.
+	std::set<Entity_Id> possible_targets; // what targets can have this as a source.
+	int max_target_indexes;               // max indexes of a target that has this as the source
+	
+	Sub_Indexed_Component() : id(invalid_entity_id), can_be_target(false), max_target_indexes(0) {}
 };
 
 struct
@@ -490,43 +492,43 @@ Storage_Structure<Connection_T>::get_handle_name(Connection_T nb) {
 
 template<typename Handle_T> const std::vector<Entity_Id> &
 Storage_Structure<Handle_T>::get_index_sets(Handle_T handle) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].index_sets;
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset_base(Handle_T handle) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].get_offset_base(handle);
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::instance_count(Handle_T handle) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].instance_count(parent->index_counts);
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].get_offset(handle, indexes, parent->index_counts);
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].get_offset(handle, indexes, mat_col, parent->index_counts);
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].get_offset_alternate(handle, indexes, parent->index_counts);
 }
 	
 template<typename Handle_T> Math_Expr_FT *
 Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &indexes) {
-	auto array_idx = handle_is_in_array[handle];
+	auto array_idx = handle_is_in_array.at(handle);
 	Entity_Id err_idx_set;
 	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts, err_idx_set);
 	if(!code) {

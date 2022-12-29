@@ -36,17 +36,9 @@ State_Var {
 	Var_Location   loc1;
 	Var_Location   loc2;
 	
-	
-	// TODO: Some of the below could be moved to ::declared
-	Math_Expr_FT *function_tree;
-	bool initial_is_conc;
-	Math_Expr_FT *initial_function_tree;
-	Math_Expr_FT *aggregation_weight_tree;
 	Math_Expr_FT *unit_conversion_tree;
-	bool override_is_conc;
-	Math_Expr_FT *override_tree;
 	
-	State_Var() : type(Type::declared), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), aggregation_weight_tree(nullptr), unit_conversion_tree(nullptr), override_tree(nullptr), override_is_conc(false), flags(Flags::none) {};
+	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location) {};
 	
 	// Because these are very common queries
 	bool is_flux() { return (flags & flux);	}
@@ -72,7 +64,13 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	Var_Id         conn_source_agg;
 	Var_Id         conn_target_agg;
 	
-	State_Var_Sub() : decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), conn_source_agg(invalid_var), conn_target_agg(invalid_var) {}
+	Math_Expr_FT *function_tree;
+	bool initial_is_conc;
+	Math_Expr_FT *initial_function_tree;
+	bool override_is_conc;
+	Math_Expr_FT *override_tree;
+	
+	State_Var_Sub() : decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), conn_source_agg(invalid_var), conn_target_agg(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false) {}
 };
 
 template<> struct
@@ -86,8 +84,9 @@ template<> struct
 State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
 	Var_Id         agg_of;                // The variable this is an aggregate of
 	Entity_Id      agg_to_compartment;    // From which point of view we are aggregating.
+	Math_Expr_FT  *aggregation_weight_tree;
 	
-	State_Var_Sub() : agg_of(invalid_var), agg_to_compartment(invalid_entity_id) {}
+	State_Var_Sub() : agg_of(invalid_var), agg_to_compartment(invalid_entity_id), aggregation_weight_tree(nullptr) {}
 };
 
 template<> struct
@@ -103,7 +102,7 @@ State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
 	Var_Id         conc;                   // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
-	State_Var_Sub() : flux_of_medium(invalid_var), conc(invalid_var) {}
+	State_Var_Sub() : connection(invalid_entity_id), flux_of_medium(invalid_var), conc(invalid_var) {}
 };
 
 template<> struct
@@ -111,6 +110,10 @@ State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 	Entity_Id      connection;
 	Var_Id         agg_for;     // The state variable this is an aggregate for fluxes going to or from.
 	bool           is_source;   // If it aggregates sources from or targets to that state var.
+	
+	// If this is a target aggregate (!is_source), agg_weights is a list of pairs (source_id, weight) of weights for fluxes coming from that particular source (to the target agg_for)
+	//TODO: Also unit conv.
+	//std::vector<std::pair<Var_Id, Math_Expr_FT *>> agg_weights;
 	
 	State_Var_Sub() : connection(invalid_entity_id), agg_for(invalid_var) {}
 };
@@ -133,4 +136,4 @@ connection_of_flux(State_Var *var) {
 	return invalid_entity_id;
 }
 
-# endif // MOBIUS_STATE_VARIABLE_H
+#endif // MOBIUS_STATE_VARIABLE_H

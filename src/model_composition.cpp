@@ -78,7 +78,7 @@ check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_L
 }
 
 template<State_Var::Type type> Var_Id
-register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id decl_id, bool is_series, const std::string &given_name = "") {
+register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_series, const std::string &given_name = "") {
 	
 	// TODO: Ideally we want to remove decl_type as an argument here, but then it would have to be made irrelevant for non-declared variables.
 	
@@ -101,7 +101,7 @@ register_state_variable(Model_Application *app, Decl_Type decl_type, Entity_Id d
 		else
 			name = model->hases[decl_id]->var_name;
 	}
-	if(name.empty() && decl_type == Decl_Type::has) //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
+	if(name.empty() && decl_id.reg_type == Reg_Type::has) //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
 		name = model->find_entity(loc.last())->name;
 	
 	Var_Id var_id = invalid_var;
@@ -474,10 +474,10 @@ prelim_compose(Model_Application *app) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("For now we don't support input series with chained locations.");
 				}
-				register_state_variable<State_Var::Type::declared>(app, Decl_Type::has, id, true);
+				register_state_variable<State_Var::Type::declared>(app, id, true);
 			} else if (id == find->second) {
 				// This is the particular has declaration that provided the code, so we register a state variable using this one.
-				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, Decl_Type::has, id, false);
+				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, id, false);
 				if(has->var_location.is_dissolved() && type == Decl_Type::quantity)
 					dissolvedes.push_back(var_id);
 			}
@@ -491,7 +491,7 @@ prelim_compose(Model_Application *app) {
 		check_flux_location(app, scope, flux->source_loc, flux->source);
 		check_flux_location(app, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
 		
-		register_state_variable<State_Var::Type::declared>(app, Decl_Type::flux, id, false);
+		register_state_variable<State_Var::Type::declared>(app, id, false);
 	}
 	
 	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
@@ -531,7 +531,7 @@ prelim_compose(Model_Application *app) {
 		auto dissolved_in = app->state_vars[dissolved_in_id];
 		
 		sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
-		Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, Decl_Type::has, invalid_entity_id, false, varname);
+		Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, invalid_entity_id, false, varname);
 		auto conc_var = as<State_Var::Type::dissolved_conc>(app->state_vars[gen_conc_id]);
 		conc_var->conc_of = var_id;
 		as<State_Var::Type::declared>(app->state_vars[var_id])->conc = gen_conc_id;
@@ -539,7 +539,7 @@ prelim_compose(Model_Application *app) {
 		for(auto flux_id : generate) {
 			std::string &flux_name = app->state_vars[flux_id]->name;
 			sprintf(varname, "dissolved_flux(%s, %s)", var_name.data(), flux_name.data());
-			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, Decl_Type::flux, invalid_entity_id, false, varname);
+			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, invalid_entity_id, false, varname);
 			auto gen_flux = as<State_Var::Type::dissolved_flux>(app->state_vars[gen_flux_id]);
 			auto flux = app->state_vars[flux_id];
 			gen_flux->type = State_Var::Type::dissolved_flux;
@@ -638,7 +638,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, E
 	else
 		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
 	
-	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, Decl_Type::has, invalid_entity_id, false, varname);
+	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, invalid_entity_id, false, varname);
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
 	agg_var->agg_for = var_id;
 	agg_var->is_source = is_source;
@@ -749,27 +749,27 @@ compose_and_resolve(Model_Application *app) {
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters };
 		if(ast) {
-			var->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
-			replace_conc(app, var->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
-			find_other_flags(var->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
+			var2->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
+			replace_conc(app, var2->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
+			find_other_flags(var2->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 		} else
-			var->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
+			var2->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
 		res_data.scope = other_code_scope;
 		if(init_ast) {
 			//TODO: handle initial_is_conc!
-			var->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
-			remove_lasts(var->initial_function_tree, true);
-			replace_conc(app, var->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
-			find_other_flags(var->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
-			var->initial_is_conc = initial_is_conc;
+			var2->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
+			remove_lasts(var2->initial_function_tree, true);
+			replace_conc(app, var2->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
+			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
+			var2->initial_is_conc = initial_is_conc;
 			
 			if(initial_is_conc && (var2->decl_type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
 				init_ast->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
 			}
 		} else
-			var->initial_function_tree = nullptr;
+			var2->initial_function_tree = nullptr;
 		
 		if(override_ast) {
 			auto override_tree = prune_tree(resolve_function_tree(override_ast, &res_data));
@@ -779,15 +779,15 @@ compose_and_resolve(Model_Application *app) {
 				no_override = (ident->variable_type == Variable_Type::no_override);
 			}
 			if(no_override)
-				var->override_tree = nullptr;
+				var2->override_tree = nullptr;
 			else {
-				var->override_tree = make_cast(override_tree, Value_Type::real);
-				var->override_is_conc = override_is_conc;
-				replace_conc(app, var->override_tree);
-				find_other_flags(var->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
+				var2->override_tree = make_cast(override_tree, Value_Type::real);
+				var2->override_is_conc = override_is_conc;
+				replace_conc(app, var2->override_tree);
+				find_other_flags(var2->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			}
 		} else
-			var->override_tree = nullptr;
+			var2->override_tree = nullptr;
 	}
 	
 	// Invalidate dissolved fluxes if both source and target is overridden.
@@ -797,14 +797,14 @@ compose_and_resolve(Model_Application *app) {
 		if(var->type == State_Var::Type::dissolved_flux) {
 			bool valid_source = true;
 			if(is_located(var->loc1)) {
-				auto source = app->state_vars[app->state_vars.id_of(var->loc1)];
+				auto source = as<State_Var::Type::declared>(app->state_vars[app->state_vars.id_of(var->loc1)]);
 				if(source->override_tree)
 					valid_source = false;
 			} else
 				valid_source = false;
 			bool valid_target = true;
 			if(is_located(var->loc2)) {
-				auto target = app->state_vars[app->state_vars.id_of(var->loc2)];
+				auto target = as<State_Var::Type::declared>(app->state_vars[app->state_vars.id_of(var->loc2)]);
 				if(target->override_tree)
 					valid_target = false;
 			} else
@@ -878,7 +878,7 @@ compose_and_resolve(Model_Application *app) {
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
 			sprintf(varname, "aggregate(%s)", var->name.data());
-			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, Decl_Type::property, invalid_entity_id, false, varname);
+			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, invalid_entity_id, false, varname);
 			
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[agg_id]);
 			agg_var->agg_of = var_id;
@@ -900,7 +900,7 @@ compose_and_resolve(Model_Application *app) {
 			agg_var->agg_to_compartment = to_compartment;
 			
 			for(auto looked_up_by : need_agg.second.second) {
-				auto lu = app->state_vars[looked_up_by];
+				auto lu = as<State_Var::Type::declared>(app->state_vars[looked_up_by]);
 				
 				Entity_Id lu_compartment = lu->loc1.first();
 				if(!is_located(lu->loc1)) {
@@ -935,16 +935,18 @@ compose_and_resolve(Model_Application *app) {
 		auto connection = model->connections[conn_id];
 		
 		if(connection->type == Connection_Type::directed_tree) {
-		
-			for(auto target_compartment : connection->components) {
+			
+			for(auto &target_comp : app->connection_components[conn_id.id]) {
+				
+				// If it wasn't actually put as a possible target in the data set, don't bother about it.
+				if(!target_comp.can_be_target) continue;
+
 				auto target_loc = app->state_vars[source_id]->loc1;
-				target_loc.components[0] = target_compartment;
+				target_loc.components[0] = target_comp.id;
 				auto target_id = app->state_vars.id_of(target_loc);
 				if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
 					continue;
-				auto *conn_comp = app->find_connection_component(conn_id, target_compartment, false);
-				if(!conn_comp)
-					continue;
+				
 				// TODO: Even if it is present in the connection data, it may not appear as a target, only as a source. Should also be checked eventually.
 				
 				register_connection_agg(app, false, target_id, conn_id, &varname[0]);
@@ -967,24 +969,28 @@ compose_and_resolve(Model_Application *app) {
 	for(auto &in_flux : in_flux_map) {
 		Var_Id target_id = {Var_Id::Type::state_var, in_flux.first}; //TODO: Not good way to do it!
 		
-		Var_Id in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, Decl_Type::has, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
+		Var_Id in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
 		auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->state_vars[in_flux_id]);
 		
 		in_flux_var->in_flux_to = target_id;
 		
-		for(auto rep_id : in_flux.second)
-			replace_flagged(app->state_vars[rep_id]->function_tree, target_id, in_flux_id, ident_flags_in_flux);
+		for(auto rep_id : in_flux.second) {
+			auto var = as<State_Var::Type::declared>(app->state_vars[rep_id]);
+			replace_flagged(var->function_tree, target_id, in_flux_id, ident_flags_in_flux);
+		}
 	}
 
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
-		if(var->flags & State_Var::Flags::invalid) continue;
+		if(!var->is_valid()) continue;
+		if(var->type != State_Var::Type::declared) continue;
+		auto var2 = as<State_Var::Type::declared>(var);
 		
-		if(var->function_tree)
-			check_valid_distribution_of_dependencies(app, var->function_tree,         var, false);
-		if(var->initial_function_tree)
-			check_valid_distribution_of_dependencies(app, var->initial_function_tree, var, true);
+		if(var2->function_tree)
+			check_valid_distribution_of_dependencies(app, var2->function_tree,         var, false);
+		if(var2->initial_function_tree)
+			check_valid_distribution_of_dependencies(app, var2->initial_function_tree, var, true);
 	}
 	
 	

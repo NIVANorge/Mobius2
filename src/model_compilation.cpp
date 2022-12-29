@@ -326,12 +326,16 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 				
 			instr->type = Model_Instruction::Type::compute_state_var;
 			instr->var_id = ident->state_var;
-			if(var->function_tree) {
-				instr->code = var->function_tree;
-				// Have to do this recursively, since we may already have passed it in the outer loop.
-				create_initial_vars_for_lookups(app, instr->code, instructions);
-			} else
-				instr->code = nullptr;
+			instr->code = nullptr;
+			
+			if(var->type == State_Var::Type::declared) {
+				auto var2 = as<State_Var::Type::declared>(var);
+				if(var2->function_tree) {
+					instr->code = var2->function_tree;
+					// Have to do this recursively, since we may already have passed it in the outer loop.
+					create_initial_vars_for_lookups(app, instr->code, instructions);
+				}
+			}
 			
 			// If it is an aggregation variable, whatever it aggregates also must be computed.
 			if(var->type == State_Var::Type::regular_aggregate) {
@@ -344,11 +348,15 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 				
 				instr_agg_of->type = Model_Instruction::Type::compute_state_var;
 				instr_agg_of->var_id = var2->agg_of;
-				if(var_agg_of->function_tree) {
-					instr_agg_of->code = var_agg_of->function_tree;
-					create_initial_vars_for_lookups(app, instr_agg_of->code, instructions);
-				} else
-					instr_agg_of->code = nullptr;
+				instr_agg_of->code = nullptr;
+				
+				if(var_agg_of->type == State_Var::Type::declared) {
+					auto var_agg_of2 = as<State_Var::Type::declared>(var_agg_of);
+					if(var_agg_of2->function_tree) {
+						instr_agg_of->code = var_agg_of2->function_tree;
+						create_initial_vars_for_lookups(app, instr_agg_of->code, instructions);
+					}
+				}
 			}
 			//TODO: if it is a conc and is not computed, do we need to check if the mass variable has an initial conc?
 		}
@@ -367,11 +375,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		auto var = app->state_vars[var_id];
 		if(!var->is_valid()) continue;
 		
-		auto fun = var->function_tree;
-		if(initial) fun = var->initial_function_tree;
-		if(!initial && !fun) {
-			if(var->type == State_Var::Type::declared && as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity)
-				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
+		Math_Expr_FT *fun = nullptr;
+		if(var->type == State_Var::Type::declared) {
+			auto var2 = as<State_Var::Type::declared>(var);
+			
+			fun = var2->function_tree;
+			if(initial) fun = var2->initial_function_tree;
+			if(!initial && !fun) {
+				if(var2->decl_type != Decl_Type::quantity) // NOTE: quantities typically don't have code associated with them directly (except for the initial value)
+					fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
+			}
 		}
 		
 		Model_Instruction instr;
@@ -580,21 +593,31 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			for(auto var_id_flux : app->state_vars) {
 				auto var_flux = app->state_vars[var_id_flux];
-				
+				if(!var_flux->is_valid()) continue;
 				auto conn_id = connection_of_flux(var_flux);
-				if(!var_flux->is_valid() || !var_flux->is_flux() || !is_valid(conn_id) || conn_id != var2->connection) continue;
+				if(!var_flux->is_flux() || !is_valid(conn_id) || conn_id != var2->connection) continue;
+				
+				auto conn_type = model->connections[var2->connection]->type;
 				
 				if(var2->is_source) {
 					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != var2->agg_for)
 						continue;
 				} else {
-					// Ouch, this is a pretty awkward test for whether or not the flux could connect to this variable using this connection...
-					// TODO: Should this test even be necessary though??
+					// Ouch, these tests are super super awkward. Is there no better way to set up the data??
+					
+					// See if this flux has a source that is the same quantity (chain) as the target variable.
 					Var_Location source_loc = var_flux->loc1;
 					Var_Location target_loc = app->state_vars[var2->agg_for]->loc1;
 					source_loc.components[0] = invalid_entity_id;
 					target_loc.components[0] = invalid_entity_id;
 					if(source_loc != target_loc) continue;
+					
+					// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
+					if(conn_type == Connection_Type::directed_tree) {
+						Entity_Id source_comp_id = var_flux->loc1.components[0];
+						auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
+						if(find_source->possible_targets.empty()) continue;
+					}
 				}
 				
 				// Create instruction to add the flux to the target aggregate.
@@ -618,10 +641,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
 				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
-				if(model->connections[var2->connection]->type == Connection_Type::directed_tree) {
+				if(conn_type == Connection_Type::directed_tree) {
+					// Hmm, could have kept find_source from above?
 					Entity_Id source_comp_id = var_flux->loc1.components[0];
 					Entity_Id target_comp_id = app->state_vars[var2->agg_for]->loc1.components[0];
-					
 					auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
 					auto *find_target = app->find_connection_component(var2->connection, target_comp_id);
 					
@@ -639,7 +662,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
 					instructions[var2->agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
 					
-				} else if(model->connections[var2->connection]->type == Connection_Type::all_to_all) {
+				} else if(conn_type == Connection_Type::all_to_all) {
+					
 					auto &components = app->connection_components[var2->connection.id];
 					auto source_comp = components[0].id;
 					
@@ -676,8 +700,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			source_id = app->state_vars.id_of(loc1);
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = source->solver;
+			auto source_var = as<State_Var::Type::declared>(app->state_vars[source_id]);
 				
-			if(!is_valid(source_solver) && !app->state_vars[source_id]->override_tree) {
+			if(!is_valid(source_solver) && !source_var->override_tree) {
 				Model_Instruction sub_source_instr;
 				sub_source_instr.type = Model_Instruction::Type::subtract_discrete_flux_from_source;
 				sub_source_instr.var_id = var_id;
@@ -710,8 +735,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			Model_Instruction *target = &instructions[target_id.id];
 			Entity_Id target_solver = target->solver;
+			auto target_var = as<State_Var::Type::declared>(app->state_vars[target_id]);
 			
-			if(!is_valid(target_solver) && !app->state_vars[target_id]->override_tree) {
+			if(!is_valid(target_solver) && !target_var->override_tree) {
 				Model_Instruction add_target_instr;
 				add_target_instr.type   = Model_Instruction::Type::add_discrete_flux_to_target;
 				add_target_instr.var_id = var_id;

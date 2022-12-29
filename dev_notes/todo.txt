@@ -5,9 +5,8 @@
 		Other types of connections
 			one_dimensional - along with integer indexed index sets.
 		'to' value fetching inside flux body (only for all-to-all connection fluxes (?)).
-		better checks for what fluxes can be put on what connections ..
-		check what parts of the connection are actually used (not just based on arrows in the data set, but also on what fluxes are put along the arrows).
-			e.g. what variables can actually be a target - only generate code for those etc.
+		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
+		
 		**aggregation weights applied to graph arrows !!
 		
 		it is a bit overzealous to require specification of a regex for all_to_all connections.
@@ -18,12 +17,9 @@
 	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 		Also only one matrix indexing for a given state variable (at least for now)
 		The challenge is providing good error messages.
-	ability to view all_to_all fluxes (or other matrix results) in MobiView.
+	ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
-	
-	Clean up the State_Variable struct to make it less easy to have usage errors (maybe make accessors).
-		No, really! Do it!
 
 	
 	*** Intermediate-pri ***
@@ -43,13 +39,21 @@
 		
 		Allow declaration of no_carry inside modules.
 		
-		Organize state var tree by quantity in MobiView
+		Organize state var tree by quantity in MobiView (as an option).
 			Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
 		
 		Check for conflicting declarations of variables (unit, name).
 		
 		New system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
+			
+		More cleanup of State_Var system
+			the way we handle regular_aggregates of fluxes is not necessarily that nice.
+			organize unit_conversion_tree differently.
+				and clean up how it is applied.
+		Maybe have a separate lookup structure for fluxes and have the common flux things stored there.
+			(in many cases we just loop over all fluxes and try to find common things for them)
+			loc1, loc2, unit_conv, connection, etc.
 	
 	
 	*** Low-pri ****
@@ -104,3 +108,8 @@
 	all_to_all connections for quantities (not just compartments)
 	the index set(s) the connection is over should be taken from the data set.
 		compartments of multiple index sets
+		
+	Clean up the State_Variable struct to make it less easy to have usage errors.
+	
+	check what parts of the connection are actually used (not just based on arrows in the data set, but also on what fluxes are put along the arrows).
+		e.g. what variables can actually be a target - only generate code for those etc.

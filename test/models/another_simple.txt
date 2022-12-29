@@ -18,7 +18,7 @@ model("Another simple") {
 		b.has(q, unit(), "B.Q") .initial { 0 }
 		
 		flux(a.q, c, "A.Q out") { q*0.1	}
-		#flux(b.q, c, "B.Q out") { q*0.01 }
+		flux(b.q, c, "B.Q out") { q*0.01 }
 	}
 	
 	sol : solver("Solver", "INCADascru", 0.1)
@@ -32,6 +32,6 @@ model("Another simple") {
 	b : compartment("B")
 	q : quantity("Q")
 	
-	a.distribute(j, i)
+	a.distribute(i)
 	b.distribute(j)
 }

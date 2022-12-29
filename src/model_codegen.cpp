@@ -29,12 +29,13 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto var = app->state_vars[instr.var_id];  // var is the mass or volume of the quantity
 				
 				if(var->type == State_Var::Type::declared) {
-					auto conc = as<State_Var::Type::declared>(var)->conc;
+					auto var2 = as<State_Var::Type::declared>(var);
+					auto conc = var2->conc;
 					// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
 					if(is_valid(conc)) {
 						auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
 							
-						if(var->initial_is_conc) {
+						if(var2->initial_is_conc) {
 							// conc is given. compute mass
 							instructions[conc.id].code = instr.code;
 							instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
@@ -63,14 +64,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
 				if(var2->decl_type == Decl_Type::quantity && var2->override_tree && !var2->override_is_conc)
-					instr.code = var->override_tree;
+					instr.code = var2->override_tree;
 			}
 			
 			// Codegen for concs of dissolved variables
 			if(var->type == State_Var::Type::dissolved_conc) {
 				
 				auto mass = as<State_Var::Type::dissolved_conc>(var)->conc_of;
-				auto mass_var = app->state_vars[mass];
+				auto mass_var = as<State_Var::Type::declared>(app->state_vars[mass]);
 				auto dissolved_in = app->state_vars.id_of(remove_dissolved(mass_var->loc1));
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
@@ -134,7 +135,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
 				if(var2->decl_type == Decl_Type::quantity
-					&& is_valid(instr.solver) && !var->override_tree) {
+					&& is_valid(instr.solver) && !var2->override_tree) {
 					Math_Expr_FT *fun;
 					
 					
@@ -188,16 +189,15 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
 			
-			auto agg_var = app->state_vars[instr.target_id];
+			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[instr.target_id]);
 			
 			auto weight = agg_var->aggregation_weight_tree;
-			if(!weight && !is_valid(instr.connection))  // NOTE: no default weight for connection fluxes.
-				fatal_error(Mobius_Error::internal, "Somehow we got an aggregation without code for computing the weight.");
-			
-			if(weight)
-				weight = copy(weight);
+			if(!weight)
+				fatal_error(Mobius_Error::internal, "Somehow we got a regular aggregation without code for computing the weight.");
+			weight = copy(weight);
 			
 			instr.code = make_possibly_weighted_var_ident(instr.var_id, weight, nullptr);
+			
 		} else if (instr.type == Model_Instruction::Type::add_to_connection_aggregate) {
 			
 			// TODO: may need weights and unit conversions here too eventually.

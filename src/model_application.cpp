@@ -150,18 +150,17 @@ Model_Application::set_up_connection_structure() {
 		auto connection = model->connections[connection_id];
 		
 		if(connection->type == Connection_Type::directed_tree) {
-			// TODO: This is a bit risky, we should actually check that connection_components is correctly set up;
-			int max_index_sets = 0;
-			for(auto &comp : connection_components[connection_id.id])
-				max_index_sets = std::max(max_index_sets, (int)comp.index_sets.size());
+			// TODO: This is a bit risky, we should actually check that connection_components is correctly set up.
 			
-			// TODO: As an optimization, we could figure out the maximal number of indexes that could be targeted by each given source instead of having this global max.
 			for(auto &comp : connection_components[connection_id.id]) {
+				
+				if(comp.possible_targets.empty()) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
+				
 				// TODO: group handles from multiple source compartments by index tuples.
 				Connection_T handle1 = { connection_id, comp.id, 0 };   // First info id for target compartment (indexed by the source compartment)
 				std::vector<Connection_T> handles { handle1 };
-				for(int id = 1; id <= max_index_sets; ++id) {
-					Connection_T handle2 = { connection_id, comp.id, id };   // Info id for target index of number id.
+				for(int id = 1; id <= comp.max_target_indexes; ++id) {
+					Connection_T handle2 = { connection_id, comp.id, id };   // Info id for target index number id.
 					handles.push_back(handle2);
 				}
 				auto index_sets = comp.index_sets; // Copy vector
@@ -483,17 +482,22 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
 		}
 		
-		/*  //TODO: Use the arrows to store useful info about what components can be targets etc.
 		for(auto &arr : connection.arrows) {
 			auto comp = connection.components[arr.first.id];
 			Entity_Id source_comp_id = model->components.find_by_name(comp->name);
 			
 			auto comp_target = connection.components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
+			
+			// Store useful information that allows us to prune away un-needed operations later.
+			auto target = app->find_connection_component(conn_id, target_comp_id);
+			auto source = app->find_connection_component(conn_id, source_comp_id);
+			target->can_be_target = true;
+			source->possible_targets.insert(target_comp_id);
+			source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
 		}
-		*/
-		// TODO: In the end we will have to check that the connection structure matches the regex, but this is going to be complicated.
-		// TODO: Also have to check that it is actually a tree.
+		
+		// TODO: finish the code for checking the regex and that the graph is a tree.
 		
 	} else if (cnd->type == Connection_Type::all_to_all) {
 		if(connection.type != Connection_Info::Type::single_component) {
@@ -521,9 +525,7 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			auto comp_target = connection.components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
 			
-			auto *find = app->find_connection_component(conn_id, source_comp_id);
-		
-			auto &index_sets = find->index_sets;
+			auto &index_sets = app->find_connection_component(conn_id, source_comp_id)->index_sets;
 			std::vector<Index_T> indexes;
 			for(int idx = 0; idx < index_sets.size(); ++idx) {
 				Index_T index = {index_sets[idx], arr.first.indexes[idx]};

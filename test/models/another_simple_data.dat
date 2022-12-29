@@ -4,10 +4,11 @@ index_set("J") [ "J1" "J2" ]
 
 
 connection("graph") [
-	a : compartment("A") [ "J" ]
-	b : compartment("B") [ ]
+	a : compartment("A") [ "I" ]
+	b : compartment("B") [ "J" ]
 	
-	a[ "J1" ] -> a[ "J2" ] -> b[ ]
+	#a[ "I1" ] -> a[ "I2" ] -> b[ "J1" ]
+	a[ "I1" ] -> b[ "J1" ]
 ]
 
 par_group("System") {
@@ -19,10 +20,9 @@ par_group("System") {
 }
 
 module("So simple", 1, 0, 0) {
-	par_group("A pars") [ "J" "I" ] {
+	par_group("A pars") [ "I" ] {
 		par_real("Initial A.Q") [
-			1 10 
-			4 5 
+			1 1 
 		]
 	}
 }
