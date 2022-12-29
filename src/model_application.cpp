@@ -500,9 +500,9 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		// TODO: finish the code for checking the regex and that the graph is a tree.
 		
 	} else if (cnd->type == Connection_Type::all_to_all) {
-		if(connection.type != Connection_Info::Type::single_component) {
+		if(connection.type != Connection_Info::Type::none || connection.components.count() != 1) {
 			connection.loc.print_error_header();
-			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data.");
+			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data, and no other data.");
 		}
 	} else
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");

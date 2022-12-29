@@ -107,8 +107,7 @@ Connection_Info : Info_Type_Base {    // This must either be subclased or have d
 	enum class Type {
 		none,
 		graph,
-		single_component,
-		} type;
+	} type;
 	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
 	
 	Info_Registry<Component_Info>        components;

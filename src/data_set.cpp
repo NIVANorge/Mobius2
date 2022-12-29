@@ -64,14 +64,13 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 			write_indexed_compartment_to_file(file, pair.second, data_set, connection);
 			prev = &pair.second;
 		}
-		fprintf(file, "\n]\n\n");
-	} else if (connection.type == Connection_Info::Type::single_component) {
-		// Nothing else to write.
+		fprintf(file, "\n");
 	} else if (connection.type == Connection_Info::Type::none) {
 		// Nothing else to write.
 	} else {
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in write_to_file.");
 	}
+	fprintf(file, "]\n\n");
 }
 
 void
@@ -375,10 +374,7 @@ read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *
 	if((char)token2.type == '[') {
 		info->type = Connection_Info::Type::graph;
 		read_connection_sequence(data_set, nullptr, stream, info);
-	} else if ((char)token2.type == ']') {
-		if(info->components.count() == 1)
-			info->type = Connection_Info::Type::single_component;
-	} else {
+	} else if ((char)token2.type != ']') {
 		token.print_error_header();
 		fatal_error("Unrecognized connection data format.");
 	}

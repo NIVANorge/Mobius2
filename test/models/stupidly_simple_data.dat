@@ -2,8 +2,9 @@ index_set("I") [ "I1" "I2" "I3" ]
 
 index_set("J") [ "J1" "J2" ]
 
-q : quantity("Q") [ "J" ]
-connection("Flow connection") [ q ]
+connection("Flow connection") [
+	quantity("Q") [ "J" ]
+]
 
 par_group("System") {
 	par_datetime("Start date")

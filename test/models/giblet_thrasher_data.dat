@@ -1,12 +1,13 @@
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 
-h : compartment("Habitat") [ "Habitat index" ]
-connection("Migration route") [ h ]
+connection("Migration route") [
+	compartment("Habitat") [ "Habitat index" ]
+]
 
 module("Giblet-Thrasher", 1, 0, 0) {
 	par_group("General parameters") {
 		par_int ("Giblet preferred birthday") [ 120 ]
-		par_real("Giblet propensity to migrate") [ 0.05 ]
+		par_real("Giblet propensity to migrate") [ 0.02 ]
 		par_real("Predation rate") [ 0.1 ]
 		par_real("Thrasher birth rate") [ 0.025 ]
 		par_real("Thrasher death rate") [ 0.05 ]
@@ -39,5 +40,6 @@ series() [
 1990-6-1	1
 1992-4-21	1
 1994-3-15	1
+1998-5-6    2
 2000-1-1	0
 ]
