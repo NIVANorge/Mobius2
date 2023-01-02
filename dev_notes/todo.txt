@@ -3,16 +3,13 @@
 	Finish connection system 
 		multiple connections per variable
 		Other types of connections
-			one_dimensional - along with integer indexed index sets.
-		'to' value fetching inside flux body (only for all-to-all connection fluxes (?)).
-		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
+			grid1d
+				with boundary conditions (?) - maybe just an override on specific index. (could be implemented without special functionality just using paramters, but a bit iffy).
 		
-		**aggregation weights applied to graph arrows !!
+		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
 		
 		it is a bit overzealous to require specification of a regex for all_to_all connections.
 		regex checks.
-			
-		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
 	
 	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 		Also only one matrix indexing for a given state variable (at least for now)
@@ -57,6 +54,10 @@
 	
 	
 	*** Low-pri ****
+	
+		Rules for using 'target' is very unintuitive, and implementation is not clean.
+		unit conversions also applied to connection graph arrows.
+		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
 		
 		Other types of connections
 			full graph (more than one outgoing vertex per node) (?)
@@ -77,11 +78,15 @@
 	
 	Interchangable components for connections. Simple system.
 		lake vs. river
-		
+	
+	'target' value fetching inside flux body (only for all-to-all connection fluxes (?)).
+	integer indexed index sets.
+	
 	**component declarations in the data set should be local to the connection data. Otherwise it makes things annoying.
 			also, component data is not properly set up unless there is an arrow (which could more easily be fixed if we do it like this)
 	
 	connection fluxes of dissolvedes seem to add to the base substance rather than the dissolved substance.
+	**aggregation weights applied to graph arrows !!
 	
 	Make and test a SimplyTox    (partial at least)
 	

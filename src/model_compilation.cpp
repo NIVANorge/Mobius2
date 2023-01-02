@@ -313,7 +313,7 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 	for(auto arg : expr->exprs) create_initial_vars_for_lookups(app, arg, instructions);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var) {
 			auto instr = &instructions[ident->state_var.id];
 			
@@ -616,7 +616,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(conn_type == Connection_Type::directed_tree) {
 						Entity_Id source_comp_id = var_flux->loc1.components[0];
 						auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
-						if(find_source->possible_targets.empty()) continue;
+						if(!find_source->can_be_source) continue;
 					}
 				}
 				

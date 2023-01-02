@@ -214,7 +214,7 @@ find_local_variable(Identifier_FT *ident, const std::string &name, Function_Scop
 		int idx = 0;
 		for(auto expr : block->exprs) {
 			if(expr->expr_type == Math_Expr_Type::local_var) {
-				auto local = reinterpret_cast<Local_Var_FT *>(expr);
+				auto local = static_cast<Local_Var_FT *>(expr);
 				//warning_print("Check ", name, " against ", local->name, ".\n");
 				if(local->name == name) {
 					ident->variable_type = Variable_Type::local;
@@ -364,7 +364,7 @@ Math_Expr_FT *
 fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::vector<Entity_Id> *baked_parameters) {
 	if(expr->expr_type != Math_Expr_Type::identifier_chain) return expr;
 	
-	auto ident = reinterpret_cast<Identifier_FT *>(expr);
+	auto ident = static_cast<Identifier_FT *>(expr);
 	if(ident->variable_type != Variable_Type::parameter) return expr; //TODO: Could maybe eventually bake others.
 	auto par_id = ident->parameter;
 	if(std::find(baked_parameters->begin(), baked_parameters->end(), par_id) == baked_parameters->end()) return expr;
@@ -423,7 +423,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
-			auto ident = reinterpret_cast<Identifier_Chain_AST *>(ast);
+			auto ident = static_cast<Identifier_Chain_AST *>(ast);
 			auto new_ident = new Identifier_FT();
 			result = new_ident;
 			
@@ -571,7 +571,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		} break;
 		
 		case Math_Expr_Type::literal : {
-			auto literal = reinterpret_cast<Literal_AST *>(ast);
+			auto literal = static_cast<Literal_AST *>(ast);
 			auto new_literal = new Literal_FT();
 			
 			new_literal->value_type = get_value_type(literal->value.type);
@@ -581,33 +581,35 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		} break;
 		
 		case Math_Expr_Type::function_call : {
-			auto fun = reinterpret_cast<Function_Call_AST *>(ast);
+			auto fun = static_cast<Function_Call_AST *>(ast);
 			
 			std::string fun_name = fun->name.string_value;
 			
 			// First check for "special" calls that are not really function calls.
-			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc") {
+			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc" || fun_name == "target") {
 				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
 				resolve_arguments(new_fun, ast, data, scope);
 				if(new_fun->exprs.size() != 1) {
 					fun->name.print_error_header();
-					error_print("A ", fun_name, "() call only takes one argument.\n");
+					error_print("A ", fun_name, "() declaration only takes one argument.\n");
 					fatal_error_trace(scope);
 				}
 				if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) {
 					new_fun->exprs[0]->source_loc.print_error_header();
-					error_print("A ", fun_name, "() call can only be applied to a state variable or input series.\n");
+					error_print("A ", fun_name, "() declaration can only be applied to a state variable or input series.\n");
 					fatal_error_trace(scope);
 				}
-				auto var = reinterpret_cast<Identifier_FT *>(new_fun->exprs[0]);
+				auto var = static_cast<Identifier_FT *>(new_fun->exprs[0]);
 				new_fun->exprs.clear();
 				delete new_fun;
 				bool can_series = (fun_name != "in_flux") && (fun_name != "conc");
-				if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series))) {
+				bool can_param  = (fun_name == "target");
+				if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series) || (can_param && var->variable_type == Variable_Type::parameter))) {
 					var->source_loc.print_error_header();
-					error_print("A ", fun_name, "() call can only be applied to a state variable");
-					if(can_series) error_print(" or input series.\n");
-					else           error_print(".\n");
+					error_print("A ", fun_name, "() declaration can only be applied to a state variable");
+					if(can_series) error_print(" or input series");
+					if(can_param)  error_print(" or parameter");
+					error_print(".\n");
 					fatal_error_trace(scope);
 				}
 				if(fun_name == "last")
@@ -618,6 +620,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					var->flags = (Identifier_Flags)(var->flags | ident_flags_aggregate);
 				else if(fun_name == "conc")
 					var->flags = (Identifier_Flags)(var->flags | ident_flags_conc);
+				else if(fun_name == "target")
+					var->flags = (Identifier_Flags)(var->flags | ident_flags_target);
 				
 				result = var;
 			/*} else if (fun_name == "bool") {
@@ -705,7 +709,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		//NOTE: currently we don't allow integers and reals to auto-cast to boolean
 		
 		case Math_Expr_Type::unary_operator : {
-			auto unary = reinterpret_cast<Unary_Operator_AST *>(ast);
+			auto unary = static_cast<Unary_Operator_AST *>(ast);
 			auto new_unary = new Operator_FT(Math_Expr_Type::unary_operator);
 			
 			resolve_arguments(new_unary, ast, data, scope);
@@ -737,7 +741,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
-			auto binary = reinterpret_cast<Binary_Operator_AST *>(ast);
+			auto binary = static_cast<Binary_Operator_AST *>(ast);
 			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
 			
 			resolve_arguments(new_binary, ast, data, scope);
@@ -784,7 +788,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		} break;
 		
 		case Math_Expr_Type::if_chain : {
-			auto ifexpr = reinterpret_cast<If_Expr_AST *>(ast);
+			auto ifexpr = static_cast<If_Expr_AST *>(ast);
 			auto new_if = new Math_Expr_FT(Math_Expr_Type::if_chain);
 			
 			resolve_arguments(new_if, ast, data, scope);
@@ -818,12 +822,12 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		
 		case Math_Expr_Type::local_var : {
 			
-			auto local = reinterpret_cast<Local_Var_AST *>(ast);
+			auto local = static_cast<Local_Var_AST *>(ast);
 			std::string local_name = local->name.string_value;
 			
 			for(auto loc : scope->block->exprs) {
 				if(loc->expr_type == Math_Expr_Type::local_var) {
-					auto loc2 = reinterpret_cast<Local_Var_FT *>(loc);
+					auto loc2 = static_cast<Local_Var_FT *>(loc);
 					
 					if(loc2->name == local_name) {
 						local->source_loc.print_error_header();
@@ -927,7 +931,7 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
 Math_Expr_FT *
 replace_iteration_index(Math_Expr_FT *expr, s32 block_id) {
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::local && ident->local_var.scope_id == block_id) {
 			//NOTE: the for loop block has only one local variable, the iteration index, so we only have to know that it points to that block.
 			delete expr;
@@ -949,7 +953,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 	Function_Scope new_scope;
 	if(expr->expr_type == Math_Expr_Type::block) {
 		new_scope.parent = scope;
-		new_scope.block = reinterpret_cast<Math_Block_FT *>(expr);
+		new_scope.block = static_cast<Math_Block_FT *>(expr);
 		scope = &new_scope;
 	}
 	
@@ -958,10 +962,10 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
-			auto block = reinterpret_cast<Math_Block_FT *>(expr);
+			auto block = static_cast<Math_Block_FT *>(expr);
 			if(block->is_for_loop
 				&& block->exprs[0]->expr_type == Math_Expr_Type::literal
-				&& reinterpret_cast<Literal_FT *>(block->exprs[0])->value.val_integer == 1) {   // Iteration count of for loop is 1, so the loop only executes once.
+				&& static_cast<Literal_FT *>(block->exprs[0])->value.val_integer == 1) {   // Iteration count of for loop is 1, so the loop only executes once.
 				
 				delete block->exprs[0];
 				auto result = block->exprs[1];
@@ -981,7 +985,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		} break;
 		
 		case Math_Expr_Type::function_call : {
-			auto fun = reinterpret_cast<Function_Call_FT *>(expr);
+			auto fun = static_cast<Function_Call_FT *>(expr);
 			if(fun->fun_type != Function_Type::intrinsic)           //TODO: implement for others.
 				return expr;
 			
@@ -995,13 +999,13 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				literal->value_type = expr->value_type;
 				
 				if(expr->exprs.size() == 1) {
-					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+					auto arg1 = static_cast<Literal_FT *>(expr->exprs[0]);
 					literal->value = apply_intrinsic({arg1->value, arg1->value_type}, fun->fun_name);
 					delete expr;
 					return literal;
 				} else if(expr->exprs.size() == 2) {
-					auto arg1 = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
-					auto arg2 = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
+					auto arg1 = static_cast<Literal_FT *>(expr->exprs[0]);
+					auto arg2 = static_cast<Literal_FT *>(expr->exprs[1]);
 					literal->value = apply_intrinsic({arg1->value, arg1->value_type}, {arg2->value, arg2->value_type}, fun->fun_name);
 					delete expr;
 					return literal;
@@ -1013,8 +1017,8 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		case Math_Expr_Type::unary_operator : {
 			// If the argument is a literal, just apply the operator directly on the unary and replace the unary with the literal.
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
-				auto unary = reinterpret_cast<Operator_FT *>(expr);
-				auto arg = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+				auto unary = static_cast<Operator_FT *>(expr);
+				auto arg = static_cast<Literal_FT *>(expr->exprs[0]);
 				Parameter_Value val = apply_unary({arg->value, arg->value_type}, unary->oper);
 				auto literal = new Literal_FT();
 				literal->value = val;
@@ -1029,11 +1033,11 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 			// TODO: we could do more, like determine if the two branches are going to evaluate to the same (or opposite) value, and then use that in case of minus etc.
 			Literal_FT *lhs = nullptr;
 			Literal_FT *rhs = nullptr;
-			auto binary = reinterpret_cast<Operator_FT *>(expr);
+			auto binary = static_cast<Operator_FT *>(expr);
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal)
-				lhs = reinterpret_cast<Literal_FT *>(expr->exprs[0]);
+				lhs = static_cast<Literal_FT *>(expr->exprs[0]);
 			if(expr->exprs[1]->expr_type == Math_Expr_Type::literal)
-				rhs = reinterpret_cast<Literal_FT *>(expr->exprs[1]);
+				rhs = static_cast<Literal_FT *>(expr->exprs[1]);
 			
 			Typed_Value result;
 			result.type = Value_Type::unresolved;
@@ -1103,7 +1107,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				bool is_false = false;
 				bool is_true  = false;
 				if(!found_true && expr->exprs[idx+1]->expr_type == Math_Expr_Type::literal) {
-					auto literal = reinterpret_cast<Literal_FT *>(expr->exprs[idx+1]);
+					auto literal = static_cast<Literal_FT *>(expr->exprs[idx+1]);
 					if(literal->value.val_boolean) is_true  = true;
 					else                        is_false = true;
 				}
@@ -1139,7 +1143,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		
 		case Math_Expr_Type::cast : {
 			if(expr->exprs[0]->expr_type == Math_Expr_Type::literal) {
-				auto old_literal = reinterpret_cast<Literal_FT*>(expr->exprs[0]);
+				auto old_literal = static_cast<Literal_FT*>(expr->exprs[0]);
 				auto literal = new Literal_FT();
 				literal->value = apply_cast({old_literal->value, old_literal->value_type}, expr->value_type);
 				literal->value_type = expr->value_type;
@@ -1150,7 +1154,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
-			auto ident = reinterpret_cast<Identifier_FT *>(expr);
+			auto ident = static_cast<Identifier_FT *>(expr);
 			if(ident->variable_type == Variable_Type::local) {
 				if(!scope)
 					fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
@@ -1168,8 +1172,8 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 							&& (index == ident->local_var.index)
 							&& (loc->exprs[0]->expr_type == Math_Expr_Type::literal)) {
 								auto literal        = new Literal_FT();
-								auto loc2           = reinterpret_cast<Local_Var_FT *>(loc);
-								auto loc_literal    = reinterpret_cast<Literal_FT *>(loc->exprs[0]);
+								auto loc2           = static_cast<Local_Var_FT *>(loc);
+								auto loc_literal    = static_cast<Literal_FT *>(loc->exprs[0]);
 								literal->value      = loc_literal->value;
 								literal->value_type = loc_literal->value_type;
 								literal->source_loc   = ident->source_loc;
@@ -1191,7 +1195,7 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 	for(auto arg : expr->exprs) register_dependencies(arg, depends);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::parameter)
 			depends->on_parameter.insert(ident->parameter);
 		else if(ident->variable_type == Variable_Type::state_var) {
@@ -1210,7 +1214,7 @@ template<typename Expr_Type> Math_Expr_FT *
 copy_one(Math_Expr_FT *source) {
 	if(!source)
 		fatal_error(Mobius_Error::internal, "Somehow we got a nullptr node in a function tree in copy().");
-	auto source_full = reinterpret_cast<Expr_Type *>(source);
+	auto source_full = static_cast<Expr_Type *>(source);
 	auto result = new Expr_Type();
 	*result = *source_full;
 	return result;
@@ -1294,12 +1298,12 @@ print_tree(Math_Expr_FT *expr, int ntabs) {
 	print_tabs(ntabs);
 	warning_print(name(expr->expr_type));
 	if(expr->expr_type == Math_Expr_Type::literal) {
-		auto literal = reinterpret_cast<Literal_FT *>(expr);
+		auto literal = static_cast<Literal_FT *>(expr);
 		if(literal->value_type == Value_Type::real)    warning_print(" ", literal->value.val_real);
 		if(literal->value_type == Value_Type::integer) warning_print(" ", literal->value.val_integer);
 		if(literal->value_type == Value_Type::boolean) warning_print(" ", literal->value.val_boolean ? "true": "false");
 	} else if (expr->expr_type == Math_Expr_Type::binary_operator) {
-		auto binop = reinterpret_cast<Operator_FT *>(expr);
+		auto binop = static_cast<Operator_FT *>(expr);
 		warning_print(" ", (char)binop->oper);
 	}
 	warning_print("\n");
@@ -1315,7 +1319,7 @@ print_tree(Math_Expr_FT *expr, int ntabs) {
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
-			auto block = reinterpret_cast<Math_Block_FT *>(expr);
+			auto block = static_cast<Math_Block_FT *>(expr);
 			//print_tabs(ntabs);
 			if(block->is_for_loop) {
 				warning_print("for(i = 0..");

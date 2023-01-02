@@ -12,14 +12,18 @@ model("Simple test model") {
 			ia : par_real("Init a", unit(), 0)
 		}
 		
+		q.par_group("Permissivity") {
+			pm : par_real("Permissivity", unit(), 0)
+		}
+		
 		q.par_group("Flow pars") {
-			p : par_real("Flow fraction", unit(), 0, 0, 1)
+			ff : par_real("Flow fraction", unit(), 0, 0, 1)
 		}
 		
 		c : connection("Flow connection", all_to_all) { q* }
 
 		flux(a.q, c, "The flow") {
-			q * p
+			q * ff * target(pm)
 		}
 	}
 	

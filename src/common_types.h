@@ -247,8 +247,8 @@ Var_Location {
 	s32 n_components;         //NOTE: it is here for better packing.
 	Entity_Id components[max_var_loc_components];
 	
-	Entity_Id &first() { return components[0]; }
-	Entity_Id &last() { return components[n_components-1]; }
+	const Entity_Id &first() const { return components[0]; }
+	const Entity_Id &last() const { return components[n_components-1]; }
 	bool is_dissolved() const { return n_components > 2; }
 };
 

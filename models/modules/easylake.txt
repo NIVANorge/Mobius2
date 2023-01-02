@@ -87,13 +87,13 @@ TODO: description
 	#TODO: units for the following!
 	
 	epi.has(stab : property("Stability"), unit()) {
-		ww := air.wind + 1e-10
+		ww := max(air.wind, 0.1)
 		s0 := 0.25*(water.temp - air.temp) / (ww*ww)
 		s0*abs(s0)/(abs(s0) + 0.01)
 	}
 	
 	stab_modify : function(wind, stab) {
-		0                                     if wind = 0,
+		0                                     if abs(wind) < 1e-3,
 		0.1 + 0.03*stab * 0.9*exp(4.8*stab)   if stab < 0 & stab > -3.3,
 		0                                     if stab < 0,
 		1 + 0.63*sqrt(stab)                      otherwise
@@ -107,7 +107,7 @@ TODO: description
 			1.18  + 0.01  *w                       if w < 8,
 			1.196 + 0.008 *w - 0.0004*(w-8)^2      if w < 25,
 			1.68  - 0.016 *w                       otherwise
-		} * 1e-3 * stab_modify(w, stab)
+		} * 1e-3 * stab_modify(air.wind, stab)
 	}
 	
 	epi.has(chd : property("Transfer coefficent for sensible heat flux"), unit()) {
@@ -118,7 +118,7 @@ TODO: description
 			1.15  + 0.01  *w                       if w < 8,
 			1.17  + 0.0075*w - 0.00045*(w-8)^2     if w < 25,
 			1.652 - 0.017 *w                       otherwise
-		} * 1e-3 * stab_modify(w, stab)
+		} * 1e-3 * stab_modify(air.wind, stab)
 	}
 	
 	# TODO: put some of this stuff into atmospheric module or library?
@@ -203,14 +203,14 @@ TODO: description
 	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {
 		precip_t := max(0.4, air.temp)
-		p_heat_dens := deg_c_to_K(precip_t) * rho_water * C_water
-		1e-3 * A_surf * air.precip * p_heat_dens
+		water_temp_to_heat(1e-3*A_surf*air.precip, precip_t)
+		
 	}
 	
 	flux(epi.water.heat, hyp.water.heat, "Layer heat transfer") {
 		lake_heat := water.heat + hyp.water.heat
 		V := water + hyp.water
-		lake_t := water_heat_to_temp(V, lake_heat)
+		lake_t := water_heat_to_temp(V, lake_heat) # Mean lake temperature.
 		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water)
 		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be)
 		5*(heat - epi_heat_should_be)    # The 5 is pretty arbitrary. Just to get a quick equilibration

@@ -1,0 +1,17 @@
+
+library("Library A") {
+
+	bla : constant("constant bla", unit(), 0.1)
+	
+	fun : function() { bing*superfun() }
+	
+	load(library("Library B"))
+}
+
+library("Library B") {
+	bing : constant("constant bing", unit(), 1)
+	
+	superfun : function() { bla }
+	
+	load(library("Library A"))
+}

@@ -103,7 +103,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				if(is_located(var->loc1)) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
 					Var_Id source_id = app->state_vars.id_of(var->loc1);
-					auto source_ref = reinterpret_cast<Identifier_FT *>(make_state_var_identifier(source_id));
+					auto source_ref = static_cast<Identifier_FT *>(make_state_var_identifier(source_id));
 					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 				}
 			}
@@ -200,7 +200,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_connection_aggregate) {
 			
-			// TODO: may need weights and unit conversions here too eventually.
+			// Note weights are applied directly inside the codegen for this one. TODO: do that for the others too?
 			
 			auto agg_var = app->state_vars[instr.target_id];
 			instr.code = make_possibly_weighted_var_ident(instr.var_id);
@@ -210,13 +210,23 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, bool allow_to_decl = false, std::vector<Math_Expr_FT *> *provided_target_idx = nullptr) {
 	for(auto arg : expr->exprs)
-		put_var_lookup_indexes(arg, app, index_expr);
+		put_var_lookup_indexes(arg, app, index_expr, allow_to_decl, provided_target_idx);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
 	
-	auto ident = reinterpret_cast<Identifier_FT *>(expr);
+	auto ident = static_cast<Identifier_FT *>(expr);
+	
+	if(ident->flags & ident_flags_target) {
+		if(!allow_to_decl)
+			fatal_error(Mobius_Error::internal, "Got a 'target' directive inside an equation that is not allowed to have it.");
+		if(provided_target_idx)
+			index_expr.swap(*provided_target_idx);
+		else
+			index_expr.transpose();
+	}
+	
 	Math_Expr_FT *offset_code = nullptr;
 	s64 back_step;
 	if(ident->variable_type == Variable_Type::parameter) {
@@ -231,6 +241,13 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		
 		offset_code = app->result_structure.get_offset_code(ident->state_var, index_expr);
 		back_step = app->result_structure.total_count;
+	}
+	
+	if(ident->flags & ident_flags_target) {
+		if(provided_target_idx)
+			index_expr.swap(*provided_target_idx);
+		else
+			index_expr.transpose();
 	}
 	
 	//TODO: Should check that we are not at the initial step
@@ -256,20 +273,19 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id) {
+add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
-	
-	// Hmm, this line looks a bit messy..
-	Entity_Id source_compartment = app->state_vars[source_id]->loc1.components[0];
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
-	// This is also messy...
+	
+	// Hmm, these two lookups are very messy. See also similar in model_compilation a couple of places
+	Entity_Id source_compartment = app->state_vars[source_id]->loc1.components[0];
 	auto target_compartment = app->state_vars[target_agg->agg_for]->loc1.components[0];
+	auto find_target = app->find_connection_component(connection_id, target_compartment);
 	
 	Math_Expr_FT *agg_offset = nullptr;
 	
-	auto find_target = app->find_connection_component(connection_id, target_compartment);
 	if(find_target->index_sets.size() > 0) {
 		std::vector<Math_Expr_FT *> target_indexes(model->index_sets.count(), nullptr);
 		for(int idx = 0; idx < find_target->index_sets.size(); ++idx) {
@@ -287,10 +303,15 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 		indexes.swap(target_indexes); // Swap back in the ones we had before.
 		
+		if(weight)
+			put_var_lookup_indexes(weight, app, indexes, true, &target_indexes);
+		
 		for(int idx = 0; idx < target_indexes.size(); ++idx) // NOTE: If they were used, they were copied, so we delete them again now.
 			delete target_indexes[idx];
-	} else
+	} else {
+		if(weight) put_var_lookup_indexes(weight, app, indexes);
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+	}
 	
 	//warning_print("*** *** Codegen for connection ", app->state_vars[source_id]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
 	
@@ -314,6 +335,9 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
 	
+	if(weight)
+		value = make_binop('*', value, weight);
+	
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
 	if_chain->exprs.push_back(condition);
 	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
@@ -327,7 +351,7 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 }
 
 Math_Expr_FT *
-add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id) {
+add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
 	
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
 
@@ -342,7 +366,24 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 		indexes.transpose();
 	}
 	
+	if(weight) {
+		put_var_lookup_indexes(weight, app, indexes, true, nullptr);
+		value = make_binop('*', value, weight);
+	}
+	
 	return add_value_to_state_var(agg_id, agg_offset, value, '+'); // NOTE: it is a + regardless, since the subtraction happens explicitly when we use the value later.
+}
+
+Math_Expr_FT *
+add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
+	
+	// TODO: Need to let the target be +1 index.
+	//
+	// The flux itself (not computed here) should be 0 if we are at the last index. Must be fixed in instruction_codegen (?).
+	
+	fatal_error(Mobius_Error::internal, "Codegen for grid1d aggregation not implemented.");
+	
+	return nullptr;
 }
 
 Math_Expr_FT *
@@ -350,13 +391,28 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	auto model = app->model;
 	
 	auto connection = model->connections[connection_id];
+	
+	// See if we should apply a weight to the value.
+	Math_Expr_FT *weight = nullptr;
+	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
+	for(auto &pair : target_agg->weights) {
+		if(pair.first == source_id) {
+			weight = pair.second;
+			break;
+		}
+	}
+	
 	if(connection->type == Connection_Type::directed_tree) {
 		
-		return add_value_to_tree_connection(app, value, agg_id, source_id, indexes, connection_id);
+		return add_value_to_tree_connection(app, value, agg_id, source_id, indexes, connection_id, weight);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		
-		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, connection_id);
+		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, connection_id, weight);
+		
+	} else if (connection->type == Connection_Type::grid1d) {
+		
+		return add_value_to_grid1d_agg(app, value, agg_id, indexes, connection_id, weight);
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");
@@ -426,7 +482,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				fun = copy(fun);
 			
 				//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
-				put_var_lookup_indexes(fun, app, indexes);
+				put_var_lookup_indexes(fun, app, indexes, true);
 				
 			} else if (instr->type != Model_Instruction::Type::clear_state_var) {
 				//NOTE: This could happen for discrete quantities since they are instead modified by add/subtract instructions. Same for some aggregation variables that are only modified by other instructions.

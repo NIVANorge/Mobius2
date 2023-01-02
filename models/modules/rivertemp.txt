@@ -1,0 +1,32 @@
+
+
+module("RiverTemperature", 0, 1, 0) {
+
+
+	load("../../stdlib/physiochemistry.txt", library("Water temperature"))
+	
+	water : quantity("Water")
+	heat  : quantity("Thermal energy")
+	
+	soil  : compartment("Soil")
+	river : compartment("River")
+	air   : compartment("Atmosphere")
+	
+	temp  : property("Temperature")
+	
+	
+	river.water.has(heat, unit(J), "River thermal energy") .initial { air.temp }
+	
+	flux(nowhere, river.water.heat, "River heat from land") {
+		water_temp_to_heat(in_flux(water), aggregate(soil.temp)) #TODO: maybe modify if melt water   
+	}
+	
+	flux(nowhere, river.water.heat, "River sensible heat flux") {
+		(water_temp_to_heat(water, air.temp) - heat)*5 #TODO: arbitrary coefficient for now.
+	}
+	
+	river.has(temp, unit(deg_c), "River temperature") {
+		water_heat_to_temp(water, water.heat)
+	}
+	
+}

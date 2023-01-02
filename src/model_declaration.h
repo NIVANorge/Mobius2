@@ -226,7 +226,7 @@ Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 
 enum class
 Connection_Type {
-	unrecognized = 0, directed_tree, all_to_all,
+	unrecognized = 0, directed_tree, all_to_all, grid1d,
 };
 
 template<> struct

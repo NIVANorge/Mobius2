@@ -273,7 +273,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
-			auto block= reinterpret_cast<Math_Block_FT *>(expr);
+			auto block= static_cast<Math_Block_FT *>(expr);
 			Typed_Value result;
 			Scope_Local_Vars new_locals;
 			new_locals.scope_id = block->unique_block_id;
@@ -305,7 +305,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
-			auto ident = reinterpret_cast<Identifier_FT *>(expr);
+			auto ident = static_cast<Identifier_FT *>(expr);
 			Typed_Value result;
 			result.type = expr->value_type;
 			s64 offset = 0;
@@ -354,25 +354,25 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 		} break;
 		
 		case Math_Expr_Type::literal : {
-			auto literal = reinterpret_cast<Literal_FT *>(expr);
+			auto literal = static_cast<Literal_FT *>(expr);
 			return {literal->value, literal->value_type};
 		} break;
 		
 		case Math_Expr_Type::unary_operator : {
-			auto unary = reinterpret_cast<Operator_FT *>(expr);
+			auto unary = static_cast<Operator_FT *>(expr);
 			Typed_Value a = emulate_expression(expr->exprs[0], state, locals);
 			return apply_unary(a, unary->oper);
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
-			auto binary = reinterpret_cast<Operator_FT *>(expr);
+			auto binary = static_cast<Operator_FT *>(expr);
 			Typed_Value a = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value b = emulate_expression(expr->exprs[1], state, locals);
 			return apply_binary(a, b, binary->oper);
 		} break;
 		
 		case Math_Expr_Type::function_call : {
-			auto fun = reinterpret_cast<Function_Call_FT *>(expr);
+			auto fun = static_cast<Function_Call_FT *>(expr);
 			if(fun->fun_type != Function_Type::intrinsic)
 				fatal_error(Mobius_Error::internal, "Unhandled function type in emulate_expression().");
 			

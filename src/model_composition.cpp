@@ -181,7 +181,7 @@ void
 remove_lasts(Math_Expr_FT *expr, bool make_error) {
 	for(auto arg : expr->exprs) remove_lasts(arg, make_error);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && (ident->flags & ident_flags_last_result)) {
 			if(make_error) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
@@ -196,10 +196,10 @@ typedef std::unordered_map<int, std::vector<Var_Id>> Var_Map;
 typedef std::unordered_map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_Map2;
 
 void
-find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux) {
-	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux);
+find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux, bool allow_target) {
+	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux, allow_target);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->flags & ident_flags_in_flux) {
 			if(make_error_in_flux) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
@@ -219,6 +219,10 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 				aggregates[ident->state_var.id].second.push_back(looked_up_by);
 			}
 		}
+		if((ident->flags & ident_flags_target) && !allow_target ) {
+			expr->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("A target() declaration is not allowed in this function body since it does not belong to an all_to_all connection flux or to an aggregation_weight that is being used by one.");
+		}
 	}
 }
 
@@ -226,7 +230,7 @@ void
 replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier_Flags flag) {
 	for(auto arg : expr->exprs) replace_flagged(arg, replace_this, with, flag);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && ident->state_var == replace_this && (ident->flags & flag)) {
 			ident->state_var = with;
 			ident->flags = (Identifier_Flags)(ident->flags & ~flag);
@@ -237,8 +241,8 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 void
 replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 	for(auto arg : expr->exprs) replace_conc(app, arg);
-	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;	
-	auto ident = reinterpret_cast<Identifier_FT *>(expr);
+	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
+	auto ident = static_cast<Identifier_FT *>(expr);
 	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & ident_flags_conc)) return;
 	auto var = app->state_vars[ident->state_var];
 	
@@ -255,22 +259,26 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 }
 
 void
-restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
+restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs, bool allow_target = false) {
 	//TODO : Should we just reuse register_dependencies() ?
-	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
+	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs, allow_target);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = reinterpret_cast<Identifier_FT *>(expr);
+		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type != Variable_Type::local
 			&& ident->variable_type != Variable_Type::parameter) {
 			expr->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
 		} else if (ident->variable_type == Variable_Type::parameter)
 			parameter_refs.insert(ident->parameter);
+		if(!allow_target && (ident->flags & ident_flags_target)) {
+			expr->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("A target() declaration is only allowed in an aggregation_weight that is being used by a connection flux (for now).");
+		}
 	}
 }
 
 bool
-location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Location &below_loc) {
+location_indexes_below_location(Mobius_Model *model, const Var_Location &loc, const Var_Location &below_loc) {
 	
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
@@ -290,20 +298,12 @@ location_indexes_below_location(Mobius_Model *model, Var_Location &loc, Var_Loca
 			if(!found) return false;
 		}
 	}
-	/*
-	auto comp       = model->components[loc.first()]; //NOTE: right now we are only guaranteed that loc.first() is valid. See note in parameter_indexes_below_location.
-	auto below_comp = model->components[below_loc.first()];
-	
-	for(auto index_set : comp->index_sets) {
-		if(std::find(below_comp->index_sets.begin(), below_comp->index_sets.end(), index_set) == below_comp->index_sets.end())
-			return false;
-	}
-	*/
+
 	return true;
 }
 
 bool
-parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, Var_Location &below_loc) {
+parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Var_Location &below_loc) {
 	auto par = model->parameters[par_id];
 	auto par_comp_id = model->par_groups[par->par_group]->component;
 	// TODO: invalid component should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
@@ -558,7 +558,7 @@ prelim_compose(Model_Application *app) {
 }
 
 Math_Expr_FT *
-get_aggregation_weight(Model_Application *app, Var_Location &loc1, Entity_Id to_compartment) {
+get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_Id to_compartment, bool is_connection = false) {
 	
 	auto model = app->model;
 	auto source = model->components[loc1.first()];
@@ -571,7 +571,7 @@ get_aggregation_weight(Model_Application *app, Var_Location &loc1, Entity_Id to_
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
 		agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
-		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
+		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs, is_connection);
 		
 		for(auto par_id : parameter_refs) {
 			bool ok = parameter_indexes_below_location(model, par_id, loc1);
@@ -620,11 +620,12 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 }
 
 void
-register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, Entity_Id conn_id, char *varname) {
+register_connection_agg(Model_Application *app, bool is_source, Var_Id target_var_id, Entity_Id target_comp, Entity_Id conn_id, char *varname) {
 	
-	auto connection = app->model->connections[conn_id];
+	auto model = app->model;
+	auto connection = model->connections[conn_id];
 	
-	auto var = as<State_Var::Type::declared>(app->state_vars[var_id]);
+	auto var = as<State_Var::Type::declared>(app->state_vars[target_var_id]);
 	
 	auto existing_agg = is_source ? var->conn_source_agg : var->conn_target_agg;
 	if(is_valid(existing_agg)) {
@@ -634,21 +635,35 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id var_id, E
 	}
 	
 	if(is_source)
-		sprintf(varname, "in_flux_connection_source(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
+		sprintf(varname, "in_flux_connection_source(%s, %s)", connection->name.data(), app->state_vars[target_var_id]->name.data());
 	else
-		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[var_id]->name.data());
+		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->state_vars[target_var_id]->name.data());
 	
 	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, invalid_entity_id, false, varname);
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
-	agg_var->agg_for = var_id;
+	agg_var->agg_for = target_var_id;
 	agg_var->is_source = is_source;
 	agg_var->connection = conn_id;
 	
-	var = as<State_Var::Type::declared>(app->state_vars[var_id]);
+	var = as<State_Var::Type::declared>(app->state_vars[target_var_id]);
 	if(is_source)
 		var->conn_source_agg = agg_id;
-	else
+	else {
 		var->conn_target_agg = agg_id;
+		
+		// NOTE: aggregation weights only supported for compartments for now..
+		if(model->components[target_comp]->decl_type != Decl_Type::compartment) return;
+		
+		// Get aggregation weights if relevant
+		auto find = app->find_connection_component(conn_id, target_comp);
+		for(auto source_id : find->possible_sources) {
+			Var_Location loc = app->state_vars[target_var_id]->loc1;
+			loc.components[0] = source_id;
+			auto wt = get_aggregation_weight(app, loc, target_comp, true);
+			auto source_var_id = app->state_vars.id_of(loc);
+			if(wt) agg_var->weights.push_back({source_var_id, wt});
+		}
+	}
 }
 
 
@@ -746,12 +761,18 @@ compose_and_resolve(Model_Application *app) {
 			from_compartment = in_loc.first();
 		}
 		
+		// Hmm, it is a bit annying to have this specific knowledge encoded here:
+		bool allow_target = var2->decl_type == Decl_Type::flux && is_valid(var2->connection) && (
+				model->connections[var2->connection]->type == Connection_Type::all_to_all
+			  || model->connections[var2->connection]->type == Connection_Type::grid1d
+			  );
+			
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters };
 		if(ast) {
 			var2->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
 			replace_conc(app, var2->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
-			find_other_flags(var2->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
+			find_other_flags(var2->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false, allow_target);
 		} else
 			var2->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
@@ -761,7 +782,7 @@ compose_and_resolve(Model_Application *app) {
 			var2->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
 			remove_lasts(var2->initial_function_tree, true);
 			replace_conc(app, var2->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
-			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
+			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true, false);
 			var2->initial_is_conc = initial_is_conc;
 			
 			if(initial_is_conc && (var2->decl_type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
@@ -775,7 +796,7 @@ compose_and_resolve(Model_Application *app) {
 			auto override_tree = prune_tree(resolve_function_tree(override_ast, &res_data));
 			bool no_override = false;
 			if(override_tree->expr_type == Math_Expr_Type::identifier_chain) {
-				auto ident = reinterpret_cast<Identifier_FT *>(override_tree);
+				auto ident = static_cast<Identifier_FT *>(override_tree);
 				no_override = (ident->variable_type == Variable_Type::no_override);
 			}
 			if(no_override)
@@ -784,7 +805,7 @@ compose_and_resolve(Model_Application *app) {
 				var2->override_tree = make_cast(override_tree, Value_Type::real);
 				var2->override_is_conc = override_is_conc;
 				replace_conc(app, var2->override_tree);
-				find_other_flags(var2->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
+				find_other_flags(var2->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false, false);
 			}
 		} else
 			var2->override_tree = nullptr;
@@ -939,7 +960,7 @@ compose_and_resolve(Model_Application *app) {
 			for(auto &target_comp : app->connection_components[conn_id.id]) {
 				
 				// If it wasn't actually put as a possible target in the data set, don't bother about it.
-				if(!target_comp.can_be_target) continue;
+				if(target_comp.possible_sources.empty()) continue;
 
 				auto target_loc = app->state_vars[source_id]->loc1;
 				target_loc.components[0] = target_comp.id;
@@ -949,16 +970,17 @@ compose_and_resolve(Model_Application *app) {
 				
 				// TODO: Even if it is present in the connection data, it may not appear as a target, only as a source. Should also be checked eventually.
 				
-				register_connection_agg(app, false, target_id, conn_id, &varname[0]);
+				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]);
 			}
 		} else if (connection->type == Connection_Type::all_to_all) {
-			if(connection->components.size() != 1)
+			if(connection->components.size() != 1 || app->connection_components[conn_id.id].size() != 1)
 				fatal_error(Mobius_Error::internal, "Expected exactly one compartment for all_to_all connection."); // Should have been detected earlier
 			
 			// NOTE: all_to_all connections can (currently) only go from one state variable to another
 			// instance of itself ( the source_id ).
-			register_connection_agg(app, true, source_id, conn_id, &varname[0]);
-			register_connection_agg(app, false, source_id, conn_id, &varname[0]);
+			auto target_comp = app->connection_components[conn_id.id][0].id;
+			register_connection_agg(app, true, source_id, target_comp, conn_id, &varname[0]);
+			register_connection_agg(app, false, source_id, target_comp, conn_id, &varname[0]);
 			
 		} else {
 			fatal_error(Mobius_Error::internal, "Unsupported connection type in compose_and_resolve()");

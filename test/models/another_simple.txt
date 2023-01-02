@@ -21,17 +21,24 @@ model("Another simple") {
 		flux(b.q, c, "B.Q out") { q*0.01 }
 	}
 	
+	a.par_group("Weights") {
+		agg_wt : par_real("The weight", unit(), 1)
+	}
+	
+	aggregation_weight(a, b) { agg_wt }
+	aggregation_weight(a, a) { agg_wt / target(agg_wt) }
+	
 	sol : solver("Solver", "INCADascru", 0.1)
 	sol.solve(a.q)
 	sol.solve(b.q)
 	
 	i : index_set("I")
-	j : index_set("J")
+	#j : index_set("J")
 	
 	a : compartment("A")
 	b : compartment("B")
 	q : quantity("Q")
 	
 	a.distribute(i)
-	b.distribute(j)
+	#b.distribute(j)
 }

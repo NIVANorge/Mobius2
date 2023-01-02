@@ -111,9 +111,9 @@ State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 	Var_Id         agg_for;     // The state variable this is an aggregate for fluxes going to or from.
 	bool           is_source;   // If it aggregates sources from or targets to that state var.
 	
-	// If this is a target aggregate (!is_source), agg_weights is a list of pairs (source_id, weight) of weights for fluxes coming from that particular source (to the target agg_for)
+	// If this is a target aggregate (!is_source), weights is a list of pairs (source_id, weight) of weights for fluxes coming from that particular source (to the target agg_for)
 	//TODO: Also unit conv.
-	//std::vector<std::pair<Var_Id, Math_Expr_FT *>> agg_weights;
+	std::vector<std::pair<Var_Id, Math_Expr_FT *>> weights;
 	
 	State_Var_Sub() : connection(invalid_entity_id), agg_for(invalid_var) {}
 };
@@ -124,7 +124,7 @@ State_Var_Sub<type> *as(State_Var *var) {
 		fatal_error(Mobius_Error::internal, "Tried to convert a state variable to the wrong type.");
 	if(var->flags & State_Var::Flags::invalid)
 		fatal_error(Mobius_Error::internal, "Tried to convert an invalid variable.");
-	return reinterpret_cast<State_Var_Sub<type> *>(var);
+	return static_cast<State_Var_Sub<type> *>(var);
 }
 
 inline Entity_Id

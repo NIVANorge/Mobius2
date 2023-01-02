@@ -23,7 +23,7 @@ match_recursive(int &arr_idx, std::vector<int> &points_at, std::vector<Entity_Id
 		} break;
 		
 		case Math_Expr_Type::unary_operator : {
-			auto unary = reinterpret_cast<Operator_FT *>(regex);
+			auto unary = static_cast<Operator_FT *>(regex);
 			int match_count = 0;
 			int minimum = unary->oper == '+' ? 1 : 0;
 			while(true) {
@@ -48,7 +48,7 @@ match_recursive(int &arr_idx, std::vector<int> &points_at, std::vector<Entity_Id
 		} break;
 		
 		case Math_Expr_Type::regex_identifier : {
-			auto ident = reinterpret_cast<Regex_Identifer_FT *>(regex);
+			auto ident = static_cast<Regex_Identifer_FT *>(regex);
 			if(ident->id == ids[arr_idx]) {
 				arr_idx = points_at[arr_idx];   // Advance the arrow in the inner match.
 				return true;

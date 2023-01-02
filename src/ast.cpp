@@ -229,7 +229,7 @@ parse_decl(Token_Stream *stream) {
 			}
 			
 			if(body_type == Body_Type::decl) {
-				auto decl_body = reinterpret_cast<Decl_Body_AST *>(body);
+				auto decl_body = static_cast<Decl_Body_AST *>(body);
 				while(true) {
 					Token token = stream->peek_token();
 					if(token.type == Token_Type::quoted_string) {
@@ -252,14 +252,14 @@ parse_decl(Token_Stream *stream) {
 					}
 				}
 			} else if(body_type == Body_Type::function) {
-				auto function_body = reinterpret_cast<Function_Body_AST *>(body);
+				auto function_body = static_cast<Function_Body_AST *>(body);
 				
 				// Note: fold_minus=false causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
 				stream->fold_minus = false;
 				function_body->block = parse_math_block(stream, next.source_loc);
 				stream->fold_minus = true;
 			} else if(body_type == Body_Type::regex) {
-				auto regex_body = reinterpret_cast<Regex_Body_AST *>(body);
+				auto regex_body = static_cast<Regex_Body_AST *>(body);
 				regex_body->expr = parse_regex_list(stream, next.source_loc, true);
 			}
 			

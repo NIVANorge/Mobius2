@@ -42,6 +42,7 @@ enum Identifier_Flags : u32 {
 	ident_flags_in_flux     = 0x2,
 	ident_flags_aggregate   = 0x4,
 	ident_flags_conc        = 0x8,
+	ident_flags_target      = 0x10,
 	//TODO: trust_unit, auto_convert, etc.
 };
 

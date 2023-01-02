@@ -83,7 +83,19 @@ Index_Info : Info_Type_Base {
 
 struct
 Index_Set_Info : Info_Type_Base {
+	enum class Type {
+		none,
+		named,
+		numeric1,
+	} type;
 	Info_Registry<Index_Info> indexes;
+	int                       n_dim1;
+	int get_count() {
+		if(type == Type::named) return indexes.count();
+		return n_dim1;
+	}
+	
+	Index_Set_Info() : n_dim1(0), type(Type::none) {}
 };
 
 struct Component_Info : Info_Type_Base {

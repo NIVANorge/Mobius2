@@ -1,14 +1,14 @@
-index_set("I") [ "I1" "I2" ]
+index_set("I") [ 2 ]
 
-index_set("J") [ "J1" "J2" ]
+#index_set("J") [ "J1" "J2" ]
 
 
 connection("graph") [
 	a : compartment("A") [ "I" ]
-	b : compartment("B") [ "J" ]
+	b : compartment("B") [  ]
 	
-	#a[ "I1" ] -> a[ "I2" ] -> b[ "J1" ]
-	a[ "I1" ] -> b[ "J1" ]
+	a[ 0 ] -> a[ 1 ] -> b[  ]
+	#a[ "I1" ] -> b[  ]
 ]
 
 par_group("System") {

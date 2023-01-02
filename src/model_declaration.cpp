@@ -487,7 +487,7 @@ process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope,
 			fatal_error("Expected at most one body for property declaration.");
 		}
 		// TODO : have to guard against clashes between different modules here!
-		auto fun = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+		auto fun = static_cast<Function_Body_AST *>(decl->bodies[0]);
 		component->default_code = fun->block;
 		component->code_scope = scope->parent_id;
 	}
@@ -563,13 +563,13 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 		parameter->description         = single_arg(decl, 5)->string_value;
 	
 	if(decl->type == Decl_Type::par_enum) {
-		auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);   // Re-purposing function body for a simple list... TODO: We should maybe have a separate body type for that
+		auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);   // Re-purposing function body for a simple list... TODO: We should maybe have a separate body type for that
 		for(auto expr : body->block->exprs) {
 			if(expr->type != Math_Expr_Type::identifier_chain) {
 				expr->source_loc.print_error_header();
 				fatal_error("Expected a list of identifiers only.");
 			}
-			auto ident = reinterpret_cast<Identifier_Chain_AST *>(expr);
+			auto ident = static_cast<Identifier_Chain_AST *>(expr);
 			if(ident->chain.size() != 1) {
 				expr->source_loc.print_error_header();
 				fatal_error("Expected a list of identifiers only.");
@@ -602,7 +602,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	par_group->component = model->components.find_or_create(&decl->decl_chain[0], scope);
 	// TODO: It should be checked that the component is not a property..
 	
-	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
+	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool || child->type == Decl_Type::par_enum) {
@@ -647,7 +647,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 		}
 	}
 	
-	auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	function->code = body->block;
 	function->code_scope = scope->parent_id;
 	function->fun_type = Function_Type::decl;
@@ -708,7 +708,7 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 		has->unit = invalid_entity_id;
 	
 	for(Body_AST *body : decl->bodies) {
-		auto function = reinterpret_cast<Function_Body_AST *>(body);
+		auto function = static_cast<Function_Body_AST *>(body);
 		if(function->modifiers.size() > 1) {
 			function->opens_at.print_error_header();
 			fatal_error("Bodies belonging to declarations of type 'has' can only have one modifier.");
@@ -775,7 +775,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
-	auto body = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
+	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
 	flux->code = body->block;
 	flux->code_scope = scope->parent_id;
 	
@@ -800,6 +800,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		String_View structure_type = single_arg(decl, 1)->string_value;
 		if(structure_type == "directed_tree")	connection->type = Connection_Type::directed_tree;
 		else if(structure_type == "all_to_all") connection->type = Connection_Type::all_to_all;
+		else if(structure_type == "grid1d")     connection->type = Connection_Type::grid1d;
 		else {
 			single_arg(decl, 1)->print_error_header();
 			fatal_error("Unsupported connection structure type '", structure_type, "'.");
@@ -809,9 +810,9 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
 	
 	bool success = false;
-	auto expr = reinterpret_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
+	auto expr = static_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
 	if (expr->type == Math_Expr_Type::unary_operator) {
-		char oper_type = (char)reinterpret_cast<Unary_Operator_AST *>(expr)->oper;
+		char oper_type = (char)static_cast<Unary_Operator_AST *>(expr)->oper;
 		if(oper_type != '*') {
 			expr->source_loc.print_error_header();
 			fatal_error("We currently only support the '*' operator in connection regexes.");
@@ -820,7 +821,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		expr = expr->exprs[0];
 		
 		if(expr->type == Math_Expr_Type::regex_identifier) {
-			auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr);
+			auto ident = static_cast<Regex_Identifier_AST *>(expr);
 			auto compartment_id = model->components.find_or_create(&ident->ident, scope);
 			connection->components.push_back(compartment_id);
 			success = true;
@@ -831,7 +832,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 					success2 = false;
 					break;
 				}
-				auto ident = reinterpret_cast<Regex_Identifier_AST *>(expr2);
+				auto ident = static_cast<Regex_Identifier_AST *>(expr2);
 				auto compartment_id = model->components.find_or_create(&ident->ident, scope);
 				connection->components.push_back(compartment_id);
 			}
@@ -849,9 +850,10 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		fatal_error("At least one component must be involved in a connection.");
 	}
 	
-	if(connection->type == Connection_Type::all_to_all && connection->components.size() > 1) {
+	if((connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d)
+		&& connection->components.size() > 1) {
 		expr->source_loc.print_error_header();
-		fatal_error("All-to-all connections are only supported for one component type at a time.");
+		fatal_error("Connections of type all_to_all and grid1d are only supported for one component type at a time.");
 	}
 	
 	return id;
@@ -890,7 +892,7 @@ load_library(Mobius_Model *model, Decl_Scope *to_scope, String_View rel_path, St
 		
 		match_declaration(lib->decl, {{Token_Type::quoted_string}}, 0, false); // REFACTOR. matching is already done in the load_top_decl_from_file
 		
-		auto body = reinterpret_cast<Decl_Body_AST *>(lib->decl->bodies[0]);
+		auto body = static_cast<Decl_Body_AST *>(lib->decl->bodies[0]);
 		
 		if(body->doc_string.string_value)
 			lib->doc_string = body->doc_string.string_value;
@@ -967,7 +969,7 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 	
 	module->scope.import(model->global_scope);
 	
-	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
+	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
 	if(body->doc_string.string_value)
 		module->doc_string = body->doc_string.string_value;
@@ -1213,7 +1215,7 @@ process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, D
 	
 	//TODO: some guard against overlapping / contradictory declarations.
 	//TODO: guard against nonsensical declarations (e.g. going between the same compartment).
-	auto function = reinterpret_cast<Function_Body_AST *>(decl->bodies[0]);
+	auto function = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	model->components[from_comp]->aggregations.push_back({to_comp, function->block, scope->parent_id});
 }
 
@@ -1227,7 +1229,7 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	//TODO: guard against nonsensical declarations (e.g. going between the same compartment).
 	process_location_argument(model, scope, decl, 0, &data.source, false);
 	process_location_argument(model, scope, decl, 1, &data.target, false);
-	data.code = reinterpret_cast<Function_Body_AST *>(decl->bodies[0])->block;
+	data.code = static_cast<Function_Body_AST *>(decl->bodies[0])->block;
 	data.code_scope = scope->parent_id;
 	
 	// TODO: Ideally we should check here that the location is valid. But it could be messy wrt order of declarations.
@@ -1238,7 +1240,7 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 bool
 load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unordered_set<String_View, String_View_Hash> &loaded_paths, std::vector<std::pair<String_View, Decl_AST *>> &loaded_decls, String_View rel_path) {
 	
-	auto body = reinterpret_cast<Decl_Body_AST *>(from_decl->bodies[0]);
+	auto body = static_cast<Decl_Body_AST *>(from_decl->bodies[0]);
 	
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type != Decl_Type::extend) continue;
@@ -1296,7 +1298,7 @@ load_model(String_View file_name) {
 	model->model_name = single_arg(decl, 0)->string_value;
 	model->path       = file_name;
 	
-	auto body = reinterpret_cast<Decl_Body_AST *>(decl->bodies[0]);
+	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
 	if(body->doc_string.string_value)
 		model->doc_string = body->doc_string.string_value;
@@ -1318,7 +1320,7 @@ load_model(String_View file_name) {
 	// We need to process these first since some other declarations rely on these existing, such as par_group.
 	for(auto &extend : extend_models) {
 		auto ast = extend.second;
-		auto body = reinterpret_cast<Decl_Body_AST *>(ast->bodies[0]);
+		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		
 		for(Decl_AST *child : body->child_decls) {
 			switch (child->type) {
@@ -1340,7 +1342,7 @@ load_model(String_View file_name) {
 	// Note: have to do this before loading modules because any loaded modules need to know if a parameter it references was declared in the model decl scope (for now at least).
 	for(auto &extend : extend_models) {
 		auto ast = extend.second;
-		auto body = reinterpret_cast<Decl_Body_AST *>(ast->bodies[0]);
+		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
 			if(child->type == Decl_Type::par_group)
 				process_declaration<Reg_Type::par_group>(model, scope, child);
@@ -1351,7 +1353,7 @@ load_model(String_View file_name) {
 	for(auto &extend : extend_models) {
 		auto model_path = extend.first;
 		auto ast = extend.second;
-		auto body = reinterpret_cast<Decl_Body_AST *>(ast->bodies[0]);
+		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
 			//TODO: do libraries also.
 			
@@ -1374,7 +1376,7 @@ load_model(String_View file_name) {
 						
 						process_module_declaration(model, module_id);
 					}
-					//TODO: should also allow loading libraries here!
+					//TODO: should also allow loading libraries inside the model scope!
 				} break;
 				
 				case Decl_Type::module : {
@@ -1385,12 +1387,6 @@ load_model(String_View file_name) {
 					module->scope.parent_id = module_id;
 					module->normalized_path = model_path;
 					
-					// This is taken care of by standard_declaration :
-					//std::string module_handle = "";
-					//if(child->handle_name.string_value)
-					//	module_handle = child->handle_name.string_value;
-					//scope->add_local(module_handle, child->source_loc, module_id);
-					
 					process_module_declaration(model, module_id);
 				} break;
 			}
@@ -1399,7 +1395,7 @@ load_model(String_View file_name) {
 	
 	for(auto &extend : extend_models) {
 		auto ast = extend.second;
-		auto body = reinterpret_cast<Decl_Body_AST *>(ast->bodies[0]);
+		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		
 		for(Decl_AST *child : body->child_decls) {
 

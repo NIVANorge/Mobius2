@@ -1,5 +1,22 @@
 
 
+	
+	
+	# 1D diffusion flux.
+	
+	c : connection("Layers", grid1d)
+	flux(layer.o2, c, "O2 diffusion") {
+		d := 0.5*(dc + target(dc))
+		h := 0.5*(th + target(th))
+		d(o2 - target(o2))/h
+	}
+	layer.has(o2conc : property("O2 conc")) {
+		o2 / th
+	}
+	
+
+
+
 	# Better syntax for variable declarations than 'has' (?)
 	var(soil.water, unit(m m), "Soil water volume")
 

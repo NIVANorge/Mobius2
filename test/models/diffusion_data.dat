@@ -1,0 +1,16 @@
+index_set("Layer index") [ 10 ]
+
+connection("Layer connection") [
+	compartment("Layer") [ "Layer index" ]
+]
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1990-01-01 ]
+
+	par_datetime("End date")
+	[ 1990-05-01 ]
+}
+
+
+

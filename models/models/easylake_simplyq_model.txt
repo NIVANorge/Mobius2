@@ -2,6 +2,7 @@
 model("EasyLake-SimplyQ") {
 	
 	extend("simplyq_model.txt")
+	load("../modules/simplysoiltemp.txt", module("Simply soil temperature"))
 	load("../modules/easylake.txt", el : module("EasyLake"))
 	load("../modules/rivertemp.txt", module("RiverTemperature"))
 	
@@ -15,7 +16,7 @@ model("EasyLake-SimplyQ") {
 	simply_solver.solve(hyp.water)
 	simply_solver.solve(epi.ice)
 	
-	el.evap.no_carry()       # By default don't carry dissolved substances in evapotranspiration
+	el.evap.no_carry()       # By default don't carry dissolved substances in evaporation
 	
 	# NOTE: can't let the mixing flux carry heat, or it disturbs the heat equilibration built into the model.
 	el.mix_down.no_carry(epi.water.heat)  #TODO: should be able to say no_carry(heat)  or something like that.

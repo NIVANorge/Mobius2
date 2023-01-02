@@ -1,4 +1,5 @@
 index_set("I") [ "I1" "I2" "I3" ]
+#index_set("I") [ 3 ]
 
 index_set("J") [ "J1" "J2" ]
 
@@ -28,6 +29,11 @@ module("So very simple", 1, 1, 0) {
 			0 0.1 
 			0.1 0 
 		]
+	}
+
+	par_group("Permissivity") [ "J" ] {
+		par_real("Permissivity")
+		[ 1 1 ]
 	}
 }
 

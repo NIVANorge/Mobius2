@@ -361,11 +361,11 @@ Sub_Indexed_Component {
 	Entity_Id id;
 	std::vector<Entity_Id> index_sets;
 	
-	bool can_be_target;                   // if this can be a target of the connection.
-	std::set<Entity_Id> possible_targets; // what targets can have this as a source.
+	bool can_be_source;                   // if this can be a source of the connection.
+	std::set<Entity_Id> possible_sources; // what sources can have this as a target.
 	int max_target_indexes;               // max indexes of a target that has this as the source
 	
-	Sub_Indexed_Component() : id(invalid_entity_id), can_be_target(false), max_target_indexes(0) {}
+	Sub_Indexed_Component() : id(invalid_entity_id), can_be_source(false), max_target_indexes(0) {}
 };
 
 struct

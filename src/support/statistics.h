@@ -102,7 +102,7 @@ stat_name(int type) {
 	#define SET_STATISTIC(handle, name) if(type == (int)Stat_Type::handle) return name;
 	#include "stat_types.incl"
 	#undef SET_STATISTIC
-	#define SET_RESIDUAL(handle, name, type) if(type == (int)Residual_Type::handle) return name;
+	#define SET_RESIDUAL(handle, name, t) if(type == (int)Residual_Type::handle) return name;
 	#include "residual_types.incl"
 	#undef SET_RESIDUAL
 	#define SET_LOG_LIKELIHOOD(handle, name, n_err) if(type == (int)LL_Type::handle) return name;

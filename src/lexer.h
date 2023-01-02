@@ -13,7 +13,7 @@
 
 inline const char *
 article(Token_Type type) {
-	if(type == Token_Type::unknown || type == Token_Type::identifier || type == Token_Type::eof)
+	if(type == Token_Type::unknown || type == Token_Type::identifier || type == Token_Type::integer || type == Token_Type::eof)
 		return "an";
 	return "a";
 }

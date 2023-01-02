@@ -541,7 +541,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
-			auto block = reinterpret_cast<Math_Block_FT *>(expr);
+			auto block = static_cast<Math_Block_FT *>(expr);
 			llvm::Value *result = nullptr;
 			Scope_Local_Vars new_locals;
 			new_locals.scope_id = block->unique_block_id;
@@ -566,7 +566,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
-			auto ident = reinterpret_cast<Identifier_FT *>(expr);
+			auto ident = static_cast<Identifier_FT *>(expr);
 			llvm::Value *result = nullptr;
 			
 			llvm::Value *offset = nullptr;
@@ -620,7 +620,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		
 		case Math_Expr_Type::literal : {
 			llvm::Value *result = nullptr;
-			auto literal = reinterpret_cast<Literal_FT *>(expr);
+			auto literal = static_cast<Literal_FT *>(expr);
 			switch (literal->value_type) {
 				case Value_Type::real : {
 					result = llvm::ConstantFP::get(*data->context, llvm::APFloat(literal->value.val_real));
@@ -642,20 +642,20 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		} break;
 		
 		case Math_Expr_Type::unary_operator : {
-			auto unary = reinterpret_cast<Operator_FT *>(expr);
+			auto unary = static_cast<Operator_FT *>(expr);
 			llvm::Value *a = build_expression_ir(expr->exprs[0], locals, args, data);
 			return build_unary_ir(a, expr->exprs[0]->value_type, unary->oper, data);
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
-			auto binary = reinterpret_cast<Operator_FT *>(expr);
+			auto binary = static_cast<Operator_FT *>(expr);
 			llvm::Value *a = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *b = build_expression_ir(expr->exprs[1], locals, args, data);
 			return build_binary_ir(a, expr->exprs[0]->value_type, b, expr->exprs[1]->value_type, binary->oper, data);
 		} break;
 		
 		case Math_Expr_Type::function_call : {
-			auto fun = reinterpret_cast<Function_Call_FT *>(expr);
+			auto fun = static_cast<Function_Call_FT *>(expr);
 			if(fun->fun_type != Function_Type::intrinsic)
 				fatal_error(Mobius_Error::internal, "Unhandled function type in ir building.");
 			

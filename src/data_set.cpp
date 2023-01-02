@@ -9,8 +9,13 @@ void
 write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
 	
 	fprintf(file, "index_set(\"%s\") [ ", index_set.name.data());
-	for(auto &index : index_set.indexes)
-		fprintf(file, "\"%s\" ", index.name.data());
+	if(index_set.type == Index_Set_Info::Type::named) {
+		for(auto &index : index_set.indexes)
+			fprintf(file, "\"%s\" ", index.name.data());
+	} else if (index_set.type == Index_Set_Info::Type::numeric1)
+		fprintf(file, "%d ", index_set.n_dim1);
+	else
+		fatal_error(Mobius_Error::internal, "Unhandled index set type in write_index_set_to_file().");
 	fprintf(file, "]\n\n");
 }
 
@@ -146,7 +151,7 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 	std::vector<int> index_counts(par_group.index_sets.size());
 	if(index_counts.size() > 0) {
 		for(int idx = 0; idx < index_counts.size(); ++idx) {
-			index_counts[idx] = data_set->index_sets[par_group.index_sets[idx]]->indexes.count();
+			index_counts[idx] = data_set->index_sets[par_group.index_sets[idx]]->get_count();
 			total_count *= index_counts[idx];
 		}
 	} else
@@ -255,7 +260,7 @@ Data_Set::write_to_file(String_View file_name) {
 }
 
 void
-read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident = false) {
+read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident = false, bool allow_int = false) {
 	stream->expect_token('[');
 	while(true) {
 		Token token = stream->peek_token();
@@ -263,10 +268,14 @@ read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident =
 			stream->read_token();
 			break;
 		}
-		if(ident)
-			stream->expect_identifier();
-		else
-			stream->expect_quoted_string();
+		if(allow_int && token.type == Token_Type::integer)
+			stream->expect_int();
+		else {
+			if(ident)
+				stream->expect_identifier();
+			else
+				stream->expect_quoted_string();
+		}
 		push_to.push_back(token);
 	}
 }
@@ -284,14 +293,22 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 	read_to->id = find->second;
 	auto comp_data = info->components[read_to->id];
 	std::vector<Token> index_names;
-	read_string_list(stream, index_names);
+	read_string_list(stream, index_names, false, true);
 	if(index_names.size() != comp_data->index_sets.size()) {
 		token.print_error_header();
 		fatal_error("The component '", token.string_value, "' should be indexed with ", comp_data->index_sets.size(), " indexes.");
 	}
 	for(int pos = 0; pos < index_names.size(); ++pos) {
 		auto index_set = data_set->index_sets[comp_data->index_sets[pos]];
-		int idx = index_set->indexes.expect_exists_idx(&index_names[pos], "index");
+		int idx = -1;
+		if(index_names[pos].type == Token_Type::integer) {
+			idx = index_names[pos].val_int;
+			if(idx < 0 || idx >= index_set->get_count()) {
+				index_names[pos].print_error_header();
+				fatal_error("Index out of bounds.");
+			}
+		} else
+			idx = index_set->indexes.expect_exists_idx(&index_names[pos], "index");
 		read_to->indexes.push_back(idx);
 	}
 }
@@ -562,7 +579,7 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 			for(Token &item : list) {
 				int index_set_idx = data_set->index_sets.expect_exists_idx(&item, "index_set");
 				group->index_sets.push_back(index_set_idx);
-				expect_count *= data_set->index_sets[index_set_idx]->indexes.count();
+				expect_count *= data_set->index_sets[index_set_idx]->get_count();
 			}
 		}
 	}
@@ -628,10 +645,27 @@ Data_Set::read_from_file(String_View file_name) {
 				
 				auto name = single_arg(decl, 0);
 				auto data = index_sets.create(name->string_value, name->source_loc);
-				std::vector<Token> indexes;
-				read_string_list(&stream, indexes);
-				for(int idx = 0; idx < indexes.size(); ++idx)
-					data->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
+				auto peek = stream.peek_token(1);
+				if(peek.type == Token_Type::quoted_string) {
+					data->type = Index_Set_Info::Type::named;
+					std::vector<Token> indexes;
+					read_string_list(&stream, indexes);
+					for(int idx = 0; idx < indexes.size(); ++idx)
+						data->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
+				} else if (peek.type == Token_Type::integer) {
+					data->type = Index_Set_Info::Type::numeric1;
+					data->n_dim1 = peek.val_int;
+					if(data->n_dim1 < 1) {
+						peek.print_error_header();
+						fatal_error("You can only have a positive number for a dimension size.");
+					}
+					stream.expect_token('[');
+					stream.expect_int();
+					stream.expect_token(']');
+				} else {
+					peek.print_error_header();
+					fatal_error("Expected a list of quoted strings or a single integer.");
+				}
 			} break;
 			
 			case Decl_Type::connection : {

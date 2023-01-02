@@ -1,0 +1,38 @@
+
+
+model("Diffusion") {
+	
+	module("Diffusion", 1, 0, 0) {
+		
+		
+		layer : compartment("Layer")
+		
+		o2    : quantity("O2")
+		
+		layer.par_group("Layers") {
+			init_o2 : par_real("Initial O2", unit(m g, c m-2), 0)
+			th      : par_real("Thickness", unit(c m), 0.1)
+			dc      : par_real("Diffusion coeff", unit(c m, s-1), 0.001)
+		}
+		
+		layer.has(o2, unit(m g, c m-2)) .initial { init_o2 }
+		
+		c : connection("Layer connection", grid1d) { layer* }
+		
+		flux(layer.o2, c, "Diffusion") {
+			d := 0.5*(dc + target(dc))
+			h := 0.5*(th + target(th))
+			d*(o2 - target(o2))/h
+		}
+		
+	}
+	
+	layer_index : index_set("Layer index")
+	
+	layer : compartment("Layer")
+	o2    : quantity("O2")
+	
+	layer.distribute(layer_index)
+	sol : solver("Solver", "INCADascru", 0.1)
+	sol.solve(layer.o2)
+}

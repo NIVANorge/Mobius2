@@ -154,7 +154,7 @@ Model_Application::set_up_connection_structure() {
 			
 			for(auto &comp : connection_components[connection_id.id]) {
 				
-				if(comp.possible_targets.empty()) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
+				if(!comp.can_be_source) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
 				
 				// TODO: group handles from multiple source compartments by index tuples.
 				Connection_T handle1 = { connection_id, comp.id, 0 };   // First info id for target compartment (indexed by the source compartment)
@@ -167,8 +167,8 @@ Model_Application::set_up_connection_structure() {
 				Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
 				structure.push_back(array);
 			}
-		} else if (connection->type == Connection_Type::all_to_all) {
-			// There is no connection data associated with this one.
+		} else if (connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d) {
+			// There is no connection data associated with these.
 		} else {
 			fatal_error(Mobius_Error::internal, "Unsupported connection structure type in set_up_connection_structure()");
 		}
@@ -466,7 +466,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	
 	bool single_index_only = false;
 	bool compartment_only = true;
-	if(cnd->type == Connection_Type::all_to_all) {
+	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
 		single_index_only = true;
 		compartment_only = false;
 	}
@@ -483,8 +483,8 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		}
 		
 		for(auto &arr : connection.arrows) {
-			auto comp = connection.components[arr.first.id];
-			Entity_Id source_comp_id = model->components.find_by_name(comp->name);
+			auto comp_source = connection.components[arr.first.id];
+			Entity_Id source_comp_id = model->components.find_by_name(comp_source->name);
 			
 			auto comp_target = connection.components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
@@ -492,14 +492,14 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			// Store useful information that allows us to prune away un-needed operations later.
 			auto target = app->find_connection_component(conn_id, target_comp_id);
 			auto source = app->find_connection_component(conn_id, source_comp_id);
-			target->can_be_target = true;
-			source->possible_targets.insert(target_comp_id);
+			source->can_be_source = true;
+			target->possible_sources.insert(source_comp_id);
 			source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
 		}
 		
 		// TODO: finish the code for checking the regex and that the graph is a tree.
 		
-	} else if (cnd->type == Connection_Type::all_to_all) {
+	} else if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
 		if(connection.type != Connection_Info::Type::none || connection.components.count() != 1) {
 			connection.loc.print_error_header();
 			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data, and no other data.");
@@ -541,8 +541,8 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			}
 		}
 		
-	} else if (cnd->type == Connection_Type::all_to_all) {
-		// No data to set up for this one.
+	} else if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
+		// No data to set up for these.
 	} else
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
 }
@@ -563,9 +563,20 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		}
 		std::vector<std::string> names;
-		names.reserve(index_set.indexes.count());
-		for(auto &index : index_set.indexes)
-			names.push_back(index.name);
+		if(index_set.type == Index_Set_Info::Type::named) {
+			names.reserve(index_set.indexes.count());
+			for(auto &index : index_set.indexes)
+				names.push_back(index.name);
+		} else if (index_set.type == Index_Set_Info::Type::numeric1) {
+			names.reserve(index_set.n_dim1);
+			char buf[16];
+			// Hmm, do we have to generate names for all the indexes (when numeric) here? Or should that be left to the UI?
+			for(int idx = 0; idx < index_set.n_dim1; ++idx) {
+				itoa(idx, buf, 10);
+				names.push_back(buf);
+			}
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
 		set_indexes(id, names);
 	}
 	
