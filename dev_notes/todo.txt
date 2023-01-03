@@ -1,6 +1,6 @@
 
 
-	Finish connection system 
+	Finish connection system
 		
 		More features for grid1d
 			with boundary conditions (?) - maybe just an override on specific index. (could be implemented without special functionality just using paramters, but a bit iffy).
@@ -11,6 +11,10 @@
 		regex checks.
 		
 		something is broken with fluxes from discrete variables to connections (should just be flat out disallowed for now, but for some reason isn't)
+		
+		arbitrary target(conn, val) declarations for use in non-fluxes (only valid for grid1d (?))
+			quite a bit of work though... But should be worth it.
+			also source(conn, val) or source(val) (for grid1d at least) for looking up the value of the previous thing.
 	
 	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 		Also only one matrix indexing for a given state variable (at least for now)
@@ -19,6 +23,7 @@
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
 
+	No error for unlabeled code block for quantity !?
 	
 	*** Intermediate-pri ***
 

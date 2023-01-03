@@ -9,7 +9,7 @@ model("Diffusion") {
 		o2    : quantity("O²")
 		
 		layer.par_group("Layers") {
-			in_o2   : par_real("O² input", unit(m g, c m-2), 0)
+			#in_o2   : par_real("O² input", unit(m g, c m-2), 0)
 			dc      : par_real("Diffusion coeff", unit(c m, s-1), 0.001)
 		}
 		
