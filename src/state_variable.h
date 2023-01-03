@@ -60,9 +60,10 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	Entity_Id      connection;       // Set if this is a flux on a connection.
 	Var_Id         conc;             // If this is a mass (or volume) variable of a dissolved quantity, conc is the variable for the concentration.
 	
-	// If this is the target variable of a connection flux, connection_agg points to the aggregation variable for the connection flux.
-	Var_Id         conn_source_agg;
-	Var_Id         conn_target_agg;
+	// If this is the source or target variable of one or more connection fluxes, these point to the aggregation variables for the connection fluxes.
+	// (one variable per connection, not per flux) (only all_to_all have agg for the source yet.)
+	std::vector<Var_Id> conn_source_aggs;
+	std::vector<Var_Id> conn_target_aggs;
 	
 	Math_Expr_FT *function_tree;
 	bool initial_is_conc;
@@ -70,7 +71,7 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Var_Sub() : decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), conn_source_agg(invalid_var), conn_target_agg(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false) {}
+	State_Var_Sub() : decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false) {}
 };
 
 template<> struct

@@ -34,13 +34,13 @@ library("Water temperature") {
 		K_to_deg_c(heat / (V*rho_water*C_water))
 	}
 	
-	water_density(T_celsius) {
+	water_density : function(T_celsius) {
 		dtemp := (deg_c_to_K(T_celsius) - 277.13)  # Difference between temp and reference temp.
 		999.98*(1 - 0.5*1.6509e-5*dtemp^2)
 	}
 	
 	#TODO: either rename library, or find another place for this one
-	dynamic_viscosity_water(T_celsius, salinity) {
+	dynamic_viscosity_water : function(T_celsius, salinity) {
 		# Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
 		# Returns viscosity in centipose (1000 Pa*s)
 		# It is also possible to add pressure corrections. Pressure is here assumed to be at 1atm.

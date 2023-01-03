@@ -135,17 +135,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto var2 = as<State_Var::Type::declared>(var);
 				if(var2->decl_type == Decl_Type::quantity
 					&& is_valid(instr.solver) && !var2->override_tree) {
-					Math_Expr_FT *fun;
-					
+					Math_Expr_FT *fun = make_literal((double)0.0);
 					
 					// aggregation variable for values coming from connection fluxes.
-					if(is_valid(var2->conn_target_agg))
-						fun = make_state_var_identifier(var2->conn_target_agg);
-					else
-						fun = make_literal((double)0.0);
+					for(auto target_agg : var2->conn_target_aggs)
+						fun = make_binop('+', fun, make_state_var_identifier(target_agg));
 					
-					if(is_valid(var2->conn_source_agg))
-						fun = make_binop('-', fun, make_state_var_identifier(var2->conn_source_agg));
+					for(auto source_agg : var2->conn_source_aggs)
+						fun = make_binop('-', fun, make_state_var_identifier(source_agg));
 					
 					for(Var_Id flux_id : app->state_vars) {
 						auto flux = app->state_vars[flux_id];
@@ -397,7 +394,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->index_counts[index_set.id].index - 1)));
+	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->index_counts[index_set.id].index)));
 	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
 	
 	return if_chain;
@@ -459,7 +456,7 @@ fixup_grid1d_connection(Model_Application *app, Math_Expr_FT *code, Entity_Id co
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::real;
 	if_chain->exprs.push_back(code);
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->index_counts[index_set.id].index - 1)));
+	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->index_counts[index_set.id].index)));
 	if_chain->exprs.push_back(make_literal(0.0));
 	return if_chain;
 }

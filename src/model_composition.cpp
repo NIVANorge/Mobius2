@@ -627,11 +627,11 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	
 	auto var = as<State_Var::Type::declared>(app->state_vars[target_var_id]);
 	
-	auto existing_agg = is_source ? var->conn_source_agg : var->conn_target_agg;
-	if(is_valid(existing_agg)) {
-		if(as<State_Var::Type::connection_aggregate>(app->state_vars[existing_agg])->connection != conn_id)
-			fatal_error(Mobius_Error::internal, "Currently we only support one connection targeting or being sourced in the same state variable.");
-		return;
+	// See if we have a connection aggregate for this connection already.
+	auto &aggs = is_source ? var->conn_source_aggs : var->conn_target_aggs;
+	for(auto existing_agg : aggs) {
+		if(as<State_Var::Type::connection_aggregate>(app->state_vars[existing_agg])->connection == conn_id)
+			return;
 	}
 	
 	if(is_source)
@@ -647,9 +647,9 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	
 	var = as<State_Var::Type::declared>(app->state_vars[target_var_id]);
 	if(is_source)
-		var->conn_source_agg = agg_id;
+		var->conn_source_aggs.push_back(agg_id);
 	else {
-		var->conn_target_agg = agg_id;
+		var->conn_target_aggs.push_back(agg_id);
 		
 		// NOTE: aggregation weights only supported for compartments for now..
 		if(model->components[target_comp]->decl_type != Decl_Type::compartment) return;
