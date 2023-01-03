@@ -662,26 +662,27 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
 					instructions[var2->agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
 					
-				} else if(conn_type == Connection_Type::all_to_all) {
+				} else if(conn_type == Connection_Type::all_to_all || conn_type == Connection_Type::grid1d) {
 					
 					auto &components = app->connection_components[var2->connection.id];
 					auto source_comp = components[0].id;
 					
 					auto &flux_loc = var_flux->loc1;
 					bool found = false;
-					for(int idx = 0; idx < flux_loc.n_components; ++idx) {
+					for(int idx = 0; idx < flux_loc.n_components; ++idx)
 						if(flux_loc.components[idx] == source_comp) found = true;
-					}
-					if(components.size() != 1 || !found) {
-						// TODO: It seems like this check is not performed anywhere else (?)
+					if(components.size() != 1 || !found)
+						// TODO: It seems like this check is not performed anywhere else (?). It should be checked earlier.
 						fatal_error(Mobius_Error::internal, "Got an all_to_all connection for a component that the connection is not supported for.");
-					}
+					
 					auto index_set = components[0].index_sets[0];
-					add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
+					if(conn_type == Connection_Type::all_to_all)
+						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
+					else
+						add_to_aggr_instr->index_sets.insert(index_set);
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
-				} else {
+				} else
 					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
-				}
 				
 				// This is not needed because the target is always an ODE:
 				//instructions[var->connection_agg.id].depends_on_instruction.insert(var_id.id); // The target must be computed after the aggregation variable.

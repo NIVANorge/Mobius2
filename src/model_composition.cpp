@@ -972,14 +972,15 @@ compose_and_resolve(Model_Application *app) {
 				
 				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]);
 			}
-		} else if (connection->type == Connection_Type::all_to_all) {
+		} else if (connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d) {
 			if(connection->components.size() != 1 || app->connection_components[conn_id.id].size() != 1)
-				fatal_error(Mobius_Error::internal, "Expected exactly one compartment for all_to_all connection."); // Should have been detected earlier
+				fatal_error(Mobius_Error::internal, "Expected exactly one compartment for this type of connection."); // Should have been detected earlier
 			
-			// NOTE: all_to_all connections can (currently) only go from one state variable to another
+			// NOTE: all_to_all and grid1d connections can (currently) only go from one state variable to another
 			// instance of itself ( the source_id ).
 			auto target_comp = app->connection_components[conn_id.id][0].id;
-			register_connection_agg(app, true, source_id, target_comp, conn_id, &varname[0]);
+			if(connection->type == Connection_Type::all_to_all)
+				register_connection_agg(app, true, source_id, target_comp, conn_id, &varname[0]);
 			register_connection_agg(app, false, source_id, target_comp, conn_id, &varname[0]);
 			
 		} else {

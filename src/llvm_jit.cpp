@@ -572,6 +572,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			llvm::Value *offset = nullptr;
 			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
 				|| ident->variable_type == Variable_Type::connection_info) {
+				if(expr->exprs.size() != 1)
+					fatal_error(Mobius_Error::internal, "An identifier was not properly indexed before LLVM codegen.");
 				offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			}
 			//warning_print("offset for lookup was ", offset, "\n");
