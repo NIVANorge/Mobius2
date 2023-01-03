@@ -11,20 +11,19 @@ model("Diffusion") {
 		
 		layer.par_group("Layers") {
 			in_amp  : par_real("Initial amplitude", unit(Pa), 0)
-			in_mom  : par_real("Initial momentum", unit(Pa, day-1), 0)
 			c       : par_real("Wave speed", unit(m day-1), 0.001)
 		}
 		
 		layer.has(amp, unit(Pa)) .initial { in_amp }
-		layer.has(mom, unit(Pa, day-1)) .initial { in_mom*c }
+		layer.has(mom, unit(Pa, day-1))
 		
 		l : connection("Layer connection", grid1d) { layer* }
 		
-		flux(layer.mom, nowhere, "Momentum propagation") {
-			c * (amp - target(amp))
+		flux(layer.mom, l, "Momentum propagation") {
+			c*(target(amp) - amp)
 		}
 		
-		flux(layer.amp, l, "Wave propagation") {
+		flux(layer.amp, nowhere, "Wave propagation") {
 			mom
 		}
 		
