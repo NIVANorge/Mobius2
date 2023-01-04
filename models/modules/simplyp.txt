@@ -33,36 +33,36 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	flow  : property("Flow")
 	
 	soil.par_group("P general") {
-		m_soil_m2 : par_real("Soil mass per m2", unit(k g, m-2), 95, 0, 200)
-		kf        : par_real("Phosphorous sorption coefficient", unit(l, m g-1), 1.13e-4, 0, 0.1)
-		pp_enrich : par_real("Particulate P enrichment factor", unit(), 1.6, 1, 5)
+		m_soil_m2 : par_real("Soil mass per m2", [k g, m-2], 95, 0, 200)
+		kf        : par_real("Phosphorous sorption coefficient", [l, m g-1], 1.13e-4, 0, 0.1)
+		pp_enrich : par_real("Particulate P enrichment factor", [], 1.6, 1, 5)
 	}
 	
 	soil.par_group("Soil P") {
-		init_epc0            : par_real("Initial soil TDP concentration and EPC0", unit(m g, l-1), 0.1, 0, 10)
-		init_soil_p_conc     : par_real("Initial total soil P content", unit(m g, k g-1), 1458, 0, 10000)
-		inactive_soil_p_conc : par_real("Inactive soil P content", unit(m g, k g-1), 873, 0, 10000)
-		p_input              : par_real("Net annual P input to soil", unit(k g, ha-1, year-1), 10, -100, 100)
+		init_epc0            : par_real("Initial soil TDP concentration and EPC0", [m g, l-1], 0.1, 0, 10)
+		init_soil_p_conc     : par_real("Initial total soil P content", [m g, k g-1], 1458, 0, 10000)
+		inactive_soil_p_conc : par_real("Inactive soil P content", [m g, k g-1], 873, 0, 10000)
+		p_input              : par_real("Net annual P input to soil", [k g, ha-1, year-1], 10, -100, 100)
 	}
 	
 	gw.par_group("Groundwater P") {
-		gw_tdp : par_real("Groundwater TDP concentration", unit(m g, l-1), 0.02, 0, 10)
+		gw_tdp : par_real("Groundwater TDP concentration", [m g, l-1], 0.02, 0, 10)
 	}
 	
 	river.par_group("River P") {
-		eff_tdp   : par_real("Effluent TDP inputs", unit(k g, day-1), 0.1, 0, 10)
+		eff_tdp   : par_real("Effluent TDP inputs", [k g, day-1], 0.1, 0, 10)
 	}
 	
 	#NOTE: This creates a reference to a parameter defined in the model.
-	a_catch : par_real("Catchment area", unit(k m 2))
+	a_catch : par_real("Catchment area", [k m 2])
 	
 	
-	soil.has(epc0 : property("EPC0"), unit(m g, l-1)) {
+	soil.has(epc0 : property("EPC0"), [m g, l-1]) {
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		safe_divide(last(plab), kf * m_soil)
 	} .initial { init_epc0 }
 	
-	soil.water.has(tdp, unit(k g, k m-2), "Soil TDP mass") .override {
+	soil.water.has(tdp, [k g, k m-2], "Soil TDP mass") .override {
 		pin    := p_input * 100.0/356.0
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		a      := (pin + kf*m_soil*epc0)
@@ -72,7 +72,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		init_epc0
 	}
 	
-	soil.has(plab, unit(k g, k m-2), "Soil labile P mass") .override {
+	soil.has(plab, [k g, k m-2], "Soil labile P mass") .override {
 		pin    := p_input * 100.0/356.0
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		a      := (pin + kf*m_soil*epc0)
@@ -86,22 +86,22 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	}
 	
 	#NOTE: could use the inbuilt concentration system for this, but we don't model varying soil mass, so it is a bit superfluous
-	soil.plab.has(plabconc : property("Labile P concentration"), unit(m g, k g-1)) {  plab / m_soil_m2  }
+	soil.plab.has(plabconc : property("Labile P concentration"), [m g, k g-1]) {  plab / m_soil_m2  }
 	
-	gw.water.has(tdp, unit(k g, k m-2), "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
+	gw.water.has(tdp, [k g, k m-2], "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
 	
 	
-	river.water.has(tdp, unit(k g), "River TDP") .initial_conc { gw_tdp }
+	river.water.has(tdp, [k g], "River TDP") .initial_conc { gw_tdp }
 	
 	flux(nowhere, river.water.tdp, "River effluent TDP") { eff_tdp }
 	
-	river.water.has(pp, unit(k g), "River PP") .initial_conc { 0 }
+	river.water.has(pp, [k g], "River PP") .initial_conc { 0 }
 	
 	e_fact : property("Erosion factor")
 	
 	#NOTE: could also just have pp "dissolved in" ss, but would then need the soil to have a SS value (that is overridden to be constant), which could be confusing to model users?
 	
-	soil.plab.has(pp_fact : property("PP mobilization factor"), unit(k g, k m-2, day-1)) {
+	soil.plab.has(pp_fact : property("PP mobilization factor"), [k g, k m-2, day-1]) {
 		(plabconc + inactive_soil_p_conc)*1e-6 * e_fact * pp_enrich              # NOTE: 1e-6 is to convert mg -> kg
 	}
 	
@@ -109,7 +109,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		river.e_fact * aggregate(soil.plab.pp_fact)
 	}
 	
-	river.water.has(tp : property("Total phosphorous"), unit(m g, l-1)) {
+	river.water.has(tp : property("Total phosphorous"), [m g, l-1]) {
 		(conc(tdp) + conc(pp))*1e3
 	}
 	

@@ -13,29 +13,29 @@ This is a simple sediment transport module created as a part of SimplyP.
 	sed      : quantity("Sediment")
 
 	soil.par_group("Soil erodibility") {
-		c_cov      : par_real("Vegetation cover factor", unit(), 0.2, 0, 1, "Vegetation cover factor, describing ratio between long-term erosion under the land use class, compared to under bare soil of the same soil type, slope, etc. Source from (R)USLE literature and area-weight as necessary to obtain a single value for the land class.")
-		doy_spring : par_int ("Day of year when soil erodibility is max for spring-grown crops", unit(day), 60,  30, 335)
-		doy_autumn : par_int ("Day of year when soil erodibility is max for autumn-grown crops", unit(day), 304, 30, 335)
-		p_spring   : par_real("Proportion of spring-grown crops", unit(), 0.65, 0, 1)
-		loadred    : par_real("Reduction of load in sediment", unit(), 0, 0, 1)
+		c_cov      : par_real("Vegetation cover factor", [], 0.2, 0, 1, "Vegetation cover factor, describing ratio between long-term erosion under the land use class, compared to under bare soil of the same soil type, slope, etc. Source from (R)USLE literature and area-weight as necessary to obtain a single value for the land class.")
+		doy_spring : par_int ("Day of year when soil erodibility is max for spring-grown crops", [day], 60,  30, 335)
+		doy_autumn : par_int ("Day of year when soil erodibility is max for autumn-grown crops", [day], 304, 30, 335)
+		p_spring   : par_real("Proportion of spring-grown crops", [], 0.65, 0, 1)
+		loadred    : par_real("Reduction of load in sediment", [], 0, 0, 1)
 		shp        : par_enum("Cover factor shape", flat) { flat triangular smooth }
 	}
 	
 	soil.par_group("Land slope") {
-		land_slope : par_real("Mean slope of land", unit(deg), 4, 0, 90)
+		land_slope : par_real("Mean slope of land", [deg], 4, 0, 90)
 	}
 	
 	river.par_group("River erosion") {
-		ksed  : par_real("Erosion scaling factor", unit(), 15, 0, 100)
-		psed  : par_real("Erosion power factor", unit(), 2, 0.1, 5)
+		ksed  : par_real("Erosion scaling factor", [], 15, 0, 100)
+		psed  : par_real("Erosion power factor", [], 2, 0.1, 5)
 	}
 	
 	# NOTE: This creates a reference to a parameter defined in the model.
-	a_catch : par_real("Catchment area", unit(k m 2))
+	a_catch : par_real("Catchment area", [k m 2])
 	
-	river.water.has(sed, unit(k g), "Suspended sediments") .initial { 0 }
+	river.water.has(sed, [k g], "Suspended sediments") .initial { 0 }
 
-	soil.has(c_cover : property("Time dependent vegetation cover factor"), unit()) {
+	soil.has(c_cover : property("Time dependent vegetation cover factor"), []) {
 		E_risk_period := 60.0
 		spring := {
 			wedge_response(time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
@@ -52,11 +52,11 @@ This is a simple sediment transport module created as a part of SimplyP.
 	
 	e_fact : property("Erosion factor")
 	
-	soil.has(e_fact, unit(), "Erosion factor land")                     {   land_slope * c_cover * (1 - loadred)   }
+	soil.has(e_fact, [], "Erosion factor land")                     {   land_slope * c_cover * (1 - loadred)   }
 	
 	# TODO: determine if in_flux also counts "neighbor" fluxes, and in that case give an alternative that doesn't
 	# TODO: have to discard the unit of this one when that is implemented.
-	river.has(e_fact, unit(), "Erosion factor river")                   {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed   }
+	river.has(e_fact, [], "Erosion factor river")                   {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed   }
 
 	flux(nowhere, river.water.sed, "Sediment mobilization")             {   aggregate(soil.e_fact) * e_fact   }
 }

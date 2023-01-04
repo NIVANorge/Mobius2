@@ -429,10 +429,6 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			success = true;
 		}
 	} else if (count >= 2 && count <= max_var_loc_components) {
-		if(decl->args[which]->chain_sep != '.') {
-			symbol[0].print_error_header();
-			fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
-		}
 		location->type     = Var_Location::Type::located;
 		for(int idx = 0; idx < count; ++idx)
 			location->components[idx] = model->components.find_or_create(&symbol[idx], scope);
@@ -709,11 +705,11 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	for(Body_AST *body : decl->bodies) {
 		auto function = static_cast<Function_Body_AST *>(body);
-		if(function->modifiers.size() > 1) {
+		if(function->notes.size() > 1) {
 			function->opens_at.print_error_header();
-			fatal_error("Bodies belonging to declarations of type 'has' can only have one modifier.");
-		} else if(function->modifiers.size() == 1) {
-			auto str = function->modifiers[0].string_value;
+			fatal_error("Bodies belonging to declarations of type 'has' can only have one note.");
+		} else if(function->notes.size() == 1) {
+			auto str = function->notes[0].string_value;
 			if(str == "initial" || str == "initial_conc") {
 				if(has->initial_code) {
 					function->opens_at.print_error_header();
@@ -730,7 +726,7 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 				has->override_is_conc = (str == "override_conc");
 			} else {
 				function->opens_at.print_error_header();
-				fatal_error("Expected either no function body tags, '.initial' or '.override_conc'.");   //TODO: should maybe come up with a better name than "tag" (?)
+				fatal_error("Expected either no function body notes, '.initial' or '.override_conc'.");
 			}
 		} else {
 			if(has->code) {
@@ -900,7 +896,7 @@ load_library(Mobius_Model *model, Decl_Scope *to_scope, String_View rel_path, St
 		lib->scope.import(model->global_scope);
 		
 		// It is important to process the contents of the library before we do subsequent loads, otherwise some contents may not be loaded if we short-circuit due to a recursive load.
-		//   Note that the code of the functions is processed at a much later stage, so we don't need the symbols in the function bodies to be available yet.
+		//   Note that the code of the functions is processed at a much later snotee, so we don't need the symbols in the function bodies to be available yet.
 		for(Decl_AST *child : body->child_decls) {
 			if(child->type == Decl_Type::load) continue; // already processed above.
 			else if(child->type == Decl_Type::constant) {

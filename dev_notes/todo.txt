@@ -10,7 +10,6 @@
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 		regex checks.
 		
-		something is broken with fluxes from discrete variables to connections (should just be flat out disallowed for now, but for some reason isn't)
 		
 		arbitrary target(conn, val) declarations for use in non-fluxes (only valid for grid1d (?))
 			quite a bit of work though... But should be worth it.
@@ -24,8 +23,6 @@
 	ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
-
-	No error for unlabeled code block for quantity !?
 	
 	*** Intermediate-pri ***
 
@@ -99,6 +96,8 @@
 	connection fluxes of dissolvedes seem to add to the base substance rather than the dissolved substance.
 	**aggregation weights applied to graph arrows !!
 	
+	something is broken with fluxes from discrete variables to connections (should just be flat out disallowed for now, but for some reason isn't)
+	
 	Make and test a SimplyTox    (partial at least)
 	
 	Index set distribution of quantities
@@ -129,3 +128,5 @@
 	
 	check what parts of the connection are actually used (not just based on arrows in the data set, but also on what fluxes are put along the arrows).
 		e.g. what variables can actually be a target - only generate code for those etc.
+		
+	No error for unlabeled code block for quantity !?

@@ -150,7 +150,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 							if(success) {
 								stream.read_token();
 								continue;
-							} else if(token.string_value != "unit") {
+							} else if(token.string_value != "[") {
 								ole_close_due_to_error(handles, tab, col+2, potential_flag_row);
 								fatal_error("Unrecognized input flag \"", token.string_value, "\".");
 							}

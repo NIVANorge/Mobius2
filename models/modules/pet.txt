@@ -6,14 +6,14 @@ module("Degree-day PET", 1, 0, 0) {
 	soil      : compartment("Soil")
 
 	soil.par_group("Potential evapotranspiration") {
-		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", unit(m m, deg_c -1, day -1), 0.12, 0.05, 0.2)
-		pet_min_t : par_real("Minimal temperature for evapotranspiration", unit(deg_c), 0, -5, 5)
+		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", [m m, deg_c -1, day -1], 0.12, 0.05, 0.2)
+		pet_min_t : par_real("Minimal temperature for evapotranspiration", [deg_c], 0, -5, 5)
 	}
 	
 	pet  : property("Potential evapotranspiration")
 	temp : property("Temperature")
 	
-	soil.has(pet, unit(m m, day -1))                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
+	soil.has(pet, [m m, day -1])                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
 }
 
 
@@ -25,8 +25,8 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	soil      : compartment("Soil")
 	
 	soil.par_group("Potential evapotranspiration") {
-		elev : par_real("Elevation", unit(m), 0)       #TODO : another parameter that should be reused between modules. We need a system for it.
-		apet : par_real("PET multiplication factor", unit(), 1.28, 0.3, 4.0)
+		elev : par_real("Elevation", [m], 0)       #TODO : another parameter that should be reused between modules. We need a system for it.
+		apet : par_real("PET multiplication factor", [], 1.28, 0.3, 4.0)
 	}
 	
 	pet    : property("Potential evapotranspiration")
@@ -37,7 +37,7 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	net_lw : property("Net longwave")
 	net_sw : property("Net shortwave")
 	
-	soil.has(pet, unit(m m, day -1)) {                 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
+	soil.has(pet, [m m, day-1]) {                 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
 		meanbar := mean_barometric_pressure(elev)
 		lvap    := latent_heat_of_vaporization(air.temp)
 		psy     := psychrometric_constant(meanbar, lvap)

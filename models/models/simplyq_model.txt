@@ -49,13 +49,13 @@ General model description.
 	rw.reach_out  .to(ds)
 	
 	soil.par_group("Land cover") {         #TODO: Should maybe have syntax to enforce a dependecy of this on landscape units (?)
-		lu_prop  : par_real("Land use proportions", unit(), 1, 0, 1)
+		lu_prop  : par_real("Land use proportions", [], 1, 0, 1)
 	}
 	
 	#TODO: it would be nice if we could declare lu_prop.sums_to(lu, 1).  #This would allow for run-time checks and also sometimes compile-time optimizations.
 	
 	river.par_group("Catchment data") {
-		a_catch  : par_real("Catchment area", unit(k m 2), 51.7)
+		a_catch  : par_real("Catchment area", [k m 2], 51.7)
 	}
 	
 	aggregation_weight(soil, gw) { lu_prop }

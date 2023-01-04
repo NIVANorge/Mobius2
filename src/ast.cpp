@@ -8,7 +8,7 @@
 	
 	The general form of a declaration is
 	
-		identifier : identifier.identifier... .identifier.decl_type(arg, ...) .tag_1 { body_1 } ... .tag_n { body_n }
+		identifier : identifier.identifier... .identifier.decl_type(arg, ...) .note_1 { body_1 } ... .note_n { body_n }
 	
 	The first identifier is the "handle" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
 	In some cases you can make a declaration without a handle.
@@ -32,7 +32,7 @@
 	
 	
 	Not all declarations have bodies.
-	Bodies can have 0 or more tags (usually just one used to distinguish between multiple bodies).
+	Bodies can have 0 or more notes (usually just one used to distinguish between multiple bodies).
 	There are two overarching types of bodies, and which one is used depends on the decl_type
 		Decl body:
 			This contains just a sequence of other declarations. It can also contain one quoted string, called the docstring of the body.
@@ -71,7 +71,7 @@ is_accepted_for_chain(Token_Type type, bool identifier_only) {
 }
 
 void
-read_identifier_chain(Token_Stream *stream, char separator, std::vector<Token> *list_out, bool identifier_only = true) {
+read_chain(Token_Stream *stream, char separator, std::vector<Token> *list_out, bool identifier_only = true) {
 	while(true) {
 		Token token = stream->read_token();
 		if(token.type == Token_Type::eof) {
@@ -115,23 +115,57 @@ get_body_type(Decl_Type decl_type) {
 	return Body_Type::none;
 }
 
+void
+parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
+	Token token = stream->read_token(); // This is the '['
+	decl->source_loc = token.source_loc;
+	decl->type = Decl_Type::unit;
+	
+	while(true) {
+		auto peek = stream->peek_token();
+		if(peek.type == Token_Type::eof) {
+			peek.print_error_header();
+			fatal_error("End of file before closing unit declaration");
+		} else if((char)peek.type == ']') {
+			stream->read_token();
+			break;
+		} else if(can_be_value_token(peek.type)) {
+			auto arg = new Argument_AST();
+			read_chain(stream, ' ', &arg->sub_chain, false);
+			decl->args.push_back(arg);
+			
+			auto next = stream->peek_token();
+			if((char)next.type == ',')
+				stream->read_token();
+			else if((char)next.type != ']') {
+				next.print_error_header();
+				fatal_error("Expected a ] or a ,");
+			}
+		} else {
+			peek.print_error_header();
+			fatal_error("Misformatted unit declaration.");
+		}
+	}
+}
+
 Decl_AST *
 parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	Decl_AST *decl = new Decl_AST();
 	
-	Token ident = stream->expect_token(Token_Type::identifier);
-	Token next  = stream->read_token();
-
+	Token next  = stream->peek_token(1);
 	if((char)next.type == ':') {
-		decl->handle_name = ident;
-		ident = stream->expect_token(Token_Type::identifier);
-		next  = stream->read_token();
+		decl->handle_name = stream->expect_token(Token_Type::identifier);
+		stream->read_token();
 	}
-	decl->decl_chain.push_back(ident);
 	
-	if((char)next.type == '.') {
-		read_identifier_chain(stream, '.', &decl->decl_chain);
-		next = stream->read_token();
+	next = stream->peek_token();
+	if(next.type == Token_Type::identifier) {
+		read_chain(stream, '.', &decl->decl_chain);
+	} else if ((char)next.type == '[') {
+		parse_unit_decl(stream, decl);
+		if(body_type_out)
+			*body_type_out = Body_Type::none;
+		return decl;
 	}
 	
 	// We generally have something on the form a.b.type(bla) . The chain is now {a, b, type}, but we want to store the type separately from the rest of the chain.
@@ -141,9 +175,15 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	decl->type = get_decl_type(&decl->decl_chain.back(), &body_type);
 	decl->decl_chain.pop_back(); // note: we only want to keep the first symbols (denoting location) in the chain since we now have stored the type separately.
 	
+	if(decl->type == Decl_Type::unit) {
+		next.source_loc.print_error_header();
+		fatal_error("Direct unit() declarations are not allowed. Use the [] format instead.");
+	}
+	
 	if(body_type_out)
 		*body_type_out = body_type;
 	
+	next = stream->read_token();
 	if((char)next.type != '(') {
 		next.print_error_header();
 		fatal_error("Expected a ( .");
@@ -156,18 +196,16 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 			stream->read_token();
 			break;
 		}
-		else if(can_be_value_token(next.type)) {
+		else if(can_be_value_token(next.type) || (char)next.type == '[') {
 			Argument_AST *arg = new Argument_AST();
 			
+			// TODO: Clean this up when we remove unit() decls
 			Token peek = stream->peek_token(1);
-			if(can_be_value_token(peek.type) || (char)peek.type == ')' || (char)peek.type == ',') {
-				read_identifier_chain(stream, ' ', &arg->sub_chain, false);
-				arg->chain_sep = ' ';
-			}
-			else if(next.type == Token_Type::identifier) {
+			if((can_be_value_token(peek.type) || (char)peek.type == ')' || (char)peek.type == ',') && (char)next.type != '[') {
+				read_chain(stream, ' ', &arg->sub_chain, false);
+			} else if(next.type == Token_Type::identifier || (char)next.type == '[') {
 				if((char)peek.type == '.') {
-					read_identifier_chain(stream, '.', &arg->sub_chain);
-					arg->chain_sep = '.';
+					read_chain(stream, '.', &arg->sub_chain);
 				} else
 					arg->decl = parse_decl(stream);
 			} else {
@@ -219,7 +257,7 @@ parse_decl(Token_Stream *stream) {
 			body->opens_at = next.source_loc;
 			
 			if(ch == '.') {
-				read_identifier_chain(stream, '.', &body->modifiers);
+				read_chain(stream, '.', &body->notes);
 				next = stream->read_token();
 			}
 			
@@ -380,7 +418,7 @@ parse_primary_expr(Token_Stream *stream) {
 		} else {
 			auto val = new Identifier_Chain_AST();
 			val->source_loc = token.source_loc;
-			read_identifier_chain(stream, '.', &val->chain, true);
+			read_chain(stream, '.', &val->chain, true);
 			result = val;
 		}
 	} else if (is_numeric_or_bool(token.type)) {
@@ -595,7 +633,7 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
-	int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_modifiers) {
+	int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_notes) {
 	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
 	
 	if(!allow_chain && !decl->decl_chain.empty()) {
@@ -672,11 +710,11 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		fatal_error("Expected ", allow_body_count, " bodies for this declaration, got ", decl->bodies.size(), ".");
 	}
 	
-	if(!allow_body_modifiers) {
+	if(!allow_body_notes) {
 		for(auto body : decl->bodies) {
-			if(body->modifiers.size() > 0) {
+			if(body->notes.size() > 0) {
 				decl->source_loc.print_error_header();
-				fatal_error("The bodies of this declaration should not have modifiers.");
+				fatal_error("The bodies of this declaration should not have notes.");
 			}
 		}
 	}
@@ -691,7 +729,7 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 	switch(pattern_type) {
 		case Type::unit_literal : {
 			int count = arg->sub_chain.size();
-			if(!arg->decl && (count == 1 || (count <= 3 && arg->chain_sep == ' ')))
+			if(!arg->decl && (count == 1 || count <= 3))
 				return true; //NOTE: only potentially true. Must be properly checked in the process_unit_declaration
 			return false;
 		} break;
@@ -709,7 +747,6 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 				return arg->sub_chain[0].type == check_type;
 			}
 			else if(arg->sub_chain.size() > 1 && check_type == Token_Type::identifier) {
-				if(arg->chain_sep != '.') return false;
 				for(Token &token : arg->sub_chain) {
 					if(token.type != Token_Type::identifier)
 						return false;

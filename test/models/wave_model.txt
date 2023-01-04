@@ -10,12 +10,12 @@ model("Wave") {
 		mom   : quantity("momentum")
 		
 		layer.par_group("Layers") {
-			in_amp  : par_real("Initial amplitude", unit(Pa), 0)
-			c       : par_real("Wave speed", unit(m day-1), 0.001)
+			in_amp  : par_real("Initial amplitude", [Pa], 0)
+			c       : par_real("Wave speed", [m day-1], 0.001)
 		}
 		
-		layer.has(amp, unit(Pa)) .initial { in_amp }
-		layer.has(mom, unit(Pa, day-1))
+		layer.has(amp, [Pa]) .initial { in_amp }
+		layer.has(mom, [Pa, day-1])
 		
 		l : connection("Layer connection", grid1d) { layer* }
 		

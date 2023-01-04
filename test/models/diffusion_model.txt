@@ -9,11 +9,11 @@ model("Diffusion") {
 		o2    : quantity("O²")
 		
 		layer.par_group("Layers") {
-			#in_o2   : par_real("O² input", unit(m g, c m-2), 0)
-			dc      : par_real("Diffusion coeff", unit(c m, s-1), 0.001)
+			#in_o2   : par_real("O² input", [m g, c m-2], 0)
+			dc      : par_real("Diffusion coeff", [c m, s-1], 0.001)
 		}
 		
-		layer.has(o2, unit(m g, c m-2)) #.initial { in_o2 }
+		layer.has(o2, [m g, c m-2]) #.initial { in_o2 }
 		
 		c : connection("Layer connection", grid1d) { layer* }
 		
@@ -38,10 +38,10 @@ model("Diffusion") {
 		
 		air : compartment("Atmosphere")
 		soil : compartment("Soil")
-		air.has(precip : property("Precipitation"), unit(m m, day-1))
+		air.has(precip : property("Precipitation"), [m m, day-1])
 		
 		o2    : quantity("O²")
-		soil.has(o2, unit(m g))
+		soil.has(o2, [m g])
 		flux(nowhere, soil.o2, "O² influx") {
 			air.precip     # This makes no sense, but whatever
 		}

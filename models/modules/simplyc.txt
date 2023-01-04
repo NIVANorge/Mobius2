@@ -18,29 +18,29 @@ Not finished, just for testing some systems.
 	air.has(so4 : property("SO4 deposition"), unit(m g, l-1))
 	
 	soil.par_group("DOC general") {
-		cdoc       : par_real("Baseline soil DOC dissolution rate", unit(m g, l-1, day-1), 1, 0, 10)
-		kt1        : par_real("Soil temperature DOC creation linear coefficient", unit(deg_c -1), 0, 0, 0.1)
-		kt2        : par_real("Soil temperature DOC creation second-order coefficient", unit(deg_c -2), 0, 0, 0.1)
-		kso4       : par_real("Soil DOC linear SO4 dependence", unit(l, m g-1), 0, 0, 0.1)
+		cdoc       : par_real("Baseline soil DOC dissolution rate", [m g, l-1, day-1], 1, 0, 10)
+		kt1        : par_real("Soil temperature DOC creation linear coefficient", [deg_c-1], 0, 0, 0.1)
+		kt2        : par_real("Soil temperature DOC creation second-order coefficient", [deg_c-2], 0, 0, 0.1)
+		kso4       : par_real("Soil DOC linear SO4 dependence", [l, m g-1], 0, 0, 0.1)
 	}
 	
 	soil.par_group("DOC land") {
-		basedoc    : par_real("Baseline soil DOC concentration", unit(m g, l-1), 10, 0, 100)
+		basedoc    : par_real("Baseline soil DOC concentration", [m g, l-1], 10, 0, 100)
 	}
 	
 	gw.par_group("DOC deep soil") {
 		gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { const soil_avg half_life }
-		gwdochl    : par_real("Groundwater DOC half-life", unit(day -1), 80, 1, 500)
-		gwdocconc  : par_real("Groundwater DOC concentration", unit(m g, l-1), 3, 0, 20)
+		gwdochl    : par_real("Groundwater DOC half-life", [day -1], 80, 1, 500)
+		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20)
 	}
 	
 	temp : property("Temperature")
 	
 	#TODO: allow specifying the conc unit
 	#TODO: we have to do something about the name system for these.
-	soil.water.has (oc, unit(k g, k m -2), "Soil water DOC") .initial_conc { basedoc }
+	soil.water.has (oc, [k g, k m -2], "Soil water DOC") .initial_conc { basedoc }
 		
-	gw.water.has   (oc, unit(k g, k m -2), "Deep soil DOC")  .initial_conc {
+	gw.water.has   (oc, [k g, k m -2], "Deep soil DOC")  .initial_conc {
 		gwdocconc                       if gwdoc_type.const,
 		aggregate(conc(soil.water.oc))  otherwise
 	} .override_conc {
@@ -49,7 +49,7 @@ Not finished, just for testing some systems.
 		no_override                     otherwise
 	}
 	
-	river.water.has(oc, unit(k g), "River water DOC") .initial_conc { conc(gw.water.oc) }
+	river.water.has(oc, [k g], "River water DOC") .initial_conc { conc(gw.water.oc) }
 	
 	flux(nowhere, soil.water.oc, "Soil DOC production") {  max(0, water*cdoc*(1 + temp*(kt1 + kt2*temp) - kso4*air.so4))  }
 	

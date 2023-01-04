@@ -746,6 +746,11 @@ compose_and_resolve(Model_Application *app) {
 			code_scope = model->get_scope(has->code_scope);
 			other_code_scope = code_scope;
 			
+			if(var2->decl_type == Decl_Type::quantity && ast) {
+				has->source_loc.print_error_header();
+				fatal_error("A quantity should not have an un-tagged code block.");
+			}
+			
 			if(!ast) {
 				auto comp = model->components[has->var_location.last()];
 				ast = comp->default_code;

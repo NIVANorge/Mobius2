@@ -15,23 +15,23 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	water : quantity("Water")
 	
 	soil.par_group("Hydrology general") {
-		bfi    : par_real("Baseflow index", unit(),                        0.6,  0,    1)
-		qqinfl : par_real("Quick flow inflection point", unit(m m, day-1), 160, 20,  500)
+		bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
+		qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  500)
 	}
 	
 	soil.par_group("Hydrology land") {
-		fc     : par_real("Field capacity", unit(m m),                     120,  0, 1000)
-		tc_s   : par_real("Soil water time constant", unit(day -1),          2,  1,   40)
+		fc     : par_real("Field capacity", [m m],                     120,  0, 1000)
+		tc_s   : par_real("Soil water time constant", [day -1],          2,  1,   40)
 	}
 		
 	gw.  par_group("Groundwater") {
-		tc_g    : par_real("Groundwater time constant", unit(day -1),       30,  1,  400)
+		tc_g    : par_real("Groundwater time constant", [day -1],       30,  1,  400)
 	}
 	
-	a_catch : par_real("Catchment area", unit(k m 2)) # NOTE: This is a reference to a parameter that must be declared in the model file.
+	a_catch : par_real("Catchment area", [k m 2]) # NOTE: This is a reference to a parameter that must be declared in the model file.
 	
-	soil.has(water, unit(m m), "Soil water volume") .initial { fc }
-	gw  .has(water, unit(m m), "Groundwater volume") .initial {
+	soil.has(water, [m m], "Soil water volume") .initial { fc }
+	gw  .has(water, [m m], "Groundwater volume") .initial {
 		tc_g * river.water.flow * 86.4 / a_catch
 	}
 
@@ -51,7 +51,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 		s_response(water, 0.5*fc, fc, 0, pet)
 	}  
 	
-	soil.water.has(flow : property("Flow"), unit(m m, day -1), "Soil water flow") {
+	soil.water.has(flow : property("Flow"), [m m, day -1], "Soil water flow") {
 		rate := (water - fc)/tc_s
 		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the rate on between water volumes of fc and 1.01*fc
 	}
@@ -76,22 +76,22 @@ The river part of the SimplyQ module.
 	water : quantity("Water")
 	
 	river.par_group("Reach parameters") {
-		slope          : par_real("Reach slope", unit(),                     0.014, 0.00001,        3)
-		len            : par_real("Reach length", unit(m),                   10000,       0, 10000000)
-		c_mann         : par_real("Manning's roughness coefficient", unit(),  0.04,   0.012,      0.1, 
+		slope          : par_real("Reach slope", [],                     0.014, 0.00001,        3)
+		len            : par_real("Reach length", [m],                   10000,       0, 10000000)
+		c_mann         : par_real("Manning's roughness coefficient", [],  0.04,   0.012,      0.1, 
 			"Default of 0.04 is for clean winding natural channels. See e.g. Chow 1959 for a table of values for other channel types")
-		init_flow      : par_real("Initial reach flow", unit(m 3, s-1),          1,       0,     100)
+		init_flow      : par_real("Initial reach flow", [m 3, s-1],          1,       0,     100)
 	}
 	
 	flow : property("Flow")
 	
-	river.has(water, unit(m 3), "Reach water volume") .initial {
+	river.has(water, [m 3], "Reach water volume") .initial {
 		depth := 0.349 * flow^0.34
 		width := 2.71 * flow^0.557
 		width * depth * len
 	}
 
-	river.water.has(flow, unit(m 3, s -1), "Reach flow")    { 0.28 * (water * sqrt(slope) / (len * c_mann))^1.5   } .initial { init_flow }
+	river.water.has(flow, [m 3, s -1], "Reach flow")    { 0.28 * (water * sqrt(slope) / (len * c_mann))^1.5   } .initial { init_flow }
 	
 	reach_out :
 	flux(river.water, out, "Reach flow flux")     {	 flow * 86400  }                  #NOTE: explicit unit conversion should be removed once we get automatic unit checks 

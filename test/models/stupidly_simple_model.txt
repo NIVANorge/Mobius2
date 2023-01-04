@@ -6,18 +6,18 @@ model("Simple test model") {
 		a : compartment("A")
 		q : quantity("Q")
 		
-		a.has(q, unit(), "A Q") .initial { ia }
+		a.has(q, [], "A Q") .initial { ia }
 		
 		q.par_group("Init pars") {
-			ia : par_real("Init a", unit(), 0)
+			ia : par_real("Init a", [], 0)
 		}
 		
 		q.par_group("Permissivity") {
-			pm : par_real("Permissivity", unit(), 0)
+			pm : par_real("Permissivity", [], 0)
 		}
 		
 		q.par_group("Flow pars") {
-			ff : par_real("Flow fraction", unit(), 0, 0, 1)
+			ff : par_real("Flow fraction", [], 0, 0, 1)
 		}
 		
 		c : connection("Flow connection", all_to_all) { q* }

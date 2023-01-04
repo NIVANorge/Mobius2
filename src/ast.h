@@ -22,7 +22,7 @@ Body_Type {
 
 struct
 Body_AST : Expr_AST {
-	std::vector<Token> modifiers;
+	std::vector<Token> notes;
 	Body_Type type;
 	Source_Location opens_at;                     //TODO: there should instead just be a source_loc on the Expr_AST (?)
 	
@@ -35,7 +35,6 @@ struct Decl_AST;
 struct
 Argument_AST : Expr_AST {
 	std::vector<Token> sub_chain;    //TODO: better name?
-	char               chain_sep;
 	Decl_AST          *decl;
 	
 	~Argument_AST();
@@ -235,7 +234,7 @@ struct Arg_Pattern {
 };
 
 int
-match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain = 0, bool allow_handle = true, int allow_body_count = 1, bool allow_body_modifiers = false);
+match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain = 0, bool allow_handle = true, int allow_body_count = 1, bool allow_body_notes = false);
 
 
 

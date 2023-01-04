@@ -6,7 +6,7 @@ TODO: description
 """
 
 	load("../../stdlib/atmospheric.txt", library("Meteorology"))
-	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water temperature"))
+	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
 	
 	air  : compartment("Atmosphere")
 
@@ -16,14 +16,14 @@ TODO: description
 	
 	epi.par_group("Lake physical") {
 		# TODO: copy the nice min-max values and comments from mobius 1 EasyLake
-		A_surf    : par_real("Lake surface area", unit(m 2), 107183, 0, 1e8)
-		z_outflow : par_real("Lake depth at which outflow is 0", unit(m), 10, 0.1, 1000)
-		z_epi     : par_real("Initial epilimnion thickness", unit(m), 2, 0.1, 10)
-		#th_bank   : par_real("Lake shore slope", unit(), 0.4, 0, 4)
-		rate_l    : par_real("Rating function linear component", unit(m 2, s-1), 10, 0, 1000)
-		t_epi     : par_real("Initial epilimnion temperature", unit(deg_c), 15, 0, 50)
-		t_bot     : par_real("Bottom temperature", unit(deg_c), 4, 0, 50)
-		init_ice  : par_real("Initial ice thickness", unit(m), 0, 0, 10)
+		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 1e8)
+		z_outflow : par_real("Lake depth at which outflow is 0", [m], 10, 0.1, 1000)
+		z_epi     : par_real("Initial epilimnion thickness", [m], 2, 0.1, 10)
+		#th_bank   : par_real("Lake shore slope", [], 0.4, 0, 4)
+		rate_l    : par_real("Rating function linear component", [m 2, s-1], 10, 0, 1000)
+		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
+		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
+		init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
 	}
 	
 	water  : quantity("Water")
@@ -33,18 +33,18 @@ TODO: description
 	temp   : property("Temperature")
 	precip : property("Precipitation")
 	
-	air.has(temp,      unit(deg_c), "Air temperature")
-	air.has(precip,    unit(m m, day-1))
-	air.has(wind     : property("Wind speed"),        unit(m, s-1))
-	air.has(r_hum    : property("Relative humidity"), unit())
-	air.has(pressure : property("Pressure"),          unit(h Pa), "Air pressure")
-	air.has(cloud    : property("Cloud cover"),       unit())
-	air.has(g_rad    : property("Global radiation"),  unit(W, m-2))
+	air.has(temp,      [deg_c], "Air temperature")
+	air.has(precip,    [m m, day-1])
+	air.has(wind     : property("Wind speed"),        [m, s-1])
+	air.has(r_hum    : property("Relative humidity"), [])
+	air.has(pressure : property("Pressure"),          [h Pa], "Air pressure")
+	air.has(cloud    : property("Cloud cover"),       [])
+	air.has(g_rad    : property("Global radiation"),  [W, m-2])
 	
 	
-	epi.has(water, unit(m 3), "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }
+	epi.has(water, [m 3], "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
-	hyp.has(water, unit(m 3), "Hypolimnion volume") .initial {
+	hyp.has(water, [m 3], "Hypolimnion volume") .initial {
 		z := z_outflow - z_epi
 		A := A_surf * (z/z_outflow)
 		0.5 * A * z
@@ -53,9 +53,9 @@ TODO: description
 	flux(nowhere, epi.water, "Precipitation to lake")           {   air.precip * A_surf * 1e-3   }
 	
 	#TODO: instead let both hyp and epi have a depth and use a sum of those?
-	epi.has(depth : property("Lake depth"), unit(m))                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	epi.has(depth : property("Lake depth"), [m])                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
-	epi.water.has(outflow : property("Flow"), unit(m 3, s-1), "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
+	epi.water.has(outflow : property("Flow"), [m 3, s-1], "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
 
 	lake_out :
 	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }
@@ -64,29 +64,29 @@ TODO: description
 	#epi.has(inflow : property("Lake inflow"), unit(m 3, s-1))
 	#flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
 	
-	cpa        : constant("Specific heat capacity of air",    unit(J, k g-1, K-1), 1008)
-	Rdry       : constant("Specific gas constant of dry air", unit(J, k g-1, K-1), 287.058)
-	Rvap       : constant("Specific gas constant of vapor",   unit(J, k g-1, K-1), 461.495)
-	rho_ice    : constant("Ice density", unit(k g, m-3), 917)
-	l_freeze   : constant("Latent heat of freezing", unit(k g, m-3), 333500)
-	lambda_ice : constant("Ice heat conduction coefficient", unit(W, m-1, K-1), 2.1)
+	cpa        : constant("Specific heat capacity of air",    [J, k g-1, K-1], 1008)
+	Rdry       : constant("Specific gas constant of dry air", [J, k g-1, K-1], 287.058)
+	Rvap       : constant("Specific gas constant of vapor",   [J, k g-1, K-1], 461.495)
+	rho_ice    : constant("Ice density", [k g, m-3], 917)
+	l_freeze   : constant("Latent heat of freezing", [k g, m-3], 333500)
+	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
 	
 	# Some of these could be parameters?
-	th_frazil  : constant("Frazil threshold", unit(m), 0.05)
-	ice_temp   : constant("Ice formation temperature", unit(deg_c), 0)
+	th_frazil  : constant("Frazil threshold", [m], 0.05)
+	ice_temp   : constant("Ice formation temperature", [deg_c], 0)
 	
-	epi.water.has(heat, unit(J)) .initial {
+	epi.water.has(heat, [J]) .initial {
 		water_temp_to_heat(water, t_epi)
 	}
 	
-	hyp.water.has(heat, unit(J)) .initial {
+	hyp.water.has(heat, [J]) .initial {
 		# TODO: initial hypolimnion temperature should be lower.
 		water_temp_to_heat(water, t_epi)
 	}
 	
 	#TODO: units for the following!
 	
-	epi.has(stab : property("Stability"), unit()) {
+	epi.has(stab : property("Stability"), []) {
 		ww := max(air.wind, 0.1)
 		s0 := 0.25*(water.temp - air.temp) / (ww*ww)
 		s0*abs(s0)/(abs(s0) + 0.01)
@@ -99,7 +99,7 @@ TODO: description
 		1 + 0.63*sqrt(stab)                      otherwise
 	}
 	
-	epi.has(ced : property("Transfer coefficient for latent heat flux"), unit()) {
+	epi.has(ced : property("Transfer coefficient for latent heat flux"), []) {
 		w    := air.wind + 1e-12
 		{
 			0     + 1.23  *exp(-0.16*ln(w))        if w < 2.2,
@@ -110,7 +110,7 @@ TODO: description
 		} * 1e-3 * stab_modify(air.wind, stab)
 	}
 	
-	epi.has(chd : property("Transfer coefficent for sensible heat flux"), unit()) {
+	epi.has(chd : property("Transfer coefficent for sensible heat flux"), []) {
 		w    := air.wind + 1e-12
 		{
 			0     + 1.185 *exp(-0.157*ln(w))       if w < 2.2,
@@ -123,27 +123,27 @@ TODO: description
 	
 	# TODO: put some of this stuff into atmospheric module or library?
 	
-	air.has(a_vap : property("Actual vapor pressure"), unit(h Pa)) {
+	air.has(a_vap : property("Actual vapor pressure"), [h Pa]) {
 		svap := saturation_vapor_pressure_lowe(air.temp)
 		air.r_hum * 0.01 * svap
 	}
 	
-	epi.has(s_hum : property("Saturation specific humidity"), unit()) {
+	epi.has(s_hum : property("Saturation specific humidity"), []) {
 		svap := saturation_vapor_pressure_lowe(water.temp)
 		specific_humidity_from_pressure(air.pressure, svap)
 	}
 	
-	epi.has(a_hum : property("Actual specific humidity"), unit()) {
+	epi.has(a_hum : property("Actual specific humidity"), []) {
 		specific_humidity_from_pressure(air.pressure, air.a_vap)
 	}
 	
-	air.has(rho : property("Air density"), unit(k g, m-3)) {
+	air.has(rho : property("Air density"), [k g, m-3]) {
 		tk := deg_c_to_K(air.temp)
 		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) * 100    # *100 to convert HPa -> Pa
 	}
 	
 	#TODO: Move some radiation stuff into a radiation module
-	air.has(lwd : property("Downwelling longwave radiation"), unit(W, m-2)) {
+	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
 		air_t := deg_c_to_K(air.temp)
 		dpt := dew_point_temperature(a_vap)
 		dew_point_depression := dpt - air_t
@@ -153,13 +153,13 @@ TODO: description
 		black_body_radiation(eff_t)
 	}
 	
-	epi.has(lwu : property("Emitted longwave radiation"), unit(W, m-2)) {
+	epi.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
 		emissivity := 0.98
 		emissivity * black_body_radiation(deg_c_to_K(water.temp))
 	}
 	
 	#TODO should be attn in epi also, and remainder to hyp
-	epi.has(sw : property("Shortwave radiation"), unit(W, m-2)) {
+	epi.has(sw : property("Shortwave radiation"), [W, m-2]) {
 		albedo := 0.045  # TODO adjust for ice albedo (?)
 		(1 - albedo) * (1 - ice.attn) * air.g_rad	
 	}
@@ -190,7 +190,7 @@ TODO: description
 		86400 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - temp))      otherwise
 	}
 	
-	epi.water.has(evap_mm : property("Evaporation per area"), unit(m m, day-1)) {
+	epi.water.has(evap_mm : property("Evaporation per area"), [m m, day-1]) {
 		rho_ref := 1025
 		0                                                                         if epi.ice.indicator,
 		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400)*1000    otherwise
@@ -216,17 +216,17 @@ TODO: description
 		5*(heat - epi_heat_should_be)    # The 5 is pretty arbitrary. Just to get a quick equilibration
 	}
 	
-	epi.water.has(temp, unit(deg_c), "Epilimnion temperature") {
+	epi.water.has(temp, [deg_c], "Epilimnion temperature") {
 		water_heat_to_temp(water, water.heat)
 	} .initial { t_epi }
 	
-	hyp.water.has(temp, unit(deg_c), "Hypolimnion temperature (mean)") {
+	hyp.water.has(temp, [deg_c], "Hypolimnion temperature (mean)") {
 		water_heat_to_temp(water, water.heat)
 	}
 	
-	epi.has(ice, unit(m), "Ice thickness") .initial { init_ice }
+	epi.has(ice, [m], "Ice thickness") .initial { init_ice }
 	
-	epi.ice.has(energy : property("Freeze energy"), unit(W, m-2)) {
+	epi.ice.has(energy : property("Freeze energy"), [W, m-2]) {
 		z_surf := 1   #  Thickness of water layer that ice formation can draw energy from.
 		K_ice := 200   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
 		e := (ice_temp - epi.water.temp)*z_surf*K_ice
@@ -235,9 +235,9 @@ TODO: description
 		e        otherwise
 	}
 	
-	epi.ice.has(indicator : property("Indicator"), unit(), "Ice indicator") {   ice > th_frazil   }
+	epi.ice.has(indicator : property("Indicator"), [], "Ice indicator") {   ice > th_frazil   }
 	
-	epi.ice.has(attn : property("Attenuation coefficent"), unit()) {
+	epi.ice.has(attn : property("Attenuation coefficent"), []) {
 		0                    if !indicator,
 		1 - exp(-5 * ice)    otherwise    #TODO: the 5 should be configurable?
 	}

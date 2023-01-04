@@ -2,9 +2,9 @@
 
 library("Thermodynamics") {
 	
-	ideal_gas        : constant("Ideal gas constant",        unit(J, K -1, mol -1), 8.31446261815324)
-	boltzmann        : constant("Boltzmann constant",        unit(J, K -1),         1.380649e-23)
-	stefan_boltzmann : constant("Stefan-Boltzmann constant", unit(W, m -2, K -4),   5.670373e-8)
+	ideal_gas        : constant("Ideal gas constant",        [J, K -1, mol -1], 8.31446261815324)
+	boltzmann        : constant("Boltzmann constant",        [J, K -1],         1.380649e-23)
+	stefan_boltzmann : constant("Stefan-Boltzmann constant", [W, m -2, K -4],   5.670373e-8)
 	
 	deg_c_to_K : function(T_celsius)          {   T_celsius + 273.15   }  # TODO: when we get automatic unit checking, we have to force the unit conversion here.
 	
@@ -18,25 +18,25 @@ library("Thermodynamics") {
 	
 }
 
-library("Water temperature") {
+library("Water utils") {
 
 	load(library("Thermodynamics"))
 	load("basic_math.txt", library("Response"))
 	
-	rho_water  : constant("Water density", unit(k g, m-3), 997)
-	C_water    : constant("Specific heat capacity of water", unit(J, k g-1, K), 4186)
+	rho_water  : constant("Water density", [k g, m-3], 999.98)
+	C_water    : constant("Specific heat capacity of water", [J, k g-1, K], 4186)
 	
-	water_temp_to_heat : function(V, T_celsius) {
+	water_temp_to_heat : function(V, T_celsius) {  # We don't want to use dynamic water density here because of the use case.
 		V*deg_c_to_K(T_celsius)*rho_water*C_water
 	}
 	
-	water_heat_to_temp : function(V, heat) {
+	water_heat_to_temp : function(V, heat) {       # We don't want to use dynamic water density here because of the use case.
 		K_to_deg_c(heat / (V*rho_water*C_water))
 	}
 	
 	water_density : function(T_celsius) {
 		dtemp := (deg_c_to_K(T_celsius) - 277.13)  # Difference between temp and reference temp.
-		999.98*(1 - 0.5*1.6509e-5*dtemp^2)
+		rho_water*(1 - 0.5*1.6509e-5*dtemp^2)
 	}
 	
 	#TODO: either rename library, or find another place for this one
@@ -58,14 +58,14 @@ library("Water temperature") {
 
 library("Chemistry") {
 
-	avogadro         : constant("Avogadro constant", unit(mol -1), 6.02214076e23)
+	avogadro         : constant("Avogadro constant", [mol -1], 6.02214076e23)
 	
 }
 
 library("Ions") {
 	
-	ca_mol_wt        : constant("Ca molecular weight", unit(g, mol-1), 40.078)
-	ca_valency       : constant("Ca valency", unit(eq, mol-1), 2)
+	ca_mol_wt        : constant("Ca molecular weight", [g, mol-1], 40.078)
+	ca_valency       : constant("Ca valency", [eq, mol-1], 2)
 	
 	# etc.
 	

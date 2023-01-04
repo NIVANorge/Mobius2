@@ -47,7 +47,7 @@ library("Meteorology") {
 
 library("Radiation") {
 	
-	solar_constant : constant("Solar constant", unit(W m-2), 1361)
+	solar_constant : constant("Solar constant", [W m-2], 1361)
 	
 	daily_average_extraterrestrial_radiation : function(latitude, day_of_year, days_this_year) {
 		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year)

@@ -11,18 +11,18 @@ model("Another simple") {
 		c : connection("graph", directed_tree) { (a|b)* }
 		
 		a.par_group("A pars") {
-			iaq : par_real("Initial A.Q", unit(), 10)
+			iaq : par_real("Initial A.Q", [], 10)
 		}
 		
-		a.has(q, unit(), "A.Q") .initial { iaq }
-		b.has(q, unit(), "B.Q") .initial { 0 }
+		a.has(q, [], "A.Q") .initial { iaq }
+		b.has(q, [], "B.Q") .initial { 0 }
 		
 		flux(a.q, c, "A.Q out") { q*0.1	}
 		flux(b.q, c, "B.Q out") { q*0.01 }
 	}
 	
 	a.par_group("Weights") {
-		agg_wt : par_real("The weight", unit(), 1)
+		agg_wt : par_real("The weight", [], 1)
 	}
 	
 	aggregation_weight(a, b) { agg_wt }

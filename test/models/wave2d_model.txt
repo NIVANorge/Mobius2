@@ -10,17 +10,16 @@ model("Wave2D") {
 		mom   : quantity("momentum")
 		
 		cell.par_group("Layers") {
-			in_amp  : par_real("Initial amplitude", unit(Pa), 0)
-			#c       : par_real("Wave speed", unit(m day-1), 0.001)
+			in_amp  : par_real("Initial amplitude", [Pa], 0)
 		}
 		
-		cell.has(amp, unit(Pa)) .initial { in_amp }
-		cell.has(mom, unit(Pa, day-1))
+		cell.has(amp, [Pa]) .initial { in_amp }
+		cell.has(mom, [Pa, day-1])
 		
 		h : connection("Horizontal", grid1d) { cell* }
 		v : connection("Vertical", grid1d) { cell* }
 		
-		c : constant("Wave speed", unit(m day-1), 0.05)
+		c : constant("Wave speed", [m day-1], 0.05)
 		
 		flux(cell.mom, h, "Momentum propagation horizontal") {
 			c^2*(target(amp) - amp)

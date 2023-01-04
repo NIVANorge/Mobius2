@@ -12,23 +12,23 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	snow_box   : compartment("Snow box")
 	
 	snow_box.par_group("Snow") {
-		ddf_melt  : par_real("Degree-day factor for snowmelt", unit(m m, deg_c -1, day -1), 2.74, 0, 5, "Linear correlation between rate of snow melt and air temperature")
-		t_snow    : par_real("Temperature at which precip falls as snow", unit(deg_c), 0, -4, 4)
-		t_melt    : par_real("Temperature at which snow melts", unit(deg_c), 0, -4, 4)
-		refr_eff  : par_real("Refreeze efficiency", unit(), 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
-		snow_liq  : par_real("Liquid water fraction", unit(), 0.5, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before it is released")
-		init_snow : par_real("Initial snow depth (water equivalents)", unit(), 0, 0, 50000)
+		ddf_melt  : par_real("Degree-day factor for snowmelt", [m m, deg_c-1, day-1], 2.74, 0, 5, "Linear correlation between rate of snow melt and air temperature")
+		t_snow    : par_real("Temperature at which precip falls as snow", [deg_c], 0, -4, 4)
+		t_melt    : par_real("Temperature at which snow melts", [deg_c], 0, -4, 4)
+		refr_eff  : par_real("Refreeze efficiency", [], 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
+		snow_liq  : par_real("Liquid water fraction", [], 0.5, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before it is released")
+		init_snow : par_real("Initial snow depth (water equivalents)", [], 0, 0, 50000)
 	}
 	
 	snow  : quantity("Snow (water equivalents)")
 	water : quantity("Water")
 	
 	# note: We don't give a function body to compute temp and precip, and so if they are not re-declared in another module, they are assumed to be input series.
-	air.has(temp : property("Temperature"), unit(deg_c), "Air temperature")
-	air.has(precip : property("Precipitation"), unit(m m, day -1))
+	air.has(temp : property("Temperature"), [deg_c], "Air temperature")
+	air.has(precip : property("Precipitation"), [m m, day -1])
 	
-	snow_box.has(snow,  unit(m m), "Snow depth") .initial { init_snow }
-	snow_box.has(water, unit(m m), "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
+	snow_box.has(snow,  [m m], "Snow depth") .initial { init_snow }
+	snow_box.has(water, [m m], "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
 	flux(nowhere, snow_box.snow, "Precipitation falling as snow") {
 		air.precip    if air.temp <= t_snow,

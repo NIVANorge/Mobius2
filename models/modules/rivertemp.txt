@@ -3,7 +3,7 @@
 module("RiverTemperature", 0, 1, 0) {
 
 
-	load("../../stdlib/physiochemistry.txt", library("Water temperature"))
+	load("../../stdlib/physiochemistry.txt", library("Water utils"))
 	
 	water : quantity("Water")
 	heat  : quantity("Thermal energy")
@@ -15,7 +15,7 @@ module("RiverTemperature", 0, 1, 0) {
 	temp  : property("Temperature")
 	
 	
-	river.water.has(heat, unit(J), "River thermal energy") .initial { air.temp }
+	river.water.has(heat, [J], "River thermal energy") .initial { air.temp }
 	
 	flux(nowhere, river.water.heat, "River heat from land") {
 		water_temp_to_heat(in_flux(water), aggregate(soil.temp)) #TODO: maybe modify if melt water   
