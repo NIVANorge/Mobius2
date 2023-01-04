@@ -25,7 +25,7 @@ module("RiverTemperature", 0, 1, 0) {
 		(water_temp_to_heat(water, air.temp) - heat)*5 #TODO: arbitrary coefficient for now.
 	}
 	
-	river.has(temp, unit(deg_c), "River temperature") {
+	river.has(temp, [deg_c], "River temperature") {
 		water_heat_to_temp(water, water.heat)
 	}
 	

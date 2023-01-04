@@ -199,10 +199,9 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 		else if(can_be_value_token(next.type) || (char)next.type == '[') {
 			Argument_AST *arg = new Argument_AST();
 			
-			// TODO: Clean this up when we remove unit() decls
 			Token peek = stream->peek_token(1);
-			if((can_be_value_token(peek.type) || (char)peek.type == ')' || (char)peek.type == ',') && (char)next.type != '[') {
-				read_chain(stream, ' ', &arg->sub_chain, false);
+			if(((char)peek.type == ')' || (char)peek.type == ',') && (char)next.type != '[') {
+				arg->sub_chain.push_back(stream->read_token());
 			} else if(next.type == Token_Type::identifier || (char)next.type == '[') {
 				if((char)peek.type == '.') {
 					read_chain(stream, '.', &arg->sub_chain);

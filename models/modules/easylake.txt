@@ -61,7 +61,7 @@ TODO: description
 	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }
 	
 	# TODO: should have some way of turning this on/off depending on use case.
-	#epi.has(inflow : property("Lake inflow"), unit(m 3, s-1))
+	#epi.has(inflow : property("Lake inflow"), [m 3, s-1])
 	#flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
 	
 	cpa        : constant("Specific heat capacity of air",    [J, k g-1, K-1], 1008)
@@ -270,7 +270,7 @@ TODO: description
 	
 	# TODO: How does mixing interact with ice (?)
 	
-	epi.has(indicator, unit(), "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4 }
+	epi.has(indicator, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4 }
 	
 	
 	# NOTE: This moves an equal body of water up and down, which does not impact the wate volume, but does mix dissolved substances.
