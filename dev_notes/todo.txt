@@ -76,6 +76,10 @@
 		
 		Iterating over state variables should skip invalid ones.
 		
+		In all_to_all and grid1d connection data, it should be sufficient to just provide the name of the index set.
+		
+		MobiView, stacked_share vs. negative values.
+		
 		
 	*****************   DONE:   ***********************
 	
