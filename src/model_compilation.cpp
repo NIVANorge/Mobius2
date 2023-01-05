@@ -489,28 +489,27 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].solver = instructions[var2->conc_of.id].solver;
 			}
 		}
-	}
-	
-	// Check if connection fluxes have discrete source (currently not supported)
-	// TODO: should also check if an arrow can go between different sources (also will not work
-	// correctly), but that is more tricky.
-	// TODO: Bug: this doesn't work!
-	/*
-	for(auto var_id : app->state_vars) {
-		auto var = app->state_vars[var_id];
-		if(!var->is_flux()) continue;
-		if(!is_located(var->loc1)) continue;
-		auto conn = connection_of_flux(var);
-		if(!is_valid(conn)) continue;
-		auto source_id = app->state_vars.id_of(var->loc1);
-		if(!is_valid(instructions[source_id.id].solver)) {
-			// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
-			model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc.print_error_header();
-			//TODO: this is not really enough info to tell the user where the error happened.
-			fatal_error("This flux was put on a connection, but the source is a discrete variable. This is currently not supported.");
+		
+		// Check if connection fluxes have discrete source (currently not supported)
+		// TODO: should also check if an arrow can go between different sources (also will not work
+		// correctly), but that is more tricky.
+		// TODO: Bug: this doesn't work!
+		
+		for(auto var_id : app->state_vars) {
+			auto var = app->state_vars[var_id];
+			if(!var->is_flux()) continue;
+			if(!is_located(var->loc1)) continue;
+			auto conn = connection_of_flux(var);
+			if(!is_valid(conn)) continue;
+			auto source_id = app->state_vars.id_of(var->loc1);
+			if(!is_valid(instructions[source_id.id].solver)) {
+				// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
+				model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc.print_error_header();
+				//TODO: this is not really enough info to tell the user where the error happened.
+				fatal_error("This flux was put on a connection, but the source is a discrete variable. This is currently not supported.");
+			}
 		}
 	}
-	*/
 	
 	// Generate instructions needed to compute special variables.
 	

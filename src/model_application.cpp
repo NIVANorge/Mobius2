@@ -334,6 +334,13 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			var->flags = State_Var::Flags::clear_series_to_nan;
 			var->unit = header.unit;
 			ids.insert(var_id);
+		} else {
+			/*
+			if(!header.unit.is_dimensioneless()) { //TODO: We could just check if it is equal to the declared unit for the input instead?
+				header.loc.print_error_header();
+				fatal_error("Did not expect a unit for a model input");
+			}
+			*/
 		}
 		//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions (when we implement that)?
 		

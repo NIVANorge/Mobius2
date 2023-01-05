@@ -23,7 +23,7 @@ library("Water utils") {
 	load(library("Thermodynamics"))
 	load("basic_math.txt", library("Response"))
 	
-	rho_water  : constant("Water density", [k g, m-3], 999.98)
+	rho_water  : constant("Water density",                   [k g, m-3],     999.98)
 	C_water    : constant("Specific heat capacity of water", [J, k g-1, K], 4186)
 	
 	water_temp_to_heat : function(V, T_celsius) {  # We don't want to use dynamic water density here because of the use case.
@@ -53,6 +53,13 @@ library("Water utils") {
 		cl := max(0, (salinity-0.03)/1.805)
 		clv := water_density(T_celsius) * cl    # Volume chlorinity
 		eta_t * (1 + a*sqrt(clv) + b*clv)
+	}
+	
+	diffusivity_in_water : function(ref_diff, ref_T, ref_S, T_celsius, salinity) {
+		# Diffusivity of some substance in water.
+		# 	ref_diff  - the diffusivity of the substance in water at temperature ref_T and salinity ref_S.
+		
+		ref_diff * (dynamic_viscosity_water(ref_T, ref_S) / dynamic_viscosity_water(T_celsius, salinity)) * (deg_c_to_K(T_celsius) / deg_c_to_K(ref_T))
 	}
 }
 

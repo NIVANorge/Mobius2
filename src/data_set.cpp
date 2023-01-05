@@ -443,19 +443,26 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 					}
 				}
 				header.indexes.push_back(std::move(indexes));
-			} else if(token.type == Token_Type::identifier) {
+			} else if(token.type == Token_Type::identifier || (char)token.type == '[') {
 				while(true) {
-					bool success = set_flag(&header.flags, token.string_value);
-					if(!success) {
-						token.print_error_header();
-						fatal_error("Unrecognized input flag \"", token.string_value, "\".");
+					if((char)token.type == '[') {
+						auto unit_decl = parse_decl_header(stream);
+						set_unit_data(header.unit, unit_decl);
+						warning_print("************Found unit: ", header.unit.to_utf8(), '\n');
+						delete unit_decl;
+					} else {
+						bool success = set_flag(&header.flags, token.string_value);
+						if(!success) {
+							token.print_error_header();
+							fatal_error("Unrecognized input flag \"", token.string_value, "\".");
+						}
 					}
 					token = stream->read_token();
 					if((char)token.type == ']')
 						break;
-					else if(token.type != Token_Type::identifier) {
+					else if(token.type != Token_Type::identifier && (char)token.type != '[') {
 						token.print_error_header();
-						fatal_error("Expected a ] or another flag identifier");
+						fatal_error("Expected a ], another flag identifier or a unit declaration.");
 					}
 				}
 				//TODO: Check for conflicting flags.

@@ -2,18 +2,15 @@
 
 	Finish connection system
 		
-		More features for grid1d
-			with boundary conditions (?) - maybe just an override on specific index. (could be implemented without special functionality just using paramters, but a bit iffy).
-		
 		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 		regex checks.
 		
-		
 		arbitrary target(conn, val) declarations for use in non-fluxes (only valid for grid1d (?))
 			quite a bit of work though... But should be worth it.
 			also source(conn, val) or source(val) (for grid1d at least) for looking up the value of the previous thing.
+			Consider using 'above' and 'below' instead (?)
 			
 			boundary conditions (e.g. what is needed for wave eq.)
 	
@@ -130,3 +127,5 @@
 		e.g. what variables can actually be a target - only generate code for those etc.
 		
 	No error for unlabeled code block for quantity !?
+	
+	New format for units.

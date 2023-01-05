@@ -318,15 +318,9 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 	compartment_id->value_type = Value_Type::integer;
 	compartment_id->exprs.push_back(idx_offset);
 	
-	// If the target compartment is negative, this source does not connect anywhere, so we have to make code to check for that.
-	auto condition = make_binop(Token_Type::geq, compartment_id, make_literal((s64)0));
-	if(app->connection_components[connection_id.id].size() > 1) {
-		// If there can be multiple valid target components for the connection, we have to make code to see if the value should indeed be added to this aggregation variable.
-		
-		// TODO: We could optimize to see if there are multiple valid targets for this particular source.
-		auto condition2 = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
-		condition = make_binop('&', condition, condition2);
-	}
+	// There can be multiple valid target components for the connection, so we have to make code to see if the value should indeed be added to this aggregation variable.
+	// (even if there could only be one valid target compartment, this makes sure that the set target is not -1 (i.e. nowhere)).
+	Math_Expr_FT *condition = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
 	
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;

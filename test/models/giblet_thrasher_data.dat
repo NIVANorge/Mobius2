@@ -34,7 +34,7 @@ par_group("System") {
 }
 
 series() [
-	"Meteor strikes"["Habitat index" : "Plateau"]
+	"Meteor strikes"["Habitat index" : "Plateau"][[u mol, m-2]]
 1990-1-1	0
 1990-1-12	1
 1990-6-1	1

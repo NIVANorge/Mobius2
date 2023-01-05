@@ -50,7 +50,7 @@ Unit_Data {
 	Standardized_Unit               standard_form;
 	
 	std::string to_utf8();
-	// TODO: also to_latex, and maybe to_word.
+	// TODO: also to_latex(), and maybe to_mathml().
 	
 	void set_standard_form();
 };

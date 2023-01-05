@@ -22,6 +22,7 @@ parse_si_prefix(Token *token) {
 	else if(m == "c") return -2;
 	else if(m == "m") return -3;
 	else if(m == "mu") return -6; // TODO: Would have to update the lexer to read "µ" as an identifier if this should recognize that symbol.
+	else if(m == "u") return -6; // Alternative for µ
 	else if(m == "n") return -9;
 	else if(m == "p") return -12;
 	else if(m == "f") return -15;

@@ -150,15 +150,14 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 							if(success) {
 								stream.read_token();
 								continue;
-							} else if(token.string_value != "[") {
+							} else {
 								ole_close_due_to_error(handles, tab, col+2, potential_flag_row);
 								fatal_error("Unrecognized input flag \"", token.string_value, "\".");
 							}
-							// it is a unit
+						} else if ((char)token.type == '[') {
 							Decl_AST *unit_decl = parse_decl_header(&stream, nullptr);
 							set_unit_data(header.unit, unit_decl);
 							delete unit_decl;
-							
 						} else if (token.type == Token_Type::eof) {
 							break;
 						} else {
