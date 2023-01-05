@@ -21,8 +21,7 @@ parse_si_prefix(Token *token) {
 	else if(m == "d") return -1;
 	else if(m == "c") return -2;
 	else if(m == "m") return -3;
-	else if(m == "mu") return -6; // TODO: Would have to update the lexer to read "µ" as an identifier if this should recognize that symbol.
-	else if(m == "u") return -6; // Alternative for µ
+	else if(m == "mu" || m == "u") return -6; // TODO: Would have to update the lexer to read "µ" as an identifier if this should recognize that symbol.
 	else if(m == "n") return -9;
 	else if(m == "p") return -12;
 	else if(m == "f") return -15;
@@ -65,9 +64,12 @@ parse_unit(std::vector<Token> *tokens) {
 	if(tokens->empty())
 		fatal_error(Mobius_Error::internal, "Received empty list of tokens for unit in parse_unit().");
 	Declared_Unit_Part result;
+	result.power = 1;
 	bool error = false;
 	int size = tokens->size();
 	if((*tokens)[0].type == Token_Type::identifier) {
+		// TODO: Something is wrong here.
+		
 		int pow_idx;
 		if(size >= 2 && (*tokens)[1].type == Token_Type::identifier) {
 			result.magnitude = parse_si_prefix(&(*tokens)[0]);
@@ -97,6 +99,8 @@ parse_unit(std::vector<Token> *tokens) {
 
 void
 Unit_Data::set_standard_form() {
+	standard_form.multiplier = 1;
+	standard_form.magnitude  = 0;
 
 	for(auto &part : declared_form) {
 		if((int)part.unit <= (int)Base_Unit::max)
@@ -263,4 +267,46 @@ set_unit_data(Unit_Data &data, Decl_AST *decl) {
 	for(auto arg : decl->args)
 		data.declared_form.push_back(parse_unit(&arg->sub_chain));
 	data.set_standard_form();
+}
+
+Time_Step_Size
+Unit_Data::to_time_step(bool &success) {
+	Time_Step_Size ts;
+	
+	if(!standard_form.multiplier.is_int() || !standard_form.magnitude.is_int() || standard_form.magnitude.nom < 0 || standard_form.multiplier.nom <= 0) {
+		success = false;
+		return ts;
+	}
+	
+	int n_time = 0;
+	success = true;
+	Base_Unit which;
+	for(int base = 0; base < (int)Base_Unit::max; ++base) {
+		if(!standard_form.powers[base].is_int()) { success = false; break; }
+		int pow = standard_form.powers[base].nom;
+		if(is_time((Base_Unit)base)) {
+			if(pow == 1) {
+				n_time++;
+				which = (Base_Unit)base;
+				if(n_time > 1) success = false;
+			} else if(pow != 0)
+				success = false;
+		} else if (pow != 0)
+			success = false;
+	}
+	if(n_time == 0) success = false;
+	if(!success) return ts;
+	ts.magnitude = standard_form.multiplier.nom; // TODO: the different uses of 'magnitude' is confusing.
+	for(int p = 0; p < standard_form.magnitude.nom; ++p)
+		ts.magnitude *= 10;
+	if(which == Base_Unit::s) {
+		ts.unit      = Time_Step_Size::Unit::second;
+	} else if (which == Base_Unit::month) {
+		ts.unit      = Time_Step_Size::Unit::month;
+	} else if (which == Base_Unit::year) {
+		ts.unit      = Time_Step_Size::Unit::month;
+		ts.magnitude *= 12;
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled time step unit type in to_time_step()");
+	return ts;
 }

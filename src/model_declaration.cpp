@@ -521,7 +521,7 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 	auto id        = model->parameters.standard_declaration(scope, decl);
 	auto parameter = model->parameters[id];
 	
-	if(decl->handle_name.string_value)
+	if(decl->handle_name.string_value.count)
 		parameter->symbol = decl->handle_name.string_value;   // NOTE: This should be ok since parameters can only be declared uniquely in one place
 	int mt0 = 2;
 	if(token_type == Token_Type::boolean) mt0--;
@@ -890,7 +890,7 @@ load_library(Mobius_Model *model, Decl_Scope *to_scope, String_View rel_path, St
 		
 		auto body = static_cast<Decl_Body_AST *>(lib->decl->bodies[0]);
 		
-		if(body->doc_string.string_value)
+		if(body->doc_string.string_value.count)
 			lib->doc_string = body->doc_string.string_value;
 		
 		lib->scope.import(model->global_scope);
@@ -967,7 +967,7 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
-	if(body->doc_string.string_value)
+	if(body->doc_string.string_value.count)
 		module->doc_string = body->doc_string.string_value;
 	
 	// NOTE we have to process these first since they have to be linked to their universal version. This could break if they were referenced before declared and the declaration was processed later.
@@ -1296,7 +1296,7 @@ load_model(String_View file_name) {
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
-	if(body->doc_string.string_value)
+	if(body->doc_string.string_value.count)
 		model->doc_string = body->doc_string.string_value;
 	
 	register_intrinsics(model);
@@ -1366,7 +1366,7 @@ load_model(String_View file_name) {
 						auto module_id = load_top_decl_from_file(model, single_arg(child, 0)->source_loc, scope, file_name, model_path, module_name, Decl_Type::module);
 						
 						std::string module_handle = "";
-						if(module_spec->handle_name.string_value)
+						if(module_spec->handle_name.string_value.count)
 							module_handle = module_spec->handle_name.string_value;
 						scope->add_local(module_handle, module_spec->source_loc, module_id);
 						

@@ -14,8 +14,12 @@
 // NOTE year and month can't quite be denoted in seconds since the years and months have variable length
 enum class
 Base_Unit {
-	m = 0, s, g, mol, deg_c, deg, month, year, K, max
+	m = 0, s = 1, g = 2, mol = 3, deg_c = 4, deg = 5, month = 6, year = 7, K = 8, max = 9
 };
+
+inline bool is_time(Base_Unit bu) {
+	return bu == Base_Unit::s || bu == Base_Unit::month || bu == Base_Unit::year;
+}
 
 enum class
 Compound_Unit { 
@@ -23,7 +27,6 @@ Compound_Unit {
 	#include "compound_units.incl"
 	#undef COMPOUND_UNIT
 };
-
 
 struct
 Declared_Unit_Part {
@@ -51,6 +54,9 @@ Unit_Data {
 	
 	std::string to_utf8();
 	// TODO: also to_latex(), and maybe to_mathml().
+	
+	//bool operator==(const Unit_Data &other);
+	Time_Step_Size  to_time_step(bool &success);
 	
 	void set_standard_form();
 };

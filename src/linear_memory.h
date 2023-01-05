@@ -96,8 +96,6 @@ struct String_View : Array_View<char> {
 		return !(*this == c_string);
 	}
 	
-	operator bool() { return data && count; }
-	
 	operator std::string() { return std::move(std::string(data, data+count)); }
 };
 /*

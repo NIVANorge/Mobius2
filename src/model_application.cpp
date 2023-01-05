@@ -563,6 +563,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		fatal_error(Mobius_Error::api_usage, "Model application was provided more than one data sets.");
 	this->data_set = data_set;
 	
+	this->time_step_size = data_set->time_step_size;
+	
 	for(auto &index_set : data_set->index_sets) {
 		auto id = model->index_sets.find_by_name(index_set.name);
 		if(!is_valid(id)) {

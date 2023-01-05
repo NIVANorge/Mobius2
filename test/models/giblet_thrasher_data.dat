@@ -1,3 +1,5 @@
+#time_step([hr])
+
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 
 connection("Migration route") [

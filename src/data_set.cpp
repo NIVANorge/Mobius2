@@ -236,8 +236,12 @@ Data_Set::write_to_file(String_View file_name) {
 	
 	FILE *file = open_file(file_name, "w");
 	
-	if(doc_string != "") {
+	if(!doc_string.empty()) {
 		fprintf(file, "\"\"\"\n%s\n\"\"\"\n\n", doc_string.data());
+	}
+	
+	if(time_step_was_provided) {
+		fatal_error(Mobius_Error::internal, "Saving time step to file not implemented");
 	}
 	
 	for(auto &index_set : index_sets)
@@ -365,7 +369,7 @@ read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *
 		int comp_id = info->components.find_idx(name->string_value);
 		data->decl_type = decl->type;
 		data->handle = decl->handle_name.string_value;
-		if(decl->handle_name.string_value) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
+		if(decl->handle_name.string_value.count) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
 			info->component_handle_to_id[decl->handle_name.string_value] = comp_id;
 		std::vector<Token> idx_set_list;
 		read_string_list(stream, idx_set_list);
@@ -753,6 +757,19 @@ Data_Set::read_from_file(String_View file_name) {
 						fatal_error("Expected a } or a par_group declaration.");
 					}
 				}
+			} break;
+			
+			case Decl_Type::time_step : {
+				match_declaration(decl, {{Decl_Type::unit}}, 0, false);
+				Unit_Data unit;
+				set_unit_data(unit, decl->args[0]->decl);
+				bool success;
+				time_step_size = unit.to_time_step(success);
+				if(!success) {
+					decl->source_loc.print_error_header();
+					fatal_error("This is not a valid time step unit.");
+				}
+				time_step_was_provided = true;
 			} break;
 			
 			default : {

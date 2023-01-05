@@ -199,7 +199,11 @@ Data_Set {
 	
 	File_Data_Handler file_handler;
 	
-	Data_Set() {}
+	Data_Set() {
+		// Default to one day.
+		time_step_size.unit      = Time_Step_Size::second;
+		time_step_size.magnitude = 86400;
+	}
 	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
@@ -212,6 +216,9 @@ Data_Set {
 	Info_Registry<Connection_Info>  connections;
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;
+	
+	Time_Step_Size                  time_step_size;
+	bool                            time_step_was_provided = false;
 };
 
 

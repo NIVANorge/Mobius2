@@ -37,7 +37,7 @@ File_Data_Handler {
 	bool
 	is_loaded(String_View file_name, String_View relative_to) {
 		String_View load_name = file_name;
-		if(relative_to)
+		if(relative_to.count)
 			load_name = make_path_relative_to(file_name, relative_to);
 		auto find = loaded_files.find(load_name);
 		return find != loaded_files.end();
@@ -46,7 +46,7 @@ File_Data_Handler {
 	void
 	unload(String_View file_name, String_View relative_to) {
 		String_View load_name = file_name;
-		if(relative_to)
+		if(relative_to.count)
 			load_name = make_path_relative_to(file_name, relative_to);
 		auto find = loaded_files.find(load_name);
 		if(find != loaded_files.end()) {

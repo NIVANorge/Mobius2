@@ -19,6 +19,7 @@ Rational {
 	Rational() : Rational(0) {}
 	
 	operator double() { return (double)nom / (double)denom; }
+	bool is_int() { return denom == 1; }
 	
 	std::ostream &operator<<(std::ostream &os);
 };
