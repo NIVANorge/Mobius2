@@ -82,7 +82,7 @@ Index_Info : Info_Type_Base {
 };
 
 struct
-Index_Set_Info : Info_Type_Base {
+Sub_Indexing_Info {
 	enum class Type {
 		none,
 		named,
@@ -94,8 +94,29 @@ Index_Set_Info : Info_Type_Base {
 		if(type == Type::named) return indexes.count();
 		return n_dim1;
 	}
+	Sub_Indexing_Info() : n_dim1(0), type(Type::none) {}
+};
+
+struct
+Index_Set_Info : Info_Type_Base {
+	/*
+	enum class Type {
+		none,
+		named,
+		numeric1,
+	} type;
+	*/
+	int sub_indexed_to = -1;
+	//Info_Registry<Index_Info> indexes;
+	std::vector<Sub_Indexing_Info> indexes;
+	//int                       n_dim1;
+	int get_count() {
+		//if(type == Type::named) return indexes.count();
+		//return n_dim1;
+		return indexes[0].get_count(); //TODO!
+	}
 	
-	Index_Set_Info() : n_dim1(0), type(Type::none) {}
+	Index_Set_Info() /*: n_dim1(0), type(Type::none)*/ {} // indexes.resize(1); }
 };
 
 struct Component_Info : Info_Type_Base {

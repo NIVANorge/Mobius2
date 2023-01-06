@@ -1,4 +1,11 @@
 
+	Finish sub-indexed index sets
+		Data set formatting, read/write, interaction with Model_Application
+			a bit annoying for parameter format, and also indexing of other things within the data set.
+		Needs to have index_counts as lookup data for model code.
+		Need to revamp how to look up things from storage.
+			Easier to keep storage sized to the max number of indexes even though it is a bit wasteful. Could always be improved later.
+		
 
 	Finish connection system
 		
@@ -13,6 +20,9 @@
 			Consider using 'above' and 'below' instead (?)
 			
 			boundary conditions (e.g. what is needed for wave eq.)
+			
+		graph connections
+			Need sub-indexing to work first since we need an index set for outgoing connections.
 	
 	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 		Also only one matrix indexing for a given state variable (at least for now)
@@ -23,8 +33,11 @@
 	
 	*** Intermediate-pri ***
 
-		Allow units to have the form [30 month] (i.e. the leading number instead of si prefix)
+		Units
+			Allow units to have the form [30 month] (i.e. the leading number instead of si prefix)
 			Allow rational coefficients and powers in units.
+		The actual unit checking system
+			
 
 		Processes not specified per compartment / quantity. Can be attached to those.
 			- something like compartment_type etc.

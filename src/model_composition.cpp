@@ -27,33 +27,6 @@
 
 #include <sstream>
 
-
-void
-prelim_compose(Model_Application *app);
-
-Model_Application::Model_Application(Mobius_Model *model) : 
-	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this), 
-	additional_series_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
-	
-	index_counts.resize(model->index_sets.count());
-	index_names_map.resize(model->index_sets.count());
-	index_names.resize(model->index_sets.count());
-	
-	for(auto index_set : model->index_sets) {
-		index_counts[index_set.id].index_set = index_set;
-		index_counts[index_set.id].index = 0;
-	}
-	
-	// TODO: make time step size configurable.
-	time_step_size.unit      = Time_Step_Size::second;
-	time_step_size.magnitude = 86400;
-	
-	initialize_llvm();
-	llvm_data = create_llvm_module();
-	
-	prelim_compose(this);
-}
-
 void
 check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_Location &source_loc) {
 	// Technically we shouldn't encounter an "out" at this point, but that is checked for separately in check_flux_location
@@ -398,6 +371,17 @@ prelim_compose(Model_Application *app) {
 		if(conn->type == Connection_Type::unrecognized) {
 			conn->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This connection never received a type. Declare it as connection(name, type) somewhere.");
+		}
+	}
+	
+	for(auto index_set_id : model->index_sets) {
+		auto index_set = model->index_sets[index_set_id];
+		if(is_valid(index_set->sub_indexed_to)) {
+			auto super = model->index_sets[index_set->sub_indexed_to];
+			if(is_valid(super->sub_indexed_to)) {
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("We currently don't support sub-indexing an index set to another index set that is again sub-indexed.");
+			}
 		}
 	}
 	

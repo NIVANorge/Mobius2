@@ -303,7 +303,8 @@ Model_Application {
 	Model_Data                                               data;
 	
 private :
-	std::vector<Index_T>                                     index_counts;
+	//std::vector<Index_T>                                     index_counts;
+	std::vector<std::vector<Index_T>>                        index_counts;
 	std::vector<std::unordered_map<std::string, Index_T>>    index_names_map;
 	std::vector<std::vector<std::string>>                    index_names;
 public :

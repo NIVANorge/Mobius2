@@ -15,7 +15,7 @@
 	index_set("Layer index", "Lake") [
 		"Vansjø" : 100  
 		"Store" : 70
-		"Bing" : ["a", "b", "c"]        # Dunno if we should allow mixing of types.
+		"Bing" : ["a", "b", "c"]        # Dunno if we should allow mixing of types.  --- Maybe the easiest to just allow numeric type for now.
 	]   #Maybe better, so no need to redeclare each one.
 	
 	

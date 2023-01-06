@@ -4,6 +4,30 @@
 #include <map>
 
 void
+prelim_compose(Model_Application *app);
+
+Model_Application::Model_Application(Mobius_Model *model) : 
+	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this), 
+	additional_series_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
+	
+	index_counts.resize(model->index_sets.count());
+	index_names_map.resize(model->index_sets.count());
+	index_names.resize(model->index_sets.count());
+	
+	//for(auto index_set : model->index_sets)
+	//	index_counts[index_set.id].push_back(Index_T {index_set, 0});
+	
+	// TODO: make time step size configurable.
+	time_step_size.unit      = Time_Step_Size::second;
+	time_step_size.magnitude = 86400;
+	
+	initialize_llvm();
+	llvm_data = create_llvm_module();
+	
+	prelim_compose(this);
+}
+
+void
 Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets) {
 	if(parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up parameter structure twice.");
@@ -182,7 +206,7 @@ Model_Application::set_up_connection_structure() {
 
 bool
 Model_Application::all_indexes_are_set() {
-	for(auto count : index_counts) if(count.index == 0) return false;
+	for(auto count : index_counts) if(count.empty() || !count[0].index) return false;
 	return true;
 }
 
@@ -389,7 +413,7 @@ process_series(Model_Application *app, Series_Set_Info *series_info, Date_Time e
 
 void
 Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &indexes) {
-	index_counts[index_set.id] = Index_T {index_set, (s32)indexes.size()};
+	index_counts[index_set.id] = { Index_T {index_set, (s32)indexes.size()} };
 	index_names[index_set.id].resize(indexes.size());
 	s32 idx = 0;
 	for(auto index : indexes) {
@@ -401,13 +425,14 @@ Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &in
 
 void
 Model_Application::set_indexes(Entity_Id index_set, int count) {
-	index_counts[index_set.id] = Index_T {index_set, (s32)count};
+	index_counts[index_set.id] = { Index_T {index_set, (s32)count} };
 	index_names[index_set.id].clear();
 }
 
 Index_T
 Model_Application::get_index_count(Entity_Id index_set) {
-	return index_counts[index_set.id];
+	auto &count = index_counts[index_set.id];
+	return count.empty() ? Index_T {index_set, 0} : count[0];
 }
 
 Index_T
@@ -424,7 +449,7 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 
 std::string
 Model_Application::get_index_name(Index_T index) {
-	if(!is_valid(index) || index.index < 0 || index.index > index_counts[index.index_set.id].index)
+	if(!is_valid(index) || index.index < 0 || index.index > get_index_count(index.index_set).index)
 		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
 	if(index_names[index.index_set.id].empty()) {
 		char buf[16];
@@ -614,13 +639,13 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		}
 		std::vector<std::string> names;
-		if(index_set.type == Index_Set_Info::Type::named) {
-			names.reserve(index_set.indexes.count());
-			for(auto &index : index_set.indexes)
+		if(index_set.indexes[0].type == Sub_Indexing_Info::Type::named) {
+			names.reserve(index_set.indexes[0].indexes.count());
+			for(auto &index : index_set.indexes[0].indexes)
 				names.push_back(index.name);
 			set_indexes(id, names);
-		} else if (index_set.type == Index_Set_Info::Type::numeric1) {
-			set_indexes(id, index_set.n_dim1);
+		} else if (index_set.indexes[0].type == Sub_Indexing_Info::Type::numeric1) {
+			set_indexes(id, index_set.indexes[0].n_dim1);
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
 		
@@ -628,7 +653,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	std::vector<std::string> gen_index = { "(generated)" };
 	for(auto index_set : model->index_sets) {
-		if(index_counts[index_set.id].index == 0)
+		if(get_index_count(index_set).index == 0)
 			set_indexes(index_set, gen_index);
 	}
 	
@@ -712,12 +737,12 @@ Model_Application::save_to_data_set() {
 			index_set_info = data_set->index_sets.create(index_set->name, {});
 		index_set_info->indexes.clear();
 		if(index_names[index_set_id.id].empty()) {
-			index_set_info->n_dim1 = index_counts[index_set_id.id].index;
-			index_set_info->type = Index_Set_Info::Type::numeric1;
+			index_set_info->indexes[0].n_dim1 = get_index_count(index_set_id).index;
+			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::numeric1;
 		} else {
-			for(s32 idx = 0; idx < index_counts[index_set_id.id].index; ++idx)
-				index_set_info->indexes.create(index_names[index_set_id.id][idx], {});
-			index_set_info->type = Index_Set_Info::Type::named;
+			for(s32 idx = 0; idx < get_index_count(index_set_id).index; ++idx)
+				index_set_info->indexes[0].indexes.create(index_names[index_set_id.id][idx], {});
+			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::named;
 		}
 	}
 	

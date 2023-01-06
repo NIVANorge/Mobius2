@@ -497,7 +497,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		for(auto var_id : app->state_vars) {
 			auto var = app->state_vars[var_id];
-			if(!var->is_flux()) continue;
+			if(!var->is_valid() || !var->is_flux()) continue;
 			if(!is_located(var->loc1)) continue;
 			auto conn = connection_of_flux(var);
 			if(!is_valid(conn)) continue;

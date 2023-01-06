@@ -109,7 +109,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+2, handles);
 				ole_get_string(&index_name, buf, buf_size);
 				if(strlen(buf) > 0) {
-					int index = index_sets[row]->indexes.find_idx(buf);
+					int index = index_sets[row]->indexes[0].indexes.find_idx(buf);
 					if(index < 0) {
 						ole_close_due_to_error(handles, tab, row+2, col+2);
 						fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_sets[row]->name, "\".");

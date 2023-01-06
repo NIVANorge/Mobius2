@@ -1166,7 +1166,7 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 
 template<> Entity_Id
 process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	//TODO: not sure if we need this one or if we could just locate the corresponding 'has' declaration and put the solver info there.
+
 	match_declaration(decl, {{Token_Type::identifier}}, 1, false);
 	
 	auto id = model->solves.find_or_create(nullptr, nullptr, nullptr, decl);
@@ -1198,7 +1198,6 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	}
 	
 	//TODO: some guard against overlapping / contradictory declarations.
-	// TODO: guard against distribute on properties.
 	for(int idx = 0; idx < decl->args.size(); ++idx) {
 		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
 		auto index_set = model->index_sets[id];
