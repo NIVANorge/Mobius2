@@ -221,7 +221,9 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
+	Entity_Id sub_indexed_to;
 	
+	Entity_Registration() : sub_indexed_to(invalid_entity_id) {}
 };
 
 enum class

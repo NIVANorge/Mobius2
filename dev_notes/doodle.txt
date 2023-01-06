@@ -1,6 +1,31 @@
 
 
 
+
+
+	# Sub-indexed index set. Only allow one sub-indexing for now (I.e. not sub-indexed of sub-indexed)
+	# Also need to check distributions so that anything that depends on the sub-indexed one also depends on the parent.
+	
+	layer : index_set("Layer index", lake) 
+	
+	# in data set:
+	
+	#index_set("Layer index") [ "Lake" : "Vansjø" ] [ 100 ]
+	
+	index_set("Layer index", "Lake") [
+		"Vansjø" : 100  
+		"Store" : 70
+		"Bing" : ["a", "b", "c"]        # Dunno if we should allow mixing of types.
+	]   #Maybe better, so no need to redeclare each one.
+	
+	
+	
+	std::vector<std::vector<Index_T>> index_counts;
+	
+	Index_T get_index_count(Entity_Id);
+	Index_T get_index_count(Entity_Id, Index_T);
+	
+
 	# Graph type connections
 	# 	specify pairs    node - vertex                (though the vertex may not always have to be a separate compartment. Could then just be the node)
 	#   what to do about directedness?

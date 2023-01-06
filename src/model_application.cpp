@@ -406,6 +406,11 @@ Model_Application::set_indexes(Entity_Id index_set, int count) {
 }
 
 Index_T
+Model_Application::get_index_count(Entity_Id index_set) {
+	return index_counts[index_set.id];
+}
+
+Index_T
 Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	auto &map = index_names_map[index_set.id];
 	Index_T result;
@@ -427,6 +432,14 @@ Model_Application::get_index_name(Index_T index) {
 		return buf;
 	} else
 		return index_names[index.index_set.id][index.index];
+}
+
+std::string
+Model_Application::get_possibly_quoted_index_name(Index_T index) {
+	std::string result = get_index_name(index);
+	if(!index_names[index.index_set.id].empty()) // i.e. it was actually named, not numeric
+		result = "\"" + result + "\"";
+	return result;
 }
 
 void

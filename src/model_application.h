@@ -118,8 +118,8 @@ template<> struct Hash_Fun<Connection_T> {
 };
 
 
-struct
-Index_Exprs;
+struct Index_Exprs;
+struct Model_Application;
 
 template<typename Handle_T>
 struct Multi_Array_Structure {
@@ -138,91 +138,14 @@ struct Multi_Array_Structure {
 		return begin_offset + handle_location[handle];
 	}
 	
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, std::vector<Index_T> &index_counts) {
-		s64 offset = 0;
-		for(auto &index_set : index_sets) {
-			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
-			offset *= (s64)index_counts[index_set.id].index;
-			offset += (s64)indexes[index_set.id].index;
-		}
-		return (s64)offset*handles.size() + get_offset_base(handle);
-	}
+	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
+	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app);
+	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
+	Math_Expr_FT *get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out);
+	s64 instance_count(Model_Application *app);
 	
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, std::vector<Index_T> &index_counts) {
-		// For if one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
-		s64 offset = 0;
-		bool once = false;
-		for(auto &index_set : index_sets) {
-			offset *= (s64)index_counts[index_set.id].index;
-			s64 index = (s64)indexes[index_set.id].index;
-			if(index_set == mat_col.index_set) {
-				if(once)
-					index = (s64)mat_col.index;
-				once = true;
-			}
-			offset += index;
-		}
-		return (s64)offset*handles.size() + get_offset_base(handle);
-	}
-	
-	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, std::vector<Index_T> &index_counts) {
-		if(indexes.size() != index_sets.size())
-			fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
-		s64 offset = 0;
-		int idx = 0;
-		for(auto &index_set : index_sets) {
-			auto &index = indexes[idx];
-			if(index.index_set != index_set)
-				fatal_error(Mobius_Error::internal, "Got mismatching index sets to get_offset_alternate().");
-			//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
-			offset *= (s64)index_counts[index_set.id].index;
-			offset += (s64)index.index;
-			++idx;
-		}
-		return (s64)offset*handles.size() + get_offset_base(handle);
-	}
-	
-	Math_Expr_FT *get_offset_code(Handle_T handle, Index_Exprs &index_exprs, std::vector<Index_T> &index_counts, Entity_Id &err_idx_set_out) {
-		
-		auto &indexes = index_exprs.indexes;
-		Math_Expr_FT *result;
-		if(index_sets.empty()) result = make_literal((s64)0);
-		int sz = index_sets.size();
-		for(int idx = 0; idx < index_sets.size(); ++idx) {
-			//TODO: check that counts are in the right index set
-			auto &index_set = index_sets[idx];
-			Math_Expr_FT *index = indexes[index_set.id];
-			if(!index) {
-				err_idx_set_out = index_set;
-				return nullptr;
-			}
-			// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
-			if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
-				index = index_exprs.mat_col;
-			
-			index = copy(index);
-			
-			if(idx == 0)
-				result = index;
-			else {
-				result = make_binop('*', result, make_literal((s64)index_counts[index_set.id].index));
-				result = make_binop('+', result, index);
-			}
-		}
-		result = make_binop('*', result, make_literal((s64)handles.size()));
-		result = make_binop('+', result, make_literal((s64)(begin_offset + handle_location[handle])));
-		return result;
-	}
-	
-	s64 instance_count(std::vector<Index_T> &index_counts) {
-		s64 count = 1;
-		for(auto &index_set : index_sets)
-			count *= (s64)index_counts[index_set.id].index;
-		return count;
-	}
-	
-	s64 total_count(std::vector<Index_T> &index_counts) {
-		return (s64)handles.size() * instance_count(index_counts);
+	s64 total_count(Model_Application *app) {
+		return (s64)handles.size() * instance_count(app);
 	}
 	
 	void finalize() {
@@ -236,8 +159,6 @@ struct Multi_Array_Structure {
 	
 	//Multi_Array_Structure() {}
 };
-
-struct Model_Application;
 
 // TODO: remove Val_T template parameter (it is unused)
 template<typename Handle_T>
@@ -381,8 +302,8 @@ Model_Application {
 	Mobius_Model                                            *model;
 	Model_Data                                               data;
 	
-	std::vector<Index_T>                                     index_counts;
 private :
+	std::vector<Index_T>                                     index_counts;
 	std::vector<std::unordered_map<std::string, Index_T>>    index_names_map;
 	std::vector<std::vector<std::string>>                    index_names;
 public :
@@ -409,12 +330,14 @@ public :
 	std::vector<Run_Batch>                                   batches;
 	
 	bool                                                     is_compiled = false;
-	std::vector<Entity_Id>                                   baked_parameters;       // Hmm, may not be the best to have this here.
+	std::vector<Entity_Id>                                   baked_parameters;
 	
 	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes);
 	void set_indexes(Entity_Id index_set, int count);
+	Index_T get_index_count(Entity_Id index_set);
 	Index_T get_index(Entity_Id index_set, const std::string &name);
 	std::string get_index_name(Index_T index);
+	std::string get_possibly_quoted_index_name(Index_T index);
 	bool all_indexes_are_set();
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
@@ -473,6 +396,93 @@ Index_Exprs {
 	}
 };
 
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
+	s64 offset = 0;
+	for(auto &index_set : index_sets) {
+		//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
+		offset *= (s64)app->get_index_count(index_set).index;
+		offset += (s64)indexes[index_set.id].index;
+	}
+	return (s64)offset*handles.size() + get_offset_base(handle);
+}
+
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app) {
+	// For if one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
+	s64 offset = 0;
+	bool once = false;
+	for(auto &index_set : index_sets) {
+		offset *= (s64)app->get_index_count(index_set).index;
+		s64 index = (s64)indexes[index_set.id].index;
+		if(index_set == mat_col.index_set) {
+			if(once)
+				index = (s64)mat_col.index;
+			once = true;
+		}
+		offset += index;
+	}
+	return (s64)offset*handles.size() + get_offset_base(handle);
+}
+
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
+	if(indexes.size() != index_sets.size())
+		fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
+	s64 offset = 0;
+	int idx = 0;
+	for(auto &index_set : index_sets) {
+		auto &index = indexes[idx];
+		if(index.index_set != index_set)
+			fatal_error(Mobius_Error::internal, "Got mismatching index sets to get_offset_alternate().");
+		//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
+		offset *= (s64)app->get_index_count(index_set).index;
+		offset += (s64)index.index;
+		++idx;
+	}
+	return (s64)offset*handles.size() + get_offset_base(handle);
+}
+
+template<typename Handle_T> Math_Expr_FT *
+Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {
+	
+	auto &indexes = index_exprs.indexes;
+	Math_Expr_FT *result;
+	if(index_sets.empty()) result = make_literal((s64)0);
+	int sz = index_sets.size();
+	for(int idx = 0; idx < index_sets.size(); ++idx) {
+		//TODO: check that counts are in the right index set
+		auto &index_set = index_sets[idx];
+		Math_Expr_FT *index = indexes[index_set.id];
+		if(!index) {
+			err_idx_set_out = index_set;
+			return nullptr;
+		}
+		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
+		if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
+			index = index_exprs.mat_col;
+		
+		index = copy(index);
+		
+		if(idx == 0)
+			result = index;
+		else {
+			result = make_binop('*', result, make_literal((s64)app->get_index_count(index_set).index));
+			result = make_binop('+', result, index);
+		}
+	}
+	result = make_binop('*', result, make_literal((s64)handles.size()));
+	result = make_binop('+', result, make_literal((s64)(begin_offset + handle_location[handle])));
+	return result;
+}
+
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::instance_count(Model_Application *app) {
+	s64 count = 1;
+	for(auto &index_set : index_sets)
+		count *= (s64)app->get_index_count(index_set).index;
+	return count;
+}
 
 template<> inline const std::string&
 Storage_Structure<Entity_Id>::get_handle_name(Entity_Id par) {
@@ -509,32 +519,32 @@ Storage_Structure<Handle_T>::get_offset_base(Handle_T handle) {
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::instance_count(Handle_T handle) {
 	auto array_idx = handle_is_in_array.at(handle);
-	return structure[array_idx].instance_count(parent->index_counts);
+	return structure[array_idx].instance_count(parent);
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array.at(handle);
-	return structure[array_idx].get_offset(handle, indexes, parent->index_counts);
+	return structure[array_idx].get_offset(handle, indexes, parent);
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col) {
 	auto array_idx = handle_is_in_array.at(handle);
-	return structure[array_idx].get_offset(handle, indexes, mat_col, parent->index_counts);
+	return structure[array_idx].get_offset(handle, indexes, mat_col, parent);
 }
 
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array.at(handle);
-	return structure[array_idx].get_offset_alternate(handle, indexes, parent->index_counts);
+	return structure[array_idx].get_offset_alternate(handle, indexes, parent);
 }
 	
 template<typename Handle_T> Math_Expr_FT *
 Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &indexes) {
 	auto array_idx = handle_is_in_array.at(handle);
 	Entity_Id err_idx_set;
-	auto code = structure[array_idx].get_offset_code(handle, indexes, parent->index_counts, err_idx_set);
+	auto code = structure[array_idx].get_offset_code(handle, indexes, parent, err_idx_set);
 	if(!code) {
 		fatal_error(Mobius_Error::internal, "A call to get_offset_code() somehow referenced an index that was not properly initialized. The name of the referenced variable was \"", get_handle_name(handle), "\". The index set was \"", parent->model->index_sets[err_idx_set]->name, "\".");
 	}
@@ -554,7 +564,7 @@ Storage_Structure<Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>>
 	s32 array_idx = 0;
 	for(auto &multi_array : this->structure) {
 		multi_array.begin_offset = offset;
-		offset += multi_array.total_count(parent->index_counts);
+		offset += multi_array.total_count(parent);
 		for(Handle_T handle : multi_array.handles)
 			handle_is_in_array[handle] = array_idx;
 		++array_idx;
@@ -569,13 +579,13 @@ for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::f
 	Entity_Id index_set = indexes[level].index_set;
 	
 	if(level == indexes.size()-1) {
-		for(int idx = 0; idx < self->parent->index_counts[index_set.id].index; ++idx) {
+		for(int idx = 0; idx < self->parent->get_index_count(index_set).index; ++idx) {
 			indexes[level].index = idx;
 			s64 offset = self->get_offset_alternate(handle, indexes);
 			do_stuff(indexes, offset);
 		}
 	} else {
-		for(int idx = 0; idx < self->parent->index_counts[index_set.id].index; ++idx) {
+		for(int idx = 0; idx < self->parent->get_index_count(index_set).index; ++idx) {
 			indexes[level].index = idx;
 			for_each_helper(self, handle, do_stuff, indexes, level+1);
 		}

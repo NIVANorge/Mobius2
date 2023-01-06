@@ -1122,8 +1122,16 @@ process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *d
 template<> Entity_Id
 process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	//TODO: index set type (maybe)
-	match_declaration(decl, {{Token_Type::quoted_string}});
-	return model->index_sets.standard_declaration(scope, decl);
+	int which = match_declaration(decl, {
+		{Token_Type::quoted_string},
+		{Token_Type::quoted_string, Decl_Type::index_set}
+	});
+	auto id        = model->index_sets.standard_declaration(scope, decl);
+	if(which == 1) {
+		auto index_set = model->index_sets[id];
+		index_set->sub_indexed_to = resolve_argument<Reg_Type::index_set>(model, scope, decl, 1);
+	}
+	return id;
 }
 
 template<> Entity_Id
@@ -1192,8 +1200,11 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	//TODO: some guard against overlapping / contradictory declarations.
 	// TODO: guard against distribute on properties.
 	for(int idx = 0; idx < decl->args.size(); ++idx) {
-		auto index_set = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
-		component->index_sets.push_back(index_set);
+		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
+		auto index_set = model->index_sets[id];
+		if(is_valid(index_set->sub_indexed_to))
+			component->index_sets.push_back(index_set->sub_indexed_to);
+		component->index_sets.push_back(id);
 	}
 }
 
@@ -1335,13 +1346,15 @@ load_model(String_View file_name) {
 		}
 	}
 	
-	// Note: have to do this before loading modules because any loaded modules need to know if a parameter it references was declared in the model decl scope (for now at least).
+	
 	for(auto &extend : extend_models) {
 		auto ast = extend.second;
 		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
-			if(child->type == Decl_Type::par_group)
+			if(child->type == Decl_Type::par_group) // Note: have to do this before loading modules because any loaded modules need to know if a parameter it references was declared in the model decl scope (for now at least).
 				process_declaration<Reg_Type::par_group>(model, scope, child);
+			else if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
+				process_declaration<Reg_Type::index_set>(model, scope, child);
 		}
 	}
 	
@@ -1405,10 +1418,6 @@ load_model(String_View file_name) {
 					process_no_carry_declaration(model, scope, child);
 				} break;
 				
-				case Decl_Type::index_set : {
-					process_declaration<Reg_Type::index_set>(model, scope, child);
-				} break;
-				
 				case Decl_Type::distribute : {
 					process_distribute_declaration(model, scope, child);
 				} break;
@@ -1430,6 +1439,7 @@ load_model(String_View file_name) {
 				} break;
 				
 				case Decl_Type::par_group :
+				case Decl_Type::index_set :
 				case Decl_Type::compartment :
 				case Decl_Type::quantity :
 				case Decl_Type::connection :

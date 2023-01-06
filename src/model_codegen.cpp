@@ -388,7 +388,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->index_counts[index_set.id].index)));
+	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->get_index_count(index_set).index)));
 	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
 	
 	return if_chain;
@@ -450,14 +450,14 @@ fixup_grid1d_connection(Model_Application *app, Math_Expr_FT *code, Entity_Id co
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::real;
 	if_chain->exprs.push_back(code);
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->index_counts[index_set.id].index)));
+	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->get_index_count(index_set).index)));
 	if_chain->exprs.push_back(make_literal(0.0));
 	return if_chain;
 }
 
 // TODO: This could maybe be a member method of Index_Exprs
 Math_Expr_FT *
-create_nested_for_loops(Math_Block_FT *top_scope, std::vector<Index_T> index_counts, std::set<Index_Set_Dependency> &index_sets, Index_Exprs &index_expr) {
+create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::set<Index_Set_Dependency> &index_sets, Index_Exprs &index_expr) {
 	
 	auto &indexes = index_expr.indexes;
 	
@@ -466,7 +466,7 @@ create_nested_for_loops(Math_Block_FT *top_scope, std::vector<Index_T> index_cou
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		
 		auto loop = make_for_loop();
-		loop->exprs.push_back(make_literal((s64)index_counts[index_set->id.id].index));
+		loop->exprs.push_back(make_literal((s64)app->get_index_count(index_set->id).index));
 		scope->exprs.push_back(loop);
 		
 		//NOTE: the scope of this item itself is replaced when it is inserted later.
@@ -480,7 +480,7 @@ create_nested_for_loops(Math_Block_FT *top_scope, std::vector<Index_T> index_cou
 				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency, or the order was larger than 2. Order: ", index_set->order);
 			}
 			auto loop = make_for_loop();
-			loop->exprs.push_back(make_literal((s64)index_counts[index_set->id.id].index));
+			loop->exprs.push_back(make_literal((s64)app->get_index_count(index_set->id).index));
 			scope->exprs.push_back(loop);
 			index_expr.mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
 			index_expr.mat_index_set = index_set->id;
@@ -506,7 +506,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	Index_Exprs indexes(app->model);
 	
 	for(auto &array : batch->arrays) {
-		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app->index_counts, array.index_sets, indexes);
+		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app, array.index_sets, indexes);
 		
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -601,7 +601,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
 	s64 init_pos = app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
 	for(auto &array : batch->arrays_ode) {
-		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app->index_counts, array.index_sets, indexes);
+		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app, array.index_sets, indexes);
 				
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
