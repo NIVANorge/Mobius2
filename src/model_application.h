@@ -382,8 +382,10 @@ Model_Application {
 	Model_Data                                               data;
 	
 	std::vector<Index_T>                                     index_counts;
+private :
 	std::vector<std::unordered_map<std::string, Index_T>>    index_names_map;
 	std::vector<std::vector<std::string>>                    index_names;
+public :
 	
 	Time_Step_Size                                           time_step_size;
 	
@@ -410,7 +412,9 @@ Model_Application {
 	std::vector<Entity_Id>                                   baked_parameters;       // Hmm, may not be the best to have this here.
 	
 	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes);
+	void set_indexes(Entity_Id index_set, int count);
 	Index_T get_index(Entity_Id index_set, const std::string &name);
+	std::string get_index_name(Index_T index);
 	bool all_indexes_are_set();
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);

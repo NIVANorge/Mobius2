@@ -1,5 +1,30 @@
 
 
+
+	# Graph type connections
+	# 	specify pairs    node - vertex                (though the vertex may not always have to be a separate compartment. Could then just be the node)
+	#   what to do about directedness?
+	
+	net : connection("Drainage network", graph) {
+		(((node|storage_unit|divider) conduit) | (node regulator) | (storage_unit pump))*
+	}
+
+	connection("Network") {
+		n : compartment("Node")
+		c : compartment("Conduit")
+		
+		n["N1"] - c["C1"] - n["N2"]
+		n["N1"] - c["C2"]            # Allow multiple outgoing connections per node.
+	}
+	
+	flux(node, net, "Flow") {
+		something * target(something_else)        # Here the framework would need to check that something_else is valid for each possible target (e.g. check each possible pair where the first is node.)
+	}
+	
+	# Technicalities:
+	# 	We get one instance of the flux per outgoing connection. How do we index that? That does not fit within the existing indexing system.
+	#      May have to generate a special index set for this (actually one per node type), and it is separate per node (sub-indexed).
+	
 	
 	
 	# 1D diffusion flux.

@@ -219,7 +219,7 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 				
 				if(indexes.size() != expected_index_sets.size()) {
 					header.loc.print_error_header();
-					fatal_error("Got wrong number of index sets for input series.");
+					fatal_error("Got wrong number of index sets for input series. Expected ", expected_index_sets.size(), ", got ", indexes.size(), ".");
 				}
 				
 				for(auto &index : indexes) {

@@ -329,11 +329,19 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 		
 		if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
-			Var_Id var_id = app->additional_series.register_var<State_Var::Type::declared>(invalid_var_location, header.name);
+			// See if it was already registered.
+			Var_Id var_id = invalid_var;
+			ids = app->additional_series[header.name];
+			if(ids.empty()) {
+				var_id = app->additional_series.register_var<State_Var::Type::declared>(invalid_var_location, header.name);
+				ids.insert(var_id);
+			} else
+				var_id = *ids.begin();
 			auto var = app->additional_series[var_id];
 			var->flags = State_Var::Flags::clear_series_to_nan;
 			var->unit = header.unit;
-			ids.insert(var_id);
+			
+			//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions (when we implement that)?
 		} else {
 			/*
 			if(!header.unit.is_dimensioneless()) { //TODO: We could just check if it is equal to the declared unit for the input instead?
@@ -342,11 +350,14 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 			}
 			*/
 		}
-		//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions (when we implement that)?
 		
 		if(header.indexes.empty()) continue;
 		
-		if(metadata->index_sets.find(*ids.begin()) != metadata->index_sets.end()) continue; // NOTE: already set by another series data block.
+		if(ids.begin()->type == Var_Id::Type::series) {
+			if(metadata->index_sets.find(*ids.begin()) != metadata->index_sets.end()) continue; // NOTE: already set by another series data block.
+		} else {
+			if(metadata->index_sets_additional.find(*ids.begin()) != metadata->index_sets_additional.end()) continue;
+		}
 		
 		for(auto &index : header.indexes[0]) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
 			// NOTE: this should be valid since we already tested it internally in the data set.
@@ -388,6 +399,12 @@ Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &in
 	}
 }
 
+void
+Model_Application::set_indexes(Entity_Id index_set, int count) {
+	index_counts[index_set.id] = Index_T {index_set, (s32)count};
+	index_names[index_set.id].clear();
+}
+
 Index_T
 Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	auto &map = index_names_map[index_set.id];
@@ -398,6 +415,18 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	if(find != map.end())
 		return find->second;
 	return result;
+}
+
+std::string
+Model_Application::get_index_name(Index_T index) {
+	if(!is_valid(index) || index.index < 0 || index.index > index_counts[index.index_set.id].index)
+		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
+	if(index_names[index.index_set.id].empty()) {
+		char buf[16];
+		itoa(index.index, buf, 10);
+		return buf;
+	} else
+		return index_names[index.index_set.id][index.index];
 }
 
 void
@@ -576,17 +605,12 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			names.reserve(index_set.indexes.count());
 			for(auto &index : index_set.indexes)
 				names.push_back(index.name);
+			set_indexes(id, names);
 		} else if (index_set.type == Index_Set_Info::Type::numeric1) {
-			names.reserve(index_set.n_dim1);
-			char buf[16];
-			// Hmm, do we have to generate names for all the indexes (when numeric) here? Or should that be left to the UI?
-			for(int idx = 0; idx < index_set.n_dim1; ++idx) {
-				itoa(idx, buf, 10);
-				names.push_back(buf);
-			}
+			set_indexes(id, index_set.n_dim1);
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
-		set_indexes(id, names);
+		
 	}
 	
 	std::vector<std::string> gen_index = { "(generated)" };
@@ -674,8 +698,14 @@ Model_Application::save_to_data_set() {
 		if(!index_set_info)
 			index_set_info = data_set->index_sets.create(index_set->name, {});
 		index_set_info->indexes.clear();
-		for(s32 idx = 0; idx < index_counts[index_set_id.id].index; ++idx)
-			index_set_info->indexes.create(index_names[index_set_id.id][idx], {});
+		if(index_names[index_set_id.id].empty()) {
+			index_set_info->n_dim1 = index_counts[index_set_id.id].index;
+			index_set_info->type = Index_Set_Info::Type::numeric1;
+		} else {
+			for(s32 idx = 0; idx < index_counts[index_set_id.id].index; ++idx)
+				index_set_info->indexes.create(index_names[index_set_id.id][idx], {});
+			index_set_info->type = Index_Set_Info::Type::named;
+		}
 	}
 	
 	// Hmm, this is a bit cumbersome
