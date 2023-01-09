@@ -66,6 +66,7 @@ LLVM_Module_Data {
 	std::unique_ptr<llvm::TargetLibraryInfo>     libinfo;
 	
 	llvm::GlobalVariable                      *global_connection_data;
+	llvm::GlobalVariable                      *global_index_count_data;
 	
 	llvm::Type                                *dt_struct_type;
 };
@@ -187,20 +188,26 @@ get_jitted_batch_function(const std::string &fun_name) {
 struct Scope_Local_Vars;
 llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
 
-void
-jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
+llvm::GlobalVariable *
+jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const char *name) {
 	auto int_32_ty      = llvm::Type::getInt32Ty(*data->context);
-	auto conn_array_ty = llvm::ArrayType::get(int_32_ty, constants->connection_data_count);
-	std::vector<llvm::Constant *> values(constants->connection_data_count);
+	auto conn_array_ty = llvm::ArrayType::get(int_32_ty, count);
+	std::vector<llvm::Constant *> values(count);
 	for(s64 idx = 0; idx < values.size(); ++idx)
-		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(32, constants->connection_data[idx], true));
+		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(32, vals[idx], true));
 	auto const_array_init = llvm::ConstantArray::get(conn_array_ty, values);
 	//NOTE: we are not responsible for the ownership of this one even though we allocate it with new.
-	data->global_connection_data = new llvm::GlobalVariable(
+	return new llvm::GlobalVariable(
 		*data->module, conn_array_ty, true, 
 		llvm::GlobalValue::ExternalLinkage,
 		//llvm::GlobalValue::InternalLinkage, 
-		const_array_init, "global_connection_data");
+		const_array_init, name);
+}
+
+void
+jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
+	data->global_connection_data  = jit_create_constant_array(data, constants->connection_data, constants->connection_data_count, "global_connection_data");
+	data->global_index_count_data = jit_create_constant_array(data, constants->index_count_data, constants->index_count_data_count, "global_connection_data");
 }
 
 void
@@ -572,7 +579,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			
 			llvm::Value *offset = nullptr;
 			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
-				|| ident->variable_type == Variable_Type::connection_info) {
+				|| ident->variable_type == Variable_Type::connection_info || ident->variable_type == Variable_Type::index_count) {
 				if(expr->exprs.size() != 1)
 					fatal_error(Mobius_Error::internal, "An identifier was not properly indexed before LLVM codegen.");
 				offset = build_expression_ir(expr->exprs[0], locals, args, data);
@@ -603,6 +610,10 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 				result = data->builder->CreateGEP(int_32_ty, data->global_connection_data, offset, "connection_info_lookup");
 				result = data->builder->CreateLoad(int_32_ty, result, "connection_info");
 				result = data->builder->CreateSExt(result, int_64_ty, "connection_info_cast");
+			} else if(ident->variable_type == Variable_Type::index_count) {
+				result = data->builder->CreateGEP(int_32_ty, data->global_index_count_data, offset, "index_count_lookup");
+				result = data->builder->CreateLoad(int_32_ty, result, "index_count");
+				result = data->builder->CreateSExt(result, int_64_ty, "index_count_cast");
 			}
 			#define TIME_VALUE(name, bits) \
 			else if(++struct_pos, ident->variable_type == Variable_Type::time_##name) { \

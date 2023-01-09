@@ -7,8 +7,8 @@ void
 prelim_compose(Model_Application *app);
 
 Model_Application::Model_Application(Mobius_Model *model) : 
-	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this), 
-	additional_series_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
+	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this),
+	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
 	
 	index_counts.resize(model->index_sets.count());
 	index_names_map.resize(model->index_sets.count());
@@ -203,6 +203,27 @@ Model_Application::set_up_connection_structure() {
 	for(int idx = 0; idx < connection_structure.total_count; ++idx)
 		data.connections.data[idx] = -1;                          // To signify that it doesn't point at anything (yet).
 };
+
+void
+Model_Application::set_up_index_count_structure() {
+	std::vector<Multi_Array_Structure<Entity_Id>> structure;
+	for(auto index_set : model->index_sets) {
+		auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
+		if(is_valid(sub_indexed_to))
+			structure.push_back(Multi_Array_Structure<Entity_Id>( {sub_indexed_to}, {index_set} ));
+		else
+			structure.push_back(Multi_Array_Structure<Entity_Id>( {}, {index_set} ));
+	}
+	index_counts_structure.set_up(std::move(structure));
+	data.index_counts.allocate();
+	
+	for(auto index_set : model->index_sets) {
+		int idx = 0;
+		index_counts_structure.for_each(index_set, [this, index_set, &idx](std::vector<Index_T> &indexes, s64 offset) {
+			data.index_counts.data[offset] = index_counts[index_set.id][idx++].index;
+		});
+	}
+}
 
 bool
 Model_Application::all_indexes_are_set() {
@@ -690,7 +711,6 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
 }
 
-
 void
 Model_Application::build_from_data_set(Data_Set *data_set) {
 	if(is_compiled)
@@ -735,6 +755,9 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		if(get_max_index_count(index_set).index == 0)
 			set_indexes(index_set, gen_index);
 	}
+	
+	if(!index_counts_structure.has_been_set_up)
+		set_up_index_count_structure();
 	
 	connection_components.resize(model->connections.count());
 	for(auto &connection : data_set->connections)
@@ -953,7 +976,7 @@ Model_Data::get_end_date_parameter() {
 Model_Data::Model_Data(Model_Application *app) :
 	app(app), parameters(&app->parameter_structure), series(&app->series_structure),
 	results(&app->result_structure, 1), connections(&app->connection_structure),
-	additional_series(&app->additional_series_structure) {
+	additional_series(&app->additional_series_structure), index_counts(&app->index_counts_structure) {
 }
 
 // TODO: this should take flags on what to copy and what to keep a reference of!
@@ -967,6 +990,7 @@ Model_Data::copy(bool copy_results) {
 	cpy->series.refer_to(&this->series);
 	cpy->additional_series.refer_to(&this->additional_series);
 	cpy->connections.refer_to(&this->connections);
+	cpy->index_counts.refer_to(&this->index_counts);
 	return cpy;
 }
 	

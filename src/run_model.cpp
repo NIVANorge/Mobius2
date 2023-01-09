@@ -49,6 +49,7 @@ run_model(Model_Data *data, s64 ms_timeout) {
 	run_state.state_vars       = data->results.data;
 	run_state.series           = data->series.data + series_count*input_offset;
 	run_state.connection_info  = data->connections.data;
+	run_state.index_counts     = data->index_counts.data;
 	run_state.solver_workspace = nullptr;
 	run_state.date_time        = Expanded_Date_Time(start_date, app->time_step_size);
 	run_state.solver_t         = 0.0;

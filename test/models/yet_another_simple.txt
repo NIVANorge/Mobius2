@@ -12,7 +12,7 @@ model("Yet another simple") {
 		}
 		
 		a.has(hmm : property("Hmm"), []) {
-			b * 5
+			b
 		}
 	}
 	

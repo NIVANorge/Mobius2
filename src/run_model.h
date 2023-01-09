@@ -21,6 +21,7 @@ Model_Run_State {
 	double             *series;
 	double             *solver_workspace;
 	s32                *connection_info;    //NOTE: this is only used if we are in MOBIUS_EMULATE mode... For llvm we bake these in as constants
+	s32                *index_counts;       //NOTE: same as above.
 	Expanded_Date_Time  date_time;
 	double              solver_t;      //NOTE: not currently used, but we could expose it to the model code later or interpolate the date_time using it.
 	

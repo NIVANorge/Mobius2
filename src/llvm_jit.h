@@ -9,6 +9,8 @@ struct
 LLVM_Constant_Data {
 	s32 *connection_data;
 	s64 connection_data_count;
+	s32 *index_count_data;
+	s64 index_count_data_count;
 };
 
 void initialize_llvm();

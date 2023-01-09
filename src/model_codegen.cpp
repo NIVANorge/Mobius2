@@ -2,6 +2,17 @@
 #include "model_codegen.h"
 #include "model_application.h"
 
+
+Math_Expr_FT *
+get_index_count_code(Model_Application *app, Entity_Id index_set, Index_Exprs &indexes) {
+	auto offset = app->index_counts_structure.get_offset_code(index_set, indexes);
+	auto ident = new Identifier_FT();
+	ident->value_type = Value_Type::integer;
+	ident->variable_type = Variable_Type::index_count;
+	ident->exprs.push_back(offset);
+	return ident;
+}
+
 Math_Expr_FT *
 make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, Math_Expr_FT *unit_conv = nullptr) {
 	
@@ -246,7 +257,6 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 			index_expr.transpose();
 	}
 	
-	//TODO: Should check that we are not at the initial step
 	if(offset_code && ident->variable_type != Variable_Type::parameter && (ident->flags & ident_flags_last_result)) {
 		offset_code = make_binop('-', offset_code, make_literal(back_step));
 	}
@@ -388,7 +398,8 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->get_max_index_count(index_set).index))); // TODO: :no_get_max_index_count
+	auto index_count = get_index_count_code(app, index_set, indexes);
+	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), index_count));
 	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
 	
 	return if_chain;
@@ -450,7 +461,8 @@ fixup_grid1d_connection(Model_Application *app, Math_Expr_FT *code, Entity_Id co
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::real;
 	if_chain->exprs.push_back(code);
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), make_literal((s64)app->get_max_index_count(index_set).index))); // TODO: :no_get_max_index_count
+	auto index_count = get_index_count_code(app, index_set, indexes);
+	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), index_count));
 	if_chain->exprs.push_back(make_literal(0.0));
 	return if_chain;
 }
@@ -466,7 +478,10 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		
 		auto loop = make_for_loop();
-		loop->exprs.push_back(make_literal((s64)app->get_max_index_count(index_set->id).index)); // TODO: :no_get_max_index_count
+		// NOTE: There is a caveat here: This will only work if the parent index of a sub-indexed index set is always set up first,
+		//   and that  *should* work the way we order the Entity_Id's of those right now, but it is a smidge volatile...
+		auto index_count = get_index_count_code(app, index_set->id, index_expr);
+		loop->exprs.push_back(index_count);
 		scope->exprs.push_back(loop);
 		
 		//NOTE: the scope of this item itself is replaced when it is inserted later.
@@ -480,7 +495,8 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency, or the order was larger than 2. Order: ", index_set->order);
 			}
 			auto loop = make_for_loop();
-			loop->exprs.push_back(make_literal((s64)app->get_max_index_count(index_set->id).index)); // TODO: :no_get_max_index_count (though right now it may not be a problem)
+			auto index_count = get_index_count_code(app, index_set->id, index_expr);
+			loop->exprs.push_back(index_count);
 			scope->exprs.push_back(loop);
 			index_expr.mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
 			index_expr.mat_index_set = index_set->id;

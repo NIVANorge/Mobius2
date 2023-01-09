@@ -310,7 +310,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			result.type = expr->value_type;
 			s64 offset = 0;
 			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
-				|| ident->variable_type == Variable_Type::connection_info) {
+				|| ident->variable_type == Variable_Type::connection_info || ident->variable_type == Variable_Type::index_count) {
 				DEBUG(warning_print("lookup var offset.\n"))
 				offset = emulate_expression(expr->exprs[0], state, locals).val_integer;
 			}
@@ -336,6 +336,10 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 				
 				case Variable_Type::local : {
 					result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+				} break;
+				
+				case Variable_Type::index_count : {
+					result.val_integer = state->index_counts[offset];
 				} break;
 				
 				#define TIME_VALUE(name, bits)\

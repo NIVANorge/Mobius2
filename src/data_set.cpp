@@ -7,17 +7,45 @@
 // TODO: We should try to intercept errors when reading and writing to properly close files (then re-throw).
 
 void
-write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
-	
-	fprintf(file, "index_set(\"%s\") [ ", index_set.name.data());
-	if(index_set.indexes[0].type == Sub_Indexing_Info::Type::named) {
-		for(auto &index : index_set.indexes[0].indexes)
+write_index_set_indexes_to_file(FILE *file, Sub_Indexing_Info *info) {
+	fprintf(file, "[ ");
+	if(info->type == Sub_Indexing_Info::Type::named) {
+		for(auto &index : info->indexes)
 			fprintf(file, "\"%s\" ", index.name.data());
-	} else if (index_set.indexes[0].type == Sub_Indexing_Info::Type::numeric1)
-		fprintf(file, "%d ", index_set.indexes[0].n_dim1);
+	} else if (info->type == Sub_Indexing_Info::Type::numeric1)
+		fprintf(file, "%d ", info->n_dim1);
 	else
-		fatal_error(Mobius_Error::internal, "Unhandled index set type in write_index_set_to_file().");
-	fprintf(file, "]\n\n");
+		fatal_error(Mobius_Error::internal, "Unhandled index set type in write_index_set_indexes_to_file().");
+	fprintf(file, "]");
+}
+
+void
+write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_set) {
+	
+	if(index_set.sub_indexed_to < 0) {
+		fprintf(file, "index_set(\"%s\") ", index_set.name.data());
+		write_index_set_indexes_to_file(file, &index_set.indexes[0]);
+	} else {
+		auto parent = data_set->index_sets[index_set.sub_indexed_to];
+		fprintf(file, "index_set(\"%s\", \"%s\") [\n", parent->name.data(), index_set.name.data());
+
+		int count = parent->get_max_count();
+		if(count != index_set.indexes.size())
+			fatal_error(Mobius_Error::internal, "Got a sub-indexed index set without a set for each index of the parent in write_index_set_to_file().");
+		auto &parent_info = parent->indexes[0];
+		for(int idx = 0; idx < count; ++idx) {
+			if(parent_info.type == Sub_Indexing_Info::Type::named)
+				fprintf(file, "\t\"%s\" : ", parent_info.indexes[idx]->name.data());
+			else if (parent_info.type == Sub_Indexing_Info::Type::numeric1)
+				fprintf(file, "\t%d : ", idx);
+			else
+				fatal_error(Mobius_Error::internal, "Unhandled index set type in write_index_set_to_file().");
+			write_index_set_indexes_to_file(file, &index_set.indexes[idx]);
+			fprintf(file, "\n");
+		}
+		fprintf(file, "]");
+	}
+	fprintf(file, "\n\n");
 }
 
 void
@@ -166,9 +194,9 @@ write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int lev
 		}
 	} else {
 		for(int idx = 0; idx < count; ++idx) {
-			write_parameter_recursive(file, data_set, par, level-1, idx, offset, index_sets, tabs);
+			write_parameter_recursive(file, data_set, par, level+1, idx, offset, index_sets, tabs);
 			fprintf(file, "\n");
-			if(level >= 2)
+			if(level < (int)index_sets.size() - 2)
 				fprintf(file, "\n");
 		}
 	}
@@ -177,7 +205,7 @@ write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int lev
 void
 write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_group, Par_Info &par, int tabs, bool double_newline = true) {
 	
-	int n_dims = std::min(1, (int)par_group.index_sets.size());
+	int n_dims = std::max(1, (int)par_group.index_sets.size());
 	
 	int expect_count = get_instance_count(data_set, par_group.index_sets);
 	if((par.type == Decl_Type::par_enum && expect_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && expect_count != par.values.size()))
@@ -255,7 +283,6 @@ write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series
 
 void
 Data_Set::write_to_file(String_View file_name) {
-	//fatal_error(Mobius_Error::internal, "Write to file not implemented");
 	
 	FILE *file = open_file(file_name, "w");
 	
@@ -268,7 +295,7 @@ Data_Set::write_to_file(String_View file_name) {
 	}
 	
 	for(auto &index_set : index_sets)
-		write_index_set_to_file(file, index_set);
+		write_index_set_to_file(file, this, index_set);
 	
 	for(auto &connection : connections)
 		write_connection_info_to_file(file, connection, this);

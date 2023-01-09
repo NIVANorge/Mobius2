@@ -159,7 +159,7 @@ get_token_type(Decl_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var, connection_info, local, no_override,
+	parameter, series, state_var, connection_info, index_count, local, no_override,
 	// "special" state variables
 	#define TIME_VALUE(name, bits) time_##name,
 	#include "time_values.incl"

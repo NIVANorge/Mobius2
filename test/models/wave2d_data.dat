@@ -1,6 +1,6 @@
-index_set("Horizontal") [ 100 ]
+index_set("Horizontal") [ 100  ]
 
-index_set("Vertical") [ 100 ]
+index_set("Vertical") [ 100  ]
 
 connection("Horizontal") [
 	compartment("Cell") [ "Horizontal" ]

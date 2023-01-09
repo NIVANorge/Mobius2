@@ -245,6 +245,7 @@ struct Model_Data {
 	Data_Storage<double, Var_Id>              results;
 	Data_Storage<s32, Connection_T>           connections;
 	Data_Storage<double, Var_Id>              additional_series;
+	Data_Storage<s32, Entity_Id>              index_counts;
 	
 	Model_Data *copy(bool copy_results = true);
 	Date_Time get_start_date_parameter();
@@ -302,7 +303,7 @@ Model_Application {
 	
 private :
 	//std::vector<Index_T>                                     index_counts;
-	std::vector<std::vector<Index_T>>                        index_counts;
+	std::vector<std::vector<Index_T>>                        index_counts;        // TODO: could we find a way of getting rid of this and just using the index_counts structure in the Model_Data ?
 	std::vector<std::unordered_map<std::string, Index_T>>    index_names_map;
 	std::vector<std::vector<std::string>>                    index_names;
 public :
@@ -318,6 +319,7 @@ public :
 	Storage_Structure<Var_Id>                                result_structure;
 	Storage_Structure<Var_Id>                                series_structure;
 	Storage_Structure<Var_Id>                                additional_series_structure;
+	Storage_Structure<Entity_Id>                             index_counts_structure;
 	
 	Data_Set                                                *data_set;
 	
@@ -350,6 +352,7 @@ public :
 	
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
 	void set_up_connection_structure();
+	void set_up_index_count_structure();
 	
 	template<Var_Id::Type var_type> void
 	set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata);
@@ -497,8 +500,8 @@ Multi_Array_Structure<Handle_T>::instance_count(Model_Application *app) {
 }
 
 template<> inline const std::string&
-Storage_Structure<Entity_Id>::get_handle_name(Entity_Id par) {
-	return parent->model->parameters[par]->name;
+Storage_Structure<Entity_Id>::get_handle_name(Entity_Id id) {
+	return (*parent->model->registry(id.reg_type))[id]->name;
 }
 
 template<> inline const std::string&

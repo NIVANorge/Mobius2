@@ -1151,8 +1151,10 @@ Model_Application::compile() {
 	set_up_result_structure(this, batches, instructions);
 	
 	LLVM_Constant_Data constants;
-	constants.connection_data       = data.connections.data;
-	constants.connection_data_count = connection_structure.total_count;
+	constants.connection_data        = data.connections.data;
+	constants.connection_data_count  = connection_structure.total_count;
+	constants.index_count_data       = data.index_counts.data;
+	constants.index_count_data_count = index_counts_structure.total_count;
 	
 	warning_print("****Connection data is:\n");
 	for(int idx = 0; idx < constants.connection_data_count; ++idx)
