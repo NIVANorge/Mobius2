@@ -410,6 +410,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function,
 		// NOTE: This checks if the mantissa bits are not all 1. (If they are it is either an inf or a nan).
 		//   TODO: this could break on Big Endian architectures (unless both the int64 and float64 are swapped the same way.?)
 		//      we are not likely to encounter it, but should probably have an alternative for it just in case.
+		//   - we could maybe also just use libc isfinite instead...
 		
 		auto mask = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0x7ff0000000000000));
 		result = data->builder->CreateBitCast(a, llvm::Type::getInt64Ty(*data->context));

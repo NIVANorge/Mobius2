@@ -99,24 +99,17 @@ Sub_Indexing_Info {
 
 struct
 Index_Set_Info : Info_Type_Base {
-	/*
-	enum class Type {
-		none,
-		named,
-		numeric1,
-	} type;
-	*/
+
 	int sub_indexed_to = -1;
-	//Info_Registry<Index_Info> indexes;
 	std::vector<Sub_Indexing_Info> indexes;
-	//int                       n_dim1;
-	int get_count() {
-		//if(type == Type::named) return indexes.count();
-		//return n_dim1;
-		return indexes[0].get_count(); //TODO!
+	int get_count(int index_of_super) {
+		return indexes[index_of_super].get_count();
 	}
-	
-	Index_Set_Info() /*: n_dim1(0), type(Type::none)*/ {} // indexes.resize(1); }
+	int get_max_count() {
+		int max = -1;
+		for(auto &idxs : indexes) max = std::max(max, idxs.get_count());
+		return max;
+	}
 };
 
 struct Component_Info : Info_Type_Base {

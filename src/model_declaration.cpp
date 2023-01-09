@@ -1124,12 +1124,24 @@ process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope,
 	//TODO: index set type (maybe)
 	int which = match_declaration(decl, {
 		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, Decl_Type::index_set}
-	});
+	}, 0, true, -1);
 	auto id        = model->index_sets.standard_declaration(scope, decl);
-	if(which == 1) {
-		auto index_set = model->index_sets[id];
-		index_set->sub_indexed_to = resolve_argument<Reg_Type::index_set>(model, scope, decl, 1);
+	
+	// NOTE: the reason we do it this way is to force the higher index set to have a smaller Entity_Id. This is very useful in processing code later.
+	if(decl->bodies.size() > 0) {
+		if(decl->bodies.size() != 1) {
+			decl->bodies[1]->opens_at.print_error_header();
+			fatal_error("It is not allowed to have more than one declaration body to an index set");
+		}
+		auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
+		for(auto child : body->child_decls) {
+			if(child->type != Decl_Type::index_set) {
+				child->source_loc.print_error_header();
+				fatal_error("Only 'index_set' declarations are allowed in the body of another index_set declaration.");
+			}
+			auto sub_id = process_declaration<Reg_Type::index_set>(model, scope, child);
+			model->index_sets[sub_id]->sub_indexed_to = id;
+		}
 	}
 	return id;
 }
@@ -1201,8 +1213,12 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	for(int idx = 0; idx < decl->args.size(); ++idx) {
 		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
 		auto index_set = model->index_sets[id];
-		if(is_valid(index_set->sub_indexed_to))
-			component->index_sets.push_back(index_set->sub_indexed_to);
+		if(is_valid(index_set->sub_indexed_to)) {
+			if(idx == 0 || component->index_sets[idx-1] != index_set->sub_indexed_to) {
+				index_set->source_loc.print_error_header();
+				fatal_error("This index set is sub-indexed to another index set, but it doesn't immediately follow that other index set in the 'distribute' declaration.");
+			}
+		}
 		component->index_sets.push_back(id);
 	}
 }

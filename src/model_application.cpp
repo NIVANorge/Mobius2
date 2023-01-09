@@ -730,12 +730,13 @@ Model_Application::save_to_data_set() {
 	
 	// NOTE : For now we just write back the parameter values and index sets. Eventually we should write the entire structure when necessary.
 
+	/*
 	for(Entity_Id index_set_id : model->index_sets) {
 		auto index_set = model->index_sets[index_set_id];
 		auto index_set_info = data_set->index_sets.find(index_set->name);
 		if(!index_set_info)
 			index_set_info = data_set->index_sets.create(index_set->name, {});
-		index_set_info->indexes.clear();
+		index_set_info->indexes[0].indexes.clear();
 		if(index_names[index_set_id.id].empty()) {
 			index_set_info->indexes[0].n_dim1 = get_index_count(index_set_id).index;
 			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::numeric1;
@@ -745,6 +746,7 @@ Model_Application::save_to_data_set() {
 			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::named;
 		}
 	}
+	*/
 	
 	// Hmm, this is a bit cumbersome
 	for(int idx = -1; idx < model->modules.count(); ++idx) {

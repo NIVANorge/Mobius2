@@ -1,0 +1,19 @@
+index_set("I") [ 3 ]
+
+index_set("J", "I") [
+	0 : ["A" "B" "C"]
+	1 : ["D" "E" "F"]
+	2 : [ 3 ]
+]
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1990-01-01 ]
+
+	par_datetime("End date")
+	[ 1995-05-01 ]
+}
+
+#module("So very simple", 0, 0, 1) {
+#	
+#}

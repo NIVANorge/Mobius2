@@ -99,13 +99,42 @@ print_tabs(FILE *file, int ntabs) {
 	}
 }
 
+int
+get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Source_Location *error_loc = nullptr){
+	int count = 1;
+	for(int level = index_sets.size()-1; level >= 0; --level) {
+		auto index_set = data_set->index_sets[index_sets[level]];
+		if(index_set->sub_indexed_to >= 0) {
+			if(level == 0 || index_sets[level-1] != index_set->sub_indexed_to) {
+				if(error_loc) error_loc->print_error_header();
+				fatal_error("Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
+					data_set->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't immediately follow the latter.");
+			}
+			int sum = 0;
+			for(auto &idxs : index_set->indexes) sum += idxs.get_count();
+			count *= sum;
+			level--;     // NOTE; in this sum we automatically count the size of the parent index set, so we have to skip it.
+		} else {
+			count *= index_set->get_max_count();
+		}
+	}
+	return count;
+}
+
 void
-write_parameter_recursive(FILE *file, Par_Info &par, int level, int *offset, std::vector<int> &index_counts, int tabs) {
+write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int level, int parent_idx, int *offset, const std::vector<int> &index_sets, int tabs) {
 	
-	int count = index_counts[index_counts.size() - level - 1];
+	int count = 1;
+	if(!index_sets.empty()) {
+		auto index_set = data_set->index_sets[index_sets[level]];
+		if(index_set->sub_indexed_to >= 0) //NOTE: We already checked that this was the one directly above in the get_instance_count call.
+			count = index_set->get_count(parent_idx);
+		else
+			count = index_set->get_max_count();
+	}
 	
-	if(level == 0) {
-		if(index_counts.size() != 1)
+	if(index_sets.empty() || level == (int)index_sets.size()-1) {
+		if(index_sets.size() > 1)
 			print_tabs(file, tabs);
 		for(int idx = 0; idx < count; ++idx) {
 			int val_idx = (*offset)++;
@@ -136,7 +165,7 @@ write_parameter_recursive(FILE *file, Par_Info &par, int level, int *offset, std
 		}
 	} else {
 		for(int idx = 0; idx < count; ++idx) {
-			write_parameter_recursive(file, par, level-1, offset, index_counts, tabs);
+			write_parameter_recursive(file, data_set, par, level-1, idx, offset, index_sets, tabs);
 			fprintf(file, "\n");
 			if(level >= 2)
 				fprintf(file, "\n");
@@ -147,22 +176,15 @@ write_parameter_recursive(FILE *file, Par_Info &par, int level, int *offset, std
 void
 write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_group, Par_Info &par, int tabs, bool double_newline = true) {
 	
-	int total_count = 1;
-	std::vector<int> index_counts(par_group.index_sets.size());
-	if(index_counts.size() > 0) {
-		for(int idx = 0; idx < index_counts.size(); ++idx) {
-			index_counts[idx] = data_set->index_sets[par_group.index_sets[idx]]->get_count();
-			total_count *= index_counts[idx];
-		}
-	} else
-		index_counts.push_back(1);  // There is a single non-indexed value
+	int n_dims = std::min(1, (int)par_group.index_sets.size());
 	
-	if((par.type == Decl_Type::par_enum && total_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && total_count != par.values.size()))
+	int expect_count = get_instance_count(data_set, par_group.index_sets);
+	if((par.type == Decl_Type::par_enum && expect_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && expect_count != par.values.size()))
 		fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par.name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
 	
 	print_tabs(file, tabs);
 	fprintf(file, "%s(\"%s\")", name(par.type), par.name.data());
-	if(index_counts.size() == 1) {
+	if(n_dims == 1) {
 		fprintf(file, "\n");
 		print_tabs(file, tabs);
 		fprintf(file, "[ ");
@@ -171,9 +193,9 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 	}
 	
 	int offset = 0;
-	write_parameter_recursive(file, par, index_counts.size()-1, &offset, index_counts, tabs+1);
+	write_parameter_recursive(file, data_set, par, 0, -1, &offset, par_group.index_sets, tabs+1);
 	
-	if(index_counts.size() != 1)
+	if(n_dims != 1)
 		print_tabs(file, tabs);
 	fprintf(file, "]\n");
 	if(double_newline)
@@ -307,7 +329,7 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 		int idx = -1;
 		if(index_names[pos].type == Token_Type::integer) {
 			idx = index_names[pos].val_int;
-			if(idx < 0 || idx >= index_set->get_count()) {
+			if(idx < 0 || idx >= index_set->get_max_count()) {   //TODO: Don't use max count
 				index_names[pos].print_error_header();
 				fatal_error("Index out of bounds.");
 			}
@@ -577,7 +599,6 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 	auto name = single_arg(decl, 0);
 	auto group = module->par_groups.create(name->string_value, name->source_loc);
 	
-	int expect_count = 1;
 	Token token = stream->peek_token();
 	std::vector<Token> list;
 	if((char)token.type == '[') {
@@ -590,10 +611,10 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 			for(Token &item : list) {
 				int index_set_idx = data_set->index_sets.expect_exists_idx(&item, "index_set");
 				group->index_sets.push_back(index_set_idx);
-				expect_count *= data_set->index_sets[index_set_idx]->get_count();
 			}
 		}
 	}
+	int expect_count = get_instance_count(data_set, group->index_sets, &decl->source_loc);
 	
 	stream->expect_token('{');
 	while(true) {
@@ -642,7 +663,7 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 		{
 			{Token_Type::quoted_string},
 			{Token_Type::quoted_string, Token_Type::quoted_string},
-		}, 0, false);
+		}, 0, false, 0);
 				
 	auto name = single_arg(decl, 0);
 	auto data = data_set->index_sets.create(name->string_value, name->source_loc);
@@ -655,7 +676,7 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 			decl->source_loc.print_error_header();
 			fatal_error("We currently don't support sub-indexing under an index set that is itself sub-indexed.");
 		}
-		data->indexes.resize(sub_indexed_to->indexes[0].get_count());
+		data->indexes.resize(sub_indexed_to->get_max_count()); // NOTE: Should be correct to use max count since what we are sub-indexed to can't itself be sub-indexed.
 	}
 	
 	auto peek = stream->peek_token(1);
@@ -676,9 +697,9 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 					indexed_under = sub_indexed_to->indexes[0].indexes.expect_exists_idx(&token, "index");
 				else if(token.type == Token_Type::integer) {
 					indexed_under = token.val_int;
-					if(indexed_under < 0 || indexed_under >= sub_indexed_to->indexes[0].get_count()) {
+					if(indexed_under < 0 || indexed_under >= sub_indexed_to->get_max_count()) { //NOTE: correct to use max_count. See above
 						token.print_error_header();
-						fatal_error("Index is out of bounds for the index set.");
+						fatal_error("Index is out of bounds for the index set \"", sub_indexed_to->name, "\".");
 					}
 				} else {
 					token.print_error_header();
@@ -702,6 +723,16 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 	if (!found_sub_indexes && (data->sub_indexed_to >= 0)) {
 		decl->source_loc.print_error_header();
 		fatal_error("Missing sub-indexes for a sub-indexed index set.");
+	}
+	
+	for(auto &idxs : data->indexes) {
+		if(idxs.get_count() <= 0) {
+			decl->source_loc.print_error_header();
+			if(data->sub_indexed_to >= 0)
+				fatal_error("Did not get an index set for all indexes of the parent index set.");
+			else
+				fatal_error("Empty index set.");
+		}
 	}
 	
 	if(!found_sub_indexes) {

@@ -1,0 +1,24 @@
+
+model("Yet another simple") {
+
+	a : compartment("A")
+	
+	module("So very very simple", 0, 0, 1) {
+		
+		a : compartment("A")
+		
+		a.par_group("Bla") {
+			b : par_real("B", [], 0)
+		}
+		
+		a.has(hmm : property("Hmm"), []) {
+			b * 5
+		}
+	}
+	
+	i : index_set("I") {
+		j : index_set("J")
+	}
+	
+	a.distribute(i, j)
+}
