@@ -171,8 +171,6 @@ struct Storage_Structure {
 	std::unordered_map<Handle_T, s32, Hash_Fun<Handle_T>> handle_is_in_array;
 	std::vector<Multi_Array_Structure<Handle_T>> structure;
 	
-	//TODO: need much more error checking in these!
-	
 	void set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure);
 	
 	s64 get_offset_base(Handle_T handle);
@@ -333,13 +331,17 @@ public :
 	bool                                                     is_compiled = false;
 	std::vector<Entity_Id>                                   baked_parameters;
 	
-	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes);
-	void set_indexes(Entity_Id index_set, int count);
-	Index_T get_index_count(Entity_Id index_set);
+	void set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx = invalid_index);
+	void set_indexes(Entity_Id index_set, int count, Index_T parent_idx = invalid_index);
+	//Index_T get_index_count(Entity_Id index_set);
+	Index_T get_max_index_count(Entity_Id index_set);
+	Index_T get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes);
+	Index_T get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes);
 	Index_T get_index(Entity_Id index_set, const std::string &name);
 	std::string get_index_name(Index_T index);
 	std::string get_possibly_quoted_index_name(Index_T index);
 	bool all_indexes_are_set();
+	s64 active_instance_count(const std::vector<Entity_Id> &index_sets); // TODO: consider putting this on the Storage_Structure instead.
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
 	
@@ -399,8 +401,10 @@ Index_Exprs {
 
 inline void
 check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
+	//TODO: This makes sure we are not out of bounds of the data, but it could still be
+	//incorrect for sub-indexed things.
 	if(index_set != index.index_set ||
-		index.index < 0 || index.index >= app->get_index_count(index_set).index)
+		index.index < 0 || index.index >= app->get_max_index_count(index_set).index)
 			fatal_error(Mobius_Error::internal, "Mis-indexing in one of the get_offset functions.");
 }
 
@@ -409,7 +413,7 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 	s64 offset = 0;
 	for(auto &index_set : index_sets) {
 		check_index_bounds(app, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_index_count(index_set).index;
+		offset *= (s64)app->get_max_index_count(index_set).index;
 		offset += (s64)indexes[index_set.id].index;
 	}
 	return (s64)offset*handles.size() + get_offset_base(handle);
@@ -422,7 +426,7 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 	bool once = false;
 	for(auto &index_set : index_sets) {
 		check_index_bounds(app, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_index_count(index_set).index;
+		offset *= (s64)app->get_max_index_count(index_set).index;
 		s64 index = (s64)indexes[index_set.id].index;
 		if(index_set == mat_col.index_set) {
 			if(once)
@@ -444,7 +448,7 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 		check_index_bounds(app, index_set, indexes[idx]);
 		auto &index = indexes[idx];
 		//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
-		offset *= (s64)app->get_index_count(index_set).index;
+		offset *= (s64)app->get_max_index_count(index_set).index;
 		offset += (s64)index.index;
 		++idx;
 	}
@@ -475,7 +479,7 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 		if(idx == 0)
 			result = index;
 		else {
-			result = make_binop('*', result, make_literal((s64)app->get_index_count(index_set).index));
+			result = make_binop('*', result, make_literal((s64)app->get_max_index_count(index_set).index));
 			result = make_binop('+', result, index);
 		}
 	}
@@ -488,7 +492,7 @@ template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::instance_count(Model_Application *app) {
 	s64 count = 1;
 	for(auto &index_set : index_sets)
-		count *= (s64)app->get_index_count(index_set).index;
+		count *= (s64)app->get_max_index_count(index_set).index;
 	return count;
 }
 
@@ -587,13 +591,13 @@ for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::f
 	Entity_Id index_set = indexes[level].index_set;
 	
 	if(level == indexes.size()-1) {
-		for(int idx = 0; idx < self->parent->get_index_count(index_set).index; ++idx) {
+		for(int idx = 0; idx < self->parent->get_index_count_alternate(index_set, indexes).index; ++idx) {
 			indexes[level].index = idx;
 			s64 offset = self->get_offset_alternate(handle, indexes);
 			do_stuff(indexes, offset);
 		}
 	} else {
-		for(int idx = 0; idx < self->parent->get_index_count(index_set).index; ++idx) {
+		for(int idx = 0; idx < self->parent->get_index_count_alternate(index_set, indexes).index; ++idx) {
 			indexes[level].index = idx;
 			for_each_helper(self, handle, do_stuff, indexes, level+1);
 		}

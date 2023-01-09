@@ -299,9 +299,9 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		}
 		
 		// TODO: just print a warning and fill in default values (or trim off values) ?
-		s64 expect_count = app->parameter_structure.instance_count(par_id);
-		s64 got_count = par.get_count();
-		if(expect_count != got_count)
+		//s64 expect_count = app->parameter_structure.instance_count(par_id);
+		s64 expect_count = app->active_instance_count(app->parameter_structure.get_index_sets(par_id));
+		if(expect_count != par.get_count())
 			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly).");
 		
 		int idx = 0;
@@ -413,27 +413,92 @@ void
 process_series(Model_Application *app, Series_Set_Info *series_info, Date_Time end_date);
 
 void
-Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &indexes) {
-	index_counts[index_set.id] = { Index_T {index_set, (s32)indexes.size()} };
-	index_names[index_set.id].resize(indexes.size());
-	s32 idx = 0;
-	for(auto index : indexes) {
-		index_names_map[index_set.id][index] = Index_T {index_set, idx};
-		index_names[index_set.id][idx] = index;
-		++idx;
+Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx) {
+	auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
+	if(is_valid(sub_indexed_to)) {
+		//TODO: If parent_idx is invalid, we could maybe just set the same index set to all instances of the parent.
+		warning_print("Names for sub-indexed index sets are not yet supported. Replacing with numerical indexes.");
+		set_indexes(index_set, (int)indexes.size(), parent_idx);
+	} else {
+		index_counts[index_set.id] = { Index_T {index_set, (s32)indexes.size()} };
+		index_names[index_set.id].resize(indexes.size());
+		s32 idx = 0;
+		for(auto index : indexes) {
+			index_names_map[index_set.id][index] = Index_T {index_set, idx};
+			index_names[index_set.id][idx] = index;
+			++idx;
+		}
 	}
 }
 
 void
-Model_Application::set_indexes(Entity_Id index_set, int count) {
-	index_counts[index_set.id] = { Index_T {index_set, (s32)count} };
+Model_Application::set_indexes(Entity_Id index_set, int count, Index_T parent_idx) {
+	
 	index_names[index_set.id].clear();
+	auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
+	if(is_valid(sub_indexed_to)) {
+		//TODO: If parent_idx is invalid, we could maybe just set the same index set to all instances of the parent.
+		if(parent_idx.index_set != sub_indexed_to)
+			fatal_error(Mobius_Error::internal, "Mis-matched parent index in set_indexes.");
+		auto &counts = index_counts[index_set.id];
+		s64 parent_count = get_max_index_count(sub_indexed_to).index;
+		if(!parent_count)
+			fatal_error(Mobius_Error::internal, "Tried to set indexes of an index set that was sub-indexed before setting the indexes of the parent.");
+		counts.resize(parent_count, {index_set, 0});
+		counts[parent_idx.index].index = count;
+	} else {
+		index_counts[index_set.id] = { Index_T {index_set, (s32)count} };
+	}
 }
 
 Index_T
-Model_Application::get_index_count(Entity_Id index_set) {
+Model_Application::get_max_index_count(Entity_Id index_set) {
 	auto &count = index_counts[index_set.id];
-	return count.empty() ? Index_T {index_set, 0} : count[0];
+	if(count.empty()) return Index_T {index_set, 0};
+	Index_T max = count[0];
+	for(auto &c : count) max = std::max(max, c);
+	return max;
+}
+
+Index_T
+Model_Application::get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes) {
+	auto set = model->index_sets[index_set];
+	if(is_valid(set->sub_indexed_to))
+		return index_counts[index_set.id][indexes[sub_indexed_to.id].index];
+	return index_counts[index_set.id][0];
+}
+
+Index_T
+Model_Application::get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes) {
+	auto set = model->index_sets[index_set];
+	if(is_valid(set->sub_indexed_to)) {
+		for(auto &index : indexes) {
+			if(index.index_set == set->sub_indexed_to)
+				return index_counts[index_set.id][index.index];
+		}
+		fatal_error(Mobius_Error::internal, "get_index_count_alternate: Did not find the index of the parent index set for a sub-indexed index set.");
+	} 
+	return index_counts[index_set.id][0];
+}
+
+s64
+Model_Application::active_instance_count(const std::vector<Entity_Id> &index_sets) {
+	s64 count = 1;
+	if(index_sets.empty()) return count;
+	
+	for(int idx = (int)index_sets.size()-1; idx >= 0; --idx) {
+		auto index_set = model->index_sets[index_sets[idx]];
+		if(is_valid(index_set->sub_indexed_to)) {
+			if(idx == 0 || index_set->sub_indexed_to != index_sets[idx-1])
+				fatal_error(Mobius_Error::internal, "Got a sub-indexed index set that was not ordered right after its parent index set.");
+			s64 sum = 0;
+			for(Index_T &c : index_counts[index_sets[idx].id]) sum += c.index;
+			count *= sum;
+			idx--; // NOTE: The sum already takes into account the size of the parent index set, so we skip it.
+		} else
+			count *= get_max_index_count(index_sets[idx]).index;
+	}
+	return count;
 }
 
 Index_T
@@ -453,7 +518,7 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 
 std::string
 Model_Application::get_index_name(Index_T index) {
-	if(!is_valid(index) || index.index < 0 || index.index > get_index_count(index.index_set).index)
+	if(!is_valid(index) || index.index < 0 || index.index > get_max_index_count(index.index_set).index) // TODO :no_get_max_index_count
 		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
 	if(index_names[index.index_set.id].empty()) {
 		char buf[16];
@@ -642,22 +707,32 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			index_set.loc.print_error_header();
 			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		}
-		if(index_set.indexes[0].type == Sub_Indexing_Info::Type::named) {
-			std::vector<std::string> names;
-			names.reserve(index_set.indexes[0].indexes.count());
-			for(auto &index : index_set.indexes[0].indexes)
-				names.push_back(index.name);
-			set_indexes(id, names);
-		} else if (index_set.indexes[0].type == Sub_Indexing_Info::Type::numeric1) {
-			set_indexes(id, index_set.indexes[0].n_dim1);
-		} else
-			fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
-		
+		Entity_Id sub_indexed_to = invalid_entity_id;
+		if(index_set.sub_indexed_to >= 0)
+			sub_indexed_to = model->index_sets.find_by_name(data_set->index_sets[index_set.sub_indexed_to]->name);
+		if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
+			index_set.loc.print_error_header();
+			fatal_error("This index set has data that is sub-indexed to another index set, but the same sub-indexing is not declared in the model.");
+		}
+		for(int idx = 0; idx < index_set.indexes.size(); ++idx) {
+			auto &idxs = index_set.indexes[idx];
+			Index_T parent_idx = { sub_indexed_to, idx };
+			if(idxs.type == Sub_Indexing_Info::Type::named) {
+				std::vector<std::string> names;
+				names.reserve(idxs.indexes.count());
+				for(auto &index : idxs.indexes)
+					names.push_back(index.name);
+				set_indexes(id, names, parent_idx);
+			} else if (idxs.type == Sub_Indexing_Info::Type::numeric1) {
+				set_indexes(id, idxs.n_dim1, parent_idx);
+			} else
+				fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
+		}
 	}
 	
 	std::vector<std::string> gen_index = { "(generated)" };
 	for(auto index_set : model->index_sets) {
-		if(get_index_count(index_set).index == 0)
+		if(get_max_index_count(index_set).index == 0)
 			set_indexes(index_set, gen_index);
 	}
 	

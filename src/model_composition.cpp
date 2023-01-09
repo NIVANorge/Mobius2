@@ -661,7 +661,7 @@ compose_and_resolve(Model_Application *app) {
 		auto par = model->parameters[par_id];
 		if(par->decl_type == Decl_Type::par_bool || par->decl_type == Decl_Type::par_enum) {
 			s64 count = app->parameter_structure.instance_count(par_id);
-			if(app->parameter_structure.instance_count(par_id) == 1) {// TODO: Would like to get rid of this requirement, but without it we may end up needing a separate code tree per index tuple for a given state variable :(
+			if(count == 1) {// TODO: Would like to get rid of this requirement, but without it we may end up needing a separate code tree per index tuple for a given state variable :(
 				app->baked_parameters.push_back(par_id);
 				//warning_print("Baking parameter \"", par->name, "\".\n");
 			}

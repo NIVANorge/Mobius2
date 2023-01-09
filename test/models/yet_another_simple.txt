@@ -8,7 +8,7 @@ model("Yet another simple") {
 		a : compartment("A")
 		
 		a.par_group("Bla") {
-			b : par_real("B", [], 2)
+			b : par_real("B", [], -1)
 		}
 		
 		a.has(hmm : property("Hmm"), []) {
