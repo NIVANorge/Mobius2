@@ -344,6 +344,7 @@ public :
 	std::string get_possibly_quoted_index_name(Index_T index);
 	bool all_indexes_are_set();
 	s64 active_instance_count(const std::vector<Entity_Id> &index_sets); // TODO: consider putting this on the Storage_Structure instead.
+	bool is_in_bounds(std::vector<Index_T> &indexes); // same?
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
 	

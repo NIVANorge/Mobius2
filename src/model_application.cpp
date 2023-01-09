@@ -522,6 +522,15 @@ Model_Application::active_instance_count(const std::vector<Entity_Id> &index_set
 	return count;
 }
 
+bool
+Model_Application::is_in_bounds(std::vector<Index_T> &indexes) {
+	for(auto &index : indexes) {
+		if(is_valid(index) && index >= get_index_count(index.index_set, indexes))  // NOTE: We should NOT check for index.index < 0, since that just means that this index is not set right now.
+			return false;
+	}
+	return true;
+}
+
 Index_T
 Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	auto &map = index_names_map[index_set.id];
@@ -539,7 +548,7 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 
 std::string
 Model_Application::get_index_name(Index_T index) {
-	if(!is_valid(index) || index.index < 0 || index.index > get_max_index_count(index.index_set).index) // TODO :no_get_max_index_count
+	if(!is_valid(index) || index.index < 0 || index.index > get_max_index_count(index.index_set).index) // TODO : it is ok now since we only allow named index sets for indexes that are not sub-indexed.
 		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
 	if(index_names[index.index_set.id].empty()) {
 		char buf[16];
