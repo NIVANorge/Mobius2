@@ -189,11 +189,11 @@ llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *scope, st
 
 void
 jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
-	auto int_64_ty      = llvm::Type::getInt64Ty(*data->context);
-	auto conn_array_ty = llvm::ArrayType::get(int_64_ty, constants->connection_data_count);
+	auto int_32_ty      = llvm::Type::getInt32Ty(*data->context);
+	auto conn_array_ty = llvm::ArrayType::get(int_32_ty, constants->connection_data_count);
 	std::vector<llvm::Constant *> values(constants->connection_data_count);
 	for(s64 idx = 0; idx < values.size(); ++idx)
-		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(64, constants->connection_data[idx], true));
+		values[idx] = llvm::ConstantInt::get(*data->context, llvm::APInt(32, constants->connection_data[idx], true));
 	auto const_array_init = llvm::ConstantArray::get(conn_array_ty, values);
 	//NOTE: we are not responsible for the ownership of this one even though we allocate it with new.
 	data->global_connection_data = new llvm::GlobalVariable(
@@ -600,8 +600,9 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = find_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
 			} else if(ident->variable_type == Variable_Type::connection_info) {
-				result = data->builder->CreateGEP(int_64_ty, data->global_connection_data, offset, "connection_info_lookup");
-				result = data->builder->CreateLoad(int_64_ty, result, "connection_info");
+				result = data->builder->CreateGEP(int_32_ty, data->global_connection_data, offset, "connection_info_lookup");
+				result = data->builder->CreateLoad(int_32_ty, result, "connection_info");
+				result = data->builder->CreateSExt(result, int_64_ty, "connection_info_cast");
 			}
 			#define TIME_VALUE(name, bits) \
 			else if(++struct_pos, ident->variable_type == Variable_Type::time_##name) { \

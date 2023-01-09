@@ -7,7 +7,7 @@
 
 struct
 LLVM_Constant_Data {
-	s64 *connection_data;
+	s32 *connection_data;
 	s64 connection_data_count;
 };
 

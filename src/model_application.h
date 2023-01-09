@@ -243,7 +243,7 @@ struct Model_Data {
 	Data_Storage<Parameter_Value, Entity_Id>  parameters;
 	Data_Storage<double, Var_Id>              series;
 	Data_Storage<double, Var_Id>              results;
-	Data_Storage<s64, Connection_T>           connections;
+	Data_Storage<s32, Connection_T>           connections;
 	Data_Storage<double, Var_Id>              additional_series;
 	
 	Model_Data *copy(bool copy_results = true);

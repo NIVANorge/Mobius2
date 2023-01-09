@@ -464,7 +464,7 @@ Index_T
 Model_Application::get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes) {
 	auto set = model->index_sets[index_set];
 	if(is_valid(set->sub_indexed_to))
-		return index_counts[index_set.id][indexes[sub_indexed_to.id].index];
+		return index_counts[index_set.id][indexes[set->sub_indexed_to.id].index];
 	return index_counts[index_set.id][0];
 }
 
@@ -675,12 +675,12 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 				indexes.push_back(index);
 			}
 			s64 offset = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 0}, indexes);
-			*app->data.connections.get_value(offset) = target_comp_id.id;
+			*app->data.connections.get_value(offset) = (s32)target_comp_id.id;
 			
 			for(int idx = 0; idx < arr.second.indexes.size(); ++idx) {
 				int id = idx+1;
 				s64 offset = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, id}, indexes);
-				*app->data.connections.get_value(offset) = (s64)arr.second.indexes[idx];
+				*app->data.connections.get_value(offset) = (s32)arr.second.indexes[idx];
 			}
 		}
 		
