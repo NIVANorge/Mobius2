@@ -147,6 +147,10 @@ Par_Info : Info_Type_Base {
 	Decl_Type type;
 	std::vector<Parameter_Value> values;
 	std::vector<std::string> values_enum; // Can't resolve them to int without knowledge of the model, which we on purpose don't have here.
+	int get_count() {
+		if(type == Decl_Type::par_enum) return values_enum.size();
+		else                            return values.size();
+	}
 };
 
 struct

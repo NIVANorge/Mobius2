@@ -1,6 +1,6 @@
 index_set("I") [ 3 ]
 
-index_set("J", "I") [
+index_set("I", "J") [
 	0 : ["A" "B" "C"]
 	1 : ["D" "E" "F"]
 	2 : [ 3 ]
@@ -14,6 +14,12 @@ par_group("System") {
 	[ 1995-05-01 ]
 }
 
-#module("So very simple", 0, 0, 1) {
-#	
-#}
+module("So very very simple", 0, 0, 1) {
+	par_group("Bla") ["I" "J"] {
+		par_real("B") [
+			0 1 2
+			3 4 5
+			6 7 8
+		]
+	}
+}

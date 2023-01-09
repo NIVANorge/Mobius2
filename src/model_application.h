@@ -397,11 +397,18 @@ Index_Exprs {
 	}
 };
 
+inline void
+check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
+	if(index_set != index.index_set ||
+		index.index < 0 || index.index >= app->get_index_count(index_set).index)
+			fatal_error(Mobius_Error::internal, "Mis-indexing in one of the get_offset functions.");
+}
+
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
 	s64 offset = 0;
 	for(auto &index_set : index_sets) {
-		//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
+		check_index_bounds(app, index_set, indexes[index_set.id]);
 		offset *= (s64)app->get_index_count(index_set).index;
 		offset += (s64)indexes[index_set.id].index;
 	}
@@ -414,6 +421,7 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 	s64 offset = 0;
 	bool once = false;
 	for(auto &index_set : index_sets) {
+		check_index_bounds(app, index_set, indexes[index_set.id]);
 		offset *= (s64)app->get_index_count(index_set).index;
 		s64 index = (s64)indexes[index_set.id].index;
 		if(index_set == mat_col.index_set) {
@@ -433,9 +441,8 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 	s64 offset = 0;
 	int idx = 0;
 	for(auto &index_set : index_sets) {
+		check_index_bounds(app, index_set, indexes[idx]);
 		auto &index = indexes[idx];
-		if(index.index_set != index_set)
-			fatal_error(Mobius_Error::internal, "Got mismatching index sets to get_offset_alternate().");
 		//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
 		offset *= (s64)app->get_index_count(index_set).index;
 		offset += (s64)index.index;
@@ -604,10 +611,7 @@ Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(
 		return;
 	}
 	indexes.resize(index_sets.size());
-	for(int level = 0; level < index_sets.size(); ++level) {
-		indexes[level].index_set = index_sets[level];
-		indexes[level].index = 0;
-	}
+	for(int level = 0; level < index_sets.size(); ++level) indexes[level] = Index_T { index_sets[level], 0 };
 	for_each_helper(this, handle, do_stuff, indexes, 0);
 }
 

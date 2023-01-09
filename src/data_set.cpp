@@ -4,6 +4,7 @@
 #include "data_set.h"
 #include "ole_wrapper.h"
 
+// TODO: We should try to intercept errors when reading and writing to properly close files (then re-throw).
 
 void
 write_index_set_to_file(FILE *file, Index_Set_Info &index_set) {
@@ -584,7 +585,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 				fatal_error("Expected ", expect_count, " values for parameter, got ", idx, ".");
 			} else {
 				token.print_error_header();
-				fatal_error("Invalid parameter value or ] .");
+				fatal_error("Expected a parameter value or a ']'.");
 			}
 		}
 		stream->expect_token(']'); //TODO: should give better error message here, along (expected n values for parameter, ...)
@@ -665,12 +666,12 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 			{Token_Type::quoted_string, Token_Type::quoted_string},
 		}, 0, false, 0);
 				
-	auto name = single_arg(decl, 0);
+	auto name = single_arg(decl, which);
 	auto data = data_set->index_sets.create(name->string_value, name->source_loc);
 	
 	Index_Set_Info *sub_indexed_to = nullptr;
 	if(which == 1) {
-		data->sub_indexed_to = data_set->index_sets.expect_exists_idx(single_arg(decl, 1), "index_set");
+		data->sub_indexed_to = data_set->index_sets.expect_exists_idx(single_arg(decl, 0), "index_set");
 		sub_indexed_to = data_set->index_sets[data->sub_indexed_to];
 		if(sub_indexed_to->sub_indexed_to != -1) {
 			decl->source_loc.print_error_header();

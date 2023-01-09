@@ -300,7 +300,8 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		
 		// TODO: just print a warning and fill in default values (or trim off values) ?
 		s64 expect_count = app->parameter_structure.instance_count(par_id);
-		if((par.type == Decl_Type::par_enum && expect_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && expect_count != par.values.size()))
+		s64 got_count = par.get_count();
+		if(expect_count != got_count)
 			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly).");
 		
 		int idx = 0;
@@ -439,11 +440,14 @@ Index_T
 Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 	auto &map = index_names_map[index_set.id];
 	Index_T result;
-	result.index_set = invalid_entity_id;
+	result.index_set = index_set;
 	result.index = -1;  //TODO: Should we throw an error here instead?
 	auto find = map.find(name);
 	if(find != map.end())
 		return find->second;
+	else {
+		result.index = atoi(name.data()); //TODO: this is not robust.
+	}
 	return result;
 }
 
@@ -579,7 +583,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data, and no other data.");
 		}
 	} else
-		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
+		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in pre_process_connection_data().");
 }
 
 void
@@ -638,8 +642,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			index_set.loc.print_error_header();
 			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		}
-		std::vector<std::string> names;
 		if(index_set.indexes[0].type == Sub_Indexing_Info::Type::named) {
+			std::vector<std::string> names;
 			names.reserve(index_set.indexes[0].indexes.count());
 			for(auto &index : index_set.indexes[0].indexes)
 				names.push_back(index.name);
@@ -827,7 +831,7 @@ Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
 		size_t sz = alloc_size();
 		data = (Val_T *) malloc(sz);
 		is_owning = true;
-	} 
+	}
 	size_t sz = alloc_size();
 	memset(data, 0, sz);
 }
