@@ -4,8 +4,6 @@
 #include "data_set.h"
 #include "ole_wrapper.h"
 
-// TODO: We should try to intercept errors when reading and writing to properly close files (then re-throw).
-
 void
 write_index_set_indexes_to_file(FILE *file, Sub_Indexing_Info *info) {
 	fprintf(file, "[ ");
@@ -286,31 +284,40 @@ Data_Set::write_to_file(String_View file_name) {
 	
 	FILE *file = open_file(file_name, "w");
 	
-	if(!doc_string.empty()) {
-		fprintf(file, "\"\"\"\n%s\n\"\"\"\n\n", doc_string.data());
+	bool error = false;
+	try {
+		if(!doc_string.empty()) {
+			fprintf(file, "\"\"\"\n%s\n\"\"\"\n\n", doc_string.data());
+		}
+		
+		if(time_step_was_provided) {
+			fatal_error(Mobius_Error::internal, "Saving time step to file not implemented");
+		}
+		
+		for(auto &index_set : index_sets)
+			write_index_set_to_file(file, this, index_set);
+		
+		for(auto &connection : connections)
+			write_connection_info_to_file(file, connection, this);
+		
+		std::set<std::string> already_processed;
+		for(auto &ser : series)
+			write_series_to_file(file, main_file, ser, already_processed);
+		
+		for(auto &par_group : global_module.par_groups)
+			write_par_group_to_file(file, this, par_group, 0);
+		
+		for(auto &module : modules)
+			write_module_to_file(file, this, module);
+		
+	} catch(int) {
+		error = true;
 	}
-	
-	if(time_step_was_provided) {
-		fatal_error(Mobius_Error::internal, "Saving time step to file not implemented");
-	}
-	
-	for(auto &index_set : index_sets)
-		write_index_set_to_file(file, this, index_set);
-	
-	for(auto &connection : connections)
-		write_connection_info_to_file(file, connection, this);
-	
-	std::set<std::string> already_processed;
-	for(auto &ser : series)
-		write_series_to_file(file, main_file, ser, already_processed);
-	
-	for(auto &par_group : global_module.par_groups)
-		write_par_group_to_file(file, this, par_group, 0);
-	
-	for(auto &module : modules)
-		write_module_to_file(file, this, module);
 	
 	fclose(file);
+	
+	if(error)
+		mobius_error_exit();
 }
 
 void
@@ -352,18 +359,12 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 		token.print_error_header();
 		fatal_error("The component '", token.string_value, "' should be indexed with ", comp_data->index_sets.size(), " indexes.");
 	}
+	int prev_idx = -1;
 	for(int pos = 0; pos < index_names.size(); ++pos) {
 		auto index_set = data_set->index_sets[comp_data->index_sets[pos]];
-		int idx = -1;
-		if(index_names[pos].type == Token_Type::integer) {
-			idx = index_names[pos].val_int;
-			if(idx < 0 || idx >= index_set->get_max_count()) {   //TODO: Don't use max count
-				index_names[pos].print_error_header();
-				fatal_error("Index out of bounds.");
-			}
-		} else
-			idx = index_set->indexes[0].indexes.expect_exists_idx(&index_names[pos], "index");
+		int idx = index_set->get_index(&index_names[pos], prev_idx);
 		read_to->indexes.push_back(idx);
+		prev_idx = idx;
 	}
 }
 
@@ -383,7 +384,6 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	
 	Token token = stream->peek_token();
 	if(token.type == Token_Type::arr_r) {
-		//stream->read_token();
 		read_connection_sequence(data_set, &entry.second, stream, info);
 	} else if(token.type == Token_Type::identifier) {
 		read_connection_sequence(data_set, nullptr, stream, info);
@@ -419,15 +419,21 @@ read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *
 		int comp_id = info->components.find_idx(name->string_value);
 		data->decl_type = decl->type;
 		data->handle = decl->handle_name.string_value;
-		if(decl->handle_name.string_value.count) // It is a bit pointless to declare one without a handle, but it is maybe annoying to have to require it??
+		if(decl->handle_name.string_value.count)
 			info->component_handle_to_id[decl->handle_name.string_value] = comp_id;
 		std::vector<Token> idx_set_list;
 		read_string_list(stream, idx_set_list);
+		int prev = -1;
 		for(auto &name : idx_set_list) {
 			int ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
 			data->index_sets.push_back(ref);
+			int sub_indexed_to = data_set->index_sets[ref]->sub_indexed_to;
+			if(sub_indexed_to >= 0 && sub_indexed_to != prev) {
+				name.print_error_header();
+				fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear immediately after it on the index set list for this component declaration.");
+			}
+			prev = ref;
 		}
-		
 		delete decl;
 	}
 	
@@ -482,9 +488,8 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 					stream->read_token();
 					auto index_set = data_set->index_sets.expect_exists(&token, "index_set");
 					stream->expect_token(':');
-					token = stream->peek_token();
-					stream->expect_quoted_string();
-					int index      = index_set->indexes[0].indexes.expect_exists_idx(&token, "index");
+					token = stream->read_token();
+					int index      = index_set->get_index(&token, 0); // TODO: Set correct index for super index set if it exists. (And check for correct indexing in that regard)
 					indexes.push_back(std::pair<std::string, int>{index_set->name, index});
 					token = stream->peek_token();
 					if((char)token.type == ']') {
@@ -719,20 +724,8 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 			}
 			stream->expect_token('[');
 			while(true) {
-				int indexed_under = -1;
 				auto token = stream->read_token();
-				if(token.type == Token_Type::quoted_string)
-					indexed_under = sub_indexed_to->indexes[0].indexes.expect_exists_idx(&token, "index");
-				else if(token.type == Token_Type::integer) {
-					indexed_under = token.val_int;
-					if(indexed_under < 0 || indexed_under >= sub_indexed_to->get_max_count()) { //NOTE: correct to use max_count. See above
-						token.print_error_header();
-						fatal_error("Index is out of bounds for the index set \"", sub_indexed_to->name, "\".");
-					}
-				} else {
-					token.print_error_header();
-					fatal_error("Expected the name or number of an index.");
-				}
+				int indexed_under = sub_indexed_to->get_index(&token, 0); // NOTE: The super index set is itself not sub-indexed, hence the 0.
 				stream->expect_token(':');
 				parse_sub_indexes(&data->indexes[indexed_under], stream);
 			
@@ -781,7 +774,6 @@ Data_Set::read_from_file(String_View file_name) {
 	}
 	main_file = std::string(file_name);
 	
-	//TODO: have a file handler instead
 	auto file_data = file_handler.load_file(file_name);
 	
 	Token_Stream stream(file_name, file_data);
@@ -791,133 +783,141 @@ Data_Set::read_from_file(String_View file_name) {
 	OLE_Handles handles = {};
 #endif
 	
-	while(true) {
-		Token token = stream.peek_token();
-		if(token.type == Token_Type::eof) break;
-		else if(token.type == Token_Type::quoted_string) {
-			if(!doc_string.empty()) {
+	bool error = false;
+	try {
+		while(true) {
+			Token token = stream.peek_token();
+			if(token.type == Token_Type::eof) break;
+			else if(token.type == Token_Type::quoted_string) {
+				if(!doc_string.empty()) {
+					token.print_error_header();
+					fatal_error("Duplicate doc strings for data set.");
+				}
+				doc_string = std::string(stream.expect_quoted_string());
+				continue;
+			} else if(token.type != Token_Type::identifier) {
 				token.print_error_header();
-				fatal_error("Duplicate doc strings for data set.");
+				fatal_error("Expected an identifier (index_set, compartment, connection, series, module, par_group, or par_datetime).");
 			}
-			doc_string = std::string(stream.expect_quoted_string());
-			continue;
-		} else if(token.type != Token_Type::identifier) {
-			token.print_error_header();
-			fatal_error("Expected an identifier (index_set, compartment, connection, series, module, par_group, or par_datetime).");
-		}
-		
-		Decl_AST *decl = parse_decl_header(&stream);
-		
-		switch(decl->type) {
-			case Decl_Type::index_set : {
-				parse_index_set_decl(this, &stream, decl);
-			} break;
 			
-			case Decl_Type::connection : {
-				match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
-				
-				auto name = single_arg(decl, 0);
-				auto data = connections.create(name->string_value, name->source_loc);
-				
-				read_connection_data(this, &stream, data);
-			} break;
+			Decl_AST *decl = parse_decl_header(&stream);
 			
-			case Decl_Type::series : {
-				int which = match_declaration(decl, {{Token_Type::quoted_string}, {}}, 0, false);
-				if(which == 0) {
-					String_View other_file_name = single_arg(decl, 0)->string_value;
+			switch(decl->type) {
+				case Decl_Type::index_set : {
+					parse_index_set_decl(this, &stream, decl);
+				} break;
+				
+				case Decl_Type::connection : {
+					match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
 					
-					if(file_handler.is_loaded(other_file_name, file_name)) {
-						token.print_error_header();
-						fatal_error("The file ", other_file_name, " has already been loaded.");
-					}
+					auto name = single_arg(decl, 0);
+					auto data = connections.create(name->string_value, name->source_loc);
 					
-					bool success;
-					String_View extension = get_extension(other_file_name, &success);
-					if(success && (extension == ".xlsx" || extension == ".xls")) {
-						#if OLE_AVAILABLE
-						String_View relative = make_path_relative_to(other_file_name, file_name);
-						ole_open_spreadsheet(relative, &handles);
-						read_series_data_from_spreadsheet(this, &handles, other_file_name);
-						#else
-						single_arg(decl, 0)->print_error_header();
-						fatal_error("Spreadsheet reading is only available on Windows.");
-						#endif
-					} else {
-						String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
-						Token_Stream other_stream(other_file_name, other_data);
-						other_stream.allow_date_time_tokens = true;
+					read_connection_data(this, &stream, data);
+				} break;
+				
+				case Decl_Type::series : {
+					int which = match_declaration(decl, {{Token_Type::quoted_string}, {}}, 0, false);
+					if(which == 0) {
+						String_View other_file_name = single_arg(decl, 0)->string_value;
 						
+						if(file_handler.is_loaded(other_file_name, file_name)) {
+							token.print_error_header();
+							fatal_error("The file ", other_file_name, " has already been loaded.");
+						}
+						
+						bool success;
+						String_View extension = get_extension(other_file_name, &success);
+						if(success && (extension == ".xlsx" || extension == ".xls")) {
+							#if OLE_AVAILABLE
+							String_View relative = make_path_relative_to(other_file_name, file_name);
+							ole_open_spreadsheet(relative, &handles);
+							read_series_data_from_spreadsheet(this, &handles, other_file_name);
+							#else
+							single_arg(decl, 0)->print_error_header();
+							fatal_error("Spreadsheet reading is only available on Windows.");
+							#endif
+						} else {
+							String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
+							Token_Stream other_stream(other_file_name, other_data);
+							other_stream.allow_date_time_tokens = true;
+							
+							series.push_back({});
+							Series_Set_Info &data = series.back();
+							data.file_name = std::string(other_file_name);
+							read_series_data_block(this, &other_stream, &data);
+						}
+					} else {
+						stream.expect_token('[');
 						series.push_back({});
 						Series_Set_Info &data = series.back();
-						data.file_name = std::string(other_file_name);
-						read_series_data_block(this, &other_stream, &data);
+						data.file_name = std::string(file_name);
+						read_series_data_block(this, &stream, &data);
+						stream.expect_token(']');
 					}
-				} else {
-					stream.expect_token('[');
-					series.push_back({});
-					Series_Set_Info &data = series.back();
-					data.file_name = std::string(file_name);
-					read_series_data_block(this, &stream, &data);
-					stream.expect_token(']');
-				}
-			} break;
-			
-			case Decl_Type::par_group : {
-				parse_par_group_decl(this, &global_module, &stream, decl);
-			} break;
-
-			case Decl_Type::module : {
-				match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
-			
-				auto name = single_arg(decl, 0);
-				auto module = modules.create(name->string_value, name->source_loc);
-				module->version.major    = single_arg(decl, 1)->val_int;
-				module->version.minor    = single_arg(decl, 2)->val_int;
-				module->version.revision = single_arg(decl, 3)->val_int;
+				} break;
 				
-				stream.expect_token('{');
-				while(true) {
-					token = stream.peek_token();
-					if(token.type == Token_Type::identifier && token.string_value == "par_group") {
-						Decl_AST *decl2 = parse_decl_header(&stream);
-						parse_par_group_decl(this, module, &stream, decl2);
-						delete decl2;
-					} else if((char)token.type == '}') {
-						stream.read_token();
-						break;
-					} else {
-						token.print_error_header();
-						fatal_error("Expected a } or a par_group declaration.");
+				case Decl_Type::par_group : {
+					parse_par_group_decl(this, &global_module, &stream, decl);
+				} break;
+
+				case Decl_Type::module : {
+					match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
+				
+					auto name = single_arg(decl, 0);
+					auto module = modules.create(name->string_value, name->source_loc);
+					module->version.major    = single_arg(decl, 1)->val_int;
+					module->version.minor    = single_arg(decl, 2)->val_int;
+					module->version.revision = single_arg(decl, 3)->val_int;
+					
+					stream.expect_token('{');
+					while(true) {
+						token = stream.peek_token();
+						if(token.type == Token_Type::identifier && token.string_value == "par_group") {
+							Decl_AST *decl2 = parse_decl_header(&stream);
+							parse_par_group_decl(this, module, &stream, decl2);
+							delete decl2;
+						} else if((char)token.type == '}') {
+							stream.read_token();
+							break;
+						} else {
+							token.print_error_header();
+							fatal_error("Expected a } or a par_group declaration.");
+						}
 					}
-				}
-			} break;
-			
-			case Decl_Type::time_step : {
-				match_declaration(decl, {{Decl_Type::unit}}, 0, false);
-				Unit_Data unit;
-				set_unit_data(unit, decl->args[0]->decl);
-				bool success;
-				time_step_size = unit.to_time_step(success);
-				if(!success) {
+				} break;
+				
+				case Decl_Type::time_step : {
+					match_declaration(decl, {{Decl_Type::unit}}, 0, false);
+					Unit_Data unit;
+					set_unit_data(unit, decl->args[0]->decl);
+					bool success;
+					time_step_size = unit.to_time_step(success);
+					if(!success) {
+						decl->source_loc.print_error_header();
+						fatal_error("This is not a valid time step unit.");
+					}
+					time_step_was_provided = true;
+				} break;
+				
+				default : {
 					decl->source_loc.print_error_header();
-					fatal_error("This is not a valid time step unit.");
-				}
-				time_step_was_provided = true;
-			} break;
+					fatal_error("Did not expect a declaration of type '", name(decl->type), "' in a data set.");
+				} break;
+			}
 			
-			default : {
-				decl->source_loc.print_error_header();
-				fatal_error("Did not expect a declaration of type '", name(decl->type), "' in a data set.");
-			} break;
+			delete decl;
 		}
-		
-		delete decl;
+	} catch(int) {
+		// NOTE: Catch it so that we get to properly unload file data below.
+		error = true;
 	}
 	
 #if OLE_AVAILABLE
 	ole_close_app_and_spreadsheet(&handles);
 #endif
-	
 	file_handler.unload_all(); // Free the file data.
+	
+	if(error)
+		mobius_error_exit(); // Re-throw.
 }

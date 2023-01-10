@@ -1,9 +1,10 @@
-index_set("I") [ 3 ]
+index_set("I") [ "R" "S" "T" "U" ]
 
 index_set("I", "J") [
-	0 : [ "A" "B" "C" ]
-	1 : [ "D" "E" ]
-	2 : [ 3 ]
+	"R" : [ "A" "B" "C" ]
+	"S" : [ "D" "E" ]
+	"T" : [ 3 ]
+	"U" : [ 3 ]
 ]
 
 par_group("System") {
@@ -19,7 +20,8 @@ module("So very very simple", 0, 0, 1) {
 		par_real("B") [
 			0 1 2 
 			3 4 
-			6 7 8 
+			6 7 8
+			9 10 11
 		]
 	}
 }

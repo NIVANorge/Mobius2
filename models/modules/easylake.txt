@@ -180,20 +180,19 @@ TODO: description
 	# TODO: Some of the surface fluxes should be modified for ice
 	flux(nowhere, epi.water.heat, "Latent heat flux") {
 		l_vap := latent_heat_of_vaporization(temp) * 1e6    #TODO: figure out units, and why the multiply by 1e6 ?
-		
 		0                                                                          if epi.ice.indicator,
 		86400 * A_surf * (ced * l_vap * air.rho * air.wind * (a_hum - s_hum))      otherwise
 	}
 	
 	flux(nowhere, epi.water.heat, "Sensible heat flux") {
-		0                                                                              if epi.ice.indicator,
+		0                                                                          if epi.ice.indicator,
 		86400 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - temp))      otherwise
 	}
 	
 	epi.water.has(evap_mm : property("Evaporation per area"), [m m, day-1]) {
 		rho_ref := 1025
-		0                                                                         if epi.ice.indicator,
-		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400)*1000    otherwise
+		0                                                                          if epi.ice.indicator,
+		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400)*1000     otherwise
 	}
 	
 	evap :
@@ -202,7 +201,8 @@ TODO: description
 	}
 	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {
-		precip_t := max(0.4, air.temp)
+		#precip_t := max(0.4, air.temp)
+		precip_t := air.temp
 		water_temp_to_heat(1e-3*A_surf*air.precip, precip_t)
 		
 	}

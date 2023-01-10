@@ -103,12 +103,29 @@ Index_Set_Info : Info_Type_Base {
 	int sub_indexed_to = -1;
 	std::vector<Sub_Indexing_Info> indexes;
 	int get_count(int index_of_super) {
-		return indexes[index_of_super].get_count();
+		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+		return indexes[super].get_count();
 	}
 	int get_max_count() {
 		int max = -1;
 		for(auto &idxs : indexes) max = std::max(max, idxs.get_count());
 		return max;
+	}
+	int get_index(Token *idx_name, int index_of_super) {
+		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+		if(idx_name->type == Token_Type::quoted_string) {
+			return indexes[super].indexes.expect_exists_idx(idx_name, "index");
+		} else if (idx_name->type == Token_Type::integer) {
+			int idx = idx_name->val_int;
+			if(idx < 0 || idx >= indexes[super].get_count()) {
+				idx_name->print_error_header();
+				fatal_error("Index is out of bounds for this index set.");
+			}
+			return idx;
+		} else {
+			idx_name->print_error_header();
+			fatal_error("Only quoted strings and integers can be used to identify indexes.");
+		}
 	}
 };
 
