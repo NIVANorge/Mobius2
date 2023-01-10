@@ -38,9 +38,8 @@
 			Allow rational coefficients and powers in units.
 			Write unit back to file (only needed for time step units for now).
 		The actual unit checking system
-			Simple part - generate units and scalings for concentrations and fluxes.
 			More complicated part - check the units of everything.
-			
+				including making auto-conversion of fluxes based on their units.
 
 		Processes not specified per compartment / quantity. Can be attached to those.
 			- something like compartment_type etc.
@@ -100,6 +99,9 @@
 		
 		
 	*****************   DONE:   ***********************
+	
+	unit checking system
+		Simple part - generate units and scalings for concentrations and fluxes.
 	
 	Sub-indexing (most of it)
 		Data set formatting, read/write, interaction with Model_Application

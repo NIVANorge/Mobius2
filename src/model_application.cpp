@@ -14,12 +14,10 @@ Model_Application::Model_Application(Mobius_Model *model) :
 	index_names_map.resize(model->index_sets.count());
 	index_names.resize(model->index_sets.count());
 	
-	//for(auto index_set : model->index_sets)
-	//	index_counts[index_set.id].push_back(Index_T {index_set, 0});
-	
-	// TODO: make time step size configurable.
-	time_step_size.unit      = Time_Step_Size::second;
-	time_step_size.magnitude = 86400;
+	time_step_size.unit       = Time_Step_Size::second;
+	time_step_size.multiplier = 86400;
+	time_step_unit.declared_form.push_back({0, 1, Compound_Unit::day});
+	time_step_unit.set_standard_form();
 	
 	initialize_llvm();
 	llvm_data = create_llvm_module();

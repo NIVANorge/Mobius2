@@ -209,7 +209,7 @@ single_arg(Decl_AST *decl, int which) {
 
 //TODO: Make a general-purpose tagged union?
 struct Arg_Pattern {
-	enum class Type { value, decl, unit_literal };
+	enum class Type { value, decl };
 	Type pattern_type;
 	bool is_vararg;
 	
@@ -220,13 +220,11 @@ struct Arg_Pattern {
 	
 	Arg_Pattern(Token_Type token_type, bool is_vararg = false) : token_type(token_type), pattern_type(Type::value), is_vararg(is_vararg) {}
 	Arg_Pattern(Decl_Type decl_type, bool is_vararg = false)   : decl_type(decl_type), pattern_type(Type::decl), is_vararg(is_vararg) {}
-	Arg_Pattern() : pattern_type(Type::unit_literal) {}
 	
 	bool matches(Argument_AST *arg) const;
 	
 	void print_to_error() const {
 		switch(pattern_type) {
-			case Type::unit_literal : { error_print("(unit literal)"); } break;
 			case Type::decl :         { error_print(name(decl_type));  } break;
 			case Type::value :        { error_print(name(token_type)); } break;
 		}

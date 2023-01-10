@@ -48,9 +48,6 @@ operator-=(Rational<T> &a, const Rational<T> &b) { return a = a - b; }
 template<typename T> inline Rational<T> &
 operator*=(Rational<T> &a, const Rational<T> &b) { return a = a * b; }
 
-template<typename T> inline Rational<T>&
-operator*=(Rational<T> &a, int b) { return a = a*b; }
-
 template<typename T> inline Rational<T> &
 operator/=(Rational<T> &a, const Rational<T> &b) { return a = a / b; }
 
@@ -59,6 +56,17 @@ operator*(const Rational<T> &a, int b) { return Rational<T>(a.nom*b, a.denom); }
 
 template<typename T> inline Rational<T>
 operator*(int b, const Rational<T> &a) { return Rational<T>(a.nom*b, a.denom); }
+
+template<typename T> inline Rational<T>
+operator/(const Rational<T> &a, int b) { return Rational<T>(a.nom, a.denom*b); }
+
+template<typename T> inline Rational<T>&
+operator*=(Rational<T> &a, int b) { return a = a*b; }
+
+template<typename T> inline Rational<T>&
+operator/=(Rational<T> &a, int b) { return a = a/b; }
+
+
 
 template<typename T> inline Rational<T>
 pow_i(T a, T b) {

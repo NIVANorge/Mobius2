@@ -65,27 +65,27 @@ Function_Body_AST::~Function_Body_AST() { delete block; }
 Regex_Body_AST::~Regex_Body_AST() { delete expr; }
 
 
-bool
-is_accepted_for_chain(Token_Type type, bool identifier_only) {
-	return (identifier_only && type == Token_Type::identifier) || (!identifier_only && can_be_value_token(type));
+inline bool
+is_accepted_for_chain(Token_Type type, bool identifier_only, bool allow_slash) {
+	return (identifier_only && type == Token_Type::identifier) || (!identifier_only && (can_be_value_token(type) || (char)type == '/'));
 }
 
 void
-read_chain(Token_Stream *stream, char separator, std::vector<Token> *list_out, bool identifier_only = true) {
+read_chain(Token_Stream *stream, char separator, std::vector<Token> *list_out, bool identifier_only = true, bool allow_slash = false) {
 	while(true) {
 		Token token = stream->read_token();
 		if(token.type == Token_Type::eof) {
 			token.print_error_header();
 			fatal_error("End of file while parsing identifier chain.");  //TODO: give location of where it started.
 		}
-		if(!is_accepted_for_chain(token.type, identifier_only)) {
+		if(!is_accepted_for_chain(token.type, identifier_only, allow_slash)) {
 			token.print_error_header();
 			fatal_error("Misformatted chain: \"", token.string_value, "\".");
 		}
 		list_out->push_back(token);
 		token = stream->peek_token();
 		if(separator == ' ') {
-			if(!is_accepted_for_chain(token.type, identifier_only)) break;
+			if(!is_accepted_for_chain(token.type, identifier_only, allow_slash)) break;
 		} else {
 			if((char)token.type == separator)
 				stream->read_token();
@@ -131,7 +131,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 			break;
 		} else if(can_be_value_token(peek.type)) {
 			auto arg = new Argument_AST();
-			read_chain(stream, ' ', &arg->sub_chain, false);
+			read_chain(stream, ' ', &arg->sub_chain, false, true);
 			decl->args.push_back(arg);
 			
 			auto next = stream->peek_token();
@@ -726,13 +726,7 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 	Token_Type check_type = token_type;
 	
 	switch(pattern_type) {
-		case Type::unit_literal : {
-			int count = arg->sub_chain.size();
-			if(!arg->decl && (count == 1 || count <= 3))
-				return true; //NOTE: only potentially true. Must be properly checked in the process_unit_declaration
-			return false;
-		} break;
-	
+		
 		case Type::decl : {
 			if(arg->decl && (get_reg_type(arg->decl->type) == get_reg_type(decl_type))) return true;
 			//NOTE: we could still have an identifier that could potentially resolve to this type

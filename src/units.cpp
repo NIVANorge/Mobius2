@@ -81,13 +81,19 @@ parse_unit(std::vector<Token> *tokens) {
 			pow_idx = 1;
 		}
 		
-		//TODO: handle rationals
-		if(size == pow_idx + 1) {
+		if(size >= pow_idx + 1) {
 			if((*tokens)[pow_idx].type == Token_Type::integer)
 				result.power = (*tokens)[pow_idx].val_int;
 			else
 				error = true;
-		} else if (size > pow_idx + 1) error = true;
+			if(size == pow_idx + 3) {
+				if((char)(*tokens)[pow_idx+1].type == '/' && (*tokens)[pow_idx+2].type == Token_Type::integer)
+					result.power /= (*tokens)[pow_idx+2].val_int;
+				else
+					error = true;
+			} else if (size != pow_idx + 1)
+				error = true;
+		}
 	}
 	if(error) {
 		(*tokens)[0].print_error_header();
@@ -150,7 +156,7 @@ Unit_Data::set_standard_form() {
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled compound unit in set_standard_form().");
 		}
-		standard_form.magnitude += part.magnitude*part.power;
+		standard_form.magnitude += ((int)part.magnitude)*part.power;
 		//TODO: reduce multiplier if it is a power of 10?
 	}
 }
@@ -218,6 +224,47 @@ std::ostream &Rational<T>::operator<<(std::ostream &os) {
 	return os;
 }
 
+void
+write_utf8_superscript_char(std::ostream &ss, char c, int number = 0) {
+	if(c == '-')
+		ss << u8"\u207b";
+	else if(c == '/')      // None of these raised slashes are perfect..
+		ss << u8"\u2032";
+		//ss << u8"\u141f";
+		//ss << "´";
+	else if(c == '0' && number != 0)
+		ss << u8"\u2070";
+	else if(c == '1' && number != 1)
+		ss << u8"\u00b9";
+	else if(c == '2')
+		ss << u8"\u00b2";
+	else if(c == '3')
+		ss << u8"\u00b3";
+	else if(c == '4')
+		ss << u8"\u2074";
+	else if(c == '5')
+		ss << u8"\u2075";
+	else if(c == '6')
+		ss << u8"\u2076";
+	else if(c == '7')
+		ss << u8"\u2077";
+	else if(c == '8')
+		ss << u8"\u2078";
+	else if(c == '9')
+		ss << u8"\u2079";
+}
+
+void
+write_utf8_superscript_number(std::ostream &ss, int number) {
+	static char buf[32];
+	itoa(number, buf, 10);
+	char *c = &buf[0];
+	while(*c) {
+		write_utf8_superscript_char(ss, *c, number);
+		c++;
+	}
+}
+
 std::string
 Unit_Data::to_utf8() {
 	//TODO: implementation is a bit quick and messy.
@@ -234,37 +281,12 @@ Unit_Data::to_utf8() {
 	std::stringstream ss;
 	int idx = 0;
 	for(auto &part : declared_form) {
-		int mag = part.magnitude.nom; //TODO: fractional?
+		int mag = part.magnitude;
 		ss << get_si_prefix(mag) << unit_symbols[(int)part.unit];
-		//TODO: make it work for fractional powers too!
-		int nom = part.power.nom;
-		static char buf[32];
-		itoa(nom, buf, 10);
-		char *c = &buf[0];
-		while(*c) {
-			if(*c == '-')
-				ss << u8"\u207b";
-			else if(*c == '0' && nom != 0)
-				ss << u8"\u2070";
-			else if(*c == '1' && nom != 1)
-				ss << u8"\u00b9";
-			else if(*c == '2')
-				ss << u8"\u00b2";
-			else if(*c == '3')
-				ss << u8"\u00b3";
-			else if(*c == '4')
-				ss << u8"\u2074";
-			else if(*c == '5')
-				ss << u8"\u2075";
-			else if(*c == '6')
-				ss << u8"\u2076";
-			else if(*c == '7')
-				ss << u8"\u2077";
-			else if(*c == '8')
-				ss << u8"\u2078";
-			else if(*c == '9')
-				ss << u8"\u2079";
-			c++;
+		write_utf8_superscript_number(ss, part.power.nom);
+		if(part.power.denom != 1) {
+			write_utf8_superscript_char(ss, '/');
+			write_utf8_superscript_number(ss, part.power.denom);
 		}
 		if(idx != declared_form.size()-1)
 			ss << " ";
@@ -276,12 +298,15 @@ Unit_Data::to_utf8() {
 
 void
 set_unit_data(Unit_Data &data, Decl_AST *decl) {
+	// No longer seems necessary as we check it parse_unit() any way.
+	/*
 	for(Argument_AST *arg : decl->args) {
 		if(!Arg_Pattern().matches(arg)) {
 			decl->source_loc.print_error_header();
 			fatal_error("Invalid argument to unit declaration.");
 		}
-	}
+	}*/
+	
 	for(auto arg : decl->args)
 		data.declared_form.push_back(parse_unit(&arg->sub_chain));
 	data.set_standard_form();
@@ -314,16 +339,16 @@ Unit_Data::to_time_step(bool &success) {
 	}
 	if(n_time == 0) success = false;
 	if(!success) return ts;
-	ts.magnitude = standard_form.multiplier.nom; // TODO: the different uses of 'magnitude' is confusing.
+	ts.multiplier = standard_form.multiplier.nom;
 	for(int p = 0; p < standard_form.magnitude.nom; ++p)
-		ts.magnitude *= 10;
+		ts.multiplier *= 10;
 	if(which == Base_Unit::s) {
 		ts.unit      = Time_Step_Size::Unit::second;
 	} else if (which == Base_Unit::month) {
 		ts.unit      = Time_Step_Size::Unit::month;
 	} else if (which == Base_Unit::year) {
 		ts.unit      = Time_Step_Size::Unit::month;
-		ts.magnitude *= 12;
+		ts.multiplier *= 12;
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled time step unit type in to_time_step()");
 	return ts;

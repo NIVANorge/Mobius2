@@ -30,7 +30,8 @@ Compound_Unit {
 
 struct
 Declared_Unit_Part {
-	Rational<s16> magnitude;
+	//s64          multiplier;
+	s16           magnitude;
 	Rational<s16> power;
 	Compound_Unit unit;
 };

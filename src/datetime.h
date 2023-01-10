@@ -210,11 +210,11 @@ struct Time_Step_Size {
 		month  = 1,
 		//year   = 2,   // could have some optimizations in the code below if we know the step size is in whole years
 	}              unit;
-	s32            magnitude;
+	s32            multiplier;
 	
 	// NOTE: We can't have these here, because it makes the struct C incompatible (even in its data layout, which I don't understand why), and we want to return it from the C API!
-	//Time_Step_Size(Unit unit, s32 magnitude) : unit(unit), magnitude(magnitude) {}
-	//Time_Step_Size() : unit(Unit::second), magnitude(86400) {}
+	//Time_Step_Size(Unit unit, s32 multiplier) : unit(unit), multiplier(multiplier) {}
+	//Time_Step_Size() : unit(Unit::second), multiplier(86400) {}
 };
 
 struct Expanded_Date_Time {
@@ -277,12 +277,12 @@ struct Expanded_Date_Time {
 	void
 	compute_next_step_size() {
 		if(time_step.unit == Time_Step_Size::second)
-			step_length_in_seconds = time_step.magnitude;
+			step_length_in_seconds = time_step.multiplier;
 		else {
 			step_length_in_seconds = 0;
 			s32 y = year;
 			s32 m = month;
-			for(s32 mm = 0; mm < time_step.magnitude; ++mm) {
+			for(s32 mm = 0; mm < time_step.multiplier; ++mm) {
 				step_length_in_seconds += 86400*month_length(y, m);
 				++m;
 				if(m > 12) {m = 1; ++y; } 
@@ -315,14 +315,14 @@ steps_between(Date_Time from, Date_Time to, Time_Step_Size time_step) {
 		diff = (tm - fm + 12*(ty - fy));
 	}
 	
-	return divide_down(diff, (s64)time_step.magnitude);
+	return divide_down(diff, (s64)time_step.multiplier);
 }
 
 inline Date_Time
 advance(const Date_Time &dt, Time_Step_Size time_step, s64 steps) {
 	if(time_step.unit == Time_Step_Size::second) {
 		Date_Time result = dt;
-		result.seconds_since_epoch += time_step.magnitude * steps;
+		result.seconds_since_epoch += time_step.multiplier * steps;
 		return result;
 	}
 	// TODO: This part could probably be optimized:
