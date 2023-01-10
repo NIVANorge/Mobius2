@@ -170,7 +170,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 }
 
 void
-process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_date) {
+process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *series, Date_Time end_date) {
 	std::vector<std::vector<s64>> offsets;
 	offsets.resize(series->header_data.size());
 	
@@ -223,7 +223,8 @@ process_series(Model_Application *app, Series_Set_Info *series, Date_Time end_da
 				}
 				
 				for(auto &index : indexes) {
-					Entity_Id index_set = model->index_sets.find_by_name(index.first);
+					auto idx_set = data_set->index_sets[index.first];
+					Entity_Id index_set = model->index_sets.find_by_name(idx_set->name);
 					Entity_Id expected = expected_index_sets[index_idx];
 					if(index_set != expected) {
 						header.loc.print_error_header();

@@ -4,6 +4,36 @@
 #include "data_set.h"
 #include "ole_wrapper.h"
 
+int 
+Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
+	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+	if(idx_name->type == Token_Type::quoted_string) {
+		return indexes[super].indexes.expect_exists_idx(idx_name, "index");
+	} else if (idx_name->type == Token_Type::integer) {
+		int idx = idx_name->val_int;
+		if(!check_index(idx, super)) {
+			idx_name->print_error_header();
+			fatal_error("Index is out of bounds for this index set.");
+		}
+		return idx;
+	} else {
+		idx_name->print_error_header();
+		fatal_error("Only quoted strings and integers can be used to identify indexes.");
+	}
+}
+
+int 
+Index_Set_Info::get_index(const char *buf, int index_of_super) {
+	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+	return indexes[super].indexes.find_idx(buf);
+}
+
+bool
+Index_Set_Info::check_index(int idx, int index_of_super) {
+	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+	return idx >= 0 && idx < indexes[super].get_count();
+}
+
 void
 write_index_set_indexes_to_file(FILE *file, Sub_Indexing_Info *info) {
 	fprintf(file, "[ ");
@@ -483,14 +513,15 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 			stream->read_token();
 			token = stream->peek_token();
 			if(token.type == Token_Type::quoted_string) {
-				std::vector<std::pair<std::string, int>> indexes;
+				std::vector<std::pair<int, int>> indexes;
 				while(true) {
 					stream->read_token();
-					auto index_set = data_set->index_sets.expect_exists(&token, "index_set");
+					auto index_set_idx = data_set->index_sets.expect_exists_idx(&token, "index_set");
+					auto index_set = data_set->index_sets[index_set_idx];
 					stream->expect_token(':');
 					token = stream->read_token();
 					int index      = index_set->get_index(&token, 0); // TODO: Set correct index for super index set if it exists. (And check for correct indexing in that regard)
-					indexes.push_back(std::pair<std::string, int>{index_set->name, index});
+					indexes.push_back(std::pair<int, int>{index_set_idx, index});
 					token = stream->peek_token();
 					if((char)token.type == ']') {
 						stream->read_token();

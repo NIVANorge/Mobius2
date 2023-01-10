@@ -25,6 +25,9 @@ ole_get_string(VARIANT *var, char *buf_out, size_t buf_len);
 bool
 ole_get_date(VARIANT *var, Date_Time *date_out);
 
+int
+ole_get_int(VARIANT *var);
+
 double
 ole_get_double(VARIANT *var);
 

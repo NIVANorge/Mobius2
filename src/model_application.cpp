@@ -351,7 +351,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 }
 
 void
-process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_Metadata *metadata) {
+process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_Info *series, Series_Metadata *metadata) {
 	
 	auto model = app->model;
 	
@@ -407,7 +407,8 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 		
 		for(auto &index : header.indexes[0]) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
 			// NOTE: this should be valid since we already tested it internally in the data set.
-			Entity_Id index_set = model->index_sets.find_by_name(index.first);
+			auto idx_set = data_set->index_sets[index.first];
+			Entity_Id index_set = model->index_sets.find_by_name(idx_set->name);
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
@@ -418,7 +419,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 
 					if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set) == comp->index_sets.end()) {
 						header.loc.print_error_header();
-						fatal_error("Can not set \"", index.first, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set.");
+						fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set.");
 					}
 				}
 				if(id.type == Var_Id::Type::series)
@@ -431,7 +432,7 @@ process_series_metadata(Model_Application *app, Series_Set_Info *series, Series_
 }
 
 void
-process_series(Model_Application *app, Series_Set_Info *series_info, Date_Time end_date);
+process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *series_info, Date_Time end_date);
 
 void
 Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx) {
@@ -498,7 +499,7 @@ Model_Application::get_index_count_alternate(Entity_Id index_set, std::vector<In
 				return index_counts[index_set.id][index.index];
 		}
 		fatal_error(Mobius_Error::internal, "get_index_count_alternate: Did not find the index of the parent index set for a sub-indexed index set.");
-	} 
+	}
 	return index_counts[index_set.id][0];
 }
 
@@ -806,7 +807,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
 		
 		for(auto &series : data_set->series)
-			process_series_metadata(this, &series, &metadata);
+			process_series_metadata(this, data_set, &series, &metadata);
 		
 		set_up_series_structure(series,            series_structure,            &metadata);
 		set_up_series_structure(additional_series, additional_series_structure, &metadata);
@@ -824,7 +825,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		allocate_series_data(time_steps, metadata.start_date);
 		
 		for(auto &series : data_set->series)
-			process_series(this, &series, metadata.end_date);
+			process_series(this, data_set, &series, metadata.end_date);
 	} else {
 		set_up_series_structure(series,            series_structure,            nullptr);
 		set_up_series_structure(additional_series, additional_series_structure, nullptr);

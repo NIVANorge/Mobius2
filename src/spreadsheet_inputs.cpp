@@ -29,7 +29,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 		data.has_date_vector = true;
 		data.file_name = std::string(file_name);
 		
-		std::vector<Index_Set_Info *> index_sets;
+		std::vector<int> index_sets;
 		
 		int search_len = 128; //NOTE: We only search for index sets among the first 128 rows since anything more than that would be ridiculous.
 		auto matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles);
@@ -58,12 +58,12 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				}
 				
 				// Otherwise, if it is some non-date string we assume it to be the name of an index set.
-				auto index_set = data_set->index_sets.find(buf);
-				if(!index_set) {
+				auto index_set_idx = data_set->index_sets.find_idx(buf);
+				if(index_set_idx < 0) {
 					ole_close_due_to_error(handles, tab, 1, row+2);
 					fatal_error("The index set ", buf, " was not previously declared in the data set.");
 				}
-				index_sets.push_back(index_set);
+				index_sets.push_back(index_set_idx);
 			} else {
 				// Empty row (or at least it did not have date or string format (TODO: check if there is some other data here).
 				// This row could have flags for the time series
@@ -103,27 +103,39 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				fatal_error("Missing an input name.");
 			}
 			
-			std::vector<std::pair<std::string, int>> indexes;
+			std::vector<std::pair<int, int>> indexes;
 			for(int row = 0; row < index_sets.size(); ++row) {
 				
+				auto index_set = data_set->index_sets[index_sets[row]];
+				int idx_of_super = 0;// TODO: Properly do sub-indexes (with checking of index set order)..
 				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+2, handles);
-				ole_get_string(&index_name, buf, buf_size);
-				if(strlen(buf) > 0) {
-					int index = index_sets[row]->indexes[0].indexes.find_idx(buf);
-					if(index < 0) {
+				int index = -1;
+				auto type = index_set->get_type(idx_of_super);
+				if(type == Sub_Indexing_Info::Type::numeric1) {
+					index = ole_get_int(&index_name);
+					if(index > std::numeric_limits<int>::lowest() && !index_set->check_index(index, idx_of_super)) {
 						ole_close_due_to_error(handles, tab, row+2, col+2);
-						fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_sets[row]->name, "\".");
+						fatal_error("The index ", index, " is out of bounds for the index set \"", index_set->name, "\".");
 					}
-					
-					indexes.push_back({index_sets[row]->name, index});
+				} else if(type == Sub_Indexing_Info::Type::named) {
+					ole_get_string(&index_name, buf, buf_size);
+					if(strlen(buf) > 0) {
+						index = index_set->get_index(buf, 0);
+						if(index < 0) {
+							ole_close_due_to_error(handles, tab, row+2, col+2);
+							fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_set->name, "\".");
+						}
+					}
 				}
+				if(index >= 0)
+					indexes.push_back({index_sets[row], index});
 			}
 			if(!got_name_this_column && indexes.empty()) // There was no name on top of the column and no indexes. This means there are no more data columns
 				break;
 			
 			data.header_data.push_back({});
 			auto &header = data.header_data.back();
-			// TODO: Make system for having more than one index tuple.
+			// TODO: Make system for having more than one index tuple for the same series.
 			header.name = current_input_name;
 			header.loc.filename = handles->file_path;
 			header.loc.type = Source_Location::Type::spreadsheet;

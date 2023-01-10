@@ -381,6 +381,29 @@ ole_get_date(VARIANT *var, Date_Time *date_out) {
 
 #include "../third_party/fast_double_parser/fast_double_parser.h"
 
+int
+ole_get_int(VARIANT *var) {
+	int result = std::numeric_limits<int>::lowest();
+	
+	//TODO: Do we need to handle other types?
+	if(var->vt == VT_I2)
+		result = var->iVal;
+	else if(var->vt == VT_I4)
+		result = var->lVal;
+	else if(var->vt == VT_R4)
+		result = (int) var->fltVal;
+	else if(var->vt == VT_R8)
+		result = (int) var->dblVal;
+	else if(var->vt == VT_BSTR) {
+		char buf[256];
+		WideCharToMultiByte(CP_ACP, 0, var->bstrVal, -1, buf, 256, NULL, NULL);
+		result = atoi(buf); //TODO: should maybe do better checking on this.
+		ole_destroy_string(var);
+	}
+	
+	return result;
+}
+
 double
 ole_get_double(VARIANT *var) {
 	double result = std::numeric_limits<double>::quiet_NaN();

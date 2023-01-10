@@ -111,22 +111,13 @@ Index_Set_Info : Info_Type_Base {
 		for(auto &idxs : indexes) max = std::max(max, idxs.get_count());
 		return max;
 	}
-	int get_index(Token *idx_name, int index_of_super) {
+	Sub_Indexing_Info::Type get_type(int index_of_super) {
 		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-		if(idx_name->type == Token_Type::quoted_string) {
-			return indexes[super].indexes.expect_exists_idx(idx_name, "index");
-		} else if (idx_name->type == Token_Type::integer) {
-			int idx = idx_name->val_int;
-			if(idx < 0 || idx >= indexes[super].get_count()) {
-				idx_name->print_error_header();
-				fatal_error("Index is out of bounds for this index set.");
-			}
-			return idx;
-		} else {
-			idx_name->print_error_header();
-			fatal_error("Only quoted strings and integers can be used to identify indexes.");
-		}
+		return indexes[super].type;
 	}
+	int get_index(Token *idx_name, int index_of_super);
+	int get_index(const char *buf, int index_of_super);
+	bool check_index(int index, int index_of_super);
 };
 
 struct Component_Info : Info_Type_Base {
@@ -208,7 +199,7 @@ set_flag(Series_Data_Flags *flags, String_View name) {
 
 struct
 Series_Header_Info : Info_Type_Base {
-	std::vector<std::vector<std::pair<std::string, int>>> indexes;
+	std::vector<std::vector<std::pair<int, int>>> indexes;
 	Series_Data_Flags flags;
 	Unit_Data         unit;
 	
