@@ -163,12 +163,12 @@ module("SimplyP", 0, 5, 0) {
 
 	par_group("Groundwater P") {
 		par_real("Groundwater TDP concentration")
-		[ 0 ]
+		[ 0.015 ]
 	}
 
 	par_group("River P") {
 		par_real("Effluent TDP inputs")
-		[ 0.499584062101628 ]
+		[ 0.49 ]
 	}
 }
 

@@ -93,8 +93,9 @@ State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 	Var_Id         conc_of;
+	double         unit_conversion;   // NOTE: The unit conversion to convert the value from (unit_of_mass / unit_of_dissolution_volume) to conc_unit, where conc_unit is the declared desired unit of the concentration.
 	
-	State_Var_Sub() : conc_of(invalid_var) {}
+	State_Var_Sub() : conc_of(invalid_var), unit_conversion(1.0) {}
 };
 
 template<> struct

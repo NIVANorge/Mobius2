@@ -61,10 +61,19 @@ Unit_Data {
 	void set_standard_form();
 };
 
+Unit_Data
+multiply(const Unit_Data &a, const Unit_Data &b, int power = 1);
+
+inline Unit_Data
+divide(const Unit_Data &a, const Unit_Data &b) { return multiply(a, b, -1); }
+
 Declared_Unit_Part
 parse_unit(std::vector<Token> *tokens);
 
 void
 set_unit_data(Unit_Data &data, Decl_AST *decl);
+
+bool
+match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor);
 
 #endif // MOBIUS_UNITS_H

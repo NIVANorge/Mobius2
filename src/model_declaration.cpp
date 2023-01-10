@@ -670,8 +670,10 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 		{
 			{Decl_Type::property},
 			{Decl_Type::property, Decl_Type::unit},
+			{Decl_Type::property, Decl_Type::unit, Decl_Type::unit},
 			{Decl_Type::property, Token_Type::quoted_string},
 			{Decl_Type::property, Decl_Type::unit, Token_Type::quoted_string},
+			{Decl_Type::property, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
 		},
 		-1, true, -1, true);
 	
@@ -680,10 +682,12 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	// NOTE: We don't register it with the name in find_or_create because that would cause name clashes if you re-declare variables (which should be allowed)
 	Token *name = nullptr;
-	if(which == 2)
+	if(which == 3)
 		has->var_name = single_arg(decl, 1)->string_value;
-	else if(which == 3)
+	else if(which == 4)
 		has->var_name = single_arg(decl, 2)->string_value;
+	else if(which == 5)
+		has->var_name = single_arg(decl, 3)->string_value;
 	
 	int chain_size = decl->decl_chain.size();
 	if(chain_size == 0 || chain_size > max_var_loc_components - 1) {
@@ -698,10 +702,18 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	has->var_location.n_components = chain_size + 1;
 	has->var_location.components[chain_size] = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
 	
-	if(which == 1 || which == 3)
+	if(which == 1 || which == 2 || which == 4 || which == 5)
 		has->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
 	else
 		has->unit = invalid_entity_id;
+	if(which == 2 || which == 5) {
+		if(!has->var_location.is_dissolved()) {
+			single_arg(decl, 2)->print_error_header();
+			fatal_error("Concentration units should only be provided for dissolved quantities.");
+		}
+		has->conc_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
+	} else
+		has->conc_unit = invalid_entity_id;
 	
 	for(Body_AST *body : decl->bodies) {
 		auto function = static_cast<Function_Body_AST *>(body);

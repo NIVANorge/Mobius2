@@ -920,10 +920,9 @@ Data_Set::read_from_file(String_View file_name) {
 				
 				case Decl_Type::time_step : {
 					match_declaration(decl, {{Decl_Type::unit}}, 0, false);
-					Unit_Data unit;
-					set_unit_data(unit, decl->args[0]->decl);
+					set_unit_data(time_step_unit, decl->args[0]->decl);
 					bool success;
-					time_step_size = unit.to_time_step(success);
+					time_step_size = time_step_unit.to_time_step(success);
 					if(!success) {
 						decl->source_loc.print_error_header();
 						fatal_error("This is not a valid time step unit.");

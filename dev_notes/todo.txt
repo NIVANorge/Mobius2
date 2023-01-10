@@ -1,28 +1,27 @@
 
 	Finish sub-indexed index sets
-		Data set formatting, read/write, interaction with Model_Application
-			a bit annoying for parameter format, and also indexing of other things within the data set.
-		Needs to have index_counts as lookup data for model code.
-		Need to revamp how to look up things from storage.
-			Easier to keep storage sized to the max number of indexes even though it is a bit wasteful. Could always be improved later.
-		
+		May need to invalidate more fluxes across the super index set.
+		Sub-indexed series data.
 
 	Finish connection system
 		
 		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
-		regex checks.
+		Finish regex checks.
 		
 		arbitrary target(conn, val) declarations for use in non-fluxes (only valid for grid1d (?))
 			quite a bit of work though... But should be worth it.
-			also source(conn, val) or source(val) (for grid1d at least) for looking up the value of the previous thing.
+			also source(conn, val) or source(val) (for grid1d at least, and later graph) for looking up the value of the previous thing.
 			Consider using 'above' and 'below' instead (?)
 			
-			boundary conditions (e.g. what is needed for wave eq.)
+		boundary conditions
+			goes for most of the types. For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
+			In grid1d, could have wrap-arounds, or could have special values for the boundary (maybe even dynamic)
+				similar for graph when that exists.
 			
 		graph connections
-			Need sub-indexing to work first since we need an index set for outgoing connections.
+			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 	
 	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 		Also only one matrix indexing for a given state variable (at least for now)
@@ -30,13 +29,17 @@
 	ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
 	
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
+		Seriously!
 	
 	*** Intermediate-pri ***
 
 		Units
 			Allow units to have the form [30 month] (i.e. the leading number instead of si prefix)
 			Allow rational coefficients and powers in units.
+			Write unit back to file (only needed for time step units for now).
 		The actual unit checking system
+			Simple part - generate units and scalings for concentrations and fluxes.
+			More complicated part - check the units of everything.
 			
 
 		Processes not specified per compartment / quantity. Can be attached to those.
@@ -74,20 +77,22 @@
 		Rules for using 'target' is very unintuitive, and implementation is not clean.
 		unit conversions also applied to connection graph arrows.
 		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
-		
-		Other types of connections
-			full graph (more than one outgoing vertex per node) (?)
 			
 		Override declarations.   --- not needed for connections since we found another way. Also, not certain what is the best way to do it.
+			No known important use case at the moment.
 	
 		Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
 			Not high priority, just a nice feature.
 			
-		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?) - but could be tricky wrt units.
+		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
+			could be tricky wrt units.
+			could be tricky since right now we assume all quantities are declared.
+			sometimes you don't want it there (though that could be accomplished with no_carry)
 		
 		Let declarations in inlined modules be visible in the parent model scope (?) or other way around is maybe more reasonable.
+			May not be wanted.
 		
-		Iterating over state variables should skip invalid ones.
+		Iterating over state variables should skip invalid ones automatically.
 		
 		In all_to_all and grid1d connection data, it should be sufficient to just provide the name of the index set.
 		
@@ -95,6 +100,13 @@
 		
 		
 	*****************   DONE:   ***********************
+	
+	Sub-indexing (most of it)
+		Data set formatting, read/write, interaction with Model_Application
+			a bit annoying for parameter format, and also indexing of other things within the data set.
+		Needs to have index_counts as lookup data for model code.
+		Need to revamp how to look up things from storage.
+			Easier to keep storage sized to the max number of indexes even though it is a bit wasteful. Could always be improved later.
 	
 	Interchangable components for connections. Simple system.
 		lake vs. river

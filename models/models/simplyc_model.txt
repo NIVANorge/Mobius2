@@ -11,6 +11,6 @@ Description
 	
 	oc : quantity("Organic carbon")
 	
-	unit_conversion(soil.water.oc, river.water.oc) {  1000 * a_catch  }    #NOTE: for now the 1000 is needed to convert (mg/l * mm) to kg/km2
-	unit_conversion(gw.water.oc, river.water.oc)   {  1000 * a_catch  }
+	unit_conversion(soil.water.oc, river.water.oc) {  a_catch  }
+	unit_conversion(gw.water.oc, river.water.oc)   {  a_catch  }
 }

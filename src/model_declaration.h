@@ -160,7 +160,7 @@ template<> struct
 Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 	Var_Location   var_location;
 	Entity_Id      unit;
-	//Entity_Id    conc_unit;
+	Entity_Id      conc_unit;
 	
 	std::string     var_name;
 	

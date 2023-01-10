@@ -18,8 +18,8 @@ model("EasyLake-SimplyC") {
 			oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
 		}
 		
-		epi.water.has(oc, [k g], "Epilimnion DOC") .initial_conc { init_c }
-		hyp.water.has(oc, [k g], "Hypolimnion DOC") .initial_conc { init_c }
+		epi.water.has(oc, [k g], [m g, l-1], "Epilimnion DOC") .initial_conc { init_c }
+		hyp.water.has(oc, [k g], [m g, l-1], "Hypolimnion DOC") .initial_conc { init_c }
 		
 		flux(epi.water.oc, nowhere, "Photo-mineralization") {
 			qy_doc := 0.1    # mg/mol DOC   Quantum yield

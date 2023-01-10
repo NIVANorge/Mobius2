@@ -62,7 +62,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		safe_divide(last(plab), kf * m_soil)
 	} .initial { init_epc0 }
 	
-	soil.water.has(tdp, [k g, k m-2], "Soil TDP mass") .override {
+	soil.water.has(tdp, [k g, k m-2], [m g, l-1], "Soil TDP mass") .override {
 		pin    := p_input * 100.0/356.0
 		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
 		a      := (pin + kf*m_soil*epc0)
@@ -88,14 +88,14 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	#NOTE: could use the inbuilt concentration system for this, but we don't model varying soil mass, so it is a bit superfluous
 	soil.plab.has(plabconc : property("Labile P concentration"), [m g, k g-1]) {  plab / m_soil_m2  }
 	
-	gw.water.has(tdp, [k g, k m-2], "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
+	gw.water.has(tdp, [k g, k m-2], [m g, l-1], "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
 	
 	
-	river.water.has(tdp, [k g], "River TDP") .initial_conc { gw_tdp }
+	river.water.has(tdp, [k g], [m g, l-1], "River TDP") .initial_conc { gw_tdp }
 	
 	flux(nowhere, river.water.tdp, "River effluent TDP") { eff_tdp }
 	
-	river.water.has(pp, [k g], "River PP") .initial_conc { 0 }
+	river.water.has(pp, [k g], [m g, l-1], "River PP") .initial_conc { 0 }
 	
 	e_fact : property("Erosion factor")
 	

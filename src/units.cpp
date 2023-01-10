@@ -150,12 +150,12 @@ Unit_Data::set_standard_form() {
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled compound unit in set_standard_form().");
 		}
-		//magnitude += part.magnitude*part.power;
+		standard_form.magnitude += part.magnitude*part.power;
 		//TODO: reduce multiplier if it is a power of 10?
 	}
 }
 
-
+/*
 Standardized_Unit
 operator*(const Standardized_Unit &a, const Standardized_Unit &b) {
 	Standardized_Unit result;
@@ -175,14 +175,32 @@ operator/(const Standardized_Unit &a, const Standardized_Unit &b) {
 	result.magnitude  = a.magnitude - b.magnitude;
 	return result;
 }
+*/
 
 bool
 match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor) {  // the conversion factor so that factor*b = a
 	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
 		if(a->powers[idx] != b->powers[idx]) return false;
 	
-	*conversion_factor = double(a->multiplier / b->multiplier) * std::pow(10.0, double(a->magnitude - b->magnitude));
+	*conversion_factor = 1.0;
+	if(a->multiplier != b->multiplier)
+		*conversion_factor = double(a->multiplier / b->multiplier);
+	if(a->magnitude != b->magnitude)
+		*conversion_factor *= std::pow(10.0, double(a->magnitude - b->magnitude));
 	return true;
+}
+
+Unit_Data
+multiply(const Unit_Data &a, const Unit_Data &b, int power) {
+	Unit_Data result;
+	result.declared_form = a.declared_form;
+	for(auto decl : b.declared_form) {
+		decl.power *= power;
+		result.declared_form.push_back(decl);
+		// TODO: Not sure if we should do work to merge matching units here.
+	}
+	result.set_standard_form();
+	return std::move(result);
 }
 
 template<typename T>

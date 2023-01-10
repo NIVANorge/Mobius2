@@ -730,6 +730,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	this->data_set = data_set;
 	
 	this->time_step_size = data_set->time_step_size;
+	this->time_step_unit = data_set->time_step_unit;
 	
 	for(auto &index_set : data_set->index_sets) {
 		auto id = model->index_sets.find_by_name(index_set.name);

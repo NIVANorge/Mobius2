@@ -308,6 +308,7 @@ private :
 	std::vector<std::vector<std::string>>                    index_names;
 public :
 	
+	Unit_Data                                                time_step_unit;
 	Time_Step_Size                                           time_step_size;
 	
 	Var_Registry<Var_Id::Type::state_var>                    state_vars;

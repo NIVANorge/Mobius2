@@ -41,21 +41,27 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				if(var->type == State_Var::Type::declared) {
 					auto var2 = as<State_Var::Type::declared>(var);
-					auto conc = var2->conc;
+					auto conc_id = var2->conc;
 					// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
-					if(is_valid(conc)) {
+					if(is_valid(conc_id)) {
+						auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[conc_id]);
+						auto &conc_instr = instructions[conc_id.id];
 						auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
 							
 						if(var2->initial_is_conc) {
 							// conc is given. compute mass
-							instructions[conc.id].code = instr.code;
-							instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
-							instr.code = make_binop('*', make_state_var_identifier(conc), make_state_var_identifier(dissolved_in));
+							conc_instr.code = instr.code;
+							conc_instr.type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+							instr.code = make_binop('*', make_state_var_identifier(conc_id), make_state_var_identifier(dissolved_in));
+							if(conc->unit_conversion != 1.0)
+								instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
 						} else {
 							// mass is given. compute conc.
 							// TODO: do we really need the initial conc always though?
-							instructions[conc.id].code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
-							instructions[conc.id].type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+							conc_instr.type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+							conc_instr.code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
+							if(conc->unit_conversion != 1.0)
+								conc_instr.code = make_binop('*', instr.code, make_literal(conc->unit_conversion));
 						}
 					}
 				}
@@ -81,24 +87,36 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for concs of dissolved variables
 			if(var->type == State_Var::Type::dissolved_conc) {
 				
-				auto mass = as<State_Var::Type::dissolved_conc>(var)->conc_of;
-				auto mass_var = as<State_Var::Type::declared>(app->state_vars[mass]);
+				auto conc = as<State_Var::Type::dissolved_conc>(var);
+				auto mass_id = conc->conc_of;
+				auto mass_var = as<State_Var::Type::declared>(app->state_vars[mass_id]);
 				auto dissolved_in = app->state_vars.id_of(remove_dissolved(mass_var->loc1));
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
 					instr.code = mass_var->override_tree;
 
 					// If we override the conc, the mass is instead  conc*volume_we_are_dissolved_in .
-					auto mass_instr = &instructions[mass.id];
+					auto mass_instr = &instructions[mass_id.id];
 					mass_instr->code = make_binop('*', make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
-				} else
-					instr.code = make_safe_divide(make_state_var_identifier(mass), make_state_var_identifier(dissolved_in));
+					if(conc->unit_conversion != 1.0)
+						mass_instr->code = make_binop('/', mass_instr->code, make_literal(conc->unit_conversion));
+					
+				} else {
+					instr.code = make_safe_divide(make_state_var_identifier(mass_id), make_state_var_identifier(dissolved_in));
+					if(conc->unit_conversion != 1.0)
+						instr.code = make_binop('*', instr.code, make_literal(conc->unit_conversion));
+				}
 			}
 			
 			// Codegen for fluxes of dissolved variables
 			if(var->type == State_Var::Type::dissolved_flux) {
 				auto var2 = as<State_Var::Type::dissolved_flux>(var);
+				auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[var2->conc]);
 				instr.code = make_binop('*', make_state_var_identifier(var2->conc), make_state_var_identifier(var2->flux_of_medium));
+				// TODO: Here we could also just do the re-computation of the concentration so that we don't get the double back-and-forth unit conversion...
+				
+				if(conc->unit_conversion != 1.0)
+					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
 			}
 		
 			
@@ -106,7 +124,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->is_flux() && !is_valid(instr.solver) && instr.code) {
 			
 				// note: create something like
-				// 		flux = min(flux, source)
+				//      flux = min(flux, source)
 				// NOTE: it is a design decision by the framework to not allow negative fluxes, otherwise the flux would get a much more
 				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
 				// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?

@@ -48,6 +48,9 @@ operator-=(Rational<T> &a, const Rational<T> &b) { return a = a - b; }
 template<typename T> inline Rational<T> &
 operator*=(Rational<T> &a, const Rational<T> &b) { return a = a * b; }
 
+template<typename T> inline Rational<T>&
+operator*=(Rational<T> &a, int b) { return a = a*b; }
+
 template<typename T> inline Rational<T> &
 operator/=(Rational<T> &a, const Rational<T> &b) { return a = a / b; }
 

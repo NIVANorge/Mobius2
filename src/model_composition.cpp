@@ -518,7 +518,25 @@ prelim_compose(Model_Application *app) {
 		Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, invalid_entity_id, false, varname);
 		auto conc_var = as<State_Var::Type::dissolved_conc>(app->state_vars[gen_conc_id]);
 		conc_var->conc_of = var_id;
-		as<State_Var::Type::declared>(app->state_vars[var_id])->conc = gen_conc_id;
+		auto var_d = as<State_Var::Type::declared>(app->state_vars[var_id]);
+		var_d->conc = gen_conc_id;
+		{
+			auto computed_conc_unit = divide(var_d->unit, dissolved_in->unit);
+			auto has = model->hases[var_d->decl_id];
+			if(is_valid(has->conc_unit)) {
+				conc_var->unit = model->units[has->conc_unit]->data;
+				bool success = match(&computed_conc_unit.standard_form, &conc_var->unit.standard_form, &conc_var->unit_conversion);
+				//bool success = match(&conc_var->unit.standard_form, &computed_conc_unit.standard_form, &conc_var->unit_conversion); //TODO: Check that this is the right way around..
+				if(!success) {
+					has->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("We can't find a way to convert between the declared concentration unit ", conc_var->unit.to_utf8(), " and the computed concentration unit ", computed_conc_unit.to_utf8(), ".");
+				}
+				warning_print("******* Unit conversion from ", computed_conc_unit.to_utf8(), " to ", conc_var->unit.to_utf8(), " was ", conc_var->unit_conversion, ".\n");
+			} else {
+				conc_var->unit = computed_conc_unit;
+				conc_var->unit_conversion = 1.0;
+			}
+		}
 		
 		for(auto flux_id : generate) {
 			std::string &flux_name = app->state_vars[flux_id]->name;
@@ -682,8 +700,17 @@ compose_and_resolve(Model_Application *app) {
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
 		
-		if(var->is_flux())
-			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);   // NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones.
+		if(var->is_flux()) {
+			// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
+			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);
+			auto transported_id = invalid_var;
+			if(is_located(var->loc1)) transported_id = app->state_vars.id_of(var->loc1);
+			else if(is_located(var->loc2)) transported_id = app->state_vars.id_of(var->loc2);
+			if(is_valid(transported_id)) {
+				auto transported = app->state_vars[transported_id];
+				var->unit = divide(transported->unit, app->time_step_unit);
+			}
+		}
 		
 		if(var->type != State_Var::Type::declared) continue;
 		auto var2 = as<State_Var::Type::declared>(var);
