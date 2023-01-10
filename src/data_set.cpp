@@ -95,7 +95,14 @@ write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *da
 	fprintf(file, "%s[", component->handle.data());
 	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
 		auto index_set = data_set->index_sets[component->index_sets[loc]];
-		fprintf(file, " \"%s\"", index_set->indexes[ref.indexes[loc]]);
+		int super_idx = 0; // TODO!!!!
+		auto &indexes = index_set->indexes[super_idx];
+		if(indexes.type == Sub_Indexing_Info::Type::named)
+			fprintf(file, " \"%s\"", indexes.indexes[ref.indexes[loc]]->name.data());
+		else if(indexes.type == Sub_Indexing_Info::Type::numeric1)
+			fprintf(file, " %d", ref.indexes[loc]);
+		else
+			fatal_error(Mobius_Error::internal, "Unhandled index type in write_indexed_compartment_to_file().");
 	}
 	fprintf(file, " ]");
 }

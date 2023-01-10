@@ -186,7 +186,7 @@ module("SimplyC", 1, 0, 0) {
 module("EasyLake-C", 0, 0, 1) {
 	par_group("Lake C") {
 		par_real("Initial lake DOC concentration")
-		[ 0 ]
+		[ 7.5 ]
 
 		par_real("Optical cross-section of DOC")
 		[ 0.0005 ]
