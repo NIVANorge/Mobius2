@@ -6,7 +6,7 @@
 #include "mobius_common.h"
 #include "rational.h"
 #include "lexer.h"
-#include "ast.h"
+//#include "ast.h"
 
 #include <vector>
 #include <string>
@@ -30,7 +30,6 @@ Compound_Unit {
 
 struct
 Declared_Unit_Part {
-	//s64          multiplier;
 	s16           magnitude;
 	Rational<s16> power;
 	Compound_Unit unit;
@@ -46,10 +45,12 @@ Standardized_Unit {
 	Standardized_Unit() : multiplier(1), magnitude(0) {
 		for(int idx = 0; idx < (int)Base_Unit::max; ++idx) powers[idx] = 0;
 	}
+	std::string to_utf8();
 };
 
 struct
 Unit_Data {
+	//s64                             declared_multiplier;   //TODO.
 	std::vector<Declared_Unit_Part> declared_form;
 	Standardized_Unit               standard_form;
 	
@@ -61,6 +62,8 @@ Unit_Data {
 	
 	void set_standard_form();
 };
+
+struct Decl_AST;
 
 Unit_Data
 multiply(const Unit_Data &a, const Unit_Data &b, int power = 1);

@@ -4,6 +4,7 @@
 
 #include "lexer.h"
 #include "common_types.h"
+#include "units.h"
 #include <vector>
 
 
@@ -153,6 +154,14 @@ Local_Var_AST : Math_Expr_AST {
 	Token                        name;
 	
 	Local_Var_AST() : Math_Expr_AST(Math_Expr_Type::local_var) {};
+};
+
+struct
+Unit_Convert_AST : Math_Expr_AST {
+	Decl_AST *unit;             // TODO: free in destructor.
+	bool auto_convert, force;
+	
+	Unit_Convert_AST() : Math_Expr_AST(Math_Expr_Type::unit_convert) {};
 };
 
 struct

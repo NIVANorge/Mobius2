@@ -526,12 +526,11 @@ prelim_compose(Model_Application *app) {
 			if(is_valid(has->conc_unit)) {
 				conc_var->unit = model->units[has->conc_unit]->data;
 				bool success = match(&computed_conc_unit.standard_form, &conc_var->unit.standard_form, &conc_var->unit_conversion);
-				//bool success = match(&conc_var->unit.standard_form, &computed_conc_unit.standard_form, &conc_var->unit_conversion); //TODO: Check that this is the right way around..
 				if(!success) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("We can't find a way to convert between the declared concentration unit ", conc_var->unit.to_utf8(), " and the computed concentration unit ", computed_conc_unit.to_utf8(), ".");
 				}
-				warning_print("******* Unit conversion from ", computed_conc_unit.to_utf8(), " to ", conc_var->unit.to_utf8(), " was ", conc_var->unit_conversion, ".\n");
+				//warning_print("******* Unit conversion from ", computed_conc_unit.to_utf8(), " to ", conc_var->unit.to_utf8(), " was ", conc_var->unit_conversion, ".\n");
 			} else {
 				conc_var->unit = computed_conc_unit;
 				conc_var->unit_conversion = 1.0;

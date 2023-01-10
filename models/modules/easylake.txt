@@ -139,7 +139,7 @@ TODO: description
 	
 	air.has(rho : property("Air density"), [k g, m-3]) {
 		tk := deg_c_to_K(air.temp)
-		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) * 100    # *100 to convert HPa -> Pa
+		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) * 100  #-> [Pa]  # *100 to convert HPa -> Pa
 	}
 	
 	#TODO: Move some radiation stuff into a radiation module
@@ -147,8 +147,8 @@ TODO: description
 		air_t := deg_c_to_K(air.temp)
 		dpt := dew_point_temperature(a_vap)
 		dew_point_depression := dpt - air_t
-		cloud_effect := 10.77 * cloud^2 + 2.34*cloud - 18.44
-		vapor_effect := 0.84 * (dew_point_depression + 4.01)
+		cloud_effect := 10.77 * cloud^2 + 2.34*cloud - 18.44 => [K]
+		vapor_effect := 0.84 * (dew_point_depression + 4.01[K])
 		eff_t := air_t + cloud_effect + vapor_effect
 		black_body_radiation(eff_t)
 	}
@@ -197,7 +197,7 @@ TODO: description
 	
 	evap :
 	flux(epi.water, nowhere, "Evaporation") {
-		evap_mm*A_surf/1000    # convert to m^3/day
+		evap_mm*A_surf/1000   # convert to m^3/day
 	}
 	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {

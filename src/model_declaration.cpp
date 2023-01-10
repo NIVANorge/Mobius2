@@ -758,13 +758,10 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	int which = match_declaration(decl,
 		{
-			// it seems to be safer and very time saving just to require a name.
-			//{Token_Type::identifier, Token_Type::identifier},
 			{Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
 		});
 	
 	Token *name = nullptr;
-	//if(which == 1)
 	name = single_arg(decl, 2);
 	
 	auto id   = model->fluxes.find_or_create(&decl->handle_name, scope, name, decl);
@@ -782,6 +779,8 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		decl->source_loc.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
+	
+	//flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
 	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
 	flux->code = body->block;

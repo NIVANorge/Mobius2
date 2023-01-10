@@ -847,6 +847,16 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			result = new_local;
 		} break;
 		
+		case Math_Expr_Type::unit_convert : {
+			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
+			resolve_arguments(new_binary, ast, data, scope);
+			
+			new_binary->exprs.push_back(make_literal(1.0)); // TODO!!!
+			new_binary->value_type = new_binary->exprs[0]->value_type;
+			new_binary->oper = (Token_Type)'*';
+			result = new_binary;
+		} break;
+		
 		default : {
 			fatal_error(Mobius_Error::internal, "Unhandled math expr type in resolve_function_tree().");
 		} break;
@@ -1268,27 +1278,6 @@ copy(Math_Expr_FT *source) {
 	
 	return result;
 }
-
-Standardized_Unit
-check_units(Math_Expr_FT *expr, Standardized_Unit *expected_top = nullptr) {
-	Standardized_Unit result;
-	
-	//TODO! Incomplete!
-	
-	switch(expr->expr_type) {
-		
-		case Math_Expr_Type::block : {
-		} break;
-		
-		
-		default : {
-			fatal_error(Mobius_Error::internal, "Unhandled expression type in check_units()");
-		}
-	}
-	
-	return result;
-}
-
 
 void
 print_tabs(int ntabs) { for(int i = 0; i < ntabs; ++i) warning_print('\t'); }

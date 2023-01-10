@@ -1,5 +1,39 @@
 
-
+	
+	
+	
+	# Unit checking
+	
+	# Always declare assumed unit of flux ?
+	flux(soil.water, out, [m m, day-1], "Soil water flow") {
+		#etc.
+	}
+	# No, causes too much repetition.
+	# How do we catch errors on expected units though??
+	# Do we want to allow it in some cases?
+	
+	# For converting in-side equations
+	{
+		convert(a, [m g, l-1]) # applies some kind of unit conversion term
+		force(a, [m g, l-1])   # Just sets the unit while keeping the same numerical value.
+		force(a)               # forces to the unit of whatever we are resolving.
+	}
+	# Can we come up with less intrusive syntax?
+	#e.g.
+	{
+		[m g, l-1]a      # convert
+		a -> [m g, l-1]  # convert
+		a => [m g, l-1]  # force
+		a ->>            # convert to result unit
+		a =>>            # force to result unit
+		#![m g, l-1]a   # Guess "force" is ok also since it is not that common
+	}
+	
+	# could we have a shorthand for things like
+	(0.5 => [deg_c])
+	#like
+	0.5 [deg_c] # ??
+	
 
 
 

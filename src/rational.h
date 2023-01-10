@@ -18,10 +18,8 @@ Rational {
 	
 	Rational() : Rational(0) {}
 	
-	operator double() { return (double)nom / (double)denom; }
+	double to_double() { return (double)nom / (double)denom; }
 	bool is_int() { return denom == 1; }
-	
-	std::ostream &operator<<(std::ostream &os);
 };
 
 template<typename T> inline Rational<T>
@@ -66,7 +64,19 @@ operator*=(Rational<T> &a, int b) { return a = a*b; }
 template<typename T> inline Rational<T>&
 operator/=(Rational<T> &a, int b) { return a = a/b; }
 
+template<typename T> inline bool
+operator==(const Rational<T> &a, const Rational<T> &b) { return a.nom == b.nom && a.denom == b.denom; }
 
+template<typename T> inline bool
+operator!=(const Rational<T> &a, const Rational<T> &b) { return a.nom != b.nom || a.denom != b.denom; }
+
+template<typename T> std::ostream &
+operator<<(std::ostream &os, const Rational<T> &a) {
+	os << a.nom;
+	if(a.nom != 0 && a.denom != 1)
+		os << "/" << a.denom;
+	return os;
+}
 
 template<typename T> inline Rational<T>
 pow_i(T a, T b) {

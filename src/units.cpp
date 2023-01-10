@@ -1,11 +1,12 @@
 
 #include "units.h"
+#include "ast.h"
 
 #include <cmath>
 #include <sstream>
 
 // TODO: complete this and make sure it is correct
-Rational<s16>
+s16
 parse_si_prefix(Token *token) {
 	String_View m = token->string_value;
 	if(m == "Y") return 24;
@@ -190,9 +191,9 @@ match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor) {  
 	
 	*conversion_factor = 1.0;
 	if(a->multiplier != b->multiplier)
-		*conversion_factor = double(a->multiplier / b->multiplier);
+		*conversion_factor = (a->multiplier / b->multiplier).to_double();
 	if(a->magnitude != b->magnitude)
-		*conversion_factor *= std::pow(10.0, double(a->magnitude - b->magnitude));
+		*conversion_factor *= std::pow(10.0, (a->magnitude - b->magnitude).to_double());
 	return true;
 }
 
@@ -207,21 +208,6 @@ multiply(const Unit_Data &a, const Unit_Data &b, int power) {
 	}
 	result.set_standard_form();
 	return std::move(result);
-}
-
-template<typename T>
-std::ostream &Rational<T>::operator<<(std::ostream &os) {
-	if(nom == 0) {
-		os << "0";
-		return os;
-	}
-	if(denom == 1) {
-		if(nom == 1) return os;
-		os << nom;
-		return os;
-	}
-	os << nom << "/" << denom;
-	return os;
 }
 
 void
@@ -265,15 +251,14 @@ write_utf8_superscript_number(std::ostream &ss, int number) {
 	}
 }
 
+static const char *unit_symbols[] = {
+	#define COMPOUND_UNIT(handle, name) name,
+	#include "compound_units.incl"
+	#undef COMPOUND_UNIT
+};
+
 std::string
 Unit_Data::to_utf8() {
-	//TODO: implementation is a bit quick and messy.
-	
-	static const char *unit_symbols[] = {
-		#define COMPOUND_UNIT(handle, name) name,
-		#include "compound_units.incl"
-		#undef COMPOUND_UNIT
-	};
 	
 	if(declared_form.empty())
 		return "dimensionless";
@@ -296,17 +281,38 @@ Unit_Data::to_utf8() {
 	return ss.str();
 }
 
+std::string
+Standardized_Unit::to_utf8() {
+	std::stringstream ss;
+	
+	if(multiplier != Rational<s64>(1))
+		ss << multiplier << " ";
+	if(magnitude != Rational<s16>(0)) {
+		ss << "10";
+		if(magnitude != Rational<s16>(1)) {
+			write_utf8_superscript_number(ss, magnitude.nom);
+			if(magnitude.denom != 1) {
+				write_utf8_superscript_char(ss, '/');
+				write_utf8_superscript_number(ss, magnitude.denom);
+			}
+		}
+	}
+	
+	for(int idx = 0; idx < (int)Base_Unit::max; ++idx) {
+		if(powers[idx] == Rational<s16>(0)) continue;
+		ss << " " << unit_symbols[idx];
+		if(powers[idx] == Rational<s16>(1)) continue;
+		write_utf8_superscript_number(ss, powers[idx].nom);
+		if(powers[idx].denom == 1) continue;
+		write_utf8_superscript_char(ss, '/');
+		write_utf8_superscript_number(ss, powers[idx].denom);
+	}
+	
+	return ss.str();
+}
+
 void
 set_unit_data(Unit_Data &data, Decl_AST *decl) {
-	// No longer seems necessary as we check it parse_unit() any way.
-	/*
-	for(Argument_AST *arg : decl->args) {
-		if(!Arg_Pattern().matches(arg)) {
-			decl->source_loc.print_error_header();
-			fatal_error("Invalid argument to unit declaration.");
-		}
-	}*/
-	
 	for(auto arg : decl->args)
 		data.declared_form.push_back(parse_unit(&arg->sub_chain));
 	data.set_standard_form();

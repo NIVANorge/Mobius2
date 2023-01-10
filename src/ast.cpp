@@ -389,9 +389,52 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 }
 
 Math_Expr_AST *
+potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool expect_operator = true) {
+	bool auto_convert = false;
+	bool force        = false;
+	bool convert      = false;
+	
+	auto peek = stream->peek_token();
+	if(expect_operator) {
+		if(peek.type == Token_Type::arr_r) convert = true;
+		else if(peek.type == Token_Type::arr_r_r) { convert = true; auto_convert = true; }
+		else if(peek.type == Token_Type::d_arr_r) { convert = true; force = true; }
+		else if(peek.type == Token_Type::d_arr_r_r) { convert = true; auto_convert = true; force = true; }
+		if(convert)
+			stream->read_token();
+	} else if((char)peek.type == '[') {
+		force = true;
+		convert = true;
+	}
+	
+	if(!convert)
+		return lhs;
+	
+	auto unit_conv = new Unit_Convert_AST();
+	unit_conv->force = force;
+	unit_conv->auto_convert = auto_convert;
+	unit_conv->source_loc = peek.source_loc;
+	unit_conv->exprs.push_back(lhs);
+	if(!auto_convert) {
+		auto peek = stream->peek_token();
+		if((char)peek.type != '[') {     // TODO: We should also allow referencing units by identifiers!
+			peek.print_error_header();
+			fatal_error("Expected a unit declaration, starting with '['");
+		}
+		unit_conv->unit = new Decl_AST();
+		stream->fold_minus = true;   // Fold e.g. -1 as a single token instead of two tokens - and 1 .
+		parse_unit_decl(stream, unit_conv->unit);
+		stream->fold_minus = false;
+	}
+	
+	return unit_conv;
+}
+
+Math_Expr_AST *
 parse_math_expr(Token_Stream *stream) {
 	auto lhs = parse_primary_expr(stream);
-	return potentially_parse_binary_operation_rhs(stream, 0, lhs);
+	auto expr = potentially_parse_binary_operation_rhs(stream, 0, lhs);
+	return potentially_parse_unit_conversion(stream, expr);
 }
 	
 Math_Expr_AST *
@@ -425,7 +468,7 @@ parse_primary_expr(Token_Stream *stream) {
 		val->source_loc = token.source_loc;
 		stream->read_token();
 		val->value = token;
-		result = val;
+		result = potentially_parse_unit_conversion(stream, val, false);
 	} else if ((char)token.type == '(') {
 		stream->read_token();
 		result = parse_math_expr(stream);

@@ -229,13 +229,19 @@ Token_Stream::read_token_base(Token *token) {
 			}
 			
 			if(is_single) {
+				token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.
+				
 				char n = peek_char();
+				char nn = peek_char(1);
 				if     (c == '<' && n == '=') token->type = Token_Type::leq;
 				else if(c == '>' && n == '=') token->type = Token_Type::geq;
 				else if(c == '!' && n == '=') token->type = Token_Type::neq;
 				else if(c == ':' && n == '=') token->type = Token_Type::def;
 				else if(c == '-' && n == '>') token->type = Token_Type::arr_r;
-				else token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.
+				else if(c == '=' && n == '>') token->type = Token_Type::d_arr_r;
+				
+				if     (c == '-' && n == '>' && nn == '>') token->type = Token_Type::arr_r_r;
+				else if(c == '=' && n == '>' && nn == '>') token->type = Token_Type::d_arr_r_r;
 			}
 			else if(c == '"')                           token->type =  Token_Type::quoted_string;
 			else if(c == '-' || c == '.' || isdigit(c)) token->type =  Token_Type::real;          // NOTE: Can change type to integer, date or time when parsing it below
