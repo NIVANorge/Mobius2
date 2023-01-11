@@ -880,18 +880,21 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_binary, ast, data, scope, arg_units);
 			
-			// TODO: We need to support auto-convert, which means that we need to have the expected unit passed in the function resolve data.
-			if(conv->auto_convert)
-				fatal_error(Mobius_Error::internal, "Auto-convert not yet supported");
-			Unit_Data conv_unit;
-			set_unit_data(conv_unit, conv->unit);
+			Standardized_Unit to_unit;
+			if(conv->auto_convert) {
+				to_unit = data->expected_unit;
+			} else {
+				Unit_Data conv_unit;
+				set_unit_data(conv_unit, conv->unit);
+				to_unit = std::move(conv_unit.standard_form);
+			}
 			
 			double conversion_factor = 1.0;
 			if(!conv->force) {
-				bool success = match(&arg_units[0], &conv_unit.standard_form, &conversion_factor); // TODO: Is this the right way around??
+				bool success = match(&arg_units[0], &to_unit, &conversion_factor);
 				if(!success) {
 					conv->source_loc.print_error_header();
-					fatal_error("Unable to convert from unit with standard form ", arg_units[0].to_utf8(), " to ", conv_unit.standard_form.to_utf8(), ".");
+					fatal_error("Unable to convert from unit with standard form ", arg_units[0].to_utf8(), " to ", to_unit.to_utf8(), ".");
 				}
 			}
 			if(conversion_factor == 1.0) {
@@ -904,7 +907,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				new_binary->oper = (Token_Type)'*';
 				result.fun = new_binary;
 			}
-			result.unit = std::move(conv_unit.standard_form);
+			result.unit = std::move(to_unit);
 		} break;
 		
 		default : {

@@ -126,6 +126,7 @@ Function_Resolve_Data {
 	Decl_Scope        *scope;
 	Var_Location       in_loc;
 	std::vector<Entity_Id> *baked_parameters;
+	Standardized_Unit  expected_unit;
 };
 
 struct

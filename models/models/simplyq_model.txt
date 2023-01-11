@@ -58,8 +58,8 @@ General model description.
 	aggregation_weight(soil, river) { lu_prop }
 	
 	# convert mm to m^3
-	unit_conversion(soil.water, river.water) { a_catch -> [m 3, m m-1] }   #TODO: Should support auto-convert here.
-	unit_conversion(gw.water, river.water)   { a_catch -> [m 3, m m-1] }
+	unit_conversion(soil.water, river.water) { a_catch ->> }# [m 3, m m-1] }   #TODO: Should support auto-convert here.
+	unit_conversion(gw.water, river.water)   { a_catch ->> }# [m 3, m m-1] }
 	
 }
 

@@ -258,6 +258,8 @@ Token_Stream::read_token_base(Token *token) {
 		token->string_value = file_data.substring(at_char, 0); // We don't know how long it will be yet, the length will be adjusted as we parse
 		break;
 	}
+	
+	// TODO: It is not that easy to follow the logic of this function :(
 
 	if(token->type > Token_Type::max_multichar) { //NOTE: We have a single-character token.
 		token->string_value.count = 1;
@@ -274,9 +276,13 @@ Token_Stream::read_token_base(Token *token) {
 		read_identifier(token);
 	else if(token->type == Token_Type::real)
 		read_number(token);
-	else {  // we have a two-character operator
+	else {  // we have a multi-character operator
 		read_char(); read_char(); // consume the two chars.
 		token->string_value.count = 2;
+		if(token->type == Token_Type::arr_r_r || token->type == Token_Type::d_arr_r_r) {
+			read_char();
+			token->string_value.count = 3;
+		}
 		return;
 	}
 }

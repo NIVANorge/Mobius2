@@ -569,8 +569,10 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		if(agg.to_compartment != to_compartment) continue;
 		
 		auto scope = model->get_scope(agg.code_scope);
-		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
-		auto fun = resolve_function_tree(agg.code, &res_data); // TODO: What to do about units here? Should expect dimensionless?
+		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
+		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit };
+		auto fun = resolve_function_tree(agg.code, &res_data);
+		// TODO: Check resulting unit
 		agg_weight = make_cast(fun.fun, Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
 		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs, is_connection);
@@ -603,13 +605,18 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 		auto ast   = conv.code;
 		auto scope = model->get_scope(conv.code_scope);
 		
-		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
+		// TODO: Are we guaranteed that these exist when this gets called??
+		auto first = app->state_vars[app->state_vars.id_of(loc1)];
+		auto second = app->state_vars[app->state_vars.id_of(loc2)];
+		auto expected_unit = divide(second->unit, first->unit);
+		
+		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
 		auto fun = resolve_function_tree(ast, &res_data);
 		unit_conv = make_cast(fun.fun, Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
 		restrictive_lookups(unit_conv, Decl_Type::unit_conversion, parameter_refs);
 		
-		// TODO: check that fun.unit gives the right unit conversion!
+		// TODO: check that fun.unit is the expected unit!
 		
 		for(auto par_id : parameter_refs) {
 			bool ok = parameter_indexes_below_location(model, par_id, loc1);
@@ -786,8 +793,7 @@ compose_and_resolve(Model_Application *app) {
 			  || model->connections[var2->connection]->type == Connection_Type::grid1d
 			  );
 			
-		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
-		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters };
+		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form };
 		if(ast) {
 			auto fun = resolve_function_tree(ast, &res_data);
 			// TODO: Check that fun.unit is correct!
@@ -815,6 +821,10 @@ compose_and_resolve(Model_Application *app) {
 			var2->initial_function_tree = nullptr;
 		
 		if(override_ast) {
+			if(override_is_conc) {
+				auto conc_var = as<State_Var::Type::dissolved_conc>(app->state_vars[var2->conc]);
+				res_data.expected_unit = conc_var->unit.standard_form;
+			}
 			auto fun = resolve_function_tree(override_ast, &res_data);
 			auto override_tree = prune_tree(fun.fun);
 			bool no_override = false;
@@ -825,7 +835,7 @@ compose_and_resolve(Model_Application *app) {
 			if(no_override)
 				var2->override_tree = nullptr;
 			else {
-				// TODO: Check that fun.unit is correct (not in the override case though)
+				// TODO: Check that fun.unit is correct (not in the no_override case though)
 				var2->override_tree = make_cast(override_tree, Value_Type::real);
 				var2->override_is_conc = override_is_conc;
 				replace_conc(app, var2->override_tree);
