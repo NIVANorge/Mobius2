@@ -39,14 +39,18 @@ struct
 Standardized_Unit {
 	Rational<s64> multiplier;
 	Rational<s16> magnitude;
-	Rational<s16> powers[(int)Base_Unit::max];
+	Rational<s16> powers[(int)Base_Unit::max];  //TODO: probably change to std::vector as it is more efficient to std::move.
 	// this represents a unit on the form   multiplier * 10^magnitude * m^powers[0] * s^powers[1] * g^powers[2] ....
 	
 	Standardized_Unit() : multiplier(1), magnitude(0) {
 		for(int idx = 0; idx < (int)Base_Unit::max; ++idx) powers[idx] = 0;
 	}
 	std::string to_utf8();
+	void reduce();
 };
+
+Standardized_Unit
+multiply(const Standardized_Unit &a, const Standardized_Unit &b, int power = 1);
 
 struct
 Unit_Data {

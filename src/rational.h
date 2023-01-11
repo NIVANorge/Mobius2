@@ -10,9 +10,7 @@ Rational {
 	T nom;
 	T denom;
 	
-	Rational(T nom, T denom) : nom(nom) /* omnomnomnom */, denom(denom) {
-		//TODO: reduce
-	}
+	Rational(T nom, T denom) : nom(nom) /* omnomnomnom */, denom(denom) { euclid_reduce();	}
 	
 	Rational(T nom) : Rational(nom, 1) {}
 	
@@ -20,6 +18,7 @@ Rational {
 	
 	double to_double() { return (double)nom / (double)denom; }
 	bool is_int() { return denom == 1; }
+	void euclid_reduce();
 };
 
 template<typename T> inline Rational<T>
@@ -87,6 +86,28 @@ pow_i(T a, T b) {
 	else if(b < 0)
 		for(T p = 0; p < -b; ++p) result.denom *= a;
 	return result;
+}
+
+template<typename T> inline Rational<T>
+pow_i(const Rational<T> &a, T b) {
+	return pow_i(a.nom, b) / pow_i(a.denom, b);
+}
+
+template<typename T> inline void
+Rational<T>::euclid_reduce() {
+	if(denom < 0) {
+		nom = -nom;
+		denom = -denom;
+	}
+	T n = std::min((T)std::abs(nom), denom);
+	T m = std::max((T)std::abs(nom), denom);
+	while(n != 0) {
+		T r = m % n;
+		m = n;
+		n = r;
+	}
+	nom   /= m;
+	denom /= m;
 }
 
 #endif // MOBIUS_RATIONAL_H

@@ -97,6 +97,9 @@
 		
 		MobiView, stacked_share vs. negative values.
 		
+		Some kind of system for specifying assertion checks on user provided data, such as
+			lu_prop should sum to 1 over landscape units.
+		
 		
 	*****************   DONE:   ***********************
 	

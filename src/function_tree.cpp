@@ -193,20 +193,28 @@ struct
 Function_Scope {
 	Function_Scope *parent;
 	Math_Block_FT *block;
+	std::vector<Standardized_Unit> local_var_units;
 	std::string function_name;
 	
 	Function_Scope() : parent(nullptr), block(nullptr), function_name("") {}
 };
 
-void resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
+void
+resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope, std::vector<Standardized_Unit> &units) {
 	//TODO allow error check on expected number of arguments
 	for(auto arg : ast->exprs) {
-		ft->exprs.push_back(resolve_function_tree(arg, data, scope));
+		auto result = resolve_function_tree(arg, data, scope);
+		ft->exprs.push_back(result.fun);
+		if(result.fun->expr_type == Math_Expr_Type::local_var) {
+			scope->local_var_units.push_back(result.unit);
+			scope->block->n_locals++;
+		}
+		units.push_back(std::move(result.unit));
 	}
 }
 
 bool
-find_local_variable(Identifier_FT *ident, const std::string &name, Function_Scope *scope) {
+find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::string &name, Function_Scope *scope) {
 	if(!scope) return false;
 	
 	auto block = scope->block;
@@ -222,6 +230,7 @@ find_local_variable(Identifier_FT *ident, const std::string &name, Function_Scop
 					ident->local_var.scope_id = block->unique_block_id;
 					ident->value_type = local->value_type;
 					local->is_used = true;
+					unit = scope->local_var_units[idx];
 					return true;
 				}
 			}
@@ -229,7 +238,7 @@ find_local_variable(Identifier_FT *ident, const std::string &name, Function_Scop
 		}
 	}
 	if(scope->function_name.empty())  //NOTE: scopes should not "bleed through" function substitutions.
-		return find_local_variable(ident, name, scope->parent);
+		return find_local_variable(ident, unit, name, scope->parent);
 	return false;
 }
 
@@ -334,7 +343,7 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 }
 
 void
-set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_Id var_id, std::vector<Token> &chain, Function_Scope *scope) {
+set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Identifier_FT *ident, Var_Id var_id, std::vector<Token> &chain, Function_Scope *scope) {
 	Source_Location sl = chain[0].source_loc;
 	if(!is_valid(var_id)) {
 		sl.print_error_header();
@@ -353,9 +362,11 @@ set_identifier_location(Function_Resolve_Data *data, Identifier_FT *ident, Var_I
 	if(var_id.type == Var_Id::Type::state_var) {
 		ident->variable_type = Variable_Type::state_var;
 		ident->state_var     = var_id;
+		unit = data->app->state_vars[var_id]->unit.standard_form;
 	} else {
 		ident->variable_type = Variable_Type::series;
 		ident->series        = var_id;
+		unit = data->app->series[var_id]->unit.standard_form;
 	}
 	ident->value_type = Value_Type::real;
 }
@@ -384,9 +395,9 @@ fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::v
 	return literal;
 }
 
-Math_Expr_FT *
+Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
-	Math_Expr_FT *result = nullptr;
+	Function_Resolve_Result result = { nullptr, {}};
 	
 #define DEBUGGING_NOW 0
 #if DEBUGGING_NOW
@@ -406,10 +417,17 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			new_scope.parent = scope;
 			new_scope.block = new_block;
 			
-			resolve_arguments(new_block, ast, data, &new_scope);
+			std::vector<Standardized_Unit> arg_units;
+			resolve_arguments(new_block, ast, data, &new_scope, arg_units);
 			
-			for(auto expr : new_block->exprs)
-				if(expr->expr_type == Math_Expr_Type::local_var) ++new_block->n_locals;
+			/* // this is now done in resolve_arguments instead.
+			int idx = 0;
+			for(auto expr : new_block->exprs) {
+				if(expr->expr_type == Math_Expr_Type::local_var) {
+					++new_block->n_locals;
+				}
+			}
+			*/
 			
 			// the value of a block is the value of the last expression in the block.
 			Math_Expr_FT *last = new_block->exprs.back();
@@ -419,13 +437,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				fatal_error_trace(scope);
 			}
 			new_block->value_type = last->value_type;
-			result = new_block;
+			result = {new_block, std::move(arg_units.back())};
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
 			auto ident = static_cast<Identifier_Chain_AST *>(ast);
 			auto new_ident = new Identifier_FT();
-			result = new_ident;
+			result.fun = new_ident;
 			
 			int chain_size = ident->chain.size();
 			
@@ -439,15 +457,17 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					new_ident->variable_type = Variable_Type::no_override;
 					new_ident->value_type = Value_Type::real;
 					found = true;
+					// TODO: What do we do about the unit here?? Either we need to take the unit of the top expression passed in, or we just don't care about it, but then we need to know that at the call site.
 				} else
-					found = find_local_variable(new_ident, n1, scope);
+					found = find_local_variable(new_ident, result.unit, n1, scope);
 			}
 			
 			auto reg = decl_scope[n1];
 			if(!found && chain_size == 1 && reg && reg->id.reg_type == Reg_Type::constant) {
 				delete new_ident; // A little stupid to do it that way, but oh well.
-				result = make_literal(model->constants[reg->id]->value);
-				// TODO: remember unit when that is implemented.
+				auto const_decl = model->constants[reg->id];
+				result.fun  = make_literal(const_decl->value);
+				result.unit = model->units[const_decl->unit]->data.standard_form;
 				found = true;
 			}
 			
@@ -482,6 +502,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						new_ident->variable_type = Variable_Type::parameter;
 						new_ident->parameter = id;
 						new_ident->value_type = get_value_type(par->decl_type);
+						if(is_valid(par->unit))
+							result.unit = model->units[par->unit]->data.standard_form;
 					} else if (id.reg_type == Reg_Type::component) {
 						if(!is_located(data->in_loc)) {
 							ident->chain[0].print_error_header();
@@ -489,7 +511,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							fatal_error_trace(scope);
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
-						set_identifier_location(data, new_ident, var_id, ident->chain, scope);
+						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 					} else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
@@ -515,6 +537,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							}
 							new_ident->value_type = Value_Type::integer;
 							resolved = true;
+							// TODO: Unit!!!
 						} else {
 							auto reg = decl_scope[n1];
 							if(!reg) {
@@ -540,8 +563,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 								new_ident->parameter = reg->id;
 								new_ident->value_type = Value_Type::integer;
 								auto ft = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
-								result = make_binop('=', ft, make_literal(val));
+								result.fun = make_binop('=', ft, make_literal(val));
 								resolved = true;
+								// NOTE: In this case we don't set a unit, so it is dimensionless (which is what makes sense for truth values).
 							}
 						}
 					}
@@ -558,7 +582,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							chain.push_back(reg->id);
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
-						set_identifier_location(data, new_ident, var_id, ident->chain, scope);
+						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 					}
 				} else {
 					ident->chain[0].print_error_header();
@@ -567,7 +591,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 			}
 			
-			result = fixup_potentially_baked_value(app, result, data->baked_parameters);
+			result.fun = fixup_potentially_baked_value(app, result.fun, data->baked_parameters);
 		} break;
 		
 		case Math_Expr_Type::literal : {
@@ -577,7 +601,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			new_literal->value_type = get_value_type(literal->value.type);
 			new_literal->value      = get_parameter_value(&literal->value, literal->value.type);
 			
-			result = new_literal;
+			result.fun = new_literal;
+			// NOTE: Unit not given so is dimensionless for now (but can instead be forced in a unit conversion).
 		} break;
 		
 		case Math_Expr_Type::function_call : {
@@ -588,7 +613,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			// First check for "special" calls that are not really function calls.
 			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc" || fun_name == "target") {
 				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
-				resolve_arguments(new_fun, ast, data, scope);
+				std::vector<Standardized_Unit> arg_units;
+				resolve_arguments(new_fun, ast, data, scope, arg_units);
 				if(new_fun->exprs.size() != 1) {
 					fun->name.print_error_header();
 					error_print("A ", fun_name, "() declaration only takes one argument.\n");
@@ -623,24 +649,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				else if(fun_name == "target")
 					var->flags = (Identifier_Flags)(var->flags | ident_flags_target);
 				
-				result = var;
-			/*} else if (fun_name == "bool") {
-				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
-				resolve_arguments(new_fun, ast, data, scope);
-				if(new_fun->exprs.size() != 1) {
-					fun->name.print_error_header();
-					error_print("A ", fun_name, "() call only takes one argument.\n");
-					fatal_error_trace(scope);
-				}
-				auto expr = new_fun->exprs[0];
-				new_fun->exprs.clear();
-				delete new_fun;
-				result = make_cast(expr, Value_Type::boolean);
-			*/
+				result.fun = var;
+				result.unit = std::move(arg_units[0]); // TODO: Not correct for in_flux!!! Should divide by the time step unit!
 			} else {
 				// Otherwise it should have been registered as an entity.
-				
-				// TODO: it is a bit problematic that a function can see all other functions in the scope it was imported into...
+
 				auto reg = decl_scope[fun_name];
 				if(!reg || reg->id.reg_type != Reg_Type::function) {
 					fun->name.print_error_header();
@@ -660,13 +673,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				if(fun_type == Function_Type::intrinsic) {
 					auto new_fun = new Function_Call_FT();
 					
-					resolve_arguments(new_fun, ast, data, scope);
+					std::vector<Standardized_Unit> arg_units;
+					resolve_arguments(new_fun, ast, data, scope, arg_units);
 				
 					new_fun->fun_type = fun_type;
 					new_fun->fun_name = fun_name;
 					fixup_intrinsic(new_fun, &fun->name);
 					
-					result = new_fun;
+					result.fun = new_fun;
+					// TODO: units!
 				} else if(fun_type == Function_Type::decl) {
 					if(is_inside_function(scope, fun_name)) {
 						fun->name.print_error_header();
@@ -677,7 +692,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					auto inlined_fun = new Math_Block_FT();
 					inlined_fun->source_loc = fun->source_loc; //NOTE: do this to get correct diagnostics in fatal_error_trace()
 					
-					resolve_arguments(inlined_fun, ast, data, scope);
+					std::vector<Standardized_Unit> arg_units;
+					resolve_arguments(inlined_fun, ast, data, scope, arg_units);
 					
 					inlined_fun->n_locals = inlined_fun->exprs.size();
 					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
@@ -693,14 +709,17 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					new_scope.parent = scope;
 					new_scope.block = inlined_fun;
 					new_scope.function_name = fun_name;
+					new_scope.local_var_units = std::move(arg_units);
 					
 					Function_Resolve_Data sub_data = *data;
 					sub_data.scope = model->get_scope(fun_decl->code_scope);  // Resolve the function body in the scope of the library it was imported from (if relevant).
 					
-					inlined_fun->exprs.push_back(resolve_function_tree(fun_decl->code, &sub_data, &new_scope));
+					auto res = resolve_function_tree(fun_decl->code, &sub_data, &new_scope);
+					inlined_fun->exprs.push_back(res.fun);
 					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
 					
-					result = inlined_fun;
+					result.fun = inlined_fun;
+					result.unit = std::move(res.unit);
 				} else
 					fatal_error(Mobius_Error::internal, "Unhandled function type.");
 			}
@@ -712,7 +731,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			auto unary = static_cast<Unary_Operator_AST *>(ast);
 			auto new_unary = new Operator_FT(Math_Expr_Type::unary_operator);
 			
-			resolve_arguments(new_unary, ast, data, scope);
+			std::vector<Standardized_Unit> arg_units;
+			resolve_arguments(new_unary, ast, data, scope, arg_units);
 			
 			new_unary->oper = unary->oper;
 			
@@ -737,14 +757,16 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled unary operator type in resolve_function_tree().");
 			
-			result = new_unary;
+			result.fun = new_unary;
+			result.unit = std::move(arg_units[0]);
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
 			auto binary = static_cast<Binary_Operator_AST *>(ast);
 			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
 			
-			resolve_arguments(new_binary, ast, data, scope);
+			std::vector<Standardized_Unit> arg_units;
+			resolve_arguments(new_binary, ast, data, scope, arg_units);
 			
 			new_binary->oper = binary->oper;
 			char op = (char)binary->oper;
@@ -784,14 +806,16 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					new_binary->value_type = Value_Type::boolean;
 			}
 			
-			result = new_binary;
+			result.fun = new_binary;
+			result.unit = std::move(arg_units[0]); // TODO: Need to do unit aritmetic!!!! And checking!!!
 		} break;
 		
 		case Math_Expr_Type::if_chain : {
 			auto ifexpr = static_cast<If_Expr_AST *>(ast);
 			auto new_if = new Math_Expr_FT(Math_Expr_Type::if_chain);
 			
-			resolve_arguments(new_if, ast, data, scope);
+			std::vector<Standardized_Unit> arg_units;
+			resolve_arguments(new_if, ast, data, scope, arg_units);
 			
 			// Cast all possible result values up to the same type
 			Value_Type value_type = new_if->exprs[0]->value_type;
@@ -817,7 +841,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			new_if->exprs[otherwise_idx] = make_cast(new_if->exprs[otherwise_idx], value_type);
 			new_if->value_type = value_type;
 			
-			result = new_if;
+			result.fun = new_if;
+			result.unit = std::move(arg_units[0]); // TODO: need to check that all value units are the same!!
 		} break;
 		
 		case Math_Expr_Type::local_var : {
@@ -839,22 +864,47 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			auto new_local = new Local_Var_FT();
 			
-			resolve_arguments(new_local, ast, data, scope);
+			std::vector<Standardized_Unit> arg_units;
+			resolve_arguments(new_local, ast, data, scope, arg_units);
 			
 			new_local->name = local_name;
 			new_local->value_type = new_local->exprs[0]->value_type;
 			
-			result = new_local;
+			result.fun = new_local;
+			result.unit = std::move(arg_units[0]);
 		} break;
 		
 		case Math_Expr_Type::unit_convert : {
+			auto conv = static_cast<Unit_Convert_AST *>(ast);
 			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
-			resolve_arguments(new_binary, ast, data, scope);
+			std::vector<Standardized_Unit> arg_units;
+			resolve_arguments(new_binary, ast, data, scope, arg_units);
 			
-			new_binary->exprs.push_back(make_literal(1.0)); // TODO!!!
-			new_binary->value_type = new_binary->exprs[0]->value_type;
-			new_binary->oper = (Token_Type)'*';
-			result = new_binary;
+			// TODO: We need to support auto-convert, which means that we need to have the expected unit passed in the function resolve data.
+			if(conv->auto_convert)
+				fatal_error(Mobius_Error::internal, "Auto-convert not yet supported");
+			Unit_Data conv_unit;
+			set_unit_data(conv_unit, conv->unit);
+			
+			double conversion_factor = 1.0;
+			if(!conv->force) {
+				bool success = match(&arg_units[0], &conv_unit.standard_form, &conversion_factor); // TODO: Is this the right way around??
+				if(!success) {
+					conv->source_loc.print_error_header();
+					fatal_error("Unable to convert from unit with standard form ", arg_units[0].to_utf8(), " to ", conv_unit.standard_form.to_utf8(), ".");
+				}
+			}
+			if(conversion_factor == 1.0) {
+				result.fun = new_binary->exprs[0];
+				new_binary->exprs.clear();
+				delete new_binary;
+			} else {
+				new_binary->exprs.push_back(make_literal(conversion_factor));
+				new_binary->value_type = new_binary->exprs[0]->value_type;
+				new_binary->oper = (Token_Type)'*';
+				result.fun = new_binary;
+			}
+			result.unit = std::move(conv_unit.standard_form);
 		} break;
 		
 		default : {
@@ -862,12 +912,12 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		} break;
 	}
 	
-	if(!result)
+	if(!result.fun)
 		fatal_error(Mobius_Error::internal, "Result unassigned in resolve_function_tree().");
 	
-	result->source_loc = ast->source_loc;
+	result.fun->source_loc = ast->source_loc;
 	
-	if(result->value_type == Value_Type::unresolved) {
+	if(result.fun->value_type == Value_Type::unresolved) {
 		ast->source_loc.print_error_header();
 		fatal_error("(internal error) did not resolve value type of expression.");
 	}

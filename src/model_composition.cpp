@@ -570,7 +570,8 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		
 		auto scope = model->get_scope(agg.code_scope);
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
-		agg_weight = make_cast(resolve_function_tree(agg.code, &res_data), Value_Type::real);
+		auto fun = resolve_function_tree(agg.code, &res_data); // TODO: What to do about units here? Should expect dimensionless?
+		agg_weight = make_cast(fun.fun, Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
 		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs, is_connection);
 		
@@ -603,10 +604,13 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 		auto scope = model->get_scope(conv.code_scope);
 		
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters };
-		unit_conv = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
+		auto fun = resolve_function_tree(ast, &res_data);
+		unit_conv = make_cast(fun.fun, Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
 		restrictive_lookups(unit_conv, Decl_Type::unit_conversion, parameter_refs);
-
+		
+		// TODO: check that fun.unit gives the right unit conversion!
+		
 		for(auto par_id : parameter_refs) {
 			bool ok = parameter_indexes_below_location(model, par_id, loc1);
 			if(!ok) {
@@ -785,7 +789,9 @@ compose_and_resolve(Model_Application *app) {
 		// TODO: instead of passing the in_compartment, we could just pass the var_id and give the function resolution more to work with.
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters };
 		if(ast) {
-			var2->function_tree = make_cast(resolve_function_tree(ast, &res_data), Value_Type::real);
+			auto fun = resolve_function_tree(ast, &res_data);
+			// TODO: Check that fun.unit is correct!
+			var2->function_tree = make_cast(fun.fun, Value_Type::real);
 			replace_conc(app, var2->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
 			find_other_flags(var2->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false, allow_target);
 		} else
@@ -793,8 +799,9 @@ compose_and_resolve(Model_Application *app) {
 		
 		res_data.scope = other_code_scope;
 		if(init_ast) {
-			//TODO: handle initial_is_conc!
-			var2->initial_function_tree = make_cast(resolve_function_tree(init_ast, &res_data), Value_Type::real);
+			auto fun = resolve_function_tree(init_ast, &res_data);
+			//TODO: Check that fun.unit is correct!
+			var2->initial_function_tree = make_cast(fun.fun, Value_Type::real);
 			remove_lasts(var2->initial_function_tree, true);
 			replace_conc(app, var2->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
 			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true, false);
@@ -808,7 +815,8 @@ compose_and_resolve(Model_Application *app) {
 			var2->initial_function_tree = nullptr;
 		
 		if(override_ast) {
-			auto override_tree = prune_tree(resolve_function_tree(override_ast, &res_data));
+			auto fun = resolve_function_tree(override_ast, &res_data);
+			auto override_tree = prune_tree(fun.fun);
 			bool no_override = false;
 			if(override_tree->expr_type == Math_Expr_Type::identifier_chain) {
 				auto ident = static_cast<Identifier_FT *>(override_tree);
@@ -817,6 +825,7 @@ compose_and_resolve(Model_Application *app) {
 			if(no_override)
 				var2->override_tree = nullptr;
 			else {
+				// TODO: Check that fun.unit is correct (not in the override case though)
 				var2->override_tree = make_cast(override_tree, Value_Type::real);
 				var2->override_is_conc = override_is_conc;
 				replace_conc(app, var2->override_tree);

@@ -128,7 +128,13 @@ Function_Resolve_Data {
 	std::vector<Entity_Id> *baked_parameters;
 };
 
-Math_Expr_FT *
+struct
+Function_Resolve_Result {
+	Math_Expr_FT *fun;
+	Standardized_Unit unit;
+};
+
+Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope = nullptr);
 
 void

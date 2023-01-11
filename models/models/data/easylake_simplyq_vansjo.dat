@@ -113,7 +113,7 @@ module("EasyLake", 0, 1, 0) {
 		[ 150 150 ]
 
 		par_real("Initial epilimnion temperature")
-		[ 20 20 ]
+		[ 15 15 ]
 
 		par_real("Bottom temperature")
 		[ 4 4 ]

@@ -158,37 +158,44 @@ Unit_Data::set_standard_form() {
 				fatal_error(Mobius_Error::internal, "Unhandled compound unit in set_standard_form().");
 		}
 		standard_form.magnitude += ((int)part.magnitude)*part.power;
-		//TODO: reduce multiplier if it is a power of 10?
+		standard_form.reduce();
 	}
 }
 
-/*
-Standardized_Unit
-operator*(const Standardized_Unit &a, const Standardized_Unit &b) {
-	Standardized_Unit result;
-	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
-		result.powers[idx] = a.powers[idx] + b.powers[idx];
-	result.multiplier = a.multiplier * b.multiplier;   //TODO: reduce if it is a power of 10?
-	result.magnitude  = a.magnitude + b.magnitude;
-	return result;
+void
+Standardized_Unit::reduce() {
+	while(multiplier.nom % 10 == 0) {
+		magnitude = magnitude + Rational<s16>(1);
+		multiplier.nom /= 10;
+	}
+	while(multiplier.denom % 10 == 0) {
+		magnitude = magnitude - Rational<s16>(1);
+		multiplier.denom /= 10;
+	}
 }
 
 Standardized_Unit
-operator/(const Standardized_Unit &a, const Standardized_Unit &b) {
+multiply(const Standardized_Unit &a, const Standardized_Unit &b, int power) {
 	Standardized_Unit result;
 	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
-		result.powers[idx] = a.powers[idx] - b.powers[idx];
-	result.multiplier = a.multiplier / b.multiplier;   //TODO: reduce if it is a power of 10?
-	result.magnitude  = a.magnitude - b.magnitude;
+		result.powers[idx] = a.powers[idx] + b.powers[idx]*power;
+	result.multiplier = a.multiplier * pow_i(b.multiplier, (s64)power);
+	result.magnitude  = a.magnitude + b.magnitude*power;
+	result.reduce();
 	return result;
 }
-*/
 
 bool
 match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor) {  // the conversion factor so that factor*b = a
+	
+	// TODO: Conversion between deg_c and K, and also month->s etch should be supported (latter need time step info passed in).
+
 	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
 		if(a->powers[idx] != b->powers[idx]) return false;
 	
+	// NOTE: because of the reduce() operation, two (multiplier, magnitude) pairs should be
+	// identical if they correspond to the same real number. Thus if the conversion_factor will
+	// be identical to 1.0 if the effective multipliers are the same real number.
 	*conversion_factor = 1.0;
 	if(a->multiplier != b->multiplier)
 		*conversion_factor = (a->multiplier / b->multiplier).to_double();

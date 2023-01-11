@@ -30,7 +30,7 @@ Var_Location_Hash {
 
 template <Var_Id::Type var_type>
 struct Var_Registry {
-	std::vector<State_Var *> vars;
+	std::vector<std::unique_ptr<State_Var>> vars;
 	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
 	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
 	
@@ -39,7 +39,7 @@ struct Var_Registry {
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
 		if(id.type != var_type)
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable of wrong type.");
-		return vars[id.id];
+		return vars[id.id].get();
 	}
 	
 	Var_Id id_of(const Var_Location &loc) {
@@ -53,16 +53,17 @@ struct Var_Registry {
 	
 	// TODO: This one should just be removed in favor of deserialize once we have fixed a system for that.
 	const std::set<Var_Id> &operator[](const std::string &name) {
-		static std::set<Var_Id> empty_set = {};
 		auto find = name_to_id.find(name);
-		if(find == name_to_id.end())
+		if(find == name_to_id.end()) {
+			static std::set<Var_Id> empty_set = {};
 			return empty_set;
-			//fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid name \"", name, "\".");
+		}
 		return find->second;
 	}
 	
 	// TODO: The serialization system needs to be much better since names are currently not unique.
 	std::string serialize  (Var_Id id) { return (*this)[id]->name; }
+	
 	Var_Id      deserialize(const std::string &name) {
 		auto &ids = (*this)[name];
 		if(ids.empty()) return invalid_var;
@@ -72,13 +73,12 @@ struct Var_Registry {
 	template<State_Var::Type type>
 	Var_Id register_var(Var_Location loc, const std::string &name) {
 		if(is_located(loc) && is_valid(id_of(loc)))
-			fatal_error(Mobius_Error::internal, "Re-registering a variable."); //TODO: hmm, this only catches cases where the location was valid.
+			fatal_error(Mobius_Error::internal, "Re-registering a variable.");
 		
 		// TODO: Better memory allocation system for these... Ideally want them in contiguous memory..
-		// TODO: Need to delete them (or unique_ptr - like construction)
 		auto var = new State_Var_Sub<type>();
 		var->name = name;
-		vars.push_back(var);
+		vars.push_back(std::unique_ptr<State_Var>(var));
 		Var_Id id = {var_type, (s32)vars.size()-1};
 		if(is_located(loc))
 			location_to_id[loc] = id;
