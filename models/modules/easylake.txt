@@ -88,14 +88,14 @@ TODO: description
 	epi.has(stab : property("Stability"), []) {
 		ww := max(air.wind, 0.1[m, s-1])
 		s0 := 0.25*(water.temp - air.temp) / (ww*ww) => []
-		s0*abs(s0)/(abs(s0) + 0.01) =>>
+		s0*abs(s0)/(abs(s0) + 0.01)
 	}
 	
-	stab_modify : function(wind, stab) {
+	stab_modify : function(wind : [m, s-1], stab : []) {
 		0                                     if abs(wind) < 1e-3[m, s-1],
 		0.1 + 0.03*stab * 0.9*exp(4.8*stab)   if stab < 0 & stab > -3.3,
 		0                                     if stab < 0,
-		1 + 0.63*sqrt(stab)                      otherwise
+		1 + 0.63*sqrt(stab)                   otherwise
 	}
 	
 	epi.has(ced : property("Transfer coefficient for latent heat flux"), []) {
@@ -124,7 +124,7 @@ TODO: description
 	
 	air.has(a_vap : property("Actual vapor pressure"), [h Pa]) {
 		svap := saturation_vapor_pressure_lowe(air.temp)
-		air.r_hum * 0.01 * svap
+		air.r_hum * 0.01 * svap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
 	}
 	
 	epi.has(s_hum : property("Saturation specific humidity"), []) {
@@ -138,7 +138,7 @@ TODO: description
 	
 	air.has(rho : property("Air density"), [k g, m-3]) {
 		tk := air.temp -> [K]
-		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) ->>  # Convert hPa to Pa
+		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) ->>
 	}
 	
 	#TODO: Move some radiation stuff into a radiation module
@@ -189,20 +189,20 @@ TODO: description
 	}
 	
 	epi.water.has(evap_mm : property("Evaporation per area"), [m m, day-1]) {
-		rho_ref := 1025
+		rho_ref := 1025 [k g, m-3]
 		0                                                                          if epi.ice.indicator,
 		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400)*1000     otherwise
 	}
 	
 	evap :
 	flux(epi.water, nowhere, "Evaporation") {
-		evap_mm*A_surf/1000   # convert to m^3/day
+		evap_mm*A_surf ->>
 	}
 	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {
 		#precip_t := max(0.4[deg_c], air.temp)
 		precip_t := air.temp
-		V := A_surf*air.precip*1e-3 => [m 3]              # Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
+		V := A_surf*air.precip*1e-3 => [m 3]   # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
 		water_temp_to_heat(V, precip_t) => [J, day-1]
 	}
 	
@@ -212,7 +212,7 @@ TODO: description
 		lake_t := water_heat_to_temp(V, lake_heat) => [deg_c] # Mean lake temperature.    #TODO: remove force conversion.
 		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water)
 		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be)
-		5*(heat - epi_heat_should_be)    # The 5 is pretty arbitrary. Just to get a quick equilibration
+		5[day-1]*(heat - epi_heat_should_be)   # The 5 is pretty arbitrary. Just to get a quick equilibration
 	}
 	
 	epi.water.has(temp, [deg_c], "Epilimnion temperature") {

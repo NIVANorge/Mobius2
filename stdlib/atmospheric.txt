@@ -35,8 +35,7 @@ library("Meteorology") {
 	}
 	
 	dew_point_temperature : function(vapor_pressure : [h Pa]) {  # Henderson-Sellers 1984
-		vp := vapor_pressure => []
-		34.07[K] + 4157.0[K] / ln(2.1718e8 / vp)
+		34.07[K] + 4157.0[K] / ln(2.1718e8[h Pa] / vapor_pressure)
 	}
 	
 	specific_humidity_from_pressure : function(total_air_pressure : [h Pa], vapor_pressure : [h Pa]) {
