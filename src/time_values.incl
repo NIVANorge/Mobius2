@@ -7,3 +7,5 @@ TIME_VALUE(days_this_year, 32)
 TIME_VALUE(days_this_month, 32)
 TIME_VALUE(step, 64)
 TIME_VALUE(step_length_in_seconds, 64)
+
+// Time flies like a banana.

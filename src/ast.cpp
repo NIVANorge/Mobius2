@@ -353,7 +353,7 @@ find_binary_operator(Token_Stream *stream, Token_Type *t) {
 	
 	if(c == '|') return 1000;
 	else if(c == '&') return 2000;
-	else if((c == '<') || (c == '>') || (*t == Token_Type::leq) || (*t == Token_Type::geq) || (c == '=') || (*t == Token_Type::neq)) return 3000; 
+	else if((c == '<') || (c == '>') || (*t == Token_Type::leq) || (*t == Token_Type::geq) || (c == '=') || (*t == Token_Type::neq)) return 3000;
 	else if((c == '+') || (c == '-')) return 4000;
 	else if(c == '/') return 5000;
 	else if(c == '*' || c == '%') return 6000;   //not sure if * should be higher than /
@@ -363,9 +363,16 @@ find_binary_operator(Token_Stream *stream, Token_Type *t) {
 }
 
 Math_Expr_AST *
+potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool expect_operator = true);
+
+Math_Expr_AST *
 potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math_Expr_AST *lhs) {
 	
 	while(true) {
+		// TODO: This is not clean...
+		if(prev_prec < 5000)
+			lhs = potentially_parse_unit_conversion(stream, lhs);
+		
 		Token_Type oper;
 		int cur_prec = find_binary_operator(stream, &oper);
 		if(!cur_prec || (cur_prec < prev_prec))
@@ -373,6 +380,10 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 		
 		Token token = stream->read_token(); // consume the operator
 		Math_Expr_AST *rhs = parse_primary_expr(stream);
+		
+		// TODO: This is not clean...
+		if(cur_prec < 5000)
+			rhs = potentially_parse_unit_conversion(stream, rhs);
 		
 		Token_Type oper_next;
 		int next_prec = find_binary_operator(stream, &oper_next);
@@ -389,7 +400,8 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 }
 
 Math_Expr_AST *
-potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool expect_operator = true) {
+potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool expect_operator) {
+	
 	bool auto_convert = false;
 	bool force        = false;
 	bool convert      = false;
@@ -427,14 +439,14 @@ potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool
 		stream->fold_minus = false;
 	}
 	
-	return unit_conv;
+	return unit_conv;// potentially_parse_binary_operation_rhs(stream, 0, unit_conv);
 }
 
 Math_Expr_AST *
 parse_math_expr(Token_Stream *stream) {
 	auto lhs = parse_primary_expr(stream);
-	auto expr = potentially_parse_binary_operation_rhs(stream, 0, lhs);
-	return potentially_parse_unit_conversion(stream, expr);
+	return potentially_parse_binary_operation_rhs(stream, 0, lhs);
+	//return potentially_parse_unit_conversion(stream, expr);
 }
 	
 Math_Expr_AST *
@@ -732,6 +744,10 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		decl->source_loc.print_error_header();
 		error_print("The arguments to the declaration of type '", name(decl->type), "' don't match any recognized pattern. The recognized patterns are:\n");
 		for(const auto &pattern : patterns) {
+			if(pattern.size() == 0) {
+				error_print("()\n");
+				continue;
+			}
 			error_print("(");
 			auto match = pattern.begin();
 			while(true) {

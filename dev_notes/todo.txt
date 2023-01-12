@@ -95,7 +95,9 @@
 		
 		In all_to_all and grid1d connection data, it should be sufficient to just provide the name of the index set.
 		
-		MobiView, stacked_share vs. negative values.
+		MobiView:
+			stacked_share vs. negative values.
+			"scatter sparse" instead of "scatter inputs" ? So that full series are not scatter plotted.
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.

@@ -197,6 +197,7 @@ Function_Type {
 template<> struct
 Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
 	std::vector<std::string> args;
+	std::vector<Entity_Id> expected_units;
 	
 	Function_Type    fun_type;
 	Math_Block_AST  *code;

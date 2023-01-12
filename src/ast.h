@@ -237,6 +237,7 @@ struct Arg_Pattern {
 			case Type::decl :         { error_print(name(decl_type));  } break;
 			case Type::value :        { error_print(name(token_type)); } break;
 		}
+		if(is_vararg) error_print("...");
 	}
 };
 

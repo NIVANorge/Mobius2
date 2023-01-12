@@ -6,10 +6,6 @@
 #include "common_types.h"
 #include "model_declaration.h"
 
-//NOTE: this is really just a copy of the AST, but we want to put additional data on it.
-//NOTE: we *could* put the extra data in the AST, but it is not that clean. We will also want to copy the tree any way when we resolve properties that are attached to multiple other entities.
-
-
 
 struct
 Math_Expr_FT {
@@ -34,23 +30,19 @@ Math_Block_FT : Math_Expr_FT {
 	Math_Block_FT() : Math_Expr_FT(Math_Expr_Type::block), n_locals(0), is_for_loop(false) { set_id(); };
 };
 
-//NOTE: we don't want to use enum class here, because it doesn't autocast to int, making bitwise operations annoying :(
-	// although TODO, just scope it inside the Identifier_FT
-enum Identifier_Flags : u32 {
-	ident_flags_none        = 0x0,
-	ident_flags_last_result = 0x1,
-	ident_flags_in_flux     = 0x2,
-	ident_flags_aggregate   = 0x4,
-	ident_flags_conc        = 0x8,
-	ident_flags_target      = 0x10,
-	//TODO: trust_unit, auto_convert, etc.
-};
 
 struct
 Identifier_FT : Math_Expr_FT {
 
 	Variable_Type                variable_type;
-	Identifier_Flags             flags;
+	enum Flags : u32 {
+		none        = 0x0,
+		last_result = 0x1,
+		in_flux     = 0x2,
+		aggregate   = 0x4,
+		conc        = 0x8,
+		target      = 0x10,
+	}                            flags;
 	union {
 		Entity_Id                parameter;
 		Var_Id                   state_var;
@@ -61,7 +53,7 @@ Identifier_FT : Math_Expr_FT {
 		}                        local_var;
 	};
 	
-	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier_chain), flags(ident_flags_none) { };
+	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier_chain), flags(Identifier_FT::Flags::none) { };
 };
 
 struct

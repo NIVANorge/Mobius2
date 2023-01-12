@@ -26,7 +26,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 	}
 	
 	river.par_group("River erosion") {
-		ksed  : par_real("Erosion scaling factor", [], 15, 0, 100)
+		ksed  : par_real("Erosion scaling factor", [day, k m-1], 15, 0, 100)
 		psed  : par_real("Erosion power factor", [], 2, 0.1, 5)
 	}
 	
@@ -36,7 +36,7 @@ This is a simple sediment transport module created as a part of SimplyP.
 	river.water.has(sed, [k g], [m g, l-1], "Suspended sediments") .initial { 0 }
 
 	soil.has(c_cover : property("Time dependent vegetation cover factor"), []) {
-		E_risk_period := 60.0
+		E_risk_period := 60.0[day]
 		spring := {
 			wedge_response(time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
 			bump_response (time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.smooth,
@@ -54,11 +54,9 @@ This is a simple sediment transport module created as a part of SimplyP.
 	
 	soil.has(e_fact, [], "Erosion factor land")                     {   land_slope * c_cover * (1 - loadred)   }
 	
-	# TODO: determine if in_flux also counts "neighbor" fluxes, and in that case give an alternative that doesn't
-	# TODO: have to discard the unit of this one when that is implemented.
-	river.has(e_fact, [], "Erosion factor river")                   {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed   }
+	river.has(e_fact, [], "Erosion factor river")                   {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed =>> }
 
-	flux(nowhere, river.water.sed, "Sediment mobilization")             {   aggregate(soil.e_fact) * e_fact   }
+	flux(nowhere, river.water.sed, "Sediment mobilization")         {   aggregate(soil.e_fact) * e_fact =>> }
 }
 
 

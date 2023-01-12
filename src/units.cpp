@@ -174,6 +174,24 @@ Standardized_Unit::reduce() {
 	}
 }
 
+bool
+Standardized_Unit::is_atom(Base_Unit bu) {
+	for(int idx = 0; idx < (int)Base_Unit::max; ++idx) {
+		if(((int)bu != idx && powers[idx] != Rational<s16>(0)) || ((int)bu == idx && powers[idx] != Rational<s16>(1)))
+			return false;
+	}
+	return true;
+}
+
+bool
+Standardized_Unit::is_dimensionless() {
+	for(int idx = 0; idx < (int)Base_Unit::max; ++idx) {
+		if(powers[idx] != Rational<s16>(0))
+			return false;
+	}
+	return true;
+}
+
 Standardized_Unit
 multiply(const Standardized_Unit &a, const Standardized_Unit &b, int power) {
 	Standardized_Unit result;
@@ -186,10 +204,24 @@ multiply(const Standardized_Unit &a, const Standardized_Unit &b, int power) {
 }
 
 bool
-match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor) {  // the conversion factor so that factor*b = a
+pow(const Standardized_Unit &a, Standardized_Unit &result, Rational<s16> power) {
+	//TODO: It should actually be able to do it if that power of the multiplier is a rational!!
+	//	also, we should maybe have a better system for this, allowing powers on the
+	//	multiplier...
+	if(!power.is_int() && a.multiplier != Rational<s64>(1))
+		return false;
 	
-	// TODO: Conversion between deg_c and K, and also month->s etch should be supported (latter need time step info passed in).
+	result = a;
+	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
+		result.powers[idx] *= power;
+	result.magnitude *= power;
+	return true;
+}
 
+bool
+match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor) { 
+	// the conversion_factor so that factor*b = a
+	
 	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
 		if(a->powers[idx] != b->powers[idx]) return false;
 	
@@ -202,6 +234,34 @@ match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor) {  
 	if(a->magnitude != b->magnitude)
 		*conversion_factor *= std::pow(10.0, (a->magnitude - b->magnitude).to_double());
 	return true;
+}
+
+bool
+match_exact(Standardized_Unit *a, Standardized_Unit *b) {
+	double conversion_factor = 0.0;
+	bool success = match(a, b, &conversion_factor);
+	return success && (conversion_factor == 1.0);
+}
+
+bool
+match_offset(Standardized_Unit *a, Standardized_Unit *b, double *conversion_offset) {
+	// the conversion_offset so that  offset + b = a
+	
+	// TODO: This should also be able to match if the rest of the unit is the same, e.g. deg_C/m^3 -> K/m^3.
+	if(a->multiplier != b->multiplier || a->magnitude != b->magnitude) return false;
+	bool success = false;
+	if(a->is_atom(Base_Unit::deg_c) && b->is_atom(Base_Unit::K)) {
+		*conversion_offset = 273.15;
+		success = true;
+	} else if (a->is_atom(Base_Unit::K) && b->is_atom(Base_Unit::deg_c)) {
+		*conversion_offset = -273.15;
+		success = true;
+	}
+	if(a->multiplier != Rational<s64>(1))
+		*conversion_offset *= a->multiplier.to_double();
+	if(a->magnitude != Rational<s16>(0))
+		*conversion_offset *= std::pow(10.0, a->magnitude.to_double());
+	return success;
 }
 
 Unit_Data
@@ -315,7 +375,11 @@ Standardized_Unit::to_utf8() {
 		write_utf8_superscript_number(ss, powers[idx].denom);
 	}
 	
-	return ss.str();
+	auto result = ss.str();
+	if(result.empty())
+		return "1";   // or "dimensionless" ?
+	
+	return std::move(result);
 }
 
 void

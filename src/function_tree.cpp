@@ -267,6 +267,7 @@ is_inside_function(Function_Scope *scope) {
 void
 fatal_error_trace(Function_Scope *scope) {
 	Function_Scope *sc = scope;
+	error_print("\n");
 	while(true) {
 		if(!sc) mobius_error_exit();
 		if(!sc->function_name.empty()) {
@@ -395,6 +396,182 @@ fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::v
 	return literal;
 }
 
+void
+set_time_unit(Standardized_Unit &unit, Model_Application *app, Variable_Type type) {
+	//TODO: Could we find a way to use time_values.incl for the units too somehow?
+	switch(type) {
+		case Variable_Type::time_year : {
+			unit = unit_atom(Base_Unit::year);
+		} break;
+		
+		case Variable_Type::time_month : {
+			unit = unit_atom(Base_Unit::month);
+		} break;
+		
+		case Variable_Type::time_day_of_year :
+		case Variable_Type::time_day_of_month : {
+			unit = unit_atom(Base_Unit::s, 86400);
+		} break;
+		
+		case Variable_Type::time_days_this_year : {
+			unit = unit_atom(Base_Unit::s, 86400);
+			unit.powers[(int)Base_Unit::year] = -1;
+		} break;
+		
+		case Variable_Type::time_days_this_month : {
+			unit = unit_atom(Base_Unit::s, 86400);
+			unit.powers[(int)Base_Unit::month] = -1;
+		} break;
+		
+		case Variable_Type::time_second_of_day :
+		case Variable_Type::time_step_length_in_seconds : {
+			unit = unit_atom(Base_Unit::s);
+		} break;
+		
+		case Variable_Type::time_step : {
+			unit = app->time_step_unit.standard_form;
+		} break;
+		
+		default : {
+			fatal_error(Mobius_Error::internal, "Unhandled time variable type in set_time_unit()");
+		} break;
+	}
+}
+
+void
+set_intrinsic_unit(Standardized_Unit &result_unit, Standardized_Unit &arg_unit, const std::string &fun_name, Source_Location &error_loc, Function_Scope *scope) {
+	if(fun_name == "is_finite")
+		return;
+	if(fun_name == "abs" || fun_name == "floor" || fun_name == "ceil") {
+		result_unit = arg_unit;
+		return;
+	}
+	bool success = true;
+	if(fun_name == "sqrt" || fun_name == "cbrt") {
+		s16 pw = 2;
+		if(fun_name == "cbrt") pw = 3;
+		success = pow(arg_unit, result_unit, Rational<s16>(1, pw));
+		return;
+	}
+	if(!arg_unit.is_dimensionless()) {
+		success = false;
+	}
+	if(!success) {
+		error_loc.print_error_header();
+		error_print("Unable to apply function ", fun_name, " to unit on standardized form ", arg_unit.to_utf8(), ". Try to force convert the argument  =>[] if necessary.");
+		fatal_error_trace(scope);
+	}
+}
+
+void
+check_boolean_dimensionless(Standardized_Unit &unit, Source_Location &error_loc, Function_Scope *scope) {
+	if(!unit.is_dimensionless()) {
+		error_loc.print_error_header();
+		error_print("A value that is treated as a boolean value should be dimensionless. This value has unit on standard form ", unit.to_utf8(), ". Try to force convert the argument  =>[] if necessary.");
+		fatal_error_trace(scope);
+	}
+}
+
+bool
+is_constant_dimensionless_integer(Standardized_Unit &unit, Math_Expr_FT **expr, Function_Scope *scope, s64 *result) {
+	*expr = prune_tree(*expr, scope);	// TODO: It is not that good to do this at this stage as it may mask other consistency checks in model_composition, but it is very hard to get around :(
+	auto expr0 = *expr;
+	if(expr0->expr_type != Math_Expr_Type::literal) {
+		//warning_print("\nUnresolved tree:\n");
+		//print_tree(expr0);
+		//warning_print("\n\n");
+		return false;
+	}
+	auto literal = static_cast<Literal_FT *>(expr0);
+	bool found = false;
+	if(literal->value_type == Value_Type::real && literal->value.val_real == 0.0) {  // Not sure if we should accept other values.
+		*result = 0;
+		found = true;
+	} else if(literal->value_type == Value_Type::integer) {
+		*result = literal->value.val_integer;
+		found = true;
+	} else {
+		*result = literal->value.val_boolean;
+		found = true;
+	}
+	bool success = found && (unit.is_dimensionless() || *result==0);
+	
+	return success;
+}
+
+void
+apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit &result, Standardized_Unit &a, Standardized_Unit &b, Source_Location &oper_loc, Function_Scope *scope, Math_Expr_FT **lhs, Math_Expr_FT **rhs) {
+	char op = (char)oper;
+	if(op == '|' || op == '&') {
+		check_boolean_dimensionless(a, (*lhs)->source_loc, scope);
+		check_boolean_dimensionless(b, (*rhs)->source_loc, scope);
+	} else if (op == '<' || op == '>' || oper == Token_Type::geq || oper == Token_Type::leq || op == '=' || oper == Token_Type::neq || op == '+' || op == '-' || op == '%') {
+		// TODO: If one of the sides resolves to a constant 0, that should always match (but that may involve pruning first).
+		bool lhs_is_0 = false;
+		if(!match_exact(&a, &b)) {
+			s64 val = -1;
+			lhs_is_0 = is_constant_dimensionless_integer(a, lhs, scope, &val) && val == 0;
+			val = -1;
+			bool rhs_is_0 = is_constant_dimensionless_integer(b, rhs, scope, &val) && val == 0;
+			if(!lhs_is_0 && !rhs_is_0) {
+				// NOTE: If either side is a constant 0, we allow the match.
+				oper_loc.print_error_header();
+				error_print("The units of the two arguments to ", name, " must be the same. The standard form of the units given are ", a.to_utf8(), " and ", b.to_utf8(), ".");
+				fatal_error_trace(scope);
+			}
+		}
+		if(op == '+' || op == '-' || op == '%') {
+			// TODO: Should deg_c - deg_c = K ? Makes a bit more sense, and we often find ourselves having to do this conversion any way.
+			if(lhs_is_0) // Just in case one of them was a 0, we should use the other one if that had a proper unit.
+				result = b;
+			else
+				result = a;
+		}
+		// Otherwise we don't set the result unit, so it remains dimensionless.
+	} else if (op == '*') {
+		result = multiply(a, b, 1);
+	} else if (op == '/') {
+		result = multiply(a, b, -1);
+	} else if (op == '^') {
+		// TODO: Ideally we should analyze rhs better, e.g. see if it could be pruned, or see if it could be identified as a rational.
+		s64 val = -1;
+		if(b.is_dimensionless() && a.is_dimensionless()) {
+			// Do nothing, the unit should remain dimensionless.
+		} else if(is_constant_dimensionless_integer(b, rhs, scope, &val)) {
+			pow(a, result, Rational<s16>((s16)val)); // Power of integer should not fail, so we don't have to check the return code.
+		} else {
+			(*lhs)->source_loc.print_error_header();
+			error_print("In a power expression ^, to resolve the units, either both sides must be dimensionless, or the right hand side must be a dimensionless integer.");
+			fatal_error_trace(scope);
+		}
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled binary operator ", name, " in apply_binop_to_units.");
+}
+
+void
+check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &units, std::vector<Math_Expr_FT *> &exprs, Function_Scope *scope) {
+	// Check conditions:
+	for(int idx = 1; idx < units.size(); idx+=2)
+		check_boolean_dimensionless(units[idx], exprs[idx]->source_loc, scope);
+	// Check values:
+	Standardized_Unit *first_valid = nullptr;
+	for(int idx = 0; idx < units.size(); idx+=2) {
+		s64 val = -1;
+		bool is_0 = is_constant_dimensionless_integer(units[idx], &exprs[idx], scope, &val) && val==0;
+		if(is_0) continue; // We allow 0 to match against any other unit here.
+		if(!first_valid) {
+			*first_valid = units[idx];
+			result = units[idx];
+		} else {
+			if(!match_exact(&units[idx], first_valid)) {
+				exprs[idx]->source_loc.print_error_header();
+				error_print("The unit of this expression with standard form ", units[idx].to_utf8(), " is not identical to ", first_valid->to_utf8(), ", which is the unit of previous possible values of this if expression.");
+				fatal_error_trace(scope);
+			}
+		}
+	}
+}
+
 Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
 	Function_Resolve_Result result = { nullptr, {}};
@@ -419,15 +596,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_block, ast, data, &new_scope, arg_units);
-			
-			/* // this is now done in resolve_arguments instead.
-			int idx = 0;
-			for(auto expr : new_block->exprs) {
-				if(expr->expr_type == Math_Expr_Type::local_var) {
-					++new_block->n_locals;
-				}
-			}
-			*/
 			
 			// the value of a block is the value of the last expression in the block.
 			Math_Expr_FT *last = new_block->exprs.back();
@@ -457,7 +625,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					new_ident->variable_type = Variable_Type::no_override;
 					new_ident->value_type = Value_Type::real;
 					found = true;
-					// TODO: What do we do about the unit here?? Either we need to take the unit of the top expression passed in, or we just don't care about it, but then we need to know that at the call site.
+					result.unit = data->expected_unit;
 				} else
 					found = find_local_variable(new_ident, result.unit, n1, scope);
 			}
@@ -502,7 +670,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						new_ident->variable_type = Variable_Type::parameter;
 						new_ident->parameter = id;
 						new_ident->value_type = get_value_type(par->decl_type);
-						if(is_valid(par->unit))
+						if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
 							result.unit = model->units[par->unit]->data.standard_form;
 					} else if (id.reg_type == Reg_Type::component) {
 						if(!is_located(data->in_loc)) {
@@ -521,7 +689,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
 					std::string n2 = ident->chain[1].string_value;
 					
-					//TODO: may need fixup for special more identifiers.
 					bool resolved = false;
 					if(chain_size == 2) {
 						if(n1 == "time") {
@@ -537,7 +704,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							}
 							new_ident->value_type = Value_Type::integer;
 							resolved = true;
-							// TODO: Unit!!!
+							set_time_unit(result.unit, app, new_ident->variable_type);
 						} else {
 							auto reg = decl_scope[n1];
 							if(!reg) {
@@ -602,7 +769,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			new_literal->value      = get_parameter_value(&literal->value, literal->value.type);
 			
 			result.fun = new_literal;
-			// NOTE: Unit not given so is dimensionless for now (but can instead be forced in a unit conversion).
+			// NOTE: Unit not given so is dimensionless (but can instead be forced in a parent unit conversion).
 		} break;
 		
 		case Math_Expr_Type::function_call : {
@@ -639,18 +806,21 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					fatal_error_trace(scope);
 				}
 				if(fun_name == "last")
-					var->flags = (Identifier_Flags)(var->flags | ident_flags_last_result);
+					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::last_result);
 				else if(fun_name == "in_flux")
-					var->flags = (Identifier_Flags)(var->flags | ident_flags_in_flux);
+					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::in_flux);
 				else if(fun_name == "aggregate")
-					var->flags = (Identifier_Flags)(var->flags | ident_flags_aggregate);
+					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::aggregate);
 				else if(fun_name == "conc")
-					var->flags = (Identifier_Flags)(var->flags | ident_flags_conc);
+					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::conc);
 				else if(fun_name == "target")
-					var->flags = (Identifier_Flags)(var->flags | ident_flags_target);
+					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::target);
 				
 				result.fun = var;
-				result.unit = std::move(arg_units[0]); // TODO: Not correct for in_flux!!! Should divide by the time step unit!
+				if(fun_name == "in_flux") {
+					result.unit = multiply(arg_units[0], app->time_step_unit.standard_form, -1);
+				} else
+					result.unit = std::move(arg_units[0]);
 			} else {
 				// Otherwise it should have been registered as an entity.
 
@@ -681,7 +851,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					fixup_intrinsic(new_fun, &fun->name);
 					
 					result.fun = new_fun;
-					// TODO: units!
+					if(arg_units.size() == 1) {
+						set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
+					} else if (arg_units.size() == 2) {
+						// NOTE: The min and max functions behave like '+' when it comes to units
+						apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, &new_fun->exprs[0], &new_fun->exprs[1]);
+					} else
+						fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic when unit checking");
 				} else if(fun_type == Function_Type::decl) {
 					if(is_inside_function(scope, fun_name)) {
 						fun->name.print_error_header();
@@ -703,6 +879,23 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						inlined_arg->name = fun_decl->args[argidx];
 						inlined_arg->value_type = arg->value_type;
 						inlined_fun->exprs[argidx] = inlined_arg;
+						
+						// NOTE: With the current implementation,
+						// is_constant_dimensionless_integer could mute these, which is why we
+						// do it like this. Should maybe be fixed eventually.
+						auto &argg = inlined_arg->exprs[0];
+						auto loc = inlined_arg->exprs[0]->source_loc;
+						if(is_valid(fun_decl->expected_units[argidx])) {
+							auto &expect_unit = model->units[fun_decl->expected_units[argidx]]->data.standard_form;
+							s64 val = -1;
+							if(is_constant_dimensionless_integer(arg_units[argidx], &argg, scope, &val) && val == 0) continue;  // Constant 0 match against any unit
+							if(!match_exact(&expect_unit, &arg_units[argidx])) {
+								loc.print_error_header();
+								error_print("The function declaration requires a unit (which on standard form is) ", expect_unit.to_utf8(), " for argument ", argidx, ", but we got ", arg_units[argidx].to_utf8(), ". See declaration of function here:\n");
+								fun_decl->source_loc.print_error();
+								fatal_error_trace(scope);
+							}
+						}
 					}
 					
 					Function_Scope new_scope;
@@ -725,8 +918,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			}
 		} break;
 		
-		//NOTE: currently we don't allow integers and reals to auto-cast to boolean
-		
 		case Math_Expr_Type::unary_operator : {
 			auto unary = static_cast<Unary_Operator_AST *>(ast);
 			auto new_unary = new Operator_FT(Math_Expr_Type::unary_operator);
@@ -744,19 +935,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 				new_unary->value_type = new_unary->exprs[0]->value_type;
 			} else if((char)unary->oper == '!') {
-				// TODO: we have to see if implicit casting to bool is an OK feature, or if we should make it explicit.
 				new_unary->exprs[0] = make_cast(new_unary->exprs[0], Value_Type::boolean);
-				/*
-				if(new_unary->exprs[0]->value_type != Value_Type::boolean) {
-					new_unary->exprs[0]->source_loc.print_error_header();
-					error_print("Negation must have an argument of type boolean.\n");
-					fatal_error_trace(scope);
-				}
-				*/
 				new_unary->value_type = Value_Type::boolean;
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled unary operator type in resolve_function_tree().");
 			
+			if((char)new_unary->oper == '!')
+				check_boolean_dimensionless(arg_units[0], unary->source_loc, scope);
 			result.fun = new_unary;
 			result.unit = std::move(arg_units[0]);
 		} break;
@@ -772,16 +957,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			char op = (char)binary->oper;
 			
 			if(op == '|' || op == '&') {
-				// TODO: we have to see if implicit casting to bool is an OK feature, or if we should make it explicit.
 				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::boolean);
 				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::boolean);
-				/*
-				if(new_binary->exprs[0]->value_type != Value_Type::boolean || new_binary->exprs[1]->value_type != Value_Type::boolean) {
-					binary->source_loc.print_error_header();
-					error_print("The operator ", name(binary->oper), " can only take boolean arguments.\n");
-					fatal_error_trace(scope);
-				}
-				*/
+				
 				new_binary->value_type = Value_Type::boolean;
 			} else if (op == '^') {
 				//Note: we could implement pow for lhs of type int too, but llvm does not have an intrinsic for it, and there is unlikely to be any use case.
@@ -807,7 +985,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			}
 			
 			result.fun = new_binary;
-			result.unit = std::move(arg_units[0]); // TODO: Need to do unit aritmetic!!!! And checking!!!
+			apply_binop_to_units(new_binary->oper, name(new_binary->oper), result.unit, arg_units[0], arg_units[1], binary->source_loc, scope, &new_binary->exprs[0], &new_binary->exprs[1]);
 		} break;
 		
 		case Math_Expr_Type::if_chain : {
@@ -821,14 +999,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			Value_Type value_type = new_if->exprs[0]->value_type;
 			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
 				new_if->exprs[idx+1] = make_cast(new_if->exprs[idx+1], Value_Type::boolean);
-				// TODO: we have to see if implicit casting to bool is an OK feature or if we should make it explicit
-				/*
-				if(new_if->exprs[idx+1]->value_type != Value_Type::boolean) {
-					new_if->exprs[idx+1]->location.print_error_header();
-					error_print("Value of condition in if expression must be of type boolean.\n");
-					fatal_error_trace(scope);
-				}
-				*/
 				if(new_if->exprs[idx]->value_type == Value_Type::real) value_type = Value_Type::real;
 				else if(new_if->exprs[idx]->value_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::boolean;
 			}
@@ -842,7 +1012,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			new_if->value_type = value_type;
 			
 			result.fun = new_if;
-			result.unit = std::move(arg_units[0]); // TODO: need to check that all value units are the same!!
+			result.unit = std::move(arg_units[0]); // TODO: need to check that all value units are the same, and that all conditions are dimensionless!!
 		} break;
 		
 		case Math_Expr_Type::local_var : {
@@ -889,12 +1059,17 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				to_unit = std::move(conv_unit.standard_form);
 			}
 			
+			bool offset = false;
 			double conversion_factor = 1.0;
 			if(!conv->force) {
-				bool success = match(&arg_units[0], &to_unit, &conversion_factor);
-				if(!success) {
-					conv->source_loc.print_error_header();
-					fatal_error("Unable to convert from unit with standard form ", arg_units[0].to_utf8(), " to ", to_unit.to_utf8(), ".");
+				offset = match_offset(&arg_units[0], &to_unit, &conversion_factor);
+				if(!offset) {
+					bool success = match(&arg_units[0], &to_unit, &conversion_factor);
+					if(!success) {
+						conv->source_loc.print_error_header();
+						error_print("Unable to convert from unit with standard form ", arg_units[0].to_utf8(), " to ", to_unit.to_utf8(), ".");
+						fatal_error_trace(scope);
+					}
 				}
 			}
 			if(conversion_factor == 1.0) {
@@ -902,9 +1077,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				new_binary->exprs.clear();
 				delete new_binary;
 			} else {
+				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::real);
 				new_binary->exprs.push_back(make_literal(conversion_factor));
 				new_binary->value_type = new_binary->exprs[0]->value_type;
-				new_binary->oper = (Token_Type)'*';
+				new_binary->oper = (Token_Type)(offset ? '+' : '*');
 				result.fun = new_binary;
 			}
 			result.unit = std::move(to_unit);
@@ -1005,6 +1181,47 @@ replace_iteration_index(Math_Expr_FT *expr, s32 block_id) {
 	
 	return expr;
 }
+
+Math_Expr_FT *
+potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
+	auto ident = static_cast<Identifier_FT *>(expr);
+	if(ident->variable_type == Variable_Type::local) {
+		if(!scope)
+			fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
+		Function_Scope *sc = scope;
+		while(sc->block->unique_block_id != ident->local_var.scope_id) {
+			sc = sc->parent;
+			if(!sc)
+				fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
+		}
+		Math_Block_FT *block = sc->block;
+		if(!block->is_for_loop) { // If the scope was a for loop, the identifier was pointing to the iteration index, and that can't be optimized away here.
+			int index = 0;
+			for(auto loc : block->exprs) {
+				if(loc->expr_type == Math_Expr_Type::local_var) {
+					if (index == ident->local_var.index) {
+						loc->exprs[0] = prune_tree(loc->exprs[0], sc); // TODO: This is not very clean, and causes double work some times, but is needed if we want to use this from constant checking in the unit checking. Should probably instead make a separate constant checking thing rather than prune_tree!
+						if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
+							auto literal        = new Literal_FT();
+							auto loc2           = static_cast<Local_Var_FT *>(loc);
+							auto loc_literal    = static_cast<Literal_FT *>(loc->exprs[0]);
+							literal->value      = loc_literal->value;
+							literal->value_type = loc_literal->value_type;
+							literal->source_loc   = ident->source_loc;
+							loc2->is_used       = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
+							delete expr;
+							return literal;
+						} else if (loc->exprs[0]->expr_type == Math_Expr_Type::identifier_chain)
+							return potentially_prune_local(loc->exprs[0], sc);
+					}
+					++index;
+				}
+			}
+		}
+	}
+	return expr;
+}
+
 
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
@@ -1217,37 +1434,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		} break;
 		
 		case Math_Expr_Type::identifier_chain : {
-			auto ident = static_cast<Identifier_FT *>(expr);
-			if(ident->variable_type == Variable_Type::local) {
-				if(!scope)
-					fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
-				Function_Scope *sc = scope;
-				while(sc->block->unique_block_id != ident->local_var.scope_id) {
-					sc = sc->parent;
-					if(!sc)
-						fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
-				}
-				Math_Block_FT *block = sc->block;
-				if(!block->is_for_loop) { // If the scope was a for loop, the identifier was pointing to the iteration index, and that can't be optimized away here.
-					int index = 0;
-					for(auto loc : block->exprs) {
-						if((loc->expr_type == Math_Expr_Type::local_var)
-							&& (index == ident->local_var.index)
-							&& (loc->exprs[0]->expr_type == Math_Expr_Type::literal)) {
-								auto literal        = new Literal_FT();
-								auto loc2           = static_cast<Local_Var_FT *>(loc);
-								auto loc_literal    = static_cast<Literal_FT *>(loc->exprs[0]);
-								literal->value      = loc_literal->value;
-								literal->value_type = loc_literal->value_type;
-								literal->source_loc   = ident->source_loc;
-								loc2->is_used       = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
-								delete expr;
-								return literal;
-						}
-						++index;
-					}
-				}
-			}
+			expr = potentially_prune_local(expr, scope);
 		} break;
 	}
 	return expr;
@@ -1263,7 +1450,7 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 			depends->on_parameter.insert(ident->parameter);
 		else if(ident->variable_type == Variable_Type::state_var) {
 			State_Var_Dependency dep {State_Var_Dependency::Type::none, ident->state_var};
-			if(ident->flags & ident_flags_last_result)
+			if(ident->flags & Identifier_FT::Flags::last_result)
 				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::earlier_step);
 			
 			depends->on_state_var.insert(dep);

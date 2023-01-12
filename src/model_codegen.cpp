@@ -243,7 +243,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	
-	if(ident->flags & ident_flags_target) {
+	if(ident->flags & Identifier_FT::Flags::target) {
 		if(!allow_to_decl)
 			fatal_error(Mobius_Error::internal, "Got a 'target' directive inside an equation that is not allowed to have it.");
 		if(provided_target_idx)
@@ -268,14 +268,14 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		back_step = app->result_structure.total_count;
 	}
 	
-	if(ident->flags & ident_flags_target) {
+	if(ident->flags & Identifier_FT::Flags::target) {
 		if(provided_target_idx)
 			index_expr.swap(*provided_target_idx);
 		else
 			index_expr.transpose();
 	}
 	
-	if(offset_code && ident->variable_type != Variable_Type::parameter && (ident->flags & ident_flags_last_result)) {
+	if(offset_code && ident->variable_type != Variable_Type::parameter && (ident->flags & Identifier_FT::Flags::last_result)) {
 		offset_code = make_binop('-', offset_code, make_literal(back_step));
 	}
 	

@@ -95,6 +95,10 @@ pow_i(const Rational<T> &a, T b) {
 
 template<typename T> inline void
 Rational<T>::euclid_reduce() {
+	if(nom == 0) {
+		denom = 1;
+		return;
+	}
 	if(denom < 0) {
 		nom = -nom;
 		denom = -denom;

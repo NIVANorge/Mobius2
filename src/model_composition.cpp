@@ -155,12 +155,12 @@ remove_lasts(Math_Expr_FT *expr, bool make_error) {
 	for(auto arg : expr->exprs) remove_lasts(arg, make_error);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var && (ident->flags & ident_flags_last_result)) {
+		if(ident->variable_type == Variable_Type::state_var && (ident->flags & Identifier_FT::Flags::last_result)) {
 			if(make_error) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect a last() in an initial value function.");
 			}
-			ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_last_result);
+			ident->flags = (Identifier_FT::Flags)(ident->flags & ~Identifier_FT::Flags::last_result);
 		}
 	}
 }
@@ -173,14 +173,14 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux, allow_target);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->flags & ident_flags_in_flux) {
+		if(ident->flags & Identifier_FT::Flags::in_flux) {
 			if(make_error_in_flux) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect an in_flux() in an initial value function.");
 			}
 			in_fluxes[ident->state_var.id].push_back(looked_up_by);
 		}
-		if(ident->flags & ident_flags_aggregate) {
+		if(ident->flags & Identifier_FT::Flags::aggregate) {
 			if(!is_valid(lookup_compartment)) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Can't use aggregate() in this function body because it does not belong to a compartment.");
@@ -192,7 +192,7 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 				aggregates[ident->state_var.id].second.push_back(looked_up_by);
 			}
 		}
-		if((ident->flags & ident_flags_target) && !allow_target ) {
+		if((ident->flags & Identifier_FT::Flags::target) && !allow_target ) {
 			expr->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("A target() declaration is not allowed in this function body since it does not belong to an all_to_all connection flux or to an aggregation_weight that is being used by one.");
 		}
@@ -200,13 +200,13 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 }
 
 void
-replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier_Flags flag) {
+replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier_FT::Flags flag) {
 	for(auto arg : expr->exprs) replace_flagged(arg, replace_this, with, flag);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && ident->state_var == replace_this && (ident->flags & flag)) {
 			ident->state_var = with;
-			ident->flags = (Identifier_Flags)(ident->flags & ~flag);
+			ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
 		}
 	}
 }
@@ -216,7 +216,7 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 	for(auto arg : expr->exprs) replace_conc(app, arg);
 	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
-	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & ident_flags_conc)) return;
+	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & Identifier_FT::Flags::conc)) return;
 	auto var = app->state_vars[ident->state_var];
 	
 	// TODO: We may get in trouble looking up aggregates of concs ?? Or do we replace them in the right order?? In any case, one has to take care with that.
@@ -228,7 +228,7 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 		fatal_error("This variable does not have a concentration");
 	}
 	ident->state_var = var2->conc;
-	ident->flags = (Identifier_Flags)(ident->flags & ~ident_flags_conc);
+	ident->flags = (Identifier_FT::Flags)(ident->flags & ~Identifier_FT::Flags::conc);
 }
 
 void
@@ -243,7 +243,7 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
 		} else if (ident->variable_type == Variable_Type::parameter)
 			parameter_refs.insert(ident->parameter);
-		if(!allow_target && (ident->flags & ident_flags_target)) {
+		if(!allow_target && (ident->flags & Identifier_FT::Flags::target)) {
 			expr->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("A target() declaration is only allowed in an aggregation_weight that is being used by a connection flux (for now).");
 		}
@@ -967,11 +967,11 @@ compose_and_resolve(Model_Application *app) {
 				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
 				
 				if(lu->function_tree)
-					replace_flagged(lu->function_tree, var_id, agg_id, ident_flags_aggregate);
+					replace_flagged(lu->function_tree, var_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->override_tree)
-					replace_flagged(lu->override_tree, var_id, agg_id, ident_flags_aggregate);
+					replace_flagged(lu->override_tree, var_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->initial_function_tree)
-					replace_flagged(lu->initial_function_tree, var_id, agg_id, ident_flags_aggregate);
+					replace_flagged(lu->initial_function_tree, var_id, agg_id, Identifier_FT::Flags::aggregate);
 			}
 		}
 	}
@@ -1033,7 +1033,7 @@ compose_and_resolve(Model_Application *app) {
 		
 		for(auto rep_id : in_flux.second) {
 			auto var = as<State_Var::Type::declared>(app->state_vars[rep_id]);
-			replace_flagged(var->function_tree, target_id, in_flux_id, ident_flags_in_flux);
+			replace_flagged(var->function_tree, target_id, in_flux_id, Identifier_FT::Flags::in_flux);
 		}
 	}
 

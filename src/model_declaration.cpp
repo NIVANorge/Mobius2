@@ -620,18 +620,33 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 	match_declaration(decl,
 		{
 			{},
-			{{Token_Type::identifier, true}},
+			//{{Token_Type::identifier, true}},
+			{{Decl_Type::unit, true}},
 		});
 	
 	auto id =  model->functions.find_or_create(&decl->handle_name, scope, nullptr, decl);
 	auto function = model->functions[id];
 	
 	for(auto arg : decl->args) {
-		if(arg->decl || arg->sub_chain.size() != 1) {
+		if(!arg->decl && arg->sub_chain.size() != 1) {
 			decl->source_loc.print_error_header();
-			fatal_error("The arguments to a function declaration should be just single identifiers.");
+			fatal_error("The arguments to a function declaration should be just single identifiers with or without units.");
 		}
-		function->args.push_back(arg->sub_chain[0].string_value);
+		if(arg->decl) {
+			// It is a bit annoying to not use  resolve_argument here, but we don't want it to be associated to the handle in the scope.
+			auto unit_id = model->units.find_or_create(nullptr, scope, nullptr, arg->decl);
+			auto unit = model->units[unit_id];
+			set_unit_data(unit->data, arg->decl);
+			if(!arg->decl->handle_name.string_value.count) {
+				arg->decl->source_loc.print_error_header();
+				fatal_error("All arguments to a function must be named.");
+			}
+			function->args.push_back(arg->decl->handle_name.string_value);
+			function->expected_units.push_back(unit_id);
+		} else {
+			function->args.push_back(arg->sub_chain[0].string_value);
+			function->expected_units.push_back(invalid_entity_id);
+		}
 	}
 	
 	for(int idx = 1; idx < function->args.size(); ++idx) {

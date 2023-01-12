@@ -68,7 +68,7 @@ TODO: description
 	Rdry       : constant("Specific gas constant of dry air", [J, k g-1, K-1], 287.058)
 	Rvap       : constant("Specific gas constant of vapor",   [J, k g-1, K-1], 461.495)
 	rho_ice    : constant("Ice density", [k g, m-3], 917)
-	l_freeze   : constant("Latent heat of freezing", [k g, m-3], 333500)
+	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
 	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
 	
 	# Some of these could be parameters?
@@ -85,22 +85,21 @@ TODO: description
 	}
 	
 	#TODO: units for the following!
-	
 	epi.has(stab : property("Stability"), []) {
-		ww := max(air.wind, 0.1)
-		s0 := 0.25*(water.temp - air.temp) / (ww*ww)
-		s0*abs(s0)/(abs(s0) + 0.01)
+		ww := max(air.wind, 0.1[m, s-1])
+		s0 := 0.25*(water.temp - air.temp) / (ww*ww) => []
+		s0*abs(s0)/(abs(s0) + 0.01) =>>
 	}
 	
 	stab_modify : function(wind, stab) {
-		0                                     if abs(wind) < 1e-3,
+		0                                     if abs(wind) < 1e-3[m, s-1],
 		0.1 + 0.03*stab * 0.9*exp(4.8*stab)   if stab < 0 & stab > -3.3,
 		0                                     if stab < 0,
 		1 + 0.63*sqrt(stab)                      otherwise
 	}
 	
 	epi.has(ced : property("Transfer coefficient for latent heat flux"), []) {
-		w    := air.wind + 1e-12
+		w    := air.wind=>[] + 1e-12
 		{
 			0     + 1.23  *exp(-0.16*ln(w))        if w < 2.2,
 			0.969 + 0.0521*w                       if w < 5,
@@ -111,7 +110,7 @@ TODO: description
 	}
 	
 	epi.has(chd : property("Transfer coefficent for sensible heat flux"), []) {
-		w    := air.wind + 1e-12
+		w    := air.wind=>[] + 1e-12
 		{
 			0     + 1.185 *exp(-0.157*ln(w))       if w < 2.2,
 			0.927 + 0.0546*w                       if w < 5,
@@ -138,16 +137,16 @@ TODO: description
 	}
 	
 	air.has(rho : property("Air density"), [k g, m-3]) {
-		tk := deg_c_to_K(air.temp)
-		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) * 100  #-> [Pa]  # *100 to convert HPa -> Pa
+		tk := air.temp -> [K]
+		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) ->>  # Convert hPa to Pa
 	}
 	
 	#TODO: Move some radiation stuff into a radiation module
 	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
-		air_t := deg_c_to_K(air.temp)
+		air_t := air.temp -> [K]
 		dpt := dew_point_temperature(a_vap)
 		dew_point_depression := dpt - air_t
-		cloud_effect := 10.77 * cloud^2 + 2.34*cloud - 18.44 => [K]
+		cloud_effect := (10.77 * cloud^2 + 2.34*cloud - 18.44) => [K]
 		vapor_effect := 0.84 * (dew_point_depression + 4.01[K])
 		eff_t := air_t + cloud_effect + vapor_effect
 		black_body_radiation(eff_t)
@@ -155,7 +154,7 @@ TODO: description
 	
 	epi.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
 		emissivity := 0.98
-		emissivity * black_body_radiation(deg_c_to_K(water.temp))
+		emissivity * black_body_radiation(water.temp->[K])
 	}
 	
 	#TODO should be attn in epi also, and remainder to hyp
@@ -201,16 +200,16 @@ TODO: description
 	}
 	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {
-		#precip_t := max(0.4, air.temp)
+		#precip_t := max(0.4[deg_c], air.temp)
 		precip_t := air.temp
-		water_temp_to_heat(1e-3*A_surf*air.precip, precip_t)
-		
+		V := A_surf*air.precip*1e-3 => [m 3]              # Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
+		water_temp_to_heat(V, precip_t) => [J, day-1]
 	}
 	
 	flux(epi.water.heat, hyp.water.heat, "Layer heat transfer") {
 		lake_heat := water.heat + hyp.water.heat
 		V := water + hyp.water
-		lake_t := water_heat_to_temp(V, lake_heat) # Mean lake temperature.
+		lake_t := water_heat_to_temp(V, lake_heat) => [deg_c] # Mean lake temperature.    #TODO: remove force conversion.
 		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water)
 		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be)
 		5*(heat - epi_heat_should_be)    # The 5 is pretty arbitrary. Just to get a quick equilibration
@@ -231,15 +230,15 @@ TODO: description
 		K_ice := 200   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
 		e := (ice_temp - epi.water.temp)*z_surf*K_ice
 		
-		0        if ice < 1e-6 & e < 0,    # No melting when there is no ice
+		0        if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
 		e        otherwise
 	}
 	
 	epi.ice.has(indicator : property("Indicator"), [], "Ice indicator") {   ice > th_frazil   }
 	
 	epi.ice.has(attn : property("Attenuation coefficent"), []) {
-		0                    if !indicator,
-		1 - exp(-5 * ice)    otherwise    #TODO: the 5 should be configurable?
+		0                       if !indicator,
+		1 - exp(-5[m -1] * ice) otherwise    #TODO: the 5 should be configurable?
 	}
 	
 	flux(nowhere, epi.ice, "Ice change") {
@@ -250,9 +249,9 @@ TODO: description
 				# => d(ice^2)/dt = Y
 				# and d(ice^2)/dt = 2*ice*d(ice)/dt
 				# => d(ice)/dt = Y / (2*ice)
-				factor := 1 / (10 + ice)
+				factor := 1[m] / (10[m] + ice)
 				ice_t := (factor * ice_temp + air.temp) / (1 + factor)   # Approximation of ice temperature. TODO: separate state var?
-				lambda_ice * (ice_temp - ice_t) / ice
+				lambda_ice * (ice_temp->[K] - ice_t->[K]) / ice
 			}                                             if air.temp <= ice_temp & indicator,
 			{   #TODO: should just reuse computation for surface net shortwave ?
 				albedo := 0.045
@@ -260,17 +259,17 @@ TODO: description
 				0 - (1-albedo)*air.g_rad*attn
 			}                                             if indicator,  
 			0                                             otherwise
-		}) * 86400 / (rho_ice * l_freeze)
+		}) / (rho_ice * l_freeze) ->[m, day-1]
 		+ {
-			1e-3 * air.precip   if air.temp <= ice_temp & indicator,     # if there is ice, and temperature is below freezing, precipitation is added as ice
-			0                   otherwise
-		}
+			air.precip   if air.temp <= ice_temp & indicator,     # if there is ice, and temperature is below freezing, precipitation is added as ice
+			0            otherwise
+		}->[m, day-1]
 	}
 	
 	
 	# TODO: How does mixing interact with ice (?)
 	
-	epi.has(indicator, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4 }
+	epi.has(indicator, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
 	
 	
 	# NOTE: This moves an equal body of water up and down, which does not impact the wate volume, but does mix dissolved substances.

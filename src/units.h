@@ -12,6 +12,7 @@
 #include <string>
 
 // NOTE year and month can't quite be denoted in seconds since the years and months have variable length
+// TODO: Why didn't we just decide that year = 12*month??
 enum class
 Base_Unit {
 	m = 0, s = 1, g = 2, mol = 3, deg_c = 4, deg = 5, month = 6, year = 7, K = 8, max = 9
@@ -47,10 +48,24 @@ Standardized_Unit {
 	}
 	std::string to_utf8();
 	void reduce();
+	bool is_atom(Base_Unit bu);
+	bool is_dimensionless();
 };
 
 Standardized_Unit
 multiply(const Standardized_Unit &a, const Standardized_Unit &b, int power = 1);
+
+bool
+pow(const Standardized_Unit &a, Standardized_Unit &result, Rational<s16> power);
+
+inline Standardized_Unit
+unit_atom(Base_Unit bu, s64 multiplier = 1) {
+	Standardized_Unit result;
+	result.powers[(int)bu] = 1;
+	result.multiplier = multiplier;
+	result.reduce();
+	return result;
+}
 
 struct
 Unit_Data {
@@ -83,5 +98,9 @@ set_unit_data(Unit_Data &data, Decl_AST *decl);
 
 bool
 match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor);
+bool
+match_offset(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor);
+bool
+match_exact(Standardized_Unit *a, Standardized_Unit *b);
 
 #endif // MOBIUS_UNITS_H

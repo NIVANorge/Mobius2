@@ -6,14 +6,11 @@ library("Thermodynamics") {
 	boltzmann        : constant("Boltzmann constant",        [J, K -1],         1.380649e-23)
 	stefan_boltzmann : constant("Stefan-Boltzmann constant", [W, m -2, K -4],   5.670373e-8)
 	
-	deg_c_to_K : function(T_celsius)          {   T_celsius + 273.15   }  # TODO: when we get automatic unit checking, we have to force the unit conversion here.
-	
-	K_to_deg_c : function(T_kelvin)           {   T_kelvin  - 273.15   }
-	
 	black_body_radiation : function(T_kelvin) {   stefan_boltzmann * T_kelvin^4   }
 	
-	enthalpy_adjust_log10 : function(log10ref, ref_T_kelvin, T_kelvin, dU) {
-		log10ref - (dU/(1e-3*ideal_gas*ln(10))) * (1/T_kelvin - 1/ref_T_kelvin)
+	enthalpy_adjust_log10 : function(log10ref : [], ref_T : [K], T : [K], dU : [k J, mol-1]) {
+		du := dU->[J, mol-1]
+		log10ref - (du/(ideal_gas*ln(10))) * (1/T - 1/ref_T)
 	}
 	
 }
@@ -24,22 +21,22 @@ library("Water utils") {
 	load("basic_math.txt", library("Response"))
 	
 	rho_water  : constant("Water density",                   [k g, m-3],     999.98)
-	C_water    : constant("Specific heat capacity of water", [J, k g-1, K], 4186)
+	C_water    : constant("Specific heat capacity of water", [J, k g-1, K-1], 4186)
 	
-	water_temp_to_heat : function(V, T_celsius) {  # We don't want to use dynamic water density here because of the use case.
-		V*deg_c_to_K(T_celsius)*rho_water*C_water
+	water_temp_to_heat : function(V : [m 3], T : [deg_c]) {  # We don't want to use dynamic water density here because of the use case.
+		V*(T->[K])*rho_water*C_water
 	}
 	
-	water_heat_to_temp : function(V, heat) {       # We don't want to use dynamic water density here because of the use case.
-		K_to_deg_c(heat / (V*rho_water*C_water))
+	water_heat_to_temp : function(V : [m 3], heat : [J]) {       # We don't want to use dynamic water density here because of the use case.
+		heat / (V*rho_water*C_water) -> [deg_c]
 	}
 	
-	water_density : function(T_celsius) {
-		dtemp := (deg_c_to_K(T_celsius) - 277.13)  # Difference between temp and reference temp.
+	water_density : function(T : [deg_c]) {
+		dtemp := (T->[K] - 277.13[K])=>[]  # Difference between temp and reference temp.
 		rho_water*(1 - 0.5*1.6509e-5*dtemp^2)
 	}
 	
-	#TODO: either rename library, or find another place for this one
+	#TODO: Fix the units of this one!
 	dynamic_viscosity_water : function(T_celsius, salinity) {
 		# Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
 		# Returns viscosity in centipose (1000 Pa*s)

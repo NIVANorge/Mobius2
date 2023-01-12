@@ -5,40 +5,41 @@ library("Meteorology") {
 	
 	#TODO: Better documentation, esp. of units!
 	
-	latent_heat_of_vaporization : function(T_celsius) {   # Harrison 1963
-		2.501 - 2.361e-3 * T_celsius
+	latent_heat_of_vaporization : function(T : [deg_c]) {   # Harrison 1963
+		2.501[J] - 2.361e-3[J, deg_c-1] * T
 	}
 	
-	mean_barometric_pressure : function(elevation)    {   # Doorenbos, Pruitt 1977
-		101.3 - elev*(0.01152 - 0.544e-6*elev)
+	mean_barometric_pressure : function(elevation : [m])    {   # Doorenbos, Pruitt 1977
+		elev := elevation => []
+		101.3 - elev*(0.01152 - 0.544e-6*elev) => [] #TODO: Find what the unit should be!!
 	}
 	
 	psychrometric_constant : function(barom, dhvap)   {   # Brunt 1952
-		1.013e-3 * barom / (0.622 * dhvap)
+		1.013e-3 * barom / (0.622 * dhvap) #TODO: Fix the units!
 	}
 	
-	saturation_vapor_pressure_murray : function(T_celsius)   {   # Tetens 1930, Murray 1967
-		exp( (16.78*T_celsius - 116.9) / (T_celsius + 237.3) )
+	saturation_vapor_pressure_murray : function(T : [deg_c])   {   # Tetens 1930, Murray 1967
+		exp( (16.78*T - 116.9[deg_c]) / (T + 237.3[deg_c]) ) => [] #TODO: Find out what the unit should be
 	}
 	
-	saturation_vapor_pressure_lowe : function(T_celsius)   {
+	saturation_vapor_pressure_lowe : function(T : [deg_c])   {
 		#P. R. Lowe, 1977, "An approximating polynomial for the computation of saturation vapor pressure, J. Appl. Meteor., 16, 100-103.
-		#Returns saturation vapor pressure in millibar=hectopascal
 		#TODO: that paper has a separate formula for T < 0
-		t  := T_celsius
-		6.107799961 + t*(4.436518521e-1 + t*(1.428945805e-2 + t*(2.650648471e-4 + 
-			t*(3.031240396e-6 + t*(2.034080948e-8 + t*6.136820929e-11)))))
+		t  := T => []
+		(6.107799961 + t*(4.436518521e-1 + t*(1.428945805e-2 + t*(2.650648471e-4 + 
+			t*(3.031240396e-6 + t*(2.034080948e-8 + t*6.136820929e-11)))))) => [h Pa]
 	}
 	
-	slope_of_saturation_pressure_curve : function(T_celsius, svap) {
-		4098.0 * svap / (T_celsius + 237.3)^2
+	slope_of_saturation_pressure_curve : function(T : [deg_c], svap) {   #TODO: Fix the units!
+		4098.0 * svap / (T + 237.3)^2
 	}
 	
-	dew_point_temperature : function(vapor_pressure) {  # Henderson-Sellers 1984
-		34.07 + 4157.0 / ln(2.1718e8 / vapor_pressure)
+	dew_point_temperature : function(vapor_pressure : [h Pa]) {  # Henderson-Sellers 1984
+		vp := vapor_pressure => []
+		34.07[K] + 4157.0[K] / ln(2.1718e8 / vp)
 	}
 	
-	specific_humidity_from_pressure : function(total_air_pressure, vapor_pressure) {
+	specific_humidity_from_pressure : function(total_air_pressure : [h Pa], vapor_pressure : [h Pa]) {
 		conv := 0.62198  # Converting molar ratio of vapor/air to mass ratio of vapor/air
 		mixing_ratio := conv * vapor_pressure / (total_air_pressure - vapor_pressure)
 		mixing_ratio / (1 + mixing_ratio)                 # NOTE: we could maybe just return the mixing_ratio since it is <<1, and thus that is an ok approximation.

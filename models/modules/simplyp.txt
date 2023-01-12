@@ -58,25 +58,28 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	
 	soil.has(epc0 : property("EPC0"), [m g, l-1]) {
-		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
+		m_soil := m_soil_m2->[k g, k m-2]
 		safe_divide(last(plab), kf * m_soil)
 	} .initial { init_epc0 }
 	
 	soil.water.has(tdp, [k g, k m-2], [m g, l-1], "Soil TDP mass") .override {
-		pin    := p_input * 100.0/356.0
-		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
+		days   := time.step_length_in_seconds->[day]
+		pin    := p_input * days / time.days_this_year ->[k g, k m-2]
+		m_soil := m_soil_m2->[k g, k m-2]
 		a      := (pin + kf*m_soil*epc0)
-		b      := (kf*m_soil + last(flow)) / last(water)
+		bV     := (kf*m_soil + last(water.flow)*days)
+		b      := bV / last(water)
 		a/b + (last(water.tdp) - a/b)*exp(-b)
 	} .initial_conc {
 		init_epc0
 	}
 	
 	soil.has(plab, [k g, k m-2], "Soil labile P mass") .override {
-		pin    := p_input * 100.0/356.0
-		m_soil := m_soil_m2*1e6   #TODO: unit conversion system
+		days   := time.step_length_in_seconds->[day]
+		pin    := p_input * days / time.days_this_year ->[k g, k m-2]
+		m_soil := m_soil_m2->[k g, k m-2]
 		a      := (pin + kf*m_soil*epc0)
-		bV     := (kf*m_soil + last(water.flow))
+		bV     := (kf*m_soil + last(water.flow)*days)
 		b      := bV / last(water)
 		sorp   := (kf*m_soil)*( (1/bV)*(a + (last(water.tdp) - a/b)*(1 - exp(-b))) - epc0)
 		last(plab) + sorp

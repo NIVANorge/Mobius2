@@ -166,7 +166,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 			if(val.val_real == 0.0)
 				result.type = Value_Type::none;     // Signal to keep the other argument as the result
 		} else if (type == Value_Type::integer) {
-			if(val.val_integer = 0)
+			if(val.val_integer == 0)
 				result.type = Value_Type::none;
 		}
 	} else if (op == '*') {
@@ -178,7 +178,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 			} else if (val.val_real == 1.0)
 				result.type = Value_Type::none; 
 		} else if (type == Value_Type::integer) {
-			if(val.val_integer = 0) {
+			if(val.val_integer == 0) {
 				result.type = Value_Type::integer;
 				result.val_integer = 0;
 			} else if (val.val_integer == 1)
@@ -197,7 +197,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 			} else if (val.val_real == 1.0 && !is_lhs)
 				result.type = Value_Type::none; 
 		} else if (type == Value_Type::integer) {
-			if(val.val_integer = 0) {
+			if(val.val_integer == 0) {
 				if(is_lhs) {
 					result.type = Value_Type::integer;
 					result.val_integer = 0;
@@ -216,10 +216,10 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 			} else if (val.val_real == 1.0 && !is_lhs)     // a^1 = a
 				result.type = Value_Type::none;
 		} else if(type == Value_Type::integer) {
-			if(val.val_integer == 0 && !is_lhs) {     // NOTE: lhs can't be int for this operator
+			if(val.val_integer == 0 && !is_lhs) {     // a^0 = 1   // NOTE: lhs can't be int for this operator
 				result.type = Value_Type::integer;
 				result.val_real = 1;
-			} else if (val.val_integer == 1 && !is_lhs)
+			} else if (val.val_integer == 1 && !is_lhs)  // a^0 = 1
 				result.type = Value_Type::none;
 		}
 	} else if (op == '&') {
