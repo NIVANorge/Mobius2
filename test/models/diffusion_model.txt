@@ -10,7 +10,7 @@ model("Diffusion") {
 		
 		layer.par_group("Layers") {
 			#in_o2   : par_real("O² input", [m g, c m-2], 0)
-			dc      : par_real("Diffusion coeff", [c m, s-1], 0.001)
+			dc      : par_real("Diffusion coeff", [c m, day-1], 0.001)
 		}
 		
 		layer.has(o2, [m g, c m-2]) #.initial { in_o2 }
@@ -24,7 +24,7 @@ model("Diffusion") {
 		
 		flux(layer.o2, c, "Diffusion") {
 			d := 0.5*(dc + target(dc))
-			d*(o2 - target(o2))
+			d*(o2 - target(o2))*1[c m-1] ->>
 		}
 		
 		#flux(layer.o2, c, "Settling") {
@@ -43,12 +43,12 @@ model("Diffusion") {
 		o2    : quantity("O²")
 		soil.has(o2, [m g])
 		flux(nowhere, soil.o2, "O² influx") {
-			air.precip     # This makes no sense, but whatever
+			air.precip =>>    # This makes no sense, but whatever
 		}
 		
 		o2out :
 		flux(soil.o2, out, "O² outflux") {
-			0.2 * max(0, o2 - 20)
+			0.2 * max(0, o2 - 20[m g]) *1[day-1]
 		}
 	}
 	

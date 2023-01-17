@@ -9,10 +9,10 @@ model("Predator-prey test model") {
 			init_pred : par_real("Initial predators", [], 1)
 			init_prey : par_real("Initial prey", [], 1)
 			
-			prey_birth : par_real("Prey birth rate", [], 0.2)
-			nomnom     : par_real("Predation rate", [], 0.1)
-			pred_birth : par_real("Predator birth rate", [], 0.025)
-			pred_death : par_real("Predator death rate", [], 0.05)
+			prey_birth : par_real("Prey birth rate", [day -1], 0.2)
+			nomnom     : par_real("Predation rate", [day -1], 0.1)
+			pred_birth : par_real("Predator birth rate", [day -1], 0.025)
+			pred_death : par_real("Predator death rate", [day -1], 0.05)
 		}
 		habitat.has(pred : quantity("Predators"), []) .initial { init_pred }
 		habitat.has(prey : quantity("Prey"), [])      .initial { init_prey }

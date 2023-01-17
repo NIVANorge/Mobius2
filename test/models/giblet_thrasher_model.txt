@@ -10,25 +10,25 @@ model("Giblet-Thrasher test model") {
 		
 		#TODO: should it be possible to specify a par_group to be global without creating a separate compartment for it?
 		world  .par_group("General parameters") {
-			birth_time : par_int ("Giblet preferred birthday", [], 120, 30, 335)
-			pmig       : par_real("Giblet propensity to migrate", [], 0.05, 0, 1)
-			nomnom     : par_real("Predation rate", [], 0.1)
-			pred_birth : par_real("Thrasher birth rate", [], 0.025)
-			pred_death : par_real("Thrasher death rate", [], 0.05)
-			meteor_dth : par_real("Meteor strike death rate increase", [], 0.7)
+			birth_time : par_int ("Giblet preferred birthday", [day], 120, 30, 335)
+			pmig       : par_real("Giblet propensity to migrate", [day-1], 0.05, 0, 1)
+			nomnom     : par_real("Predation rate", [day-1], 0.1)
+			pred_birth : par_real("Thrasher birth rate", [day-1], 0.025)
+			pred_death : par_real("Thrasher death rate", [day-1], 0.05)
+			meteor_dth : par_real("Meteor strike death rate increase", [day-1], 0.7)
 		}
 		
 		habitat.par_group("Habitat parameters") {
 			init_pred  : par_real("Initial predators", [], 1)
 			init_prey  : par_real("Initial prey", [], 1)
-			prey_birth : par_real("Giblet birth rate", [], 0.2)
+			prey_birth : par_real("Giblet birth rate", [day-1], 0.2)
 		}
 		habitat.has(pred : quantity("Thrashers"), []) .initial { init_pred }
 		habitat.has(prey : quantity("Giblets"), [])   .initial { init_prey }
 		
 		habitat.has(meteor : property("Meteor strikes"), [])
 		
-		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0, birth_time, birth_time+60.0, 0.6, 1, 0.6) }
+		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0[day], birth_time, birth_time+60.0[day], 0.6, 1, 0.6) }
 		
 		flux(habitat.prey, nowhere, "Predation")        {  nomnom * prey * pred  }
 		

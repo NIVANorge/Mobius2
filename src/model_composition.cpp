@@ -568,7 +568,12 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit };
 		auto fun = resolve_function_tree(agg.code, &res_data);
-		// TODO: Check resulting unit
+		
+		if(!match_exact(&fun.unit, &expected_unit)) {
+			agg.code->source_loc.print_error_header();
+			fatal_error("Expected the unit an aggregation_weight expression to resolve to ", expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+		}
+		
 		agg_weight = make_cast(fun.fun, Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
 		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs, is_connection);

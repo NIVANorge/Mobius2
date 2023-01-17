@@ -122,7 +122,7 @@ module("Simply soil temperature", 0, 0, 0) {
 module("SimplyC", 1, 0, 0) {
 	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
-		[ 10 ]
+		[ 100 ]
 
 		par_real("Soil temperature DOC creation linear coefficient")
 		[ 0.0192699922622986 ]

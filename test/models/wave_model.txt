@@ -11,7 +11,7 @@ model("Wave") {
 		
 		layer.par_group("Layers") {
 			in_amp  : par_real("Initial amplitude", [Pa], 0)
-			c       : par_real("Wave speed", [m day-1], 0.001)
+			c       : par_real("Wave speed", [day-1], 0.001)
 		}
 		
 		layer.has(amp, [Pa]) .initial { in_amp }

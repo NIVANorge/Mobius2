@@ -451,9 +451,7 @@ set_intrinsic_unit(Standardized_Unit &result_unit, Standardized_Unit &arg_unit, 
 		s16 pw = 2;
 		if(fun_name == "cbrt") pw = 3;
 		success = pow(arg_unit, result_unit, Rational<s16>(1, pw));
-		return;
-	}
-	if(!arg_unit.is_dimensionless()) {
+	} else if(!arg_unit.is_fully_dimensionless()) {
 		success = false;
 	}
 	if(!success) {
@@ -534,7 +532,7 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 	} else if (op == '^') {
 		// TODO: Ideally we should analyze rhs better, e.g. see if it could be pruned, or see if it could be identified as a rational.
 		s64 val = -1;
-		if(b.is_dimensionless() && a.is_dimensionless()) {
+		if(b.is_fully_dimensionless() && a.is_dimensionless()) {
 			// Do nothing, the unit should remain dimensionless.
 		} else if(is_constant_dimensionless_integer(b, rhs, scope, &val)) {
 			pow(a, result, Rational<s16>((s16)val)); // Power of integer should not fail, so we don't have to check the return code.
