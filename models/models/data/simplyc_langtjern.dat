@@ -25,8 +25,9 @@ par_group("Catchment data") [ "Subcatchment" ] {
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
-	par_real("Land use proportions")
-	[ 1 ]
+	par_real("Land use proportions") [
+		1 
+	]
 }
 
 module("HBVSnow", 1, 0, 0) {

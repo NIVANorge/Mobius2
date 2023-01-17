@@ -50,7 +50,7 @@ TODO: description
 		0.5 * A * z
 	}
 	
-	flux(nowhere, epi.water, "Precipitation to lake")           {   air.precip * A_surf * 1e-3   }
+	flux(nowhere, epi.water, "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
 	#TODO: instead let both hyp and epi have a depth and use a sum of those?
 	epi.has(depth : property("Lake depth"), [m])                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
@@ -58,7 +58,7 @@ TODO: description
 	epi.water.has(outflow : property("Flow"), [m 3, s-1], "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
 
 	lake_out :
-	flux(epi.water, out, "Lake outflow flux")                   {   86400 * outflow   }
+	flux(epi.water, out, "Lake outflow flux")                   {   outflow ->>  }
 	
 	# TODO: should have some way of turning this on/off depending on use case.
 	#epi.has(inflow : property("Lake inflow"), [m 3, s-1])
@@ -127,6 +127,7 @@ TODO: description
 		air.r_hum * 0.01 * svap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
 	}
 	
+	# TODO Should the next to be kg/g or kg/kg ??
 	epi.has(s_hum : property("Saturation specific humidity"), []) {
 		svap := saturation_vapor_pressure_lowe(water.temp)
 		specific_humidity_from_pressure(air.pressure, svap)
@@ -164,34 +165,34 @@ TODO: description
 	}
 	
 	flux(nowhere, epi.water.heat, "Net shortwave") {
-		86400 * A_surf * sw
+		A_surf * sw ->>
 	}
 	
 	flux(nowhere, epi.water.heat, "Net longwave") {
 		albedo := 0.045
 		net_rad := (1 - albedo)*air.lwd - lwu    # W/m2
 		0                              if epi.ice.indicator,
-		86400 * A_surf * net_rad       otherwise
+		A_surf * net_rad ->>           otherwise
 	}
 	
-	flux(nowhere, epi.water.heat, "Freeze heating") {   86400 * A_surf * ice.energy   }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
+	flux(nowhere, epi.water.heat, "Freeze heating") {  A_surf * ice.energy ->>  }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
 	
 	# TODO: Some of the surface fluxes should be modified for ice
 	flux(nowhere, epi.water.heat, "Latent heat flux") {
-		l_vap := latent_heat_of_vaporization(temp) * 1e6    #TODO: figure out units, and why the multiply by 1e6 ?
+		l_vap := latent_heat_of_vaporization(temp)
 		0                                                                          if epi.ice.indicator,
-		86400 * A_surf * (ced * l_vap * air.rho * air.wind * (a_hum - s_hum))      otherwise
+		A_surf * (ced * l_vap * air.rho * air.wind * (a_hum - s_hum)) ->>          otherwise
 	}
 	
 	flux(nowhere, epi.water.heat, "Sensible heat flux") {
 		0                                                                          if epi.ice.indicator,
-		86400 * A_surf * (chd * cpa * air.rho * air.wind * (air.temp - temp))      otherwise
+		A_surf * (chd * cpa * air.rho * air.wind * (air.temp->[K] - temp->[K])) ->>          otherwise        #TODO: difference of deg_c should automatically be K
 	}
 	
 	epi.water.has(evap_mm : property("Evaporation per area"), [m m, day-1]) {
 		rho_ref := 1025 [k g, m-3]
 		0                                                                          if epi.ice.indicator,
-		(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) * (-86400)*1000     otherwise
+		-(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) ->>                otherwise
 	}
 	
 	evap :
@@ -226,8 +227,8 @@ TODO: description
 	epi.has(ice, [m], "Ice thickness") .initial { init_ice }
 	
 	epi.ice.has(energy : property("Freeze energy"), [W, m-2]) {
-		z_surf := 1   #  Thickness of water layer that ice formation can draw energy from.
-		K_ice := 200   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
+		z_surf := 1[m]   #  Thickness of water layer that ice formation can draw energy from.
+		K_ice := 200[W, m-3, deg_c-1]   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
 		e := (ice_temp - epi.water.temp)*z_surf*K_ice
 		
 		0        if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
@@ -276,11 +277,11 @@ TODO: description
 	
 	mix_down :
 	flux(epi.water, hyp.water, "Mixing down") {
-		A_surf * depth * epi.indicator
+		A_surf * depth * epi.indicator * 1[day-1]
 	}
 	
 	mix_up : 
 	flux(hyp.water, epi.water, "Mixing up") {
-		A_surf * epi.depth * epi.indicator
+		A_surf * epi.depth * epi.indicator * 1[day-1]
 	}
 }

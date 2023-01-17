@@ -21,7 +21,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	soil.par_group("Hydrology land") {
 		fc     : par_real("Field capacity", [m m],                     120,  0, 1000)
-		tc_s   : par_real("Soil water time constant", [day],          2,  1,   40)
+		tc_s   : par_real("Soil water time constant", [day],           2,  1,   40)
 	}
 		
 	gw.  par_group("Groundwater") {
@@ -54,7 +54,6 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	soil.water.has(flow : property("Flow"), [m m, day -1], "Soil water flow") {
 		rate := (water - fc)/tc_s
 		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the rate on between water volumes of fc and 1.01*fc
-		# TODO: Should we allow a literal 0 to always match against any unit so that we don't have to convert it?
 	}
 	
 	soil_runoff :
@@ -97,5 +96,5 @@ The river part of the SimplyQ module.
 	river.water.has(flow, [m 3, s -1], "Reach flow")    { 0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } .initial { init_flow }
 	
 	reach_out :
-	flux(river.water, out, "Reach flow flux")     {	 flow * 86400  }                  #NOTE: explicit unit conversion should be removed once we get automatic unit checks 
+	flux(river.water, out, "Reach flow flux")     {	 flow ->>  }
 }

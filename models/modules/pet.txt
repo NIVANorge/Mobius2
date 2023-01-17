@@ -38,6 +38,7 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	net_sw : property("Net shortwave")
 	
 	soil.has(pet, [m m, day-1]) {                 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
+		# NOTE; Some of these are broken for now.
 		meanbar := mean_barometric_pressure(elev)
 		lvap    := latent_heat_of_vaporization(air.temp)
 		psy     := psychrometric_constant(meanbar, lvap)

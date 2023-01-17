@@ -1,12 +1,12 @@
 
 
 library("Meteorology") {
-	# TODO: allow version numbers on 
+	# TODO: allow version numbers on libraries?
 	
-	#TODO: Better documentation, esp. of units!
+	#TODO: Fix units on some of these.
 	
 	latent_heat_of_vaporization : function(T : [deg_c]) {   # Harrison 1963
-		2.501[J] - 2.361e-3[J, deg_c-1] * T
+		2.501[M J, k g-1] - 2.361e-3[M J, k g-1, deg_c-1] * T
 	}
 	
 	mean_barometric_pressure : function(elevation : [m])    {   # Doorenbos, Pruitt 1977
@@ -19,7 +19,7 @@ library("Meteorology") {
 	}
 	
 	saturation_vapor_pressure_murray : function(T : [deg_c])   {   # Tetens 1930, Murray 1967
-		exp( (16.78*T - 116.9[deg_c]) / (T + 237.3[deg_c]) ) => [] #TODO: Find out what the unit should be
+		exp( (16.78*T - 116.9[deg_c]) / (T + 237.3[deg_c]) )  #TODO: Find out what the unit should be
 	}
 	
 	saturation_vapor_pressure_lowe : function(T : [deg_c])   {
@@ -49,7 +49,7 @@ library("Radiation") {
 	
 	solar_constant : constant("Solar constant", [W m-2], 1361)
 	
-	daily_average_extraterrestrial_radiation : function(latitude, day_of_year, days_this_year) {
+	daily_average_extraterrestrial_radiation : function(latitude : [m], day_of_year : [day], days_this_year : [day]) {
 		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year)
 		solar_declination      := 0.409*sin(2*pi*day_of_year/days_this_year - 1.39)
 		lat_rad                := latitude * pi / 180.0
