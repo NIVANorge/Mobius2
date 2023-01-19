@@ -1,0 +1,23 @@
+
+
+model("SimplyN") {
+"""
+Description
+"""
+	extend("simplyq_model.txt")  # Add to the SimplyQ model text
+	
+	load("../modules/simplysoiltemp.txt", st : module("Simply soil temperature"))
+	load("../modules/simplyn.txt", sdin : module("SimplyN"))
+	
+	din : quantity("Dissolved inorganic nitrogen")
+
+	#----------------------------------------------------------------	
+    # Unit conversions where volumes or masses are different between compartments
+	# connected by fluxes.
+	# Unit conversion syntax is (from, to) {number to multiply by}
+	
+	# soil.water.din has units kg/km2 or mg/l; river.water.din
+	# has units kg or mg/l. Convert using a_catch [km-2]
+	unit_conversion(soil.water.din, river.water.din) {  a_catch  }
+	unit_conversion(gw.water.din, river.water.din)   {  a_catch  }
+}

@@ -1,0 +1,121 @@
+
+module("SimplyN", 0, 0, 2) {
+"""
+Not finished, just for testing some systems.
+"""
+
+	load("../../stdlib/basic_math.txt", library("Rates"))
+
+	#----------------------------------------------------------------
+	# Make compartments (locations) and quantities
+	
+	air : compartment("Air")
+	soil  : compartment("Soil")
+	gw    : compartment("Groundwater")
+	river : compartment("River")
+
+	water :  quantity("Water")
+	din    : quantity("Dissolved inorganic nitrogen")
+
+	#----------------------------------------------------------------
+	# Define parameter groups and parameters
+	
+	soil.par_group("Soil DIN universal params") {
+		din_immob_rate:     par_real("Soilwater DIN uptake rate at 20°C",
+							[m, day-1], 0, 0, 10)
+		din_immob_q10:      par_real("Soilwater DIN uptake rate response to 10°C change (Q10)",
+						    [], 1.0, 1.0, 5.0)
+		use_growth_curve:   par_bool("Use growth curve?", false)
+		day_highest_growth: par_int("Day of highest soilwater DIN uptake", [day], 200, 1, 365)
+		growth_95pc		:   par_int("Length of interval in which 95% of DIN uptake occurs",
+			                [day], 200, 0, 365)
+	}
+	
+	soil.par_group("Soil DIN params varying by land use")	{
+		sw_din_init:  par_real("Initial soilwater DIN concentration", [m g, l -1], 0.0, 0.0, 10.0)
+		net_annual_N_input: par_real("Net annual DIN input to soil", [k g, ha-1, year-1],
+							0.0, 0.0, 1000.0)
+		fert_startday:	 par_int("Fertilization start day", [day], 60, 1, 365)
+		fert_endday:	 par_int("Fertilization end day", [day], 120, 1, 365)
+	    daily_din_input: par_real("Daily DIN fertilizer, manure & deposition inputs",
+						 [k g, ha-1, day-1], 0.0, 0.0, 100.0)
+	}
+	
+	gw.par_group("DIN groundwater params")	{
+		gw_din_conc:	  par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0)
+		gw_din_constant:  par_bool("Constant groundwater DIN concentration?", true)
+		gw_retention_vol: par_real("Groundwater retention volume", [m m], 0.0, 0.0, 2000.0)
+	}
+		
+	river.par_group("DIN reach universal params") {
+		reach_denit_rate: par_real("Reach denitrification rate at 20°C", [m 3, day -1],
+						  0.0, 0.0, 10.0)
+						  # NOTE: m3/day is a weird unit. Alternatively we could have m/day, and then multiply that with the reach dimensions.
+		reach_denit_q10:  par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
+	}
+	
+	river.par_group("DIN reach") {
+		eff_din:	par_real("Reach effluent DIN inputs", [k g, day -1], 0.0, 0.0, 100.0)		
+	}
+	
+	#----------------------------------------------------------------
+	# Define any other properties needed, assign quantities and properties to the
+	# compartments, and initial values for quantities.
+	
+	# Temperature
+	temp : property("Temperature")
+	
+	air.has(temp, [deg_c], "Air temperature")  # No calc for this, so assumes input timeseries
+	
+	# Don't need to declare soil.temp here, but do need to remember to include the
+	# soil temperature module so that soil temp is used in the context of soil.water
+	
+	soil.water.has(din, [k g, k m -2], [m g, l-1], "Soil water DIN").initial_conc {sw_din_init}
+	
+	gw.water.has(din, [k g, k m -2], [m g, l-1], "Groundwater DIN").initial_conc {gw_din_conc} .override_conc {
+		gw_din_conc if gw_din_constant.true
+		no_override otherwise
+		# To do: add another clause with gw retention vol
+	}
+	
+	river.water.has(temp, [deg_c], "River water temperature") { max(0.0, air.temp) }
+	
+	river.water.has(din, [k g], [m g, l-1], "River water DIN") .initial_conc {conc(gw.water.din) }
+	
+	# Not sure what to do with this growth curve. Put it into the SW DIN uptake flux calc?
+	# or have it separate? In which case, what is it a property of?
+	soil.has(growth_curve: property("Growth curve for biological N uptake"), []) {
+		sigma := 0.25 * growth_95pc
+		xpon  := (day_of_year - day_highest_growth)/sigma
+		# Normalized normal distribution which has integral ~= 1. Since the x axis is not -inf to inf, but 1 to 365, the actual integral will not be exactly 1, but the error should be small. There is also a small error in that we are only doing daily updates to the value, but that should also be insignificant.
+		(0.3989422804 / sigma) * exp(-0.5 * xpon * xpon)	
+	}
+	
+	#----------------------------------------------------------------
+	# Define DIN fluxes (water fluxes are already taken care of in SimplyQ, it is
+	# assumed that DIN is carried with these)
+	
+	# Soil water fluxes
+	
+	flux(nowhere, soil.water.din, "Net DIN soilwater addition") {
+		days   := time.step_length_in_seconds->[day]
+		net_annual_N_input * days / time.days_this_year ->[k g, k m-2] 
+		# To do: implement other possible N input options
+	}
+	
+	flux(soil.water.din, nowhere, "Soil water DIN uptake") {
+		growth_factor := soil.growth_curve * 365	if use_growth_curve.true
+		growth_factor := 1.0	otherwise
+		temp_factor := din_immob_q10^((temp - 20.0)/10)
+		conc(din) * din_immob_rate * temp_factor * growth_factor 
+		# To do: needs unit conversions still. Mobius1 was * 1e-3 * 1e6
+	}
+	
+	# Reach fluxes
+	
+	flux(nowhere, river.water.din, "River effluent DIN") { eff_din }
+	
+	flux(river.water.din, nowhere, "River DIN denitrification loss" {
+		river.water.din * reach_denit_rate * (reach_denit_q10^((temp - 20.0)/10))
+	}
+}
