@@ -644,6 +644,10 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	}
 	for(auto &comp : connection.components) {
 		Entity_Id comp_id = model->components.find_by_name(comp.name);
+		if(!is_valid(comp_id)) {
+			comp.loc.print_error_header();
+			fatal_error("The component \"", comp.name, "\" has not been declared in the model.");
+		}
 		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.loc);
 	}
 	
@@ -771,6 +775,14 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	connection_components.resize(model->connections.count());
 	for(auto &connection : data_set->connections)
 		pre_process_connection_data(this, connection, data_set);
+	for(auto conn_id : model->connections) {
+		auto &components = connection_components[conn_id.id];
+		if(components.empty()) {
+			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");
+			//TODO: Should maybe just auto-generate instead.
+		}
+	}
+	
 	if(!connection_structure.has_been_set_up)
 		set_up_connection_structure();
 	

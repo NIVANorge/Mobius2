@@ -17,7 +17,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 		t_melt    : par_real("Temperature at which snow melts", [deg_c], 0, -4, 4)
 		refr_eff  : par_real("Refreeze efficiency", [], 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
 		snow_liq  : par_real("Liquid water fraction", [], 0.5, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before it is released")
-		init_snow : par_real("Initial snow depth (water equivalents)", [], 0, 0, 50000)
+		init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
 	}
 	
 	snow  : quantity("Snow (water equivalents)")
@@ -46,7 +46,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	flux(snow_box.water, snow_box.snow, "Refreeze") {	max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
 
 	melt_runoff :
-	flux(snow_box.water, out, "Melt runoff")        {   max(0, water - snow*snow_liq)  }  # Not necessary to write snow_box.water and snow_box.snow since the compartment can be inferred from the flux declaration
+	flux(snow_box.water, out, "Melt runoff")        {   max(0, water - snow*snow_liq) * 1[day-1]  }
 	
 	# TODO: Implement specifying order of computing discrete fluxes.
 	# 'add' and 'sub' specifies when the flux is added/subtracted to/from the target/source. If nothing else is specified, it happens right after the flux is computed.

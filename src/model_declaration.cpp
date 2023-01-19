@@ -123,7 +123,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 	if(!is_valid(result_id)) {
 		result_id.reg_type  = reg_type;
 		result_id.id        = (s32)registrations.size();
-		registrations.push_back({});
+		registrations.push_back(Entity_Registration<reg_type>());
 		auto &registration = registrations[result_id.id];
 		registration.has_been_declared = false;
 		if(is_valid(handle))
@@ -176,7 +176,7 @@ Registry<reg_type>::create_internal(const std::string &handle, Decl_Scope *scope
 	Entity_Id result_id;
 	result_id.reg_type = reg_type;
 	result_id.id = (s32)registrations.size();
-	registrations.push_back({});
+	registrations.push_back(Entity_Registration<reg_type>());
 	auto &registration = registrations[result_id.id];
 	
 	registration.name = name;
@@ -331,7 +331,7 @@ register_intrinsics(Mobius_Model *model) {
 }
 
 Entity_Id
-load_top_decl_from_file(Mobius_Model *model, Source_Location from, Decl_Scope *scope, String_View path, String_View relative_to, const std::string &decl_name, Decl_Type type) {
+load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View path, String_View relative_to, const std::string &decl_name, Decl_Type type) {
 	
 	String_View normalized_path;
 	String_View file_data = model->file_handler.load_file(path, from, relative_to, &normalized_path);
@@ -370,14 +370,14 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, Decl_Scope *s
 			Entity_Id id = invalid_entity_id;
 			
 			if(decl->type == Decl_Type::library) {
-				id = model->libraries.standard_declaration(scope, decl);
+				id = model->libraries.standard_declaration(nullptr, decl);
 				auto lib = model->libraries[id];
 				lib->has_been_processed = false;
 				lib->decl = decl;
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
 			} else if (decl->type == Decl_Type::module) {
-				id = model->modules.standard_declaration(scope, decl);
+				id = model->modules.standard_declaration(nullptr, decl);
 				auto mod = model->modules[id];
 				mod->has_been_processed = false;
 				mod->decl = decl;
@@ -899,12 +899,12 @@ process_par_ref_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *de
 }
 
 void
-process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Decl_Scope *to_scope, String_View load_decl_path);
+process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id to_scope, String_View load_decl_path);
 
 void
-load_library(Mobius_Model *model, Decl_Scope *to_scope, String_View rel_path, String_View load_decl_path, std::string &decl_name, Source_Location load_loc) {
+load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, String_View load_decl_path, std::string &decl_name, Source_Location load_loc) {
 	
-	Entity_Id lib_id = load_top_decl_from_file(model, load_loc, to_scope, rel_path, load_decl_path, decl_name, Decl_Type::library);
+	Entity_Id lib_id = load_top_decl_from_file(model, load_loc, rel_path, load_decl_path, decl_name, Decl_Type::library);
 
 	auto lib = model->libraries[lib_id];
 	
@@ -938,18 +938,19 @@ load_library(Mobius_Model *model, Decl_Scope *to_scope, String_View rel_path, St
 		// Check for recursive library loads into other libraries.
 		for(Decl_AST *child : body->child_decls) {
 			if(child->type == Decl_Type::load)
-				process_load_library_declaration(model, child, &lib->scope, lib->normalized_path);
+				process_load_library_declaration(model, child, lib_id, lib->normalized_path);
 		}
 		
+		lib = model->libraries[lib_id]; // NOTE: Have to re-fetch it because the pointer may have been invalidated by registering more libraries.
 		lib->has_been_processed = true;
 		lib->scope.check_for_missing_decls(model);
 	}
 	
-	to_scope->import(lib->scope, &load_loc);
+	model->get_scope(to_scope)->import(lib->scope, &load_loc);
 }
 
 void
-process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Decl_Scope *to_scope, String_View load_decl_path) {
+process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id to_scope, String_View load_decl_path) {
 	int which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string, { Decl_Type::library, true } },
@@ -1023,7 +1024,7 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
 			case Decl_Type::load : {
-				process_load_library_declaration(model, child, &module->scope, module->normalized_path);
+				process_load_library_declaration(model, child, id, module->normalized_path);
 			} break;
 			
 			case Decl_Type::unit : {
@@ -1417,7 +1418,7 @@ load_model(String_View file_name) {
 						match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
 						
 						auto module_name = single_arg(module_spec, 0)->string_value;
-						auto module_id = load_top_decl_from_file(model, single_arg(child, 0)->source_loc, scope, file_name, model_path, module_name, Decl_Type::module);
+						auto module_id = load_top_decl_from_file(model, single_arg(child, 0)->source_loc, file_name, model_path, module_name, Decl_Type::module);
 						
 						std::string module_handle = "";
 						if(module_spec->handle_name.string_value.count)

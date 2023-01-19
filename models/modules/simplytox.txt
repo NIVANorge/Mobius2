@@ -51,7 +51,7 @@ Testing functionality for now.
 	precip : property("Precipitation")
 	
 	flux(nowhere, soil.water.tox, "Contaminant wet deposition") {
-		air.precip * air.prconc * 1000    # NOTE: convert mm to m.
+		air.precip * air.prconc ->>
 	}
 	
 	Kow   : property("Octanol-water partitioning coefficient") {
@@ -60,13 +60,13 @@ Testing functionality for now.
 	}
 	
 	Koc   : property("SOC-water partitioning coefficient") {
-		rhoSOC := 1900.0 # kg/m^3
+		rhoSOC := 1900.0[k g, m-3]
 		rOC    := 0.41   # Empirical constant.
 		Kow * rOC / rhoSOC
 	}
 	
 	Kdoc  : property("DOC-water partitioning coefficient") {
-		rhoDOC := 1100.0  # kg/m^3
+		rhoDOC := 1100.0[k g, m-3]
 		(Kow - 0.45)^0.93 / rhoDOC
 	}
 	

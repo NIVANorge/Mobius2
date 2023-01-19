@@ -1,0 +1,15 @@
+
+model("NIVAFjord") {
+	load("../modules/nivafjord.txt", module("NIVAFjord"))
+	
+	layer_idx : index_set("Layer index")
+	
+	layer : compartment("Fjord layer")
+	
+	water : quantity("Water")
+	
+	layer.distribute(layer_idx)
+	
+	sol : solver("Simply solver", "INCADascru", 0.1)
+	sol.solve(layer.water)
+}

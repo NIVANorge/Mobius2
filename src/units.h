@@ -50,6 +50,7 @@ Standardized_Unit {
 	void reduce();
 	bool is_atom(Base_Unit bu);
 	bool is_dimensionless();
+	bool is_fully_dimensionless();
 };
 
 Standardized_Unit

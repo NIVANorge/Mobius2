@@ -451,9 +451,7 @@ set_intrinsic_unit(Standardized_Unit &result_unit, Standardized_Unit &arg_unit, 
 		s16 pw = 2;
 		if(fun_name == "cbrt") pw = 3;
 		success = pow(arg_unit, result_unit, Rational<s16>(1, pw));
-		return;
-	}
-	if(!arg_unit.is_dimensionless()) {
+	} else if(!arg_unit.is_fully_dimensionless()) {
 		success = false;
 	}
 	if(!success) {
@@ -522,10 +520,9 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 		}
 		if(op == '+' || op == '-' || op == '%') {
 			// TODO: Should deg_c - deg_c = K ? Makes a bit more sense, and we often find ourselves having to do this conversion any way.
-			if(lhs_is_0) // Just in case one of them was a 0, we should use the other one if that had a proper unit.
-				result = b;
-			else
-				result = a;
+			// Just in case one of them was a 0, we should use the other one if that had a proper unit.
+			if(lhs_is_0) result = b;
+			else         result = a;
 		}
 		// Otherwise we don't set the result unit, so it remains dimensionless.
 	} else if (op == '*') {
@@ -535,7 +532,7 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 	} else if (op == '^') {
 		// TODO: Ideally we should analyze rhs better, e.g. see if it could be pruned, or see if it could be identified as a rational.
 		s64 val = -1;
-		if(b.is_dimensionless() && a.is_dimensionless()) {
+		if(b.is_fully_dimensionless() && a.is_dimensionless()) {
 			// Do nothing, the unit should remain dimensionless.
 		} else if(is_constant_dimensionless_integer(b, rhs, scope, &val)) {
 			pow(a, result, Rational<s16>((s16)val)); // Power of integer should not fail, so we don't have to check the return code.
@@ -560,7 +557,7 @@ check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &u
 		bool is_0 = is_constant_dimensionless_integer(units[idx], &exprs[idx], scope, &val) && val==0;
 		if(is_0) continue; // We allow 0 to match against any other unit here.
 		if(!first_valid) {
-			*first_valid = units[idx];
+			first_valid = &units[idx];
 			result = units[idx];
 		} else {
 			if(!match_exact(&units[idx], first_valid)) {
@@ -819,6 +816,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				result.fun = var;
 				if(fun_name == "in_flux") {
 					result.unit = multiply(arg_units[0], app->time_step_unit.standard_form, -1);
+				} else if( fun_name == "conc") {
+					auto conc_id = as<State_Var::Type::declared>(data->app->state_vars[var->state_var])->conc;
+					result.unit = data->app->state_vars[conc_id]->unit.standard_form;
 				} else
 					result.unit = std::move(arg_units[0]);
 			} else {
@@ -882,7 +882,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						
 						// NOTE: With the current implementation,
 						// is_constant_dimensionless_integer could mute these, which is why we
-						// do it like this. Should maybe be fixed eventually.
+						// do it like this. Should probably be fixed eventually.
 						auto &argg = inlined_arg->exprs[0];
 						auto loc = inlined_arg->exprs[0]->source_loc;
 						if(is_valid(fun_decl->expected_units[argidx])) {
@@ -1012,7 +1012,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			new_if->value_type = value_type;
 			
 			result.fun = new_if;
-			result.unit = std::move(arg_units[0]); // TODO: need to check that all value units are the same, and that all conditions are dimensionless!!
+			check_if_expr_units(result.unit, arg_units, new_if->exprs, scope);
 		} break;
 		
 		case Math_Expr_Type::local_var : {

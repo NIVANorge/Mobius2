@@ -71,7 +71,7 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Var_Sub() : decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false) {}
+	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false) {}
 };
 
 template<> struct

@@ -98,14 +98,14 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	flux(nowhere, river.water.tdp, "River effluent TDP") { eff_tdp }
 	
-	river.water.has(pp, [k g], [m g, l-1], "River PP") .initial_conc { 0 }
+	river.water.has(pp, [k g], [m g, l-1], "River PP") 
 	
 	e_fact : property("Erosion factor")
 	
 	#NOTE: could also just have pp "dissolved in" ss, but would then need the soil to have a SS value (that is overridden to be constant), which could be confusing to model users?
 	
 	soil.plab.has(pp_fact : property("PP mobilization factor"), [k g, k m-2, day-1]) {
-		(plabconc + inactive_soil_p_conc)*1e-6 * e_fact * pp_enrich              # NOTE: 1e-6 is to convert mg -> kg
+		(plabconc + inactive_soil_p_conc) * e_fact * pp_enrich ->>
 	}
 	
 	flux(nowhere, river.water.pp, "PP mobilization") {

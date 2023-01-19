@@ -15,15 +15,16 @@ module("RiverTemperature", 0, 1, 0) {
 	temp  : property("Temperature")
 	
 	
-	river.water.has(heat, [J], "River thermal energy") .initial { air.temp }
+	river.water.has(heat, [J], "River thermal energy") .initial { water_temp_to_heat(water, air.temp) }
 	
 	flux(nowhere, river.water.heat, "River heat from land") {
-		V := in_flux(water) => [m 3]    #Again annoying that the 1/day doesn't "pass through" the function.
-		water_temp_to_heat(V, aggregate(soil.temp)) =>> #TODO: maybe modify if melt water   
+		#TODO: maybe modify if melt water    
+		V := in_flux(water) -> [m 3, day-1]
+		water_temp_to_heat(V => [m 3], aggregate(soil.temp)) =>> #Again annoying that the 1/day doesn't "pass through" the function.
 	}
 	
 	flux(nowhere, river.water.heat, "River sensible heat flux") {
-		(water_temp_to_heat(water, air.temp) - heat)*5 #TODO: arbitrary coefficient for now.
+		(water_temp_to_heat(water, air.temp) - heat)*5[day -1] #TODO: arbitrary coefficient for now.
 	}
 	
 	river.has(temp, [deg_c], "River temperature") {

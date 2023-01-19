@@ -7,6 +7,7 @@ index_set("Landscape units") [ "Forest" ]
 index_set("Subcatchment") [ "Inlet" ]
 
 connection("Downstream") [
+	compartment("River")["Subcatchment"]
 ]
 
 series("langtjern.xlsx")
@@ -25,8 +26,9 @@ par_group("Catchment data") [ "Subcatchment" ] {
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
-	par_real("Land use proportions")
-	[ 1 ]
+	par_real("Land use proportions") [
+		1 
+	]
 }
 
 module("HBVSnow", 1, 0, 0) {
@@ -121,7 +123,7 @@ module("Simply soil temperature", 0, 0, 0) {
 module("SimplyC", 1, 0, 0) {
 	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
-		[ 10 ]
+		[ 100 ]
 
 		par_real("Soil temperature DOC creation linear coefficient")
 		[ 0.0192699922622986 ]

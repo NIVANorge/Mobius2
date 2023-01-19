@@ -1,4 +1,5 @@
 
+
 	Finish sub-indexed index sets
 		May need to invalidate more fluxes across the super index set.
 		Sub-indexed series data.

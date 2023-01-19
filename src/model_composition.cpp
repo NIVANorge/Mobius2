@@ -116,7 +116,6 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 				var2->connection = flux->connection_target;
 				var->loc2 = var->loc1; //TODO: Dunno why this is done. Should try to not do it (but may have to fix errors elsewhere).
 			}
-			// TODO: the flux unit should always be (unit of what is transported) / (time step unit)
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	}
@@ -301,15 +300,12 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	
 	Var_Location loc = var->loc1;
 	loc = var->loc1;
-	//TODO: There is a question about what to do with fluxes with source nowhere. Should we then check the target like we do here?
-	//TODO: we just have to test how that works.
+	
 	if(!is_located(loc))
 		loc = var->loc2;
 
 	if(!is_located(loc))
 		fatal_error(Mobius_Error::internal, "Somehow a totally unlocated variable checked in check_valid_distribution_of_dependencies().");
-	
-	// TODO: It may be better to have these correctness tests in model_composition, but then we would have to look up the dependency sets twice (can't keep them because some of the function trees undergo codegen in between).
 	
 	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
 	
@@ -572,7 +568,12 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit };
 		auto fun = resolve_function_tree(agg.code, &res_data);
-		// TODO: Check resulting unit
+		
+		if(!match_exact(&fun.unit, &expected_unit)) {
+			agg.code->source_loc.print_error_header();
+			fatal_error("Expected the unit an aggregation_weight expression to resolve to ", expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+		}
+		
 		agg_weight = make_cast(fun.fun, Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
 		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs, is_connection);
@@ -616,7 +617,10 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 		std::set<Entity_Id> parameter_refs;
 		restrictive_lookups(unit_conv, Decl_Type::unit_conversion, parameter_refs);
 		
-		// TODO: check that fun.unit is the expected unit!
+		if(!match_exact(&fun.unit, &expected_unit.standard_form)) {
+			ast->source_loc.print_error_header();
+			fatal_error("Expected the unit of this unit_conversion expression to resolve to ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+		}
 		
 		for(auto par_id : parameter_refs) {
 			bool ok = parameter_indexes_below_location(model, par_id, loc1);
@@ -796,22 +800,33 @@ compose_and_resolve(Model_Application *app) {
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form };
 		if(ast) {
 			auto fun = resolve_function_tree(ast, &res_data);
-			// TODO: Check that fun.unit is correct!
 			var2->function_tree = make_cast(fun.fun, Value_Type::real);
 			replace_conc(app, var2->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
 			find_other_flags(var2->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false, allow_target);
+			
+			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
+				ast->source_loc.print_error_header();
+				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+			}
 		} else
 			var2->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
 		
 		res_data.scope = other_code_scope;
 		if(init_ast) {
+			if(initial_is_conc)
+				res_data.expected_unit = app->state_vars[var2->conc]->unit.standard_form;
+			
 			auto fun = resolve_function_tree(init_ast, &res_data);
-			//TODO: Check that fun.unit is correct!
 			var2->initial_function_tree = make_cast(fun.fun, Value_Type::real);
 			remove_lasts(var2->initial_function_tree, true);
 			replace_conc(app, var2->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
 			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true, false);
 			var2->initial_is_conc = initial_is_conc;
+			
+			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
+				init_ast->source_loc.print_error_header();
+				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+			}
 			
 			if(initial_is_conc && (var2->decl_type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
 				init_ast->source_loc.print_error_header(Mobius_Error::model_building);
@@ -821,10 +836,11 @@ compose_and_resolve(Model_Application *app) {
 			var2->initial_function_tree = nullptr;
 		
 		if(override_ast) {
-			if(override_is_conc) {
-				auto conc_var = as<State_Var::Type::dissolved_conc>(app->state_vars[var2->conc]);
-				res_data.expected_unit = conc_var->unit.standard_form;
-			}
+			if(override_is_conc)
+				res_data.expected_unit = app->state_vars[var2->conc]->unit.standard_form;
+			else
+				res_data.expected_unit = var2->unit.standard_form; //In case it was overwritten above..
+			
 			auto fun = resolve_function_tree(override_ast, &res_data);
 			auto override_tree = prune_tree(fun.fun);
 			bool no_override = false;
@@ -835,7 +851,11 @@ compose_and_resolve(Model_Application *app) {
 			if(no_override)
 				var2->override_tree = nullptr;
 			else {
-				// TODO: Check that fun.unit is correct (not in the no_override case though)
+				if(!match_exact(&fun.unit, &res_data.expected_unit)) {
+					init_ast->source_loc.print_error_header();
+					fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+				}
+				
 				var2->override_tree = make_cast(override_tree, Value_Type::real);
 				var2->override_is_conc = override_is_conc;
 				replace_conc(app, var2->override_tree);

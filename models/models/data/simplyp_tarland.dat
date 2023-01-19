@@ -7,6 +7,7 @@ index_set("Landscape units") [ "Arable" "Improved grasslands" "Semi-natural" ]
 index_set("Subcatchment") [ "Coull" ]
 
 connection("Downstream") [
+	compartment("River") [ "Subcatchment" ]
 ]
 
 series("tarland_series.xlsx")

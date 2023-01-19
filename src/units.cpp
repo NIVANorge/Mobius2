@@ -192,6 +192,14 @@ Standardized_Unit::is_dimensionless() {
 	return true;
 }
 
+bool
+Standardized_Unit::is_fully_dimensionless() {
+	if(!is_dimensionless()) return false;
+	if(multiplier != Rational<s64>(1)) return false;
+	if(magnitude != Rational<s16>(0)) return false;
+	return true;
+}
+
 Standardized_Unit
 multiply(const Standardized_Unit &a, const Standardized_Unit &b, int power) {
 	Standardized_Unit result;
@@ -205,9 +213,8 @@ multiply(const Standardized_Unit &a, const Standardized_Unit &b, int power) {
 
 bool
 pow(const Standardized_Unit &a, Standardized_Unit &result, Rational<s16> power) {
-	//TODO: It should actually be able to do it if that power of the multiplier is a rational!!
-	//	also, we should maybe have a better system for this, allowing powers on the
-	//	multiplier...
+	
+	// TODO: Should in some instances still be able to resolve this power.
 	if(!power.is_int() && a.multiplier != Rational<s64>(1))
 		return false;
 	
@@ -215,6 +222,7 @@ pow(const Standardized_Unit &a, Standardized_Unit &result, Rational<s16> power) 
 	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
 		result.powers[idx] *= power;
 	result.magnitude *= power;
+	result.multiplier = pow_i<s64>(result.multiplier, power.nom);
 	return true;
 }
 
