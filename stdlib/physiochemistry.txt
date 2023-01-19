@@ -32,31 +32,31 @@ library("Water utils") {
 	}
 	
 	water_density : function(T : [deg_c]) {
-		dtemp := (T->[K] - 277.13[K])=>[]  # Difference between temp and reference temp.
-		rho_water*(1 - 0.5*1.6509e-5*dtemp^2)
+		dtemp := (T->[K] - 277.13[K])  # Difference between temp and reference temp.
+		rho_water*(1 - 0.5*1.6509e-5[K-2]*dtemp^2)
 	}
 	
 	#TODO: Fix the units of this one!
-	dynamic_viscosity_water : function(T_celsius, salinity) {
+	dynamic_viscosity_water : function(T : [deg_c], S : []) {
 		# Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
-		# Returns viscosity in centipose (1000 Pa*s)
+		# Returns viscosity in centipose [k Pa, s]
 		# It is also possible to add pressure corrections. Pressure is here assumed to be at 1atm.
-		eta20 := 1.0020               # Dynamic viscosity at t=20, s=0
-		tm20  := 20-T_celsius
-		lograt := (1.1709*tm20 - 0.001827*tm20^2) / (T_celsius + 89.93)
+		eta20 := 1.0020[k Pa, s]              # Dynamic viscosity at t=20, s=0
+		tm20  := 20[deg_c]-T
+		lograt := (1.1709*tm20 - 0.001827[deg_c-1]*tm20^2) / (T + 89.93[deg_c])
 		eta_t := eta20*10^lograt      #Dynamic viscosity of distilled water, corrected for temperature
-		a := lerp(T_celsius, 5, 25, 0.000366, 0.001403)
-		b := lerp(T_celsius, 5, 25, 0.002756, 0.003416)
-		cl := max(0, (salinity-0.03)/1.805)
-		clv := water_density(T_celsius) * cl    # Volume chlorinity
+		a := lerp(T, 5[deg_c], 25[deg_c], 0.000366, 0.001403)
+		b := lerp(T, 5[deg_c], 25[deg_c], 0.002756, 0.003416)
+		cl := max(0, (S-0.03)/1.805)
+		clv := water_density(T) * cl =>[]  # Volume chlorinity
 		eta_t * (1 + a*sqrt(clv) + b*clv)
 	}
 	
-	diffusivity_in_water : function(ref_diff, ref_T, ref_S, T_celsius, salinity) {
+	diffusivity_in_water : function(ref_diff, ref_T : [deg_c], ref_S : [], T : [deg_c], S : []) {
 		# Diffusivity of some substance in water.
 		# 	ref_diff  - the diffusivity of the substance in water at temperature ref_T and salinity ref_S.
 		
-		ref_diff * (dynamic_viscosity_water(ref_T, ref_S) / dynamic_viscosity_water(T_celsius, salinity)) * (deg_c_to_K(T_celsius) / deg_c_to_K(ref_T))
+		ref_diff * (dynamic_viscosity_water(ref_T, ref_S) / dynamic_viscosity_water(T, S)) * ((T -> [K]) / (ref_T -> [K]))
 	}
 }
 

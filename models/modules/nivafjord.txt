@@ -1,0 +1,52 @@
+
+module("NIVAFjord", 0, 0, 1) {
+
+	load("../../stdlib/physiochemistry.txt", library("Water utils"))
+
+	layer : compartment("Fjord layer")
+	
+	water : quantity("Water")
+	salt  : quantity("NaCl")
+	
+	temp : property("Temperature")
+	
+	vert : connection("Fjord vertical", grid1d) { layer* }
+	
+	layer.par_group("Layer parameters") {
+		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
+		init_S : par_real("Initial salinity", [], 35.0, 20.0, 50.0)
+	}
+	
+	layer.has(z : property("Thickness"), [m]) {
+		1[m]   # Will be dynamic eventually
+	} .initial { 1[m] }
+	
+	layer.has(temp, [deg_c], "Layer temperature") {   #TODO!
+		25[deg_c]
+	}
+	
+	layer.has(water, [k g], "Layer water") .initial { A*z*rho_water }   #TODO: temperature adjust
+	layer.water.has(salt, [k g], [g, k g-1], "Layer NaCl") .initial_conc { init_S => [g, k g-1] }
+	
+	layer.water.has(salinity : property("Salinity"), []) {
+		(conc(salt)->[g, k g-1]) => []     # PSU ~= ppt = g/kg
+	}
+	
+	Kdiff : property("Diffusion coefficient")
+	
+	layer.water.salt.has(Kdiff, [c m 2, s-1], "Diffusion coefficient (NaCl)") {    # Change units?
+		ref_diff := 2.2e-5[c m 2, s-1]  # Reference diffusion coefficient at a given temperature and salinity. TODO: Should be checked
+		diffusivity_in_water(ref_diff, 25.0[deg_c], 58.44, temp, salinity)   # Is it correct to use this salinity correction for salt diffusion, or should there be another formula?
+	}
+	
+	flux(layer.water.salt, vert, "NaCl vertical diffusion") {
+		Kd := 0.5*(Kdiff + target(Kdiff)) -> [m 2, day-1]
+		dz := 0.5*(z + target(z))
+		rho := rho_water #TODO!
+		rho * A * Kd * (conc(salt) - target(conc(salt))) / dz ->>
+	}
+	
+	layer.water.has(dynvisc : property("Dynamic viscosity"), [k Pa, s]) {
+		dynamic_viscosity_water(temp, salinity)
+	}
+}

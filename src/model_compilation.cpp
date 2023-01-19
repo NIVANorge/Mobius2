@@ -44,16 +44,16 @@ debug_print_instruction(Model_Application *app, Model_Instruction *instr) {
 
 void
 debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
-	for(auto &pre_batch : arrays) {
+	for(auto &array : arrays) {
 		warning_print("\t[");;
-		for(auto index_set : pre_batch.index_sets) {
+		for(auto index_set : array.index_sets) {
 			warning_print("\"", app->model->index_sets[index_set.id]->name, "\"");
 			if(index_set.order > 1)
 				warning_print("^", index_set.order);
 			warning_print(" ");
 		}
 		warning_print("]\n");
-		for(auto instr_id : pre_batch.instr_ids) {
+		for(auto instr_id : array.instr_ids) {
 			warning_print("\t\t");
 			auto instr = &instructions[instr_id];
 			debug_print_instruction(app, instr);
@@ -823,6 +823,27 @@ bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, s
 	return found;
 }
 
+struct Pre_Batch {
+	Entity_Id solver = invalid_entity_id;
+	std::vector<int> instructions;
+	std::set<int>    depends_on;
+	bool visited = false;
+	bool temp_visited = false;
+};
+
+void
+topological_sort_pre_batch_visit(int idx, std::vector<int> &push_to, std::vector<Pre_Batch> &pre_batches) {
+	Pre_Batch *pre_batch = &pre_batches[idx];
+	if(pre_batch->visited) return;
+	if(pre_batch->temp_visited)
+		fatal_error(Mobius_Error::internal, "Unable to sort pre batches. Should not be possible if solvers are correctly propagated.");
+	pre_batch->temp_visited = true;
+	for(int dep : pre_batch->depends_on)
+		topological_sort_pre_batch_visit(dep, push_to, pre_batches);
+	pre_batch->visited = true;
+	push_to.push_back(idx);
+}
+
 void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
 	// create one batch per solver
 	// if a quantity has a solver, it goes in that batch.
@@ -884,8 +905,98 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		if(!success) mobius_error_exit();
 	}
 	
+	std::vector<Pre_Batch> pre_batches;
+	std::vector<int> pre_batch_of_solver(app->model->solvers.count(), -1);
+	std::vector<int> pre_batch_of_instr(instructions.size(), -1);
+	
+	for(int instr_id : sorted_instructions) {
+		auto &instr = instructions[instr_id];
+		int batch_id = -1;
+		if(is_valid(instr.solver))
+			batch_id = pre_batch_of_solver[instr.solver.id];
+		if(batch_id < 0) {
+			pre_batches.resize(pre_batches.size()+1);
+			batch_id = pre_batches.size()-1;
+		}
+		auto &pre_batch = pre_batches[batch_id];
+		pre_batch.solver = instr.solver;
+		pre_batch.instructions.push_back(instr_id);
+		pre_batch_of_instr[instr_id] = batch_id;
+		for(int dep : instr.depends_on_instruction) {
+			int dep_id = pre_batch_of_instr[dep];
+			if(dep_id != batch_id)
+				pre_batch.depends_on.insert(dep_id); // It should be ok to do this in the same pass because we already sorted the instructions.
+		}
+		if(is_valid(instr.solver))
+			pre_batch_of_solver[instr.solver.id] = batch_id;
+	}
+	
+	std::vector<int> sorted_pre_batches;
+	for(int idx = 0; idx < pre_batches.size(); ++idx)
+		topological_sort_pre_batch_visit(idx, sorted_pre_batches, pre_batches);
+	
+	// Now group discrete equations into single pre_batches.
+	std::vector<Pre_Batch> grouped_pre_batches;
+	Entity_Id prev_solver = invalid_entity_id;
+	for(int order : sorted_pre_batches) {
+		auto &pre_batch = pre_batches[order];
+		if(is_valid(prev_solver) || is_valid(pre_batch.solver) || grouped_pre_batches.empty())
+			grouped_pre_batches.resize(grouped_pre_batches.size()+1);
+		auto &new_batch = grouped_pre_batches.back();
+		new_batch.instructions.insert(new_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
+		new_batch.solver = pre_batch.solver;
+		prev_solver = pre_batch.solver;
+	}
+	
+	bool changed = false;
+	// Try to move instructions to as late a batch as possible. Can some times improve the structure by eliminating unnecessary discrete batches.
+	for(int batch_idx = 0; batch_idx < grouped_pre_batches.size(); ++batch_idx) {
+		auto &pre_batch = grouped_pre_batches[batch_idx];
+		if(is_valid(pre_batch.solver)) continue;
+		for(int instr_idx = pre_batch.instructions.size()-1; instr_idx > 0; --instr_idx) {
+			int instr_id = pre_batch.instructions[instr_idx];
+			
+			int last_suitable = -1;
+			for(int batch_ahead_idx = batch_idx; batch_ahead_idx < grouped_pre_batches.size(); ++batch_ahead_idx) {
+				int start_at = 0;
+				if(batch_ahead_idx == batch_idx) start_at = instr_idx+1;
+				auto &batch_ahead = grouped_pre_batches[batch_ahead_idx];
+				
+				bool someone_ahead_in_this_batch_depends_on_us = false;
+				for(int ahead_idx = start_at; ahead_idx < batch_ahead.instructions.size(); ++ahead_idx) {
+					int ahead_id = batch_ahead.instructions[ahead_idx];
+					auto &ahead = instructions[ahead_id];
+					if(std::find(ahead.depends_on_instruction.begin(), ahead.depends_on_instruction.end(), instr_id) != ahead.depends_on_instruction.end()) {
+						someone_ahead_in_this_batch_depends_on_us = true;
+						break;
+					}
+				}
+				if(batch_ahead_idx != batch_idx && !is_valid(batch_ahead.solver))
+					last_suitable = batch_ahead_idx;
+				if(someone_ahead_in_this_batch_depends_on_us) break;
+			}
+			if(last_suitable > 0) {
+				// We are allowed to move. Move to the beginning of the first other batch that is suitable.
+				auto &insert_to = grouped_pre_batches[last_suitable];
+				insert_to.instructions.insert(insert_to.instructions.begin(), instr_id);
+				pre_batch.instructions.erase(pre_batch.instructions.begin()+instr_idx); // NOTE: it is safe to do this since we are iterating instr_idx from the end to the beginning
+				changed = true;
+			}
+		}
+	}
+	
 	batches_out.clear();
 	
+	for(auto &pre_batch : grouped_pre_batches) {
+		if(pre_batch.instructions.empty()) continue; // Can happen as a result of the previous step where we move them around.
+		
+		Batch batch;
+		batch.instrs = pre_batch.instructions;
+		batch.solver = pre_batch.solver;
+		batches_out.push_back(std::move(batch));
+	}
+
+/*
 	warning_print("Create batches\n");
 	// TODO: this algorithm is repeated only with slightly different checks (solver vs. index sets). Is there a way to unify the code?
 	for(int instr_id : sorted_instructions) {
@@ -928,7 +1039,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	}
 	
 	//NOTE: we do more passes to try and group instructions in an optimal way.
-	
+#if 1
 	bool changed = false;
 	for(int it = 0; it < 10; ++it) {
 		changed = false;
@@ -999,6 +1110,8 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	}
 	
 	// TODO: We need to verify that each solver is only given one batch!! Ideally we should just group instructions by solver initially and then sort the groups (where each discrete instruction is just given its own group)?
+#endif
+*/
 	
 #if 0
 	warning_print("*** Batches before internal structuring: ***\n");

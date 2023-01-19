@@ -203,8 +203,8 @@ TODO: description
 	flux(nowhere, epi.water.heat, "Precipitation heat") {
 		#precip_t := max(0.4[deg_c], air.temp)
 		precip_t := air.temp
-		V := A_surf*air.precip*1e-3 => [m 3]   # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
-		water_temp_to_heat(V, precip_t) => [J, day-1]
+		V := A_surf*air.precip -> [m 3, day-1]   
+		water_temp_to_heat(V => [m 3], precip_t) => [J, day-1] # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
 	}
 	
 	flux(epi.water.heat, hyp.water.heat, "Layer heat transfer") {

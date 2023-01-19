@@ -36,11 +36,9 @@ Not finished, just for testing some systems.
 	
 	temp : property("Temperature")
 	
-	#TODO: allow specifying the conc unit
-	#TODO: we have to do something about the name system for these.
 	soil.water.has (oc, [k g, k m -2], [m g, l-1], "Soil water DOC") .initial_conc { basedoc }
 		
-	gw.water.has   (oc, [k g, k m -2], "Deep soil DOC")  .initial_conc {
+	gw.water.has   (oc, [k g, k m -2], [m g, l-1], "Deep soil DOC")  .initial_conc {
 		gwdocconc                       if gwdoc_type.const,
 		aggregate(conc(soil.water.oc))  otherwise
 	} .override_conc {
@@ -51,7 +49,7 @@ Not finished, just for testing some systems.
 	
 	river.water.has(oc, [k g], [m g, l-1], "River water DOC") .initial_conc { conc(gw.water.oc) }
 	
-	flux(nowhere, soil.water.oc, "Soil DOC production") {  max(0, water*cdoc*(1 + temp*(kt1 + kt2*temp) - kso4*air.so4))  }
+	flux(nowhere, soil.water.oc, "Soil DOC production") {  max(0, water*cdoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4))  }
 	
 	flux(soil.water.oc, nowhere, "Soil DOC mineralization+resorption") {   oc * (cdoc / basedoc)    }
 	
