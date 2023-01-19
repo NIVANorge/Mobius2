@@ -948,42 +948,50 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		prev_solver = pre_batch.solver;
 	}
 	
-	bool changed = false;
+	
 	// Try to move instructions to as late a batch as possible. Can some times improve the structure by eliminating unnecessary discrete batches.
-	for(int batch_idx = 0; batch_idx < grouped_pre_batches.size(); ++batch_idx) {
-		auto &pre_batch = grouped_pre_batches[batch_idx];
-		if(is_valid(pre_batch.solver)) continue;
-		for(int instr_idx = pre_batch.instructions.size()-1; instr_idx > 0; --instr_idx) {
-			int instr_id = pre_batch.instructions[instr_idx];
-			
-			int last_suitable = -1;
-			for(int batch_ahead_idx = batch_idx; batch_ahead_idx < grouped_pre_batches.size(); ++batch_ahead_idx) {
-				int start_at = 0;
-				if(batch_ahead_idx == batch_idx) start_at = instr_idx+1;
-				auto &batch_ahead = grouped_pre_batches[batch_ahead_idx];
+	bool changed = false;
+	for(int it = 0; it < 10; ++it) {
+		changed = false;
+	
+		for(int batch_idx = 0; batch_idx < grouped_pre_batches.size(); ++batch_idx) {
+			auto &pre_batch = grouped_pre_batches[batch_idx];
+			if(is_valid(pre_batch.solver)) continue;
+			for(int instr_idx = pre_batch.instructions.size()-1; instr_idx > 0; --instr_idx) {
+				int instr_id = pre_batch.instructions[instr_idx];
 				
-				bool someone_ahead_in_this_batch_depends_on_us = false;
-				for(int ahead_idx = start_at; ahead_idx < batch_ahead.instructions.size(); ++ahead_idx) {
-					int ahead_id = batch_ahead.instructions[ahead_idx];
-					auto &ahead = instructions[ahead_id];
-					if(std::find(ahead.depends_on_instruction.begin(), ahead.depends_on_instruction.end(), instr_id) != ahead.depends_on_instruction.end()) {
-						someone_ahead_in_this_batch_depends_on_us = true;
-						break;
+				int last_suitable = -1;
+				for(int batch_ahead_idx = batch_idx; batch_ahead_idx < grouped_pre_batches.size(); ++batch_ahead_idx) {
+					int start_at = 0;
+					if(batch_ahead_idx == batch_idx) start_at = instr_idx+1;
+					auto &batch_ahead = grouped_pre_batches[batch_ahead_idx];
+					
+					bool someone_ahead_in_this_batch_depends_on_us = false;
+					for(int ahead_idx = start_at; ahead_idx < batch_ahead.instructions.size(); ++ahead_idx) {
+						int ahead_id = batch_ahead.instructions[ahead_idx];
+						auto &ahead = instructions[ahead_id];
+						if(std::find(ahead.depends_on_instruction.begin(), ahead.depends_on_instruction.end(), instr_id) != ahead.depends_on_instruction.end()) {
+							someone_ahead_in_this_batch_depends_on_us = true;
+							break;
+						}
 					}
+					if(batch_ahead_idx != batch_idx && !is_valid(batch_ahead.solver))
+						last_suitable = batch_ahead_idx;
+					if(someone_ahead_in_this_batch_depends_on_us) break;
 				}
-				if(batch_ahead_idx != batch_idx && !is_valid(batch_ahead.solver))
-					last_suitable = batch_ahead_idx;
-				if(someone_ahead_in_this_batch_depends_on_us) break;
-			}
-			if(last_suitable > 0) {
-				// We are allowed to move. Move to the beginning of the first other batch that is suitable.
-				auto &insert_to = grouped_pre_batches[last_suitable];
-				insert_to.instructions.insert(insert_to.instructions.begin(), instr_id);
-				pre_batch.instructions.erase(pre_batch.instructions.begin()+instr_idx); // NOTE: it is safe to do this since we are iterating instr_idx from the end to the beginning
-				changed = true;
+				if(last_suitable > 0) {
+					// We are allowed to move. Move to the beginning of the first other batch that is suitable.
+					auto &insert_to = grouped_pre_batches[last_suitable];
+					insert_to.instructions.insert(insert_to.instructions.begin(), instr_id);
+					pre_batch.instructions.erase(pre_batch.instructions.begin()+instr_idx); // NOTE: it is safe to do this since we are iterating instr_idx from the end to the beginning
+					changed = true;
+				}
 			}
 		}
+		if(!changed) break; // If we can't move anything, there is no point to continue trying.
 	}
+	if(changed)
+		fatal_error(Mobius_Error::internal, "Unable to optimize instruction batch grouping in the allotted amount of iterations.");
 	
 	batches_out.clear();
 	
