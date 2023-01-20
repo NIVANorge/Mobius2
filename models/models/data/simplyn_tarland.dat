@@ -1,0 +1,31 @@
+"""
+You can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView2 (which does not happen to comments).
+"""
+
+index_set("Landscape units") [ "Agricultural" "Semi-natural" ]
+
+index_set("Subcatchment") [ "Coull" ]
+
+connection("Downstream") [
+	compartment("River") [ "Subcatchment" ]
+]
+
+series("tarland_series_cnp.dat")
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 2004-01-01 ]
+
+	par_datetime("End date")
+	[ 2005-05-30 ]
+}
+
+par_group("Land cover") [ "Landscape units" ] {
+	par_real("Land use proportions")
+	[ 0.5 0.5 ]
+}
+
+par_group("Catchment data") {
+	par_real("Catchment area")
+	[ 51.7 ]
+}

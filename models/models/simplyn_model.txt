@@ -6,6 +6,7 @@ Description
 """
 	extend("simplyq_model.txt")  # Add to the SimplyQ model text
 	
+	# Do seem to need the declaration, get an error otherwise
 	load("../modules/simplysoiltemp.txt", st : module("Simply soil temperature"))
 	load("../modules/simplyn.txt", sdin : module("SimplyN"))
 	
@@ -20,4 +21,5 @@ Description
 	# has units kg or mg/l. Convert using a_catch [km-2]
 	unit_conversion(soil.water.din, river.water.din) {  a_catch  }
 	unit_conversion(gw.water.din, river.water.din)   {  a_catch  }
+	
 }
