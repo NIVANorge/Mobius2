@@ -4,12 +4,12 @@ connection("Layer connection") [
 	compartment("Layer") [ "Layer index" ]
 ]
 
-connection("Soil to lake") [
-	s : compartment("Soil") []
-	l : compartment("Layer") [ "Layer index" ]
-	
-	s[]->l[70]
-]
+#connection("Soil to lake") [
+#	s : compartment("Soil") []
+#	l : compartment("Layer") [ "Layer index" ]
+#	
+#	s[]->l[70]
+#]
 
 series("../../models/models/data/langtjern.xlsx")
 

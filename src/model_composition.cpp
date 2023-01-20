@@ -108,14 +108,8 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			// These may not be needed, since we would check if the locations exist in any case (and the source location is confusing as it stands here).
 			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
 			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
-			if(is_valid(flux->connection_target)) {
-				if(!is_located(var->loc1)) {
-					flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: This is not the correct place to check this. Also, the source loc is wrong if the flux was redirected.
-					fatal_error("You can't have a flux from nowhere to a connection.\n");
-				}
+			if(is_valid(flux->connection_target))
 				var2->connection = flux->connection_target;
-				var->loc2 = var->loc1; //TODO: Dunno why this is done. Should try to not do it (but may have to fix errors elsewhere).
-			}
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	}
@@ -212,13 +206,14 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 
 void
 replace_conc(Model_Application *app, Math_Expr_FT *expr) {
+	// TODO: Why is this not just baked into resolve_function_tree ?
+	
 	for(auto arg : expr->exprs) replace_conc(app, arg);
 	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & Identifier_FT::Flags::conc)) return;
 	auto var = app->state_vars[ident->state_var];
 	
-	// TODO: We may get in trouble looking up aggregates of concs ?? Or do we replace them in the right order?? In any case, one has to take care with that.
 	if(var->type != State_Var::Type::declared)
 		fatal_error(Mobius_Error::internal, "Somehow we tried to look up the conc of a generated state variable");
 	auto var2 = as<State_Var::Type::declared>(var);
@@ -464,6 +459,9 @@ prelim_compose(Model_Application *app) {
 		}
 	}
 	
+	//TODO: make better name generation system!
+	char varname[1024];
+	
 	for(Entity_Id id : model->fluxes) {
 		auto flux = model->fluxes[id];
 
@@ -471,13 +469,46 @@ prelim_compose(Model_Application *app) {
 		check_flux_location(app, scope, flux->source_loc, flux->source);
 		check_flux_location(app, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
 		
-		register_state_variable<State_Var::Type::declared>(app, id, false);
+		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false);
+		
+		// TODO: more functionality for changing around the locs of the boundaries (and also the main when we allow more arguments).
+		auto conn_id = connection_of_flux(app->state_vars[var_id]);
+		if(flux->top_boundary) {
+			if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::grid1d) {
+				flux->top_boundary->source_loc.print_error_header();
+				fatal_error("A top_boundary can only be put on a flux that is on a connection.");
+			}
+			sprintf(varname, "top_boundary(%s)", app->state_vars[var_id]->name.data());
+			auto bound_id = register_state_variable<State_Var::Type::declared>(app, id, false, varname);
+			auto bound = app->state_vars[bound_id];
+			bound->boundary_type = Boundary_Type::top;
+			bound->loc2 = bound->loc1;
+			bound->loc1.type = Var_Location::Type::nowhere;
+		}
+		if(flux->bottom_boundary) {
+			if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::grid1d) {
+				flux->bottom_boundary->source_loc.print_error_header();
+				fatal_error("A bottom_boundary can only be put on a flux that is on a connection.");
+			}
+			sprintf(varname, "bottom_boundary(%s)", app->state_vars[var_id]->name.data());
+			auto bound_id = register_state_variable<State_Var::Type::declared>(app, id, false, varname);
+			auto bound = app->state_vars[bound_id];
+			bound->boundary_type = Boundary_Type::bottom;
+		}
+		
+		auto var = app->state_vars[var_id];
+		if(is_valid(conn_id) && !is_located(var->loc1)) {
+			flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: The source loc is wrong if the connection comes from a redirection.
+			fatal_error("You can't have a flux from nowhere to a connection.\n");
+		}
+		
+		// TODO: We should just not register it in the first place (just have to take care of some details above).
+		if(!flux->code)
+			var->flags = (State_Var::Flags)(var->flags | State_Var::Flags::invalid);
 	}
 	
 	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
 	
-	//TODO: make better name generation system!
-	char varname[1024];
 	
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
 	for(auto var_id : dissolvedes) {
@@ -545,6 +576,7 @@ prelim_compose(Model_Application *app) {
 			gen_flux->conc = gen_conc_id;
 			gen_flux->loc1 = source;
 			gen_flux->loc2.type = flux->loc2.type;
+			gen_flux->boundary_type = flux->boundary_type;
 			if(is_located(flux->loc2))
 				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
 			auto conn_id = connection_of_flux(flux);
@@ -682,8 +714,6 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	}
 }
 
-
-
 void
 compose_and_resolve(Model_Application *app) {
 	
@@ -714,6 +744,7 @@ compose_and_resolve(Model_Application *app) {
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
 		
+		if(!var->is_valid()) continue;
 		if(var->is_flux()) {
 			// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
 			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);
@@ -748,8 +779,18 @@ compose_and_resolve(Model_Application *app) {
 			
 			auto flux_decl = model->fluxes[var2->decl_id];
 			target_was_out = flux_decl->target_was_out;
-			ast = flux_decl->code;
+			if(var2->boundary_type == Boundary_Type::none)
+				ast = flux_decl->code;
+			else if(var2->boundary_type == Boundary_Type::top)
+				ast = flux_decl->top_boundary;
+			else if(var2->boundary_type == Boundary_Type::bottom)
+				ast = flux_decl->bottom_boundary;
+			else
+				fatal_error(Mobius_Error::internal, "Unsupported boundary type in compose_and_resolve().");
+				
 			code_scope = model->get_scope(flux_decl->code_scope);
+			
+			// TODO: If it has a top or bottom boundary we could allow a nullptr ast, in which case we should invalidate the var.
 			
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
@@ -798,18 +839,20 @@ compose_and_resolve(Model_Application *app) {
 			  );
 			
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form };
+		Math_Expr_FT *fun = nullptr;
 		if(ast) {
-			auto fun = resolve_function_tree(ast, &res_data);
-			var2->function_tree = make_cast(fun.fun, Value_Type::real);
-			replace_conc(app, var2->function_tree); // Replace explicit conc() calls by pointing them to the conc variable.
-			find_other_flags(var2->function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false, allow_target);
+			auto res = resolve_function_tree(ast, &res_data);
+			fun = res.fun;
+			fun = make_cast(fun, Value_Type::real);
+			replace_conc(app, fun); // Replace explicit conc() calls by pointing them to the conc variable.
+			find_other_flags(fun, in_flux_map, needs_aggregate, var_id, from_compartment, false, allow_target);
 			
-			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
+			if(!match_exact(&res.unit, &res_data.expected_unit)) {
 				ast->source_loc.print_error_header();
-				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
 			}
-		} else
-			var2->function_tree = nullptr; // NOTE: this is for substances. They are computed a different way.
+		}
+		var2->function_tree = fun;
 		
 		res_data.scope = other_code_scope;
 		if(init_ast) {
@@ -898,8 +941,9 @@ compose_and_resolve(Model_Application *app) {
 		
 		auto conn_id = connection_of_flux(var);
 		if(is_valid(conn_id)) {
+			auto loc = is_located(var->loc1) ? var->loc1 : var->loc2; // NOTE: For top_boundary only the target is set.
 			auto conn = model->connections[conn_id];
-			Var_Id source_id = app->state_vars.id_of(var->loc1);
+			Var_Id source_id = app->state_vars.id_of(loc);
 			may_need_connection_target.insert({conn_id, source_id});
 		}
 	}

@@ -10,7 +10,7 @@ connection("Downstream") [
 	compartment("River") [ "Subcatchment" ]
 ]
 
-series("tarland_series_cnp.dat")
+series("tarland_series.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")

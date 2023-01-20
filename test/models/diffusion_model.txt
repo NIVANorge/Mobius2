@@ -27,6 +27,11 @@ model("Diffusion") {
 			d*(o2 - target(o2))*1[c m-1] ->>
 		}
 		
+		flux(layer.o2, c, "Input") .top_boundary {
+			0.1 =>>
+		}
+		
+		
 		#flux(layer.o2, c, "Settling") {
 		#	0.03*o2 if dc > 0,
 		#	0       otherwise
@@ -34,35 +39,35 @@ model("Diffusion") {
 		
 	}
 	
-	sc : module("Simple source", 1, 0, 0) {
+	# sc : module("Simple source", 1, 0, 0) {
 		
-		air : compartment("Atmosphere")
-		soil : compartment("Soil")
-		air.has(precip : property("Precipitation"), [m m, day-1])
+		# air : compartment("Atmosphere")
+		# soil : compartment("Soil")
+		# air.has(precip : property("Precipitation"), [m m, day-1])
 		
-		o2    : quantity("O²")
-		soil.has(o2, [m g])
-		flux(nowhere, soil.o2, "O² influx") {
-			air.precip =>>    # This makes no sense, but whatever
-		}
+		# o2    : quantity("O²")
+		# soil.has(o2, [m g])
+		# flux(nowhere, soil.o2, "O² influx") {
+			# air.precip =>>    # This makes no sense, but whatever
+		# }
 		
-		o2out :
-		flux(soil.o2, out, "O² outflux") {
-			0.2 * max(0, o2 - 20[m g]) *1[day-1]
-		}
-	}
+		# o2out :
+		# flux(soil.o2, out, "O² outflux") {
+			# 0.2 * max(0, o2 - 20[m g]) *1[day-1]
+		# }
+	# }
 	
 	layer_index : index_set("Layer index")
 	
 	layer : compartment("Layer")
-	soil  : compartment("Soil")
+	#soil  : compartment("Soil")
 	o2    : quantity("O²")
 	
-	c : connection("Soil to lake", directed_tree) { (soil|layer)* } # TODO: not correct, but no full regex support yet.
-	sc.o2out.to(c)
+	#c : connection("Soil to lake", directed_tree) { (soil|layer)* } # TODO: not correct, but no full regex support yet.
+	#sc.o2out.to(c)
 	
 	layer.distribute(layer_index)
 	sol : solver("Solver", "INCADascru", 0.1)
 	sol.solve(layer.o2)
-	sol.solve(soil.o2)
+	#sol.solve(soil.o2)
 }

@@ -2,6 +2,12 @@
 #ifndef MOBIUS_STATE_VARIABLE_H
 #define MOBIUS_STATE_VARIABLE_H
 
+enum class
+Boundary_Type {
+	none,
+	top,
+	bottom,
+};
 
 struct
 State_Var {
@@ -15,6 +21,7 @@ State_Var {
 		connection_aggregate,
 		dissolved_flux,
 		dissolved_conc,
+		boundary_flux,
 	} type;
 	
 	enum Flags {
@@ -35,10 +42,11 @@ State_Var {
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
 	Var_Location   loc1;
 	Var_Location   loc2;
+	Boundary_Type  boundary_type;
 	
 	Math_Expr_FT *unit_conversion_tree;
 	
-	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location) {};
+	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location), boundary_type(Boundary_Type::none) {};
 	
 	// Because these are very common queries
 	bool is_flux() { return (flags & flux);	}
@@ -117,7 +125,7 @@ State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 	//TODO: Also unit conv.
 	std::vector<std::pair<Var_Id, Math_Expr_FT *>> weights;
 	
-	State_Var_Sub() : connection(invalid_entity_id), agg_for(invalid_var) {}
+	State_Var_Sub() : connection(invalid_entity_id), agg_for(invalid_var), is_source(false) {}
 };
 
 template<State_Var::Type type>

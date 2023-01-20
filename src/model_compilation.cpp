@@ -617,6 +617,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto conn_id = connection_of_flux(var_flux);
 				if(!var_flux->is_flux() || !is_valid(conn_id) || conn_id != var2->connection) continue;
 				
+				warning_print("***** Bing 0 \n");
+				
 				auto conn_type = model->connections[var2->connection]->type;
 				
 				if(var2->is_source) {
@@ -625,12 +627,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				} else {
 					// Ouch, these tests are super super awkward. Is there no better way to set up the data??
 					
-					// See if this flux has a source that is the same quantity (chain) as the target variable.
-					Var_Location source_loc = var_flux->loc1;
+					// See if this flux has a loc that is the same quantity (chain) as the target variable.
+					Var_Location loc = var_flux->loc1;
+					if(var_flux->boundary_type == Boundary_Type::top)
+						loc = var_flux->loc2;
 					Var_Location target_loc = app->state_vars[var2->agg_for]->loc1;
-					source_loc.components[0] = invalid_entity_id;
+					loc.components[0] = invalid_entity_id;
 					target_loc.components[0] = invalid_entity_id;
-					if(source_loc != target_loc) continue;
+					if(loc != target_loc) continue;
 					
 					// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
 					if(conn_type == Connection_Type::directed_tree) {
@@ -660,6 +664,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
+				warning_print("***** Bing 1 \n");
+				
 				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
 				if(conn_type == Connection_Type::directed_tree) {
 					// Hmm, could have kept find_source from above?
@@ -684,6 +690,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					
 				} else if(conn_type == Connection_Type::all_to_all || conn_type == Connection_Type::grid1d) {
 					
+					warning_print("***** Bing 2 \n");
+					
 					auto &components = app->connection_components[var2->connection.id];
 					auto source_comp = components[0].id;
 					
@@ -698,8 +706,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					auto index_set = components[0].index_sets[0];
 					if(conn_type == Connection_Type::all_to_all)
 						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
-					else
+					else if(conn_type == Connection_Type::grid1d) {
 						add_to_aggr_instr->index_sets.insert(index_set);
+						instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
+						
+						warning_print("***** Generating aggregation instruction for ", var_flux->name, ". Index set is ", model->index_sets[index_set]->name, "\n");
+					}
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
 				} else
 					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
@@ -905,6 +917,8 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		if(!success) mobius_error_exit();
 	}
 	
+	warning_print("Create batches\n");
+	
 	std::vector<Pre_Batch> pre_batches;
 	std::vector<int> pre_batch_of_solver(app->model->solvers.count(), -1);
 	std::vector<int> pre_batch_of_instr(instructions.size(), -1);
@@ -1003,123 +1017,6 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		batch.solver = pre_batch.solver;
 		batches_out.push_back(std::move(batch));
 	}
-
-/*
-	warning_print("Create batches\n");
-	// TODO: this algorithm is repeated only with slightly different checks (solver vs. index sets). Is there a way to unify the code?
-	for(int instr_id : sorted_instructions) {
-		auto instr = &instructions[instr_id];
-		int first_suitable_batch = batches_out.size();
-		int first_suitable_location = batches_out.size();
-		
-		for(int batch_idx = batches_out.size()-1; batch_idx >= 0; --batch_idx) {
-			auto batch = &batches_out[batch_idx];
-			if(is_valid(batch->solver) && batch->solver == instr->solver) {
-				first_suitable_batch = batch_idx;
-				break;   // we ever only want one batch per solver, so we can stop looking now.
-			} else if (!is_valid(batch->solver) && !is_valid(instr->solver)) {
-				first_suitable_batch = batch_idx;
-			}
-			
-			// note : we can't place ourselves earlier than another instruction that we depend on.
-			bool found_dependency = false;
-			for(int other_id : batch->instrs) {
-				if(instr->depends_on_instruction.find(other_id) != instr->depends_on_instruction.end()) {
-					found_dependency = true;
-					break;
-				}
-			}
-			if(found_dependency)
-				break;
-			first_suitable_location = batch_idx;
-		}
-		if(first_suitable_batch != batches_out.size()) {
-			batches_out[first_suitable_batch].instrs.push_back(instr_id);
-		} else {
-			Batch batch;
-			batch.instrs.push_back(instr_id);
-			batch.solver = instr->solver;
-			if(first_suitable_location == batches_out.size())
-				batches_out.push_back(std::move(batch));
-			else
-				batches_out.insert(batches_out.begin() + first_suitable_location, std::move(batch));
-		}
-	}
-	
-	//NOTE: we do more passes to try and group instructions in an optimal way.
-#if 1
-	bool changed = false;
-	for(int it = 0; it < 10; ++it) {
-		changed = false;
-		
-		int batch_idx = 0;
-		for(auto &batch : batches_out) {
-			int instr_idx = batch.instrs.size() - 1;
-			while(instr_idx >= 0) {
-				int instr_id = batch.instrs[instr_idx];
-				
-				bool cont = false;
-				// If another instruction behind us in the same batch depends on us, we are not allowed to move!
-				for(int instr_behind_idx = instr_idx+1; instr_behind_idx < batch.instrs.size(); ++instr_behind_idx) {
-					int behind_id = batch.instrs[instr_behind_idx];
-					auto behind = &instructions[behind_id];
-					if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
-						cont = true;
-						break;
-					}
-				}
-				if(cont) {
-					--instr_idx;
-					continue;
-				}
-				
-				int last_suitable_batch_idx = batch_idx;
-				for(int batch_behind_idx = batch_idx + 1; batch_behind_idx < batches_out.size(); ++batch_behind_idx) {
-					Batch &batch_behind = batches_out[batch_behind_idx];
-					if((batch_behind.solver == batch.solver) || (!is_valid(batch_behind.solver) && !is_valid(batch.solver)))
-						last_suitable_batch_idx = batch_behind_idx;
-					bool batch_depends_on_us = false;
-					for(int instr_behind_idx = 0; instr_behind_idx < batch_behind.instrs.size(); ++instr_behind_idx) {
-						int behind_id = batch_behind.instrs[instr_behind_idx];
-						auto behind = &instructions[behind_id];
-						if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
-							batch_depends_on_us = true;
-							break;
-						}
-					}
-					if(batch_depends_on_us || batch_behind_idx == batches_out.size()-1) {
-						if(last_suitable_batch_idx != batch_idx) {
-							// We are allowed to move. Move to the beginning of the first other batch that is suitable.
-							Batch &insert_to = batches_out[last_suitable_batch_idx];
-							insert_to.instrs.insert(insert_to.instrs.begin(), instr_id);
-							batch.instrs.erase(batch.instrs.begin()+instr_idx); // NOTE: it is safe to do this since we are iterating instr_idx from the end to the beginning
-							changed = true;
-						}
-						break;
-					}
-				}
-				--instr_idx;
-			}
-			++batch_idx;
-		}
-		
-		if(!changed) break;
-	}
-	if(changed)
-		fatal_error(Mobius_Error::internal, "Unable to optimize instruction batch grouping in the allotted amount of iterations.");
-	
-	// Remove batches that were emptied as a result of the step above.
-	int batch_idx = batches_out.size()-1;
-	while(batch_idx >= 0) {
-		Batch &batch = batches_out[batch_idx];
-		if(batch.instrs.empty())
-			batches_out.erase(batches_out.begin() + batch_idx);  // NOTE: ok since we are iterating batch_idx backwards.
-		--batch_idx;
-	}
-	
-	// TODO: We need to verify that each solver is only given one batch!! Ideally we should just group instructions by solver initially and then sort the groups (where each discrete instruction is just given its own group)?
-#endif
-*/
 	
 #if 0
 	warning_print("*** Batches before internal structuring: ***\n");

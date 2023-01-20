@@ -1472,6 +1472,9 @@ copy_one(Math_Expr_FT *source) {
 
 Math_Expr_FT *
 copy(Math_Expr_FT *source) {
+	if(!source)
+		fatal_error(Mobius_Error::internal, "Received nullptr argument to copy() (function_tree.cpp).");
+	
 	Math_Expr_FT *result;
 	switch(source->expr_type) {
 		case Math_Expr_Type::block : {

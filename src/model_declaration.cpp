@@ -774,7 +774,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	int which = match_declaration(decl,
 		{
 			{Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
-		});
+		}, 0, true, -1, true);
 	
 	Token *name = nullptr;
 	name = single_arg(decl, 2);
@@ -796,9 +796,37 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	}
 	
 	//flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
-	
-	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]); //NOTE: In parsing and match_declaration it has already been checked that we have exactly one.
-	flux->code = body->block;
+	for(auto bod : decl->bodies) {
+		auto body = static_cast<Function_Body_AST *>(bod);
+		if(body->notes.size() == 0) {
+			if(flux->code) {
+				body->opens_at.print_error_header();
+				fatal_error("Trying to set the main function body of a flux twice.");
+			}
+			flux->code = body->block;
+		} else if (body->notes.size() == 1) {
+			if(body->notes[0].string_value == "top_boundary") {
+				if(flux->top_boundary) {
+					body->opens_at.print_error_header();
+					fatal_error("Trying to set the top_boundary of a flux twice.");
+				}
+				flux->top_boundary = body->block;
+			} else if (body->notes[0].string_value == "bottom_boundary") {
+				if(flux->bottom_boundary) {
+					body->opens_at.print_error_header();
+					fatal_error("Trying to set the bottom_boundary of a flux twice.");
+				}
+				flux->bottom_boundary = body->block;
+			} else {
+				body->notes[0].print_error_header();
+				fatal_error("Unrecognized flux body note '.", body->notes[0].string_value, "' .");
+			}
+		} else {
+			body->opens_at.print_error_header();
+			fatal_error("Only one note is supported per function body for a flux.");
+		}
+	}
+
 	flux->code_scope = scope->parent_id;
 	
 	return id;

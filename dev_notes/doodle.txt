@@ -1,5 +1,81 @@
 
 	
+	layer.has(absorbed_sw : property("Absorbed shortwave") {
+		sw * exp(-attn*z)  #Or something..
+	} .top_boundary { 0 }
+	
+	layer.has(sw : property("Incoming shortwave")) {
+		above(vert, sw) - above(vert, absorbed_sw)
+	} .top_boundary { net_sw*A }
+	
+	flux(nowhere, layer.water.heat, "Shortwave heat flux") {
+		absorbed_sw
+	}
+	
+	#Or   (starting to break rules about referencing fluxes)
+	sw_transfer :
+	flux(layer.water.heat, vert, "Shortwave transfer") {
+		in_flux(sw_transfer) * exp(-attn*z) * target(A)/A		#TODO: Is area adjustment correct?
+	} .top_boundary {
+		A * net_sw
+	}
+	# Still need to do something when we want to know the absorbed sw for photo-degradation purposes though...
+	# Like in_flux(sw_transfer) also being available in other equations.
+	
+	# Also:   (always just resolved for the one layer, not on an iteration loop), but then need to actually set the index for that layer
+	flux(layer.water.heat, vert) .top_boundary {
+		A * net_lw
+	}
+	
+	# Problem with this one is that it should go somewhere... (i.e. to sediment thermal energy).
+	flux(layer.water.heat, vert) .bottom_boundary {
+		# Whatever exchange between water and sediment
+	}
+	
+	#flux(layer.water.heat, sediment.heat, vert) .bottom_boundary     # Not that intuitive, but maybe the best of the suggestions any way?
+	#flux(layer.water.heat, sediment.heat) .bottom_boundary(vert)     # Introduces new syntax. Should maybe be avoided.
+	#flux(layer.water.heat, vert.bottom, sediment.heat)               # Hmm.
+	
+	# Also lends itself to (This particular example is not relevant though)
+	#flux(air.heat, layer.water.heat, vert) .top_boundary
+	
+	# Then should maybe also have
+	#flux(nowhere, layer.water.heat, vert) .top_boundary
+	# for the other ones, but that is also not that intuitive ??
+	
+	# What about
+	#flux(somewhere.heat, layer.water.heat, sediment.heat, vert) {} .top_boundary {} .bottom_boundary {}  # etc. Should be OK.
+	
+	
+	# Or just force separate declarations for the boundaries always??
+	sw_transfer :
+	flux(layer.water.heat, vert, "Shortwave transfer") {
+		in_flux(sw_transfer) * exp(-attn*z) * target(A)/A		#TODO: Is area adjustment correct?
+	}
+	
+	flux(nowhere, layer.water.heat, vert, "Shortwave to water") .top_boundary {
+		A * net_sw
+	}
+	
+	# Could make it easier to keep track of the various "Locations"
+	# No, doesn't work because in_flux(sw_transfer) also needs to be able to refer to the boundary! (although that causes a complexity in itself...)
+	
+	# Would be easier to implement if you had just in_flux(layer.water.heat, vert_sw), but then you would need a separate connection for the shortwave transfer so that it
+	# gets its own aggregation variable. Maybe that is what we do though.
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 	# Unit checking
