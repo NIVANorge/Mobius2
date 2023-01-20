@@ -29,3 +29,153 @@ par_group("Catchment data") {
 	par_real("Catchment area")
 	[ 51.7 ]
 }
+
+module("HBVSnow", 1, 0, 0) {
+	par_group("Snow") {
+		par_real("Degree-day factor for snowmelt")
+		[ 2.74 ]
+
+		par_real("Temperature at which precip falls as snow")
+		[ 0 ]
+
+		par_real("Temperature at which snow melts")
+		[ 0 ]
+
+		par_real("Refreeze efficiency")
+		[ 0 ]
+
+		par_real("Liquid water fraction")
+		[ 0 ]
+
+		par_real("Initial snow depth (water equivalents)")
+		[ 0 ]
+	}
+}
+
+module("Degree-day PET", 1, 0, 0) {
+	par_group("Potential evapotranspiration") {
+		par_real("Deegree-day factor for evapotranspiration")
+		[ 0.15 ]
+
+		par_real("Minimal temperature for evapotranspiration")
+		[ -1.3 ]
+	}
+}
+
+module("SimplyQ land", 0, 5, 0) {
+	par_group("Hydrology general") {
+		par_real("Baseflow index")
+		[ 0.7 ]
+
+		par_real("Quick flow inflection point")
+		[ 1500 ]
+	}
+
+	par_group("Hydrology land") [ "Landscape units" ] {
+		par_real("Field capacity")
+		[ 290 290 ]
+
+		par_real("Soil water time constant")
+		[ 2 10 ]
+	}
+
+	par_group("Groundwater") {
+		par_real("Groundwater time constant")
+		[ 70 ]
+	}
+}
+
+module("SimplyQ river", 0, 0, 1) {
+	par_group("Reach parameters") [ "Subcatchment" ] {
+		par_real("Reach slope")
+		[ 0.014 ]
+
+		par_real("Reach length")
+		[ 10000 ]
+
+		par_real("Manning's roughness coefficient")
+		[ 0.04 ]
+
+		par_real("Initial reach flow")
+		[ 0.5 ]
+	}
+}
+
+module("Simply soil temperature", 0, 0, 0) {
+	par_group("Soil temperature land") [ "Subcatchment" "Landscape units" ] {
+		par_real("Soil thermal conductivity / specific heat capacity") [
+			0.4 0.4 
+		]
+	}
+
+	par_group("Soil temperature general") [ "Subcatchment" "Landscape units" ] {
+		par_real("Snow depth / soil temperature factor") [
+			-0.2 -0.2 
+		]
+
+		par_real("Initial soil temperature") [
+			10 10 
+		]
+	}
+}
+
+module("SimplyN", 0, 0, 2) {
+	par_group("DIN reach") [ "Subcatchment" ] {
+		par_real("Reach effluent DIN inputs")
+		[ 0 ]
+	}
+
+	par_group("Soil DIN universal params") {
+		par_real("Soilwater DIN uptake rate at 20°C")
+		[ 0 ]
+
+		par_real("Soilwater DIN uptake rate response to 10°C change (Q10)")
+		[ 1 ]
+
+		par_bool("Use growth curve?")
+		[ false ]
+
+		par_int("Day of highest soilwater DIN uptake")
+		[ 200 ]
+
+		par_int("Length of interval in which 95% of DIN uptake occurs")
+		[ 200 ]
+	}
+
+	par_group("Soil DIN params varying by land use") [ "Landscape units" ] {
+		par_real("Initial soilwater DIN concentration")
+		[ 0 0 ]
+
+		par_real("Net annual DIN input to soil")
+		[ 5 0 ]
+
+		par_int("Fertilization start day")
+		[ 60 60 ]
+
+		par_int("Fertilization end day")
+		[ 120 120 ]
+
+		par_real("Daily DIN fertilizer, manure & deposition inputs")
+		[ 0 0 ]
+	}
+
+	par_group("DIN groundwater params") {
+		par_real("Groundwater DIN concentration")
+		[ 5 ]
+
+		par_bool("Constant groundwater DIN concentration?")
+		[ false ]
+
+		par_real("Groundwater retention volume")
+		[ 0 ]
+	}
+
+	par_group("DIN reach universal params") {
+		par_real("Reach denitrification rate at 20°C")
+		[ 0 ]
+
+		par_real("(Q10) Reach denitrification rate response to 10°C change in temperature")
+		[ 1 ]
+	}
+}
+
