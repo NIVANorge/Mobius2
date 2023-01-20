@@ -63,4 +63,8 @@ library("Rates") {
 	
 	rate_to_hl : function(rate) {   ln(2) / rate   }
 	
+	q10_adjust : function(ref_rate, ref_temp : [deg_c], temp : [deg_c], q10 : []) {
+		ref_rate*q10^((temp - ref_temp)/10[deg_c])
+	}
+	
 }
