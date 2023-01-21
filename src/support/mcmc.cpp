@@ -3,11 +3,12 @@
 
 #include <thread>
 #include <random>
+//#include <execution>
 
-typedef void (*sampler_move)(double *, double *, int, int, int, int, int, MC_Data &, Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *);
+typedef void (*sampler_move)(double *, double *, int, int, int, int*, int, MC_Data &, Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *);
 
 void
-affine_stretch_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
+affine_stretch_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
 	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state) {
 	/*
 	This is a simple C++ implementation of the Affine-invariant ensemble sampler from https://github.com/dfm/emcee
@@ -25,7 +26,7 @@ affine_stretch_move(double *sampler_params, double *scale, int step, int walker,
 		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
 		u = distu(rand_state->gen); //uniform between 0,1
 		r = distu(rand_state->gen);
-		ensemble_walker = disti(rand_state->gen) + first_ensemble_walker; //NOTE: Only works for the particular way the Ensembles are ordered right now.
+		ensemble_walker = ensemble[disti(rand_state->gen)];
 	}
 	
 	double a = sampler_params[0];
@@ -61,7 +62,7 @@ affine_stretch_move(double *sampler_params, double *scale, int step, int walker,
 }
 
 void
-affine_walk_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
+affine_walk_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
 	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state) {
 		
 	int s0 = (int)sampler_params[0];
@@ -81,7 +82,7 @@ affine_walk_move(double *sampler_params, double *scale, int step, int walker, in
 		r = distu(rand_state->gen);
 		for(int s = 0; s < s0; ++s) {
 			// NOTE: Unlike in Differential Evolution, the members of the sub-ensemble could be repeating (or at least it is not otherwise mentioned in the paper).
-			ens[s] = disti(rand_state->gen) + first_ensemble_walker;
+			ens[s] = ensemble[disti(rand_state->gen)];
 			z[s]   = distn(rand_state->gen);
 		}
 	}
@@ -120,7 +121,7 @@ affine_walk_move(double *sampler_params, double *scale, int step, int walker, in
 }
 
 void
-differential_evolution_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
+differential_evolution_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
 	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state)
 {
 	//Based on
@@ -147,10 +148,10 @@ differential_evolution_move(double *sampler_params, double *scale, int step, int
 		
 		r = distu(rand_state->gen);
 		
-		int ens_w1 = first_ensemble_walker + disti(rand_state->gen);
+		int ens_w1 = ensemble[disti(rand_state->gen)];
 		int ens_w2;
 		do
-			ens_w2 = first_ensemble_walker + disti(rand_state->gen);
+			ens_w2 = ensemble[disti(rand_state->gen)];
 		while(ens_w2 == ens_w1);
 	
 		for(int par = 0; par < data.n_pars; ++par) {
@@ -189,7 +190,7 @@ differential_evolution_move(double *sampler_params, double *scale, int step, int
 }
 
 void
-metropolis_move(double *sampler_params, double *scale, int step, int walker, int first_ensemble_walker, int ensemble_step, int n_ensemble, MC_Data &data,
+metropolis_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
 	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state)
 {
 	// Metropolis-Hastings (parallel chains with no crossover).
@@ -275,30 +276,62 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 	std::vector<std::thread> workers;
 	workers.reserve(data.n_walkers);
 	
+	// NOTE: Can't use any of the parallel for_each stuff before upp supports C++20
+	/*
+	// TODO: We could randomize the ensembles each time, but then we would have to change the walkers to draw from that ensemble instead.
+	std::vector<int> ens1(n_ens1);
+	std::iota(ens1.begin(), ens1.end(), 0);
+	std::vector<int> ens2(n_ens2);
+	std::iota(ens2.begin(), ens2.end(), n_ens1);
+	*/
+	
+	std::uniform_int_distribution<> disti(0, data.n_walkers-1);
+	std::vector<int> walkers(data.n_walkers);
+	for(int idx = 0; idx < data.n_walkers; ++idx) walkers[idx] = idx;
+	
 	for(int step = initial_step + 1; step < data.n_steps; ++step) {
-		int first_ensemble_walker = n_ens1;
+		
+		// Shuffle the walkers so that they get into different ensembles.
+		for(int idx = 0; idx < data.n_walkers; ++idx) {
+			int swp = disti(rand_state.gen);
+			std::swap(walkers[idx], walkers[swp]);
+		}
+		
 		int ensemble_step         = step-1;
 		
-		for(int walker = 0; walker < n_ens1; ++walker) {
+		for(int wk = 0; wk < n_ens1; ++wk) {
+			int walker = walkers[wk];
 			workers.push_back(std::thread([&, walker]() {
-				move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens2, data, &rand_state, log_likelihood, ll_state);
+				move(sampler_params, scales, step, walker, ensemble_step, walkers.data()+n_ens1, n_ens2, data, &rand_state, log_likelihood, ll_state);
 			}));
 		}
 		for(auto &worker : workers)
 			if(worker.joinable()) worker.join();
 		workers.clear();
 		
-		first_ensemble_walker = 0;
+		/*
+		std::for_each(std::execution::par, ens1.begin(), ens1.end(), [&](int walker) {
+			move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens2, data, &rand_state, log_likelihood, ll_state);
+		});
+		*/
+		
 		ensemble_step         = step;
 		
-		for(int walker = n_ens1; walker < data.n_walkers; ++walker) {
+		for(int wk = n_ens1; wk < data.n_walkers; ++wk) {
+			int walker = walkers[wk];
 			workers.push_back(std::thread([&, walker]() {
-				move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens1, data, &rand_state, log_likelihood, ll_state);
+				move(sampler_params, scales, step, walker, ensemble_step, walkers.data(), n_ens1, data, &rand_state, log_likelihood, ll_state);
 			}));
 		}
 		for(auto &worker : workers)
 			if(worker.joinable()) worker.join();
 		workers.clear();
+		
+		/*
+		std::for_each(std::execution::par, ens2.begin(), ens2.end(), [&](int walker) {
+			move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens1, data, &rand_state, log_likelihood, ll_state);
+		});
+		*/
 		
 		bool halt = false;
 		if(((step-initial_step) % callback_interval == 0) || (step == data.n_steps-1))

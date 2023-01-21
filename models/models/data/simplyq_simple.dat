@@ -7,7 +7,8 @@ Can have a docstring to describe the dataset. This gets saved when you save the 
 index_set("Landscape units") [ "One" ]
 index_set("Subcatchment") [ "Coull" ]
 
-connection("Downstream", "Subcatchment") [
+connection("Downstream") [
+	compartment("River") [ "Subcatchment" ]
 ]
 
 #series("tarland_series.dat")

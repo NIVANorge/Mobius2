@@ -72,7 +72,7 @@ template<typename T, typename... V> inline void
 error_print(T value, V... tail) {
 	std::cerr << value;
 	error_print(tail...);
-}	
+}
 
 template<typename T, typename... V> inline void
 warning_print(T value, V... tail) {
@@ -114,7 +114,7 @@ fatal_error(V... tail) {
 	#include <intrin.h>
 #endif
 
-struct 
+struct
 Timer {
 	std::chrono::time_point<std::chrono::high_resolution_clock> begin;
 	s64 cycle_begin;
