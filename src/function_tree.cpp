@@ -636,6 +636,26 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				found = true;
 			}
 			
+			if(!found && data->simplified) {  
+				if(chain_size != 1) {
+					ident->chain[0].print_error_header();
+					fatal_error("Unable to resolve expressions with .'s in this context.");
+				}
+				for(int idx = 0; idx < data->simplified_syms.size(); ++idx) {
+					if(data->simplified_syms[idx] == n1) {
+						found = true;
+						new_ident->exprs.push_back(make_literal((s64)idx));
+						new_ident->value_type = Value_Type::real;
+						new_ident->variable_type = Variable_Type::parameter;
+						break;
+					}
+				}
+				if(!found) {
+					ident->chain[0].print_error_header();
+					fatal_error("Unable to resolve symbol '", n1, "'.");
+				}
+			}
+			
 			if(isfun && !found) {
 				ident->chain[0].print_error_header();
 				error_print("The name '", n1, "' is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
@@ -755,7 +775,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 			}
 			
-			result.fun = fixup_potentially_baked_value(app, result.fun, data->baked_parameters);
+			if(!data->simplified)
+				result.fun = fixup_potentially_baked_value(app, result.fun, data->baked_parameters);
 		} break;
 		
 		case Math_Expr_Type::literal : {
@@ -776,6 +797,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			// First check for "special" calls that are not really function calls.
 			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc" || fun_name == "target") {
+				if(data->simplified) {
+					fun->source_loc.print_error_header();
+					fatal_error("The expression '", fun_name, "' is not available in this context.");
+				}
 				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
 				std::vector<Standardized_Unit> arg_units;
 				resolve_arguments(new_fun, ast, data, scope, arg_units);
@@ -1046,6 +1071,12 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		
 		case Math_Expr_Type::unit_convert : {
 			auto conv = static_cast<Unit_Convert_AST *>(ast);
+			
+			if(data->simplified) {
+				conv->source_loc.print_error_header();
+				fatal_error("Unit conversions are not available in this context.");
+			}
+			
 			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_binary, ast, data, scope, arg_units);

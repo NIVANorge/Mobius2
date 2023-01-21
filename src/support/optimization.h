@@ -21,8 +21,17 @@ Optimization_Target {
 	s64 sim_stat_offset = -1, obs_stat_offset = -1, stat_ts = -1;
 };
 
-int
-set_parameters(Model_Data *data, const std::vector<Indexed_Parameter> &parameters, const double *values, bool use_expr);
+struct
+Expr_Parameters {
+	std::vector<Indexed_Parameter> parameters;
+	std::vector<std::unique_ptr<Math_Expr_FT>> exprs;
+	
+	void copy(const Expr_Parameters &other);
+	void set(Model_Application *app, const std::vector<Indexed_Parameter> &parameters);
+};
+
+void
+set_parameters(Model_Data *data, Expr_Parameters &parameters, const double *values);
 
 double
 evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param = nullptr);
@@ -32,18 +41,18 @@ typedef std::function<void(int, int, double, double)> Optim_Callback;
 struct
 Optimization_Model {
 	
-	Optimization_Model(Model_Data *data, std::vector<Indexed_Parameter> &parameters, std::vector<Optimization_Target> &targets, double *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
+	Optimization_Model(Model_Data *data, Expr_Parameters &parameters, std::vector<Optimization_Target> &targets, double *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
 	
 	double evaluate(const double *values);
 	
-	bool                              maximize, use_expr;
+	bool                              maximize;
 	s64                               ms_timeout, n_timeouts, n_evals;
 	double                            best_score, initial_score;
 	double                           *initial_pars;
 	Model_Data                       *data;
-	std::vector<Indexed_Parameter>   *parameters;
+	Expr_Parameters                  *parameters;
 	std::vector<Optimization_Target> *targets;
-	Optim_Callback callback;
+	Optim_Callback                    callback;
 };
 
 

@@ -117,8 +117,12 @@ Function_Resolve_Data {
 	Model_Application *app;
 	Decl_Scope        *scope;
 	Var_Location       in_loc;
-	std::vector<Entity_Id> *baked_parameters;
+	std::vector<Entity_Id> *baked_parameters = nullptr;
 	Standardized_Unit  expected_unit;
+	
+	// The simplified option is if we are resolving a simple expression of provided symbols, not for main code, but e.g. for parameter exprs in an optimizer run.
+	bool                      simplified = false;
+	std::vector<std::string>  simplified_syms;
 };
 
 struct

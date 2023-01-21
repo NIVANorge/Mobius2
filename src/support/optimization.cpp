@@ -1,24 +1,6 @@
 
 #include "optimization.h"
-
-
-int
-set_parameters(Model_Data *data, const std::vector<Indexed_Parameter> &parameters, const double *values, bool use_expr) {
-	Parameter_Value val;
-	//if(!use_expr) {
-		int par_idx = 0;
-		for(const auto &par : parameters) {
-			val.val_real = values[par_idx++];
-			if(!par.virt)
-				set_parameter_value(par, data, val);
-		}
-		return -1;
-	//}
-	
-	//TODO: expressions!
-	
-	return -1;
-}
+#include "emulate.h"
 
 double
 evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param) {
@@ -44,7 +26,7 @@ evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param
 	return std::numeric_limits<double>::quiet_NaN();
 }
 
-Optimization_Model::Optimization_Model(Model_Data *data, std::vector<Indexed_Parameter> &parameters, std::vector<Optimization_Target> &targets, double *initial_pars, const Optim_Callback &callback, s64 ms_timeout)
+Optimization_Model::Optimization_Model(Model_Data *data, Expr_Parameters &parameters, std::vector<Optimization_Target> &targets, double *initial_pars, const Optim_Callback &callback, s64 ms_timeout)
 	: data(data), parameters(&parameters), targets(&targets), ms_timeout(ms_timeout), initial_pars(initial_pars) {
 		
 	Date_Time input_start = data->series.start_date;
@@ -90,14 +72,9 @@ Optimization_Model::Optimization_Model(Model_Data *data, std::vector<Indexed_Par
 			fatal_error(Mobius_Error::api_usage, "A target statistic of this type requires an observed series to compare against");
 	}
 	
-	use_expr = false; //TODO!!
-	
 	this->callback = nullptr; // To not have it call back in initial score computation.
 	if(initial_pars) {
-		int err_row = set_parameters(data, parameters, initial_pars, use_expr);
-		if(err_row >= 0)
-			fatal_error(Mobius_Error::api_usage, "The expression of the parameter at row ", err_row, " could not successfully be evaluated."); //TODO: could maybe have a better message when we actually implement this!
-		
+		set_parameters(data, parameters, initial_pars);
 		best_score = initial_score = evaluate(initial_pars);
 	} else
 		best_score = initial_score = maximize ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
@@ -109,7 +86,7 @@ Optimization_Model::Optimization_Model(Model_Data *data, std::vector<Indexed_Par
 
 double Optimization_Model::evaluate(const double *values) {
 	
-	set_parameters(data, *parameters, values, use_expr);
+	set_parameters(data, *parameters, values);
 	
 	bool run_finished = run_model(data, ms_timeout);
 	
@@ -139,4 +116,72 @@ double Optimization_Model::evaluate(const double *values) {
 		callback(n_evals, n_timeouts, initial_score, best_score);
 	
 	return agg;
+}
+
+
+void
+Expr_Parameters::set(Model_Application *app, const std::vector<Indexed_Parameter> &parameters) {
+	this->parameters = parameters;
+	exprs.clear();
+	
+	Function_Resolve_Data data;
+	data.app = app;
+	data.scope = &app->model->global_scope;
+	data.simplified = true;
+	for(auto &par : parameters)
+		data.simplified_syms.push_back(par.symbol);
+	
+	for(auto &par : parameters) {
+		if(par.expr.empty()) {
+			exprs.push_back(nullptr);
+			continue;
+		}
+		// TODO: Make source locations on streams better for non-file streams! For instance, should let the line number be the par number.
+		Token_Stream stream("", par.expr);
+		auto peek = stream.peek_token();
+		if(peek.type == Token_Type::eof) {
+			exprs.push_back(nullptr);
+			continue;
+		}
+		Math_Expr_AST *ast = parse_math_expr(&stream);
+		auto fun = make_cast(resolve_function_tree(ast, &data).fun, Value_Type::real);
+		fun = prune_tree(fun);
+		exprs.emplace_back(fun);
+		delete ast;
+	}
+}
+
+void
+Expr_Parameters::copy(const Expr_Parameters &other) {
+	this->parameters = other.parameters;
+	exprs.clear();
+	for(auto &ptr : other.exprs)
+		if(ptr.get()) exprs.emplace_back(::copy(ptr.get()));
+		else          exprs.push_back(nullptr);
+}
+
+
+void
+set_parameters(Model_Data *data, Expr_Parameters &pars, const double *values) {
+	Parameter_Value val;
+	int active_idx = 0;
+	
+	// TODO: Rewrite this so that the additional complexity is not used if there are no expressions!
+	Model_Run_State run_state = {}; // Hmm, it is not that nice that we need this to call emulate_expression. Should maybe just change the API to pass in the various vectors directly?
+	std::vector<double> vals(pars.parameters.size(), std::numeric_limits<double>::quiet_NaN());
+	run_state.parameters = (Parameter_Value *)vals.data();
+	
+	for(int idx = 0; idx < pars.parameters.size(); ++idx) {
+		auto &par = pars.parameters[idx];
+		auto ft = pars.exprs[idx].get();
+		if(ft) {
+			vals[idx] = emulate_expression(ft, &run_state, nullptr).val_real;
+		} else {
+			vals[idx] = values[active_idx];
+			++active_idx;
+		}
+		val.val_real = vals[idx];
+		if(!par.virt)
+			set_parameter_value(par, data, val);
+	}
 }

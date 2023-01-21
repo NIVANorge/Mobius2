@@ -13,7 +13,7 @@ run_optimization(Dlib_Optimization_Model &opt_model, double *min_vals, double *m
 	
 	//TODO: make multithreading work somehow.
 	
-	int len = opt_model.parameters->size();
+	int len = opt_model.parameters->parameters.size();
 	
 	std::vector<dlib::function_evaluation> initial_evals;
 	if(opt_model.initial_pars) {
@@ -40,7 +40,7 @@ run_optimization(Dlib_Optimization_Model &opt_model, double *min_vals, double *m
 		pars[idx] = result.x(idx);
 	
 	// NOTE: this ensures that the right values are set in the opt_model.data when we finish the function.
-	set_parameters(opt_model.data, *opt_model.parameters, pars.data(), opt_model.use_expr);
+	set_parameters(opt_model.data, *opt_model.parameters, pars.data());
 	run_model(opt_model.data, opt_model.ms_timeout);
 	
 	return true;
