@@ -118,6 +118,33 @@ double Optimization_Model::evaluate(const double *values) {
 	return agg;
 }
 
+void
+get_dependencies(Math_Expr_FT *expr, std::vector<int> &dependencies_out) {
+	if(!expr) return;
+	
+	for(auto sub : expr->exprs)
+		get_dependencies(sub, dependencies_out);
+	
+	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+		auto lit = static_cast<Literal_FT *>(expr->exprs[0]);
+		dependencies_out.push_back(lit->value.val_integer);
+	}
+}
+
+void
+topological_sort_exprs_visit(int idx, std::vector<std::unique_ptr<Math_Expr_FT>> &exprs, std::vector<std::pair<bool, bool>> &visited, std::vector<int> &sorted_out) {
+	if(!exprs[idx].get()) return;
+	if(visited[idx].second) return;
+	if(visited[idx].first)
+		fatal_error(Mobius_Error::api_usage, "There is a circular reference between the expressions involving row ", idx, ".");
+	visited[idx].first = true;
+	std::vector<int> dependencies;
+	get_dependencies(exprs[idx].get(), dependencies);
+	for(auto dep : dependencies)
+		topological_sort_exprs_visit(dep, exprs, visited, sorted_out);
+	visited[idx].second = true;
+	sorted_out.push_back(idx);
+}
 
 void
 Expr_Parameters::set(Model_Application *app, const std::vector<Indexed_Parameter> &parameters) {
@@ -149,11 +176,18 @@ Expr_Parameters::set(Model_Application *app, const std::vector<Indexed_Parameter
 		exprs.emplace_back(fun);
 		delete ast;
 	}
+	
+	order.clear();
+	std::vector<std::pair<bool, bool>> visited(parameters.size(), { false, false });
+	for(int idx = 0; idx < parameters.size(); ++idx) {
+		topological_sort_exprs_visit(idx, exprs, visited, order);
+	}
 }
 
 void
 Expr_Parameters::copy(const Expr_Parameters &other) {
 	this->parameters = other.parameters;
+	this->order      = other.order;
 	exprs.clear();
 	for(auto &ptr : other.exprs)
 		if(ptr.get()) exprs.emplace_back(::copy(ptr.get()));
@@ -166,22 +200,29 @@ set_parameters(Model_Data *data, Expr_Parameters &pars, const double *values) {
 	Parameter_Value val;
 	int active_idx = 0;
 	
-	// TODO: Rewrite this so that the additional complexity is not used if there are no expressions!
-	Model_Run_State run_state = {}; // Hmm, it is not that nice that we need this to call emulate_expression. Should maybe just change the API to pass in the various vectors directly?
 	std::vector<double> vals(pars.parameters.size(), std::numeric_limits<double>::quiet_NaN());
-	run_state.parameters = (Parameter_Value *)vals.data();
 	
 	for(int idx = 0; idx < pars.parameters.size(); ++idx) {
 		auto &par = pars.parameters[idx];
 		auto ft = pars.exprs[idx].get();
-		if(ft) {
-			vals[idx] = emulate_expression(ft, &run_state, nullptr).val_real;
-		} else {
+		if(!ft) {
 			vals[idx] = values[active_idx];
 			++active_idx;
+			val.val_real = vals[idx];
+			if(!par.virt)
+				set_parameter_value(par, data, val);
 		}
+	}
+	
+	// TODO: Rewrite this so that the additional complexity is not used if there are no expressions!
+	Model_Run_State run_state = {}; // Hmm, it is not that nice that we need this to call emulate_expression. Should maybe just change the API to pass in the various vectors directly?
+	run_state.parameters = (Parameter_Value *)vals.data();
+	
+	for(int idx : pars.order) {
+		auto &par = pars.parameters[idx];
+		auto ft = pars.exprs[idx].get();
+		vals[idx] = emulate_expression(ft, &run_state, nullptr).val_real;
 		val.val_real = vals[idx];
-		if(!par.virt)
-			set_parameter_value(par, data, val);
+		set_parameter_value(par, data, val);
 	}
 }

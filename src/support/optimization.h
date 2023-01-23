@@ -23,8 +23,9 @@ Optimization_Target {
 
 struct
 Expr_Parameters {
-	std::vector<Indexed_Parameter> parameters;
+	std::vector<Indexed_Parameter>             parameters;
 	std::vector<std::unique_ptr<Math_Expr_FT>> exprs;
+	std::vector<int>                           order;
 	
 	void copy(const Expr_Parameters &other);
 	void set(Model_Application *app, const std::vector<Indexed_Parameter> &parameters);

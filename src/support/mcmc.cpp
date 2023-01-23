@@ -98,7 +98,7 @@ affine_walk_move(double *sampler_params, double *scale, int step, int walker, in
 			double x_j = data(ens[s], par, ensemble_step);
 			w += z[s]*(x_j - x_s_mean);
 		}
-		w /= (double)s0; // NOTE: This is not specified in the paper, but without it the algorithm gives very poor results, and it seems to be more mathematically sound.
+		w /= std::sqrt((double)s0); // NOTE: This is not specified in the paper, but without it the algorithm gives very poor results, and it seems to be more mathematically sound.
 		data(walker, par, step) = x_k + w;
 	}
 
@@ -265,8 +265,8 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 	// allocate space for the results in the main thread so that it can be freed in the main
 	// thread ( threads can't delete stuff that was allocated in other threads ).
 	// This is a bit messy though. Could alternatively allocate the needed result data
-	// explicitly here.
-	if(initial_step == 0) //NOTE: If the initial step is not 0, this is a continuation of an earlier run, and so the LL value will already have been computed.
+	// explicitly first and then do step 0.
+	if(initial_step == 0) //NOTE: If the initial step is not 0, this is a continuation of an earlier run, and so the LL value of the initial step will already have been computed.
 		for(int walker = 0; walker < data.n_walkers; ++walker)
 			data.score_value(walker, 0) = log_likelihood(ll_state, walker, 0);
 	
@@ -276,22 +276,13 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 	std::vector<std::thread> workers;
 	workers.reserve(data.n_walkers);
 	
-	// NOTE: Can't use any of the parallel for_each stuff before upp supports C++20
-	/*
-	// TODO: We could randomize the ensembles each time, but then we would have to change the walkers to draw from that ensemble instead.
-	std::vector<int> ens1(n_ens1);
-	std::iota(ens1.begin(), ens1.end(), 0);
-	std::vector<int> ens2(n_ens2);
-	std::iota(ens2.begin(), ens2.end(), n_ens1);
-	*/
-	
 	std::uniform_int_distribution<> disti(0, data.n_walkers-1);
 	std::vector<int> walkers(data.n_walkers);
 	for(int idx = 0; idx < data.n_walkers; ++idx) walkers[idx] = idx;
 	
 	for(int step = initial_step + 1; step < data.n_steps; ++step) {
 		
-		// Shuffle the walkers so that they get into different ensembles.
+		// Shuffle the walkers so that they get into different sub-ensembles for each step.
 		for(int idx = 0; idx < data.n_walkers; ++idx) {
 			int swp = disti(rand_state.gen);
 			std::swap(walkers[idx], walkers[swp]);
@@ -309,9 +300,10 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 			if(worker.joinable()) worker.join();
 		workers.clear();
 		
+		// NOTE: Can't use any of the parallel for_each stuff before upp supports C++20
 		/*
-		std::for_each(std::execution::par, ens1.begin(), ens1.end(), [&](int walker) {
-			move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens2, data, &rand_state, log_likelihood, ll_state);
+		std::for_each(std::execution::par, walkers.begin(), walkers.begin()+n_ens1, [&](int walker) {
+			move(sampler_params, scales, step, walker, ensemble_step, walkers.data()+n_ens1, n_ens2, data, &rand_state, log_likelihood, ll_state);
 		});
 		*/
 		
@@ -328,8 +320,8 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 		workers.clear();
 		
 		/*
-		std::for_each(std::execution::par, ens2.begin(), ens2.end(), [&](int walker) {
-			move(sampler_params, scales, step, walker, first_ensemble_walker, ensemble_step, n_ens1, data, &rand_state, log_likelihood, ll_state);
+		std::for_each(std::execution::par, walkers.begin()+n_ens1, walkers.end(), [&](int walker) {
+			move(sampler_params, scales, step, walker, ensemble_step, walkers.data(), n_ens1, data, &rand_state, log_likelihood, ll_state);
 		});
 		*/
 		
