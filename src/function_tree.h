@@ -52,8 +52,9 @@ Identifier_FT : Math_Expr_FT {
 			s32           scope_id;
 		}                        local_var;
 	};
+	Entity_Id connection;   // If it is 'target', what is it target along?
 	
-	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier_chain), flags(Identifier_FT::Flags::none) { };
+	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier_chain), flags(Identifier_FT::Flags::none), connection(invalid_entity_id) { };
 };
 
 struct
@@ -92,6 +93,7 @@ State_Var_Dependency {
 	enum Type : u32 {
 		none =         0x0,
 		earlier_step = 0x1,
+		target       = 0x2,
 	}                 type;
 	Var_Id            var_id;
 };
@@ -119,6 +121,7 @@ Function_Resolve_Data {
 	Var_Location       in_loc;
 	std::vector<Entity_Id> *baked_parameters = nullptr;
 	Standardized_Unit  expected_unit;
+	Entity_Id          connection = invalid_entity_id;
 	
 	// The simplified option is if we are resolving a simple expression of provided symbols, not for main code, but e.g. for parameter exprs in an optimizer run.
 	bool                      simplified = false;

@@ -155,8 +155,10 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		}
 		
 		for(auto dep : code_depends.on_state_var) {
-			if(dep.type == State_Var_Dependency::Type::none)
+			if(!(dep.type & State_Var_Dependency::Type::earlier_step))
 				instr.depends_on_instruction.insert(dep.var_id.id);
+			if(dep.type & State_Var_Dependency::Type::target)
+				instr.instruction_is_blocking.insert(dep.var_id.id);
 			instr.inherits_index_sets_from_instruction.insert(dep.var_id.id);
 		}
 	}

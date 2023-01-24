@@ -235,21 +235,48 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, bool allow_to_decl = false, std::vector<Math_Expr_FT *> *provided_target_idx = nullptr) {
+get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &target_indexes, Entity_Id connection, Index_Exprs &indexes) {
+	if(app->model->connections[connection]->type != Connection_Type::grid1d)
+		fatal_error(Mobius_Error::internal, "Misuse of get_grid1d_target_indexes().");
+	auto &comp = app->connection_components[connection.id][0];
+	auto index_set = comp.index_sets[0];
+	
+	auto index = copy(indexes.indexes[index_set.id]);
+	index = make_binop('+', index, make_literal((s64)1));
+	target_indexes.resize(app->model->index_sets.count(), nullptr);
+	target_indexes[index_set.id] = index;
+}
+
+void
+put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx, std::set<Entity_Id> &found_grid1d_target) {
+	
 	for(auto arg : expr->exprs)
-		put_var_lookup_indexes(arg, app, index_expr, allow_to_decl, provided_target_idx);
+		put_var_lookup_indexes_helper(arg, app, index_expr, provided_target_idx, found_grid1d_target);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	
+	std::vector<Math_Expr_FT *> target_indexes;
+	
+	Connection_Type conn_type;
 	if(ident->flags & Identifier_FT::Flags::target) {
-		if(!allow_to_decl)
-			fatal_error(Mobius_Error::internal, "Got a 'target' directive inside an equation that is not allowed to have it.");
-		if(provided_target_idx)
-			index_expr.swap(*provided_target_idx);
-		else
+		auto conn = app->model->connections[ident->connection];
+		conn_type = conn->type;
+		if(conn_type == Connection_Type::all_to_all) {
 			index_expr.transpose();
+		} else if (conn_type == Connection_Type::grid1d) {
+			found_grid1d_target.insert(ident->connection);
+			
+			if(!provided_target_idx) {
+				get_grid1d_target_indexes(app, target_indexes, ident->connection, index_expr);
+				provided_target_idx = &target_indexes;
+			}
+			index_expr.swap(*provided_target_idx);
+		} else {
+			ident->source_loc.print_error_header();
+			fatal_error("Got a 'target' directive for a connection that is not of type all_to_all or grid1d.");
+		}
 	}
 	
 	Math_Expr_FT *offset_code = nullptr;
@@ -269,10 +296,10 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	}
 	
 	if(ident->flags & Identifier_FT::Flags::target) {
-		if(provided_target_idx)
-			index_expr.swap(*provided_target_idx);
-		else
+		if(conn_type == Connection_Type::all_to_all)
 			index_expr.transpose();
+		else
+			index_expr.swap(*provided_target_idx);
 	}
 	
 	if(offset_code && ident->variable_type != Variable_Type::parameter && (ident->flags & Identifier_FT::Flags::last_result)) {
@@ -281,6 +308,42 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	
 	if(offset_code)
 		expr->exprs.push_back(offset_code);
+}
+
+Math_Expr_FT *
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx = nullptr, Entity_Id always_check_connection = invalid_entity_id) {
+	std::set<Entity_Id> found_grid1d_target;
+	put_var_lookup_indexes_helper(expr, app, index_expr, provided_target_idx, found_grid1d_target);
+	
+	if(is_valid(always_check_connection) && app->model->connections[always_check_connection]->type == Connection_Type::grid1d)
+		found_grid1d_target.insert(always_check_connection);
+	
+	if(found_grid1d_target.empty())
+		return expr;
+	
+	// Make code to check that we are not at the last index.
+	// If we are at the last index relative to a connection we can't compute the target(), hence the entire expression must be invalid (will be evaluated as 0)
+	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+	if_chain->value_type = Value_Type::real;
+	if_chain->exprs.push_back(expr);
+	
+	Math_Expr_FT *condition = nullptr;
+	for(auto conn : found_grid1d_target) {
+		auto &comp = app->connection_components[conn.id][0];
+		auto index_set = comp.index_sets[0];
+		
+		auto index = index_expr.indexes[index_set.id];
+		auto index_count = get_index_count_code(app, index_set, index_expr);
+		auto ltc = make_binop('<', copy(index), make_binop('-', index_count, make_literal((s64)1)));
+		if(!condition)
+			condition = ltc;
+		else
+			condition = make_binop('&', condition, ltc);
+	}
+	if_chain->exprs.push_back(condition);
+	if_chain->exprs.push_back(make_literal(0.0));
+	
+	return if_chain;
 }
 
 Math_Expr_FT *
@@ -328,12 +391,12 @@ add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id
 		indexes.swap(target_indexes); // Swap back in the ones we had before.
 		
 		if(weight)
-			put_var_lookup_indexes(weight, app, indexes, true, &target_indexes);
+			weight = put_var_lookup_indexes(weight, app, indexes, &target_indexes);
 		
 		for(int idx = 0; idx < target_indexes.size(); ++idx) // NOTE: If they were used, they were copied, so we delete them again now.
 			delete target_indexes[idx];
 	} else {
-		if(weight) put_var_lookup_indexes(weight, app, indexes);
+		if(weight) weight = put_var_lookup_indexes(weight, app, indexes);
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 	}
 	
@@ -385,7 +448,7 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 	}
 	
 	if(weight) {
-		put_var_lookup_indexes(weight, app, indexes, true, nullptr);
+		weight = put_var_lookup_indexes(weight, app, indexes, nullptr);
 		value = make_binop('*', value, weight);
 	}
 	
@@ -399,25 +462,28 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	auto &comp = app->connection_components[connection_id.id][0];
 	auto index_set = comp.index_sets[0];
 	
-	auto index = copy(indexes.indexes[index_set.id]);
-	index = make_binop('+', index, make_literal((s64)1));
-	std::vector<Math_Expr_FT *> target_indexes(model->index_sets.count(), nullptr);
-	target_indexes[index_set.id] = index;
+	std::vector<Math_Expr_FT *> target_indexes;
+	get_grid1d_target_indexes(app, target_indexes, connection_id, indexes);
+	
 	indexes.swap(target_indexes);
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 	indexes.swap(target_indexes);
 	
 	if(weight) {
-		put_var_lookup_indexes(weight, app, indexes, true, &target_indexes);
+		weight = put_var_lookup_indexes(weight, app, indexes, &target_indexes);
 		value = make_binop('*', value, weight);
 	}
+	
+	//TODO: We don't free the target_indexes!
+	// Same goes for other places where we use get_grid1d_target_indexes() !
 	
 	// Make code to check that we are not at the last index.
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
 	auto index_count = get_index_count_code(app, index_set, indexes);
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), index_count));
+	auto index = indexes.indexes[index_set.id];
+	if_chain->exprs.push_back(make_binop('<', copy(index), index_count));
 	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
 	
 	return if_chain;
@@ -455,34 +521,6 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");
 	
 	return nullptr;
-}
-
-Math_Expr_FT *
-fixup_grid1d_connection(Model_Application *app, Math_Expr_FT *code, Entity_Id connection_id, Index_Exprs &indexes) {
-
-	if(!code)
-		fatal_error(Mobius_Error::internal, "Code should have been generated for flux at this point.");
-	
-	auto model = app->model;
-	// TODO: Quite a bit of code copy from add_value_to_grid1d_agg(). Factor out?
-	auto &comp = app->connection_components[connection_id.id][0];
-	auto index_set = comp.index_sets[0];
-	
-	auto index = copy(indexes.indexes[index_set.id]);
-	index = make_binop('+', index, make_literal((s64)1));
-	std::vector<Math_Expr_FT *> target_indexes(model->index_sets.count(), nullptr);
-	target_indexes[index_set.id] = index;
-	put_var_lookup_indexes(code, app, indexes, true, &target_indexes); //This is to allow it to properly index target() directives.
-	
-	// Make code to check that we are not at the last index.
-	// If we are at the last index, the flux (to the next, non-existing index) will be 0
-	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-	if_chain->value_type = Value_Type::real;
-	if_chain->exprs.push_back(code);
-	auto index_count = get_index_count_code(app, index_set, indexes);
-	if_chain->exprs.push_back(make_binop(Token_Type::neq, copy(index), index_count));
-	if_chain->exprs.push_back(make_literal(0.0));
-	return if_chain;
 }
 
 // TODO: This could maybe be a member method of Index_Exprs
@@ -550,23 +588,14 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			if(fun) {
 				fun = copy(fun);
 				
-				bool special = false;
-				// TODO: Could this be better placed than here? It is a bit messy
-				
+				Entity_Id connection = invalid_entity_id;
 				if(instr->type == Model_Instruction::Type::compute_state_var) {
 					auto var = app->state_vars[instr->var_id];
-					if(var->is_flux()) {
-						auto connection_id = connection_of_flux(var);
-						if(is_valid(connection_id) && model->connections[connection_id]->type == Connection_Type::grid1d) {
-							special = true;
-							fun = fixup_grid1d_connection(app, fun, connection_id, indexes);
-						}
-					}
+					if(var->is_flux()) connection = connection_of_flux(var);
 				}
 				
 				//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
-				if(!special)
-					put_var_lookup_indexes(fun, app, indexes, true);
+				fun = put_var_lookup_indexes(fun, app, indexes, nullptr, connection);
 				
 			} else if (instr->type != Model_Instruction::Type::clear_state_var) {
 				//NOTE: This could happen for discrete quantities since they are instead modified by add/subtract instructions. Same for some aggregation variables that are only modified by other instructions.
@@ -575,6 +604,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 					continue;
 				fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
 			}
+			
 				
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
@@ -651,7 +681,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			
 			fun = copy(fun);
 			
-			put_var_lookup_indexes(fun, app, indexes);
+			fun = put_var_lookup_indexes(fun, app, indexes);
 			
 			auto offset_var = app->result_structure.get_offset_code(instr->var_id, indexes);
 			auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));

@@ -1,0 +1,102 @@
+
+library("Seawater") {
+
+	# TODO: Put in the references!
+
+	seawater_dens_standard_mean : function(T : [deg_c]) {
+		a0 := 999.842594
+		a1 := 6.793952e-2
+		a2 := -9.095290e-3
+		a3 := 1.001685e-4
+		a4 := -1.120083e-6
+		a5 := 6.536332e-9
+		T68 := T * 1.00024 => []
+		(a0 + (a1 + (a2 + (a3 + (a4 + a5*T68)*T68)*T68)*T68)*T68) => [k g, m-3]
+	}
+
+	seawater_pot_dens : function(T : [deg_c], S : []) {
+		b0 := 8.24493e-1
+		b1 := -4.0899e-3
+		b2 := 7.6438e-5
+		b3 := -8.2467e-7
+		b4 := 5.3875e-9
+		c0 := -5.72466e-3
+		c1 := 1.0227e-4
+		c2 := -1.6546e-6
+		d0 := 4.8314e-4
+		T68 := T * 1.00024 => []
+		seawater_dens_standard_mean(T) 
+		   + ((b0 + (b1 + (b2 + (b3 + b4*T68)*T68)*T68)*T68)*S + (c0 + (c1 + c2*T68)*T68)*S*sqrt(S) + d0*S^2) => [k g, m-3]
+	}
+	
+	# seawater_secant_bulk_modulus : function(T : [deg_c], S : [], P : [d bar]) {
+		# T68 := T * 1.00024 => []
+		# h3 := -5.77905e-7
+		# h2 := 1.16092e-4
+		# h1 := 1.43713e-3
+		# h0 := 3.239908
+		# AW := h0 + (h1 + (h2 + h3*T68)*T68)*T68
+		# k2 := 5.2787e-8
+		# k1 := -6.12293e-6
+		# k0 := 8.50935e-5
+		# BW := k0 + (k1 + k2*T68)*T68
+		# e4 := -5.155288e-5
+		# e3 := 1.360477e-2
+		# e2 := -2.327105
+		# e1 := 148.4206
+		# e0 := 19652.21
+		# KW := e0 + (e1 + (e2 + (e3 + e4*T68)*T68)*T68)*T68
+		# j0 := 1.91075e-4
+		# i2 := -1.6078e-6
+		# i1 := -1.0981e-5
+		# i0 :=  2.2838e-3
+		# SR := sqrt(S)
+		# A  := AW + (i0 + (i1 + i2*T68)*T68 + j0*SR)*S
+		# m2 := 9.1697e-10
+		# m1 := 2.0816e-8
+		# m0 := -9.9348e-7
+		# B  := (BW + (m0 + (m1 + m2*T68)*T68)*S) => [bar-1]
+		# f3 := -6.1670e-5
+		# f2 := 1.09987e-2
+		# f1 := -0.603459
+		# f0 := 54.6746
+		# g2 := -5.3009e-4
+		# g1 := +1.6483e-2
+		# g0 := +7.944e-2
+		# K0 := (KW + (f0 + (f1 + (f2 + f3*T68)*T68)*T68 + (g0 + (g1 + g2*T68)*T68)*SR)*S) => [bar]
+		# p  := P->[bar]
+		# K0 + (A + B*p)*p
+	# }
+	
+	# seawater_density : function(T : [deg_c], S : [], P : [h bar]) {
+		# densP0 := seawater_dens_p0(T, S)
+		# K      := seawater_secant_bulk_modulus(T, S, P);
+		# P      := P -> [bar]
+		# densP0/(1.0 - p/K)
+	# }
+}
+
+
+
+#TODO: Fix the units of this one!
+# dynamic_viscosity_water : function(T : [deg_c], S : []) {
+	# # Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
+	# # Returns viscosity in centipose [k Pa, s]
+	# # It is also possible to add pressure corrections. Pressure is here assumed to be at 1atm.
+	# eta20 := 1.0020[k Pa, s]              # Dynamic viscosity at t=20, s=0
+	# tm20  := 20[deg_c]-T
+	# lograt := (1.1709*tm20 - 0.001827[deg_c-1]*tm20^2) / (T + 89.93[deg_c])
+	# eta_t := eta20*10^lograt      #Dynamic viscosity of distilled water, corrected for temperature
+	# a := lerp(T, 5[deg_c], 25[deg_c], 0.000366, 0.001403)
+	# b := lerp(T, 5[deg_c], 25[deg_c], 0.002756, 0.003416)
+	# cl := max(0, (S-0.03)/1.805)
+	# clv := water_density(T) * cl =>[]  # Volume chlorinity
+	# eta_t * (1 + a*sqrt(clv) + b*clv)
+# }
+
+# diffusivity_in_water : function(ref_diff, ref_T : [deg_c], ref_S : [], T : [deg_c], S : []) {
+	# # Diffusivity of some substance in water.
+	# # 	ref_diff  - the diffusivity of the substance in water at temperature ref_T and salinity ref_S.
+	
+	# ref_diff * (dynamic_viscosity_water(ref_T, ref_S) / dynamic_viscosity_water(T, S)) * ((T -> [K]) / (ref_T -> [K]))
+# }

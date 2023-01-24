@@ -138,6 +138,11 @@ Unit_Data::set_standard_form() {
 			standard_form.powers[(int)Base_Unit::m] -= part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
 			standard_form.magnitude += 3*part.power;  // Pa = 10^3 g m^-1 s^-2
+		} else if(part.unit == Compound_Unit::bar) {
+			standard_form.powers[(int)Base_Unit::g] += part.power;
+			standard_form.powers[(int)Base_Unit::m] -= part.power;
+			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
+			standard_form.magnitude += 8*part.power;  // bar = 10^5*10^3 g m^-1 s^-2
 		} else {
 			if(part.power.denom != 1)
 				fatal_error(Mobius_Error::internal, "Unit standard form: can't handle roots of certain types.");

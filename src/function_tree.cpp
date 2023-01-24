@@ -697,6 +697,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
 						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
+					} else if (id.reg_type == Reg_Type::connection) {
+						new_ident->variable_type = Variable_Type::connection;
+						new_ident->value_type = Value_Type::none;
+						new_ident->connection = id;
 					} else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
@@ -804,19 +808,21 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
 				std::vector<Standardized_Unit> arg_units;
 				resolve_arguments(new_fun, ast, data, scope, arg_units);
-				if(new_fun->exprs.size() != 1) {
+				int allowed_arg_count = 1;
+				if(fun_name == "target") allowed_arg_count = 2;
+				int arg_count = new_fun->exprs.size();
+				if(arg_count != 1 && arg_count != allowed_arg_count) {
 					fun->name.print_error_header();
 					error_print("A ", fun_name, "() declaration only takes one argument.\n");
 					fatal_error_trace(scope);
 				}
-				if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) {
-					new_fun->exprs[0]->source_loc.print_error_header();
+				int var_idx = arg_count == 1 ? 0 : 1;
+				if(new_fun->exprs[var_idx]->expr_type != Math_Expr_Type::identifier_chain) {
+					new_fun->exprs[var_idx]->source_loc.print_error_header();
 					error_print("A ", fun_name, "() declaration can only be applied to a state variable or input series.\n");
 					fatal_error_trace(scope);
 				}
-				auto var = static_cast<Identifier_FT *>(new_fun->exprs[0]);
-				new_fun->exprs.clear();
-				delete new_fun;
+				auto var = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
 				bool can_series = (fun_name != "in_flux") && (fun_name != "conc");
 				bool can_param  = (fun_name == "target");
 				if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series) || (can_param && var->variable_type == Variable_Type::parameter))) {
@@ -835,17 +841,48 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::aggregate);
 				else if(fun_name == "conc")
 					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::conc);
-				else if(fun_name == "target")
+				else if(fun_name == "target") {
 					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::target);
+				}
+				
+				if(fun_name == "target") {
+					if(arg_count == 2) {
+						bool error = false;
+						if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) error = true;
+						else {
+							auto ident = static_cast<Identifier_FT *>(new_fun->exprs[0]);
+							if(ident->variable_type != Variable_Type::connection) error = true;
+							else {
+								var->connection = ident->connection;
+								delete ident;
+							}
+						}
+						if(error) {
+							new_fun->exprs[0]->source_loc.print_error_header();
+							error_print("Expected a connection identifer.\n");
+							fatal_error_trace(scope);
+						}
+					} else {
+						if(!is_valid(data->connection)) {
+							new_fun->source_loc.print_error_header();
+							error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the ", fun_name, " expression.");
+							fatal_error_trace(scope);
+						}
+						var->connection = data->connection;
+					}
+				}
+				
+				new_fun->exprs.clear();
+				delete new_fun;
 				
 				result.fun = var;
 				if(fun_name == "in_flux") {
-					result.unit = multiply(arg_units[0], app->time_step_unit.standard_form, -1);
+					result.unit = multiply(arg_units[var_idx], app->time_step_unit.standard_form, -1);
 				} else if( fun_name == "conc") {
 					auto conc_id = as<State_Var::Type::declared>(data->app->state_vars[var->state_var])->conc;
 					result.unit = data->app->state_vars[conc_id]->unit.standard_form;
 				} else
-					result.unit = std::move(arg_units[0]);
+					result.unit = std::move(arg_units[var_idx]);
 			} else {
 				// Otherwise it should have been registered as an entity.
 
@@ -1483,6 +1520,8 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 			State_Var_Dependency dep {State_Var_Dependency::Type::none, ident->state_var};
 			if(ident->flags & Identifier_FT::Flags::last_result)
 				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::earlier_step);
+			if(ident->flags & Identifier_FT::Flags::target)
+				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::target);
 			
 			depends->on_state_var.insert(dep);
 		}

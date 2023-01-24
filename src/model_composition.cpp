@@ -162,8 +162,8 @@ typedef std::unordered_map<int, std::vector<Var_Id>> Var_Map;
 typedef std::unordered_map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_Map2;
 
 void
-find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux, bool allow_target) {
-	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux, allow_target);
+find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux) {
+	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->flags & Identifier_FT::Flags::in_flux) {
@@ -184,10 +184,6 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 			if(is_valid(looked_up_by)) {
 				aggregates[ident->state_var.id].second.push_back(looked_up_by);
 			}
-		}
-		if((ident->flags & Identifier_FT::Flags::target) && !allow_target ) {
-			expr->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("A target() declaration is not allowed in this function body since it does not belong to an all_to_all connection flux or to an aggregation_weight that is being used by one.");
 		}
 	}
 }
@@ -226,9 +222,9 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 }
 
 void
-restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs, bool allow_target = false) {
+restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
 	//TODO : Should we just reuse register_dependencies() ?
-	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs, allow_target);
+	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type != Variable_Type::local
@@ -237,10 +233,6 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
 		} else if (ident->variable_type == Variable_Type::parameter)
 			parameter_refs.insert(ident->parameter);
-		if(!allow_target && (ident->flags & Identifier_FT::Flags::target)) {
-			expr->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("A target() declaration is only allowed in an aggregation_weight that is being used by a connection flux (for now).");
-		}
 	}
 }
 
@@ -587,7 +579,7 @@ prelim_compose(Model_Application *app) {
 }
 
 Math_Expr_FT *
-get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_Id to_compartment, bool is_connection = false) {
+get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_Id to_compartment, Entity_Id connection = invalid_entity_id) {
 	
 	auto model = app->model;
 	auto source = model->components[loc1.first()];
@@ -598,7 +590,7 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		
 		auto scope = model->get_scope(agg.code_scope);
 		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
-		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit };
+		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit, connection };
 		auto fun = resolve_function_tree(agg.code, &res_data);
 		
 		if(!match_exact(&fun.unit, &expected_unit)) {
@@ -608,7 +600,7 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		
 		agg_weight = make_cast(fun.fun, Value_Type::real);
 		std::set<Entity_Id> parameter_refs;
-		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs, is_connection);
+		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
 		
 		for(auto par_id : parameter_refs) {
 			bool ok = parameter_indexes_below_location(model, par_id, loc1);
@@ -707,7 +699,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 		for(auto source_id : find->possible_sources) {
 			Var_Location loc = app->state_vars[target_var_id]->loc1;
 			loc.components[0] = source_id;
-			auto wt = get_aggregation_weight(app, loc, target_comp, true);
+			auto wt = get_aggregation_weight(app, loc, target_comp, conn_id);
 			auto source_var_id = app->state_vars.id_of(loc);
 			if(wt) agg_var->weights.push_back({source_var_id, wt});
 		}
@@ -770,6 +762,7 @@ compose_and_resolve(Model_Application *app) {
 		Var_Location in_loc;
 		in_loc.type = Var_Location::Type::nowhere;
 		Entity_Id from_compartment = invalid_entity_id;
+		Entity_Id connection = invalid_entity_id;
 		
 		Decl_Scope *code_scope       = nullptr;
 		Decl_Scope *other_code_scope = nullptr;
@@ -789,6 +782,7 @@ compose_and_resolve(Model_Application *app) {
 				fatal_error(Mobius_Error::internal, "Unsupported boundary type in compose_and_resolve().");
 				
 			code_scope = model->get_scope(flux_decl->code_scope);
+			connection = flux_decl->connection_target;
 			
 			// TODO: If it has a top or bottom boundary we could allow a nullptr ast, in which case we should invalidate the var.
 			
@@ -832,20 +826,15 @@ compose_and_resolve(Model_Application *app) {
 			from_compartment = in_loc.first();
 		}
 		
-		// Hmm, it is a bit annying to have this specific knowledge encoded here:
-		bool allow_target = var2->decl_type == Decl_Type::flux && is_valid(var2->connection) && (
-				model->connections[var2->connection]->type == Connection_Type::all_to_all
-			  || model->connections[var2->connection]->type == Connection_Type::grid1d
-			  );
 			
-		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form };
+		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
 		Math_Expr_FT *fun = nullptr;
 		if(ast) {
 			auto res = resolve_function_tree(ast, &res_data);
 			fun = res.fun;
 			fun = make_cast(fun, Value_Type::real);
 			replace_conc(app, fun); // Replace explicit conc() calls by pointing them to the conc variable.
-			find_other_flags(fun, in_flux_map, needs_aggregate, var_id, from_compartment, false, allow_target);
+			find_other_flags(fun, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			
 			if(!match_exact(&res.unit, &res_data.expected_unit)) {
 				ast->source_loc.print_error_header();
@@ -863,7 +852,7 @@ compose_and_resolve(Model_Application *app) {
 			var2->initial_function_tree = make_cast(fun.fun, Value_Type::real);
 			remove_lasts(var2->initial_function_tree, true);
 			replace_conc(app, var2->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
-			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true, false);
+			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			var2->initial_is_conc = initial_is_conc;
 			
 			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
@@ -902,7 +891,7 @@ compose_and_resolve(Model_Application *app) {
 				var2->override_tree = make_cast(override_tree, Value_Type::real);
 				var2->override_is_conc = override_is_conc;
 				replace_conc(app, var2->override_tree);
-				find_other_flags(var2->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false, false);
+				find_other_flags(var2->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			}
 		} else
 			var2->override_tree = nullptr;

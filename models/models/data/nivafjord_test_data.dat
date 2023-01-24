@@ -1,0 +1,41 @@
+index_set("Layer index") [ 50 ]
+
+connection("Fjord vertical") [
+	compartment("Fjord layer") [ "Layer index" ]
+]
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1980-01-01 ]
+
+	par_datetime("End date")
+	[ 1982-12-31 ]
+}
+
+module("NIVAFjord", 0, 0, 1) {
+	par_group("Layer parameters") [ "Layer index" ] {
+		par_real("Layer area")
+		[ 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 ]
+
+		par_real("Initial salinity")
+		[ 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 35 ]
+
+		par_real("Initial temperature")
+		[ 15 14.8 14.6 14.4 14.2 14 13.8 13.6 13.4 13.2 13 12.8 12.6 12.4 12.2 12 11.8 11.6 11.4 11.2 11 10.8 10.6 10.4 10.2 10 9.8 9.6 9.4 9.2 9 8.8 8.6 8.4 8.2 8 7.8 7.6 7.4 7.2 7 6.8 6.6 6.4 6.2 6 5.8 5.6 5.4 5.2 ]
+	}
+
+	par_group("Fjord arm parameters") {
+		par_real("Brunt-Väisälä frequency reference")
+		[ 0.008 ]
+
+		par_real("Mixing factor reference")
+		[ 5e-05 ]
+
+		par_real("Mixing non-linear coefficient")
+		[ 1.4 ]
+
+		par_real("Minimum B-V frequency")
+		[ 0.004 ]
+	}
+}
+

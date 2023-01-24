@@ -1,12 +1,13 @@
 
 module("NIVAFjord", 0, 0, 1) {
 
-	load("../../stdlib/physiochemistry.txt", library("Water utils"))
+	load("../../stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
+	load("../../stdlib/seawater.txt", library("Seawater"))
 
 	layer : compartment("Fjord layer")
 	
 	water : quantity("Water")
-	salt  : quantity("NaCl")
+	salt  : quantity("Salt")
 	heat  : quantity("Thermal energy")
 	
 	temp : property("Temperature")
@@ -15,8 +16,16 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.par_group("Layer parameters") {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
-		init_S : par_real("Initial salinity", [], 35.0, 20.0, 50.0)
+		init_S : par_real("Initial salinity", [g, k g-1], 35.0, 20.0, 50.0)
 		init_T : par_real("Initial temperature", [deg_c], 15.0, 0.1, 40.0)
+	}
+	
+	# TODO: Should be attached to fjord arm, not to layer
+	layer.par_group("Fjord arm parameters") {
+		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
+		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
+		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the frequency reference")
+		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
 	}
 	
 	layer.has(z : property("Thickness"), [m]) {
@@ -25,48 +34,51 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.has(water, [k g], "Layer water") .initial { A*z*rho_water }   #TODO: temperature adjust
 	
-	layer.water.has(salt, [k g], [g, k g-1], "Layer NaCl") .initial_conc { init_S => [g, k g-1] }
+	layer.water.has(salt, [k g], [g, k g-1], "Layer salt") .initial_conc { init_S }
 	
-	layer.water.has(heat, [J], "Layer thermal energy") .initial_conc { C_water * (init_T->[K]) }
-	
-	
-	layer.water.has(salinity : property("Salinity"), []) {
-		(conc(salt)->[g, k g-1]) => []     # PSU ~= ppt = g/kg
-	}
-	
-	layer.water.has(temp, [deg_c], "Layer temperature") {   #TODO!
+	layer.water.has(heat, [J], "Layer thermal energy") .initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
+
+	layer.water.has(temp, [deg_c], "Layer temperature") {
 		heat / (water*C_water) -> [deg_c]
 	}
 	
-	Kdiff : property("Diffusion coefficient")
-	
-	layer.water.salt.has(Kdiff, [c m 2, s-1], "Diffusion coefficient (NaCl)") {    # Change units?
-		ref_diff := 2.2e-5[c m 2, s-1]  # Reference diffusion coefficient at a given temperature and salinity. TODO: Should be checked
-		#TODO: Should also be pressure dependent.
-		diffusivity_in_water(ref_diff, 25.0[deg_c], 58.44, temp, salinity)   # Is it correct to use this salinity correction for salt diffusion, or should there be another formula?
+	layer.water.has(dens : property("Potential density"), [k g, m-3]) {
+		salinity := conc(salt)=>[] # TODO: Convert salinity to PSU
+		seawater_pot_dens(temp, salinity)
 	}
 	
-	layer.water.heat.has(Kdiff, [m 2, s-1], "Diffusion coefficient (heat)") {
-		k := 0.6[W, m-1, K-1]  # Thermal conductivity. TODO: should itself depend on temperature, pressure and salinity!
-		rho := water_density(temp)
-		k / (rho * C_water)
-	}
-	
-	flux(layer.water.salt, vert, "NaCl vertical diffusion") {
-		Kd := 0.5*(Kdiff + target(Kdiff)) -> [m 2, day-1]
-		dz := 0.5*(z + target(z))
-		rho := water_density(temp)
-		rho * A * Kd * ( (conc(salt) - target(conc(salt)))->[] ) / dz
-	}
-	
-	flux(layer.water.heat, vert, "Thermal energy vertical diffusion") {
-		Kd := 0.5*(Kdiff + target(Kdiff)) -> [m 2, day-1]
-		dz := 0.5*(z + target(z))
-		rho := water_density(temp)
-		rho * A * Kd * (conc(heat) - target(conc(heat))) / dz
-	}
-	
-	#layer.water.has(dynvisc : property("Dynamic viscosity"), [k Pa, s]) {
-	#	dynamic_viscosity_water(temp, salinity)
+	#layer.water.has(ddens : property("d(dens)/dz"), [k g, m-4]) {
+	#	dz := 0.5*(z + target(vert, z))
+	#	(dens - target(vert, dens)) / dz
 	#}
+	
+	layer.water.has(Kdiff : property("Mixing coefficient"), [m 2, s-1]) {
+		dz := 0.5*(z + target(vert, z))
+		ddens := (target(vert, dens) - dens) / dz
+		N2 := g * ddens / dens
+		N := sqrt(max(Nmin^2, N2))
+		K0 * (N/N0)^(-alpha)
+	}
+	
+	layer.water.has(wmix : property("Water turbulent mixing"), [k g, day-1]) {
+		# TODO: Is it necessary to do the means here??
+		#Kd := 0.5*(Kdiff + target(vert, Kdiff))
+		#dz := 0.5*(z + target(vert, z))
+		#a :=  0.5*(A + target(vert, A))
+		#rho := 0.5*(dens + target(vert, dens))
+		#rho * a * Kd / dz ->>
+		dens * A * Kdiff / z ->>
+	}
+	
+	# Negative fluxes don't work properly for dissolved ones... TODO: Fix!
+	#flux(layer.water, vert, "Turbulent mixing down") { wmix }
+	#flux(layer.water, vert, "Turbulent mixing up") { -wmix }
+	
+	flux(layer.water.heat, vert, "Temperature turbulent mixing") {
+		wmix * (conc(heat) - target(conc(heat)))
+	}
+	
+	flux(layer.water.salt, vert, "Salt turbulent mixing") {
+		wmix * (conc(salt) - target(conc(salt))) ->>
+	}
 }

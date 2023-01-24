@@ -5,16 +5,24 @@
 		Sub-indexed series data.
 
 	Finish connection system
+	
+		target(property)   --- Needs to be on separate for loop to property!! (is_blocking)
+		
+		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
+			Alternatively just make it possible to have a connection in the opposite direction??
+			
+		The guard against computing at the last index doesn't work (at least not for things like target(conn, val))
+			
 		
 		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 		Finish regex checks.
 		
-		arbitrary target(conn, val) declarations for use in non-fluxes (only valid for grid1d (?))
+		arbitrary target(val, conn) declarations for use in non-fluxes (only valid for grid1d (?))
 			quite a bit of work though... But should be worth it.
-			also source(conn, val) or source(val) (for grid1d at least, and later graph) for looking up the value of the previous thing.
-			Consider using 'above' and 'below' instead (?)
+			also source(val, conn) or source(val) (for grid1d at least, and later graph) for looking up the value of the previous thing.
+			Consider using 'above', 'below' instead?
 			
 		boundary conditions
 			goes for most of the types. For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
@@ -99,10 +107,16 @@
 		MobiView:
 			stacked_share vs. negative values.
 			"scatter sparse" instead of "scatter inputs" ? So that full series are not scatter plotted.
+			
+			Combine simple sensitivity into the advanced sensitivity setup.
+				Compute statistics of the target stat like variance etc.
+				Allow for 2 parameters, with a surf plot eventually.
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
 		
+		
+		emulate_expression() is broken.
 		
 	*****************   DONE:   ***********************
 	
