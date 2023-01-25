@@ -41,7 +41,7 @@ Identifier_FT : Math_Expr_FT {
 		in_flux     = 0x2,
 		aggregate   = 0x4,
 		conc        = 0x8,
-		target      = 0x10,
+		below_above = 0x10,
 	}                            flags;
 	union {
 		Entity_Id                parameter;
@@ -52,9 +52,10 @@ Identifier_FT : Math_Expr_FT {
 			s32           scope_id;
 		}                        local_var;
 	};
-	Entity_Id connection;   // If it is 'target', what is it target along?
+	Entity_Id connection;   // If it is 'below' or 'above', what connection is it along?
+	bool      is_above;     // If it is below or above, is it actually above?
 	
-	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier_chain), flags(Identifier_FT::Flags::none), connection(invalid_entity_id) { };
+	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier_chain), flags(Identifier_FT::Flags::none), connection(invalid_entity_id), is_above(false) { };
 };
 
 struct
@@ -93,7 +94,7 @@ State_Var_Dependency {
 	enum Type : u32 {
 		none =         0x0,
 		earlier_step = 0x1,
-		target       = 0x2,
+		across       = 0x2,
 	}                 type;
 	Var_Id            var_id;
 };

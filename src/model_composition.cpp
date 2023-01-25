@@ -26,6 +26,7 @@
 #include "function_tree.h"
 
 #include <sstream>
+#include <map>
 
 void
 check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_Location &source_loc) {
@@ -158,8 +159,8 @@ remove_lasts(Math_Expr_FT *expr, bool make_error) {
 	}
 }
 
-typedef std::unordered_map<int, std::vector<Var_Id>> Var_Map;
-typedef std::unordered_map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_Map2;
+typedef std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>> Var_Map;
+typedef std::map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_Map2;
 
 void
 find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux) {
@@ -171,7 +172,7 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect an in_flux() in an initial value function.");
 			}
-			in_fluxes[ident->state_var.id].push_back(looked_up_by);
+			in_fluxes[{ident->state_var, ident->connection}].push_back(looked_up_by);
 		}
 		if(ident->flags & Identifier_FT::Flags::aggregate) {
 			if(!is_valid(lookup_compartment)) {
@@ -188,16 +189,25 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 	}
 }
 
-void
+Math_Expr_FT *
 replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier_FT::Flags flag) {
-	for(auto arg : expr->exprs) replace_flagged(arg, replace_this, with, flag);
+	
+	for(int idx = 0; idx < expr->exprs.size(); ++idx)
+		expr->exprs[idx] = replace_flagged(expr->exprs[idx], replace_this, with, flag);
+	
 	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && ident->state_var == replace_this && (ident->flags & flag)) {
-			ident->state_var = with;
-			ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
+			if(is_valid(with)) {
+				ident->state_var = with;
+				ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
+			} else {
+				delete expr;
+				return make_literal(0.0);
+			}
 		}
 	}
+	return expr;
 }
 
 void
@@ -327,6 +337,9 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			auto var2 = as<State_Var::Type::dissolved_conc>(dep_var);
 			dep_var = app->state_vars[var2->conc_of];
 		}
+		
+		if(dep_var->type == State_Var::Type::connection_aggregate)
+			dep_var = app->state_vars[as<State_Var::Type::connection_aggregate>(dep_var)->agg_for];
 		
 		if(dep_var->is_flux() || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
@@ -1077,12 +1090,27 @@ compose_and_resolve(Model_Application *app) {
 	
 	warning_print("Generate state vars for in_flux.\n");
 	for(auto &in_flux : in_flux_map) {
-		Var_Id target_id = {Var_Id::Type::state_var, in_flux.first}; //TODO: Not good way to do it!
 		
-		Var_Id in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
-		auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->state_vars[in_flux_id]);
+		auto &key = in_flux.first;
+		//auto [target_id, connection] = key;
+		Var_Id target_id = key.first;
+		Entity_Id connection = key.second;
 		
-		in_flux_var->in_flux_to = target_id;
+		Var_Id in_flux_id = invalid_var;
+		if(!is_valid(connection)) {
+			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
+			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->state_vars[in_flux_id]);
+			in_flux_var->in_flux_to = target_id;
+		} else {
+			//We don't have to register an aggregate for the connection since that will always have been done for a variable on a connection if it is at all relevant.
+			auto target = as<State_Var::Type::declared>(app->state_vars[target_id]);
+			for(auto conn_agg_id : target->conn_target_aggs) {
+				if( as<State_Var::Type::connection_aggregate>(app->state_vars[conn_agg_id])->connection == connection) {
+					in_flux_id = conn_agg_id;
+				}
+			}
+		}
+		// NOTE: if there was no connection aggregate it means that there was no flux going there. This is not an error in the use of in_flux because the current module could not always know about it. In that case, replace_flagged will still correctly put a literal 0 there instead.
 		
 		for(auto rep_id : in_flux.second) {
 			auto var = as<State_Var::Type::declared>(app->state_vars[rep_id]);

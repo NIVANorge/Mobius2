@@ -16,8 +16,16 @@ library("Meteorology") {
 	
 	# NOTE: some of these were revised using Ventura & al 1998 An evaluation of common evapotranspiration equations. TODO: Use that to implement Penman for pet.txt ?
 	
+	C_air             : constant("Specific heat capacity of air",    [J, k g-1, K-1], 1008)
 	C_moist_air       : constant("Specific heat coapacity of moist air", [k J, k g-1, deg_c-1], 1.013)
 	vapor_mol_to_mass : constant("Molar ratio to mass ratio of vapor in air", [], 0.62198)
+	Rdry_air          : constant("Specific gas constant of dry air", [J, k g-1, K-1], 287.058)
+	Rvap_air          : constant("Specific gas constant of vapor",   [J, k g-1, K-1], 461.495)
+	
+	air_density : function(temp : [deg_c], pressure : [h Pa], a_vap : [h Pa]) {
+		tk := temp -> [K]
+		((pressure - a_vap)/(tk*Rdry_air) + a_vap/(tk*Rvap_air)) -> [k g, m-3]
+	}
 	
 	psychrometric_constant : function(barom : [k Pa], lvap : [M J, k g-1])   {   # Brunt 1952
 		# Takes atmospheric (barometric) pressure and latent heat of vaporization.
@@ -56,6 +64,8 @@ library("Meteorology") {
 
 library("Radiation") {
 	
+	# TODO: Document!
+	
 	solar_constant : constant("Solar constant", [W m-2], 1361)
 	
 	daily_average_extraterrestrial_radiation : function(latitude : [m], day_of_year : [day], days_this_year : [day]) {
@@ -67,6 +77,19 @@ library("Radiation") {
 		solar_constant * (1/pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
 	}
 	
+	load(library("Meteorology"))
+	load("physiochemistry.txt", library("Thermodynamics"))
+	
+	downwelling_longwave : function(air_temp : [deg_c], a_vap : [h Pa], cloud : []) {
+		air_t := air_temp -> [K]
+		dpt := dew_point_temperature(a_vap)
+		dew_point_depression := dpt - air_t
+		cloud_effect := (10.77 * cloud^2 + 2.34*cloud - 18.44) => [K]
+		vapor_effect := 0.84 * (dew_point_depression + 4.01[K])
+		eff_t := air_t + cloud_effect + vapor_effect
+		black_body_radiation(eff_t)
+	}
+}
+	
 	# TODO: Make hourly_average_extraterrestrial_radiation
 	
-}

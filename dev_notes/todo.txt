@@ -1,28 +1,30 @@
 
 
 	Finish sub-indexed index sets
-		May need to invalidate more fluxes across the super index set.
+		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all and grid1d).
 		Sub-indexed series data.
 
 	Finish connection system
+	
+		in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
+			- always true for grid1d
+			- sometimes true for directed_tree, always false for all_to_all.
+				Thus must be disallowed for those!
+	
+		inside top_boundary flux from (nowhere -> connected quantity): If we reference something in the target connection without using below() we get indexing errors
+			Either disallow it.
+			Or make it set the index correctly for that index set to 0.
 	
 		target(property)   --- Needs to be on separate for loop to property!! (is_blocking)
 		
 		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
 			Alternatively just make it possible to have a connection in the opposite direction??
 			
-		The guard against computing at the last index doesn't work (at least not for things like target(conn, val))
-			
 		
 		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 		Finish regex checks.
-		
-		arbitrary target(val, conn) declarations for use in non-fluxes (only valid for grid1d (?))
-			quite a bit of work though... But should be worth it.
-			also source(val, conn) or source(val) (for grid1d at least, and later graph) for looking up the value of the previous thing.
-			Consider using 'above', 'below' instead?
 			
 		boundary conditions
 			goes for most of the types. For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
@@ -59,7 +61,7 @@
 		
 		Allow redeclaration of constants without conflict (?)
 
-		Move to std::string instead of String_View in path_utils.. (if possible, had a problem when trying it before).
+		Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before).
 		
 		Allow declaration of no_carry inside modules.
 		
@@ -82,7 +84,8 @@
 	
 	*** Low-pri ****
 	
-		Rules for using 'target' is very unintuitive, and implementation is not clean.
+		Set units of aggregation state variables so that they display correctly in MobiView.
+	
 		unit conversions also applied to connection graph arrows.
 		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
 			
@@ -116,9 +119,12 @@
 			lu_prop should sum to 1 over landscape units.
 		
 		
-		emulate_expression() is broken.
+		emulate_expression() is broken, at least for entire model runs.
 		
 	*****************   DONE:   ***********************
+	
+	below(val) should not generate an index set dependency if we are inside a top_boundary!!
+			Neither should anything actually. That index set should be removed from the dependencies!
 	
 	unit checking system
 		Simple part - generate units and scalings for concentrations and fluxes.
@@ -138,6 +144,10 @@
 	'target' value fetching inside flux body (only for all-to-all and grid1d connection fluxes so far).
 	integer indexed index sets.
 	grid1d connection.
+	arbitrary target(val, conn) declarations for use in non-fluxes (only valid for grid1d (?))
+			quite a bit of work though... But should be worth it.
+			also source(val, conn) or source(val) (for grid1d at least, and later graph) for looking up the value of the previous thing.
+			Consider using 'above', 'below' instead of 'target' and 'source' directives (esp. source is confusing because it is the source of the previous arrow, not the current one).
 	
 	**component declarations in the data set should be local to the connection data. Otherwise it makes things annoying.
 			also, component data is not properly set up unless there is an arrow (which could more easily be fixed if we do it like this)

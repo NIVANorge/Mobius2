@@ -4,6 +4,12 @@ connection("Fjord vertical") [
 	compartment("Fjord layer") [ "Layer index" ]
 ]
 
+connection("Shortwave vertical") [
+	compartment("Fjord layer") [ "Layer index" ]
+]
+
+series("nivafjord_test_series.xlsx")
+
 par_group("System") {
 	par_datetime("Start date")
 	[ 1980-01-01 ]

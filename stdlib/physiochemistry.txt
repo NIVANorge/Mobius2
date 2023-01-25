@@ -1,7 +1,7 @@
 
 
 library("Basic constants") {
-	g : constant("Earth surface gravity", [m, s-2], 9.81)
+	grav : constant("Earth surface gravity", [m, s-2], 9.81)
 }
 
 

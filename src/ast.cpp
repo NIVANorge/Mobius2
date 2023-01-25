@@ -155,7 +155,7 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	Token next  = stream->peek_token(1);
 	if((char)next.type == ':') {
 		decl->handle_name = stream->expect_token(Token_Type::identifier);
-		stream->read_token();
+		stream->read_token(); // reads the ':'
 	}
 	
 	next = stream->peek_token();
@@ -166,6 +166,9 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 		if(body_type_out)
 			*body_type_out = Body_Type::none;
 		return decl;
+	} else {
+		next.print_error_header();
+		fatal_error("Unexpected token: ", next.string_value, " .");
 	}
 	
 	// We generally have something on the form a.b.type(bla) . The chain is now {a, b, type}, but we want to store the type separately from the rest of the chain.

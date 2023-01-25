@@ -5,8 +5,9 @@ module("EasyLake", 0, 1, 0) {
 TODO: description
 """
 
-	load("../../stdlib/atmospheric.txt", library("Meteorology"))
+	load("../../stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
 	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
+	load("../../stdlib/seawater.txt", library("Air-sea"))
 	
 	air  : compartment("Atmosphere")
 
@@ -64,9 +65,6 @@ TODO: description
 	#epi.has(inflow : property("Lake inflow"), [m 3, s-1])
 	#flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
 	
-	cpa        : constant("Specific heat capacity of air",    [J, k g-1, K-1], 1008)
-	Rdry       : constant("Specific gas constant of dry air", [J, k g-1, K-1], 287.058)
-	Rvap       : constant("Specific gas constant of vapor",   [J, k g-1, K-1], 461.495)
 	rho_ice    : constant("Ice density", [k g, m-3], 917)
 	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
 	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
@@ -84,40 +82,16 @@ TODO: description
 		water_temp_to_heat(water, t_epi)
 	}
 	
-	#TODO: units for the following!
 	epi.has(stab : property("Stability"), []) {
-		ww := max(air.wind, 0.1[m, s-1])
-		s0 := 0.25*(water.temp - air.temp) / (ww*ww) => []
-		s0*abs(s0)/(abs(s0) + 0.01)
-	}
-	
-	stab_modify : function(wind : [m, s-1], stab : []) {
-		0                                     if abs(wind) < 1e-3[m, s-1],
-		0.1 + 0.03*stab * 0.9*exp(4.8*stab)   if stab < 0 & stab > -3.3,
-		0                                     if stab < 0,
-		1 + 0.63*sqrt(stab)                   otherwise
+		surface_stability(air.wind, water.temp, air.temp)
 	}
 	
 	epi.has(ced : property("Transfer coefficient for latent heat flux"), []) {
-		w    := air.wind=>[] + 1e-12
-		{
-			0     + 1.23  *exp(-0.16*ln(w))        if w < 2.2,
-			0.969 + 0.0521*w                       if w < 5,
-			1.18  + 0.01  *w                       if w < 8,
-			1.196 + 0.008 *w - 0.0004*(w-8)^2      if w < 25,
-			1.68  - 0.016 *w                       otherwise
-		} * 1e-3 * stab_modify(air.wind, stab)
+		tc_latent_heat(air.wind, stab)
 	}
 	
 	epi.has(chd : property("Transfer coefficent for sensible heat flux"), []) {
-		w    := air.wind=>[] + 1e-12
-		{
-			0     + 1.185 *exp(-0.157*ln(w))       if w < 2.2,
-			0.927 + 0.0546*w                       if w < 5,
-			1.15  + 0.01  *w                       if w < 8,
-			1.17  + 0.0075*w - 0.00045*(w-8)^2     if w < 25,
-			1.652 - 0.017 *w                       otherwise
-		} * 1e-3 * stab_modify(air.wind, stab)
+		tc_sensible_heat(air.wind, stab)
 	}
 	
 	# TODO: put some of this stuff into atmospheric module or library?
@@ -127,7 +101,6 @@ TODO: description
 		air.r_hum * 0.01 * svap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
 	}
 	
-	# TODO Should the next to be kg/g or kg/kg ??
 	epi.has(s_hum : property("Saturation specific humidity"), []) {
 		svap := saturation_vapor_pressure_lowe(water.temp)
 		specific_humidity_from_pressure(air.pressure, svap)
@@ -137,20 +110,14 @@ TODO: description
 		specific_humidity_from_pressure(air.pressure, air.a_vap)
 	}
 	
+	# TODO: Atmospheric module
 	air.has(rho : property("Air density"), [k g, m-3]) {
-		tk := air.temp -> [K]
-		((pressure - a_vap)/(tk*Rdry) + a_vap/(tk*Rvap)) ->>
+		air_density(temp, pressure, a_vap)
 	}
 	
 	#TODO: Move some radiation stuff into a radiation module
 	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
-		air_t := air.temp -> [K]
-		dpt := dew_point_temperature(a_vap)
-		dew_point_depression := dpt - air_t
-		cloud_effect := (10.77 * cloud^2 + 2.34*cloud - 18.44) => [K]
-		vapor_effect := 0.84 * (dew_point_depression + 4.01[K])
-		eff_t := air_t + cloud_effect + vapor_effect
-		black_body_radiation(eff_t)
+		downwelling_longwave(air.temp, a_vap, cloud)
 	}
 	
 	epi.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
@@ -186,7 +153,7 @@ TODO: description
 	
 	flux(nowhere, epi.water.heat, "Sensible heat flux") {
 		0                                                                          if epi.ice.indicator,
-		A_surf * (chd * cpa * air.rho * air.wind * (air.temp->[K] - temp->[K])) ->>          otherwise        #TODO: difference of deg_c should automatically be K
+		A_surf * (chd * C_air * air.rho * air.wind * (air.temp->[K] - temp->[K])) ->> otherwise
 	}
 	
 	epi.water.has(evap_mm : property("Evaporation per area"), [m m, day-1]) {

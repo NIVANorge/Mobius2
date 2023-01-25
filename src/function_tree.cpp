@@ -95,7 +95,7 @@ make_intrinsic_function_call(Value_Type value_type, const std::string &name, Mat
 inline bool
 is_boolean_operator(Token_Type op) {
 	char c = (char)op;
-	return (op == Token_Type::leq || op == Token_Type::geq || c == '=' || c == '&' || c == '|' || c == '<' || c == '>');
+	return (op == Token_Type::leq || op == Token_Type::geq || op == Token_Type::neq || c == '=' || c == '&' || c == '|' || c == '<' || c == '>');
 }
 
 Math_Expr_FT *
@@ -800,7 +800,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::string fun_name = fun->name.string_value;
 			
 			// First check for "special" calls that are not really function calls.
-			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc" || fun_name == "target") {
+			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc" || fun_name == "below" || fun_name == "above") {
 				if(data->simplified) {
 					fun->source_loc.print_error_header();
 					fatal_error("The expression '", fun_name, "' is not available in this context.");
@@ -809,9 +809,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				std::vector<Standardized_Unit> arg_units;
 				resolve_arguments(new_fun, ast, data, scope, arg_units);
 				int allowed_arg_count = 1;
-				if(fun_name == "target") allowed_arg_count = 2;
+				if(fun_name == "below" || fun_name == "above" || fun_name == "in_flux") allowed_arg_count = 2;
 				int arg_count = new_fun->exprs.size();
-				if(arg_count != 1 && arg_count != allowed_arg_count) {
+				if(arg_count == 0 || arg_count > allowed_arg_count) {
 					fun->name.print_error_header();
 					error_print("A ", fun_name, "() declaration only takes one argument.\n");
 					fatal_error_trace(scope);
@@ -824,7 +824,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 				auto var = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
 				bool can_series = (fun_name != "in_flux") && (fun_name != "conc");
-				bool can_param  = (fun_name == "target");
+				bool can_param  = (fun_name == "below" || fun_name == "above");
 				if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series) || (can_param && var->variable_type == Variable_Type::parameter))) {
 					var->source_loc.print_error_header();
 					error_print("A ", fun_name, "() declaration can only be applied to a state variable");
@@ -841,11 +841,14 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::aggregate);
 				else if(fun_name == "conc")
 					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::conc);
-				else if(fun_name == "target") {
-					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::target);
+				else if(fun_name == "below")
+					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
+				else if(fun_name == "above") {
+					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
+					var->is_above = true;
 				}
 				
-				if(fun_name == "target") {
+				if(fun_name == "below" || fun_name == "above" || fun_name == "in_flux") {
 					if(arg_count == 2) {
 						bool error = false;
 						if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) error = true;
@@ -862,10 +865,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							error_print("Expected a connection identifer.\n");
 							fatal_error_trace(scope);
 						}
-					} else {
+					} else if (fun_name == "below" || fun_name == "above") {
 						if(!is_valid(data->connection)) {
 							new_fun->source_loc.print_error_header();
-							error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the ", fun_name, " expression.");
+							error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the '", fun_name, "' expression.");
 							fatal_error_trace(scope);
 						}
 						var->connection = data->connection;
@@ -1520,8 +1523,8 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 			State_Var_Dependency dep {State_Var_Dependency::Type::none, ident->state_var};
 			if(ident->flags & Identifier_FT::Flags::last_result)
 				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::earlier_step);
-			if(ident->flags & Identifier_FT::Flags::target)
-				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::target);
+			if(ident->flags & Identifier_FT::Flags::below_above)
+				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::across);
 			
 			depends->on_state_var.insert(dep);
 		}

@@ -4,7 +4,7 @@
 
 #include "common_types.h"
 #include "function_tree.h"
-
+#include "state_variable.h"
 
 struct
 Index_Set_Dependency {
@@ -41,10 +41,12 @@ Model_Instruction {
 	Var_Id              source_id;
 	Var_Id              target_id;
 	Entity_Id           connection;
+	Boundary_Type       boundary_type;
 	
 	Entity_Id           solver;
 	
 	std::set<Index_Set_Dependency> index_sets;
+	std::set<Entity_Id>            excluded_index_sets;
 	
 	std::set<int> depends_on_instruction; // Instructions that must be executed before this one.
 	std::set<int> instruction_is_blocking; // Instructions that can not go in the same for loop as this one
@@ -55,7 +57,7 @@ Model_Instruction {
 	bool visited;
 	bool temp_visited;
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr), boundary_type(Boundary_Type::none) {};
 };
 
 struct

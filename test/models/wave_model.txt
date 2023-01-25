@@ -20,8 +20,8 @@ model("Wave") {
 		l : connection("Layer connection", grid1d) { layer* }
 		
 		flux(layer.mom, l, "Momentum propagation") {
-			cc := 0.5*(c + target(c))
-			cc^2*(target(amp) - amp)
+			cc := 0.5*(c + below(c))
+			cc^2*(below(amp) - amp)
 		}
 		
 		flux(layer.amp, nowhere, "Wave propagation") { mom }

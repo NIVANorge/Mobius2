@@ -136,6 +136,24 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		Dependency_Set code_depends;
 		register_dependencies(instr.code, &code_depends);
 		
+		// TODO: Not very nice to have this check here.
+		// TODO: Is the removal always correct?
+		// NOTE: If a connection flux refers to the in_flux of its own connection variable we could get a problem if we don't do this removal
+		// TODO: Must be disallowed entirely unless grid1d connection!
+		if(instr.type == Model_Instruction::Type::compute_state_var) {
+			auto var = app->state_vars[instr.var_id];
+			if(var->is_flux() && var->type == State_Var::Type::declared && is_located(var->loc1)) {
+				auto conn = connection_of_flux(var);
+				auto quant_id = app->state_vars.id_of(var->loc1);
+				auto var2 = as<State_Var::Type::declared>(app->state_vars[quant_id]);
+				for(auto agg_id : var2->conn_target_aggs) {
+					if(as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id])->connection == conn) // Do we need this check?
+						code_depends.on_state_var.erase({State_Var_Dependency::none, agg_id});
+				}
+			}
+		}
+		
+		
 		for(auto par_id : code_depends.on_parameter) {
 			auto index_sets = app->parameter_structure.get_index_sets(par_id);
 			
@@ -155,11 +173,16 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		}
 		
 		for(auto dep : code_depends.on_state_var) {
+			
 			if(!(dep.type & State_Var_Dependency::Type::earlier_step))
 				instr.depends_on_instruction.insert(dep.var_id.id);
-			if(dep.type & State_Var_Dependency::Type::target)
+			if(dep.type & State_Var_Dependency::Type::across)
 				instr.instruction_is_blocking.insert(dep.var_id.id);
 			instr.inherits_index_sets_from_instruction.insert(dep.var_id.id);
+		}
+		
+		for(auto index_set : instr.excluded_index_sets) { // Hmm, not the best way to do it, but tricky without c++20
+			instr.index_sets.erase({index_set, 1});
 		}
 	}
 	
@@ -172,9 +195,14 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 			
 			for(int dep : instr.inherits_index_sets_from_instruction) {
 				auto &dep_idx = instructions[dep].index_sets;
-				for(auto &dep_idx_set : dep_idx)
-					if(insert_dependency(instr.index_sets, dep_idx_set))
-						changed = true;
+				for(auto &dep_idx_set : dep_idx) {
+					// Hmm, not sure how efficient this is since it is a very rare case..
+					if(std::find(instr.excluded_index_sets.begin(), instr.excluded_index_sets.end(), dep_idx_set.id) == instr.excluded_index_sets.end()) {
+						if(insert_dependency(instr.index_sets, dep_idx_set))
+							changed = true;
+					}
+					
+				}
 			}
 		}
 		
@@ -498,6 +526,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		// TODO: Bug: this doesn't work!
 		
 		for(auto var_id : app->state_vars) {
+			
+			// TODO: May need to be fixed for boundary fluxes!
+			
 			auto var = app->state_vars[var_id];
 			if(!var->is_valid() || !var->is_flux()) continue;
 			if(!is_located(var->loc1)) continue;
@@ -619,9 +650,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto conn_id = connection_of_flux(var_flux);
 				if(!var_flux->is_flux() || !is_valid(conn_id) || conn_id != var2->connection) continue;
 				
-				warning_print("***** Bing 0 \n");
-				
 				auto conn_type = model->connections[var2->connection]->type;
+				
+				Var_Location flux_loc = var_flux->loc1;
+				if(var_flux->boundary_type == Boundary_Type::top)
+					flux_loc = var_flux->loc2;
 				
 				if(var2->is_source) {
 					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != var2->agg_for)
@@ -630,9 +663,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					// Ouch, these tests are super super awkward. Is there no better way to set up the data??
 					
 					// See if this flux has a loc that is the same quantity (chain) as the target variable.
-					Var_Location loc = var_flux->loc1;
-					if(var_flux->boundary_type == Boundary_Type::top)
-						loc = var_flux->loc2;
+					auto loc = flux_loc;
 					Var_Location target_loc = app->state_vars[var2->agg_for]->loc1;
 					loc.components[0] = invalid_entity_id;
 					target_loc.components[0] = invalid_entity_id;
@@ -653,9 +684,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				add_to_aggr_instr->solver = var_solver;
 				add_to_aggr_instr->connection = conn_id;
+				add_to_aggr_instr->boundary_type = var_flux->boundary_type;
 				add_to_aggr_instr->type = Model_Instruction::Type::add_to_connection_aggregate;
 				add_to_aggr_instr->var_id = var_id_flux;
-				add_to_aggr_instr->source_id = app->state_vars.id_of(var_flux->loc1);
+				if(conn_type == Connection_Type::directed_tree)
+					add_to_aggr_instr->source_id = app->state_vars.id_of(var_flux->loc1);
 				add_to_aggr_instr->target_id = var_id;
 				add_to_aggr_instr->depends_on_instruction.insert(clear_id); // Only start summing up after we cleared to 0.
 				add_to_aggr_instr->instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction
@@ -665,8 +698,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
-				
-				warning_print("***** Bing 1 \n");
 				
 				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
 				if(conn_type == Connection_Type::directed_tree) {
@@ -692,12 +723,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					
 				} else if(conn_type == Connection_Type::all_to_all || conn_type == Connection_Type::grid1d) {
 					
-					warning_print("***** Bing 2 \n");
-					
 					auto &components = app->connection_components[var2->connection.id];
 					auto source_comp = components[0].id;
 					
-					auto &flux_loc = var_flux->loc1;
 					bool found = false;
 					for(int idx = 0; idx < flux_loc.n_components; ++idx)
 						if(flux_loc.components[idx] == source_comp) found = true;
@@ -709,10 +737,15 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(conn_type == Connection_Type::all_to_all)
 						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					else if(conn_type == Connection_Type::grid1d) {
-						add_to_aggr_instr->index_sets.insert(index_set);
-						instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
-						
-						warning_print("***** Generating aggregation instruction for ", var_flux->name, ". Index set is ", model->index_sets[index_set]->name, "\n");
+						instructions[var_id_flux.id].boundary_type = var_flux->boundary_type;
+						if(var_flux->boundary_type == Boundary_Type::none) {
+							add_to_aggr_instr->index_sets.insert(index_set);
+							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
+						} else {
+							add_to_aggr_instr->excluded_index_sets.insert(index_set);
+							instructions[var_id_flux.id].excluded_index_sets.insert(index_set);
+						}
+						//warning_print("***** Generating aggregation instruction for ", var_flux->name, ". Index set is ", model->index_sets[index_set]->name, "\n");
 					}
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
 				} else

@@ -4,16 +4,19 @@ model("Diffusion") {
 	
 	module("Diffusion", 1, 0, 0) {
 		
+		#top   : compartment("Top")
 		layer : compartment("Layer")
 		
 		o2    : quantity("O²")
 		
 		layer.par_group("Layers") {
-			#in_o2   : par_real("O² input", [m g, c m-2], 0)
+			in_o2   : par_real("initial O²", [m g, c m-2], 0)
 			dc      : par_real("Diffusion coeff", [c m, day-1], 0.001)
 		}
 		
-		layer.has(o2, [m g, c m-2]) #.initial { in_o2 }
+		layer.has(o2, [m g, c m-2]) .initial { in_o2 }
+		
+		#top.has(o2, [m g, c m-2]) .initial { 100 }
 		
 		c : connection("Layer connection", grid1d) { layer* }
 		
@@ -22,13 +25,15 @@ model("Diffusion") {
 		#	0                                                otherwise
 		#}
 		
+		z : constant("Layer thickness", [c m], 1)
+		
 		flux(layer.o2, c, "Diffusion") {
-			d := 0.5*(dc + target(dc))
-			d*(o2 - target(o2))*1[c m-1] ->>
+			d := 0.5*(dc + below(dc))
+			d*(o2 - below(o2))/z ->>
 		}
 		
 		flux(layer.o2, c, "Input") .top_boundary {
-			0.1 =>>
+			below(dc)*(0.1[m g, c m-2] - below(o2))/z->>
 		}
 		
 		
