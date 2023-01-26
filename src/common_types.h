@@ -288,5 +288,12 @@ constexpr Index_T invalid_index = {invalid_entity_id, -1};
 inline bool
 is_valid(const Index_T &index) { return is_valid(index.index_set) && index.index >= 0; }
 
+enum class
+Boundary_Type {
+	none,
+	top,
+	bottom,
+};
+
 
 #endif // MOBIUS_COMMON_TYPES_H

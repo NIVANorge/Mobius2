@@ -778,16 +778,31 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	int which = match_declaration(decl,
 		{
 			{Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
-		}, 0, true, -1, true);
+			{Token_Type::identifier, Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
+		}, 0, true, 1, true);
 	
 	Token *name = nullptr;
-	name = single_arg(decl, 2);
+	if(which == 0)
+		name = single_arg(decl, 2);
+	else
+		name = single_arg(decl, 3);
 	
 	auto id   = model->fluxes.find_or_create(&decl->handle_name, scope, name, decl);
 	auto flux = model->fluxes[id];
 	
-	process_location_argument(model, scope, decl, 0, &flux->source, true);
-	flux->connection_target = process_location_argument(model, scope, decl, 1, &flux->target, true, true);
+	if(which == 0) {
+		process_location_argument(model, scope, decl, 0, &flux->source, true);
+		flux->connection_target = process_location_argument(model, scope, decl, 1, &flux->target, true, true);
+	} else {
+		process_location_argument(model, scope, decl, 0, &flux->source, true);
+		process_location_argument(model, scope, decl, 1, &flux->target, true);
+		Var_Location blank;
+		flux->connection_target = process_location_argument(model, scope, decl, 2, &blank, false, true);
+		if(!is_valid(flux->connection_target)) {
+			single_arg(decl, 2)->source_loc.print_error_header();
+			fatal_error("With this format for the flux declaration, the third argument must be a connection");
+		}
+	}
 	flux->target_was_out = ((flux->target.type == Var_Location::Type::out) && !is_valid(flux->connection_target));
 	
 	if(flux->source.type == Var_Location::Type::out) {
@@ -800,37 +815,31 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	}
 	
 	//flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
-	for(auto bod : decl->bodies) {
-		auto body = static_cast<Function_Body_AST *>(bod);
-		if(body->notes.size() == 0) {
-			if(flux->code) {
-				body->opens_at.print_error_header();
-				fatal_error("Trying to set the main function body of a flux twice.");
-			}
-			flux->code = body->block;
-		} else if (body->notes.size() == 1) {
-			if(body->notes[0].string_value == "top_boundary") {
-				if(flux->top_boundary) {
-					body->opens_at.print_error_header();
-					fatal_error("Trying to set the top_boundary of a flux twice.");
-				}
-				flux->top_boundary = body->block;
-			} else if (body->notes[0].string_value == "bottom_boundary") {
-				if(flux->bottom_boundary) {
-					body->opens_at.print_error_header();
-					fatal_error("Trying to set the bottom_boundary of a flux twice.");
-				}
-				flux->bottom_boundary = body->block;
-			} else {
-				body->notes[0].print_error_header();
-				fatal_error("Unrecognized flux body note '.", body->notes[0].string_value, "' .");
-			}
-		} else {
-			body->opens_at.print_error_header();
-			fatal_error("Only one note is supported per function body for a flux.");
+	
+	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
+	flux->code = body->block;
+	
+	if (body->notes.size() == 1) {
+		if(body->notes[0].string_value == "top_boundary")
+			flux->boundary_type = Boundary_Type::top;
+		else if (body->notes[0].string_value == "bottom_boundary")
+			flux->boundary_type = Boundary_Type::bottom;
+		else {
+			body->notes[0].print_error_header();
+			fatal_error("Unrecognized flux body note '.", body->notes[0].string_value, "' .");
 		}
+		if(which != 1) {
+			decl->source_loc.print_error_header();
+			fatal_error("For declaration of boundary fluxes, one must provide both a source, a target and a connection.");
+		}
+	} else if (!body->notes.empty()) {
+		body->opens_at.print_error_header();
+		fatal_error("Only one note is supported per function body for a flux.");
+	} else if (which != 0) {
+		decl->source_loc.print_error_header();
+		fatal_error("For declaration of fluxes that are not boundary fluxes, one must provide only two location arguments of which the second could be a connection.");
 	}
-
+			
 	flux->code_scope = scope->parent_id;
 	
 	return id;

@@ -278,7 +278,9 @@ location_indexes_below_location(Mobius_Model *model, const Var_Location &loc, co
 }
 
 bool
-parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Var_Location &below_loc) {
+parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Var_Location &below_loc,
+	Entity_Id exclude_index_set_from_loc = invalid_entity_id, Entity_Id exclude_index_set_from_var = invalid_entity_id) {
+		
 	auto par = model->parameters[par_id];
 	auto par_comp_id = model->par_groups[par->par_group]->component;
 	// TODO: invalid component should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
@@ -290,7 +292,7 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Va
 	loc.n_components = 1;
 	loc.components[0] = par_comp_id;
 	
-	return location_indexes_below_location(model, loc, below_loc);
+	return location_indexes_below_location(model, loc, below_loc, exclude_index_set_from_loc, exclude_index_set_from_var);
 }
 
 void
@@ -312,15 +314,30 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	
 	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
 	
+	Entity_Id exclude_index_set_from_var = invalid_entity_id;
+	if(var->boundary_type != Boundary_Type::none) {
+		auto connection = connection_of_flux(var);
+		exclude_index_set_from_var = app->connection_components[connection.id][0].index_sets[0];
+	}
+	
 	// TODO: in this error messages we should really print out the two tuples of index sets.
 	for(auto &dep : code_depends.on_parameter) {
-		if(!parameter_indexes_below_location(app->model, dep.par_id, loc)) {
+		// TODO: Factor out
+		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		if(dep.type & Var_Dependency::Type::edge)
+			exclude_index_set_from_loc = app->connection_components[dep.connection.id][0].index_sets[0];
+		
+		if(!parameter_indexes_below_location(app->model, dep.par_id, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the the state variable.");
 		}
 	}
 	for(auto &dep : code_depends.on_series) {
-		if(!location_indexes_below_location(app->model, app->series[dep.var_id]->loc1, loc)) {
+		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		if(dep.type & Var_Dependency::Type::edge)
+			exclude_index_set_from_loc = app->connection_components[dep.connection.id][0].index_sets[0];
+		
+		if(!location_indexes_below_location(app->model, app->series[dep.var_id]->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", app->series[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the state variable.");
 		}
@@ -350,16 +367,9 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		if(dep_var->is_flux() || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
-		// TODO: These exclusions also need to be done for parameters and series
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
 		if(dep.type & Var_Dependency::Type::edge)
 			exclude_index_set_from_loc = app->connection_components[dep.connection.id][0].index_sets[0];
-		
-		Entity_Id exclude_index_set_from_var = invalid_entity_id;
-		if(var->boundary_type != Boundary_Type::none) {
-			auto connection = connection_of_flux(var);
-			exclude_index_set_from_var = app->connection_components[connection.id][0].index_sets[0];
-		}
 		
 		if(!location_indexes_below_location(app->model, dep_var->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -492,41 +502,22 @@ prelim_compose(Model_Application *app) {
 		check_flux_location(app, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
 		
 		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false);
-		
-		// TODO: more functionality for changing around the locs of the boundaries (and also the main when we allow more arguments).
-		auto conn_id = connection_of_flux(app->state_vars[var_id]);
-		if(flux->top_boundary) {
-			if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::grid1d) {
-				flux->top_boundary->source_loc.print_error_header();
-				fatal_error("A top_boundary can only be put on a flux that is on a connection.");
-			}
-			sprintf(varname, "top_boundary(%s)", app->state_vars[var_id]->name.data());
-			auto bound_id = register_state_variable<State_Var::Type::declared>(app, id, false, varname);
-			auto bound = app->state_vars[bound_id];
-			bound->boundary_type = Boundary_Type::top;
-			bound->loc2 = bound->loc1;
-			bound->loc1.type = Var_Location::Type::nowhere;
-		}
-		if(flux->bottom_boundary) {
-			if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::grid1d) {
-				flux->bottom_boundary->source_loc.print_error_header();
-				fatal_error("A bottom_boundary can only be put on a flux that is on a connection.");
-			}
-			sprintf(varname, "bottom_boundary(%s)", app->state_vars[var_id]->name.data());
-			auto bound_id = register_state_variable<State_Var::Type::declared>(app, id, false, varname);
-			auto bound = app->state_vars[bound_id];
-			bound->boundary_type = Boundary_Type::bottom;
-		}
-		
 		auto var = app->state_vars[var_id];
-		if(is_valid(conn_id) && !is_located(var->loc1)) {
-			flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: The source loc is wrong if the connection comes from a redirection.
-			fatal_error("You can't have a flux from nowhere to a connection.\n");
-		}
+		auto conn_id = connection_of_flux(var);
 		
-		// TODO: We should just not register it in the first place (just have to take care of some details above).
-		if(!flux->code)
-			var->flags = (State_Var::Flags)(var->flags | State_Var::Flags::invalid);
+		var->boundary_type = flux->boundary_type;
+		
+		if(flux->boundary_type == Boundary_Type::none) {
+			if(is_valid(conn_id) && !is_located(var->loc1)) {
+				flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: The source loc is wrong if the connection comes from a redirection.
+				fatal_error("You can't have a flux from nowhere to a connection.\n");
+			}
+		} else {
+			if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::grid1d) {
+				flux->code->source_loc.print_error_header();
+				fatal_error("A boundary flux can only be on a grid1d connection.");
+			}
+		}
 	}
 	
 	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
@@ -802,19 +793,10 @@ compose_and_resolve(Model_Application *app) {
 			
 			auto flux_decl = model->fluxes[var2->decl_id];
 			target_was_out = flux_decl->target_was_out;
-			if(var2->boundary_type == Boundary_Type::none)
-				ast = flux_decl->code;
-			else if(var2->boundary_type == Boundary_Type::top)
-				ast = flux_decl->top_boundary;
-			else if(var2->boundary_type == Boundary_Type::bottom)
-				ast = flux_decl->bottom_boundary;
-			else
-				fatal_error(Mobius_Error::internal, "Unsupported boundary type in compose_and_resolve().");
-				
+			ast = flux_decl->code;
+			
 			code_scope = model->get_scope(flux_decl->code_scope);
 			connection = flux_decl->connection_target;
-			
-			// TODO: If it has a top or bottom boundary we could allow a nullptr ast, in which case we should invalidate the var.
 			
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
@@ -960,10 +942,15 @@ compose_and_resolve(Model_Application *app) {
 		
 		auto conn_id = connection_of_flux(var);
 		if(is_valid(conn_id)) {
-			auto loc = is_located(var->loc1) ? var->loc1 : var->loc2; // NOTE: For top_boundary only the target is set.
-			auto conn = model->connections[conn_id];
-			Var_Id source_id = app->state_vars.id_of(loc);
-			may_need_connection_target.insert({conn_id, source_id});
+			Var_Location loc = var->loc1;
+			if(var->boundary_type != Boundary_Type::none)
+				loc = var->loc2; // NOTE: For top_boundary only the target is set.
+			
+			// TODO: Do we need to check that loc *must* be located if this is not a bottom_boundary (or is that taken care of elsewhere?)
+			if(is_located(loc)) {
+				Var_Id target_id = app->state_vars.id_of(loc);
+				may_need_connection_target.insert({conn_id, target_id});
+			}
 		}
 	}
 	
@@ -1058,8 +1045,6 @@ compose_and_resolve(Model_Application *app) {
 			}
 		}
 	}
-	
-
 	
 	// TODO: Should we give an error if there is a connection flux on an overridden variable?
 	

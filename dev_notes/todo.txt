@@ -8,18 +8,19 @@
 
 	Finish connection system
 	
-		in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
-			- always true for grid1d
-			- sometimes true for directed_tree, always false for all_to_all.
-				Thus must be disallowed for those!
-		Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
-			below(itself) would never work, so we can't integrate from the bottom up... (would need reverse connection or special functionality)
-		
-		check_valid_distribution_of_dependencies
-			need to take into account boundary and top(), bottom() directives.
-		
-		Make format for boundary fluxes always be
-			flux(from, to, connection) .top_boundary { ... }
+		grid1d:
+			
+			make bottom_boundary work.
+				Need to either give grid1d connections source aggregates or just subtract from the target aggregate this boundary flux.
+				
+			make boundary fluxes with given sources/targets work.
+	
+			in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
+				- always true for grid1d
+				- sometimes true for directed_tree, always false for all_to_all.
+					Thus must be disallowed for those!
+			Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
+				below(itself) would never work, so we can't integrate from the bottom up... (would need reverse connection or special functionality)
 		
 		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
 			Alternatively just make it possible to have a connection in the opposite direction??
@@ -111,6 +112,8 @@
 			Combine simple sensitivity into the advanced sensitivity setup.
 				Compute statistics of the target stat like variance etc.
 				Allow for 2 parameters, with a surf plot eventually.
+				
+			Checking profile or profile2d will select all the indexes if only one index set is active and only one index is selected.
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
@@ -130,6 +133,12 @@
 	
 	below(val) should not generate an index set dependency if we are inside a top_boundary!!
 			Neither should anything actually. That index set should be removed from the dependencies!
+	
+	check_valid_distribution_of_dependencies
+			need to take into account boundary and top(), bottom() directives.
+		
+	Make format for boundary fluxes always be
+		flux(from, to, connection) .top_boundary { ... }
 	
 	unit checking system
 		Simple part - generate units and scalings for concentrations and fluxes.

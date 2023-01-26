@@ -185,7 +185,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 							if(is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all)
 								continue;
 							
-							auto flux_ref = make_state_var_identifier(flux_id);
+							auto flux_ref = make_state_var_identifier(flux_id);							
 							fun = make_binop('-', fun, flux_ref);
 						}
 						

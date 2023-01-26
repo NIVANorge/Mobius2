@@ -2,13 +2,6 @@
 #ifndef MOBIUS_STATE_VARIABLE_H
 #define MOBIUS_STATE_VARIABLE_H
 
-enum class
-Boundary_Type {
-	none,
-	top,
-	bottom,
-};
-
 struct
 State_Var {
 	

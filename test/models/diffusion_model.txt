@@ -16,14 +16,7 @@ model("Diffusion") {
 		
 		layer.has(o2, [m g, c m-2]) .initial { in_o2 }
 		
-		#top.has(o2, [m g, c m-2]) .initial { 100 }
-		
 		c : connection("Layer connection", grid1d) { layer* }
-		
-		#flux(nowhere, layer.o2, "Input") {
-		#	in_o2 * (1+0.5*sin(time.step * 2.0*pi / 100.0))  if time.step  < 700,
-		#	0                                                otherwise
-		#}
 		
 		z : constant("Layer thickness", [c m], 1)
 		
@@ -32,17 +25,17 @@ model("Diffusion") {
 			d*(o2 - below(o2))/z ->>
 		}
 		
-		flux(layer.o2, c, "Input") .top_boundary {
-			top(dc)*(0.1[m g, c m-2] - top(o2))/z->>
-			#0.01[m g, c m-2, day-1]
-		}
-		
-		
-		#flux(layer.o2, c, "Settling") {
-		#	0.03*o2 if dc > 0,
-		#	0       otherwise
+		#flux(nowhere, layer.o2, c, "Input") .top_boundary {
+		#	top(dc)*(0.1[m g, c m-2] - top(o2))/z->>
 		#}
 		
+		#flux(nowhere, layer.o2, c, "Input") .top_boundary {
+		#	0.01[m g, c m-2, day-1]
+		#}
+		
+		flux(layer.o2, nowhere, c, "Bottom input") .bottom_boundary {
+			-0.01[m g, c m-2, day-1]
+		}
 	}
 	
 	# sc : module("Simple source", 1, 0, 0) {

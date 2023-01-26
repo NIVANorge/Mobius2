@@ -697,6 +697,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				if(var_flux->boundary_type == Boundary_Type::top)
 					flux_loc = var_flux->loc2;
 				
+				if(var_flux->boundary_type == Boundary_Type::bottom && !is_located(var_flux->loc2))
+					continue;
+				
 				if(var2->is_source) {
 					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != var2->agg_for)
 						continue;

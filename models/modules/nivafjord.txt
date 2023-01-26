@@ -143,16 +143,16 @@ module("NIVAFjord", 0, 0, 1) {
 		emissivity * black_body_radiation(top(vert, layer.water.temp)->[K])
 	}
 
-	flux(layer.water.heat, vert, "Net longwave") .top_boundary {
+	flux(nowhere, layer.water.heat, vert, "Net longwave") .top_boundary {
 		top(A) * (air.lwd - arm.lwu) ->>
 	}
 	
-	flux(layer.water.heat, vert, "Latent heat flux") .top_boundary {
+	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top_boundary {
 		l_vap := latent_heat_of_vaporization(top(temp))
 		top(A) * (arm.ced * l_vap * air.dens * air.wind * (air.a_hum - arm.s_hum)) ->>
 	}
 	
-	flux(layer.water.heat, vert, "Sensible heat flux") .top_boundary {
+	flux(nowhere, layer.water.heat, vert, "Sensible heat flux") .top_boundary {
 		top(A) * (arm.chd * C_air * air.dens * air.wind * (air.temp->[K] - top(temp)->[K])) ->>
 	}
 	
@@ -162,7 +162,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	sw_vert : connection("Shortwave vertical", grid1d) { layer* }
 	
-	flux(layer.water.heat, sw_vert, "Net shortwave") .top_boundary {
+	flux(nowhere, layer.water.heat, sw_vert, "Net shortwave") .top_boundary {
 		albedo := 0.045
 		top(A) * (1 - albedo) * air.g_rad ->>
 	}

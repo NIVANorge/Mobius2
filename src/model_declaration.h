@@ -184,10 +184,10 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	bool no_carry_by_default;
 	
 	Math_Block_AST  *code;
-	Math_Block_AST  *top_boundary, *bottom_boundary;
+	Boundary_Type    boundary_type;
 	Entity_Id        code_scope;
 	
-	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr), top_boundary(nullptr), bottom_boundary(nullptr), no_carry_by_default(false) {}
+	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr), boundary_type(Boundary_Type::none), no_carry_by_default(false) {}
 };
 
 enum class
