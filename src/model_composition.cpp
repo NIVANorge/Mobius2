@@ -247,7 +247,8 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 }
 
 bool
-location_indexes_below_location(Mobius_Model *model, const Var_Location &loc, const Var_Location &below_loc) {
+location_indexes_below_location(Mobius_Model *model, const Var_Location &loc, const Var_Location &below_loc, 
+	Entity_Id exclude_index_set_from_loc = invalid_entity_id, Entity_Id exclude_index_set_from_var = invalid_entity_id) {
 	
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
@@ -256,7 +257,12 @@ location_indexes_below_location(Mobius_Model *model, const Var_Location &loc, co
 		for(auto index_set : model->components[loc.components[idx1]]->index_sets) {
 			bool found = false;
 			for(auto idx2 = 0; idx2 < below_loc.n_components; ++idx2) {
+				if(index_set == exclude_index_set_from_loc) { // We don't care if the loc has this index_set.
+					found = true;
+					break;
+				}
 				for(auto index_set2 : model->components[below_loc.components[idx2]]->index_sets) {
+					if(index_set2 == exclude_index_set_from_var) continue;
 					if(index_set == index_set2) {
 						found = true;
 						break;
@@ -307,20 +313,20 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
 	
 	// TODO: in this error messages we should really print out the two tuples of index sets.
-	for(auto par_id : code_depends.on_parameter) {
-		if(!parameter_indexes_below_location(app->model, par_id, loc)) {
+	for(auto &dep : code_depends.on_parameter) {
+		if(!parameter_indexes_below_location(app->model, dep.par_id, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", app->model->parameters[par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the the state variable.");
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the the state variable.");
 		}
 	}
-	for(auto series_id : code_depends.on_series) {
-		if(!location_indexes_below_location(app->model, app->series[series_id]->loc1, loc)) {
+	for(auto &dep : code_depends.on_series) {
+		if(!location_indexes_below_location(app->model, app->series[dep.var_id]->loc1, loc)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", app->series[series_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the state variable.");
+			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", app->series[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the state variable.");
 		}
 	}
 	
-	for(auto dep : code_depends.on_state_var) {
+	for(auto &dep : code_depends.on_state_var) {
 		auto dep_var = app->state_vars[dep.var_id];
 		
 		// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
@@ -344,7 +350,18 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		if(dep_var->is_flux() || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
-		if(!location_indexes_below_location(app->model, dep_var->loc1, loc)) {
+		// TODO: These exclusions also need to be done for parameters and series
+		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		if(dep.type & Var_Dependency::Type::edge)
+			exclude_index_set_from_loc = app->connection_components[dep.connection.id][0].index_sets[0];
+		
+		Entity_Id exclude_index_set_from_var = invalid_entity_id;
+		if(var->boundary_type != Boundary_Type::none) {
+			auto connection = connection_of_flux(var);
+			exclude_index_set_from_var = app->connection_components[connection.id][0].index_sets[0];
+		}
+		
+		if(!location_indexes_below_location(app->model, dep_var->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(err_begin, var->name, "\" looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the the prior.");
 		}

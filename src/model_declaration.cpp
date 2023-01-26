@@ -8,6 +8,10 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 		#include "decl_types.incl"
 		#undef ENUM_VALUE
 		
+		#define ENUM_VALUE(name) #name,
+		#include "special_directives.incl"
+		#undef ENUM_VALUE
+		
 		#include "other_reserved.incl"
 	};
 	

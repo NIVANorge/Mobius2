@@ -33,7 +33,8 @@ model("Diffusion") {
 		}
 		
 		flux(layer.o2, c, "Input") .top_boundary {
-			below(dc)*(0.1[m g, c m-2] - below(o2))/z->>
+			top(dc)*(0.1[m g, c m-2] - top(o2))/z->>
+			#0.01[m g, c m-2, day-1]
 		}
 		
 		

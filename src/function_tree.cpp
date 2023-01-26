@@ -569,6 +569,125 @@ check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &u
 	}
 }
 
+enum class Directive {
+	none = 0,
+	#define ENUM_VALUE(name) name,
+	#include "special_directives.incl"
+	#undef ENUM_VALUE
+};
+
+Directive
+get_special_directive(const std::string &name) {
+	Directive result = Directive::none;
+	if(false) {}
+	#define ENUM_VALUE(h) else if(#h == name) result = Directive::h;
+	#include "special_directives.incl"
+	#undef ENUM_VALUE
+	
+	return result;
+}
+
+Function_Resolve_Result
+resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::string &fun_name, Function_Resolve_Data *data, Function_Scope *scope) {
+	Function_Resolve_Result result;
+	
+	if(data->simplified) {
+		ast->source_loc.print_error_header();
+		error_print("The expression '", fun_name, "' is not available in this context.");
+		fatal_error_trace(scope);
+	}
+	auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
+	std::vector<Standardized_Unit> arg_units;
+	resolve_arguments(new_fun, ast, data, scope, arg_units);
+	int allowed_arg_count = 1;
+	if(directive == Directive::below || directive == Directive::above || directive == Directive::top || directive == Directive::bottom || directive == Directive::in_flux)
+		allowed_arg_count = 2;
+	int arg_count = new_fun->exprs.size();
+	if(arg_count == 0 || arg_count > allowed_arg_count) {
+		ast->source_loc.print_error_header();
+		error_print("A ", fun_name, "() declaration only takes one argument.\n");
+		fatal_error_trace(scope);
+	}
+	int var_idx = arg_count == 1 ? 0 : 1;
+	if(new_fun->exprs[var_idx]->expr_type != Math_Expr_Type::identifier_chain) {
+		new_fun->exprs[var_idx]->source_loc.print_error_header();
+		error_print("A ", fun_name, "() declaration can only be applied to a state variable or input series.\n");
+		fatal_error_trace(scope);
+	}
+	auto var = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
+	bool can_series = (directive != Directive::in_flux) && (directive != Directive::conc);
+	bool can_param  = (directive == Directive::below || directive == Directive::above || directive == Directive::top || directive == Directive::bottom);
+	if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series) || (can_param && var->variable_type == Variable_Type::parameter))) {
+		var->source_loc.print_error_header();
+		error_print("A ", fun_name, "() declaration can only be applied to a state variable");
+		if(can_series) error_print(" or input series");
+		if(can_param)  error_print(" or parameter");
+		error_print(".\n");
+		fatal_error_trace(scope);
+	}
+	if(directive == Directive::last)
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::last_result);
+	else if(directive == Directive::in_flux)
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::in_flux);
+	else if(directive == Directive::aggregate)
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::aggregate);
+	else if(directive == Directive::conc)
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::conc);
+	else if(directive == Directive::below)
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
+	else if(directive == Directive::above) {
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
+		var->is_above = true;
+	} else if(directive == Directive::bottom)
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::top_bottom);
+	else if(directive == Directive::top) {
+		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::top_bottom);
+		var->is_above = true;
+	}
+	
+	if(directive == Directive::below || directive == Directive::above || directive == Directive::top || directive == Directive::bottom || directive == Directive::in_flux) {
+		if(arg_count == 2) {
+			bool error = false;
+			if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) error = true;
+			else {
+				auto ident = static_cast<Identifier_FT *>(new_fun->exprs[0]);
+				if(ident->variable_type != Variable_Type::connection) error = true;
+				else {
+					var->connection = ident->connection;
+					delete ident;
+				}
+			}
+			if(error) {
+				new_fun->exprs[0]->source_loc.print_error_header();
+				error_print("Expected a connection identifer.\n");
+				fatal_error_trace(scope);
+			}
+		} else if (directive != Directive::in_flux) {
+			if(!is_valid(data->connection)) {
+				new_fun->source_loc.print_error_header();
+				error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the '", fun_name, "' expression.");
+				fatal_error_trace(scope);
+			}
+			var->connection = data->connection;
+		}
+	}
+	
+	new_fun->exprs.clear();
+	delete new_fun;
+	
+	result.fun = var;
+	if(directive == Directive::in_flux) {
+		result.unit = multiply(arg_units[var_idx], data->app->time_step_unit.standard_form, -1);
+	} else if(directive == Directive::conc) {
+		auto conc_id = as<State_Var::Type::declared>(data->app->state_vars[var->state_var])->conc;
+		result.unit = data->app->state_vars[conc_id]->unit.standard_form;
+	} else
+		result.unit = std::move(arg_units[var_idx]);
+	
+	return result;
+}
+
+
 Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
 	Function_Resolve_Result result = { nullptr, {}};
@@ -636,7 +755,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				found = true;
 			}
 			
-			if(!found && data->simplified) {  
+			if(!found && data->simplified) {
 				if(chain_size != 1) {
 					ident->chain[0].print_error_header();
 					fatal_error("Unable to resolve expressions with .'s in this context.");
@@ -800,92 +919,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::string fun_name = fun->name.string_value;
 			
 			// First check for "special" calls that are not really function calls.
-			if(fun_name == "last" || fun_name == "in_flux" || fun_name == "aggregate" || fun_name == "conc" || fun_name == "below" || fun_name == "above") {
-				if(data->simplified) {
-					fun->source_loc.print_error_header();
-					fatal_error("The expression '", fun_name, "' is not available in this context.");
-				}
-				auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
-				std::vector<Standardized_Unit> arg_units;
-				resolve_arguments(new_fun, ast, data, scope, arg_units);
-				int allowed_arg_count = 1;
-				if(fun_name == "below" || fun_name == "above" || fun_name == "in_flux") allowed_arg_count = 2;
-				int arg_count = new_fun->exprs.size();
-				if(arg_count == 0 || arg_count > allowed_arg_count) {
-					fun->name.print_error_header();
-					error_print("A ", fun_name, "() declaration only takes one argument.\n");
-					fatal_error_trace(scope);
-				}
-				int var_idx = arg_count == 1 ? 0 : 1;
-				if(new_fun->exprs[var_idx]->expr_type != Math_Expr_Type::identifier_chain) {
-					new_fun->exprs[var_idx]->source_loc.print_error_header();
-					error_print("A ", fun_name, "() declaration can only be applied to a state variable or input series.\n");
-					fatal_error_trace(scope);
-				}
-				auto var = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
-				bool can_series = (fun_name != "in_flux") && (fun_name != "conc");
-				bool can_param  = (fun_name == "below" || fun_name == "above");
-				if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series) || (can_param && var->variable_type == Variable_Type::parameter))) {
-					var->source_loc.print_error_header();
-					error_print("A ", fun_name, "() declaration can only be applied to a state variable");
-					if(can_series) error_print(" or input series");
-					if(can_param)  error_print(" or parameter");
-					error_print(".\n");
-					fatal_error_trace(scope);
-				}
-				if(fun_name == "last")
-					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::last_result);
-				else if(fun_name == "in_flux")
-					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::in_flux);
-				else if(fun_name == "aggregate")
-					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::aggregate);
-				else if(fun_name == "conc")
-					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::conc);
-				else if(fun_name == "below")
-					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
-				else if(fun_name == "above") {
-					var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
-					var->is_above = true;
-				}
-				
-				if(fun_name == "below" || fun_name == "above" || fun_name == "in_flux") {
-					if(arg_count == 2) {
-						bool error = false;
-						if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) error = true;
-						else {
-							auto ident = static_cast<Identifier_FT *>(new_fun->exprs[0]);
-							if(ident->variable_type != Variable_Type::connection) error = true;
-							else {
-								var->connection = ident->connection;
-								delete ident;
-							}
-						}
-						if(error) {
-							new_fun->exprs[0]->source_loc.print_error_header();
-							error_print("Expected a connection identifer.\n");
-							fatal_error_trace(scope);
-						}
-					} else if (fun_name == "below" || fun_name == "above") {
-						if(!is_valid(data->connection)) {
-							new_fun->source_loc.print_error_header();
-							error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the '", fun_name, "' expression.");
-							fatal_error_trace(scope);
-						}
-						var->connection = data->connection;
-					}
-				}
-				
-				new_fun->exprs.clear();
-				delete new_fun;
-				
-				result.fun = var;
-				if(fun_name == "in_flux") {
-					result.unit = multiply(arg_units[var_idx], app->time_step_unit.standard_form, -1);
-				} else if( fun_name == "conc") {
-					auto conc_id = as<State_Var::Type::declared>(data->app->state_vars[var->state_var])->conc;
-					result.unit = data->app->state_vars[conc_id]->unit.standard_form;
-				} else
-					result.unit = std::move(arg_units[var_idx]);
+			auto directive = get_special_directive(fun_name);
+			if(directive != Directive::none) {
+				result = resolve_special_directive(ast, directive, fun_name, data, scope);
 			} else {
 				// Otherwise it should have been registered as an entity.
 
@@ -1465,7 +1501,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				
 				// If this clause is constantly false, or a previous one was true, delete the value.
 				// If this clause was true, this value becomes the 'otherwise'. Only delete clause, not value.
-				if(is_false || found_true)     
+				if(is_false || found_true)
 					delete expr->exprs[idx];
 				else
 					remains.push_back(expr->exprs[idx]);
@@ -1515,21 +1551,32 @@ void
 register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 	for(auto arg : expr->exprs) register_dependencies(arg, depends);
 	
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
-		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::parameter)
-			depends->on_parameter.insert(ident->parameter);
-		else if(ident->variable_type == Variable_Type::state_var) {
-			State_Var_Dependency dep {State_Var_Dependency::Type::none, ident->state_var};
-			if(ident->flags & Identifier_FT::Flags::last_result)
-				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::earlier_step);
-			if(ident->flags & Identifier_FT::Flags::below_above)
-				dep.type = (State_Var_Dependency::Type)(dep.type | State_Var_Dependency::Type::across);
-			
-			depends->on_state_var.insert(dep);
-		}
-		else if(ident->variable_type == Variable_Type::series)
-			depends->on_series.insert(ident->series);
+	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
+	auto ident = static_cast<Identifier_FT *>(expr);
+	
+	Var_Dependency dep;
+	dep.type = Var_Dependency::Type::none;
+	dep.connection = invalid_entity_id;
+	
+	if(ident->flags & Identifier_FT::Flags::below_above) {
+		dep.type = (Var_Dependency::Type)(dep.type | Var_Dependency::Type::across);
+		dep.connection = ident->connection;
+	} else if(ident->flags & Identifier_FT::Flags::top_bottom) {
+		dep.type = (Var_Dependency::Type)(dep.type | Var_Dependency::Type::edge);
+		dep.connection = ident->connection;
+	}
+
+	if(ident->variable_type == Variable_Type::parameter) {
+		dep.par_id = ident->parameter;
+		depends->on_parameter.insert(dep);
+	} else if(ident->variable_type == Variable_Type::state_var) {
+		dep.var_id = ident->state_var;
+		if(ident->flags & Identifier_FT::Flags::last_result)
+			dep.type = (Var_Dependency::Type)(dep.type | Var_Dependency::Type::earlier_step);
+		depends->on_state_var.insert(dep);
+	} else if(ident->variable_type == Variable_Type::series) {
+		dep.var_id = ident->series;
+		depends->on_series.insert(dep);
 	}
 }
 

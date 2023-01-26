@@ -1,4 +1,6 @@
 
+	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
+		Seriously!
 
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all and grid1d).
@@ -10,37 +12,32 @@
 			- always true for grid1d
 			- sometimes true for directed_tree, always false for all_to_all.
 				Thus must be disallowed for those!
-	
-		inside top_boundary flux from (nowhere -> connected quantity): If we reference something in the target connection without using below() we get indexing errors
-			Either disallow it.
-			Or make it set the index correctly for that index set to 0.
-	
-		target(property)   --- Needs to be on separate for loop to property!! (is_blocking)
+		Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
+			below(itself) would never work, so we can't integrate from the bottom up... (would need reverse connection or special functionality)
+		
+		check_valid_distribution_of_dependencies
+			need to take into account boundary and top(), bottom() directives.
+		
+		Make format for boundary fluxes always be
+			flux(from, to, connection) .top_boundary { ... }
 		
 		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
 			Alternatively just make it possible to have a connection in the opposite direction??
 			
-		
 		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
+			Just wait to see if there are problems?
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
-		Finish regex checks.
-			
-		boundary conditions
-			goes for most of the types. For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
-			In grid1d, could have wrap-arounds, or could have special values for the boundary (maybe even dynamic)
-				similar for graph when that exists.
+		Finish regex checks.	
 			
 		graph connections
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 	
-	Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
-		Also only one matrix indexing for a given state variable (at least for now)
-		The challenge is providing good error messages.
-	ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
-	
-	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
-		Seriously!
+		Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
+			Also only one matrix indexing for a given state variable (at least for now)
+			The challenge is providing good error messages.
+		ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
+
 	
 	*** Intermediate-pri ***
 
@@ -118,10 +115,18 @@
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
 		
+		boundary conditions for other types of connections (not grid1d)
+			For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
+			similar for graph when that exists.
+		In grid1d, could have wrap-around boundary (?), or could have special values for the boundary (maybe even dynamic)
+			
 		
 		emulate_expression() is broken, at least for entire model runs.
 		
 	*****************   DONE:   ***********************
+	
+	Make something like top() accessor top(layer.water.temp) etc. (And bottom?)
+			Makes it unnecessary to have above and below in boundary fluxes, so we could disallow that also? Could make some things easier.
 	
 	below(val) should not generate an index set dependency if we are inside a top_boundary!!
 			Neither should anything actually. That index set should be removed from the dependencies!
@@ -140,6 +145,8 @@
 		lake vs. river
 	
 	multiple connections per variable
+	
+	target(property)   --- Needs to be on separate for loop to property!! (is_blocking)
 	
 	'target' value fetching inside flux body (only for all-to-all and grid1d connection fluxes so far).
 	integer indexed index sets.

@@ -15,7 +15,7 @@ par_group("System") {
 	[ 1980-01-01 ]
 
 	par_datetime("End date")
-	[ 1982-12-31 ]
+	[ 1983-12-31 ]
 }
 
 module("NIVAFjord", 0, 0, 1) {
@@ -41,7 +41,10 @@ module("NIVAFjord", 0, 0, 1) {
 		[ 1.4 ]
 
 		par_real("Minimum B-V frequency")
-		[ 0.004 ]
+		[ 0.001 ]
+
+		par_real("Diffuse attenuation coefficent (clear water)")
+		[ 0.2 ]
 	}
 }
 

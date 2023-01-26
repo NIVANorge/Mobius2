@@ -35,13 +35,14 @@ struct
 Identifier_FT : Math_Expr_FT {
 
 	Variable_Type                variable_type;
-	enum Flags : u32 {
+	enum Flags : u32 {      //Hmm why not just reuse the Directive type for this somehow?
 		none        = 0x0,
 		last_result = 0x1,
 		in_flux     = 0x2,
 		aggregate   = 0x4,
 		conc        = 0x8,
 		below_above = 0x10,
+		top_bottom  = 0x20,
 	}                            flags;
 	union {
 		Entity_Id                parameter;
@@ -90,25 +91,30 @@ Local_Var_FT : Math_Expr_FT {
 };
 
 struct
-State_Var_Dependency {
+Var_Dependency {
 	enum Type : u32 {
-		none =         0x0,
+		none         = 0x0,
 		earlier_step = 0x1,
 		across       = 0x2,
+		edge         = 0x4,
 	}                 type;
-	Var_Id            var_id;
+	union {
+		Var_Id            var_id;
+		Entity_Id         par_id;
+	};
+	Entity_Id         connection; // If it is across or edge.
 };
 
-inline bool operator<(const State_Var_Dependency &a, const State_Var_Dependency &b) {
+inline bool operator<(const Var_Dependency &a, const Var_Dependency &b) {
 	if(a.var_id == b.var_id) return (u32)a.type < (u32)b.type;
 	return a.var_id.id < b.var_id.id;
 }
 
 struct
 Dependency_Set {
-	std::set<Entity_Id>             on_parameter;
-	std::set<Var_Id>                on_series;
-	std::set<State_Var_Dependency>  on_state_var;
+	std::set<Var_Dependency>  on_parameter;
+	std::set<Var_Dependency>  on_series;
+	std::set<Var_Dependency>  on_state_var;
 };
 
 struct Model_Application;

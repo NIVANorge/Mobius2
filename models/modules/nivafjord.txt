@@ -38,13 +38,19 @@ module("NIVAFjord", 0, 0, 1) {
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
 		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the frequency reference")
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
+		attn0  : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
 	}
 	
-	layer.has(z : property("Thickness"), [m]) {
+	layer.has(dz : property("Thickness"), [m]) {
 		1[m]   # Will be dynamic eventually
 	} .initial { 1[m] }
 	
-	layer.has(water, [k g], "Layer water") .initial { A*z*rho_water }   #TODO: temperature adjust
+	# TODO: Fix this!
+	layer.has(z : property("Depth"), [m]) {
+		above(vert, z) + above(vert, dz)
+	}
+	
+	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water }   #TODO: temperature adjust
 	
 	layer.water.has(salt, [k g], [g, k g-1], "Layer salt") .initial_conc { init_S }
 	
@@ -60,37 +66,36 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	layer.water.has(ddens : property("d(dens)/dz"), [k g, m-4]) {
-		dz := 0.5*(z + below(vert, z))
-		(dens - below(vert, dens)) / dz
+		mdz := 0.5*(dz + below(vert, dz))
+		(below(vert, dens)-dens) / mdz
+		#(below(vert, dens)-above(vert, dens))/dz
 	}
 	
-	layer.water.has(Kdiff : property("Mixing coefficient"), [m 2, s-1]) {
-		dz := 0.5*(z + below(vert, z))
-		ddens := (below(vert, dens) - dens) / dz
+	layer.water.has(Kt : property("Tide wave mixing coefficient"), [m 2, s-1]) {
 		N2 := grav * ddens / dens
 		N := sqrt(max(Nmin^2, N2))
 		K0 * (N/N0)^(-alpha)
 	}
 	
-	layer.water.has(wmix : property("Water turbulent mixing"), [k g, day-1]) {
+	layer.water.has(wmix : property("Water mixing"), [k g, day-1]) {
 		# TODO: Is it necessary to do the means here??
 		#Kd := 0.5*(Kdiff + below(vert, Kdiff))
-		#dz := 0.5*(z + below(vert, z))
+		#mdz := 0.5*(z + below(vert, z))
 		#a :=  0.5*(A + below(vert, A))
 		#rho := 0.5*(dens + below(vert, dens))
-		#rho * a * Kd / dz ->>
-		dens * A * Kdiff / z ->>
+		#rho * a * Kd / mdz ->>
+		dens * A * Kt / dz ->>
 	}
 	
 	# Negative fluxes don't work properly for dissolved ones... TODO: Fix!
 	#flux(layer.water, vert, "Turbulent mixing down") { wmix }
 	#flux(layer.water, vert, "Turbulent mixing up") { -wmix }
 	
-	flux(layer.water.heat, vert, "Temperature turbulent mixing") {
+	flux(layer.water.heat, vert, "Temperature mixing") {
 		wmix * (conc(heat) - below(conc(heat)))
 	}
 	
-	flux(layer.water.salt, vert, "Salt turbulent mixing") {
+	flux(layer.water.salt, vert, "Salt mixing") {
 		wmix * (conc(salt) - below(conc(salt))) ->>
 	}
 	
@@ -99,18 +104,15 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	#TODO: Some of this stuff should be in atmospheric module and be reused between nivafjord and easylake (and maybe pet)
 	
-	# again, need to access surface temperature
-	#arm.has(stab : property("Surface stability"), []) {
-	#	surface_stability(air.wind, water.temp, air.temp)
-	#}
+	arm.has(stab : property("Surface stability"), []) {
+		surface_stability(air.wind, top(vert, layer.water.temp), air.temp)
+	}
 	
 	arm.has(ced : property("Transfer coefficient for latent heat flux"), []) {
-		stab := 1 #TODO!
 		tc_latent_heat(air.wind, stab)
 	}
 	
 	arm.has(chd : property("Transfer coefficent for sensible heat flux"), []) {
-		stab := 1 #TODO!
 		tc_sensible_heat(air.wind, stab)
 	}
 	
@@ -119,11 +121,10 @@ module("NIVAFjord", 0, 0, 1) {
 		air.r_hum * 0.01 * svap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
 	}
 	
-	# Hmm, doesn't work, need to access temperature of top layer from without it.
-	#arm.has(s_hum : property("Saturation specific humidity"), []) {
-	#	svap := saturation_vapor_pressure_lowe(water.temp)
-	#	specific_humidity_from_pressure(air.pressure, svap)
-	#}
+	arm.has(s_hum : property("Saturation specific humidity"), []) {
+		svap := saturation_vapor_pressure_lowe(top(vert, layer.water.temp))
+		specific_humidity_from_pressure(air.pressure, svap)
+	}
 	
 	air.has(a_hum : property("Actual specific humidity"), []) {
 		specific_humidity_from_pressure(air.pressure, air.a_vap)
@@ -133,51 +134,41 @@ module("NIVAFjord", 0, 0, 1) {
 		air_density(temp, pressure, a_vap)
 	}
 	
-	#TODO: Move some radiation stuff into a radiation module
 	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
 		downwelling_longwave(air.temp, a_vap, cloud)
 	}
 	
+	arm.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
+		emissivity := 0.98
+		emissivity * black_body_radiation(top(vert, layer.water.temp)->[K])
+	}
+
 	flux(layer.water.heat, vert, "Net longwave") .top_boundary {
-		#TODO: Find a way to make lwu a property
-		lwu := {
-			emissivity := 0.98
-			emissivity * black_body_radiation(below(temp)->[K])
-		}
-		(air.lwd - lwu)*below(A) ->>
+		top(A) * (air.lwd - arm.lwu) ->>
 	}
 	
 	flux(layer.water.heat, vert, "Latent heat flux") .top_boundary {
-		# TODO: Find a way to make s_hum a property
-		s_hum := {
-			svap := saturation_vapor_pressure_lowe(below(temp))
-			specific_humidity_from_pressure(air.pressure, svap)
-		}
-	
-		l_vap := latent_heat_of_vaporization(below(temp))
-		below(A) * (arm.ced * l_vap * air.dens * air.wind * (air.a_hum - s_hum)) ->>
+		l_vap := latent_heat_of_vaporization(top(temp))
+		top(A) * (arm.ced * l_vap * air.dens * air.wind * (air.a_hum - arm.s_hum)) ->>
 	}
 	
 	flux(layer.water.heat, vert, "Sensible heat flux") .top_boundary {
-		below(A) * (arm.chd * C_air * air.dens * air.wind * (air.temp->[K] - below(temp)->[K])) ->>
+		top(A) * (arm.chd * C_air * air.dens * air.wind * (air.temp->[K] - top(temp)->[K])) ->>
 	}
 	
+	layer.water.has(attn : property("Diffuse attenuation coefficent"), [m-1]) {
+		attn0  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.
+	}
 	
 	sw_vert : connection("Shortwave vertical", grid1d) { layer* }
 	
 	flux(layer.water.heat, sw_vert, "Net shortwave") .top_boundary {
 		albedo := 0.045
-		below(A) * (1 - albedo) * air.g_rad ->>
+		top(A) * (1 - albedo) * air.g_rad ->>
 	}
-	
-	
-	layer.water.has(attn : property("Diffuse attenuation coefficent"), [m-1]) {
-		0.5[m-1]  #TODO
-	}
-	
 	
 	flux(layer.water.heat, sw_vert, "Shortwave shine-through") {
-		in_flux(sw_vert, heat) * exp(-attn*z)
+		in_flux(sw_vert, heat) * exp(-attn*dz)
 	}
 	
 }

@@ -122,6 +122,53 @@ insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_
 }
 
 void
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Var_Dependency &dep, int type) {
+	
+	const std::vector<Entity_Id> *index_sets = nullptr;
+	if(type == 0)
+		index_sets = &app->parameter_structure.get_index_sets(dep.par_id);
+	else if(type == 1)
+		index_sets = &app->series_structure.get_index_sets(dep.var_id);
+	else
+		fatal_error(Mobius_Error::internal, "Misuse of insert_dependencies().");
+	
+	Entity_Id avoid = invalid_entity_id;
+	if(dep.type & Var_Dependency::Type::edge)
+		avoid = app->connection_components[dep.connection.id][0].index_sets[0]; // TODO Make a utility function for this lookup? It is done a lot!
+	
+	int sz = index_sets->size();
+	int idx = 0;
+	for(auto index_set : *index_sets) {
+		
+		if(index_set == avoid) continue;
+		// NOTE: Specialized logic to handle if a parameter is indexing over the same index set twice.
+		//   Currently we only support this for the two last index sets being the same.
+		if(idx == sz-2 && index_set == (*index_sets)[sz-1]) {
+			insert_dependency(dependencies, {index_set, 2});
+			break;
+		} else {
+			insert_dependency(dependencies, index_set);
+		}
+		++idx;
+	}
+}
+
+bool
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, std::set<Index_Set_Dependency> &to_insert, const Var_Dependency &dep) {
+	Entity_Id avoid = invalid_entity_id;
+	if(dep.type & Var_Dependency::Type::edge)
+		avoid = app->connection_components[dep.connection.id][0].index_sets[0]; // TODO Make a utility function for this lookup? It is done a lot!
+	
+	bool changed = false;
+	for(auto index_set_dep : to_insert) {
+		if(index_set_dep.id == avoid) continue;
+		
+		changed = changed || insert_dependency(dependencies, index_set_dep);
+	}
+	return changed;
+}
+
+void
 resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
 	Mobius_Model *model = app->model;
@@ -148,42 +195,35 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 				auto var2 = as<State_Var::Type::declared>(app->state_vars[quant_id]);
 				for(auto agg_id : var2->conn_target_aggs) {
 					if(as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id])->connection == conn) // Do we need this check?
-						code_depends.on_state_var.erase({State_Var_Dependency::none, agg_id});
+						code_depends.on_state_var.erase({Var_Dependency::none, agg_id});
 				}
 			}
 		}
 		
-		
-		for(auto par_id : code_depends.on_parameter) {
-			auto index_sets = app->parameter_structure.get_index_sets(par_id);
-			
-			// NOTE: Specialized logic to handle if a parameter is indexing over the same index set twice.
-			//   Currently we only support this for the two last index sets being the same.
-			int sz = (int)index_sets.size();
-			if(sz >= 2 && index_sets[sz-2] == index_sets[sz-1]) {
-				for(int idx = 0; idx < sz-2; ++idx)
-					instr.index_sets.insert(index_sets[idx]);
-				instr.index_sets.insert({index_sets[sz-1], 2}); // Order 2 dependency.
-			} else
-				instr.index_sets.insert(index_sets.begin(), index_sets.end());
+		for(auto &dep : code_depends.on_parameter) {
+			insert_dependencies(app, instr.index_sets, dep, 0);
 		}
-		for(auto series_id : code_depends.on_series) { // TODO: Should we support matrices here too (?)
-			auto index_sets = app->series_structure.get_index_sets(series_id);
-			instr.index_sets.insert(index_sets.begin(), index_sets.end());
+		for(auto &dep : code_depends.on_series) {
+			insert_dependencies(app, instr.index_sets, dep, 1);
 		}
 		
-		for(auto dep : code_depends.on_state_var) {
+		for(auto &dep : code_depends.on_state_var) {
 			
-			if(!(dep.type & State_Var_Dependency::Type::earlier_step))
+			if(dep.type & Var_Dependency::Type::across) {
+				instr.instruction_is_blocking.insert(dep.var_id.id); // This should only be needed if is_below??
+				//TODO: This should probably be different. Across-dependencies should instead be put on their own array and be used differently in sorting.
+				if(instr.type != Model_Instruction::Type::compute_state_var || instr.var_id != dep.var_id)
+					instr.depends_on_instruction.insert(dep.var_id.id);
+				
+				// Ugh, this is a bit hacky. Could it be improved?
+				if(instr.type == Model_Instruction::Type::compute_state_var) {
+					auto index_set = app->connection_components[dep.connection.id][0].index_sets[0];
+					instr.index_sets.insert(index_set);
+				}
+			} else if(!(dep.type & Var_Dependency::Type::earlier_step))
 				instr.depends_on_instruction.insert(dep.var_id.id);
-			if(dep.type & State_Var_Dependency::Type::across)
-				instr.instruction_is_blocking.insert(dep.var_id.id);
-			instr.inherits_index_sets_from_instruction.insert(dep.var_id.id);
 		}
-		
-		for(auto index_set : instr.excluded_index_sets) { // Hmm, not the best way to do it, but tricky without c++20
-			instr.index_sets.erase({index_set, 1});
-		}
+		instr.inherits_index_sets_from_state_var = code_depends.on_state_var;
 	}
 	
 	// Let index set dependencies propagate from state variable to state variable. (For instance if a looks up the value of b, a needs to be indexed over (at least) the same index sets as b. This could propagate down a long chain of dependencies, so we have to keep iterating until nothing changes.
@@ -196,13 +236,14 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 			for(int dep : instr.inherits_index_sets_from_instruction) {
 				auto &dep_idx = instructions[dep].index_sets;
 				for(auto &dep_idx_set : dep_idx) {
-					// Hmm, not sure how efficient this is since it is a very rare case..
-					if(std::find(instr.excluded_index_sets.begin(), instr.excluded_index_sets.end(), dep_idx_set.id) == instr.excluded_index_sets.end()) {
-						if(insert_dependency(instr.index_sets, dep_idx_set))
-							changed = true;
-					}
-					
+					if(insert_dependency(instr.index_sets, dep_idx_set))
+						changed = true;
 				}
+			}
+			for(auto &dep : instr.inherits_index_sets_from_state_var) {
+				auto &dep_idx = instructions[dep.var_id.id].index_sets;
+				if(insert_dependencies(app, instr.index_sets, dep_idx, dep))
+					changed = true;
 			}
 		}
 		
@@ -741,10 +782,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						if(var_flux->boundary_type == Boundary_Type::none) {
 							add_to_aggr_instr->index_sets.insert(index_set);
 							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
-						} else {
-							add_to_aggr_instr->excluded_index_sets.insert(index_set);
-							instructions[var_id_flux.id].excluded_index_sets.insert(index_set);
-						}
+						} //else {
+							//add_to_aggr_instr->excluded_index_sets.insert(index_set);
+							//instructions[var_id_flux.id].excluded_index_sets.insert(index_set);
+						//}
 						//warning_print("***** Generating aggregation instruction for ", var_flux->name, ". Index set is ", model->index_sets[index_set]->name, "\n");
 					}
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
