@@ -317,7 +317,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	Entity_Id exclude_index_set_from_var = invalid_entity_id;
 	if(var->boundary_type != Boundary_Type::none) {
 		auto connection = connection_of_flux(var);
-		exclude_index_set_from_var = app->connection_components[connection.id][0].index_sets[0];
+		exclude_index_set_from_var = app->get_single_connection_index_set(connection);
 	}
 	
 	// TODO: in this error messages we should really print out the two tuples of index sets.
@@ -325,7 +325,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		// TODO: Factor out
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
 		if(dep.type & Var_Dependency::Type::edge)
-			exclude_index_set_from_loc = app->connection_components[dep.connection.id][0].index_sets[0];
+			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		
 		if(!parameter_indexes_below_location(app->model, dep.par_id, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -335,7 +335,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	for(auto &dep : code_depends.on_series) {
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
 		if(dep.type & Var_Dependency::Type::edge)
-			exclude_index_set_from_loc = app->connection_components[dep.connection.id][0].index_sets[0];
+			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		
 		if(!location_indexes_below_location(app->model, app->series[dep.var_id]->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -369,7 +369,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
 		if(dep.type & Var_Dependency::Type::edge)
-			exclude_index_set_from_loc = app->connection_components[dep.connection.id][0].index_sets[0];
+			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		
 		if(!location_indexes_below_location(app->model, dep_var->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -968,7 +968,7 @@ compose_and_resolve(Model_Application *app) {
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
 		if(var->boundary_type == Boundary_Type::bottom) {
 			auto conn_id = connection_of_flux(var);
-			exclude_index_set_from_loc = app->connection_components[conn_id.id][0].index_sets[0];
+			exclude_index_set_from_loc = app->get_single_connection_index_set(conn_id);
 		}
 		
 		if(!location_indexes_below_location(model, var->loc1, var->loc2, exclude_index_set_from_loc))

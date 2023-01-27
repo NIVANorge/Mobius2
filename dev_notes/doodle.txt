@@ -1,5 +1,20 @@
 
 	
+	
+	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top {}
+	# Would probably be clearer as:
+	flux(nowhere, layer.water.heat, vert.top, "Latent heat flux") {}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	layer.has(absorbed_sw : property("Absorbed shortwave") {
 		sw * exp(-attn*z)  #Or something..
 	} .top_boundary { 0 }

@@ -134,7 +134,7 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 	
 	Entity_Id avoid = invalid_entity_id;
 	if(dep.type & Var_Dependency::Type::edge)
-		avoid = app->connection_components[dep.connection.id][0].index_sets[0]; // TODO Make a utility function for this lookup? It is done a lot!
+		avoid = app->get_single_connection_index_set(dep.connection);
 	
 	int sz = index_sets->size();
 	int idx = 0;
@@ -157,7 +157,7 @@ bool
 insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, std::set<Index_Set_Dependency> &to_insert, const Var_Dependency &dep) {
 	Entity_Id avoid = invalid_entity_id;
 	if(dep.type & Var_Dependency::Type::edge)
-		avoid = app->connection_components[dep.connection.id][0].index_sets[0]; // TODO Make a utility function for this lookup? It is done a lot!
+		avoid = app->get_single_connection_index_set(dep.connection);
 	
 	bool changed = false;
 	for(auto index_set_dep : to_insert) {
@@ -217,7 +217,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 				
 				// Ugh, this is a bit hacky. Could it be improved?
 				if(instr.type == Model_Instruction::Type::compute_state_var) {
-					auto index_set = app->connection_components[dep.connection.id][0].index_sets[0];
+					auto index_set = app->get_single_connection_index_set(dep.connection);
 					instr.index_sets.insert(index_set);
 				}
 			} else if(!(dep.type & Var_Dependency::Type::earlier_step))
@@ -777,7 +777,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						// TODO: It seems like this check is not performed anywhere else (?). It should be checked earlier.
 						fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
 					
-					auto index_set = components[0].index_sets[0];
+					auto index_set = app->get_single_connection_index_set(var2->connection);
 					if(conn_type == Connection_Type::all_to_all)
 						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					else if(conn_type == Connection_Type::grid1d) {

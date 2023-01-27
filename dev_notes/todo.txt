@@ -9,19 +9,14 @@
 	Finish connection system
 	
 		grid1d:
-			
-			make bottom_boundary work.
-				Need to either give grid1d connections source aggregates or just subtract from the target aggregate this boundary flux.
-					right now it works as a hack with reversing the sign of the flux..
-				
-			make boundary fluxes with located sources/targets work.
 	
 			in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
 				- always true for grid1d
 				- sometimes true for directed_tree, always false for all_to_all.
 					Thus must be disallowed for those!
 			Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
-				below(itself) would never work, so we can't integrate from the bottom up... (would need reverse connection or special functionality)
+				below(itself) needs to have an is_blocking.
+			actually, circular references involving above() and below() are tricky and needs an expansion of the sorting system.
 		
 		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
 			Alternatively just make it possible to have a connection in the opposite direction??
@@ -83,7 +78,7 @@
 	
 	*** Low-pri ****
 	
-		Make in_flux deal correctly with bottom fluxes.
+		Make in_flux deal correctly with boundary fluxes.
 	
 		Set units of aggregation state variables so that they display correctly in MobiView.
 	
@@ -130,6 +125,12 @@
 		emulate_expression() is broken, at least for entire model runs.
 		
 	*****************   DONE:   ***********************
+	
+	make bottom_boundary work.
+		Need to either give grid1d connections source aggregates or just subtract from the target aggregate this boundary flux.
+			right now it works as a hack with reversing the sign of the flux..
+				
+		make boundary fluxes with located sources/targets work.
 	
 	Make something like top() accessor top(layer.water.temp) etc. (And bottom?)
 			Makes it unnecessary to have above and below in boundary fluxes, so we could disallow that also? Could make some things easier.

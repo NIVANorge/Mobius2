@@ -8,6 +8,7 @@ module("NIVAFjord", 0, 0, 1) {
 	air   : compartment("Atmosphere")
 	oair  : compartment("Ocean air")   # Air right above a given ocean section. Better name?
 	layer : compartment("Fjord layer")
+	sed   : compartment("Fjord sediment")
 	
 	water : quantity("Water")
 	salt  : quantity("Salt")
@@ -32,23 +33,34 @@ module("NIVAFjord", 0, 0, 1) {
 		init_S : par_real("Initial salinity", [g, k g-1], 35.0, 20.0, 50.0)
 		init_T : par_real("Initial temperature", [deg_c], 15.0, 0.1, 40.0)
 	}
-	
-	layer.par_group("Fjord arm parameters") {
+
+	oair.par_group("Mixing parameters") {
+		attn0  : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
+		
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
-		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the frequency reference")
+		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the B-V frequency reference")
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
-		attn0  : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
+		c_stress : par_real("Wind friction coefficient", [], 1)
 	}
+	
+	sed.par_group("Sediment parameters") {
+		T_sed  : par_real("Deep sediment temperature", [deg_c], 4)
+		dz_sed : par_real("Depth of thermally active sediment layer", [m], 10)
+		k_sed  : par_real("Sediment thermal conductivity", [W, m-1, K-1], 1.6)
+		C_sed  : par_real("Sediment specific heat capacity", [J, k g-1, K-1], 4000)
+		rho_sed : par_real("Sediment density", [k g, m-3], 2600)
+		#TODO: porosity
+	}
+	
 	
 	layer.has(dz : property("Thickness"), [m]) {
-		1[m]   # Will be dynamic eventually
-	} .initial { 1[m] }
+		1[m]   # Will maybe dynamic eventually
+	} #.initial { 1[m] }
 	
-	# TODO: Fix this!
-	layer.has(z : property("Depth"), [m]) {
-		above(vert, z) + above(vert, dz)
-	}
+	#layer.has(z : property("Depth"), [m]) {
+	#	above(vert, z) + above(vert, dz)
+	#}
 	
 	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water }   #TODO: temperature adjust
 	
@@ -65,33 +77,57 @@ module("NIVAFjord", 0, 0, 1) {
 		seawater_pot_dens(temp, salinity)
 	}
 	
-	layer.water.has(ddens : property("d(dens)/dz"), [k g, m-4]) {
-		mdz := 0.5*(dz + below(vert, dz))
-		(below(vert, dens)-dens) / mdz
-		#(below(vert, dens)-above(vert, dens))/dz
+	layer.water.has(ddens : property("d(dens)/dz"), [k g, m-3]) {
+		(below(vert, dens)-dens)
+		#2*(below(vert, dens)-above(vert, dens))
+		#(dens - above(vert, dens))
 	}
 	
 	layer.water.has(Kt : property("Tide wave mixing coefficient"), [m 2, s-1]) {
-		N2 := grav * ddens / dens
+		mdz := 0.5*(dz + below(vert, dz))
+		N2 := grav * ddens / (mdz*dens)
 		N := sqrt(max(Nmin^2, N2))
 		K0 * (N/N0)^(-alpha)
 	}
 	
 	layer.water.has(wmix : property("Water mixing"), [k g, day-1]) {
-		# TODO: Is it necessary to do the means here??
-		#Kd := 0.5*(Kt + below(vert, Kt))
-		#mdz := 0.5*(z + below(vert, z))
-		#a :=  0.5*(A + below(vert, A))
-		#rho := 0.5*(dens + below(vert, dens))
-		#rho * a * Kd / mdz ->>
 		dens * A * Kt / dz ->>
 	}
+	
+	oair.has(stress : property("Wind stress"), [N, m-2]) {
+		air.dens*c_stress*air.wind^2
+	}
+	
+	oair.has(friction : property("Wind friction speed"), [m, s-1]) {
+		sqrt(stress/top(vert, layer.water.dens))
+	}
+	
+	#TODO: need to take into account of B_s in the fjord model document
+	oair.has(emix : property("Mixing energy"), [m 3, s-3], "Total wind mixing energy") {
+		m0 := 0.5
+		m0*friction^3
+	}
+	
+	# layer.water.has(emix, [m 3, s-3]) {
+		# maxspeed := air.wind #Hmm...
+		# J := maxspeed*grav*ddens*dz/dens # Energy needed to mix the layer at max speed
+		# rem := oair.emix - above(vert, summix)        # Remaining available.
+		# min(rem, J)
+	# }
+	
+	# layer.water.has(summix : property("Sum used wind mixing energy"), [m 3, s-3]) {
+		# above(vert, summix) + emix
+	# }
+	
+	# layer.water.has(Kw : property("Wind mixing coefficient"), [m 2, s-1]) {
+		# emix*dens/(grav*ddens)
+	# }
 	
 	# Negative fluxes don't work properly for dissolved ones... TODO: Fix!
 	#flux(layer.water, vert, "Turbulent mixing down") { wmix }
 	#flux(layer.water, vert, "Turbulent mixing up") { -wmix }
 	
-	flux(layer.water.heat, vert, "Temperature mixing") {
+	flux(layer.water.heat, vert, "Heat mixing") {
 		wmix * (conc(heat) - below(conc(heat)))
 	}
 	
@@ -171,16 +207,21 @@ module("NIVAFjord", 0, 0, 1) {
 		in_flux(sw_vert, heat) * exp(-attn*dz)
 	}
 	
+	sed.has(heat, [J], "Sediment heat") .initial {
+		mass := bottom(vert, A)*dz_sed*rho_sed
+		C_sed * mass * (T_sed->[K])
+	}
+	
+	sed.has(temp, [deg_c], "Sediment surface temperature") {
+		mass := bottom(vert, A)*dz_sed*rho_sed
+		1*(2*heat / (mass*C_sed) - T_sed->[K]) -> [deg_c]
+	}
 	
 	# Water-Sediment heat transfer
 	
-	# TODO: very rudimentary. Should actually track the heat of the sediments
-	flux(layer.water.heat, nowhere, vert, "Water-sediment heat transfer") .bottom {
-		dz := 1.0[m]      # Thickness of thermally active sediment layer.
-		sed_T := 4.0[deg_c]
-		cond  := 1.3[W, m-1, K-1] # Thermal conductivity
-
-		bottom(A)*(bottom(temp)->[K] - sed_T->[K])*cond/dz ->>
+	flux(layer.water.heat, sed.heat, vert, "Water-sediment heat transfer") .bottom {
+		dz := dz_sed*0.2  # Just the scaling factor for the transfer TODO: get a better estimate
+		bottom(A)*(bottom(temp)->[K] - sed.temp->[K])*k_sed/dz ->>
 	}
 	
 	

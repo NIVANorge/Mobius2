@@ -5,11 +5,14 @@ model("NIVAFjord") {
 	layer_idx : index_set("Layer index")
 	
 	layer : compartment("Fjord layer")
+	sed   : compartment("Fjord sediment")
 	
 	water : quantity("Water")
+	heat  : quantity("Thermal energy")
 	
 	layer.distribute(layer_idx)
 	
 	sol : solver("Simply solver", "INCADascru", 0.1)
 	sol.solve(layer.water)
+	sol.solve(sed.heat)
 }

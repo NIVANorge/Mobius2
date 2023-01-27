@@ -160,6 +160,14 @@ Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_i
 	return &*find;
 }
 
+Entity_Id
+Model_Application::get_single_connection_index_set(Entity_Id conn_id) {
+	auto conn = model->connections[conn_id];
+	if(conn->type != Connection_Type::all_to_all && conn->type != Connection_Type::grid1d)
+		fatal_error(Mobius_Error::internal, "Misuse of get_single_connection_index_set().");
+	return connection_components[conn_id.id][0].index_sets[0];
+}
+
 void
 Model_Application::set_up_connection_structure() {
 	if(connection_structure.has_been_set_up)

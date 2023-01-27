@@ -193,7 +193,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 							fun = make_binop('-', fun, flux_ref);
 						}
 						
-						if(is_located(flux->loc2) && app->state_vars.id_of(flux->loc2) == instr.var_id && (!is_valid(conn_id) || is_bottom)) {
+						if(is_located(flux->loc2) && app->state_vars.id_of(flux->loc2) == instr.var_id
+							&& (!is_valid(conn_id) || is_bottom)) {
 							
 							auto flux_ref = make_state_var_identifier(flux_id);
 							// NOTE: the unit conversion applies to what reaches the target.
