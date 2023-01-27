@@ -820,9 +820,9 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	flux->code = body->block;
 	
 	if (body->notes.size() == 1) {
-		if(body->notes[0].string_value == "top_boundary")
+		if(body->notes[0].string_value == "top")
 			flux->boundary_type = Boundary_Type::top;
-		else if (body->notes[0].string_value == "bottom_boundary")
+		else if (body->notes[0].string_value == "bottom")
 			flux->boundary_type = Boundary_Type::bottom;
 		else {
 			body->notes[0].print_error_header();

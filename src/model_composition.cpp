@@ -943,7 +943,7 @@ compose_and_resolve(Model_Application *app) {
 		auto conn_id = connection_of_flux(var);
 		if(is_valid(conn_id)) {
 			Var_Location loc = var->loc1;
-			if(var->boundary_type != Boundary_Type::none)
+			if(var->boundary_type == Boundary_Type::top)
 				loc = var->loc2; // NOTE: For top_boundary only the target is set.
 			
 			// TODO: Do we need to check that loc *must* be located if this is not a bottom_boundary (or is that taken care of elsewhere?)
@@ -965,7 +965,13 @@ compose_and_resolve(Model_Application *app) {
 		if(!var->is_valid() || !var->is_flux()) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
-		if(!location_indexes_below_location(model, var->loc1, var->loc2))
+		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		if(var->boundary_type == Boundary_Type::bottom) {
+			auto conn_id = connection_of_flux(var);
+			exclude_index_set_from_loc = app->connection_components[conn_id.id][0].index_sets[0];
+		}
+		
+		if(!location_indexes_below_location(model, var->loc1, var->loc2, exclude_index_set_from_loc))
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());
 	}
 	

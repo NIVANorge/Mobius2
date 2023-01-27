@@ -177,21 +177,24 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						auto flux = app->state_vars[flux_id];
 						if(!flux->is_valid() || !flux->is_flux()) continue;
 						
-						auto conn_id = connection_of_flux(flux);
+						// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
+						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
 						
-						if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id) {
-							// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
-							// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
-							if(is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all)
-								continue;
-							
-							auto flux_ref = make_state_var_identifier(flux_id);							
+						auto conn_id = connection_of_flux(flux);
+						bool is_bottom      = flux->boundary_type == Boundary_Type::bottom;
+						bool is_all_to_all  = is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all;
+						
+						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution soon.
+						
+						if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id
+							&& !is_all_to_all && !is_bottom) {
+
+							auto flux_ref = make_state_var_identifier(flux_id);
 							fun = make_binop('-', fun, flux_ref);
 						}
 						
-						// TODO: if we explicitly computed an in_flux earlier, we could just refer to it here instead of re-computing it.
-						//   maybe compicates code unnecessarily though.
-						if(is_located(flux->loc2) && !is_valid(conn_id) && app->state_vars.id_of(flux->loc2) == instr.var_id) {
+						if(is_located(flux->loc2) && app->state_vars.id_of(flux->loc2) == instr.var_id && (!is_valid(conn_id) || is_bottom)) {
+							
 							auto flux_ref = make_state_var_identifier(flux_id);
 							// NOTE: the unit conversion applies to what reaches the target.
 							if(flux->unit_conversion_tree)
@@ -401,7 +404,7 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_tree_connection(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
+add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
@@ -510,6 +513,8 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	if(is_edge) {
 		is_above = boundary_type == Boundary_Type::top;
 	}
+	if(boundary_type == Boundary_Type::bottom) // NOTE: This is a bit of a hack. We should maybe have a source aggregate here instead, but that can cause a lot of unnecessary work for the model.
+		value = make_unary('-', value);
 	
 	get_grid1d_target_indexes(app, target_indexes, connection_id, indexes, is_above, is_edge);
 	
@@ -558,7 +563,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	
 	if(connection->type == Connection_Type::directed_tree) {
 		
-		return add_value_to_tree_connection(app, value, agg_id, source_id, indexes, connection_id, weight);
+		return add_value_to_tree_agg(app, value, agg_id, source_id, indexes, connection_id, weight);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		

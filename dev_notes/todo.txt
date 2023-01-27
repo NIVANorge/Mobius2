@@ -12,8 +12,9 @@
 			
 			make bottom_boundary work.
 				Need to either give grid1d connections source aggregates or just subtract from the target aggregate this boundary flux.
+					right now it works as a hack with reversing the sign of the flux..
 				
-			make boundary fluxes with given sources/targets work.
+			make boundary fluxes with located sources/targets work.
 	
 			in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
 				- always true for grid1d
@@ -81,6 +82,8 @@
 	
 	
 	*** Low-pri ****
+	
+		Make in_flux deal correctly with bottom fluxes.
 	
 		Set units of aggregation state variables so that they display correctly in MobiView.
 	

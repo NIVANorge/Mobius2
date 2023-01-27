@@ -95,7 +95,7 @@ make_intrinsic_function_call(Value_Type value_type, const std::string &name, Mat
 inline bool
 is_boolean_operator(Token_Type op) {
 	char c = (char)op;
-	return (op == Token_Type::leq || op == Token_Type::geq || op == Token_Type::neq || c == '=' || c == '&' || c == '|' || c == '<' || c == '>');
+	return (op == Token_Type::leq || op == Token_Type::geq || op == Token_Type::neq || c == '=' || c == '&' || c == '|' || c == '<' || c == '>' || c == '!');
 }
 
 Math_Expr_FT *
@@ -110,6 +110,18 @@ make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	binop->exprs.push_back(lhs);
 	binop->exprs.push_back(rhs);
 	return binop;
+}
+
+Math_Expr_FT *
+make_unary(char oper, Math_Expr_FT *arg) {
+	auto unary = new Operator_FT(Math_Expr_Type::unary_operator);
+	bool is_bool = is_boolean_operator((Token_Type)oper);
+	if(is_bool)
+		arg = make_cast(arg, Value_Type::boolean);
+	unary->value_type = arg->value_type;
+	unary->oper = (Token_Type)oper;
+	unary->exprs.push_back(arg);
+	return unary;
 }
 
 Math_Block_FT *

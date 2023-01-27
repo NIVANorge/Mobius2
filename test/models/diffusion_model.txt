@@ -4,8 +4,8 @@ model("Diffusion") {
 	
 	module("Diffusion", 1, 0, 0) {
 		
-		#top   : compartment("Top")
-		layer : compartment("Layer")
+		topcomp : compartment("Top")
+		layer   : compartment("Layer")
 		
 		o2    : quantity("O²")
 		
@@ -15,6 +15,7 @@ model("Diffusion") {
 		}
 		
 		layer.has(o2, [m g, c m-2]) .initial { in_o2 }
+		topcomp.has(o2, [m g, c m-2]) .initial { 100=>> }
 		
 		c : connection("Layer connection", grid1d) { layer* }
 		
@@ -25,17 +26,21 @@ model("Diffusion") {
 			d*(o2 - below(o2))/z ->>
 		}
 		
-		#flux(nowhere, layer.o2, c, "Input") .top_boundary {
-		#	top(dc)*(0.1[m g, c m-2] - top(o2))/z->>
+		#flux(topcomp.o2, layer.o2, c, "Input") .top {
+		#	top(dc)*(o2 - top(layer.o2))/z ->>
 		#}
 		
-		#flux(nowhere, layer.o2, c, "Input") .top_boundary {
+		flux(layer.o2, topcomp.o2, c, "Input") .bottom {
+			bottom(dc)*(bottom(o2)-topcomp.o2)/z ->>
+		}
+		
+		#flux(nowhere, layer.o2, c, "Input") .top {
 		#	0.01[m g, c m-2, day-1]
 		#}
 		
-		flux(layer.o2, nowhere, c, "Bottom input") .bottom_boundary {
-			-0.01[m g, c m-2, day-1]
-		}
+		#flux(layer.o2, nowhere, c, "Bottom input") .bottom {
+		#	-0.01[m g, c m-2, day-1]
+		#}
 	}
 	
 	# sc : module("Simple source", 1, 0, 0) {
@@ -59,6 +64,7 @@ model("Diffusion") {
 	layer_index : index_set("Layer index")
 	
 	layer : compartment("Layer")
+	topcomp : compartment("Top")
 	#soil  : compartment("Soil")
 	o2    : quantity("O²")
 	
@@ -68,5 +74,6 @@ model("Diffusion") {
 	layer.distribute(layer_index)
 	sol : solver("Solver", "INCADascru", 0.1)
 	sol.solve(layer.o2)
+	sol.solve(topcomp.o2)
 	#sol.solve(soil.o2)
 }

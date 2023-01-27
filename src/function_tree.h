@@ -182,6 +182,9 @@ make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	return make_binop((Token_Type)oper, lhs, rhs);
 }
 
+Math_Expr_FT *
+make_unary(char oper, Math_Expr_FT *arg);
+
 Math_Block_FT *
 make_for_loop();
 

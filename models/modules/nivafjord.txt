@@ -6,7 +6,7 @@ module("NIVAFjord", 0, 0, 1) {
 	load("../../stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
 
 	air   : compartment("Atmosphere")
-	arm   : compartment("Fjord arm")
+	oair  : compartment("Ocean air")   # Air right above a given ocean section. Better name?
 	layer : compartment("Fjord layer")
 	
 	water : quantity("Water")
@@ -33,7 +33,7 @@ module("NIVAFjord", 0, 0, 1) {
 		init_T : par_real("Initial temperature", [deg_c], 15.0, 0.1, 40.0)
 	}
 	
-	arm.par_group("Fjord arm parameters") {
+	layer.par_group("Fjord arm parameters") {
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
 		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the frequency reference")
@@ -79,7 +79,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.water.has(wmix : property("Water mixing"), [k g, day-1]) {
 		# TODO: Is it necessary to do the means here??
-		#Kd := 0.5*(Kdiff + below(vert, Kdiff))
+		#Kd := 0.5*(Kt + below(vert, Kt))
 		#mdz := 0.5*(z + below(vert, z))
 		#a :=  0.5*(A + below(vert, A))
 		#rho := 0.5*(dens + below(vert, dens))
@@ -104,15 +104,15 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	#TODO: Some of this stuff should be in atmospheric module and be reused between nivafjord and easylake (and maybe pet)
 	
-	arm.has(stab : property("Surface stability"), []) {
+	oair.has(stab : property("Surface stability"), []) {
 		surface_stability(air.wind, top(vert, layer.water.temp), air.temp)
 	}
 	
-	arm.has(ced : property("Transfer coefficient for latent heat flux"), []) {
+	oair.has(ced : property("Transfer coefficient for latent heat flux"), []) {
 		tc_latent_heat(air.wind, stab)
 	}
 	
-	arm.has(chd : property("Transfer coefficent for sensible heat flux"), []) {
+	oair.has(chd : property("Transfer coefficent for sensible heat flux"), []) {
 		tc_sensible_heat(air.wind, stab)
 	}
 	
@@ -121,7 +121,7 @@ module("NIVAFjord", 0, 0, 1) {
 		air.r_hum * 0.01 * svap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
 	}
 	
-	arm.has(s_hum : property("Saturation specific humidity"), []) {
+	oair.has(s_hum : property("Saturation specific humidity"), []) {
 		svap := saturation_vapor_pressure_lowe(top(vert, layer.water.temp))
 		specific_humidity_from_pressure(air.pressure, svap)
 	}
@@ -138,22 +138,22 @@ module("NIVAFjord", 0, 0, 1) {
 		downwelling_longwave(air.temp, a_vap, cloud)
 	}
 	
-	arm.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
+	oair.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
 		emissivity := 0.98
 		emissivity * black_body_radiation(top(vert, layer.water.temp)->[K])
 	}
 
-	flux(nowhere, layer.water.heat, vert, "Net longwave") .top_boundary {
-		top(A) * (air.lwd - arm.lwu) ->>
+	flux(nowhere, layer.water.heat, vert, "Net longwave") .top {
+		top(A) * (air.lwd - oair.lwu) ->>
 	}
 	
-	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top_boundary {
+	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top {
 		l_vap := latent_heat_of_vaporization(top(temp))
-		top(A) * (arm.ced * l_vap * air.dens * air.wind * (air.a_hum - arm.s_hum)) ->>
+		top(A) * (oair.ced * l_vap * air.dens * air.wind * (air.a_hum - oair.s_hum)) ->>
 	}
 	
-	flux(nowhere, layer.water.heat, vert, "Sensible heat flux") .top_boundary {
-		top(A) * (arm.chd * C_air * air.dens * air.wind * (air.temp->[K] - top(temp)->[K])) ->>
+	flux(nowhere, layer.water.heat, vert, "Sensible heat flux") .top {
+		top(A) * (oair.chd * C_air * air.dens * air.wind * (air.temp->[K] - top(temp)->[K])) ->>
 	}
 	
 	layer.water.has(attn : property("Diffuse attenuation coefficent"), [m-1]) {
@@ -162,7 +162,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	sw_vert : connection("Shortwave vertical", grid1d) { layer* }
 	
-	flux(nowhere, layer.water.heat, sw_vert, "Net shortwave") .top_boundary {
+	flux(nowhere, layer.water.heat, sw_vert, "Net shortwave") .top {
 		albedo := 0.045
 		top(A) * (1 - albedo) * air.g_rad ->>
 	}
@@ -170,5 +170,18 @@ module("NIVAFjord", 0, 0, 1) {
 	flux(layer.water.heat, sw_vert, "Shortwave shine-through") {
 		in_flux(sw_vert, heat) * exp(-attn*dz)
 	}
+	
+	
+	# Water-Sediment heat transfer
+	
+	# TODO: very rudimentary. Should actually track the heat of the sediments
+	flux(layer.water.heat, nowhere, vert, "Water-sediment heat transfer") .bottom {
+		dz := 1.0[m]      # Thickness of thermally active sediment layer.
+		sed_T := 4.0[deg_c]
+		cond  := 1.3[W, m-1, K-1] # Thermal conductivity
+
+		bottom(A)*(bottom(temp)->[K] - sed_T->[K])*cond/dz ->>
+	}
+	
 	
 }

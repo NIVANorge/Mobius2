@@ -697,8 +697,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				if(var_flux->boundary_type == Boundary_Type::top)
 					flux_loc = var_flux->loc2;
 				
-				if(var_flux->boundary_type == Boundary_Type::bottom && !is_located(var_flux->loc2))
-					continue;
+				//if(var_flux->boundary_type == Boundary_Type::bottom && !is_located(var_flux->loc2))
+				//	continue;
 				
 				if(var2->is_source) {
 					if(!is_located(var_flux->loc1) || app->state_vars.id_of(var_flux->loc1) != var2->agg_for)
@@ -775,7 +775,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						if(flux_loc.components[idx] == source_comp) found = true;
 					if(components.size() != 1 || !found)
 						// TODO: It seems like this check is not performed anywhere else (?). It should be checked earlier.
-						fatal_error(Mobius_Error::internal, "Got an all_to_all connection for a component that the connection is not supported for.");
+						fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
 					
 					auto index_set = components[0].index_sets[0];
 					if(conn_type == Connection_Type::all_to_all)
