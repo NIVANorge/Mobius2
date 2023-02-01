@@ -1,0 +1,55 @@
+
+module("Atmospheric", 0, 1, 0) {
+	"""
+	Simple module for some common atmospheric attributes
+	"""
+	
+	load("../../stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	
+	air : compartment("Atmosphere")
+	
+	air.par_group("Location") {
+		 #TODO: maybe reused across modules...
+		latitude : par_real("Latitude", [deg], 60, -180, 180)
+		elev     : par_real("Elevation", [m], 0, 0, 8887)
+	}
+	
+	air.has(temp     : property("Temperature"),       [deg_c], "Air temperature")
+	air.has(r_hum    : property("Relative humidity"), [])
+	
+	# The idea is that some of these can be overridden with input data if it exists. TODO: make a .can_override or something like that to allow it.
+	
+	air.has(g_rad    : property("Global radiation"),  [W m-2]) {
+		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year)
+		ext * (1 - cloud) * (0.75 + 2e-5*elev)   #TODO: Cloud dependence is not correct
+	}
+	
+	air.has(cloud    : property("Cloud cover"),       [])
+	
+	air.has(pressure : property("Pressure"), [h Pa], "Air pressure") {
+		mean_barometric_pressure(elev)
+	}
+	
+	air.has(s_vap : property("Saturation vapour pressure"), [h Pa]) {
+		saturation_vapor_pressure(temp)
+	}
+	
+	air.has(a_vap : property("Actual vapor pressure"), [h Pa]) {
+		r_hum * 0.01 * s_vap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
+	}
+	
+	#TODO: Estimate pressure if it was not provided
+	#TODO: Estimate cloud cover from global radiation or the other way around if either is not provided.
+	
+	air.has(a_hum : property("Actual specific humidity"), []) {
+		specific_humidity_from_pressure(air.pressure, air.a_vap)
+	}
+	
+	air.has(dens : property("Density"), [k g, m-3], "Air density") {
+		air_density(temp, pressure, a_vap)
+	}
+	
+	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
+		downwelling_longwave(air.temp, a_vap, cloud)
+	}
+}
