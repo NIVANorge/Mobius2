@@ -107,7 +107,7 @@ module("EasyLake", 0, 1, 0) {
 		[ 41 19 ]
 
 		par_real("Initial epilimnion thickness")
-		[ 4 2 ]
+		[ 2 1 ]
 
 		par_real("Rating function linear component")
 		[ 150 150 ]
@@ -120,6 +120,9 @@ module("EasyLake", 0, 1, 0) {
 
 		par_real("Initial ice thickness")
 		[ 0 0 ]
+
+		par_real("Epilimnion thickening rate")
+		[ 0.01 0.01 ]
 	}
 }
 

@@ -573,7 +573,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			return build_expression_ir(expr->exprs[0], locals, args, data);
 		} break;
 		
-		case Math_Expr_Type::identifier_chain : {
+		case Math_Expr_Type::identifier : {
 			auto ident = static_cast<Identifier_FT *>(expr);
 			llvm::Value *result = nullptr;
 			

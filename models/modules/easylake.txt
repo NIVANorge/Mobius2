@@ -20,6 +20,7 @@ TODO: description
 		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 1e8)
 		z_outflow : par_real("Lake depth at which outflow is 0", [m], 10, 0.1, 1000)
 		z_epi     : par_real("Initial epilimnion thickness", [m], 2, 0.1, 10)
+		dz_epi    : par_real("Epilimnion thickening rate", [m, day-1], 0.01)
 		#th_bank   : par_real("Lake shore slope", [], 0.4, 0, 4)
 		rate_l    : par_real("Rating function linear component", [m 2, s-1], 10, 0, 1000)
 		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
@@ -43,6 +44,15 @@ TODO: description
 	air.has(g_rad    : property("Global radiation"),  [W, m-2])
 	
 	
+	wedge_tip     : function(A : [m 2], z0 : [m], z : [m]) {
+		0.5*A * z^2 / z0
+	}
+	
+	wedge_section : function(A : [m 2], z0 : [m], z1 : [m], z2 : [m]) {
+		wedge_tip(A, z0, z1) - wedge_tip(A, z0, z2)
+	}
+	
+	
 	epi.has(water, [m 3], "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
 	hyp.has(water, [m 3], "Hypolimnion volume") .initial {
@@ -51,9 +61,22 @@ TODO: description
 		0.5 * A * z
 	}
 	
+	epi.has(z_e : property("Thickness"), [m], "Epilimnion thickness") .initial { z_epi }
+	{
+		last(z_e) + (dz_epi)*time.step_length_in_seconds->> if !epi.indicator & water.temp > t_bot,
+		z_epi                                                                   otherwise
+	} 
+	
+	#flux(epi.water, hyp.water, "Metalimnion movement") {
+		#(0.5*A_surf/z_outflow)*(z_e^2-last(z_e)^2)/time.step_length_in_seconds->>
+		#-0.5*A_surf*dz_epi^2/z_outflow       if !epi.indicator & water.temp > t_bot
+		#(epi.water - 0.5*A_surf*z
+		#wedge_section(A_surf, z_outflow, z_e+depth-z_outflow, last(z_e)+last(depth)-z_outflow)/time.step_length_in_seconds->>
+	#	wedge_section(A_surf, z_outflow, z_outflow-z_e, z_outflow-last(z_e))/time.step_length_in_seconds->>
+	#}
+	
 	flux(nowhere, epi.water, "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
-	#TODO: instead let both hyp and epi have a depth and use a sum of those?
 	epi.has(depth : property("Lake depth"), [m])                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
 	epi.water.has(outflow : property("Flow"), [m 3, s-1], "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }

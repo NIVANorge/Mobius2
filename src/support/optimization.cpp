@@ -125,7 +125,7 @@ get_dependencies(Math_Expr_FT *expr, std::vector<int> &dependencies_out) {
 	for(auto sub : expr->exprs)
 		get_dependencies(sub, dependencies_out);
 	
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto lit = static_cast<Literal_FT *>(expr->exprs[0]);
 		dependencies_out.push_back(lit->value.val_integer);
 	}

@@ -1,15 +1,4 @@
-index_set("I") [ 2 ]
 
-#index_set("J") [ "J1" "J2" ]
-
-
-connection("graph") [
-	a : compartment("A") [ "I" ]
-	b : compartment("B") [  ]
-	
-	a[ 0 ] -> a[ 1 ] -> b[  ]
-	#a[ "I1" ] -> b[  ]
-]
 
 par_group("System") {
 	par_datetime("Start date")
@@ -18,12 +7,3 @@ par_group("System") {
 	par_datetime("End date")
 	[ 1995-05-01 ]
 }
-
-module("So simple", 1, 0, 0) {
-	par_group("A pars") [ "I" ] {
-		par_real("Initial A.Q") [
-			1 1 
-		]
-	}
-}
-

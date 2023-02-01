@@ -304,7 +304,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 			return emulate_expression(expr->exprs[0], state, locals);
 		} break;
 		
-		case Math_Expr_Type::identifier_chain : {
+		case Math_Expr_Type::identifier : {
 			auto ident = static_cast<Identifier_FT *>(expr);
 			Typed_Value result;
 			result.type = expr->value_type;

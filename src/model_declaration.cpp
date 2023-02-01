@@ -565,7 +565,7 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 	if(decl->type == Decl_Type::par_enum) {
 		auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);   // Re-purposing function body for a simple list... TODO: We should maybe have a separate body type for that
 		for(auto expr : body->block->exprs) {
-			if(expr->type != Math_Expr_Type::identifier_chain) {
+			if(expr->type != Math_Expr_Type::identifier) {
 				expr->source_loc.print_error_header();
 				fatal_error("Expected a list of identifiers only.");
 			}

@@ -36,35 +36,32 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 		for(auto &instr : instructions) {
 			
 			// Initial values for dissolved quantities
-			if(instr.type == Model_Instruction::Type::compute_state_var && instr.code && is_valid(instr.var_id)) {
-				auto var = app->state_vars[instr.var_id];  // var is the mass or volume of the quantity
+			if(!(instr.type == Model_Instruction::Type::compute_state_var && instr.code && is_valid(instr.var_id))) continue;
+			auto var = app->state_vars[instr.var_id];  // var is the mass or volume of the quantity
+			if(var->type != State_Var::Type::declared) continue;
+			auto var2 = as<State_Var::Type::declared>(var);
+			auto conc_id = var2->conc;
+			if(!is_valid(conc_id)) continue;
+			
+			// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
+			auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[conc_id]);
+			auto &conc_instr = instructions[conc_id.id];
+			auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
 				
-				if(var->type == State_Var::Type::declared) {
-					auto var2 = as<State_Var::Type::declared>(var);
-					auto conc_id = var2->conc;
-					// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
-					if(is_valid(conc_id)) {
-						auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[conc_id]);
-						auto &conc_instr = instructions[conc_id.id];
-						auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
-							
-						if(var2->initial_is_conc) {
-							// conc is given. compute mass
-							conc_instr.code = instr.code;
-							conc_instr.type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
-							instr.code = make_binop('*', make_state_var_identifier(conc_id), make_state_var_identifier(dissolved_in));
-							if(conc->unit_conversion != 1.0)
-								instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
-						} else {
-							// mass is given. compute conc.
-							// TODO: do we really need the initial conc always though?
-							conc_instr.type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
-							conc_instr.code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
-							if(conc->unit_conversion != 1.0)
-								conc_instr.code = make_binop('*', instr.code, make_literal(conc->unit_conversion));
-						}
-					}
-				}
+			if(var2->initial_is_conc) {
+				// conc is given. compute mass
+				conc_instr.code = instr.code;
+				conc_instr.type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+				instr.code = make_binop('*', make_state_var_identifier(conc_id), make_state_var_identifier(dissolved_in));
+				if(conc->unit_conversion != 1.0)
+					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
+			} else {
+				// mass is given. compute conc.
+				// TODO: do we really need the initial conc always though?
+				conc_instr.type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
+				conc_instr.code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
+				if(conc->unit_conversion != 1.0)
+					conc_instr.code = make_binop('*', instr.code, make_literal(conc->unit_conversion));
 			}
 		}
 	}
@@ -268,7 +265,7 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 	for(auto arg : expr->exprs)
 		put_var_lookup_indexes_helper(arg, app, index_expr, provided_target_idx, found_grid1d_target);
 	
-	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
+	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	

@@ -41,18 +41,27 @@ module("NIVAFjord", 0, 0, 1) {
 		[ 1.4 ]
 
 		par_real("Minimum B-V frequency")
-		[ 0.001 ]
+		[ 0.007 ]
 
 		par_real("Diffuse attenuation coefficent (clear water)")
 		[ 0.2 ]
 
 		par_real("Wind friction coefficient")
 		[ 1 ]
+
+		par_real("Surface additional mixing energy")
+		[ 1e-10 ]
+
+		par_real("Halving depth of additional mixing energy")
+		[ 3 ]
+
+		par_real("Diminishing rate of additional mixing energy")
+		[ 4 ]
 	}
 
 	par_group("Sediment parameters") {
 		par_real("Deep sediment temperature")
-		[ 1 ]
+		[ 3 ]
 
 		par_real("Depth of thermally active sediment layer")
 		[ 10 ]

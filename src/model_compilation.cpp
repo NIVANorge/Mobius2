@@ -383,7 +383,7 @@ void
 create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std::vector<Model_Instruction> &instructions) {
 	for(auto arg : expr->exprs) create_initial_vars_for_lookups(app, arg, instructions);
 	
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var) {
 			auto instr = &instructions[ident->state_var.id];

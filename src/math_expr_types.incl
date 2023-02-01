@@ -1,5 +1,5 @@
 ENUM_VALUE(block)
-ENUM_VALUE(identifier_chain)
+ENUM_VALUE(identifier)
 ENUM_VALUE(literal)
 ENUM_VALUE(function_call)
 ENUM_VALUE(unary_operator)

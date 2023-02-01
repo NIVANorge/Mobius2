@@ -147,7 +147,7 @@ check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location s
 void
 remove_lasts(Math_Expr_FT *expr, bool make_error) {
 	for(auto arg : expr->exprs) remove_lasts(arg, make_error);
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && (ident->flags & Identifier_FT::Flags::last_result)) {
 			if(make_error) {
@@ -165,7 +165,7 @@ typedef std::map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_M
 void
 find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux) {
 	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux);
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->flags & Identifier_FT::Flags::in_flux) {
 			if(make_error_in_flux) {
@@ -195,7 +195,7 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 	for(int idx = 0; idx < expr->exprs.size(); ++idx)
 		expr->exprs[idx] = replace_flagged(expr->exprs[idx], replace_this, with, flag);
 	
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var && ident->state_var == replace_this && (ident->flags & flag)) {
 			if(is_valid(with)) {
@@ -215,7 +215,7 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 	// TODO: Why is this not just baked into resolve_function_tree ?
 	
 	for(auto arg : expr->exprs) replace_conc(app, arg);
-	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
+	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & Identifier_FT::Flags::conc)) return;
 	auto var = app->state_vars[ident->state_var];
@@ -235,7 +235,7 @@ void
 restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
 	//TODO : Should we just reuse register_dependencies() ?
 	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type != Variable_Type::local
 			&& ident->variable_type != Variable_Type::parameter) {
@@ -888,7 +888,7 @@ compose_and_resolve(Model_Application *app) {
 			auto fun = resolve_function_tree(override_ast, &res_data);
 			auto override_tree = prune_tree(fun.fun);
 			bool no_override = false;
-			if(override_tree->expr_type == Math_Expr_Type::identifier_chain) {
+			if(override_tree->expr_type == Math_Expr_Type::identifier) {
 				auto ident = static_cast<Identifier_FT *>(override_tree);
 				no_override = (ident->variable_type == Variable_Type::no_override);
 			}

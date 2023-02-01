@@ -113,7 +113,7 @@ struct
 Identifier_Chain_AST : Math_Expr_AST {
 	std::vector<Token>           chain;
 	
-	Identifier_Chain_AST() : Math_Expr_AST(Math_Expr_Type::identifier_chain) {};
+	Identifier_Chain_AST() : Math_Expr_AST(Math_Expr_Type::identifier) {};
 };
 
 struct

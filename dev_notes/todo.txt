@@ -6,6 +6,11 @@
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all and grid1d).
 		Sub-indexed series data.
 
+
+	#Whoops, this parses and gives unit error:
+		#d := 0.5(ddens + below(vert, ddens))
+		# Ok that it parses, but the error is what unit is given to the next expression.
+
 	Finish connection system
 	
 		grid1d:
@@ -20,9 +25,6 @@
 		
 		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
 			Alternatively just make it possible to have a connection in the opposite direction??
-			
-		better checks for what fluxes can be put on what connections ..   ---- is this still relevant??
-			Just wait to see if there are problems?
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 		Finish regex checks.	
@@ -32,7 +34,7 @@
 	
 		Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 			Also only one matrix indexing for a given state variable (at least for now)
-			The challenge is providing good error messages.
+			A challenge is providing good error messages.
 		ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
 
 	

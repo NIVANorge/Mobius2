@@ -231,22 +231,21 @@ find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::st
 	
 	auto block = scope->block;
 	if(!block->is_for_loop) {
-		int idx = 0;
+		int var_idx = 0;
 		for(auto expr : block->exprs) {
 			if(expr->expr_type == Math_Expr_Type::local_var) {
 				auto local = static_cast<Local_Var_FT *>(expr);
-				//warning_print("Check ", name, " against ", local->name, ".\n");
 				if(local->name == name) {
 					ident->variable_type = Variable_Type::local;
-					ident->local_var.index = idx;
+					ident->local_var.index = var_idx;
 					ident->local_var.scope_id = block->unique_block_id;
 					ident->value_type = local->value_type;
 					local->is_used = true;
-					unit = scope->local_var_units[idx];
+					unit = scope->local_var_units[var_idx];
 					return true;
 				}
+				++var_idx;
 			}
-			++idx;
 		}
 	}
 	if(scope->function_name.empty())  //NOTE: scopes should not "bleed through" function substitutions.
@@ -386,7 +385,7 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 
 Math_Expr_FT *
 fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::vector<Entity_Id> *baked_parameters) {
-	if(expr->expr_type != Math_Expr_Type::identifier_chain) return expr;
+	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	if(ident->variable_type != Variable_Type::parameter) return expr; //TODO: Could maybe eventually bake others.
@@ -621,7 +620,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		fatal_error_trace(scope);
 	}
 	int var_idx = arg_count == 1 ? 0 : 1;
-	if(new_fun->exprs[var_idx]->expr_type != Math_Expr_Type::identifier_chain) {
+	if(new_fun->exprs[var_idx]->expr_type != Math_Expr_Type::identifier) {
 		new_fun->exprs[var_idx]->source_loc.print_error_header();
 		error_print("A ", fun_name, "() declaration can only be applied to a state variable or input series.\n");
 		fatal_error_trace(scope);
@@ -660,7 +659,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	if(directive == Directive::below || directive == Directive::above || directive == Directive::top || directive == Directive::bottom || directive == Directive::in_flux) {
 		if(arg_count == 2) {
 			bool error = false;
-			if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier_chain) error = true;
+			if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier) error = true;
 			else {
 				auto ident = static_cast<Identifier_FT *>(new_fun->exprs[0]);
 				if(ident->variable_type != Variable_Type::connection) error = true;
@@ -736,7 +735,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			result = {new_block, std::move(arg_units.back())};
 		} break;
 		
-		case Math_Expr_Type::identifier_chain : {
+		case Math_Expr_Type::identifier : {
 			auto ident = static_cast<Identifier_Chain_AST *>(ast);
 			auto new_ident = new Identifier_FT();
 			result.fun = new_ident;
@@ -1288,7 +1287,7 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
 
 Math_Expr_FT *
 replace_iteration_index(Math_Expr_FT *expr, s32 block_id) {
-	if(expr->expr_type == Math_Expr_Type::identifier_chain) {
+	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::local && ident->local_var.scope_id == block_id) {
 			//NOTE: the for loop block has only one local variable, the iteration index, so we only have to know that it points to that block.
@@ -1330,7 +1329,7 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
 							loc2->is_used       = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
 							delete expr;
 							return literal;
-						} else if (loc->exprs[0]->expr_type == Math_Expr_Type::identifier_chain)
+						} else if (loc->exprs[0]->expr_type == Math_Expr_Type::identifier)
 							return potentially_prune_local(loc->exprs[0], sc);
 					}
 					++index;
@@ -1552,7 +1551,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 			}
 		} break;
 		
-		case Math_Expr_Type::identifier_chain : {
+		case Math_Expr_Type::identifier : {
 			expr = potentially_prune_local(expr, scope);
 		} break;
 	}
@@ -1563,7 +1562,7 @@ void
 register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 	for(auto arg : expr->exprs) register_dependencies(arg, depends);
 	
-	if(expr->expr_type != Math_Expr_Type::identifier_chain) return;
+	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 	
 	Var_Dependency dep;
@@ -1614,7 +1613,7 @@ copy(Math_Expr_FT *source) {
 			result = copy_one<Math_Block_FT>(source);
 		} break;
 		
-		case Math_Expr_Type::identifier_chain : {
+		case Math_Expr_Type::identifier : {
 			result = copy_one<Identifier_FT>(source);
 		} break;
 		

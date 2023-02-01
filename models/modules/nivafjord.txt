@@ -1,6 +1,7 @@
 
 module("NIVAFjord", 0, 0, 1) {
 
+	load("../../stdlib/basic_math.txt", library("Basic"))
 	load("../../stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Thermodynamics"))
 	load("../../stdlib/seawater.txt", library("Seawater"), library("Air-sea"))
 	load("../../stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
@@ -42,12 +43,17 @@ module("NIVAFjord", 0, 0, 1) {
 		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the B-V frequency reference")
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
 		c_stress : par_real("Wind friction coefficient", [], 1)
+		
+		# TODO: Find correct defaults:
+		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0)
+		zshalf : par_real("Halving depth of additional mixing energy", [m], 3)
+		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
 	}
 	
 	sed.par_group("Sediment parameters") {
 		T_sed  : par_real("Deep sediment temperature", [deg_c], 4)
 		dz_sed : par_real("Depth of thermally active sediment layer", [m], 10)
-		k_sed  : par_real("Sediment thermal conductivity", [W, m-1, K-1], 1.6)
+		k_sed  : par_real("Sediment thermal conductivity", [W, m-1, K-1], 1.3)
 		C_sed  : par_real("Sediment specific heat capacity", [J, k g-1, K-1], 4000)
 		rho_sed : par_real("Sediment density", [k g, m-3], 2600)
 		#TODO: porosity
@@ -58,9 +64,9 @@ module("NIVAFjord", 0, 0, 1) {
 		1[m]   # Will maybe dynamic eventually
 	} #.initial { 1[m] }
 	
-	#layer.has(z : property("Depth"), [m]) {
-	#	above(vert, z) + above(vert, dz)
-	#}
+	layer.has(z : property("Depth"), [m]) {
+		above(vert, z) + above(vert, dz)
+	}
 	
 	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water }   #TODO: temperature adjust
 	
@@ -77,21 +83,39 @@ module("NIVAFjord", 0, 0, 1) {
 		seawater_pot_dens(temp, salinity)
 	}
 	
-	layer.water.has(ddens : property("d(dens)/dz"), [k g, m-3]) {
+	layer.water.has(accum_pressure : property("Accumulated pressure"), [Pa]) {
+		above(vert, accum_pressure) + dens*grav*dz
+	}
+	
+	layer.water.has(pressure, [Pa]) {
+		accum_pressure + air.pressure->[Pa]
+	}
+	
+	layer.water.has(ddens : property("d(dens)"), [k g, m-3]) {
 		(below(vert, dens)-dens)
-		#2*(below(vert, dens)-above(vert, dens))
+		#0.5*(below(vert, dens)-above(vert, dens))
 		#(dens - above(vert, dens))
 	}
 	
-	layer.water.has(Kt : property("Tide wave mixing coefficient"), [m 2, s-1]) {
+	layer.water.has(Nfreq : property("Brunt-Väisälä frequency"), [s-1]) {
 		mdz := 0.5*(dz + below(vert, dz))
 		N2 := grav * ddens / (mdz*dens)
-		N := sqrt(max(Nmin^2, N2))
-		K0 * (N/N0)^(-alpha)
+		sqrt(max(Nmin^2, N2))
+	}
+	
+	layer.water.has(Kt : property("Tide wave mixing coefficient"), [m 2, s-1]) {
+		safe_divide(K0, (Nfreq/N0)^alpha)
+	}
+	
+	layer.water.has(Ks : property("Additional mixing coefficient"), [m 2, s-1]) {
+		eta := exp(-(z - zshalf)/hsfact)
+		Es  := Es0*eta/(1+eta)
+		Es / Nfreq^2
 	}
 	
 	layer.water.has(wmix : property("Water mixing"), [k g, day-1]) {
-		dens * A * Kt / dz ->>
+		K := Kt + Ks #+Kd
+		dens * A * K / dz ->>
 	}
 	
 	oair.has(stress : property("Wind stress"), [N, m-2]) {
@@ -204,7 +228,7 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	flux(layer.water.heat, sw_vert, "Shortwave shine-through") {
-		in_flux(sw_vert, heat) * exp(-attn*dz)
+		in_flux(sw_vert, heat) * exp(-attn*dz) * below(vert, A) / A
 	}
 	
 	sed.has(heat, [J], "Sediment heat") .initial {
