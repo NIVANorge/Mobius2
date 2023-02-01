@@ -12,6 +12,78 @@
 	
 	
 	
+	module("SimplyQ soil", 1, 0, 0,
+		component(air, soil, gw, water, pet, precip, temp), 
+		location(runoff_soil, runoff_gw)
+	) {
+		
+		soil.par_group("Hydrology") {
+			
+		}
+		
+		var(soil.water, [m m], "Soil water volume") .initial { fc }
+		
+		flux("Soil runoff", soil.water, runoff_soil) {
+		}
+	}
+	# How we would specify no_carry is still a bit in the air.
+	
+	# Also want the ability to let a par group be global (not attached to a specific thing?)
+	
+	model("SimplyQ") {
+	
+		air  : compartment("Atmosphere")
+		soil : compartment("Soil")
+		gw   : compartment("Groundwater")
+		
+		pet : property("Potential evapotranspiration")
+		
+		load("simplyq.txt", 
+			# This is a bit hazardous, you could easily misplace something when so many are of the same type.
+			module("SimplyQ soil", component(air, soil, gw, water, pet, precip, temp), location(river.water, river.water))
+			module("SimplyQ river", ...)
+		)
+			
+		# Can then also apply a module as a template to several things.
+		load("photomineralize.txt",
+			module("Photo-mineralize", component(oc), location(epi.water.oc, air.grad),
+			module("Photo-mineralize", component(oc), location(river.water.oc, air.grad)),
+			module("Photo-mineralize", component(oc), location(layer.water.oc, layer.incoming_sw))
+		) # Would have to make it so that par groups attached to oc in the module are de-duplicated.
+		
+		something() {
+			soil.fc    # Want scoping of parameters to their component (but inferrable in most cases). Should we also consider full location of par groups like soil.water.fc ?
+		}
+		# General model parameters are passed in using the passing system
+	}
+	
+	# Would need par groups to be scoped to their component in the data
+
+	module("Bla") {
+		par_group("Epilimnion", "Bla") {
+		}
+		par_group("River", "Bla") {
+		}
+	}
+	
+	#serialize :
+	# State var serialization name is
+	"River:Water"
+	"Soil:Water:Organic carbon"
+	# etc. Need to disallow : in names
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 	

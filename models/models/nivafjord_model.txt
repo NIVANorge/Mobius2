@@ -1,6 +1,7 @@
 
 model("NIVAFjord") {
 	load("../modules/nivafjord.txt", module("NIVAFjord"))
+	load("../modules/atmospheric.txt", module("Atmospheric"))
 	
 	layer_idx : index_set("Layer index")
 	

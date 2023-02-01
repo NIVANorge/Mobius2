@@ -38,11 +38,15 @@ TODO: description
 	air.has(temp,      [deg_c], "Air temperature")
 	air.has(precip,    [m m, day-1])
 	air.has(wind     : property("Wind speed"),        [m, s-1])
-	air.has(r_hum    : property("Relative humidity"), [])
-	air.has(pressure : property("Pressure"),          [h Pa], "Air pressure")
-	air.has(cloud    : property("Cloud cover"),       [])
+	#air.has(r_hum    : property("Relative humidity"), [])
+	#air.has(pressure : property("Pressure"),          [h Pa], "Air pressure")
+	#air.has(cloud    : property("Cloud cover"),       [])
 	air.has(g_rad    : property("Global radiation"),  [W, m-2])
 	
+	lwd      : property("Downwelling longwave radiation")
+	pressure : property("Pressure")
+	a_hum    : property("Actual specific humidity")
+	rho      : property("Density")
 	
 	wedge_tip     : function(A : [m 2], z0 : [m], z : [m]) {
 		0.5*A * z^2 / z0
@@ -117,30 +121,9 @@ TODO: description
 		tc_sensible_heat(air.wind, stab)
 	}
 	
-	# TODO: put some of this stuff into atmospheric module or library?
-	
-	air.has(a_vap : property("Actual vapor pressure"), [h Pa]) {
-		svap := saturation_vapor_pressure_lowe(air.temp)
-		air.r_hum * 0.01 * svap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
-	}
-	
 	epi.has(s_hum : property("Saturation specific humidity"), []) {
-		svap := saturation_vapor_pressure_lowe(water.temp)
+		svap := saturation_vapor_pressure(water.temp)
 		specific_humidity_from_pressure(air.pressure, svap)
-	}
-	
-	epi.has(a_hum : property("Actual specific humidity"), []) {
-		specific_humidity_from_pressure(air.pressure, air.a_vap)
-	}
-	
-	# TODO: Atmospheric module
-	air.has(rho : property("Air density"), [k g, m-3]) {
-		air_density(temp, pressure, a_vap)
-	}
-	
-	#TODO: Move some radiation stuff into a radiation module
-	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
-		downwelling_longwave(air.temp, a_vap, cloud)
 	}
 	
 	epi.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
@@ -171,7 +154,7 @@ TODO: description
 	flux(nowhere, epi.water.heat, "Latent heat flux") {
 		l_vap := latent_heat_of_vaporization(temp)
 		0                                                                          if epi.ice.indicator,
-		A_surf * (ced * l_vap * air.rho * air.wind * (a_hum - s_hum)) ->>          otherwise
+		A_surf * (ced * l_vap * air.rho * air.wind * (air.a_hum - s_hum)) ->>      otherwise
 	}
 	
 	flux(nowhere, epi.water.heat, "Sensible heat flux") {
@@ -182,7 +165,7 @@ TODO: description
 	epi.water.has(evap_mm : property("Evaporation per area"), [m m, day-1]) {
 		rho_ref := 1025 [k g, m-3]
 		0                                                                          if epi.ice.indicator,
-		-(air.rho / rho_ref) * chd * air.wind * (a_hum - s_hum) ->>                otherwise
+		-(air.rho / rho_ref) * chd * air.wind * (air.a_hum - s_hum) ->>                otherwise
 	}
 	
 	evap :

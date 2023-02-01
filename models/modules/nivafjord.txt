@@ -4,7 +4,7 @@ module("NIVAFjord", 0, 0, 1) {
 	load("../../stdlib/basic_math.txt", library("Basic"))
 	load("../../stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Thermodynamics"))
 	load("../../stdlib/seawater.txt", library("Seawater"), library("Air-sea"))
-	load("../../stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	load("../../stdlib/atmospheric.txt", library("Meteorology"))#, library("Radiation"))
 
 	air   : compartment("Atmosphere")
 	oair  : compartment("Ocean air")   # Air right above a given ocean section. Better name?
@@ -16,14 +16,10 @@ module("NIVAFjord", 0, 0, 1) {
 	heat  : quantity("Thermal energy")
 	
 	temp : property("Temperature")
-	
-	# TODO: Common atmospheric module!
+	pressure : property("Pressure")
+
 	air.has(temp,      [deg_c], "Air temperature")
-	#air.has(precip,    [m m, day-1])
 	air.has(wind     : property("Wind speed"),        [m, s-1])
-	air.has(r_hum    : property("Relative humidity"), [])
-	air.has(pressure : property("Pressure"),          [h Pa], "Air pressure")
-	air.has(cloud    : property("Cloud cover"),       [])
 	air.has(g_rad    : property("Global radiation"),  [W, m-2])
 	
 	
@@ -162,7 +158,9 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	# Air-sea :
 	
-	#TODO: Some of this stuff should be in atmospheric module and be reused between nivafjord and easylake (and maybe pet)
+	lwd : property("Downwelling longwave radiation")
+	a_hum : property("Actual specific humidity")
+	
 	
 	oair.has(stab : property("Surface stability"), []) {
 		surface_stability(air.wind, top(vert, layer.water.temp), air.temp)
@@ -176,26 +174,9 @@ module("NIVAFjord", 0, 0, 1) {
 		tc_sensible_heat(air.wind, stab)
 	}
 	
-	air.has(a_vap : property("Actual vapor pressure"), [h Pa]) {
-		svap := saturation_vapor_pressure_lowe(air.temp)
-		air.r_hum * 0.01 * svap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
-	}
-	
 	oair.has(s_hum : property("Saturation specific humidity"), []) {
-		svap := saturation_vapor_pressure_lowe(top(vert, layer.water.temp))
+		svap := saturation_vapor_pressure(top(vert, layer.water.temp))
 		specific_humidity_from_pressure(air.pressure, svap)
-	}
-	
-	air.has(a_hum : property("Actual specific humidity"), []) {
-		specific_humidity_from_pressure(air.pressure, air.a_vap)
-	}
-	
-	air.has(dens, [k g, m-3], "Air density") {
-		air_density(temp, pressure, a_vap)
-	}
-	
-	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
-		downwelling_longwave(air.temp, a_vap, cloud)
 	}
 	
 	oair.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {

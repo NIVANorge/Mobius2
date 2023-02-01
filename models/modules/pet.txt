@@ -19,32 +19,46 @@ module("Degree-day PET", 1, 0, 0) {
 
 module("Priestley-Taylor PET", 1, 0, 0) {
 	
-	load("../stdlib/atmosphere.txt", "Meteorology")
+	load("../../stdlib/atmospheric.txt", library("Meteorology"))
+	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
 	
 	air       : compartment("Atmosphere")
 	soil      : compartment("Soil")
+	snow_box  : compartment("Snow box")
+	
+	snow  : quantity("Snow (water equivalents)")
 	
 	soil.par_group("Potential evapotranspiration") {
-		elev : par_real("Elevation", [m], 0)       #TODO : another parameter that should be reused between modules. We need a system for it.
 		apet : par_real("PET multiplication factor", [], 1.28, 0.3, 4.0)
+		lalb : par_real("Land albedo", [], 0.23, 0, 1)
+		salb : par_real("Snow albedo", [], 0.8,  0, 1)
 	}
 	
-	pet    : property("Potential evapotranspiration")
-	temp   : property("Temperature") #, unit(deg_c)
+	pet      : property("Potential evapotranspiration")
+	temp     : property("Temperature") #, unit(deg_c)
+	pressure : property("Pressure")
+	lwd      : property("Downwelling longwave radiation")
+	g_rad    : property("Global radiation")
 	
-	# TODO: We should have alternative modules to compute these if they are not available as time series.
-	# TODO: Make these work nicely with the longwave and shortwave stuff in EasyLake
-	net_lw : property("Net longwave")
-	net_sw : property("Net shortwave")
+	soil.has(net_sw : property("Net shortwave"), [W, m-2]) {
+		alb := {
+			lalb     if snow_box.snow < 0.5[m m],
+			salb     otherwise
+		}
+		air.g_rad * (1 - alb)
+	}
+	
+	soil.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
+		black_body_radiation(soil.temp->[K])   # TODO: Emissivity
+	}
+	
+	s_vap  : property("Saturation vapour pressure")
 	
 	soil.has(pet, [m m, day-1]) {                 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
-		# NOTE; Some of these are broken for now.
-		meanbar := mean_barometric_pressure(elev)
 		lvap    := latent_heat_of_vaporization(air.temp)
-		psy     := psychrometric_constant(meanbar, lvap)
-		svap    := saturation_vapor_pressure(air.temp)
-		slope   := slope_of_saturation_pressure_curve(air.temp, svap)
-		rad     := (net_sw + net_lw)*86400.0/1e6   # convert W/m2 to MJ/m2/day    TODO: do conversion differently when we have a system for it.
-		max(0.0, apet * (slope / (slope + psy)) * (rad / lvap))
+		psy     := psychrometric_constant(air.pressure->[k Pa], lvap)
+		slope   := slope_of_saturation_pressure_curve(air.temp, air.s_vap->[k Pa])
+		net_rad := net_sw + air.lwd - lwu
+		max(0, apet * (slope / (slope + psy)) * (net_rad / lvap)) / rho_water ->>
 	}
 }

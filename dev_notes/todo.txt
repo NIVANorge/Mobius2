@@ -6,11 +6,6 @@
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all and grid1d).
 		Sub-indexed series data.
 
-
-	#Whoops, this parses and gives unit error:
-		#d := 0.5(ddens + below(vert, ddens))
-		# Ok that it parses, but the error is what unit is given to the next expression.
-
 	Finish connection system
 	
 		grid1d:
@@ -40,15 +35,16 @@
 	
 	*** Intermediate-pri ***
 
+		Dynamic module choice (based on data set)
+
 		Units
 			Allow units to have the form [30, month] (i.e. leading multiplier)
 			Allow rational coefficients and powers in units.
 			Write unit back to file (only needed for time step units for now).
-		The actual unit checking system
-			More complicated part - check the units of everything.
-				including making auto-conversion of fluxes based on their units.
+		
+		Making a robust system for the units of fluxes.
 
-		Processes not specified per compartment / quantity. Can be attached to those.
+		Template system: Processes not specified per compartment / quantity. Can be attached to those.
 			- something like compartment_type etc.
 			- have to figure out what to do with duplicates of par_group etc. - ties into name system (next item).
 		
@@ -66,7 +62,7 @@
 		
 		Check for conflicting declarations of variables (unit, name).
 		
-		New system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
+		The new system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
 			
 		More cleanup of State_Var system
@@ -80,15 +76,18 @@
 	
 	*** Low-pri ****
 	
+		System for having configured the root Mobius2 folder so that it knows where modules and stdlib are.
+		
+		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something more similar to Mobius1)
+	
 		Make in_flux deal correctly with boundary fluxes.
+			Should not be added in regular in_flux.
 	
 		Set units of aggregation state variables so that they display correctly in MobiView.
 	
 		unit conversions also applied to connection graph arrows.
+		
 		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
-			
-		Override declarations.   --- not needed for connections since we found another way. Also, not certain what is the best way to do it.
-			No known important use case at the moment.
 	
 		Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
 			Not high priority, just a nice feature.
@@ -103,17 +102,24 @@
 		
 		Iterating over state variables should skip invalid ones automatically.
 		
-		In all_to_all and grid1d connection data, it should be sufficient to just provide the name of the index set.
+		In all_to_all and grid1d connection data in the data set, it should be sufficient to just provide the name of the index set.
 		
 		MobiView:
-			stacked_share vs. negative values.
-			"scatter sparse" instead of "scatter inputs" ? So that full series are not scatter plotted.
+			stacked_share has a slow implementation.
 			
 			Combine simple sensitivity into the advanced sensitivity setup.
 				Compute statistics of the target stat like variance etc.
 				Allow for 2 parameters, with a surf plot eventually.
 				
 			Checking profile or profile2d will select all the indexes if only one index set is active and only one index is selected.
+			
+			Finish all missing functionality from MobiView1
+				variance based sensitivity
+				Index set editing.
+				View model structure
+				Saving and loading various things
+					MCMC results
+					Additional plot setup.
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
@@ -127,6 +133,8 @@
 		emulate_expression() is broken, at least for entire model runs.
 		
 	*****************   DONE:   ***********************
+	
+	"scatter sparse" instead of "scatter inputs" ? So that full series are not scatter plotted.
 	
 	make bottom_boundary work.
 		Need to either give grid1d connections source aggregates or just subtract from the target aggregate this boundary flux.

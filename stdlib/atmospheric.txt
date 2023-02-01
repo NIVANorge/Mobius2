@@ -17,7 +17,7 @@ library("Meteorology") {
 	# NOTE: some of these were revised using Ventura & al 1998 An evaluation of common evapotranspiration equations. TODO: Use that to implement Penman for pet.txt ?
 	
 	C_air             : constant("Specific heat capacity of air",    [J, k g-1, K-1], 1008)
-	C_moist_air       : constant("Specific heat coapacity of moist air", [k J, k g-1, deg_c-1], 1.013)
+	C_moist_air       : constant("Specific heat coapacity of moist air", [k J, k g-1, K-1], 1.013)
 	vapor_mol_to_mass : constant("Molar ratio to mass ratio of vapor in air", [], 0.62198)
 	Rdry_air          : constant("Specific gas constant of dry air", [J, k g-1, K-1], 287.058)
 	Rvap_air          : constant("Specific gas constant of vapor",   [J, k g-1, K-1], 461.495)
@@ -27,18 +27,18 @@ library("Meteorology") {
 		((pressure - a_vap)/(tk*Rdry_air) + a_vap/(tk*Rvap_air)) -> [k g, m-3]
 	}
 	
-	psychrometric_constant : function(barom : [k Pa], lvap : [M J, k g-1])   {   # Brunt 1952
-		# Takes atmospheric (barometric) pressure and latent heat of vaporization.
-		C_moist_air * barom / (vapor_mol_to_mass * dhvap)
+	psychrometric_constant : function(pressure : [k Pa], lvap : [M J, k g-1])   {   # Brunt 1952
+		# Takes atmospheric pressure and latent heat of vaporization.
+		(C_moist_air->[M J, k g-1, K-1]) * pressure / (vapor_mol_to_mass * lvap)
 	}
 	
-	#TODO: Do we need both the saturation vapor pressures? I guess one is for soil and one is for ocean?
-	saturation_vapor_pressure_murray : function(T : [deg_c])   {   # Tetens 1930, Murray 1967
-		#exp( (16.78*T - 116.9[deg_c]) / (T + 237.3[deg_c]) )  #TODO: Find out where this formula came from any way.
-		0.1608[k Pa] * exp(17.27*T/(T + 237.3[deg_c]))
-	}
+	#TODO: Do we need both the saturation vapor pressures?
+	#saturation_vapor_pressure_murray : function(T : [deg_c])   {   # Tetens 1930, Murray 1967
+	#	#exp( (16.78*T - 116.9[deg_c]) / (T + 237.3[deg_c]) )  #TODO: Find out where this formula came from any way.
+	#	0.1608[k Pa] * exp(17.27*T/(T + 237.3[deg_c]))
+	#}
 	
-	saturation_vapor_pressure_lowe : function(T : [deg_c])   {
+	saturation_vapor_pressure : function(T : [deg_c])   {
 		#P. R. Lowe, 1977, "An approximating polynomial for the computation of saturation vapor pressure, J. Appl. Meteor., 16, 100-103.
 		#TODO: that paper has a separate formula for T < 0
 		t  := T => []
@@ -63,22 +63,22 @@ library("Meteorology") {
 }
 
 library("Radiation") {
+
+	load(library("Meteorology"))
+	load("physiochemistry.txt", library("Thermodynamics"))
 	
 	# TODO: Document!
 	
 	solar_constant : constant("Solar constant", [W m-2], 1361)
 	
-	daily_average_extraterrestrial_radiation : function(latitude : [m], day_of_year : [day], days_this_year : [day]) {
+	daily_average_extraterrestrial_radiation : function(latitude : [deg], day_of_year : [day], days_this_year : [day]) {
 		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year)
 		solar_declination      := 0.409*sin(2*pi*day_of_year/days_this_year - 1.39)
-		lat_rad                := latitude * pi / 180.0
+		lat_rad                := latitude * pi / 180.0[deg]
 		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination))
 		
 		solar_constant * (1/pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
 	}
-	
-	load(library("Meteorology"))
-	load("physiochemistry.txt", library("Thermodynamics"))
 	
 	downwelling_longwave : function(air_temp : [deg_c], a_vap : [h Pa], cloud : []) {
 		air_t := air_temp -> [K]

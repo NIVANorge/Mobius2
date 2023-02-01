@@ -196,3 +196,38 @@ module("EasyLake-C", 0, 0, 1) {
 	}
 }
 
+module("Priestley-Taylor PET", 1, 0, 0) {
+	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
+		par_real("PET multiplication factor") [
+			1.28 1.28 
+			1.28 1.28 
+			1.28 1.28 
+			1.28 1.28 
+		]
+
+		par_real("Land albedo") [
+			0.23 0.23 
+			0.23 0.23 
+			0.23 0.23 
+			0.23 0.23 
+		]
+
+		par_real("Snow albedo") [
+			0.8 0.8 
+			0.8 0.8 
+			0.8 0.8 
+			0.8 0.8 
+		]
+	}
+}
+
+module("Atmospheric", 0, 1, 0) {
+	par_group("Location") {
+		par_real("Latitude")
+		[ 60 ]
+
+		par_real("Elevation")
+		[ 0 ]
+	}
+}
+

@@ -52,7 +52,7 @@ check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_L
 }
 
 template<State_Var::Type type> Var_Id
-register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_series, const std::string &given_name = "") {
+register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_series, const std::string &name) {
 	
 	// TODO: Ideally we want to remove decl_type as an argument here, but then it would have to be made irrelevant for non-declared variables.
 	
@@ -68,16 +68,6 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		check_if_var_loc_is_well_formed(model, loc, has->source_loc);
 	}
 	
-	auto name = given_name;
-	if(name.empty() && is_valid(decl_id)) {
-		if(decl_id.reg_type == Reg_Type::flux)
-			name = model->fluxes[decl_id]->name;
-		else
-			name = model->hases[decl_id]->var_name;
-	}
-	if(name.empty() && decl_id.reg_type == Reg_Type::has) //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
-		name = model->find_entity(loc.last())->name;
-	
 	Var_Id var_id = invalid_var;
 	State_Var *var = nullptr;
 	if(is_series) {
@@ -88,6 +78,8 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		var = app->state_vars[var_id];
 	}
 	
+	if(var->name.empty())
+		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
 	var->type          = type;
 
 	if(is_valid(decl_id)) {
@@ -114,10 +106,6 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	}
-		
-	if(var->name.empty())
-		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
-	
 	//warning_print("**** register ", var.name, is_series ? " as series" : " as state var", "\n");
 	
 	return var_id;
@@ -384,7 +372,7 @@ has_code(Entity_Registration<Reg_Type::has> *has) {
 }
 
 void
-prelim_compose(Model_Application *app) {
+prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	warning_print("Compose begin\n");
 	
 	auto model = app->model;
@@ -468,11 +456,25 @@ prelim_compose(Model_Application *app) {
 				}
 			}
 			
+			auto name = has->var_name;
+			if(name.empty())
+				name = model->find_entity(has->var_location.last())->name;  //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
+			
 			Decl_Type type = model->find_entity(has->var_location.last())->decl_type;
 			auto find = has_location.find(has->var_location);
-			if(find == has_location.end()) {
-				// No declaration provided code for this series, so it is an input series.
-				
+			
+			bool is_series = false;
+			if(find == has_location.end()) is_series = true; // No declaration provided code for this series, so it is an input series.
+			else if(type == Decl_Type::property) {
+				// For properties, they can be overridden with input series.
+				// TODO: It should probably be declared explicitly on the property if this is OK.
+				if(std::find(input_names.begin(), input_names.end(), name) != input_names.end()) {
+					is_series = true;
+					warning_print("Overriding property \"", name, "\" with an input series.\n");
+				}
+			}
+			
+			if(is_series) {
 				// If was already registered by another module, we don't need to re-register it.
 				// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data.
 				if(is_valid(app->series.id_of(has->var_location))) continue;
@@ -481,10 +483,10 @@ prelim_compose(Model_Application *app) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("For now we don't support input series with chained locations.");
 				}
-				register_state_variable<State_Var::Type::declared>(app, id, true);
+				register_state_variable<State_Var::Type::declared>(app, id, true, name);
 			} else if (id == find->second) {
 				// This is the particular has declaration that provided the code, so we register a state variable using this one.
-				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, id, false);
+				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, id, false, name);
 				if(has->var_location.is_dissolved() && type == Decl_Type::quantity)
 					dissolvedes.push_back(var_id);
 			}
@@ -501,7 +503,7 @@ prelim_compose(Model_Application *app) {
 		check_flux_location(app, scope, flux->source_loc, flux->source);
 		check_flux_location(app, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
 		
-		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false);
+		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false, flux->name);
 		auto var = app->state_vars[var_id];
 		auto conn_id = connection_of_flux(var);
 		

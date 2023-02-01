@@ -1,10 +1,15 @@
 
 model("EasyLake-SimplyQ") {
 	
-	extend("simplyq_model.txt")
+	extend("simplyq_base.txt")
+	
+	load("../modules/pet.txt",       pe : module("Priestley-Taylor PET"))
+	load("../modules/hbv_snow.txt",  sn : module("HBVSnow"))
+	
 	load("../modules/simplysoiltemp.txt", module("Simply soil temperature"))
 	load("../modules/easylake.txt", el : module("EasyLake"))
 	load("../modules/rivertemp.txt", module("RiverTemperature"))
+	load("../modules/atmospheric.txt", module("Atmospheric"))
 	
 	epi : compartment("Epilimnion")
 	hyp : compartment("Hypolimnion")

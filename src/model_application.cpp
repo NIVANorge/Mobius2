@@ -4,7 +4,7 @@
 #include <map>
 
 void
-prelim_compose(Model_Application *app);
+prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
 Model_Application::Model_Application(Mobius_Model *model) : 
 	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this),
@@ -21,8 +21,6 @@ Model_Application::Model_Application(Mobius_Model *model) :
 	
 	initialize_llvm();
 	llvm_data = create_llvm_module();
-	
-	prelim_compose(this);
 }
 
 void
@@ -297,6 +295,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	Mobius_Model *model = app->model;
 	
 	auto group_id = model->par_groups.find_by_name(par_group_info->name);
+	
 	if(!model->get_scope(module_id)->has(group_id)) {
 		par_group_info->loc.print_error_header();
 		// TODO: oops module->module_name is not the right thing to use for the global module (unless we set that name to something sensible?).
@@ -728,11 +727,20 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 	} else if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
 		// No data to set up for these.
 	} else
-		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in build_from_data_set().");
+		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in process_connection_data().");
 }
 
 void
 Model_Application::build_from_data_set(Data_Set *data_set) {
+	
+	std::vector<std::string> input_names;
+	for(auto &series : data_set->series) {
+		for(auto &header : series.header_data)
+			input_names.push_back(header.name);
+	}
+	
+	prelim_compose(this, input_names);
+	
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to build model application after it was compiled.");
 	if(this->data_set)
@@ -811,7 +819,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		process_parameters(this, &par_group);
 	for(auto &module : data_set->modules) {
 		Entity_Id module_id = model->modules.find_by_name(module.name);
-		if(!is_valid(module_id)) {
+		if(!is_valid(module_id) || !model->modules[module_id]->has_been_processed) {
 			module.loc.print_warning_header();
 			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
 			continue;
