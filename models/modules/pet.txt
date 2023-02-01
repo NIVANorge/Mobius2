@@ -49,7 +49,8 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	}
 	
 	soil.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
-		black_body_radiation(soil.temp->[K])   # TODO: Emissivity
+		emissivity := 0.9 #TODO: Could maybe be made more granular.
+		black_body_radiation(soil.temp->[K])
 	}
 	
 	s_vap  : property("Saturation vapour pressure")
