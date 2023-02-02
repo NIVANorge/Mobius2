@@ -80,6 +80,10 @@ library("Radiation") {
 		solar_constant * (1/pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
 	}
 	
+	clear_sky_shortwave : function(extrad : [W, m-2], elev : [m]) {
+		extrad * (0.75 + 2e-5[m-1]*elev)
+	}
+	
 	downwelling_longwave : function(air_temp : [deg_c], a_vap : [h Pa], cloud : []) {
 		air_t := air_temp -> [K]
 		dpt := dew_point_temperature(a_vap)

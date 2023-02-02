@@ -13,6 +13,10 @@ library("Basic") {
 	close : function(a, b, tol) {
 		abs(a - b) < tol
 	}
+	
+	clamp : function(a, mn, mx) {
+		min(max(a, mn), mx)
+	}
 }
 
 

@@ -17,7 +17,7 @@ module("Degree-day PET", 1, 0, 0) {
 }
 
 
-module("Priestley-Taylor PET", 1, 0, 0) {
+module("Penman-Monteith PET", 1, 0, 0) {
 	
 	load("../../stdlib/atmospheric.txt", library("Meteorology"))
 	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
@@ -29,9 +29,12 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	snow  : quantity("Snow (water equivalents)")
 	
 	soil.par_group("Potential evapotranspiration") {
-		apet : par_real("PET multiplication factor", [], 1.28, 0.3, 4.0)
-		lalb : par_real("Land albedo", [], 0.23, 0, 1)
-		salb : par_real("Snow albedo", [], 0.8,  0, 1)
+		pt    : par_bool("Priestley-Taylor simplification", true, "Drops wind correction")
+		apet  : par_real("PET multiplication factor", [], 1.28, 0.3, 4.0)
+		lalb  : par_real("Land albedo", [], 0.23, 0, 1)
+		salb  : par_real("Snow albedo", [], 0.8,  0, 1)
+		r_s   : par_real("Surface resistance", [s, m-1], 70) #TODO: We could compute these based on other data
+		r_a_w : par_real("Aerodynamic resistance / wind speed", [], 208)
 	}
 	
 	pet      : property("Potential evapotranspiration")
@@ -39,6 +42,9 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	pressure : property("Pressure")
 	lwd      : property("Downwelling longwave radiation")
 	g_rad    : property("Global radiation")
+	wind     : property("Wind speed")
+	s_vap    : property("Saturation vapour pressure")
+	a_vap    : property("Actual vapour pressure")
 	
 	soil.has(net_sw : property("Net shortwave"), [W, m-2]) {
 		alb := {
@@ -53,13 +59,35 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 		black_body_radiation(soil.temp->[K])
 	}
 	
-	s_vap  : property("Saturation vapour pressure")
-	
-	soil.has(pet, [m m, day-1]) {                 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
+	soil.has(pet, [m m, day-1]) {
+		
+		# Reference :  https://www.fao.org/3/x0490e/x0490e06.htm 
+		
+		 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
 		lvap    := latent_heat_of_vaporization(air.temp)
 		psy     := psychrometric_constant(air.pressure->[k Pa], lvap)
 		slope   := slope_of_saturation_pressure_curve(air.temp, air.s_vap->[k Pa])
-		net_rad := net_sw + air.lwd - lwu
-		max(0, apet * (slope / (slope + psy)) * (net_rad / lvap)) / rho_water ->>
+		net_rad := net_sw + air.lwd - lwu # May need to substitute  with the net longwave here: https://www.fao.org/3/x0490e/x0490e07.htm because this doesn't seem to give good results.
+		
+		# Modified psychrometric constant
+		psy_corr := {
+			psy                             if pt,
+			psy * (1 + r_s*air.wind/r_a_w)  otherwise
+		}
+		dp := (air.s_vap - air.a_vap) -> [k Pa]
+		pressure_term := {
+			0                                                                             if pt,
+			(lvap*vapor_mol_to_mass/(Rdry_air*r_a_w))*air.wind*dp/(1.01*(air.temp->[K]))  otherwise
+		} -> [W, m-2]
+		alpha := {
+			apet         if pt,
+			1            otherwise
+		}
+	
+		# TODO: This is really for wind at 2m, and one should use daily min and max temperatures to compute some means of some of the things...
+		
+		et := alpha * (slope*net_rad + psy*pressure_term) / (slope + psy_corr)
+		
+		max(0, et/(lvap*rho_water))->>
 	}
 }

@@ -35,7 +35,7 @@ struct
 Identifier_FT : Math_Expr_FT {
 
 	Variable_Type                variable_type;
-	enum Flags : u32 {      //Hmm why not just reuse the Directive type for this somehow?
+	enum Flags : u32 {      //Hmm why not just reuse the Directive type for this somehow? Although then the directive type must be in flag form, which is a bit tricky.
 		none        = 0x0,
 		last_result = 0x1,
 		in_flux     = 0x2,
@@ -91,7 +91,7 @@ Local_Var_FT : Math_Expr_FT {
 };
 
 struct
-Var_Dependency {
+Var_Dependency {   // TODO: Reuse identifier type instead..
 	enum Type : u32 {
 		none         = 0x0,
 		earlier_step = 0x1,
@@ -107,7 +107,7 @@ Var_Dependency {
 
 inline bool operator<(const Var_Dependency &a, const Var_Dependency &b) {
 	if(a.var_id == b.var_id) return (u32)a.type < (u32)b.type;
-	return a.var_id.id < b.var_id.id;
+	return a.var_id.id < b.var_id.id; //TODO: oops, wrong if it is a parameter.
 }
 
 struct

@@ -30,9 +30,8 @@ parse_si_prefix(Token *token) {
 	else if(m == "z") return -21;
 	else if(m == "y") return -24;
 	
-	//token->print_error_header();
-	//fatal_error("Unrecognized SI prefix ", m, " .");
-	warning_print("Unrecognized SI prefix ", m, " .\n");
+	token->print_error_header();
+	fatal_error("Unrecognized SI prefix ", m, " .");
 	return 0;
 }
 
@@ -53,9 +52,9 @@ parse_compound_unit(Token *token) {
 	#include "compound_units.incl"
 	#undef COMPOUND_UNIT
 	
-	//token->print_error_header();
-	//fatal_error("Unrecognized unit ", u, " .");
-	warning_print("Unrecognized unit ", u, " .\n");
+	token->print_error_header();
+	fatal_error("Unrecognized unit ", u, " .");
+	//warning_print("Unrecognized unit ", u, " .\n");
 	
 	return Compound_Unit::m;
 }
@@ -69,8 +68,6 @@ parse_unit(std::vector<Token> *tokens) {
 	bool error = false;
 	int size = tokens->size();
 	if((*tokens)[0].type == Token_Type::identifier) {
-		// TODO: Something is wrong here.
-		
 		int pow_idx;
 		if(size >= 2 && (*tokens)[1].type == Token_Type::identifier) {
 			result.magnitude = parse_si_prefix(&(*tokens)[0]);
@@ -95,7 +92,9 @@ parse_unit(std::vector<Token> *tokens) {
 			} else if (size != pow_idx + 1)
 				error = true;
 		}
-	}
+	} else
+		error = true;
+	
 	if(error) {
 		(*tokens)[0].print_error_header();
 		fatal_error("Malformed unit declaration.");

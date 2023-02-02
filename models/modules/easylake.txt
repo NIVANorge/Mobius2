@@ -173,6 +173,8 @@ TODO: description
 		evap_mm*A_surf ->>
 	}
 	
+	#evap.no_carry()   #TODO: This should be allowed.
+	
 	flux(nowhere, epi.water.heat, "Precipitation heat") {
 		#precip_t := max(0.4[deg_c], air.temp)
 		precip_t := air.temp

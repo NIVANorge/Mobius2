@@ -4,17 +4,17 @@
 	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top {}
 	# Would probably be clearer as:
 	flux(nowhere, layer.water.heat, vert.top, "Latent heat flux") {}
+	# Although, see below.. Could change it completely.
 	
 	
-	
-	
-	
-	
-	
+	# In this case it makes sense to separate out the gw in a separate module also.
 	
 	module("SimplyQ soil", 1, 0, 0,
-		component(air, soil, gw, water, pet, precip, temp), 
-		location(runoff_soil, runoff_gw)
+		soil : compartment(),
+		gw : compartment(),
+		water : quantity(), 
+		pet : property(), 
+		runoff_soil, runoff_gw # Not needed to tag locations with anything if we know that is what they are.
 	) {
 		
 		soil.par_group("Hydrology") {
@@ -30,32 +30,69 @@
 	
 	# Also want the ability to let a par group be global (not attached to a specific thing?)
 	
+	# Still possible to declare properties within modules if you only want to use them there.
+	
 	model("SimplyQ") {
 	
-		air  : compartment("Atmosphere")
-		soil : compartment("Soil")
-		gw   : compartment("Groundwater")
+		air    : compartment("Atmosphere")
+		soil   : compartment("Soil")
+		gw     : compartment("Groundwater")
 		
-		pet : property("Potential evapotranspiration")
+		water  : quantity("Water")
+		
+		pet    : property("Potential evapotranspiration")
+		precip : property("Precipitation")
+		temp   : property("Temperature")
+		
+		# Declare input series in the model (?)
+		var(air.precip, [m m, day-1])
+		var(air.temp, [deg_c], "Air temperature")
+		
+		# Should we have a system for declaring what variables we expect each module to construct ?
 		
 		load("simplyq.txt", 
 			# This is a bit hazardous, you could easily misplace something when so many are of the same type.
-			module("SimplyQ soil", component(air, soil, gw, water, pet, precip, temp), location(river.water, river.water))
-			module("SimplyQ river", ...)
+			# And for larger modules, you will need to pass a lot of stuff!!
+			module("SimplyQ soil", 
+				soil, gw, 
+				water, 
+				pet, 
+				river.water, river.water),
+			module("SimplyQ river", river, water, downstream)
 		)
 			
 		# Can then also apply a module as a template to several things.
 		load("photomineralize.txt",
-			module("Photo-mineralize", component(oc), location(epi.water.oc, air.grad),
-			module("Photo-mineralize", component(oc), location(river.water.oc, air.grad)),
-			module("Photo-mineralize", component(oc), location(layer.water.oc, layer.incoming_sw))
+			module("Photo-mineralize", oc, epi.water.oc, air.grad),
+			module("Photo-mineralize", oc, river.water.oc, air.grad),
+			module("Photo-mineralize", oc, layer.water.oc, layer.incoming_sw)
 		) # Would have to make it so that par groups attached to oc in the module are de-duplicated.
 		
+		load("airsea.txt",
+			module("Air-sea", air, layer.water[vert.top], ..),
+			module("Air-sea", air, epi.water)
+		)
+		
 		something() {
-			soil.fc    # Want scoping of parameters to their component (but inferrable in most cases). Should we also consider full location of par groups like soil.water.fc ?
+			soil.fc    # Want scoping of parameters to their component (but inferrable in most cases). Should we also consider full location of par groups like soil.water.par_group() ?
 		}
 		# General model parameters are passed in using the passing system
 	}
+	
+	# Need top and bottom of grid1d to be valid locations that can be passed around (and used directly where other locations can)
+	# Something like
+	layer[vert.top].water.heat # Maybe best since it is this compartment that we have the connection over.
+	layer.water.heat[vert.top]  # More easily shorthanded (see below)
+	layer.water.heat.vert.top # easier to implement, less clear
+	
+	#Then boundary fluxes are
+	flux(nowhere, layer[vert.top].water.heat, "Shortwave")   #etc.
+	# and above, below etc. becomes
+	layer[vert.above].water.bla
+	# In this case the post-indexing could be better so that we don't have to write the entire thing
+	bla[vert.above]
+	bla[vert.top]
+	
 	
 	# Would need par groups to be scoped to their component in the data
 
@@ -65,6 +102,11 @@
 		par_group("River", "Bla") {
 		}
 	}
+	# or (make it closer to the connection system)
+	epi : compartment("Epilimnion")
+	module("Bla") {
+		epi.par_group("Bla") { ... }
+	}
 	
 	#serialize :
 	# State var serialization name is
@@ -72,6 +114,7 @@
 	"Soil:Water:Organic carbon"
 	# etc. Need to disallow : in names
 	
+	# Not sure if this is used for input series and MobiView display though..
 	
 	
 	

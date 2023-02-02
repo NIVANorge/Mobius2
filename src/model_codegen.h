@@ -49,7 +49,8 @@ Model_Instruction {
 	//std::set<Entity_Id>            excluded_index_sets;
 	
 	std::set<int> depends_on_instruction; // Instructions that must be executed before this one.
-	std::set<int> instruction_is_blocking; // Instructions that can not go in the same for loop as this one
+	std::set<int> instruction_is_blocking; // Instructions that can not go in the same for loop as this one.
+	std::set<int> loose_depends_on_instruction; // Instructions that could go after this one if they are in the same for loop.
 	
 	// NOTE: We need both since the first can be dependencies on non-state-vars that are generated during instruction generation, while the other are dependencies on specific state vars that comes from code lookups, and there we need to take into account more data.
 	std::set<int> inherits_index_sets_from_instruction;
