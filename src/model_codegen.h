@@ -54,7 +54,7 @@ Model_Instruction {
 	
 	// NOTE: We need both since the first can be dependencies on non-state-vars that are generated during instruction generation, while the other are dependencies on specific state vars that comes from code lookups, and there we need to take into account more data.
 	std::set<int> inherits_index_sets_from_instruction;
-	std::set<Var_Dependency> inherits_index_sets_from_state_var;
+	std::set<Identifier_Data> inherits_index_sets_from_state_var;
 	
 	Math_Expr_FT *code;
 	

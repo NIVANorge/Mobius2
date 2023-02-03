@@ -5,6 +5,7 @@ model("NIVAFjord") {
 	
 	layer_idx : index_set("Layer index")
 	
+	oair  : compartment("Ocean air")
 	layer : compartment("Fjord layer")
 	sed   : compartment("Fjord sediment")
 	
@@ -16,4 +17,6 @@ model("NIVAFjord") {
 	sol : solver("Simply solver", "INCADascru", 0.1)
 	sol.solve(layer.water)
 	sol.solve(sed.heat)
+	
+	aggregation_weight(layer, oair) { 1 }
 }

@@ -45,7 +45,7 @@ make_state_var_identifier(Var_Id state_var) {
 	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;
 	ident->variable_type = Variable_Type::state_var;
-	ident->state_var     = state_var;
+	ident->var_id        = state_var;
 	return ident;
 }
 
@@ -373,11 +373,11 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 	}
 	if(var_id.type == Var_Id::Type::state_var) {
 		ident->variable_type = Variable_Type::state_var;
-		ident->state_var     = var_id;
+		ident->var_id        = var_id;
 		unit = data->app->state_vars[var_id]->unit.standard_form;
 	} else {
 		ident->variable_type = Variable_Type::series;
-		ident->series        = var_id;
+		ident->var_id        = var_id;
 		unit = data->app->series[var_id]->unit.standard_form;
 	}
 	ident->value_type = Value_Type::real;
@@ -389,7 +389,7 @@ fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::v
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	if(ident->variable_type != Variable_Type::parameter) return expr; //TODO: Could maybe eventually bake others.
-	auto par_id = ident->parameter;
+	auto par_id = ident->par_id;
 	if(std::find(baked_parameters->begin(), baked_parameters->end(), par_id) == baked_parameters->end()) return expr;
 	
 	// NOTE: currently we only do this for single-instanced parameters.
@@ -690,7 +690,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	if(directive == Directive::in_flux) {
 		result.unit = multiply(arg_units[var_idx], data->app->time_step_unit.standard_form, -1);
 	} else if(directive == Directive::conc) {
-		auto conc_id = as<State_Var::Type::declared>(data->app->state_vars[var->state_var])->conc;
+		auto conc_id = as<State_Var::Type::declared>(data->app->state_vars[var->var_id])->conc;
 		result.unit = data->app->state_vars[conc_id]->unit.standard_form;
 	} else
 		result.unit = std::move(arg_units[var_idx]);
@@ -815,7 +815,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							fatal_error_trace(scope);
 						}
 						new_ident->variable_type = Variable_Type::parameter;
-						new_ident->parameter = id;
+						new_ident->par_id = id;
 						new_ident->value_type = get_value_type(par->decl_type);
 						if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
 							result.unit = model->units[par->unit]->data.standard_form;
@@ -878,7 +878,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 									fatal_error_trace(scope);
 								}
 								new_ident->variable_type = Variable_Type::parameter;
-								new_ident->parameter = reg->id;
+								new_ident->par_id = reg->id;
 								new_ident->value_type = Value_Type::integer;
 								auto ft = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
 								result.fun = make_binop('=', ft, make_literal(val));
@@ -1565,6 +1565,7 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 	
+	/*
 	Var_Dependency dep;
 	dep.type = Var_Dependency::Type::none;
 	dep.connection = invalid_entity_id;
@@ -1589,6 +1590,14 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 		dep.var_id = ident->series;
 		depends->on_series.insert(dep);
 	}
+	*/
+	if(ident->variable_type == Variable_Type::parameter)
+		depends->on_parameter.insert(*ident);
+	else if(ident->variable_type == Variable_Type::state_var)
+		depends->on_state_var.insert(*ident);
+	else if(ident->variable_type == Variable_Type::series)
+		depends->on_series.insert(*ident);
+	
 }
 
 template<typename Expr_Type> Math_Expr_FT *

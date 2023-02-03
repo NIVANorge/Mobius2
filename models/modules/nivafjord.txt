@@ -38,7 +38,6 @@ module("NIVAFjord", 0, 0, 1) {
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
 		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the B-V frequency reference")
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
-		c_stress : par_real("Wind friction coefficient", [], 1)
 		
 		# TODO: Find correct defaults:
 		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0)
@@ -110,38 +109,55 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	layer.water.has(wmix : property("Water mixing"), [k g, day-1]) {
-		K := Kt + Ks #+Kd
+		K := Kt + Ks + Kw#+Kd
 		dens * A * K / dz ->>
 	}
 	
 	oair.has(stress : property("Wind stress"), [N, m-2]) {
-		air.dens*c_stress*air.wind^2
+		u := air.wind
+		c_stress := 1e-3*(0.8 + 0.9*u^8/(u^8 + 1e8[m 8, s-8]))
+		air.dens*c_stress*u^2
 	}
 	
-	oair.has(friction : property("Wind friction speed"), [m, s-1]) {
-		sqrt(stress/top(vert, layer.water.dens))
-	}
+	#oair.has(friction : property("Wind friction speed"), [m, s-1]) {
+	#	sqrt(stress/top(vert, layer.water.dens))
+	#}
 	
 	#TODO: need to take into account of B_s in the fjord model document
-	oair.has(emix : property("Mixing energy"), [m 3, s-3], "Total wind mixing energy") {
-		m0 := 0.5
-		m0*friction^3
+	oair.has(emix : property("Wind mixing energy"), [J], "Total wind mixing energy") {
+		#m0 := 0.5
+		#m0*friction^3
+		top(vert, A)*sqrt(stress^3/top(vert, layer.water.dens))*time.step_length_in_seconds
 	}
 	
-	# layer.water.has(emix, [m 3, s-3]) {
-		# maxspeed := air.wind #Hmm...
-		# J := maxspeed*grav*ddens*dz/dens # Energy needed to mix the layer at max speed
-		# rem := oair.emix - above(vert, summix)        # Remaining available.
-		# min(rem, J)
-	# }
+	layer.water.has(sumV : property("Sum V above"), [m 3]) {
+		above(vert, sumV) + above(vert, A)*above(vert, dz)
+	}
 	
-	# layer.water.has(summix : property("Sum used wind mixing energy"), [m 3, s-3]) {
-		# above(vert, summix) + emix
-	# }
+	layer.water.has(potmix : property("Potential energy needed for wind mixing"), [J]) {
+		max(0, grav*ddens*(sumV*A*dz/(sumV + A*dz))*((z+0.5*dz)/2))
+	}
 	
-	# layer.water.has(Kw : property("Wind mixing coefficient"), [m 2, s-1]) {
-		# emix*dens/(grav*ddens)
-	# }
+	layer.water.has(emix, [J]) {
+		rem := max(0, oair.emix - summix)
+		min(rem, potmix)
+	}
+	
+	layer.water.has(summix : property("Sum used wind mixing energy"), [J]) {
+		above(vert, emix) + above(vert, summix)
+	}
+	
+	layer.water.has(Kw : property("Wind mixing coefficient"), [m 2, s-1]) {
+		#TODO: Find out why we get the alternating bands!!
+		
+		rem := max(0, oair.emix - summix)
+		# This one is a bit iffy..
+		mixspeed := 3[m, day-1]
+		
+		mixspeed*dz->>                                                    if rem > 0 & potmix=>[] < 1e-20,
+		mixspeed*dz*safe_divide(below(vert, emix),below(vert, potmix))->> otherwise
+		#mixspeed*dz->>                                                    otherwise
+	}
 	
 	# Negative fluxes don't work properly for dissolved ones... TODO: Fix!
 	#flux(layer.water, vert, "Turbulent mixing down") { wmix }
@@ -155,6 +171,21 @@ module("NIVAFjord", 0, 0, 1) {
 		wmix * (conc(salt) - below(conc(salt))) ->>
 	}
 	
+	
+	tracer : quantity("Tracer")
+	layer.water.has(tracer, [k g])
+	
+	flux(nowhere, layer.water.tracer, vert, "Tracer input") .top {
+		1[k g, day-1]
+	}
+	
+	flux(layer.water.tracer, vert, "Tracer mixing") {
+		wmix * (conc(tracer) - below(conc(tracer))) ->>
+	}
+	
+	flux(layer.water.tracer, nowhere, vert, "Tracer vanishes") .bottom {
+		bottom(tracer)*0.9[day-1]
+	}
 	
 	# Air-sea :
 	

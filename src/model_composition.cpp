@@ -160,7 +160,7 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect an in_flux() in an initial value function.");
 			}
-			in_fluxes[{ident->state_var, ident->connection}].push_back(looked_up_by);
+			in_fluxes[{ident->var_id, ident->connection}].push_back(looked_up_by);
 		}
 		if(ident->flags & Identifier_FT::Flags::aggregate) {
 			if(!is_valid(lookup_compartment)) {
@@ -168,10 +168,10 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 				fatal_error("Can't use aggregate() in this function body because it does not belong to a compartment.");
 			}
 				
-			aggregates[ident->state_var.id].first.insert(lookup_compartment);         //OOOps!!!! This is not correct if this was applied to an input series!
+			aggregates[ident->var_id.id].first.insert(lookup_compartment);         //OOOps!!!! This is not correct if this was applied to an input series!
 			
 			if(is_valid(looked_up_by)) {
-				aggregates[ident->state_var.id].second.push_back(looked_up_by);
+				aggregates[ident->var_id.id].second.push_back(looked_up_by);
 			}
 		}
 	}
@@ -185,9 +185,9 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var && ident->state_var == replace_this && (ident->flags & flag)) {
+		if(ident->variable_type == Variable_Type::state_var && ident->var_id == replace_this && (ident->flags & flag)) {
 			if(is_valid(with)) {
-				ident->state_var = with;
+				ident->var_id = with;
 				ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
 			} else {
 				delete expr;
@@ -206,7 +206,7 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & Identifier_FT::Flags::conc)) return;
-	auto var = app->state_vars[ident->state_var];
+	auto var = app->state_vars[ident->var_id];
 	
 	if(var->type != State_Var::Type::declared)
 		fatal_error(Mobius_Error::internal, "Somehow we tried to look up the conc of a generated state variable");
@@ -215,7 +215,7 @@ replace_conc(Model_Application *app, Math_Expr_FT *expr) {
 		expr->source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("This variable does not have a concentration");
 	}
-	ident->state_var = var2->conc;
+	ident->var_id = var2->conc;
 	ident->flags = (Identifier_FT::Flags)(ident->flags & ~Identifier_FT::Flags::conc);
 }
 
@@ -230,7 +230,7 @@ restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id>
 			expr->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
 		} else if (ident->variable_type == Variable_Type::parameter)
-			parameter_refs.insert(ident->parameter);
+			parameter_refs.insert(ident->par_id);
 	}
 }
 
@@ -312,7 +312,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	for(auto &dep : code_depends.on_parameter) {
 		// TODO: Factor out
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(dep.type & Var_Dependency::Type::edge)
+		if(dep.flags & Identifier_Data::Flags::top_bottom)
 			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		
 		if(!parameter_indexes_below_location(app->model, dep.par_id, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
@@ -322,7 +322,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	}
 	for(auto &dep : code_depends.on_series) {
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(dep.type & Var_Dependency::Type::edge)
+		if(dep.flags & Identifier_Data::Flags::top_bottom)
 			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		
 		if(!location_indexes_below_location(app->model, app->series[dep.var_id]->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
@@ -356,7 +356,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(dep.type & Var_Dependency::Type::edge)
+		if(dep.flags & Identifier_Data::Flags::top_bottom)
 			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		
 		if(!location_indexes_below_location(app->model, dep_var->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {

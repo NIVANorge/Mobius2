@@ -122,7 +122,7 @@ insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_
 }
 
 void
-insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Var_Dependency &dep, int type) {
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep, int type) {
 	
 	const std::vector<Entity_Id> *index_sets = nullptr;
 	if(type == 0)
@@ -133,7 +133,7 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 		fatal_error(Mobius_Error::internal, "Misuse of insert_dependencies().");
 	
 	Entity_Id avoid = invalid_entity_id;
-	if(dep.type & Var_Dependency::Type::edge)
+	if(dep.flags & Identifier_Data::Flags::top_bottom)
 		avoid = app->get_single_connection_index_set(dep.connection);
 	
 	int sz = index_sets->size();
@@ -154,9 +154,9 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 }
 
 bool
-insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, std::set<Index_Set_Dependency> &to_insert, const Var_Dependency &dep) {
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, std::set<Index_Set_Dependency> &to_insert, const Identifier_Data &dep) {
 	Entity_Id avoid = invalid_entity_id;
-	if(dep.type & Var_Dependency::Type::edge)
+	if(dep.flags & Identifier_Data::Flags::top_bottom)
 		avoid = app->get_single_connection_index_set(dep.connection);
 	
 	bool changed = false;
@@ -183,23 +183,6 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		Dependency_Set code_depends;
 		register_dependencies(instr.code, &code_depends);
 		
-		// TODO: Not very nice to have this check here.
-		// TODO: Is the removal always correct?
-		// NOTE: If a connection flux refers to the in_flux of its own connection variable we could get a problem if we don't do this removal
-		// TODO: Must be disallowed entirely unless grid1d connection!
-		if(instr.type == Model_Instruction::Type::compute_state_var) {
-			auto var = app->state_vars[instr.var_id];
-			if(var->is_flux() && var->type == State_Var::Type::declared && is_located(var->loc1)) {
-				auto conn = connection_of_flux(var);
-				auto quant_id = app->state_vars.id_of(var->loc1);
-				auto var2 = as<State_Var::Type::declared>(app->state_vars[quant_id]);
-				for(auto agg_id : var2->conn_target_aggs) {
-					if(as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id])->connection == conn) // Do we need this check?
-						code_depends.on_state_var.erase({Var_Dependency::none, agg_id});
-				}
-			}
-		}
-		
 		for(auto &dep : code_depends.on_parameter) {
 			insert_dependencies(app, instr.index_sets, dep, 0);
 		}
@@ -209,19 +192,35 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		
 		for(auto &dep : code_depends.on_state_var) {
 			
-			if(dep.type & Var_Dependency::Type::across) {
-				instr.instruction_is_blocking.insert(dep.var_id.id); // This should only be needed if is_below??
-				//TODO: This should probably be different. Across-dependencies should instead be put on their own array and be used differently in sorting.
-				if(instr.type != Model_Instruction::Type::compute_state_var || instr.var_id != dep.var_id)
+			if(dep.flags & Identifier_Data::Flags::below_above) {
+				if(dep.is_above) {
+					/*if(is_valid(instr.var_id)) {
+						auto var = app->state_vars[instr.var_id];
+						auto dep_var = app->state_vars[dep.var_id];
+						warning_print("***** ", var->name, " references above of ", dep_var->name, "\n");
+					}*/
+					instr.loose_depends_on_instruction.insert(dep.var_id.id);
+				} else {
+					instr.instruction_is_blocking.insert(dep.var_id.id);
 					instr.depends_on_instruction.insert(dep.var_id.id);
-				
+				}
 				// Ugh, this is a bit hacky. Could it be improved?
+				// TODO: Document why this was needed
 				if(instr.type == Model_Instruction::Type::compute_state_var) {
 					auto index_set = app->get_single_connection_index_set(dep.connection);
 					instr.index_sets.insert(index_set);
 				}
-			} else if(!(dep.type & Var_Dependency::Type::earlier_step))
+			} else if(dep.flags & Identifier_Data::Flags::top_bottom) {
 				instr.depends_on_instruction.insert(dep.var_id.id);
+				if(!dep.is_above)
+					instr.instruction_is_blocking.insert(dep.var_id.id);
+			} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {
+				auto var = app->state_vars[dep.var_id];
+				if(var->type == State_Var::Type::connection_aggregate)
+					instr.loose_depends_on_instruction.insert(dep.var_id.id);
+				else
+					instr.depends_on_instruction.insert(dep.var_id.id);
+			}
 		}
 		instr.inherits_index_sets_from_state_var = code_depends.on_state_var;
 	}
@@ -274,6 +273,8 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 			for(auto other_id : sub_batch->instr_ids) {
 				if(instr->depends_on_instruction.find(other_id) != instr->depends_on_instruction.end())
 					found_dependency = true;
+				if(instr->loose_depends_on_instruction.find(other_id) != instr->loose_depends_on_instruction.end())
+					found_dependency = true;
 				if(instr->instruction_is_blocking.find(other_id) != instr->instruction_is_blocking.end())
 					blocked = true;
 			}
@@ -319,6 +320,16 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 						break;
 					}
 				}
+				// If another instruction in the same batch loose depends on us, we are not allowed to movve.
+				for(int instr_behind_idx = 0; instr_behind_idx < sub_batch.instr_ids.size(); ++instr_behind_idx) {
+					// It is not necessarily "behind" in this case.
+					int behind_id = sub_batch.instr_ids[instr_behind_idx];
+					auto behind = &instructions[behind_id];
+					if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
+						cont = true;
+						break;
+					}
+				}
 				if(cont) {
 					--instr_idx;
 					continue;
@@ -334,6 +345,8 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 						auto behind_id = batch_behind.instr_ids[instr_behind_idx];
 						auto behind = &instructions[behind_id];
 						if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end())
+							batch_depends_on_us = true;
+						if(behind->loose_depends_on_instruction.find(instr_id) != behind->loose_depends_on_instruction.end())
 							batch_depends_on_us = true;
 						if(behind->instruction_is_blocking.find(instr_id) != behind->instruction_is_blocking.end())
 							batch_is_blocked = true;
@@ -386,17 +399,17 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var) {
-			auto instr = &instructions[ident->state_var.id];
+			auto instr = &instructions[ident->var_id.id];
 			
 			if(instr->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
 			
 			// This function wants to look up the value of another variable, but it doesn't have initial code. If it has regular code, we can substitute that!
 			
-			auto var = app->state_vars[ident->state_var];
+			auto var = app->state_vars[ident->var_id];
 			//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
 				
 			instr->type = Model_Instruction::Type::compute_state_var;
-			instr->var_id = ident->state_var;
+			instr->var_id = ident->var_id;
 			instr->code = nullptr;
 			
 			if(var->type == State_Var::Type::declared) {
@@ -897,6 +910,20 @@ bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, s
 		if(propagate_solvers(app, dep, solver, instructions))
 			found = true;
 	}
+	for(int dep : instr->loose_depends_on_instruction) {
+		if(propagate_solvers(app, dep, solver, instructions))
+			found = true;
+		/*if(is_valid(instr->var_id)) {
+			auto var = app->state_vars[instr->var_id];
+			if(var->name == "Sum used wind mixing energy") {
+				auto &dep_instr = instructions[dep];
+				if(is_valid(dep_instr.var_id)) {
+					auto var2 = app->state_vars[dep_instr.var_id];
+					warning_print("******Sum used loose depends on ", var2->name, ". Found: ", found, "\n");
+				}
+			}
+		}*/
+	}
 	if(found) {
 		if(is_valid(instr->solver) && instr->solver != solver) {
 			// ooops, we already wanted to put it on another solver.
@@ -946,17 +973,21 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	// discrete batches:
 	// 	- can be multiple of these. 
 	
-	// TODO : this may no longer work, and we may have to have one more outer loop. This is because they are not sorted first.
-	//   but we can also not sort them first because we have to remove some dependencies after adding solvers and before sorting...
 	warning_print("Propagate solvers\n");
-	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
-		auto instr = &instructions[instr_id];
-		
-		if(instr->type == Model_Instruction::Type::invalid) continue;
-		
-		if(is_valid(instr->solver)) {
-			for(int dep : instr->depends_on_instruction)
-				propagate_solvers(app, dep, instr->solver, instructions);
+	// TODO: We need to make some guard to check that this is a sufficient amount of iterations!
+	for(int idx = 0; idx < 10; ++idx) { 
+		for(auto &instr : instructions) instr.visited = false;
+		for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
+			auto instr = &instructions[instr_id];
+			
+			if(instr->type == Model_Instruction::Type::invalid) continue;
+			
+			if(is_valid(instr->solver)) {
+				for(int dep : instr->depends_on_instruction)
+					propagate_solvers(app, dep, instr->solver, instructions);
+				for(int dep : instr->loose_depends_on_instruction)
+					propagate_solvers(app, dep, instr->solver, instructions);
+			}
 		}
 	}
 	

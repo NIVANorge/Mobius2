@@ -1,6 +1,34 @@
 
 	
 	
+	# Maybe need specialized functionality for wind driven mixing
+	
+	mix(layer.water, vert) .avail_energy {
+		oair.emix
+	} .need_energy {
+		grav*ddens[above]*(sumV[above]*V/(sumV[above]+V))*z/2
+	}
+	
+	# Alternative, need imperative programming:
+	
+	code() {
+		for vert {
+			
+		}
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top {}
 	# Would probably be clearer as:
 	flux(nowhere, layer.water.heat, vert.top, "Latent heat flux") {}

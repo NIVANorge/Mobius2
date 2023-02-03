@@ -6,7 +6,7 @@
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all and grid1d).
 		Sub-indexed series data.
 
-	Why does [W m-2] parse as a unit??
+	The "loose depends" system is kind of iffy.
 
 	Finish connection system
 	
@@ -77,6 +77,8 @@
 	
 	
 	*** Low-pri ****
+	
+		Aggregation weight should not be needed by default ( default to 1 )
 	
 		System for having configured the root Mobius2 folder so that it knows where modules and stdlib are.
 		

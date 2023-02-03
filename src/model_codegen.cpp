@@ -304,16 +304,16 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 	Math_Expr_FT *offset_code = nullptr;
 	s64 back_step;
 	if(ident->variable_type == Variable_Type::parameter) {
-		offset_code = app->parameter_structure.get_offset_code(ident->parameter, index_expr);
+		offset_code = app->parameter_structure.get_offset_code(ident->par_id, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
-		offset_code = app->series_structure.get_offset_code(ident->series, index_expr);
+		offset_code = app->series_structure.get_offset_code(ident->var_id, index_expr);
 		back_step = app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
-		auto var = app->state_vars[ident->state_var];
+		auto var = app->state_vars[ident->var_id];
 		if(var->flags & State_Var::Flags::invalid)
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
-		offset_code = app->result_structure.get_offset_code(ident->state_var, index_expr);
+		offset_code = app->result_structure.get_offset_code(ident->var_id, index_expr);
 		back_step = app->result_structure.total_count;
 	}
 	

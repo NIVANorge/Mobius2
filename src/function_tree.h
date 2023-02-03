@@ -32,8 +32,7 @@ Math_Block_FT : Math_Expr_FT {
 
 
 struct
-Identifier_FT : Math_Expr_FT {
-
+Identifier_Data {
 	Variable_Type                variable_type;
 	enum Flags : u32 {      //Hmm why not just reuse the Directive type for this somehow? Although then the directive type must be in flag form, which is a bit tricky.
 		none        = 0x0,
@@ -45,18 +44,34 @@ Identifier_FT : Math_Expr_FT {
 		top_bottom  = 0x20,
 	}                            flags;
 	union {
-		Entity_Id                parameter;
-		Var_Id                   state_var;
-		Var_Id                   series;
-		struct {
-			s32           index;
-			s32           scope_id;
-		}                        local_var;
+		Entity_Id                par_id;
+		Var_Id                   var_id;
 	};
-	Entity_Id connection;   // If it is 'below' or 'above', what connection is it along?
-	bool      is_above;     // If it is below or above, is it actually above?
+	Entity_Id connection;   // If it is 'below', 'above', 'top', or 'bottom', what connection is it along?
+	bool      is_above;     // If it is below or above, is it actually above (or top vs bottom)?
 	
-	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier), flags(Identifier_FT::Flags::none), connection(invalid_entity_id), is_above(false) { };
+	Identifier_Data() : flags(Flags::none), connection(invalid_entity_id), is_above(false) { };
+};
+
+inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
+	// NOTE: The current use case for this is such that they have the same variable type
+	if(a.variable_type == Variable_Type::parameter) {
+		if(a.par_id == b.par_id) return (u32)a.flags < (u32)b.flags;
+		return a.par_id.id < b.par_id.id;
+	}
+	if(a.var_id == b.var_id) return a.flags < b.flags;
+	return a.var_id.id < b.var_id.id;
+}
+
+struct
+Identifier_FT : Math_Expr_FT, Identifier_Data {
+	
+	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier), Identifier_Data() { };
+	
+	struct {
+		s32 index;
+		s32 scope_id;
+	} local_var;
 };
 
 struct
@@ -90,8 +105,9 @@ Local_Var_FT : Math_Expr_FT {
 	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
 };
 
+/*
 struct
-Var_Dependency {   // TODO: Reuse identifier type instead..
+Var_Dependency {   // TODO: Reuse identifier type instead.. Or even just store a copy of the identifier as the dependency (or a part of it).
 	enum Type : u32 {
 		none         = 0x0,
 		earlier_step = 0x1,
@@ -104,17 +120,13 @@ Var_Dependency {   // TODO: Reuse identifier type instead..
 	};
 	Entity_Id         connection; // If it is across or edge.
 };
-
-inline bool operator<(const Var_Dependency &a, const Var_Dependency &b) {
-	if(a.var_id == b.var_id) return (u32)a.type < (u32)b.type;
-	return a.var_id.id < b.var_id.id; //TODO: oops, wrong if it is a parameter.
-}
+*/
 
 struct
 Dependency_Set {
-	std::set<Var_Dependency>  on_parameter;
-	std::set<Var_Dependency>  on_series;
-	std::set<Var_Dependency>  on_state_var;
+	std::set<Identifier_Data>  on_parameter;
+	std::set<Identifier_Data>  on_series;
+	std::set<Identifier_Data>  on_state_var;
 };
 
 struct Model_Application;

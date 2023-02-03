@@ -69,15 +69,16 @@ module("Penman-Monteith PET", 1, 0, 0) {
 		slope   := slope_of_saturation_pressure_curve(air.temp, air.s_vap->[k Pa])
 		net_rad := net_sw + air.lwd - lwu # May need to substitute  with the net longwave here: https://www.fao.org/3/x0490e/x0490e07.htm because this doesn't seem to give good results.
 		
+		u := max(0.5[m, s-1], air.wind)
 		# Modified psychrometric constant
 		psy_corr := {
 			psy                             if pt,
-			psy * (1 + r_s*air.wind/r_a_w)  otherwise
+			psy * (1 + r_s*u/r_a_w)  otherwise
 		}
 		dp := (air.s_vap - air.a_vap) -> [k Pa]
 		pressure_term := {
-			0                                                                             if pt,
-			(lvap*vapor_mol_to_mass/(Rdry_air*r_a_w))*air.wind*dp/(1.01*(air.temp->[K]))  otherwise
+			0                                                                      if pt,
+			(lvap*vapor_mol_to_mass/(Rdry_air*r_a_w))*u*dp/(1.01*(air.temp->[K]))  otherwise
 		} -> [W, m-2]
 		alpha := {
 			apet         if pt,

@@ -46,8 +46,8 @@ module("NIVAFjord", 0, 0, 1) {
 		par_real("Diffuse attenuation coefficent (clear water)")
 		[ 0.2 ]
 
-		par_real("Wind friction coefficient")
-		[ 1 ]
+		#par_real("Wind friction coefficient")
+		#[ 1 ]
 
 		par_real("Surface additional mixing energy")
 		[ 1e-10 ]
@@ -74,6 +74,16 @@ module("NIVAFjord", 0, 0, 1) {
 
 		par_real("Sediment density")
 		[ 2600 ]
+	}
+}
+
+module("Atmospheric", 0, 1, 0) {
+	par_group("Location") {
+		par_real("Latitude")
+		[ 60 ]
+
+		par_real("Elevation")
+		[ 0 ]
 	}
 }
 
