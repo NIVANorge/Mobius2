@@ -15,7 +15,7 @@ par_group("System") {
 	[ 1980-01-01 ]
 
 	par_datetime("End date")
-	[ 1983-12-31 ]
+	[ 1985-12-31 ]
 }
 
 module("NIVAFjord", 0, 0, 1) {
@@ -45,9 +45,6 @@ module("NIVAFjord", 0, 0, 1) {
 
 		par_real("Diffuse attenuation coefficent (clear water)")
 		[ 0.2 ]
-
-		#par_real("Wind friction coefficient")
-		#[ 1 ]
 
 		par_real("Surface additional mixing energy")
 		[ 1e-10 ]

@@ -183,9 +183,9 @@ module("NIVAFjord", 0, 0, 1) {
 		wmix * (conc(tracer) - below(conc(tracer))) ->>
 	}
 	
-	flux(layer.water.tracer, nowhere, vert, "Tracer vanishes") .bottom {
-		bottom(tracer)*0.9[day-1]
-	}
+	#flux(layer.water.tracer, nowhere, vert, "Tracer vanishes") .bottom {
+	#	bottom(tracer)*0.9[day-1]
+	#}
 	
 	# Air-sea :
 	
