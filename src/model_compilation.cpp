@@ -913,16 +913,6 @@ bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, s
 	for(int dep : instr->loose_depends_on_instruction) {
 		if(propagate_solvers(app, dep, solver, instructions))
 			found = true;
-		/*if(is_valid(instr->var_id)) {
-			auto var = app->state_vars[instr->var_id];
-			if(var->name == "Sum used wind mixing energy") {
-				auto &dep_instr = instructions[dep];
-				if(is_valid(dep_instr.var_id)) {
-					auto var2 = app->state_vars[dep_instr.var_id];
-					warning_print("******Sum used loose depends on ", var2->name, ". Found: ", found, "\n");
-				}
-			}
-		}*/
 	}
 	if(found) {
 		if(is_valid(instr->solver) && instr->solver != solver) {

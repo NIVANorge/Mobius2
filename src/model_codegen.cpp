@@ -16,7 +16,7 @@ get_index_count_code(Model_Application *app, Entity_Id index_set, Index_Exprs &i
 Math_Expr_FT *
 make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, Math_Expr_FT *unit_conv = nullptr) {
 	
-	auto var_ident = make_state_var_identifier(var_id);
+	Math_Expr_FT* var_ident = make_state_var_identifier(var_id);
 	
 	if(unit_conv)
 		var_ident = make_binop('*', var_ident, unit_conv);
@@ -110,27 +110,51 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto var2 = as<State_Var::Type::dissolved_flux>(var);
 				auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[var2->conc]);
 				instr.code = make_binop('*', make_state_var_identifier(var2->conc), make_state_var_identifier(var2->flux_of_medium));
-				// TODO: Here we could also just do the re-computation of the concentration so that we don't get the double back-and-forth unit conversion...
+				// TODO: Here we could also just do the re-computation of the concentration so that we don't get the back-and-forth unit conversion...
 				
 				if(conc->unit_conversion != 1.0)
 					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
+#if 1
+				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
+				
+				// TODO: Allow for other types of fluxes also
+				auto conn_id = connection_of_flux(var);
+				if(is_valid(conn_id)) {
+					auto conn = model->connections[conn_id];
+					if(conn->type == Connection_Type::grid1d) {
+						auto condition = make_binop(Token_Type::geq, make_state_var_identifier(var2->flux_of_medium), make_literal(0.0));
+						auto conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
+						conc2->flags = Identifier_Data::Flags::below_above;
+						conc2->is_above = false;
+						conc2->connection = conn_id;
+						
+						auto altval = make_binop('*', conc2, make_state_var_identifier(var2->flux_of_medium));
+						if(conc->unit_conversion != 1.0)
+							altval = make_binop('/', altval, make_literal(conc->unit_conversion));
+						
+						auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+						if_chain->value_type = Value_Type::real;
+						if_chain->exprs.push_back(instr.code);
+						if_chain->exprs.push_back(condition);
+						if_chain->exprs.push_back(altval);
+						instr.code = if_chain;
+					}
+				}
+#endif
 			}
 		
 			
 			// Restrict discrete fluxes to not overtax their source.
-			if(var->is_flux() && !is_valid(instr.solver) && instr.code) {
+			if(var->is_flux() && !is_valid(instr.solver) && instr.code && is_located(var->loc1)) {
 			
 				// note: create something like
 				//      flux = min(flux, source)
-				// NOTE: it is a design decision by the framework to not allow negative fluxes, otherwise the flux would get a much more
+				// NOTE: it is a design decision by the framework to not allow negative discrete fluxes, otherwise the flux would get a much more
 				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
-				// NOTE: this will not be tripped by aggregates since they don't have their own function tree... but TODO: maybe make it a bit nicer still?
-				
-				if(is_located(var->loc1)) {   // This should always be true if the flux has a solver at this stage, but no reason not to be safe.
-					Var_Id source_id = app->state_vars.id_of(var->loc1);
-					auto source_ref = static_cast<Identifier_FT *>(make_state_var_identifier(source_id));
-					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
-				}
+
+				Var_Id source_id = app->state_vars.id_of(var->loc1);
+				auto source_ref = static_cast<Identifier_FT *>(make_state_var_identifier(source_id));
+				instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 			}
 			
 			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.

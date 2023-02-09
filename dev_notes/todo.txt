@@ -21,6 +21,7 @@
 			actually, circular references involving above() and below() are tricky and needs an expansion of the sorting system.
 		
 		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
+			Only the case for regular (non-aggregated?) fluxes and all-to-all + grid1d connections (later graph)
 			Alternatively just make it possible to have a connection in the opposite direction??
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
