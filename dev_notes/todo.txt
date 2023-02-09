@@ -9,20 +9,10 @@
 	The "loose depends" system is kind of iffy.
 
 	Finish connection system
-	
-		grid1d:
-	
-			in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
-				- always true for grid1d
-				- sometimes true for directed_tree, always false for all_to_all.
-					Thus must be disallowed for those!
-			Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
-				below(itself) needs to have an is_blocking.
-			actually, circular references involving above() and below() are tricky and needs an expansion of the sorting system.
+
 		
-		Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
-			Only the case for regular (non-aggregated?) fluxes and all-to-all + grid1d connections (later graph)
-			Alternatively just make it possible to have a connection in the opposite direction??
+		Dissolved fluxes -
+			make dissolvedes of negatives work for other types.
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 		Finish regex checks.	
@@ -42,7 +32,7 @@
 
 		Units
 			Allow units to have the form [30, month] (i.e. leading multiplier)
-			Allow rational coefficients and powers in units.
+			Allow rational coefficients and powers in units.  (powers now ok).
 			Write unit back to file (only needed for time step units for now).
 		
 		Making a robust system for the units of fluxes.
@@ -228,3 +218,17 @@
 	New format for units.
 	
 	String_View auto-converting to bool also means that it auto-converts to int. This can cause bugs when we refactor some things.
+	
+	Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
+			Only the case for regular (non-aggregated?) fluxes and all-to-all + grid1d connections (later graph)
+			Alternatively just make it possible to have a connection in the opposite direction??
+			
+	grid1d:
+	
+			in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
+				- always true for grid1d
+				- sometimes true for directed_tree, always false for all_to_all.
+					Thus must be disallowed for those!
+			Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
+				below(itself) needs to have an is_blocking.
+			actually, circular references involving above() and below() are tricky and needs an expansion of the sorting system.

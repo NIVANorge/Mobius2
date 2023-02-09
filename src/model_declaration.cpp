@@ -457,7 +457,7 @@ process_declaration<Reg_Type::unit>(Mobius_Model *model, Decl_Scope *scope, Decl
 	auto unit = model->units[id];
 	
 	// TODO: we could de-duplicate based on the standard form.
-	set_unit_data(unit->data, decl);
+	unit->data.set_data(decl);
 	
 	return id;
 }
@@ -640,7 +640,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 			// It is a bit annoying to not use  resolve_argument here, but we don't want it to be associated to the handle in the scope.
 			auto unit_id = model->units.find_or_create(nullptr, scope, nullptr, arg->decl);
 			auto unit = model->units[unit_id];
-			set_unit_data(unit->data, arg->decl);
+			unit->data.set_data(arg->decl);
 			if(!arg->decl->handle_name.string_value.count) {
 				arg->decl->source_loc.print_error_header();
 				fatal_error("All arguments to a function must be named.");

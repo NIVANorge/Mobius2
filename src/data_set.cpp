@@ -328,7 +328,8 @@ Data_Set::write_to_file(String_View file_name) {
 		}
 		
 		if(time_step_was_provided) {
-			fatal_error(Mobius_Error::internal, "Saving time step to file not implemented");
+			std::string unit_str = time_step_unit.to_decl_str();
+			fprintf(file, "time_step(%s)\n\n", unit_str.data());
 		}
 		
 		for(auto &index_set : index_sets)
@@ -544,8 +545,8 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 				while(true) {
 					if((char)token.type == '[') {
 						auto unit_decl = parse_decl_header(stream);
-						set_unit_data(header.unit, unit_decl);
-						warning_print("************Found unit: ", header.unit.to_utf8(), '\n');
+						header.unit.set_data(unit_decl);
+						//warning_print("************Found unit: ", header.unit.to_utf8(), '\n');
 						delete unit_decl;
 					} else {
 						bool success = set_flag(&header.flags, token.string_value);
@@ -927,13 +928,8 @@ Data_Set::read_from_file(String_View file_name) {
 				
 				case Decl_Type::time_step : {
 					match_declaration(decl, {{Decl_Type::unit}}, 0, false);
-					set_unit_data(time_step_unit, decl->args[0]->decl);
-					bool success;
-					time_step_size = time_step_unit.to_time_step(success);
-					if(!success) {
-						decl->source_loc.print_error_header();
-						fatal_error("This is not a valid time step unit.");
-					}
+					time_step_unit.set_data(decl->args[0]->decl);
+					unit_source_loc = decl->source_loc;
 					time_step_was_provided = true;
 				} break;
 				

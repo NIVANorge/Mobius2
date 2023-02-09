@@ -105,23 +105,6 @@ Local_Var_FT : Math_Expr_FT {
 	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
 };
 
-/*
-struct
-Var_Dependency {   // TODO: Reuse identifier type instead.. Or even just store a copy of the identifier as the dependency (or a part of it).
-	enum Type : u32 {
-		none         = 0x0,
-		earlier_step = 0x1,
-		across       = 0x2,
-		edge         = 0x4,
-	}                 type;
-	union {
-		Var_Id            var_id;
-		Entity_Id         par_id;
-	};
-	Entity_Id         connection; // If it is across or edge.
-};
-*/
-
 struct
 Dependency_Set {
 	std::set<Identifier_Data>  on_parameter;

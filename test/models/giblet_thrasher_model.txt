@@ -28,16 +28,16 @@ model("Giblet-Thrasher test model") {
 		
 		habitat.has(meteor : property("Meteor strikes"), [])
 		
-		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0[day], birth_time, birth_time+60.0[day], 0.6, 1, 0.6) }
+		flux(nowhere, habitat.prey, "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0[day], birth_time, birth_time+60.0[day], 0.6, 1, 0.6) ->> }
 		
-		flux(habitat.prey, nowhere, "Predation")        {  nomnom * prey * pred  }
+		flux(habitat.prey, nowhere, "Predation")        {  nomnom * prey * pred ->> }
 		
-		flux(nowhere, habitat.pred, "Thrasher birth")   {  pred_birth * prey * pred  }
+		flux(nowhere, habitat.pred, "Thrasher birth")   {  pred_birth * prey * pred ->> }
 		
-		flux(habitat.pred, nowhere, "Thrasher death")   {  pred * (pred_death + meteor_dth*meteor) }
+		flux(habitat.pred, nowhere, "Thrasher death")   {  pred * (pred_death + meteor_dth*meteor) ->> }
 		
 		migration :
-		flux(habitat.prey, out, "Giblet migration") {  prey * pred * pmig * mig_wt  }
+		flux(habitat.prey, out, "Giblet migration") {  prey * pred * pmig * mig_wt ->> }
 		
 		habitat.par_group("Migration weights") {
 			mig_wt : par_real("Migration weight", [], 0.1, 0, 1)

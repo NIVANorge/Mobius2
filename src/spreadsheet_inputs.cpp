@@ -4,7 +4,7 @@
 #if OLE_AVAILABLE
 
 #include "data_set.h"
-#include "model_declaration.h" // This is for set_unit_data only. We could maybe move that to units.h untangle some stuff.
+//#include "unit.h" // This is for Unit:: only. We could maybe move that to units.h untangle some stuff.
 
 #include <limits>
 
@@ -168,7 +168,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 							}
 						} else if ((char)token.type == '[') {
 							Decl_AST *unit_decl = parse_decl_header(&stream, nullptr);
-							set_unit_data(header.unit, unit_decl);
+							header.unit.set_data(unit_decl);
 							delete unit_decl;
 						} else if (token.type == Token_Type::eof) {
 							break;

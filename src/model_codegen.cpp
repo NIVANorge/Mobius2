@@ -73,6 +73,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			//TODO: For overridden quantities they could just be removed from the solver. Also they shouldn't get any index set dependencies from fluxes connected to them.
 			//    not sure about the best way to do it (or where).
+			//      -hmm this comment may be outdated. Should be checked.
 			
 			// Directly override the mass of a quantity
 			if(var->type == State_Var::Type::declared) {
@@ -114,7 +115,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				if(conc->unit_conversion != 1.0)
 					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
-#if 1
 				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
 				
 				// TODO: Allow for other types of fluxes also
@@ -140,7 +140,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						instr.code = if_chain;
 					}
 				}
-#endif
 			}
 		
 			

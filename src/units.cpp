@@ -37,10 +37,11 @@ parse_si_prefix(Token *token) {
 
 // TODO: Complete this
 const char *
-get_si_prefix(int pow10) {
+get_si_prefix(int pow10, bool declared=false) {
 	static const char *prefixes[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100µ", "10µ", "µ", "100n", "10n", "n"};
+	static const char *prefixes2[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100u", "10u", "u", "100n", "10n", "n"};
 	int idx = 9-pow10;
-	return prefixes[idx];
+	return declared ? prefixes2[idx] : prefixes[idx];
 }
 
 Compound_Unit
@@ -107,6 +108,8 @@ void
 Unit_Data::set_standard_form() {
 	standard_form.multiplier = 1;
 	standard_form.magnitude  = 0;
+	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
+		standard_form.powers[idx] = 0;
 
 	for(auto &part : declared_form) {
 		if((int)part.unit <= (int)Base_Unit::max)
@@ -360,6 +363,32 @@ Unit_Data::to_utf8() {
 	return ss.str();
 }
 
+static const char *unit_symbols_declared[] = {
+	#define COMPOUND_UNIT(handle, name) #handle,
+	#include "compound_units.incl"
+	#undef COMPOUND_UNIT
+};
+
+std::string
+Unit_Data::to_decl_str() {
+	std::stringstream ss;
+	ss << "[";
+	int idx = 0;
+	for(auto &part : declared_form) {
+		// TODO: Clean up to not have the space in case the prefix or power is empty.
+		if(part.magnitude != 0)
+			ss << get_si_prefix(part.magnitude, true) << " ";
+		ss << unit_symbols_declared[(int)part.unit];
+		if(part.power != Rational<s16>(1)) {
+			ss << " " << part.power;
+		}
+		++idx;
+		if(idx != declared_form.size()) ss << ", ";
+	}
+	ss << "]";
+	return ss.str();
+}
+
 std::string
 Standardized_Unit::to_utf8() {
 	std::stringstream ss;
@@ -395,10 +424,13 @@ Standardized_Unit::to_utf8() {
 }
 
 void
-set_unit_data(Unit_Data &data, Decl_AST *decl) {
+Unit_Data::set_data(Decl_AST *decl) {
+	if(decl->type != Decl_Type::unit)
+		fatal_error("Received a non-unit decl to set_data().");
+	declared_form.clear();
 	for(auto arg : decl->args)
-		data.declared_form.push_back(parse_unit(&arg->sub_chain));
-	data.set_standard_form();
+		declared_form.push_back(parse_unit(&arg->sub_chain));
+	set_standard_form();
 }
 
 Time_Step_Size

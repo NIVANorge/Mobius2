@@ -227,8 +227,6 @@ Data_Set {
 	
 	Data_Set() {
 		// Default to one day.
-		time_step_size.unit       = Time_Step_Size::second;
-		time_step_size.multiplier = 86400;
 		time_step_unit.declared_form.push_back({0, 1, Compound_Unit::day});
 		time_step_unit.set_standard_form();
 	}
@@ -245,8 +243,9 @@ Data_Set {
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;
 	
+	
+	Source_Location                 unit_source_loc;
 	Unit_Data                       time_step_unit;
-	Time_Step_Size                  time_step_size;
 	bool                            time_step_was_provided = false;
 };
 

@@ -1173,7 +1173,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				to_unit = data->expected_unit;
 			} else {
 				Unit_Data conv_unit;
-				set_unit_data(conv_unit, conv->unit);
+				conv_unit.set_data(conv->unit);
 				to_unit = std::move(conv_unit.standard_form);
 			}
 			

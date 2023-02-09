@@ -68,6 +68,8 @@ unit_atom(Base_Unit bu, s64 multiplier = 1) {
 	return result;
 }
 
+struct Decl_AST;
+
 struct
 Unit_Data {
 	//s64                             declared_multiplier;   //TODO.
@@ -75,27 +77,21 @@ Unit_Data {
 	Standardized_Unit               standard_form;
 	
 	std::string to_utf8();
+	std::string to_decl_str();
 	// TODO: also to_latex(), and maybe to_mathml().
 	
 	//bool operator==(const Unit_Data &other);
 	Time_Step_Size  to_time_step(bool &success);
 	
+	void set_data(Decl_AST *decl);
 	void set_standard_form();
 };
-
-struct Decl_AST;
 
 Unit_Data
 multiply(const Unit_Data &a, const Unit_Data &b, int power = 1);
 
 inline Unit_Data
 divide(const Unit_Data &a, const Unit_Data &b) { return multiply(a, b, -1); }
-
-Declared_Unit_Part
-parse_unit(std::vector<Token> *tokens);
-
-void
-set_unit_data(Unit_Data &data, Decl_AST *decl);
 
 bool
 match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor);
