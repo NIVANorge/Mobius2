@@ -106,10 +106,11 @@ parse_unit(std::vector<Token> *tokens) {
 
 void
 Unit_Data::set_standard_form() {
-	standard_form.multiplier = 1;
+	standard_form.multiplier = declared_multiplier;
 	standard_form.magnitude  = 0;
 	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
 		standard_form.powers[idx] = 0;
+	standard_form.reduce();
 
 	for(auto &part : declared_form) {
 		if((int)part.unit <= (int)Base_Unit::max)
@@ -374,6 +375,10 @@ Unit_Data::to_decl_str() {
 	std::stringstream ss;
 	ss << "[";
 	int idx = 0;
+	if(declared_multiplier != 1) {
+		ss << declared_multiplier;
+		if(!declared_form.empty()) ss<< ", ";
+	}
 	for(auto &part : declared_form) {
 		// TODO: Clean up to not have the space in case the prefix or power is empty.
 		if(part.magnitude != 0)
@@ -428,8 +433,22 @@ Unit_Data::set_data(Decl_AST *decl) {
 	if(decl->type != Decl_Type::unit)
 		fatal_error("Received a non-unit decl to set_data().");
 	declared_form.clear();
-	for(auto arg : decl->args)
-		declared_form.push_back(parse_unit(&arg->sub_chain));
+	declared_multiplier = 1;
+	int idx = 0;
+	for(auto arg : decl->args) {
+		bool skip = false;
+		if(idx == 0 && arg->sub_chain.size() == 1 && arg->sub_chain[0].type == Token_Type::integer) {
+			skip = true;
+			declared_multiplier = arg->sub_chain[0].val_int;
+			if(declared_multiplier < 0) {
+				arg->sub_chain[0].print_error_header();
+				fatal_error("A unit can not have a negative size.");
+			}
+		}
+		if(!skip)
+			declared_form.push_back(parse_unit(&arg->sub_chain));
+		++idx;
+	}
 	set_standard_form();
 }
 

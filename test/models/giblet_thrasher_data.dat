@@ -1,4 +1,4 @@
-#time_step([hr])
+time_step([day])
 
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 

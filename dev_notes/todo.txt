@@ -32,8 +32,6 @@
 
 		Units
 			Allow units to have the form [30, month] (i.e. leading multiplier)
-			Allow rational coefficients and powers in units.  (powers now ok).
-			Write unit back to file (only needed for time step units for now).
 		
 		Making a robust system for the units of fluxes.
 
@@ -232,3 +230,6 @@
 			Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
 				below(itself) needs to have an is_blocking.
 			actually, circular references involving above() and below() are tricky and needs an expansion of the sorting system.
+			
+	Write unit back to file (only needed for time step units for now).
+	Allow rational coefficients and powers in units.  (powers now ok).
