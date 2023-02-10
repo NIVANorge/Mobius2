@@ -29,9 +29,6 @@
 	*** Intermediate-pri ***
 
 		Dynamic module choice (based on data set)
-
-		Units
-			Allow units to have the form [30, month] (i.e. leading multiplier)
 		
 		Making a robust system for the units of fluxes.
 
@@ -42,7 +39,6 @@
 		Better scoping system for declaration names (not just for symbols).
 			also for variable names.
 		
-		Allow redeclaration of constants without conflict (?)
 
 		Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before).
 		
@@ -233,3 +229,6 @@
 			
 	Write unit back to file (only needed for time step units for now).
 	Allow rational coefficients and powers in units.  (powers now ok).
+	
+	Units
+			Allow units to have the form [30, month] (i.e. leading multiplier)

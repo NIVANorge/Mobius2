@@ -28,9 +28,12 @@ Var_Location_Hash {
 	}
 };
 
-template <Var_Id::Type var_type>
 struct Var_Registry {
-	std::vector<std::unique_ptr<State_Var>> vars;
+	
+	Var_Registry(Var_Id::Type var_type) : var_type(var_type) {}
+	
+	Var_Id::Type                                                var_type;
+	std::vector<std::unique_ptr<State_Var>>                     vars;
 	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
 	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
 	
@@ -311,9 +314,9 @@ public :
 	Unit_Data                                                time_step_unit;
 	Time_Step_Size                                           time_step_size;
 	
-	Var_Registry<Var_Id::Type::state_var>                    state_vars;
-	Var_Registry<Var_Id::Type::series>                       series;
-	Var_Registry<Var_Id::Type::additional_series>            additional_series;
+	Var_Registry                                             state_vars;
+	Var_Registry                                             series;
+	Var_Registry                                             additional_series;
 	
 	Storage_Structure<Entity_Id>                             parameter_structure;
 	Storage_Structure<Connection_T>                          connection_structure;
@@ -356,8 +359,8 @@ public :
 	void set_up_connection_structure();
 	void set_up_index_count_structure();
 	
-	template<Var_Id::Type var_type> void
-	set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata);
+	void
+	set_up_series_structure(Var_Registry &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata);
 	
 	// TODO: this one should maybe be on the Model_Data struct instead
 	void allocate_series_data(s64 time_steps, Date_Time start_date);

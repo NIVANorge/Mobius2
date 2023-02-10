@@ -6,9 +6,10 @@
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
-Model_Application::Model_Application(Mobius_Model *model) : 
+Model_Application::Model_Application(Mobius_Model *model) :
 	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this),
-	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr) {
+	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr),
+	state_vars(Var_Id::Type::state_var), series(Var_Id::Type::series), additional_series(Var_Id::Type::additional_series) {
 	
 	index_counts.resize(model->index_sets.count());
 	index_names_map.resize(model->index_sets.count());
@@ -77,8 +78,8 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 	}
 }
 
-template<Var_Id::Type var_type> void
-Model_Application::set_up_series_structure(Var_Registry<var_type> &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata) {
+void
+Model_Application::set_up_series_structure(Var_Registry &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata) {
 	if(data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up series structure twice.");
 	if(!all_indexes_are_set())
