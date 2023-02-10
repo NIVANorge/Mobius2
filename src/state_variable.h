@@ -29,7 +29,7 @@ State_Var {
 	
 	std::string name;
 
-	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for these.
+	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for state variables.
 	
 	// If this is a quantity or property, loc1 is the location of this variable.
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
@@ -66,13 +66,15 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	std::vector<Var_Id> conn_source_aggs;
 	std::vector<Var_Id> conn_target_aggs;
 	
+	double flux_time_unit_conv; // If it is a flux with a declared unit, what to multiply it with to get the number to use in the model solution (time step relative).
+	
 	Math_Expr_FT *function_tree;
 	bool initial_is_conc;
 	Math_Expr_FT *initial_function_tree;
 	bool override_is_conc;
 	Math_Expr_FT *override_tree;
 	
-	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false) {}
+	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false), flux_time_unit_conv(1.0) {}
 };
 
 template<> struct

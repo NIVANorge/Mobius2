@@ -178,7 +178,7 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Var_Location   target;
 	bool           target_was_out;       // We some times need info about if the target was initially declared as 'out', then re-directed by a 'to' declaration.
 	Entity_Id      connection_target;
-	//Entity_Id      unit;
+	Entity_Id      unit;
 	
 	std::vector<Var_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
 	bool no_carry_by_default;

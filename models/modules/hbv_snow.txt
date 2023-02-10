@@ -25,28 +25,28 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	
 	# note: We don't give a function body to compute temp and precip, and so if they are not re-declared in another module, they are assumed to be input series.
 	air.has(temp : property("Temperature"), [deg_c], "Air temperature")
-	air.has(precip : property("Precipitation"), [m m, day -1])
+	air.has(precip : property("Precipitation"), [m m, day-1])
 	
 	snow_box.has(snow,  [m m], "Snow depth") .initial { init_snow }
 	snow_box.has(water, [m m], "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
-	flux(nowhere, snow_box.snow, "Precipitation falling as snow") {
+	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {
 		air.precip    if air.temp <= t_snow,
 		0             otherwise
 	}
 	
 	p_rain :
-	flux(nowhere, out, "Precipitation falling as rain") {
+	flux(nowhere, out, [m m, day-1], "Precipitation falling as rain") {
 		air.precip    if air.temp > t_snow,
 		0             otherwise
 	}
 	
-	flux(snow_box.snow, snow_box.water, "Melt")     {   max(0, ddf_melt*(air.temp - t_melt))   }
+	flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")     {   max(0, ddf_melt*(air.temp - t_melt))   }
 	
-	flux(snow_box.water, snow_box.snow, "Refreeze") {	max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
+	flux(snow_box.water, snow_box.snow, [m m, day-1], "Refreeze") {   max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
 
 	melt_runoff :
-	flux(snow_box.water, out, "Melt runoff")        {   max(0, water - snow*snow_liq) * 1[day-1]  }
+	flux(snow_box.water, out, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq) * 1[day-1]  }
 	
 	# TODO: Implement specifying order of computing discrete fluxes.
 	# 'add' and 'sub' specifies when the flux is added/subtracted to/from the target/source. If nothing else is specified, it happens right after the flux is computed.

@@ -727,7 +727,7 @@ process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_
 		has->unit = invalid_entity_id;
 	if(which == 2 || which == 5) {
 		if(!has->var_location.is_dissolved()) {
-			single_arg(decl, 2)->print_error_header();
+			has->source_loc.print_error_header();
 			fatal_error("Concentration units should only be provided for dissolved quantities.");
 		}
 		has->conc_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
@@ -777,18 +777,23 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	int which = match_declaration(decl,
 		{
-			{Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
-			{Token_Type::identifier, Token_Type::identifier, Token_Type::identifier, Token_Type::quoted_string},
+			{Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
+			{Token_Type::identifier, Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
 		}, 0, true, 1, true);
 	
 	Token *name = nullptr;
 	if(which == 0)
-		name = single_arg(decl, 2);
-	else
 		name = single_arg(decl, 3);
+	else
+		name = single_arg(decl, 4);
 	
 	auto id   = model->fluxes.find_or_create(&decl->handle_name, scope, name, decl);
 	auto flux = model->fluxes[id];
+	
+	if(which == 0)
+		flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
+	else
+		flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 3);
 	
 	if(which == 0) {
 		process_location_argument(model, scope, decl, 0, &flux->source, true);
@@ -813,8 +818,6 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		decl->source_loc.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
-	
-	//flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
 	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	flux->code = body->block;

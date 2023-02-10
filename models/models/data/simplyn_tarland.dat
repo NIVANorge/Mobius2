@@ -122,15 +122,15 @@ module("Simply soil temperature", 0, 0, 0) {
 module("SimplyN", 0, 0, 2) {
 	par_group("DIN reach") [ "Subcatchment" ] {
 		par_real("Reach effluent DIN inputs")
-		[ 0 ]
+		[ 2.75 ]
 	}
 
 	par_group("Soil DIN universal params") {
 		par_real("Soilwater DIN uptake rate at 20°C")
-		[ 0 ]
+		[ 0.011 ]
 
 		par_real("Soilwater DIN uptake rate response to 10°C change (Q10)")
-		[ 1 ]
+		[ 2.88 ]
 
 		par_bool("Use growth curve?")
 		[ false ]
@@ -144,10 +144,10 @@ module("SimplyN", 0, 0, 2) {
 
 	par_group("Soil DIN params varying by land use") [ "Landscape units" ] {
 		par_real("Initial soilwater DIN concentration")
-		[ 0 0 ]
+		[ 3.5 0.5 ]
 
 		par_real("Net annual DIN input to soil")
-		[ 5 0 ]
+		[ 146.6 6.6 ]
 
 		par_int("Fertilization start day")
 		[ 60 60 ]
@@ -161,10 +161,10 @@ module("SimplyN", 0, 0, 2) {
 
 	par_group("DIN groundwater params") {
 		par_real("Groundwater DIN concentration")
-		[ 5 ]
+		[ 3.4 ]
 
 		par_bool("Constant groundwater DIN concentration?")
-		[ false ]
+		[ true ]
 
 		par_real("Groundwater retention volume")
 		[ 0 ]
@@ -172,10 +172,10 @@ module("SimplyN", 0, 0, 2) {
 
 	par_group("DIN reach universal params") {
 		par_real("Reach denitrification rate at 20°C")
-		[ 0 ]
+		[ 2 ]
 
 		par_real("(Q10) Reach denitrification rate response to 10°C change in temperature")
-		[ 1 ]
+		[ 2.9 ]
 	}
 }
 

@@ -79,14 +79,14 @@ TODO: description
 	#	wedge_section(A_surf, z_outflow, z_outflow-z_e, z_outflow-last(z_e))/time.step_length_in_seconds->>
 	#}
 	
-	flux(nowhere, epi.water, "Precipitation to lake")           {   air.precip * A_surf ->>   }
+	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
 	epi.has(depth : property("Lake depth"), [m])                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
 	epi.water.has(outflow : property("Flow"), [m 3, s-1], "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
 
 	lake_out :
-	flux(epi.water, out, "Lake outflow flux")                   {   outflow ->>  }
+	flux(epi.water, out, [m 3, day-1], "Lake outflow flux")                   {   outflow ->>  }
 	
 	# TODO: should have some way of turning this on/off depending on use case.
 	#epi.has(inflow : property("Lake inflow"), [m 3, s-1])
@@ -137,27 +137,27 @@ TODO: description
 		(1 - albedo) * (1 - ice.attn) * air.g_rad	
 	}
 	
-	flux(nowhere, epi.water.heat, "Net shortwave") {
+	flux(nowhere, epi.water.heat, [J, day-1], "Net shortwave") {
 		A_surf * sw ->>
 	}
 	
-	flux(nowhere, epi.water.heat, "Net longwave") {
+	flux(nowhere, epi.water.heat, [J, day-1], "Net longwave") {
 		albedo := 0.045
 		net_rad := (1 - albedo)*air.lwd - lwu    # W/m2
 		0                              if epi.ice.indicator,
 		A_surf * net_rad ->>           otherwise
 	}
 	
-	flux(nowhere, epi.water.heat, "Freeze heating") {  A_surf * ice.energy ->>  }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
+	flux(nowhere, epi.water.heat, [J, day-1], "Freeze heating") {  A_surf * ice.energy ->>  }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
 	
 	# TODO: Some of the surface fluxes should be modified for ice
-	flux(nowhere, epi.water.heat, "Latent heat flux") {
+	flux(nowhere, epi.water.heat, [J, day-1], "Latent heat flux") {
 		l_vap := latent_heat_of_vaporization(temp)
 		0                                                                          if epi.ice.indicator,
 		A_surf * (ced * l_vap * air.rho * air.wind * (air.a_hum - s_hum)) ->>      otherwise
 	}
 	
-	flux(nowhere, epi.water.heat, "Sensible heat flux") {
+	flux(nowhere, epi.water.heat, [J, day-1], "Sensible heat flux") {
 		0                                                                          if epi.ice.indicator,
 		A_surf * (chd * C_air * air.rho * air.wind * (air.temp->[K] - temp->[K])) ->> otherwise
 	}
@@ -169,20 +169,20 @@ TODO: description
 	}
 	
 	evap :
-	flux(epi.water, nowhere, "Evaporation") {
+	flux(epi.water, nowhere, [m 3, day-1], "Evaporation") {
 		evap_mm*A_surf ->>
 	}
 	
 	#evap.no_carry()   #TODO: This should be allowed.
 	
-	flux(nowhere, epi.water.heat, "Precipitation heat") {
+	flux(nowhere, epi.water.heat, [J, day-1], "Precipitation heat") {
 		#precip_t := max(0.4[deg_c], air.temp)
 		precip_t := air.temp
 		V := A_surf*air.precip -> [m 3, day-1]   
 		water_temp_to_heat(V => [m 3], precip_t) => [J, day-1] # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
 	}
 	
-	flux(epi.water.heat, hyp.water.heat, "Layer heat transfer") {
+	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
 		lake_heat := water.heat + hyp.water.heat
 		V := water + hyp.water
 		lake_t := water_heat_to_temp(V, lake_heat) => [deg_c] # Mean lake temperature.    #TODO: remove force conversion.
@@ -217,7 +217,7 @@ TODO: description
 		1 - exp(-5[m -1] * ice) otherwise    #TODO: the 5 should be configurable?
 	}
 	
-	flux(nowhere, epi.ice, "Ice change") {
+	flux(nowhere, epi.ice, [m, day-1], "Ice change") {
 		(energy + {
 			{
 				#NOTE: Stefan's law, but turned into ODE equation:
@@ -251,12 +251,12 @@ TODO: description
 	# NOTE: This moves an equal body of water up and down, which does not impact the wate volume, but does mix dissolved substances.
 	
 	mix_down :
-	flux(epi.water, hyp.water, "Mixing down") {
+	flux(epi.water, hyp.water, [m 3, day-1], "Mixing down") {
 		A_surf * depth * epi.indicator * 1[day-1]
 	}
 	
 	mix_up : 
-	flux(hyp.water, epi.water, "Mixing up") {
+	flux(hyp.water, epi.water, [m 3, day-1], "Mixing up") {
 		A_surf * epi.depth * epi.indicator * 1[day-1]
 	}
 }

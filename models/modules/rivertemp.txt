@@ -14,17 +14,20 @@ module("RiverTemperature", 0, 1, 0) {
 	
 	temp  : property("Temperature")
 	
+	river.par_group("River temperature") {
+		coeff : par_real("Air-river heat conductivity coefficient", [day-1], 1, 0.1, 10)
+	}
 	
 	river.water.has(heat, [J], "River thermal energy") .initial { water_temp_to_heat(water, air.temp) }
 	
-	flux(nowhere, river.water.heat, "River heat from land") {
+	flux(nowhere, river.water.heat, [J, day-1], "River heat from land") {
 		#TODO: maybe modify if melt water    
 		V := in_flux(water) -> [m 3, day-1]
 		water_temp_to_heat(V => [m 3], aggregate(soil.temp)) =>> #Again annoying that the 1/day doesn't "pass through" the function.
 	}
 	
-	flux(nowhere, river.water.heat, "River sensible heat flux") {
-		(water_temp_to_heat(water, air.temp) - heat)*5[day -1] #TODO: arbitrary coefficient for now.
+	flux(nowhere, river.water.heat, [J, day-1], "River sensible heat flux") {
+		(water_temp_to_heat(water, air.temp) - heat)*coeff
 	}
 	
 	river.has(temp, [deg_c], "River temperature") {

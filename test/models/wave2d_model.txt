@@ -21,15 +21,15 @@ model("Wave2D") {
 		
 		c : constant("Wave speed", [day-1], 0.05)
 		
-		flux(cell.mom, h, "Momentum propagation horizontal") {
+		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {
 			c^2*(below(amp) - amp)
 		}
 		
-		flux(cell.mom, v, "Momentum propagation vertical") {
+		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {
 			c^2*(below(amp) - amp)
 		}
 		
-		flux(cell.amp, nowhere, "Wave propagation") { mom }
+		flux(cell.amp, nowhere, [m, day-1], "Wave propagation") { mom }
 		
 	}
 

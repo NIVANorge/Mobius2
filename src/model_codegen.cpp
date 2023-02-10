@@ -14,9 +14,21 @@ get_index_count_code(Model_Application *app, Entity_Id index_set, Index_Exprs &i
 }
 
 Math_Expr_FT *
-make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, Math_Expr_FT *unit_conv = nullptr) {
+make_possibly_time_scaled_ident(Model_Application *app, Var_Id var_id) {
+	auto ident = make_state_var_identifier(var_id);
+	auto var = app->state_vars[var_id];
+	if(var->is_flux() && var->type == State_Var::Type::declared) {
+		auto var2 = as<State_Var::Type::declared>(var);
+		if(var2->flux_time_unit_conv != 1.0);
+		ident = make_binop('*', ident, make_literal(var2->flux_time_unit_conv));
+	}
+	return ident;
+}
+
+Math_Expr_FT *
+make_possibly_weighted_var_ident(Model_Application *app, Var_Id var_id, Math_Expr_FT *weight = nullptr, Math_Expr_FT *unit_conv = nullptr) {
 	
-	Math_Expr_FT* var_ident = make_state_var_identifier(var_id);
+	Math_Expr_FT* var_ident = make_possibly_time_scaled_ident(app, var_id);
 	
 	if(unit_conv)
 		var_ident = make_binop('*', var_ident, unit_conv);
@@ -26,6 +38,8 @@ make_possibly_weighted_var_ident(Var_Id var_id, Math_Expr_FT *weight = nullptr, 
 	
 	return var_ident;
 }
+
+
 
 void
 instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
@@ -110,14 +124,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->type == State_Var::Type::dissolved_flux) {
 				auto var2 = as<State_Var::Type::dissolved_flux>(var);
 				auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[var2->conc]);
-				instr.code = make_binop('*', make_state_var_identifier(var2->conc), make_state_var_identifier(var2->flux_of_medium));
+				instr.code = make_binop('*', make_state_var_identifier(var2->conc), make_possibly_time_scaled_ident(app, var2->flux_of_medium));
 				// TODO: Here we could also just do the re-computation of the concentration so that we don't get the back-and-forth unit conversion...
 				
 				if(conc->unit_conversion != 1.0)
 					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
 				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
 				
-				// TODO: Allow for other types of fluxes also
+				// TODO: Allow for other types of fluxes to be bidirectional also
 				auto conn_id = connection_of_flux(var);
 				if(is_valid(conn_id)) {
 					auto conn = model->connections[conn_id];
@@ -128,7 +142,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						conc2->is_above = false;
 						conc2->connection = conn_id;
 						
-						auto altval = make_binop('*', conc2, make_state_var_identifier(var2->flux_of_medium));
+						auto altval = make_binop('*', conc2, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
 						if(conc->unit_conversion != 1.0)
 							altval = make_binop('/', altval, make_literal(conc->unit_conversion));
 						
@@ -171,7 +185,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					if(is_valid(connection_of_flux(flux_var))) continue;
 					if(!is_located(flux_var->loc2) || app->state_vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
 					
-					auto flux_ref = make_state_var_identifier(flux_id);
+					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 					if(flux_var->unit_conversion_tree)
 						flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
 					flux_sum = make_binop('+', flux_sum, flux_ref);
@@ -209,14 +223,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id
 							&& !is_all_to_all && !is_bottom) {
 
-							auto flux_ref = make_state_var_identifier(flux_id);
+							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 							fun = make_binop('-', fun, flux_ref);
 						}
 						
 						if(is_located(flux->loc2) && app->state_vars.id_of(flux->loc2) == instr.var_id
 							&& (!is_valid(conn_id) || is_bottom)) {
 							
-							auto flux_ref = make_state_var_identifier(flux_id);
+							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 							// NOTE: the unit conversion applies to what reaches the target.
 							if(flux->unit_conversion_tree)
 								flux_ref = make_binop('*', flux_ref, flux->unit_conversion_tree);
@@ -229,12 +243,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::subtract_discrete_flux_from_source) {
 			
-			instr.code = make_possibly_weighted_var_ident(instr.var_id);
+			instr.code = make_possibly_weighted_var_ident(app, instr.var_id);
 			
 		} else if (instr.type == Model_Instruction::Type::add_discrete_flux_to_target) {
 			
 			auto unit_conv = app->state_vars[instr.var_id]->unit_conversion_tree;
-			instr.code = make_possibly_weighted_var_ident(instr.var_id, nullptr, unit_conv);
+			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, nullptr, unit_conv);
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
 			
@@ -245,14 +259,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				fatal_error(Mobius_Error::internal, "Somehow we got a regular aggregation without code for computing the weight.");
 			weight = copy(weight);
 			
-			instr.code = make_possibly_weighted_var_ident(instr.var_id, weight, nullptr);
+			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, nullptr);
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_connection_aggregate) {
 			
 			// Note weights are applied directly inside the codegen for this one. TODO: do that for the others too?
 			
 			auto agg_var = app->state_vars[instr.target_id];
-			instr.code = make_possibly_weighted_var_ident(instr.var_id);
+			instr.code = make_possibly_weighted_var_ident(app, instr.var_id);
 			
 		}
 	}

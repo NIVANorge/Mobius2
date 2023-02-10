@@ -21,7 +21,7 @@ model("EasyLake-SimplyC") {
 		epi.water.has(oc, [k g], [m g, l-1], "Epilimnion DOC") .initial_conc { init_c }
 		hyp.water.has(oc, [k g], [m g, l-1], "Hypolimnion DOC") .initial_conc { init_c }
 		
-		flux(epi.water.oc, nowhere, "Photo-mineralization") {
+		flux(epi.water.oc, nowhere, [k g, day-1], "Photo-mineralization") {
 			qy_doc := 0.1[m g, mol-1]    # Quantum yield
 			f_par  := 0.45               # Fract. of PAR in incoming solar radiation
 			e_par  := 240800.0[J, mol-1] # Average energy of PAR photons

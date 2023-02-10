@@ -27,7 +27,7 @@ TODO: this should probably be rewritten with mobius2 systems and units in mind.
 	
 	soil.has(coup, [deg_c]) .initial { init_st }
 	
-	flux(nowhere, soil.coup, "COUP temperature change") {
+	flux(nowhere, soil.coup, [deg_c, day-1], "COUP temperature change") {
 		(stc  / (2*15[c m])^2) * (air.temp - last(coup)) ->>        # Soil temperature is computed at depth 15cm
 	}
 	

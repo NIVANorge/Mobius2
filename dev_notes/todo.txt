@@ -44,9 +44,6 @@
 		
 		Allow declaration of no_carry inside modules.
 		
-		Organize state var tree by quantity in MobiView (as an option).
-			Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
-		
 		Check for conflicting declarations of variables (unit, name).
 		
 		The new system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
@@ -61,6 +58,8 @@
 			loc1, loc2, unit_conv, connection, etc.
 	
 	
+		Fix discrete fluxes!
+	
 	*** Low-pri ****
 	
 		Aggregation weight should not be needed by default ( default to 1 )
@@ -73,6 +72,7 @@
 			Should not be added in regular in_flux.
 	
 		Set units of aggregation state variables so that they display correctly in MobiView.
+			note that it is a bit tricky for fluxes.
 	
 		unit conversions also applied to connection graph arrows.
 		
@@ -109,6 +109,12 @@
 				Saving and loading various things
 					MCMC results
 					Additional plot setup.
+					
+			tweaks to the state var tree organization
+				icons in "by quantity" view.
+				Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
+				
+			sum aggregate plots should have the right units (if applicable)
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
@@ -119,7 +125,7 @@
 		In grid1d, could have wrap-around boundary (?), or could have special values for the boundary (maybe even dynamic)
 			
 		
-		emulate_expression() is broken, at least for entire model runs.
+		emulate_expression() is broken, at least for full model runs.
 		
 	*****************   DONE:   ***********************
 	

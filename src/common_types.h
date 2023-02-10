@@ -249,7 +249,6 @@ Var_Location {
 	
 	const Entity_Id &first() const { return components[0]; }
 	const Entity_Id &last() const { return components[n_components-1]; }
-	const Entity_Id &next_to_last() const { return components[n_components-2]; }
 	bool is_dissolved() const { return n_components > 2; }
 };
 

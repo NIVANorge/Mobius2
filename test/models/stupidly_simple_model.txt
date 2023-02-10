@@ -22,8 +22,8 @@ model("Simple test model") {
 		
 		c : connection("Flow connection", all_to_all) { q* }
 
-		flux(a.q, c, "The flow") {
-			q * ff * target(pm)
+		flux(a.q, c, [day-1], "The flow") {
+			q * ff * target(pm) =>>
 		}
 	}
 	

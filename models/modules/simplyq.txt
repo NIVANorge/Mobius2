@@ -38,7 +38,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	pet  : property("Potential evapotranspiration")
 	
 	quick_flow :
-	flux(soil.water, out, "Quick flow") {
+	flux(soil.water, out, [m m, day-1], "Quick flow") {
 		drylim := 0.9		# Could be a parameter. Stops quick flow below drylim*fc
 		flow   := in_flux(water)
 		#flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)
@@ -46,7 +46,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	}
 	
 	evap :
-	flux(soil.water, nowhere, "Evapotranspiration") {   
+	flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {   
 		s_response(water, 0.5*fc, fc, 0, pet)
 	} 
 	
@@ -56,12 +56,12 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	}
 	
 	soil_runoff :
-	flux(soil.water, out, "Soil runoff")            {   flow * (1 - bfi)   }
+	flux(soil.water, out, [m m, day-1], "Soil runoff")            {   flow * (1 - bfi)   }
 	
-	flux(soil.water, gw.water, "Recharge")          {   flow * bfi   }
+	flux(soil.water, gw.water, [m m, day-1], "Recharge")          {   flow * bfi   }
 	
 	gw_runoff :
-	flux(gw.water, out, "Groundwater runoff")       {   water / tc_g   }
+	flux(gw.water, out, [m m, day-1], "Groundwater runoff")       {   water / tc_g   }
 }
 
 
@@ -85,17 +85,19 @@ The river part of the SimplyQ module.
 	flow : property("Flow")
 	
 	river.has(water, [m 3], "Reach water volume") .initial {
-		q := flow => []   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
+		q := init_flow => []   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
 		depth := 0.349[m] * q^0.34
 		width := 2.71[m] * q^0.557
 		width * depth * len
 	}
+	
+	# TODO: ideally we should here be able to cut the property "Flow", but unfortunately it is being used by the gw module...
 
 	# NOTE: Empirical formula, so the units don't make sense, hence force conversion.
-	river.water.has(flow, [m 3, s -1], "Reach flow")    { 0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } .initial { init_flow }
+	river.water.has(flow, [m 3, s-1], "Reach flow")    { 0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } .initial { init_flow }
 	
 	reach_out :
-	flux(river.water, out, "Reach flow flux")     {	 flow ->>  }
+	flux(river.water, out, [m 3, s-1], "Reach flow flux")     {	 flow ->>  }
 }
 
 module("SimplyQ river trapezoid", 0, 0, 1) {
@@ -133,5 +135,5 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 	river.water.has(flow, [m 3, s -1], "Reach flow")    { (water/len)*cbrt(Rh^2)*sqrt(slope)/c_mann   } .initial { init_flow }
 	
 	reach_out :
-	flux(river.water, out, "Reach flow flux")     {	 flow ->>  }
+	flux(river.water, out, [m 3, day-1], "Reach flow flux")     {	 flow ->>  }
 }

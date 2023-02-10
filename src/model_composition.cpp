@@ -103,6 +103,8 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
 			if(is_valid(flux->connection_target))
 				var2->connection = flux->connection_target;
+			if(is_valid(flux->unit))
+				var->unit = model->units[flux->unit]->data;
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	}
@@ -768,7 +770,22 @@ compose_and_resolve(Model_Application *app) {
 			else if(is_located(var->loc2)) transported_id = app->state_vars.id_of(var->loc2);
 			if(is_valid(transported_id)) {
 				auto transported = app->state_vars[transported_id];
-				var->unit = divide(transported->unit, app->time_step_unit);
+				auto unit = divide(transported->unit, app->time_step_unit);  // This is the unit we need the value to be in for use in state variable updates
+				
+				if(var->type == State_Var::Type::declared) {
+					// Hmm, this actually allows not just for time scaling, but also other scaling. For instance, it allows [g, ha-1, day-1] to be converted to [n g, k m-2, day-1]
+					auto var2 = as<State_Var::Type::declared>(var);
+					bool success = match(&var->unit.standard_form, &unit.standard_form, &var2->flux_time_unit_conv);
+					if(!success) {
+						model->fluxes[var2->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
+						fatal_error("The flux \"", var2->name, "\" has been given a unit that is not compatible with the unit of the transported quantity, which is ", transported->unit.to_utf8(), ", or with the time step unit of the model, which is ", app->time_step_unit.to_utf8(), ".");
+					}
+					//warning_print("Time unit conversion is ", var2->flux_time_unit_conv, ".\n");
+				} else {
+					// NOTE: we could also make it have the same time part as the parent flux, but it is tricky.
+					var->unit = unit;
+				}
+				//var->unit = divide(transported->unit, app->time_step_unit);
 			}
 		}
 		
