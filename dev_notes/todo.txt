@@ -66,6 +66,7 @@
 			layer.water[vert.below]
 		etc.
 		Replaces  above(vert, layer.water) and .top  types of syntax.
+		Allow it both for sources and targets of fluxes.
 	
 	*** Low-pri ****
 	

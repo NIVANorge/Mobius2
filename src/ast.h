@@ -214,8 +214,12 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer);
 
 inline Token *
 single_arg(Decl_AST *decl, int which) {
-	if(decl->args[which]->sub_chain.empty())
-		fatal_error(Mobius_Error::internal, "Tried to call single_arg() on an argument that is a decl argument.");
+	if(decl->args[which]->sub_chain.size() != 1)
+		fatal_error(Mobius_Error::internal, "Tried to call single_arg() on an argument that is not a single token.");
+	if(!decl->args[which]->secondary_chain.empty()) {
+		decl->args[which]->secondary_chain[0].source_loc.print_error_header(Mobius_Error::internal);
+		fatal_error("Tried to call single_arg() on a bracketed argument.");
+	}
 	return &decl->args[which]->sub_chain[0];
 }
 

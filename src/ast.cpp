@@ -814,8 +814,8 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 				if(check_type == Token_Type::real)
 					return is_numeric(arg->sub_chain[0].type);
 				return arg->sub_chain[0].type == check_type;
-			}
-			else if(arg->sub_chain.size() > 1 && check_type == Token_Type::identifier) {
+				
+			} else if(arg->sub_chain.size() > 1 && check_type == Token_Type::identifier) {
 				for(Token &token : arg->sub_chain) {
 					if(token.type != Token_Type::identifier)
 						return false;

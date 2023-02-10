@@ -19,7 +19,7 @@ model("Wave") {
 		
 		l : connection("Layer connection", grid1d) { layer* }
 		
-		flux(layer.mom, l, [Pa, day-2], "Momentum propagation") {   # layer.mom[l.below] (??)
+		flux(layer.mom, l, [Pa, day-2], "Momentum propagation") {
 			cc := 0.5*(c + below(c)) # c[below]
 			cc^2*(below(amp) - amp)   # amp[below]
 		}

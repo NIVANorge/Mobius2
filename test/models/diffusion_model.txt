@@ -30,7 +30,10 @@ model("Diffusion") {
 		#	top(dc)*(o2 - top(layer.o2))/z ->>
 		#}
 		
-		flux(layer.o2, topcomp.o2, c, [m g, c m-2, day-1], "Input") .bottom {
+		#flux(layer.o2, topcomp.o2, c, [m g, c m-2, day-1], "Input") .bottom {
+		#	bottom(dc)*(bottom(o2)-topcomp.o2)/z ->>
+		#}
+		flux(layer.o2[c.bottom], topcomp.o2, [m g, c m-2, day-1], "Input") {
 			bottom(dc)*(bottom(o2)-topcomp.o2)/z ->>
 		}
 		

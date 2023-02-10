@@ -250,7 +250,11 @@ resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int whi
 	} else {
 		if(max_sub_chain_size > 0 && arg->sub_chain.size() > max_sub_chain_size) {
 			arg->sub_chain[0].print_error_header();
-			fatal_error("Did not expect a chained declaration.");
+			fatal_error("Misformatted argument.");
+		}
+		if(!arg->secondary_chain.empty()) {
+			arg->secondary_chain[0].print_error_header();
+			fatal_error("Did not expect a bracketed location.");
 		}
 		return model->registry(expected_type)->find_or_create(&arg->sub_chain[0], scope);
 	}
@@ -405,16 +409,25 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	return result;
 }
 
-Entity_Id
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified, bool allow_connection = false) {
-	Entity_Id connection_id = invalid_entity_id;
+struct
+Location_Modifier {
+	Entity_Id     connection_id  = invalid_entity_id;
+	Boundary_Type boundary_type = Boundary_Type::none;
+};
+
+Location_Modifier
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified, bool allow_connection = false, bool allow_bracketed = false) {
+	Location_Modifier result;
 	
 	if(decl->args[which]->decl) {
 		decl->args[which]->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
 	std::vector<Token> &symbol = decl->args[which]->sub_chain;
+	std::vector<Token> &bracketed = decl->args[which]->secondary_chain;
+	
 	int count = symbol.size();
+	
 	bool success = false;
 	if(count == 1) {
 		Token *token = &symbol[0];
@@ -429,7 +442,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		}
 		if (allow_connection && !success) {
 			location->type = Var_Location::Type::out;
-			connection_id = model->connections.find_or_create(token, scope);
+			result.connection_id = model->connections.find_or_create(token, scope);
 			success = true;
 		}
 	} else if (count >= 2 && count <= max_var_loc_components) {
@@ -440,12 +453,27 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		success = true;
 	}
 	
+	if(!bracketed.empty() && (!allow_bracketed || count == 1))
+		success = false;
+	
+	if(success && bracketed.size() == 2) {
+		result.connection_id = model->connections.find_or_create(&bracketed[0], scope);
+		auto type = bracketed[1].string_value;
+		if(type == "top")
+			result.boundary_type = Boundary_Type::top;
+		else if(type == "bottom")
+			result.boundary_type = Boundary_Type::bottom;
+		else
+			success = false;
+	} else if (!bracketed.empty())
+		success = false;
+	
 	if(!success) {
 		//TODO: Give a reason for why it failed
 		symbol[0].print_error_header();
-		fatal_error("Invalid variable location.");
+		fatal_error("Misformatted variable location in this context.");
 	}
-	return connection_id;
+	return result;
 }
 
 template<Reg_Type reg_type> Entity_Id
@@ -778,36 +806,28 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	int which = match_declaration(decl,
 		{
 			{Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
-			{Token_Type::identifier, Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
-		}, 0, true, 1, true);
+			//{Token_Type::identifier, Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
+		});//, 0, true, 1, true);
 	
-	Token *name = nullptr;
-	if(which == 0)
-		name = single_arg(decl, 3);
-	else
-		name = single_arg(decl, 4);
+	Token *name = single_arg(decl, 3);
 	
 	auto id   = model->fluxes.find_or_create(&decl->handle_name, scope, name, decl);
 	auto flux = model->fluxes[id];
 	
-	if(which == 0)
-		flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
-	else
-		flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 3);
+	flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
-	if(which == 0) {
-		process_location_argument(model, scope, decl, 0, &flux->source, true);
-		flux->connection_target = process_location_argument(model, scope, decl, 1, &flux->target, true, true);
-	} else {
-		process_location_argument(model, scope, decl, 0, &flux->source, true);
-		process_location_argument(model, scope, decl, 1, &flux->target, true);
-		Var_Location blank;
-		flux->connection_target = process_location_argument(model, scope, decl, 2, &blank, false, true);
-		if(!is_valid(flux->connection_target)) {
-			single_arg(decl, 2)->source_loc.print_error_header();
-			fatal_error("With this format for the flux declaration, the third argument must be a connection");
-		}
+	// TODO: Instead there should be a modifier tied to each location. This easily leads to errors.
+	auto modifier = process_location_argument(model, scope, decl, 0, &flux->source, true, false, true);
+	if(is_valid(modifier.connection_id)) {
+		flux->connection_target = modifier.connection_id;
+		flux->boundary_type = modifier.boundary_type;
 	}
+	modifier = process_location_argument(model, scope, decl, 1, &flux->target, true, true, true);
+	if(is_valid(modifier.connection_id)) {
+		flux->connection_target = modifier.connection_id;
+		flux->boundary_type = modifier.boundary_type;
+	}
+	
 	flux->target_was_out = ((flux->target.type == Var_Location::Type::out) && !is_valid(flux->connection_target));
 	
 	if(flux->source.type == Var_Location::Type::out) {
@@ -822,6 +842,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	flux->code = body->block;
 	
+	/*
 	if (body->notes.size() == 1) {
 		if(body->notes[0].string_value == "top")
 			flux->boundary_type = Boundary_Type::top;
@@ -842,6 +863,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		decl->source_loc.print_error_header();
 		fatal_error("For declaration of fluxes that are not boundary fluxes, one must provide only two location arguments of which the second could be a connection.");
 	}
+	*/
 			
 	flux->code_scope = scope->parent_id;
 	
@@ -1149,7 +1171,8 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	
 	auto &chain = decl->args[0]->sub_chain;
 	
-	flux->connection_target = process_location_argument(model, scope, decl, 0, &flux->target, false, true);
+	auto modifier = process_location_argument(model, scope, decl, 0, &flux->target, false, true);
+	flux->connection_target = modifier.connection_id;
 }
 
 void

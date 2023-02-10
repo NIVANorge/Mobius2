@@ -159,17 +159,17 @@ module("NIVAFjord", 0, 0, 1) {
 		#mixspeed*dz->>                                                    otherwise
 	}
 	
-	flux(layer.water, vert, "Water mixing down") { wmix }
-	flux(layer.water, vert, "Water mixing up") { -wmix }
+	flux(layer.water, vert, [k g, day-1], "Water mixing down") { wmix }
+	flux(layer.water, vert, [k g, day-1], "Water mixing up") { -wmix }
 
 	tracer : quantity("Tracer")
 	layer.water.has(tracer, [k g])
 	
-	flux(nowhere, layer.water.tracer, vert, "Tracer input") .top {
+	flux(nowhere, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
 		1[k g, day-1]
 	}
 	
-	flux(layer.water.tracer, nowhere, vert, "Tracer vanishes") .bottom {
+	flux(layer.water.tracer[vert.bottom], nowhere, [k g, day-1], "Tracer vanishes") {
 		bottom(tracer)*0.3[day-1]
 	}
 	
@@ -201,16 +201,16 @@ module("NIVAFjord", 0, 0, 1) {
 		emissivity * black_body_radiation(top(vert, layer.water.temp)->[K])
 	}
 
-	flux(nowhere, layer.water.heat, vert, "Net longwave") .top {
+	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Net longwave") {
 		top(A) * (air.lwd - oair.lwu) ->>
 	}
 	
-	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top {
+	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Latent heat flux") {
 		l_vap := latent_heat_of_vaporization(top(temp))
 		top(A) * (oair.ced * l_vap * air.dens * air.wind * (air.a_hum - oair.s_hum)) ->>
 	}
 	
-	flux(nowhere, layer.water.heat, vert, "Sensible heat flux") .top {
+	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Sensible heat flux") {
 		top(A) * (oair.chd * C_air * air.dens * air.wind * (air.temp->[K] - top(temp)->[K])) ->>
 	}
 	
@@ -220,12 +220,12 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	sw_vert : connection("Shortwave vertical", grid1d) { layer* }
 	
-	flux(nowhere, layer.water.heat, sw_vert, "Net shortwave") .top {
+	flux(nowhere, layer.water.heat[sw_vert.top], [J, day-1], "Net shortwave")  {
 		albedo := 0.045
 		top(A) * (1 - albedo) * air.g_rad ->>
 	}
 	
-	flux(layer.water.heat, sw_vert, "Shortwave shine-through") {
+	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
 		in_flux(sw_vert, heat) * exp(-attn*dz) * below(vert, A) / A
 	}
 	
@@ -241,7 +241,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	# Water-Sediment heat transfer
 	
-	flux(layer.water.heat, sed.heat, vert, "Water-sediment heat transfer") .bottom {
+	flux(layer.water.heat[vert.bottom], sed.heat, [J, day-1], "Water-sediment heat transfer") {
 		dz := dz_sed*0.2  # Just the scaling factor for the transfer TODO: get a better estimate
 		bottom(A)*(bottom(temp)->[K] - sed.temp->[K])*k_sed/dz ->>
 	}
