@@ -29,8 +29,6 @@
 	*** Intermediate-pri ***
 
 		Dynamic module choice (based on data set)
-		
-		Making a robust system for the units of fluxes.
 
 		Template system: Processes not specified per compartment / quantity. Can be attached to those.
 			- something like compartment_type etc.
@@ -39,12 +37,12 @@
 		Better scoping system for declaration names (not just for symbols).
 			also for variable names.
 		
+		Check for conflicting declarations of variables (unit, name).
+		
 
 		Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before).
 		
 		Allow declaration of no_carry inside modules.
-		
-		Check for conflicting declarations of variables (unit, name).
 		
 		The new system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
@@ -59,6 +57,15 @@
 	
 	
 		Fix discrete fluxes!
+		
+		
+		Make it possible to write e.g.
+			layer.water[vert.top]
+		both in declarative and function scope. (can simplify to e.g. water[top] in function scope if the rest can be inferred).
+		Also need
+			layer.water[vert.below]
+		etc.
+		Replaces  above(vert, layer.water) and .top  types of syntax.
 	
 	*** Low-pri ****
 	
@@ -123,7 +130,8 @@
 			For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
 			similar for graph when that exists.
 		In grid1d, could have wrap-around boundary (?), or could have special values for the boundary (maybe even dynamic)
-			
+		
+		Make mobipy work again (and better).
 		
 		emulate_expression() is broken, at least for full model runs.
 		
@@ -238,3 +246,5 @@
 	
 	Units
 			Allow units to have the form [30, month] (i.e. leading multiplier)
+			
+	Making a robust system for the units of fluxes.

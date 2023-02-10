@@ -74,15 +74,15 @@ Testing functionality for now.
 	soil.water.tox.has(Koc, [m 3, k g-1])
 	soil.water.tox.has(Kdoc, [m 3, k g-1])
 	
-	flux(soil.water.tox, soil.oc.tox, "Water-SOC contaminant exchange") {
+	flux(soil.water.tox, soil.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
 		rwoc*(conc(water.tox)*Koc - conc(oc.tox))
 	}
 	
-	flux(soil.water.tox, soil.water.oc.tox, "Water-DOC contaminant exchange") {
+	flux(soil.water.tox, soil.water.oc.tox, [n g, m-2, day-1] "Water-DOC contaminant exchange") {
 		rwoc*(conc(water.tox)*Kdoc - conc(water.oc.tox)*1e-6)         #NOTE: for now 1e-6 is needed since DOC is in kg/km2
 	}
 	
-	flux(soil.oc.tox, dsoil.oc.tox, "Fast-Slow contaminant exchange") {
+	flux(soil.oc.tox, dsoil.oc.tox, [n g, m-2, day-1], "Fast-Slow contaminant exchange") {
 		rfs*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
 	}
 	

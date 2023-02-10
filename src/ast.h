@@ -7,6 +7,7 @@
 #include "units.h"
 #include <vector>
 
+// TODO: What do we need the Expr_AST base class for? Remove it?
 
 struct
 Expr_AST {
@@ -25,7 +26,7 @@ struct
 Body_AST : Expr_AST {
 	std::vector<Token> notes;
 	Body_Type type;
-	Source_Location opens_at;                     //TODO: there should instead just be a source_loc on the Expr_AST (?)
+	Source_Location opens_at;
 	
 	Body_AST(Body_Type type) : type(type) {};
 	virtual ~Body_AST() {};
@@ -36,7 +37,8 @@ struct Decl_AST;
 struct
 Argument_AST : Expr_AST {
 	std::vector<Token> sub_chain;    //TODO: better name?
-	Decl_AST          *decl;
+	std::vector<Token> secondary_chain;
+	Decl_AST          *decl = nullptr;
 	
 	~Argument_AST();
 };
@@ -112,6 +114,7 @@ Math_Block_AST : Math_Expr_AST {
 struct
 Identifier_Chain_AST : Math_Expr_AST {
 	std::vector<Token>           chain;
+	std::vector<Token>           bracketed_chain;
 	
 	Identifier_Chain_AST() : Math_Expr_AST(Math_Expr_Type::identifier) {};
 };

@@ -199,21 +199,28 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 		if((char)next.type == ')') {
 			stream->read_token();
 			break;
-		}
-		else if(can_be_value_token(next.type) || (char)next.type == '[') {
+		} else if(can_be_value_token(next.type) || (char)next.type == '[') {
 			Argument_AST *arg = new Argument_AST();
 			
 			Token peek = stream->peek_token(1);
-			if(((char)peek.type == ')' || (char)peek.type == ',') && (char)next.type != '[') {
-				arg->sub_chain.push_back(stream->read_token());
-			} else if(next.type == Token_Type::identifier || (char)next.type == '[') {
-				if((char)peek.type == '.') {
-					read_chain(stream, '.', &arg->sub_chain);
-				} else
+			
+			if(next.type == Token_Type::identifier) { // Identifier chain, declaration
+				if((char)peek.type == '(' || (char)peek.type == ':')
 					arg->decl = parse_decl(stream);
-			} else {
-				peek.print_error_header();
-				fatal_error("Misformatted declaration argument.");
+				else {
+					read_chain(stream, '.', &arg->sub_chain);
+					next = stream->peek_token();
+					if((char)next.type == '[') { // Bracketed var location, e.g. layer.water[vertical.top]
+						stream->read_token();
+						read_chain(stream, '.', &arg->secondary_chain);
+						stream->expect_token(']');
+					}
+				}
+			} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type)) { // Literal values.
+				arg->sub_chain.push_back(next);
+				stream->read_token();
+			} else if ((char)next.type == '[') { // Unit declaration
+				arg->decl = parse_decl(stream);
 			}
 			
 			decl->args.push_back(arg);
@@ -475,9 +482,15 @@ parse_primary_expr(Token_Stream *stream) {
 			result = parse_function_call(stream);
 		} else {
 			auto val = new Identifier_Chain_AST();
-			val->source_loc = token.source_loc;
-			read_chain(stream, '.', &val->chain, true);
 			result = val;
+			val->source_loc = token.source_loc;
+			read_chain(stream, '.', &val->chain);
+			peek = stream->peek_token();
+			if((char)peek.type == '[') {
+				stream->read_token();
+				read_chain(stream, '.', &val->bracketed_chain);
+				stream->expect_token(']');
+			}
 		}
 	} else if (is_numeric_or_bool(token.type)) {
 		auto val = new Literal_AST();
@@ -491,7 +504,7 @@ parse_primary_expr(Token_Stream *stream) {
 		Token token = stream->read_token();
 		if((char)token.type != ')') {
 			token.print_error_header();
-			fatal_error("Expected a ')' .");
+			fatal_error("Expected a ')'.");
 		}
 	} else {
 		token.print_error_header();
