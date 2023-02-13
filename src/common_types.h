@@ -150,7 +150,7 @@ get_value_type(Token_Type type) {
 inline Token_Type
 get_token_type(Decl_Type type) {
 	if(type == Decl_Type::par_real) return Token_Type::real;
-	if(type == Decl_Type::par_int) return Token_Type::integer;
+	if(type == Decl_Type::par_int)  return Token_Type::integer;
 	if(type == Decl_Type::par_bool) return Token_Type::boolean;
 	if(type == Decl_Type::par_enum) return Token_Type::identifier;
 	

@@ -109,9 +109,8 @@ Not finished, just for testing some systems.
 #			soil.growth_curve * 365	if use_growth_curve,
 #			1.0	                    otherwise
 #		}
-		temp_factor := din_immob_q10^((temp - 20.0[deg_c])/10[deg_c])
-		conc(din) * din_immob_rate * temp_factor ->># * growth_factor 
-		# To do: needs unit conversions still
+		rate := q10_adjust(din_immob_rate, 20.0[deg_c], temp, din_immob_q10)
+		conc(din) * rate ->># * growth_factor 
 	}
 	
 	# Reach fluxes
@@ -119,6 +118,7 @@ Not finished, just for testing some systems.
 	flux(nowhere, river.water.din, [k g, day-1], "River effluent DIN") { eff_din }
 	
 	flux(river.water.din, nowhere, [k g, day-1], "River DIN denitrification loss") {
-		river.water.din * reach_denit_rate * (reach_denit_q10^((temp - 20.0[deg_c])/10[deg_c]))
+		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10)
+		river.water.din * rate
 	}
 }

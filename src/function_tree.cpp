@@ -611,7 +611,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	std::vector<Standardized_Unit> arg_units;
 	resolve_arguments(new_fun, ast, data, scope, arg_units);
 	int allowed_arg_count = 1;
-	if(directive == Directive::below || directive == Directive::above || directive == Directive::top || directive == Directive::bottom || directive == Directive::in_flux)
+	if(directive == Directive::in_flux)
 		allowed_arg_count = 2;
 	int arg_count = new_fun->exprs.size();
 	if(arg_count == 0 || arg_count > allowed_arg_count) {
@@ -627,7 +627,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	}
 	auto var = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
 	bool can_series = (directive != Directive::in_flux) && (directive != Directive::conc);
-	bool can_param  = (directive == Directive::below || directive == Directive::above || directive == Directive::top || directive == Directive::bottom);
+	bool can_param  = false;
 	if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series) || (can_param && var->variable_type == Variable_Type::parameter))) {
 		var->source_loc.print_error_header();
 		error_print("A ", fun_name, "() declaration can only be applied to a state variable");
@@ -644,19 +644,8 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::aggregate);
 	else if(directive == Directive::conc)
 		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::conc);
-	else if(directive == Directive::below)
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
-	else if(directive == Directive::above) {
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::below_above);
-		var->is_above = true;
-	} else if(directive == Directive::bottom)
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::top_bottom);
-	else if(directive == Directive::top) {
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::top_bottom);
-		var->is_above = true;
-	}
 	
-	if(directive == Directive::below || directive == Directive::above || directive == Directive::top || directive == Directive::bottom || directive == Directive::in_flux) {
+	if(directive == Directive::in_flux) {
 		if(arg_count == 2) {
 			bool error = false;
 			if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier) error = true;
@@ -696,6 +685,62 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		result.unit = std::move(arg_units[var_idx]);
 	
 	return result;
+}
+
+void
+maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &result, Function_Resolve_Data *data, Function_Scope *scope, std::vector<Token> &chain) {
+	bool success = true;
+	Identifier_FT *ident = nullptr;
+	if(result.fun->expr_type != Math_Expr_Type::identifier)
+		success = false;
+	else {
+		ident = static_cast<Identifier_FT *>(result.fun);
+		if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::parameter)
+			success = false;
+	}
+	if(!success) {
+		chain[0].source_loc.print_error_header();
+		error_print("A bracketed qualifier is not supported for this type of variable.");
+		fatal_error_trace(scope);
+	}
+	Entity_Id connection = invalid_entity_id;
+	bool is_above = false;
+	int idx = 0;
+	if(chain.size() == 1) {
+		connection = data->connection;
+		if(!is_valid(connection)) {
+			chain[0].source_loc.print_error_header();
+			error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the bracket.");
+			fatal_error_trace(scope);
+		}
+	} else if (chain.size() == 2) {
+		idx = 1;
+		std::string n = chain[0].string_value;
+		auto reg = (*data->scope)[n];
+		if(!reg || reg->id.reg_type != Reg_Type::connection) {
+			chain[0].source_loc.print_error_header();
+			error_print("The identifier '", n, "' does not refer to a connection.");
+			fatal_error_trace(scope);
+		}
+		connection = reg->id;
+	} else {
+		chain[0].source_loc.print_error_header();
+		error_print("Expected at most two tokens in the chain inside the bracket.");
+		fatal_error_trace(scope);
+	}
+	ident->connection = connection;
+	auto type = chain[idx].string_value;
+	if(type == "above") {
+		ident->is_above = true;
+		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::below_above);
+	} else if (type == "below") {
+		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::below_above);
+	} else if (type == "top") {
+		ident->is_above = true;
+		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::top_bottom);
+	} else if (type == "bottom") {
+		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::top_bottom);
+	}
 }
 
 
@@ -909,8 +954,16 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 			}
 			
-			if(!data->simplified)
+			if(!data->simplified) {
+				if(!ident->bracketed_chain.empty())
+					maybe_add_bracketed_location(app, result, data, scope, ident->bracketed_chain);
 				result.fun = fixup_potentially_baked_value(app, result.fun, data->baked_parameters);
+			} else {
+				if(!ident->bracketed_chain.empty()) {
+					ident->source_loc.print_error_header();
+					fatal_error("Bracketed declarations are not supported in this context.");
+				}
+			}
 		} break;
 		
 		case Math_Expr_Type::literal : {

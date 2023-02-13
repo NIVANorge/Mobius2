@@ -60,7 +60,7 @@ module("NIVAFjord", 0, 0, 1) {
 	} #.initial { 1[m] }
 	
 	layer.has(z : property("Depth"), [m]) {
-		above(vert, z) + above(vert, dz)
+		z[vert.above] + dz[vert.above]
 	}
 	
 	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water }   #TODO: temperature adjust
@@ -70,7 +70,7 @@ module("NIVAFjord", 0, 0, 1) {
 	layer.water.has(heat, [J], "Layer thermal energy") .initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
 
 	layer.water.has(temp, [deg_c], "Layer temperature") {
-		heat / (water*C_water) -> [deg_c]
+		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
 	}
 	
 	layer.water.has(dens : property("Density"), [k g, m-3], "Potential density") {
@@ -79,7 +79,7 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	layer.water.has(accum_pressure : property("Accumulated pressure"), [Pa]) {
-		above(vert, accum_pressure) + dens*grav*dz
+		accum_pressure[vert.above] + dens*grav*dz
 	}
 	
 	layer.water.has(pressure, [Pa]) {
@@ -87,13 +87,13 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	layer.water.has(ddens : property("d(dens)"), [k g, m-3]) {
-		(below(vert, dens)-dens)
+		(dens[vert.below]-dens)
 		#0.5*(below(vert, dens)-above(vert, dens))
 		#(dens - above(vert, dens))
 	}
 	
 	layer.water.has(Nfreq : property("Brunt-Väisälä frequency"), [s-1]) {
-		mdz := 0.5*(dz + below(vert, dz))
+		mdz := 0.5*(dz + dz[vert.below])
 		N2 := grav * ddens / (mdz*dens)
 		sqrt(max(Nmin^2, N2))
 	}
@@ -127,11 +127,11 @@ module("NIVAFjord", 0, 0, 1) {
 	oair.has(emix : property("Wind mixing energy"), [J], "Total wind mixing energy") {
 		#m0 := 0.5
 		#m0*friction^3
-		top(vert, A)*sqrt(stress^3/top(vert, layer.water.dens))*time.step_length_in_seconds
+		A[vert.top]*sqrt(stress^3/layer.water.dens[vert.top])*time.step_length_in_seconds
 	}
 	
 	layer.water.has(sumV : property("Sum V above"), [m 3]) {
-		above(vert, sumV) + above(vert, A)*above(vert, dz)
+		sumV[vert.above] + A[vert.above]*dz[vert.above]
 	}
 	
 	layer.water.has(potmix : property("Potential energy needed for wind mixing"), [J]) {
@@ -144,7 +144,7 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	layer.water.has(summix : property("Sum used wind mixing energy"), [J]) {
-		above(vert, emix) + above(vert, summix)
+		emix[vert.above] + summix[vert.above]
 	}
 	
 	layer.water.has(Kw : property("Wind mixing coefficient"), [m 2, s-1]) {
@@ -155,7 +155,7 @@ module("NIVAFjord", 0, 0, 1) {
 		mixspeed := 1[m, day-1]
 		
 		mixspeed*dz->>                                                    if rem > 0 & potmix < 1e-20[J],
-		mixspeed*dz*safe_divide(below(vert, emix),below(vert, potmix))->> otherwise
+		mixspeed*dz*safe_divide(emix[vert.below], potmix[vert.below])->> otherwise
 		#mixspeed*dz->>                                                    otherwise
 	}
 	
@@ -170,7 +170,7 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	flux(layer.water.tracer[vert.bottom], nowhere, [k g, day-1], "Tracer vanishes") {
-		bottom(tracer)*0.3[day-1]
+		tracer[bottom]*0.3[day-1]
 	}
 	
 	# Air-sea :
@@ -180,7 +180,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	
 	oair.has(stab : property("Surface stability"), []) {
-		surface_stability(air.wind, top(vert, layer.water.temp), air.temp)
+		surface_stability(air.wind, layer.water.temp[vert.top], air.temp)
 	}
 	
 	oair.has(ced : property("Transfer coefficient for latent heat flux"), []) {
@@ -192,26 +192,26 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	oair.has(s_hum : property("Saturation specific humidity"), []) {
-		svap := saturation_vapor_pressure(top(vert, layer.water.temp))
+		svap := saturation_vapor_pressure(layer.water.temp[vert.top])
 		specific_humidity_from_pressure(air.pressure, svap)
 	}
 	
 	oair.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
 		emissivity := 0.98
-		emissivity * black_body_radiation(top(vert, layer.water.temp)->[K])
+		emissivity * black_body_radiation(layer.water.temp[vert.top]->[K])
 	}
 
 	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Net longwave") {
-		top(A) * (air.lwd - oair.lwu) ->>
+		A[top] * (air.lwd - oair.lwu) ->>
 	}
 	
 	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Latent heat flux") {
-		l_vap := latent_heat_of_vaporization(top(temp))
-		top(A) * (oair.ced * l_vap * air.dens * air.wind * (air.a_hum - oair.s_hum)) ->>
+		l_vap := latent_heat_of_vaporization(temp[top])
+		A[top] * (oair.ced * l_vap * air.dens * air.wind * (air.a_hum - oair.s_hum)) ->>
 	}
 	
 	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Sensible heat flux") {
-		top(A) * (oair.chd * C_air * air.dens * air.wind * (air.temp->[K] - top(temp)->[K])) ->>
+		A[top] * (oair.chd * C_air * air.dens * air.wind * (air.temp->[K] - temp[top]->[K])) ->>
 	}
 	
 	layer.water.has(attn : property("Diffuse attenuation coefficent"), [m-1]) {
@@ -222,20 +222,20 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	flux(nowhere, layer.water.heat[sw_vert.top], [J, day-1], "Net shortwave")  {
 		albedo := 0.045
-		top(A) * (1 - albedo) * air.g_rad ->>
+		A[top] * (1 - albedo) * air.g_rad ->>
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		in_flux(sw_vert, heat) * exp(-attn*dz) * below(vert, A) / A
+		in_flux(sw_vert, heat) * exp(-attn*dz) * A[vert.below] / A
 	}
 	
 	sed.has(heat, [J], "Sediment heat") .initial {
-		mass := bottom(vert, A)*dz_sed*rho_sed
+		mass := A[vert.bottom]*dz_sed*rho_sed
 		C_sed * mass * (T_sed->[K])
 	}
 	
 	sed.has(temp, [deg_c], "Sediment surface temperature") {
-		mass := bottom(vert, A)*dz_sed*rho_sed
+		mass := A[vert.bottom]*dz_sed*rho_sed
 		1*(2*heat / (mass*C_sed) - T_sed->[K]) -> [deg_c]
 	}
 	
@@ -243,7 +243,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	flux(layer.water.heat[vert.bottom], sed.heat, [J, day-1], "Water-sediment heat transfer") {
 		dz := dz_sed*0.2  # Just the scaling factor for the transfer TODO: get a better estimate
-		bottom(A)*(bottom(temp)->[K] - sed.temp->[K])*k_sed/dz ->>
+		A[bottom]*(temp[bottom]->[K] - sed.temp->[K])*k_sed/dz ->>
 	}
 	
 	

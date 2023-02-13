@@ -22,8 +22,8 @@ model("Diffusion") {
 		z : constant("Layer thickness", [c m], 1)
 		
 		flux(layer.o2, c, [m g, c m-2, day-1], "Diffusion") {
-			d := 0.5*(dc + below(dc))
-			d*(o2 - below(o2))/z ->>
+			d := 0.5*(dc + dc[below])
+			d*(o2 - o2[below])/z ->>
 		}
 		
 		#flux(topcomp.o2, layer.o2, c, "Input") .top {
@@ -34,7 +34,7 @@ model("Diffusion") {
 		#	bottom(dc)*(bottom(o2)-topcomp.o2)/z ->>
 		#}
 		flux(layer.o2[c.bottom], topcomp.o2, [m g, c m-2, day-1], "Input") {
-			bottom(dc)*(bottom(o2)-topcomp.o2)/z ->>
+			dc[bottom]*(o2[bottom]-topcomp.o2)/z ->>
 		}
 		
 		#flux(nowhere, layer.o2, c, "Input") .top {
