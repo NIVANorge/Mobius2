@@ -132,7 +132,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 			break;
 		} else if(can_be_value_token(peek.type)) {
 			auto arg = new Argument_AST();
-			read_chain(stream, ' ', &arg->sub_chain, false, true);
+			read_chain(stream, ' ', &arg->chain, false, true);
 			decl->args.push_back(arg);
 			
 			auto next = stream->peek_token();
@@ -208,16 +208,16 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 				if((char)peek.type == '(' || (char)peek.type == ':')
 					arg->decl = parse_decl(stream);
 				else {
-					read_chain(stream, '.', &arg->sub_chain);
+					read_chain(stream, '.', &arg->chain);
 					next = stream->peek_token();
 					if((char)next.type == '[') { // Bracketed var location, e.g. layer.water[vertical.top]
 						stream->read_token();
-						read_chain(stream, '.', &arg->secondary_chain);
+						read_chain(stream, '.', &arg->bracketed_chain);
 						stream->expect_token(']');
 					}
 				}
 			} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type)) { // Literal values.
-				arg->sub_chain.push_back(next);
+				arg->chain.push_back(next);
 				stream->read_token();
 			} else if ((char)next.type == '[') { // Unit declaration
 				arg->decl = parse_decl(stream);
@@ -810,13 +810,13 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 		} // fall through to the next case to see if we have an identifier (chain).
 		
 		case Type::value : {
-			if(arg->sub_chain.size() == 1) {
+			if(arg->chain.size() == 1) {
 				if(check_type == Token_Type::real)
-					return is_numeric(arg->sub_chain[0].type);
-				return arg->sub_chain[0].type == check_type;
+					return is_numeric(arg->chain[0].type);
+				return arg->chain[0].type == check_type;
 				
-			} else if(arg->sub_chain.size() > 1 && check_type == Token_Type::identifier) {
-				for(Token &token : arg->sub_chain) {
+			} else if(arg->chain.size() > 1 && check_type == Token_Type::identifier) {
+				for(Token &token : arg->chain) {
 					if(token.type != Token_Type::identifier)
 						return false;
 				}

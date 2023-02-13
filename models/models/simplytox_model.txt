@@ -3,6 +3,7 @@ model("SimplyTox") {
 	extend("simplyc_model.txt")
 	
 	load("../modules/simplytox.txt", module("SimplyTox"))
+	load("../modules/rivertemp.txt", module("RiverTemperature"))
 	
 	tox   : quantity("Toxin")
 	
@@ -13,4 +14,9 @@ model("SimplyTox") {
 	tox_idx : index_set("Toxin type")
 	
 	tox.distribute(tox_idx)
+	
+	simply_solver.solve(soil.oc)
+	simply_solver.solve(dsoil.oc)
+	#simply_solver.solve(soil.oc.tox)
+	#simply_solver.solve(dsoil.oc.tox)
 }

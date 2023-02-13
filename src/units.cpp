@@ -441,16 +441,16 @@ Unit_Data::set_data(Decl_AST *decl) {
 	int idx = 0;
 	for(auto arg : decl->args) {
 		bool skip = false;
-		if(idx == 0 && arg->sub_chain.size() == 1 && arg->sub_chain[0].type == Token_Type::integer) {
+		if(idx == 0 && arg->chain.size() == 1 && arg->chain[0].type == Token_Type::integer) {
 			skip = true;
-			declared_multiplier = arg->sub_chain[0].val_int;
+			declared_multiplier = arg->chain[0].val_int;
 			if(declared_multiplier.nom < 0) {
-				arg->sub_chain[0].print_error_header();
+				arg->chain[0].print_error_header();
 				fatal_error("A unit can not have a negative size.");
 			}
 		}
 		if(!skip)
-			declared_form.push_back(parse_unit(&arg->sub_chain));
+			declared_form.push_back(parse_unit(&arg->chain));
 		++idx;
 	}
 	set_standard_form();

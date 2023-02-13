@@ -59,16 +59,8 @@
 		Fix discrete fluxes!
 		
 		
-		New location format
-			Make it possible to write e.g.
-				layer.water[vert.top]
-			both in declarative and function scope. (can simplify to e.g. water[top] in function scope if the rest can be inferred).
-			Also need
-				layer.water[vert.below]
-			etc.
-			Replaces  above(vert, layer.water) and .top  types of syntax.
+		New location format identifier.chain[connection.qualifier]
 			Make the placement on source or target of flux actually matter! (maybe tie it to the var location?)
-			Make the syntax be [bottom.vert] instead of [vert.bottom] ? easier to process in cases where there is just [bottom].
 			Allow things like
 				flux(nowhere, layer.water[vert])
 				? Although how would you specify that in the data file??

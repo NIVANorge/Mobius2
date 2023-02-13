@@ -248,15 +248,15 @@ resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int whi
 		
 		return process_declaration<expected_type>(model, scope, arg->decl);
 	} else {
-		if(max_sub_chain_size > 0 && arg->sub_chain.size() > max_sub_chain_size) {
-			arg->sub_chain[0].print_error_header();
+		if(max_sub_chain_size > 0 && arg->chain.size() > max_sub_chain_size) {
+			arg->chain[0].print_error_header();
 			fatal_error("Misformatted argument.");
 		}
-		if(!arg->secondary_chain.empty()) {
-			arg->secondary_chain[0].print_error_header();
+		if(!arg->bracketed_chain.empty()) {
+			arg->bracketed_chain[0].print_error_header();
 			fatal_error("Did not expect a bracketed location.");
 		}
-		return model->registry(expected_type)->find_or_create(&arg->sub_chain[0], scope);
+		return model->registry(expected_type)->find_or_create(&arg->chain[0], scope);
 	}
 	return invalid_entity_id;
 }
@@ -423,8 +423,8 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		decl->args[which]->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
-	std::vector<Token> &symbol = decl->args[which]->sub_chain;
-	std::vector<Token> &bracketed = decl->args[which]->secondary_chain;
+	std::vector<Token> &symbol = decl->args[which]->chain;
+	std::vector<Token> &bracketed = decl->args[which]->bracketed_chain;
 	
 	int count = symbol.size();
 	
@@ -660,7 +660,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 	auto function = model->functions[id];
 	
 	for(auto arg : decl->args) {
-		if(!arg->decl && arg->sub_chain.size() != 1) {
+		if(!arg->decl && arg->chain.size() != 1) {
 			decl->source_loc.print_error_header();
 			fatal_error("The arguments to a function declaration should be just single identifiers with or without units.");
 		}
@@ -676,7 +676,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 			function->args.push_back(arg->decl->handle_name.string_value);
 			function->expected_units.push_back(unit_id);
 		} else {
-			function->args.push_back(arg->sub_chain[0].string_value);
+			function->args.push_back(arg->chain[0].string_value);
 			function->expected_units.push_back(invalid_entity_id);
 		}
 	}
@@ -684,7 +684,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 	for(int idx = 1; idx < function->args.size(); ++idx) {
 		for(int idx2 = 0; idx2 < idx; ++idx2) {
 			if(function->args[idx] == function->args[idx2]) {
-				decl->args[idx]->sub_chain[0].print_error_header();
+				decl->args[idx]->chain[0].print_error_header();
 				fatal_error("Duplicate argument name '", function->args[idx], "' in function declaration.");
 			}
 		}
@@ -1169,7 +1169,7 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 		fatal_error("The flux '", decl->decl_chain[1].string_value, "' does not have the target 'out', and so we can't re-assign its target.");
 	}
 	
-	auto &chain = decl->args[0]->sub_chain;
+	auto &chain = decl->args[0]->chain;
 	
 	auto modifier = process_location_argument(model, scope, decl, 0, &flux->target, false, true);
 	flux->connection_target = modifier.connection_id;
@@ -1283,7 +1283,7 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 	process_location_argument(model, scope, decl, 0, &solve->loc, false);
 	
 	if(solve->loc.is_dissolved()) {
-		single_arg(decl, 0)->source_loc.print_error_header(Mobius_Error::model_building);
+		decl->args[0]->chain[0].source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
 	}
 	
