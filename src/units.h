@@ -72,7 +72,7 @@ struct Decl_AST;
 
 struct
 Unit_Data {
-	s64                             declared_multiplier = 1;
+	Rational<s64>                   declared_multiplier = {1, 1};
 	std::vector<Declared_Unit_Part> declared_form;
 	Standardized_Unit               standard_form;
 	

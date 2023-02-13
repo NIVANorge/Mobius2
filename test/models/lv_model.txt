@@ -13,6 +13,7 @@ model("Predator-prey test model") {
 			nomnom     : par_real("Predation rate", [day -1], 0.1)
 			pred_birth : par_real("Predator birth rate", [day -1], 0.025)
 			pred_death : par_real("Predator death rate", [day -1], 0.05)
+			#test : par_real("Test", [10, day], 1)
 		}
 		habitat.has(pred : quantity("Predators"), []) .initial { init_pred }
 		habitat.has(prey : quantity("Prey"), [])      .initial { init_prey }

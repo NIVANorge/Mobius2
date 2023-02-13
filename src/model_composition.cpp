@@ -776,6 +776,7 @@ compose_and_resolve(Model_Application *app) {
 					// Hmm, this actually allows not just for time scaling, but also other scaling. For instance, it allows [g, ha-1, day-1] to be converted to [n g, k m-2, day-1]
 					auto var2 = as<State_Var::Type::declared>(var);
 					bool success = match(&var->unit.standard_form, &unit.standard_form, &var2->flux_time_unit_conv);
+					
 					if(!success) {
 						model->fluxes[var2->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
 						fatal_error("The flux \"", var2->name, "\" has been given a unit that is not compatible with the unit of the transported quantity, which is ", transported->unit.to_utf8(), ", or with the time step unit of the model, which is ", app->time_step_unit.to_utf8(), ".");

@@ -106,6 +106,7 @@ parse_unit(std::vector<Token> *tokens) {
 
 void
 Unit_Data::set_standard_form() {
+	
 	standard_form.multiplier = declared_multiplier;
 	standard_form.magnitude  = 0;
 	for(int idx = 0; idx < (int)Base_Unit::max; ++idx)
@@ -284,6 +285,7 @@ Unit_Data
 multiply(const Unit_Data &a, const Unit_Data &b, int power) {
 	Unit_Data result;
 	result.declared_form = a.declared_form;
+	result.declared_multiplier = a.declared_multiplier * pow_i<s64>(b.declared_multiplier, (s64)power);
 	for(auto decl : b.declared_form) {
 		decl.power *= power;
 		result.declared_form.push_back(decl);
@@ -343,10 +345,12 @@ static const char *unit_symbols[] = {
 std::string
 Unit_Data::to_utf8() {
 	
-	if(declared_form.empty())
+	if(declared_form.empty() && declared_multiplier != Rational<s64>(1))
 		return "dimensionless";
 
 	std::stringstream ss;
+	if(declared_multiplier != Rational<s64>(1))
+		ss << declared_multiplier << " ";
 	int idx = 0;
 	for(auto &part : declared_form) {
 		int mag = part.magnitude;
@@ -375,7 +379,7 @@ Unit_Data::to_decl_str() {
 	std::stringstream ss;
 	ss << "[";
 	int idx = 0;
-	if(declared_multiplier != 1) {
+	if(declared_multiplier != Rational<s64>(1)) {
 		ss << declared_multiplier;
 		if(!declared_form.empty()) ss<< ", ";
 	}
@@ -440,7 +444,7 @@ Unit_Data::set_data(Decl_AST *decl) {
 		if(idx == 0 && arg->sub_chain.size() == 1 && arg->sub_chain[0].type == Token_Type::integer) {
 			skip = true;
 			declared_multiplier = arg->sub_chain[0].val_int;
-			if(declared_multiplier < 0) {
+			if(declared_multiplier.nom < 0) {
 				arg->sub_chain[0].print_error_header();
 				fatal_error("A unit can not have a negative size.");
 			}
