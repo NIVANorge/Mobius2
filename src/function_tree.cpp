@@ -191,6 +191,7 @@ void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 			} else { \
 				fun->exprs[0] = make_cast(fun->exprs[0], Value_Type::type1); \
 				fun->exprs[1] = make_cast(fun->exprs[1], Value_Type::type2); \
+				fun->value_type = Value_Type::ret_type; \
 			} \
 		}
 	#include "intrinsics.incl"
@@ -441,6 +442,10 @@ set_time_unit(Standardized_Unit &unit, Model_Application *app, Variable_Type typ
 		
 		case Variable_Type::time_step : {
 			unit = app->time_step_unit.standard_form;
+		} break;
+		
+		case Variable_Type::time_fractional_step : {
+			unit = {};
 		} break;
 		
 		default : {
@@ -888,17 +893,20 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					bool resolved = false;
 					if(chain_size == 2) {
 						if(n1 == "time") {
+							new_ident->value_type = Value_Type::integer;
 							if(false){}
 							#define TIME_VALUE(name, bits) \
 							else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
 							#include "time_values.incl"
 							#undef TIME_VALUE
-							else {
+							else if(n2 == "fractional_step") {
+								new_ident->value_type = Value_Type::real;
+								new_ident->variable_type = Variable_Type::time_fractional_step;
+							} else {
 								ident->chain[1].print_error_header();
 								error_print("The time structure does not have a member \"", n2, "\".\n");
 								fatal_error_trace(scope);
 							}
-							new_ident->value_type = Value_Type::integer;
 							resolved = true;
 							set_time_unit(result.unit, app, new_ident->variable_type);
 						} else {

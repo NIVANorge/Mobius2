@@ -1,3 +1,5 @@
+time_step([hr])
+
 index_set("Layer index") [ 50 ]
 
 connection("Fjord vertical") [

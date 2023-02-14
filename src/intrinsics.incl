@@ -1,6 +1,11 @@
 
+// The signature is our_name, cstdlibname, returntype, argtype, argtype
+
 MAKE_INTRINSIC2(min, min, unresolved, unresolved, unresolved)
 MAKE_INTRINSIC2(max, max, unresolved, unresolved, unresolved)
+MAKE_INTRINSIC2(copysign, copysign, real, real, real)
+
+// The signature is our_name, cstdlibname, llvmname, returntype, argtype
 
 MAKE_INTRINSIC1(sqrt, sqrt, sqrt, real, real)
 MAKE_INTRINSIC1(abs, fabs, fabs, real, real)    // Hmmm we may want to include the integer version, but the current way we organize it doesn't allow for it...

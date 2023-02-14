@@ -19,11 +19,16 @@
 			
 		graph connections
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
+
+		.select_minimize
+			etc. For selecting index for target of flux. See doodle.
 	
 		Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 			Also only one matrix indexing for a given state variable (at least for now)
 			A challenge is providing good error messages.
 		ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
+
+
 
 	
 	*** Intermediate-pri ***

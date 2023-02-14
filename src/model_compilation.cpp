@@ -752,9 +752,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
 				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
 				
+				
 				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
+				
+				// TODO: We need something like this because otherwise there may be additional index sets that are not accounted for. But we need to skip the particular index set(s) belonging to the connection (otherwise there are problems with matrix indexing for all_to_all etc.)
+				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(add_to_aggr_id);
 				
 				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
 				if(conn_type == Connection_Type::directed_tree) {

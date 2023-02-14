@@ -164,6 +164,7 @@ Variable_Type {
 	#define TIME_VALUE(name, bits) time_##name,
 	#include "time_values.incl"
 	#undef TIME_VALUE
+	time_fractional_step,
 	// Maybe also computed_parameter eventually.
 };
 

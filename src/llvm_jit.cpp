@@ -198,9 +198,9 @@ jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const ch
 	auto const_array_init = llvm::ConstantArray::get(conn_array_ty, values);
 	//NOTE: we are not responsible for the ownership of this one even though we allocate it with new.
 	return new llvm::GlobalVariable(
-		*data->module, conn_array_ty, true, 
+		*data->module, conn_array_ty, true,
 		llvm::GlobalValue::ExternalLinkage,
-		//llvm::GlobalValue::InternalLinkage, 
+		//llvm::GlobalValue::InternalLinkage,
 		const_array_init, name);
 }
 
@@ -213,6 +213,7 @@ jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
 void
 jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module_Data *data) {
 	
+	auto double_ty     = llvm::Type::getDoubleTy(*data->context);
 	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
 	auto int_64_ptr_ty = llvm::Type::getInt64PtrTy(*data->context);
 	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
@@ -230,14 +231,14 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	data->dt_struct_type = dt_ty;
 	
 	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty
+		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty, double_ty
 		};
 		
 	llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
 	llvm::Function *fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	
 	// Hmm, is it important to set the argument names, or could we skip it?
-	const char *argnames[5] = {"parameters", "series", "state_vars", "solver_workspace", "date_time"};
+	const char *argnames[6] = {"parameters", "series", "state_vars", "solver_workspace", "date_time", "fractional_step"};
 	std::vector<llvm::Value *> args;
 	int idx = 0;
 	for(auto &arg : fun->args()) {
@@ -450,6 +451,10 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 		} else
 			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in build_intrinsic_ir().");
 		result = data->builder->CreateCall(fun, { a, b });
+	} else if (function == "copysign") {
+		std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context) };
+		llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::copysign, arg_types);
+		result = data->builder->CreateCall(fun, {a, b});
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in build_intrinsic_ir().");
 	return result;
@@ -624,7 +629,9 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			}
 			#include "time_values.incl"
 			#undef TIME_VALUE
-			else if(ident->variable_type == Variable_Type::no_override) {
+			else if(ident->variable_type == Variable_Type::time_fractional_step) {
+				result = args[5];
+			} else if(ident->variable_type == Variable_Type::no_override) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'no_override' is not in a branch that could be resolved at compile time."); // TODO: should probably check for that before this.
 			} else if (ident->variable_type == Variable_Type::connection) {

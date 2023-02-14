@@ -1,6 +1,44 @@
 
 	
 	
+	
+	# Fine-grained time of day:
+	time.second_of_day + time.step_length_in_seconds * time.fractional_step
+	# Should this one always be available? As
+	time.integrated_s_o_d # (?)
+	
+	
+	
+	
+	
+	
+	# Code for sending things to computed indexes.
+	
+	flux(layer.water, horz, [k g, day-1], "Horizontal exchange") {
+		dP := pressure - pressure[horz.next]  #NOTE: this is not the same as the one below because there you also look over all the vertical indexes.
+		#...
+	} .to_index.vert.smallest { # This is the vertical index, not the horizontal one
+		abs(pressure - pressure[vert, horz.next])
+	}
+	
+	# Actually need to be able to distribute over multiple indexes when two neighboring layers are split apart.
+	.smallest_distribute   # ??
+	
+	# This one reuses []-syntax, and is probably better (?) No need to put an identifier as a note (which is a bit of a mix of syntax concepts)
+	flux(layer.water, connection[horz, vert.select], [k g, day-1], "Horizontal exchange") {
+		#..
+	} .select_minimize_convex .distribute {
+		abs(pressure - pressure[horz.next, vert.select])
+	}
+	
+	
+	
+	#In general, the connection target should be connection[horz] instead of just 'horz' as the argument to the flux?
+	
+	
+	
+	
+	
 	# Maybe need specialized functionality for wind driven mixing
 	
 	mix(layer.water, vert) .avail_energy {
@@ -17,13 +55,7 @@
 		}
 	}
 	
-	
-	
-	
-	
-	
-	
-	
+
 	
 	
 	
@@ -37,13 +69,14 @@
 	
 	# In this case it makes sense to separate out the gw in a separate module also.
 	
-	module("SimplyQ soil", 1, 0, 0,
-		soil : compartment(),
-		gw : compartment(),
+	module("SimplyQ soil", version(1, 0, 0),
+		soil  : compartment(),
+		gw    : compartment(),
 		water : quantity(), 
-		pet : property(), 
-		runoff_soil, runoff_gw # Not needed to tag locations with anything if we know that is what they are.
-	) {
+		pet   : property(),
+		# could also have e.g. a_catch : par_real(),
+		soil_runoff : var(), 
+		gw_runoff : var()) {
 		
 		soil.par_group("Hydrology") {
 			
@@ -51,14 +84,38 @@
 		
 		var(soil.water, [m m], "Soil water volume") .initial { fc }
 		
-		flux("Soil runoff", soil.water, runoff_soil) {
+		flux(soil.water, soil_runoff, [m m, day-1], "Soil runoff") {
 		}
+		
+		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {          # 'out' now means the same as 'nowhere' did before, while there is no new 'out'
+			#...
+		} .no_carry { any }
 	}
-	# How we would specify no_carry is still a bit in the air.
+	# How we would specify no_carry is still a bit in the air. Probably we have a  .no_carry{ } body on the flux. Then the arguments to that are passed to the module. Need a special "any" symbol for it as in .no_carry { any } .
 	
-	# Also want the ability to let a par group be global (not attached to a specific thing?)
+	module("HBV Snow", version(1, 0, 0),
+		air_temp, precip, water_to) {        # Input series are only (allowed to be) specified in the model, we could pass in the location of them as arguments
+		
+		snow_box : compartment("Snow box")     # If nothing tied to it is exported, we could just declare it locally (although it is used in soil.temp, so we can't actually do it in this example)
+		#...
+		
+		flux(out, water_to, [m m, day-1], "Precipitation falling as rain") {
+			precip if air_temp >= 0,
+			0      otherwise
+		}
+		
+		
+	}
 	
-	# Still possible to declare properties within modules if you only want to use them there.
+	# Implemented by importing the passed arguments to the scope of the module.
+		# Need special mechanism for having a single identifier refer to a chained location, and that needs to work in all places where you can resolve it.
+		#   (could just make an entity type for it, but still have to fix the places where resolution happens)
+	# Could also allow assigning these to handles when we do var declaration:     a : var(b.c, ....)
+	
+	# Also want the ability to let a par group be global (not attached to a specific thing?). In that case it is not duplicated if it is loaded several times.
+		# It must actually also be de-duplicated based on the component it is attached to (if module is applied multiple times with that same component as the same argument).
+	
+	# Still possible to declare properties within modules if you only want to use them there. Maybe also compartments and quantities.
 	
 	model("SimplyQ") {
 	
@@ -93,7 +150,7 @@
 		load("photomineralize.txt",
 			module("Photo-mineralize", oc, epi.water.oc, air.grad),
 			module("Photo-mineralize", oc, river.water.oc, air.grad),
-			module("Photo-mineralize", oc, layer.water.oc, layer.incoming_sw)
+			module("Photo-mineralize", oc, layer.water.oc, layer.par)
 		) # Would have to make it so that par groups attached to oc in the module are de-duplicated.
 		
 		load("airsea.txt",
@@ -109,9 +166,7 @@
 	
 	# Need top and bottom of grid1d to be valid locations that can be passed around (and used directly where other locations can)
 	# Something like
-	layer[vert.top].water.heat # Maybe best since it is this compartment that we have the connection over.
 	layer.water.heat[vert.top]  # More easily shorthanded (see below)
-	layer.water.heat.vert.top # easier to implement, less clear
 	
 	#Then boundary fluxes are
 	flux(nowhere, layer[vert.top].water.heat, "Shortwave")   #etc.

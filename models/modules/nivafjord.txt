@@ -10,6 +10,7 @@ module("NIVAFjord", 0, 0, 1) {
 	oair  : compartment("Ocean air")   # Air right above a given ocean section. Better name?
 	layer : compartment("Fjord layer")
 	sed   : compartment("Fjord sediment")
+	bnd   : compartment("Boundary ocean")
 	
 	water : quantity("Water")
 	salt  : quantity("Salt")
@@ -27,8 +28,10 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.par_group("Layer parameters") {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
-		init_S : par_real("Initial salinity", [g, k g-1], 35.0, 20.0, 50.0)
-		init_T : par_real("Initial temperature", [deg_c], 15.0, 0.1, 40.0)
+		dz     : par_real("Thickness", [m], 1, 0.1, 5)
+		w_bnd  : par_real("Opening to boundary", [m], 0, 0, 10000)
+		init_S : par_real("Initial salinity", [g, k g-1], 35, 20, 50)
+		init_T : par_real("Initial temperature", [deg_c], 15, 0.1, 40)
 	}
 
 	oair.par_group("Mixing parameters") {
@@ -45,6 +48,7 @@ module("NIVAFjord", 0, 0, 1) {
 		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
 	}
 	
+	# TODO: There should be a sediment compartment per layer instead..
 	sed.par_group("Sediment parameters") {
 		T_sed  : par_real("Deep sediment temperature", [deg_c], 4)
 		dz_sed : par_real("Depth of thermally active sediment layer", [m], 10)
@@ -54,16 +58,11 @@ module("NIVAFjord", 0, 0, 1) {
 		#TODO: porosity
 	}
 	
-	
-	layer.has(dz : property("Thickness"), [m]) {
-		1[m]   # Will maybe dynamic eventually
-	} #.initial { 1[m] }
-	
-	layer.has(z : property("Depth"), [m]) {
+	layer.has(z : property("Depth (nominal)"), [m]) {
 		z[vert.above] + dz[vert.above]
 	}
 	
-	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water }   #TODO: temperature adjust
+	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water } .override { A*dz*rho_water }
 	
 	layer.water.has(salt, [k g], [g, k g-1], "Layer salt") .initial_conc { init_S }
 	
@@ -82,9 +81,9 @@ module("NIVAFjord", 0, 0, 1) {
 		accum_pressure[vert.above] + dens*grav*dz
 	}
 	
-	layer.water.has(pressure, [Pa]) {
-		accum_pressure + air.pressure->[Pa]
-	}
+	#layer.water.has(pressure, [Pa]) {
+	#	accum_pressure + air.pressure->[Pa]
+	#}
 	
 	layer.water.has(ddens : property("d(dens)"), [k g, m-3]) {
 		(dens[vert.below]-dens)
@@ -226,7 +225,7 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		in_flux(sw_vert, heat) * exp(-attn*dz) * A[vert.below] / A
+		(in_flux(sw_vert, heat)->[J, day-1]) * exp(-attn*dz) * A[vert.below] / A
 	}
 	
 	sed.has(heat, [J], "Sediment heat") .initial {
@@ -246,5 +245,66 @@ module("NIVAFjord", 0, 0, 1) {
 		A[bottom]*(temp[bottom]->[K] - sed.temp->[K])*k_sed/dz ->>
 	}
 	
+	
+	
+	# Horizontal exchange with boundary
+	h : quantity("Sea level")
+	
+	sealevel_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
+		amp * cos( (pi/180[deg])*(t*360[deg]/per - phase) )
+	}
+	
+	sealevel : function(t : [hr]) {
+		# TODO: Parametrize. This in particular is for Oscarsborg.
+		  sealevel_component(11.2[c m], 282[deg], 365.24*24[hr], t)
+		+ sealevel_component(13.4[c m], 152[deg], 12.42[hr], t)
+		+ sealevel_component( 3.4[c m], 101[deg], 12.00[hr], t)
+		+ sealevel_component( 3.3[c m], 101[deg], 12.66[hr], t)
+		+ sealevel_component( 0.9[c m],  76[deg], 11.97[hr], t)
+		+ sealevel_component( 0.5[c m], 172[deg], 23.93[hr], t)
+		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
+	}
+	
+	boundary_profile(z : [m], z1 : [m], z2 : [m]) {
+		a := {
+			((z2-z)/(z2-z1))^2   if z < z2,
+			0                    otherwise
+		}
+		b := {
+			((z-z1)/z1)^2        if z >= z1,
+			0                    otherwise
+		}
+		g := a / (z/z1 + a^4)^0.25
+		h := b / sqrt(1 + b^2)
+		(1 + g + h)/2
+	}
+	
+	bnd.has(h, [m]) .initial { 0[m] } .override {
+		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step
+		sealevel(sec->[hr])->[m]              
+	}
+	
+	oair.has(h, [m]) .initial { 0[m] }
+	
+	# layer.water.has(bnd_u : property("Boundary flux"), [m 3, s-1]) {
+		# dP0 := grav*(oair.h - bnd.h)*dens[vert.top]  # Could be factored out.
+		
+		# # TODO: Have to take z1, z2, Y0, Yd as input series (the last two both for temp. and salinity, and later other dissolved)
+		# # TODO: Has to be factored out so that we can integrate it for the pressure.
+		# z1 := 5[m]
+		# z2 := 10[m]
+		# temp_0 := 10[deg_c]
+		# temp_d := 5[deg_c]
+		
+		# f := boundary_profile(z, z1, z2)
+		
+		# bnd_temp := lerp(f, 0, 1, temp_0, temp_d)
+		# bnd_salinity := 35.0
+		# bnd_dens := seawater_pot_dens(bnd_temp, bnd_salinity)
+		
+		# #dP = dP0 + grav*(accum_pressure - bnd_accum_pressure)
+		# # copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * dz
+		# 0
+	# }
 	
 }

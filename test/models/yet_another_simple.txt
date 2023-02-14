@@ -14,6 +14,11 @@ model("Yet another simple") {
 		a.has(hmm : property("Hmm"), []) {
 			b
 		}
+		
+		a.has(bing : property("Bing"), []) {
+			f := sin(time.day_of_year*2*pi/365.[day])
+			copysign(1, f)
+		}
 	}
 	
 	i : index_set("I") {

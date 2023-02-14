@@ -130,6 +130,8 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
 		} else {
 			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic(a, b).");
 		}
+	} else if (function == "copysign") {
+		result.val_real = std::copysign(a.val_real, b.val_real);
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic(a, b).");
 	return result;
@@ -349,6 +351,10 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 				} break;
 				#include "time_values.incl"
 				#undef TIME_VALUE			
+				
+				case Variable_Type::time_fractional_step : {
+					result.val_real = state->solver_t;
+				} break;
 				
 				default : {
 					fatal_error(Mobius_Error::internal, "Unhandled variable type in emulate_expression().");

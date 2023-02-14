@@ -1,10 +1,14 @@
 index_set("Layer index") [ 100 ]
 
+index_set("Branch index") [ "A" "B" "C" ]
+
 connection("Layer connection") [
 	compartment("Layer") [ "Layer index" ]
 ]
 
-series("../../models/models/data/langtjern.xlsx")
+connection("Sideways") [
+	compartment("Layer") [ "Branch index" ]
+]
 
 par_group("System") {
 	par_datetime("Start date")
@@ -21,6 +25,19 @@ module("Diffusion", 1, 0, 0) {
 
 		par_real("initial O²")
 		[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+	}
+
+	par_group("Bottom compartment") [ "Branch index" ] {
+		par_real("Bottom initial O²")
+		[ 1000 500 10 ]
+	}
+
+	par_group("Side transfer") [ "Branch index" "Branch index" ] {
+		par_real("Transfer coeff") [
+			0 0 0 
+			0 0 0 
+			0 0.05 0 
+		]
 	}
 }
 
