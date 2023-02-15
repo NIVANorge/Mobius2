@@ -29,7 +29,7 @@ module("NIVAFjord", 0, 0, 1) {
 	layer.par_group("Layer parameters") {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
 		dz     : par_real("Thickness", [m], 1, 0.1, 5)
-		w_bnd  : par_real("Opening to boundary", [m], 0, 0, 10000)
+		w_bnd  : par_real("Width to boundary", [m], 0, 0, 10000)
 		init_S : par_real("Initial salinity", [g, k g-1], 35, 20, 50)
 		init_T : par_real("Initial temperature", [deg_c], 15, 0.1, 40)
 	}
@@ -118,14 +118,8 @@ module("NIVAFjord", 0, 0, 1) {
 		air.dens*c_stress*u^2
 	}
 	
-	#oair.has(friction : property("Wind friction speed"), [m, s-1]) {
-	#	sqrt(stress/top(vert, layer.water.dens))
-	#}
-	
-	#TODO: need to take into account of B_s in the fjord model document
+	#TODO: need to take into account of B_s in the fjord model document (?)
 	oair.has(emix : property("Wind mixing energy"), [J], "Total wind mixing energy") {
-		#m0 := 0.5
-		#m0*friction^3
 		A[vert.top]*sqrt(stress^3/layer.water.dens[vert.top])*time.step_length_in_seconds
 	}
 	
@@ -265,7 +259,7 @@ module("NIVAFjord", 0, 0, 1) {
 		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
 	}
 	
-	boundary_profile(z : [m], z1 : [m], z2 : [m]) {
+	boundary_profile : function(z : [m], z1 : [m], z2 : [m]) {
 		a := {
 			((z2-z)/(z2-z1))^2   if z < z2,
 			0                    otherwise
@@ -285,6 +279,11 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	oair.has(h, [m]) .initial { 0[m] }
+	
+	z1 : property("Epilimnion thickness")
+	z2ratio : property("Metalimnion thickness ratio")
+	bnd.has(z1, [m])
+	bnd.has(z2ratio, [m])
 	
 	# layer.water.has(bnd_u : property("Boundary flux"), [m 3, s-1]) {
 		# dP0 := grav*(oair.h - bnd.h)*dens[vert.top]  # Could be factored out.

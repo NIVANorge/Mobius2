@@ -262,7 +262,7 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 		
 		Data_Storage<double, Var_Id> *data = series_type[col]==Var_Id::Type::series ? &app->data.series : &app->data.additional_series;
 		
-		if(    (header.flags & series_data_interp_step) 
+		if(    (header.flags & series_data_interp_step)
 			|| (header.flags & series_data_interp_linear)
 			|| (header.flags & series_data_interp_spline)) {
 			
@@ -280,6 +280,36 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 				double val = series->raw_values[col][row];
 				for(s64 offset : offsets[col])
 					*data->get_value(offset, ts) = val;
+			}
+		}
+		
+		// TODO: This processing should somehow happen before the interpolation, otherwise it
+		// is not nice in the year boundary.
+		if(header.flags & series_data_repeat_yearly) {
+			s32 y, m, d, h, mt, s;
+			
+			Date_Time behind = series->start_date;
+			
+			behind.year_month_day(&y, &m, &d);
+			behind.hour_minute_second(&h, &mt, &s);
+			
+			Date_Time ahead(y+1, m, d);
+			ahead.add_timestamp(h, mt, s);
+			s64 first_new = steps_between(data->start_date, ahead, app->time_step_size);
+			s64 nrows     = steps_between(ahead, end_date, app->time_step_size);
+			
+			Expanded_Date_Time iter(behind, app->time_step_size);
+			for(s64 row = 0; row < nrows; ++row) {
+				s64 lookup_ts = first_step + iter.step;
+				s64 ts = first_new + row;
+				
+				for(s64 offset : offsets[col]) {
+					double val = *data->get_value(offset, lookup_ts);
+					*data->get_value(offset, ts) = val;
+				}
+				iter.advance();
+				if(iter.year != y)
+					iter = Expanded_Date_Time(behind, app->time_step_size);
 			}
 		}
 	}
