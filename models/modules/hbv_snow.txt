@@ -41,12 +41,20 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 		0             otherwise
 	}
 	
+	discrete_order() {
+		melt
+		refreeze
+		melt_runoff
+	}
+	
+	melt :
 	flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")     {   max(0, ddf_melt*(air.temp - t_melt))   }
 	
+	refreeze :
 	flux(snow_box.water, snow_box.snow, [m m, day-1], "Refreeze") {   max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
 
 	melt_runoff :
-	flux(snow_box.water, out, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq) * 1[day-1]  }
+	flux(snow_box.water, out, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq)*1[day-1]  }
 	
 	# TODO: Implement specifying order of computing discrete fluxes.
 	# 'add' and 'sub' specifies when the flux is added/subtracted to/from the target/source. If nothing else is specified, it happens right after the flux is computed.

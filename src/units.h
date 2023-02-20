@@ -100,4 +100,25 @@ match_offset(Standardized_Unit *a, Standardized_Unit *b, double *conversion_fact
 bool
 match_exact(Standardized_Unit *a, Standardized_Unit *b);
 
+enum class Aggregation_Period {
+	none = 0,
+	weekly,
+	monthly,
+	yearly,
+};
+
+inline Compound_Unit
+agg_period_to_compound_unit(Aggregation_Period agg) {
+	if(agg == Aggregation_Period::weekly)
+		return Compound_Unit::week;
+	else if(agg == Aggregation_Period::monthly)
+		return Compound_Unit::month;
+	else if(agg == Aggregation_Period::yearly)
+		return Compound_Unit::year;
+	return Compound_Unit::s;
+}
+
+Unit_Data
+unit_of_sum(const Unit_Data &unit, const Unit_Data &ts_unit, Aggregation_Period agg_period);
+
 #endif // MOBIUS_UNITS_H

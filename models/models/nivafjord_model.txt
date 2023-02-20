@@ -8,15 +8,19 @@ model("NIVAFjord") {
 	oair  : compartment("Ocean air")
 	layer : compartment("Fjord layer")
 	sed   : compartment("Fjord sediment")
+	bnd_layer : compartment("Boundary layer")
 	
 	water : quantity("Water")
 	heat  : quantity("Thermal energy")
+	h     : quantity("Sea level")
 	
 	layer.distribute(layer_idx)
+	bnd_layer.distribute(layer_idx)
 	
 	sol : solver("Simply solver", "INCADascru", 0.1)
 	sol.solve(layer.water)
 	sol.solve(sed.heat)
+	sol.solve(oair.h)
 	
 	aggregation_weight(layer, oair) { 1 }
 }

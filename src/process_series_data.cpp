@@ -284,7 +284,8 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 		}
 		
 		// TODO: This processing should somehow happen before the interpolation, otherwise it
-		// is not nice in the year boundary.
+		// is not nice in the year boundary. But then it must operate on the provided data rather than the processed data,
+		// and that is a bit tricky...
 		if(header.flags & series_data_repeat_yearly) {
 			s32 y, m, d, h, mt, s;
 			

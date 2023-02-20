@@ -181,13 +181,21 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Boundary_Type  boundary_type;
 	Entity_Id      unit;
 	
+	Entity_Id      discrete_order;
+	
 	std::vector<Var_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
 	bool no_carry_by_default;
 	
 	Math_Block_AST  *code;
 	Entity_Id        code_scope;
 	
-	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr), boundary_type(Boundary_Type::none), no_carry_by_default(false) {}
+	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr), boundary_type(Boundary_Type::none), no_carry_by_default(false), discrete_order(invalid_entity_id) {}
+};
+
+template<> struct
+Entity_Registration<Reg_Type::discrete_order> : Entity_Registration_Base {
+	// TODO: eventually this one could be more complex to take into account order of when things are added or subtracted, or recomputation of values etc.
+	std::vector<Entity_Id> fluxes;
 };
 
 enum class
@@ -311,6 +319,7 @@ Mobius_Model {
 	Registry<Reg_Type::component>   components;  // compartment, quantity, property
 	Registry<Reg_Type::has>         hases;
 	Registry<Reg_Type::flux>        fluxes;
+	Registry<Reg_Type::discrete_order> discrete_orders;
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
 	Registry<Reg_Type::solve>       solves;

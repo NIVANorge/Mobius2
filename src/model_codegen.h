@@ -60,6 +60,8 @@ Model_Instruction {
 	bool visited;
 	bool temp_visited;
 	
+	std::string debug_string(Model_Application *app);
+	
 	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr), boundary_type(Boundary_Type::none) {};
 };
 

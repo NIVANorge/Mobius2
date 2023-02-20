@@ -1028,7 +1028,12 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
 					} else if (arg_units.size() == 2) {
 						// NOTE: The min and max functions behave like '+' when it comes to units
-						apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, &new_fun->exprs[0], &new_fun->exprs[1]);
+						if(fun_name == "min" || fun_name == "max") {
+							apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, &new_fun->exprs[0], &new_fun->exprs[1]);
+						} else if(fun_name == "copysign") {
+							result.unit = arg_units[0];
+						} else
+							fatal_error(Mobius_Error::internal, "Unimplemented unit checking for intrinsic ", fun_name, ".");
 					} else
 						fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic when unit checking");
 				} else if(fun_type == Function_Type::decl) {

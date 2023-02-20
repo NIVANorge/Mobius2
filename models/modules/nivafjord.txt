@@ -1,7 +1,7 @@
 
 module("NIVAFjord", 0, 0, 1) {
 
-	load("../../stdlib/basic_math.txt", library("Basic"))
+	load("../../stdlib/basic_math.txt", library("Basic"), library("Response"))
 	load("../../stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Thermodynamics"))
 	load("../../stdlib/seawater.txt", library("Seawater"), library("Air-sea"))
 	load("../../stdlib/atmospheric.txt", library("Meteorology"))#, library("Radiation"))
@@ -11,6 +11,7 @@ module("NIVAFjord", 0, 0, 1) {
 	layer : compartment("Fjord layer")
 	sed   : compartment("Fjord sediment")
 	bnd   : compartment("Boundary ocean")
+	bnd_layer : compartment("Boundary layer")
 	
 	water : quantity("Water")
 	salt  : quantity("Salt")
@@ -28,7 +29,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.par_group("Layer parameters") {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
-		dz     : par_real("Thickness", [m], 1, 0.1, 5)
+		dz     : par_real("Thickness", [m], 1, 0.1, 5) # TODO: Just make it a universal param?
 		w_bnd  : par_real("Width to boundary", [m], 0, 0, 10000)
 		init_S : par_real("Initial salinity", [g, k g-1], 35, 20, 50)
 		init_T : par_real("Initial temperature", [deg_c], 15, 0.1, 40)
@@ -46,6 +47,8 @@ module("NIVAFjord", 0, 0, 1) {
 		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0)
 		zshalf : par_real("Halving depth of additional mixing energy", [m], 3)
 		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
+		
+		alpha_u : par_real("Pressure difference mixing coefficient", [], 0.5, 0.1, 1)
 	}
 	
 	# TODO: There should be a sediment compartment per layer instead..
@@ -64,26 +67,34 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water } .override { A*dz*rho_water }
 	
-	layer.water.has(salt, [k g], [g, k g-1], "Layer salt") .initial_conc { init_S }
+	layer.water.has(salt, [k g], [g, k g-1], "Layer salt")
+		#.initial_conc { init_S }
+		.initial_conc { bnd_layer.salinity =>> } #TODO: convert PSU to conc
 	
-	layer.water.has(heat, [J], "Layer thermal energy") .initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
+	layer.water.has(heat, [J], "Layer thermal energy") 
+		#.initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
+		.initial_conc { C_water * (temp -> [K]) }
 
 	layer.water.has(temp, [deg_c], "Layer temperature") {
 		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
+	} .initial {
+		bnd_layer.temp
 	}
 	
-	layer.water.has(dens : property("Density"), [k g, m-3], "Potential density") {
-		salinity := conc(salt)=>[] # TODO: Convert salinity to PSU
+	salinity : property("Salinity")
+	layer.water.has(salinity, [], "Layer salinity") {
+		conc(salt)=>[] # TODO: Convert salinity to PSU
+	}
+	
+	property("Density") {
 		seawater_pot_dens(temp, salinity)
 	}
+	
+	layer.water.has(dens : property("Density"), [k g, m-3], "Potential density")
 	
 	layer.water.has(accum_pressure : property("Accumulated pressure"), [Pa]) {
 		accum_pressure[vert.above] + dens*grav*dz
 	}
-	
-	#layer.water.has(pressure, [Pa]) {
-	#	accum_pressure + air.pressure->[Pa]
-	#}
 	
 	layer.water.has(ddens : property("d(dens)"), [k g, m-3]) {
 		(dens[vert.below]-dens)
@@ -259,20 +270,6 @@ module("NIVAFjord", 0, 0, 1) {
 		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
 	}
 	
-	boundary_profile : function(z : [m], z1 : [m], z2 : [m]) {
-		a := {
-			((z2-z)/(z2-z1))^2   if z < z2,
-			0                    otherwise
-		}
-		b := {
-			((z-z1)/z1)^2        if z >= z1,
-			0                    otherwise
-		}
-		g := a / (z/z1 + a^4)^0.25
-		h := b / sqrt(1 + b^2)
-		(1 + g + h)/2
-	}
-	
 	bnd.has(h, [m]) .initial { 0[m] } .override {
 		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step
 		sealevel(sec->[hr])->[m]              
@@ -280,30 +277,75 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	oair.has(h, [m]) .initial { 0[m] }
 	
-	z1 : property("Epilimnion thickness")
-	z2ratio : property("Metalimnion thickness ratio")
-	bnd.has(z1, [m])
-	bnd.has(z2ratio, [m])
+	z1       : property("Epilimnion thickness")
+	z2diff   : property("log10(Metalimnion thickness)")
+	temp_top : property("Temperature top")
+	temp_bot : property("Temperature bottom")
+	sal_top  : property("Salinity top")
+	sal_bot  : property("Salinity bottom")
 	
-	# layer.water.has(bnd_u : property("Boundary flux"), [m 3, s-1]) {
-		# dP0 := grav*(oair.h - bnd.h)*dens[vert.top]  # Could be factored out.
-		
-		# # TODO: Have to take z1, z2, Y0, Yd as input series (the last two both for temp. and salinity, and later other dissolved)
-		# # TODO: Has to be factored out so that we can integrate it for the pressure.
-		# z1 := 5[m]
-		# z2 := 10[m]
-		# temp_0 := 10[deg_c]
-		# temp_d := 5[deg_c]
-		
-		# f := boundary_profile(z, z1, z2)
-		
-		# bnd_temp := lerp(f, 0, 1, temp_0, temp_d)
-		# bnd_salinity := 35.0
-		# bnd_dens := seawater_pot_dens(bnd_temp, bnd_salinity)
-		
-		# #dP = dP0 + grav*(accum_pressure - bnd_accum_pressure)
-		# # copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * dz
-		# 0
-	# }
+	bnd.has(z1, [m])
+	bnd.has(z2diff, [])
+	bnd.has(temp_top, [deg_c])
+	bnd.has(temp_bot, [deg_c])
+	bnd.has(sal_top, [])
+	bnd.has(sal_bot, [])
+
+	bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer* }
+	
+	bnd_layer.has(z, [m]) {
+		dz := 1[m]   #TODO
+		z[bnd_vert.above] + dz
+	}
+	
+	#bnd.has(z2 :property("Z2"), [m]) {
+	#	(10^bnd.z2diff)=>[m] + bnd.z1
+	#}
+
+	bnd_layer.has(prof : property("Boundary profile"), []) {
+		z1 := bnd.z1
+		z2 := (10^bnd.z2diff)=>[m] + z1
+		a := {
+			((z2-z)/(z2-z1))^2   if z < z2,
+			0                    otherwise
+		}
+		b := {
+			0                    if z < z1,
+			((z-z1)/z1)^1.5      otherwise
+		}
+		g := a / (z/z1 + a^4)^(1/4.)
+		h := b / sqrt(1 + b^2)
+		(1 - g + h)/2
+	}
+	
+	bnd_layer.has(temp, [deg_c]) {
+		lerp(prof, 0, 1, bnd.temp_top, bnd.temp_bot)
+	}
+	
+	bnd_layer.has(salinity, []) {
+		lerp(prof, 0, 1, bnd.sal_top, bnd.sal_bot)
+	}
+	
+	bnd_layer.has(dens, [k g, m-3])
+	
+	bnd_layer.has(accum_pressure, [Pa]) {
+		dz := 1[m] #TODO
+		accum_pressure[bnd_vert.above] + dens*grav*dz
+	}
+	
+	layer.water.has(bnd_u : property("Boundary flux"), [m 3, s-1]) {
+		#dP0 := grav*(oair.h - bnd.h)*dens[vert.top]  # Could be factored out as the whatsitsname pressure.
+		dP0 := grav*(oair.h - bnd.h)*rho_water   # TODO: why doesn't dens[vert.top] work?
+		dP := dP0 + accum_pressure - bnd_layer.accum_pressure
+		#dP := accum_pressure - bnd_layer.accum_pressure
+		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
+		u * w_bnd * dz
+	}
+	
+	flux(oair.h, nowhere, [m, s-1], "dh/dt") {
+	#	flx := aggregate(layer.water.bnd_u)               #TODO: why does this break everything?
+	#	flx / A[vert.top]
+		0=>>
+	}
 	
 }

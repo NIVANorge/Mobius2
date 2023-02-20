@@ -37,11 +37,6 @@ month_offset(s32 year, s32 month) {
 	return days;
 }
 
-inline s32
-week_of_year(s32 day_of_year) {
-	return day_of_year / 7 + 1;
-}
-
 struct Date_Time {
 
 public:
@@ -151,6 +146,15 @@ public:
 		s32 day = (sec / 86400) % 7;
 		if(day < 0) day += 7;
 		return (day + 3) % 7 + 1; // 1970-1-1 was a thursday.
+	}
+	
+	inline s32
+	week_since_epoch() {
+		s32 day = seconds_since_epoch / 86400;
+		if((seconds_since_epoch < 0) && (seconds_since_epoch % 86400 != 0)) day--;
+		s32 week = (day - 3) / 7 + 1; // Accounting for 1970-1-1 being a thursday.
+		if((day-3 < 0) && (day-3) % 7 != 0) week--;
+		return week;
 	}
 	
 	inline void

@@ -28,6 +28,11 @@
 			A challenge is providing good error messages.
 		ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
 
+		What about:
+			accessing
+				something[above]
+			should not invalidate the entire expression, only make the something[above] evaluate to 0 (?)
+		Does this give the correct result in all instances ?
 
 
 	
@@ -35,15 +40,17 @@
 
 		Dynamic module choice (based on data set)
 
-		Template system: Processes not specified per compartment / quantity. Can be attached to those.
-			- something like compartment_type etc.
-			- have to figure out what to do with duplicates of par_group etc. - ties into name system (next item).
-		
-		Better scoping system for declaration names (not just for symbols).
-			also for variable names.
+		Falls under new module loading system if/when we make that:
+			Template system: Processes not specified per compartment / quantity. Can be attached to those.
+				- something like compartment_type etc.
+				- have to figure out what to do with duplicates of par_group etc. - ties into name system (next item).
+			
+			Better scoping system for declaration names (not just for symbols).
+				also for variable names.
 		
 		Check for conflicting declarations of variables (unit, name).
 		
+		Check if dissolvedes of dissolvedes work properly (SimplyTox)
 
 		Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before).
 		
@@ -62,7 +69,7 @@
 	
 	
 		Fix discrete fluxes!
-		
+			Subtraction happens too late so that it is not taken into account when computing other fluxes.
 		
 		New location format identifier.chain[connection.qualifier]
 			Make the placement on source or target of flux actually matter! (maybe tie it to the var location?)
@@ -124,7 +131,10 @@
 				icons in "by quantity" view.
 				Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
 				
-			sum aggregate plots should have the right units (if applicable)
+			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
+			Weekly sum aggregation is broken at the end of the year.
+			More aggregation intervals
+				
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
@@ -246,6 +256,8 @@
 			
 	Write unit back to file (only needed for time step units for now).
 	Allow rational coefficients and powers in units.  (powers now ok).
+	
+	sum aggregate plots should have the right units (if applicable)
 	
 	Units
 			Allow units to have the form [30, month] (i.e. leading multiplier)

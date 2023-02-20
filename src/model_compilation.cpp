@@ -5,41 +5,24 @@
 
 #include <string>
 
-// TODO: Find a way to unify code for the printouts (?).
-
-inline void
-error_print_instruction(Model_Application *app, Model_Instruction *instr) {
-	if(instr->type == Model_Instruction::Type::compute_state_var)
-		error_print("\"", app->state_vars[instr->var_id]->name, "\"");
-	else if(instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source)
-		error_print("(\"", app->state_vars[instr->source_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\")");
-	else if(instr->type == Model_Instruction::Type::add_discrete_flux_to_target)
-		error_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\")");
-	// TODO: what about the other types (?)
-}
-
-inline void
-print_partial_dependency_trace(Model_Application *app, Model_Instruction *we, Model_Instruction *dep) {
-	error_print_instruction(app, dep);
-	error_print(" <-- ");
-	error_print_instruction(app, we);
-	error_print("\n");
-}
-
-void
-debug_print_instruction(Model_Application *app, Model_Instruction *instr) {
-	if(instr->type == Model_Instruction::Type::compute_state_var)
-		warning_print("\"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source)
-		warning_print("\"", app->state_vars[instr->source_id]->name, "\" -= \"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::add_discrete_flux_to_target)
-		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::clear_state_var)
-		warning_print("\"", app->state_vars[instr->var_id]->name, "\" = 0\n");
-	else if(instr->type == Model_Instruction::Type::add_to_connection_aggregate)
-		warning_print(app->state_vars[instr->target_id]->name, " += \"", app->state_vars[instr->var_id]->name, "\"\n");
-	else if(instr->type == Model_Instruction::Type::add_to_aggregate)
-		warning_print("\"", app->state_vars[instr->target_id]->name, "\" += \"", app->state_vars[instr->var_id]->name, "\" * weight\n");
+std::string
+Model_Instruction::debug_string(Model_Application *app) {
+	std::stringstream ss;
+	
+	if(type == Model_Instruction::Type::compute_state_var)
+		ss << "\"" << app->state_vars[var_id]->name << "\"";
+	else if(type == Model_Instruction::Type::subtract_discrete_flux_from_source)
+		ss << "\"" << app->state_vars[source_id]->name << "\" -= \"" << app->state_vars[var_id]->name << "\"";
+	else if(type == Model_Instruction::Type::add_discrete_flux_to_target)
+		ss << "\"" << app->state_vars[target_id]->name << "\" += \"" << app->state_vars[var_id]->name << "\"";
+	else if(type == Model_Instruction::Type::clear_state_var)
+		ss << "\"" << app->state_vars[var_id]->name << "\" = 0";
+	else if(type == Model_Instruction::Type::add_to_connection_aggregate)
+		ss << "\"" << app->state_vars[target_id]->name << "\" += \"" << app->state_vars[var_id]->name << "\"";
+	else if(type == Model_Instruction::Type::add_to_aggregate)
+		ss << "\"" << app->state_vars[target_id]->name << "\" += \"" << app->state_vars[var_id]->name << "\" * weight";
+	
+	return ss.str();
 }
 
 void
@@ -54,9 +37,8 @@ debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays
 		}
 		warning_print("]\n");
 		for(auto instr_id : array.instr_ids) {
-			warning_print("\t\t");
 			auto instr = &instructions[instr_id];
-			debug_print_instruction(app, instr);
+			warning_print("\t\t", instr->debug_string(app), "\n");
 		}
 	}
 }
@@ -96,7 +78,7 @@ topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::
 	for(int dep : instr->depends_on_instruction) {
 		bool success = topological_sort_instructions_visit(app, dep, push_to, instructions, initial);
 		if(!success) {
-			print_partial_dependency_trace(app, instr, &instructions[dep]);
+			error_print(instructions[dep].debug_string(app), " <-- ", instr->debug_string(app), "\n");
 			return false;
 		}
 	}
@@ -823,6 +805,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		auto loc1 = var->loc1;
 		auto loc2 = var->loc2;
 		
+		std::vector<int> sub_add_instrs;
+		
 		Entity_Id source_solver = invalid_entity_id;
 		Var_Id source_id;
 		if(is_located(loc1) && !is_aggregate) {
@@ -830,7 +814,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			Model_Instruction *source = &instructions[source_id.id];
 			source_solver = source->solver;
 			auto source_var = as<State_Var::Type::declared>(app->state_vars[source_id]);
-				
+			
+			// If the source is not an ODE variable, generate an instruction to subtract the flux from the source.
+			
 			if(!is_valid(source_solver) && !source_var->override_tree) {
 				Model_Instruction sub_source_instr;
 				sub_source_instr.type = Model_Instruction::Type::subtract_discrete_flux_from_source;
@@ -845,6 +831,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. In the discrete case it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
 				int sub_idx = (int)instructions.size();
 				source->depends_on_instruction.insert(sub_idx);
+				
+				sub_add_instrs.push_back(sub_idx);
+				//instructions[var_id.id].loose_depends_on_instruction.insert(sub_idx);
 								
 				// The flux itself has to be computed once per instance of the source.
 				// The reason for this is that for discrete fluxes we generate a
@@ -886,7 +875,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				int add_idx = (int)instructions.size();
 				//if(!is_connection)
+				sub_add_instrs.push_back(add_idx);
+				
 				target->depends_on_instruction.insert(add_idx);
+			
+				//instructions[var_id.id].loose_depends_on_instruction.insert(add_idx);
 				
 				// NOTE: this one is needed because of unit conversions, which could give an extra index set dependency to the add instruction.
 				instructions[target_id.id].inherits_index_sets_from_instruction.insert(add_idx);
@@ -894,6 +887,39 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
+		
+		// TODO: make an error or warning if an ODE flux is given a discrete order. Maybe also if a discrete flux is not given one.
+		
+		// TODO: may want to do somehting similar if it is dissolved (look up the decl of the parent flux).
+		if(var->type == State_Var::Type::declared) {
+			auto flux_decl_id = as<State_Var::Type::declared>(var)->decl_id;
+			auto flux_decl = model->fluxes[flux_decl_id];
+			if(is_valid(flux_decl->discrete_order)) {
+				auto discrete_order = model->discrete_orders[flux_decl->discrete_order];
+				
+				bool after = false;
+				if(discrete_order) {
+					// If the flux is tied to a discrete order, make all fluxes after it depend on the subtraction add addition instructions of this one.
+					
+					for(auto flux_id : discrete_order->fluxes) {
+						if(after) {
+							// TODO: Ugh, we have to do this just to find the single state variable corresponding to a given flux declaration.
+							// should have a lookup structure for it!
+							for(auto var_id_2 : app->state_vars) {
+								auto var2 = app->state_vars[var_id_2];
+								if(!var2->is_valid() || !var2->is_flux() || var2->type != State_Var::Type::declared) continue;
+								if(as<State_Var::Type::declared>(var2)->decl_id == flux_id) {
+									instructions[var_id_2.id].depends_on_instruction.insert(sub_add_instrs.begin(), sub_add_instrs.end());
+								}
+							}
+						}
+						if(flux_id == flux_decl_id)
+							after = true;
+					}
+				}
+			}
+		}
+		
 	}
 }
 
@@ -1081,7 +1107,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 				int last_suitable = -1;
 				for(int batch_ahead_idx = batch_idx; batch_ahead_idx < grouped_pre_batches.size(); ++batch_ahead_idx) {
 					int start_at = 0;
-					if(batch_ahead_idx == batch_idx) start_at = instr_idx+1;
+					//if(batch_ahead_idx == batch_idx) start_at = instr_idx+1;
 					auto &batch_ahead = grouped_pre_batches[batch_ahead_idx];
 					
 					bool someone_ahead_in_this_batch_depends_on_us = false;
@@ -1089,6 +1115,10 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 						int ahead_id = batch_ahead.instructions[ahead_idx];
 						auto &ahead = instructions[ahead_id];
 						if(std::find(ahead.depends_on_instruction.begin(), ahead.depends_on_instruction.end(), instr_id) != ahead.depends_on_instruction.end()) {
+							someone_ahead_in_this_batch_depends_on_us = true;
+							break;
+						}
+						if(std::find(ahead.loose_depends_on_instruction.begin(), ahead.loose_depends_on_instruction.end(), instr_id) != ahead.loose_depends_on_instruction.end()) {
 							someone_ahead_in_this_batch_depends_on_us = true;
 							break;
 						}
@@ -1130,8 +1160,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		else
 			warning_print("  discrete :\n");
 		for(int instr_id : batch.instrs) {
-			warning_print("\t\t");
-			debug_print_instruction(model, &instructions[instr_id]);
+			warning_print("\t\t", instructions[instr_id]->debug_string(app), "\n");
 		}
 	}
 	warning_print("\n\n");

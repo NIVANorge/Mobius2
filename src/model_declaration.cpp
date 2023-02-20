@@ -841,31 +841,46 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	flux->code = body->block;
-	
-	/*
-	if (body->notes.size() == 1) {
-		if(body->notes[0].string_value == "top")
-			flux->boundary_type = Boundary_Type::top;
-		else if (body->notes[0].string_value == "bottom")
-			flux->boundary_type = Boundary_Type::bottom;
-		else {
-			body->notes[0].print_error_header();
-			fatal_error("Unrecognized flux body note '.", body->notes[0].string_value, "' .");
-		}
-		if(which != 1) {
-			decl->source_loc.print_error_header();
-			fatal_error("For declaration of boundary fluxes, one must provide both a source, a target and a connection.");
-		}
-	} else if (!body->notes.empty()) {
-		body->opens_at.print_error_header();
-		fatal_error("Only one note is supported per function body for a flux.");
-	} else if (which != 0) {
-		decl->source_loc.print_error_header();
-		fatal_error("For declaration of fluxes that are not boundary fluxes, one must provide only two location arguments of which the second could be a connection.");
-	}
-	*/
 			
 	flux->code_scope = scope->parent_id;
+	
+	return id;
+}
+
+template<> Entity_Id
+process_declaration<Reg_Type::discrete_order>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	match_declaration(decl, {{ }});
+	
+	auto id    = model->discrete_orders.find_or_create(nullptr, scope, nullptr, decl);
+	auto discr = model->discrete_orders[id];
+	
+	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
+	bool success = true;
+	for(auto expr : body->block->exprs) {
+		if(expr->type != Math_Expr_Type::identifier) {
+			success = false;
+			break;
+		}
+		auto ident = static_cast<Identifier_Chain_AST *>(expr);
+		if(ident->chain.size() != 1 || !ident->bracketed_chain.empty()) {
+			success = false;
+			break;
+		}
+		auto flux_id = model->fluxes.find_or_create(&ident->chain[0], scope, nullptr, nullptr);
+		discr->fluxes.push_back(flux_id);
+		auto flux = model->fluxes[flux_id];
+		if(is_valid(flux->discrete_order)) {
+			ident->chain[0].source_loc.print_error_header();
+			error_print("The flux '", ident->chain[0].string_value, "' was already put in another discrete order declared here:\n");
+			model->discrete_orders[flux->discrete_order]->source_loc.print_error();
+			mobius_error_exit();
+		}
+		flux->discrete_order = id;
+	}
+	if(!success) {
+		body->opens_at.print_error_header();
+		fatal_error("A 'discrete_order' body should just contain a list of flux identifiers.");
+	}
 	
 	return id;
 }
@@ -1115,6 +1130,10 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			
 			case Decl_Type::flux : {
 				process_declaration<Reg_Type::flux>(model, &module->scope, child);
+			} break;
+			
+			case Decl_Type::discrete_order : {
+				process_declaration<Reg_Type::discrete_order>(model, &module->scope, child);
 			} break;
 			
 			case Decl_Type::par_real :

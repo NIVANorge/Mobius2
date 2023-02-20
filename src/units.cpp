@@ -163,7 +163,11 @@ Unit_Data::set_standard_form() {
 				standard_form.powers[(int)Base_Unit::s] += part.power;
 				standard_form.magnitude += 2*part.power;
 				standard_form.multiplier *= pow_i<s64>(864, part.power.nom);
-			} else
+			} else if(part.unit == Compound_Unit::week) {
+				standard_form.powers[(int)Base_Unit::s] += part.power;
+				standard_form.magnitude += 2*part.power;
+				standard_form.multiplier *= pow_i<s64>(6048, part.power.nom);
+			}else
 				fatal_error(Mobius_Error::internal, "Unhandled compound unit in set_standard_form().");
 		}
 		standard_form.magnitude += ((int)part.magnitude)*part.power;
@@ -292,6 +296,34 @@ multiply(const Unit_Data &a, const Unit_Data &b, int power) {
 		// TODO: Not sure if we should do work to merge matching units here.
 	}
 	result.set_standard_form();
+	return std::move(result);
+}
+
+Unit_Data
+unit_of_sum(const Unit_Data &unit, const Unit_Data &ts_unit, Aggregation_Period agg_period) {
+	auto result = unit;
+	if(agg_period == Aggregation_Period::none)
+		return result;
+	
+	int found_idx = -1;
+	const auto &ts_part = ts_unit.declared_form[0];
+	for(int idx = 0; idx < unit.declared_form.size(); ++idx) {
+		const auto &part = unit.declared_form[idx];
+		if(part.power == Rational<s16>(-1) && part.unit == ts_part.unit && part.magnitude == ts_part.magnitude)   // TODO: is checking the magnitude necessary?
+			found_idx = idx;
+	}
+	if(found_idx < 0)
+		return result;
+	
+	result.declared_form.erase(result.declared_form.begin() + found_idx);
+	Declared_Unit_Part part = {
+		ts_part.magnitude,
+		Rational<s16>(-1),
+		agg_period_to_compound_unit(agg_period)
+	};
+	result.declared_form.push_back(part);
+	result.set_standard_form();
+	
 	return std::move(result);
 }
 
