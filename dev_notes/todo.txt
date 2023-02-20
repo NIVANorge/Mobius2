@@ -66,10 +66,6 @@
 		Maybe have a separate lookup structure for fluxes and have the common flux things stored there.
 			(in many cases we just loop over all fluxes and try to find common things for them)
 			loc1, loc2, unit_conv, connection, etc.
-	
-	
-		Fix discrete fluxes!
-			Subtraction happens too late so that it is not taken into account when computing other fluxes.
 		
 		New location format identifier.chain[connection.qualifier]
 			Make the placement on source or target of flux actually matter! (maybe tie it to the var location?)
@@ -263,3 +259,6 @@
 			Allow units to have the form [30, month] (i.e. leading multiplier)
 			
 	Making a robust system for the units of fluxes.
+	
+	Fix discrete fluxes!
+			Subtraction happens too late so that it is not taken into account when computing other fluxes.

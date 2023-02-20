@@ -1122,20 +1122,20 @@ compose_and_resolve(Model_Application *app) {
 		auto &key = in_flux.first;
 		//auto [target_id, connection] = key;
 		Var_Id target_id = key.first;
+		auto target = as<State_Var::Type::declared>(app->state_vars[target_id]);
 		Entity_Id connection = key.second;
 		
 		Var_Id in_flux_id = invalid_var;
 		if(!is_valid(connection)) {
-			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, "in_flux");   //TODO: generate a better name
+			sprintf(varname, "in_flux(%s)", target->name.data());
+			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, varname);
 			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->state_vars[in_flux_id]);
 			in_flux_var->in_flux_to = target_id;
 		} else {
 			//We don't have to register an aggregate for the connection since that will always have been done for a variable on a connection if it is at all relevant.
-			auto target = as<State_Var::Type::declared>(app->state_vars[target_id]);
 			for(auto conn_agg_id : target->conn_target_aggs) {
-				if( as<State_Var::Type::connection_aggregate>(app->state_vars[conn_agg_id])->connection == connection) {
+				if( as<State_Var::Type::connection_aggregate>(app->state_vars[conn_agg_id])->connection == connection)
 					in_flux_id = conn_agg_id;
-				}
 			}
 		}
 		// NOTE: if there was no connection aggregate it means that there was no flux going there. This is not an error in the use of in_flux because the current module could not always know about it. In that case, replace_flagged will still correctly put a literal 0 there instead.

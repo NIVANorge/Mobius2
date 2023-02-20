@@ -31,17 +31,20 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	snow_box.has(water, [m m], "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
 	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {
-		air.precip    if air.temp <= t_snow,
-		0             otherwise
+		#air.precip    if air.temp <= t_snow,
+		#0             otherwise
+		air.precip * (air.temp <= t_snow)  # Making use of auto-conversion of boolean->real
 	}
 	
 	p_rain :
 	flux(nowhere, out, [m m, day-1], "Precipitation falling as rain") {
-		air.precip    if air.temp > t_snow,
-		0             otherwise
+		#air.precip    if air.temp > t_snow,
+		#0             otherwise
+		air.precip * (air.temp > t_snow)
 	}
 	
 	discrete_order() {
+		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this model.
 		melt
 		refreeze
 		melt_runoff
@@ -55,13 +58,4 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 
 	melt_runoff :
 	flux(snow_box.water, out, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq)*1[day-1]  }
-	
-	# TODO: Implement specifying order of computing discrete fluxes.
-	# 'add' and 'sub' specifies when the flux is added/subtracted to/from the target/source. If nothing else is specified, it happens right after the flux is computed.
-	#discrete_order {
-	#	melt
-	#	refreeze
-	#	add(melt)          # What was melted in this time step is not available for refreeze the same time step (though that can't happen anyway... hmm...)
-	#	runoff
-	#}
 }

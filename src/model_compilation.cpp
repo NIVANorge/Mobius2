@@ -823,7 +823,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				sub_source_instr.var_id = var_id;
 				
 				sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
-				//sub_source_instr.inherits_index_sets_from_instruction.insert(var_id.id); // it also has to be done once per instance of the flux. Should no longer be needed with new dependency system
 				sub_source_instr.inherits_index_sets_from_instruction.insert(source_id.id); // and it has to be done per instance of the source.
 				
 				sub_source_instr.source_id = source_id;
@@ -834,12 +833,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				sub_add_instrs.push_back(sub_idx);
 				//instructions[var_id.id].loose_depends_on_instruction.insert(sub_idx);
-								
-				// The flux itself has to be computed once per instance of the source.
-				// The reason for this is that for discrete fluxes we generate a
-				// flux := min(flux, source) in order to not send the source negative.
-				// Should no longer be necessary to fix this here with the new dependency system.
-				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(source_id.id);
+
 				
 				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
@@ -861,20 +855,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_target_instr.var_id = var_id;
 				
 				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
-				//add_target_instr.inherits_index_sets_from_instruction.insert(var_id.id);  // it also has to be done (at least) once per instance of the flux. Should no longer be needed to be declared explicitly with new dependency system.
 				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 				add_target_instr.target_id = target_id;
-				/*
-				if(is_located(loc1))
-					add_target_instr.source_id = app->state_vars[loc1]; // NOTE: This is needed if we enable connections for discrete fluxes again.
-				if(is_connection) {
-					// the index sets already depend on the flux itself, which depends on the source, so we don't have to redeclare that.
-					add_target_instr.connection = var->connection;
-				}
-				*/
 				
 				int add_idx = (int)instructions.size();
-				//if(!is_connection)
 				sub_add_instrs.push_back(add_idx);
 				
 				target->depends_on_instruction.insert(add_idx);
