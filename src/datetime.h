@@ -37,6 +37,16 @@ month_offset(s32 year, s32 month) {
 	return days;
 }
 
+template<typename T> inline void
+div_mod_down(T a, T b, T &div, T &mod) {
+	// a/b and a%b, but where the division is rounded down instead of toward 0, and where the modulus is positive.
+	// Assumes a, b integers and b > 0.
+	T modd = a % b;
+	div = a / b - ((a < 0) && (modd != 0));
+	mod = modd + b*(modd < 0);
+}
+
+
 struct Date_Time {
 
 public:
@@ -133,27 +143,24 @@ public:
 	
 	inline s64
 	second_of_day() const {
-		if(seconds_since_epoch >= 0)
-			return seconds_since_epoch % 86400;
-		else
-			return (seconds_since_epoch % 86400 + 86400) % 86400;
-		return 0;
+		s64 result, _;
+		div_mod_down<s64>(seconds_since_epoch, 86400, _, result);
+		return result;
 	}
 	
 	inline s32
 	day_of_week() const {
-		s64 sec = seconds_since_epoch - second_of_day(); // Hmm, maybe not necessary. Or probably it is for negative days?
-		s32 day = (sec / 86400) % 7;
-		if(day < 0) day += 7;
+		s64 _, day;
+		div_mod_down<s64>(seconds_since_epoch, 86400, day, _);
 		return (day + 3) % 7 + 1; // 1970-1-1 was a thursday.
 	}
 	
 	inline s32
-	week_since_epoch() {
-		s32 day = seconds_since_epoch / 86400;
-		if((seconds_since_epoch < 0) && (seconds_since_epoch % 86400 != 0)) day--;
-		s32 week = (day - 3) / 7 + 1; // Accounting for 1970-1-1 being a thursday.
-		if((day-3 < 0) && (day-3) % 7 != 0) week--;
+	week_since_epoch() const {
+		s64 _, day_since_epoch;
+		div_mod_down<s64>(seconds_since_epoch, 86400, _, day_since_epoch);
+		s32 week, _2;
+		div_mod_down<s32>((s32)day_since_epoch + 4, 7, week, _2); // Accounting for 1970-1-1 being a thursday.
 		return week;
 	}
 	
@@ -289,7 +296,7 @@ struct Expanded_Date_Time {
 			for(s32 mm = 0; mm < time_step.multiplier; ++mm) {
 				step_length_in_seconds += 86400*month_length(y, m);
 				++m;
-				if(m > 12) {m = 1; ++y; } 
+				if(m > 12) {m = 1; ++y; }
 			}
 		}
 	}
