@@ -700,6 +700,7 @@ Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(
 	for_each_helper(this, handle, do_stuff, indexes, 0);
 }
 
+/*
 inline Entity_Id
 get_flux_decl_id(Model_Application *app, State_Var *var) {
 	if(!var->is_valid() || !var->is_flux()) return invalid_entity_id;
@@ -711,57 +712,6 @@ get_flux_decl_id(Model_Application *app, State_Var *var) {
 		return get_flux_decl_id(app, app->state_vars[as<State_Var::Type::regular_aggregate>(var)->agg_of]);
 	return invalid_entity_id;
 }
-
-// TODO: Debug why this one doesn't work. It is in principle nicer (not requiring recursion).
-#if 0
-template<typename Handle_T> void
-Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
-	auto array_idx   = handle_is_in_array[handle];
-	auto &index_sets = structure[array_idx].index_sets;
-	std::vector<Index_T> indexes;
-	if(index_sets.empty()) {
-		s64 offset = get_offset_alternate(handle, &indexes);
-		do_stuff(indexes, offset);
-		return;
-	}
-	indexes.resize(index_sets.size());
-	for(int level = 0; level < index_sets.size(); ++level) {
-		indexes[level].index_set = index_sets[level];
-		indexes[level].index = 0;
-	}
-	
-	int bottom = (int)index_sets.size() - 1;
-	int level = bottom;
-	while(true) {
-		if((indexes[level].index != parent->index_counts[level].index) && (level == bottom)) {
-			s64 offset = get_offset_alternate(handle, &indexes);
-			do_stuff(indexes, offset);
-		}
-		if(level == bottom)
-			indexes[level].index++;
-		if(indexes[level].index == parent->index_counts[level].index) {
-			indexes[level].index = 0;
-			if(level == 0) break;
-			level--;
-			indexes[level].index++;
-			continue;
-		} else if(level != bottom)
-			++level;
-		/*
-		if(level == bottom) {
-			s64 offset = get_offset_alternate(handle, &indexes);
-			do_stuff(indexes, offset);
-		}
-		indexes[level].index++;
-		if(indexes[level].index == parent->index_counts[level].index) {
-			if(level == 0) break;
-			indexes[level].index = 0;
-			level--;
-		} else if (level != bottom)
-			level++;
-		*/
-	}
-}
-#endif
+*/
 
 #endif // MOBIUS_MODEL_APPLICATION_H

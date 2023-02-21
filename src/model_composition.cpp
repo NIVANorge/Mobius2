@@ -683,6 +683,7 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	}
 	
 	if(!found && !expected_unit.standard_form.is_fully_dimensionless()) {
+		// TODO: Better error if it is a connection_aggregate, not a flux.
 		fatal_error(Mobius_Error::model_building, "The units of the source and target of the flux \"", app->state_vars[flux_id]->name, "\" are not the same, but no unit conversion are provided between them in the model.");
 	}
 	
@@ -725,13 +726,18 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 		if(model->components[target_comp]->decl_type != Decl_Type::compartment) return;
 		
 		// Get aggregation weights if relevant
+		// TODO: Does this crash if there is an all_to_all flux that is over a quantity not a
+		// compartment?
 		auto find = app->find_connection_component(conn_id, target_comp);
 		for(auto source_id : find->possible_sources) {
-			Var_Location loc = app->state_vars[target_var_id]->loc1;
+			Var_Location loc2 = app->state_vars[target_var_id]->loc1;
+			Var_Location loc = loc2;
 			loc.components[0] = source_id;
-			auto wt = get_aggregation_weight(app, loc, target_comp, conn_id);
-			auto source_var_id = app->state_vars.id_of(loc);
-			if(wt) agg_var->weights.push_back({source_var_id, wt});
+			Conversion_Data data;
+			data.source_id = app->state_vars.id_of(loc);
+			data.weight = get_aggregation_weight(app, loc, target_comp, conn_id);
+			data.unit_conv = get_unit_conversion(app, loc, loc2, target_var_id);
+			if(data.weight || data.unit_conv) agg_var->conversion_data.push_back(data);
 		}
 	}
 }

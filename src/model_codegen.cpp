@@ -439,7 +439,7 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
+add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight, Math_Expr_FT *unit_conv) {
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
@@ -479,6 +479,9 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 	}
 	
+	if(unit_conv)
+		unit_conv = put_var_lookup_indexes(unit_conv, app, indexes);
+	
 	//warning_print("*** *** Codegen for connection ", app->state_vars[source_id]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
 	
 	// Code for looking up the id of the target compartment of the current source.
@@ -497,6 +500,8 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	
 	if(weight)
 		value = make_binop('*', value, weight);
+	if(unit_conv)
+		value = make_binop('*', value, unit_conv);
 	
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
 	if_chain->exprs.push_back(condition);
@@ -587,18 +592,22 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	auto connection = model->connections[connection_id];
 	
 	// See if we should apply a weight to the value.
+	
+	// TODO: unit conversion!
 	Math_Expr_FT *weight = nullptr;
+	Math_Expr_FT *unit_conv = nullptr;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
-	for(auto &pair : target_agg->weights) {
-		if(pair.first == source_id) {
-			weight = pair.second;
+	for(auto &data : target_agg->conversion_data) {
+		if(data.source_id == source_id) {
+			weight = data.weight;
+			unit_conv = data.unit_conv;
 			break;
 		}
 	}
 	
 	if(connection->type == Connection_Type::directed_tree) {
 		
-		return add_value_to_tree_agg(app, value, agg_id, source_id, indexes, connection_id, weight);
+		return add_value_to_tree_agg(app, value, agg_id, source_id, indexes, connection_id, weight, unit_conv);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		

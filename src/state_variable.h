@@ -110,15 +110,22 @@ State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
 	State_Var_Sub() : connection(invalid_entity_id), flux_of_medium(invalid_var), conc(invalid_var) {}
 };
 
+struct
+Conversion_Data {
+	Var_Id source_id;
+	Math_Expr_FT *weight;
+	Math_Expr_FT *unit_conv;
+};
+
 template<> struct
 State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 	Entity_Id      connection;
 	Var_Id         agg_for;     // The state variable this is an aggregate for fluxes going to or from.
 	bool           is_source;   // If it aggregates sources from or targets to that state var.
 	
-	// If this is a target aggregate (!is_source), weights is a list of pairs (source_id, weight) of weights for fluxes coming from that particular source (to the target agg_for)
+	// If this is a target aggregate (!is_source), conversion_data contains items with data for fluxes coming from that particular source (to the target agg_for)
 	//TODO: Also unit conv.
-	std::vector<std::pair<Var_Id, Math_Expr_FT *>> weights;
+	std::vector<Conversion_Data> conversion_data;
 	
 	State_Var_Sub() : connection(invalid_entity_id), agg_for(invalid_var), is_source(false) {}
 };

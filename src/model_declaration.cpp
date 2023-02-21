@@ -1349,7 +1349,6 @@ process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, D
 	}
 	
 	//TODO: some guard against overlapping / contradictory declarations.
-	//TODO: guard against nonsensical declarations (e.g. going between the same compartment).
 	auto function = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	model->components[from_comp]->aggregations.push_back({to_comp, function->block, scope->parent_id});
 }
@@ -1360,14 +1359,16 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	Flux_Unit_Conversion_Data data = {};
 	
-	//TODO: some guard against overlapping / contradictory declarations.
-	//TODO: guard against nonsensical declarations (e.g. going between the same compartment).
 	process_location_argument(model, scope, decl, 0, &data.source, false);
 	process_location_argument(model, scope, decl, 1, &data.target, false);
 	data.code = static_cast<Function_Body_AST *>(decl->bodies[0])->block;
 	data.code_scope = scope->parent_id;
 	
-	// TODO: Ideally we should check here that the location is valid. But it could be messy wrt order of declarations.
+	//TODO: some guard against overlapping / contradictory declarations.
+	if(data.source == data.target) {
+		decl->source_loc.print_error_header();
+		fatal_error("The source and target of a 'unit_conversion' should not be the same.");
+	}
 	
 	model->components[data.source.first()]->unit_convs.push_back(data);
 }
