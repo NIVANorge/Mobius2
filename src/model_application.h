@@ -133,11 +133,6 @@ struct Multi_Array_Structure {
 	s64 begin_offset;
 	
 	s64 get_offset_base(Handle_T handle) {
-		/*
-		//TODO: checking should not be on by default (?) Need to optimize.
-		auto find = handle_location.find(handle);
-		if(find == handle_location.end()) fatal_error(Mobius_Error::internal, "Didn't find handle in Multi_Array_Structure.");
-		*/
 		return begin_offset + handle_location[handle];
 	}
 	
@@ -416,6 +411,7 @@ check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
 			fatal_error(Mobius_Error::internal, "Mis-indexing in one of the get_offset functions.");
 }
 
+#if 0
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
 	s64 offset = 0;
@@ -455,7 +451,6 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 	for(auto &index_set : index_sets) {
 		check_index_bounds(app, index_set, indexes[idx]);
 		auto &index = indexes[idx];
-		//TODO: check that the indexes and counts are in the right index set (at least with debug flags turned on)
 		offset *= (s64)app->get_max_index_count(index_set).index;
 		offset += (s64)index.index;
 		++idx;
@@ -471,7 +466,6 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	if(index_sets.empty()) result = make_literal((s64)0);
 	int sz = index_sets.size();
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
-		//TODO: check that counts are in the right index set
 		auto &index_set = index_sets[idx];
 		Math_Expr_FT *index = indexes[index_set.id];
 		if(!index) {
@@ -495,6 +489,85 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	result = make_binop('+', result, make_literal((s64)(begin_offset + handle_location[handle])));
 	return result;
 }
+
+#else
+	
+// Theoretically this version of the code is more vectorizable, but we should probably also align the memory and explicitly add vectorization passes in llvm
+//  (not seeing much of a difference in run speed at the moment)
+	
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
+	s64 offset = handle_location[handle];
+	for(auto &index_set : index_sets) {
+		check_index_bounds(app, index_set, indexes[index_set.id]);
+		offset *= (s64)app->get_max_index_count(index_set).index;
+		offset += (s64)indexes[index_set.id].index;
+	}
+	return offset + begin_offset;
+}
+
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app) {
+	// For if one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
+	s64 offset = handle_location[handle];
+	bool once = false;
+	for(auto &index_set : index_sets) {
+		check_index_bounds(app, index_set, indexes[index_set.id]);
+		offset *= (s64)app->get_max_index_count(index_set).index;
+		s64 index = (s64)indexes[index_set.id].index;
+		if(index_set == mat_col.index_set) {
+			if(once)
+				index = (s64)mat_col.index;
+			once = true;
+		}
+		offset += index;
+	}
+	return offset + begin_offset;
+}
+
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
+	if(indexes.size() != index_sets.size())
+		fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
+	s64 offset = handle_location[handle];
+	int idx = 0;
+	for(auto &index_set : index_sets) {
+		check_index_bounds(app, index_set, indexes[idx]);
+		auto &index = indexes[idx];
+		offset *= (s64)app->get_max_index_count(index_set).index;
+		offset += (s64)index.index;
+		++idx;
+	}
+	return offset + begin_offset;
+}
+
+template<typename Handle_T> Math_Expr_FT *
+Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {
+	
+	auto &indexes = index_exprs.indexes;
+	Math_Expr_FT *result = make_literal((s64)handle_location[handle]);
+	int sz = index_sets.size();
+	for(int idx = 0; idx < index_sets.size(); ++idx) {
+		auto &index_set = index_sets[idx];
+		Math_Expr_FT *index = indexes[index_set.id];
+		if(!index) {
+			err_idx_set_out = index_set;
+			return nullptr;
+		}
+		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
+		if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
+			index = index_exprs.mat_col;
+		
+		index = copy(index);
+		
+		result = make_binop('*', result, make_literal((s64)app->get_max_index_count(index_set).index));
+		result = make_binop('+', result, index);
+	}
+	result = make_binop('+', result, make_literal((s64)begin_offset));
+	return result;
+}
+
+#endif
 
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::instance_count(Model_Application *app) {
