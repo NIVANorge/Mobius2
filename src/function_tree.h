@@ -34,7 +34,7 @@ Math_Block_FT : Math_Expr_FT {
 struct
 Identifier_Data {
 	Variable_Type                variable_type;
-	enum Flags : u32 {      //Hmm why not just reuse the Directive type for this somehow? Although then the directive type must be in flag form, which is a bit tricky.
+	enum Flags : u32 {
 		none        = 0x0,
 		last_result = 0x1,
 		in_flux     = 0x2,
@@ -65,13 +65,12 @@ inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 
 struct
 Identifier_FT : Math_Expr_FT, Identifier_Data {
-	
-	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier), Identifier_Data() { };
-	
 	struct {
 		s32 index;
 		s32 scope_id;
 	} local_var;
+	
+	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier), Identifier_Data() { };
 };
 
 struct
@@ -94,7 +93,7 @@ Operator_FT : Math_Expr_FT {
 	Token_Type oper;
 	
 	Operator_FT(Math_Expr_Type expr_type) : Math_Expr_FT(expr_type) { };
-	Operator_FT() : Math_Expr_FT(Math_Expr_Type::unary_operator) { }; // NOTE: we need this one in copy(), where the type is then overwritten, but should otherwise not be used.
+	Operator_FT() : Math_Expr_FT(Math_Expr_Type::unary_operator) { }; //NOTE: we need this one in copy() (where the data is overwritten) but it should otherwise not be used!
 };
 
 struct
@@ -194,7 +193,7 @@ Math_Expr_FT *
 copy(Math_Expr_FT *source);
 
 void
-print_tree(Math_Expr_FT *expr, int ntabs=0);
+print_tree(Math_Expr_FT *expr, std::ostream &os);
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

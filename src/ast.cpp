@@ -356,11 +356,28 @@ parse_function_call(Token_Stream *stream) {
 }
 
 int
+operator_precedence(Token_Type t) {
+	char c = (char)t;
+	
+	if(c == '|') return 1000;
+	else if(c == '&') return 2000;
+	else if((c == '<') || (c == '>') || (t == Token_Type::leq) || (t == Token_Type::geq) || (c == '=') || (t == Token_Type::neq)) return 3000;
+	else if((c == '+') || (c == '-')) return 4000;
+	else if(c == '/') return 5000;
+	else if(c == '*' || c == '%') return 6000;   //not sure if * should be higher than /
+	else if(c == '^') return 7000;
+	
+	return 0;
+}
+
+int
 find_binary_operator(Token_Stream *stream, Token_Type *t) {
 	// The number returned is the operator precedence. High means that it has a higher precedence.
 	Token peek = stream->peek_token();
 	*t = peek.type;
-	char c = (char)*t;
+	
+	return operator_precedence(*t);
+	/*char c = (char)*t;
 	
 	if(c == '|') return 1000;
 	else if(c == '&') return 2000;
@@ -370,7 +387,7 @@ find_binary_operator(Token_Stream *stream, Token_Type *t) {
 	else if(c == '*' || c == '%') return 6000;   //not sure if * should be higher than /
 	else if(c == '^') return 7000;
 	
-	return 0;
+	return 0;*/
 }
 
 Math_Expr_AST *

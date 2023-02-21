@@ -65,6 +65,9 @@ add_local_var(Math_Block_FT *scope, Math_Expr_FT *val) {
 	auto local = new Local_Var_FT();
 	local->exprs.push_back(val);
 	local->value_type = val->value_type;
+	std::stringstream ss;
+	ss << "_gen_" << scope->unique_block_id << '_' << scope->n_locals;
+	local->name = ss.str();
 	s32 index = scope->n_locals;
 	scope->exprs.push_back(local);
 	++scope->n_locals;
@@ -1494,7 +1497,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		} break;
 		
 		case Math_Expr_Type::binary_operator : {
-			// TODO: we could do more, like determine if the two branches are going to evaluate to the same (or opposite) value, and then use that in case of minus etc.
+			// TODO: we should do more, like re-associating things like (a + 10)-15 = a + (10-15) = a - 5
 			Literal_FT *lhs = nullptr;
 			Literal_FT *rhs = nullptr;
 			auto binary = static_cast<Operator_FT *>(expr);
@@ -1630,33 +1633,7 @@ register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
-	
-	/*
-	Var_Dependency dep;
-	dep.type = Var_Dependency::Type::none;
-	dep.connection = invalid_entity_id;
-	
-	if(ident->flags & Identifier_FT::Flags::below_above) {
-		dep.type = (Var_Dependency::Type)(dep.type | Var_Dependency::Type::across);
-		dep.connection = ident->connection;
-	} else if(ident->flags & Identifier_FT::Flags::top_bottom) {
-		dep.type = (Var_Dependency::Type)(dep.type | Var_Dependency::Type::edge);
-		dep.connection = ident->connection;
-	}
 
-	if(ident->variable_type == Variable_Type::parameter) {
-		dep.par_id = ident->parameter;
-		depends->on_parameter.insert(dep);
-	} else if(ident->variable_type == Variable_Type::state_var) {
-		dep.var_id = ident->state_var;
-		if(ident->flags & Identifier_FT::Flags::last_result)
-			dep.type = (Var_Dependency::Type)(dep.type | Var_Dependency::Type::earlier_step);
-		depends->on_state_var.insert(dep);
-	} else if(ident->variable_type == Variable_Type::series) {
-		dep.var_id = ident->series;
-		depends->on_series.insert(dep);
-	}
-	*/
 	if(ident->variable_type == Variable_Type::parameter)
 		depends->on_parameter.insert(*ident);
 	else if(ident->variable_type == Variable_Type::state_var)
@@ -1721,64 +1698,183 @@ copy(Math_Expr_FT *source) {
 		} break;
 	};
 
-	for(int idx = 0; idx < result->exprs.size(); ++idx) {
+	for(int idx = 0; idx < result->exprs.size(); ++idx)
 		result->exprs[idx] = copy(result->exprs[idx]);
-	}
 	
 	return result;
 }
 
 void
-print_tabs(int ntabs) { for(int i = 0; i < ntabs; ++i) warning_print('\t'); }
+print_tabs(int ntabs, std::ostream &os) { for(int i = 0; i < ntabs; ++i) os << '\t'; }
 
-void
-print_tree(Math_Expr_FT *expr, int ntabs) {
-	print_tabs(ntabs);
-	warning_print(name(expr->expr_type));
-	if(expr->expr_type == Math_Expr_Type::literal) {
-		auto literal = static_cast<Literal_FT *>(expr);
-		if(literal->value_type == Value_Type::real)    warning_print(" ", literal->value.val_real);
-		if(literal->value_type == Value_Type::integer) warning_print(" ", literal->value.val_integer);
-		if(literal->value_type == Value_Type::boolean) warning_print(" ", literal->value.val_boolean ? "true": "false");
-	} else if (expr->expr_type == Math_Expr_Type::binary_operator) {
+int
+precedence(Math_Expr_FT *expr) {
+	if(expr->expr_type == Math_Expr_Type::binary_operator) {
 		auto binop = static_cast<Operator_FT *>(expr);
-		warning_print(" ", (char)binop->oper);
+		return operator_precedence(binop->oper);
 	}
-	warning_print("\n");
-	for(auto arg : expr->exprs)
-		print_tree(arg, ntabs+1);
+	if(expr->expr_type == Math_Expr_Type::unary_operator)
+		return 50'000;
+	return 1000'000;
 }
 
-/*
-ugh, this is obnoxious to write :(
+struct
+Scope_Local_Vars {
+	s32 scope_id;
+	Scope_Local_Vars *scope_up;
+	std::vector<std::string> local_vars;
+};
+
+std::string
+find_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
+	while(scope->scope_id != scope_id)
+		scope = scope->scope_up;
+	return scope->local_vars[index];
+}
 
 void
-print_tree(Math_Expr_FT *expr, int ntabs) {
-	
+print_tree_helper(Math_Expr_FT *expr, Scope_Local_Vars *scope, std::ostream &os, int block_tabs) {
+
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);
-			//print_tabs(ntabs);
+			Scope_Local_Vars new_scope;
+			new_scope.scope_id = block->unique_block_id;
+			new_scope.scope_up = scope;
+			new_scope.local_vars.resize(block->n_locals);
 			if(block->is_for_loop) {
-				warning_print("for(i = 0..");
-				print_tree(expr->exprs[0]);
-				warning_print(") ");
+				std::stringstream ss;
+				ss << "iter_" << block->unique_block_id;
+				std::string iter_name = ss.str();
+				new_scope.local_vars[0] = iter_name;
+				os << "for " << iter_name << " : 0..";
+				print_tree_helper(block->exprs[0], &new_scope, os, block_tabs);
+				os << "\n";
+				print_tabs(block_tabs+1, os);
+				print_tree_helper(block->exprs[1], &new_scope, os, block_tabs+1);
+			} else {
+				os << "{\n";
+				int idx = 0;
+				for(auto exp : block->exprs) {
+					if(exp->expr_type == Math_Expr_Type::local_var) {
+						auto local = static_cast<Local_Var_FT *>(exp);
+						new_scope.local_vars[idx++] = local->name;
+					}
+					print_tabs(block_tabs+1, os);
+					print_tree_helper(exp, &new_scope, os, block_tabs+1);
+					os << "\n";
+				}
+				print_tabs(block_tabs, os);
+				os << "}";
 			}
-			warning_print("{\n");
-			if(block->is_for_loop)
-				print_tree(expr->exprs[1], ntabs + 1);
+		} break;
+		
+		case Math_Expr_Type::identifier : {
+			auto ident = static_cast<Identifier_FT *>(expr);
+			
+			//TODO: name state_var, series and parameter and print all flags etc.
+			if(ident->variable_type == Variable_Type::local)
+				os << find_local_var(scope, ident->local_var.index, ident->local_var.scope_id);
 			else
-				for(auto arg : expr->exprs) print_tree(arg, ntabs + 1);
-			warning_print("}\n");
+				os << name(ident->variable_type);
+			if(!expr->exprs.empty()) {
+				os << '[';
+				print_tree_helper(expr->exprs[0], scope, os, block_tabs);
+				os << ']';
+			}
+		} break;
+		
+		case Math_Expr_Type::literal : {
+			auto literal = static_cast<Literal_FT *>(expr);
+			if(literal->value_type == Value_Type::real)    os << literal->value.val_real;
+			if(literal->value_type == Value_Type::integer) os << literal->value.val_integer;
+			if(literal->value_type == Value_Type::boolean) os << literal->value.val_boolean ? "true": "false";
+		} break;
+		
+		case Math_Expr_Type::function_call : {
+			auto fun = static_cast<Function_Call_FT *>(expr);
+			os << fun->fun_name << '(';
+			int idx = 0;
+			for(auto exp : fun->exprs) {
+				print_tree_helper(exp, scope, os, block_tabs);
+				if(idx++ != fun->exprs.size()-1) os << ", ";
+			}
+			os << ')';
+		} break;
+		
+		case Math_Expr_Type::unary_operator : {
+			int prec = precedence(expr);
+			int prec0 = precedence(expr->exprs[0]);
+			auto unary = static_cast<Operator_FT *>(expr);
+			os << name(unary->oper);
+			if(prec0 < prec) os << '(';
+			print_tree_helper(unary->exprs[0], scope, os, block_tabs);
+			if(prec0 < prec) os << ')';
+		} break;
+		
+		case Math_Expr_Type::binary_operator : {
+			auto binop = static_cast<Operator_FT *>(expr);
+			int prec = precedence(expr);
+			int prec0 = precedence(expr->exprs[0]);
+			int prec1 = precedence(expr->exprs[1]);
+			if(prec0 < prec) os << '(';
+			print_tree_helper(binop->exprs[0], scope, os, block_tabs);
+			if(prec0 < prec) os << ')';
+			os << ' ' << name(binop->oper) << ' ';
+			if(prec1 < prec) os << '(';
+			print_tree_helper(binop->exprs[1], scope, os, block_tabs);
+			if(prec1 < prec) os << ')';
+		} break;
+		
+		case Math_Expr_Type::if_chain : {
+			os << "{\n";
+			print_tabs(block_tabs+1, os);
+			for(int idx = 0; idx < expr->exprs.size() / 2; ++idx) {
+				print_tree_helper(expr->exprs[2*idx], scope, os, block_tabs+1);
+				os << " if ";
+				print_tree_helper(expr->exprs[2*idx+1], scope, os, block_tabs+1);
+				os << ",\n";
+				print_tabs(block_tabs+1, os);
+			}
+			print_tree_helper(expr->exprs[expr->exprs.size()-1], scope, os, block_tabs+1);
+			os << " otherwise\n";
+			print_tabs(block_tabs, os);
+			os << '}';
+		} break;
+		
+		case Math_Expr_Type::cast : {
+			os << "cast(" << name(expr->value_type) << ")";
+			print_tree_helper(expr->exprs[0], scope, os, block_tabs);
 		} break;
 		
 		case Math_Expr_Type::local_var : {
-			//print_tabs(ntabs);
-			warning_print("var := ");
-			print_tree(expr->exprs[0]);
-		}
+			auto local = static_cast<Local_Var_FT *>(expr);
+			//if(!local->is_used) return; // Not sure how honest this is, or if we should actually print it, then work on being able to prune it instead?
+			os << local->name << " := ";
+			print_tree_helper(expr->exprs[0], scope, os, block_tabs);
+		} break;
 		
-		case Math_Expr_Type::identifier_chain :
+		case Math_Expr_Type::state_var_assignment : {
+			os << "state_var[";    // TODO: name it --- actually tricky, because we don't have the symbol.
+			print_tree_helper(expr->exprs[0], scope, os, block_tabs);
+			os << "] <- ";
+			print_tree_helper(expr->exprs[1], scope, os, block_tabs);
+		} break;
+		
+		case Math_Expr_Type::derivative_assignment : {
+			os << "ddt_state_var[";    // TODO: name it
+			print_tree_helper(expr->exprs[0], scope, os, block_tabs);
+			os << "] <- ";
+			print_tree_helper(expr->exprs[1], scope, os, block_tabs);
+		} break;
+		
+		default : {
+			fatal_error("Unhandled math expr type in print_tree.");
+		} break;
 	}
 }
-*/
+
+void
+print_tree(Math_Expr_FT *expr, std::ostream &os) {
+	print_tree_helper(expr, nullptr, os, 0);
+}

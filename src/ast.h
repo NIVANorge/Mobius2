@@ -251,6 +251,7 @@ struct Arg_Pattern {
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain = 0, bool allow_handle = true, int allow_body_count = 1, bool allow_body_notes = false);
 
-
+int
+operator_precedence(Token_Type t);
 
 #endif // MOBIUS_AST_H

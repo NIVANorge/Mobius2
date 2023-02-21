@@ -255,9 +255,10 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[instr.target_id]);
 			
 			auto weight = agg_var->aggregation_weight_tree;
-			if(!weight)
-				fatal_error(Mobius_Error::internal, "Somehow we got a regular aggregation without code for computing the weight.");
-			weight = copy(weight);
+			//if(!weight)
+			//	fatal_error(Mobius_Error::internal, "Somehow we got a regular aggregation without code for computing the weight.");
+			if(weight)
+				weight = copy(weight);
 			
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, nullptr);
 			
@@ -284,7 +285,6 @@ get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &t
 		auto index = copy(indexes.indexes[index_set.id]);
 		char oper = is_above ? '-' : '+';
 		index = make_binop(oper, index, make_literal((s64)1));
-		//index = make_binop('+', index, make_literal((s64)1));
 		target_indexes[index_set.id] = index;
 	} else {
 		if (is_above)
@@ -791,15 +791,23 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		indexes.clean();
 	}
 	
-	//warning_print("\nTree before prune:\n");
-	//print_tree(top_scope, 0);
-	//warning_print("\n");
+	/*
+	warning_print("\nTree after prune:\n");
+	std::stringstream ss;
+	print_tree(result, ss);
+	warning_print(ss.str());
+	warning_print("\n");
+	*/
 	
 	auto result = prune_tree(top_scope);
 	
-	//warning_print("\nTree after prune:\n");
-	//print_tree(result, 0);
-	//warning_print("\n");
+	/*
+	warning_print("\nTree after prune:\n");
+	std::stringstream ss;
+	print_tree(result, ss);
+	warning_print(ss.str());
+	warning_print("\n");
+	*/
 	
 	return result;
 }

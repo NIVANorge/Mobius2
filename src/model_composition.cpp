@@ -1013,7 +1013,7 @@ compose_and_resolve(Model_Application *app) {
 		for(auto to_compartment : need_agg.second.first) {
 			
 			Math_Expr_FT *agg_weight = get_aggregation_weight(app, loc1, to_compartment);
-			
+			/*
 			if(!agg_weight) {
 				auto target = model->components[to_compartment];
 				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
@@ -1022,7 +1022,7 @@ compose_and_resolve(Model_Application *app) {
 				} else {
 					fatal_error(Mobius_Error::model_building, "Missing aggregation_weight for variable ", var->name, " between compartments \"", source->name, "\" and \"", target->name, "\".\n");
 				}
-			}
+			}*/
 			var->flags = (State_Var::Flags)(var->flags | State_Var::has_aggregate);
 			
 			//TODO: We also have to handle the case where the agg. variable was a series!

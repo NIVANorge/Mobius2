@@ -3,10 +3,11 @@
 		Seriously!
 
 	Finish sub-indexed index sets
-		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all and grid1d).
+		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 		Sub-indexed series data.
 
 	The "loose depends" system is kind of iffy.
+		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
 
 	Finish connection system
 
@@ -70,7 +71,7 @@
 		New location format identifier.chain[connection.qualifier]
 			Make the placement on source or target of flux actually matter! (maybe tie it to the var location?)
 			Allow things like
-				flux(nowhere, layer.water[vert])
+				flux(nowhere, layer.water[connection])
 				? Although how would you specify that in the data file??
 	
 	*** Low-pri ****

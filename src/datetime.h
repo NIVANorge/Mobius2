@@ -304,14 +304,6 @@ struct Expanded_Date_Time {
 };
 
 inline s64
-divide_down(s64 a, s64 b) {
-    s64 r = a/b;
-    if(r < 0 && r*b != a)
-        return r - 1;
-    return r;
-}
-
-inline s64
 steps_between(Date_Time from, Date_Time to, Time_Step_Size time_step) {
 	s64 diff;
 	if(time_step.unit == Time_Step_Size::second)
@@ -325,8 +317,9 @@ steps_between(Date_Time from, Date_Time to, Time_Step_Size time_step) {
 
 		diff = (tm - fm + 12*(ty - fy));
 	}
-	
-	return divide_down(diff, (s64)time_step.multiplier);
+	s64 result, _;
+	div_mod_down<s64>(diff, (s64)time_step.multiplier, result, _);
+	return result;
 }
 
 inline Date_Time

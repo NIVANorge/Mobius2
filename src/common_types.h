@@ -168,6 +168,22 @@ Variable_Type {
 	// Maybe also computed_parameter eventually.
 };
 
+inline const char *
+name(Variable_Type type) {
+	if(type == Variable_Type::parameter) return "parameter";
+	if(type == Variable_Type::state_var) return "state_var";
+	if(type == Variable_Type::connection_info) return "connection_info";
+	if(type == Variable_Type::index_count) return "index_count";
+	if(type == Variable_Type::local) return "local";
+	if(type == Variable_Type::no_override) return "no_override";
+	if(type == Variable_Type::connection) return "connection";
+	if(type == Variable_Type::time_fractional_step) return "time.fractional_step";
+	#define TIME_VALUE(name, bits) if(type == Variable_Type::time_##name) return "time."#name;
+	#include "time_values.incl"
+	#undef TIME_VALUE
+	return "unknown_variable_type";
+}
+
 struct
 Parameter_Value {
 	union {
