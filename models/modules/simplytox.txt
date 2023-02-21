@@ -10,6 +10,8 @@ Testing functionality for now.
 	air   : compartment("Atmosphere")
 	soil  : compartment("Soil")
 	dsoil : compartment("Slow-accessible soil")
+	gw    : compartment("Groundwater")
+	river : compartment("River")
 	
 	water : quantity("Water")
 	oc    : quantity("Organic carbon")
@@ -88,10 +90,10 @@ Testing functionality for now.
 		rfs*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
 	}
 	
-	river : compartment("River")
-	
-	river.water.has(tox, [k g], [n g, l-1])
-	river.water.oc.has(tox, [k g])
+	gw.water.has(tox, [n g, m-2], [n g, l-1])
+
+	river.water.has(tox, [n g], [n g, l-1])
+	river.water.oc.has(tox, [n g], [n g, k g-1])
 
 	river.water.tox.has(Kow, [])
 	river.water.tox.has(Koc, [m 3, k g-1])

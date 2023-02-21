@@ -263,7 +263,7 @@ resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int whi
 
 
 Decl_AST *
-read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, String_View *normalized_path_out = nullptr) {
+read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, std::string *normalized_path_out = nullptr) {
 	String_View model_data = handler->load_file(file_name, {}, rel_path, normalized_path_out);
 	
 	Token_Stream stream(file_name, model_data);
@@ -341,7 +341,7 @@ register_intrinsics(Mobius_Model *model) {
 Entity_Id
 load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View path, String_View relative_to, const std::string &decl_name, Decl_Type type) {
 	
-	String_View normalized_path;
+	std::string normalized_path;
 	String_View file_data = model->file_handler.load_file(path, from, relative_to, &normalized_path);
 	
 	//warning_print("Try to load ", decl_name, " from ", normalized_path, "\n");
@@ -1373,7 +1373,7 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 }
 
 bool
-load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unordered_set<String_View, String_View_Hash> &loaded_paths, std::vector<std::pair<String_View, Decl_AST *>> &loaded_decls, String_View rel_path) {
+load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unordered_set<std::string> &loaded_paths, std::vector<std::pair<std::string, Decl_AST *>> &loaded_decls, String_View rel_path) {
 	
 	auto body = static_cast<Decl_Body_AST *>(from_decl->bodies[0]);
 	
@@ -1385,7 +1385,7 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unor
 		
 		// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
 		//  but right now normalizing the path and loading the ast happens inside the same call in read_model_ast_from_file
-		String_View normalized_path;
+		std::string normalized_path;
 		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
 		
 		if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
@@ -1440,8 +1440,8 @@ load_model(String_View file_name) {
 	
 	register_intrinsics(model);
 
-	std::unordered_set<String_View, String_View_Hash> loaded_files = { file_name };
-	std::vector<std::pair<String_View, Decl_AST *>> extend_models = { { file_name, decl} };
+	std::unordered_set<std::string> loaded_files = { file_name };
+	std::vector<std::pair<std::string, Decl_AST *>> extend_models = { { file_name, decl} };
 	bool success = load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name);
 	if(!success)
 		mobius_error_exit();

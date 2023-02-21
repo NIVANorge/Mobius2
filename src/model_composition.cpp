@@ -641,7 +641,7 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 }
 
 Math_Expr_FT *
-get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &loc2) {
+get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &loc2, Var_Id flux_id) {
 	
 	Math_Expr_FT *unit_conv = nullptr;
 	if(!is_located(loc1) || !is_located(loc2)) return unit_conv;
@@ -649,16 +649,17 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	auto model = app->model;
 	auto source = model->components[loc1.first()];
 	
+	auto first = app->state_vars[app->state_vars.id_of(loc1)];
+	auto second = app->state_vars[app->state_vars.id_of(loc2)];
+	auto expected_unit = divide(second->unit, first->unit);
+	
+	bool found = false;
 	for(auto &conv : source->unit_convs) {
 		if(loc1 != conv.source || loc2 != conv.target) continue;
 		
+		found = true;
 		auto ast   = conv.code;
 		auto scope = model->get_scope(conv.code_scope);
-		
-		// TODO: Are we guaranteed that these exist when this gets called??
-		auto first = app->state_vars[app->state_vars.id_of(loc1)];
-		auto second = app->state_vars[app->state_vars.id_of(loc2)];
-		auto expected_unit = divide(second->unit, first->unit);
 		
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
 		auto fun = resolve_function_tree(ast, &res_data);
@@ -679,6 +680,10 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 			}
 		}
 		break;
+	}
+	
+	if(!found && !expected_unit.standard_form.is_fully_dimensionless()) {
+		fatal_error(Mobius_Error::model_building, "The units of the source and target of the flux \"", app->state_vars[flux_id]->name, "\" are not the same, but no unit conversion are provided between them in the model.");
 	}
 	
 	return unit_conv;
@@ -764,7 +769,7 @@ compose_and_resolve(Model_Application *app) {
 		if(!var->is_valid()) continue;
 		if(var->is_flux()) {
 			// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
-			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2);
+			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2, var_id);
 			auto transported_id = invalid_var;
 			if(is_located(var->loc1)) transported_id = app->state_vars.id_of(var->loc1);
 			else if(is_located(var->loc2)) transported_id = app->state_vars.id_of(var->loc2);
@@ -1013,16 +1018,6 @@ compose_and_resolve(Model_Application *app) {
 		for(auto to_compartment : need_agg.second.first) {
 			
 			Math_Expr_FT *agg_weight = get_aggregation_weight(app, loc1, to_compartment);
-			/*
-			if(!agg_weight) {
-				auto target = model->components[to_compartment];
-				//TODO: need to give much better feedback about where the variable was declared and where it was used with an aggregate()
-				if(var->is_flux()) {
-					fatal_error(Mobius_Error::model_building, "The flux \"", var->name, "\" goes from compartment \"", source->name, "\" to compartment, \"", target->name, "\", but the first compartment is distributed over a higher number of index sets than the second. This is only allowed if you specify an aggregation_weight between the two compartments.");
-				} else {
-					fatal_error(Mobius_Error::model_building, "Missing aggregation_weight for variable ", var->name, " between compartments \"", source->name, "\" and \"", target->name, "\".\n");
-				}
-			}*/
 			var->flags = (State_Var::Flags)(var->flags | State_Var::has_aggregate);
 			
 			//TODO: We also have to handle the case where the agg. variable was a series!

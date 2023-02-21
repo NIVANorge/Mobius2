@@ -129,7 +129,7 @@ get_extension(String_View file_name, bool *success) {
 
 
 String_View
-File_Data_Handler::load_file(String_View file_name, Source_Location from, String_View relative_to, String_View *normalized_path_out) {
+File_Data_Handler::load_file(String_View file_name, Source_Location from, String_View relative_to, std::string *normalized_path_out) {
 	String_View load_name = file_name;
 	if(relative_to.count)
 		load_name = make_path_relative_to(file_name, relative_to);
@@ -138,7 +138,7 @@ File_Data_Handler::load_file(String_View file_name, Source_Location from, String
 		if(normalized_path_out) *normalized_path_out = find->first;
 		return find->second;
 	}
-	load_name = allocator.copy_string_view(load_name);
+	//load_name = allocator.copy_string_view(load_name);
 	String_View data = read_entire_file(load_name, from);
 	loaded_files[load_name] = data;
 	if(normalized_path_out) *normalized_path_out = load_name;

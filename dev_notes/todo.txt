@@ -9,11 +9,12 @@
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
 
+	The bug in nivafjord with the aggregation variable that breaks everything (probably related to the problem above).
+
 	Finish connection system
 
-		
 		Dissolved fluxes -
-			make dissolvedes of negatives work for other types.
+			make dissolvedes of negatives work for other types (all_to_all, regular fluxes (maybe)).
 		
 		it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 		Finish regex checks.	
@@ -48,12 +49,12 @@
 			
 			Better scoping system for declaration names (not just for symbols).
 				also for variable names.
+				
+			Let declarations in inlined modules be able to view decls the parent model scope.
 		
 		Check for conflicting declarations of variables (unit, name).
 		
 		Check if dissolvedes of dissolvedes work properly (SimplyTox)
-
-		Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before).
 		
 		Allow declaration of no_carry inside modules.
 		
@@ -76,8 +77,6 @@
 	
 	*** Low-pri ****
 	
-		Aggregation weight should not be needed by default ( default to 1 )
-	
 		System for having configured the root Mobius2 folder so that it knows where modules and stdlib are.
 		
 		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something more similar to Mobius1)
@@ -91,17 +90,14 @@
 		unit conversions also applied to connection graph arrows.
 		
 		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
+			may be irrelevant if we switch to the new module loading system?
 	
 		Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
-			Not high priority, just a nice feature.
 			
 		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
 			could be tricky wrt units.
 			could be tricky since right now we assume all quantities are declared.
 			sometimes you don't want it there (though that could be accomplished with no_carry)
-		
-		Let declarations in inlined modules be visible in the parent model scope (?) or other way around is maybe more reasonable.
-			May not be wanted.
 		
 		Iterating over state variables should skip invalid ones automatically.
 		
@@ -263,3 +259,7 @@
 	
 	Fix discrete fluxes!
 			Subtraction happens too late so that it is not taken into account when computing other fluxes.
+			
+	Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before)
+	
+	Aggregation weight should not be needed by default ( default to 1 )

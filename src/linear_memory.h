@@ -133,7 +133,7 @@ using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>
 	
 	This is a very memory-inefficient implementation if it overflows the buckets a lot, as it does not go back to earlier buckets to see if they have space for a smaller allocation if they have overflowed once. So you typically want large bucket sizes compared to the allocation sizes.
 */
-
+/*
 struct
 Linear_Allocator {
 	
@@ -259,5 +259,6 @@ Linear_Allocator {
 		current_used = 0;
 	}
 };
+*/
 
 #endif // MOBIUS_LINEAR_MEMORY_H

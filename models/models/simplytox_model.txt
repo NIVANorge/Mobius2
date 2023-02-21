@@ -19,4 +19,9 @@ model("SimplyTox") {
 	simply_solver.solve(dsoil.oc)
 	#simply_solver.solve(soil.oc.tox)
 	#simply_solver.solve(dsoil.oc.tox)
+	
+	# Hmm, some of these are a bit cumbersome, could it generate the ones for the dissolvedes based on what they are dissolved in, or try to?
+	unit_conversion(soil.water.tox, river.water.tox) { a_catch->> }
+	unit_conversion(gw.water.tox, river.water.tox) { a_catch->> }
+	unit_conversion(soil.water.oc.tox, river.water.oc.tox) { a_catch->> }
 }

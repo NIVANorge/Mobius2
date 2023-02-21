@@ -508,7 +508,7 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app) {
-	// For if one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
+	// If one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
 	s64 offset = handle_location[handle];
 	bool once = false;
 	for(auto &index_set : index_sets) {
@@ -698,6 +698,18 @@ Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(
 	indexes.resize(index_sets.size());
 	for(int level = 0; level < index_sets.size(); ++level) indexes[level] = Index_T { index_sets[level], 0 };
 	for_each_helper(this, handle, do_stuff, indexes, 0);
+}
+
+inline Entity_Id
+get_flux_decl_id(Model_Application *app, State_Var *var) {
+	if(!var->is_valid() || !var->is_flux()) return invalid_entity_id;
+	if(var->type == State_Var::Type::declared)
+		return as<State_Var::Type::declared>(var)->decl_id;
+	else if(var->type == State_Var::Type::dissolved_flux)
+		return get_flux_decl_id(app, app->state_vars[as<State_Var::Type::dissolved_flux>(var)->flux_of_medium]);
+	else if(var->type == State_Var::Type::regular_aggregate)
+		return get_flux_decl_id(app, app->state_vars[as<State_Var::Type::regular_aggregate>(var)->agg_of]);
+	return invalid_entity_id;
 }
 
 // TODO: Debug why this one doesn't work. It is in principle nicer (not requiring recursion).
