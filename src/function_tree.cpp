@@ -2011,6 +2011,12 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars *
 }
 
 void
-print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os) {
+print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os) {//, const std::string &function_name) {
+	
+	// TODO: Could do something like this (and modify the printout to be valid C++) to be able to generate permanently compilable code.
+	//    that could then be compiled to a .dll or .so on a target machine like a web server if we don't want to set up llvm there.
+	
+	//os << "void " << function_name << "(Parameter_Value *parameter, double *series, double *state_var, double *solver_workspace, Expanded_Date_Time *time)\n";
+	
 	print_tree_helper(app, expr, nullptr, os, 0);
 }

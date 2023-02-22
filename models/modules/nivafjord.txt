@@ -333,17 +333,36 @@ module("NIVAFjord", 0, 0, 1) {
 		accum_pressure[bnd_vert.above] + dens*grav*dz
 	}
 	
-	# layer.water.has(bnd_u : property("Boundary flux"), [m 3, s-1]) {
-		# #dP0 := grav*(oair.h - bnd.h)*dens[vert.top]  # Could be factored out as the whatsitsname pressure.
-		# dP0 := grav*(oair.h - bnd.h)*rho_water   # TODO: why doesn't dens[vert.top] work?
-		# dP := dP0 + accum_pressure - bnd_layer.accum_pressure
-		# #dP := accum_pressure - bnd_layer.accum_pressure
-		# u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
-		# u * w_bnd * dz
-	# }
+	layer.water.has(bnd_u : property("Boundary flux"), [k g, s-1]) {#[m 3, s-1]) {
+		#dP0 := grav*(oair.h - bnd.h)*layer.water.dens[vert.top]  # TODO: why doesn't water.dens[vert.top] work? (not that it is important)
+		#dP0 := grav*(oair.h - bnd.h)*rho_water
+		dP1 := accum_pressure[vert.below] - bnd_layer.accum_pressure[vert.below]
+		#dP := dP0 + dP1
+		dP := dP1
+		
+		#u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
+		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
+		u * w_bnd * dz*rho_water
+	}
+	
+	
+	# NOTE: this is not the correct way to do it. Just testing some things
+	flux(layer.water.heat, nowhere, [J, day-1], "Boundary heat exchange") {
+		(conc(heat)-C_water*(bnd_layer.temp->[K])) * bnd_u ->> if bnd_u > 0,
+		0                                                      otherwise
+	}
+	
+	flux(layer.water.salt, nowhere, [k g, day-1], "Boundary salt exchange") {
+		(conc(salt) - bnd_layer.salinity=>[g, k g-1]) * bnd_u ->>  if bnd_u > 0,
+		0                                                          otherwise
+	}
+	
+	#oair.has(tot_bnd_u : property("Total boundary flux"), [m 3, s-1]) {
+	#	aggregate(layer.water.bnd_u)
+	#}
 	
 	#flux(oair.h, nowhere, [m, s-1], "dh/dt") {
-	#	flx := aggregate(layer.water.bnd_u)               #TODO: why does this break everything?
+	#	flx := aggregate(layer.water.bnd_u)
 	#	flx / A[vert.top]
 	#	0=>>
 	#}
