@@ -5,12 +5,18 @@
 
 Math_Expr_FT *
 get_index_count_code(Model_Application *app, Entity_Id index_set, Index_Exprs &indexes) {
-	auto offset = app->index_counts_structure.get_offset_code(index_set, indexes);
-	auto ident = new Identifier_FT();
-	ident->value_type = Value_Type::integer;
-	ident->variable_type = Variable_Type::index_count;
-	ident->exprs.push_back(offset);
-	return ident;
+	
+	// If the index count could depend on the state of another index set, we have to look it up dynamically
+	if(is_valid(app->model->index_sets[index_set]->sub_indexed_to)) {
+		auto offset = app->index_counts_structure.get_offset_code(index_set, indexes);
+		auto ident = new Identifier_FT();
+		ident->value_type = Value_Type::integer;
+		ident->variable_type = Variable_Type::index_count;
+		ident->exprs.push_back(offset);
+		return ident;
+	}
+	// Otherwise we can just return the constant.
+	return make_literal((s64)app->get_max_index_count(index_set).index);
 }
 
 Math_Expr_FT *
@@ -801,22 +807,22 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	}
 	
 	/*
-	warning_print("\nTree after prune:\n");
+	warning_print("\nTree before prune:\n");
 	std::stringstream ss;
-	print_tree(result, ss);
+	print_tree(app, top_scope, ss);
 	warning_print(ss.str());
 	warning_print("\n");
 	*/
 	
 	auto result = prune_tree(top_scope);
 	
-	/*
+	
 	warning_print("\nTree after prune:\n");
 	std::stringstream ss;
-	print_tree(result, ss);
+	print_tree(app, result, ss);
 	warning_print(ss.str());
 	warning_print("\n");
-	*/
+	
 	
 	return result;
 }

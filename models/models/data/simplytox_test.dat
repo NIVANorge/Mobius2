@@ -9,10 +9,11 @@ index_set("Subcatchment") [ "Inlet" ]
 index_set("Toxin type") [ "PCB something" ]
 
 connection("Downstream") [
-	r : compartment("River") ["Subcatchment"]
+	r : compartment("River") [ "Subcatchment" ]
 ]
 
 series("langtjern.xlsx")
+
 series("tox_test.xlsx")
 
 par_group("System") {
@@ -29,8 +30,14 @@ par_group("Catchment data") [ "Subcatchment" ] {
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
-	par_real("Land use proportions")
-	[ 1 ]
+	par_real("Land use proportions") [
+		1 
+	]
+}
+
+par_group("River data") [ "Subcatchment" ] {
+	par_real("River effective surface area")
+	[ 800 ]
 }
 
 module("HBVSnow", 1, 0, 0) {
@@ -181,10 +188,16 @@ module("SimplyTox", 0, 0, 1) {
 		[ 0 ]
 
 		par_real("Water-OC rate coefficient")
-		[ 0.5 ]
+		[ 0.05 ]
 
 		par_real("Fast-Slow rate coefficient")
 		[ 0.005 ]
+
+		par_real("Contaminant half life")
+		[ 2000 ]
+
+		par_real("Contaminant half life (slow accessible)")
+		[ 20000 ]
 	}
 
 	par_group("Soil carbon") [ "Landscape units" ] {
@@ -193,6 +206,60 @@ module("SimplyTox", 0, 0, 1) {
 
 		par_real("Soil organic carbon, slow accessible")
 		[ 3 ]
+	}
+
+	par_group("River carbon") [ "Subcatchment" ] {
+		par_real("Sediment SOC concentration")
+		[ 0.02 ]
+	}
+}
+
+module("RiverTemperature", 0, 1, 0) {
+	par_group("River temperature") [ "Subcatchment" ] {
+		par_real("Air-river heat conductivity coefficient")
+		[ 1 ]
+	}
+}
+
+module("SimplySed", 0, 5, 0) {
+	par_group("Soil erodibility") [ "Subcatchment" "Landscape units" ] {
+		par_real("Vegetation cover factor") [
+			0.2 
+		]
+
+		par_int("Day of year when soil erodibility is max for spring-grown crops") [
+			60 
+		]
+
+		par_int("Day of year when soil erodibility is max for autumn-grown crops") [
+			304 
+		]
+
+		par_real("Proportion of spring-grown crops") [
+			0.65 
+		]
+
+		par_real("Reduction of load in sediment") [
+			0 
+		]
+
+		par_enum("Cover factor shape") [
+			flat 
+		]
+	}
+
+	par_group("Land slope") [ "Subcatchment" "Landscape units" ] {
+		par_real("Mean slope of land") [
+			4 
+		]
+	}
+
+	par_group("River erosion") [ "Subcatchment" ] {
+		par_real("Erosion scaling factor")
+		[ 0.15 ]
+
+		par_real("Erosion power factor")
+		[ 2 ]
 	}
 }
 

@@ -979,7 +979,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	
 	warning_print("Propagate solvers\n");
 	// TODO: We need to make some guard to check that this is a sufficient amount of iterations!
-	for(int idx = 0; idx < 10; ++idx) { 
+	for(int idx = 0; idx < 10; ++idx) {
 		for(auto &instr : instructions) instr.visited = false;
 		for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 			auto instr = &instructions[instr_id];
@@ -1006,6 +1006,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 			std::vector<int> remove;
 			for(int other_id : instr.depends_on_instruction) {
 				auto &other_instr = instructions[other_id];
+				if(!is_valid(other_instr.var_id)) continue;
 				auto other_var = app->state_vars[other_instr.var_id];
 				bool is_quantity = other_var->type == State_Var::Type::declared &&
 					as<State_Var::Type::declared>(other_var)->decl_type == Decl_Type::quantity;

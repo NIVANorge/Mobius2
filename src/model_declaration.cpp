@@ -109,6 +109,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 	if(is_valid(decl_name) && decl) {
 		if(decl->type == Decl_Type::compartment || decl->type == Decl_Type::quantity || decl->type == Decl_Type::property || decl->type == Decl_Type::connection
 			|| decl->type == Decl_Type::par_real || decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_int || decl->type == Decl_Type::par_enum
+			|| decl->type == Decl_Type::solver
 			) {
 			
 			if(is_valid(result_id))
@@ -451,6 +452,9 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			location->components[idx] = model->components.find_or_create(&symbol[idx], scope);
 		location->n_components        = count;
 		success = true;
+	} else {
+		symbol[0].print_error_header();
+		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
 	}
 	
 	if(!bracketed.empty() && (!allow_bracketed || count == 1))

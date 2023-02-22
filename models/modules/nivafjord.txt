@@ -333,19 +333,19 @@ module("NIVAFjord", 0, 0, 1) {
 		accum_pressure[bnd_vert.above] + dens*grav*dz
 	}
 	
-	layer.water.has(bnd_u : property("Boundary flux"), [m 3, s-1]) {
-		#dP0 := grav*(oair.h - bnd.h)*dens[vert.top]  # Could be factored out as the whatsitsname pressure.
-		dP0 := grav*(oair.h - bnd.h)*rho_water   # TODO: why doesn't dens[vert.top] work?
-		dP := dP0 + accum_pressure - bnd_layer.accum_pressure
-		#dP := accum_pressure - bnd_layer.accum_pressure
-		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
-		u * w_bnd * dz
-	}
+	# layer.water.has(bnd_u : property("Boundary flux"), [m 3, s-1]) {
+		# #dP0 := grav*(oair.h - bnd.h)*dens[vert.top]  # Could be factored out as the whatsitsname pressure.
+		# dP0 := grav*(oair.h - bnd.h)*rho_water   # TODO: why doesn't dens[vert.top] work?
+		# dP := dP0 + accum_pressure - bnd_layer.accum_pressure
+		# #dP := accum_pressure - bnd_layer.accum_pressure
+		# u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
+		# u * w_bnd * dz
+	# }
 	
-	flux(oair.h, nowhere, [m, s-1], "dh/dt") {
+	#flux(oair.h, nowhere, [m, s-1], "dh/dt") {
 	#	flx := aggregate(layer.water.bnd_u)               #TODO: why does this break everything?
 	#	flx / A[vert.top]
-		0=>>
-	}
+	#	0=>>
+	#}
 	
 }

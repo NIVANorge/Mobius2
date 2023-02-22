@@ -6,6 +6,7 @@ module("SimplyTox", 0, 0, 1) {
 Testing functionality for now.
 """
 	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"))
+	load("../../stdlib/basic_math.txt", library("Rates"))
 
 	air   : compartment("Atmosphere")
 	soil  : compartment("Soil")
@@ -16,6 +17,7 @@ Testing functionality for now.
 	water : quantity("Water")
 	oc    : quantity("Organic carbon")
 	tox   : quantity("Toxin")
+	sed   : quantity("Sediment")
 	
 	temp  : property("Temperature")
 	
@@ -30,11 +32,17 @@ Testing functionality for now.
 		log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", [], 0, -10, 10)
 		rwoc        : par_real("Water-OC rate coefficient", [m, day-1],  0.5, 0, 3)
 		rfs         : par_real("Fast-Slow rate coefficient", [k g, m-2, day-1], 0.05, 0, 3)
+		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10)
+		hlslow      : par_real("Contaminant half life (slow accessible)", [day], 20000, 0.1, 2e10)
 	}
 	
 	soil.par_group("Soil carbon") {
 		mocf        : par_real("Soil organic carbon, fast accessible", [k g, m-2], 30, 0, 300)
 		mocs        : par_real("Soil organic carbon, slow accessible", [k g, m-2], 3, 0, 300)
+	}
+	
+	river.par_group("River carbon") {
+		sed_oc_c   : par_real("Sediment SOC concentration", [k g, k g-1], 0.02, 0, 0.3)
 	}
 	
 	#TODO: actually have to be able to do something like this:
@@ -46,12 +54,12 @@ Testing functionality for now.
 	soil.has(oc, [k g, m-2])  .initial { mocf }
 	dsoil.has(oc, [k g, m-2]) .initial { mocs }
 	
-	soil.water.has(tox, [n g, m-2], [n g, l-1], "Soil water toxin")
+	soil.water.has(tox, [n g, m-2], [n g, l-1], "Soil water dissolved toxin")
 	soil.oc.has(tox, [n g, m-2], [n g, k g-1], "Fast-accessible SOC toxin")
 	dsoil.oc.has(tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC toxin")
 	soil.water.oc.has(tox, [n g, m-2], [n g, k g-1], "Soil DOC toxin")
 	
-	air.has(prconc : property("Contaminant conc in precip"), [n g, m-3])
+	air.has(prconc : property("Contaminant conc in precip"), [n g, l-1])
 	precip : property("Precipitation")
 	
 	flux(nowhere, soil.water.tox, [n g, m-2, day-1], "Contaminant wet deposition") {
@@ -82,7 +90,7 @@ Testing functionality for now.
 		rwoc*((conc(water.tox)->[n g, m-3]) - conc(soil.oc.tox)/Koc)
 	}
 	
-	flux(soil.water.tox, soil.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange") {
+	flux(soil.water.tox, soil.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (soil)") {
 		rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
 	}
 	
@@ -90,14 +98,62 @@ Testing functionality for now.
 		rfs*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
 	}
 	
-	gw.water.has(tox, [n g, m-2], [n g, l-1])
+	flux(soil.water.tox, nowhere, [n g, m-2, day-1], "Soil water dissolved toxin decay") { hl_to_rate(hlfast) * tox	}
+	flux(soil.water.oc.tox, nowhere, [n g, m-2, day-1], "Soil DOC toxin decay") { hl_to_rate(hlfast) * tox }
+	flux(soil.oc.tox, nowhere, [n g, m-2, day-1], "Fast-acessible SOC toxin decay") { hl_to_rate(hlfast) * tox }
+	flux(dsoil.oc.tox, nowhere, [n g, m-2, day-1], "Slow-acessible SOC toxin decay") { hl_to_rate(hlslow) * tox }
+	
+	#TODO: Mineral layer should also maybe have a (smaller) slow SOC box
+	gw.water.has(tox, [n g, m-2], [n g, l-1], "Groundwater dissolved toxin")
+	gw.water.oc.has(tox, [n g, m-2], [n g, k g-1], "Groundwater DOC toxin")
 
-	river.water.has(tox, [n g], [n g, l-1])
-	river.water.oc.has(tox, [n g], [n g, k g-1])
+	river.water.has(tox, [n g], [n g, l-1], "River dissolved toxin")
+	river.water.oc.has(tox, [n g], [n g, k g-1], "River DOC toxin")
+	
+	river.water.sed.has(oc, [k g], [k g, k g-1], "River suspended sediment SOC") .override_conc { sed_oc_c }
+	river.water.sed.oc.has(tox, [n g], [n g, k g-1], "River suspended sediment toxin")
 
 	river.water.tox.has(Kow, [])
 	river.water.tox.has(Koc, [m 3, k g-1])
-	river.water.tox.has(Kdoc, [m 3, k g-1])
+	#river.water.tox.has(Kdoc, [m 3, k g-1])
+	
+	gw.water.tox.has(Kow, [])
+	gw.water.tox.has(Kdoc, [m 3, k g-1])
+	
+	eff_a : par_real("River effective surface area", [m 2])
+	
+	gw.has(temp, [deg_c]) {
+		aggregate(soil.temp) #Should probably be modeled separately.
+	}
+	
+	flux(gw.water.tox, gw.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (groundwater)") {
+		rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
+	}
+	
+	# These are very unstable, but because of the time scale they are probably not that important any way.
+	#flux(river.water.tox, river.water.sed.oc.tox, [n g, day-1], "Water-SOC contaminant exchange (river)") {
+	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.sed.oc.tox)/Koc)
+	#}
+	#flux(river.water.tox, river.water.oc.tox, [n g, day-1], "Water-DOC contaminant exchange (river)") {
+	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
+	#}
+	
+	e_fact : property("Erosion factor")
+	
+	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Sediment mobilization tox") {
+		soil.e_fact*river.e_fact*sed_oc_c*conc(soil.oc.tox)->>
+	}
+	
+	# Could maybe have a separate groundwater rate
+	flux(gw.water.tox, nowhere, [n g, m-2, day-1], "Groundwater water dissolved toxin decay") { hl_to_rate(hlfast) * tox }
+	flux(gw.water.oc.tox, nowhere, [n g, m-2, day-1], "Groundwater DOC toxin decay") { hl_to_rate(hlfast) * tox }
+	
+	flux(river.water.tox, nowhere, [n g, day-1], "River water dissolved toxin decay") { hl_to_rate(hlfast) * tox }
+	flux(river.water.oc.tox, nowhere, [n g, day-1], "River DOC toxin decay") { hl_to_rate(hlfast) * tox }
+	flux(river.water.sed.oc.tox, nowhere, [n g, day-1], "River suspended sediment toxin decay") { hl_to_rate(hlfast) * tox }
+	
+	
+	# Remains to do: River sediment bed, air-water exchange (soil and river)
 }
 
 

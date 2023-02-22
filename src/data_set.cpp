@@ -306,10 +306,10 @@ write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series
 	}
 	
 	// NOTE: If we read from an excel file, it will produce one Series_Set_Info record per page, but we only want to write out one import of the file.
-	if(already_processed.find(main_file) != already_processed.end())
+	if(already_processed.find(series.file_name) != already_processed.end())
 		return;
 	
-	already_processed.insert(main_file);
+	already_processed.insert(series.file_name);
 	
 	//TODO: What do we do if the file we save to is in a different folder than the original. Should we update all the relative paths of the included files?
 	

@@ -941,7 +941,8 @@ compose_and_resolve(Model_Application *app) {
 	}
 	
 	// Invalidate dissolved fluxes if both source and target is overridden.
-	
+	// -- Update: TODO: This is too simplistic because it causes problems if there is something dissolved in it that is not overridden in the same way.
+	/*
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
 		if(var->type == State_Var::Type::dissolved_flux) {
@@ -963,6 +964,7 @@ compose_and_resolve(Model_Application *app) {
 				var->flags = (State_Var::Flags)(var->flags | State_Var::Flags::invalid);
 		}
 	}
+	*/
 	
 	// TODO: Is this necessary, or could we just do this directly when we build the connections below ??
 	// 	May have to do with aggregates of fluxes having that decl_type, and that is confusing? But they should not have connections any way.

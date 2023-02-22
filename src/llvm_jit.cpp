@@ -287,7 +287,10 @@ find_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 	}
 	if(index >= scope->local_vars.size())
 		fatal_error(Mobius_Error::internal, "Mis-counting of local variables in ir building.");
-	return scope->local_vars[index];
+	auto result = scope->local_vars[index];
+	if(!result)
+		fatal_error(Mobius_Error::internal, "A local var was not initialized in ir building, probably because of a mistake in pruning.");
+	return result;
 }
 
 llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, LLVM_Module_Data *data) {
@@ -563,11 +566,17 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 			if(!block->is_for_loop) {
 				int index = 0;
 				for(auto sub_expr : expr->exprs) {
-					result = build_expression_ir(sub_expr, &new_locals, args, data);
 					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
-						new_locals.local_vars[index] = result;
+						auto local = static_cast<Local_Var_FT *>(sub_expr);
+						if(local->is_used) {
+							result = build_expression_ir(sub_expr, &new_locals, args, data);
+							new_locals.local_vars[index] = result;
+						} else {
+							new_locals.local_vars[index] = nullptr;
+						}
 						++index;
-					}
+					} else
+						result = build_expression_ir(sub_expr, &new_locals, args, data);
 				}
 			} else
 				result = build_for_loop_ir(expr->exprs[0], expr->exprs[1], &new_locals, args, data);

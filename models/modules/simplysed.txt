@@ -54,9 +54,9 @@ This is a simple sediment transport module created as a part of SimplyP.
 	
 	soil.has(e_fact, [k g, k m-2, day-1], "Erosion factor land")    {   land_slope * c_cover * (1 - loadred) =>>  }
 	
-	river.has(e_fact, [k m 2], "Erosion factor river")              {   a_catch * (1e-3*ksed * in_flux(water) / a_catch)^psed  }
+	river.has(e_fact, [], "Erosion factor river")                   {   (1e-3*ksed * in_flux(water) / a_catch)^psed  }
 
-	flux(nowhere, river.water.sed, [k g, day-1], "Sediment mobilization")         {   aggregate(soil.e_fact) * e_fact }
+	flux(nowhere, river.water.sed, [k g, day-1], "Sediment mobilization")         {   a_catch * aggregate(soil.e_fact) * e_fact }
 }
 
 

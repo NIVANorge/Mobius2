@@ -171,6 +171,7 @@ Variable_Type {
 inline const char *
 name(Variable_Type type) {
 	if(type == Variable_Type::parameter) return "parameter";
+	if(type == Variable_Type::series) return "series";
 	if(type == Variable_Type::state_var) return "state_var";
 	if(type == Variable_Type::connection_info) return "connection_info";
 	if(type == Variable_Type::index_count) return "index_count";
@@ -252,9 +253,7 @@ constexpr Entity_Id invalid_entity_id = {Reg_Type::unrecognized, -1};
 
 inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
 
-//constexpr int max_dissolved_chain = 2;
-
-constexpr int max_var_loc_components = 4;
+constexpr int max_var_loc_components = 6;
 
 struct
 Var_Location {

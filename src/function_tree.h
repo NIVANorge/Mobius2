@@ -193,7 +193,7 @@ Math_Expr_FT *
 copy(Math_Expr_FT *source);
 
 void
-print_tree(Math_Expr_FT *expr, std::ostream &os);
+print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

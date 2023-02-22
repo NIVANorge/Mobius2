@@ -1,11 +1,14 @@
 
 model("SimplyTox") {
 	extend("simplyc_model.txt")
+	extend("simplysed_model.txt")
 	
 	load("../modules/simplytox.txt", module("SimplyTox"))
 	load("../modules/rivertemp.txt", module("RiverTemperature"))
+	#load("../modules/simplysed.txt", module("SimplySed"))
 	
 	tox   : quantity("Toxin")
+	sed   : quantity("Sediment")
 	
 	dsoil : compartment("Slow-accessible soil")
 	
@@ -20,8 +23,20 @@ model("SimplyTox") {
 	#simply_solver.solve(soil.oc.tox)
 	#simply_solver.solve(dsoil.oc.tox)
 	
-	# Hmm, some of these are a bit cumbersome, could it generate the ones for the dissolvedes based on what they are dissolved in, or try to?
+	river.par_group("River data") {
+		eff_a : par_real("River effective surface area", [m 2], 1000, 0, 1000000)
+	}
+	
+	# For some reason the partitioning in the groundwater and river is numerically unstable, so we decrease the solver step.
+	solver("Simply solver", "INCADascru", 0.001)
+	
+	simplyc.smin.no_carry()
+	simplyc.gwmin.no_carry()
+	
+	# Hmm, it seems a bit superfluous to have to type all of these, could it generate the ones for the dissolvedes based on what they are dissolved in, or try to?
 	unit_conversion(soil.water.tox, river.water.tox) { a_catch->> }
 	unit_conversion(gw.water.tox, river.water.tox) { a_catch->> }
 	unit_conversion(soil.water.oc.tox, river.water.oc.tox) { a_catch->> }
+	unit_conversion(gw.water.oc.tox, river.water.oc.tox) { a_catch ->> }
+	unit_conversion(soil.oc.tox, river.water.sed.oc.tox) { a_catch ->> }
 }

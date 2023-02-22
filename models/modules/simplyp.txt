@@ -112,7 +112,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	}
 	
 	flux(nowhere, river.water.pp, [k g, day-1], "PP mobilization") {
-		river.e_fact * aggregate(soil.plab.pp_fact)
+		a_catch * river.e_fact * aggregate(soil.plab.pp_fact)
 	}
 	
 	river.water.has(tp : property("Total phosphorous"), [m g, l-1]) {
