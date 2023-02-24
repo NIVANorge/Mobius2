@@ -76,8 +76,8 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 int main(int argc, char** argv) {
 	//SetConsoleOutputCP(65001);
 	
-	String_View model_file = "stupidly_simple_model.txt";
-	String_View input_file = "";
+	String_View model_file = "models/stupidly_simple_model.txt";
+	String_View input_file = "models/stupidly_simple_data.dat";
 	int nidx1 = 1;
 	int nidx2 = 1;
 	
