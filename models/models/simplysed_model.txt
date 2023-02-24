@@ -6,5 +6,5 @@ Description
 """
 	extend("simplyq_model.txt")
 	
-	load("../modules/simplysed.txt", ss : module("SimplySed"))
+	load("modules/simplysed.txt", ss : module("SimplySed"))
 }

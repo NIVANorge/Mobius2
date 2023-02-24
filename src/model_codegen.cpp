@@ -179,7 +179,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
 			//   Make a lookup accelleration for this?
 			
-			// Codegen for in_fluxes:
+			// Codegen for in_fluxes (not connection in_flux):
 			if(var->type == State_Var::Type::in_flux_aggregate) {
 				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 				Math_Expr_FT *flux_sum = make_literal(0.0);
@@ -187,7 +187,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : app->state_vars) {
 					auto flux_var = app->state_vars[flux_id];
 					if(!flux_var->is_valid() || !flux_var->is_flux()) continue;
-					// NOTE: by design we don't include connection fluxes in the in_flux. May change that later.
 					if(is_valid(connection_of_flux(flux_var))) continue;
 					if(!is_located(flux_var->loc2) || app->state_vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
 					
@@ -766,8 +765,9 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	}
 	
 	if(!is_valid(batch->solver) || initial) {
-		auto result = prune_tree(top_scope);
-		return result;
+		//auto result = prune_tree(top_scope);
+		//return result;
+		goto bottom;
 	}
 	
 	if(batch->arrays_ode.empty() || batch->arrays_ode[0].instr_ids.empty())
@@ -806,6 +806,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		indexes.clean();
 	}
 	
+bottom :
 	/*
 	warning_print("\nTree before prune:\n");
 	std::stringstream ss;
@@ -813,7 +814,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	warning_print(ss.str());
 	warning_print("\n");
 	*/
-	
+
 	auto result = prune_tree(top_scope);
 	
 	/*

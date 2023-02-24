@@ -19,8 +19,8 @@ module("Degree-day PET", 1, 0, 0) {
 
 module("Penman-Monteith PET", 1, 0, 0) {
 	
-	load("../../stdlib/atmospheric.txt", library("Meteorology"))
-	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
+	load("stdlib/atmospheric.txt", library("Meteorology"))
+	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
 	
 	air       : compartment("Atmosphere")
 	soil      : compartment("Soil")

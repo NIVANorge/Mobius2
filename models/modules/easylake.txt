@@ -5,9 +5,9 @@ module("EasyLake", 0, 1, 0) {
 TODO: description
 """
 
-	load("../../stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
-	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
-	load("../../stdlib/seawater.txt", library("Air-sea"))
+	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
+	load("stdlib/seawater.txt", library("Air-sea"))
 	
 	air  : compartment("Atmosphere")
 
@@ -26,7 +26,13 @@ TODO: description
 		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
 		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
 		init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
+		ice_alb   : par_real("Ice albedo", [], 0.4, 0, 1)
+		th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
+		ice_temp  : par_real("Ice formation temperature", [deg_c], 0, -2, 2)
 	}
+	
+	#th_frazil  : constant("Frazil threshold", [m], 0.05)
+	#ice_temp   : constant("Ice formation temperature", [deg_c], 0)
 	
 	water  : quantity("Water")
 	ice    : quantity("Ice")
@@ -96,10 +102,6 @@ TODO: description
 	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
 	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
 	
-	# Some of these could be parameters?
-	th_frazil  : constant("Frazil threshold", [m], 0.05)
-	ice_temp   : constant("Ice formation temperature", [deg_c], 0)
-	
 	epi.water.has(heat, [J]) .initial {
 		water_temp_to_heat(water, t_epi)
 	}
@@ -131,9 +133,13 @@ TODO: description
 		emissivity * black_body_radiation(water.temp->[K])
 	}
 	
+	epi.has(albedo : property("Albedo"), []) {
+		ice_alb        if ice.indicator,
+		0.045          otherwise
+	}
+	
 	#TODO should be attn in epi also, and remainder to hyp
 	epi.has(sw : property("Shortwave radiation"), [W, m-2]) {
-		albedo := 0.045  # TODO adjust for ice albedo (?)
 		(1 - albedo) * (1 - ice.attn) * air.g_rad	
 	}
 	
@@ -142,8 +148,8 @@ TODO: description
 	}
 	
 	flux(nowhere, epi.water.heat, [J, day-1], "Net longwave") {
-		albedo := 0.045
-		net_rad := (1 - albedo)*air.lwd - lwu    # W/m2
+		alb := 0.045
+		net_rad := (1 - alb)*air.lwd - lwu    # W/m2
 		0                              if epi.ice.indicator,
 		A_surf * net_rad ->>           otherwise
 	}
@@ -229,11 +235,7 @@ TODO: description
 				ice_t := (factor * ice_temp + air.temp) / (1 + factor)   # Approximation of ice temperature. TODO: separate state var?
 				lambda_ice * (ice_temp->[K] - ice_t->[K]) / ice
 			}                                             if air.temp <= ice_temp & indicator,
-			{   #TODO: should just reuse computation for surface net shortwave ?
-				albedo := 0.045
-				#0 - ((1-albedo)*(air.lwd + air.g_rad*attn) - lake.lwu)
-				0 - (1-albedo)*air.g_rad*attn
-			}                                             if indicator,  
+			-(1-albedo)*air.g_rad*attn                    if indicator,  
 			0                                             otherwise
 		}) / (rho_ice * l_freeze) ->[m, day-1]
 		+ {

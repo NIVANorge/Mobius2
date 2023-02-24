@@ -23,6 +23,8 @@ make_path_relative_to(String_View file_name, String_View relative_to);
 String_View
 get_extension(String_View file_name, bool *success);
 
+bool
+bottom_directory_is(String_View path, String_View directory);
 
 struct
 File_Data_Handler {

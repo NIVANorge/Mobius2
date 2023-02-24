@@ -116,6 +116,16 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 	return result;
 }
 
+bool
+bottom_directory_is(String_View path, String_View directory) {
+	if(directory.count > path.count) return false;
+	for(int idx = 0; idx < directory.count; ++idx)
+		if(path[idx] != directory[idx]) return false;
+	if(path.count == directory.count || is_slash(path[directory.count]))
+		return true;
+	return false;
+}
+
 String_View
 get_extension(String_View file_name, bool *success) {
 	int len = file_name.count;

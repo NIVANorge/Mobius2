@@ -59,12 +59,11 @@
 			The 'extend_model' system is just not that good. Will be problems when you want to override something in the earlier model,
 			or if two extended models load the same module (not a problem before, but will be if we allow multiple loads of the same module, which can then cause unintended duplicates)
 			
+		Ties into constant properties system (when we make that)
+			If a quantity is .override and can be inferred to be constant, it should not be computed at all except in the initial step.
+			
 		
 		Check for conflicting declarations of variables (unit, name).
-		
-		Check if dissolvedes of dissolvedes work properly (SimplyTox)
-		
-		Allow declaration of no_carry inside modules.
 		
 		The new system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
@@ -94,8 +93,6 @@
 	
 		Set units of aggregation state variables so that they display correctly in MobiView.
 			note that it is a bit tricky for fluxes.
-	
-		unit conversions also applied to connection graph arrows.
 		
 		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
 			may be irrelevant if we switch to the new module loading system?
@@ -118,7 +115,8 @@
 				Compute statistics of the target stat like variance etc.
 				Allow for 2 parameters, with a surf plot eventually.
 				
-			Checking profile or profile2d will select all the indexes if only one index set is active and only one index is selected.
+			Selecting profile or profile2d will select all the indexes if only one index set is active and only one index is selected.
+				Maybe not desirable
 			
 			Finish all missing functionality from MobiView1
 				variance based sensitivity
@@ -129,11 +127,10 @@
 					Additional plot setup.
 					
 			tweaks to the state var tree organization
-				icons in "by quantity" view.
+				The icons in "by quantity" view are currently not that intuitive.
 				Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
 				
 			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
-			Weekly sum aggregation is broken at the end of the year.
 			More aggregation intervals
 				
 		
@@ -151,6 +148,8 @@
 		
 	*****************   DONE:   ***********************
 	
+	unit conversions also applied to connection graph arrows.
+	
 	"scatter sparse" instead of "scatter inputs" ? So that full series are not scatter plotted.
 	
 	make bottom_boundary work.
@@ -162,7 +161,7 @@
 	Make something like top() accessor top(layer.water.temp) etc. (And bottom?)
 			Makes it unnecessary to have above and below in boundary fluxes, so we could disallow that also? Could make some things easier.
 	
-	below(val) should not generate an index set dependency if we are inside a top_boundary!!
+	val[below] should not generate an index set dependency if we are inside a top_boundary!!
 			Neither should anything actually. That index set should be removed from the dependencies!
 	
 	check_valid_distribution_of_dependencies
@@ -271,3 +270,8 @@
 	Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before)
 	
 	Aggregation weight should not be needed by default ( default to 1 )
+	
+	Initial value system;
+			.override or .override_conc should be used for initial value if no initial is provided (?)
+			
+	Allow declaration of no_carry inside modules.

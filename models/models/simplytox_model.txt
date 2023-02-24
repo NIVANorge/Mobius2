@@ -3,8 +3,8 @@ model("SimplyTox") {
 	extend("simplyc_model.txt")
 	extend("simplysed_model.txt")
 	
-	load("../modules/simplytox.txt", module("SimplyTox"))
-	load("../modules/rivertemp.txt", module("RiverTemperature"))
+	load("modules/simplytox.txt", module("SimplyTox"))
+	load("modules/rivertemp.txt", module("RiverTemperature"))
 	#load("../modules/simplysed.txt", module("SimplySed"))
 	
 	tox   : quantity("Toxin")

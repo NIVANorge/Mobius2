@@ -22,7 +22,7 @@ More realistic hydrology.
 For reference, here is [the original Python implementation of SimplyP](https://github.com/LeahJB/SimplyP), which is no longer being developed.
 """	
 	
-	load("../../stdlib/basic_math.txt", library("Basic"))
+	load("stdlib/basic_math.txt", library("Basic"))
 	
 	soil  : compartment("Soil")
 	gw    : compartment("Groundwater")

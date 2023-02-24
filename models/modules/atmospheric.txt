@@ -4,8 +4,8 @@ module("Atmospheric", 0, 1, 0) {
 	Simple module for some common atmospheric attributes
 	"""
 	
-	load("../../stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
-	load("../../stdlib/basic_math.txt", library("Basic"))
+	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	load("stdlib/basic_math.txt", library("Basic"))
 	
 	air : compartment("Atmosphere")
 	

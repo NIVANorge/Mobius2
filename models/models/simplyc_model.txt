@@ -6,8 +6,8 @@ Description
 """
 	extend("simplyq_model.txt")
 	
-	load("../modules/simplysoiltemp.txt", module("Simply soil temperature"))
-	load("../modules/simplyc.txt", simplyc : module("SimplyC"))
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature"))
+	load("modules/simplyc.txt", simplyc : module("SimplyC"))
 	
 	oc : quantity("Organic carbon")
 	

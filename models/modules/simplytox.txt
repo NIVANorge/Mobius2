@@ -5,8 +5,8 @@ module("SimplyTox", 0, 0, 1) {
 """
 Testing functionality for now.
 """
-	load("../../stdlib/physiochemistry.txt", library("Thermodynamics"))
-	load("../../stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/physiochemistry.txt", library("Thermodynamics"))
+	load("stdlib/basic_math.txt", library("Rates"))
 
 	air   : compartment("Atmosphere")
 	soil  : compartment("Soil")

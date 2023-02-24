@@ -6,7 +6,7 @@ model("Giblet-Thrasher test model") {
 		habitat : compartment("Habitat")
 		world   : compartment("World")
 		
-		load("../../stdlib/basic_math.txt", library("Response"))
+		load("stdlib/basic_math.txt", library("Response"))
 		
 		#TODO: should it be possible to specify a par_group to be global without creating a separate compartment for it?
 		world  .par_group("General parameters") {

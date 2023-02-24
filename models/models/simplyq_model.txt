@@ -6,8 +6,8 @@ General model description.
 	
 	extend("simplyq_base.txt")
 	
-	load("../modules/pet.txt",       pe : module("Degree-day PET"))
-	load("../modules/hbv_snow.txt",  sn : module("HBVSnow"))
+	load("modules/pet.txt",       pe : module("Degree-day PET"))
+	load("modules/hbv_snow.txt",  sn : module("HBVSnow"))
 	
 }
 

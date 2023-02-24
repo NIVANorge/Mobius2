@@ -4,7 +4,7 @@ module("SimplyN", 0, 0, 2) {
 Not finished, just for testing some systems.
 """
 
-	load("../../stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/basic_math.txt", library("Rates"))
 
 	#----------------------------------------------------------------
 	# Make compartments (locations) and quantities

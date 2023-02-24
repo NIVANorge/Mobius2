@@ -7,7 +7,7 @@ module("NIVAFjord", 0, 0, 1) {
 	load("../../stdlib/atmospheric.txt", library("Meteorology"))#, library("Radiation"))
 
 	air   : compartment("Atmosphere")
-	oair  : compartment("Ocean air")   # Air right above a given ocean section. Better name?
+	oair  : compartment("Ocean-air interface")
 	layer : compartment("Fjord layer")
 	sed   : compartment("Fjord sediment")
 	bnd   : compartment("Boundary ocean")
@@ -65,7 +65,7 @@ module("NIVAFjord", 0, 0, 1) {
 		z[vert.above] + dz[vert.above]
 	}
 	
-	layer.has(water, [k g], "Layer water") .initial { A*dz*rho_water } .override { A*dz*rho_water }
+	layer.has(water, [k g], "Layer water") .override { A*dz*rho_water }
 	
 	layer.water.has(salt, [k g], [g, k g-1], "Layer salt")
 		#.initial_conc { init_S }
@@ -86,11 +86,11 @@ module("NIVAFjord", 0, 0, 1) {
 		conc(salt)=>[] # TODO: Convert salinity to PSU
 	}
 	
-	property("Density") {
+	dens : property("Density") {
 		seawater_pot_dens(temp, salinity)
 	}
 	
-	layer.water.has(dens : property("Density"), [k g, m-3], "Potential density")
+	layer.water.has(dens, [k g, m-3], "Potential density")
 	
 	layer.water.has(accum_pressure : property("Accumulated pressure"), [Pa]) {
 		accum_pressure[vert.above] + dens*grav*dz
@@ -253,29 +253,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	
 	# Horizontal exchange with boundary
-	h : quantity("Sea level")
 	
-	sealevel_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
-		amp * cos( (pi/180[deg])*(t*360[deg]/per - phase) )
-	}
-	
-	sealevel : function(t : [hr]) {
-		# TODO: Parametrize. This in particular is for Oscarsborg.
-		  sealevel_component(11.2[c m], 282[deg], 365.24*24[hr], t)
-		+ sealevel_component(13.4[c m], 152[deg], 12.42[hr], t)
-		+ sealevel_component( 3.4[c m], 101[deg], 12.00[hr], t)
-		+ sealevel_component( 3.3[c m], 101[deg], 12.66[hr], t)
-		+ sealevel_component( 0.9[c m],  76[deg], 11.97[hr], t)
-		+ sealevel_component( 0.5[c m], 172[deg], 23.93[hr], t)
-		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
-	}
-	
-	bnd.has(h, [m]) .initial { 0[m] } .override {
-		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step
-		sealevel(sec->[hr])->[m]              
-	}
-	
-	oair.has(h, [m]) .initial { 0[m] }
 	
 	z1       : property("Epilimnion thickness")
 	z2diff   : property("log10(Metalimnion thickness)")
@@ -333,7 +311,7 @@ module("NIVAFjord", 0, 0, 1) {
 		accum_pressure[bnd_vert.above] + dens*grav*dz
 	}
 	
-	layer.water.has(bnd_u : property("Boundary flux"), [k g, s-1]) {#[m 3, s-1]) {
+	layer.water.has(bar_bnd_u : property("Barocline boundary flux"), [k g, s-1]) {#[m 3, s-1]) {
 		#dP0 := grav*(oair.h - bnd.h)*layer.water.dens[vert.top]  # TODO: why doesn't water.dens[vert.top] work? (not that it is important)
 		#dP0 := grav*(oair.h - bnd.h)*rho_water
 		dP1 := accum_pressure[vert.below] - bnd_layer.accum_pressure[vert.below]
@@ -347,24 +325,58 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	
 	# NOTE: this is not the correct way to do it. Just testing some things
-	flux(layer.water.heat, nowhere, [J, day-1], "Boundary heat exchange") {
-		(conc(heat)-C_water*(bnd_layer.temp->[K])) * bnd_u ->> if bnd_u > 0,
-		0                                                      otherwise
-	}
-	
-	flux(layer.water.salt, nowhere, [k g, day-1], "Boundary salt exchange") {
-		(conc(salt) - bnd_layer.salinity=>[g, k g-1]) * bnd_u ->>  if bnd_u > 0,
-		0                                                          otherwise
-	}
-	
-	#oair.has(tot_bnd_u : property("Total boundary flux"), [m 3, s-1]) {
-	#	aggregate(layer.water.bnd_u)
+	#flux(layer.water.heat, nowhere, [J, day-1], "Boundary heat exchange") {
+	#	(conc(heat)-C_water*(bnd_layer.temp->[K])) * bar_bnd_u ->> if bar_bnd_u > 0,
+	#	0                                                      otherwise
 	#}
 	
-	#flux(oair.h, nowhere, [m, s-1], "dh/dt") {
-	#	flx := aggregate(layer.water.bnd_u)
-	#	flx / A[vert.top]
-	#	0=>>
+	#flux(layer.water.salt, nowhere, [k g, day-1], "Boundary salt exchange") {
+	#	(conc(salt) - bnd_layer.salinity=>[g, k g-1]) * bar_bnd_u ->>  if bar_bnd_u > 0,
+	#	0                                                          otherwise
 	#}
+	
+	
+	h : quantity("Sea level") # Could probably be made a property then..
+	
+	sealevel_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
+		amp * cos( (pi/180[deg])*(t*360[deg]/per - phase) )
+	}
+	
+	sealevel : function(t : [hr]) {
+		# TODO: Parametrize. This in particular is for Oscarsborg.
+		  sealevel_component(11.2[c m], 282[deg], 365.24*24[hr], t)
+		+ sealevel_component(13.4[c m], 152[deg], 12.42[hr], t)
+		+ sealevel_component( 3.4[c m], 101[deg], 12.00[hr], t)
+		+ sealevel_component( 3.3[c m], 101[deg], 12.66[hr], t)
+		+ sealevel_component( 0.9[c m],  76[deg], 11.97[hr], t)
+		+ sealevel_component( 0.5[c m], 172[deg], 23.93[hr], t)
+		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
+	}
+	
+	bnd.has(h, [m]) .override {
+		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step
+		sealevel(sec->[hr])->[m]              
+	}
+	
+	#TODO: The barotropic flow must probably be limited to the max pressure-induced flow. In that case the value for h must be updated according to that.
+	#	Only relevant in very narrow passages though.
+	
+	layer.has(A_bnd_ : property("Area to boundary"), [m 2]) {
+		w_bnd*dz
+	} # Since we cant aggregate() a parameter yet.
+	
+	oair.has(A_bnd : property("Total area to boundary"), [m 2]) {
+		aggregate(layer.A_bnd_)
+	}
+	
+	oair.has(h, [m]) .override { bnd.h } #+ (in_flux(downstream, water)/A_bnd)^2/(2*alpha_u*grav) }# TODO: different with river inflow.
+	
+	oair.has(tot_bar_u : property("Total barotropic boundary flux"), [m 3, s-1]) {
+		(h - last(h))*A[vert.top]/time.step_length_in_seconds
+	}
+	
+	layer.water.has(bar_u : property("Barotropic boundary flux"), [m 3, s-1]) {
+		0[m 3, s-1] #TODO.
+	}
 	
 }

@@ -4,7 +4,7 @@ module("SimplySed", 0, 5, 0) {
 This is a simple sediment transport module created as a part of SimplyP.
 """
 
-	load("../../stdlib/basic_math.txt", library("Response"), library("Basic"))
+	load("stdlib/basic_math.txt", library("Response"), library("Basic"))
 
 	soil     : compartment("Soil")
 	river    : compartment("River")

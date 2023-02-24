@@ -7,8 +7,8 @@ Description
 	extend("simplyq_model.txt")  # Add to the SimplyQ model text
 	
 	# Do seem to need the declaration, get an error otherwise
-	load("../modules/simplysoiltemp.txt", st : module("Simply soil temperature"))
-	load("../modules/simplyn.txt", sdin : module("SimplyN"))
+	load("modules/simplysoiltemp.txt", st : module("Simply soil temperature"))
+	load("modules/simplyn.txt", sdin : module("SimplyN"))
 	
 	din : quantity("Dissolved inorganic nitrogen")
 

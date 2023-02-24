@@ -6,7 +6,7 @@ General model description.
 	
 	###### Import modules
 	
-	load("../modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
+	load("modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
 	
 	
 	soil  : compartment("Soil")

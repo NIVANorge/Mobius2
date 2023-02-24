@@ -78,6 +78,21 @@ Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 	}
 }
 
+Entity_Id
+Decl_Scope::expect_exists(Token *handle_name, Reg_Type reg_type) {
+	std::string handle = handle_name->string_value;
+	auto reg = (*this)[handle];
+	if(!reg) {
+		handle_name->print_error_header();
+		fatal_error("There is no entity with the identifier '", handle, "' in the referenced scope.");
+	}
+	if(reg->id.reg_type != reg_type) {
+		handle_name->print_error_header();
+		fatal_error("The entity '", handle_name->string_value, "' does not have the type ", name(reg_type), ".");
+	}
+	return reg->id;
+}
+
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl_name, Decl_AST *decl) {
 	
@@ -341,6 +356,18 @@ register_intrinsics(Mobius_Model *model) {
 
 Entity_Id
 load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View path, String_View relative_to, const std::string &decl_name, Decl_Type type) {
+	
+	// TODO: Should really check if the model-relative path exists before changing the relative path.
+	std::string models_path = model->mobius_base_path + "models/"; // Note: since relative_to is a string view, this one must exist in the outer scope.
+	if(!model->mobius_base_path.empty()) {
+		//warning_print("*** Base path is ", model->mobius_base_path, "\n");
+		//warning_print("Bottom directory of \"", path, "\" is stdlib: ", bottom_directory_is(path, "stdlib"), "\n");
+		
+		if(type == Decl_Type::module && bottom_directory_is(path, "modules"))
+			relative_to = models_path;
+		else if(type == Decl_Type::library && bottom_directory_is(path, "stdlib"))
+			relative_to = model->mobius_base_path;
+	}
 	
 	std::string normalized_path;
 	String_View file_data = model->file_handler.load_file(path, from, relative_to, &normalized_path);
@@ -1063,6 +1090,51 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 }
 
 void
+process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int chain_len) {
+	int which = match_declaration(decl,
+		{
+			{},
+			{Token_Type::identifier},
+		}, chain_len, false);
+
+	Decl_Scope *sc = scope;
+	int flux_idx = 0;
+	
+	if(chain_len == 2) { // This is if this was called from a model object.
+		auto module_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::module);
+		auto module = model->modules[module_id];
+		sc = &module->scope;
+		flux_idx = 1;
+	}
+		
+	auto flux_id = sc->expect_exists(&decl->decl_chain[flux_idx], Reg_Type::flux);
+	auto flux = model->fluxes[flux_id];
+	
+	if(which == 0) {
+		flux->no_carry_by_default = true;
+	} else {
+		Var_Location loc;
+		process_location_argument(model, scope, decl, 0, &loc, false);
+		
+		bool found = false;
+		auto above = loc;
+		while(above.is_dissolved()) {
+			above = remove_dissolved(above);
+			if(above == flux->source) {
+				found = true;
+				break;
+			}
+		}
+		if(!found) {
+			decl->source_loc.print_error_header();
+			fatal_error("This flux could not have carried this quantity since the latter is not dissolved in the source of the flux.");
+		}
+		
+		flux->no_carry.push_back(loc);
+	}
+}
+
+void
 process_module_declaration(Mobius_Model *model, Entity_Id id) {
 		
 	auto module = model->modules[id];
@@ -1146,8 +1218,9 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			case Decl_Type::par_enum :
 			case Decl_Type::compartment :
 			case Decl_Type::property :
-			case Decl_Type::quantity : 
-			case Decl_Type::connection : {  // already processed above
+			case Decl_Type::quantity :
+			case Decl_Type::no_carry :
+			case Decl_Type::connection : {  // already processed above, or will be processed below
 			} break;
 			
 			default : {
@@ -1156,24 +1229,16 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			};
 		}
 	}
+	
+	for(Decl_AST *child : body->child_decls) {
+		switch(child->type == Decl_Type::no_carry) {
+			// This requires the flux to have been processed already.
+			process_no_carry_declaration(model, &module->scope, child, 1);
+		}
+	}
 	module->scope.check_for_missing_decls(model);
 	
 	module->has_been_processed = true;
-}
-
-Entity_Id
-expect_exists(Decl_Scope *scope, Token *handle_name, Reg_Type reg_type) {
-	std::string handle = handle_name->string_value;
-	auto reg = (*scope)[handle];
-	if(!reg) {
-		handle_name->print_error_header();
-		fatal_error("There is no entity with the identifier '", handle, "' in the referenced scope.");
-	}
-	if(reg->id.reg_type != reg_type) {
-		handle_name->print_error_header();
-		fatal_error("The entity '", handle_name->string_value, "' does not have the type ", name(reg_type), ".");
-	}
-	return reg->id;
 }
 
 void
@@ -1181,10 +1246,10 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	// Process a "to" declaration
 	match_declaration(decl, {{Token_Type::identifier}}, 2, false);
 	
-	auto module_id = expect_exists(scope, &decl->decl_chain[0], Reg_Type::module);
+	auto module_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::module);
 	auto module = model->modules[module_id];
 	
-	auto flux_id = expect_exists(&module->scope, &decl->decl_chain[1], Reg_Type::flux);
+	auto flux_id = module->scope.expect_exists(&decl->decl_chain[1], Reg_Type::flux);
 	auto flux = model->fluxes[flux_id];
 	
 	if(flux->target.type != Var_Location::Type::out || is_valid(flux->connection_target)) {
@@ -1196,44 +1261,6 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	
 	auto modifier = process_location_argument(model, scope, decl, 0, &flux->target, false, true);
 	flux->connection_target = modifier.connection_id;
-}
-
-void
-process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	int which = match_declaration(decl,
-		{
-			{},
-			{Token_Type::identifier},
-		}, 2, false);
-	
-	auto module_id = expect_exists(scope, &decl->decl_chain[0], Reg_Type::module);
-	auto module = model->modules[module_id];
-	
-	auto flux_id = expect_exists(&module->scope, &decl->decl_chain[1], Reg_Type::flux);
-	auto flux = model->fluxes[flux_id];
-	
-	if(which == 0) {
-		flux->no_carry_by_default = true;
-	} else {
-		Var_Location loc;
-		process_location_argument(model, scope, decl, 0, &loc, false);
-		
-		bool found = false;
-		auto above = loc;
-		while(above.is_dissolved()) {
-			above = remove_dissolved(above);
-			if(above == flux->source) {
-				found = true;
-				break;
-			}
-		}
-		if(!found) {
-			decl->source_loc.print_error_header();
-			fatal_error("This flux could not have carried this quantity since the latter is not dissolved in the source of the flux.");
-		}
-		
-		flux->no_carry.push_back(loc);
-	}
 }
 
 template<> Entity_Id
@@ -1318,7 +1345,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	match_declaration(decl, {{{Decl_Type::index_set, true}}}, 1, false);
 	
 	//auto comp_id = model->components.find_or_create(&decl->decl_chain[0], scope);
-	auto comp_id = expect_exists(scope, &decl->decl_chain[0], Reg_Type::component);
+	auto comp_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::component);
 	auto component = model->components[comp_id];
 	
 	if(component->decl_type == Decl_Type::property) {
@@ -1429,9 +1456,37 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unor
 	return true;
 }
 
+void
+load_config(Mobius_Model *model, String_View config) {
+	auto file_data = model->file_handler.load_file(config);
+	//warning_print("Loaded config\n");
+	Token_Stream stream(config, file_data);
+	while(true) {
+		Token token = stream.peek_token();
+		if(token.type == Token_Type::eof) break;
+		Decl_AST *decl = parse_decl(&stream);
+		if(decl->type != Decl_Type::config) {
+			decl->source_loc.print_error_header();
+			fatal_error("Unexpected declaration type '", name(decl->type), "' in a config file.");
+		}
+		match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}});
+		auto item = single_arg(decl, 0)->string_value;
+		if(item == "Mobius2 base path") {
+			model->mobius_base_path = single_arg(decl, 1)->string_value;
+			// TODO: Should check that the mobius base path is a valid path.
+			//warning_print("Loaded base path ", model->mobius_base_path, "\n");
+		} else {
+			decl->source_loc.print_error_header();
+			fatal_error("Unknown config option \"", item, "\".");
+		}
+	}
+}
+
 Mobius_Model *
-load_model(String_View file_name) {
+load_model(String_View file_name, String_View config) {
 	Mobius_Model *model = new Mobius_Model();
+	
+	load_config(model, config);
 	
 	auto decl = read_model_ast_from_file(&model->file_handler, file_name);
 	model->main_decl  = decl;
@@ -1548,7 +1603,7 @@ load_model(String_View file_name) {
 				} break;
 				
 				case Decl_Type::no_carry : {
-					process_no_carry_declaration(model, scope, child);
+					process_no_carry_declaration(model, scope, child, 2);
 				} break;
 				
 				case Decl_Type::distribute : {

@@ -717,6 +717,8 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	agg_var->connection = conn_id;
 	
 	var = as<State_Var::Type::declared>(app->state_vars[target_var_id]);
+	
+	agg_var->unit = divide(var->unit, app->time_step_unit);
 	if(is_source)
 		var->conn_source_aggs.push_back(agg_id);
 	else {
@@ -726,8 +728,8 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 		if(model->components[target_comp]->decl_type != Decl_Type::compartment) return;
 		
 		// Get aggregation weights if relevant
-		// TODO: Does this crash if there is an all_to_all flux that is over a quantity not a
-		// compartment?
+		// TODO: Won't this crash if there is an all_to_all flux that is over a quantity not a
+		// compartment and it finds a weight?
 		auto find = app->find_connection_component(conn_id, target_comp);
 		for(auto source_id : find->possible_sources) {
 			Var_Location loc2 = app->state_vars[target_var_id]->loc1;
@@ -848,6 +850,11 @@ compose_and_resolve(Model_Application *app) {
 			initial_is_conc  = has->initial_is_conc;
 			code_scope = model->get_scope(has->code_scope);
 			other_code_scope = code_scope;
+			
+			if(override_ast && !init_ast) {
+				init_ast = override_ast;
+				initial_is_conc = override_is_conc;
+			}
 			
 			if(var2->decl_type == Decl_Type::quantity && ast) {
 				has->source_loc.print_error_header();
@@ -1134,6 +1141,8 @@ compose_and_resolve(Model_Application *app) {
 			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, varname);
 			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->state_vars[in_flux_id]);
 			in_flux_var->in_flux_to = target_id;
+			
+			app->state_vars[in_flux_id]->unit = divide(target->unit, app->time_step_unit); //NOTE: In codegen, the components in the sum are rescaled to this unit.
 		} else {
 			//We don't have to register an aggregate for the connection since that will always have been done for a variable on a connection if it is at all relevant.
 			for(auto conn_agg_id : target->conn_target_aggs) {

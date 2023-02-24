@@ -37,6 +37,7 @@ Decl_Scope {
 	void add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr);
 	void check_for_missing_decls(Mobius_Model *model);
+	Entity_Id expect_exists(Token *handle_name, Reg_Type reg_type);
 	
 	Scope_Entity *operator[](const std::string &handle) {
 		auto find = visible_entities.find(handle);
@@ -309,6 +310,8 @@ Mobius_Model {
 	
 	std::string  path;
 	
+	std::string  mobius_base_path;
+	
 	Registry<Reg_Type::module>      modules;
 	Registry<Reg_Type::library>     libraries;
 	Registry<Reg_Type::unit>        units;
@@ -379,7 +382,7 @@ Mobius_Model {
 };
 
 Mobius_Model *
-load_model(String_View file_name);
+load_model(String_View file_name, String_View config = "config.txt");
 
 template<Reg_Type reg_type> Entity_Registration<reg_type> *
 Registry<reg_type>::operator[](Entity_Id id) {
