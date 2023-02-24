@@ -4,7 +4,7 @@
 #define MOBIUS_RUN_MODEL_H
 
 #ifndef MOBIUS_EMULATE
-#define MOBIUS_EMULATE 1
+#define MOBIUS_EMULATE 0
 #endif
 
 #include "datetime.h"

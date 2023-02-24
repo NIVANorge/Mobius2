@@ -817,13 +817,13 @@ bottom :
 
 	auto result = prune_tree(top_scope);
 	
-	
+	/*
 	warning_print("\nTree after prune:\n");
 	std::stringstream ss;
 	print_tree(app, result, ss);
 	warning_print(ss.str());
 	warning_print("\n");
-	
+	*/
 	
 	return result;
 }
