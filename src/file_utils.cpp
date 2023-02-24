@@ -63,14 +63,15 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 	// TODO: this should maybe check that the file_name *is* actually a relative path..
 	// TODO: don't rewind past a directory name (in that case there should be an error).
 	
-	static char new_path[1024]; //TODO make a string builder instead?
+	constexpr int maxpath = 1024;
+	static char new_path[maxpath]; //TODO make a string builder instead?
 	
 	//warning_print("make_path_relative_to : ", file_name, " ", relative_to, "\n");
 	
 	int pos = 0;
 	int last_slash = -1;
 	while(pos < relative_to.count) {
-		if(pos == 1024) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
+		if(pos == maxpath) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
 		char c = relative_to[pos];
 		if(is_slash(c)) { last_slash = pos; c = '\\'; }
 		new_path[pos] = c;
@@ -80,7 +81,7 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 	int cursor = 0;
 	bool start_dir = true;
 	while(cursor < file_name.count) {
-		if(pos == 1024) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
+		if(pos == maxpath) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
 		char c = file_name[cursor];
 		if(start_dir && (cursor+2 < file_name.count)
 			&& c == '.'  && file_name[cursor+1] == '.' && is_slash(file_name[cursor+2])) {
@@ -109,7 +110,7 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 		++cursor;
 		++pos;
 	}
-	if(pos == 1024) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
+	if(pos == maxpath) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
 	new_path[pos] = '\0';
 	
 	String_View result = new_path;
@@ -148,7 +149,7 @@ File_Data_Handler::load_file(String_View file_name, Source_Location from, String
 		if(normalized_path_out) *normalized_path_out = find->first;
 		return find->second;
 	}
-	//load_name = allocator.copy_string_view(load_name);
+	
 	String_View data = read_entire_file(load_name, from);
 	loaded_files[load_name] = data;
 	if(normalized_path_out) *normalized_path_out = load_name;

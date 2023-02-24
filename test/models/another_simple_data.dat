@@ -1,9 +1,15 @@
-
-
 par_group("System") {
 	par_datetime("Start date")
 	[ 1990-01-01 ]
 
 	par_datetime("End date")
-	[ 1995-05-01 ]
+	[ 1990-01-20 ]
 }
+
+module("So simple", 1, 0, 0) {
+	par_group("Pars") {
+		par_real("Rate")
+		[ 10 ]
+	}
+}
+

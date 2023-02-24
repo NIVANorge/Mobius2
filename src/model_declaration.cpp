@@ -1,4 +1,5 @@
 
+#include <sys/stat.h>
 #include "model_declaration.h"
 
 void
@@ -1473,8 +1474,12 @@ load_config(Mobius_Model *model, String_View config) {
 		auto item = single_arg(decl, 0)->string_value;
 		if(item == "Mobius2 base path") {
 			model->mobius_base_path = single_arg(decl, 1)->string_value;
-			// TODO: Should check that the mobius base path is a valid path.
 			//warning_print("Loaded base path ", model->mobius_base_path, "\n");
+			struct stat info;
+			if(stat(model->mobius_base_path.data(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
+				single_arg(decl, 0)->print_error_header();
+				fatal_error("The path \"", model->mobius_base_path, "\" is not a valid directory path.");
+			}
 		} else {
 			decl->source_loc.print_error_header();
 			fatal_error("Unknown config option \"", item, "\".");

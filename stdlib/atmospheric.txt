@@ -77,7 +77,7 @@ library("Radiation") {
 		lat_rad                := latitude * pi / 180.0[deg]
 		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination))
 		
-		solar_constant * (1/pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
+		(solar_constant / pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
 	}
 	
 	clear_sky_shortwave : function(extrad : [W, m-2], elev : [m]) {

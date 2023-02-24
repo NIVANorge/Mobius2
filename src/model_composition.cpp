@@ -1047,6 +1047,9 @@ compose_and_resolve(Model_Application *app) {
 			if(var->is_flux())
 				agg_var->flags = (State_Var::Flags)(agg_var->flags | State_Var::Flags::flux);
 			
+			// TODO: Set the unit of the agg_var (only relevant if it is displayed somewhere, it is not function critical).
+			//   It is a bit tricky because of potential unit conversions and the fact that the unit of aggregated fluxes could be re-scaled to the time step.
+			
 			var = app->state_vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 
 			// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:

@@ -4,18 +4,46 @@ model("Another simple") {
 
 	sp : module("So simple", 1, 0, 0) {
 	
+		load("stdlib/basic_math.txt", library("Response"))
+	
 		a : compartment("A")
 		
-		a.par_group("bing") {
-			c : par_real("C", [], 0.1)
+		a.par_group("Pars") {
+			fc : par_real("Rate", [], 10)
 		}
 		
-		a.has(b : property("B"), [m 2]) {
-			a := 0.5[m]
-			3
-			b := 4[m]
-			a*b
+		q : quantity("Q")
+		
+		a.has(q, []) .initial { 10 }
+		
+		#c : connection("C", all_to_all) { a* }
+		
+		a.has(b : property("Test"), [day-1]) {
+			rate := (q - fc) / 20[day]
+			{
+				0 if 20 < fc,
+				rate if 20 >= 1.5*fc,
+				{
+					-22=>>
+				} otherwise
+			}
+			fc =>>
 		}
+		
+		flux(nowhere, a.q, [day-1], "Q in") { 1[day-1] }
+		
+		#flux(a.q, nowhere, [day-1], "Q out") {
+			#rate := (q - fc) / 20[day]
+			#s_response(q, fc, 1.5*fc, 0, rate)
+		#}
 	}
-
+	a : compartment("A")
+	q : quantity("Q")
+	
+	#i : index_set("I")
+	
+	#a.distribute(i)
+	
+	sol : solver("Solver", "INCADascru", 0.1)
+	sol.solve(a.q)
 }

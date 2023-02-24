@@ -400,9 +400,10 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 		case Math_Expr_Type::if_chain : {
 			for(int idx = 0; idx < expr->exprs.size()-1; idx+=2) {
 				Typed_Value cond = emulate_expression(expr->exprs[idx+1], state, locals);
-				if(cond.val_boolean) return emulate_expression(expr->exprs[idx], state, locals);
-				return emulate_expression(expr->exprs.back(), state, locals);
+				if(cond.val_boolean)
+					return emulate_expression(expr->exprs[idx], state, locals);
 			}
+			return emulate_expression(expr->exprs.back(), state, locals);
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {

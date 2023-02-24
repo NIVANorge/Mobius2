@@ -90,9 +90,6 @@
 	
 		Make in_flux deal correctly with boundary fluxes.
 			Should not be added in regular in_flux.
-	
-		Set units of aggregation state variables so that they display correctly in MobiView.
-			note that it is a bit tricky for fluxes.
 		
 		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
 			may be irrelevant if we switch to the new module loading system?
@@ -145,6 +142,11 @@
 		Make mobipy work again (and better).
 		
 		emulate_expression() is broken, at least for full model runs.
+		
+		Set units of regular aggregation state variables so that they display correctly if viewed.
+			note that it is a bit tricky for fluxes.
+			
+		aggregate() of series and parameters.
 		
 	*****************   DONE:   ***********************
 	
