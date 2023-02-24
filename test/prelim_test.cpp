@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
 	if(argc >= 3)
 		input_file = argv[2];
 	
-	Mobius_Model *model = load_model(model_file);
+	Mobius_Model *model = load_model(model_file, "my_config.txt");
 	
 	std::cout << "Loading done.\n";
 	

@@ -6,9 +6,8 @@ Description
 """
 	extend("simplyq_model.txt")  # Add to the SimplyQ model text
 	
-	# Do seem to need the declaration, get an error otherwise
-	load("modules/simplysoiltemp.txt", st : module("Simply soil temperature"))
-	load("modules/simplyn.txt", sdin : module("SimplyN"))
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature"))
+	load("modules/simplyn.txt", module("SimplyN"))
 	
 	din : quantity("Dissolved inorganic nitrogen")
 
@@ -17,8 +16,8 @@ Description
 	# connected by fluxes.
 	# Unit conversion syntax is (from, to) {number to multiply by}
 	
-	# soil.water.din has units kg/km2 or mg/l; river.water.din
-	# has units kg or mg/l. Convert using a_catch [km-2]
+	# soil.water.din has unit [k g, k m-2]; river.water.din
+	# has unit [k g]. Convert using a_catch [km 2]
 	unit_conversion(soil.water.din, river.water.din) {  a_catch  }
 	unit_conversion(gw.water.din, river.water.din)   {  a_catch  }
 	
