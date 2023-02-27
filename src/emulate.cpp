@@ -238,29 +238,6 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 	return result;
 }
 
-/*
-struct
-Scope_Local_Vars {
-	s32 scope_id;
-	Scope_Local_Vars *scope_up;
-	std::vector<Typed_Value> local_vars;
-};
-
-Typed_Value
-get_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
-	if(!scope)
-		fatal_error(Mobius_Error::internal, "Mis-counting of scopes in emulation.");
-	while(scope->scope_id != scope_id) {
-		scope = scope->scope_up;
-		if(!scope)
-			fatal_error(Mobius_Error::internal, "Mis-counting of scopes in emulation.");
-	}
-	if(index >= scope->local_vars.size())
-		fatal_error(Mobius_Error::internal, "Mis-counting of local variables in emulation.");
-	return scope->local_vars[index];
-}
-*/
-
 #define DO_DEBUG 0
 #if DO_DEBUG
 	#define DEBUG(a) a;

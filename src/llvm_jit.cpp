@@ -268,32 +268,6 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	warning_print("Verification done.\n");
 }
 
-/*
-struct
-Scope_Local_Vars {
-	s32 scope_id;
-	Scope_Local_Vars *scope_up;
-	std::vector<llvm::Value *> local_vars;
-};
-
-llvm::Value *
-find_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
-	if(!scope)
-		fatal_error(Mobius_Error::internal, "Mis-counting of scopes in ir building.");
-	while(scope->scope_id != scope_id) {
-		scope = scope->scope_up;
-		if(!scope)
-			fatal_error(Mobius_Error::internal, "Mis-counting of scopes in ir building.");
-	}
-	if(index >= scope->local_vars.size())
-		fatal_error(Mobius_Error::internal, "Mis-counting of local variables in ir building.");
-	auto result = scope->local_vars[index];
-	if(!result)
-		fatal_error(Mobius_Error::internal, "A local var was not initialized in ir building, probably because of a mistake in pruning.");
-	return result;
-}
-*/
-
 llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, LLVM_Module_Data *data) {
 	llvm::Value *result = nullptr;
 	if((char)oper == '-') {

@@ -66,11 +66,11 @@ add_local_var(Math_Block_FT *scope, Math_Expr_FT *val) {
 	local->exprs.push_back(val);
 	local->value_type = val->value_type;
 	local->is_used = true;
-	std::stringstream ss;
-	ss << "_gen_" << scope->unique_block_id << '_' << scope->n_locals;
-	local->name = ss.str();
 	s32 id = scope->n_locals;
 	local->id = id;
+	std::stringstream ss;
+	ss << "_gen_" << scope->unique_block_id << '_' << id;
+	local->name = ss.str();
 	scope->exprs.push_back(local);
 	++scope->n_locals;
 	return make_local_var_reference(id, scope->unique_block_id, val->value_type);
@@ -211,7 +211,7 @@ struct
 Function_Scope {
 	Function_Scope *parent;
 	Math_Block_FT *block;
-	std::vector<Standardized_Unit> local_var_units;
+	std::map<int, Standardized_Unit> local_var_units;
 	std::string function_name;
 	
 	Function_Scope() : parent(nullptr), block(nullptr), function_name("") {}
@@ -226,7 +226,7 @@ resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *d
 		if(result.fun->expr_type == Math_Expr_Type::local_var) {
 			auto local = static_cast<Local_Var_FT *>(result.fun);
 			local->id = scope->block->n_locals++;
-			scope->local_var_units.push_back(result.unit);
+			scope->local_var_units[local->id] = result.unit;
 		}
 		units.push_back(std::move(result.unit));
 	}
@@ -238,7 +238,6 @@ find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::st
 	
 	auto block = scope->block;
 	if(!block->is_for_loop) {
-		int var_idx = 0;
 		for(auto expr : block->exprs) {
 			if(expr->expr_type == Math_Expr_Type::local_var) {
 				auto local = static_cast<Local_Var_FT *>(expr);
@@ -248,10 +247,9 @@ find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::st
 					ident->local_var.scope_id = block->unique_block_id;
 					ident->value_type = local->value_type;
 					local->is_used = true;
-					unit = scope->local_var_units[var_idx]; // TODO : make this a std::map also so that we can use the id to look it up
+					unit = scope->local_var_units[local->id];
 					return true;
 				}
-				++var_idx;
 			}
 		}
 	}
@@ -1056,6 +1054,12 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					resolve_arguments(inlined_fun, ast, data, scope, arg_units);
 					
 					inlined_fun->n_locals = inlined_fun->exprs.size();
+					
+					Function_Scope new_scope;
+					new_scope.parent = scope;
+					new_scope.block = inlined_fun;
+					new_scope.function_name = fun_name;
+					
 					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
 						auto arg = inlined_fun->exprs[argidx];
 						auto inlined_arg = new Local_Var_FT();
@@ -1064,6 +1068,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						inlined_arg->value_type = arg->value_type;
 						inlined_fun->exprs[argidx] = inlined_arg;
 						inlined_arg->id = argidx;
+						new_scope.local_var_units[argidx] = arg_units[argidx];
 						
 						// NOTE: With the current implementation,
 						// is_constant_dimensionless_integer could mute these, which is why we
@@ -1082,12 +1087,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							}
 						}
 					}
-					
-					Function_Scope new_scope;
-					new_scope.parent = scope;
-					new_scope.block = inlined_fun;
-					new_scope.function_name = fun_name;
-					new_scope.local_var_units = std::move(arg_units);
 					
 					Function_Resolve_Data sub_data = *data;
 					sub_data.scope = model->get_scope(fun_decl->code_scope);  // Resolve the function body in the scope of the library it was imported from (if relevant).
@@ -1628,6 +1627,22 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				return result;
 			}
 			
+			// Remove unused local variables.
+			
+			// TODO: Why doesn't this work?
+			/*
+			std::remove_if(expr->exprs.begin(), expr->exprs.end(), [](Math_Expr_FT *arg) {
+				if(arg->expr_type == Math_Expr_Type::local_var) {
+					auto local = static_cast<Local_Var_FT *>(arg);
+					if(!local->is_used) {
+						delete local;
+						return true;
+					}
+				}
+				return false;
+			});
+			*/
+			
 			// TODO Could in some instances merge neighboring if blocks if they have the same condition, but it could be tricky.
 		} break;
 		
@@ -1842,22 +1857,6 @@ precedence(Math_Expr_FT *expr) {
 		return 50'000;
 	return 1000'000;
 }
-
-/*
-struct
-Scope_Local_Vars {
-	s32 scope_id;
-	Scope_Local_Vars *scope_up;
-	std::vector<std::string> local_vars;
-};
-
-std::string
-find_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
-	while(scope->scope_id != scope_id)
-		scope = scope->scope_up;
-	return scope->local_vars[index];
-}
-*/
 
 void
 print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<std::string> *scope, std::ostream &os, int block_tabs) {
