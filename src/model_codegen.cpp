@@ -192,7 +192,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					
 					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 					if(flux_var->unit_conversion_tree)
-						flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree)); // NOTE: we need to copy it here since it is also inserted somewhere else
+						flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree.get()));
 					flux_sum = make_binop('+', flux_sum, flux_ref);
 				}
 				instr.code = flux_sum;
@@ -238,7 +238,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 							// NOTE: the unit conversion applies to what reaches the target.
 							if(flux->unit_conversion_tree)
-								flux_ref = make_binop('*', flux_ref, flux->unit_conversion_tree);
+								flux_ref = make_binop('*', flux_ref, copy(flux->unit_conversion_tree.get()));
 							fun = make_binop('+', fun, flux_ref);
 						}
 					}
@@ -252,7 +252,10 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::add_discrete_flux_to_target) {
 			
-			auto unit_conv = app->state_vars[instr.var_id]->unit_conversion_tree;
+			auto unit_conv = app->state_vars[instr.var_id]->unit_conversion_tree.get();
+			if(unit_conv)
+				unit_conv = copy(unit_conv);
+			
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, nullptr, unit_conv);
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
@@ -260,8 +263,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[instr.target_id]);
 			
 			auto weight = agg_var->aggregation_weight_tree;
-			//if(!weight)
-			//	fatal_error(Mobius_Error::internal, "Somehow we got a regular aggregation without code for computing the weight.");
 			if(weight)
 				weight = copy(weight);
 			

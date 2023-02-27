@@ -8,7 +8,7 @@ model("Another simple") {
 	
 		a : compartment("A")
 		
-		a.par_group("Pars") {
+		par_group("Pars") {
 			fc : par_real("Rate", [], 10)
 		}
 		

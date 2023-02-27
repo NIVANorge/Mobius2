@@ -26,4 +26,3 @@ MAKE_INTRINSIC1(acos, acos, fshr, real, real)
 MAKE_INTRINSIC1(asin, asin, fshr, real, real)
 MAKE_INTRINSIC1(atan, atan, fshr, real, real)
 MAKE_INTRINSIC1(cbrt, cbrt, fshr, real, real)
-

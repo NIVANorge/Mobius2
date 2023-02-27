@@ -652,15 +652,23 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 
 template<> Entity_Id
 process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}}, 1, false);
+	match_declaration(decl, {{Token_Type::quoted_string}}, -1, false);
 	
 	//TODO: Do we always need to require that a par group is tied to a component?
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
 	auto par_group = model->par_groups[id];
 	
-	par_group->component = model->components.find_or_create(&decl->decl_chain[0], scope);
-	// TODO: It should be checked that the component is not a property..
+	if(decl->decl_chain.size() == 1) {
+		par_group->component = model->components.find_or_create(&decl->decl_chain[0], scope);
+		if(model->components[par_group->component]->decl_type == Decl_Type::property) {
+			decl->decl_chain[0].source_loc.print_error_header();
+			fatal_error("A 'par_group' can not be attached to a 'property'.");
+		}
+	} else if(!decl->decl_chain.empty()) {
+		decl->source_loc.print_error_header();
+		fatal_error("A 'par_group' can only be attached to a single component.");
+	}
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 
@@ -1484,7 +1492,9 @@ load_config(Mobius_Model *model, String_View config) {
 			decl->source_loc.print_error_header();
 			fatal_error("Unknown config option \"", item, "\".");
 		}
+		delete decl;
 	}
+	model->file_handler.unload(config);
 }
 
 Mobius_Model *

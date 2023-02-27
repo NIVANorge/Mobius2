@@ -5,11 +5,10 @@
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 		Sub-indexed series data.
+		Named sub-indexes?
 
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
-
-	The bug in nivafjord with the aggregation variable that breaks everything (probably related to the problem above).
 
 	Finish connection system
 
@@ -42,9 +41,8 @@
 
 		It could probably be better if you *only* declare the time unit for the flux
 			Alternatively need some way to construct units, like
-				unit(soil.water.oc.tox, [day-1])
-
-		Dynamic module choice (based on data set)
+				combine_unit(soil.water.oc.tox, [day-1])
+				
 
 		Falls under new module loading system if/when we make that:
 			Template system: Processes not specified per compartment / quantity. Can be attached to those.
@@ -56,11 +54,10 @@
 				
 			Let declarations in inlined modules be able to view decls the parent model scope.
 			
-			The 'extend_model' system is just not that good. Will be problems when you want to override something in the earlier model,
+			The 'extend' system is just not that good. Will be problems when you want to override something in the earlier model,
 			or if two extended models load the same module (not a problem before, but will be if we allow multiple loads of the same module, which can then cause unintended duplicates)
 			
-		Ties into constant properties system (when we make that)
-			If a quantity is .override and can be inferred to be constant, it should not be computed at all except in the initial step.
+			Dynamic module choice (based on data set)
 			
 		
 		Check for conflicting declarations of variables (unit, name).
@@ -76,25 +73,24 @@
 			(in many cases we just loop over all fluxes and try to find common things for them)
 			loc1, loc2, unit_conv, connection, etc.
 		
-		New location format identifier.chain[connection.qualifier]
+		New location format identifier.chain[connection.qualifier] (partially done)
 			Make the placement on source or target of flux actually matter! (maybe tie it to the var location?)
 			Allow things like
 				flux(nowhere, layer.water[connection])
 				? Although how would you specify that in the data file??
 	
 	*** Low-pri ****
-	
-		System for having configured the root Mobius2 folder so that it knows where modules and stdlib are.
 		
 		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something more similar to Mobius1)
 	
 		Make in_flux deal correctly with boundary fluxes.
 			Should not be added in regular in_flux.
+			Isn't this already the case since they have a connection though?
 		
 		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
-			may be irrelevant if we switch to the new module loading system?
 	
 		Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
+			Must also handle if there is a constant .override
 			
 		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
 			could be tricky wrt units.
@@ -141,12 +137,17 @@
 		
 		Make mobipy work again (and better).
 		
-		emulate_expression() is broken, at least for full model runs.
-		
 		Set units of regular aggregation state variables so that they display correctly if viewed.
 			note that it is a bit tricky for fluxes.
 			
 		aggregate() of series and parameters.
+		
+		
+		
+		
+		
+		
+		
 		
 	*****************   DONE:   ***********************
 	
@@ -277,3 +278,7 @@
 			.override or .override_conc should be used for initial value if no initial is provided (?)
 			
 	Allow declaration of no_carry inside modules.
+	
+	emulate_expression() is broken, at least for full model runs.
+	
+	System for having configured the root Mobius2 folder so that it knows where modules and stdlib are.

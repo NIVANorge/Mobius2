@@ -37,7 +37,7 @@ State_Var {
 	Var_Location   loc2;
 	Boundary_Type  boundary_type;
 	
-	Math_Expr_FT *unit_conversion_tree;
+	std::unique_ptr<Math_Expr_FT> unit_conversion_tree;
 	
 	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location), boundary_type(Boundary_Type::none) {};
 	

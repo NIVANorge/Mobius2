@@ -28,11 +28,8 @@ bottom_directory_is(String_View path, String_View directory);
 
 struct
 File_Data_Handler {
-	//Linear_Allocator allocator; // this is just for storing file names. But for now this is needed, as it would be tricky wrt other parts of the implementation to switch file names to std::string.
-	//string_map<String_View> loaded_files;
+
 	std::unordered_map<std::string, String_View> loaded_files;
-	
-	//File_Data_Handler() : allocator(1024*1024) {};
 	
 	String_View
 	load_file(String_View file_name, Source_Location from = {}, String_View relative_to = {}, std::string *normalized_path_out = nullptr);
@@ -47,7 +44,7 @@ File_Data_Handler {
 	}
 	
 	void
-	unload(String_View file_name, String_View relative_to) {
+	unload(String_View file_name, String_View relative_to = {}) {
 		String_View load_name = file_name;
 		if(relative_to.count)
 			load_name = make_path_relative_to(file_name, relative_to);

@@ -131,6 +131,7 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
 			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in apply_intrinsic(a, b).");
 		}
 	} else if (function == "copysign") {
+		result.type = Value_Type::real;
 		result.val_real = std::copysign(a.val_real, b.val_real);
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic(a, b).");
@@ -237,6 +238,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 	return result;
 }
 
+/*
 struct
 Scope_Local_Vars {
 	s32 scope_id;
@@ -257,7 +259,7 @@ get_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 		fatal_error(Mobius_Error::internal, "Mis-counting of local variables in emulation.");
 	return scope->local_vars[index];
 }
-
+*/
 
 #define DO_DEBUG 0
 #if DO_DEBUG
@@ -267,7 +269,7 @@ get_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 #endif
 
 Typed_Value
-emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars *locals) {
+emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<Typed_Value> *locals) {
 	if(!expr)
 		fatal_error(Mobius_Error::internal, "Got a nullptr expression in emulate_expression().");
 	
@@ -277,16 +279,17 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 		case Math_Expr_Type::block : {
 			auto block= static_cast<Math_Block_FT *>(expr);
 			Typed_Value result;
-			Scope_Local_Vars new_locals;
+			Scope_Local_Vars<Typed_Value> new_locals;
 			new_locals.scope_id = block->unique_block_id;
 			new_locals.scope_up = locals;
-			new_locals.local_vars.resize(block->n_locals);
+			//new_locals.local_vars.resize(block->n_locals);
 			if(!block->is_for_loop) {
 				int index = 0;
 				for(auto sub_expr : expr->exprs) {
 					result = emulate_expression(sub_expr, state, &new_locals);
 					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
-						new_locals.local_vars[index] = result;
+						auto local = static_cast<Local_Var_FT *>(sub_expr);
+						new_locals.values[local->id] = result;
 						++index;
 					}
 				}
@@ -294,8 +297,8 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 				//DEBUG(warning_print("for loop with ", block->n_locals, " locals\n"))
 				s64 n = emulate_expression(expr->exprs[0], state, locals).val_integer;
 				for(s64 i = 0; i < n; ++i) {
-					new_locals.local_vars[0].val_integer = i;
-					new_locals.local_vars[0].type = Value_Type::integer;
+					new_locals.values[0].val_integer = i;
+					new_locals.values[0].type = Value_Type::integer;
 					result = emulate_expression(expr->exprs[1], state, &new_locals);
 				}
 			}
@@ -337,7 +340,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 				} break;
 				
 				case Variable_Type::local : {
-					result = get_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+					result = find_local_var(locals, ident->local_var);
 				} break;
 				
 				case Variable_Type::index_count : {
@@ -350,7 +353,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars 
 					result = Typed_Value {val, expr->value_type}; \
 				} break;
 				#include "time_values.incl"
-				#undef TIME_VALUE			
+				#undef TIME_VALUE
 				
 				case Variable_Type::time_fractional_step : {
 					result.val_real = state->solver_t;

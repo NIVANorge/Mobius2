@@ -50,11 +50,11 @@ make_state_var_identifier(Var_Id state_var) {
 }
 
 Math_Expr_FT *
-make_local_var_reference(s32 index, s32 scope_id, Value_Type value_type) {
+make_local_var_reference(s32 id, s32 scope_id, Value_Type value_type) {
 	auto ident = new Identifier_FT();
 	ident->value_type    = value_type;
 	ident->variable_type = Variable_Type::local;
-	ident->local_var.index = index;
+	ident->local_var.id = id;
 	ident->local_var.scope_id = scope_id;
 	return ident;
 }
@@ -69,10 +69,11 @@ add_local_var(Math_Block_FT *scope, Math_Expr_FT *val) {
 	std::stringstream ss;
 	ss << "_gen_" << scope->unique_block_id << '_' << scope->n_locals;
 	local->name = ss.str();
-	s32 index = scope->n_locals;
+	s32 id = scope->n_locals;
+	local->id = id;
 	scope->exprs.push_back(local);
 	++scope->n_locals;
-	return make_local_var_reference(index, scope->unique_block_id, val->value_type);
+	return make_local_var_reference(id, scope->unique_block_id, val->value_type);
 }
 
 Math_Expr_FT *
@@ -223,8 +224,9 @@ resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *d
 		auto result = resolve_function_tree(arg, data, scope);
 		ft->exprs.push_back(result.fun);
 		if(result.fun->expr_type == Math_Expr_Type::local_var) {
+			auto local = static_cast<Local_Var_FT *>(result.fun);
+			local->id = scope->block->n_locals++;
 			scope->local_var_units.push_back(result.unit);
-			scope->block->n_locals++;
 		}
 		units.push_back(std::move(result.unit));
 	}
@@ -242,11 +244,11 @@ find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::st
 				auto local = static_cast<Local_Var_FT *>(expr);
 				if(local->name == name) {
 					ident->variable_type = Variable_Type::local;
-					ident->local_var.index = var_idx;
+					ident->local_var.id = local->id;
 					ident->local_var.scope_id = block->unique_block_id;
 					ident->value_type = local->value_type;
 					local->is_used = true;
-					unit = scope->local_var_units[var_idx];
+					unit = scope->local_var_units[var_idx]; // TODO : make this a std::map also so that we can use the id to look it up
 					return true;
 				}
 				++var_idx;
@@ -1061,6 +1063,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						inlined_arg->name = fun_decl->args[argidx];
 						inlined_arg->value_type = arg->value_type;
 						inlined_fun->exprs[argidx] = inlined_arg;
+						inlined_arg->id = argidx;
 						
 						// NOTE: With the current implementation,
 						// is_constant_dimensionless_integer could mute these, which is why we
@@ -1389,7 +1392,7 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
 	int index = 0;
 	for(auto loc : block->exprs) {
 		if(loc->expr_type == Math_Expr_Type::local_var) {
-			if (index == ident->local_var.index) {
+			if (index == ident->local_var.id) {
 				loc->exprs[0] = prune_tree(loc->exprs[0], sc); // TODO: This is not very clean, and causes double work some times, but is needed if we want to use this from constant checking in the unit checking. Should probably instead make a separate constant checking thing rather than prune_tree!
 				if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
 					auto literal        = new Literal_FT();
@@ -1840,6 +1843,7 @@ precedence(Math_Expr_FT *expr) {
 	return 1000'000;
 }
 
+/*
 struct
 Scope_Local_Vars {
 	s32 scope_id;
@@ -1853,9 +1857,10 @@ find_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 		scope = scope->scope_up;
 	return scope->local_vars[index];
 }
+*/
 
 void
-print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars *scope, std::ostream &os, int block_tabs) {
+print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<std::string> *scope, std::ostream &os, int block_tabs) {
 
 	auto model = app->model;
 	
@@ -1864,15 +1869,15 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars *
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);
-			Scope_Local_Vars new_scope;
+			Scope_Local_Vars<std::string> new_scope;
 			new_scope.scope_id = block->unique_block_id;
 			new_scope.scope_up = scope;
-			new_scope.local_vars.resize(block->n_locals);
+			//new_scope.local_vars.resize(block->n_locals);
 			if(block->is_for_loop) {
 				std::stringstream ss;
 				ss << "iter_" << block->unique_block_id;
 				std::string iter_name = ss.str();
-				new_scope.local_vars[0] = iter_name;
+				new_scope.values[0] = iter_name;
 				os << "for " << iter_name << " : 0..";
 				print_tree_helper(app, block->exprs[0], &new_scope, os, block_tabs);
 				os << "\n";
@@ -1884,7 +1889,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars *
 				for(auto exp : block->exprs) {
 					if(exp->expr_type == Math_Expr_Type::local_var) {
 						auto local = static_cast<Local_Var_FT *>(exp);
-						new_scope.local_vars[idx++] = local->name;
+						new_scope.values[local->id] = local->name;
 					}
 					print_tabs(block_tabs+1, os);
 					print_tree_helper(app, exp, &new_scope, os, block_tabs+1);
@@ -1905,7 +1910,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars *
 				os << "last(";
 			}
 			if(ident->variable_type == Variable_Type::local)
-				os << find_local_var(scope, ident->local_var.index, ident->local_var.scope_id);
+				os << find_local_var(scope, ident->local_var);
 			else if(ident->variable_type == Variable_Type::parameter)
 				os << model->parameters[ident->par_id]->symbol;
 			else

@@ -255,7 +255,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 	}
 	
 	auto pgd = model->par_groups[group_id];
-	if(is_valid(pgd->component)) {  // It is invalid for the "System" par group
+	if(is_valid(pgd->component)) {  // It is invalid for the "System" par group or other global par groups
 		auto comp  = model->components[pgd->component];
 		
 		auto &index_sets = par_group_index_sets[group_id];

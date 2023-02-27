@@ -185,8 +185,8 @@ get_jitted_batch_function(const std::string &fun_name) {
 	since there are no union types in llvm, we treat Parameter_Value as a double and use bitcast when we want it as other types.
 */
 
-struct Scope_Local_Vars;
-llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
+//struct Scope_Local_Vars;
+llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
 
 llvm::GlobalVariable *
 jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const char *name) {
@@ -268,7 +268,7 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	warning_print("Verification done.\n");
 }
 
-
+/*
 struct
 Scope_Local_Vars {
 	s32 scope_id;
@@ -292,6 +292,7 @@ find_local_var(Scope_Local_Vars *scope, s32 index, s32 scope_id) {
 		fatal_error(Mobius_Error::internal, "A local var was not initialized in ir building, probably because of a mistake in pruning.");
 	return result;
 }
+*/
 
 llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, LLVM_Module_Data *data) {
 	llvm::Value *result = nullptr;
@@ -465,7 +466,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 
 
 llvm::Value *
-build_if_chain_ir(Math_Expr_FT **exprs, size_t exprs_size, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_if_chain_ir(Math_Expr_FT **exprs, size_t exprs_size, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
 	//TODO: we could maybe optimize by having only one merge block and phi node!
 	
@@ -513,7 +514,7 @@ build_if_chain_ir(Math_Expr_FT **exprs, size_t exprs_size, Scope_Local_Vars *loc
 }
 
 llvm::Value *
-build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_local, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Value *> *loop_local, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	llvm::Value *start_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // Iterator starts at 0
 	
 	llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
@@ -526,7 +527,7 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_lo
 	// Create the iterator
 	llvm::PHINode *iter = data->builder->CreatePHI(llvm::Type::getInt64Ty(*data->context), 2, "index");
 	iter->addIncoming(start_val, pre_header_block);
-	loop_local->local_vars[0] = iter;
+	loop_local->values[0] = iter;
 	
 	// Insert the loop body
 	build_expression_ir(body, loop_local, args, data);
@@ -548,7 +549,7 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars *loop_lo
 }
 
 llvm::Value *
-build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
 	if(!expr)
 		fatal_error(Mobius_Error::internal, "Got a nullptr expression in build_expression_ir().");
@@ -559,22 +560,22 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);
 			llvm::Value *result = nullptr;
-			Scope_Local_Vars new_locals;
+			Scope_Local_Vars<llvm::Value *> new_locals;
 			new_locals.scope_id = block->unique_block_id;
 			new_locals.scope_up = locals;
-			new_locals.local_vars.resize(block->n_locals);
+			//new_locals.local_vars.resize(block->n_locals);
 			if(!block->is_for_loop) {
-				int index = 0;
+				//int index = 0;
 				for(auto sub_expr : expr->exprs) {
 					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
 						auto local = static_cast<Local_Var_FT *>(sub_expr);
 						if(local->is_used) {
 							result = build_expression_ir(sub_expr, &new_locals, args, data);
-							new_locals.local_vars[index] = result;
-						} else {
-							new_locals.local_vars[index] = nullptr;
-						}
-						++index;
+							new_locals.values[local->id] = result;
+						} /*else {
+							new_locals.values[local->id] = nullptr; // TODO: Should not be necessary
+						}*/
+						//++index;
 					} else
 						result = build_expression_ir(sub_expr, &new_locals, args, data);
 				}
@@ -619,7 +620,9 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars *locals, std::vector<ll
 				result = data->builder->CreateGEP(double_ty, args[1], offset, "series_lookup");
 				result = data->builder->CreateLoad(double_ty, result, "series");
 			} else if(ident->variable_type == Variable_Type::local) {
-				result = find_local_var(locals, ident->local_var.index, ident->local_var.scope_id);
+				result = find_local_var(locals, ident->local_var);
+				if(!result)
+					fatal_error(Mobius_Error::internal, "A local var was not initialized in ir building.");
 			} else if(ident->variable_type == Variable_Type::connection_info) {
 				result = data->builder->CreateGEP(int_32_ty, data->global_connection_data, offset, "connection_info_lookup");
 				result = data->builder->CreateLoad(int_32_ty, result, "connection_info");

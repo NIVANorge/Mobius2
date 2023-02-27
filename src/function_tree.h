@@ -3,6 +3,8 @@
 #ifndef MOBIUS_FUNCTION_TREE_H
 #define MOBIUS_FUNCTION_TREE_H
 
+#include <map>
+
 #include "common_types.h"
 #include "model_declaration.h"
 
@@ -64,11 +66,14 @@ inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 }
 
 struct
+Local_Var_Id {
+	s32 scope_id;
+	s32 id;
+};
+
+struct
 Identifier_FT : Math_Expr_FT, Identifier_Data {
-	struct {
-		s32 index;
-		s32 scope_id;
-	} local_var;
+	Local_Var_Id local_var; // NOTE: Only used if the Identifier_Data::variable_type is local_var.
 	
 	Identifier_FT() : Math_Expr_FT(Math_Expr_Type::identifier), Identifier_Data() { };
 };
@@ -99,6 +104,7 @@ Operator_FT : Math_Expr_FT {
 struct
 Local_Var_FT : Math_Expr_FT {
 	std::string   name;
+	s32           id;
 	bool          is_used;
 	
 	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
@@ -194,6 +200,30 @@ copy(Math_Expr_FT *source);
 
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);
+
+
+template<typename T> struct
+Scope_Local_Vars {
+	s32 scope_id;
+	Scope_Local_Vars<T> *scope_up;
+	std::map<s32, T> values;
+};
+
+template<typename T> T
+find_local_var(Scope_Local_Vars<T> *scope, Local_Var_Id id) {
+	if(!scope)
+		fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable.");
+	while(scope->scope_id != id.scope_id) {
+		scope = scope->scope_up;
+		if(!scope)
+			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable.");
+	}
+	auto find = scope->values.find(id.id);
+	if(find == scope->values.end())
+		fatal_error(Mobius_Error::internal, "A local variable is missing from a scope.");
+	
+	return find->second;
+}
 
 
 #endif // MOBIUS_FUNCTION_TREE_H

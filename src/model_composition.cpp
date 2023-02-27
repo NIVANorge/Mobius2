@@ -273,8 +273,9 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Va
 		
 	auto par = model->parameters[par_id];
 	auto par_comp_id = model->par_groups[par->par_group]->component;
-	// TODO: invalid component should only happen for the "System" par group, and in that case we should probably not have referenced that parameter, but it is a bit out of scope for this function to handle it.
-	if(!is_valid(par_comp_id)) return false;
+	
+	// Global parameters should be accessible from anywhere.
+	if(!is_valid(par_comp_id)) return true;
 	
 	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
 	Var_Location loc;
@@ -777,7 +778,7 @@ compose_and_resolve(Model_Application *app) {
 		if(!var->is_valid()) continue;
 		if(var->is_flux()) {
 			// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
-			var->unit_conversion_tree = get_unit_conversion(app, var->loc1, var->loc2, var_id);
+			var->unit_conversion_tree = std::unique_ptr<Math_Expr_FT>(get_unit_conversion(app, var->loc1, var->loc2, var_id));
 			auto transported_id = invalid_var;
 			if(is_located(var->loc1)) transported_id = app->state_vars.id_of(var->loc1);
 			else if(is_located(var->loc2)) transported_id = app->state_vars.id_of(var->loc2);
@@ -1057,10 +1058,10 @@ compose_and_resolve(Model_Application *app) {
 			agg_var->loc2 = var->loc2;
 			var->loc2.type = Var_Location::Type::nowhere;
 			
-			agg_var->unit_conversion_tree = var->unit_conversion_tree;
+			agg_var->unit_conversion_tree = std::move(var->unit_conversion_tree);
 			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
 			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
-			var->unit_conversion_tree = nullptr;
+			//var->unit_conversion_tree = nullptr;
 			agg_var->agg_to_compartment = to_compartment;
 			
 			for(auto looked_up_by : need_agg.second.second) {
