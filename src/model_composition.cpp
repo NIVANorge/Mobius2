@@ -738,9 +738,9 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 			loc.components[0] = source_id;
 			Conversion_Data data;
 			data.source_id = app->state_vars.id_of(loc);
-			data.weight = get_aggregation_weight(app, loc, target_comp, conn_id);
-			data.unit_conv = get_unit_conversion(app, loc, loc2, target_var_id);
-			if(data.weight || data.unit_conv) agg_var->conversion_data.push_back(data);
+			data.weight = owns_code(get_aggregation_weight(app, loc, target_comp, conn_id));
+			data.unit_conv = owns_code(get_unit_conversion(app, loc, loc2, target_var_id));
+			if(data.weight || data.unit_conv) agg_var->conversion_data.push_back(std::move(data));
 		}
 	}
 }
@@ -892,7 +892,7 @@ compose_and_resolve(Model_Application *app) {
 				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
 			}
 		}
-		var2->function_tree = fun;
+		var2->function_tree = owns_code(fun);
 		
 		res_data.scope = other_code_scope;
 		if(init_ast) {
@@ -900,10 +900,10 @@ compose_and_resolve(Model_Application *app) {
 				res_data.expected_unit = app->state_vars[var2->conc]->unit.standard_form;
 			
 			auto fun = resolve_function_tree(init_ast, &res_data);
-			var2->initial_function_tree = make_cast(fun.fun, Value_Type::real);
-			remove_lasts(var2->initial_function_tree, true);
-			replace_conc(app, var2->initial_function_tree);  // Replace explicit conc() calls by pointing them to the conc variable
-			find_other_flags(var2->initial_function_tree, in_flux_map, needs_aggregate, var_id, from_compartment, true);
+			var2->initial_function_tree = owns_code(make_cast(fun.fun, Value_Type::real));
+			remove_lasts(var2->initial_function_tree.get(), true);
+			replace_conc(app, var2->initial_function_tree.get());  // Replace explicit conc() calls by pointing them to the conc variable
+			find_other_flags(var2->initial_function_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			var2->initial_is_conc = initial_is_conc;
 			
 			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
@@ -939,10 +939,10 @@ compose_and_resolve(Model_Application *app) {
 					fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
 				}
 				
-				var2->override_tree = make_cast(override_tree, Value_Type::real);
+				var2->override_tree = owns_code(make_cast(override_tree, Value_Type::real));
 				var2->override_is_conc = override_is_conc;
-				replace_conc(app, var2->override_tree);
-				find_other_flags(var2->override_tree, in_flux_map, needs_aggregate, var_id, from_compartment, false);
+				replace_conc(app, var2->override_tree.get());
+				find_other_flags(var2->override_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			}
 		} else
 			var2->override_tree = nullptr;
@@ -1044,7 +1044,7 @@ compose_and_resolve(Model_Application *app) {
 			
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[agg_id]);
 			agg_var->agg_of = var_id;
-			agg_var->aggregation_weight_tree = agg_weight;
+			agg_var->aggregation_weight_tree = owns_code(agg_weight);
 			if(var->is_flux())
 				agg_var->flags = (State_Var::Flags)(agg_var->flags | State_Var::Flags::flux);
 			
@@ -1077,11 +1077,11 @@ compose_and_resolve(Model_Application *app) {
 				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
 				
 				if(lu->function_tree)
-					replace_flagged(lu->function_tree, var_id, agg_id, Identifier_FT::Flags::aggregate);
+					replace_flagged(lu->function_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->override_tree)
-					replace_flagged(lu->override_tree, var_id, agg_id, Identifier_FT::Flags::aggregate);
+					replace_flagged(lu->override_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->initial_function_tree)
-					replace_flagged(lu->initial_function_tree, var_id, agg_id, Identifier_FT::Flags::aggregate);
+					replace_flagged(lu->initial_function_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
 			}
 		}
 	}
@@ -1158,7 +1158,7 @@ compose_and_resolve(Model_Application *app) {
 		
 		for(auto rep_id : in_flux.second) {
 			auto var = as<State_Var::Type::declared>(app->state_vars[rep_id]);
-			replace_flagged(var->function_tree, target_id, in_flux_id, Identifier_FT::Flags::in_flux);
+			replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux);
 		}
 	}
 
@@ -1170,9 +1170,10 @@ compose_and_resolve(Model_Application *app) {
 		auto var2 = as<State_Var::Type::declared>(var);
 		
 		if(var2->function_tree)
-			check_valid_distribution_of_dependencies(app, var2->function_tree,         var, false);
+			check_valid_distribution_of_dependencies(app, var2->function_tree.get(),         var, false);
 		if(var2->initial_function_tree)
-			check_valid_distribution_of_dependencies(app, var2->initial_function_tree, var, true);
+			check_valid_distribution_of_dependencies(app, var2->initial_function_tree.get(), var, true);
+		// TODO: This should chekc the override tree too?
 	}
 	
 	

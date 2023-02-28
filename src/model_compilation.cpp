@@ -397,7 +397,7 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
 				if(var2->function_tree) {
-					instr->code = var2->function_tree;
+					instr->code = copy(var2->function_tree.get());
 					// Have to do this recursively, since we may already have passed it in the outer loop.
 					create_initial_vars_for_lookups(app, instr->code, instructions);
 				}
@@ -419,7 +419,7 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 				if(var_agg_of->type == State_Var::Type::declared) {
 					auto var_agg_of2 = as<State_Var::Type::declared>(var_agg_of);
 					if(var_agg_of2->function_tree) {
-						instr_agg_of->code = var_agg_of2->function_tree;
+						instr_agg_of->code = copy(var_agg_of2->function_tree.get());
 						create_initial_vars_for_lookups(app, instr_agg_of->code, instructions);
 					}
 				}
@@ -439,32 +439,34 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
-		if(!var->is_valid()) continue;
+		auto &instr = instructions[var_id.id];
 		
+		if(!var->is_valid()) {
+			instr.type = Model_Instruction::Type::invalid;
+			continue;
+		}
+		
+		// TODO: Couldn't the lookup of the function be moved to instruction_codegen ?
 		Math_Expr_FT *fun = nullptr;
 		if(var->type == State_Var::Type::declared) {
 			auto var2 = as<State_Var::Type::declared>(var);
 			
-			fun = var2->function_tree;
-			if(initial) fun = var2->initial_function_tree;
+			fun = var2->function_tree.get();
+			if(initial) fun = var2->initial_function_tree.get();
 			if(!initial && !fun) {
 				if(var2->decl_type != Decl_Type::quantity) // NOTE: quantities typically don't have code associated with them directly (except for the initial value)
 					fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			}
 		}
 		
-		Model_Instruction instr;
 		instr.type = Model_Instruction::Type::compute_state_var;
-		
-		if(var->flags & State_Var::Flags::invalid)
-			instr.type = Model_Instruction::Type::invalid;
 		
 		if(!fun && initial)
 			instr.type = Model_Instruction::Type::invalid;
+		if(fun)
+			fun = copy(fun);
 		instr.var_id = var_id;
 		instr.code = fun;
-		
-		instructions[var_id.id] = std::move(instr);
 	}
 	
 	if(initial) {
@@ -607,10 +609,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// We need to clear the aggregation variable to 0 between each time it is needed.
 			int clear_idx = instructions.size();
-			instructions.push_back({});
+			instructions.emplace_back();
 			
 			int add_to_aggr_idx = instructions.size();
-			instructions.push_back({});
+			instructions.emplace_back();
 			
 			// The instruction for the var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
 			auto agg_instr = &instructions[var_id.id];
@@ -664,7 +666,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			//warning_print("************ Found it\n");
 			
 			int clear_id = instructions.size();
-			instructions.push_back({});
+			instructions.emplace_back();
 			auto clear_instr       = &instructions[clear_id];
 			clear_instr->type = Model_Instruction::Type::clear_state_var;
 			clear_instr->solver = var_solver;
@@ -718,7 +720,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				// Create instruction to add the flux to the target aggregate.
 				int add_to_aggr_id = instructions.size();
-				instructions.push_back({});
+				instructions.emplace_back();
 				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 				
 				add_to_aggr_instr->solver = var_solver;
@@ -811,14 +813,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		Var_Id source_id;
 		if(is_located(loc1) && !is_aggregate) {
 			source_id = app->state_vars.id_of(loc1);
-			Model_Instruction *source = &instructions[source_id.id];
-			source_solver = source->solver;
+			source_solver = instructions[source_id.id].solver;
 			auto source_var = as<State_Var::Type::declared>(app->state_vars[source_id]);
 			
 			// If the source is not an ODE variable, generate an instruction to subtract the flux from the source.
 			
 			if(!is_valid(source_solver) && !source_var->override_tree) {
-				Model_Instruction sub_source_instr;
+				int sub_idx = (int)instructions.size();
+				instructions.emplace_back();
+				
+				auto &sub_source_instr = instructions.back();
 				sub_source_instr.type = Model_Instruction::Type::subtract_discrete_flux_from_source;
 				sub_source_instr.var_id = var_id;
 				
@@ -828,14 +832,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				sub_source_instr.source_id = source_id;
 				
 				//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. In the discrete case it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
-				int sub_idx = (int)instructions.size();
-				source->depends_on_instruction.insert(sub_idx);
+				instructions[source_id.id].depends_on_instruction.insert(sub_idx);
 				
 				sub_add_instrs.push_back(sub_idx);
 				//instructions[var_id.id].loose_depends_on_instruction.insert(sub_idx);
-
-				
-				instructions.push_back(std::move(sub_source_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
 		bool is_connection = is_valid(connection_of_flux(var));
@@ -845,12 +845,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
 			Var_Id target_id = app->state_vars.id_of(loc2);
 			
-			Model_Instruction *target = &instructions[target_id.id];
-			Entity_Id target_solver = target->solver;
+			Entity_Id target_solver = instructions[target_id.id].solver;
 			auto target_var = as<State_Var::Type::declared>(app->state_vars[target_id]);
 			
 			if(!is_valid(target_solver) && !target_var->override_tree) {
-				Model_Instruction add_target_instr;
+				int add_idx = (int)instructions.size();
+				instructions.emplace_back();
+				
+				Model_Instruction &add_target_instr = instructions.back();
 				add_target_instr.type   = Model_Instruction::Type::add_discrete_flux_to_target;
 				add_target_instr.var_id = var_id;
 				
@@ -858,17 +860,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
 				add_target_instr.target_id = target_id;
 				
-				int add_idx = (int)instructions.size();
 				sub_add_instrs.push_back(add_idx);
 				
-				target->depends_on_instruction.insert(add_idx);
+				instructions[target_id.id].depends_on_instruction.insert(add_idx);
 			
 				//instructions[var_id.id].loose_depends_on_instruction.insert(add_idx);
 				
 				// NOTE: this one is needed because of unit conversions, which could give an extra index set dependency to the add instruction.
 				instructions[target_id.id].inherits_index_sets_from_instruction.insert(add_idx);
-				
-				instructions.push_back(std::move(add_target_instr)); // NOTE: this must go at the bottom because it can invalidate pointers into "instructions"
 			}
 		}
 		
@@ -891,7 +890,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 							// should have a lookup structure for it!
 							for(auto var_id_2 : app->state_vars) {
 								auto var2 = app->state_vars[var_id_2];
-								if(!var2->is_valid() || !var2->is_flux() || var2->type != State_Var::Type::declared) continue;
+								if(!var2->is_valid() || var2->type != State_Var::Type::declared) continue;
 								if(as<State_Var::Type::declared>(var2)->decl_id == flux_id) {
 									instructions[var_id_2.id].depends_on_instruction.insert(sub_add_instrs.begin(), sub_add_instrs.end());
 								}
@@ -1342,4 +1341,13 @@ Model_Application::compile() {
 	}
 	
 	is_compiled = true;
+	
+	// TODO: This still sometimes breaks.
+	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
+	/*
+	for(auto &instr : instructions)
+		delete instr.code;
+	for(auto &instr : initial_instructions)
+		delete instr.code;
+	*/
 }

@@ -4,6 +4,9 @@
 
 
 Math_Expr_FT *
+prune_helper(Math_Expr_FT *expr, Function_Scope *scope);
+
+Math_Expr_FT *
 optimize_pow_int(Math_Expr_FT *lhs, s64 p) {
 	// Note: case p == 0 is handled in another call. Also for p == 1, but we also use this for powers 1.5 etc. see below
 	Math_Expr_FT *result = nullptr;
@@ -97,15 +100,15 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
 	for(auto loc : block->exprs) {
 		if(loc->expr_type == Math_Expr_Type::local_var) {
 			if (index == ident->local_var.id) {
-				loc->exprs[0] = prune_tree(loc->exprs[0], sc); // TODO: This is not very clean, and causes double work some times, but is needed if we want to use this from constant checking in the unit checking. Should probably instead make a separate constant checking thing rather than prune_tree!
+				loc->exprs[0] = prune_helper(loc->exprs[0], sc); // TODO: This is not very clean, and causes double work some times, but is needed if we want to use this from constant checking in the unit checking. Should probably instead make a separate constant checking thing rather than prune_helper!
 				if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
 					auto literal        = new Literal_FT();
 					auto loc2           = static_cast<Local_Var_FT *>(loc);
 					auto loc_literal    = static_cast<Literal_FT *>(loc->exprs[0]);
 					literal->value      = loc_literal->value;
 					literal->value_type = loc_literal->value_type;
-					literal->source_loc   = ident->source_loc;
-					loc2->is_used       = false; //   note. we can't remove the local var itself since that would invalidate other local var references, but we could just ignore it in code generation later.
+					literal->source_loc = ident->source_loc;
+					loc2->is_used       = false;
 					delete expr;
 					return literal;
 				} else if (loc->exprs[0]->expr_type == Math_Expr_Type::identifier) {
@@ -293,7 +296,7 @@ binop_reduction_second_pass(Math_Expr_FT *expr) {
 }
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
+prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {
 	
 	// Try to simplify the math expression if some components can be evaluated to constants at compile time.
 	//    Some of this could be left to llvm, but it is beneficial make the job easier for llvm, and we do see improvements from some of these optimizations.
@@ -307,7 +310,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 	}
 	
 	for(auto &arg : expr->exprs)
-		arg = prune_tree(arg, scope);
+		arg = prune_helper(arg, scope);
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
@@ -319,7 +322,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				delete block->exprs[0];
 				auto result = block->exprs[1];
 				result = replace_iteration_index(result, block->unique_block_id); // Replace the iteration index with constant 0 in the body.
-				result = prune_tree(result, scope);  // We could maybe prune more now that more stuff could be constant.
+				result = prune_helper(result, scope);  // We could maybe prune more now that more stuff could be constant.
 				
 				block->exprs.clear();
 				delete block;
@@ -331,22 +334,6 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 				delete block;
 				return result;
 			}
-			
-			// Remove unused local variables.
-			
-			// For some reason this doesn't work as someone still try to look up the local variable. Why?
-			/*
-			std::remove_if(expr->exprs.begin(), expr->exprs.end(), [](Math_Expr_FT *arg) {
-				if(arg->expr_type == Math_Expr_Type::local_var) {
-					auto local = static_cast<Local_Var_FT *>(arg);
-					if(!local->is_used) {
-						delete local;
-						return true;
-					}
-				}
-				return false;
-			});
-			*/
 			
 			// TODO Could in some instances merge neighboring if blocks if they have the same condition, but it could be tricky.
 		} break;
@@ -411,7 +398,7 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 		case Math_Expr_Type::if_chain : {
 			
 			if(expr->exprs.size() % 2 != 1)
-				fatal_error(Mobius_Error::internal, "Got malformed if chain in prune_tree.");
+				fatal_error(Mobius_Error::internal, "Got malformed if chain in prune_helper.");
 			
 			std::vector<Math_Expr_FT *> remains;
 			bool found_true = false;
@@ -473,17 +460,29 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope) {
 }
 
 void
-register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
-	for(auto arg : expr->exprs) register_dependencies(arg, depends);
-	
-	if(expr->expr_type != Math_Expr_Type::identifier) return;
-	auto ident = static_cast<Identifier_FT *>(expr);
-
-	if(ident->variable_type == Variable_Type::parameter)
-		depends->on_parameter.insert(*ident);
-	else if(ident->variable_type == Variable_Type::state_var)
-		depends->on_state_var.insert(*ident);
-	else if(ident->variable_type == Variable_Type::series)
-		depends->on_series.insert(*ident);
-	
+remove_unused_locals(Math_Expr_FT *expr) {
+	if(expr->expr_type == Math_Expr_Type::block) {
+		expr->exprs.erase(std::remove_if(expr->exprs.begin(), expr->exprs.end(), [](Math_Expr_FT *arg) {
+			if(arg->expr_type == Math_Expr_Type::local_var) {
+				auto local = static_cast<Local_Var_FT *>(arg);
+				if(!local->is_used) {
+					delete local;
+					return true;
+				}
+			}
+			return false;
+		}), expr->exprs.end());
+	}
+	for(auto arg : expr->exprs)
+		remove_unused_locals(arg);
 }
+
+Math_Expr_FT *
+prune_tree(Math_Expr_FT *expr, Function_Scope *scope, bool prune_unused_locals) {
+	auto result = prune_helper(expr, scope);
+	if(prune_unused_locals)
+		remove_unused_locals(result);
+	return result;
+}
+
+

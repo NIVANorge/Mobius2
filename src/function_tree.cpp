@@ -482,12 +482,9 @@ check_boolean_dimensionless(Standardized_Unit &unit, Source_Location &error_loc,
 
 bool
 is_constant_dimensionless_integer(Standardized_Unit &unit, Math_Expr_FT **expr, Function_Scope *scope, s64 *result) {
-	*expr = prune_tree(*expr, scope);	// TODO: It is not that good to do this at this stage as it may mask other consistency checks in model_composition, but it is very hard to get around :(
+	*expr = prune_tree(*expr, scope, false);	// TODO: It is not that good to do this at this stage as it may mask other consistency checks in model_composition, but it is very hard to get around :(
 	auto expr0 = *expr;
 	if(expr0->expr_type != Math_Expr_Type::literal) {
-		//warning_print("\nUnresolved tree:\n");
-		//print_tree(expr0);
-		//warning_print("\n\n");
 		return false;
 	}
 	auto literal = static_cast<Literal_FT *>(expr0);
@@ -1288,6 +1285,22 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 	return result;
 }
 
+void
+register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
+	for(auto arg : expr->exprs) register_dependencies(arg, depends);
+	
+	if(expr->expr_type != Math_Expr_Type::identifier) return;
+	auto ident = static_cast<Identifier_FT *>(expr);
+
+	if(ident->variable_type == Variable_Type::parameter)
+		depends->on_parameter.insert(*ident);
+	else if(ident->variable_type == Variable_Type::state_var)
+		depends->on_state_var.insert(*ident);
+	else if(ident->variable_type == Variable_Type::series)
+		depends->on_series.insert(*ident);
+	
+}
+
 template<typename Expr_Type> Math_Expr_FT *
 copy_one(Math_Expr_FT *source) {
 	if(!source)
@@ -1347,6 +1360,11 @@ copy(Math_Expr_FT *source) {
 		result->exprs[idx] = copy(result->exprs[idx]);
 	
 	return result;
+}
+
+std::unique_ptr<Math_Expr_FT>
+copy(std::unique_ptr<Math_Expr_FT> &source) {
+	return std::move(std::unique_ptr<Math_Expr_FT>(copy(source.get())));
 }
 
 void
@@ -1493,8 +1511,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 		
 		case Math_Expr_Type::local_var : {
 			auto local = static_cast<Local_Var_FT *>(expr);
-			//if(!local->is_used) return; // Probably not a good idea not to print it since we want the print to reflect the actual data structure, but we could work on pruning it.
-			if(!local->is_used) os << "(unused)";
+			if(!local->is_used) os << "(unused)";  // NOTE: if the tree has been pruned before printing, it is probably removed.
 			os << local->name << " := ";
 			print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
 		} break;

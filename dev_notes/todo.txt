@@ -1,6 +1,7 @@
 
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
-		Seriously!
+		Started, but it seems like they are not always proper trees, as some nodes can get double deleted. Debug this! (Model_Instruction code)
+		Could alternatively have a memory arena for the function trees and free them in one go. Was tricky because of standard library compliance.
 
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).

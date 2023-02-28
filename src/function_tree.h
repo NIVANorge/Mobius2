@@ -8,7 +8,6 @@
 #include "common_types.h"
 #include "model_declaration.h"
 
-
 struct
 Math_Expr_FT {
 	Math_Expr_Type               expr_type;
@@ -117,6 +116,9 @@ Dependency_Set {
 	std::set<Identifier_Data>  on_state_var;
 };
 
+
+typedef std::unique_ptr<Math_Expr_FT> owns_code;
+
 struct Model_Application;
 struct Math_Expr_AST;
 
@@ -202,10 +204,13 @@ Math_Expr_FT *
 make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr, Function_Scope *scope = nullptr);
+prune_tree(Math_Expr_FT *expr, Function_Scope *scope = nullptr, bool prune_unused_locals = true);
 
 Math_Expr_FT *
 copy(Math_Expr_FT *source);
+
+owns_code
+copy(owns_code &source);
 
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);

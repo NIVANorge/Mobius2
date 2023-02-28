@@ -99,7 +99,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
 				if(var2->decl_type == Decl_Type::quantity && var2->override_tree && !var2->override_is_conc)
-					instr.code = var2->override_tree;
+					instr.code = copy(var2->override_tree.get());
 			}
 			
 			// Codegen for concs of dissolved variables
@@ -111,7 +111,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto dissolved_in = app->state_vars.id_of(remove_dissolved(mass_var->loc1));
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
-					instr.code = mass_var->override_tree;
+					instr.code = copy(mass_var->override_tree.get());
 
 					// If we override the conc, the mass is instead  conc*volume_we_are_dissolved_in .
 					auto mass_instr = &instructions[mass_id.id];
@@ -172,7 +172,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
 
 				Var_Id source_id = app->state_vars.id_of(var->loc1);
-				auto source_ref = static_cast<Identifier_FT *>(make_state_var_identifier(source_id));
+				auto source_ref = make_state_var_identifier(source_id);
 				instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 			}
 			
@@ -262,7 +262,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[instr.target_id]);
 			
-			auto weight = agg_var->aggregation_weight_tree;
+			auto weight = agg_var->aggregation_weight_tree.get();
 			if(weight)
 				weight = copy(weight);
 			
@@ -605,11 +605,13 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
 	for(auto &data : target_agg->conversion_data) {
 		if(data.source_id == source_id) {
-			weight = data.weight;
-			unit_conv = data.unit_conv;
+			weight    = data.weight.get();
+			unit_conv = data.unit_conv.get();
 			break;
 		}
 	}
+	if(weight) weight = copy(weight);
+	if(unit_conv) unit_conv = copy(unit_conv);
 	
 	if(connection->type == Connection_Type::directed_tree) {
 		

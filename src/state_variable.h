@@ -37,7 +37,7 @@ State_Var {
 	Var_Location   loc2;
 	Boundary_Type  boundary_type;
 	
-	std::unique_ptr<Math_Expr_FT> unit_conversion_tree;
+	owns_code unit_conversion_tree;
 	
 	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location), boundary_type(Boundary_Type::none) {};
 	
@@ -68,11 +68,11 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	
 	double flux_time_unit_conv; // If it is a flux with a declared unit, what to multiply it with to get the number to use in the model solution (time step relative).
 	
-	Math_Expr_FT *function_tree;
+	owns_code function_tree;
 	bool initial_is_conc;
-	Math_Expr_FT *initial_function_tree;
+	owns_code initial_function_tree;
 	bool override_is_conc;
-	Math_Expr_FT *override_tree;
+	owns_code override_tree;
 	
 	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false), flux_time_unit_conv(1.0) {}
 };
@@ -88,7 +88,7 @@ template<> struct
 State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
 	Var_Id         agg_of;                // The variable this is an aggregate of
 	Entity_Id      agg_to_compartment;    // From which point of view we are aggregating.
-	Math_Expr_FT  *aggregation_weight_tree;
+	owns_code      aggregation_weight_tree;
 	
 	State_Var_Sub() : agg_of(invalid_var), agg_to_compartment(invalid_entity_id), aggregation_weight_tree(nullptr) {}
 };
@@ -113,8 +113,8 @@ State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
 struct
 Conversion_Data {
 	Var_Id source_id;
-	Math_Expr_FT *weight;
-	Math_Expr_FT *unit_conv;
+	owns_code weight;
+	owns_code unit_conv;
 };
 
 template<> struct
