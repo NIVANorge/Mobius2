@@ -125,7 +125,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 	if(is_valid(decl_name) && decl) {
 		if(decl->type == Decl_Type::compartment || decl->type == Decl_Type::quantity || decl->type == Decl_Type::property || decl->type == Decl_Type::connection
 			|| decl->type == Decl_Type::par_real || decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_int || decl->type == Decl_Type::par_enum
-			|| decl->type == Decl_Type::solver
+			|| decl->type == Decl_Type::solver// || decl->type == Decl_Type::library || decl->type == Decl_Type::module
 			) {
 			
 			if(is_valid(result_id))

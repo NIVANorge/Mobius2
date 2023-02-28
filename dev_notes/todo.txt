@@ -39,6 +39,9 @@
 	
 	*** Intermediate-pri ***
 
+		Normalized paths can be different depending on how they were loaded using relative paths. This causes it some times to try to load the same library twice, which causes a name clash.
+			Need a fully standardized normalized path?
+
 		It could probably be better if you *only* declare the time unit for the flux
 			Alternatively need some way to construct units, like
 				combine_unit(soil.water.oc.tox, [day-1])

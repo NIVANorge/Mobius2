@@ -119,7 +119,6 @@ Dependency_Set {
 
 struct Model_Application;
 struct Math_Expr_AST;
-struct Function_Scope;
 
 struct
 Function_Resolve_Data {
@@ -139,6 +138,17 @@ struct
 Function_Resolve_Result {
 	Math_Expr_FT *fun;
 	Standardized_Unit unit;
+};
+
+// TODO: When we remove pruning from the resolve_function_tree, we can have a simpler version of the Function_Scope for the pruning.
+struct
+Function_Scope {
+	Function_Scope *parent;
+	Math_Block_FT *block;
+	std::map<int, Standardized_Unit> local_var_units;
+	std::string function_name;
+	
+	Function_Scope() : parent(nullptr), block(nullptr), function_name("") {}
 };
 
 Function_Resolve_Result
@@ -191,7 +201,6 @@ make_for_loop();
 Math_Expr_FT *
 make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 
-
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr, Function_Scope *scope = nullptr);
 
@@ -200,7 +209,6 @@ copy(Math_Expr_FT *source);
 
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);
-
 
 template<typename T> struct
 Scope_Local_Vars {
