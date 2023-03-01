@@ -35,5 +35,10 @@ jit_add_batch(Math_Expr_FT *expr, const std::string &function_name, LLVM_Module_
 batch_function *
 get_jitted_batch_function(const std::string &function_name);
 
+#ifdef _WIN32
+#define DLLEXPORT __declspec(dllexport)
+#else
+#define DLLEXPORT
+#endif
 
 #endif // MOBIUS_LLVM_JIT_H

@@ -315,6 +315,10 @@ register_intrinsics(Mobius_Model *model) {
 	#undef MAKE_INTRINSIC1
 	#undef MAKE_INTRINSIC2
 	
+	auto test_fun = model->functions.create_internal("_test_fun_", global, "_test_fun_", Decl_Type::function);
+	model->functions[test_fun]->fun_type = Function_Type::linked;
+	model->functions[test_fun]->args = {"a"};
+	
 	auto dimless_id = model->units.create_internal("na", nullptr, "dimensionless", Decl_Type::unit); // NOTE: this is not exported to the scope. Just have it as a unit for pi.
 	auto pi_id = model->constants.create_internal("pi", global, "π", Decl_Type::constant);
 	model->constants[pi_id]->value = 3.14159265358979323846;
@@ -926,6 +930,33 @@ process_declaration<Reg_Type::discrete_order>(Mobius_Model *model, Decl_Scope *s
 }
 
 template<> Entity_Id
+process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	// NOTE: Since we disambiguate entities on their name right now, we can't let the name and function_name be the same in case you want to reuse the same function many times.
+	//    could be fixed if/when we make the new module loading / scope system.
+	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::identifier }}, -1, false);
+	
+	auto id = model->special_computations.standard_declaration(scope, decl);
+	auto comp = model->special_computations[id];
+	
+	comp->function_name = single_arg(decl, 1)->string_value;
+	process_location_argument(model, scope, decl, 2, &comp->target, false);
+	
+	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
+	bool success = true;
+	for(auto expr : body->block->exprs) {
+		if(expr->type != Math_Expr_Type::identifier) {
+			body->opens_at.print_error_header();
+			fatal_error("A 'special_computation' body should just contain a list of identifiers.");
+		}
+	}
+	comp->code = body->block;
+	comp->code_scope = scope->parent_id;
+	
+	return id;
+	
+}
+
+template<> Entity_Id
 process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	int which = match_declaration(decl,
 	{
@@ -1219,6 +1250,10 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			
 			case Decl_Type::discrete_order : {
 				process_declaration<Reg_Type::discrete_order>(model, &module->scope, child);
+			} break;
+			
+			case Decl_Type::special_computation : {
+				process_declaration<Reg_Type::special_computation>(model, &module->scope, child);
 			} break;
 			
 			case Decl_Type::par_real :

@@ -1,11 +1,4 @@
-index_set("I") [ "R" "S" "T" "U" ]
 
-index_set("I", "J") [
-	"R" : [ "A" "B" "C" ]
-	"S" : [ "D" "E" ]
-	"T" : [ 3 ]
-	"U" : [ 3 ]
-]
 
 par_group("System") {
 	par_datetime("Start date")
@@ -15,14 +8,5 @@ par_group("System") {
 	[ 1995-05-01 ]
 }
 
-module("So very very simple", 0, 0, 1) {
-	par_group("Bla") [ "I" "J" ] {
-		par_real("B") [
-			0 1 2 
-			3 4 
-			6 7 8
-			9 10 11
-		]
-	}
-}
+
 

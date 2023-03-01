@@ -27,12 +27,15 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	vert : connection("Fjord vertical", grid1d) { layer* }
 	
+	par_group("Fjord global parameters") {
+		dz     : par_real("Layer thickness", [m], 1, 0.1, 5) # TODO: Just make it a universal param?
+	}
+	
 	layer.par_group("Layer parameters") {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
-		dz     : par_real("Thickness", [m], 1, 0.1, 5) # TODO: Just make it a universal param?
 		w_bnd  : par_real("Width to boundary", [m], 0, 0, 10000)
-		init_S : par_real("Initial salinity", [g, k g-1], 35, 20, 50)
-		init_T : par_real("Initial temperature", [deg_c], 15, 0.1, 40)
+		#init_S : par_real("Initial salinity", [g, k g-1], 35, 20, 50)
+		#init_T : par_real("Initial temperature", [deg_c], 5, 0.1, 40)
 	}
 
 	oair.par_group("Mixing parameters") {
@@ -92,8 +95,11 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.water.has(dens, [k g, m-3], "Potential density")
 	
+	# TODO: When we make a change so that accessing vert.above does not zero out the entire equation, we won't need this one.
+	layer.water.has(above_p : property("Above pressure"), [Pa]) {    accum_pressure[vert.above]   }
+	
 	layer.water.has(accum_pressure : property("Accumulated pressure"), [Pa]) {
-		accum_pressure[vert.above] + dens*grav*dz
+		above_p + dens*grav*dz
 	}
 	
 	layer.water.has(ddens : property("d(dens)"), [k g, m-3]) {
@@ -272,7 +278,6 @@ module("NIVAFjord", 0, 0, 1) {
 	bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer* }
 	
 	bnd_layer.has(z, [m]) {
-		dz := 1[m]   #TODO
 		z[bnd_vert.above] + dz
 	}
 	
@@ -306,9 +311,11 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	bnd_layer.has(dens, [k g, m-3])
 	
+	# NOTE: see earlier use of above_p
+	bnd_layer.has(above_p, [Pa]) {    accum_pressure[bnd_vert.above]   }
+	
 	bnd_layer.has(accum_pressure, [Pa]) {
-		dz := 1[m] #TODO
-		accum_pressure[bnd_vert.above] + dens*grav*dz
+		above_p + dens*grav*dz
 	}
 	
 	layer.water.has(bar_bnd_u : property("Barocline boundary flux"), [k g, s-1]) {#[m 3, s-1]) {
@@ -361,12 +368,12 @@ module("NIVAFjord", 0, 0, 1) {
 	#TODO: The barotropic flow must probably be limited to the max pressure-induced flow. In that case the value for h must be updated according to that.
 	#	Only relevant in very narrow passages though.
 	
-	layer.has(A_bnd_ : property("Area to boundary"), [m 2]) {
-		w_bnd*dz
+	layer.has(w_bnd_ : property("Width to boundary"), [m]) {
+		w_bnd
 	} # Since we cant aggregate() a parameter yet.
 	
 	oair.has(A_bnd : property("Total area to boundary"), [m 2]) {
-		aggregate(layer.A_bnd_)
+		aggregate(layer.w_bnd_)*dz
 	}
 	
 	oair.has(h, [m]) .override { bnd.h } #+ (in_flux(downstream, water)/A_bnd)^2/(2*alpha_u*grav) }# TODO: different with river inflow.
@@ -376,7 +383,8 @@ module("NIVAFjord", 0, 0, 1) {
 	}
 	
 	layer.water.has(bar_u : property("Barotropic boundary flux"), [m 3, s-1]) {
-		0[m 3, s-1] #TODO.
+		#0[m 3, s-1] #TODO.
+		oair.tot_bar_u * w_bnd * dz / oair.A_bnd
 	}
 	
 }

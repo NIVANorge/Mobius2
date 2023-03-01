@@ -11,19 +11,22 @@ model("Yet another simple") {
 			b : par_real("B", [], -1)
 		}
 		
-		a.has(hmm : property("Hmm"), []) {
-			b
-		}
-		
 		a.has(bing : property("Bing"), []) {
 			f := sin(time.day_of_year*2*pi/365.[day])
 			copysign(1, f)
 		}
+		
+		a.has(ploing : property("Ploing"), []) #{
+			#_test_fun_(time.day_of_year)
+		#}
+		special_computation("Something special", "_special_test_", a.ploing) {
+			b
+		}
 	}
 	
-	i : index_set("I") {
-		j : index_set("J")
-	}
+	#i : index_set("I") {
+	#	j : index_set("J")
+	#}
 	
-	a.distribute(i, j)
+	#a.distribute(i, j)
 }

@@ -199,9 +199,17 @@ Entity_Registration<Reg_Type::discrete_order> : Entity_Registration_Base {
 	std::vector<Entity_Id> fluxes;
 };
 
+template<> struct
+Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
+	std::string      function_name;
+	Var_Location     target;
+	Math_Block_AST  *code;
+	Entity_Id        code_scope;
+};
+
 enum class
 Function_Type {
-	decl, external, intrinsic,
+	decl, intrinsic, linked,
 };
 
 template<> struct
@@ -316,13 +324,14 @@ Mobius_Model {
 	Registry<Reg_Type::library>     libraries;
 	Registry<Reg_Type::unit>        units;
 	Registry<Reg_Type::par_group>   par_groups;
-	Registry<Reg_Type::parameter>   parameters;
+	Registry<Reg_Type::parameter>   parameters;  // par_real, par_int, par_bool, par_enum, par_datetime
 	Registry<Reg_Type::function>    functions;
 	Registry<Reg_Type::constant>    constants;
 	Registry<Reg_Type::component>   components;  // compartment, quantity, property
 	Registry<Reg_Type::has>         hases;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::discrete_order> discrete_orders;
+	Registry<Reg_Type::special_computation> special_computations;
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
 	Registry<Reg_Type::solve>       solves;

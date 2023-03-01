@@ -110,6 +110,16 @@ Local_Var_FT : Math_Expr_FT {
 };
 
 struct
+Special_Computation_FT : Math_Expr_FT {
+	std::string   function_name;
+	
+	Var_Id                       target;
+	std::vector<Identifier_Data> arguments;
+	
+	Special_Computation_FT() : Math_Expr_FT(Math_Expr_Type::special_computation) { }
+};
+
+struct
 Dependency_Set {
 	std::set<Identifier_Data>  on_parameter;
 	std::set<Identifier_Data>  on_series;

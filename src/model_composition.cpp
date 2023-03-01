@@ -477,9 +477,20 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				}
 			}
 			
+			// It is a bit annoying that we have to do this loop for every state variable registration, but we have to intercept it so that it doesn't become registered as a series.
+			auto special_id = invalid_entity_id;
+			for(auto special_id0 : model->special_computations) {
+				auto special = model->special_computations[special_id0];
+				if(special->target == has->var_location) {
+					is_series = false;
+					special_id = special_id0;
+					break;
+				}
+			}
+			
 			if(is_series) {
 				// If was already registered by another module, we don't need to re-register it.
-				// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data.
+				// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data (which is not implemented yet))
 				if(is_valid(app->series.id_of(has->var_location))) continue;
 				
 				if(has->var_location.is_dissolved()) {
@@ -487,11 +498,15 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 					fatal_error("For now we don't support input series with chained locations.");
 				}
 				register_state_variable<State_Var::Type::declared>(app, id, true, name);
-			} else if (id == find->second) {
+			} else if (is_valid(special_id) || id == find->second) {
+				if(is_valid(app->state_vars.id_of(has->var_location))) continue; // Could happen if is_valid(special_id)
+				
 				// This is the particular has declaration that provided the code, so we register a state variable using this one.
 				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, id, false, name);
-				if(has->var_location.is_dissolved() && type == Decl_Type::quantity)
+				if(has->var_location.is_dissolved() && type == Decl_Type::quantity && !is_valid(special_id))
 					dissolvedes.push_back(var_id);
+				if(is_valid(special_id))
+					as<State_Var::Type::declared>(app->state_vars[var_id])->special_computation = special_id;
 			}
 		}
 	}
@@ -893,6 +908,33 @@ compose_and_resolve(Model_Application *app) {
 			}
 		}
 		var2->function_tree = owns_code(fun);
+		
+		if(is_valid(var2->special_computation)) {
+			auto special = model->special_computations[var2->special_computation];
+			if(var2->function_tree) {
+				special->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("The variable was assigned a special computation, but it also has a regular equation assigned to it.");
+			}
+			auto res_data2 = res_data;
+			res_data2.scope = model->get_scope(special->code_scope);
+			auto res = resolve_function_tree(special->code, &res_data2);
+			
+			// TODO: This could be separated out in its own function
+			auto special_comp = new Special_Computation_FT();
+			special_comp->target = var_id;
+			for(auto arg : res.fun->exprs) {
+				if(arg->expr_type != Math_Expr_Type::identifier)
+					fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a special_computation.");
+				auto ident = static_cast<Identifier_FT *>(arg);
+				if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::parameter) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("We only support state variables and parameters as the arguments to a 'special_computation'.");
+				}
+				special_comp->arguments.push_back(*ident);
+			}
+			delete res.fun;
+			var2->function_tree = owns_code(special_comp);
+		}
 		
 		res_data.scope = other_code_scope;
 		if(init_ast) {

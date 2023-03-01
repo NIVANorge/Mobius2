@@ -35,6 +35,18 @@
 
 #include "llvm_jit.h"
 
+
+
+extern "C" DLLEXPORT double
+_test_fun_(double a) {
+	// Fibonacci
+	if(a <= 1.0) return 1.0;
+	return _test_fun_(a-1) + _test_fun_(a-2);
+}
+
+
+
+
 static bool llvm_initialized = false;
 static std::unique_ptr<llvm::orc::KaleidoscopeJIT> global_jit;
 
@@ -522,6 +534,19 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Va
 	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be read by anyone.
 }
 
+llvm::Function *
+get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::Type *ret_ty, std::vector<llvm::Type *> &arguments_ty) {
+	
+	auto fun = data->module->getFunction(fun_name);
+	// Could check that the types are correct.
+	
+	if(fun) return fun;
+	
+	auto *funty = llvm::FunctionType::get(ret_ty, arguments_ty, false);
+	fun = llvm::Function::Create(funty, llvm::Function::ExternalLinkage, fun_name, data->module.get());
+	return fun;
+}
+
 llvm::Value *
 build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
@@ -667,18 +692,36 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		
 		case Math_Expr_Type::function_call : {
 			auto fun = static_cast<Function_Call_FT *>(expr);
-			if(fun->fun_type != Function_Type::intrinsic)
-				fatal_error(Mobius_Error::internal, "Unhandled function type in ir building.");
-			
-			if(fun->exprs.size() == 1) {
-				llvm::Value *a = build_expression_ir(fun->exprs[0], locals, args, data);
-				return build_intrinsic_ir(a, fun->exprs[0]->value_type, fun->fun_name, data);
-			} else if(fun->exprs.size() == 2) {
-				llvm::Value *a = build_expression_ir(fun->exprs[0], locals, args, data);
-				llvm::Value *b = build_expression_ir(fun->exprs[1], locals, args, data);
-				return build_intrinsic_ir(a, fun->exprs[0]->value_type, b, fun->exprs[1]->value_type, fun->fun_name, data);
+			if(fun->fun_type == Function_Type::intrinsic) {
+				if(fun->exprs.size() == 1) {
+					llvm::Value *a = build_expression_ir(fun->exprs[0], locals, args, data);
+					return build_intrinsic_ir(a, fun->exprs[0]->value_type, fun->fun_name, data);
+				} else if(fun->exprs.size() == 2) {
+					llvm::Value *a = build_expression_ir(fun->exprs[0], locals, args, data);
+					llvm::Value *b = build_expression_ir(fun->exprs[1], locals, args, data);
+					return build_intrinsic_ir(a, fun->exprs[0]->value_type, b, fun->exprs[1]->value_type, fun->fun_name, data);
+				} else
+					fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in ir building.");
+			} else if (fun->fun_type == Function_Type::linked) {
+				// TODO: Hmm, should maybe actually just scan the program once first and create all the externally linked functions needed so that the same function is not created multiple times.
+				
+				auto double_ty = llvm::Type::getDoubleTy(*data->context);
+				std::vector<llvm::Type *> arguments_ty(fun->exprs.size(), double_ty);
+				auto *funty = llvm::FunctionType::get(double_ty, arguments_ty, false);
+				auto *linked_fun = get_linked_function(data, fun->fun_name, double_ty, arguments_ty);
+				if(!linked_fun) {
+					fun->source_loc.print_error_header();
+					fatal_error("Unable to link with the function \"", fun->fun_name, "\".");
+				}
+				
+				std::vector<llvm::Value *> fun_args;
+				for(auto arg : fun->exprs)
+					fun_args.push_back(build_expression_ir(arg, locals, args, data));
+				
+				return data->builder->CreateCall(linked_fun, fun_args, "calltmp");
+				
 			} else
-				fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in ir building.");
+				fatal_error(Mobius_Error::internal, "Unhandled function type in ir building.");
 		} break;
 
 		case Math_Expr_Type::if_chain : {

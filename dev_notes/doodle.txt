@@ -2,6 +2,23 @@
 	
 	
 	
+	{
+		layer_water.has(horz_target : property("Target of horizontal flux"))
+		
+		special_computation("Place horizontal fluxes", "place_horizontal_fluxes", layer.water.horz_target) {
+			n_layer_to_bnd
+			layer.water.dens
+			bnd_layer.dens
+		}
+	
+		
+	}
+	
+	
+	
+	
+	
+	
 	# Fine-grained time of day:
 	time.second_of_day + time.step_length_in_seconds * time.fractional_step
 	# Should this one always be available? As

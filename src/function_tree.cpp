@@ -521,7 +521,7 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 			if(!lhs_is_0 && !rhs_is_0) {
 				// NOTE: If either side is a constant 0, we allow the match.
 				oper_loc.print_error_header();
-				error_print("The units of the two arguments to ", name, " must be the same. The standard form of the units given are ", a.to_utf8(), " and ", b.to_utf8(), ".");
+				error_print("The units of the two arguments to ", name, " must be the same. The standard form of the units given are ", a.to_utf8(), " and ", b.to_utf8(), ". Don't worry, this happens to everybody!");
 				fatal_error_trace(scope);
 			}
 		}
@@ -1018,8 +1018,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					if(arg_units.size() == 1) {
 						set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
 					} else if (arg_units.size() == 2) {
-						// NOTE: The min and max functions behave like '+' when it comes to units
 						if(fun_name == "min" || fun_name == "max") {
+							// NOTE: The min and max functions behave like '+' when it comes to units
 							apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, &new_fun->exprs[0], &new_fun->exprs[1]);
 						} else if(fun_name == "copysign") {
 							result.unit = arg_units[0];
@@ -1027,6 +1027,23 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							fatal_error(Mobius_Error::internal, "Unimplemented unit checking for intrinsic ", fun_name, ".");
 					} else
 						fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic when unit checking");
+				} else if(fun_type == Function_Type::linked) {
+					auto new_fun = new Function_Call_FT();
+					std::vector<Standardized_Unit> arg_units;
+					resolve_arguments(new_fun, ast, data, scope, arg_units);
+					
+					for(int idx = 0; idx < new_fun->exprs.size(); ++idx) {
+						auto arg = new_fun->exprs[idx];
+						if(arg->value_type != Value_Type::real)
+							new_fun->exprs[idx] = make_cast(new_fun->exprs[idx], Value_Type::real);
+					}
+					
+					new_fun->fun_type = fun_type;
+					new_fun->fun_name = fun_name;
+					// TODO: If we make anything else of this than just the "_test_fun_" function, the types and units must be provided in the declaration.
+					new_fun->value_type = Value_Type::real;
+					result.fun = new_fun;
+					// result.unit remains dimensionless.
 				} else if(fun_type == Function_Type::decl) {
 					if(is_inside_function(scope, fun_name)) {
 						fun->name.print_error_header();
@@ -1342,6 +1359,10 @@ copy(Math_Expr_FT *source) {
 		
 		case Math_Expr_Type::local_var : {
 			result = copy_one<Local_Var_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::special_computation : {
+			result = copy_one<Special_Computation_FT>(source);
 		} break;
 		
 		case Math_Expr_Type::if_chain :

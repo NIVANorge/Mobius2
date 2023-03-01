@@ -340,7 +340,7 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {
 		
 		case Math_Expr_Type::function_call : {
 			auto fun = static_cast<Function_Call_FT *>(expr);
-			if(fun->fun_type != Function_Type::intrinsic)           //TODO: implement for others.
+			if(fun->fun_type != Function_Type::intrinsic)           //TODO: maybe implement for "linked" type.
 				return expr;
 			
 			bool all_literal = true;
