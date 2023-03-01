@@ -34,7 +34,7 @@
 
 
 #include "llvm_jit.h"
-
+#include "special_computations.h"
 
 
 extern "C" DLLEXPORT double
@@ -43,7 +43,6 @@ _test_fun_(double a) {
 	if(a <= 1.0) return 1.0;
 	return _test_fun_(a-1) + _test_fun_(a-2);
 }
-
 
 
 
@@ -531,7 +530,7 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Va
 	
 	iter->addIncoming(next_iter, loop_end_block);
 	
-	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be read by anyone.
+	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
 }
 
 llvm::Function *
@@ -545,6 +544,13 @@ get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::T
 	auto *funty = llvm::FunctionType::get(ret_ty, arguments_ty, false);
 	fun = llvm::Function::Create(funty, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	return fun;
+}
+
+llvm::Value *
+build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+	//TODO!
+	
+	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
 }
 
 llvm::Value *
@@ -750,6 +756,10 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		case Math_Expr_Type::cast : {
 			llvm::Value *a = build_expression_ir(expr->exprs[0], locals, args, data);
 			return build_cast_ir(a, expr->exprs[0]->value_type, expr->value_type, data);
+		} break;
+		
+		case Math_Expr_Type::special_computation : {
+			return build_special_computation_ir(expr, locals, args, data);
 		} break;
 	}
 	

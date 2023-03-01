@@ -935,6 +935,15 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 	//    could be fixed if/when we make the new module loading / scope system.
 	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::identifier }}, -1, false);
 	
+	// TODO: We may need something more like
+	/*
+		special_computation("function_name") .in {
+		} .out {
+			layer.water.density[vert]    #signal that we want to access all the indexes over vert.
+		}
+	*/
+	// in case the computation affects more than one variable.
+	
 	auto id = model->special_computations.standard_declaration(scope, decl);
 	auto comp = model->special_computations[id];
 	

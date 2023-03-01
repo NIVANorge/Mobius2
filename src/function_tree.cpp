@@ -1382,11 +1382,12 @@ copy(Math_Expr_FT *source) {
 	
 	return result;
 }
-
+/*
 std::unique_ptr<Math_Expr_FT>
 copy(std::unique_ptr<Math_Expr_FT> &source) {
 	return std::move(std::unique_ptr<Math_Expr_FT>(copy(source.get())));
 }
+*/
 
 void
 print_tabs(int ntabs, std::ostream &os) { for(int i = 0; i < ntabs; ++i) os << '\t'; }
@@ -1549,6 +1550,11 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 			print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
 			os << "] <- ";
 			print_tree_helper(app, expr->exprs[1], scope, os, block_tabs);
+		} break;
+		
+		case Math_Expr_Type::special_computation : {
+			auto special = static_cast<Special_Computation_FT *>(expr);
+			os << "special_computation(\"", special->function_name, "\")"; // TODO: Could also print arguments.
 		} break;
 		
 		default : {

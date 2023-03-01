@@ -484,6 +484,10 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				if(special->target == has->var_location) {
 					is_series = false;
 					special_id = special_id0;
+					if(type != Decl_Type::property) {
+						special->source_loc.print_error_header();
+						fatal_error("A special_computation can only be assigned to a property.");
+					}
 					break;
 				}
 			}
@@ -922,6 +926,7 @@ compose_and_resolve(Model_Application *app) {
 			// TODO: This could be separated out in its own function
 			auto special_comp = new Special_Computation_FT();
 			special_comp->target = var_id;
+			special_comp->function_name = special->function_name;
 			for(auto arg : res.fun->exprs) {
 				if(arg->expr_type != Math_Expr_Type::identifier)
 					fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a special_computation.");

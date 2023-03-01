@@ -21,6 +21,8 @@ Model_Instruction::debug_string(Model_Application *app) {
 		ss << "\"" << app->state_vars[target_id]->name << "\" += \"" << app->state_vars[var_id]->name << "\"";
 	else if(type == Model_Instruction::Type::add_to_aggregate)
 		ss << "\"" << app->state_vars[target_id]->name << "\" += \"" << app->state_vars[var_id]->name << "\" * weight";
+	else if(type == Model_Instruction::Type::special_computation)
+		ss << "(special_computation)";  //TODO: Give the function name.
 	
 	return ss.str();
 }
@@ -459,14 +461,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			}
 		}
 		
-		instr.type = Model_Instruction::Type::compute_state_var;
-		
-		if(!fun && initial)
-			instr.type = Model_Instruction::Type::invalid;
-		if(fun)
-			fun = copy(fun);
 		instr.var_id = var_id;
-		instr.code = fun;
+		instr.type = Model_Instruction::Type::compute_state_var;
+
+		if(fun) {
+			instr.code = copy(fun);
+			if(fun->expr_type == Math_Expr_Type::special_computation)
+				instr.type = Model_Instruction::Type::special_computation;
+		} else if(initial)
+			instr.type = Model_Instruction::Type::invalid;
+
 	}
 	
 	if(initial) {
@@ -582,7 +586,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		}
 	}
 	
-	// Generate instructions needed to compute special variables.
+	// Generate instructions needed to compute different types of specialized variables.
 	
 	for(auto var_id : app->state_vars) {
 		auto instr = &instructions[var_id.id];
@@ -595,6 +599,17 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		bool has_aggregate = var->flags & State_Var::Flags::has_aggregate;
 		
 		auto var_solver = instr->solver;
+		
+		if(instr->type == Model_Instruction::Type::special_computation) {
+			auto special = static_cast<Special_Computation_FT *>(instr->code);
+			
+			for(auto &arg : special->arguments) {
+				if(arg.variable_type == Variable_Type::state_var) {
+					instr->depends_on_instruction.insert(arg.var_id.id);
+					instr->instruction_is_blocking.insert(arg.var_id.id);
+				}
+			}
+		}
 		
 		if(is_aggregate) {
 			// var (var_id) is now the variable that is being aggregated.

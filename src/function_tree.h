@@ -111,7 +111,7 @@ Local_Var_FT : Math_Expr_FT {
 
 struct
 Special_Computation_FT : Math_Expr_FT {
-	std::string   function_name;
+	std::string                  function_name;
 	
 	Var_Id                       target;
 	std::vector<Identifier_Data> arguments;
@@ -219,8 +219,8 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope = nullptr, bool prune_unuse
 Math_Expr_FT *
 copy(Math_Expr_FT *source);
 
-owns_code
-copy(owns_code &source);
+//owns_code
+//copy(owns_code &source);
 
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);

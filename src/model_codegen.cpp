@@ -275,6 +275,17 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			auto agg_var = app->state_vars[instr.target_id];
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id);
 			
+		} else if(instr.type == Model_Instruction::Type::special_computation) {
+			
+			auto special = static_cast<Special_Computation_FT *>(instr.code);
+			// TODO: Have to set strides and indexing information eventually
+			special->exprs.push_back(make_literal(app->result_structure.get_offset_base(special->target)));
+			for(auto &arg : special->arguments) {
+				if(arg.variable_type == Variable_Type::state_var)
+					special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
+				else if(arg.variable_type == Variable_Type::parameter)
+					special->exprs.push_back(make_literal(app->parameter_structure.get_offset_base(arg.par_id)));
+			}
 		}
 	}
 }
