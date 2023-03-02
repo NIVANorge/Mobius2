@@ -464,11 +464,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		instr.var_id = var_id;
 		instr.type = Model_Instruction::Type::compute_state_var;
 
-		if(fun) {
+		if(fun)
 			instr.code = copy(fun);
-			if(fun->expr_type == Math_Expr_Type::special_computation)
-				instr.type = Model_Instruction::Type::special_computation;
-		} else if(initial)
+		else if(initial)
 			instr.type = Model_Instruction::Type::invalid;
 
 	}
@@ -600,20 +598,34 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		auto var_solver = instr->solver;
 		
-		if(instr->type == Model_Instruction::Type::special_computation) {
+		if(instr->code->expr_type == Math_Expr_Type::special_computation) {
 			auto special = static_cast<Special_Computation_FT *>(instr->code);
+			
+			int spec_idx = instructions.size();
+			instructions.emplace_back();
+			
+			auto instr      = &instructions[var_id.id];  // Have to refetch it because of resized array.
+			auto spec_instr = &instructions[spec_idx];
+			
+			spec_instr->code = instr->code;
+			instr->code = nullptr;
+			spec_instr->type = Model_Instruction::Type::special_computation;
+			spec_instr->solver = var_solver;
+			spec_instr->var_id = instr->var_id;
+			
+			instr->depends_on_instruction.insert(spec_idx);
+			//TODO: Various index set dependencies.
 			
 			for(auto &arg : special->arguments) {
 				if(arg.variable_type == Variable_Type::state_var) {
-					instr->depends_on_instruction.insert(arg.var_id.id);
-					instr->instruction_is_blocking.insert(arg.var_id.id);
+					spec_instr->depends_on_instruction.insert(arg.var_id.id);
+					spec_instr->instruction_is_blocking.insert(arg.var_id.id);
 				}
 			}
 		}
 		
 		if(is_aggregate) {
 			// var (var_id) is now the variable that is being aggregated.
-			// instr is the instruction to compute it
 			
 			//if(initial) warning_print("*** *** *** initial agg for ", var->name, "\n");
 			auto var2 = as<State_Var::Type::regular_aggregate>(var);

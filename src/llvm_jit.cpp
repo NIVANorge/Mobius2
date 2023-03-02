@@ -144,7 +144,7 @@ jit_compile_module(LLVM_Module_Data *data) {
 	
 	mpm.run(*data->module, mam);
 	
-	#if 0
+	#if 1
 	std::string module_ir_text;
 	llvm::raw_string_ostream os(module_ir_text);
 	os << *data->module;
@@ -549,6 +549,51 @@ get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::T
 llvm::Value *
 build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	//TODO!
+	
+	//warning_print("****** Build special computation ir\n");
+	
+	auto double_ty = llvm::Type::getDoubleTy(*data->context);
+	auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
+	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	auto void_ty = llvm::Type::getVoidTy(*data->context);
+	
+	auto special = static_cast<Special_Computation_FT *>(expr);
+	
+	std::vector<llvm::Value *> lookups;
+	for(int idx = 0; idx < special->exprs.size(); ++idx) {
+		auto arg = special->exprs[idx];
+		auto offset = build_expression_ir(arg, locals, args, data);
+		llvm::Value *lookup;
+		if(idx == 0 || special->arguments[idx-1].variable_type == Variable_Type::state_var)
+			lookup = data->builder->CreateGEP(double_ty, args[2], offset, "state_var_ptr");
+		else
+			lookup = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
+		lookups.push_back(lookup);
+	}
+	
+	// Must match Special_Indexed_Value in special_computations.h
+	std::vector<llvm::Type *> member_types = {
+		double_ptr_ty,
+		int_64_ty,
+	};
+	auto struct_ty = llvm::StructType::get(*data->context, member_types);
+	auto struct_ptr_ty = llvm::PointerType::getUnqual(struct_ty);
+	
+	std::vector<llvm::Type *> arguments_ty(special->arguments.size() + 1, struct_ptr_ty);
+	
+	auto special_fun = get_linked_function(data, special->function_name, void_ty, arguments_ty);
+	//for(int idx = 0; idx < arguments_ty.size(); ++idx)
+	//	special_fun->addParamAttr(idx, llvm::Attribute::getWithByValType(*data->context, struct_ty));
+	
+	std::vector<llvm::Value *> arguments;
+	for(auto lookup : lookups) {
+		auto alloc = data->builder->CreateAlloca(struct_ty);
+		auto val = data->builder->CreateStructGEP(struct_ty, alloc, 0);
+		data->builder->CreateStore(lookup, val);
+		//TODO: Store indexes also.
+		arguments.push_back(alloc);
+	}
+	data->builder->CreateCall(special_fun, arguments);
 	
 	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
 }

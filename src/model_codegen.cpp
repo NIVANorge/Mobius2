@@ -277,15 +277,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if(instr.type == Model_Instruction::Type::special_computation) {
 			
-			auto special = static_cast<Special_Computation_FT *>(instr.code);
-			// TODO: Have to set strides and indexing information eventually
-			special->exprs.push_back(make_literal(app->result_structure.get_offset_base(special->target)));
-			for(auto &arg : special->arguments) {
-				if(arg.variable_type == Variable_Type::state_var)
-					special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
-				else if(arg.variable_type == Variable_Type::parameter)
-					special->exprs.push_back(make_literal(app->parameter_structure.get_offset_base(arg.par_id)));
-			}
+			// Taken care of elsewhere.
 		}
 	}
 }
@@ -769,6 +761,19 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				assignment->exprs.push_back(offset);
 				assignment->exprs.push_back(make_literal((double)0));
 				scope->exprs.push_back(assignment);
+				
+			} else if (instr->type == Model_Instruction::Type::special_computation) {
+				
+				auto special = static_cast<Special_Computation_FT *>(instr->code);
+				// TODO: Have to set strides and indexing information eventually
+				special->exprs.push_back(make_literal(app->result_structure.get_offset_base(special->target)));
+				for(auto &arg : special->arguments) {
+					if(arg.variable_type == Variable_Type::state_var)
+						special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
+					else if(arg.variable_type == Variable_Type::parameter)
+						special->exprs.push_back(make_literal(app->parameter_structure.get_offset_base(arg.par_id)));
+				}
+				scope->exprs.push_back(special);
 				
 			} else {
 				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");
