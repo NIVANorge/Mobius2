@@ -309,7 +309,7 @@ module("NIVAFjord", 0, 0, 1) {
 		lerp(prof, 0, 1, bnd.sal_top, bnd.sal_bot)
 	}
 	
-	bnd_layer.has(dens, [k g, m-3])
+	bnd_layer.has(dens, [k g, m-3], "Boundary layer density")
 	
 	# NOTE: see earlier use of above_p
 	bnd_layer.has(above_p, [Pa]) {    accum_pressure[bnd_vert.above]   }
@@ -385,6 +385,14 @@ module("NIVAFjord", 0, 0, 1) {
 	layer.water.has(bar_u : property("Barotropic boundary flux"), [m 3, s-1]) {
 		#0[m 3, s-1] #TODO.
 		oair.tot_bar_u * w_bnd * dz / oair.A_bnd
+	}
+	
+	layer.water.has(horz_target : property("Target of horizontal flux"), [])
+		
+	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", layer.water.horz_target) {
+		bnd_layer.dens
+		#layer.water.dens
+		#w_bnd
 	}
 	
 }

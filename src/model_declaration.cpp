@@ -757,6 +757,8 @@ process_declaration<Reg_Type::constant>(Mobius_Model *model, Decl_Scope *scope, 
 
 template<> Entity_Id
 process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	//TODO: Always require the unit!
+	
 	int which = match_declaration(decl,
 		{
 			{Decl_Type::property},

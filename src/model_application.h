@@ -136,6 +136,8 @@ struct Multi_Array_Structure {
 		return begin_offset + handle_location[handle];
 	}
 	
+	s64 get_stride(Handle_T handle);
+	
 	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
 	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app);
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
@@ -172,6 +174,7 @@ struct Storage_Structure {
 	void set_up(std::vector<Multi_Array_Structure<Handle_T>> &&structure);
 	
 	s64 get_offset_base(Handle_T handle);
+	s64 get_stride(Handle_T handle);
 	s64 instance_count(Handle_T handle);
 	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes);
 	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col);
@@ -412,6 +415,12 @@ check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
 }
 
 #if 0
+
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
+	return (s64)handles.size();
+}
+
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
 	s64 offset = 0;
@@ -494,7 +503,12 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	
 // Theoretically this version of the code is more vectorizable, but we should probably also align the memory and explicitly add vectorization passes in llvm
 //  (not seeing much of a difference in run speed at the moment)
-	
+
+template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
+	return 1;
+}
+
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
 	s64 offset = handle_location[handle];
@@ -607,6 +621,12 @@ template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset_base(Handle_T handle) {
 	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].get_offset_base(handle);
+}
+
+template<typename Handle_T> s64
+Storage_Structure<Handle_T>::get_stride(Handle_T handle) {
+	auto array_idx = handle_is_in_array.at(handle);
+	return structure[array_idx].get_stride(handle);
 }
 
 template<typename Handle_T> s64

@@ -598,7 +598,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		auto var_solver = instr->solver;
 		
-		if(instr->code->expr_type == Math_Expr_Type::special_computation) {
+		if(instr->code && instr->code->expr_type == Math_Expr_Type::special_computation) {
 			auto special = static_cast<Special_Computation_FT *>(instr->code);
 			
 			int spec_idx = instructions.size();
@@ -620,7 +620,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				if(arg.variable_type == Variable_Type::state_var) {
 					spec_instr->depends_on_instruction.insert(arg.var_id.id);
 					spec_instr->instruction_is_blocking.insert(arg.var_id.id);
-				}
+					
+					instr->inherits_index_sets_from_instruction.insert(arg.var_id.id);
+				} else if (arg.variable_type == Variable_Type::parameter) {
+					insert_dependencies(app, instr->index_sets, arg, 0);
+				} else
+					fatal_error(Mobius_Error::internal, "Unexpected variable type for special_computation argument.");
 			}
 		}
 		

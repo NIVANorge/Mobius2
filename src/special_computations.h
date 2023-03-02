@@ -16,9 +16,9 @@ Special_Indexed_Value {
 	//Parameter_Value *val;
 	double *val;
 	s64 stride;
+	s64 count;
 	
-	//Parameter_Value &operator[](s64 idx) { return val[idx*stride]; }
-	double &operator[](s64 idx) { return val[idx*stride]; }
+	double &at(s64 idx) { return val[idx*stride]; }
 };
 
 #endif // MOBIUS_SPECIAL_COMPUTATION_H

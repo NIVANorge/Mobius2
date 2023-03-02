@@ -767,11 +767,20 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				auto special = static_cast<Special_Computation_FT *>(instr->code);
 				// TODO: Have to set strides and indexing information eventually
 				special->exprs.push_back(make_literal(app->result_structure.get_offset_base(special->target)));
+				special->exprs.push_back(make_literal(app->result_structure.get_stride(special->target)));
+				// TODO: If when we specifically index over something, we should let this be a index count, not the instance count
+				special->exprs.push_back(make_literal(app->result_structure.instance_count(special->target)));
 				for(auto &arg : special->arguments) {
-					if(arg.variable_type == Variable_Type::state_var)
+					if(arg.variable_type == Variable_Type::state_var) {
 						special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
-					else if(arg.variable_type == Variable_Type::parameter)
+						special->exprs.push_back(make_literal(app->result_structure.get_stride(arg.var_id)));
+						special->exprs.push_back(make_literal(app->result_structure.instance_count(arg.var_id)));
+						warning_print("**** Instance count ", app->result_structure.instance_count(arg.var_id), " for argument.\n");
+					} else if(arg.variable_type == Variable_Type::parameter) {
 						special->exprs.push_back(make_literal(app->parameter_structure.get_offset_base(arg.par_id)));
+						special->exprs.push_back(make_literal(app->parameter_structure.get_stride(arg.par_id)));
+						special->exprs.push_back(make_literal(app->parameter_structure.instance_count(arg.par_id)));
+					}
 				}
 				scope->exprs.push_back(special);
 				

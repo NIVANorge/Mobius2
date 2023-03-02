@@ -21,7 +21,7 @@ par_group("System") {
 	[ 1980-01-01 ]
 
 	par_datetime("End date")
-	[ 1980-12-31 ]
+	[ 1980-01-31 ]
 }
 
 module("NIVAFjord", 0, 0, 1) {

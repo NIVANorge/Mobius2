@@ -2,6 +2,8 @@
 
 	special_computation
 		Must be organized a bit differently. The special_computation instruction must be separate from the "instruction" of the variable it computes so that index sets and storage can be properly set up for that variable.
+		
+		Fails when target is chained. Why??
 
 
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.

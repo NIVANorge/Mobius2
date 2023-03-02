@@ -24,6 +24,10 @@ model("Yet another simple") {
 		}
 	}
 	
+	i : index_set("I")
+	
+	a.distribute(i)
+	
 	#i : index_set("I") {
 	#	j : index_set("J")
 	#}
