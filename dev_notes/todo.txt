@@ -1,10 +1,5 @@
 
 
-	special_computation
-		Must be organized a bit differently. The special_computation instruction must be separate from the "instruction" of the variable it computes so that index sets and storage can be properly set up for that variable.
-		
-		Fails when target is chained. Why??
-
 
 	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
 		Started, but it seems like they are not always proper trees, as some nodes can get double deleted. Debug this! (Model_Instruction code)
@@ -46,6 +41,9 @@
 
 	
 	*** Intermediate-pri ***
+	
+		Some system for specifying state variables that should not be stored
+			Quite complicated. Does it mean that they are computed inline, or is there some temporary storage for them (the last maybe works best with most systems)?
 
 		Normalized paths can be different depending on how they were loaded using relative paths. This causes it some times to try to load the same library twice, which causes a name clash.
 			Need a fully standardized normalized path?
@@ -91,6 +89,12 @@
 				? Although how would you specify that in the data file??
 	
 	*** Low-pri ****
+	
+	
+		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
+		
+		Capping of discrete fluxes from override variables not necessary?
+		
 		
 		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something more similar to Mobius1)
 	
@@ -153,7 +157,12 @@
 			
 		aggregate() of series and parameters.
 		
+		Make a separate procedure for figuring out if an expression is constant (in unit resolution).
+			Alternatively, prune_tree does not modify the original tree, but instead returns a pruned copy.
+			But we also want to get rational numbers in the checking.
 		
+		In pruning:
+			If a new local is declared that just refers to an old local, references to the new one could be replaced with references to the old one.
 		
 		
 		
@@ -293,3 +302,11 @@
 	emulate_expression() is broken, at least for full model runs.
 	
 	System for having configured the root Mobius2 folder so that it knows where modules and stdlib are.
+	
+	special_computation
+		Must be organized a bit differently. The special_computation instruction must be separate from the "instruction" of the variable it computes so that index sets and storage can be properly set up for that variable.
+		
+		Fails when target is chained. Why??
+		
+		
+	Block comments!

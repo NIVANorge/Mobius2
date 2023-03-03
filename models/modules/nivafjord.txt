@@ -72,7 +72,7 @@ module("NIVAFjord", 0, 0, 1) {
 	
 	layer.water.has(salt, [k g], [g, k g-1], "Layer salt")
 		#.initial_conc { init_S }
-		.initial_conc { bnd_layer.salinity =>> } #TODO: convert PSU to conc
+		.initial_conc { bnd_layer.water.salinity =>> } #TODO: convert PSU to conc
 	
 	layer.water.has(heat, [J], "Layer thermal energy") 
 		#.initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
@@ -81,7 +81,7 @@ module("NIVAFjord", 0, 0, 1) {
 	layer.water.has(temp, [deg_c], "Layer temperature") {
 		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
 	} .initial {
-		bnd_layer.temp
+		bnd_layer.water.temp
 	}
 	
 	salinity : property("Salinity")
@@ -175,6 +175,7 @@ module("NIVAFjord", 0, 0, 1) {
 	tracer : quantity("Tracer")
 	layer.water.has(tracer, [k g])
 	
+	/*
 	flux(nowhere, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
 		1[k g, day-1]
 	}
@@ -182,6 +183,7 @@ module("NIVAFjord", 0, 0, 1) {
 	flux(layer.water.tracer[vert.bottom], nowhere, [k g, day-1], "Tracer vanishes") {
 		tracer[bottom]*0.3[day-1]
 	}
+	*/
 	
 	# Air-sea :
 	
@@ -267,6 +269,8 @@ module("NIVAFjord", 0, 0, 1) {
 	temp_bot : property("Temperature bottom")
 	sal_top  : property("Salinity top")
 	sal_bot  : property("Salinity bottom")
+	trac_top : property("Tracer top")
+	trac_bot : property("Tracer bot")
 	
 	bnd.has(z1, [m])
 	bnd.has(z2diff, [])
@@ -274,6 +278,9 @@ module("NIVAFjord", 0, 0, 1) {
 	bnd.has(temp_bot, [deg_c])
 	bnd.has(sal_top, [])
 	bnd.has(sal_bot, [])
+	
+	bnd.has(trac_top, [])
+	bnd.has(trac_bot, [])
 
 	bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer* }
 	
@@ -281,10 +288,6 @@ module("NIVAFjord", 0, 0, 1) {
 		z[bnd_vert.above] + dz
 	}
 	
-	#bnd.has(z2 :property("Z2"), [m]) {
-	#	(10^bnd.z2diff)=>[m] + bnd.z1
-	#}
-
 	bnd_layer.has(prof : property("Boundary profile"), []) {
 		z1 := bnd.z1
 		z2 := (10^bnd.z2diff)=>[m] + z1
@@ -301,47 +304,39 @@ module("NIVAFjord", 0, 0, 1) {
 		(1 - g + h)/2
 	}
 	
-	bnd_layer.has(temp, [deg_c]) {
-		lerp(prof, 0, 1, bnd.temp_top, bnd.temp_bot)
+	bnd_layer.water.has(tracer, [k g], "Boundary layer tracer") .override_conc {
+		lerp(prof, 0, 1, bnd.trac_top, bnd.trac_bot)
 	}
 	
-	bnd_layer.has(salinity, []) {
-		lerp(prof, 0, 1, bnd.sal_top, bnd.sal_bot)
+	bnd_layer.has(water, [k g], "Boundary layer water") .override { 1[k g] }   # This is just so that it can have a concentration of various things, for automatic flux generation to work.
+	
+	bnd_layer.water.has(temp, [deg_c], "Boundary layer temperature") {  lerp(prof, 0, 1, bnd.temp_top, bnd.temp_bot)  }
+	
+	bnd_layer.water.has(salinity, [], "Boundary layer salinity") {  lerp(prof, 0, 1, bnd.sal_top, bnd.sal_bot)  }
+	
+	bnd_layer.water.has(heat, [J], "Boundary layer heat") .override_conc {
+		(temp->[K]) * C_water
 	}
 	
-	bnd_layer.has(dens, [k g, m-3], "Boundary layer density")
+	bnd_layer.water.has(salt, [k g], [g, k g-1], "Boundary layer salt") .override_conc {
+		salinity =>> #TODO: proper conversion from PSU
+	}
+	
+	bnd_layer.water.has(dens, [k g, m-3], "Boundary layer density")
 	
 	# NOTE: see earlier use of above_p
-	bnd_layer.has(above_p, [Pa]) {    accum_pressure[bnd_vert.above]   }
+	bnd_layer.water.has(above_p, [Pa]) {    accum_pressure[bnd_vert.above]   }
 	
-	bnd_layer.has(accum_pressure, [Pa]) {
+	bnd_layer.water.has(accum_pressure, [Pa]) {
 		above_p + dens*grav*dz
 	}
 	
-	layer.water.has(bar_bnd_u : property("Barocline boundary flux"), [k g, s-1]) {#[m 3, s-1]) {
-		#dP0 := grav*(oair.h - bnd.h)*layer.water.dens[vert.top]  # TODO: why doesn't water.dens[vert.top] work? (not that it is important)
-		#dP0 := grav*(oair.h - bnd.h)*rho_water
-		dP1 := accum_pressure[vert.below] - bnd_layer.accum_pressure[vert.below]
-		#dP := dP0 + dP1
-		dP := dP1
+	layer.water.has(barocline_bnd_u : property("Barocline boundary flux"), [k g, s-1]) {
+		dP := accum_pressure[vert.below] - bnd_layer.water.accum_pressure[vert.below]
 		
-		#u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
 		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
-		u * w_bnd * dz*rho_water
+		u * w_bnd * dz * rho_water
 	}
-	
-	
-	# NOTE: this is not the correct way to do it. Just testing some things
-	#flux(layer.water.heat, nowhere, [J, day-1], "Boundary heat exchange") {
-	#	(conc(heat)-C_water*(bnd_layer.temp->[K])) * bar_bnd_u ->> if bar_bnd_u > 0,
-	#	0                                                      otherwise
-	#}
-	
-	#flux(layer.water.salt, nowhere, [k g, day-1], "Boundary salt exchange") {
-	#	(conc(salt) - bnd_layer.salinity=>[g, k g-1]) * bar_bnd_u ->>  if bar_bnd_u > 0,
-	#	0                                                          otherwise
-	#}
-	
 	
 	h : quantity("Sea level") # Could probably be made a property then..
 	
@@ -368,31 +363,43 @@ module("NIVAFjord", 0, 0, 1) {
 	#TODO: The barotropic flow must probably be limited to the max pressure-induced flow. In that case the value for h must be updated according to that.
 	#	Only relevant in very narrow passages though.
 	
-	layer.has(w_bnd_ : property("Width to boundary"), [m]) {
-		w_bnd
-	} # Since we cant aggregate() a parameter yet.
+	layer.has(w_bnd_ : property("Width to boundary"), [m]) { w_bnd	} # Since we cant aggregate() a parameter yet.
 	
-	oair.has(A_bnd : property("Total area to boundary"), [m 2]) {
-		aggregate(layer.w_bnd_)*dz
-	}
+	oair.has(A_bnd : property("Total area to boundary"), [m 2]) { aggregate(layer.w_bnd_)*dz }
 	
 	oair.has(h, [m]) .override { bnd.h } #+ (in_flux(downstream, water)/A_bnd)^2/(2*alpha_u*grav) }# TODO: different with river inflow.
 	
-	oair.has(tot_bar_u : property("Total barotropic boundary flux"), [m 3, s-1]) {
-		(h - last(h))*A[vert.top]/time.step_length_in_seconds
+	oair.has(tot_barotropic_u : property("Total barotropic boundary flux"), [m 3, s-1]) {
+		-(h - last(h))*A[vert.top]/time.step_length_in_seconds
 	}
 	
-	layer.water.has(bar_u : property("Barotropic boundary flux"), [m 3, s-1]) {
+	layer.water.has(barotropic_bnd_u : property("Barotropic boundary flux"), [k g, s-1]) {
 		#0[m 3, s-1] #TODO.
-		oair.tot_bar_u * w_bnd * dz / oair.A_bnd
+		oair.tot_barotropic_u * w_bnd * dz * rho_water / oair.A_bnd
 	}
+	
 	
 	layer.water.has(horz_target : property("Target of horizontal flux"), [])
-		
+	
 	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", layer.water.horz_target) {
-		bnd_layer.dens
+		bnd_layer.water.dens
 		layer.water.dens
 		w_bnd
 	}
 	
+	#/*
+
+	flux(layer.water, nowhere, [k g, day-1], "Flow from boundary equivalent removal") {
+		bcl := -(barocline_bnd_u + barotropic_bnd_u)->>
+		bcl    if bcl > 0,
+		0      otherwise
+	}
+	
+	flux(bnd_layer.water, layer.water, [k g, day-1], "Flow from boundary") {
+		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>
+		bcl    if bcl > 0,
+		0      otherwise
+	}
+
+	#*/
 }

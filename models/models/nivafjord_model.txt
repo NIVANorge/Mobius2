@@ -20,6 +20,7 @@ model("NIVAFjord") {
 	sol : solver("Simply solver", "INCADascru", 0.1)
 	sol.solve(layer.water)
 	sol.solve(sed.heat)
+	sol.solve(bnd_layer.water)
 	#sol.solve(oair.h)
 	
 	#aggregation_weight(layer, oair) { 1 }

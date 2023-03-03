@@ -9,6 +9,8 @@ NOTE: only doodling for now.
 extern "C" DLLEXPORT void
 nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Indexed_Value *densities_source, Special_Indexed_Value *densities_target, Special_Indexed_Value *widths) {
 	
+	// In the end, for 2-way fluxes between separate simulated basins we would need something that could take the direction of the flux also.
+	
 	for(int layer = 0; layer < target_out->count; ++layer) {
 		
 		double dens = densities_source->at(layer);
@@ -22,8 +24,8 @@ nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Ind
 			if(abs < minabs) {
 				closest = layer2;
 				minabs = abs;
-			} //else
-				//break;
+			} else
+				break;
 		}
 		target_out->at(layer) = (double)closest;
 	}

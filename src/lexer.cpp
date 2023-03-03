@@ -198,19 +198,29 @@ Token_Stream::read_token_base(Token *token) {
 	*token = {}; // 0-initialize
 	
 	bool skip_comment = false;
+	bool skip_multiline = false;
 	
 	token->source_loc.filename = filename;
 	token->source_loc.type = Source_Location::Type::text_file;
 	
 	while(true) {
 		char c = read_char();
+		char n = peek_char();
 		
-		if(skip_comment) { // If we hit a # symbol outside a string token, SkipComment is true, and we continue skipping characters until we hit a newline or end of file.
+		if(skip_comment) { // If we hit a # symbol outside a string token, skip_comment is true, and we continue skipping characters until we hit a newline or end of file.
 			if(c == '\n' || c == '\0') skip_comment = false;
 			continue;
 		}
 		
-		//NOTE: This is very subtle, but this clause has to be below the check for SkipComment, if we are in a comment we have to check for \n, (and \n isspace and would be skipped by this continue)
+		if(skip_multiline) {
+			if(c == '*' && n == '/') {
+				read_char(); // Consume the '/'
+				skip_multiline = false;
+			}
+			continue;
+		}
+		
+		//NOTE: This is a bit subtle, but this clause has to be below the check for skip_comment, if we are in a comment we have to check for \n, (and \n isspace and would be skipped by this continue)
 		if(isspace(c)) continue; // Always skip whitespace between tokens.
 
 		token->source_loc.line = line;
@@ -223,15 +233,17 @@ Token_Stream::read_token_base(Token *token) {
 			bool is_single = is_single_char_token(c);
 			if((fold_minus && c == '-') || c == '.') {
 				//peek at the next char to see if it is numeric. In that case parse this as a number instead of returning the minus or dot.
-				char next = peek_char();
-				if(isdigit(next))
+				//char next = peek_char();
+				if(isdigit(n))
 					is_single = false;
 			}
 			
-			if(is_single) {
+			if(c == '/' && n == '*') {
+				skip_multiline = true;
+				continue;
+			} else if(is_single) {
 				token->type = (Token_Type)c;              // NOTE: single-character tokens have type values equal to their char value.
-				
-				char n = peek_char();
+			
 				char nn = peek_char(1);
 				if     (c == '<' && n == '=') token->type = Token_Type::leq;
 				else if(c == '>' && n == '=') token->type = Token_Type::geq;

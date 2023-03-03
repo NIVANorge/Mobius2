@@ -1,4 +1,4 @@
-time_step([hr])
+time_step([day])
 
 index_set("Layer index") [ 124 ]
 
@@ -21,7 +21,7 @@ par_group("System") {
 	[ 1980-01-01 ]
 
 	par_datetime("End date")
-	[ 1980-01-31 ]
+	[ 1981-01-01 ]
 }
 
 module("NIVAFjord", 0, 0, 1) {

@@ -177,12 +177,16 @@ template<> struct
 Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Var_Location   source;
 	Var_Location   target;
+	
+	// TODO: This should be refactored somehow, maybe into an "Extended_Var_Location"
 	bool           target_was_out;       // We some times need info about if the target was initially declared as 'out', then re-directed by a 'to' declaration.
 	Entity_Id      connection_target;
 	Boundary_Type  boundary_type;
+	// Entity_Id computed_connection_index;
+	
 	Entity_Id      unit;
 	
-	Entity_Id      discrete_order;
+	Entity_Id      discrete_order; // A discrete_order declaration that (among others) species the order of computation of this flux.
 	
 	std::vector<Var_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
 	bool no_carry_by_default;
