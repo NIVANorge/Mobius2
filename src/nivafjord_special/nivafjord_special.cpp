@@ -7,10 +7,10 @@ NOTE: only doodling for now.
 
 
 extern "C" DLLEXPORT void
-nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Indexed_Value *densities_source) {//, Special_Indexed_Value *densities_target, Special_Indexed_Value *widths) {
+nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Indexed_Value *densities_source, Special_Indexed_Value *densities_target, Special_Indexed_Value *widths) {
 	
-	//for(int layer = 0; layer < target_out->count; ++layer) {
-		/*
+	for(int layer = 0; layer < target_out->count; ++layer) {
+		
 		double dens = densities_source->at(layer);
 		int closest = layer;
 		
@@ -26,8 +26,5 @@ nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Ind
 				//break;
 		}
 		target_out->at(layer) = (double)closest;
-		*/
-		//target_out->at(layer) = (double)target_out->count;//densities_source->at(layer);
-	//}
-	target_out->at(0) = 57.3;
+	}
 }

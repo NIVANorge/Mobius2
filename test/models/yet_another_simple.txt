@@ -7,19 +7,17 @@ model("Yet another simple") {
 		
 		a : compartment("A")
 		
+		q : quantity("Q")
+		
 		a.par_group("Bla") {
 			b : par_real("B", [], -1)
 		}
 		
-		#a.has(bing : property("Bing"), []) {
-		#	f := sin(time.day_of_year*2*pi/365.[day])
-		#	copysign(1, f)
-		#}
+		a.has(q, [])
 		
-		a.has(ploing : property("Ploing"), []) #{
-			#_test_fun_(time.day_of_year)
-		#}
-		special_computation("Something special", "_special_test_", a.ploing) {
+		a.q.has(ploing : property("Ploing"), [])
+		
+		special_computation("Something special", "_special_test_", a.q.ploing) {
 			b
 		}
 	}
@@ -27,10 +25,5 @@ model("Yet another simple") {
 	i : index_set("I")
 	
 	a.distribute(i)
-	
-	#i : index_set("I") {
-	#	j : index_set("J")
-	#}
-	
-	#a.distribute(i, j)
+
 }

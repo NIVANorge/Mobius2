@@ -579,6 +579,8 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *>
 		counts.push_back(count);
 	}
 	
+	//warning_print("***** The function name is ", special->function_name, "\n");
+	
 	// Must match Special_Indexed_Value in special_computations.h
 	std::vector<llvm::Type *> member_types = {
 		double_ptr_ty,

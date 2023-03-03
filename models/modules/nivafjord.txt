@@ -391,8 +391,8 @@ module("NIVAFjord", 0, 0, 1) {
 		
 	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", layer.water.horz_target) {
 		bnd_layer.dens
-		#layer.water.dens
-		#w_bnd
+		layer.water.dens
+		w_bnd
 	}
 	
 }

@@ -120,7 +120,6 @@ template<> struct Hash_Fun<Connection_T> {
 	int operator()(const Connection_T& id) const { return 599*id.connection.id + 97*id.source_compartment.id + id.info_id; }   // No idea if the hash function is good, but it shouldn't matter that much.
 };
 
-
 struct Index_Exprs;
 struct Model_Application;
 
@@ -414,7 +413,9 @@ check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
 			fatal_error(Mobius_Error::internal, "Mis-indexing in one of the get_offset functions.");
 }
 
-#if 0
+#if 1
+//TODO: Switching this to 0 doesn't quite work as intended because get_offset_base is no longer correct in that case, and breaks some things in subtle ways.
+//    We have to fix get_offset_base, but that may not work well with all the use cases of that function.
 
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {

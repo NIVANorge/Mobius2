@@ -1554,7 +1554,14 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 		
 		case Math_Expr_Type::special_computation : {
 			auto special = static_cast<Special_Computation_FT *>(expr);
-			os << "special_computation(\"", special->function_name, "\")"; // TODO: Could also print arguments.
+			os << "special_computation(\"" << special->function_name << "\", ";
+			//int n_args = special->arguments.size() + 1;
+			int idx = 0;
+			for(auto arg : special->exprs) {
+				print_tree_helper(app, arg, scope, os, block_tabs);
+				if (idx++ != special->exprs.size()-1) os << ", ";
+			}
+			os << ")";
 		} break;
 		
 		default : {

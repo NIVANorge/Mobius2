@@ -770,12 +770,14 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				special->exprs.push_back(make_literal(app->result_structure.get_stride(special->target)));
 				// TODO: If when we specifically index over something, we should let this be a index count, not the instance count
 				special->exprs.push_back(make_literal(app->result_structure.instance_count(special->target)));
+				
+				//warning_print("*** Special target is ", app->state_vars[special->target]->name, "\n");
+				//warning_print("*** Special offset is ", app->result_structure.get_offset_base(special->target), " count ", app->result_structure.instance_count(special->target), " stride ", app->result_structure.get_stride(special->target), "\n");
 				for(auto &arg : special->arguments) {
 					if(arg.variable_type == Variable_Type::state_var) {
 						special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
 						special->exprs.push_back(make_literal(app->result_structure.get_stride(arg.var_id)));
 						special->exprs.push_back(make_literal(app->result_structure.instance_count(arg.var_id)));
-						warning_print("**** Instance count ", app->result_structure.instance_count(arg.var_id), " for argument.\n");
 					} else if(arg.variable_type == Variable_Type::parameter) {
 						special->exprs.push_back(make_literal(app->parameter_structure.get_offset_base(arg.par_id)));
 						special->exprs.push_back(make_literal(app->parameter_structure.get_stride(arg.par_id)));
@@ -792,49 +794,45 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		indexes.clean();
 	}
 	
-	if(!is_valid(batch->solver) || initial) {
-		//auto result = prune_tree(top_scope);
-		//return result;
-		goto bottom;
-	}
+	if(is_valid(batch->solver)) {
 	
-	if(batch->arrays_ode.empty() || batch->arrays_ode[0].instr_ids.empty())
-		fatal_error(Mobius_Error::internal, "Somehow we got an empty ode batch in a batch that was assigned a solver.");
-	
-	// NOTE: The way we do things here rely on the fact that all ODEs of the same batch (and time step) are stored contiguously in memory. If that changes, the indexing of derivatives will break!
-	//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
-	s64 init_pos = app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
-	for(auto &array : batch->arrays_ode) {
-		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app, array.index_sets, indexes);
-				
-		for(int instr_id : array.instr_ids) {
-			auto instr = &instructions[instr_id];
-			
-			if(instr->type != Model_Instruction::Type::compute_state_var)
-				fatal_error(Mobius_Error::internal, "Somehow we got an instruction that is not a state var computation inside an ODE batch.\n");
-			
-			// NOTE: the code for an ode variable computes the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
-			auto fun = instr->code;
-			
-			if(!fun)
-				fatal_error(Mobius_Error::internal, "ODE variables should always be provided with generated code in instruction_codegen, but we got one without.");
-			
-			fun = copy(fun);
-			
-			fun = put_var_lookup_indexes(fun, app, indexes);
-			
-			auto offset_var = app->result_structure.get_offset_code(instr->var_id, indexes);
-			auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
-			auto assignment = new Math_Expr_FT(Math_Expr_Type::derivative_assignment);
-			assignment->exprs.push_back(offset_deriv);
-			assignment->exprs.push_back(fun);
-			scope->exprs.push_back(assignment);
-		}
+		if(batch->arrays_ode.empty() || batch->arrays_ode[0].instr_ids.empty())
+			fatal_error(Mobius_Error::internal, "Somehow we got an empty ode batch in a batch that was assigned a solver.");
 		
-		indexes.clean();
-	}
+		// NOTE: The way we do things here rely on the fact that all ODEs of the same batch (and time step) are stored contiguously in memory. If that changes, the indexing of derivatives will break!
+		//    If we ever want to change it, we have to come up with a separate system for indexing the derivatives. (which should not be a big deal).
+		s64 init_pos = app->result_structure.get_offset_base(instructions[batch->arrays_ode[0].instr_ids[0]].var_id);
+		for(auto &array : batch->arrays_ode) {
+			Math_Expr_FT *scope = create_nested_for_loops(top_scope, app, array.index_sets, indexes);
+					
+			for(int instr_id : array.instr_ids) {
+				auto instr = &instructions[instr_id];
+				
+				if(instr->type != Model_Instruction::Type::compute_state_var)
+					fatal_error(Mobius_Error::internal, "Somehow we got an instruction that is not a state var computation inside an ODE batch.\n");
+				
+				// NOTE: the code for an ode variable computes the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
+				auto fun = instr->code;
+				
+				if(!fun)
+					fatal_error(Mobius_Error::internal, "ODE variables should always be provided with generated code in instruction_codegen, but we got one without.");
+				
+				fun = copy(fun);
+				
+				fun = put_var_lookup_indexes(fun, app, indexes);
+				
+				auto offset_var = app->result_structure.get_offset_code(instr->var_id, indexes);
+				auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
+				auto assignment = new Math_Expr_FT(Math_Expr_Type::derivative_assignment);
+				assignment->exprs.push_back(offset_deriv);
+				assignment->exprs.push_back(fun);
+				scope->exprs.push_back(assignment);
+			}
+			
+			indexes.clean();
+		}
 	
-bottom :
+	}
 	/*
 	warning_print("\nTree before prune:\n");
 	std::stringstream ss;
