@@ -481,17 +481,11 @@ check_boolean_dimensionless(Standardized_Unit &unit, Source_Location &error_loc,
 }
 
 bool
-is_constant_dimensionless_integer(Math_Expr_FT *expr, Standardized_Unit &unit, Function_Scope *scope, s64 *result) {
-	
-	//TODO!
+is_constant_zero(Math_Expr_FT *expr, Function_Scope *scope) {
 	bool found;
 	auto value = is_constant_rational(expr, scope, &found);
 	
-	*result = value.nom;
-	
-	bool success = found && value.is_int() && (unit.is_dimensionless() || *result==0);
-	
-	return success;
+	return found && (value == Rational<s64>(0));
 }
 
 void
@@ -504,10 +498,8 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 		// TODO: If one of the sides resolves to a constant 0, that should always match (but that may involve pruning first).
 		bool lhs_is_0 = false;
 		if(!match_exact(&a, &b)) {
-			s64 val = -1;
-			lhs_is_0 = is_constant_dimensionless_integer(lhs, a, scope, &val) && val == 0;
-			val = -1;
-			bool rhs_is_0 = is_constant_dimensionless_integer(rhs, b, scope, &val) && val == 0;
+			lhs_is_0 = is_constant_zero(lhs, scope);
+			bool rhs_is_0 = is_constant_zero(rhs, scope);
 			if(!lhs_is_0 && !rhs_is_0) {
 				// NOTE: If either side is a constant 0, we allow the match.
 				oper_loc.print_error_header();
@@ -527,14 +519,19 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 	} else if (op == '/') {
 		result = multiply(a, b, -1);
 	} else if (op == '^') {
-		s64 val = -1;
+		bool is_const;
+		auto val = is_constant_rational(rhs, scope, &is_const);
 		if(b.is_fully_dimensionless() && a.is_dimensionless()) {
 			// Do nothing, the unit should remain dimensionless.
-		} else if(is_constant_dimensionless_integer(rhs, b, scope, &val)) {
-			pow(a, result, Rational<s16>((s16)val)); // Power of integer should not fail, so we don't have to check the return code.
+		} else if(is_const) {
+			bool success = pow(a, result, Rational<s16>((s16)val.nom, (s16)val.denom));  //TODO: Ooops, this could cause truncation!
+			if(!success) {
+				rhs->source_loc.print_error_header();
+				error_print("Unable to raise the unit ", a.to_utf8(), " to the power ", val, " .");
+			}
 		} else {
 			lhs->source_loc.print_error_header();
-			error_print("In a power expression ^, to resolve the units, either both sides must be dimensionless, or the right hand side must be a dimensionless integer.");
+			error_print("In a power expression ^, to resolve the units, either both sides must be dimensionless, or the right hand side must be a dimensionless constant.");
 			fatal_error_trace(scope);
 		}
 	} else
@@ -550,7 +547,7 @@ check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &u
 	Standardized_Unit *first_valid = nullptr;
 	for(int idx = 0; idx < units.size(); idx+=2) {
 		s64 val = -1;
-		bool is_0 = is_constant_dimensionless_integer(exprs[idx], units[idx], scope, &val) && val==0;
+		bool is_0 = is_constant_zero(exprs[idx], scope);
 		if(is_0) continue; // We allow 0 to match against any other unit here.
 		if(!first_valid) {
 			first_valid = &units[idx];
@@ -1063,15 +1060,12 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						inlined_arg->id = argidx;
 						new_scope.local_var_units[argidx] = arg_units[argidx];
 						
-						// NOTE: With the current implementation,
-						// is_constant_dimensionless_integer could mute these, which is why we
-						// do it like this. Should probably be fixed eventually.
+					
 						auto &argg = inlined_arg->exprs[0];
 						auto loc = inlined_arg->exprs[0]->source_loc;
 						if(is_valid(fun_decl->expected_units[argidx])) {
 							auto &expect_unit = model->units[fun_decl->expected_units[argidx]]->data.standard_form;
-							s64 val = -1;
-							if(is_constant_dimensionless_integer(argg, arg_units[argidx], scope, &val) && val == 0) continue;  // Constant 0 match against any unit
+							if(is_constant_zero(argg, scope)) continue;  // Constant 0 match against any unit
 							if(!match_exact(&expect_unit, &arg_units[argidx])) {
 								loc.print_error_header();
 								error_print("The function declaration requires a unit (which on standard form is) ", expect_unit.to_utf8(), " for argument ", argidx, ", but we got ", arg_units[argidx].to_utf8(), ". See declaration of function here:\n");

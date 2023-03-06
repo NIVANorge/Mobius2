@@ -132,7 +132,7 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 		(flow*c_mann*cbrt(wb^2)/sqrt(slope) =>[])^(3/5.) =>>
 	}
 
-	river.water.has(flow, [m 3, s -1], "Reach flow")    { (water/len)*cbrt(Rh^2)*sqrt(slope)/c_mann   } .initial { init_flow }
+	river.water.has(flow, [m 3, s -1], "Reach flow")    { (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann   } .initial { init_flow }
 	
 	reach_out :
 	flux(river.water, out, [m 3, day-1], "Reach flow flux")     {	 flow ->>  }

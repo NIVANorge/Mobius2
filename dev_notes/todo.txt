@@ -1,6 +1,5 @@
 
 
-
 	Clean up the prune_tree system.
 		Could get rid of using Function_Scope in prune_helper? And what about the local vars?
 
@@ -87,6 +86,8 @@
 			Allow things like
 				flux(nowhere, layer.water[connection])
 				? Although how would you specify that in the data file??
+				
+		Let / always be a real division, and maybe have a separate operator // to force integer division.
 	
 	*** Low-pri ****
 	
