@@ -1374,12 +1374,24 @@ Model_Application::compile() {
 	
 	is_compiled = true;
 	
-	// TODO: This still sometimes breaks.
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
-	/*
-	for(auto &instr : instructions)
-		delete instr.code;
+		// Should be tested again in the future.
 	for(auto &instr : initial_instructions)
 		delete instr.code;
-	*/
+	
+	for(auto &instr : instructions)
+		delete instr.code;
+	
+		
+#ifndef MOBIUS_EMULATE
+	
+	delete initial_batch.run_code;
+	initial_batch.run_code = nullptr;
+	for(auto &batch : batches) {
+		delete batch.run_code;
+		batch.run_code = nullptr;
+	}
+	
+#endif
+	
 }

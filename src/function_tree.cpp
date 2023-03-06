@@ -481,43 +481,33 @@ check_boolean_dimensionless(Standardized_Unit &unit, Source_Location &error_loc,
 }
 
 bool
-is_constant_dimensionless_integer(Standardized_Unit &unit, Math_Expr_FT **expr, Function_Scope *scope, s64 *result) {
-	*expr = prune_tree(*expr, scope, false);	// TODO: It is not that good to do this at this stage as it may mask other consistency checks in model_composition, but it is very hard to get around :(
-	auto expr0 = *expr;
-	if(expr0->expr_type != Math_Expr_Type::literal) {
-		return false;
-	}
-	auto literal = static_cast<Literal_FT *>(expr0);
-	bool found = false;
-	if(literal->value_type == Value_Type::real && literal->value.val_real == 0.0) {  // Not sure if we should accept other values.
-		*result = 0;
-		found = true;
-	} else if(literal->value_type == Value_Type::integer) {
-		*result = literal->value.val_integer;
-		found = true;
-	} else {
-		*result = literal->value.val_boolean;
-		found = true;
-	}
-	bool success = found && (unit.is_dimensionless() || *result==0);
+is_constant_dimensionless_integer(Math_Expr_FT *expr, Standardized_Unit &unit, Function_Scope *scope, s64 *result) {
+	
+	//TODO!
+	bool found;
+	auto value = is_constant_rational(expr, scope, &found);
+	
+	*result = value.nom;
+	
+	bool success = found && value.is_int() && (unit.is_dimensionless() || *result==0);
 	
 	return success;
 }
 
 void
-apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit &result, Standardized_Unit &a, Standardized_Unit &b, Source_Location &oper_loc, Function_Scope *scope, Math_Expr_FT **lhs, Math_Expr_FT **rhs) {
+apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit &result, Standardized_Unit &a, Standardized_Unit &b, Source_Location &oper_loc, Function_Scope *scope, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	char op = (char)oper;
 	if(op == '|' || op == '&') {
-		check_boolean_dimensionless(a, (*lhs)->source_loc, scope);
-		check_boolean_dimensionless(b, (*rhs)->source_loc, scope);
+		check_boolean_dimensionless(a, lhs->source_loc, scope);
+		check_boolean_dimensionless(b, rhs->source_loc, scope);
 	} else if (op == '<' || op == '>' || oper == Token_Type::geq || oper == Token_Type::leq || op == '=' || oper == Token_Type::neq || op == '+' || op == '-' || op == '%') {
 		// TODO: If one of the sides resolves to a constant 0, that should always match (but that may involve pruning first).
 		bool lhs_is_0 = false;
 		if(!match_exact(&a, &b)) {
 			s64 val = -1;
-			lhs_is_0 = is_constant_dimensionless_integer(a, lhs, scope, &val) && val == 0;
+			lhs_is_0 = is_constant_dimensionless_integer(lhs, a, scope, &val) && val == 0;
 			val = -1;
-			bool rhs_is_0 = is_constant_dimensionless_integer(b, rhs, scope, &val) && val == 0;
+			bool rhs_is_0 = is_constant_dimensionless_integer(rhs, b, scope, &val) && val == 0;
 			if(!lhs_is_0 && !rhs_is_0) {
 				// NOTE: If either side is a constant 0, we allow the match.
 				oper_loc.print_error_header();
@@ -537,14 +527,13 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 	} else if (op == '/') {
 		result = multiply(a, b, -1);
 	} else if (op == '^') {
-		// TODO: Ideally we should analyze rhs better, e.g. see if it could be pruned, or see if it could be identified as a rational.
 		s64 val = -1;
 		if(b.is_fully_dimensionless() && a.is_dimensionless()) {
 			// Do nothing, the unit should remain dimensionless.
-		} else if(is_constant_dimensionless_integer(b, rhs, scope, &val)) {
+		} else if(is_constant_dimensionless_integer(rhs, b, scope, &val)) {
 			pow(a, result, Rational<s16>((s16)val)); // Power of integer should not fail, so we don't have to check the return code.
 		} else {
-			(*lhs)->source_loc.print_error_header();
+			lhs->source_loc.print_error_header();
 			error_print("In a power expression ^, to resolve the units, either both sides must be dimensionless, or the right hand side must be a dimensionless integer.");
 			fatal_error_trace(scope);
 		}
@@ -561,7 +550,7 @@ check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &u
 	Standardized_Unit *first_valid = nullptr;
 	for(int idx = 0; idx < units.size(); idx+=2) {
 		s64 val = -1;
-		bool is_0 = is_constant_dimensionless_integer(units[idx], &exprs[idx], scope, &val) && val==0;
+		bool is_0 = is_constant_dimensionless_integer(exprs[idx], units[idx], scope, &val) && val==0;
 		if(is_0) continue; // We allow 0 to match against any other unit here.
 		if(!first_valid) {
 			first_valid = &units[idx];
@@ -1020,7 +1009,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					} else if (arg_units.size() == 2) {
 						if(fun_name == "min" || fun_name == "max") {
 							// NOTE: The min and max functions behave like '+' when it comes to units
-							apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, &new_fun->exprs[0], &new_fun->exprs[1]);
+							apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, new_fun->exprs[0], new_fun->exprs[1]);
 						} else if(fun_name == "copysign") {
 							result.unit = arg_units[0];
 						} else
@@ -1082,7 +1071,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						if(is_valid(fun_decl->expected_units[argidx])) {
 							auto &expect_unit = model->units[fun_decl->expected_units[argidx]]->data.standard_form;
 							s64 val = -1;
-							if(is_constant_dimensionless_integer(arg_units[argidx], &argg, scope, &val) && val == 0) continue;  // Constant 0 match against any unit
+							if(is_constant_dimensionless_integer(argg, arg_units[argidx], scope, &val) && val == 0) continue;  // Constant 0 match against any unit
 							if(!match_exact(&expect_unit, &arg_units[argidx])) {
 								loc.print_error_header();
 								error_print("The function declaration requires a unit (which on standard form is) ", expect_unit.to_utf8(), " for argument ", argidx, ", but we got ", arg_units[argidx].to_utf8(), ". See declaration of function here:\n");
@@ -1173,7 +1162,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			}
 			
 			result.fun = new_binary;
-			apply_binop_to_units(new_binary->oper, name(new_binary->oper), result.unit, arg_units[0], arg_units[1], binary->source_loc, scope, &new_binary->exprs[0], &new_binary->exprs[1]);
+			apply_binop_to_units(new_binary->oper, name(new_binary->oper), result.unit, arg_units[0], arg_units[1], binary->source_loc, scope, new_binary->exprs[0], new_binary->exprs[1]);
 		} break;
 		
 		case Math_Expr_Type::if_chain : {

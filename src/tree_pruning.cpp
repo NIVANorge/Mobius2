@@ -100,7 +100,8 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
 	for(auto loc : block->exprs) {
 		if(loc->expr_type == Math_Expr_Type::local_var) {
 			if (index == ident->local_var.id) {
-				loc->exprs[0] = prune_helper(loc->exprs[0], sc); // TODO: This is not very clean, and causes double work some times, but is needed if we want to use this from constant checking in the unit checking. Should probably instead make a separate constant checking thing rather than prune_helper!
+				loc->exprs[0] = prune_helper(loc->exprs[0], sc); // TODO: Not sure why this is needed, since this expression should have been processed already.
+				
 				if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
 					auto literal        = new Literal_FT();
 					auto loc2           = static_cast<Local_Var_FT *>(loc);
@@ -486,3 +487,107 @@ prune_tree(Math_Expr_FT *expr, Function_Scope *scope, bool prune_unused_locals) 
 }
 
 
+
+
+Rational<s64>
+find_local_variable(Function_Scope *scope, s32 block_id, s32 id, bool *found) {
+	while(scope->block->unique_block_id != block_id)
+		scope = scope->parent;
+	for(auto expr : scope->block->exprs) {
+		if(expr->expr_type == Math_Expr_Type::local_var) {
+			auto local = static_cast<Local_Var_FT *>(expr);
+			if(local->id == id)
+				return is_constant_rational(expr->exprs[0], scope, found);
+		}
+	}
+	*found = false;
+	return Rational<s64>(0);
+}
+
+
+Rational<s64>
+is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found) {
+	
+	// NOTE: The purpose of this function is entirely to help in resolving the units of expressions.
+	//   It is different from prune_tree in that prune_tree modifies the code for more efficient expression of the same computation, while this
+	//   function just checks to see if something is a constant rational number.
+	
+	Function_Scope *old_scope = scope;
+	Function_Scope new_scope;
+	if(expr->expr_type == Math_Expr_Type::block) {
+		new_scope.parent = scope;
+		new_scope.block = static_cast<Math_Block_FT *>(expr);
+		scope = &new_scope;
+	}
+	
+	switch (expr->expr_type) {
+		case Math_Expr_Type::block : {
+			auto block = static_cast<Math_Block_FT *>(expr);
+			if(!block->is_for_loop)
+				return is_constant_rational(block->exprs.back(), scope, found);
+		} break;
+		
+		case Math_Expr_Type::unary_operator : {
+			auto unary = static_cast<Operator_FT *>(expr);
+			auto res = is_constant_rational(expr->exprs[0], scope, found);
+			if((char)unary->oper == '-')
+				return -res;
+		} break;
+		
+		case Math_Expr_Type::binary_operator : {
+			auto binop = static_cast<Operator_FT *>(expr);
+			bool found1, found2;
+			auto res1 = is_constant_rational(expr->exprs[0], scope, &found1);
+			auto res2 = is_constant_rational(expr->exprs[1], scope, &found2);
+			if(found1 && found2) {
+				*found = true;
+				if((char)binop->oper == '+')
+					return res1 + res2;
+				else if((char)binop->oper == '-')
+					return res1 - res2;
+				else if((char)binop->oper == '*')
+					return res1 * res2;
+				else if((char)binop->oper == '/')
+					return res1 / res2;
+				else if((char)binop->oper == '^' && res2.is_int())
+					return pow_i(res1, res2.nom);
+			}
+			if((found1 && res1 == Rational<s64>(0)) || (found2 && res2 == Rational<s64>(0))) {
+				*found = true;
+				return Rational<s64>(0);
+			}
+		} break;
+		
+		// TODO: Could handle certain intrinsic function calls.
+		
+		case Math_Expr_Type::cast : {
+			return is_constant_rational(expr->exprs[0], scope, found);
+		} break;
+		
+		case Math_Expr_Type::literal : {
+			auto literal = static_cast<Literal_FT *>(expr);
+			*found = true;
+			// Allow bool also?
+			if(literal->value_type == Value_Type::integer)
+				return Rational<s64>(literal->value.val_integer);
+			else if(literal->value_type == Value_Type::real) {
+				double intpart;
+				if(std::modf(literal->value.val_real, &intpart) == 0.0)
+					return Rational<s64>((s64)literal->value.val_real);   // TODO: Hmm, this could cause truncation. Should maybe check that it is small enough.
+			}
+		} break;
+		
+		case Math_Expr_Type::identifier : {
+			auto ident = static_cast<Identifier_FT *>(expr);
+			if(ident->variable_type == Variable_Type::local) {
+				auto result = find_local_variable(scope, ident->local_var.scope_id, ident->local_var.id, found);
+				if(*found)
+					warning_print("It was constant\n");
+				return result;
+			}
+		} break;
+	}
+	
+	*found = false;
+	return Rational<s64>(0);
+}

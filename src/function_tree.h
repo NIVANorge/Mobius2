@@ -222,6 +222,9 @@ copy(Math_Expr_FT *source);
 //owns_code
 //copy(owns_code &source);
 
+Rational<s64>
+is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found);
+
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);
 

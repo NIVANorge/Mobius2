@@ -1,9 +1,8 @@
 
 
 
-	Do proper memory management for Math_Expr_FT. The current system is becoming unbearable, and quickly leads to leaks or double deletes.
-		Started, but it seems like they are not always proper trees, as some nodes can get double deleted. Debug this! (Model_Instruction code)
-		Could alternatively have a memory arena for the function trees and free them in one go. Was tricky because of standard library compliance.
+	Clean up the prune_tree system.
+		Could get rid of using Function_Scope in prune_helper? And what about the local vars?
 
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
@@ -24,9 +23,10 @@
 		graph connections
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 
-		.select_minimize
-			etc. For selecting index for target of flux. See doodle.
-	
+		//.select_minimize
+		//	etc. For selecting index for target of flux. See doodle.
+			Replaced with other system for now.
+			
 		Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 			Also only one matrix indexing for a given state variable (at least for now)
 			A challenge is providing good error messages.
