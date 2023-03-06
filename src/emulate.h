@@ -26,9 +26,6 @@ apply_intrinsic(Typed_Value a, String_View function);
 Typed_Value
 apply_intrinsic(Typed_Value a, Typed_Value b, String_View function);
 
-Typed_Value
-check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val, Value_Type type, bool is_lhs);
-
 //struct Scope_Local_Vars;
 struct Model_Application;
 struct Model_Run_State;

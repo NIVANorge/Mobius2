@@ -362,8 +362,11 @@ public :
 	// TODO: this one should maybe be on the Model_Data struct instead
 	void allocate_series_data(s64 time_steps, Date_Time start_date);
 	
-	//void compose();
-	void compile();
+	void compile(bool store_code_strings = false);
+	
+	std::string batch_structure;
+	std::string batch_code;
+	std::string llvm_ir;
 };
 
 

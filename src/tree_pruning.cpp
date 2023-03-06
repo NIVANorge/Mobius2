@@ -126,6 +126,80 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
 	return expr;
 }
 
+Typed_Value
+check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val, Value_Type type, bool is_lhs) {
+	Typed_Value result;
+	result.type = Value_Type::unresolved;
+	char op = (char)oper;
+	if(op == '+' || op == '-') {
+		if((type == Value_Type::real && val.val_real == 0.0) || (type == Value_Type::integer && val.val_integer == 0))
+			result.type = Value_Type::none;     // Signal to keep the other argument as the result
+	} else if (op == '*') {
+		// Note: technically mul by 0 should give nan if other operand is inf or nan, but we don't care about it since then we have an invalid model run anyway.
+		if(type == Value_Type::real) {
+			if(val.val_real == 0.0) {
+				result.type = Value_Type::real;
+				result.val_real = 0.0;
+			} else if (val.val_real == 1.0)
+				result.type = Value_Type::none; 
+		} else if (type == Value_Type::integer) {
+			if(val.val_integer == 0) {
+				result.type = Value_Type::integer;
+				result.val_integer = 0;
+			} else if (val.val_integer == 1)
+				result.type = Value_Type::none;
+		}
+	} else if (op == '/') {
+		if(type == Value_Type::real) {
+			if(val.val_real == 0.0) {    
+				result.type = Value_Type::real;
+				if(is_lhs)
+					result.val_real = 0.0;
+				else {
+					loc.print_error_header();
+					fatal_error("This expression always evaluates to a division by zero.");
+				}
+			} else if (val.val_real == 1.0 && !is_lhs)
+				result.type = Value_Type::none; 
+		} else if (type == Value_Type::integer) {
+			if(val.val_integer == 0) {
+				if(is_lhs) {
+					result.type = Value_Type::integer;
+					result.val_integer = 0;
+				} else {
+					loc.print_error_header();
+					fatal_error("This expression always evaluates to a division by zero.");
+				}
+			} else if (val.val_integer == 1 && !is_lhs)
+				result.type = Value_Type::none;
+		}
+	} else if (op == '^') {
+		if(type == Value_Type::real) {
+			if((val.val_real == 1.0 && is_lhs)  ||  (val.val_real == 0.0 && !is_lhs)) {    // 1^a = 1,  a^0 = 1
+				result.type = Value_Type::real;
+				result.val_real = 1.0;
+			} else if (val.val_real == 1.0 && !is_lhs)     // a^1 = a
+				result.type = Value_Type::none;
+		} else if(type == Value_Type::integer) {
+			if(val.val_integer == 0 && !is_lhs) {     // a^0 = 1   // NOTE: lhs can't be int for this operator
+				result.type = Value_Type::integer;
+				result.val_real = 1;
+			} else if (val.val_integer == 1 && !is_lhs)  // a^0 = 1
+				result.type = Value_Type::none;
+		}
+	} else if (op == '&') {
+		result.type = Value_Type::boolean;
+		result.val_boolean = val.val_boolean;
+	} else if (op == '|') {
+		if(result.val_boolean) {
+			result.type = Value_Type::boolean;
+			result.val_boolean = true;
+		} else
+			result.type = Value_Type::none;
+	}
+	return result;
+}
+
 Math_Expr_FT *
 binop_reduction_first_pass(Math_Expr_FT *expr) {
 	Literal_FT *lhs = nullptr;
@@ -155,6 +229,8 @@ binop_reduction_first_pass(Math_Expr_FT *expr) {
 			if(lhs) {
 				delete expr->exprs[0];
 				res =  expr->exprs[1];
+				if((char)binary->oper == '-')    // This was a case of  (0 - rhs)
+					res = make_unary('-', res);
 			} else {
 				delete expr->exprs[1];
 				res =  expr->exprs[0];
@@ -198,6 +274,7 @@ bool
 is_divisive(Token_Type type) {
 	return (char)type == '-' || (char)type == '/';
 }
+
 
 Math_Expr_FT *
 binop_reassociate(Operator_FT *sup_op, Operator_FT *sub_op, Literal_FT *lit1, bool sup_literal_is_lhs) {
@@ -462,20 +539,49 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {
 
 void
 remove_unused_locals(Math_Expr_FT *expr) {
+	bool isblock = false;
 	if(expr->expr_type == Math_Expr_Type::block) {
-		expr->exprs.erase(std::remove_if(expr->exprs.begin(), expr->exprs.end(), [](Math_Expr_FT *arg) {
+		auto block = static_cast<Math_Block_FT *>(expr);
+		expr->exprs.erase(std::remove_if(expr->exprs.begin(), expr->exprs.end(), [block](Math_Expr_FT *arg) {
 			if(arg->expr_type == Math_Expr_Type::local_var) {
 				auto local = static_cast<Local_Var_FT *>(arg);
 				if(!local->is_used) {
 					delete local;
+					block->n_locals--;
 					return true;
 				}
 			}
 			return false;
 		}), expr->exprs.end());
+		
+		isblock = !block->is_for_loop;
 	}
-	for(auto arg : expr->exprs)
+	int idx = 0;
+	while(idx < expr->exprs.size()) {
+		auto arg = expr->exprs[idx];
 		remove_unused_locals(arg);
+		
+		bool merged = false;
+		
+		// Hmm, this doesn't work. Why?
+		
+		// If a block doesn't have local variables, merge it into the parent block
+		if(isblock && arg->expr_type == Math_Expr_Type::block) {
+			auto block = static_cast<Math_Block_FT *>(arg);
+			if(block->n_locals == 0) {
+				expr->exprs.erase(expr->exprs.begin() + idx); // remove the block itself
+				if(!arg->exprs.empty()) {
+					expr->exprs.insert(expr->exprs.begin() + idx, arg->exprs.begin(), arg->exprs.end()); // Insert the exprs of the sub block.
+					idx += arg->exprs.size(); // skip the newly inserted expressions as they were already processed. Subtracting 1 for the expression we removed.
+					merged = true;
+				}
+				//Destroy the sub block;
+				arg->exprs.clear();
+				delete arg;
+			}
+		}
+		if(!merged) ++idx;
+	}
 }
 
 Math_Expr_FT *
@@ -579,12 +685,8 @@ is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found) {
 		
 		case Math_Expr_Type::identifier : {
 			auto ident = static_cast<Identifier_FT *>(expr);
-			if(ident->variable_type == Variable_Type::local) {
-				auto result = find_local_variable(scope, ident->local_var.scope_id, ident->local_var.id, found);
-				if(*found)
-					warning_print("It was constant\n");
-				return result;
-			}
+			if(ident->variable_type == Variable_Type::local)
+				return find_local_variable(scope, ident->local_var.scope_id, ident->local_var.id, found);
 		} break;
 	}
 	

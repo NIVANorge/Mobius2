@@ -829,6 +829,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto &module : data_set->modules) {
 		Entity_Id module_id = model->modules.find_by_name(module.name);
 		if(!is_valid(module_id) || !model->modules[module_id]->has_been_processed) {
+			warning_print("In ");
 			module.loc.print_warning_header();
 			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
 			continue;
@@ -855,8 +856,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			//TODO: use the model run start and end date.
 			// Or better yet, we could just bake in series default values as literals in the code. in this case.
 		}
-		warning_print("Input dates: ", metadata.start_date.to_string());
-		warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
+		//warning_print("Input dates: ", metadata.start_date.to_string());
+		//warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
 	
 		allocate_series_data(time_steps, metadata.start_date);
 		
@@ -867,7 +868,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		set_up_series_structure(additional_series, additional_series_structure, nullptr);
 	}
 	
-	warning_print("Model application set up with data.\n");
+	//warning_print("Model application set up with data.\n");
 }
 
 void

@@ -1,6 +1,18 @@
 
 
 
+	# Have comma after all lines in a block (possibly except the last one)?
+	
+	# Change if format to
+	if something 
+		bing
+	elif somehingelse
+		plong
+	else
+		blang  #?
+	# Not as nice though...
+
+
 
 	{
 		layer_water.has(horz_target : property("Target of horizontal flux"))

@@ -396,7 +396,7 @@ fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::v
 	literal->source_loc   = ident->source_loc;
 	literal->value      = val;
 	
-	warning_print("Baking ", app->model->parameters[par_id]->name, "\n");
+	//warning_print("Baking ", app->model->parameters[par_id]->name, "\n");
 	
 	delete ident;
 	return literal;
@@ -1510,8 +1510,9 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 		} break;
 		
 		case Math_Expr_Type::cast : {
-			os << "cast(" << name(expr->value_type) << ")";
+			os << "cast(" << name(expr->value_type) << ", ";
 			print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
+			os << ')';
 		} break;
 		
 		case Math_Expr_Type::local_var : {

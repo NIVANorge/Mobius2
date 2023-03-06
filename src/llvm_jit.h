@@ -21,7 +21,7 @@ LLVM_Module_Data *
 create_llvm_module();
 
 void
-jit_compile_module(LLVM_Module_Data *data);
+jit_compile_module(LLVM_Module_Data *data, std::string *output_string);
 
 void
 free_llvm_module(LLVM_Module_Data *data);

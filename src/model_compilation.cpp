@@ -28,38 +28,38 @@ Model_Instruction::debug_string(Model_Application *app) {
 }
 
 void
-debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions) {
+debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions, std::ostream &os) {
 	for(auto &array : arrays) {
-		warning_print("\t[");;
+		os << "\t[";
 		for(auto index_set : array.index_sets) {
-			warning_print("\"", app->model->index_sets[index_set.id]->name, "\"");
+			os << "\"" << app->model->index_sets[index_set.id]->name << "\"";
 			if(index_set.order > 1)
-				warning_print("^", index_set.order);
-			warning_print(" ");
+				os << "^" << index_set.order;
+			os << " ";
 		}
-		warning_print("]\n");
+		os << "]\n";
 		for(auto instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
-			warning_print("\t\t", instr->debug_string(app), "\n");
+			os << "\t\t" << instr->debug_string(app) << "\n";
 		}
 	}
 }
 
 void
-debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions) {
-	warning_print("\n**** batch structure ****\n");
+debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions, std::ostream &os) {
+	os << "\n**** batch structure ****\n";
 	for(auto &batch : batches) {
 		if(is_valid(batch.solver))
-			warning_print("  solver \"", app->model->solvers[batch.solver]->name, "\" :\n");
+			os << "  solver \"" << app->model->solvers[batch.solver]->name << "\" :\n";
 		else
-			warning_print("  discrete :\n");
-		debug_print_batch_array(app, batch.arrays, instructions);
+			os << "  discrete :\n";
+		debug_print_batch_array(app, batch.arrays, instructions, os);
 		if(is_valid(batch.solver)) {
-			warning_print("\t(ODE):\n");
-			debug_print_batch_array(app, batch.arrays_ode, instructions);
+			os << "\t(ODE):\n";
+			debug_print_batch_array(app, batch.arrays_ode, instructions, os);
 		}
 	}
-	warning_print("\n\n");
+	os << "\n\n";
 }
 
 bool
@@ -370,7 +370,7 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 	
 #if 0
 	warning_print("\n****", initial ? " initial" : "", " batch structure ****\n");
-	debug_print_batch_array(model, batch_out, instructions);
+	debug_print_batch_array(model, batch_out, instructions, global_warning_stream);
 	warning_print("\n\n");
 #endif
 }
@@ -1008,7 +1008,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	// discrete batches:
 	// 	- can be multiple of these. 
 	
-	warning_print("Propagate solvers\n");
+	//warning_print("Propagate solvers\n");
 	// TODO: We need to make some guard to check that this is a sufficient amount of iterations!
 	for(int idx = 0; idx < 10; ++idx) {
 		for(auto &instr : instructions) instr.visited = false;
@@ -1026,7 +1026,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		}
 	}
 	
-	warning_print("Remove ODE dependencies\n");
+	//warning_print("Remove ODE dependencies\n");
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		auto &instr = instructions[instr_id];
 		
@@ -1054,7 +1054,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		}
 	}
 	
-	warning_print("Sorting begin\n");
+	//warning_print("Sorting begin\n");
 	std::vector<int> sorted_instructions;
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		if(instructions[instr_id].type == Model_Instruction::Type::invalid) continue;
@@ -1063,7 +1063,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		if(!success) mobius_error_exit();
 	}
 	
-	warning_print("Create batches\n");
+	//warning_print("Create batches\n");
 	
 	std::vector<Pre_Batch> pre_batches;
 	std::vector<int> pre_batch_of_solver(app->model->solvers.count(), -1);
@@ -1223,7 +1223,7 @@ void
 compose_and_resolve(Model_Application *app);
 
 void
-Model_Application::compile() {
+Model_Application::compile(bool store_code_strings) {
 	
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application twice.");
@@ -1240,13 +1240,14 @@ Model_Application::compile() {
 	
 	compose_and_resolve(this);
 	
-	warning_print("Create instruction arrays\n");
+	//warning_print("Create instruction arrays\n");
 	std::vector<Model_Instruction> initial_instructions;
 	std::vector<Model_Instruction> instructions;
 	build_instructions(this, initial_instructions, true);
 	build_instructions(this, instructions, false);
 	
-	warning_print("Instruction codegen\n");
+	//warning_print("Instruction codegen\n");
+	
 	// We can't check it like this anymore, because we can now invalidate instructions due to state variables being invalidated.
 	//for(auto &instr : instructions)
 	//	if(instr.type == Model_Instruction::Type::invalid)
@@ -1255,7 +1256,7 @@ Model_Application::compile() {
 	instruction_codegen(this, initial_instructions, true);
 	instruction_codegen(this, instructions, false);
 
-	warning_print("Resolve index sets dependencies begin.\n");
+	//warning_print("Resolve index sets dependencies begin.\n");
 	resolve_index_set_dependencies(this, initial_instructions, true);
 	
 	// NOTE: state var inherits all index set dependencies from its initial code.
@@ -1277,14 +1278,14 @@ Model_Application::compile() {
 	Batch initial_batch;
 	initial_batch.solver = invalid_entity_id;
 	
-	warning_print("Sort initial.\n");
+	//warning_print("Sort initial.\n");
 	// Sort the initial instructions too.
 	for(int instr_id = 0; instr_id < initial_instructions.size(); ++instr_id) {
 		bool success = topological_sort_instructions_visit(this, instr_id, initial_batch.instrs, initial_instructions, true);
 		if(!success) mobius_error_exit();
 	}
 	
-	warning_print("Build pre batches.\n");
+	//warning_print("Build pre batches.\n");
 	build_batch_arrays(this, initial_batch.instrs, initial_instructions, initial_batch.arrays, true);
 	
 	for(auto &batch : batches) {
@@ -1311,10 +1312,6 @@ Model_Application::compile() {
 		}
 	}
 	
-	warning_print("**** initial batch:\n");
-	debug_print_batch_array(this, initial_batch.arrays, initial_instructions);
-	debug_print_batch_structure(this, batches, instructions);
-	
 	set_up_result_structure(this, batches, instructions);
 	
 	LLVM_Constant_Data constants;
@@ -1323,18 +1320,20 @@ Model_Application::compile() {
 	constants.index_count_data       = data.index_counts.data;
 	constants.index_count_data_count = index_counts_structure.total_count;
 	
+	/*
 	warning_print("****Connection data is:\n");
 	for(int idx = 0; idx < constants.connection_data_count; ++idx)
 		warning_print(" ", constants.connection_data[idx]);
 	warning_print("\n");
+	*/
 	
 	jit_add_global_data(llvm_data, &constants);
 	
-	warning_print("Generate inital run code\n");
+	//warning_print("Generate inital run code\n");
 	this->initial_batch.run_code = generate_run_code(this, &initial_batch, initial_instructions, true);
 	jit_add_batch(this->initial_batch.run_code, "initial_values", llvm_data);
 	
-	warning_print("Generate main run code\n");
+	//warning_print("Generate main run code\n");
 	
 	int batch_idx = 0;
 	for(auto &batch : batches) {
@@ -1362,7 +1361,27 @@ Model_Application::compile() {
 		++batch_idx;
 	}
 	
-	jit_compile_module(llvm_data);
+	std::string *ir_string = nullptr;
+	if(store_code_strings) {
+		std::stringstream ss;
+		ss << "**** initial batch:\n";
+		debug_print_batch_array(this, initial_batch.arrays, initial_instructions, ss);
+		debug_print_batch_structure(this, batches, instructions, ss);
+		this->batch_structure = ss.str();
+		
+		ss.str("");
+		ss << "**** initial batch:\n";
+		print_tree(this, this->initial_batch.run_code, ss);
+		for(auto &batch : this->batches) {
+			ss << "\n**** batch:\n";   //TODO: print whether discrete or solver
+			print_tree(this, batch.run_code, ss);
+		}
+		this->batch_code = ss.str();
+		
+		ir_string = &this->llvm_ir;
+	}
+	
+	jit_compile_module(llvm_data, ir_string);
 	
 	this->initial_batch.compiled_code = get_jitted_batch_function("initial_values");
 	batch_idx = 0;
@@ -1373,6 +1392,8 @@ Model_Application::compile() {
 	}
 	
 	is_compiled = true;
+	
+	
 	
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
 		// Should be tested again in the future.

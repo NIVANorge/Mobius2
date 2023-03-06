@@ -1,8 +1,5 @@
 
 
-	Clean up the prune_tree system.
-		Could get rid of using Function_Scope in prune_helper? And what about the local vars?
-
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 		Sub-indexed series data.
@@ -41,8 +38,15 @@
 	
 	*** Intermediate-pri ***
 	
+		Clean up the prune_tree system.
+			Could get rid of using Function_Scope in prune_helper?
+			Fix local vars pruning to not prune the same thing many times.
+			Memory management is easy to get wrong in this system.
+			If a new local is declared that just refers to an old local, references to the new one could be replaced with references to the old one.
+	
 		Some system for specifying state variables that should not be stored
 			Quite complicated. Does it mean that they are computed inline, or is there some temporary storage for them (the last maybe works best with most systems)?
+			First iteration could be to just not display them.
 
 		Normalized paths can be different depending on how they were loaded using relative paths. This causes it some times to try to load the same library twice, which causes a name clash.
 			Need a fully standardized normalized path?
@@ -156,17 +160,16 @@
 		Set units of regular aggregation state variables so that they display correctly if viewed.
 			note that it is a bit tricky for fluxes.
 			
-		aggregate() of series and parameters.
+		aggregate() of series and parameters, or even of arbitrary expressions.
 		
 		Make a separate procedure for figuring out if an expression is constant (in unit resolution).
 			Alternatively, prune_tree does not modify the original tree, but instead returns a pruned copy.
 			But we also want to get rational numbers in the checking.
 		
-		In pruning:
-			If a new local is declared that just refers to an old local, references to the new one could be replaced with references to the old one.
 		
+		Aggregation variables are not always necessary if we could just add things to derivatives directly, but this is not the case always.
 		
-		
+		Make discrete fluxes work like other fluxes for aggregation stuff so that everything works the same way for them (including some connection stuff).
 		
 		
 		

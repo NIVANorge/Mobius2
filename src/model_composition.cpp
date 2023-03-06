@@ -376,7 +376,7 @@ has_code(Entity_Registration<Reg_Type::has> *has) {
 
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
-	warning_print("Compose begin\n");
+	//warning_print("Compose begin\n");
 	
 	auto model = app->model;
 	
@@ -440,7 +440,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			has_location[has->var_location] = id;
 	}
 	
-	warning_print("State var registration begin.\n");
+	//warning_print("State var registration begin.\n");
 	
 	std::vector<Var_Id> dissolvedes;
 	
@@ -544,8 +544,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		}
 	}
 	
-	warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
-	
+	//warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
 	
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
 	for(auto var_id : dissolvedes) {
@@ -783,7 +782,7 @@ compose_and_resolve(Model_Application *app) {
 	//TODO: make better name generation system!
 	char varname[1024];
 
-	warning_print("Function tree resolution begin.\n");
+	//warning_print("Function tree resolution begin.\n");
 	
 	// TODO: check if there are unused aggregation data or unit conversion data!
 	// TODO: warning or error if a flux is still marked as "out" (?)   -- though this could be legitimate in some cases where you just want to run a sub-module and not link it up with anything.
@@ -1063,7 +1062,7 @@ compose_and_resolve(Model_Application *app) {
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());
 	}
 	
-	warning_print("Generate state vars for aggregates.\n");
+	//warning_print("Generate state vars for aggregates.\n");
 		
 	for(auto &need_agg : needs_aggregate) {
 		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};
@@ -1135,7 +1134,7 @@ compose_and_resolve(Model_Application *app) {
 	
 	// TODO: Should we give an error if there is a connection flux on an overridden variable?
 	
-	warning_print("Generate state vars for in_flux_connection.\n");
+	//warning_print("Generate state vars for in_flux_connection.\n");
 	// TODO: Support multiple connections for the same state variable.
 	for(auto &pair : may_need_connection_target) {
 		
@@ -1177,7 +1176,7 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
-	warning_print("Generate state vars for in_flux.\n");
+	//warning_print("Generate state vars for in_flux.\n");
 	for(auto &in_flux : in_flux_map) {
 		
 		auto &key = in_flux.first;

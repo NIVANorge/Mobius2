@@ -124,7 +124,7 @@ create_llvm_module() {
 }
 
 void
-jit_compile_module(LLVM_Module_Data *data) {
+jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	
 	// TODO: rabbit hole on optimizations/passes and see how they affect complex models!
 	llvm::LoopAnalysisManager     lam;
@@ -144,12 +144,12 @@ jit_compile_module(LLVM_Module_Data *data) {
 	
 	mpm.run(*data->module, mam);
 	
-	#if 0
-	std::string module_ir_text;
-	llvm::raw_string_ostream os(module_ir_text);
-	os << *data->module;
-	warning_print("Compiled module is:\n", os.str());
-	#endif
+	if(output_string) {
+		std::string module_ir_text;
+		llvm::raw_string_ostream os(module_ir_text);
+		os << *data->module;
+		*output_string = os.str();
+	}
 	
 	data->resource_tracker = global_jit->getMainJITDylib().createResourceTracker();
 	auto tsm = llvm::orc::ThreadSafeModule(std::move(data->module), std::move(data->context));
@@ -175,7 +175,7 @@ free_llvm_module(LLVM_Module_Data *data) {
 
 batch_function *
 get_jitted_batch_function(const std::string &fun_name) {
-	warning_print("Lookup of function from jitted module.\n");
+	//warning_print("Lookup of function from jitted module.\n");
 	
 	auto result = global_jit->lookup(fun_name);
 	if(result) {
@@ -260,12 +260,12 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(*data->context, "entry", fun);
 	data->builder->SetInsertPoint(basic_block);
 	
-	warning_print("Begin llvm function creation\n");
+	//warning_print("Begin llvm function creation\n");
 	
 	build_expression_ir(batch_code, nullptr, args, data);
 	data->builder->CreateRetVoid();
 	
-	warning_print("Created llvm function\n");
+	//warning_print("Created llvm function\n");
 	
 	std::string errmsg = "";
 	llvm::raw_string_ostream errstream(errmsg);
@@ -276,7 +276,7 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 		fatal_error(Mobius_Error::internal, "LLVM function verification failed for function \"", fun_name, "\" : ", errstream.str(), " .");
 	}
 	
-	warning_print("Verification done.\n");
+	//warning_print("Verification done.\n");
 }
 
 llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, LLVM_Module_Data *data) {
