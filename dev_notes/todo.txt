@@ -1,5 +1,4 @@
 
-
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 		Sub-indexed series data.
@@ -162,10 +161,6 @@
 			
 		aggregate() of series and parameters, or even of arbitrary expressions.
 		
-		Make a separate procedure for figuring out if an expression is constant (in unit resolution).
-			Alternatively, prune_tree does not modify the original tree, but instead returns a pruned copy.
-			But we also want to get rational numbers in the checking.
-		
 		
 		Aggregation variables are not always necessary if we could just add things to derivatives directly, but this is not the case always.
 		
@@ -311,6 +306,14 @@
 		Must be organized a bit differently. The special_computation instruction must be separate from the "instruction" of the variable it computes so that index sets and storage can be properly set up for that variable.
 		
 		Fails when target is chained. Why??
-		
+	
+	Make a separate procedure for figuring out if an expression is constant (in unit resolution).
+			Alternatively, prune_tree does not modify the original tree, but instead returns a pruned copy.
+			But we also want to get rational numbers in the checking.
 		
 	Block comments!
+	
+	Find out why subtraction of Melt runoff is put in its own batch at the end for SimplyQ
+		not incorrect, but unnecessary with that additional batch. It should have been able to insert it before the solver batch.
+	Also why is in_flux(Soil water volume) discrete ? It is ok in this instance, but may not always be.
+		Actually, this probably just uses the propagate_solvers system, so should be ok.

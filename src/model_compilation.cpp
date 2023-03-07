@@ -28,7 +28,7 @@ Model_Instruction::debug_string(Model_Application *app) {
 }
 
 void
-debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions, std::ostream &os) {
+debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions, std::ostream &os, bool show_dependencies = false) {
 	for(auto &array : arrays) {
 		os << "\t[";
 		for(auto index_set : array.index_sets) {
@@ -41,22 +41,31 @@ debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays
 		for(auto instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
 			os << "\t\t" << instr->debug_string(app) << "\n";
+			if(show_dependencies) {
+				for(int dep : instr->loose_depends_on_instruction)
+					os << "\t\t\t* " << instructions[dep].debug_string(app) << "\n";
+				for(int dep : instr->depends_on_instruction)
+					os << "\t\t\t** " << instructions[dep].debug_string(app) << "\n";
+				for(int dep : instr->instruction_is_blocking)
+					os << "\t\t\t| " << instructions[dep].debug_string(app) << "\n";
+					
+			}
 		}
 	}
 }
 
 void
-debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions, std::ostream &os) {
+debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches, std::vector<Model_Instruction> &instructions, std::ostream &os, bool show_dependencies = false) {
 	os << "\n**** batch structure ****\n";
 	for(auto &batch : batches) {
 		if(is_valid(batch.solver))
 			os << "  solver \"" << app->model->solvers[batch.solver]->name << "\" :\n";
 		else
 			os << "  discrete :\n";
-		debug_print_batch_array(app, batch.arrays, instructions, os);
+		debug_print_batch_array(app, batch.arrays, instructions, os, show_dependencies);
 		if(is_valid(batch.solver)) {
 			os << "\t(ODE):\n";
-			debug_print_batch_array(app, batch.arrays_ode, instructions, os);
+			debug_print_batch_array(app, batch.arrays_ode, instructions, os, show_dependencies);
 		}
 	}
 	os << "\n\n";
@@ -1097,15 +1106,40 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	
 	// Now group discrete equations into single pre_batches.
 	std::vector<Pre_Batch> grouped_pre_batches;
-	Entity_Id prev_solver = invalid_entity_id;
+	//Entity_Id prev_solver = invalid_entity_id;
 	for(int order : sorted_pre_batches) {
 		auto &pre_batch = pre_batches[order];
+		int insertion_point = -1;
+		if(!is_valid(pre_batch.solver)) {
+			for(int compare_idx = (int)grouped_pre_batches.size()-1; compare_idx >= 0; --compare_idx) {
+				auto &compare = grouped_pre_batches[compare_idx];
+				if(!is_valid(compare.solver))
+					insertion_point = compare_idx;
+				if(compare.depends_on.find(order) != compare.depends_on.end()) {
+					if(!is_valid(compare.solver))
+						insertion_point = compare_idx;
+					break;
+				}
+			}
+		}
+		if(insertion_point < 0) {
+			grouped_pre_batches.resize(grouped_pre_batches.size()+1);
+			insertion_point = grouped_pre_batches.size()-1;
+		}
+		auto &insertion_batch = grouped_pre_batches[insertion_point];
+		insertion_batch.solver = pre_batch.solver;
+		insertion_batch.instructions.insert(insertion_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
+		insertion_batch.depends_on.insert(pre_batch.depends_on.begin(), pre_batch.depends_on.end());
+		
+		/*
 		if(is_valid(prev_solver) || is_valid(pre_batch.solver) || grouped_pre_batches.empty())
 			grouped_pre_batches.resize(grouped_pre_batches.size()+1);
+		
 		auto &new_batch = grouped_pre_batches.back();
 		new_batch.instructions.insert(new_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
 		new_batch.solver = pre_batch.solver;
 		prev_solver = pre_batch.solver;
+		*/
 	}
 	
 	
@@ -1363,10 +1397,13 @@ Model_Application::compile(bool store_code_strings) {
 	
 	std::string *ir_string = nullptr;
 	if(store_code_strings) {
+		
+		bool show_dependencies = false;
+		
 		std::stringstream ss;
 		ss << "**** initial batch:\n";
-		debug_print_batch_array(this, initial_batch.arrays, initial_instructions, ss);
-		debug_print_batch_structure(this, batches, instructions, ss);
+		debug_print_batch_array(this, initial_batch.arrays, initial_instructions, ss, show_dependencies);
+		debug_print_batch_structure(this, batches, instructions, ss, show_dependencies);
 		this->batch_structure = ss.str();
 		
 		ss.str("");
