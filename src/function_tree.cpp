@@ -1,4 +1,5 @@
 
+#include <sstream>
 
 #include "function_tree.h"
 #include "emulate.h"

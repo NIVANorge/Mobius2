@@ -629,17 +629,13 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 			new_locals.scope_up = locals;
 			//new_locals.local_vars.resize(block->n_locals);
 			if(!block->is_for_loop) {
-				//int index = 0;
 				for(auto sub_expr : expr->exprs) {
 					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
 						auto local = static_cast<Local_Var_FT *>(sub_expr);
-						if(local->is_used) {
+						if(local->is_used) { // Probably unnecessary since it should have been pruned away in that case.
 							result = build_expression_ir(sub_expr, &new_locals, args, data);
 							new_locals.values[local->id] = result;
-						} /*else {
-							new_locals.values[local->id] = nullptr; // TODO: Should not be necessary
-						}*/
-						//++index;
+						}
 					} else
 						result = build_expression_ir(sub_expr, &new_locals, args, data);
 				}

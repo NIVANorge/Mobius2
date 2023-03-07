@@ -214,7 +214,7 @@ Math_Expr_FT *
 make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr, Function_Scope *scope = nullptr, bool prune_unused_locals = true);
+prune_tree(Math_Expr_FT *expr);
 
 Math_Expr_FT *
 copy(Math_Expr_FT *source);

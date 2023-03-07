@@ -6,6 +6,7 @@
 
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
+			This in particular may have been fixed now.
 
 	Finish connection system
 

@@ -840,9 +840,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	warning_print(ss.str());
 	warning_print("\n");
 	*/
-
 	auto result = prune_tree(top_scope);
-	
 	/*
 	warning_print("\nTree after prune:\n");
 	std::stringstream ss;

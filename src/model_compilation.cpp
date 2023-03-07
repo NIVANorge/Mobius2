@@ -4,6 +4,7 @@
 #include "model_codegen.h"
 
 #include <string>
+#include <sstream>
 
 std::string
 Model_Instruction::debug_string(Model_Application *app) {
@@ -1434,11 +1435,13 @@ Model_Application::compile(bool store_code_strings) {
 	
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
 		// Should be tested again in the future.
-	for(auto &instr : initial_instructions)
-		delete instr.code;
 	
-	for(auto &instr : instructions)
-		delete instr.code;
+	// Hmm, this sometimes breaks.
+	//for(auto &instr : initial_instructions)
+	//	delete instr.code;
+	
+	//for(auto &instr : instructions)
+	//	delete instr.code;
 	
 		
 #ifndef MOBIUS_EMULATE

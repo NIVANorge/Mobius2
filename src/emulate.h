@@ -4,6 +4,8 @@
 
 #include "common_types.h"
 
+#include "function_tree.h"
+
 struct Typed_Value : Parameter_Value {
 	Value_Type type;
 	
@@ -29,7 +31,7 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function);
 //struct Scope_Local_Vars;
 struct Model_Application;
 struct Model_Run_State;
-struct Math_Expr_FT;
+//struct Math_Expr_FT;
 
 Typed_Value
 emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<Typed_Value> *locals);

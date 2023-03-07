@@ -3,8 +3,8 @@
 #include "emulate.h"
 
 
-Math_Expr_FT *
-prune_helper(Math_Expr_FT *expr, Function_Scope *scope);
+//Math_Expr_FT *
+//prune_helper(Math_Expr_FT *expr, Function_Scope *scope);
 
 Math_Expr_FT *
 optimize_pow_int(Math_Expr_FT *lhs, s64 p) {
@@ -80,10 +80,16 @@ replace_iteration_index(Math_Expr_FT *expr, s32 block_id) {
 	return expr;
 }
 
-Math_Expr_FT *
-potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
-	auto ident = static_cast<Identifier_FT *>(expr);
-	if(ident->variable_type != Variable_Type::local) return expr;
+// TODO: We should be able to reuse the general system we have for this.
+struct Find_Result {
+	Local_Var_FT *loc;
+	Function_Scope *scope;
+};
+
+Find_Result
+find_local_decl(Identifier_FT *ident, Function_Scope *scope) {
+	if(ident->variable_type != Variable_Type::local)
+		fatal_error(Mobius_Error::internal, "Misuse of find_value_of_local");
 	
 	if(!scope)
 		fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
@@ -94,35 +100,51 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {
 			fatal_error(Mobius_Error::internal, "Something went wrong with the scope of an identifier when pruning a function tree.");
 	}
 	Math_Block_FT *block = sc->block;
-	if(block->is_for_loop) return expr; // If the scope was a for loop, the identifier was pointing to the iteration index, and that can't be optimized away here.
+	
+	if(block->is_for_loop) return {nullptr, nullptr}; // If the scope was a for loop, the identifier was pointing to the iteration index, and that can't be optimized away here.
 		
-	int index = 0;
 	for(auto loc : block->exprs) {
 		if(loc->expr_type == Math_Expr_Type::local_var) {
-			if (index == ident->local_var.id) {
-				loc->exprs[0] = prune_helper(loc->exprs[0], sc); // TODO: Not sure why this is needed, since this expression should have been processed already.
-				
-				if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
-					auto literal        = new Literal_FT();
-					auto loc2           = static_cast<Local_Var_FT *>(loc);
-					auto loc_literal    = static_cast<Literal_FT *>(loc->exprs[0]);
-					literal->value      = loc_literal->value;
-					literal->value_type = loc_literal->value_type;
-					literal->source_loc = ident->source_loc;
-					loc2->is_used       = false;
-					delete expr;
-					return literal;
-				} else if (loc->exprs[0]->expr_type == Math_Expr_Type::identifier) {
-					auto expr2 = potentially_prune_local(loc->exprs[0], sc);
-					if(expr2->expr_type == Math_Expr_Type::literal)
-						return expr2;
-					else
-						return expr;
-				}
-			}
-			++index;
+			auto loc2 = static_cast<Local_Var_FT *>(loc);
+			if(loc2->id == ident->local_var.id)
+				return {loc2, sc};
 		}
 	}
+	
+	fatal_error(Mobius_Error::internal, "Unable to find local var...");
+}
+
+
+Math_Expr_FT *
+potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Local_Var_FT *> *scope) {
+	auto ident = static_cast<Identifier_FT *>(expr);
+	if(ident->variable_type != Variable_Type::local) return expr;
+	
+	
+	auto res = find_local_decl(ident, scope);
+	//Local_Var_FT *loc = nullptr;
+	auto loc = res.loc;
+	
+	//auto loc = find_local_var(scope, ident->local_var);
+	if(!loc) return expr;
+	
+	if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
+		auto literal        = static_cast<Literal_FT *>(copy(loc->exprs[0]));
+		literal->source_loc = ident->source_loc;
+		loc->is_used        = false;
+		delete expr;
+		return literal;
+	} else if (loc->exprs[0]->expr_type == Math_Expr_Type::identifier) {
+		// Replace a reference to another reference with that other reference (and potentially prune it).
+		auto ident2 = static_cast<Identifier_FT *>(loc->exprs[0]);
+		if(ident2->variable_type == Variable_Type::local) {
+			loc->is_used = false;
+			auto result = potentially_prune_local(copy(ident2), res.scope);
+			//delete expr;      // TODO: Why does this cause a problem?? And why didn't it before?
+			return result;
+		}
+	}
+
 	return expr;
 }
 
@@ -141,7 +163,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 				result.type = Value_Type::real;
 				result.val_real = 0.0;
 			} else if (val.val_real == 1.0)
-				result.type = Value_Type::none; 
+				result.type = Value_Type::none;
 		} else if (type == Value_Type::integer) {
 			if(val.val_integer == 0) {
 				result.type = Value_Type::integer;
@@ -151,7 +173,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 		}
 	} else if (op == '/') {
 		if(type == Value_Type::real) {
-			if(val.val_real == 0.0) {    
+			if(val.val_real == 0.0) {
 				result.type = Value_Type::real;
 				if(is_lhs)
 					result.val_real = 0.0;
@@ -374,21 +396,43 @@ binop_reduction_second_pass(Math_Expr_FT *expr) {
 }
 
 Math_Expr_FT *
-prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {
+prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Local_Var_FT *> *scope) {
 	
 	// Try to simplify the math expression if some components can be evaluated to constants at compile time.
 	//    Some of this could be left to llvm, but it is beneficial make the job easier for llvm, and we do see improvements from some of these optimizations.
 	
-	Function_Scope *old_scope = scope;
-	Function_Scope new_scope;
+	
+	Function_Scope new_scope; // It is annoying that we have to construct it even if we don't use it :(
 	if(expr->expr_type == Math_Expr_Type::block) {
 		new_scope.parent = scope;
 		new_scope.block = static_cast<Math_Block_FT *>(expr);
 		scope = &new_scope;
 	}
+	/*
+	Scope_Local_Vars<Local_Var_FT *> new_scope; // It is annoying that we have to construct it even if we don't use it :(
 	
-	for(auto &arg : expr->exprs)
-		arg = prune_helper(arg, scope);
+	if(expr->expr_type == Math_Expr_Type::block) {
+		auto block = static_cast<Math_Block_FT *>(expr);
+		
+		new_scope.scope_up = scope;
+		new_scope.scope_id = block->unique_block_id;
+		scope = &new_scope;
+		
+		for(auto &arg : expr->exprs) {
+			arg = prune_helper(arg, scope);
+			if(arg->expr_type == Math_Expr_Type::local_var) {
+				auto loc = static_cast<Local_Var_FT *>(arg);
+				if(block->is_for_loop)
+					new_scope.values[loc->id] = nullptr;
+				else
+					new_scope.values[loc->id] = loc;
+			}
+		}
+	
+	} else {*/
+		for(auto &arg : expr->exprs)
+			arg = prune_helper(arg, scope);
+	//}
 	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
@@ -406,12 +450,14 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {
 				delete block;
 				return result;
 			}
+			/*
 			if(!block->is_for_loop && block->exprs.size() == 1) {   // A block with a single statement can be replaced with that statement.
 				auto result = block->exprs[0];
 				block->exprs.clear();
 				delete block;
 				return result;
 			}
+			*/
 			
 			// TODO Could in some instances merge neighboring if blocks if they have the same condition, but it could be tricky.
 		} break;
@@ -531,7 +577,7 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {
 		} break;
 		
 		case Math_Expr_Type::identifier : {
-			expr = potentially_prune_local(expr, scope);
+			return potentially_prune_local(expr, scope);
 		} break;
 	}
 	return expr;
@@ -580,15 +626,36 @@ remove_unused_locals(Math_Expr_FT *expr) {
 				delete arg;
 			}
 		}
+		
 		if(!merged) ++idx;
 	}
 }
 
 Math_Expr_FT *
-prune_tree(Math_Expr_FT *expr, Function_Scope *scope, bool prune_unused_locals) {
-	auto result = prune_helper(expr, scope);
-	if(prune_unused_locals)
-		remove_unused_locals(result);
+remove_single_statement_blocks(Math_Expr_FT *expr) {
+	
+	for(auto &arg : expr->exprs)
+		arg = remove_single_statement_blocks(arg);
+	
+	if(expr->expr_type == Math_Expr_Type::block) {
+		auto block = static_cast<Math_Block_FT *>(expr);
+		if(!block->is_for_loop && block->exprs.size() == 1) {   // A block with a single statement can be replaced with that statement.
+			auto result = block->exprs[0];
+			block->exprs.clear();
+			delete block;
+			return result;
+		}
+	}
+	
+	return expr;
+}
+
+Math_Expr_FT *
+prune_tree(Math_Expr_FT *expr) {
+	auto result = prune_helper(expr, nullptr);
+	remove_unused_locals(result);
+	result = remove_single_statement_blocks(result);
+	// Hmm, we could potentially do another prune_helper here since now when blocks are reduced, they could maybe be pruned more.
 	return result;
 }
 

@@ -182,13 +182,11 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 			new_locals.scope_up = locals;
 			//new_locals.local_vars.resize(block->n_locals);
 			if(!block->is_for_loop) {
-				int index = 0;
 				for(auto sub_expr : expr->exprs) {
 					result = emulate_expression(sub_expr, state, &new_locals);
 					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
 						auto local = static_cast<Local_Var_FT *>(sub_expr);
 						new_locals.values[local->id] = result;
-						++index;
 					}
 				}
 			} else {
