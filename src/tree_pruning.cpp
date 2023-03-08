@@ -22,15 +22,15 @@ optimize_pow_int(Math_Expr_FT *lhs, s64 p) {
 		auto ref = add_local_var(scope, lhs);
 	
 		if(p == 2)
-			result->exprs.push_back(make_binop('*', ref, ref));
+			result->exprs.push_back(make_binop('*', ref, copy(ref)));
 		else if(p == 3)
-			result->exprs.push_back(make_binop('*', make_binop('*', ref, ref), ref));
+			result->exprs.push_back(make_binop('*', make_binop('*', ref, copy(ref)), copy(ref)));
 		else if(p == 4) {
-			auto ref2 = add_local_var(scope, make_binop('*', ref, ref));
-			result->exprs.push_back(make_binop('*', ref2, ref2));
+			auto ref2 = add_local_var(scope, make_binop('*', ref, copy(ref)));
+			result->exprs.push_back(make_binop('*', ref2, copy(ref2)));
 		}
 		else if(p == -2)
-			result->exprs.push_back(make_binop('/', make_literal(1.0), make_binop('*', ref, ref)));
+			result->exprs.push_back(make_binop('/', make_literal(1.0), make_binop('*', ref, copy(ref))));
 	} else
 		result = make_binop('^', lhs, make_literal(p));  // Fallback on powi
 	
@@ -125,22 +125,23 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 	//Local_Var_FT *loc = nullptr;
 	auto loc = res.loc;
 	
-	//auto loc = find_local_var(scope, ident->local_var);
 	if(!loc) return expr;
 	
 	if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
 		auto literal        = static_cast<Literal_FT *>(copy(loc->exprs[0]));
 		literal->source_loc = ident->source_loc;
 		loc->is_used        = false;
-		delete expr;
+		// NOTE: Don't delete expr here, it is done at the call site.
 		return literal;
 	} else if (loc->exprs[0]->expr_type == Math_Expr_Type::identifier) {
 		// Replace a reference to another reference with that other reference (and potentially prune it).
 		auto ident2 = static_cast<Identifier_FT *>(loc->exprs[0]);
 		if(ident2->variable_type == Variable_Type::local) {
 			loc->is_used = false;
-			auto result = potentially_prune_local(copy(ident2), res.scope);
-			//delete expr;      // TODO: Why does this cause a problem?? And why didn't it before?
+			auto identcopy = copy(ident2);
+			auto result = potentially_prune_local(identcopy, res.scope);
+			if(result != identcopy)
+				delete identcopy;
 			return result;
 		}
 	}
@@ -450,14 +451,6 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Loca
 				delete block;
 				return result;
 			}
-			/*
-			if(!block->is_for_loop && block->exprs.size() == 1) {   // A block with a single statement can be replaced with that statement.
-				auto result = block->exprs[0];
-				block->exprs.clear();
-				delete block;
-				return result;
-			}
-			*/
 			
 			// TODO Could in some instances merge neighboring if blocks if they have the same condition, but it could be tricky.
 		} break;
@@ -577,7 +570,10 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Loca
 		} break;
 		
 		case Math_Expr_Type::identifier : {
-			return potentially_prune_local(expr, scope);
+			auto result = potentially_prune_local(expr, scope);
+			if(result != expr)     
+				delete expr;
+			return result;
 		} break;
 	}
 	return expr;

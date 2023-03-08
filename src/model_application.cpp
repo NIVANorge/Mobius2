@@ -877,7 +877,7 @@ Model_Application::save_to_data_set() {
 	if(!data_set)
 		fatal_error(Mobius_Error::api_usage, "Tried to save model application to data set, but no data set was attached to the model application.");
 	
-	// NOTE : For now we just write back the parameter values and index sets. Eventually we should write the entire structure when necessary.
+	// NOTE : For now we just write back the parameter values. Eventually we should write the entire structure when necessary.
 
 	/*
 	for(Entity_Id index_set_id : model->index_sets) {

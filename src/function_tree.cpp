@@ -1394,6 +1394,10 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 	
 	bool always_bracket = false;
 	
+	if(expr->visited)
+		os << "\n___DUPLICATE___(", name(expr->expr_type), ")\n";
+	expr->visited = true;
+	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);

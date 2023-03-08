@@ -15,6 +15,8 @@ Math_Expr_FT {
 	Source_Location              source_loc;
 	std::vector<Math_Expr_FT *>  exprs;
 	
+	bool visited = false; // For debug purposes in order to verify that it is indeed a tree.
+	
 	Math_Expr_FT(Math_Expr_Type expr_type) : value_type(Value_Type::unresolved), expr_type(expr_type), source_loc() {};
 	Math_Expr_FT() {}; //NOTE: we need this one in copy() (where the data is overwritten) but it should otherwise not be used!
 	~Math_Expr_FT() { for(auto expr : exprs) delete expr; };
@@ -238,11 +240,11 @@ Scope_Local_Vars {
 template<typename T> T
 find_local_var(Scope_Local_Vars<T> *scope, Local_Var_Id id) {
 	if(!scope)
-		fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable.");
+		fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Initial scope nullptr. Scope id: ", id.scope_id, " id: ", id.id, ".");
 	while(scope->scope_id != id.scope_id) {
 		scope = scope->scope_up;
 		if(!scope)
-			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable.");
+			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Scope id: ", id.scope_id, " id: ", id.id, ".");
 	}
 	auto find = scope->values.find(id.id);
 	if(find == scope->values.end())
