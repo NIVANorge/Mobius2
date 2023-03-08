@@ -10,7 +10,7 @@
 #include <functional>
 
 
-#define INDEX_PACKING_ALTERNATIVE 1
+#define INDEX_PACKING_ALTERNATIVE 0
 
 
 struct Math_Expr_FT;

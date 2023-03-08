@@ -637,6 +637,34 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 	
 	if(expr->expr_type == Math_Expr_Type::block) {
 		auto block = static_cast<Math_Block_FT *>(expr);
+		
+		// If the final value of a block is just a local var reference and that local var is declared on the line above, just replace the two last lines with the value of that local var.
+		//			We could maybe do something more sophisticated where we keep track of the number of references to a local var and substitute it if there is just one.
+		bool loop = true;
+		while(loop) {
+			loop = false;
+			if(expr->exprs.back()->expr_type == Math_Expr_Type::identifier) {
+				auto ident = static_cast<Identifier_FT *>(expr->exprs.back());
+				if(ident->variable_type == Variable_Type::local && ident->local_var.scope_id == block->unique_block_id) {
+					if(expr->exprs.size() <= 2)
+						fatal_error(Mobius_Error::internal, "There is something wrong with a local var reference.");
+					auto check = expr->exprs[expr->exprs.size()-2];
+					if(check->expr_type == Math_Expr_Type::local_var) {
+						auto loc = static_cast<Local_Var_FT *>(check);
+						if(loc->id == ident->local_var.id) {
+							auto val = check->exprs[0];
+							check->exprs.clear();
+							delete check;
+							delete ident;
+							expr->exprs.resize(expr->exprs.size()-2);
+							expr->exprs.push_back(val);
+							loop = true;
+						}
+					}
+				}
+			}
+		}
+		
 		if(!block->is_for_loop && block->exprs.size() == 1) {   // A block with a single statement can be replaced with that statement.
 			auto result = block->exprs[0];
 			block->exprs.clear();
@@ -653,7 +681,12 @@ prune_tree(Math_Expr_FT *expr) {
 	auto result = prune_helper(expr, nullptr);
 	remove_unused_locals(result);
 	result = remove_single_statement_blocks(result);
-	// Hmm, we could potentially do another prune_helper here since now when blocks are reduced, they could maybe be pruned more.
+	
+	// A second pass sometimes helps since things above could have collapsed blocks making it easier to prune other things again.
+	result = prune_helper(result, nullptr);
+	remove_unused_locals(result);
+	result = remove_single_statement_blocks(result);
+
 	return result;
 }
 

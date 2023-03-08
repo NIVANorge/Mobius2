@@ -666,29 +666,31 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 			
 			int struct_pos = -1;
 			if(ident->variable_type == Variable_Type::parameter) {
-				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_lookup");
-				result = data->builder->CreateLoad(double_ty, result, "par");
+				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
+				
+				//auto par = model->parameters[ident->par_id];   //Hmm, we don't have that here. Could maybe store a debug symbol in the identifier? Useful in several instances.
+				result = data->builder->CreateLoad(double_ty, result, "par");//std::string("par_")+par->symbol);
 				if(ident->value_type == Value_Type::integer || ident->value_type == Value_Type::boolean) {
 					result = data->builder->CreateBitCast(result, llvm::Type::getInt64Ty(*data->context));
 					if(ident->value_type == Value_Type::boolean)
 						result = data->builder->CreateTrunc(result, llvm::Type::getInt1Ty(*data->context));
 				}
 			} else if(ident->variable_type == Variable_Type::state_var) {
-				result = data->builder->CreateGEP(double_ty, args[2], offset, "var_lookup");
+				result = data->builder->CreateGEP(double_ty, args[2], offset, "var_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "var");
 			} else if(ident->variable_type == Variable_Type::series) {
-				result = data->builder->CreateGEP(double_ty, args[1], offset, "series_lookup");
+				result = data->builder->CreateGEP(double_ty, args[1], offset, "series_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "series");
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = find_local_var(locals, ident->local_var);
 				if(!result)
 					fatal_error(Mobius_Error::internal, "A local var was not initialized in ir building.");
 			} else if(ident->variable_type == Variable_Type::connection_info) {
-				result = data->builder->CreateGEP(int_32_ty, data->global_connection_data, offset, "connection_info_lookup");
+				result = data->builder->CreateGEP(int_32_ty, data->global_connection_data, offset, "connection_info_ptr");
 				result = data->builder->CreateLoad(int_32_ty, result, "connection_info");
 				result = data->builder->CreateSExt(result, int_64_ty, "connection_info_cast");
 			} else if(ident->variable_type == Variable_Type::index_count) {
-				result = data->builder->CreateGEP(int_32_ty, data->global_index_count_data, offset, "index_count_lookup");
+				result = data->builder->CreateGEP(int_32_ty, data->global_index_count_data, offset, "index_count_ptr");
 				result = data->builder->CreateLoad(int_32_ty, result, "index_count");
 				result = data->builder->CreateSExt(result, int_64_ty, "index_count_cast");
 			}
@@ -794,7 +796,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
 			llvm::Value *offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *value  = build_expression_ir(expr->exprs[1], locals, args, data);
-			auto ptr = data->builder->CreateGEP(double_ty, args[2], offset, "var_store");
+			auto ptr = data->builder->CreateGEP(double_ty, args[2], offset, "var_ptr");
 			data->builder->CreateStore(value, ptr);
 			return nullptr;
 		} break;
@@ -803,7 +805,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
 			llvm::Value *offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *value  = build_expression_ir(expr->exprs[1], locals, args, data);
-			auto ptr = data->builder->CreateGEP(double_ty, args[3], offset, "deriv_store");
+			auto ptr = data->builder->CreateGEP(double_ty, args[3], offset, "deriv_ptr");
 			data->builder->CreateStore(value, ptr);
 			return nullptr;
 		} break;
