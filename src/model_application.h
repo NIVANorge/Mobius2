@@ -10,6 +10,9 @@
 #include <functional>
 
 
+#define INDEX_PACKING_ALTERNATIVE 1
+
+
 struct Math_Expr_FT;
 
 struct
@@ -131,9 +134,15 @@ struct Multi_Array_Structure {
 	std::unordered_map<Handle_T, s32, Hash_Fun<Handle_T>> handle_location;
 	s64 begin_offset;
 	
-	s64 get_offset_base(Handle_T handle) {
+#if INDEX_PACKING_ALTERNATIVE
+	s64 get_offset_base(Handle_T handle, Model_Application *app) {
 		return begin_offset + handle_location[handle];
 	}
+#else
+	s64 get_offset_base(Handle_T handle, Model_Application *app) {
+		return begin_offset + handle_location[handle]*instance_count(app);
+	}
+#endif
 	
 	s64 get_stride(Handle_T handle);
 	
@@ -416,9 +425,7 @@ check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
 			fatal_error(Mobius_Error::internal, "Mis-indexing in one of the get_offset functions.");
 }
 
-#if 1
-//TODO: Switching this to 0 doesn't quite work as intended because get_offset_base is no longer correct in that case, and breaks some things in subtle ways.
-//    We have to fix get_offset_base, but that may not work well with all the use cases of that function.
+#if INDEX_PACKING_ALTERNATIVE
 
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
@@ -433,7 +440,7 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 		offset *= (s64)app->get_max_index_count(index_set).index;
 		offset += (s64)indexes[index_set.id].index;
 	}
-	return (s64)offset*handles.size() + get_offset_base(handle);
+	return (s64)offset*handles.size() + get_offset_base(handle, app);
 }
 
 template<typename Handle_T> s64
@@ -452,7 +459,7 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 		}
 		offset += index;
 	}
-	return (s64)offset*handles.size() + get_offset_base(handle);
+	return (s64)offset*handles.size() + get_offset_base(handle, app);
 }
 
 template<typename Handle_T> s64
@@ -468,7 +475,7 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 		offset += (s64)index.index;
 		++idx;
 	}
-	return (s64)offset*handles.size() + get_offset_base(handle);
+	return (s64)offset*handles.size() + get_offset_base(handle, app);
 }
 
 template<typename Handle_T> Math_Expr_FT *
@@ -503,7 +510,7 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	return result;
 }
 
-#else
+#else // INDEX_PACKING_ALTERNATIVE
 	
 // Theoretically this version of the code is more vectorizable, but we should probably also align the memory and explicitly add vectorization passes in llvm
 //  (not seeing much of a difference in run speed at the moment)
@@ -624,7 +631,7 @@ Storage_Structure<Handle_T>::get_index_sets(Handle_T handle) {
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset_base(Handle_T handle) {
 	auto array_idx = handle_is_in_array.at(handle);
-	return structure[array_idx].get_offset_base(handle);
+	return structure[array_idx].get_offset_base(handle, parent);
 }
 
 template<typename Handle_T> s64

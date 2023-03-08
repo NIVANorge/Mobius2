@@ -127,6 +127,8 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 	
 	if(!loc) return expr;
 	
+	// NOTE: the reason we can say confidently that loc->is_used = false in the cases below is that any other references to this local will undergo exactly the same optimizations.
+		
 	if(loc->exprs[0]->expr_type == Math_Expr_Type::literal) {
 		auto literal        = static_cast<Literal_FT *>(copy(loc->exprs[0]));
 		literal->source_loc = ident->source_loc;
