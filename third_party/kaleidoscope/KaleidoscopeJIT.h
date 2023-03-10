@@ -10,6 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+/*
+	This file has been modified by Magnus Dahler Norling after it was obtained from the LLVM project.
+	Modifications:
+		Added the getTargetTriple method.
+*/
+
 #ifndef LLVM_EXECUTIONENGINE_ORC_KALEIDOSCOPEJIT_H
 #define LLVM_EXECUTIONENGINE_ORC_KALEIDOSCOPEJIT_H
 
@@ -95,6 +102,10 @@ public:
 
   Expected<JITEvaluatedSymbol> lookup(StringRef Name) {
     return ES->lookup({&MainJD}, Mangle(Name.str()));
+  }
+  
+  llvm::Triple getTargetTriple() {
+	  return ES->getExecutorProcessControl().getTargetTriple();
   }
 };
 

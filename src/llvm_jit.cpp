@@ -1,5 +1,4 @@
 
-
 #include "../third_party/kaleidoscope/KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
@@ -19,6 +18,9 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Utils/BuildLibCalls.h"
+
+#include "llvm/Transforms/Vectorize/LoopVectorize.h"
+
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -99,13 +101,19 @@ create_llvm_module() {
 	
 	// TODO: maybe set the fast math flags a bit more granularly.
 	// we should monitor better how they affect model correctness and/or interfers with is_finite
+	
 	data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
 	
+	//auto triple = llvm::sys::getDefaultTargetTriple();
+	auto triple = global_jit->getTargetTriple();
+	auto trip_str = triple.getTriple();
+	
+	//warning_print("Target triple is ", trip_str, ".\n");
+	
+	data->module->setTargetTriple(trip_str);
 	
 	// Add libc math functions that dont have intrinsics
-	
-	auto triple = llvm::sys::getDefaultTargetTriple();
-	data->libinfoimpl = std::make_unique<llvm::TargetLibraryInfoImpl>(llvm::Triple(triple));
+	data->libinfoimpl = std::make_unique<llvm::TargetLibraryInfoImpl>(triple);
 	data->libinfo     = std::make_unique<llvm::TargetLibraryInfo>(*data->libinfoimpl);
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
 	llvm::FunctionType *fun_type = llvm::FunctionType::get(double_ty, {double_ty}, false);
@@ -131,17 +139,19 @@ jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	llvm::FunctionAnalysisManager fam;
 	llvm::CGSCCAnalysisManager    cgam;
 	llvm::ModuleAnalysisManager   mam;
-	
+
 	llvm::PassBuilder pb;
-	
+
 	pb.registerModuleAnalyses(mam);
 	pb.registerCGSCCAnalyses(cgam);
 	pb.registerFunctionAnalyses(fam);
 	pb.registerLoopAnalyses(lam);
 	pb.crossRegisterProxies(lam, fam, cgam, mam);
-	
+
 	llvm::ModulePassManager mpm = pb.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
-	
+
+	mpm.addPass(llvm::createModuleToFunctionPassAdaptor(llvm::LoopVectorizePass()));
+
 	mpm.run(*data->module, mam);
 	
 	if(output_string) {
@@ -253,6 +263,9 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	std::vector<llvm::Value *> args;
 	int idx = 0;
 	for(auto &arg : fun->args()) {
+		if(idx <= 4)
+			fun->addParamAttr(idx, llvm::Attribute::NoAlias);
+		
 		arg.setName(argnames[idx++]);
 		args.push_back(&arg);
 	}

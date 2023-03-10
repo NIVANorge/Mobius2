@@ -7,19 +7,15 @@ model("Yet another simple") {
 		
 		a : compartment("A")
 		
-		q : quantity("Q")
-		
-		a.par_group("Bla") {
-			b : par_real("B", [], -1)
+		a.par_group("Pars") {
+			b : par_real("B", [], 0.99)
 		}
 		
-		a.has(q, [])
+		p : property("P")
 		
-		a.q.has(ploing : property("Ploing"), [])
-		
-		special_computation("Something special", "_special_test_", a.q.ploing) {
-			b
-		}
+		a.has(p, []) {
+			last(p)*b
+		} .initial { 20 }
 	}
 	
 	i : index_set("I")

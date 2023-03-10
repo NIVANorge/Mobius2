@@ -93,6 +93,10 @@
 				? Although how would you specify that in the data file??
 				
 		Let / always be a real division, and maybe have a separate operator // to force integer division.
+		
+		Hope for reply on one of these 
+			https://discourse.llvm.org/t/how-to-generate-ir-so-that-the-loop-vectorizer-can-vectorize-it/69096/2
+			https://stackoverflow.com/questions/75674759/llvm-loop-vectorizer-does-not-vectorize-my-ir?noredirect=1#comment133504571_75674759
 	
 	*** Low-pri ****
 	
