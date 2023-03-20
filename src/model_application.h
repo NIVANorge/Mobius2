@@ -215,7 +215,8 @@ struct Data_Storage {
 	bool is_owning;
 	
 	void free_data() {
-		if(data && is_owning) free(data);
+		//if(data && is_owning) _aligned_free(data);
+		if(data && is_owning) free(data); 
 		data = nullptr;
 		time_steps = 0;
 		is_owning = false;

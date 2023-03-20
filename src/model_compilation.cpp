@@ -1437,12 +1437,13 @@ Model_Application::compile(bool store_code_strings) {
 		// Should be tested again in the future.
 	
 	// Hmm, this sometimes breaks in debug mode...
+	/*
 	for(auto &instr : initial_instructions)
 		delete instr.code;
 	
 	for(auto &instr : instructions)
 		delete instr.code;
-	
+	*/
 		
 #ifndef MOBIUS_EMULATE
 	

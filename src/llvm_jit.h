@@ -5,6 +5,8 @@
 #include "function_tree.h"
 #include "run_model.h"
 
+constexpr int data_alignment = 32;
+
 struct
 LLVM_Constant_Data {
 	s32 *connection_data;

@@ -31,6 +31,8 @@
 //#include "llvm/Support/TargetSelect.h"
 //#include "llvm/Support/raw_ostream.h"
 //#include "llvm/Target/TargetMachine.h"
+#include "llvm/IR/LegacyPassManager.h"
+
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 
@@ -62,7 +64,7 @@ initialize_llvm() {
 	auto result = llvm::orc::KaleidoscopeJIT::Create();
 	if(result)
 		global_jit = std::move(*result);
-	else 
+	else
 		fatal_error(Mobius_Error::internal, "Failed to initialize LLVM.");
 	
 	llvm_initialized = true;
@@ -134,6 +136,10 @@ create_llvm_module() {
 void
 jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	
+	// It seems like forcing vectorization does not improve the speed of most models.
+	//llvm::VectorizerParams::VectorizationFactor = 4;
+	
+
 	// TODO: rabbit hole on optimizations/passes and see how they affect complex models!
 	llvm::LoopAnalysisManager     lam;
 	llvm::FunctionAnalysisManager fam;
@@ -149,9 +155,7 @@ jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	pb.crossRegisterProxies(lam, fam, cgam, mam);
 
 	llvm::ModulePassManager mpm = pb.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
-
-	mpm.addPass(llvm::createModuleToFunctionPassAdaptor(llvm::LoopVectorizePass()));
-
+		
 	mpm.run(*data->module, mam);
 	
 	if(output_string) {
@@ -160,7 +164,7 @@ jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 		os << *data->module;
 		*output_string = os.str();
 	}
-	
+
 	data->resource_tracker = global_jit->getMainJITDylib().createResourceTracker();
 	auto tsm = llvm::orc::ThreadSafeModule(std::move(data->module), std::move(data->context));
 	auto maybe_error = global_jit->addModule(std::move(tsm), data->resource_tracker);
@@ -265,6 +269,8 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	for(auto &arg : fun->args()) {
 		if(idx <= 4)
 			fun->addParamAttr(idx, llvm::Attribute::NoAlias);
+		//if(idx <= 3)
+		//	fun->addParamAttr(idx, llvm::Attribute::get(*data->context, llvm::Attribute::Alignment, data_alignment));
 		
 		arg.setName(argnames[idx++]);
 		args.push_back(&arg);

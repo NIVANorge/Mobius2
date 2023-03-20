@@ -2,6 +2,7 @@
 #include "model_application.h"
 
 #include <map>
+#include <cstdlib>
 
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
@@ -965,6 +966,13 @@ Model_Application::save_to_data_set() {
 	}
 }
 
+inline size_t
+round_up(int align, size_t size) {
+	int rem = size % align;
+	if(rem == 0) return size;
+	return size + (align - rem);
+}
+
 template<typename Val_T, typename Handle_T> void 
 Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
 	if(!structure->has_been_set_up)
@@ -975,6 +983,8 @@ Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
 		this->time_steps = time_steps;
 		size_t sz = alloc_size();
 		data = (Val_T *) malloc(sz);
+		//auto sz2 = round_up(data_alignment, sz);
+		//data = (Val_T *) _aligned_malloc(sz2, data_alignment);  // should be replaced with std::aligned_alloc(data_alignment, sz2) when that is available.
 		is_owning = true;
 	}
 	size_t sz = alloc_size();

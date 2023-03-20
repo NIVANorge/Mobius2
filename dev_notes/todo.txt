@@ -173,6 +173,12 @@
 		Make discrete fluxes work like other fluxes for aggregation stuff so that everything works the same way for them (including some connection stuff).
 		
 		
+		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
+			https://github.com/llvm/llvm-project/blob/main/llvm/examples/OrcV2Examples/LLJITWithObjectCache/LLJITWithObjectCache.cpp
+			One could then manually disassemble it.
+		
+		
+		
 		
 	*****************   DONE:   ***********************
 	

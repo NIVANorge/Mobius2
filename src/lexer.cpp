@@ -193,6 +193,14 @@ is_identifier(char c) {
 	return isalpha(c) || c == '_';
 }
 
+inline bool
+is_space(char c) {
+	//return isspace(c);
+	// NOTE: MSVC implementation of isspace crashes on a non-ascii byte, so we have to make our
+	// own.
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
 void
 Token_Stream::read_token_base(Token *token) {
 	*token = {}; // 0-initialize
@@ -221,7 +229,7 @@ Token_Stream::read_token_base(Token *token) {
 		}
 		
 		//NOTE: This is a bit subtle, but this clause has to be below the check for skip_comment, if we are in a comment we have to check for \n, (and \n isspace and would be skipped by this continue)
-		if(isspace(c)) continue; // Always skip whitespace between tokens.
+		if(is_space(c)) continue; // Always skip whitespace between tokens.
 
 		token->source_loc.line = line;
 		token->source_loc.column = column;
