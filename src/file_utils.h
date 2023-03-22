@@ -15,7 +15,7 @@ FILE *
 open_file(String_View file_name, String_View mode);
 
 String_View
-read_entire_file(String_View file_name, Source_Location from);
+read_entire_file(String_View file_name, Source_Location from = {});
 
 String_View
 make_path_relative_to(String_View file_name, String_View relative_to);

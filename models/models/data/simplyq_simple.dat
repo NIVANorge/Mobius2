@@ -17,7 +17,7 @@ par_group("System") {
 	[ 2004-01-01 ]
 
 	par_datetime("End date")
-	[ 2005-12-31 ]
+	[ 2010-12-31 ]
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
@@ -34,7 +34,7 @@ par_group("Catchment data") [ "Subcatchment" ] {
 module("HBVSnow", 1, 0, 0) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
-		[ 2.74 ]
+		[ 4.99633964178389 ]
 
 		par_real("Temperature at which precip falls as snow")
 		[ 0 ]
@@ -56,20 +56,20 @@ module("HBVSnow", 1, 0, 0) {
 module("Degree-day PET", 1, 0, 0) {
 	par_group("Potential evapotranspiration") {
 		par_real("Deegree-day factor for evapotranspiration")
-		[ 0.17 ]
+		[ 0.17377349447682 ]
 
 		par_real("Minimal temperature for evapotranspiration")
-		[ -1.3 ]
+		[ -0.42473658880892 ]
 	}
 }
 
 module("SimplyQ land", 0, 5, 0) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
-		[ 0.72 ]
+		[ 0.553624736510714 ]
 
 		par_real("Quick flow inflection point")
-		[ 800 ]
+		[ 473.944320636482 ]
 	}
 
 	par_group("Hydrology land") [ "Landscape units" ] {
@@ -77,12 +77,12 @@ module("SimplyQ land", 0, 5, 0) {
 		[ 290 ]
 
 		par_real("Soil water time constant")
-		[ 3.1 ]
+		[ 9.91156654445349 ]
 	}
 
 	par_group("Groundwater") {
 		par_real("Groundwater time constant")
-		[ 85 ]
+		[ 220.551776820459 ]
 	}
 }
 

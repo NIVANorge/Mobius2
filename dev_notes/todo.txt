@@ -128,28 +128,33 @@
 		
 		MobiView:
 			stacked_share has a slow implementation.
+				Should maybe not sum over all the values each time it is extracted, just do it once and store it.
 			
 			Combine simple sensitivity into the advanced sensitivity setup.
 				Compute statistics of the target stat like variance etc.
 				Allow for 2 parameters, with a surf plot eventually.
 				
-			Selecting profile or profile2d will select all the indexes if only one index set is active and only one index is selected.
+			Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
 				Maybe not desirable
 			
 			Finish all missing functionality from MobiView1
 				variance based sensitivity
 				Index set editing.
-				View model structure
-				Saving and loading various things
-					MCMC results
+				Saving and loading
 					Additional plot setup.
+			MCMC		
+				Log likelihood function doesn't load correctly from stored setup.
+				Titles and legends for the Result projection plots (all tabs) are wrong.
 					
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
 				Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
 				
 			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
+				Could have both aggregation none and days, and in the later case it also aggregates m3/s -> m3/day .
+					A bit annoying do it from a coding perspective though because you have to work with declared units, not standardized units.
 			More aggregation intervals
+				minute, hour, day. (esp. day).
 				
 		
 		Some kind of system for specifying assertion checks on user provided data, such as

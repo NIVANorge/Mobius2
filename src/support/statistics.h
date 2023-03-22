@@ -122,6 +122,9 @@ stat_type_from_name(const std::string &lookup) {
 	#define SET_LOG_LIKELIHOOD(handle, name, n_err) if(lookup == name) return (int)LL_Type::handle;
 	#include "log_likelihood_types.incl"
 	#undef SET_LOG_LIKELIHOOD
+	
+	warning_print("Unrecognized statistic type \"", lookup, "\".\n");
+	
 	return 0;
 }
 

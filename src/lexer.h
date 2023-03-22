@@ -85,6 +85,10 @@ Token_Stream {
 	Token expect_token(Token_Type);
 	Token expect_token(char);
 	
+	const char *remainder() {
+		return file_data.data + at_char + 1;
+	}
+	
 	double       expect_real();
 	s64          expect_int();
 	bool         expect_bool();
