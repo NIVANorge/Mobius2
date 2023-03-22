@@ -125,7 +125,7 @@ stat_type_from_name(const std::string &lookup) {
 	
 	warning_print("Unrecognized statistic type \"", lookup, "\".\n");
 	
-	return 0;
+	return -1;
 }
 
 inline int

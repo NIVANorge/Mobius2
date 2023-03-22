@@ -26,9 +26,21 @@ evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param
 	return std::numeric_limits<double>::quiet_NaN();
 }
 
-Optimization_Model::Optimization_Model(Model_Data *data, Expr_Parameters &parameters, std::vector<Optimization_Target> &targets, double *initial_pars, const Optim_Callback &callback, s64 ms_timeout)
-	: data(data), parameters(&parameters), targets(&targets), ms_timeout(ms_timeout), initial_pars(initial_pars) {
-		
+void
+Optimization_Target::set_offsets(Model_Data *data) {
+	sim_offset = data->results.structure->get_offset(sim_id, indexes);
+	if(is_valid(obs_id)) {
+		auto obs_data = obs_id.type == Var_Id::Type::series ? &data->series : &data->additional_series;
+		obs_offset = obs_data->structure->get_offset(obs_id, indexes);
+	}
+}
+
+Optimization_Model::Optimization_Model(Model_Data *data, Expr_Parameters &parameters, std::vector<Optimization_Target> &targets, const std::vector<double> *initial_pars, const Optim_Callback &callback, s64 ms_timeout)
+	: data(data), parameters(&parameters), targets(&targets), ms_timeout(ms_timeout) {
+	
+	if(initial_pars)
+		this->initial_pars = *initial_pars;
+	
 	Date_Time input_start = data->series.start_date;
 	Date_Time run_start = data->get_start_date_parameter();
 	Date_Time run_end   = data->get_end_date_parameter();
@@ -47,11 +59,7 @@ Optimization_Model::Optimization_Model(Model_Data *data, Expr_Parameters &parame
 		if(target.weight < 0)
 			fatal_error(Mobius_Error::api_usage, "One of the optimization targets got a negative weight.");
 		
-		target.sim_offset = data->results.structure->get_offset(target.sim_id, target.indexes);
-		if(is_valid(target.obs_id)) {
-			auto obs_data = target.obs_id.type == Var_Id::Type::series ? &data->series : &data->additional_series;
-			target.obs_offset = obs_data->structure->get_offset(target.obs_id, target.indexes);
-		}
+		target.set_offsets(data);
 		
 		if(typetype == Stat_Class::none) {
 			typetype = is_stat_class(target.stat_type);
@@ -74,8 +82,8 @@ Optimization_Model::Optimization_Model(Model_Data *data, Expr_Parameters &parame
 	
 	this->callback = nullptr; // To not have it call back in initial score computation.
 	if(initial_pars) {
-		set_parameters(data, parameters, initial_pars);
-		best_score = initial_score = evaluate(initial_pars);
+		//set_parameters(data, parameters, initial_pars);
+		best_score = initial_score = evaluate(this->initial_pars);
 	} else
 		best_score = initial_score = maximize ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
 	
@@ -84,7 +92,8 @@ Optimization_Model::Optimization_Model(Model_Data *data, Expr_Parameters &parame
 	n_timeouts = 0;
 }
 
-double Optimization_Model::evaluate(const double *values) {
+double
+Optimization_Model::evaluate(const std::vector<double> &values) {//double *values) {
 	
 	set_parameters(data, *parameters, values);
 	
@@ -196,10 +205,10 @@ Expr_Parameters::copy(const Expr_Parameters &other) {
 
 
 void
-set_parameters(Model_Data *data, Expr_Parameters &pars, const double *values) {
+set_parameters(Model_Data *data, Expr_Parameters &pars, const std::vector<double> &values) {//const double *values) {
 	Parameter_Value val;
 	int active_idx = 0;
-	
+
 	std::vector<double> vals(pars.parameters.size(), std::numeric_limits<double>::quiet_NaN());
 	
 	for(int idx = 0; idx < pars.parameters.size(); ++idx) {

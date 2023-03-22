@@ -16,9 +16,9 @@ run_optimization(Dlib_Optimization_Model &opt_model, double *min_vals, double *m
 	int len = opt_model.parameters->parameters.size();
 	
 	std::vector<dlib::function_evaluation> initial_evals;
-	if(opt_model.initial_pars) {
+	if(!opt_model.initial_pars.empty()) {
 		dlib::function_evaluation initial_eval;
-		initial_eval.x = to_dlib_vec(opt_model.initial_pars, len);
+		initial_eval.x = to_dlib_vec(opt_model.initial_pars.data(), len);
 		initial_eval.y = opt_model.maximize ? opt_model.initial_score : -opt_model.initial_score;
 		initial_evals.push_back(std::move(initial_eval));
 	}
@@ -40,7 +40,7 @@ run_optimization(Dlib_Optimization_Model &opt_model, double *min_vals, double *m
 		pars[idx] = result.x(idx);
 	
 	// NOTE: this ensures that the right values are set in the opt_model.data when we finish the function.
-	set_parameters(opt_model.data, *opt_model.parameters, pars.data());
+	set_parameters(opt_model.data, *opt_model.parameters, pars);
 	run_model(opt_model.data, opt_model.ms_timeout);
 	
 	return true;

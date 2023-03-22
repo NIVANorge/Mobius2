@@ -19,6 +19,8 @@ Optimization_Target {
 	// NOTE: These should be set up based on begin, end and whatever the start and end date of the model run is.
 	s64 sim_offset = -1, obs_offset = -1;
 	s64 sim_stat_offset = -1, obs_stat_offset = -1, stat_ts = -1;
+	
+	void set_offsets(Model_Data *data);
 };
 
 struct
@@ -32,7 +34,7 @@ Expr_Parameters {
 };
 
 void
-set_parameters(Model_Data *data, Expr_Parameters &parameters, const double *values);
+set_parameters(Model_Data *data, Expr_Parameters &parameters, const std::vector<double> &values);//const double *values);
 
 double
 evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param = nullptr);
@@ -42,14 +44,14 @@ typedef std::function<void(int, int, double, double)> Optim_Callback;
 struct
 Optimization_Model {
 	
-	Optimization_Model(Model_Data *data, Expr_Parameters &parameters, std::vector<Optimization_Target> &targets, double *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
+	Optimization_Model(Model_Data *data, Expr_Parameters &parameters, std::vector<Optimization_Target> &targets, const std::vector<double> *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
 	
-	double evaluate(const double *values);
+	double evaluate(const std::vector<double> &values);//const double *values);
 	
 	bool                              maximize;
 	s64                               ms_timeout, n_timeouts, n_evals;
 	double                            best_score, initial_score;
-	double                           *initial_pars;
+	std::vector<double>               initial_pars;
 	Model_Data                       *data;
 	Expr_Parameters                  *parameters;
 	std::vector<Optimization_Target> *targets;

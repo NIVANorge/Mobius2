@@ -158,7 +158,7 @@ public:
 	inline s32
 	week_since_epoch() const {
 		s64 _, day_since_epoch;
-		div_mod_down<s64>(seconds_since_epoch, 86400, _, day_since_epoch);
+		div_mod_down<s64>(seconds_since_epoch, 86400, day_since_epoch, _);
 		s32 week, _2;
 		div_mod_down<s32>((s32)day_since_epoch + 4, 7, week, _2); // Accounting for 1970-1-1 being a thursday.
 		return week;
