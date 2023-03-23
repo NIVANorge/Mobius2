@@ -3,6 +3,7 @@
 #define MOBIUS_MONTE_CARLO_H
 
 #include <vector>
+#include <random>
 #include "../mobius_common.h"
 
 struct
@@ -38,8 +39,8 @@ MC_Data {
 		ll_data  = nullptr;
 	}
 	
-	void draw_uniform(double *min_bound, double *max_bound);
-	void draw_latin_hypercube(double *min_bound, double *max_bound);
+	void draw_uniform(double *min_bound, double *max_bound, std::mt19937 &gen);
+	void draw_latin_hypercube(double *min_bound, double *max_bound, std::mt19937 &gen);
 	
 	s64 flatten(s64 burnin, s64 &up_to_step, std::vector<std::vector<double>> &flattened_out, bool sort = true);
 	

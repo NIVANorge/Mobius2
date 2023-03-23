@@ -91,14 +91,13 @@ MC_Data::flatten(s64 burnin, s64 &up_to_step, std::vector<std::vector<double>> &
 }
 
 void
-MC_Data::draw_uniform(double *min_bound, double *max_bound) {
+MC_Data::draw_uniform(double *min_bound, double *max_bound, std::mt19937 &gen) {
 	
 	if(n_walkers != 1)
 		fatal_error(Mobius_Error::api_usage, "Can only draw samples when the amount of walkers is 1");
 	if(!par_data)
 		fatal_error(Mobius_Error::api_usage, "Can only draw samples after space is allocated.");
 	
-	std::mt19937_64 gen;
 	std::uniform_real_distribution<double> distu;
 	
 	for(int par = 0; par < n_pars; ++par) {
@@ -109,14 +108,13 @@ MC_Data::draw_uniform(double *min_bound, double *max_bound) {
 }
 
 void
-MC_Data::draw_latin_hypercube(double *min_bound, double *max_bound) {
+MC_Data::draw_latin_hypercube(double *min_bound, double *max_bound, std::mt19937 &gen) {
 	
 	if(n_walkers != 1)
 		fatal_error(Mobius_Error::api_usage, "Can only draw samples when the amount of walkers is 1");
 	if(!par_data)
 		fatal_error(Mobius_Error::api_usage, "Can only draw samples after space is allocated.");
 	
-	std::mt19937_64 gen;
 	std::uniform_real_distribution<double> distu;
 	std::uniform_int_distribution<> disti(0, n_steps-1);
 	

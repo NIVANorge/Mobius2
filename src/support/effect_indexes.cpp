@@ -1,7 +1,11 @@
 
 
+#include "monte_carlo.h"
+
+#include <thread>
+
 void
-compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_method, double *min_bound, double *max_bound, double (*target_fun)(void *, int, double *), void *target_state, bool (*callback)(void *, int), void *callback_state, int callback_interval) {
+compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_method, double *min_bound, double *max_bound, double (*target_fun)(void *, int, const std::vector<double> &pars), void *target_state, bool (*callback)(void *, int, double, double), void *callback_state, int callback_interval) {
 	
 	
 	// TODO: look into the following algorithms: I. Azzini, T. Mara, R. Rosati, Comparison of two sets of Monte Carlo estimators of Sobol’ indices. Environ. Model. Software 144, 105167 (2021).
@@ -14,13 +18,17 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 	mat_A.allocate(1, n_pars, n_samples);
 	mat_B.allocate(1, n_pars, n_samples);
 	
+	std::mt19937 gen;
+	
 	if(sample_method == 0) {
-		mat_A.draw_latin_hypercube(min_bound, max_bound);
-		mat_B.draw_latin_hypercube(min_bound, max_bound);
+		mat_A.draw_latin_hypercube(min_bound, max_bound, gen);
+		mat_B.draw_latin_hypercube(min_bound, max_bound, gen);
 	} else {
-		mat_A.draw_uniform(min_bound, max_bound);
-		mat_B.draw_uniform(min_bound, max_bound);
+		mat_A.draw_uniform(min_bound, max_bound, gen);
+		mat_B.draw_uniform(min_bound, max_bound, gen);
 	}
+	
+	std::vector<std::thread> workers;
 	
 	for(int sample_group = 0; sample_group < n_samples/n_workers+1; ++sample_group) {
 		for(int worker = 0; worker < n_workers; ++worker) {
@@ -31,12 +39,12 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 				std::vector<double> pars(n_pars);
 				for(int par = 0; par < n_pars; ++par)
 					pars[par] = mat_A(0, par, sample);
-				mat_A.score_value(0, sample) = target_fun(target_state, worker, pars.data());
+				mat_A.score_value(0, sample) = target_fun(target_state, worker, pars);
 				
 				for(int par = 0; par < n_pars; ++par)
 					pars[par] = mat_B(0, par, sample);
-				mat_B.score_value(0, sample) = target_fun(target_state, workers, pars.data());
-			});
+				mat_B.score_value(0, sample) = target_fun(target_state, worker, pars);
+			}));
 		}
 		for(auto &worker : workers)
 			if(worker.joinable()) worker.join();
@@ -69,11 +77,11 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 				workers.push_back(std::thread([=, &mat_A, &mat_B, &f_ABi]() {
 					std::vector<double> pars(n_pars);
 					for(int ii = 0; ii < n_pars; ++ii) {
-						if(ii == i) pars[ii] = mat_B(0, par, sample);
-						else        pars[ii] = mat_A(0, par, sample);
+						if(ii == i) pars[ii] = mat_B(0, ii, sample);
+						else        pars[ii] = mat_A(0, ii, sample);
 					}
-					f_ABi[sample] = target_fun(target_state, worker, pars.data());
-				}
+					f_ABi[sample] = target_fun(target_state, worker, pars);
+				}));
 			}
 			for(auto &worker : workers)
 				if(worker.joinable()) worker.join();
@@ -83,15 +91,20 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 		double total_ei = 0.0;
 		for(int j = 0; j < n_samples; ++j) {
 			double f_B = mat_B.score_value(0, j);
-			double f_B = mat_B.score_value(0, j);
+			double f_A = mat_A.score_value(0, j);
 			double f_ABij = f_ABi[j];
 			main_ei  += f_B*(f_ABij - f_A);
 			total_ei += (f_A - f_ABij)*(f_A - f_ABij);
+			
+			//warning_print("f_A ", f_A, " f_B ", f_B, " f_ABij ", f_ABij, "\n");
 		}
+
 		main_ei /= (v_A * (double)n_samples);
 		total_ei /= (v_A * 2.0 * (double)n_samples);
-		
-		//TODO: output these + callback
+
+		callback(callback_state, i, main_ei, total_ei);
 	}
 	
+	mat_A.free_data();
+	mat_B.free_data();
 }
