@@ -5,7 +5,7 @@
 #include <thread>
 
 void
-compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_method, double *min_bound, double *max_bound, double (*target_fun)(void *, int, const std::vector<double> &pars), void *target_state, bool (*callback)(void *, int, double, double), void *callback_state, int callback_interval) {
+compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_method, double *min_bound, double *max_bound, double (*target_fun)(void *, int, const std::vector<double> &pars), void *target_state, bool (*callback)(void *, int, double, double), void *callback_state, int callback_interval, std::vector<double> &samples_out) {
 	
 	
 	// TODO: look into the following algorithms: I. Azzini, T. Mara, R. Rosati, Comparison of two sets of Monte Carlo estimators of Sobol’ indices. Environ. Model. Software 144, 105167 (2021).
@@ -95,14 +95,18 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 			double f_ABij = f_ABi[j];
 			main_ei  += f_B*(f_ABij - f_A);
 			total_ei += (f_A - f_ABij)*(f_A - f_ABij);
-			
-			//warning_print("f_A ", f_A, " f_B ", f_B, " f_ABij ", f_ABij, "\n");
 		}
 
 		main_ei /= (v_A * (double)n_samples);
 		total_ei /= (v_A * 2.0 * (double)n_samples);
 
 		callback(callback_state, i, main_ei, total_ei);
+	}
+	
+	samples_out.resize(n_samples*2);
+	for(int sample = 0; sample < n_samples; ++sample) {
+		samples_out[sample] = mat_A.score_value(0, sample);
+		samples_out[sample+n_samples] = mat_B.score_value(0, sample);
 	}
 	
 	mat_A.free_data();
