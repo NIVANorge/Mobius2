@@ -133,17 +133,21 @@
 			Combine simple sensitivity into the advanced sensitivity setup.
 				Compute statistics of the target stat like variance etc.
 				Allow for 2 parameters, with a surf plot eventually.
-				
+			GLUE-like sampling?
+			Serialize sensitivity setups using a Mobius format instead of json so that we can load the same setups in mobipy eventually.
+			More customizable target functions.
+			Targets computed from aggregate series.
+			Aggregate yearly on month.
+			
 			Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
 				Maybe not desirable
 			
 			Finish all missing functionality from MobiView1
-				variance based sensitivity: Make the histogram work
 				Index set editing.
 				Saving and loading
 					Additional plot setup.
 			
-			GLUE-like sampling?
+			
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.

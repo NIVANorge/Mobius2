@@ -124,6 +124,7 @@ public:
 		s32 day;
 		day_of_year(&day, year_out);
 		
+		// TODO: Could probably estimate a minimal month to start the search from, e.g. day / 28 + 1
 		for(s32 month = 1; month <= 12; ++month) {
 			if(day <= month_offset(*year_out, month+1)) {
 				*month_out = month;
