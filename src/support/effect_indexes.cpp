@@ -5,7 +5,7 @@
 #include <thread>
 
 void
-compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_method, double *min_bound, double *max_bound, double (*target_fun)(void *, int, const std::vector<double> &pars), void *target_state, bool (*callback)(void *, int, double, double), void *callback_state, int callback_interval, std::vector<double> &samples_out) {
+compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_method, double *min_bound, double *max_bound, double (*target_fun)(void *, int, const std::vector<double> &pars), void *target_state, bool (*callback)(void *, int, int, double, double), void *callback_state, int callback_interval, std::vector<double> &samples_out) {
 	
 	
 	// TODO: look into the following algorithms: I. Azzini, T. Mara, R. Rosati, Comparison of two sets of Monte Carlo estimators of Sobol’ indices. Environ. Model. Software 144, 105167 (2021).
@@ -30,6 +30,8 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 	
 	std::vector<std::thread> workers;
 	
+	int total_samples = 0;
+	
 	for(int sample_group = 0; sample_group < n_samples/n_workers+1; ++sample_group) {
 		for(int worker = 0; worker < n_workers; ++worker) {
 			int sample = sample_group*n_workers + worker;
@@ -50,7 +52,10 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 			if(worker.joinable()) worker.join();
 		workers.clear();
 		
-		// Callback stuff
+		total_samples += 2*n_workers;
+		
+		if(total_samples % callback_interval == 0)
+			callback(callback_state, 0, total_samples, 0.0, 0.0);
 	}
 	
 	double m_A = 0.0;
@@ -86,6 +91,11 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 			for(auto &worker : workers)
 				if(worker.joinable()) worker.join();
 			workers.clear();
+			
+			total_samples += n_workers;
+		
+			if(total_samples % callback_interval == 0)
+				callback(callback_state, 0, total_samples, 0.0, 0.0);
 		}
 		double main_ei  = 0.0;
 		double total_ei = 0.0;
@@ -100,7 +110,7 @@ compute_effect_indexes(int n_samples, int n_pars, int n_workers, int sample_meth
 		main_ei /= (v_A * (double)n_samples);
 		total_ei /= (v_A * 2.0 * (double)n_samples);
 
-		callback(callback_state, i, main_ei, total_ei);
+		callback(callback_state, 1, i, main_ei, total_ei);
 	}
 	
 	samples_out.resize(n_samples*2);
