@@ -122,8 +122,8 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 	
 	
 	auto res = find_local_decl(ident, scope);
-	//Local_Var_FT *loc = nullptr;
 	auto loc = res.loc;
+	//auto loc = find_local_var(scope, ident->local_var);
 	
 	if(!loc) return expr;
 	
@@ -142,6 +142,7 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 			loc->is_used = false;
 			auto identcopy = copy(ident2);
 			auto result = potentially_prune_local(identcopy, res.scope);
+			//auto result = potentially_prune_local(identcopy, scope);
 			if(result != identcopy)
 				delete identcopy;
 			return result;
@@ -404,16 +405,15 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Loca
 	// Try to simplify the math expression if some components can be evaluated to constants at compile time.
 	//    Some of this could be left to llvm, but it is beneficial make the job easier for llvm, and we do see improvements from some of these optimizations.
 	
-	
 	Function_Scope new_scope; // It is annoying that we have to construct it even if we don't use it :(
 	if(expr->expr_type == Math_Expr_Type::block) {
 		new_scope.parent = scope;
 		new_scope.block = static_cast<Math_Block_FT *>(expr);
 		scope = &new_scope;
 	}
+	
 	/*
 	Scope_Local_Vars<Local_Var_FT *> new_scope; // It is annoying that we have to construct it even if we don't use it :(
-	
 	if(expr->expr_type == Math_Expr_Type::block) {
 		auto block = static_cast<Math_Block_FT *>(expr);
 		
@@ -437,12 +437,15 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Loca
 			arg = prune_helper(arg, scope);
 	//}
 	
+	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);
 			if(block->is_for_loop
 				&& block->exprs[0]->expr_type == Math_Expr_Type::literal
-				&& static_cast<Literal_FT *>(block->exprs[0])->value.val_integer == 1) {   // Iteration count of for loop is 1, so the loop only executes once.
+				&& static_cast<Literal_FT *>(block->exprs[0])->value.val_integer == 1) {
+				// Iteration count of for loop is 1, so the loop only executes once. We can
+				// thus replace it with the body of the loop.
 				
 				delete block->exprs[0];
 				auto result = block->exprs[1];
@@ -459,8 +462,11 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Loca
 		
 		case Math_Expr_Type::function_call : {
 			auto fun = static_cast<Function_Call_FT *>(expr);
-			if(fun->fun_type != Function_Type::intrinsic)           //TODO: maybe implement for "linked" type.
+			if(fun->fun_type != Function_Type::intrinsic)
 				return expr;
+			//TODO: maybe implement for "linked" type, but it is the same problem as for
+			// emulation that we need to call a function only knowing the types at run time
+			// (possible, but need an external library for it probably).
 			
 			bool all_literal = true;
 			for(auto arg : expr->exprs) {

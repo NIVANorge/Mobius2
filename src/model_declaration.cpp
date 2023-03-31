@@ -520,7 +520,7 @@ process_declaration<Reg_Type::unit>(Mobius_Model *model, Decl_Scope *scope, Decl
 	auto id   = model->units.find_or_create(&decl->handle_name, scope, nullptr, decl);
 	auto unit = model->units[id];
 	
-	// TODO: we could de-duplicate based on the standard form.
+	// NOTE: we could de-duplicate based on the standard form, but it is maybe not worth it.
 	unit->data.set_data(decl);
 	
 	return id;
@@ -544,7 +544,7 @@ process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope,
 	if(!decl->bodies.empty()) {
 		if(decl->type != Decl_Type::property) {
 			decl->source_loc.print_error_header();
-			fatal_error("Only properties can have default code, not quantities.");
+			fatal_error("Only properties can have default code, not quantities or compartments.");
 		}
 		if(decl->bodies.size() > 1) {
 			decl->source_loc.print_error_header();
@@ -937,15 +937,6 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 	//    could be fixed if/when we make the new module loading / scope system.
 	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::identifier }}, -1, false);
 	
-	// TODO: We may need something more like
-	/*
-		special_computation("function_name") .in {
-		} .out {
-			layer.water.density[vert]    #signal that we want to access all the indexes over vert.
-		}
-	*/
-	// in case the computation affects more than one variable.
-	
 	auto id = model->special_computations.standard_declaration(scope, decl);
 	auto comp = model->special_computations[id];
 	
@@ -964,7 +955,6 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 	comp->code_scope = scope->parent_id;
 	
 	return id;
-	
 }
 
 template<> Entity_Id

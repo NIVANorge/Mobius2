@@ -27,6 +27,7 @@ module("RiverTemperature", 0, 1, 0) {
 	}
 	
 	flux(nowhere, river.water.heat, [J, day-1], "River sensible heat flux") {
+		#TODO: maybe not let river temperature go negative. I.e there is a small ice layer on top (that we don't model) which isolates the rest.
 		(water_temp_to_heat(water, air.temp) - heat)*coeff
 	}
 	

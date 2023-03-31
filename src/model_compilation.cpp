@@ -1430,21 +1430,29 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 	is_compiled = true;
-	
-	
-	
+
+/*
+	std::stringstream ss;
+	for(auto &instr : instructions) {
+		if(instr.code) {
+			print_tree(this, instr.code, ss);
+			ss << "\n";
+		}
+	}
+	warning_print(ss.str());
+*/
+
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
-		// Should be tested again in the future.
+	for(auto &instr : initial_instructions) {
+		if(instr.code)
+			delete instr.code;
+	}
 	
-	// Hmm, this sometimes breaks in debug mode...
-	/*
-	for(auto &instr : initial_instructions)
-		delete instr.code;
+	for(auto &instr : instructions) {
+		if(instr.code)
+			delete instr.code;
+	}
 	
-	for(auto &instr : instructions)
-		delete instr.code;
-	*/
-		
 #ifndef MOBIUS_EMULATE
 	
 	delete initial_batch.run_code;

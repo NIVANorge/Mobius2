@@ -16,7 +16,7 @@ module("Atmospheric", 0, 1, 0) {
 	}
 	
 	air.has(temp     : property("Temperature"),       [deg_c], "Air temperature")
-	air.has(r_hum    : property("Relative humidity"), [])
+	air.has(r_hum    : property("Relative humidity"), [perc])
 	air.has(wind     : property("Wind speed"),        [m, s-1])
 	
 	# The idea is that some of these can be overridden with input data if it exists. TODO: make a .can_override or something like that to allow it.
@@ -49,7 +49,7 @@ module("Atmospheric", 0, 1, 0) {
 	}
 	
 	air.has(a_vap : property("Actual vapour pressure"), [h Pa]) {
-		r_hum * 0.01 * s_vap  # 0.01 to convert percent to true dimensionless. Maybe perc should be a unit equal to [100] so that it gets proper checking?
+		(r_hum->[]) * s_vap
 	}
 	
 	air.has(a_hum : property("Actual specific humidity"), []) {

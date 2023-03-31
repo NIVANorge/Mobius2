@@ -65,15 +65,14 @@ Model_Instruction {
 	
 	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr), boundary_type(Boundary_Type::none) {};
 	
-	// Having trouble getting this to work. Seems like the destructor is called to early
+	// Having trouble getting this to work. Seems like the destructor is called too early, maybe when the Instructions vector resizes?
 	/*
 	~Model_Instruction() {
-		// NOTE: It turned out to be too annoying in model_codegen if code is a unique_ptr, so we do it like this instead.
 		if(code) delete code;
 	}
 	
-	Model_Instruction(const Model_Instruction &) = delete;  // Needed because of the code pointer which must be unique.
-	Model_Instruction(Model_Instruction &&) = default;
+	Model_Instruction(const Model_Instruction &other) = delete;
+	Model_Instruction(Model_Instruction &&other) = default;
 	*/
 };
 

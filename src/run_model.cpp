@@ -9,8 +9,6 @@
 bool
 run_model(Model_Data *data, s64 ms_timeout) {
 	
-	//warning_print("begin model run.\n");
-	
 	Model_Application *app = data->app;
 	Mobius_Model *model    = app->model;
 	if(!app->is_compiled)
@@ -102,12 +100,7 @@ run_model(Model_Data *data, s64 ms_timeout) {
 		}
 	}
 	
-	//s64 cycles = run_timer.get_cycles();
-	//s64 ms     = run_timer.get_milliseconds();
-	
 	if(run_state.solver_workspace) free(run_state.solver_workspace);
-	
-	//warning_print("Run time: ", ms, " milliseconds, ", cycles, " cycles.\n");
 	
 	return true;
 }

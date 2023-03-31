@@ -163,7 +163,7 @@ make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	auto res = make_binop('/', lhs, rhs);
 	auto res_ref = add_local_var(block, res);
 	auto cond = make_intrinsic_function_call(Value_Type::boolean, "is_finite", res_ref);
-	auto if_expr = make_simple_if(res_ref, cond, make_literal((double)0.0));
+	auto if_expr = make_simple_if(copy(res_ref), cond, make_literal((double)0.0));
 	block->exprs.push_back(if_expr);
 	return block;
 }
@@ -887,6 +887,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 							}
 							resolved = true;
 							set_time_unit(result.unit, app, new_ident->variable_type);
+							
+							if(new_ident->variable_type == Variable_Type::time_step_length_in_seconds && app->time_step_size.unit == Time_Step_Size::second) {
+								// If the step size is measured in seconds, it is constant.
+								auto new_literal = new Literal_FT();
+								new_literal->value_type = new_ident->value_type;
+								new_literal->value.val_integer = app->time_step_size.multiplier;
+								result.fun = new_literal;
+								delete new_ident;
+							}
 						} else {
 							auto reg = decl_scope[n1];
 							if(!reg) {
@@ -933,10 +942,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
 						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 					}
-				} else {
-					ident->chain[0].print_error_header();
-					error_print("Too many identifiers in chain.\n");
-					fatal_error_trace(scope);
 				}
 			}
 			

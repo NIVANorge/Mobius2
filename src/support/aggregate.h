@@ -9,6 +9,7 @@ enum class Aggregation_Type {
 	sum,
 	min,
 	max,
+	freq,
 };
 
 inline Date_Time
@@ -33,7 +34,7 @@ normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg, int pivo
 
 inline double
 reset_aggregate(Aggregation_Type type) {
-	if(type == Aggregation_Type::mean || type == Aggregation_Type::sum)
+	if(type == Aggregation_Type::mean || type == Aggregation_Type::sum || type == Aggregation_Type::freq)
 		return 0.0;
 	else if(type == Aggregation_Type::min)
 		return std::numeric_limits<double>::infinity();
@@ -64,6 +65,8 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, Source *data,
 				curr_agg = std::min(val, curr_agg);
 			else if(agg_type == Aggregation_Type::max)
 				curr_agg = std::max(val, curr_agg);
+			else if(agg_type == Aggregation_Type::freq)
+				curr_agg += 1.0;
 			++count;
 		}
 		
@@ -89,7 +92,8 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, Source *data,
 		if(push) {
 			double yval = curr_agg;
 			if(agg_type == Aggregation_Type::mean) yval /= (double)count;
-			if(!std::isfinite(yval) || count == 0) yval = std::numeric_limits<double>::quiet_NaN();
+			if(!std::isfinite(yval) || (count == 0 && agg_type != Aggregation_Type::freq))
+				yval = std::numeric_limits<double>::quiet_NaN();
 			y_vals.push_back(yval);
 			
 			// Put the mark down at a round location.
