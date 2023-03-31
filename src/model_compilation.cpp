@@ -733,7 +733,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto conn_type = model->connections[var2->connection]->type;
 				
 				Var_Location flux_loc = var_flux->loc1;
-				if(var_flux->boundary_type == Boundary_Type::top)
+				if(boundary_type_of_flux(var_flux) == Boundary_Type::top)
 					flux_loc = var_flux->loc2;
 				
 				//if(var_flux->boundary_type == Boundary_Type::bottom && !is_located(var_flux->loc2))
@@ -767,7 +767,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				add_to_aggr_instr->solver = var_solver;
 				add_to_aggr_instr->connection = conn_id;
-				add_to_aggr_instr->boundary_type = var_flux->boundary_type;
+				add_to_aggr_instr->boundary_type = boundary_type_of_flux(var_flux);
 				add_to_aggr_instr->type = Model_Instruction::Type::add_to_connection_aggregate;
 				add_to_aggr_instr->var_id = var_id_flux;
 				if(conn_type == Connection_Type::directed_tree)
@@ -824,8 +824,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(conn_type == Connection_Type::all_to_all)
 						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					else if(conn_type == Connection_Type::grid1d) {
-						instructions[var_id_flux.id].boundary_type = var_flux->boundary_type;
-						if(var_flux->boundary_type == Boundary_Type::none) {
+						instructions[var_id_flux.id].boundary_type = boundary_type_of_flux(var_flux);
+						if(boundary_type_of_flux(var_flux) == Boundary_Type::none) {
 							add_to_aggr_instr->index_sets.insert(index_set);
 							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
 						} //else {

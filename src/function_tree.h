@@ -138,7 +138,7 @@ struct
 Function_Resolve_Data {
 	Model_Application *app;
 	Decl_Scope        *scope;
-	Var_Location       in_loc;
+	Specific_Var_Location       in_loc;
 	std::vector<Entity_Id> *baked_parameters = nullptr;
 	Standardized_Unit  expected_unit;
 	Entity_Id          connection = invalid_entity_id;

@@ -2,7 +2,7 @@
 #ifndef MOBIUS_AGGREGATE_H
 #define MOBIUS_AGGREGATE_H
 
-#include "../units.h"   // For declaration of Aggregation_Period. Not sure if that is the best place to put it though.
+#include "../common_types.h"   // For declaration of Aggregation_Period
 
 enum class Aggregation_Type {
 	mean = 0,

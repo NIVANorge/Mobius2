@@ -258,7 +258,7 @@ constexpr int max_var_loc_components = 6;
 struct
 Var_Location {
 	enum class Type : s32 {
-		nowhere=0, out, located,
+		nowhere=0, out, located, connection,
 	}   type;
 	s32 n_components;         //NOTE: it is here for better packing.
 	Entity_Id components[max_var_loc_components];
@@ -286,6 +286,22 @@ operator==(const Var_Location &a, const Var_Location &b) {
 
 inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
 
+enum class
+Boundary_Type {
+	none,
+	top,
+	bottom,
+};
+
+struct
+Specific_Var_Location : Var_Location {
+	Entity_Id      connection_id;
+	Boundary_Type  boundary_type;
+	
+	Specific_Var_Location() : Var_Location(), connection_id(invalid_entity_id), boundary_type(Boundary_Type::none) {}
+	Specific_Var_Location(const Var_Location &loc) : Var_Location(loc), connection_id(invalid_entity_id), boundary_type(Boundary_Type::none) {}
+};
+
 struct Index_T {
 	Entity_Id index_set;
 	s32       index;
@@ -305,11 +321,11 @@ inline bool
 is_valid(const Index_T &index) { return is_valid(index.index_set) && index.index >= 0; }
 
 enum class
-Boundary_Type {
-	none,
-	top,
-	bottom,
+Aggregation_Period {
+	none = 0,
+	weekly,
+	monthly,
+	yearly,
 };
-
 
 #endif // MOBIUS_COMMON_TYPES_H

@@ -33,13 +33,13 @@ State_Var {
 	
 	// If this is a quantity or property, loc1 is the location of this variable.
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
-	Var_Location   loc1;
-	Var_Location   loc2;
-	Boundary_Type  boundary_type;
+	Specific_Var_Location   loc1;
+	Specific_Var_Location   loc2;
+	//Boundary_Type  boundary_type;
 	
 	owns_code unit_conversion_tree;
 	
-	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location), boundary_type(Boundary_Type::none) {};
+	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location)/*, boundary_type(Boundary_Type::none)*/ {};
 	
 	// Because these are very common queries
 	bool is_flux() { return (flags & flux);	}
@@ -105,11 +105,11 @@ State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	Entity_Id      connection;
+	//Entity_Id      connection;
 	Var_Id         conc;                   // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
-	State_Var_Sub() : connection(invalid_entity_id), flux_of_medium(invalid_var), conc(invalid_var) {}
+	State_Var_Sub() : /*connection(invalid_entity_id),*/ flux_of_medium(invalid_var), conc(invalid_var) {}
 };
 
 struct
@@ -141,13 +141,19 @@ State_Var_Sub<type> *as(State_Var *var) {
 	return static_cast<State_Var_Sub<type> *>(var);
 }
 
+//TODO: Ideally we would like to get rid of this one.
 inline Entity_Id
 connection_of_flux(State_Var *var) {
-	if(var->type == State_Var::Type::declared)
-		return as<State_Var::Type::declared>(var)->connection;
-	else if(var->type == State_Var::Type::dissolved_flux)
-		return as<State_Var::Type::dissolved_flux>(var)->connection;
-	return invalid_entity_id;
+	if(is_valid(var->loc1.connection_id))
+		return var->loc1.connection_id;
+	return var->loc2.connection_id;
+}
+// Same with this one
+inline Boundary_Type
+boundary_type_of_flux(State_Var *var) {
+	if(var->loc1.boundary_type != Boundary_Type::none)
+		return var->loc1.boundary_type;
+	return var->loc2.boundary_type;
 }
 
 #endif // MOBIUS_STATE_VARIABLE_H

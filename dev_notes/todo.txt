@@ -1,5 +1,7 @@
 
 
+	Go over the uses of a state variable's boundary types and connection_id and properly make use of how it is now organized.
+
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 		Sub-indexed series data.
@@ -137,7 +139,7 @@
 				GLUE-like sampling?
 				Serialize sensitivity setups using a Mobius format instead of json so that we can load the same setups in mobipy eventually.
 				More customizable target functions.
-				Targets computed from aggregate series.
+				Targets computed from aggregate series (stats of aggregate series).
 			
 			Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
 				Maybe not desirable

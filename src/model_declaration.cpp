@@ -442,15 +442,12 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	return result;
 }
 
-struct
-Location_Modifier {
-	Entity_Id     connection_id  = invalid_entity_id;
-	Boundary_Type boundary_type = Boundary_Type::none;
-};
-
-Location_Modifier
+void
 process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified, bool allow_connection = false, bool allow_bracketed = false) {
-	Location_Modifier result;
+	Specific_Var_Location *specific_loc = nullptr;
+	if(allow_connection || allow_bracketed) {
+		specific_loc = static_cast<Specific_Var_Location *>(location);
+	}
 	
 	if(decl->args[which]->decl) {
 		decl->args[which]->decl->source_loc.print_error_header();
@@ -474,8 +471,8 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			}
 		}
 		if (allow_connection && !success) {
-			location->type = Var_Location::Type::out;
-			result.connection_id = model->connections.find_or_create(token, scope);
+			location->type = Var_Location::Type::connection;
+			specific_loc->connection_id = model->connections.find_or_create(token, scope);
 			success = true;
 		}
 	} else if (count >= 2 && count <= max_var_loc_components) {
@@ -493,12 +490,13 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		success = false;
 	
 	if(success && bracketed.size() == 2) {
-		result.connection_id = model->connections.find_or_create(&bracketed[0], scope);
+		// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe?)
+		specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
 		auto type = bracketed[1].string_value;
 		if(type == "top")
-			result.boundary_type = Boundary_Type::top;
+			specific_loc->boundary_type = Boundary_Type::top;
 		else if(type == "bottom")
-			result.boundary_type = Boundary_Type::bottom;
+			specific_loc->boundary_type = Boundary_Type::bottom;
 		else
 			success = false;
 	} else if (!bracketed.empty())
@@ -509,7 +507,6 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		symbol[0].print_error_header();
 		fatal_error("Misformatted variable location in this context.");
 	}
-	return result;
 }
 
 template<Reg_Type reg_type> Entity_Id
@@ -862,19 +859,10 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
-	// TODO: Instead there should be a modifier tied to each location. This easily leads to errors.
-	auto modifier = process_location_argument(model, scope, decl, 0, &flux->source, true, false, true);
-	if(is_valid(modifier.connection_id)) {
-		flux->connection_target = modifier.connection_id;
-		flux->boundary_type = modifier.boundary_type;
-	}
-	modifier = process_location_argument(model, scope, decl, 1, &flux->target, true, true, true);
-	if(is_valid(modifier.connection_id)) {
-		flux->connection_target = modifier.connection_id;
-		flux->boundary_type = modifier.boundary_type;
-	}
-	
-	flux->target_was_out = ((flux->target.type == Var_Location::Type::out) && !is_valid(flux->connection_target));
+	process_location_argument(model, scope, decl, 0, &flux->source, true, false, true);
+	process_location_argument(model, scope, decl, 1, &flux->target, true, true, true);
+
+	flux->target_was_out = (flux->target.type == Var_Location::Type::out);
 	
 	if(flux->source.type == Var_Location::Type::out) {
 		decl->source_loc.print_error_header();
@@ -1297,15 +1285,14 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	auto flux_id = module->scope.expect_exists(&decl->decl_chain[1], Reg_Type::flux);
 	auto flux = model->fluxes[flux_id];
 	
-	if(flux->target.type != Var_Location::Type::out || is_valid(flux->connection_target)) {
+	if(flux->target.type != Var_Location::Type::out) {
 		decl->decl_chain[1].print_error_header();
 		fatal_error("The flux '", decl->decl_chain[1].string_value, "' does not have the target 'out', and so we can't re-assign its target.");
 	}
 	
 	auto &chain = decl->args[0]->chain;
 	
-	auto modifier = process_location_argument(model, scope, decl, 0, &flux->target, false, true);
-	flux->connection_target = modifier.connection_id;
+	process_location_argument(model, scope, decl, 0, &flux->target, false, true);
 }
 
 template<> Entity_Id

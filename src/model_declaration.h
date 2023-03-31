@@ -173,22 +173,17 @@ Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
 	Entity_Id       code_scope;
 };
 
-// TODO: Use this one for flux source and target (also for Identifier_Data to have a unified way of doing things? In that case we also need 'top' and 'bottom')
-struct
-Specific_Var_Location : Var_Location {
-	Entity_Id      connection_id = invalid_entity_id;
-	Boundary_Type  boundary_type = Boundary_Type::none;
-};
-
 template<> struct
 Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
-	Var_Location   source;
-	Var_Location   target;
+	Specific_Var_Location   source;
+	Specific_Var_Location   target;
 	
 	// TODO: This should be refactored somehow, maybe into an "Specific_Var_Location"
 	bool           target_was_out;       // We some times need info about if the target was initially declared as 'out', then re-directed by a 'to' declaration.
+	/*
 	Entity_Id      connection_target;
 	Boundary_Type  boundary_type;
+	*/
 	// Entity_Id computed_connection_index;
 	
 	Entity_Id      unit;
@@ -201,7 +196,7 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Math_Block_AST  *code;
 	Entity_Id        code_scope;
 	
-	Entity_Registration() : connection_target(invalid_entity_id), code(nullptr), code_scope(invalid_entity_id), boundary_type(Boundary_Type::none), no_carry_by_default(false), discrete_order(invalid_entity_id) {}
+	Entity_Registration() : code(nullptr), code_scope(invalid_entity_id), /*connection_target(invalid_entity_id), boundary_type(Boundary_Type::none),*/ no_carry_by_default(false), discrete_order(invalid_entity_id) {}
 };
 
 template<> struct

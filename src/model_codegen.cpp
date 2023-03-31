@@ -220,7 +220,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
 						
 						auto conn_id = connection_of_flux(flux);
-						bool is_bottom      = flux->boundary_type == Boundary_Type::bottom;
+						bool is_bottom      = boundary_type_of_flux(flux) == Boundary_Type::bottom;
 						bool is_all_to_all  = is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all;
 						
 						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution soon.
@@ -705,11 +705,9 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 					auto var = app->state_vars[instr->var_id];
 					if(var->is_flux()) {
 						connection = connection_of_flux(var);
-						boundary_type = var->boundary_type;
+						boundary_type = boundary_type_of_flux(var);
 					}
-					//warning_print("**** Generate for computing ", var->name, "\n");
-				} //else
-					//warning_print("** Generate for other\n");
+				}
 				
 				//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
 				fun = put_var_lookup_indexes(fun, app, indexes, nullptr, connection, boundary_type);

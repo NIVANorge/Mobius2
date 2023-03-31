@@ -16,11 +16,12 @@ Optimization_Target {
 	double weight;
 	Date_Time start, end;
 	
-	// NOTE: These should be set up based on begin, end and whatever the start and end date of the model run is.
 	s64 sim_offset = -1, obs_offset = -1;
+	
+	// NOTE: These should be set up based on begin, end and whatever the start and end date of the model run is.
 	s64 sim_stat_offset = -1, obs_stat_offset = -1, stat_ts = -1;
 	
-	void set_offsets(Model_Data *data);
+	void set_offsets(Model_Data *data); // This one sets the sim_offset and obs_offset.
 };
 
 struct

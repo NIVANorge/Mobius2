@@ -100,13 +100,6 @@ match_offset(Standardized_Unit *a, Standardized_Unit *b, double *conversion_fact
 bool
 match_exact(Standardized_Unit *a, Standardized_Unit *b);
 
-enum class Aggregation_Period {
-	none = 0,
-	weekly,
-	monthly,
-	yearly,
-};
-
 inline Compound_Unit
 agg_period_to_compound_unit(Aggregation_Period agg) {
 	if(agg == Aggregation_Period::weekly)

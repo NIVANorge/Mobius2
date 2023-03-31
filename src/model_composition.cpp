@@ -101,8 +101,9 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			// These may not be needed, since we would check if the locations exist in any case (and the source location is confusing as it stands here).
 			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
 			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
-			if(is_valid(flux->connection_target))
-				var2->connection = flux->connection_target;
+			
+			//if(is_valid(flux->connection_target))
+			//	var2->connection = flux->connection_target;
 			if(is_valid(flux->unit))
 				var->unit = model->units[flux->unit]->data;
 		} else
@@ -306,7 +307,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
 	
 	Entity_Id exclude_index_set_from_var = invalid_entity_id;
-	if(var->boundary_type != Boundary_Type::none) {
+	if(boundary_type_of_flux(var) != Boundary_Type::none) {
 		auto connection = connection_of_flux(var);
 		exclude_index_set_from_var = app->get_single_connection_index_set(connection);
 	}
@@ -528,10 +529,10 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false, flux->name);
 		auto var = app->state_vars[var_id];
 		auto conn_id = connection_of_flux(var);
+		//var->boundary_type = flux->boundary_type;
+		auto boundary_type = boundary_type_of_flux(var);
 		
-		var->boundary_type = flux->boundary_type;
-		
-		if(flux->boundary_type == Boundary_Type::none) {
+		if(boundary_type == Boundary_Type::none) {
 			if(is_valid(conn_id) && !is_located(var->loc1)) {
 				flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: The source loc is wrong if the connection comes from a redirection.
 				fatal_error("You can't have a flux from nowhere to a connection.\n");
@@ -611,13 +612,18 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->flags = (State_Var::Flags)(gen_flux->flags | State_Var::Flags::flux);
 			gen_flux->conc = gen_conc_id;
 			gen_flux->loc1 = source;
-			gen_flux->loc2.type = flux->loc2.type;
-			gen_flux->boundary_type = flux->boundary_type;
+			gen_flux->loc1.connection_id = flux->loc1.connection_id;
+			gen_flux->loc2.boundary_type = flux->loc2.boundary_type;
+			
 			if(is_located(flux->loc2))
 				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
-			auto conn_id = connection_of_flux(flux);
-			if(is_valid(conn_id))
-				gen_flux->connection = conn_id;
+			gen_flux->loc2.type = flux->loc2.type;
+			gen_flux->loc2.boundary_type = flux->loc2.boundary_type;
+			gen_flux->loc2.connection_id = flux->loc2.connection_id;
+			
+			//auto conn_id = connection_of_flux(flux);
+			//if(is_valid(conn_id))
+			//	gen_flux->connection = conn_id;
 		}
 	}
 }
@@ -832,7 +838,7 @@ compose_and_resolve(Model_Application *app) {
 		bool initial_is_conc = false;
 		
 		//TODO: it would probably be better to default in_loc to be loc1 regardless (except when loc1 is not located).
-		Var_Location in_loc;
+		Specific_Var_Location in_loc;
 		in_loc.type = Var_Location::Type::nowhere;
 		Entity_Id from_compartment = invalid_entity_id;
 		Entity_Id connection = invalid_entity_id;
@@ -848,7 +854,11 @@ compose_and_resolve(Model_Application *app) {
 			ast = flux_decl->code;
 			
 			code_scope = model->get_scope(flux_decl->code_scope);
-			connection = flux_decl->connection_target;
+			
+			// Not sure if it would be better to pack both locations to the function resolve data and look up the connections from it that way. 
+			connection = flux_decl->source.connection_id;
+			if(!is_valid(connection))
+				connection = flux_decl->target.connection_id;
 			
 			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
 			if(is_located(var->loc1)) {
@@ -1030,7 +1040,7 @@ compose_and_resolve(Model_Application *app) {
 		auto conn_id = connection_of_flux(var);
 		if(is_valid(conn_id)) {
 			Var_Location loc = var->loc1;
-			if(var->boundary_type == Boundary_Type::top)
+			if(boundary_type_of_flux(var) == Boundary_Type::top)
 				loc = var->loc2; // NOTE: For top_boundary only the target is set.
 			
 			// TODO: Do we need to check that loc *must* be located if this is not a bottom_boundary (or is that taken care of elsewhere?)
@@ -1053,7 +1063,7 @@ compose_and_resolve(Model_Application *app) {
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(var->boundary_type == Boundary_Type::bottom) {
+		if(boundary_type_of_flux(var) == Boundary_Type::bottom) {
 			auto conn_id = connection_of_flux(var);
 			exclude_index_set_from_loc = app->get_single_connection_index_set(conn_id);
 		}
