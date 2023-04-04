@@ -149,6 +149,43 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 	return expr;
 }
 
+bool
+are_the_same(Math_Expr_FT *a, Math_Expr_FT *b) {
+	// NOTE: This is not currently guaranteed to return true for all cases where two expressions are the same, it just does some low hanging fruits that are useful for a particular optimization.
+	
+	if(a->expr_type != b->expr_type) return false;
+	if(a->value_type != b->value_type) return false;
+	if(a->exprs.size() != b->exprs.size()) return false;
+	for(int idx = 0; idx < a->exprs.size(); ++idx) {
+		if(!are_the_same(a->exprs[idx], b->exprs[idx])) return false;
+	}
+	
+	switch(a->expr_type) {
+		case Math_Expr_Type::literal : {
+			auto lit_a = static_cast<Literal_FT *>(a);
+			auto lit_b = static_cast<Literal_FT *>(b);
+			return (lit_a->value.val_integer == lit_b->value.val_integer);
+		} break;
+		
+		case Math_Expr_Type::identifier : {
+			auto id_a = static_cast<Identifier_FT *>(a);
+			auto id_b = static_cast<Identifier_FT *>(b);
+			if(id_a->variable_type != id_b->variable_type) return false;
+			if(id_a->variable_type == Variable_Type::local)
+				return id_a->local_var == id_b->local_var;
+		} break;
+		
+		case Math_Expr_Type::binary_operator :
+		case Math_Expr_Type::unary_operator : {
+			auto op_a = static_cast<Operator_FT *>(a);
+			auto op_b = static_cast<Operator_FT *>(b);
+			return (op_a->oper == op_b->oper);
+		} break;
+	}
+	
+	return false;
+}
+
 Typed_Value
 check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val, Value_Type type, bool is_lhs) {
 	Typed_Value result;
@@ -682,12 +719,48 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 	return expr;
 }
 
+void
+merge_some_branches(Math_Expr_FT *expr) {
+	
+	// Merge certain kind of if-expressions that happen to be commonly generated in the same block in certain models.
+	
+	for(auto child : expr->exprs)
+		merge_some_branches(child);
+	
+	if(expr->expr_type != Math_Expr_Type::block)
+		return;
+	
+	auto block = static_cast<Math_Block_FT *>(expr);
+	
+	for(int idx = block->exprs.size()-1; idx > 0; --idx) {
+		auto if1 = block->exprs[idx];
+		auto if2 = block->exprs[idx-1];
+		if(if1->expr_type != Math_Expr_Type::if_chain || if1->exprs.size() != 3) continue;
+		if(if2->expr_type != Math_Expr_Type::if_chain || if2->exprs.size() != 3) continue;
+		// See if the condition and default value are the same.
+		if(!are_the_same(if1->exprs[1], if2->exprs[1]) || !are_the_same(if1->exprs[2], if2->exprs[2])) continue;
+		if(if1->exprs[0]->value_type != Value_Type::none || if2->exprs[0]->value_type != Value_Type::none) continue;
+		
+		auto block2 = new Math_Block_FT();
+		block2->value_type = Value_Type::none;
+		block2->exprs.push_back(if2->exprs[0]);
+		block2->exprs.push_back(if1->exprs[0]);
+		if2->exprs[0] = block2;
+		delete if1->exprs[1];
+		delete if1->exprs[2];
+		if1->exprs.clear();
+		delete if1;
+		block->exprs.erase(block->exprs.begin()+idx);
+	}
+}
+
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr) {
 	auto result = prune_helper(expr, nullptr);
 	remove_unused_locals(result);
 	result = remove_single_statement_blocks(result);
 	
+	merge_some_branches(result);
 	// A second pass sometimes helps since things above could have collapsed blocks making it easier to prune other things again.
 	result = prune_helper(result, nullptr);
 	remove_unused_locals(result);

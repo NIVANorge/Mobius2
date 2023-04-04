@@ -232,7 +232,7 @@ jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const ch
 void
 jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
 	data->global_connection_data  = jit_create_constant_array(data, constants->connection_data, constants->connection_data_count, "global_connection_data");
-	data->global_index_count_data = jit_create_constant_array(data, constants->index_count_data, constants->index_count_data_count, "global_connection_data");
+	data->global_index_count_data = jit_create_constant_array(data, constants->index_count_data, constants->index_count_data_count, "global_index_count_data");
 }
 
 void

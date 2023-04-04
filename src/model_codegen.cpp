@@ -77,7 +77,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
 			} else {
 				// mass is given. compute conc.
-				// TODO: do we really need the initial conc always though?
 				conc_instr.type = Model_Instruction::Type::compute_state_var; //NOTE: it was probably declared invalid before since it by default had no code.
 				conc_instr.code = make_safe_divide(make_state_var_identifier(instr.var_id), make_state_var_identifier(dissolved_in));
 				if(conc->unit_conversion != 1.0)
@@ -143,7 +142,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				// Var_Loc_Restriction::below. Otherwise the concentration is another
 				// state variable altogether. If we fix that however, this should also
 				// work for more general fluxes.
-				auto &restriction = restriction_of_flux(var);
+				auto &restriction = restriction_of_flux(var); // TODO: Should use instr->restriction?
 				if(is_valid(restriction.connection_id) && restriction.restriction == Var_Loc_Restriction::below) {
 					auto conn = model->connections[restriction.connection_id];
 					if(conn->type == Connection_Type::grid1d || conn->type == Connection_Type::all_to_all) {
@@ -314,10 +313,10 @@ get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &t
 }
 
 void
-put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx, std::set<Var_Loc_Restriction> &found_restriction) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx, std::set<Var_Loc_Restriction> &found_restriction) {
 	
 	for(auto arg : expr->exprs)
-		put_var_lookup_indexes_helper(arg, app, index_expr, provided_target_idx, found_restriction);
+		put_var_lookup_indexes(arg, app, index_expr, provided_target_idx, found_restriction);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	
@@ -335,8 +334,11 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 		auto conn = app->model->connections[ident->restriction.connection_id];
 		conn_type = conn->type;
 		if(conn_type == Connection_Type::all_to_all) {
-			// Only 'below' should be allowed. Do we check for that elsewhere?
 			index_expr.transpose();
+			if(ident->restriction.restriction == Var_Loc_Restriction::above) {
+				ident->source_loc.print_error_header();
+				fatal_error("The 'above' directive is not allowed on a all_to_all connection");
+			}
 		} else if (conn_type == Connection_Type::grid1d) {
 			if(!provided_target_idx) {
 				get_grid1d_target_indexes(app, target_indexes, index_expr, ident->restriction);
@@ -345,7 +347,7 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 			index_expr.swap(*provided_target_idx);
 		} else {
 			ident->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Got a 'above' or 'below' directive for a connection \"", conn->name, "\" that is not of type all_to_all or grid1d."); // TODO: above should not be allowed for all_to_all
+			fatal_error("Got a 'above' or 'below' directive for a connection \"", conn->name, "\" that is not of type all_to_all or grid1d.");
 		}
 	} else if(ident->restriction.restriction == Var_Loc_Restriction::top || ident->restriction.restriction == Var_Loc_Restriction::bottom) {
 		auto conn = app->model->connections[ident->restriction.connection_id];
@@ -354,6 +356,8 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 			ident->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("Got a 'top' or 'bottom' directive for a connection \"", conn->name, "\" that is not of type grid1d.");
 		}
+		
+		// TODO: Why isn't this swapped back??
 		
 		get_grid1d_target_indexes(app, target_indexes, index_expr, ident->restriction);
 		provided_target_idx = &target_indexes;
@@ -389,70 +393,47 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 	
 	if(offset_code)
 		expr->exprs.push_back(offset_code);
+	
+	return;
+}
+
+void
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx = nullptr) {
+		
+	std::set<Var_Loc_Restriction> found_restriction;
+	put_var_lookup_indexes(expr, app, index_expr, provided_target_idx, found_restriction);
 }
 
 Math_Expr_FT *
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx = nullptr, 
-	Var_Loc_Restriction restriction_of_flux_target = Var_Loc_Restriction()) {
-		
-	std::set<Var_Loc_Restriction> found_restriction;
-	put_var_lookup_indexes_helper(expr, app, index_expr, provided_target_idx, found_restriction);
+make_restriction_condition(Model_Application *app, Var_Loc_Restriction restriction, Math_Expr_FT *existing_condition, Index_Exprs &index_expr) {
 	
-	found_restriction.insert(restriction_of_flux_target);
-	
-	//if(found_restriction.empty())
-	//	return expr;
-	
-
 	// For grid1d connections, if we look up 'above' or 'below', we can't do it if we are on the first or last index respecitively, and so the entire expression must be invalidated.
 	// Same if the expression itself is for a flux that is along a grid1d connection.
+	// This function creates the code to compute the boolean condition that the expression should be invalidated.
 	
-	Math_Expr_FT *condition = nullptr;
-	for(auto &restriction : found_restriction) {
+	if(!is_valid(restriction.connection_id) || app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
+		return existing_condition;
+	if(restriction.restriction != Var_Loc_Restriction::above && restriction.restriction != Var_Loc_Restriction::below)
+		return existing_condition;
 	
-		if(!is_valid(restriction.connection_id) || app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
-			continue;
-		if(restriction.restriction != Var_Loc_Restriction::above && restriction.restriction != Var_Loc_Restriction::below)
-			continue;
-		
-		auto index_set = app->get_single_connection_index_set(restriction.connection_id);
-		
-		Math_Expr_FT *index = nullptr;
-		if(provided_target_idx)
-			index = (*provided_target_idx)[index_set.id];
-		else {
-			// TODO: This is a bit wasteful, we only need the single index
-			std::vector<Math_Expr_FT *> target_indexes;
-			get_grid1d_target_indexes(app, target_indexes, index_expr, restriction);
-			index = target_indexes[index_set.id];
-		}
-		
-		Math_Expr_FT *ltc = nullptr;
-		if(restriction.restriction == Var_Loc_Restriction::above)
-			ltc = make_binop(Token_Type::geq, copy(index), make_literal((s64)0));
-		else if(restriction.restriction == Var_Loc_Restriction::below) {
-			auto index_count = get_index_count_code(app, index_set, index_expr);
-			ltc = make_binop('<', copy(index), index_count);
-		}
-		
-		if(!condition)
-			condition = ltc;
-		else
-			condition = make_binop('&', condition, ltc);
+	auto index_set = app->get_single_connection_index_set(restriction.connection_id);
+	
+	std::vector<Math_Expr_FT *> target_indexes;
+	get_grid1d_target_indexes(app, target_indexes, index_expr, restriction);
+	Math_Expr_FT *index = target_indexes[index_set.id];
+	
+	Math_Expr_FT *ltc = nullptr;
+	if(restriction.restriction == Var_Loc_Restriction::above)
+		ltc = make_binop(Token_Type::geq, copy(index), make_literal((s64)0));
+	else if(restriction.restriction == Var_Loc_Restriction::below) {
+		auto index_count = get_index_count_code(app, index_set, index_expr);
+		ltc = make_binop('<', copy(index), index_count);
 	}
 	
-	if(condition) {
-		auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-		if_chain->value_type = Value_Type::real;
-		if_chain->exprs.push_back(expr);
-		
-		if_chain->exprs.push_back(condition);
-		if_chain->exprs.push_back(make_literal(0.0));
-		
-		return if_chain;
-	}
-	
-	return expr;
+	if(!existing_condition)
+		return ltc;
+	else
+		return make_binop('&', existing_condition, ltc);
 }
 
 Math_Expr_FT *
@@ -500,17 +481,17 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 		indexes.swap(target_indexes); // Swap back in the ones we had before.
 		
 		if(weight)
-			weight = put_var_lookup_indexes(weight, app, indexes, &target_indexes);
+			put_var_lookup_indexes(weight, app, indexes, &target_indexes);
 		
 		for(int idx = 0; idx < target_indexes.size(); ++idx) // NOTE: If they were used, they were copied, so we delete them again now.
 			delete target_indexes[idx];
 	} else {
-		if(weight) weight = put_var_lookup_indexes(weight, app, indexes);
+		if(weight) put_var_lookup_indexes(weight, app, indexes);
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 	}
 	
 	if(unit_conv)
-		unit_conv = put_var_lookup_indexes(unit_conv, app, indexes);
+		put_var_lookup_indexes(unit_conv, app, indexes);
 	
 	//warning_print("*** *** Codegen for connection ", app->state_vars[source_id]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
 	
@@ -539,9 +520,6 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	
 	Math_Expr_FT *result = if_chain;
 	
-	//warning_print("\n\n**** Agg instruction tree is :\n");
-	//print_tree(result, 0);
-	
 	return result;
 }
 
@@ -562,7 +540,7 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 	}
 	
 	if(weight) {
-		weight = put_var_lookup_indexes(weight, app, indexes, nullptr);
+		put_var_lookup_indexes(weight, app, indexes, nullptr);
 		value = make_binop('*', value, weight);
 	}
 	
@@ -573,8 +551,7 @@ Math_Expr_FT *
 add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Math_Expr_FT *weight, Var_Loc_Restriction restriction) {
 	
 	auto model = app->model;
-	//auto &comp = app->connection_components[connection_id.id][0];
-	//auto index_set = comp.index_sets[0];
+
 	auto index_set = app->get_single_connection_index_set(restriction.connection_id);
 	
 	std::vector<Math_Expr_FT *> target_indexes;
@@ -589,26 +566,13 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	indexes.swap(target_indexes);
 	
 	if(weight) {
-		weight = put_var_lookup_indexes(weight, app, indexes, &target_indexes);
+		put_var_lookup_indexes(weight, app, indexes, &target_indexes);
 		value = make_binop('*', value, weight);
 	}
 	//TODO: We don't free the target_indexes!
 	// Same goes for other places where we use get_grid1d_target_indexes() !
 	auto result = add_value_to_state_var(agg_id, agg_offset, value, '+');
 	
-	// Make code to check that we are not at the last index.
-	// TODO: Could this be factored out from similar invalidation in put_var_lookup_indexes ?
-	if(restriction.restriction == Var_Loc_Restriction::below) {
-		auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-		if_chain->value_type = Value_Type::none;
-		if_chain->exprs.push_back(result);
-		auto index_count = get_index_count_code(app, index_set, indexes);
-		auto index = indexes.indexes[index_set.id];
-		if_chain->exprs.push_back(make_binop('<', copy(index), index_count));
-		if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
-		
-		result = if_chain;
-	}
 	return result;
 }
 
@@ -618,9 +582,8 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	
 	auto connection = model->connections[restriction.connection_id];
 	
-	// See if we should apply a weight to the value.
+	// See if we should apply a weight and/or unit conversion to the value.
 	
-	// TODO: unit conversion!
 	Math_Expr_FT *weight = nullptr;
 	Math_Expr_FT *unit_conv = nullptr;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
@@ -712,28 +675,27 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		for(int instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
 			
-			auto fun = instr->code;
+			Math_Expr_FT *fun = nullptr;
 			
-			if(fun) {
-				fun = copy(fun);
+			std::set<Var_Loc_Restriction> restrictions;
+			restrictions.insert(instr->restriction);
+			
+			if(instr->code) {
+				fun = copy(instr->code);
 				
-				// TODO: Couldn't this just be put on instr->restriction ?
-				Var_Loc_Restriction target_restriction;
-				if(instr->type == Model_Instruction::Type::compute_state_var) {
-					auto var = app->state_vars[instr->var_id];
-					if(var->is_flux())
-						target_restriction = var->loc2;
-				}
-				
-				fun = put_var_lookup_indexes(fun, app, indexes, nullptr, target_restriction);
+				put_var_lookup_indexes(fun, app, indexes, nullptr, restrictions);
 				
 			} else if (instr->type != Model_Instruction::Type::clear_state_var) {
-				//NOTE: This could happen for discrete quantities since they are instead modified by add/subtract instructions. Same for some aggregation variables that are only modified by other instructions.
+				//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
+				
 				// TODO: Should we try to infer if it is ok that there is no code for this compute_state_var (?). Or maybe have a separate type for it when we expect there to be no actual computation and it is only a placeholder for a value (?). Or maybe have a flag for it on the State_Variable.
 				if(instr->type == Model_Instruction::Type::compute_state_var)
 					continue;
 				fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
 			}
+			
+			
+			Math_Expr_FT *result_code = nullptr;
 			
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
@@ -741,30 +703,27 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset_code);
 				assignment->exprs.push_back(fun);
-				scope->exprs.push_back(assignment);
+				assignment->value_type = Value_Type::none;
+				result_code = assignment;
 				
 			} else if (instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source) {
 				
 				auto agg_offset = app->result_structure.get_offset_code(instr->source_id, indexes);
-				auto result = add_value_to_state_var(instr->source_id, agg_offset, fun, '-');
-				scope->exprs.push_back(result);
+				result_code = add_value_to_state_var(instr->source_id, agg_offset, fun, '-');
 				
 			} else if (instr->type == Model_Instruction::Type::add_discrete_flux_to_target) {
 				
 				auto agg_offset = app->result_structure.get_offset_code(instr->target_id, indexes);
-				auto result = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
-				scope->exprs.push_back(result);
+				result_code = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
 				
 				auto agg_offset = app->result_structure.get_offset_code(instr->target_id, indexes);
-				auto result = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
-				scope->exprs.push_back(result);
+				result_code = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
 				
-				auto result = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, instr->restriction);
-				scope->exprs.push_back(result);
+				result_code = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, instr->restriction);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				
@@ -772,7 +731,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset);
 				assignment->exprs.push_back(make_literal((double)0));
-				scope->exprs.push_back(assignment);
+				result_code = assignment;
 				
 			} else if (instr->type == Model_Instruction::Type::special_computation) {
 				
@@ -794,11 +753,29 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 						special->exprs.push_back(make_literal(app->parameter_structure.instance_count(arg.par_id)));
 					}
 				}
-				scope->exprs.push_back(special);
+				result_code = special;
 				
 			} else {
 				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");
 			}
+			
+			// TODO: In some cases there are duplicates of a restriction that produces the same condition. How does this happen?
+			Math_Expr_FT *condition = nullptr;
+			for(auto &restriction : restrictions)
+				condition = make_restriction_condition(app, restriction, condition, indexes);
+			
+			if(condition) {
+				auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+				if_chain->value_type = Value_Type::real;
+				if_chain->exprs.push_back(result_code);
+				
+				if_chain->exprs.push_back(condition);
+				if_chain->exprs.push_back(make_literal(0.0));
+				
+				result_code = if_chain;
+			}
+			
+			scope->exprs.push_back(result_code);
 		}
 		
 		indexes.clean();
@@ -829,7 +806,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 				fun = copy(fun);
 				
-				fun = put_var_lookup_indexes(fun, app, indexes);
+				put_var_lookup_indexes(fun, app, indexes);
 				
 				auto offset_var = app->result_structure.get_offset_code(instr->var_id, indexes);
 				auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));

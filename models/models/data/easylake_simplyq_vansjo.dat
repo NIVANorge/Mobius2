@@ -110,7 +110,7 @@ module("EasyLake", 0, 1, 0) {
 		[ 2 1 ]
 
 		par_real("Rating function linear component")
-		[ 150 150 ]
+		[ 550 550 ]
 
 		par_real("Initial epilimnion temperature")
 		[ 15 15 ]

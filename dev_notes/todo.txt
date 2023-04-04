@@ -3,10 +3,6 @@
 
 	Clean up how we generate code for computing indexes. It is very messy.
 
-	Finish cleaning up how Var_Loc_Restriction is used
-		Is it OK to have 2 per flux (baked into Specific_Var_Location), or should we just extract the 1?
-		Make Model_Instruction use it properly.
-
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 		Sub-indexed series data.

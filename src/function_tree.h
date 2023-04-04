@@ -69,6 +69,10 @@ Local_Var_Id {
 	s32 id;
 };
 
+inline bool operator==(const Local_Var_Id &a, const Local_Var_Id &b) {
+	return a.scope_id == b.scope_id && a.id == b.id;
+}
+
 struct
 Identifier_FT : Math_Expr_FT, Identifier_Data {
 	Local_Var_Id local_var; // NOTE: Only used if the Identifier_Data::variable_type is local_var.
