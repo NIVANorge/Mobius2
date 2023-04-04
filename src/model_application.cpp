@@ -168,6 +168,14 @@ Model_Application::get_single_connection_index_set(Entity_Id conn_id) {
 	return connection_components[conn_id.id][0].index_sets[0];
 }
 
+Entity_Id
+avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction) {
+	Entity_Id avoid = invalid_entity_id;
+	if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::bottom)
+		avoid = app->get_single_connection_index_set(restriction.connection_id);
+	return avoid;
+}
+
 void
 Model_Application::set_up_connection_structure() {
 	if(connection_structure.has_been_set_up)

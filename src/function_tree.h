@@ -43,17 +43,14 @@ Identifier_Data {
 		in_flux     = 0x2,
 		aggregate   = 0x4,
 		conc        = 0x8,
-		below_above = 0x10,
-		top_bottom  = 0x20,
 	}                            flags;
+	Var_Loc_Restriction          restriction;
 	union {
 		Entity_Id                par_id;
 		Var_Id                   var_id;
 	};
-	Entity_Id connection;   // If it is 'below', 'above', 'top', or 'bottom', what connection is it along?
-	bool      is_above;     // If it is below or above, is it actually above (or top vs bottom)?
 	
-	Identifier_Data() : flags(Flags::none), connection(invalid_entity_id), is_above(false) { };
+	Identifier_Data() : flags(Flags::none) { };
 };
 
 inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {

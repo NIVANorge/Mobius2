@@ -54,8 +54,6 @@ check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_L
 template<State_Var::Type type> Var_Id
 register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_series, const std::string &name) {
 	
-	// TODO: Ideally we want to remove decl_type as an argument here, but then it would have to be made irrelevant for non-declared variables.
-	
 	auto model = app->model;
 	
 	if(type == State_Var::Type::declared && !is_valid(decl_id))
@@ -102,8 +100,6 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
 			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
 			
-			//if(is_valid(flux->connection_target))
-			//	var2->connection = flux->connection_target;
 			if(is_valid(flux->unit))
 				var->unit = model->units[flux->unit]->data;
 		} else
@@ -115,7 +111,7 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 }
 
 void
-check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location source_loc, Var_Location &loc) {
+check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location source_loc, Specific_Var_Location &loc, bool is_source) {
 	if(!is_located(loc)) return;
 	
 	auto model = app->model;
@@ -132,6 +128,30 @@ check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location s
 		error_print("The variable location ");
 		error_print_location(scope, loc);
 		fatal_error(" has not been created using a 'has' declaration.");
+	}
+	
+	if(is_valid(loc.connection_id)) {
+		auto conn = app->model->connections[loc.connection_id];
+		if(conn->type == Connection_Type::grid1d) {
+			if(is_source && loc.restriction == Var_Loc_Restriction::top) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("'top' can't be in the source of a flux.");
+			}
+			if(!is_source && loc.restriction == Var_Loc_Restriction::bottom) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("'bottom' can't be in the target of a flux.");
+			}
+		} else {
+			if(is_source) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("For this connection type, the connection can't be specified in the source of the flux.");
+			} else if (loc.restriction != Var_Loc_Restriction::below) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This connection type can't have boundary fluxes.");
+			}
+		}
+	} else if(loc.restriction != Var_Loc_Restriction::none) {
+		fatal_error(Mobius_Error::internal, "Got a var location with a restriction that was not tied to a connection.");
 	}
 }
 
@@ -163,7 +183,7 @@ find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, V
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect an in_flux() in an initial value function.");
 			}
-			in_fluxes[{ident->var_id, ident->connection}].push_back(looked_up_by);
+			in_fluxes[{ident->var_id, ident->restriction.connection_id}].push_back(looked_up_by);
 		}
 		if(ident->flags & Identifier_FT::Flags::aggregate) {
 			if(!is_valid(lookup_compartment)) {
@@ -307,17 +327,18 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
 	
 	Entity_Id exclude_index_set_from_var = invalid_entity_id;
-	if(boundary_type_of_flux(var) != Boundary_Type::none) {
-		auto connection = connection_of_flux(var);
-		exclude_index_set_from_var = app->get_single_connection_index_set(connection);
+	if(var->is_flux()) {
+		exclude_index_set_from_var = avoid_index_set_dependency(app, var->loc1);
+		if(!is_valid(exclude_index_set_from_var))
+			exclude_index_set_from_var = avoid_index_set_dependency(app, var->loc2);
 	}
 	
 	// TODO: in this error messages we should really print out the two tuples of index sets.
 	for(auto &dep : code_depends.on_parameter) {
-		// TODO: Factor out
-		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(dep.flags & Identifier_Data::Flags::top_bottom)
-			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
+		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		//if(dep.flags & Identifier_Data::Flags::top_bottom)
+		//	exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
+		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
 		if(!parameter_indexes_below_location(app->model, dep.par_id, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -325,9 +346,10 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		}
 	}
 	for(auto &dep : code_depends.on_series) {
-		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(dep.flags & Identifier_Data::Flags::top_bottom)
-			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
+		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		//if(dep.flags & Identifier_Data::Flags::top_bottom)
+		//	exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
+		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
 		if(!location_indexes_below_location(app->model, app->series[dep.var_id]->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -359,9 +381,10 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		if(dep_var->is_flux() || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
-		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(dep.flags & Identifier_Data::Flags::top_bottom)
-			exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
+		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		//if(dep.flags & Identifier_Data::Flags::top_bottom)
+		//	exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
+		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
 		if(!location_indexes_below_location(app->model, dep_var->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
@@ -377,7 +400,6 @@ has_code(Entity_Registration<Reg_Type::has> *has) {
 
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
-	//warning_print("Compose begin\n");
 	
 	auto model = app->model;
 	
@@ -440,8 +462,6 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		if(type == Decl_Type::quantity && (!has2 || !has_code(has2)))
 			has_location[has->var_location] = id;
 	}
-	
-	//warning_print("State var registration begin.\n");
 	
 	std::vector<Var_Id> dissolvedes;
 	
@@ -523,29 +543,19 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		auto flux = model->fluxes[id];
 
 		auto scope = model->get_scope(flux->code_scope);
-		check_flux_location(app, scope, flux->source_loc, flux->source);
-		check_flux_location(app, scope, flux->source_loc, flux->target); //TODO: The scope may not be correct if the flux was redirected!!!
+		check_flux_location(app, scope, flux->source_loc, flux->source, true);
+		check_flux_location(app, scope, flux->source_loc, flux->target, false); //TODO: The scope may not be correct if the flux was redirected!!! --- will not be relevant when we change decl system.
+		
+		if(!is_located(flux->source) && is_valid(flux->target.connection_id) && flux->target.restriction == Var_Loc_Restriction::below) {
+			// TODO: The source_loc is wrong if the connection comes from a redirection. May no longer be relevant when we change the system later.
+			flux->source_loc.print_error_header(Mobius_Error::model_building); 
+			fatal_error("You can't have a flux from 'nowhere' to a connection.\n");
+		}
+		
 		
 		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false, flux->name);
 		auto var = app->state_vars[var_id];
-		auto conn_id = connection_of_flux(var);
-		//var->boundary_type = flux->boundary_type;
-		auto boundary_type = boundary_type_of_flux(var);
-		
-		if(boundary_type == Boundary_Type::none) {
-			if(is_valid(conn_id) && !is_located(var->loc1)) {
-				flux->source_loc.print_error_header(Mobius_Error::model_building); // TODO: The source loc is wrong if the connection comes from a redirection.
-				fatal_error("You can't have a flux from nowhere to a connection.\n");
-			}
-		} else {
-			if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::grid1d) {
-				flux->code->source_loc.print_error_header();
-				fatal_error("A boundary flux can only be on a grid1d connection.");
-			}
-		}
 	}
-	
-	//warning_print("Generate fluxes and concentrations for dissolved quantities.\n");
 	
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
 	for(auto var_id : dissolvedes) {
@@ -594,7 +604,6 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 					has->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("We can't find a way to convert between the declared concentration unit ", conc_var->unit.to_utf8(), " and the computed concentration unit ", computed_conc_unit.to_utf8(), ".");
 				}
-				//warning_print("******* Unit conversion from ", computed_conc_unit.to_utf8(), " to ", conc_var->unit.to_utf8(), " was ", conc_var->unit_conversion, ".\n");
 			} else {
 				conc_var->unit = computed_conc_unit;
 				conc_var->unit_conversion = 1.0;
@@ -613,17 +622,13 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->conc = gen_conc_id;
 			gen_flux->loc1 = source;
 			gen_flux->loc1.connection_id = flux->loc1.connection_id;
-			gen_flux->loc2.boundary_type = flux->loc2.boundary_type;
+			gen_flux->loc2.restriction = flux->loc2.restriction;
 			
 			if(is_located(flux->loc2))
 				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
 			gen_flux->loc2.type = flux->loc2.type;
-			gen_flux->loc2.boundary_type = flux->loc2.boundary_type;
+			gen_flux->loc2.restriction = flux->loc2.restriction;
 			gen_flux->loc2.connection_id = flux->loc2.connection_id;
-			
-			//auto conn_id = connection_of_flux(flux);
-			//if(is_valid(conn_id))
-			//	gen_flux->connection = conn_id;
 		}
 	}
 }
@@ -787,11 +792,8 @@ compose_and_resolve(Model_Application *app) {
 	
 	//TODO: make better name generation system!
 	char varname[1024];
-
-	//warning_print("Function tree resolution begin.\n");
 	
 	// TODO: check if there are unused aggregation data or unit conversion data!
-	// TODO: warning or error if a flux is still marked as "out" (?)   -- though this could be legitimate in some cases where you just want to run a sub-module and not link it up with anything.
 	
 	Var_Map in_flux_map;
 	Var_Map2 needs_aggregate;
@@ -819,12 +821,10 @@ compose_and_resolve(Model_Application *app) {
 						model->fluxes[var2->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
 						fatal_error("The flux \"", var2->name, "\" has been given a unit that is not compatible with the unit of the transported quantity, which is ", transported->unit.to_utf8(), ", or with the time step unit of the model, which is ", app->time_step_unit.to_utf8(), ".");
 					}
-					//warning_print("Time unit conversion is ", var2->flux_time_unit_conv, ".\n");
 				} else {
 					// NOTE: we could also make it have the same time part as the parent flux, but it is tricky.
 					var->unit = unit;
 				}
-				//var->unit = divide(transported->unit, app->time_step_unit);
 			}
 		}
 		
@@ -1005,7 +1005,7 @@ compose_and_resolve(Model_Application *app) {
 	}
 	
 	// Invalidate dissolved fluxes if both source and target is overridden.
-	// -- Update: TODO: This is too simplistic because it causes problems if there is something dissolved in it that is not overridden in the same way.
+	// -- Update: TODO: This is too simplistic because it causes problems if there is something dissolved in the dissolved that is not overridden in the same way.
 	/*
 	for(auto var_id : app->state_vars) {
 		auto var = app->state_vars[var_id];
@@ -1040,10 +1040,9 @@ compose_and_resolve(Model_Application *app) {
 		auto conn_id = connection_of_flux(var);
 		if(is_valid(conn_id)) {
 			Var_Location loc = var->loc1;
-			if(boundary_type_of_flux(var) == Boundary_Type::top)
+			if(var->loc2.restriction == Var_Loc_Restriction::top)
 				loc = var->loc2; // NOTE: For top_boundary only the target is set.
-			
-			// TODO: Do we need to check that loc *must* be located if this is not a bottom_boundary (or is that taken care of elsewhere?)
+
 			if(is_located(loc)) {
 				Var_Id target_id = app->state_vars.id_of(loc);
 				may_need_connection_target.insert({conn_id, target_id});
@@ -1062,11 +1061,10 @@ compose_and_resolve(Model_Application *app) {
 		if(!var->is_valid() || !var->is_flux()) continue;
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
+		// TODO: We should use the 'avoid_index_set_dependency' call here!
 		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(boundary_type_of_flux(var) == Boundary_Type::bottom) {
-			auto conn_id = connection_of_flux(var);
-			exclude_index_set_from_loc = app->get_single_connection_index_set(conn_id);
-		}
+		if(var->loc1.restriction == Var_Loc_Restriction::bottom)
+			exclude_index_set_from_loc = app->get_single_connection_index_set(var->loc1.connection_id);
 		
 		if(!location_indexes_below_location(model, var->loc1, var->loc2, exclude_index_set_from_loc))
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());

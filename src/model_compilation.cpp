@@ -126,9 +126,7 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 	else
 		fatal_error(Mobius_Error::internal, "Misuse of insert_dependencies().");
 	
-	Entity_Id avoid = invalid_entity_id;
-	if(dep.flags & Identifier_Data::Flags::top_bottom)
-		avoid = app->get_single_connection_index_set(dep.connection);
+	auto avoid = avoid_index_set_dependency(app, dep.restriction);
 	
 	int sz = index_sets->size();
 	int idx = 0;
@@ -149,9 +147,7 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 
 bool
 insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, std::set<Index_Set_Dependency> &to_insert, const Identifier_Data &dep) {
-	Entity_Id avoid = invalid_entity_id;
-	if(dep.flags & Identifier_Data::Flags::top_bottom)
-		avoid = app->get_single_connection_index_set(dep.connection);
+	auto avoid = avoid_index_set_dependency(app, dep.restriction);
 	
 	bool changed = false;
 	for(auto index_set_dep : to_insert) {
@@ -186,29 +182,25 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		
 		for(auto &dep : code_depends.on_state_var) {
 			
-			if(dep.flags & Identifier_Data::Flags::below_above) {
-				if(dep.is_above) {
-					/*if(is_valid(instr.var_id)) {
-						auto var = app->state_vars[instr.var_id];
-						auto dep_var = app->state_vars[dep.var_id];
-						warning_print("***** ", var->name, " references above of ", dep_var->name, "\n");
-					}*/
+			if(dep.restriction.restriction == Var_Loc_Restriction::above || dep.restriction.restriction == Var_Loc_Restriction::below) {
+				if(dep.restriction.restriction == Var_Loc_Restriction::above) {
 					instr.loose_depends_on_instruction.insert(dep.var_id.id);
 				} else {
 					instr.instruction_is_blocking.insert(dep.var_id.id);
 					instr.depends_on_instruction.insert(dep.var_id.id);
 				}
 				// Ugh, this is a bit hacky. Could it be improved?
-				// TODO: Document why this was needed
+				// TODO: Document why this was needed, or check if it is no longer needed.
 				if(instr.type == Model_Instruction::Type::compute_state_var) {
-					auto index_set = app->get_single_connection_index_set(dep.connection);
+					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
 					instr.index_sets.insert(index_set);
 				}
-			} else if(dep.flags & Identifier_Data::Flags::top_bottom) {
+			} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {
 				instr.depends_on_instruction.insert(dep.var_id.id);
-				if(!dep.is_above)
+				if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
 					instr.instruction_is_blocking.insert(dep.var_id.id);
-			} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {
+				
+			} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
 				auto var = app->state_vars[dep.var_id];
 				if(var->type == State_Var::Type::connection_aggregate)
 					instr.loose_depends_on_instruction.insert(dep.var_id.id);
@@ -733,7 +725,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto conn_type = model->connections[var2->connection]->type;
 				
 				Var_Location flux_loc = var_flux->loc1;
-				if(boundary_type_of_flux(var_flux) == Boundary_Type::top)
+				if(var_flux->loc2.restriction == Var_Loc_Restriction::top)
 					flux_loc = var_flux->loc2;
 				
 				//if(var_flux->boundary_type == Boundary_Type::bottom && !is_located(var_flux->loc2))
@@ -824,15 +816,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(conn_type == Connection_Type::all_to_all)
 						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					else if(conn_type == Connection_Type::grid1d) {
-						instructions[var_id_flux.id].boundary_type = boundary_type_of_flux(var_flux);
-						if(boundary_type_of_flux(var_flux) == Boundary_Type::none) {
+						instructions[var_id_flux.id].boundary_type = boundary_type_of_flux(var_flux); // TODO: Set the entire restriction instead, always.
+						if(var_flux->loc2.restriction == Var_Loc_Restriction::below) {    // TODO: Is this the right way to finally check it?
 							add_to_aggr_instr->index_sets.insert(index_set);
 							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
 						} //else {
 							//add_to_aggr_instr->excluded_index_sets.insert(index_set);
 							//instructions[var_id_flux.id].excluded_index_sets.insert(index_set);
 						//}
-						//warning_print("***** Generating aggregation instruction for ", var_flux->name, ". Index set is ", model->index_sets[index_set]->name, "\n");
 					}
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
 				} else

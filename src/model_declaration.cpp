@@ -444,6 +444,8 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 
 void
 process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified, bool allow_connection = false, bool allow_bracketed = false) {
+	//TODO: We don't need to be that specific about the restrictions on the restrictions (...) here since we now do better checking of it in model_composition. Just have allow_restriction.
+	
 	Specific_Var_Location *specific_loc = nullptr;
 	if(allow_connection || allow_bracketed) {
 		specific_loc = static_cast<Specific_Var_Location *>(location);
@@ -473,6 +475,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		if (allow_connection && !success) {
 			location->type = Var_Location::Type::connection;
 			specific_loc->connection_id = model->connections.find_or_create(token, scope);
+			specific_loc->restriction   = Var_Loc_Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
 			success = true;
 		}
 	} else if (count >= 2 && count <= max_var_loc_components) {
@@ -490,13 +493,13 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		success = false;
 	
 	if(success && bracketed.size() == 2) {
-		// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe?)
+		// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe, unless we implement it to work)
 		specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
 		auto type = bracketed[1].string_value;
 		if(type == "top")
-			specific_loc->boundary_type = Boundary_Type::top;
+			specific_loc->restriction = Var_Loc_Restriction::top;
 		else if(type == "bottom")
-			specific_loc->boundary_type = Boundary_Type::bottom;
+			specific_loc->restriction = Var_Loc_Restriction::bottom;
 		else
 			success = false;
 	} else if (!bracketed.empty())

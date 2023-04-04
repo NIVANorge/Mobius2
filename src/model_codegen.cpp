@@ -135,8 +135,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				if(conc->unit_conversion != 1.0)
 					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
-				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
 				
+				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
 				// TODO: Allow for other types of fluxes to be bidirectional also
 				auto conn_id = connection_of_flux(var);
 				if(is_valid(conn_id)) {
@@ -144,9 +144,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					if(conn->type == Connection_Type::grid1d) {
 						auto condition = make_binop(Token_Type::geq, make_state_var_identifier(var2->flux_of_medium), make_literal(0.0));
 						auto conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
-						conc2->flags = Identifier_Data::Flags::below_above;
-						conc2->is_above = false;
-						conc2->connection = conn_id;
+						
+						conc2->restriction.restriction = Var_Loc_Restriction::below;
+						conc2->restriction.connection_id = conn_id;
 						
 						auto altval = make_binop('*', conc2, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
 						if(conc->unit_conversion != 1.0)
@@ -220,7 +220,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
 						
 						auto conn_id = connection_of_flux(flux);
-						bool is_bottom      = boundary_type_of_flux(flux) == Boundary_Type::bottom;
+						bool is_bottom      = boundary_type_of_flux(flux) == Var_Loc_Restriction::bottom;
 						bool is_all_to_all  = is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all;
 						
 						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution soon.
@@ -283,33 +283,37 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
-get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &target_indexes, Entity_Id connection, Index_Exprs &indexes, bool is_above = false, bool is_boundary = false) {
-	if(app->model->connections[connection]->type != Connection_Type::grid1d)
+get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &target_indexes, Index_Exprs &indexes, Var_Loc_Restriction restriction) {
+	if(app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
 		fatal_error(Mobius_Error::internal, "Misuse of get_grid1d_target_indexes().");
-	auto &comp = app->connection_components[connection.id][0];
+	auto &comp = app->connection_components[restriction.connection_id.id][0];
 	auto index_set = comp.index_sets[0];
 	
+	bool is_boundary = (restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::bottom);
+	bool is_above = (restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::above);
+	
 	target_indexes.resize(app->model->index_sets.count(), nullptr);
-	if(!is_boundary) {
-		auto index = copy(indexes.indexes[index_set.id]);
-		char oper = is_above ? '-' : '+';
-		index = make_binop(oper, index, make_literal((s64)1));
-		target_indexes[index_set.id] = index;
-	} else {
+	
+	if(is_boundary) {
 		if (is_above)
 			target_indexes[index_set.id] = make_literal((s64)0);
 		else {
 			auto count = get_index_count_code(app, index_set, indexes);
 			target_indexes[index_set.id] = make_binop('-', count, make_literal((s64)1));
 		}
+	} else {
+		auto index = copy(indexes.indexes[index_set.id]);
+		char oper = is_above ? '-' : '+';
+		index = make_binop(oper, index, make_literal((s64)1));
+		target_indexes[index_set.id] = index;
 	}
 }
 
 void
-put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx, std::set<std::pair<Entity_Id, bool>> &found_grid1d_target) {
+put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx, std::set<Var_Loc_Restriction> &found_restriction) {
 	
 	for(auto arg : expr->exprs)
-		put_var_lookup_indexes_helper(arg, app, index_expr, provided_target_idx, found_grid1d_target);
+		put_var_lookup_indexes_helper(arg, app, index_expr, provided_target_idx, found_restriction);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	
@@ -317,32 +321,37 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 	
 	std::vector<Math_Expr_FT *> target_indexes;
 	
+	found_restriction.insert(ident->restriction);
+	
+	// TODO: Should factor out the swapping.
+	// TODO: Swapping back and forth is very bug prone. Should maybe just make a copy that is modified?
+	
 	Connection_Type conn_type;
-	if(ident->flags & Identifier_FT::Flags::below_above) {
-		auto conn = app->model->connections[ident->connection];
+	if(ident->restriction.restriction == Var_Loc_Restriction::above || ident->restriction.restriction == Var_Loc_Restriction::below) {
+		auto conn = app->model->connections[ident->restriction.connection_id];
 		conn_type = conn->type;
 		if(conn_type == Connection_Type::all_to_all) {
+			// Only 'below' should be allowed. Do we check for that elsewhere?
 			index_expr.transpose();
 		} else if (conn_type == Connection_Type::grid1d) {
-			found_grid1d_target.insert({ident->connection, ident->is_above});
-			
 			if(!provided_target_idx) {
-				get_grid1d_target_indexes(app, target_indexes, ident->connection, index_expr, ident->is_above);
+				get_grid1d_target_indexes(app, target_indexes, index_expr, ident->restriction);
 				provided_target_idx = &target_indexes;
 			}
 			index_expr.swap(*provided_target_idx);
 		} else {
-			ident->source_loc.print_error_header();
+			ident->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("Got a 'above' or 'below' directive for a connection \"", conn->name, "\" that is not of type all_to_all or grid1d."); // TODO: above should not be allowed for all_to_all
 		}
-	}
-	if(ident->flags & Identifier_FT::Flags::top_bottom) {
-		auto conn = app->model->connections[ident->connection];
+	} else if(ident->restriction.restriction == Var_Loc_Restriction::top || ident->restriction.restriction == Var_Loc_Restriction::bottom) {
+		auto conn = app->model->connections[ident->restriction.connection_id];
 		conn_type = conn->type;
-		if(conn_type != Connection_Type::grid1d)
+		if(conn_type != Connection_Type::grid1d) {
+			ident->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("Got a 'top' or 'bottom' directive for a connection \"", conn->name, "\" that is not of type grid1d.");
+		}
 		
-		get_grid1d_target_indexes(app, target_indexes, ident->connection, index_expr, ident->is_above, true);
+		get_grid1d_target_indexes(app, target_indexes, index_expr, ident->restriction);
 		provided_target_idx = &target_indexes;
 		index_expr.swap(*provided_target_idx);
 	}
@@ -363,7 +372,7 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 		back_step = app->result_structure.total_count;
 	}
 	
-	if(ident->flags & Identifier_FT::Flags::below_above) {
+	if(ident->restriction.restriction == Var_Loc_Restriction::below || ident->restriction.restriction == Var_Loc_Restriction::above) {
 		if(conn_type == Connection_Type::all_to_all)
 			index_expr.transpose();
 		else
@@ -380,30 +389,29 @@ put_var_lookup_indexes_helper(Math_Expr_FT *expr, Model_Application *app, Index_
 
 Math_Expr_FT *
 put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx = nullptr, 
-	Entity_Id always_check_connection = invalid_entity_id, Boundary_Type boundary_type = Boundary_Type::none) {
+	Var_Loc_Restriction restriction_of_flux_target = Var_Loc_Restriction()) {
 		
-	std::set<std::pair<Entity_Id, bool>> found_grid1d_target;
-	put_var_lookup_indexes_helper(expr, app, index_expr, provided_target_idx, found_grid1d_target);
+	std::set<Var_Loc_Restriction> found_restriction;
+	put_var_lookup_indexes_helper(expr, app, index_expr, provided_target_idx, found_restriction);
 	
-	if(is_valid(always_check_connection) && app->model->connections[always_check_connection]->type == Connection_Type::grid1d)
-		found_grid1d_target.insert({always_check_connection, false});
+	found_restriction.insert(restriction_of_flux_target);
 	
-	if(found_grid1d_target.empty() || boundary_type != Boundary_Type::none)
-		return expr;
+	//if(found_restriction.empty())
+	//	return expr;
 	
-	// Make code to check that we are not at the last index.
-	// If we are at the last index relative to a connection we can't compute the target(), hence the entire expression must be invalid (will be evaluated as 0)
-	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-	if_chain->value_type = Value_Type::real;
-	if_chain->exprs.push_back(expr);
+
+	// For grid1d connections, if we look up 'above' or 'below', we can't do it if we are on the first or last index respecitively, and so the entire expression must be invalidated.
+	// Same if the expression itself is for a flux that is along a grid1d connection.
 	
 	Math_Expr_FT *condition = nullptr;
-	for(auto found : found_grid1d_target) {
-		auto conn = found.first;
-		bool is_above = found.second;
+	for(auto &restriction : found_restriction) {
+	
+		if(!is_valid(restriction.connection_id) || app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
+			continue;
+		if(restriction.restriction != Var_Loc_Restriction::above && restriction.restriction != Var_Loc_Restriction::below)
+			continue;
 		
-		auto &comp = app->connection_components[conn.id][0];
-		auto index_set = comp.index_sets[0];
+		auto index_set = app->get_single_connection_index_set(restriction.connection_id);
 		
 		Math_Expr_FT *index = nullptr;
 		if(provided_target_idx)
@@ -411,14 +419,14 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		else {
 			// TODO: This is a bit wasteful, we only need the single index
 			std::vector<Math_Expr_FT *> target_indexes;
-			get_grid1d_target_indexes(app, target_indexes, conn, index_expr, is_above);
+			get_grid1d_target_indexes(app, target_indexes, index_expr, restriction);
 			index = target_indexes[index_set.id];
 		}
 		
 		Math_Expr_FT *ltc = nullptr;
-		if(is_above)
+		if(restriction.restriction == Var_Loc_Restriction::above)
 			ltc = make_binop(Token_Type::geq, copy(index), make_literal((s64)0));
-		else {
+		else if(restriction.restriction == Var_Loc_Restriction::below) {
 			auto index_count = get_index_count_code(app, index_set, index_expr);
 			ltc = make_binop('<', copy(index), index_count);
 		}
@@ -428,10 +436,19 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		else
 			condition = make_binop('&', condition, ltc);
 	}
-	if_chain->exprs.push_back(condition);
-	if_chain->exprs.push_back(make_literal(0.0));
 	
-	return if_chain;
+	if(condition) {
+		auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+		if_chain->value_type = Value_Type::real;
+		if_chain->exprs.push_back(expr);
+		
+		if_chain->exprs.push_back(condition);
+		if_chain->exprs.push_back(make_literal(0.0));
+		
+		return if_chain;
+	}
+	
+	return expr;
 }
 
 Math_Expr_FT *
@@ -549,23 +566,19 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 }
 
 Math_Expr_FT *
-add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight, Boundary_Type boundary_type) {
+add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Math_Expr_FT *weight, Var_Loc_Restriction restriction) {
 	
 	auto model = app->model;
-	auto &comp = app->connection_components[connection_id.id][0];
-	auto index_set = comp.index_sets[0];
+	//auto &comp = app->connection_components[connection_id.id][0];
+	//auto index_set = comp.index_sets[0];
+	auto index_set = app->get_single_connection_index_set(restriction.connection_id);
 	
 	std::vector<Math_Expr_FT *> target_indexes;
 	
-	bool is_above = false; // For grid1d the canonical direction for the connection is downwards
-	bool is_edge = boundary_type != Boundary_Type::none;
-	if(is_edge) {
-		is_above = boundary_type == Boundary_Type::top;
-	}
-	if(boundary_type == Boundary_Type::bottom) // NOTE: This is a bit of a hack. We should maybe have a source aggregate here instead, but that can cause a lot of unnecessary work for the model.
+	if(restriction.restriction == Var_Loc_Restriction::bottom) // NOTE: This is a bit of a hack. We should maybe have a source aggregate here instead, but that can cause a lot of unnecessary work for the model.
 		value = make_unary('-', value);
 	
-	get_grid1d_target_indexes(app, target_indexes, connection_id, indexes, is_above, is_edge);
+	get_grid1d_target_indexes(app, target_indexes, indexes, restriction);
 	
 	indexes.swap(target_indexes);
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
@@ -580,7 +593,8 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	auto result = add_value_to_state_var(agg_id, agg_offset, value, '+');
 	
 	// Make code to check that we are not at the last index.
-	if(boundary_type == Boundary_Type::none) {
+	// TODO: Could this be factored out from similar invalidation in put_var_lookup_indexes ?
+	if(restriction.restriction == Var_Loc_Restriction::below) {
 		auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 		if_chain->value_type = Value_Type::none;
 		if_chain->exprs.push_back(result);
@@ -595,10 +609,10 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 }
 
 Math_Expr_FT *
-add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id, Boundary_Type boundary_type) {
+add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Var_Loc_Restriction restriction) {
 	auto model = app->model;
 	
-	auto connection = model->connections[connection_id];
+	auto connection = model->connections[restriction.connection_id];
 	
 	// See if we should apply a weight to the value.
 	
@@ -618,15 +632,15 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	
 	if(connection->type == Connection_Type::directed_tree) {
 		
-		return add_value_to_tree_agg(app, value, agg_id, source_id, indexes, connection_id, weight, unit_conv);
+		return add_value_to_tree_agg(app, value, agg_id, source_id, indexes, restriction.connection_id, weight, unit_conv);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		
-		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, connection_id, weight);
+		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, restriction.connection_id, weight);
 		
 	} else if (connection->type == Connection_Type::grid1d) {
 		
-		return add_value_to_grid1d_agg(app, value, agg_id, indexes, connection_id, weight, boundary_type);
+		return add_value_to_grid1d_agg(app, value, agg_id, indexes, weight, restriction);
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");
@@ -699,18 +713,14 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			if(fun) {
 				fun = copy(fun);
 				
-				Entity_Id connection = invalid_entity_id;
-				Boundary_Type boundary_type = Boundary_Type::none;
+				Var_Loc_Restriction target_restriction;
 				if(instr->type == Model_Instruction::Type::compute_state_var) {
 					auto var = app->state_vars[instr->var_id];
-					if(var->is_flux()) {
-						connection = connection_of_flux(var);
-						boundary_type = boundary_type_of_flux(var);
-					}
+					if(var->is_flux())
+						target_restriction = var->loc2;
 				}
 				
-				//TODO: we should not do excessive lookups. Can instead keep them around as local vars and reference them (although llvm will probably optimize it).
-				fun = put_var_lookup_indexes(fun, app, indexes, nullptr, connection, boundary_type);
+				fun = put_var_lookup_indexes(fun, app, indexes, nullptr, target_restriction);
 				
 			} else if (instr->type != Model_Instruction::Type::clear_state_var) {
 				//NOTE: This could happen for discrete quantities since they are instead modified by add/subtract instructions. Same for some aggregation variables that are only modified by other instructions.
@@ -720,7 +730,6 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
 			}
 			
-				
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
 				auto offset_code = app->result_structure.get_offset_code(instr->var_id, indexes);
@@ -749,7 +758,9 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
 				
-				auto result = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, instr->connection, instr->boundary_type);
+				// TODO: instr->connection and instr->boundary_type should just be a instr->restriction.
+				Var_Loc_Restriction restriction(instr->connection, instr->boundary_type);
+				auto result = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, restriction);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
@@ -769,8 +780,6 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				// TODO: If when we specifically index over something, we should let this be a index count, not the instance count
 				special->exprs.push_back(make_literal(app->result_structure.instance_count(special->target)));
 				
-				//warning_print("*** Special target is ", app->state_vars[special->target]->name, "\n");
-				//warning_print("*** Special offset is ", app->result_structure.get_offset_base(special->target), " count ", app->result_structure.instance_count(special->target), " stride ", app->result_structure.get_stride(special->target), "\n");
 				for(auto &arg : special->arguments) {
 					if(arg.variable_type == Variable_Type::state_var) {
 						special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
@@ -831,13 +840,13 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		}
 	
 	}
-	/*
+	
 	warning_print("\nTree before prune:\n");
 	std::stringstream ss;
 	print_tree(app, top_scope, ss);
 	warning_print(ss.str());
 	warning_print("\n");
-	*/
+	
 	auto result = prune_tree(top_scope);
 	/*
 	warning_print("\nTree after prune:\n");

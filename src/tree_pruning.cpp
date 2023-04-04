@@ -3,9 +3,6 @@
 #include "emulate.h"
 
 
-//Math_Expr_FT *
-//prune_helper(Math_Expr_FT *expr, Function_Scope *scope);
-
 Math_Expr_FT *
 optimize_pow_int(Math_Expr_FT *lhs, s64 p) {
 	// Note: case p == 0 is handled in another call. Also for p == 1, but we also use this for powers 1.5 etc. see below
@@ -401,6 +398,9 @@ binop_reduction_second_pass(Math_Expr_FT *expr) {
 
 Math_Expr_FT *
 prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Local_Var_FT *> *scope) {
+	
+	if(!expr)
+		fatal_error(Mobius_Error::internal, "Got a nullptr in the function tree during prune_tree.");
 	
 	// Try to simplify the math expression if some components can be evaluated to constants at compile time.
 	//    Some of this could be left to llvm, but it is beneficial make the job easier for llvm, and we do see improvements from some of these optimizations.

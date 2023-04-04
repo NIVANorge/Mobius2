@@ -379,6 +379,8 @@ public :
 	std::string llvm_ir;
 };
 
+Entity_Id
+avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction);
 
 struct
 Index_Exprs {

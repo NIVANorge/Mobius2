@@ -35,7 +35,6 @@ State_Var {
 	// If this is a flux, loc1 and loc2 are the source and target of the flux resp.
 	Specific_Var_Location   loc1;
 	Specific_Var_Location   loc2;
-	//Boundary_Type  boundary_type;
 	
 	owns_code unit_conversion_tree;
 	
@@ -105,11 +104,10 @@ State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	//Entity_Id      connection;
 	Var_Id         conc;                   // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
-	State_Var_Sub() : /*connection(invalid_entity_id),*/ flux_of_medium(invalid_var), conc(invalid_var) {}
+	State_Var_Sub() : flux_of_medium(invalid_var), conc(invalid_var) {}
 };
 
 struct
@@ -126,7 +124,6 @@ State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 	bool           is_source;   // If it aggregates sources from or targets to that state var.
 	
 	// If this is a target aggregate (!is_source), conversion_data contains items with data for fluxes coming from that particular source (to the target agg_for)
-	//TODO: Also unit conv.
 	std::vector<Conversion_Data> conversion_data;
 	
 	State_Var_Sub() : connection(invalid_entity_id), agg_for(invalid_var), is_source(false) {}
@@ -149,11 +146,11 @@ connection_of_flux(State_Var *var) {
 	return var->loc2.connection_id;
 }
 // Same with this one
-inline Boundary_Type
+inline Var_Loc_Restriction::Restriction
 boundary_type_of_flux(State_Var *var) {
-	if(var->loc1.boundary_type != Boundary_Type::none)
-		return var->loc1.boundary_type;
-	return var->loc2.boundary_type;
+	if(var->loc1.restriction != Var_Loc_Restriction::none)
+		return var->loc1.restriction;
+	return var->loc2.restriction;
 }
 
 #endif // MOBIUS_STATE_VARIABLE_H

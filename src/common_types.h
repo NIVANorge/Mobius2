@@ -285,21 +285,33 @@ operator==(const Var_Location &a, const Var_Location &b) {
 }
 
 inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
-
+/*
 enum class
 Boundary_Type {
 	none,
 	top,
 	bottom,
 };
+*/
+struct
+Var_Loc_Restriction {
+	Entity_Id        connection_id;
+	enum Restriction {
+		none, top, bottom, above, below,
+	}                restriction;
+	
+	Var_Loc_Restriction() : connection_id(invalid_entity_id), restriction(none) {};
+	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
+};
+inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
+	if(a.connection_id == b.connection_id) return (int)a.restriction < (int)b.restriction;
+	return a.connection_id < b.connection_id;
+}
 
 struct
-Specific_Var_Location : Var_Location {
-	Entity_Id      connection_id;
-	Boundary_Type  boundary_type;
-	
-	Specific_Var_Location() : Var_Location(), connection_id(invalid_entity_id), boundary_type(Boundary_Type::none) {}
-	Specific_Var_Location(const Var_Location &loc) : Var_Location(loc), connection_id(invalid_entity_id), boundary_type(Boundary_Type::none) {}
+Specific_Var_Location : Var_Location, Var_Loc_Restriction {
+	Specific_Var_Location() : Var_Location(), Var_Loc_Restriction() {}
+	Specific_Var_Location(const Var_Location &loc) : Var_Location(loc), Var_Loc_Restriction() {}
 };
 
 struct Index_T {

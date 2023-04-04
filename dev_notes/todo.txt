@@ -1,6 +1,14 @@
 
 
+
+	After the last refactor, grid1d connections are broken.
+		Seems to be the indexes that are wrong.
+
 	Go over the uses of a state variable's boundary types and connection_id and properly make use of how it is now organized.
+		Store the Specific_Var_Location in the Identifier_Data (including inferred info about connection & boundary etc.). Should simplify set_var_lookup_indexes.
+		Don't pass connection in Function_Resolve_Data, instead use the info from in_loc (though this may disallow some shortcut brackets).
+		Try to remove connection_of_flux, or at least boundary_of_flux and use the specific loc1 and loc2 versions when appropriate.
+		Check that the declaration is allowed wrt the implemented functionality.
 
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
@@ -129,6 +137,7 @@
 		In all_to_all and grid1d connection data in the data set, it should be sufficient to just provide the name of the index set.
 		
 		MobiView:
+		
 			stacked_share has a slow implementation.
 				Should maybe not sum over all the values each time it is extracted, just do it once and store it.
 			
@@ -145,7 +154,7 @@
 				Maybe not desirable
 			
 			Finish all missing functionality from MobiView1
-				Index set editing.
+				Index set editing (Will now include connection editing).
 				Saving and loading
 					Additional plot setup.
 			

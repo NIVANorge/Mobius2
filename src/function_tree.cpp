@@ -342,8 +342,10 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 		try_chain.insert(try_chain.end(), chain.begin(), chain.end());
 		Var_Location loc = make_var_location(try_chain);
 		result = find_var_at_location(loc, app);
+		
 		if(is_valid(result))
 			return result;
+		
 		if(context_chain.empty())
 			return result;
 		context_chain.pop_back();
@@ -636,7 +638,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 				auto ident = static_cast<Identifier_FT *>(new_fun->exprs[0]);
 				if(ident->variable_type != Variable_Type::connection) error = true;
 				else {
-					var->connection = ident->connection;
+					var->restriction.connection_id = ident->restriction.connection_id;   //TODO: Ooops, could this clash if there is in_flux(conn, bla[conn2.top])  . This should just not compile though. See also find_other_flags() in model_composition.cpp
 					delete ident;
 				}
 			}
@@ -651,7 +653,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 				error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the '", fun_name, "' expression.");
 				fatal_error_trace(scope);
 			}
-			var->connection = data->connection;
+			var->restriction.connection_id = data->connection;
 		}
 	}
 	
@@ -689,7 +691,7 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 	Entity_Id connection = invalid_entity_id;
 	bool is_above = false;
 	int idx = 0;
-	if(chain.size() == 1) {
+	if(chain.size() == 1) {   // TODO: It would maybe be cleaner just to remove the shorthand.
 		connection = data->connection;
 		if(!is_valid(connection)) {
 			chain[0].source_loc.print_error_header();
@@ -711,19 +713,18 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 		error_print("Expected at most two tokens in the chain inside the bracket.");
 		fatal_error_trace(scope);
 	}
-	ident->connection = connection;
+	ident->restriction.connection_id = connection;
+	
+	// TODO: Factor this out and reuse in model_declaration (although there we only allow top and bottom).
 	auto type = chain[idx].string_value;
-	if(type == "above") {
-		ident->is_above = true;
-		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::below_above);
-	} else if (type == "below") {
-		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::below_above);
-	} else if (type == "top") {
-		ident->is_above = true;
-		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::top_bottom);
-	} else if (type == "bottom") {
-		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::top_bottom);
-	}
+	if(type == "above")
+		ident->restriction.restriction = Var_Loc_Restriction::above;
+	else if (type == "below")
+		ident->restriction.restriction = Var_Loc_Restriction::below;
+	else if (type == "top")
+		ident->restriction.restriction = Var_Loc_Restriction::top;
+	else if (type == "bottom")
+		ident->restriction.restriction = Var_Loc_Restriction::bottom;
 }
 
 
@@ -855,11 +856,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
 						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-					} else if (id.reg_type == Reg_Type::connection) {
+					} /*else if (id.reg_type == Reg_Type::connection) {
 						new_ident->variable_type = Variable_Type::connection;
 						new_ident->value_type = Value_Type::none;
-						new_ident->connection = id;
-					} else {
+						new_ident->var_loc.connection_id = id;
+					}*/ else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
 						fatal_error_trace(scope);
@@ -1398,6 +1399,11 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 	auto model = app->model;
 	
 	bool always_bracket = false;
+	
+	if(!expr) {
+		os << "\n___NULL___";
+		return;
+	}
 	
 	if(expr->visited)
 		os << "\n___DUPLICATE___(", name(expr->expr_type), ")\n";
