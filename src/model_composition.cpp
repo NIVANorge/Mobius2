@@ -1037,15 +1037,15 @@ compose_and_resolve(Model_Application *app) {
 		auto var = app->state_vars[var_id];
 		if(!var->is_valid() || !var->is_flux()) continue;
 		
-		auto conn_id = connection_of_flux(var);
-		if(is_valid(conn_id)) {
+		auto &restriction = restriction_of_flux(var);
+		if(is_valid(restriction.connection_id)) {
 			Var_Location loc = var->loc1;
-			if(var->loc2.restriction == Var_Loc_Restriction::top)
+			if(restriction.restriction == Var_Loc_Restriction::top)
 				loc = var->loc2; // NOTE: For top_boundary only the target is set.
 
 			if(is_located(loc)) {
 				Var_Id target_id = app->state_vars.id_of(loc);
-				may_need_connection_target.insert({conn_id, target_id});
+				may_need_connection_target.insert({restriction.connection_id, target_id});
 			}
 		}
 	}

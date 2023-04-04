@@ -138,19 +138,13 @@ State_Var_Sub<type> *as(State_Var *var) {
 	return static_cast<State_Var_Sub<type> *>(var);
 }
 
-//TODO: Ideally we would like to get rid of this one.
-inline Entity_Id
-connection_of_flux(State_Var *var) {
+inline Var_Loc_Restriction &
+restriction_of_flux(State_Var *var) {
+	// TODO: Should this check if it is actually a flux?
 	if(is_valid(var->loc1.connection_id))
-		return var->loc1.connection_id;
-	return var->loc2.connection_id;
+		return var->loc1;
+	return var->loc2;
 }
-// Same with this one
-inline Var_Loc_Restriction::Restriction
-boundary_type_of_flux(State_Var *var) {
-	if(var->loc1.restriction != Var_Loc_Restriction::none)
-		return var->loc1.restriction;
-	return var->loc2.restriction;
-}
+
 
 #endif // MOBIUS_STATE_VARIABLE_H

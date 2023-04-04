@@ -856,11 +856,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						}
 						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
 						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-					} /*else if (id.reg_type == Reg_Type::connection) {
+					} else if (id.reg_type == Reg_Type::connection) {
 						new_ident->variable_type = Variable_Type::connection;
 						new_ident->value_type = Value_Type::none;
-						new_ident->var_loc.connection_id = id;
-					}*/ else {
+						new_ident->restriction.connection_id = id;   // Note: this is in a way a repurposing of the 'restriction' that is not entirely clean?
+					} else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
 						fatal_error_trace(scope);

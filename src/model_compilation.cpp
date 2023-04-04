@@ -470,6 +470,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			instr.code = copy(fun);
 		else if(initial)
 			instr.type = Model_Instruction::Type::invalid;
+		
+		if(var->is_flux())
+			instr.restriction = restriction_of_flux(var);
 
 	}
 	
@@ -574,8 +577,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto var = app->state_vars[var_id];
 			if(!var->is_valid() || !var->is_flux()) continue;
 			if(!is_located(var->loc1)) continue;
-			auto conn = connection_of_flux(var);
-			if(!is_valid(conn)) continue;
+			if(!is_valid(restriction_of_flux(var).connection_id)) continue;
 			auto source_id = app->state_vars.id_of(var->loc1);
 			if(!is_valid(instructions[source_id.id].solver)) {
 				// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
@@ -719,13 +721,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			for(auto var_id_flux : app->state_vars) {
 				auto var_flux = app->state_vars[var_id_flux];
 				if(!var_flux->is_valid()) continue;
-				auto conn_id = connection_of_flux(var_flux);
-				if(!var_flux->is_flux() || !is_valid(conn_id) || conn_id != var2->connection) continue;
+				auto &restriction = restriction_of_flux(var_flux);
+				if(!var_flux->is_flux() || restriction.connection_id != var2->connection) continue;
 				
 				auto conn_type = model->connections[var2->connection]->type;
 				
 				Var_Location flux_loc = var_flux->loc1;
-				if(var_flux->loc2.restriction == Var_Loc_Restriction::top)
+				if(restriction.restriction == Var_Loc_Restriction::top)
 					flux_loc = var_flux->loc2;
 				
 				//if(var_flux->boundary_type == Boundary_Type::bottom && !is_located(var_flux->loc2))
@@ -758,8 +760,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 				
 				add_to_aggr_instr->solver = var_solver;
-				add_to_aggr_instr->connection = conn_id;
-				add_to_aggr_instr->boundary_type = boundary_type_of_flux(var_flux);
+				
+				add_to_aggr_instr->restriction = restriction;
+	
 				add_to_aggr_instr->type = Model_Instruction::Type::add_to_connection_aggregate;
 				add_to_aggr_instr->var_id = var_id_flux;
 				if(conn_type == Connection_Type::directed_tree)
@@ -816,7 +819,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(conn_type == Connection_Type::all_to_all)
 						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					else if(conn_type == Connection_Type::grid1d) {
-						instructions[var_id_flux.id].boundary_type = boundary_type_of_flux(var_flux); // TODO: Set the entire restriction instead, always.
+						instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
+						
 						if(var_flux->loc2.restriction == Var_Loc_Restriction::below) {    // TODO: Is this the right way to finally check it?
 							add_to_aggr_instr->index_sets.insert(index_set);
 							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
@@ -871,7 +875,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				//instructions[var_id.id].loose_depends_on_instruction.insert(sub_idx);
 			}
 		}
-		bool is_connection = is_valid(connection_of_flux(var));
+		bool is_connection = is_valid(restriction_of_flux(var).connection_id);
 		if(is_connection && has_aggregate)
 			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate");
 		

@@ -42,9 +42,7 @@ Model_Instruction {
 	Var_Id              source_id;
 	Var_Id              target_id;
 	
-	// TODO: Instead we should just store the Var_Loc_Restrictions from loc1 and loc2 here
-	Entity_Id           connection;
-	Var_Loc_Restriction::Restriction       boundary_type;
+	Var_Loc_Restriction restriction; // May eventually need 2?
 	
 	Entity_Id           solver;
 	
@@ -65,7 +63,7 @@ Model_Instruction {
 	
 	std::string debug_string(Model_Application *app);
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), solver(invalid_entity_id), connection(invalid_entity_id), type(Type::invalid), code(nullptr), boundary_type(Var_Loc_Restriction::none) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), restriction(), solver(invalid_entity_id), type(Type::invalid), code(nullptr) {};
 	
 	// Having trouble getting this to work. Seems like the destructor is called too early, maybe when the Instructions vector resizes?
 	/*

@@ -5,7 +5,7 @@ model("EasyLake-SimplyQ") {
 	
 	#load("modules/pet.txt",      module("Penman-Monteith PET"))
 	load("modules/pet.txt",       module("Degree-day PET"))
-	load("modules/hbv_snow.txt",  module("HBVSnow"))
+	load("modules/hbv_snow.txt",  sn : module("HBVSnow"))
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature"))
 	load("modules/easylake.txt", el : module("EasyLake"))

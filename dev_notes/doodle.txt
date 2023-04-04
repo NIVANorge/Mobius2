@@ -1,6 +1,14 @@
 
 
 
+	# Musings:
+	#
+	# directed_tree connections are in some ways very different from grid1d and all_to_all since the target is unspecified. Complicates the system a bit..
+	#
+	flux(layer.water, layer.water[vert.below], [m 3, day-1], "Mixing down")     # Makes sense, should maybe be equivalent to just saying 'vert'
+	
+	# Here we can't do it that way since there could be multiple targets. Also, if we were to be able to reference 'below' inside the code here, it would have to generate different code for the index depending on the target (which we maybe will do for graph connections).
+	flux(river.water, downstream, [m 3, s-1], "Reach flow")
 	
 
 

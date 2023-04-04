@@ -138,15 +138,19 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
 				// TODO: Allow for other types of fluxes to be bidirectional also
-				auto conn_id = connection_of_flux(var);
-				if(is_valid(conn_id)) {
-					auto conn = model->connections[conn_id];
-					if(conn->type == Connection_Type::grid1d) {
+				
+				// TODO: The way it is currently set up will probably only work if the restriction is
+				// Var_Loc_Restriction::below. Otherwise the concentration is another
+				// state variable altogether. If we fix that however, this should also
+				// work for more general fluxes.
+				auto &restriction = restriction_of_flux(var);
+				if(is_valid(restriction.connection_id) && restriction.restriction == Var_Loc_Restriction::below) {
+					auto conn = model->connections[restriction.connection_id];
+					if(conn->type == Connection_Type::grid1d || conn->type == Connection_Type::all_to_all) {
 						auto condition = make_binop(Token_Type::geq, make_state_var_identifier(var2->flux_of_medium), make_literal(0.0));
 						auto conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
 						
-						conc2->restriction.restriction = Var_Loc_Restriction::below;
-						conc2->restriction.connection_id = conn_id;
+						conc2->restriction = restriction;
 						
 						auto altval = make_binop('*', conc2, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
 						if(conc->unit_conversion != 1.0)
@@ -187,7 +191,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : app->state_vars) {
 					auto flux_var = app->state_vars[flux_id];
 					if(!flux_var->is_valid() || !flux_var->is_flux()) continue;
-					if(is_valid(connection_of_flux(flux_var))) continue;
+					if(is_valid(restriction_of_flux(flux_var).connection_id)) continue;
 					if(!is_located(flux_var->loc2) || app->state_vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
 					
 					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
@@ -219,11 +223,11 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
 						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
 						
-						auto conn_id = connection_of_flux(flux);
-						bool is_bottom      = boundary_type_of_flux(flux) == Var_Loc_Restriction::bottom;
-						bool is_all_to_all  = is_valid(conn_id) && model->connections[conn_id]->type == Connection_Type::all_to_all;
+						auto &restriction = restriction_of_flux(flux);
+						bool is_bottom      = (restriction.restriction == Var_Loc_Restriction::bottom);
+						bool is_all_to_all  = is_valid(restriction.connection_id) && (model->connections[restriction.connection_id]->type == Connection_Type::all_to_all);
 						
-						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution soon.
+						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution.
 						
 						if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id
 							&& !is_all_to_all && !is_bottom) {
@@ -233,7 +237,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						}
 						
 						if(is_located(flux->loc2) && app->state_vars.id_of(flux->loc2) == instr.var_id
-							&& (!is_valid(conn_id) || is_bottom)) {
+							&& (!is_valid(restriction.connection_id) || is_bottom)) {
 							
 							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 							// NOTE: the unit conversion applies to what reaches the target.
@@ -713,6 +717,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			if(fun) {
 				fun = copy(fun);
 				
+				// TODO: Couldn't this just be put on instr->restriction ?
 				Var_Loc_Restriction target_restriction;
 				if(instr->type == Model_Instruction::Type::compute_state_var) {
 					auto var = app->state_vars[instr->var_id];
@@ -758,9 +763,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
 				
-				// TODO: instr->connection and instr->boundary_type should just be a instr->restriction.
-				Var_Loc_Restriction restriction(instr->connection, instr->boundary_type);
-				auto result = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, restriction);
+				auto result = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, instr->restriction);
 				scope->exprs.push_back(result);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
@@ -840,13 +843,13 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		}
 	
 	}
-	
+	/*
 	warning_print("\nTree before prune:\n");
 	std::stringstream ss;
 	print_tree(app, top_scope, ss);
 	warning_print(ss.str());
 	warning_print("\n");
-	
+	*/
 	auto result = prune_tree(top_scope);
 	/*
 	warning_print("\nTree after prune:\n");
