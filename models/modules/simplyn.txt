@@ -9,7 +9,7 @@ Not finished, just for testing some systems.
 	#----------------------------------------------------------------
 	# Make compartments (locations) and quantities
 	
-	air : compartment("Air")
+	air : compartment("Atmosphere")
 	soil  : compartment("Soil")
 	gw    : compartment("Groundwater")
 	river : compartment("River")
@@ -41,7 +41,7 @@ Not finished, just for testing some systems.
 						 [k g, ha-1, day-1], 0.0, 0.0, 100.0)
 	}
 	
-	gw.par_group("DIN groundwater params")	{
+	par_group("DIN groundwater params")	{
 		gw_din_conc:	  par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0)
 		gw_din_constant:  par_bool("Constant groundwater DIN concentration?", true)
 		gw_retention_vol: par_real("Groundwater retention volume", [m m], 0.0, 0.0, 2000.0)

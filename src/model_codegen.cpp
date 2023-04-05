@@ -551,12 +551,10 @@ Math_Expr_FT *
 add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Math_Expr_FT *weight, Var_Loc_Restriction restriction) {
 	
 	auto model = app->model;
-
-	auto index_set = app->get_single_connection_index_set(restriction.connection_id);
 	
 	std::vector<Math_Expr_FT *> target_indexes;
-	
-	if(restriction.restriction == Var_Loc_Restriction::bottom) // NOTE: This is a bit of a hack. We should maybe have a source aggregate here instead, but that can cause a lot of unnecessary work for the model.
+	// NOTE: This is a bit of a hack. We should maybe have a source aggregate here instead, but that can cause a lot of unnecessary work and memory use for the model.
+	if(restriction.restriction == Var_Loc_Restriction::bottom)
 		value = make_unary('-', value);
 	
 	get_grid1d_target_indexes(app, target_indexes, indexes, restriction);

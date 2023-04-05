@@ -36,6 +36,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	flow  : property("Flow")
 	
 	soil.par_group("P general") {
+		dyn_epc0  : par_bool("Dynamic EPC0, TDP and soil labile P", true)
 		m_soil_m2 : par_real("Soil mass per m2", [k g, m-2], 95, 0, 200)
 		kf        : par_real("Phosphorous sorption coefficient", [l, m g-1], 1.13e-4, 0, 0.1)
 		pp_enrich : par_real("Particulate P enrichment factor", [], 1.6, 1, 5)
@@ -45,15 +46,15 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		init_epc0            : par_real("Initial soil TDP concentration and EPC0", [m g, l-1], 0.1, 0, 10)
 		init_soil_p_conc     : par_real("Initial total soil P content", [m g, k g-1], 1458, 0, 10000)
 		inactive_soil_p_conc : par_real("Inactive soil P content", [m g, k g-1], 873, 0, 10000)
-		p_input              : par_real("Net annual P input to soil", [k g, ha-1, year-1], 10, -100, 100)
+		p_input              : par_real("Net annual P input to soil", [k g, ha-1, year-1], 0, -100, 100)
 	}
 	
 	gw.par_group("Groundwater P") {
-		gw_tdp : par_real("Groundwater TDP concentration", [m g, l-1], 0.02, 0, 10)
+		gw_tdp : par_real("Groundwater TDP concentration", [m g, l-1], 0, 0, 10)
 	}
 	
 	river.par_group("River P") {
-		eff_tdp   : par_real("Effluent TDP inputs", [k g, day-1], 0.1, 0, 10)
+		eff_tdp   : par_real("Effluent TDP inputs", [k g, day-1], 0, 0, 10)
 	}
 	
 	#NOTE: This creates a reference to a parameter defined in the model.
@@ -62,30 +63,38 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	soil.has(epc0 : property("EPC0"), [m g, l-1]) {
 		m_soil := m_soil_m2->[k g, k m-2]
-		safe_divide(last(plab), kf * m_soil)
+		
+		safe_divide(last(plab), kf * m_soil)  if dyn_epc0,
+		init_epc0                             otherwise
 	} .initial { init_epc0 }
 	
 	soil.water.has(tdp, [k g, k m-2], [m g, l-1], "Soil TDP mass") .override {
-		days   := time.step_length_in_seconds->[day]
-		pin    := p_input * days / time.days_this_year ->[k g, k m-2]
-		m_soil := m_soil_m2->[k g, k m-2]
-		a      := (pin + kf*m_soil*epc0)
-		bV     := (kf*m_soil + last(water.flow)*days)
-		b      := bV / last(water)
-		a/b + (last(water.tdp) - a/b)*exp(-b)
+		{
+			days   := time.step_length_in_seconds->[day]
+			pin    := p_input * days / time.days_this_year ->[k g, k m-2]
+			m_soil := m_soil_m2->[k g, k m-2]
+			a      := (pin + kf*m_soil*epc0)
+			bV     := (kf*m_soil + last(water.flow)*days)
+			b      := bV / last(water)
+			a/b + (last(water.tdp) - a/b)*exp(-b)
+		}                     if dyn_epc0,
+		init_epc0 * water->>  otherwise
 	} .initial_conc {
 		init_epc0
 	}
 	
 	soil.has(plab, [k g, k m-2], "Soil labile P mass") .override {
-		days   := time.step_length_in_seconds->[day]
-		pin    := p_input * days / time.days_this_year ->[k g, k m-2]
-		m_soil := m_soil_m2->[k g, k m-2]
-		a      := (pin + kf*m_soil*epc0)
-		bV     := (kf*m_soil + last(water.flow)*days)
-		b      := bV / last(water)
-		sorp   := (kf*m_soil)*( (1/bV)*(a + (last(water.tdp) - a/b)*(1 - exp(-b))) - epc0)
-		last(plab) + sorp
+		{
+			days   := time.step_length_in_seconds->[day]
+			pin    := p_input * days / time.days_this_year ->[k g, k m-2]
+			m_soil := m_soil_m2->[k g, k m-2]
+			a      := (pin + kf*m_soil*epc0)
+			bV     := (kf*m_soil + last(water.flow)*days)
+			b      := bV / last(water)
+			sorp   := (kf*m_soil)*( (1/bV)*(a + (last(water.tdp) - a/b)*(1 - exp(-b))) - epc0)
+			last(plab) + sorp
+		}           if dyn_epc0,
+		last(plab)  otherwise
 	} .initial {
 		m_soil := m_soil_m2*1e6
 		1e-6 * (init_soil_p_conc - inactive_soil_p_conc) * m_soil

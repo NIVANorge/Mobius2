@@ -39,6 +39,10 @@
 	
 	*** Intermediate-pri ***
 	
+		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.
+	
+		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
+	
 		Clean up the prune_tree system.
 			Could get rid of using Function_Scope in prune_helper?
 				Tried it, but it has a bug.
@@ -94,9 +98,7 @@
 				
 		Let / always be a real division, and maybe have a separate operator // to force integer division.
 		
-		Hope for reply on one of these 
-			https://discourse.llvm.org/t/how-to-generate-ir-so-that-the-loop-vectorizer-can-vectorize-it/69096/2
-			https://stackoverflow.com/questions/75674759/llvm-loop-vectorizer-does-not-vectorize-my-ir?noredirect=1#comment133504571_75674759
+
 	
 	*** Low-pri ****
 	
@@ -139,6 +141,11 @@
 				Serialize sensitivity setups using a Mobius format instead of json so that we can load the same setups in mobipy eventually.
 				More customizable target functions.
 				Targets computed from aggregate series (stats of aggregate series).
+				
+				Optimizer callback doesn't update additional plot view.
+				
+				Additional plot view doesn't like f5 (if the var_id's were changed).
+					In general allow for serialization of plot view, then use that for all the plots.
 			
 			Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
 				Maybe not desirable
@@ -348,3 +355,7 @@
 		Don't pass connection in Function_Resolve_Data, instead use the info from in_loc (though this may disallow some shortcut brackets).
 		Try to remove connection_of_flux, or at least boundary_of_flux and use the specific loc1 and loc2 versions when appropriate.
 		Check that the declaration is allowed wrt the implemented functionality.
+		
+	Hope for reply on one of these 
+		https://discourse.llvm.org/t/how-to-generate-ir-so-that-the-loop-vectorizer-can-vectorize-it/69096/2
+		https://stackoverflow.com/questions/75674759/llvm-loop-vectorizer-does-not-vectorize-my-ir?noredirect=1#comment133504571_75674759

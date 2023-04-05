@@ -94,7 +94,7 @@ module("SimplyQ river", 0, 0, 1) {
 		[ 0.04 0.04 0.04 0.04 ]
 
 		par_real("Initial reach flow")
-		[ 0.001 0.001 0.001 0.001 ]
+		[ 1 1 1 1 ]
 	}
 }
 
@@ -241,6 +241,174 @@ module("Atmospheric", 0, 1, 0) {
 
 		par_real("Elevation")
 		[ 0 ]
+	}
+}
+
+module("SimplyN", 0, 0, 2) {
+	par_group("Soil DIN universal params") {
+		par_real("Soilwater DIN uptake rate at 20°C")
+		[ 0.00591332993567999 ]
+
+		par_real("Soilwater DIN uptake rate response to 10°C change (Q10)")
+		[ 1.7 ]
+
+		par_bool("Use growth curve?")
+		[ false ]
+
+		par_int("Day of highest soilwater DIN uptake")
+		[ 200 ]
+
+		par_int("Length of interval in which 95% of DIN uptake occurs")
+		[ 200 ]
+	}
+
+	par_group("Soil DIN params varying by land use") [ "Landscape units" ] {
+		par_real("Initial soilwater DIN concentration")
+		[ 3.5 0.5 ]
+
+		par_real("Net annual DIN input to soil")
+		[ 180.05062460061 22 ]
+
+		par_int("Fertilization start day")
+		[ 60 60 ]
+
+		par_int("Fertilization end day")
+		[ 120 120 ]
+
+		par_real("Daily DIN fertilizer, manure & deposition inputs")
+		[ 0 0 ]
+	}
+
+	par_group("DIN groundwater params") {
+		par_real("Groundwater DIN concentration")
+		[ 0.9 ]
+
+		par_bool("Constant groundwater DIN concentration?")
+		[ true ]
+
+		par_real("Groundwater retention volume")
+		[ 0 ]
+	}
+
+	par_group("DIN reach universal params") {
+		par_real("Reach denitrification rate at 20°C")
+		[ 2.17988143578024e-27 ]
+
+		par_real("(Q10) Reach denitrification rate response to 10°C change in temperature")
+		[ 1.8 ]
+	}
+
+	par_group("DIN reach") [ "Subcatchment" ] {
+		par_real("Reach effluent DIN inputs")
+		[ 0 0 0 0 ]
+	}
+}
+
+module("EasyLake-N", 0, 0, 1) {
+	par_group("Lake N") [ "Lake" ] {
+		par_real("Initial lake DIN concentration")
+		[ 1 1 ]
+
+		par_real("Lake DIN retention at 20°C")
+		[ 0.0094084558573921 0.04 ]
+
+		par_real("Lake DIN retention Q10")
+		[ 1 1 ]
+
+		par_real("Hypolimnion N retention factor")
+		[ 0.0245307674894257 0.024 ]
+	}
+}
+
+module("SimplySed", 0, 5, 0) {
+	par_group("River erosion") [ "Subcatchment" ] {
+		par_real("Erosion scaling factor")
+		[ 10.169259546187 16 16 16 ]
+
+		par_real("Erosion power factor")
+		[ 1.86560829134272 2 2 2 ]
+	}
+
+	par_group("Soil erodibility") [ "Landscape units" ] {
+		par_real("Vegetation cover factor")
+		[ 0.3 0.021 ]
+
+		par_int("Day of year when soil erodibility is max for spring-grown crops")
+		[ 60 60 ]
+
+		par_int("Day of year when soil erodibility is max for autumn-grown crops")
+		[ 304 304 ]
+
+		par_real("Proportion of spring-grown crops")
+		[ 0.65 0.65 ]
+
+		par_real("Reduction of load in sediment")
+		[ 0 0 ]
+
+		par_enum("Cover factor shape")
+		[ flat flat ]
+	}
+
+	par_group("Land slope") [ "Subcatchment" "Landscape units" ] {
+		par_real("Mean slope of land") [
+			4 10 
+			4 10 
+			4 10 
+			4 10 
+		]
+	}
+}
+
+module("SimplyP", 0, 5, 0) {
+	par_group("P general") {
+		par_real("Soil mass per m2")
+		[ 95 ]
+
+		par_real("Phosphorous sorption coefficient")
+		[ 0.00218 ]
+
+		par_real("Particulate P enrichment factor")
+		[ 1.13 ]
+
+		par_bool("Dynamic EPC0, TDP and soil labile P")
+		[ false ]
+	}
+
+	par_group("Soil P") [ "Landscape units" ] {
+		par_real("Initial soil TDP concentration and EPC0")
+		[ 0.14 0.009 ]
+
+		par_real("Initial total soil P content")
+		[ 1200 873 ]
+
+		par_real("Inactive soil P content")
+		[ 873 873 ]
+
+		par_real("Net annual P input to soil")
+		[ 10 10 ]
+	}
+
+	par_group("Groundwater P") {
+		par_real("Groundwater TDP concentration")
+		[ 0.008 ]
+	}
+
+	par_group("River P") [ "Subcatchment" ] {
+		par_real("Effluent TDP inputs")
+		[ 0 0 0 0 ]
+	}
+}
+
+module("EasyLake-P", 0, 0, 1) {
+	par_group("Lake P") [ "Lake" ] {
+		par_real("Initial lake TDP concentration")
+		[ 0.01 0.01 ]
+
+		par_real("Lake TDP retention")
+		[ 0.007 0.02 ]
+
+		par_real("Hyplimnion TDP retention factor")
+		[ 0.009 0.03 ]
 	}
 }
 

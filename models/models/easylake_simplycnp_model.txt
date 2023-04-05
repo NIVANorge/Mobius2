@@ -1,0 +1,98 @@
+
+model("EasyLake-SimplyCNP") {
+	extend("easylake_simplyq_model.txt")
+	extend("simplyc_model.txt")
+	extend("simplyn_model.txt")
+	extend("simplyp_model.txt")
+	
+	module("EasyLake-C", 0, 0, 1) {
+		
+		epi : compartment("Epilimnion")
+		hyp : compartment("Hypolimnion")
+		
+		water : quantity("Water")
+		oc    : quantity("Organic carbon")
+		
+		sw : property("Shortwave radiation")
+		
+		epi.par_group("Lake C") {
+			init_c : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
+			oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
+		}
+		
+		epi.water.has(oc, [k g], [m g, l-1], "Epilimnion DOC") .initial_conc { init_c }
+		hyp.water.has(oc, [k g], [m g, l-1], "Hypolimnion DOC") .initial_conc { init_c }
+		
+		flux(epi.water.oc, nowhere, [k g, day-1], "Photo-mineralization") {
+			qy_doc := 0.1[m g, mol-1]    # Quantum yield
+			f_par  := 0.45               # Fract. of PAR in incoming solar radiation
+			e_par  := 240800.0[J, mol-1] # Average energy of PAR photons
+			
+			attn_epi := 1 # TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
+			
+			oc_doc * qy_doc * (f_par / e_par) * sw * attn_epi * oc ->>
+		}
+		
+		# TODO: Some other sinks of DOC (otherwise hypolimnion conc is constant between mixing events, for instance.
+	}
+	
+	module("EasyLake-N", 0, 0, 1) {
+	
+		load("stdlib/basic_math.txt", library("Rates"))
+		
+		epi : compartment("Epilimnion")
+		hyp : compartment("Hypolimnion")
+		
+		water : quantity("Water")
+		din : quantity("Dissolved inorganic nitrogen")
+		
+		epi.par_group("Lake N") {
+			init_din : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
+			lake_din_ret : par_real("Lake DIN retention at 20°C", [day-1], 0, 0, 5)
+			lake_din_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
+			hyp_din      : par_real("Hypolimnion N retention factor", [], 1, 0, 2)
+		}
+		
+		temp : property("Temperature")
+		
+		epi.water.has(din, [k g], [m g, l-1], "Epilimnion DIN") .initial_conc { init_din }
+		hyp.water.has(din, [k g], [m g, l-1], "Hypolimnion DIN") .initial_conc { init_din }
+		
+		flux(epi.water.din, nowhere, [k g, day-1], "Epilimnion N retention") {
+			rate := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10)
+			din * rate
+		}
+		
+		flux(hyp.water.din, nowhere, [k g, day-1], "Hypolimnion N retention") {
+			rate := q10_adjust(lake_din_ret*hyp_din, 20.0[deg_c], temp, lake_din_q10)
+			din * rate
+		}
+	}
+	
+	module("EasyLake-P", 0, 0, 1) {
+		epi : compartment("Epilimnion")
+		hyp : compartment("Hypolimnion")
+		
+		water : quantity("Water")
+		tdp : quantity("Total dissolved phosphorous")
+		
+		epi.par_group("Lake P") {
+			init_tdp : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
+			tdp_ret : par_real("Lake TDP retention", [day-1], 0, 0, 5)
+			hyp_tdp_ret : par_real("Hyplimnion TDP retention factor", [], 0, 0, 1)
+		}
+		
+		epi.water.has(tdp, [k g], [m g, l-1], "Epilimnion TDP") .initial_conc { init_tdp }
+		hyp.water.has(tdp, [k g], [m g, l-1], "Hypolimnion TDP") .initial_conc { init_tdp }
+		
+		flux(epi.water.tdp, nowhere, [k g, day-1], "Epilimnion TDP retention") {
+			tdp * tdp_ret
+		}
+		
+		flux(hyp.water.tdp, nowhere, [k g, day-1], "Hypolimnion TDP retention") {
+			tdp * tdp_ret * hyp_tdp_ret
+		}
+		
+		# TODO: SS, PP
+	}
+}

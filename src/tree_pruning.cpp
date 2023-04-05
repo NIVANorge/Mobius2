@@ -173,6 +173,8 @@ are_the_same(Math_Expr_FT *a, Math_Expr_FT *b) {
 			if(id_a->variable_type != id_b->variable_type) return false;
 			if(id_a->variable_type == Variable_Type::local)
 				return id_a->local_var == id_b->local_var;
+			if(id_a->variable_type == Variable_Type::connection_info)
+				return true;  // NOTE: This is only supposed to be called once the offsets are put on it (in the exprs), and then it is sufficient to check those.
 		} break;
 		
 		case Math_Expr_Type::binary_operator :
@@ -354,7 +356,7 @@ binop_reassociate(Operator_FT *sup_op, Operator_FT *sub_op, Literal_FT *lit1, bo
 	if(!lit2) return sup_op;
 	
 	if(lit1->value_type != lit2->value_type)  // Could happen if the operator is a ^ for instance.
-		return sup_op;//fatal_error(Mobius_Error::internal, "Tried re-associating values of different types.");
+		return sup_op;
 	
 	s64 nc_parity = 1;
 	if(sup_literal_is_lhs && is_divisive(sup_op->oper))
@@ -573,8 +575,8 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Loca
 					else                        is_false = true;
 				}
 				
-				// If this clause is constantly false, or a previous one was true, delete the value.
-				// If this clause was true, this value becomes the 'otherwise'. Only delete clause, not value.
+				// If this condition is constantly false, or a previous one was true, delete the value.
+				// If this condition was true, this value becomes the 'otherwise'. Only delete condition, not value.
 				if(is_false || found_true)
 					delete expr->exprs[idx];
 				else
