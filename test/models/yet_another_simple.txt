@@ -13,7 +13,7 @@ model("Yet another simple") {
 		
 		p : property("P")
 		
-		a.has(p, []) {
+		var(a.p, []) {
 			last(p)*b
 		} .initial { 20 }
 	}

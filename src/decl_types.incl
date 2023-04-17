@@ -26,7 +26,7 @@ ENUM_VALUE(par_enum, function, parameter)
 ENUM_VALUE(par_datetime, none, parameter)  // NOTE: This is only for data sets, not in model code
 ENUM_VALUE(constant, none, constant)
 ENUM_VALUE(function, function, function)
-ENUM_VALUE(has, function, has)
+ENUM_VALUE(var, function, var)
 ENUM_VALUE(flux, function, flux)
 ENUM_VALUE(discrete_order, function, discrete_order)
 ENUM_VALUE(special_computation, function, special_computation)

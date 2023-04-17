@@ -361,7 +361,7 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 		int idx = 0;
 		for(Token &token : chain)
 			error_print(token.string_value, idx++ == chain.size()-1 ? "" : ".");
-		error_print("\ncan not be inferred as a valid state variable that has been created using a 'has' declaration. ");
+		error_print("\ncan not be inferred as a valid state variable that has been created using a 'var' declaration. ");
 		if(is_located(data->in_loc)) {
 			error_print("It was being resolved in the following context: ");
 			error_print_location(data->scope, data->in_loc);

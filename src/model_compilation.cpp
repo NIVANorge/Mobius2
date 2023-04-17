@@ -540,11 +540,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				if(!is_valid(instructions[var_id.id].solver)) {
 					auto conn_var = as<State_Var::Type::declared>(app->state_vars[var2->agg_for]);
-					auto has = model->hases[conn_var->decl_id];
+					auto var_decl = model->vars[conn_var->decl_id];
 					// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
 					// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
 					auto conn = model->connections[var2->connection];
-					has->source_loc.print_error_header(Mobius_Error::model_building);
+					var_decl->source_loc.print_error_header(Mobius_Error::model_building);
 					error_print("This state variable is the source or target of a connection \"", conn->name, "\", declared here:\n");
 					conn->source_loc.print_error();
 					fatal_error("but the state variable is not on a solver. This is currently not allowed.");

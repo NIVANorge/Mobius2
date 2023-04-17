@@ -13,7 +13,7 @@ module("Degree-day PET", 1, 0, 0) {
 	pet  : property("Potential evapotranspiration")
 	temp : property("Temperature")
 	
-	soil.has(pet, [m m, day -1])                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
+	var(soil.pet, [m m, day -1])                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
 }
 
 
@@ -46,20 +46,23 @@ module("Penman-Monteith PET", 1, 0, 0) {
 	s_vap    : property("Saturation vapour pressure")
 	a_vap    : property("Actual vapour pressure")
 	
-	soil.has(net_sw : property("Net shortwave"), [W, m-2]) {
+	net_sw : property("Net shortwave")
+	lwu    : property("Emitted longwave radiation")
+	
+	var(soil.net_sw, [W, m-2]) {
 		alb := {
 			lalb     if snow_box.snow < 0.5[m m],
 			salb     otherwise
 		}
 		air.g_rad * (1 - alb)
 	}
-	
-	soil.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
+
+	var(soil.lwu, [W, m-2]) {
 		emissivity := 0.9 #TODO: Could maybe be made more granular.
 		black_body_radiation(soil.temp->[K])
 	}
 	
-	soil.has(pet, [m m, day-1]) {
+	var(soil.pet, [m m, day-1]) {
 		
 		# Reference :  https://www.fao.org/3/x0490e/x0490e06.htm 
 		

@@ -54,7 +54,7 @@
 		pot_melt : property("Potential snow melt")
 		temp     : property("Temperature")
 		
-		soil.has(pot_melt, [m m, day-1]) {
+		var(soil.pot_melt, [m m, day-1]) {
 			air.temp * ddf_melt
 		}
 	}

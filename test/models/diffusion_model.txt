@@ -21,8 +21,8 @@ model("Diffusion") {
 			tc      : par_real("Transfer coeff", [], 0.05)
 		}
 		
-		layer.has(o2, [m g, c m-2], "Layer O²") .initial { in_o2 }
-		botcomp.has(o2, [m g, c m-2], "Bottom O²") .initial { in_o2_bot }
+		var(layer.o2, [m g, c m-2], "Layer O²") .initial { in_o2 }
+		var(botcomp.o2, [m g, c m-2], "Bottom O²") .initial { in_o2_bot }
 		
 		c : connection("Layer connection", grid1d) { layer* }
 		s : connection("Sideways", all_to_all) { layer* }

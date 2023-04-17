@@ -8,6 +8,7 @@ Description
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature"))
 	load("modules/simplyn.txt", module("SimplyN"))
+	load("modules/rivertemp.txt", module("RiverTemperature"))
 	
 	din : quantity("Dissolved inorganic nitrogen")
 

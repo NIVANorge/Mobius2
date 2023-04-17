@@ -114,7 +114,7 @@ Flux_Unit_Conversion_Data {
 
 template<> struct
 Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
-	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "has" ?
+	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "var" ?
 	
 	// For compartments:
 	std::vector<Aggregation_Data> aggregations;
@@ -158,7 +158,7 @@ Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 };
 
 template<> struct
-Entity_Registration<Reg_Type::has> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::var> : Entity_Registration_Base {
 	Var_Location   var_location;
 	Entity_Id      unit;
 	Entity_Id      conc_unit;
@@ -330,7 +330,7 @@ Mobius_Model {
 	Registry<Reg_Type::function>    functions;
 	Registry<Reg_Type::constant>    constants;
 	Registry<Reg_Type::component>   components;  // compartment, quantity, property
-	Registry<Reg_Type::has>         hases;
+	Registry<Reg_Type::var>         vars;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::discrete_order> discrete_orders;
 	Registry<Reg_Type::special_computation> special_computations;

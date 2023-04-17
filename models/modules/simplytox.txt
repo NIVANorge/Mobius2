@@ -51,16 +51,18 @@ Testing functionality for now.
 	
 	# TODO: Production / resorption of soil carbon should maybe not exchange toxins. (Especially not like now where it goes to 'nowhere')
 	
-	soil.has(oc, [k g, m-2])  .initial { mocf }
-	dsoil.has(oc, [k g, m-2]) .initial { mocs }
+	var(soil.oc, [k g, m-2])  .initial { mocf }
+	var(dsoil.oc, [k g, m-2]) .initial { mocs }
 	
-	soil.water.has(tox, [n g, m-2], [n g, l-1], "Soil water dissolved toxin")
-	soil.oc.has(tox, [n g, m-2], [n g, k g-1], "Fast-accessible SOC toxin")
-	dsoil.oc.has(tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC toxin")
-	soil.water.oc.has(tox, [n g, m-2], [n g, k g-1], "Soil DOC toxin")
+	var(soil.water.tox, [n g, m-2], [n g, l-1], "Soil water dissolved toxin")
+	var(soil.oc.tox, [n g, m-2], [n g, k g-1], "Fast-accessible SOC toxin")
+	var(dsoil.oc.tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC toxin")
+	var(soil.water.oc.tox, [n g, m-2], [n g, k g-1], "Soil DOC toxin")
 	
-	air.has(prconc : property("Contaminant conc in precip"), [n g, l-1])
 	precip : property("Precipitation")
+	prconc : property("Contaminant conc in precip")
+	
+	var(air.prconc, [n g, l-1])
 	
 	flux(nowhere, soil.water.tox, [n g, m-2, day-1], "Contaminant wet deposition") {
 		air.precip * air.prconc ->>
@@ -82,9 +84,9 @@ Testing functionality for now.
 		(Kow - 0.45)^0.93 / rhoDOC
 	}
 	
-	soil.water.tox.has(Kow, [])
-	soil.water.tox.has(Koc, [m 3, k g-1])
-	soil.water.tox.has(Kdoc, [m 3, k g-1])
+	var(soil.water.tox.Kow, [])
+	var(soil.water.tox.Koc, [m 3, k g-1])
+	var(soil.water.tox.Kdoc, [m 3, k g-1])
 	
 	flux(soil.water.tox, soil.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
 		rwoc*((conc(water.tox)->[n g, m-3]) - conc(soil.oc.tox)/Koc)
@@ -104,25 +106,25 @@ Testing functionality for now.
 	flux(dsoil.oc.tox, nowhere, [n g, m-2, day-1], "Slow-acessible SOC toxin decay") { hl_to_rate(hlslow) * tox }
 	
 	#TODO: Mineral layer should also maybe have a (smaller) slow SOC box
-	gw.water.has(tox, [n g, m-2], [n g, l-1], "Groundwater dissolved toxin")
-	gw.water.oc.has(tox, [n g, m-2], [n g, k g-1], "Groundwater DOC toxin")
+	var(gw.water.tox, [n g, m-2], [n g, l-1], "Groundwater dissolved toxin")
+	var(gw.water.oc.tox, [n g, m-2], [n g, k g-1], "Groundwater DOC toxin")
 
-	river.water.has(tox, [n g], [n g, l-1], "River dissolved toxin")
-	river.water.oc.has(tox, [n g], [n g, k g-1], "River DOC toxin")
+	var(river.water.tox, [n g], [n g, l-1], "River dissolved toxin")
+	var(river.water.oc.tox, [n g], [n g, k g-1], "River DOC toxin")
 	
-	river.water.sed.has(oc, [k g], [k g, k g-1], "River suspended sediment SOC") .override_conc { sed_oc_c }
-	river.water.sed.oc.has(tox, [n g], [n g, k g-1], "River suspended sediment toxin")
+	var(river.water.sed.oc, [k g], [k g, k g-1], "River suspended sediment SOC") .override_conc { sed_oc_c }
+	var(river.water.sed.oc.tox, [n g], [n g, k g-1], "River suspended sediment toxin")
 
-	river.water.tox.has(Kow, [])
-	river.water.tox.has(Koc, [m 3, k g-1])
+	var(river.water.tox.Kow, [])
+	var(river.water.tox.Koc, [m 3, k g-1])
 	#river.water.tox.has(Kdoc, [m 3, k g-1])
 	
-	gw.water.tox.has(Kow, [])
-	gw.water.tox.has(Kdoc, [m 3, k g-1])
+	var(gw.water.tox.Kow, [])
+	var(gw.water.tox.Kdoc, [m 3, k g-1])
 	
 	eff_a : par_real("River effective surface area", [m 2])
 	
-	gw.has(temp, [deg_c]) {
+	var(gw.temp, [deg_c]) {
 		aggregate(soil.temp) #Should probably be modeled separately.
 	}
 	

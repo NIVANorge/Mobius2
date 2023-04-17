@@ -40,14 +40,13 @@ TODO: description
 	
 	temp   : property("Temperature")
 	precip : property("Precipitation")
+	wind   : property("Wind speed")
+	g_rad  : property("Global radiation")
 	
-	air.has(temp,      [deg_c], "Air temperature")
-	air.has(precip,    [m m, day-1])
-	air.has(wind     : property("Wind speed"),        [m, s-1])
-	#air.has(r_hum    : property("Relative humidity"), [])
-	#air.has(pressure : property("Pressure"),          [h Pa], "Air pressure")
-	#air.has(cloud    : property("Cloud cover"),       [])
-	air.has(g_rad    : property("Global radiation"),  [W, m-2])
+	var(air.temp,   [deg_c], "Air temperature")
+	var(air.precip, [m m, day-1])
+	var(air.wind,   [m, s-1])
+	var(air.g_rad,  [W, m-2])
 	
 	lwd      : property("Downwelling longwave radiation")
 	pressure : property("Pressure")
@@ -63,15 +62,19 @@ TODO: description
 	}
 	
 	
-	epi.has(water, [m 3], "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }
+	var(epi.water, [m 3], "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
-	hyp.has(water, [m 3], "Hypolimnion volume") .initial {
+	var(hyp.water, [m 3], "Hypolimnion volume") .initial {
 		z := z_outflow - z_epi
 		A := A_surf * (z/z_outflow)
 		0.5 * A * z
 	}
 	
-	epi.has(z_e : property("Thickness"), [m], "Epilimnion thickness") .initial { z_epi }
+	z_e : property("Thickness")
+	depth : property("Depth")
+	flow : property("Flow")
+	
+	var(epi.z_e, [m], "Epilimnion thickness") .initial { z_epi }
 	{
 		last(z_e) + (dz_epi)*time.step_length_in_seconds->> if !epi.indicator & water.temp > t_bot,
 		z_epi                                                                   otherwise
@@ -87,12 +90,12 @@ TODO: description
 	
 	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
-	epi.has(depth : property("Lake depth"), [m])                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	var(epi.depth, [m], "Lake depth")                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
-	epi.water.has(outflow : property("Flow"), [m 3, s-1], "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
+	var(epi.water.flow, [m 3, s-1], "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
 
 	lake_out :
-	flux(epi.water, out, [m 3, day-1], "Lake outflow flux")                   {   outflow ->>  }
+	flux(epi.water, out, [m 3, day-1], "Lake outflow flux")                   {   flow ->>  }
 	
 	# TODO: should have some way of turning this on/off depending on use case.
 	#epi.has(inflow : property("Lake inflow"), [m 3, s-1])
@@ -102,44 +105,53 @@ TODO: description
 	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
 	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
 	
-	epi.water.has(heat, [J]) .initial {
+	var(epi.water.heat, [J]) .initial {
 		water_temp_to_heat(water, t_epi)
 	}
 	
-	hyp.water.has(heat, [J]) .initial {
-		# TODO: initial hypolimnion temperature should be lower.
-		water_temp_to_heat(water, t_epi)
+	var(hyp.water.heat, [J]) .initial {
+		# TODO: Not quite the correct formula for what the mean hypolimnion temperature should be.
+		t_hyp := 0.5*(t_epi + t_bot)
+		water_temp_to_heat(water, t_hyp)
 	}
 	
-	epi.has(stab : property("Stability"), []) {
+	stab : property("Stability")
+	ced : property("Transfer coefficient for latent heat flux")
+	chd : property("Transfer coefficent for sensible heat flux")
+	s_hum : property("Saturation specific humidity")
+	lwu : property("Emitted longwave radiation")
+	sw : property("Shortwave radiation")
+	albedo : property("Albedo")
+	
+	var(epi.stab, []) {
 		surface_stability(air.wind, water.temp, air.temp)
 	}
 	
-	epi.has(ced : property("Transfer coefficient for latent heat flux"), []) {
+	var(epi.ced, []) {
 		tc_latent_heat(air.wind, stab)
 	}
 	
-	epi.has(chd : property("Transfer coefficent for sensible heat flux"), []) {
+	var(epi.chd, []) {
 		tc_sensible_heat(air.wind, stab)
 	}
 	
-	epi.has(s_hum : property("Saturation specific humidity"), []) {
+	var(epi.s_hum, []) {
 		svap := saturation_vapor_pressure(water.temp)
 		specific_humidity_from_pressure(air.pressure, svap)
 	}
 	
-	epi.has(lwu : property("Emitted longwave radiation"), [W, m-2]) {
+	var(epi.lwu, [W, m-2]) {
 		emissivity := 0.98
 		emissivity * black_body_radiation(water.temp->[K])
 	}
 	
-	epi.has(albedo : property("Albedo"), []) {
+	var(epi.albedo, []) {
 		ice_alb        if ice.indicator,
 		0.045          otherwise
 	}
 	
 	#TODO should be attn in epi also, and remainder to hyp
-	epi.has(sw : property("Shortwave radiation"), [W, m-2]) {
+	var(epi.sw, [W, m-2]) {
 		(1 - albedo) * (1 - ice.attn) * air.g_rad	
 	}
 	
@@ -168,7 +180,9 @@ TODO: description
 		A_surf * (chd * C_air * air.rho * air.wind * (air.temp->[K] - temp->[K])) ->> otherwise
 	}
 	
-	epi.water.has(evap_mm : property("Evaporation per area"), [m m, day-1]) {
+	evap_mm : property("Evaporation per area")
+	
+	var(epi.water.evap_mm, [m m, day-1]) {
 		rho_ref := 1025 [k g, m-3]
 		0                                                                          if epi.ice.indicator,
 		-(air.rho / rho_ref) * chd * air.wind * (air.a_hum - s_hum) ->>                otherwise
@@ -197,17 +211,21 @@ TODO: description
 		5[day-1]*(heat - epi_heat_should_be)   # The 5 is pretty arbitrary. Just to get a quick equilibration
 	}
 	
-	epi.water.has(temp, [deg_c], "Epilimnion temperature") {
+	var(epi.water.temp, [deg_c], "Epilimnion temperature") {
 		water_heat_to_temp(water, water.heat)
 	} .initial { t_epi }
 	
-	hyp.water.has(temp, [deg_c], "Hypolimnion temperature (mean)") {
+	var(hyp.water.temp, [deg_c], "Hypolimnion temperature (mean)") {
 		water_heat_to_temp(water, water.heat)
 	}
 	
-	epi.has(ice, [m], "Ice thickness") .initial { init_ice }
+	var(epi.ice, [m], "Ice thickness") .initial { init_ice }
 	
-	epi.ice.has(energy : property("Freeze energy"), [W, m-2]) {
+	energy : property("Freeze energy")
+	indicator : property("Indicator")
+	attn : property("Attenuation coefficent")
+	
+	var(epi.ice.energy, [W, m-2]) {
 		z_surf := 1[m]   #  Thickness of water layer that ice formation can draw energy from.
 		K_ice := 200[W, m-3, deg_c-1]   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
 		e := (ice_temp - epi.water.temp)*z_surf*K_ice
@@ -216,9 +234,9 @@ TODO: description
 		e        otherwise
 	}
 	
-	epi.ice.has(indicator : property("Indicator"), [], "Ice indicator") {   ice > th_frazil   }
+	var(epi.ice.indicator, [], "Ice indicator") {   ice > th_frazil   }
 	
-	epi.ice.has(attn : property("Attenuation coefficent"), []) {
+	var(epi.ice.attn, []) {
 		0                       if !indicator,
 		1 - exp(-5[m -1] * ice) otherwise    #TODO: the 5 should be configurable?
 	}
@@ -247,7 +265,7 @@ TODO: description
 	
 	# TODO: How does mixing interact with ice (?)
 	
-	epi.has(indicator, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
+	var(epi.indicator, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
 	
 	
 	# NOTE: This moves an equal body of water up and down, which does not impact the wate volume, but does mix dissolved substances.

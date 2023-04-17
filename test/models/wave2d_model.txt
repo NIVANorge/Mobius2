@@ -13,8 +13,8 @@ model("Wave2D") {
 			in_amp  : par_real("Initial amplitude", [m], 0)
 		}
 		
-		cell.has(amp, [m]) .initial { in_amp }
-		cell.has(mom, [m, day-1])
+		var(cell.amp, [m]) .initial { in_amp }
+		var(cell.mom, [m, day-1])
 		
 		h : connection("Horizontal", grid1d) { cell* }
 		v : connection("Vertical", grid1d) { cell* }

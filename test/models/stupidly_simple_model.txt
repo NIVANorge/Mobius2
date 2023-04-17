@@ -6,7 +6,7 @@ model("Simple test model") {
 		a : compartment("A")
 		q : quantity("Q")
 		
-		a.has(q, [], "A Q") .initial { ia }
+		var(a.q, [], "A Q") .initial { ia }
 		
 		q.par_group("Init pars") {
 			ia : par_real("Init a", [], 0)

@@ -14,11 +14,12 @@ model("Another simple") {
 		
 		q : quantity("Q")
 		
-		a.has(q, []) .initial { 10 }
+		var(a.q, []) .initial { 10 }
 		
 		#c : connection("C", all_to_all) { a* }
+		b : property("Test")
 		
-		a.has(b : property("Test"), [day-1]) {
+		var(a.b, [day-1]) {
 			rate := (q - fc) / 20[day]
 			{
 				0 if 20 < fc,

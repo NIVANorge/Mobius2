@@ -227,7 +227,7 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::module :                   return &modules;
 		case Reg_Type::library :                  return &libraries;
 		case Reg_Type::component :                return &components;
-		case Reg_Type::has :                      return &hases;
+		case Reg_Type::var :                      return &vars;
 		case Reg_Type::flux :                     return &fluxes;
 		case Reg_Type::function :                 return &functions;
 		case Reg_Type::index_set :                return &index_sets;
@@ -756,92 +756,95 @@ process_declaration<Reg_Type::constant>(Mobius_Model *model, Decl_Scope *scope, 
 }
 
 template<> Entity_Id
-process_declaration<Reg_Type::has>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	//TODO: Always require the unit!
 	
 	int which = match_declaration(decl,
 		{
-			{Decl_Type::property},
-			{Decl_Type::property, Decl_Type::unit},
-			{Decl_Type::property, Decl_Type::unit, Decl_Type::unit},
-			{Decl_Type::property, Token_Type::quoted_string},
-			{Decl_Type::property, Decl_Type::unit, Token_Type::quoted_string},
-			{Decl_Type::property, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
+			{Token_Type::identifier},
+			{Token_Type::identifier, Decl_Type::unit},
+			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit},
+			{Token_Type::identifier, Token_Type::quoted_string},
+			{Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
+			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
 		},
-		-1, true, -1, true);
+		0, false, -1, true);
 	
-	auto id  = model->hases.find_or_create(&decl->handle_name, scope, nullptr, decl);
-	auto has = model->hases[id];
+	auto id  = model->vars.find_or_create(&decl->handle_name, scope, nullptr, decl);
+	auto var = model->vars[id];
 	
 	// NOTE: We don't register it with the name in find_or_create because that would cause name clashes if you re-declare variables (which should be allowed)
 	Token *name = nullptr;
 	if(which == 3)
-		has->var_name = single_arg(decl, 1)->string_value;
+		var->var_name = single_arg(decl, 1)->string_value;
 	else if(which == 4)
-		has->var_name = single_arg(decl, 2)->string_value;
+		var->var_name = single_arg(decl, 2)->string_value;
 	else if(which == 5)
-		has->var_name = single_arg(decl, 3)->string_value;
+		var->var_name = single_arg(decl, 3)->string_value;
 	
+	/*
 	int chain_size = decl->decl_chain.size();
 	if(chain_size == 0 || chain_size > max_var_loc_components - 1) {
 		decl->decl_chain.back().print_error_header();
-		fatal_error("A 'has' declaration must either be of the form compartment.has(property_or_quantity) or compartment.<chain>.has(property_or_quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_var_loc_components-3, " long.");
+		fatal_error("A 'var' declaration must either be of the form compartment.var(property_or_quantity) or compartment.<chain>.var(property_or_quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_var_loc_components-3, " long.");
 	}
 	
 	// TODO: can eventually be tied to just a quantity not only a compartment or compartment.quantities
-	has->var_location.type = Var_Location::Type::located;
+	var->var_location.type = Var_Location::Type::located;
 	for(int idx = 0; idx < chain_size; ++idx)
-		has->var_location.components[idx] = model->components.find_or_create(&decl->decl_chain[idx], scope);
-	has->var_location.n_components = chain_size + 1;
-	has->var_location.components[chain_size] = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
+		var->var_location.components[idx] = model->components.find_or_create(&decl->decl_chain[idx], scope);
+	var->var_location.n_components = chain_size + 1;
+	var->var_location.components[chain_size] = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
+	*/
+	process_location_argument(model, scope, decl, 0, &var->var_location, false);	
 	
 	if(which == 1 || which == 2 || which == 4 || which == 5)
-		has->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
+		var->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
 	else
-		has->unit = invalid_entity_id;
+		var->unit = invalid_entity_id;
 	if(which == 2 || which == 5) {
-		if(!has->var_location.is_dissolved()) {
-			has->source_loc.print_error_header();
+		if(!var->var_location.is_dissolved()) {
+			var->source_loc.print_error_header();
 			fatal_error("Concentration units should only be provided for dissolved quantities.");
 		}
-		has->conc_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
+		var->conc_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	} else
-		has->conc_unit = invalid_entity_id;
+		var->conc_unit = invalid_entity_id;
 	
 	for(Body_AST *body : decl->bodies) {
 		auto function = static_cast<Function_Body_AST *>(body);
 		if(function->notes.size() > 1) {
 			function->opens_at.print_error_header();
-			fatal_error("Bodies belonging to declarations of type 'has' can only have one note.");
+			fatal_error("Bodies belonging to 'var' declarations can only have one note.");
 		} else if(function->notes.size() == 1) {
 			auto str = function->notes[0].string_value;
 			if(str == "initial" || str == "initial_conc") {
-				if(has->initial_code) {
+				if(var->initial_code) {
 					function->opens_at.print_error_header();
-					fatal_error("Declaration has more than one '.initial' or '.initial_conc' block.");
+					fatal_error("Declaration var more than one '.initial' or '.initial_conc' block.");
 				}
-				has->initial_code = function->block;
-				has->initial_is_conc = (str == "initial_conc");
+				var->initial_code = function->block;
+				var->initial_is_conc = (str == "initial_conc");
 			} else if(str == "override" || str == "override_conc") {
-				if(has->override_code) {
+				if(var->override_code) {
 					function->opens_at.print_error_header();
 					fatal_error("Declaration has more than one '.override' or '.override_conc' block.");
 				}
-				has->override_code = function->block;
-				has->override_is_conc = (str == "override_conc");
+				var->override_code = function->block;
+				var->override_is_conc = (str == "override_conc");
 			} else {
 				function->opens_at.print_error_header();
 				fatal_error("Expected either no function body notes, '.initial' or '.override_conc'.");
 			}
 		} else {
-			if(has->code) {
+			if(var->code) {
 				function->opens_at.print_error_header();
 				fatal_error("Declaration has more than one main block.");
 			}
-			has->code = function->block;
+			var->code = function->block;
 		}
 	}
-	has->code_scope = scope->parent_id;
+	var->code_scope = scope->parent_id;
 	
 	return id;
 }
@@ -1232,8 +1235,8 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 				process_declaration<Reg_Type::constant>(model, &module->scope, child);
 			} break;
 			
-			case Decl_Type::has : {
-				process_declaration<Reg_Type::has>(model, &module->scope, child);
+			case Decl_Type::var : {
+				process_declaration<Reg_Type::var>(model, &module->scope, child);
 			} break;
 			
 			case Decl_Type::flux : {

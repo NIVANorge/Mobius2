@@ -67,22 +67,22 @@ Not finished, just for testing some systems.
 	# Temperature
 	temp : property("Temperature")
 	
-	air.has(temp, [deg_c], "Air temperature")  # No calc for this, so assumes input timeseries
+	var(air.temp, [deg_c], "Air temperature")  # No calc for this, so assumes input timeseries
 	
 	# Don't need to declare soil.temp here, but do need to remember to include the
 	# soil temperature module so that soil temp is used in the context of soil.water
 	
-	soil.water.has(din, [k g, k m -2], [m g, l-1], "Soil water DIN").initial_conc {sw_din_init}
+	var(soil.water.din, [k g, k m -2], [m g, l-1], "Soil water DIN") .initial_conc {sw_din_init}
 	
-	gw.water.has(din, [k g, k m -2], [m g, l-1], "Groundwater DIN").initial_conc {gw_din_conc} .override_conc {
+	var(gw.water.din, [k g, k m -2], [m g, l-1], "Groundwater DIN") .initial_conc {gw_din_conc} .override_conc {
 		gw_din_conc   if gw_din_constant,
 		no_override   otherwise
 		# To do: add another clause with gw retention vol
 	}
 	
-	river.water.has(temp, [deg_c], "River water temperature") { max(0.0, air.temp) }
+	#var(river.water.temp, [deg_c], "River water temperature") { max(0.0, air.temp) }
 	
-	river.water.has(din, [k g], [m g, l-1], "River water DIN") .initial_conc {conc(gw.water.din) }
+	var(river.water.din, [k g], [m g, l-1], "River water DIN") .initial_conc { conc(gw.water.din) }
 	
 	# Not sure what to do with this growth curve. Put it into the SW DIN uptake flux calc?
 	# or have it separate? In which case, what is it a property of?

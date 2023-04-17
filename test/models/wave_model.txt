@@ -14,8 +14,8 @@ model("Wave") {
 			c       : par_real("Wave speed", [day-1], 0.001)
 		}
 		
-		layer.has(amp, [Pa]) .initial { in_amp }
-		layer.has(mom, [Pa, day-1])
+		var(layer.amp, [Pa]) .initial { in_amp }
+		var(layer.mom, [Pa, day-1])
 		
 		l : connection("Layer connection", grid1d) { layer* }
 		

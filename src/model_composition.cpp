@@ -60,10 +60,10 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		fatal_error(Mobius_Error::internal, "Didn't get a decl_id for a declared variable.");
 	
 	Var_Location loc = invalid_var_location;
-	if(is_valid(decl_id) && decl_id.reg_type == Reg_Type::has) {
-		auto has = model->hases[decl_id];
-		loc = has->var_location;
-		check_if_var_loc_is_well_formed(model, loc, has->source_loc);
+	if(is_valid(decl_id) && decl_id.reg_type == Reg_Type::var) {
+		auto var = model->vars[decl_id];
+		loc = var->var_location;
+		check_if_var_loc_is_well_formed(model, loc, var->source_loc);
 	}
 	
 	Var_Id var_id = invalid_var;
@@ -84,12 +84,12 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		auto var2 = as<State_Var::Type::declared>(var);
 		var2->decl_id = decl_id;
 		
-		if(decl_id.reg_type == Reg_Type::has) {
-			auto has = model->hases[decl_id];
+		if(decl_id.reg_type == Reg_Type::var) {
+			auto var_decl = model->vars[decl_id];
 			var->loc1 = loc;
 			var2->decl_type = model->components[loc.last()]->decl_type;
-			if(is_valid(has->unit))
-				var->unit = model->units[has->unit]->data;
+			if(is_valid(var_decl->unit))
+				var->unit = model->units[var_decl->unit]->data;
 		} else if (decl_id.reg_type == Reg_Type::flux) {
 			auto flux = model->fluxes[decl_id];
 			var->loc1 = flux->source;
@@ -127,7 +127,7 @@ check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location s
 		source_loc.print_error_header(Mobius_Error::model_building);
 		error_print("The variable location ");
 		error_print_location(scope, loc);
-		fatal_error(" has not been created using a 'has' declaration.");
+		fatal_error(" has not been created using a 'var' declaration.");
 	}
 	
 	if(is_valid(loc.connection_id)) {
@@ -394,8 +394,8 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 }
 
 inline bool 
-has_code(Entity_Registration<Reg_Type::has> *has) {
-	return has->code || has->initial_code || has->override_code;
+has_code(Entity_Registration<Reg_Type::var> *var) {
+	return var->code || var->initial_code || var->override_code;
 }
 
 void
@@ -424,43 +424,43 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	
 	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
-	// also make sure there are no conflicting has declarations of the same var_location (across modules)
+	// also make sure there are no conflicting var declarations of the same var_location (across modules)
 	std::unordered_map<Var_Location, Entity_Id, Var_Location_Hash> has_location;
 	
-	for(Entity_Id id : model->hases) {
-		auto has = model->hases[id];
+	for(Entity_Id id : model->vars) {
+		auto var = model->vars[id];
 		
-		bool found_code = has_code(has);
+		bool found_code = has_code(var);
 		
 		// TODO: check for mismatching units and names between declarations.
-		Entity_Registration<Reg_Type::has> *has2 = nullptr;
-		auto find = has_location.find(has->var_location);
+		Entity_Registration<Reg_Type::var> *var2 = nullptr;
+		auto find = has_location.find(var->var_location);
 		if(find != has_location.end()) {
-			has2 = model->hases[find->second];
+			var2 = model->vars[find->second];
 			
-			if(found_code && has_code(has2)) {
-				has->source_loc.print_error_header();
-				error_print("Only one has declaration for the same variable location can have code associated with it. There is a conflicting declaration here:\n");
-				has2->source_loc.print_error();
+			if(found_code && has_code(var2)) {
+				var->source_loc.print_error_header();
+				error_print("Only one 'var' declaration for the same variable location can have code associated with it. There is a conflicting declaration here:\n");
+				var2->source_loc.print_error();
 				mobius_error_exit();
 			}
 		}
 		
 		if(!found_code) {
 			// If it is a property, the property itself could have default code.
-			auto prop = model->components[has->var_location.last()];
+			auto prop = model->components[var->var_location.last()];
 			if(prop->default_code) found_code = true;
 		}
 		
-		Decl_Type type = model->find_entity(has->var_location.last())->decl_type;
+		Decl_Type type = model->find_entity(var->var_location.last())->decl_type;
 		// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
 		if(type == Decl_Type::property && found_code)
-			has_location[has->var_location] = id;
+			has_location[var->var_location] = id;
 		
 		// Note: for quantities, we can have some that don't have code associated with them at all, and we still need to choose one canonical one to use for the state variable registration below.
 		//     (thus quantities can also not be input series)
-		if(type == Decl_Type::quantity && (!has2 || !has_code(has2)))
-			has_location[has->var_location] = id;
+		if(type == Decl_Type::quantity && (!var2 || !has_code(var2)))
+			has_location[var->var_location] = id;
 	}
 	
 	std::vector<Var_Id> dissolvedes;
@@ -468,30 +468,32 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	// TODO: we could move some of the checks in this loop to the above loop.
 
 	for(int n_components = 2; n_components <= max_var_loc_components; ++n_components) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
-		for(Entity_Id id : model->hases) {
-			auto has = model->hases[id];
-			if(has->var_location.n_components != n_components) continue;
+		for(Entity_Id id : model->vars) {
+			auto var = model->vars[id];
+			if(var->var_location.n_components != n_components) continue;
 			
-			if(has->var_location.is_dissolved()) {
-				auto above_var = app->state_vars.id_of(remove_dissolved(has->var_location));
+			if(var->var_location.is_dissolved()) {
+				auto above_var = app->state_vars.id_of(remove_dissolved(var->var_location));
 				if(!is_valid(above_var)) {
-					has->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("The located quantity that this 'has' declaration is assigned to has itself not been created using a 'has' declaration.");
+					var->source_loc.print_error_header(Mobius_Error::model_building);
+					//TODO: Print the above_var.
+					fatal_error("The located quantity that this 'var' declaration is assigned to has itself not been created using a 'var' declaration.");
 				}
 			}
 			
-			auto name = has->var_name;
+			auto name = var->var_name;
 			if(name.empty())
-				name = model->find_entity(has->var_location.last())->name;  //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
+				name = model->find_entity(var->var_location.last())->name;  //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
 			
-			Decl_Type type = model->find_entity(has->var_location.last())->decl_type;
-			auto find = has_location.find(has->var_location);
+			Decl_Type type = model->find_entity(var->var_location.last())->decl_type;
+			auto find = has_location.find(var->var_location);
 			
 			bool is_series = false;
 			if(find == has_location.end()) is_series = true; // No declaration provided code for this series, so it is an input series.
 			else if(type == Decl_Type::property) {
 				// For properties, they can be overridden with input series.
 				// TODO: It should probably be declared explicitly on the property if this is OK.
+				// TODO: This warning is printed for every .var() declaration of it instead of just once. This problem may go away with the new module declaration system.
 				if(std::find(input_names.begin(), input_names.end(), name) != input_names.end()) {
 					is_series = true;
 					warning_print("Overriding property \"", name, "\" with an input series.\n");
@@ -502,7 +504,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			auto special_id = invalid_entity_id;
 			for(auto special_id0 : model->special_computations) {
 				auto special = model->special_computations[special_id0];
-				if(special->target == has->var_location) {
+				if(special->target == var->var_location) {
 					is_series = false;
 					special_id = special_id0;
 					if(type != Decl_Type::property) {
@@ -516,19 +518,19 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			if(is_series) {
 				// If was already registered by another module, we don't need to re-register it.
 				// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data (which is not implemented yet))
-				if(is_valid(app->series.id_of(has->var_location))) continue;
+				if(is_valid(app->series.id_of(var->var_location))) continue;
 				
-				if(has->var_location.is_dissolved()) {
-					has->source_loc.print_error_header(Mobius_Error::model_building);
+				if(var->var_location.is_dissolved()) {
+					var->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("For now we don't support input series with chained locations.");
 				}
 				register_state_variable<State_Var::Type::declared>(app, id, true, name);
 			} else if (is_valid(special_id) || id == find->second) {
-				if(is_valid(app->state_vars.id_of(has->var_location))) continue; // Could happen if is_valid(special_id)
+				if(is_valid(app->state_vars.id_of(var->var_location))) continue; // Could happen if is_valid(special_id)
 				
-				// This is the particular has declaration that provided the code, so we register a state variable using this one.
+				// This is the particular var declaration that provided the code, so we register a state variable using this one.
 				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, id, false, name);
-				if(has->var_location.is_dissolved() && type == Decl_Type::quantity && !is_valid(special_id))
+				if(var->var_location.is_dissolved() && type == Decl_Type::quantity && !is_valid(special_id))
 					dissolvedes.push_back(var_id);
 				if(is_valid(special_id))
 					as<State_Var::Type::declared>(app->state_vars[var_id])->special_computation = special_id;
@@ -596,12 +598,12 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		var_d->conc = gen_conc_id;
 		{
 			auto computed_conc_unit = divide(var_d->unit, dissolved_in->unit);
-			auto has = model->hases[var_d->decl_id];
-			if(is_valid(has->conc_unit)) {
-				conc_var->unit = model->units[has->conc_unit]->data;
+			auto var_decl = model->vars[var_d->decl_id];
+			if(is_valid(var_decl->conc_unit)) {
+				conc_var->unit = model->units[var_decl->conc_unit]->data;
 				bool success = match(&computed_conc_unit.standard_form, &conc_var->unit.standard_form, &conc_var->unit_conversion);
 				if(!success) {
-					has->source_loc.print_error_header(Mobius_Error::model_building);
+					var_decl->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("We can't find a way to convert between the declared concentration unit ", conc_var->unit.to_utf8(), " and the computed concentration unit ", computed_conc_unit.to_utf8(), ".");
 				}
 			} else {
@@ -870,14 +872,14 @@ compose_and_resolve(Model_Application *app) {
 			
 			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
 			
-		} else if(var2->decl_id.reg_type == Reg_Type::has) {
-			auto has = model->hases[var2->decl_id];
-			ast      = has->code;
-			init_ast = has->initial_code;
-			override_ast = has->override_code;
-			override_is_conc = has->override_is_conc;
-			initial_is_conc  = has->initial_is_conc;
-			code_scope = model->get_scope(has->code_scope);
+		} else if(var2->decl_id.reg_type == Reg_Type::var) {
+			auto var_decl = model->vars[var2->decl_id];
+			ast      = var_decl->code;
+			init_ast = var_decl->initial_code;
+			override_ast = var_decl->override_code;
+			override_is_conc = var_decl->override_is_conc;
+			initial_is_conc  = var_decl->initial_is_conc;
+			code_scope = model->get_scope(var_decl->code_scope);
 			other_code_scope = code_scope;
 			
 			if(override_ast && !init_ast) {
@@ -886,12 +888,12 @@ compose_and_resolve(Model_Application *app) {
 			}
 			
 			if(var2->decl_type == Decl_Type::quantity && ast) {
-				has->source_loc.print_error_header();
+				var_decl->source_loc.print_error_header();
 				fatal_error("A quantity should not have an un-tagged code block.");
 			}
 			
 			if(!ast) {
-				auto comp = model->components[has->var_location.last()];
+				auto comp = model->components[var_decl->var_location.last()];
 				ast = comp->default_code;
 				if(ast)
 					code_scope = model->get_scope(comp->code_scope);
@@ -901,7 +903,7 @@ compose_and_resolve(Model_Application *app) {
 				override_ast->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Either got an '.override' block on a property or a '.override_conc' block on a non-dissolved variable.");
 			}
-			in_loc = has->var_location;
+			in_loc = var_decl->var_location;
 			from_compartment = in_loc.first();
 		}
 		

@@ -77,19 +77,19 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, Source *data,
 		s32 w = time.date_time.week_since_epoch();
 		time.advance();
 		
-		//TODO: Want more aggregation interval types than year or month for models with
-		//non-daily resolutions
-		bool push = (step == steps-1);
+		//TODO: Want more aggregation interval types like daily or hourly (for models with smaller time steps).
+		bool push = false;
 		if(agg_period == Aggregation_Period::yearly) {
-			push = push || (time.month >= pivot_month && (time.year != y || m < pivot_month));
+			push = (time.month >= pivot_month && (time.year != y || m < pivot_month));
 		} else if(agg_period == Aggregation_Period::monthly)
-			push = push || (time.month != m) || (time.year != y);
+			push = (time.month != m) || (time.year != y);
 		else if(agg_period == Aggregation_Period::weekly) {
 			auto week = time.date_time.week_since_epoch();
-			push = push || (week != w);
-		}
+			push = (week != w);
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled aggregation type in aggregate_data()");
 		
-		if(push) {
+		if(push || (step == steps-1)) {
 			double yval = curr_agg;
 			if(agg_type == Aggregation_Type::mean) yval /= (double)count;
 			if(!std::isfinite(yval) || (count == 0 && agg_type != Aggregation_Type::freq))

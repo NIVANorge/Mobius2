@@ -15,23 +15,37 @@ module("Atmospheric", 0, 1, 0) {
 		elev     : par_real("Elevation", [m], 0, 0, 8887)
 	}
 	
-	air.has(temp     : property("Temperature"),       [deg_c], "Air temperature")
-	air.has(r_hum    : property("Relative humidity"), [perc])
-	air.has(wind     : property("Wind speed"),        [m, s-1])
+	temp     : property("Temperature")
+	r_hum    : property("Relative humidity")
+	wind     : property("Wind speed")
+	
+	g_rad_cloud_free : property("Solar radiation on a clear sky day")
+	g_rad            : property("Global radiation")
+	cloud            : property("Cloud cover")
+	pressure         : property("Pressure")
+	s_vap            : property("Saturation vapour pressure")
+	a_vap            : property("Actual vapour pressure")
+	a_hum            : property("Actual specific humidity")
+	dens             : property("Density")
+	lwd              : property("Downwelling longwave radiation")
+	
+	var(air.temp,  [deg_c], "Air temperature")
+	var(air.r_hum, [perc])
+	var(air.wind,  [m, s-1])
 	
 	# The idea is that some of these can be overridden with input data if it exists. TODO: make a .can_override or something like that to allow it.
 	
-	air.has(g_rad_cloud_free : property("Solar radiation on a clear sky day"), [W, m-2]) {
+	var(air.g_rad_cloud_free, [W, m-2]) {
 		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day])
 		clear_sky_shortwave(ext, elev)
 	}
 	
 	#TODO: Should maybe parametrize the cloud cover - radiation thing
-	air.has(g_rad    : property("Global radiation"),  [W, m-2]) {
+	var(air.g_rad,  [W, m-2]) {
 		(1 - 0.75*cloud^3.4) * g_rad_cloud_free
 	}
 	
-	air.has(cloud    : property("Cloud cover"),       []) {
+	var(air.cloud,  []) {
 		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day])
 		g_rad_cloud_free := clear_sky_shortwave(ext, elev)
 		#cc := ((1 - g_rad/g_rad_cloud_free)/0.75)^(1/3.4)     #Hmm, this just didn't work that well. Find something better?
@@ -40,27 +54,27 @@ module("Atmospheric", 0, 1, 0) {
 		clamp(cc, 0, 1)
 	}
 	
-	air.has(pressure : property("Pressure"), [h Pa], "Air pressure") {
+	var(air.pressure, [h Pa], "Air pressure") {
 		mean_barometric_pressure(elev)
 	}
 	
-	air.has(s_vap : property("Saturation vapour pressure"), [h Pa]) {
+	var(air.s_vap, [h Pa]) {
 		saturation_vapor_pressure(temp)
 	}
 	
-	air.has(a_vap : property("Actual vapour pressure"), [h Pa]) {
+	var(air.a_vap, [h Pa]) {
 		(r_hum->[]) * s_vap
 	}
 	
-	air.has(a_hum : property("Actual specific humidity"), []) {
+	var(air.a_hum, []) {
 		specific_humidity_from_pressure(air.pressure, air.a_vap)
 	}
 	
-	air.has(dens : property("Density"), [k g, m-3], "Air density") {
+	var(air.dens, [k g, m-3], "Air density") {
 		air_density(temp, pressure, a_vap)
 	}
 	
-	air.has(lwd : property("Downwelling longwave radiation"), [W, m-2]) {
+	var(air.lwd, [W, m-2]) {
 		downwelling_longwave(air.temp, a_vap, cloud)
 	}
 }

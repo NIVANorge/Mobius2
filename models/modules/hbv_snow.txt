@@ -23,17 +23,20 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	snow  : quantity("Snow (water equivalents)")
 	water : quantity("Water")
 	
-	# note: We don't give a function body to compute temp and precip, and so if they are not re-declared in another module, they are assumed to be input series.
-	air.has(temp : property("Temperature"), [deg_c], "Air temperature")
-	air.has(precip : property("Precipitation"), [m m, day-1])
+	temp : property("Temperature")
+	precip : property("Precipitation")
 	
-	snow_box.has(snow,  [m m], "Snow depth") .initial { init_snow }
-	snow_box.has(water, [m m], "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
+	# note: We don't give a function body to compute temp and precip, and so if they are not re-declared in another module, they are assumed to be input series.
+	var(air.temp, [deg_c], "Air temperature")
+	var(air.precip, [m m, day-1])
+	
+	var(snow_box.snow,  [m m], "Snow depth") .initial { init_snow }
+	var(snow_box.water, [m m], "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
 	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {
 		#air.precip    if air.temp <= t_snow,
 		#0             otherwise
-		air.precip * (air.temp <= t_snow)  # Making use of auto-conversion of boolean->real
+		air.precip * (air.temp <= t_snow)  # Making use of auto-cast of boolean->real
 	}
 	
 	p_rain :
@@ -41,13 +44,6 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 		#air.precip    if air.temp > t_snow,
 		#0             otherwise
 		air.precip * (air.temp > t_snow)
-	}
-	
-	discrete_order() {
-		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this model.
-		melt
-		refreeze
-		melt_runoff
 	}
 	
 	melt :
@@ -58,4 +54,11 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 
 	melt_runoff :
 	flux(snow_box.water, out, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq)*1[day-1]  }
+	
+	discrete_order() {
+		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this model.
+		melt
+		refreeze
+		melt_runoff
+	}
 }
