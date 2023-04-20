@@ -108,7 +108,6 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	var(gw.water.tdp, [k g, k m-2], [m g, l-1], "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
 	
-	
 	var(river.water.tdp, [k g], [m g, l-1], "River TDP") .initial_conc { gw_tdp }
 	
 	flux(nowhere, river.water.tdp, [k g, day-1], "River effluent TDP") { eff_tdp }
@@ -133,8 +132,6 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	var(river.water.tp, [m g, l-1]) {
 		conc(tdp) + conc(pp)
 	}
-	
-	
 }
 
 

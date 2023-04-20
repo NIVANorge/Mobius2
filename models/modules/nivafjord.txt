@@ -96,11 +96,12 @@ module("NIVAFjord", 0, 0, 1) {
 	dens : property("Density") {
 		seawater_pot_dens(temp, salinity)
 	}
+	above_p : property("Above pressure")
 	
 	var(layer.water.dens, [k g, m-3], "Potential density")
 	
 	# TODO: When we make a change so that accessing vert.above does not zero out the entire equation, we won't need this one.
-	layer.water.has(above_p : property("Above pressure"), [Pa]) {    accum_pressure[vert.above]   }
+	var(layer.water.above_p, [Pa]) {    accum_pressure[vert.above]   }
 	
 	accum_pressure : property("Accumulated pressure")
 	ddens          : property("d(dens)")
@@ -136,7 +137,7 @@ module("NIVAFjord", 0, 0, 1) {
 		Es / Nfreq^2
 	}
 	
-	var(layer.water.wmix : property("Water mixing"), [k g, day-1]) {
+	var(layer.water.wmix, [k g, day-1]) {
 		K := Kt + Ks + Kw#+Kd
 		dens * A * K / dz ->>
 	}
@@ -171,7 +172,7 @@ module("NIVAFjord", 0, 0, 1) {
 		min(rem, potmix)
 	}
 	
-	layer.water.has(summix : property("Sum used wind mixing energy"), [J]) {
+	var(layer.water.summix, [J]) {
 		emix[vert.above] + summix[vert.above]
 	}
 	
@@ -397,7 +398,7 @@ module("NIVAFjord", 0, 0, 1) {
 	barotropic_bnd_u : property("Barotropic boundary flux")
 	horz_target : property("Target of horizontal flux")
 	
-	var(layer.w_bnd_ : property("Width to boundary"), [m]) { w_bnd	} # Since we cant aggregate() a parameter yet.
+	var(layer.w_bnd_, [m]) { w_bnd	} # Since we cant aggregate() a parameter yet.
 	
 	var(oair.A_bnd, [m 2]) { aggregate(layer.w_bnd_)*dz }
 	

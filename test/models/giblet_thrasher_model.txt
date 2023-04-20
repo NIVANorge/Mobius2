@@ -1,15 +1,13 @@
 
 model("Giblet-Thrasher test model") {
 	
-	md : module("Giblet-Thrasher", 1, 1, 0) {
+	module("Giblet-Thrasher", 1, 1, 0) {
 		
 		habitat : compartment("Habitat")
-		world   : compartment("World")
 		
 		load("stdlib/basic_math.txt", library("Response"))
 		
-		#TODO: should it be possible to specify a par_group to be global without creating a separate compartment for it?
-		world  .par_group("General parameters") {
+		par_group("General parameters") {
 			birth_time : par_int ("Giblet preferred birthday", [day], 120, 30, 335)
 			pmig       : par_real("Giblet propensity to migrate", [day-1], 0.05, 0, 1)
 			nomnom     : par_real("Predation rate", [day-1], 0.1)
@@ -33,10 +31,10 @@ model("Giblet-Thrasher test model") {
 		
 		meteor : property("Meteor strikes")
 		
-		var(habitat.pred, []) .initial { init_pred }
-		var(habitat.prey, [])   .initial { init_prey }
-		
 		var(habitat.meteor, [])
+		
+		var(habitat.pred, []) .initial { init_pred }
+		var(habitat.prey, []) .initial { init_prey }
 		
 		flux(nowhere, habitat.prey, [day-1], "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0[day], birth_time, birth_time+60.0[day], 0.6, 1, 0.6) }
 		

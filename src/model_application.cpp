@@ -264,7 +264,12 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 	}
 	
 	auto pgd = model->par_groups[group_id];
-	if(is_valid(pgd->component)) {  // It is invalid for the "System" par group or other global par groups
+	if(!is_valid(pgd->component)) {
+		if(!par_group->index_sets.empty()) {
+			par_group->loc.print_error_header();
+			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets since it is not tied to a component.");
+		}
+	} else {
 		auto comp  = model->components[pgd->component];
 		
 		auto &index_sets = par_group_index_sets[group_id];
@@ -274,8 +279,10 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 			
 			auto &name = data_set->index_sets[index_set_idx]->name;
 			auto index_set_id = model->index_sets.find_by_name(name);
-			if(!is_valid(index_set_id))
-				fatal_error(Mobius_Error::internal, "We got an invalid index set for a parameter group from the data set.");
+			if(!is_valid(index_set_id)) {
+				par_group->loc.print_error_header();
+				fatal_error("The index set \"", name, "\" does not exist in the model.");
+			}
 			
 			if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) == comp->index_sets.end()) {
 				par_group->loc.print_error_header();
@@ -323,10 +330,12 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		Entity_Registration<Reg_Type::parameter> *param;
 		if(!is_valid(par_id) || (param = model->parameters[par_id])->par_group != group_id) {
 			if(module_is_outdated) {
-				warning_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed.\n");
+				par.loc.print_warning_header();
+				warning_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
 			}
-			par.loc.print_error_header();
-			fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
+			//par.loc.print_error_header();
+			//fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
+			continue;
 		}
 		
 		if(param->decl_type != par.type) {
@@ -662,8 +671,9 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	for(auto &comp : connection.components) {
 		Entity_Id comp_id = model->components.find_by_name(comp.name);
 		if(!is_valid(comp_id)) {
-			comp.loc.print_error_header();
-			fatal_error("The component \"", comp.name, "\" has not been declared in the model.");
+			comp.loc.print_warning_header();
+			warning_print("The component \"", comp.name, "\" has not been declared in the model.\n");
+			continue;
 		}
 		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.loc);
 	}
@@ -681,6 +691,9 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			
 			auto comp_target = connection.components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
+			
+			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
+			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
 			
 			// Store useful information that allows us to prune away un-needed operations later.
 			auto target = app->find_connection_component(conn_id, target_comp_id);
@@ -717,6 +730,9 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			
 			auto comp_target = connection.components[arr.second.id];
 			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
+			
+			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
+			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
 			
 			auto &index_sets = app->find_connection_component(conn_id, source_comp_id)->index_sets;
 			std::vector<Index_T> indexes;
@@ -771,8 +787,10 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto &index_set : data_set->index_sets) {
 		auto id = model->index_sets.find_by_name(index_set.name);
 		if(!is_valid(id)) {
+			// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
 			index_set.loc.print_error_header();
 			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
+			//continue;
 		}
 		Entity_Id sub_indexed_to = invalid_entity_id;
 		if(index_set.sub_indexed_to >= 0)

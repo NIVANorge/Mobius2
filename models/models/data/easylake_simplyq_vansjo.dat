@@ -245,21 +245,21 @@ module("Atmospheric", 0, 1, 0) {
 }
 
 module("SimplyN", 0, 0, 2) {
-	par_group("Soil DIN universal params") {
+	par_group("DIN universal params") {
 		par_real("Soilwater DIN uptake rate at 20°C")
 		[ 0.00591332993567999 ]
 
 		par_real("Soilwater DIN uptake rate response to 10°C change (Q10)")
 		[ 1.7 ]
 
-		par_bool("Use growth curve?")
-		[ false ]
+		par_real("Groundwater DIN concentration")
+		[ 0.9 ]
+		
+		par_real("Reach denitrification rate at 20°C")
+		[ 2.17988143578024e-27 ]
 
-		par_int("Day of highest soilwater DIN uptake")
-		[ 200 ]
-
-		par_int("Length of interval in which 95% of DIN uptake occurs")
-		[ 200 ]
+		par_real("(Q10) Reach denitrification rate response to 10°C change in temperature")
+		[ 1.8 ]
 	}
 
 	par_group("Soil DIN params varying by land use") [ "Landscape units" ] {
@@ -268,37 +268,12 @@ module("SimplyN", 0, 0, 2) {
 
 		par_real("Net annual DIN input to soil")
 		[ 180.05062460061 22 ]
-
-		par_int("Fertilization start day")
-		[ 60 60 ]
-
-		par_int("Fertilization end day")
-		[ 120 120 ]
-
-		par_real("Daily DIN fertilizer, manure & deposition inputs")
-		[ 0 0 ]
+		
 	}
 
-	par_group("DIN groundwater params") {
-		par_real("Groundwater DIN concentration")
-		[ 0.9 ]
 
-		par_bool("Constant groundwater DIN concentration?")
-		[ true ]
 
-		par_real("Groundwater retention volume")
-		[ 0 ]
-	}
-
-	par_group("DIN reach universal params") {
-		par_real("Reach denitrification rate at 20°C")
-		[ 2.17988143578024e-27 ]
-
-		par_real("(Q10) Reach denitrification rate response to 10°C change in temperature")
-		[ 1.8 ]
-	}
-
-	par_group("DIN reach") [ "Subcatchment" ] {
+	par_group("River DIN") [ "Subcatchment" ] {
 		par_real("Reach effluent DIN inputs")
 		[ 0 0 0 0 ]
 	}

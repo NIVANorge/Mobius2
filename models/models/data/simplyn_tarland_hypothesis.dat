@@ -14,10 +14,10 @@ series("tarland_series.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
-	[ 2004-01-01 ]
+	[ 2003-01-01 ]
 
 	par_datetime("End date")
-	[ 2005-05-30 ]
+	[ 2006-05-30 ]
 }
 
 par_group("Land cover") [ "Landscape units" ] {
@@ -33,7 +33,7 @@ par_group("Catchment data") {
 module("HBVSnow", 1, 0, 0) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
-		[ 2.74 ]
+		[ 2.73981801020736 ]
 
 		par_real("Temperature at which precip falls as snow")
 		[ 0 ]
@@ -55,17 +55,17 @@ module("HBVSnow", 1, 0, 0) {
 module("Degree-day PET", 1, 0, 0) {
 	par_group("Potential evapotranspiration") {
 		par_real("Deegree-day factor for evapotranspiration")
-		[ 0.15 ]
+		[ 0.149358920503212 ]
 
 		par_real("Minimal temperature for evapotranspiration")
-		[ -1.3 ]
+		[ -1.2969317784897 ]
 	}
 }
 
 module("SimplyQ land", 0, 5, 0) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
-		[ 0.7 ]
+		[ 0.589153673804288 ]
 
 		par_real("Quick flow inflection point")
 		[ 1500 ]
@@ -76,12 +76,12 @@ module("SimplyQ land", 0, 5, 0) {
 		[ 290 290 ]
 
 		par_real("Soil water time constant")
-		[ 2 10 ]
+		[ 4.99806553900706 15.9989946805575 ]
 	}
 
 	par_group("Groundwater") {
 		par_real("Groundwater time constant")
-		[ 70 ]
+		[ 85.0012675182472 ]
 	}
 }
 
@@ -103,34 +103,31 @@ module("SimplyQ river", 0, 0, 1) {
 
 module("Simply soil temperature", 0, 0, 0) {
 	par_group("Soil temperature land") [ "Landscape units" ] {
-		par_real("Soil thermal conductivity / specific heat capacity") [
-			0.4 0.4 
-		]
+		par_real("Soil thermal conductivity / specific heat capacity")
+		[ 0.4 0.4 ]
 	}
 
 	par_group("Soil temperature general") {
-		par_real("Snow depth / soil temperature factor") [
-			-0.2
-		]
+		par_real("Snow depth / soil temperature factor")
+		[ -0.2 ]
 
-		par_real("Initial soil temperature") [
-			10 
-		]
+		par_real("Initial soil temperature")
+		[ 10 ]
 	}
 }
 
 module("SimplyN", 0, 0, 3) {
 	par_group("River DIN") [ "Subcatchment" ] {
 		par_real("Reach effluent DIN inputs")
-		[ 2.75 ]
+		[ 2.75053333354414 ]
 	}
 
 	par_group("DIN universal params") {
 		par_real("Soilwater DIN uptake rate at 20°C")
-		[ 0.011 ]
+		[ 0.0154538410320912 ]
 
 		par_real("Soilwater DIN uptake rate response to 10°C change (Q10)")
-		[ 2.88 ]
+		[ 2.87882721942756 ]
 
 		par_bool("Use growth curve?")
 		[ false ]
@@ -151,7 +148,7 @@ module("SimplyN", 0, 0, 3) {
 		[ 0 ]
 
 		par_real("Reach denitrification rate at 20°C")
-		[ 2 ]
+		[ 1.5 ]
 
 		par_real("(Q10) Reach denitrification rate response to 10°C change in temperature")
 		[ 2.9 ]
@@ -162,7 +159,7 @@ module("SimplyN", 0, 0, 3) {
 		[ 3.5 0.5 ]
 
 		par_real("Net annual DIN input to soil")
-		[ 146.6 6.6 ]
+		[ 60.0037895810184 89.9948513937985 ]
 
 		par_int("Fertilization start day")
 		[ 60 60 ]
@@ -172,6 +169,15 @@ module("SimplyN", 0, 0, 3) {
 
 		par_real("Daily DIN fertilizer, manure & deposition inputs")
 		[ 0 0 ]
+
+		par_int("Fertilizer addition day")
+		[ 230 60 ]
+
+		par_real("Fertilizer N")
+		[ 35.0025263053982 0 ]
+
+		par_real("Fertilizer DIN release")
+		[ 0.0195678979066574 0 ]
 	}
 }
 

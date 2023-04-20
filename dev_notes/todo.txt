@@ -98,10 +98,16 @@
 				
 		Let / always be a real division, and maybe have a separate operator // to force integer division.
 		
-
+		Make it easier to load a sub-model of a larger model with a data set that was declared for the larger model.
+			Needs for instance to handle additional input series that are indexed over index sets that don't appear in the sub-model.
+			
 	
 	*** Low-pri ****
 	
+		It doesn't always warn correctly about parameters in the parameter file that are not registered in the model..
+		
+		Deleting stuff from the parameter setup in Mobiview parameter setup is broken.
+			Should be fixed now.
 	
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
 		
@@ -144,7 +150,7 @@
 				
 				Optimizer callback doesn't update additional plot view.
 				
-				Additional plot view doesn't like f5 (if the var_id's were changed).
+				Additional plot view doesn't like reload (if the var_id's were changed).
 					In general allow for serialization of plot view, then use that for all the plots.
 			
 			Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.

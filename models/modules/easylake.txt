@@ -21,7 +21,6 @@ TODO: description
 		z_outflow : par_real("Lake depth at which outflow is 0", [m], 10, 0.1, 1000)
 		z_epi     : par_real("Initial epilimnion thickness", [m], 2, 0.1, 10)
 		dz_epi    : par_real("Epilimnion thickening rate", [m, day-1], 0.01)
-		#th_bank   : par_real("Lake shore slope", [], 0.4, 0, 4)
 		rate_l    : par_real("Rating function linear component", [m 2, s-1], 10, 0, 1000)
 		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
 		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
@@ -252,7 +251,7 @@ TODO: description
 				factor := 1[m] / (10[m] + ice)
 				ice_t := (factor * ice_temp + air.temp) / (1 + factor)   # Approximation of ice temperature. TODO: separate state var?
 				lambda_ice * (ice_temp->[K] - ice_t->[K]) / ice
-			}                                             if air.temp <= ice_temp & indicator,
+			}                                             if (air.temp <= ice_temp) & indicator,
 			-(1-albedo)*air.g_rad*attn                    if indicator,  
 			0                                             otherwise
 		}) / (rho_ice * l_freeze) ->[m, day-1]
@@ -267,8 +266,7 @@ TODO: description
 	
 	var(epi.indicator, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
 	
-	
-	# NOTE: This moves an equal body of water up and down, which does not impact the wate volume, but does mix dissolved substances.
+	# NOTE: This moves an equal body of water up and down, which does not impact the water volume, but does mix dissolved substances.
 	
 	mix_down :
 	flux(epi.water, hyp.water, [m 3, day-1], "Mixing down") {

@@ -1,5 +1,5 @@
 
-module("SimplyN", 0, 0, 2) {
+module("SimplyN", 0, 0, 3) {
 """
 Not finished, just for testing some systems.
 """
@@ -15,49 +15,44 @@ Not finished, just for testing some systems.
 	river : compartment("River")
 
 	water :  quantity("Water")
-	din    : quantity("Dissolved inorganic nitrogen")
+	din   : quantity("Dissolved inorganic nitrogen")
 
+	sn    : quantity("Soild fertilizer N")
 	#----------------------------------------------------------------
 	# Define parameter groups and parameters
 	
-	soil.par_group("Soil DIN universal params") {
-		din_immob_rate:     par_real("Soilwater DIN uptake rate at 20°C",
-							[m, day-1], 0, 0, 10)
-		din_immob_q10:      par_real("Soilwater DIN uptake rate response to 10°C change (Q10)",
+	par_group("DIN universal params") {
+		din_immob_rate   : par_real("Soilwater DIN uptake rate at 20°C",
+							[m, day-1], 0, 0, 0.05)
+		din_immob_q10    : par_real("Soilwater DIN uptake rate response to 10°C change (Q10)",
 						    [], 1.0, 1.0, 5.0)
-		use_growth_curve:   par_bool("Use growth curve?", false)
-		day_highest_growth: par_int("Day of highest soilwater DIN uptake", [day], 200, 1, 365)
-		growth_95pc		:   par_int("Length of interval in which 95% of DIN uptake occurs",
-			                [day], 200, 0, 365)
+		#use_growth_curve:   par_bool("Use growth curve?", false)
+		#day_highest_growth: par_int("Day of highest soilwater DIN uptake", [day], 200, 1, 365)
+		#growth_95pc		:   par_int("Length of interval in which 95% of DIN uptake occurs",
+		#		                [day], 200, 0, 365)
+	
+		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0)
+		#gw_din_constant:  par_bool("Constant groundwater DIN concentration?", true)
+		#gw_retention_vol: par_real("Groundwater retention volume", [m m], 0.0, 0.0, 2000.0)
+		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day -1], 0.0, 0.0, 10.0)
+		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}
 	
 	soil.par_group("Soil DIN params varying by land use")	{
-		sw_din_init:  par_real("Initial soilwater DIN concentration", [m g, l -1], 0.0, 0.0, 10.0)
-		net_annual_N_input: par_real("Net annual DIN input to soil", [k g, ha-1, year-1],
+		sw_din_init        : par_real("Initial soilwater DIN concentration", [m g, l -1], 0.0, 0.0, 10.0)
+		net_annual_N_input : par_real("Net annual DIN input to soil", [k g, ha-1, year-1],
 							0.0, 0.0, 1000.0)
-		fert_startday:	 par_int("Fertilization start day", [day], 60, 1, 365)
-		fert_endday:	 par_int("Fertilization end day", [day], 120, 1, 365)
-	    daily_din_input: par_real("Daily DIN fertilizer, manure & deposition inputs",
-						 [k g, ha-1, day-1], 0.0, 0.0, 100.0)
+		fert_day           : par_int("Fertilizer addition day", [day], 60)
+		fert_n             : par_real("Fertilizer N", [k g, ha-1], 0, 0, 100)
+		fert_rel           : par_real("Fertilizer DIN release", [day-1], 0, 0, 1)
+		#fert_startday:	 par_int("Fertilization start day", [day], 60, 1, 365)
+		#fert_endday:	 par_int("Fertilization end day", [day], 120, 1, 365)
+	    #daily_din_input: par_real("Daily DIN fertilizer, manure & deposition inputs",
+		#				 [k g, ha-1, day-1], 0.0, 0.0, 100.0)
 	}
 	
-	par_group("DIN groundwater params")	{
-		gw_din_conc:	  par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0)
-		gw_din_constant:  par_bool("Constant groundwater DIN concentration?", true)
-		gw_retention_vol: par_real("Groundwater retention volume", [m m], 0.0, 0.0, 2000.0)
-	}
-		
-	river.par_group("DIN reach universal params") {
-		reach_denit_rate: par_real("Reach denitrification rate at 20°C", [day -1],
-						  0.0, 0.0, 10.0)
-						  # NOTE: m3/day was the original unit. Seems weird.
-						  # Have put in something that looks intuitive to me, needs looking
-						  # into.
-		reach_denit_q10:  par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
-	}
-	
-	river.par_group("DIN reach") {
-		eff_din:	par_real("Reach effluent DIN inputs", [k g, day -1], 0.0, 0.0, 100.0)		
+	river.par_group("River DIN") {
+		eff_din : par_real("Reach effluent DIN inputs", [k g, day -1], 0.0, 0.0, 100.0)		
 	}
 	
 	#----------------------------------------------------------------
@@ -72,15 +67,24 @@ Not finished, just for testing some systems.
 	# Don't need to declare soil.temp here, but do need to remember to include the
 	# soil temperature module so that soil temp is used in the context of soil.water
 	
-	var(soil.water.din, [k g, k m -2], [m g, l-1], "Soil water DIN") .initial_conc {sw_din_init}
+	var(soil.sn, [k g, k m-2], "Soil solid fertilizer N")
 	
-	var(gw.water.din, [k g, k m -2], [m g, l-1], "Groundwater DIN") .initial_conc {gw_din_conc} .override_conc {
-		gw_din_conc   if gw_din_constant,
-		no_override   otherwise
-		# To do: add another clause with gw retention vol
+	flux(nowhere, soil.sn, [k g, k m-2, day-1], "Fertilizer N addition") {
+		fert_n*1[day-1]->>   if time.day_of_year = fert_day,
+		0                    otherwise
 	}
 	
-	#var(river.water.temp, [deg_c], "River water temperature") { max(0.0, air.temp) }
+	flux(soil.sn, soil.water.din, [k g, k m-2, day-1], "Fertilizer DIN release") {
+		soil.sn * fert_rel
+	}
+	
+	var(soil.water.din, [k g, k m -2], [m g, l-1], "Soil water DIN") .initial_conc { sw_din_init }
+	
+	var(gw.water.din, [k g, k m -2], [m g, l-1], "Groundwater DIN") .initial_conc { gw_din_conc } .override_conc {
+		#gw_din_conc   if gw_din_constant,
+		#no_override   otherwise
+		gw_din_conc
+	}
 	
 	var(river.water.din, [k g], [m g, l-1], "River water DIN") .initial_conc { conc(gw.water.din) }
 	

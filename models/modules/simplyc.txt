@@ -59,6 +59,6 @@ Not finished, just for testing some systems.
 	gwmin :
 	flux(gw.water.oc, nowhere, [k g, k m-2, day-1], "Deep soil DOC mineralization") {
 		rate := hl_to_rate(gwdochl)
-		gw.water.oc * rate
+		oc * rate
 	}
 }

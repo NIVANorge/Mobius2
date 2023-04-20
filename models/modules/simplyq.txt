@@ -48,12 +48,12 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	evap :
 	flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {   
-		s_response(water, 0.5*fc, fc, 0, pet)
+		s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
 	}
 	
 	var(soil.water.flow, [m m, day -1], "Soil water flow") {
 		rate := (water - fc)/tc_s
-		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the rate on between water volumes of fc and 1.01*fc
+		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the flow rate on between water volumes of fc and 1.01*fc
 	}
 	
 	soil_runoff :

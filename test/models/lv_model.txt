@@ -13,7 +13,6 @@ model("Predator-prey test model") {
 			nomnom     : par_real("Predation rate", [day -1], 0.1)
 			pred_birth : par_real("Predator birth rate", [day -1], 0.025)
 			pred_death : par_real("Predator death rate", [day -1], 0.05)
-			#test : par_real("Test", [10, day], 1)
 		}
 		
 		pred : quantity("Predators")
@@ -22,7 +21,7 @@ model("Predator-prey test model") {
 		var(habitat.pred, []) .initial { init_pred }
 		var(habitat.prey, []) .initial { init_prey }
 		
-		flux(nowhere, habitat.prey, [day-1], "Prey birth")     {  prey * prey_birth  }          # NOTE: we can omit writing habitat.prey since the compartment can be inferred from the flux declaration
+		flux(nowhere, habitat.prey, [day-1], "Prey birth")     {  prey * prey_birth  }  # NOTE: we can omit writing habitat.prey since the compartment can be inferred from the declaration
 		
 		flux(habitat.prey, nowhere, [day-1], "Predation")      {  nomnom * prey * pred  }
 		

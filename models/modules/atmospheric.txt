@@ -15,9 +15,9 @@ module("Atmospheric", 0, 1, 0) {
 		elev     : par_real("Elevation", [m], 0, 0, 8887)
 	}
 	
-	temp     : property("Temperature")
-	r_hum    : property("Relative humidity")
-	wind     : property("Wind speed")
+	temp             : property("Temperature")
+	r_hum            : property("Relative humidity")
+	wind             : property("Wind speed")
 	
 	g_rad_cloud_free : property("Solar radiation on a clear sky day")
 	g_rad            : property("Global radiation")
