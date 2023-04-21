@@ -2,7 +2,7 @@
 
 model("Wave") {
 	
-	module("Wave", 1, 0, 0) {
+	module("Wave", version(1, 0, 0)) {
 		
 		layer.par_group("Layers") {
 			in_amp  : par_real("Initial amplitude", [Pa], 0)

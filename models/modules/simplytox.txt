@@ -1,7 +1,7 @@
 
 
 
-module("SimplyTox", 0, 0, 1) {
+module("SimplyTox", version(0, 0, 1)) {
 """
 Testing functionality for now.
 """

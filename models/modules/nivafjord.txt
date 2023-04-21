@@ -1,5 +1,5 @@
 
-module("NIVAFjord", 0, 0, 1) {
+module("NIVAFjord", version(0, 0, 1)) {
 
 	load("stdlib/basic_math.txt", library("Basic"), library("Response"))
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Thermodynamics"))

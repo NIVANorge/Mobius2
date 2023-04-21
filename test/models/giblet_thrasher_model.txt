@@ -1,7 +1,7 @@
 
 model("Giblet-Thrasher test model") {
 	
-	module("Giblet-Thrasher", 1, 1, 0) {
+	module("Giblet-Thrasher", version(1, 1, 0)) {
 		
 		load("stdlib/basic_math.txt", library("Response"))
 		

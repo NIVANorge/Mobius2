@@ -5,7 +5,7 @@ model("EasyLake-SimplyCNP") {
 	extend("simplyn_model.txt")
 	extend("simplyp_model.txt")
 	
-	module("EasyLake-C", 0, 0, 1) {
+	module("EasyLake-C", version(0, 0, 1)) {
 		
 		sw_rad : property("Shortwave radiation")
 		
@@ -30,7 +30,7 @@ model("EasyLake-SimplyCNP") {
 		# TODO: Some other sinks of DOC (otherwise hypolimnion conc is constant between mixing events, for instance.
 	}
 	
-	module("EasyLake-N", 0, 0, 1) {
+	module("EasyLake-N", version(0, 0, 1)) {
 	
 		load("stdlib/basic_math.txt", library("Rates"))
 
@@ -57,7 +57,7 @@ model("EasyLake-SimplyCNP") {
 		}
 	}
 	
-	module("EasyLake-P", 0, 0, 1) {
+	module("EasyLake-P", version(0, 0, 1)) {
 
 		epi.par_group("Lake P") {
 			init_tdp : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)

@@ -1,7 +1,7 @@
 
 model("Predator-prey test model") {
 	
-	md : module("Predator-prey", 1, 1, 0) {
+	md : module("Predator-prey", version(1, 1, 0)) {
 		
 		habitat.par_group("Habitat parameters") {
 			init_pred : par_real("Initial predators", [], 1)

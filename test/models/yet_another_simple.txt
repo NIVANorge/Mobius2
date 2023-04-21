@@ -1,7 +1,7 @@
 
 model("Yet another simple") {
 
-	module("So very very simple", 0, 0, 1) {
+	module("So very very simple", version(0, 0, 1)) {
 		
 		a : compartment("A")
 		

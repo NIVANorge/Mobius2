@@ -1,6 +1,6 @@
 
 
-module("HBVSnow", 1,0,0) {
+module("HBVSnow", version(1, 0, 0)) {
 """
 This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 

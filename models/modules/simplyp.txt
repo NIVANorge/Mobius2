@@ -1,5 +1,5 @@
 
-module("SimplyP", 0, 5, 0) {
+module("SimplyP", version(0, 5, 0)) {
 """
 SimplyP is a parsimonious phosphorus model. It was originally implemented in Python and published as
 

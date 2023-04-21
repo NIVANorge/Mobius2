@@ -399,7 +399,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			Decl_AST *decl = parse_decl(&stream);
 			
 			if(decl->type == Decl_Type::module) {
-				match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
+				match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::version}});
 			} else if (decl->type == Decl_Type::library) {
 				match_declaration(decl, {{Token_Type::quoted_string}});   //TODO: Should just have versions here too maybe..
 			} else {
@@ -1176,11 +1176,16 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 	if(module->has_been_processed) return;
 	
 	auto decl = module->decl;
-	match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
+	//match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
+	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::version}});
 	
-	module->version.major        = single_arg(decl, 1)->val_int;
-	module->version.minor        = single_arg(decl, 2)->val_int;
-	module->version.revision     = single_arg(decl, 3)->val_int;
+	auto version_decl = decl->args[1]->decl;
+	
+	match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}});
+	
+	module->version.major        = single_arg(version_decl, 0)->val_int;
+	module->version.minor        = single_arg(version_decl, 1)->val_int;
+	module->version.revision     = single_arg(version_decl, 2)->val_int;
 	
 	module->scope.import(model->global_scope);
 	

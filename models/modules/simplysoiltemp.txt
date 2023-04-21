@@ -1,5 +1,5 @@
 
-module("Simply soil temperature", 0, 0, 0) {
+module("Simply soil temperature", version(0, 1, 0)) {
 """
 TODO: description
 NOTE: not finished, just for testing some systems

@@ -1,6 +1,6 @@
 
 
-module("SimplyQ land", 0, 5, 0) {
+module("SimplyQ land", version(0, 5, 0)) {
 """
 This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
 
@@ -66,7 +66,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 }
 
 
-module("SimplyQ river", 0, 0, 1) {
+module("SimplyQ river", version(0, 0, 1)) {
 """
 The river part of the SimplyQ module.
 """
@@ -101,7 +101,7 @@ The river part of the SimplyQ module.
 	flux(river.water, out, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
 }
 
-module("SimplyQ river trapezoid", 0, 0, 1) {
+module("SimplyQ river trapezoid", version(0, 0, 1)) {
 """
 Alternative version of the SimplyQ river module assuming trapezoid cross-section of the river.
 """

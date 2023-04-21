@@ -1,6 +1,6 @@
 
 
-module("EasyLake", 0, 1, 0) {
+module("EasyLake", version(0, 1, 0)) {
 """
 TODO: description
 """

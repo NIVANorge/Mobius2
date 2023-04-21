@@ -2,7 +2,7 @@
 
 model("Diffusion") {
 	
-	module("Diffusion", 1, 0, 0) {
+	module("Diffusion", version(1, 0, 0)) {
 		
 		layer.par_group("Layers") {
 			in_o2   : par_real("initial O²", [m g, c m-2], 0)

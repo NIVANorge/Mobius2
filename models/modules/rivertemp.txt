@@ -1,6 +1,6 @@
 
 
-module("RiverTemperature", 0, 1, 0) {
+module("RiverTemperature", version(0, 1, 0)) {
 
 
 	load("stdlib/physiochemistry.txt", library("Water utils"))

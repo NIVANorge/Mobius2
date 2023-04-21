@@ -105,13 +105,13 @@
 	# In this case it makes sense to separate out the gw in a separate module also.
 	
 	module("SimplyQ soil", version(1, 0, 0),
-		soil  : compartment(),
-		gw    : compartment(),
-		water : quantity(), 
-		pet   : property(),
+		soil  : compartment,
+		gw    : compartment,
+		water : quantity, 
+		pet   : property,
 		# could also have e.g. a_catch : par_real(),
-		soil_runoff : var(), 
-		gw_runoff : var()) {
+		soil_target : loc, 
+		gw_target : loc) {
 		
 		soil.par_group("Hydrology") {
 			
@@ -119,7 +119,7 @@
 		
 		var(soil.water, [m m], "Soil water volume") .initial { fc }
 		
-		flux(soil.water, soil_runoff, [m m, day-1], "Soil runoff") {
+		flux(soil.water, soil_target, [m m, day-1], "Soil runoff") {
 		}
 		
 		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {          # 'out' now means the same as 'nowhere' did before, while there is no new 'out'
@@ -129,14 +129,16 @@
 	# How we would specify no_carry is still a bit in the air. Probably we have a  .no_carry{ } body on the flux. Then the arguments to that are passed to the module. Need a special "any" symbol for it as in .no_carry { any } .
 	
 	module("HBV Snow", version(1, 0, 0),
-		air_temp, precip, water_to) {        # Input series are only (allowed to be) specified in the model, we could pass in the location of them as arguments
+		air : compartment,
+		precip : property,
+		temp : property,
+		water_to : loc) {
 		
 		snow_box : compartment("Snow box")     # If nothing tied to it is exported, we could just declare it locally (although it is used in soil.temp, so we can't actually do it in this example)
 		#...
 		
 		flux(out, water_to, [m m, day-1], "Precipitation falling as rain") {
-			precip if air_temp >= 0,
-			0      otherwise
+			precip * (air_temp >= 0)
 		}
 		
 		

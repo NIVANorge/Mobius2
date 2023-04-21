@@ -1,5 +1,5 @@
 
-module("Degree-day PET", 1, 0, 0) {
+module("Degree-day PET", version(1, 0, 0)) {
 "This is a very simple potential evapotranspiration model using a linear relationship between PET and air temperature."
 	
 	air       : compartment("Atmosphere")
@@ -17,7 +17,7 @@ module("Degree-day PET", 1, 0, 0) {
 }
 
 
-module("Penman-Monteith PET", 1, 0, 0) {
+module("Penman-Monteith PET", version(1, 0, 0)) {
 	
 	load("stdlib/atmospheric.txt", library("Meteorology"))
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))

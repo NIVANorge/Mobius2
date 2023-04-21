@@ -2,7 +2,7 @@
 
 model("Wave2D") {
 	
-	module("Wave2D", 1, 0, 0) {
+	module("Wave2D", version(1, 0, 0)) {
 		
 		cell.par_group("Layers") {
 			in_amp  : par_real("Initial amplitude", [m], 0)

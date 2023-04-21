@@ -2,7 +2,7 @@
 
 model("Another simple") {
 
-	sp : module("So simple", 1, 0, 0) {
+	sp : module("So simple", version(1, 0, 0)) {
 	
 		load("stdlib/basic_math.txt", library("Response"))
 	
