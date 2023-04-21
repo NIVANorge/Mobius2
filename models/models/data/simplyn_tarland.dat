@@ -132,23 +132,8 @@ module("SimplyN", 0, 0, 3) {
 		par_real("Soilwater DIN uptake rate response to 10°C change (Q10)")
 		[ 2.88 ]
 
-		par_bool("Use growth curve?")
-		[ false ]
-
-		par_int("Day of highest soilwater DIN uptake")
-		[ 200 ]
-
-		par_int("Length of interval in which 95% of DIN uptake occurs")
-		[ 200 ]
-
 		par_real("Groundwater DIN concentration")
 		[ 3.4 ]
-
-		par_bool("Constant groundwater DIN concentration?")
-		[ true ]
-
-		par_real("Groundwater retention volume")
-		[ 0 ]
 
 		par_real("Reach denitrification rate at 20°C")
 		[ 2 ]
@@ -163,15 +148,6 @@ module("SimplyN", 0, 0, 3) {
 
 		par_real("Net annual DIN input to soil")
 		[ 146.6 6.6 ]
-
-		par_int("Fertilization start day")
-		[ 60 60 ]
-
-		par_int("Fertilization end day")
-		[ 120 120 ]
-
-		par_real("Daily DIN fertilizer, manure & deposition inputs")
-		[ 0 0 ]
 	}
 }
 

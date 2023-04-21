@@ -6,13 +6,9 @@ model("Another simple") {
 	
 		load("stdlib/basic_math.txt", library("Response"))
 	
-		a : compartment("A")
-		
 		par_group("Pars") {
 			fc : par_real("Rate", [], 10)
 		}
-		
-		q : quantity("Q")
 		
 		var(a.q, []) .initial { 10 }
 		

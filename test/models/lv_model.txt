@@ -3,8 +3,6 @@ model("Predator-prey test model") {
 	
 	md : module("Predator-prey", 1, 1, 0) {
 		
-		habitat : compartment("Habitat")
-		
 		habitat.par_group("Habitat parameters") {
 			init_pred : par_real("Initial predators", [], 1)
 			init_prey : par_real("Initial prey", [], 1)
@@ -14,9 +12,6 @@ model("Predator-prey test model") {
 			pred_birth : par_real("Predator birth rate", [day -1], 0.025)
 			pred_death : par_real("Predator death rate", [day -1], 0.05)
 		}
-		
-		pred : quantity("Predators")
-		prey : quantity("Prey")
 		
 		var(habitat.pred, []) .initial { init_pred }
 		var(habitat.prey, []) .initial { init_prey }

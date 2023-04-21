@@ -3,8 +3,6 @@ model("Giblet-Thrasher test model") {
 	
 	module("Giblet-Thrasher", 1, 1, 0) {
 		
-		habitat : compartment("Habitat")
-		
 		load("stdlib/basic_math.txt", library("Response"))
 		
 		par_group("General parameters") {
@@ -25,9 +23,6 @@ model("Giblet-Thrasher test model") {
 		habitat.par_group("Migration weights") {
 			mig_wt : par_real("Migration weight", [], 0.1, 0, 1)
 		}
-		
-		pred : quantity("Thrashers")
-		prey : quantity("Giblets")
 		
 		meteor : property("Meteor strikes")
 		

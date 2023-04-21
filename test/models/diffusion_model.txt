@@ -4,11 +4,6 @@ model("Diffusion") {
 	
 	module("Diffusion", 1, 0, 0) {
 		
-		botcomp : compartment("Bottom")
-		layer   : compartment("Layer")
-		
-		o2    : quantity("O²")
-		
 		layer.par_group("Layers") {
 			in_o2   : par_real("initial O²", [m g, c m-2], 0)
 			dc      : par_real("Diffusion coeff", [c m, day-1], 0.001)
@@ -43,8 +38,6 @@ model("Diffusion") {
 			tc*d*(o2 - o2[below])/z ->>
 		}
 	}
-	
-	
 	
 	layer_index : index_set("Layer index")
 	branch_index : index_set("Branch index")

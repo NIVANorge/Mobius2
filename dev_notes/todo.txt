@@ -76,6 +76,8 @@
 			
 			Dynamic module choice (based on data set)
 			
+			With inlined modules 'seeing' their parent scope it is not that nice that extend_model puts a lot of stuff into that scope.
+			
 		
 		Check for conflicting declarations of variables (unit, name).
 		
@@ -96,18 +98,13 @@
 				flux(nowhere, layer.water[connection])
 				? Although how would you specify that in the data file??
 				
-		Let / always be a real division, and maybe have a separate operator // to force integer division.
+		Let / always be a real division, and maybe have a separate operator // (or similar) to force integer division.
 		
 		Make it easier to load a sub-model of a larger model with a data set that was declared for the larger model.
 			Needs for instance to handle additional input series that are indexed over index sets that don't appear in the sub-model.
 			
 	
 	*** Low-pri ****
-	
-		It doesn't always warn correctly about parameters in the parameter file that are not registered in the model..
-		
-		Deleting stuff from the parameter setup in Mobiview parameter setup is broken.
-			Should be fixed now.
 	
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
 		
@@ -365,3 +362,6 @@
 	Hope for reply on one of these 
 		https://discourse.llvm.org/t/how-to-generate-ir-so-that-the-loop-vectorizer-can-vectorize-it/69096/2
 		https://stackoverflow.com/questions/75674759/llvm-loop-vectorizer-does-not-vectorize-my-ir?noredirect=1#comment133504571_75674759
+		
+	Deleting stuff from the parameter setup in Mobiview parameter setup is broken.
+			Should be fixed now.

@@ -1627,6 +1627,8 @@ load_model(String_View file_name, String_View config) {
 					module->decl = child;
 					module->scope.parent_id = module_id;
 					module->normalized_path = model_path;
+					auto load_loc = single_arg(child, 0)->source_loc;
+					module->scope.import(model->model_decl_scope, &load_loc);
 					
 					process_module_declaration(model, module_id);
 				} break;

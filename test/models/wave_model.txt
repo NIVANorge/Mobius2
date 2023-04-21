@@ -4,11 +4,6 @@ model("Wave") {
 	
 	module("Wave", 1, 0, 0) {
 		
-		layer : compartment("Layer")
-		
-		amp   : quantity("amplitude")
-		mom   : quantity("momentum")
-		
 		layer.par_group("Layers") {
 			in_amp  : par_real("Initial amplitude", [Pa], 0)
 			c       : par_real("Wave speed", [day-1], 0.001)

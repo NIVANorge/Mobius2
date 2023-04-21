@@ -315,7 +315,6 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	
 	if(!model->get_scope(module_id)->has(group_id)) {
 		par_group_info->loc.print_error_header();
-		// TODO: oops module->module_name is not the right thing to use for the global module (unless we set that name to something sensible?).
 		if(is_valid(module_id))
 			fatal_error("The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_info->name, "\".");
 			//TODO: say what file the module was declared in?
@@ -332,9 +331,10 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 			if(module_is_outdated) {
 				par.loc.print_warning_header();
 				warning_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
+			} else {
+				par.loc.print_error_header();
+				fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
 			}
-			//par.loc.print_error_header();
-			//fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
 			continue;
 		}
 		
@@ -343,8 +343,8 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 			fatal_error("The parameter \"", par.name, "\" should be of type ", name(param->decl_type), ", not of type ", name(par.type), ".");
 		}
 		
-		// TODO: just print a warning and fill in default values (or trim off values) ?
-		//s64 expect_count = app->parameter_structure.instance_count(par_id);
+		// NOTE: This should be tested for somewhere else already, so this is just a safety
+		// tripwire.
 		s64 expect_count = app->active_instance_count(app->parameter_structure.get_index_sets(par_id));
 		if(expect_count != par.get_count())
 			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly).");

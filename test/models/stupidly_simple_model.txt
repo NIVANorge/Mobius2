@@ -3,9 +3,6 @@ model("Simple test model") {
 	
 	md : module("So very simple", 1, 1, 0) {
 		
-		a : compartment("A")
-		q : quantity("Q")
-		
 		var(a.q, [], "A Q") .initial { ia }
 		
 		q.par_group("Init pars") {
