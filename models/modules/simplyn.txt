@@ -78,15 +78,15 @@ Not finished, just for testing some systems.
 		soil.sn * fert_rel
 	}
 	
-	var(soil.water.din, [k g, k m -2], [m g, l-1], "Soil water DIN") .initial_conc { sw_din_init }
+	var(soil.water.din, [k g, k m -2], [m g, l-1], "Soil water DIN") @initial_conc { sw_din_init }
 	
-	var(gw.water.din, [k g, k m -2], [m g, l-1], "Groundwater DIN") .initial_conc { gw_din_conc } .override_conc {
+	var(gw.water.din, [k g, k m -2], [m g, l-1], "Groundwater DIN") @initial_conc { gw_din_conc } @override_conc {
 		#gw_din_conc   if gw_din_constant,
 		#no_override   otherwise
 		gw_din_conc
 	}
 	
-	var(river.water.din, [k g], [m g, l-1], "River water DIN") .initial_conc { conc(gw.water.din) }
+	var(river.water.din, [k g], [m g, l-1], "River water DIN") @initial_conc { conc(gw.water.din) }
 	
 	# Not sure what to do with this growth curve. Put it into the SW DIN uptake flux calc?
 	# or have it separate? In which case, what is it a property of?

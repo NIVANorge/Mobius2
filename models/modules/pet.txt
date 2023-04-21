@@ -76,7 +76,7 @@ module("Penman-Monteith PET", version(1, 0, 0)) {
 		# Modified psychrometric constant
 		psy_corr := {
 			psy                             if pt,
-			psy * (1 + r_s*u/r_a_w)  otherwise
+			psy * (1 + r_s*u/r_a_w)         otherwise
 		}
 		dp := (air.s_vap - air.a_vap) -> [k Pa]
 		pressure_term := {

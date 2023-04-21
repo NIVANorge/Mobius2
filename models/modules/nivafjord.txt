@@ -72,19 +72,19 @@ module("NIVAFjord", version(0, 0, 1)) {
 		z[vert.above] + dz[vert.above]
 	}
 	
-	var(layer.water, [k g], "Layer water") .override { A*dz*rho_water }
+	var(layer.water, [k g], "Layer water") @override { A*dz*rho_water }
 	
 	var(layer.water.salt, [k g], [g, k g-1], "Layer salt")
-		#.initial_conc { init_S }
-		.initial_conc { bnd_layer.water.salinity =>> } #TODO: convert PSU to conc
+		#@initial_conc { init_S }
+		@initial_conc { bnd_layer.water.salinity =>> } #TODO: convert PSU to conc
 	
 	var(layer.water.heat, [J], "Layer thermal energy") 
 		#.initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
-		.initial_conc { C_water * (temp -> [K]) }
+		@initial_conc { C_water * (temp -> [K]) }
 
 	var(layer.water.temp, [deg_c], "Layer temperature") {
 		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
-	} .initial {
+	} @initial {
 		bnd_layer.water.temp
 	}
 	
@@ -266,7 +266,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 		(in_flux(sw_vert, heat)->[J, day-1]) * exp(-attn*dz) * A[vert.below] / A
 	}
 	
-	var(sed.heat, [J], "Sediment heat") .initial {
+	var(sed.heat, [J], "Sediment heat") @initial {
 		mass := A[vert.bottom]*dz_sed*rho_sed
 		C_sed * mass * (T_sed->[K])
 	}
@@ -331,21 +331,21 @@ module("NIVAFjord", version(0, 0, 1)) {
 		(1 - g + h)/2
 	}
 	
-	var(bnd_layer.water.tracer, [k g], "Boundary layer tracer") .override_conc {
+	var(bnd_layer.water.tracer, [k g], "Boundary layer tracer") @override_conc {
 		lerp(prof, 0, 1, bnd.trac_top, bnd.trac_bot)
 	}
 	
-	var(bnd_layer.water, [k g], "Boundary layer water") .override { 1[k g] }   # This is just so that it can have a concentration of various things, for automatic flux generation to work.
+	var(bnd_layer.water, [k g], "Boundary layer water") @override { 1[k g] }   # This is just so that it can have a concentration of various things, for automatic flux generation to work.
 	
 	var(bnd_layer.water.temp, [deg_c], "Boundary layer temperature") {  lerp(prof, 0, 1, bnd.temp_top, bnd.temp_bot)  }
 	
 	var(bnd_layer.water.salinity, [], "Boundary layer salinity") {  lerp(prof, 0, 1, bnd.sal_top, bnd.sal_bot)  }
 	
-	var(bnd_layer.water.heat, [J], "Boundary layer heat") .override_conc {
+	var(bnd_layer.water.heat, [J], "Boundary layer heat") @override_conc {
 		(temp->[K]) * C_water
 	}
 	
-	var(bnd_layer.water.salt, [k g], [g, k g-1], "Boundary layer salt") .override_conc {
+	var(bnd_layer.water.salt, [k g], [g, k g-1], "Boundary layer salt") @override_conc {
 		salinity =>> #TODO: proper conversion from PSU
 	}
 	
@@ -384,7 +384,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
 	}
 	
-	var(bnd.h, [m]) .override {
+	var(bnd.h, [m]) @override {
 		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step
 		sealevel(sec->[hr])->[m]              
 	}
@@ -402,7 +402,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 	
 	var(oair.A_bnd, [m 2]) { aggregate(layer.w_bnd_)*dz }
 	
-	var(oair.h, [m]) .override { bnd.h } #+ (in_flux(downstream, water)/A_bnd)^2/(2*alpha_u*grav) }# TODO: different with river inflow.
+	var(oair.h, [m]) @override { bnd.h } #+ (in_flux(downstream, water)/A_bnd)^2/(2*alpha_u*grav) }# TODO: different with river inflow.
 	
 	var(oair.tot_barotropic_u, [m 3, s-1]) {
 		-(h - last(h))*A[vert.top]/time.step_length_in_seconds

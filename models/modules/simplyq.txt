@@ -30,8 +30,8 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	a_catch : par_real("Catchment area", [k m 2]) # NOTE: This is a reference to a parameter that must be declared in the model file.
 	
-	var(soil.water, [m m], "Soil water volume")  .initial { fc }
-	var(gw.water,   [m m], "Groundwater volume") .initial {
+	var(soil.water, [m m], "Soil water volume")  @initial { fc }
+	var(gw.water,   [m m], "Groundwater volume") @initial {
 		tc_g * river.water.flow / a_catch -> [m m]
 	}
 
@@ -85,7 +85,7 @@ The river part of the SimplyQ module.
 	
 	flow : property("Flow")
 	
-	var(river.water, [m 3], "Reach water volume") .initial {
+	var(river.water, [m 3], "Reach water volume") @initial {
 		q := init_flow => []   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
 		depth := 0.349[m] * q^0.34
 		width := 2.71[m] * q^0.557
@@ -95,7 +95,7 @@ The river part of the SimplyQ module.
 	# TODO: ideally we should here be able to cut the property "Flow", but unfortunately it is being used by the gw module...
 
 	# NOTE: Empirical formula, so the units don't make sense, hence force conversion.
-	var(river.water.flow, [m 3, s-1], "Reach flow")        {  0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } .initial { init_flow }
+	var(river.water.flow, [m 3, s-1], "Reach flow")        {  0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } @initial { init_flow }
 	
 	reach_out :
 	flux(river.water, out, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
@@ -128,12 +128,12 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 		A / (wb + 2*sqrt( ( (wb*sb)^2 + 4*A*sb ) / (1 + sb^2) ) )
 	}
 	
-	var(river.water, [m 3], "Reach water volume") .initial {
+	var(river.water, [m 3], "Reach water volume") @initial {
 		#This is not exactly correct, and so will not cause the right initial reach flow.. :( Assumes rectangular instead of trapezoid cross-section and uses depth instead of hydraulic radius. But will not be very far off, and it will correct itself quickly.
 		(flow*c_mann*cbrt(wb^2)/sqrt(slope) =>[])^(3/5.) =>>
 	}
 
-	var(river.water.flow, [m 3, s -1], "Reach flow")    { (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann   } .initial { init_flow }
+	var(river.water.flow, [m 3, s -1], "Reach flow")    { (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann   } @initial { init_flow }
 	
 	reach_out :
 	flux(river.water, out, [m 3, day-1], "Reach flow flux")     {	 flow ->>  }

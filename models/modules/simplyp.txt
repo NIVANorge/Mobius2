@@ -67,9 +67,9 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		
 		safe_divide(last(plab), kf * m_soil)  if dyn_epc0,
 		init_epc0                             otherwise
-	} .initial { init_epc0 }
+	} @initial { init_epc0 }
 	
-	var(soil.water.tdp, [k g, k m-2], [m g, l-1], "Soil TDP mass") .override {
+	var(soil.water.tdp, [k g, k m-2], [m g, l-1], "Soil TDP mass") @override {
 		{
 			days   := time.step_length_in_seconds->[day]
 			pin    := p_input * days / time.days_this_year ->[k g, k m-2]
@@ -80,11 +80,11 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 			a/b + (last(water.tdp) - a/b)*exp(-b)
 		}                     if dyn_epc0,
 		init_epc0 * water->>  otherwise
-	} .initial_conc {
+	} @initial_conc {
 		init_epc0
 	}
 	
-	var(soil.plab, [k g, k m-2], "Soil labile P mass") .override {
+	var(soil.plab, [k g, k m-2], "Soil labile P mass") @override {
 		{
 			days   := time.step_length_in_seconds->[day]
 			pin    := p_input * days / time.days_this_year ->[k g, k m-2]
@@ -96,7 +96,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 			last(plab) + sorp
 		}           if dyn_epc0,
 		last(plab)  otherwise
-	} .initial {
+	} @initial {
 		m_soil := m_soil_m2*1e6
 		1e-6 * (init_soil_p_conc - inactive_soil_p_conc) * m_soil
 	}
@@ -106,9 +106,9 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	#NOTE: could use the inbuilt concentration system for this, but we don't model varying soil mass, so it is a bit superfluous
 	var(soil.plab.plabconc, [m g, k g-1]) {  plab / m_soil_m2  }
 	
-	var(gw.water.tdp, [k g, k m-2], [m g, l-1], "Groundwater TDP") .initial_conc { gw_tdp } .override_conc { gw_tdp }
+	var(gw.water.tdp, [k g, k m-2], [m g, l-1], "Groundwater TDP") @initial_conc { gw_tdp } @override_conc { gw_tdp }
 	
-	var(river.water.tdp, [k g], [m g, l-1], "River TDP") .initial_conc { gw_tdp }
+	var(river.water.tdp, [k g], [m g, l-1], "River TDP") @initial_conc { gw_tdp }
 	
 	flux(nowhere, river.water.tdp, [k g, day-1], "River effluent TDP") { eff_tdp }
 	

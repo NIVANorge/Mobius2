@@ -30,8 +30,8 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	var(air.temp, [deg_c], "Air temperature")
 	var(air.precip, [m m, day-1])
 	
-	var(snow_box.snow,  [m m], "Snow depth") .initial { init_snow }
-	var(snow_box.water, [m m], "Snow water") #.initial { 0 }             # Not necessary to declare initial here, default is 0.
+	var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
+	var(snow_box.water, [m m], "Snow water") #@initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
 	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {
 		#air.precip    if air.temp <= t_snow,
@@ -55,7 +55,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	melt_runoff :
 	flux(snow_box.water, out, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq)*1[day-1]  }
 	
-	discrete_order() {
+	discrete_order {
 		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this model.
 		melt
 		refreeze

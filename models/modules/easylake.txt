@@ -61,9 +61,9 @@ TODO: description
 	}
 	
 	
-	var(epi.water, [m 3], "Epilimnion volume")  .initial {   0.5 * A_surf * z_outflow - hyp.water   }
+	var(epi.water, [m 3], "Epilimnion volume")  @initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
-	var(hyp.water, [m 3], "Hypolimnion volume") .initial {
+	var(hyp.water, [m 3], "Hypolimnion volume") @initial {
 		z := z_outflow - z_epi
 		A := A_surf * (z/z_outflow)
 		0.5 * A * z
@@ -73,7 +73,7 @@ TODO: description
 	depth : property("Depth")
 	flow : property("Flow")
 	
-	var(epi.z_e, [m], "Epilimnion thickness") .initial { z_epi }
+	var(epi.z_e, [m], "Epilimnion thickness") @initial { z_epi }
 	{
 		last(z_e) + (dz_epi)*time.step_length_in_seconds->> if !epi.indicator & water.temp > t_bot,
 		z_epi                                                                   otherwise
@@ -104,11 +104,11 @@ TODO: description
 	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
 	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
 	
-	var(epi.water.heat, [J]) .initial {
+	var(epi.water.heat, [J]) @initial {
 		water_temp_to_heat(water, t_epi)
 	}
 	
-	var(hyp.water.heat, [J]) .initial {
+	var(hyp.water.heat, [J]) @initial {
 		# TODO: Not quite the correct formula for what the mean hypolimnion temperature should be.
 		t_hyp := 0.5*(t_epi + t_bot)
 		water_temp_to_heat(water, t_hyp)
@@ -212,13 +212,13 @@ TODO: description
 	
 	var(epi.water.temp, [deg_c], "Epilimnion temperature") {
 		water_heat_to_temp(water, water.heat)
-	} .initial { t_epi }
+	} @initial { t_epi }
 	
 	var(hyp.water.temp, [deg_c], "Hypolimnion temperature (mean)") {
 		water_heat_to_temp(water, water.heat)
 	}
 	
-	var(epi.ice, [m], "Ice thickness") .initial { init_ice }
+	var(epi.ice, [m], "Ice thickness") @initial { init_ice }
 	
 	energy : property("Freeze energy")
 	indicator : property("Indicator")

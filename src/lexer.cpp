@@ -185,7 +185,7 @@ Token_Stream::putback_char() {
 
 inline bool
 is_single_char_token(char c) {
-	return c == '!' || (c >= '%' && c <= '/') || (c >= ':' && c <= '?') || (c >= '{' && c <= '}') || c == '^' || c=='[' || c==']';
+	return c == '!' || (c >= '%' && c <= '/') || (c >= ':' && c <= '@') || (c >= '{' && c <= '}') || c == '^' || c=='[' || c==']';
 }
 
 inline bool

@@ -25,7 +25,7 @@ TODO: this should probably be rewritten with mobius2 systems and units in mind.
 		stc     : par_real("Soil thermal conductivity / specific heat capacity", [m 2, M s -1], 0.4, 0.01, 0.8)
 	}
 	
-	var(soil.coup, [deg_c]) .initial { init_st } {
+	var(soil.coup, [deg_c]) @initial { init_st } {
 		# Soil temperature is computed at depth 15cm
 		last(coup) + (stc  / (2*15[c m])^2) * (air.temp - last(coup))*time.step_length_in_seconds ->>
 	}
@@ -36,5 +36,5 @@ TODO: this should probably be rewritten with mobius2 systems and units in mind.
 	
 	var(soil.temp, [deg_c], "Soil temperature") { 
 		coup * exp(depthst * snow_box.snow ->[])
-	} .initial { init_st }
+	} @initial { init_st }
 }

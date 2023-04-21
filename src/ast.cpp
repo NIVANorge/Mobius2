@@ -43,7 +43,7 @@
 	
 	Examples
 	
-	module("Snow", 0, 0, 1) {
+	module("Snow", version(0, 0, 1)) {
 		air  : compartment("Atmosphere")
 		soil : compartment("Soil")
 		
@@ -187,11 +187,13 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	if(body_type_out)
 		*body_type_out = body_type;
 	
-	next = stream->read_token();
+	next = stream->peek_token();
 	if((char)next.type != '(') {
-		next.print_error_header();
-		fatal_error("Expected a ( .");
+		//next.print_error_header();
+		//fatal_error("Expected a '(' .");
+		return decl;
 	}
+	stream->read_token(); // Consume the '('
 		
 	while(true) {
 		next = stream->peek_token();
@@ -250,7 +252,7 @@ parse_decl(Token_Stream *stream) {
 	while(true) {
 		Token next = stream->peek_token();
 		char ch = (char)next.type;
-		if(ch == '.' || ch == '{') {
+		if(ch == '@' || ch == '{') {
 			stream->read_token();
 			Body_AST *body;
 			
@@ -266,8 +268,8 @@ parse_decl(Token_Stream *stream) {
 			}
 			body->opens_at = next.source_loc;
 			
-			if(ch == '.') {
-				read_chain(stream, '.', &body->notes);
+			if(ch == '@') {
+				read_chain(stream, '@', &body->notes);
 				next = stream->read_token();
 			}
 			

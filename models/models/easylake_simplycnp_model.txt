@@ -14,15 +14,16 @@ model("EasyLake-SimplyCNP") {
 			oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
 		}
 		
-		var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC") .initial_conc { init_c }
-		var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") .initial_conc { init_c }
+		var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
+		var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
 		
 		flux(epi.water.oc, nowhere, [k g, day-1], "Photo-mineralization") {
 			qy_doc := 0.1[m g, mol-1]    # Quantum yield
 			f_par  := 0.45               # Fract. of PAR in incoming solar radiation
 			e_par  := 240800.0[J, mol-1] # Average energy of PAR photons
 			
-			attn_epi := 1 # TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
+			# TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
+			attn_epi := 1
 			
 			oc_doc * qy_doc * (f_par / e_par) * sw_rad * attn_epi * oc ->>
 		}
@@ -43,8 +44,8 @@ model("EasyLake-SimplyCNP") {
 		
 		temp : property("Temperature")
 		
-		var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN") .initial_conc { init_din }
-		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") .initial_conc { init_din }
+		var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
+		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
 		
 		flux(epi.water.din, nowhere, [k g, day-1], "Epilimnion N retention") {
 			rate := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10)
@@ -65,8 +66,8 @@ model("EasyLake-SimplyCNP") {
 			hyp_tdp_ret : par_real("Hyplimnion TDP retention factor", [], 0, 0, 1)
 		}
 		
-		var(epi.water.tdp, [k g], [m g, l-1], "Epilimnion TDP") .initial_conc { init_tdp }
-		var(hyp.water.tdp, [k g], [m g, l-1], "Hypolimnion TDP") .initial_conc { init_tdp }
+		var(epi.water.tdp, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
+		var(hyp.water.tdp, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
 		
 		flux(epi.water.tdp, nowhere, [k g, day-1], "Epilimnion TDP retention") {
 			tdp * tdp_ret
