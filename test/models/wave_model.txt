@@ -2,9 +2,17 @@
 
 model("Wave") {
 	
+	layer : compartment("Layer")
+	
+	amp   : quantity("amplitude")
+	mom   : quantity("momentum")
+	
+	distribute(layer, index_set("Layer index"))
+	solve(solver("Solver", "INCADascru", 0.1), layer.amp, layer.mom)
+	
 	module("Wave", version(1, 0, 0)) {
 		
-		layer.par_group("Layers") {
+		par_group("Layers", layer) {
 			in_amp  : par_real("Initial amplitude", [Pa], 0)
 			c       : par_real("Wave speed", [day-1], 0.001)
 		}
@@ -22,18 +30,4 @@ model("Wave") {
 		flux(layer.amp, nowhere, [Pa, day-1], "Wave propagation") { mom }
 		
 	}
-
-	
-	layer_index : index_set("Layer index")
-	
-	layer : compartment("Layer")
-	
-	amp   : quantity("amplitude")
-	mom   : quantity("momentum")
-	
-	
-	layer.distribute(layer_index)
-	sol : solver("Solver", "INCADascru", 0.1)
-	sol.solve(layer.amp)
-	sol.solve(layer.mom)
 }

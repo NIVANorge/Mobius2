@@ -95,6 +95,24 @@
 	
 	
 	
+	# Could we get rid of a.b.c.decl() type chained declarations altogether ? Could simplify syntax a bit
+	# e.g.
+	
+	par_group("Bla", soil)
+	# Easier to extend if we want something to covary over soil and contaminant type for instance.
+	# After the change it seems like it will be mainly par_group, distribute and solve that use these. (Getting rid of or transforming 'to' and no_carry)
+	
+	distribute(soil, landscape_units, reaches)   # Makes it not immediately as clear what is being distributed over what...
+	solve(simply_solver, soil.water, river.water, gw.water)  # Varargs so that you can pass multiple
+	
+	# Or:
+	solve(simply_solver) {
+		soil.water river.water gw.water
+	}
+	distribute(soil) { landscape_units reaces }
+	# This is probably not the best use of this type of notation?
+	
+	
 	
 	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top {}
 	# Would probably be clearer as:
@@ -120,6 +138,7 @@
 		var(soil.water, [m m], "Soil water volume") .initial { fc }
 		
 		flux(soil.water, soil_target, [m m, day-1], "Soil runoff") {
+			#...
 		}
 		
 		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {          # 'out' now means the same as 'nowhere' did before, while there is no new 'out'

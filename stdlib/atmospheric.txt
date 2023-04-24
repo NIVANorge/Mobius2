@@ -3,8 +3,6 @@
 library("Meteorology") {
 	# TODO: allow version numbers on libraries?
 	
-	#TODO: Fix units on some of these.
-	
 	latent_heat_of_vaporization : function(T : [deg_c]) {   # Harrison 1963
 		2.501[M J, k g-1] - 2.361e-3[M J, k g-1, deg_c-1] * T
 	}
@@ -14,10 +12,10 @@ library("Meteorology") {
 		101.3 - (0.01152 - 0.544e-6*elev)*elev => [k Pa]
 	}
 	
-	# NOTE: some of these were revised using Ventura & al 1998 An evaluation of common evapotranspiration equations. TODO: Use that to implement Penman for pet.txt ?
+	# NOTE: some of these were revised using Ventura & al 1998 An evaluation of common evapotranspiration equations.
 	
 	C_air             : constant("Specific heat capacity of air",    [J, k g-1, K-1], 1008)
-	C_moist_air       : constant("Specific heat coapacity of moist air", [k J, k g-1, K-1], 1.013)
+	C_moist_air       : constant("Specific heat capacity of moist air", [k J, k g-1, K-1], 1.013)
 	vapor_mol_to_mass : constant("Molar ratio to mass ratio of vapor in air", [], 0.62198)
 	Rdry_air          : constant("Specific gas constant of dry air", [J, k g-1, K-1], 287.058)
 	Rvap_air          : constant("Specific gas constant of vapor",   [J, k g-1, K-1], 461.495)

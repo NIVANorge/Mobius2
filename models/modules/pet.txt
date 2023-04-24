@@ -5,7 +5,7 @@ module("Degree-day PET", version(1, 0, 0)) {
 	air       : compartment("Atmosphere")
 	soil      : compartment("Soil")
 
-	soil.par_group("Potential evapotranspiration") {
+	par_group("Potential evapotranspiration", soil) {
 		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", [m m, deg_c -1, day -1], 0.12, 0.05, 0.2)
 		pet_min_t : par_real("Minimal temperature for evapotranspiration", [deg_c], 0, -5, 5)
 	}
@@ -28,7 +28,7 @@ module("Penman-Monteith PET", version(1, 0, 0)) {
 	
 	snow  : quantity("Snow (water equivalents)")
 	
-	soil.par_group("Potential evapotranspiration") {
+	par_group("Potential evapotranspiration", soil) {
 		pt    : par_bool("Priestley-Taylor simplification", true, "Drops wind correction")
 		apet  : par_real("PET multiplication factor", [], 1.28, 0.3, 4.0, "Only used with Priestley-Taylor")
 		lalb  : par_real("Land albedo", [], 0.23, 0, 1)

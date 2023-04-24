@@ -14,14 +14,10 @@ model("NIVAFjord") {
 	heat  : quantity("Thermal energy")
 	h     : quantity("Sea level")
 	
-	layer.distribute(layer_idx)
-	bnd_layer.distribute(layer_idx)
+	distribute(layer, layer_idx)
+	distribute(bnd_layer, layer_idx)
 	
-	sol : solver("Simply solver", "INCADascru", 0.1)
-	sol.solve(layer.water)
-	sol.solve(sed.heat)
-	sol.solve(bnd_layer.water)
-	#sol.solve(oair.h)
+	#sol : solver("Simply solver", "INCADascru", 0.1)
 	
-	#aggregation_weight(layer, oair) { 1 }
+	solve(solver("Simply solver", "INCADascru", 0.1), layer.water, sed.heat, bnd_layer.water)
 }

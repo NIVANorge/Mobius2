@@ -724,7 +724,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	}
 	if(!allow_handle && decl->handle_name.string_value.count > 0) {
 		decl->handle_name.print_error_header();
-		fatal_error("This declaration should not be assigned to an identifier");
+		fatal_error("A ", name(decl->type), " declaration can not be assigned to an identifier.");
 	}
 	
 	int found_match = -1;

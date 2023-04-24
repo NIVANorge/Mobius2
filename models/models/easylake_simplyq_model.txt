@@ -18,9 +18,7 @@ model("EasyLake-SimplyQ") {
 	heat  : quantity("Thermal energy")
 	ice   : quantity("Ice")
 	
-	simply_solver.solve(epi.water)
-	simply_solver.solve(hyp.water)
-	simply_solver.solve(epi.ice)
+	solve(simply_solver, epi.water, hyp.water, epi.ice)
 	
 	el.evap.no_carry()       # By default don't carry dissolved substances in evaporation
 	
@@ -28,10 +26,10 @@ model("EasyLake-SimplyQ") {
 	el.mix_down.no_carry(epi.water.heat)  #TODO: should be able to say no_carry(heat)  or something like that.
 	el.mix_up.no_carry(hyp.water.heat)
 	
-	lk : index_set("Lake")
+	lake_index : index_set("Lake")
 	
-	epi.distribute(lk)
-	hyp.distribute(lk)
+	distribute(epi, lake_index)
+	distribute(hyp, lake_index)
 	
 	# TODO: This should override what is in the simplyq model.  Or do we need a more advanced system, because what happens if we now try to add a SimplyC component for instance ?
 	

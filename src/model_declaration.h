@@ -273,7 +273,7 @@ Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
 	Entity_Id solver;
-	Var_Location loc;
+	std::vector<Var_Location> locs;
 };
 
 struct

@@ -38,7 +38,7 @@ Not finished, just for testing some systems.
 		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}
 	
-	soil.par_group("Soil DIN params varying by land use")	{
+	par_group("Soil DIN params varying by land use", soil)	{
 		sw_din_init        : par_real("Initial soilwater DIN concentration", [m g, l -1], 0.0, 0.0, 10.0)
 		net_annual_N_input : par_real("Net annual DIN input to soil", [k g, ha-1, year-1],
 							0.0, 0.0, 1000.0)
@@ -51,7 +51,7 @@ Not finished, just for testing some systems.
 		#				 [k g, ha-1, day-1], 0.0, 0.0, 100.0)
 	}
 	
-	river.par_group("River DIN") {
+	par_group("River DIN", river) {
 		eff_din : par_real("Reach effluent DIN inputs", [k g, day -1], 0.0, 0.0, 100.0)		
 	}
 	

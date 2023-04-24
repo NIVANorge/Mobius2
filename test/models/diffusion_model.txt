@@ -4,16 +4,16 @@ model("Diffusion") {
 	
 	module("Diffusion", version(1, 0, 0)) {
 		
-		layer.par_group("Layers") {
+		par_group("Layers", layer) {
 			in_o2   : par_real("initial O²", [m g, c m-2], 0)
 			dc      : par_real("Diffusion coeff", [c m, day-1], 0.001)
 		}
 		
-		botcomp.par_group("Bottom compartment") {
+		par_group("Bottom compartment", botcomp) {
 			in_o2_bot : par_real("Bottom initial O²", [m g, c m-2], 100)
 		}
 		
-		layer.par_group("Side transfer") {
+		par_group("Side transfer", layer) {
 			tc      : par_real("Transfer coeff", [], 0.05)
 		}
 		
@@ -47,10 +47,10 @@ model("Diffusion") {
 	botcomp : compartment("Bottom")
 	o2    : quantity("O²")
 	
-	botcomp.distribute(branch_index)
-	layer.distribute(branch_index, layer_index)
+	distribute(botcomp, branch_index)
+	distribute(layer, branch_index, layer_index)
 	
 	sol : solver("Solver", "INCADascru", 0.1)
-	sol.solve(layer.o2)
-	sol.solve(botcomp.o2)
+	solve(sol, layer.o2, botcomp.o2)
+	
 }

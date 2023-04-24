@@ -39,8 +39,8 @@ model("Another simple") {
 	
 	#i : index_set("I")
 	
-	#a.distribute(i)
+	#distribute(a, i)
 	
 	sol : solver("Solver", "INCADascru", 0.1)
-	sol.solve(a.q)
+	solve(sol, a.q)
 }

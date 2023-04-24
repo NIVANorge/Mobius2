@@ -83,6 +83,9 @@
 			
 			With inlined modules 'seeing' their parent scope it is not that nice that extend_model puts a lot of stuff into that scope.
 			
+			Finish cleaning up declaration format.
+				Remove chained declarations
+				Remove inlined declarations in arguments? Can't entirely e.g. with units. At least standardize how it works.
 		
 		Check for conflicting declarations of variables (unit, name).
 		

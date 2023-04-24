@@ -1,6 +1,14 @@
 
 model("Giblet-Thrasher test model") {
 	
+	habitat : compartment("Habitat")
+	pred : quantity("Thrashers")
+	prey : quantity("Giblets")
+	
+	solve(solver("LV-Solver", "INCADascru", 0.1), habitat.pred, habitat.prey)
+	
+	distribute(habitat, index_set("Habitat index"))
+	
 	module("Giblet-Thrasher", version(1, 1, 0)) {
 		
 		load("stdlib/basic_math.txt", library("Response"))
@@ -14,13 +22,13 @@ model("Giblet-Thrasher test model") {
 			meteor_dth : par_real("Meteor strike death rate increase", [day-1], 0.7)
 		}
 		
-		habitat.par_group("Habitat parameters") {
+		par_group("Habitat parameters", habitat) {
 			init_pred  : par_real("Initial predators", [], 1)
 			init_prey  : par_real("Initial prey", [], 1)
 			prey_birth : par_real("Giblet birth rate", [day-1], 0.2)
 		}
 		
-		habitat.par_group("Migration weights") {
+		par_group("Migration weights", habitat) {
 			mig_wt : par_real("Migration weight", [], 0.1, 0, 1)
 		}
 		
@@ -43,17 +51,6 @@ model("Giblet-Thrasher test model") {
 		
 		flux(habitat.prey, mig, [day-1], "Giblet migration")     {  prey * pred * pmig * mig_wt  }
 	}
-	
-	habitat : compartment("Habitat")
-	pred : quantity("Thrashers")
-	prey : quantity("Giblets")
-	
-	sol : solver("LV-Solver", "INCADascru", 0.1)
-	sol.solve(habitat.pred)
-	sol.solve(habitat.prey)
-	
-	hi : index_set("Habitat index")
-	habitat.distribute(hi)
 }
 
 

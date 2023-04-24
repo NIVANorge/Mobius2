@@ -21,7 +21,7 @@ TODO: this should probably be rewritten with mobius2 systems and units in mind.
 		init_st : par_real("Initial soil temperature", [deg_c], 10, -30, 40)
 	}
 	
-	soil.par_group("Soil temperature land") {
+	par_group("Soil temperature land", soil) {
 		stc     : par_real("Soil thermal conductivity / specific heat capacity", [m 2, M s -1], 0.4, 0.01, 0.8)
 	}
 	

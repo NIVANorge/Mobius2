@@ -2,10 +2,8 @@
 model("Yet another simple") {
 
 	module("So very very simple", version(0, 0, 1)) {
-		
-		a : compartment("A")
-		
-		a.par_group("Pars") {
+
+		par_group("Pars", a) {
 			b : par_real("B", [], 0.99)
 		}
 		
@@ -16,8 +14,7 @@ model("Yet another simple") {
 		} @initial { 20 }
 	}
 	
-	i : index_set("I")
+	a : compartment("A")
 	
-	a.distribute(i)
-
+	distribute(a, index_set("I"))
 }

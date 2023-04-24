@@ -2,9 +2,18 @@
 
 model("Wave2D") {
 	
+	cell : compartment("Cell")
+	
+	amp   : quantity("Amplitude")
+	mom   : quantity("Momentum")
+	
+	distribute(cell, index_set("Vertical"), index_set("Horizontal"))
+	
+	solve(solver("Solver", "INCADascru", 0.1), cell.amp, cell.mom)
+	
 	module("Wave2D", version(1, 0, 0)) {
 		
-		cell.par_group("Layers") {
+		par_group("Layers", cell) {
 			in_amp  : par_real("Initial amplitude", [m], 0)
 		}
 		
@@ -16,29 +25,10 @@ model("Wave2D") {
 		
 		c : constant("Wave speed", [day-1], 0.08)
 		
-		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {
-			c^2*(amp[below] - amp)
-		}
+		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {  c^2*(amp[below] - amp)  }
 		
-		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {
-			c^2*(amp[below] - amp)
-		}
+		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {  c^2*(amp[below] - amp)  }
 		
 		flux(cell.amp, nowhere, [m, day-1], "Wave propagation") { mom }
 	}
-
-	
-	ih : index_set("Horizontal")
-	iv : index_set("Vertical")
-	
-	cell : compartment("Cell")
-	
-	amp   : quantity("amplitude")
-	mom   : quantity("momentum")
-	
-	cell.distribute(iv, ih)
-	
-	sol : solver("Solver", "INCADascru", 0.1)
-	sol.solve(cell.amp)
-	sol.solve(cell.mom)
 }

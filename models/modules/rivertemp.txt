@@ -14,7 +14,7 @@ module("RiverTemperature", version(0, 1, 0)) {
 	
 	temp  : property("Temperature")
 	
-	river.par_group("River temperature") {
+	par_group("River temperature", river) {
 		coeff : par_real("Air-river heat conductivity coefficient", [day-1], 1, 0.1, 10)
 	}
 	

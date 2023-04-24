@@ -21,7 +21,7 @@ Testing functionality for now.
 	
 	temp  : property("Temperature")
 	
-	tox.par_group("Physiochemistry") {
+	par_group("Physiochemistry", tox) {
 		molmass     : par_real("Contaminant molar mass", [g, mol-1], 50, 0, 1000)
 		molvol      : par_real("Contaminant molar volume", [c m 3, mol-1], 20, 0, 1000)
 		dUaw        : par_real("Enthalpy of phase transfer between air and water", [k J, mol-1], 0, -100, 100)
@@ -36,12 +36,12 @@ Testing functionality for now.
 		hlslow      : par_real("Contaminant half life (slow accessible)", [day], 20000, 0.1, 2e10)
 	}
 	
-	soil.par_group("Soil carbon") {
+	par_group("Soil carbon", soil) {
 		mocf        : par_real("Soil organic carbon, fast accessible", [k g, m-2], 30, 0, 300)
 		mocs        : par_real("Soil organic carbon, slow accessible", [k g, m-2], 3, 0, 300)
 	}
 	
-	river.par_group("River carbon") {
+	par_group("River carbon", river) {
 		sed_oc_c   : par_real("Sediment SOC concentration", [k g, k g-1], 0.02, 0, 0.3)
 	}
 	

@@ -35,25 +35,25 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	flow  : property("Flow")
 	
-	soil.par_group("P general") {
+	par_group("P general") {
 		dyn_epc0  : par_bool("Dynamic EPC0, TDP and soil labile P", true)
 		m_soil_m2 : par_real("Soil mass per m2", [k g, m-2], 95, 0, 200)
 		kf        : par_real("Phosphorous sorption coefficient", [l, m g-1], 1.13e-4, 0, 0.1)
 		pp_enrich : par_real("Particulate P enrichment factor", [], 1.6, 1, 5)
 	}
 	
-	soil.par_group("Soil P") {
+	par_group("Soil P", soil) {
 		init_epc0            : par_real("Initial soil TDP concentration and EPC0", [m g, l-1], 0.1, 0, 10)
 		init_soil_p_conc     : par_real("Initial total soil P content", [m g, k g-1], 1458, 0, 10000)
 		inactive_soil_p_conc : par_real("Inactive soil P content", [m g, k g-1], 873, 0, 10000)
 		p_input              : par_real("Net annual P input to soil", [k g, ha-1, year-1], 0, -100, 100)
 	}
 	
-	gw.par_group("Groundwater P") {
+	par_group("Groundwater P", gw) {
 		gw_tdp : par_real("Groundwater TDP concentration", [m g, l-1], 0, 0, 10)
 	}
 	
-	river.par_group("River P") {
+	par_group("River P", river) {
 		eff_tdp   : par_real("Effluent TDP inputs", [k g, day-1], 0, 0, 10)
 	}
 	

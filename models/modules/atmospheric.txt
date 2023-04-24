@@ -9,8 +9,8 @@ module("Atmospheric", version(0, 1, 0)) {
 	
 	air : compartment("Atmosphere")
 	
-	air.par_group("Location") {
-		 #TODO: maybe reused across modules...
+	par_group("Location", air) {
+		 #TODO: maybe reused across modules, should instead be in model scope.
 		latitude : par_real("Latitude", [deg], 60, -90, 90)
 		elev     : par_real("Elevation", [m], 0, 0, 8887)
 	}

@@ -5,22 +5,22 @@ model("Simple test model") {
 		
 		var(a.q, [], "A Q") .initial { ia }
 		
-		q.par_group("Init pars") {
+		par_group("Init pars", q) {
 			ia : par_real("Init a", [], 0)
 		}
 		
-		q.par_group("Permissivity") {
+		par_group("Permissivity", q) {
 			pm : par_real("Permissivity", [], 0)
 		}
 		
-		q.par_group("Flow pars") {
+		par_group("Flow pars", q) {
 			ff : par_real("Flow fraction", [], 0, 0, 1)
 		}
 		
 		c : connection("Flow connection", all_to_all) { q* }
 
 		flux(a.q, c, [day-1], "The flow") {
-			q * ff * target(pm) =>>
+			q * ff * pm[below] =>>
 		}
 	}
 	
@@ -28,10 +28,10 @@ model("Simple test model") {
 	q : quantity("Q")
 	
 	sol : solver("Solver", "INCADascru", 0.1)
-	sol.solve(a.q)
+	solve(sol, a.q)
 	
 	i : index_set("I")
 	j : index_set("J")
 	
-	q.distribute(i, j)
+	distribute(q, i, j)
 }

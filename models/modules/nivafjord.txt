@@ -33,14 +33,14 @@ module("NIVAFjord", version(0, 0, 1)) {
 		dz     : par_real("Layer thickness", [m], 1, 0.1, 5) # TODO: Just make it a universal param?
 	}
 	
-	layer.par_group("Layer parameters") {
+	par_group("Layer parameters", layer) {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
 		w_bnd  : par_real("Width to boundary", [m], 0, 0, 10000)
 		#init_S : par_real("Initial salinity", [g, k g-1], 35, 20, 50)
 		#init_T : par_real("Initial temperature", [deg_c], 5, 0.1, 40)
 	}
 
-	oair.par_group("Mixing parameters") {
+	par_group("Mixing parameters", oair) {
 		attn0  : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
 		
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
@@ -57,7 +57,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	# TODO: There should be a sediment compartment per layer instead..
-	sed.par_group("Sediment parameters") {
+	par_group("Sediment parameters", sed) {
 		T_sed  : par_real("Deep sediment temperature", [deg_c], 4)
 		dz_sed : par_real("Depth of thermally active sediment layer", [m], 10)
 		k_sed  : par_real("Sediment thermal conductivity", [W, m-1, K-1], 1.3)

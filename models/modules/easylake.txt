@@ -15,7 +15,7 @@ TODO: description
 	hyp  : compartment("Hypolimnion")
 	
 	
-	epi.par_group("Lake physical") {
+	par_group("Lake physical", epi) {
 		# TODO: copy the nice min-max values and comments from mobius 1 EasyLake
 		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 1e8)
 		z_outflow : par_real("Lake depth at which outflow is 0", [m], 10, 0.1, 1000)

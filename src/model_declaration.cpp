@@ -664,22 +664,22 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 
 template<> Entity_Id
 process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}}, -1, false);
-	
-	//TODO: Do we always need to require that a par group is tied to a component?
+	int which = match_declaration(decl,
+	{
+		{Token_Type::quoted_string},
+		{Token_Type::quoted_string, Decl_Type::compartment},   // Could eventually make the last a vararg?
+		{Token_Type::quoted_string, Decl_Type::quantity},
+	}, 0, false);
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
 	auto par_group = model->par_groups[id];
 	
-	if(decl->decl_chain.size() == 1) {
-		par_group->component = model->components.find_or_create(&decl->decl_chain[0], scope);
+	if(which >= 1) {
+		par_group->component = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
 		if(model->components[par_group->component]->decl_type == Decl_Type::property) {
 			decl->decl_chain[0].source_loc.print_error_header();
 			fatal_error("A 'par_group' can not be attached to a 'property'.");
 		}
-	} else if(!decl->decl_chain.empty()) {
-		decl->source_loc.print_error_header();
-		fatal_error("A 'par_group' can only be attached to a single component.");
 	}
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
@@ -704,7 +704,6 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 	match_declaration(decl,
 		{
 			{},
-			//{{Token_Type::identifier, true}},
 			{{Decl_Type::unit, true}},
 		});
 	
@@ -1374,29 +1373,36 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 template<> Entity_Id
 process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 
-	match_declaration(decl, {{Token_Type::identifier}}, 1, false);
+	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, 0, false);
 	
 	auto id = model->solves.find_or_create(nullptr, nullptr, nullptr, decl);
 	auto solve = model->solves[id];
 	
-	Entity_Id solver_id = model->solvers.find_or_create(&decl->decl_chain[0], scope);
-	solve->solver = solver_id;
-	process_location_argument(model, scope, decl, 0, &solve->loc, false);
-	
-	if(solve->loc.is_dissolved()) {
-		decl->args[0]->chain[0].source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
+	solve->solver = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
+	for(int idx = 1; idx < decl->args.size(); ++idx) {
+		Var_Location loc;
+		process_location_argument(model, scope, decl, idx, &loc, false);
+		
+		if(loc.is_dissolved()) {
+			decl->args[idx]->chain[0].source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
+		}
+		
+		solve->locs.push_back(loc);
 	}
-	
+
 	return id;
 }
 
 void
 process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{{Decl_Type::index_set, true}}}, 1, false);
+	match_declaration(decl,
+	{
+		{Decl_Type::compartment, {Decl_Type::index_set, true}},
+		{Decl_Type::quantity, {Decl_Type::index_set, true}},
+	}, 0, false);
 	
-	//auto comp_id = model->components.find_or_create(&decl->decl_chain[0], scope);
-	auto comp_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::component);
+	auto comp_id   = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
 	auto component = model->components[comp_id];
 	
 	if(component->decl_type == Decl_Type::property) {
@@ -1405,7 +1411,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	}
 	
 	//TODO: some guard against overlapping / contradictory declarations.
-	for(int idx = 0; idx < decl->args.size(); ++idx) {
+	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
 		auto index_set = model->index_sets[id];
 		if(is_valid(index_set->sub_indexed_to)) {
