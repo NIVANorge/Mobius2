@@ -69,18 +69,18 @@ Testing functionality for now.
 	}
 	
 	Kow   : property("Octanol-water partitioning coefficient") {
-		log10Kow := enthalpy_adjust_log10(log10Kow25, 25[deg_c]->[K], temp->[K], dUow)
+		log10Kow := enthalpy_adjust_log10(log10Kow25, 25[deg_c]->[K], temp->[K], dUow),
 		10^log10Kow
 	}
 	
 	Koc   : property("SOC-water partitioning coefficient") {
-		rhoSOC := 1900.0[k g, m-3]
-		rOC    := 0.41   # Empirical constant.
+		rhoSOC := 1900.0[k g, m-3],
+		rOC    := 0.41,   # Empirical constant.
 		Kow * rOC / rhoSOC
 	}
 	
 	Kdoc  : property("DOC-water partitioning coefficient") {
-		rhoDOC := 1100.0[k g, m-3]
+		rhoDOC := 1100.0[k g, m-3],
 		(Kow - 0.45)^0.93 / rhoDOC
 	}
 	

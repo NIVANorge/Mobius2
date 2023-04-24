@@ -188,11 +188,9 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 		*body_type_out = body_type;
 	
 	next = stream->peek_token();
-	if((char)next.type != '(') {
-		//next.print_error_header();
-		//fatal_error("Expected a '(' .");
+	if((char)next.type != '(')
 		return decl;
-	}
+
 	stream->read_token(); // Consume the '('
 		
 	while(true) {
@@ -379,17 +377,6 @@ find_binary_operator(Token_Stream *stream, Token_Type *t) {
 	*t = peek.type;
 	
 	return operator_precedence(*t);
-	/*char c = (char)*t;
-	
-	if(c == '|') return 1000;
-	else if(c == '&') return 2000;
-	else if((c == '<') || (c == '>') || (*t == Token_Type::leq) || (*t == Token_Type::geq) || (c == '=') || (*t == Token_Type::neq)) return 3000;
-	else if((c == '+') || (c == '-')) return 4000;
-	else if(c == '/') return 5000;
-	else if(c == '*' || c == '%') return 6000;   //not sure if * should be higher than /
-	else if(c == '^') return 7000;
-	
-	return 0;*/
 }
 
 Math_Expr_AST *
@@ -604,6 +591,7 @@ parse_math_block(Token_Stream *stream, Source_Location opens_at) {
 			local_var->source_loc = token.source_loc;
 			stream->read_token(); stream->read_token();
 			auto expr = parse_math_expr(stream);
+			stream->expect_token(',');
 			local_var->exprs.push_back(expr);
 			block->exprs.push_back(local_var);
 		} else {

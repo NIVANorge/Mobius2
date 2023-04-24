@@ -14,18 +14,18 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	water : quantity("Water")
 	
-	soil.par_group("Hydrology general") {
+	par_group("Hydrology general") {
 		bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
 		qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  500)
 	}
 	
 	soil.par_group("Hydrology land") {
 		fc     : par_real("Field capacity", [m m],                     120,  0, 1000)
-		tc_s   : par_real("Soil water time constant", [day],           2,  1,   40)
+		tc_s   : par_real("Soil water time constant", [day],             2,  1,   40)
 	}
 		
 	gw.  par_group("Groundwater") {
-		tc_g    : par_real("Groundwater time constant", [day],       30,  1,  400)
+		tc_g    : par_real("Groundwater time constant", [day],          30,  1,  400)
 	}
 	
 	a_catch : par_real("Catchment area", [k m 2]) # NOTE: This is a reference to a parameter that must be declared in the model file.
@@ -40,8 +40,8 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	quick_flow :
 	flux(soil.water, out, [m m, day-1], "Quick flow") {
-		drylim := 0.9		# Could be a parameter. Stops quick flow below drylim*fc
-		flow   := in_flux(water)
+		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
+		flow   := in_flux(water),
 		#flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)
 		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
 	}
@@ -52,7 +52,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	}
 	
 	var(soil.water.flow, [m m, day -1], "Soil water flow") {
-		rate := (water - fc)/tc_s
+		rate := (water - fc)/tc_s,
 		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the flow rate on between water volumes of fc and 1.01*fc
 	}
 	
@@ -86,9 +86,9 @@ The river part of the SimplyQ module.
 	flow : property("Flow")
 	
 	var(river.water, [m 3], "Reach water volume") @initial {
-		q := init_flow => []   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
-		depth := 0.349[m] * q^0.34
-		width := 2.71[m] * q^0.557
+		q := init_flow => [],   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
+		depth := 0.349[m] * q^0.34,
+		width := 2.71[m] * q^0.557,
 		width * depth * len
 	}
 	
@@ -124,7 +124,7 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 	Rh   : property("Hydraulic radius")
 	
 	var(river.Rh, [m]) {
-		A := water/len
+		A := water/len,
 		A / (wb + 2*sqrt( ( (wb*sb)^2 + 4*A*sb ) / (1 + sb^2) ) )
 	}
 	

@@ -165,6 +165,14 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 		
 		if(decl_name) {
 			registration.name = decl_name->string_value;
+			
+			for(const char *c = registration.name.data(); *c != 0; ++c) {
+				if(*c == ':') {
+					decl_name->print_error_header();
+					fatal_error("The colon symbol ':' is not allowed inside the name of a declaration");
+				}
+			}
+			
 			//TODO: NOTE: for now names are globally scoped. This is necessary for some systems to work, but could cause problems in larger models. Make a better system later?
 			auto find = name_to_id.find(registration.name);
 			if(find != name_to_id.end()) {

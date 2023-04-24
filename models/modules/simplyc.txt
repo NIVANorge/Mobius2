@@ -16,10 +16,11 @@ Not finished, just for testing some systems.
 	oc    : quantity("Organic carbon")
 	
 	so4   : property("SO4 deposition")
+	temp  : property("Temperature")
 	
 	var(air.so4, [m g, l-1])
 	
-	soil.par_group("DOC general") {
+	par_group("DOC general") {
 		cdoc       : par_real("Baseline soil DOC dissolution rate", [m g, l-1, day-1], 1, 0, 10)
 		kt1        : par_real("Soil temperature DOC creation linear coefficient", [deg_c-1], 0, 0, 0.1)
 		kt2        : par_real("Soil temperature DOC creation second-order coefficient", [deg_c-2], 0, 0, 0.1)
@@ -35,8 +36,6 @@ Not finished, just for testing some systems.
 		gwdochl    : par_real("Groundwater DOC half-life", [day], 80, 1, 500)
 		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20)
 	}
-	
-	temp : property("Temperature")
 	
 	var(soil.water.oc, [k g, k m -2], [m g, l-1], "Soil water DOC") @initial_conc { basedoc }
 		
@@ -58,7 +57,7 @@ Not finished, just for testing some systems.
 	
 	gwmin :
 	flux(gw.water.oc, nowhere, [k g, k m-2, day-1], "Deep soil DOC mineralization") {
-		rate := hl_to_rate(gwdochl)
+		rate := hl_to_rate(gwdochl),
 		oc * rate
 	}
 }

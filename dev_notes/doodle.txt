@@ -109,7 +109,7 @@
 		gw    : compartment,
 		water : quantity, 
 		pet   : property,
-		# could also have e.g. a_catch : par_real(),
+		# could also have e.g. a_catch : par_real,
 		soil_target : loc, 
 		gw_target : loc) {
 		
@@ -124,9 +124,9 @@
 		
 		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {          # 'out' now means the same as 'nowhere' did before, while there is no new 'out'
 			#...
-		} .no_carry { any }
+		} @no_carry { }
 	}
-	# How we would specify no_carry is still a bit in the air. Probably we have a  .no_carry{ } body on the flux. Then the arguments to that are passed to the module. Need a special "any" symbol for it as in .no_carry { any } .
+	# How we would specify no_carry is still a bit in the air. Probably we have a  @no_carry{ } body on the flux. Then the arguments to that are passed to the module.
 	
 	module("HBV Snow", version(1, 0, 0),
 		air : compartment,

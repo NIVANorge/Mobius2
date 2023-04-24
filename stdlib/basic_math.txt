@@ -5,7 +5,7 @@
 library("Basic") {
 
 	safe_divide : function(a, b) {
-		r := a/b
+		r := a/b,
 		r if is_finite(r),
 		0 otherwise
 	}
@@ -23,13 +23,13 @@ library("Basic") {
 library("Response") {
 	
 	lerp            : function(x, x0, x1, y0, y1) {
-		t := (x - x0) / (x1 - x0)
+		t := (x - x0) / (x1 - x0),
 		(1 - t)*y0 + t*y1
 	}
 	
 	s_curve         : function(x, x0, x1, y0, y1) {
-		t  := (x - x0) / (x1 - x0)
-		tt := (3 - 2*t)*t^2
+		t  := (x - x0) / (x1 - x0),
+		tt := (3 - 2*t)*t^2,
 		(1 - tt)*y0 + tt*y1
 	}
 	

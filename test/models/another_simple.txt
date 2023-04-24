@@ -10,13 +10,13 @@ model("Another simple") {
 			fc : par_real("Rate", [], 10)
 		}
 		
-		var(a.q, []) .initial { 10 }
+		var(a.q, []) @initial { 10 }
 		
 		#c : connection("C", all_to_all) { a* }
 		b : property("Test")
 		
 		var(a.b, [day-1]) {
-			rate := (q - fc) / 20[day]
+			rate := (q - fc) / 20[day],
 			{
 				0 if 20 < fc,
 				rate if 20 >= 1.5*fc,

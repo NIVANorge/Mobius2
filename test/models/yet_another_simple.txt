@@ -13,7 +13,7 @@ model("Yet another simple") {
 		
 		var(a.p, []) {
 			last(p)*b
-		} .initial { 20 }
+		} @initial { 20 }
 	}
 	
 	i : index_set("I")

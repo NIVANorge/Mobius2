@@ -28,8 +28,8 @@ model("Giblet-Thrasher test model") {
 		
 		var(habitat.meteor, [])
 		
-		var(habitat.pred, []) .initial { init_pred }
-		var(habitat.prey, []) .initial { init_prey }
+		var(habitat.pred, []) @initial { init_pred }
+		var(habitat.prey, []) @initial { init_prey }
 		
 		flux(nowhere, habitat.prey, [day-1], "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0[day], birth_time, birth_time+60.0[day], 0.6, 1, 0.6) }
 		

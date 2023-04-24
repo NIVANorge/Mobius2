@@ -36,7 +36,7 @@ module("Atmospheric", version(0, 1, 0)) {
 	# The idea is that some of these can be overridden with input data if it exists. TODO: make a .can_override or something like that to allow it.
 	
 	var(air.g_rad_cloud_free, [W, m-2]) {
-		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day])
+		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day]),
 		clear_sky_shortwave(ext, elev)
 	}
 	
@@ -46,11 +46,11 @@ module("Atmospheric", version(0, 1, 0)) {
 	}
 	
 	var(air.cloud,  []) {
-		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day])
-		g_rad_cloud_free := clear_sky_shortwave(ext, elev)
-		#cc := ((1 - g_rad/g_rad_cloud_free)/0.75)^(1/3.4)     #Hmm, this just didn't work that well. Find something better?
-		#cc := (1 - (1.1*g_rad/g_rad_cloud_free - 0.6))
-		cc := 1 - g_rad/g_rad_cloud_free                 # Works much better for EasyLake on Vansjø... May be other complicating factors though.
+		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day]),
+		g_rad_cloud_free := clear_sky_shortwave(ext, elev),
+		#cc := ((1 - g_rad/g_rad_cloud_free)/0.75)^(1/3.4),     #Hmm, this just didn't work that well. Find something better?
+		#cc := (1 - (1.1*g_rad/g_rad_cloud_free - 0.6)),
+		cc := 1 - g_rad/g_rad_cloud_free,                 # Works much better for EasyLake on Vansjø... May be other complicating factors though.
 		clamp(cc, 0, 1)
 	}
 	

@@ -14,7 +14,7 @@ library("Thermodynamics") {
 	black_body_radiation : function(T_kelvin) {   stefan_boltzmann * T_kelvin^4   }
 	
 	enthalpy_adjust_log10 : function(log10ref : [], ref_T : [K], T : [K], dU : [k J, mol-1]) {
-		du := dU->[J, mol-1]
+		du := dU->[J, mol-1],
 		log10ref - (du/(ideal_gas*ln(10))) * (1/T - 1/ref_T)
 	}
 	
@@ -37,7 +37,7 @@ library("Water utils") {
 	}
 	
 	water_density : function(T : [deg_c]) {
-		dtemp := (T->[K] - 277.13[K])  # Difference between temp and reference temp.
+		dtemp := (T->[K] - 277.13[K]),  # Difference between temp and reference temp.
 		rho_water*(1 - 0.5*1.6509e-5[K-2]*dtemp^2)
 	}
 }

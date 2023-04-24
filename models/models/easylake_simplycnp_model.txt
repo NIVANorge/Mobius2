@@ -18,12 +18,15 @@ model("EasyLake-SimplyCNP") {
 		var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
 		
 		flux(epi.water.oc, nowhere, [k g, day-1], "Photo-mineralization") {
-			qy_doc := 0.1[m g, mol-1]    # Quantum yield
-			f_par  := 0.45               # Fract. of PAR in incoming solar radiation
-			e_par  := 240800.0[J, mol-1] # Average energy of PAR photons
+			
+			#TODO: Maybe scale photomin differently than using the oc_doc
+			
+			qy_doc := 0.1[m g, mol-1],    # Quantum yield
+			f_par  := 0.45,               # Fract. of PAR in incoming solar radiation
+			e_par  := 240800.0[J, mol-1], # Average energy of PAR photons
 			
 			# TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
-			attn_epi := 1
+			attn_epi := 1,
 			
 			oc_doc * qy_doc * (f_par / e_par) * sw_rad * attn_epi * oc ->>
 		}
@@ -48,12 +51,12 @@ model("EasyLake-SimplyCNP") {
 		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
 		
 		flux(epi.water.din, nowhere, [k g, day-1], "Epilimnion N retention") {
-			rate := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10)
+			rate := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
 			din * rate
 		}
 		
 		flux(hyp.water.din, nowhere, [k g, day-1], "Hypolimnion N retention") {
-			rate := q10_adjust(lake_din_ret*hyp_din, 20.0[deg_c], temp, lake_din_q10)
+			rate := q10_adjust(lake_din_ret*hyp_din, 20.0[deg_c], temp, lake_din_q10),
 			din * rate
 		}
 	}

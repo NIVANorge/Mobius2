@@ -112,8 +112,8 @@ Not finished, just for testing some systems.
 #		growth_factor := {
 #			soil.growth_curve * 365	if use_growth_curve,
 #			1.0	                    otherwise
-#		}
-		rate := q10_adjust(din_immob_rate, 20.0[deg_c], temp, din_immob_q10)
+#		},
+		rate := q10_adjust(din_immob_rate, 20.0[deg_c], temp, din_immob_q10),
 		conc(din) * rate ->># * growth_factor 
 	}
 	
@@ -122,7 +122,7 @@ Not finished, just for testing some systems.
 	flux(nowhere, river.water.din, [k g, day-1], "River effluent DIN") { eff_din }
 	
 	flux(river.water.din, nowhere, [k g, day-1], "River DIN denitrification loss") {
-		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10)
+		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10),
 		river.water.din * rate
 	}
 }

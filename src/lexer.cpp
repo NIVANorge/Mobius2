@@ -104,7 +104,7 @@ Token_Stream::expect_token(Token_Type type) {
 	Token token = read_token();
 	if(token.type != type) {
 		token.print_error_header();
-		error_print("Expected a token of type ", name(type), ", got ", article(token.type), " ", name(token.type));
+		error_print("Expected a token of type '", name(type), "', got ", article(token.type), " '", name(token.type), "'");
 		//error_print("Expected a token of type ", (int)type, ", got ", article(token.type), " ", (int)token.type);
 		if(token.type == Token_Type::quoted_string || token.type == Token_Type::identifier)
 			error_print(" \"", token.string_value, "\".");

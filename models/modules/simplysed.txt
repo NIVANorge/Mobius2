@@ -38,17 +38,17 @@ This is a simple sediment transport module created as a part of SimplyP.
 	var(river.water.sed, [k g], [m g, l-1], "Suspended sediments")
 
 	var(soil.c_cover, []) {
-		E_risk_period := 60.0[day]
+		E_risk_period := 60.0[day],
 		spring := {
 			wedge_response(time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
 			bump_response (time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.smooth,
 			c_cov                                                                                                                        otherwise
-		}
+		},
 		autumn := {
 			wedge_response(time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
 			bump_response (time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if shp.smooth,
 			c_cov                                                                                                                        otherwise
-		}
+		},
 		spring*p_spring + autumn*(1 - p_spring)
 	}
 	

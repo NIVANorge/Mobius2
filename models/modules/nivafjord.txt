@@ -122,8 +122,8 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	var(layer.water.Nfreq, [s-1]) {
-		mdz := 0.5*(dz + dz[vert.below])
-		N2 := grav * ddens / (mdz*dens)
+		mdz := 0.5*(dz + dz[vert.below]),
+		N2 := grav * ddens / (mdz*dens),
 		sqrt(max(Nmin^2, N2))
 	}
 	
@@ -132,13 +132,13 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	var(layer.water.Ks, [m 2, s-1]) {
-		eta := exp(-(z - zshalf)/hsfact)
-		Es  := Es0*eta/(1+eta)
+		eta := exp(-(z - zshalf)/hsfact),
+		Es  := Es0*eta/(1+eta),
 		Es / Nfreq^2
 	}
 	
 	var(layer.water.wmix, [k g, day-1]) {
-		K := Kt + Ks + Kw#+Kd
+		K := Kt + Ks + Kw,#+Kd,
 		dens * A * K / dz ->>
 	}
 	
@@ -149,8 +149,8 @@ module("NIVAFjord", version(0, 0, 1)) {
 	summix         : property("Sum used wind mixing energy")
 	
 	var(oair.stress, [N, m-2]) {
-		u := air.wind
-		c_stress := 1e-3*(0.8 + 0.9*u^8/(u^8 + 1e8[m 8, s-8]))
+		u := air.wind,
+		c_stress := 1e-3*(0.8 + 0.9*u^8/(u^8 + 1e8[m 8, s-8])),
 		air.dens*c_stress*u^2
 	}
 	
@@ -168,7 +168,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	var(layer.water.emix, [J]) {
-		rem := max(0, oair.emix - summix)
+		rem := max(0, oair.emix - summix),
 		min(rem, potmix)
 	}
 	
@@ -179,9 +179,9 @@ module("NIVAFjord", version(0, 0, 1)) {
 	var(layer.water.Kw, [m 2, s-1]) {
 		#TODO: Find out why we get the alternating bands!!
 		
-		rem := max(0, oair.emix - summix)
+		rem := max(0, oair.emix - summix),
 		# This one is a bit iffy..
-		mixspeed := 1[m, day-1]
+		mixspeed := 1[m, day-1],
 		
 		mixspeed*dz->>                                                    if rem > 0 & potmix < 1e-20[J],
 		mixspeed*dz*safe_divide(emix[vert.below], potmix[vert.below])->> otherwise
@@ -227,12 +227,12 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	var(oair.s_hum, []) {
-		svap := saturation_vapor_pressure(layer.water.temp[vert.top])
+		svap := saturation_vapor_pressure(layer.water.temp[vert.top]),
 		specific_humidity_from_pressure(air.pressure, svap)
 	}
 	
 	var(oair.lwu, [W, m-2]) {
-		emissivity := 0.98
+		emissivity := 0.98,
 		emissivity * black_body_radiation(layer.water.temp[vert.top]->[K])
 	}
 
@@ -241,7 +241,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Latent heat flux") {
-		l_vap := latent_heat_of_vaporization(temp[top])
+		l_vap := latent_heat_of_vaporization(temp[top]),
 		A[top] * (oair.ced * l_vap * air.dens * air.wind * (air.a_hum - oair.s_hum)) ->>
 	}
 	
@@ -258,7 +258,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 	sw_vert : connection("Shortwave vertical", grid1d) { layer* }
 	
 	flux(nowhere, layer.water.heat[sw_vert.top], [J, day-1], "Net shortwave")  {
-		albedo := 0.045
+		albedo := 0.045,
 		A[top] * (1 - albedo) * air.g_rad ->>
 	}
 	
@@ -267,19 +267,19 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	var(sed.heat, [J], "Sediment heat") @initial {
-		mass := A[vert.bottom]*dz_sed*rho_sed
+		mass := A[vert.bottom]*dz_sed*rho_sed,
 		C_sed * mass * (T_sed->[K])
 	}
 	
 	var(sed.temp, [deg_c], "Sediment surface temperature") {
-		mass := A[vert.bottom]*dz_sed*rho_sed
+		mass := A[vert.bottom]*dz_sed*rho_sed,
 		1*(2*heat / (mass*C_sed) - T_sed->[K]) -> [deg_c]
 	}
 	
 	# Water-Sediment heat transfer
 	
 	flux(layer.water.heat[vert.bottom], sed.heat, [J, day-1], "Water-sediment heat transfer") {
-		dz := dz_sed*0.2  # Just the scaling factor for the transfer TODO: get a better estimate
+		dz := dz_sed*0.2,  # Just the scaling factor for the transfer TODO: get a better estimate
 		A[bottom]*(temp[bottom]->[K] - sed.temp->[K])*k_sed/dz ->>
 	}
 	
@@ -316,18 +316,18 @@ module("NIVAFjord", version(0, 0, 1)) {
 	prof : property("Boundary profile")
 	
 	var(bnd_layer.prof, []) {
-		z1 := bnd.z1
-		z2 := (10^bnd.z2diff)=>[m] + z1
+		z1 := bnd.z1,
+		z2 := (10^bnd.z2diff)=>[m] + z1,
 		a := {
 			((z2-z)/(z2-z1))^2   if z < z2,
 			0                    otherwise
-		}
+		},
 		b := {
 			0                    if z < z1,
 			((z-z1)/z1)^1.5      otherwise
-		}
-		g := a / (z/z1 + a^4)^(1/4.)
-		h := b / sqrt(1 + b^2)
+		},
+		g := a / (z/z1 + a^4)^(1/4.),
+		h := b / sqrt(1 + b^2),
 		(1 - g + h)/2
 	}
 	
@@ -361,9 +361,9 @@ module("NIVAFjord", version(0, 0, 1)) {
 	barocline_bnd_u : property("Barocline boundary flux")
 	
 	var(layer.water.barocline_bnd_u, [k g, s-1]) {
-		dP := accum_pressure[vert.below] - bnd_layer.water.accum_pressure[vert.below]
+		dP := accum_pressure[vert.below] - bnd_layer.water.accum_pressure[vert.below],
 		
-		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)
+		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP),
 		u * w_bnd * dz * rho_water
 	}
 	
@@ -385,7 +385,7 @@ module("NIVAFjord", version(0, 0, 1)) {
 	}
 	
 	var(bnd.h, [m]) @override {
-		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step
+		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step,
 		sealevel(sec->[hr])->[m]              
 	}
 	
@@ -424,13 +424,13 @@ module("NIVAFjord", version(0, 0, 1)) {
 	#/*
 
 	flux(layer.water, nowhere, [k g, day-1], "Flow from boundary equivalent removal") {
-		bcl := -(barocline_bnd_u + barotropic_bnd_u)->>
+		bcl := -(barocline_bnd_u + barotropic_bnd_u)->>,
 		bcl    if bcl > 0,
 		0      otherwise
 	}
 	
 	flux(bnd_layer.water, layer.water, [k g, day-1], "Flow from boundary") {
-		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>
+		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
 		bcl    if bcl > 0,
 		0      otherwise
 	}

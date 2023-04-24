@@ -9,13 +9,13 @@ model("Wave") {
 			c       : par_real("Wave speed", [day-1], 0.001)
 		}
 		
-		var(layer.amp, [Pa]) .initial { in_amp }
+		var(layer.amp, [Pa]) @initial { in_amp }
 		var(layer.mom, [Pa, day-1])
 		
 		l : connection("Layer connection", grid1d) { layer* }
 		
 		flux(layer.mom, l, [Pa, day-2], "Momentum propagation") {
-			cc := 0.5*(c + c[below])
+			cc := 0.5*(c + c[below]),
 			cc^2*(amp[below] - amp)
 		}
 		

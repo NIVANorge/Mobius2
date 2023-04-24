@@ -34,6 +34,7 @@
 				something[above]
 			should not invalidate the entire expression, only make the something[above] evaluate to 0 (?)
 		Does this give the correct result in all instances ?
+			Would prefer to have this since it improves usability.
 
 
 	
@@ -42,6 +43,7 @@
 		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.
 	
 		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
+			This would be a major change.
 	
 		Clean up the prune_tree system.
 			Could get rid of using Function_Scope in prune_helper?
@@ -75,6 +77,9 @@
 			or if two extended models load the same module (not a problem before, but will be if we allow multiple loads of the same module, which can then cause unintended duplicates)
 			
 			Dynamic module choice (based on data set)
+			
+			Rethink how parameters are scoped
+				Both in terms of symbol and serialization.
 			
 			With inlined modules 'seeing' their parent scope it is not that nice that extend_model puts a lot of stuff into that scope.
 			
@@ -170,6 +175,8 @@
 			
 			More aggregation intervals
 				minute, hour, day. (esp. day).
+				
+			Trend line doesn't make sense for some aggregations.
 				
 		
 		Some kind of system for specifying assertion checks on user provided data, such as

@@ -10,7 +10,7 @@ library("Meteorology") {
 	}
 	
 	mean_barometric_pressure : function(elevation : [m])    {   # Doorenbos, Pruitt 1977
-		elev := elevation => []
+		elev := elevation => [],
 		101.3 - (0.01152 - 0.544e-6*elev)*elev => [k Pa]
 	}
 	
@@ -23,7 +23,7 @@ library("Meteorology") {
 	Rvap_air          : constant("Specific gas constant of vapor",   [J, k g-1, K-1], 461.495)
 	
 	air_density : function(temp : [deg_c], pressure : [h Pa], a_vap : [h Pa]) {
-		tk := temp -> [K]
+		tk := temp -> [K],
 		((pressure - a_vap)/(tk*Rdry_air) + a_vap/(tk*Rvap_air)) -> [k g, m-3]
 	}
 	
@@ -41,13 +41,13 @@ library("Meteorology") {
 	saturation_vapor_pressure : function(T : [deg_c])   {
 		#P. R. Lowe, 1977, "An approximating polynomial for the computation of saturation vapor pressure, J. Appl. Meteor., 16, 100-103.
 		#TODO: that paper has a separate formula for T < 0
-		t  := T => []
+		t  := T => [],
 		(6.107799961 + t*(4.436518521e-1 + t*(1.428945805e-2 + t*(2.650648471e-4 + 
 			t*(3.031240396e-6 + t*(2.034080948e-8 + t*6.136820929e-11)))))) => [h Pa]
 	}
 	
 	slope_of_saturation_pressure_curve : function(T : [deg_c], svap : [k Pa]) {
-		tk := T -> [K]
+		tk := T -> [K],
 		(svap/tk)*(6790.5[K]/tk - 5.028)
 		#4098.0 * svap / (T + 237.3)^2
 	}
@@ -57,7 +57,7 @@ library("Meteorology") {
 	}
 	
 	specific_humidity_from_pressure : function(total_air_pressure : [h Pa], vapor_pressure : [h Pa]) {
-		mixing_ratio := vapor_mol_to_mass * vapor_pressure / (total_air_pressure - vapor_pressure)
+		mixing_ratio := vapor_mol_to_mass * vapor_pressure / (total_air_pressure - vapor_pressure),
 		mixing_ratio / (1 + mixing_ratio)                 # NOTE: we could maybe just return the mixing_ratio since it is <<1, and thus that is an ok approximation.
 	}
 }
@@ -72,10 +72,10 @@ library("Radiation") {
 	solar_constant : constant("Solar constant", [W, m-2], 1361)
 	
 	daily_average_extraterrestrial_radiation : function(latitude : [deg], day_of_year : [day], days_this_year : [day]) {
-		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year)
-		solar_declination      := 0.409*sin(2*pi*day_of_year/days_this_year - 1.39)
-		lat_rad                := latitude * pi / 180.0[deg]
-		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination))
+		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year),
+		solar_declination      := 0.409*sin(2*pi*day_of_year/days_this_year - 1.39),
+		lat_rad                := latitude * pi / 180.0[deg],
+		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination)),
 		
 		(solar_constant / pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
 	}
@@ -85,12 +85,12 @@ library("Radiation") {
 	}
 	
 	downwelling_longwave : function(air_temp : [deg_c], a_vap : [h Pa], cloud : []) {
-		air_t := air_temp -> [K]
-		dpt := dew_point_temperature(a_vap)
-		dew_point_depression := dpt - air_t
-		cloud_effect := (10.77 * cloud^2 + 2.34*cloud - 18.44) => [K]
-		vapor_effect := 0.84 * (dew_point_depression + 4.01[K])
-		eff_t := air_t + cloud_effect + vapor_effect
+		air_t := air_temp -> [K],
+		dpt := dew_point_temperature(a_vap),
+		dew_point_depression := dpt - air_t,
+		cloud_effect := (10.77 * cloud^2 + 2.34*cloud - 18.44) => [K],
+		vapor_effect := 0.84 * (dew_point_depression + 4.01[K]),
+		eff_t := air_t + cloud_effect + vapor_effect,
 		black_body_radiation(eff_t)
 	}
 }

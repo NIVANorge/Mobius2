@@ -22,7 +22,7 @@ module("RiverTemperature", version(0, 1, 0)) {
 	
 	flux(nowhere, river.water.heat, [J, day-1], "River heat from land") {
 		#TODO: maybe modify if melt water    
-		V := in_flux(water) -> [m 3, day-1]
+		V := in_flux(water) -> [m 3, day-1],
 		water_temp_to_heat(V => [m 3], aggregate(soil.temp)) =>> #Again annoying that the 1/day doesn't "pass through" the function.
 	}
 	
