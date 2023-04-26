@@ -186,13 +186,12 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	
 	Entity_Id      discrete_order; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
 	
-	std::vector<Var_Location> no_carry;  // Dissolved substances that should not be carried by the flux.
-	bool no_carry_by_default;            // If this is true, no dissolved substances should be carried by this flux.
+	Math_Block_AST  *no_carry_ast;
 	
 	Math_Block_AST  *code;
 	Entity_Id        code_scope;
 	
-	Entity_Registration() : code(nullptr), code_scope(invalid_entity_id), no_carry_by_default(false), discrete_order(invalid_entity_id) {}
+	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), code_scope(invalid_entity_id), discrete_order(invalid_entity_id) {}
 };
 
 template<> struct

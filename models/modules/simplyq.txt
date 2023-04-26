@@ -49,7 +49,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	evap :
 	flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {   
 		s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
-	}
+	} @no_carry { any }   # Don't carry dissolved substances
 	
 	var(soil.water.flow, [m m, day -1], "Soil water flow") {
 		rate := (water - fc)/tc_s,
@@ -130,11 +130,11 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 	
 	var(river.water, [m 3], "Reach water volume") @initial {
 		#This is not exactly correct, and so will not cause the right initial reach flow.. :( Assumes rectangular instead of trapezoid cross-section and uses depth instead of hydraulic radius. But will not be very far off, and it will correct itself quickly.
-		(flow*c_mann*cbrt(wb^2)/sqrt(slope) =>[])^(3/5.) =>>
+		len*(flow*c_mann*cbrt(wb^2)/sqrt(slope))^(3/5.)
 	}
 
-	var(river.water.flow, [m 3, s -1], "Reach flow")    { (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann   } @initial { init_flow }
+	var(river.water.flow, [m 3, s -1], "Reach flow")    {  (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann  } @initial { init_flow }
 	
 	reach_out :
-	flux(river.water, out, [m 3, day-1], "Reach flow flux")     {	 flow ->>  }
+	flux(river.water, out, [m 3, s-1], "Reach flow flux")     {	 flow  }
 }

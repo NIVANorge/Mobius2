@@ -10,13 +10,10 @@ TODO: description
 	load("stdlib/seawater.txt", library("Air-sea"))
 	
 	air  : compartment("Atmosphere")
-
 	epi  : compartment("Epilimnion")
 	hyp  : compartment("Hypolimnion")
 	
-	
 	par_group("Lake physical", epi) {
-		# TODO: copy the nice min-max values and comments from mobius 1 EasyLake
 		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 1e8)
 		z_outflow : par_real("Lake depth at which outflow is 0", [m], 10, 0.1, 1000)
 		z_epi     : par_real("Initial epilimnion thickness", [m], 2, 0.1, 10)
@@ -91,14 +88,10 @@ TODO: description
 	
 	var(epi.depth, [m], "Lake depth")                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
 	
-	var(epi.water.flow, [m 3, s-1], "Lake outflow") {   max(0, rate_l*(depth - z_outflow))   }
+	var(epi.water.flow, [m 3, s-1], "Lake outflow")  {   max(0, rate_l*(depth - z_outflow))   }
 
 	lake_out :
 	flux(epi.water, out, [m 3, day-1], "Lake outflow flux")                   {   flow ->>  }
-	
-	# TODO: should have some way of turning this on/off depending on use case.
-	#epi.has(inflow : property("Lake inflow"), [m 3, s-1])
-	#flux(nowhere, epi.water, "Lake inflow flux")                {   86400 * inflow   }
 	
 	rho_ice    : constant("Ice density", [k g, m-3], 917)
 	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
@@ -184,13 +177,13 @@ TODO: description
 	var(epi.water.evap_mm, [m m, day-1]) {
 		rho_ref := 1025 [k g, m-3],
 		0                                                                          if epi.ice.indicator,
-		-(air.rho / rho_ref) * chd * air.wind * (air.a_hum - s_hum) ->>                otherwise
+		-(air.rho / rho_ref) * chd * air.wind * (air.a_hum - s_hum) ->>            otherwise
 	}
 	
 	evap :
 	flux(epi.water, nowhere, [m 3, day-1], "Evaporation") {
 		evap_mm*A_surf ->>
-	}
+	} @no_carry { any } # Don't carry any dissolved substances
 	
 	#evap.no_carry()   #TODO: This should be allowed.
 	
@@ -202,9 +195,8 @@ TODO: description
 	}
 	
 	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
-		lake_heat := water.heat + hyp.water.heat,
 		V := water + hyp.water,
-		lake_t := water_heat_to_temp(V, lake_heat) => [deg_c], # Mean lake temperature.    #TODO: remove force conversion.
+		lake_t := water_heat_to_temp(V, heat + hyp.water.heat), # Mean lake temperature.
 		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water),
 		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be),
 		5[day-1]*(heat - epi_heat_should_be)   # The 5 is pretty arbitrary. Just to get a quick equilibration
@@ -267,14 +259,14 @@ TODO: description
 	var(epi.indicator, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
 	
 	# NOTE: This moves an equal body of water up and down, which does not impact the water volume, but does mix dissolved substances.
-	
+	# The no_carry for heat is because we can't let the mixing flux carry heat, since the heat transfer is computed in a different way.
 	mix_down :
 	flux(epi.water, hyp.water, [m 3, day-1], "Mixing down") {
 		A_surf * depth * epi.indicator * 1[day-1]
-	}
+	} @no_carry { heat }
 	
 	mix_up : 
 	flux(hyp.water, epi.water, [m 3, day-1], "Mixing up") {
 		A_surf * epi.depth * epi.indicator * 1[day-1]
-	}
+	} @no_carry { heat }
 }

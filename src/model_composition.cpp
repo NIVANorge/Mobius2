@@ -399,6 +399,48 @@ has_code(Entity_Registration<Reg_Type::var> *var) {
 }
 
 void
+resolve_no_carry(Model_Application *app, State_Var *var) {
+	
+	if(!var->is_flux() || var->type != State_Var::Type::declared) return; // Should not happen, but whatever.
+	
+	auto model = app->model;
+	auto var2 = as<State_Var::Type::declared>(var);
+	auto flux = model->fluxes[var2->decl_id];
+	
+	if(!flux->no_carry_ast) return;
+	
+	if(!is_located(var->loc1))
+		fatal_error(Mobius_Error::internal, "Got a flux without a source that has a no_carry.\n"); // NOTE: should be checked already in the model_declaration stage.
+	
+	auto code_scope = model->get_scope(flux->code_scope);
+	Function_Resolve_Data res_data = { app, code_scope, var->loc1 };
+	auto res = resolve_function_tree(flux->no_carry_ast, &res_data);
+	
+	for(auto expr : res.fun->exprs) {
+		if(expr->expr_type != Math_Expr_Type::identifier) {
+			expr->source_loc.print_error_header();
+			fatal_error("Only quantity identifiers are allowed in a 'no_carry'.");
+		}
+		auto ident = static_cast<Identifier_FT *>(expr);
+		if(ident->variable_type == Variable_Type::any) {
+			var2->no_carry_by_default = true;
+			//warning_print("The flux ", var2->name, " is no carry by default.\n");
+			continue;
+		} else if(ident->variable_type != Variable_Type::state_var) {
+			ident->source_loc.print_error_header();
+			fatal_error("Only state variables are relevant for a 'no_carry'.");
+		}
+		// TODO; Should ideally enforce that if there is an 'any', that is the only symbol.
+		// TODO: Check for other things like flags or restrictions (should not be allowed).
+		// TODO: Check if this flux could even have carried this variable.
+		var2->no_carry.push_back(ident->var_id);
+	}
+	
+	delete res.fun;
+}
+
+
+void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	auto model = app->model;
@@ -554,9 +596,10 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			fatal_error("You can't have a flux from 'nowhere' to a connection.\n");
 		}
 		
-		
 		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false, flux->name);
 		auto var = app->state_vars[var_id];
+		
+		resolve_no_carry(app, var);
 	}
 	
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
@@ -577,9 +620,16 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
 			if(flux->type == State_Var::Type::declared) { // If this flux was itself generated, it won't have a declaration to look at.
+				/*
 				auto flux_reg = model->fluxes[as<State_Var::Type::declared>(flux)->decl_id];
 				if(flux_reg->no_carry_by_default) continue;
 				if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
+				*/
+				auto flux_var = as<State_Var::Type::declared>(flux);
+				if(flux_var->no_carry_by_default)
+					continue;
+				
+				if(std::find(flux_var->no_carry.begin(), flux_var->no_carry.end(), var_id) != flux_var->no_carry.end()) continue;
 			}
 			
 			generate.push_back(flux_id);
@@ -901,13 +951,12 @@ compose_and_resolve(Model_Application *app) {
 			
 			if(override_ast && (var2->decl_type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
 				override_ast->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Either got an '.override' block on a property or a '.override_conc' block on a non-dissolved variable.");
+				fatal_error("Either got an 'override' block on a property or a 'override_conc' block on a non-dissolved variable.");
 			}
 			in_loc = var_decl->var_location;
 			from_compartment = in_loc.first();
 		}
 		
-			
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
 		Math_Expr_FT *fun = nullptr;
 		if(ast) {

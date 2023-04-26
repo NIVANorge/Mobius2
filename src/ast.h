@@ -219,15 +219,15 @@ single_arg(Decl_AST *decl, int which) {
 		fatal_error(Mobius_Error::internal, "Expected a single value or identifier, not a chain.");
 	}
 	if(!decl->args[which]->bracketed_chain.empty()) {
-		decl->args[which]->bracketed_chain[0].source_loc.print_error_header(Mobius_Error::internal);
-		fatal_error("Tried to call single_arg() on a bracketed argument.");
+		decl->args[which]->bracketed_chain[0].source_loc.print_error_header();
+		fatal_error("This argument should not have a bracket.");
 	}
 	return &decl->args[which]->chain[0];
 }
 
 //TODO: Make a general-purpose tagged union?
 struct Arg_Pattern {
-	enum class Type { value, decl };
+	enum class Type { any, value, decl };
 	Type pattern_type;
 	bool is_vararg;
 	
@@ -236,6 +236,7 @@ struct Arg_Pattern {
 		Decl_Type  decl_type;
 	};
 	
+	Arg_Pattern(bool is_vararg = false) : pattern_type(Type::any), is_vararg(is_vararg) {}
 	Arg_Pattern(Token_Type token_type, bool is_vararg = false) : token_type(token_type), pattern_type(Type::value), is_vararg(is_vararg) {}
 	Arg_Pattern(Decl_Type decl_type, bool is_vararg = false)   : decl_type(decl_type), pattern_type(Type::decl), is_vararg(is_vararg) {}
 	

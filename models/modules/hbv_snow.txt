@@ -23,10 +23,10 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	snow  : quantity("Snow (water equivalents)")
 	water : quantity("Water")
 	
-	temp : property("Temperature")
+	temp   : property("Temperature")
 	precip : property("Precipitation")
 	
-	# note: We don't give a function body to compute temp and precip, and so if they are not re-declared in another module, they are assumed to be input series.
+	# Note: We don't give a function body to compute temp and precip, and so if they are not re-declared with a formula in another module, they are assumed to be input series.
 	var(air.temp, [deg_c], "Air temperature")
 	var(air.precip, [m m, day-1])
 	
@@ -34,15 +34,11 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	var(snow_box.water, [m m], "Snow water") #@initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
 	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {
-		#air.precip    if air.temp <= t_snow,
-		#0             otherwise
 		air.precip * (air.temp <= t_snow)  # Making use of auto-cast of boolean->real
 	}
 	
 	p_rain :
 	flux(nowhere, out, [m m, day-1], "Precipitation falling as rain") {
-		#air.precip    if air.temp > t_snow,
-		#0             otherwise
 		air.precip * (air.temp > t_snow)
 	}
 	

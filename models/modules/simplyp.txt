@@ -100,6 +100,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		(init_soil_p_conc - inactive_soil_p_conc) * m_soil_m2
 	}
 	
+	#NOTE: could also just have pp "dissolved in" ss, but would then need the soil to have a SS value (that is overridden to be constant), which could be confusing to model users?
 	
 	plabconc : property("Labile P concentration")
 	#NOTE: could use the inbuilt concentration system for this, but we don't model varying soil mass, so it is a bit superfluous
@@ -115,9 +116,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	e_fact : property("Erosion factor")
 	pp_fact : property("PP mobilization factor")
-	
-	#NOTE: could also just have pp "dissolved in" ss, but would then need the soil to have a SS value (that is overridden to be constant), which could be confusing to model users?
-	
+
 	var(soil.plab.pp_fact, [k g, k m-2, day-1]) {
 		(plabconc + inactive_soil_p_conc) * e_fact * pp_enrich ->>
 	}

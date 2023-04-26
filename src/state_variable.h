@@ -75,7 +75,11 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	
 	Entity_Id special_computation;
 	
-	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false), flux_time_unit_conv(1.0), special_computation(invalid_entity_id) {}
+	// These can be set for a declared flux.
+	std::vector<Var_Id> no_carry;
+	bool no_carry_by_default;
+	
+	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false), flux_time_unit_conv(1.0), special_computation(invalid_entity_id), no_carry_by_default(false) {}
 };
 
 template<> struct

@@ -777,8 +777,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::string n1 = ident->chain[0].string_value;
 			
 			if(chain_size == 1) {
-				if(!isfun && n1 == "no_override") {
-					new_ident->variable_type = Variable_Type::no_override;
+				if(!isfun && (n1 == "no_override" || n1 == "any")) {
+					if(n1 == "no_override")
+						new_ident->variable_type = Variable_Type::no_override;
+					else
+						new_ident->variable_type = Variable_Type::any;
 					new_ident->value_type = Value_Type::real;
 					found = true;
 					result.unit = data->expected_unit;

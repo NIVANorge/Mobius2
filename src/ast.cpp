@@ -810,11 +810,15 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 	
 	switch(pattern_type) {
 		
+		case Type::any : {
+			return true;
+		} break;
+		
 		case Type::decl : {
 			if(arg->decl && (get_reg_type(arg->decl->type) == get_reg_type(decl_type))) return true;
 			//NOTE: we could still have an identifier that could potentially resolve to this type
 			check_type = Token_Type::identifier;
-		} // fall through to the next case to see if we have an identifier (chain).
+		} // fall through to the next case to see if we have an identifier.
 		
 		case Type::value : {
 			if(arg->chain.size() == 1) {
@@ -823,7 +827,9 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 				return arg->chain[0].type == check_type;
 				
 			} else if(arg->chain.size() > 1 && check_type == Token_Type::identifier) {
-				for(Token &token : arg->chain) {
+				if(pattern_type == Type::decl)
+					return false; // Only a single token can refer to a decl.
+				for(Token &token : arg->chain) {  //TODO: Not sure if we could ever get a chain of non-identifiers from the ast generation any way? So this check may be superfluous.
 					if(token.type != Token_Type::identifier)
 						return false;
 				}

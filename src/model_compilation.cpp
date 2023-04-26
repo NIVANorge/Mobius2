@@ -1441,6 +1441,8 @@ Model_Application::compile(bool store_code_strings) {
 */
 
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
+	//    Has to do with the resizing of the instructions vector where instructions are moved, and it is tricky
+	//    to get that to work.
 	for(auto &instr : initial_instructions) {
 		if(instr.code)
 			delete instr.code;

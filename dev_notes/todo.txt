@@ -1,7 +1,11 @@
 
+
 	Make NIVAFjord!!
 
 	Clean up how we generate code for computing indexes. It is very messy.
+	
+	Bake some allowance checks / var_id substitutions into the function tree resolution.
+	
 
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
@@ -36,7 +40,8 @@
 		Does this give the correct result in all instances ?
 			Would prefer to have this since it improves usability.
 
-
+		
+	Fix order of registering modules.
 	
 	*** Intermediate-pri ***
 	
@@ -85,7 +90,13 @@
 			
 			Finish cleaning up declaration format.
 				Remove chained declarations
-				Remove inlined declarations in arguments? Can't entirely e.g. with units. At least standardize how it works.
+				Maybe remove ability to have more than one note per body.
+					Always enforce uniqueness for notes.
+				Match system for what body notes are allowed and/or required?
+				
+			Whether or not something is formatted as a var_location could be checked already in the match_declaration stage (e.g. Not just pass it as Token_Type::identifier).
+			
+			
 		
 		Check for conflicting declarations of variables (unit, name).
 		
@@ -211,7 +222,7 @@
 			it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 			Finish regex checks or scrap them altogether.
 		
-		
+		Other solvers.
 		
 	*****************   DONE:   ***********************
 	
@@ -375,3 +386,5 @@
 		
 	Deleting stuff from the parameter setup in Mobiview parameter setup is broken.
 			Should be fixed now.
+	
+	The optimization of pow(a, 1.5) to sqrt(a)*a inlines all of a. Should just make it a local var instead.

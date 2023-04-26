@@ -129,7 +129,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 			) {
 			
 			if(is_valid(result_id))
-				fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to an existing copy with that name.");
+				fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to a declared copy with that handle.");
 			
 			std::string name = decl_name->string_value;
 			auto find = name_to_id.find(name);
@@ -451,11 +451,10 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 }
 
 void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified, bool allow_connection = false, bool allow_bracketed = false) {
-	//TODO: We don't need to be that specific about the restrictions on the restrictions (...) here since we now do better checking of it in model_composition. Just have allow_restriction.
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified = false, bool allow_restriction = false) {
 	
 	Specific_Var_Location *specific_loc = nullptr;
-	if(allow_connection || allow_bracketed) {
+	if(allow_restriction) {
 		specific_loc = static_cast<Specific_Var_Location *>(location);
 	}
 	
@@ -480,7 +479,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 				success = true;
 			}
 		}
-		if (allow_connection && !success) {
+		if (allow_restriction && !success) {
 			location->type = Var_Location::Type::connection;
 			specific_loc->connection_id = model->connections.find_or_create(token, scope);
 			specific_loc->restriction   = Var_Loc_Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
@@ -497,7 +496,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
 	}
 	
-	if(!bracketed.empty() && (!allow_bracketed || count == 1))
+	if(!bracketed.empty() && (!allow_restriction || count == 1))
 		success = false;
 	
 	if(success && bracketed.size() == 2) {
@@ -764,14 +763,11 @@ process_declaration<Reg_Type::constant>(Mobius_Model *model, Decl_Scope *scope, 
 
 template<> Entity_Id
 process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	//TODO: Always require the unit!
-	
+
 	int which = match_declaration(decl,
 		{
-			{Token_Type::identifier},
 			{Token_Type::identifier, Decl_Type::unit},
 			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit},
-			{Token_Type::identifier, Token_Type::quoted_string},
 			{Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
 			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
 		},
@@ -781,35 +777,18 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	auto var = model->vars[id];
 	
 	// NOTE: We don't register it with the name in find_or_create because that would cause name clashes if you re-declare variables (which should be allowed)
+		// TODO: This should be revised when we settle on a better naming system.
 	Token *name = nullptr;
-	if(which == 3)
-		var->var_name = single_arg(decl, 1)->string_value;
-	else if(which == 4)
+	if(which == 2)
 		var->var_name = single_arg(decl, 2)->string_value;
-	else if(which == 5)
+	else if(which == 3)
 		var->var_name = single_arg(decl, 3)->string_value;
+
+	process_location_argument(model, scope, decl, 0, &var->var_location);	
 	
-	/*
-	int chain_size = decl->decl_chain.size();
-	if(chain_size == 0 || chain_size > max_var_loc_components - 1) {
-		decl->decl_chain.back().print_error_header();
-		fatal_error("A 'var' declaration must either be of the form compartment.var(property_or_quantity) or compartment.<chain>.var(property_or_quantity) where <chain> is a .-separated chain of quantity handles that is no more than ", max_var_loc_components-3, " long.");
-	}
+	var->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
 	
-	// TODO: can eventually be tied to just a quantity not only a compartment or compartment.quantities
-	var->var_location.type = Var_Location::Type::located;
-	for(int idx = 0; idx < chain_size; ++idx)
-		var->var_location.components[idx] = model->components.find_or_create(&decl->decl_chain[idx], scope);
-	var->var_location.n_components = chain_size + 1;
-	var->var_location.components[chain_size] = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
-	*/
-	process_location_argument(model, scope, decl, 0, &var->var_location, false);	
-	
-	if(which == 1 || which == 2 || which == 4 || which == 5)
-		var->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
-	else
-		var->unit = invalid_entity_id;
-	if(which == 2 || which == 5) {
+	if(which == 1 || which == 3) {
 		if(!var->var_location.is_dissolved()) {
 			var->source_loc.print_error_header();
 			fatal_error("Concentration units should only be provided for dissolved quantities.");
@@ -863,7 +842,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		{
 			{Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
 			//{Token_Type::identifier, Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
-		});//, 0, true, 1, true);
+		}, 0, true, -1, true);
 	
 	Token *name = single_arg(decl, 3);
 	
@@ -872,8 +851,8 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
-	process_location_argument(model, scope, decl, 0, &flux->source, true, false, true);
-	process_location_argument(model, scope, decl, 1, &flux->target, true, true, true);
+	process_location_argument(model, scope, decl, 0, &flux->source, true, true);
+	process_location_argument(model, scope, decl, 1, &flux->target, true, true);
 
 	flux->target_was_out = (flux->target.type == Var_Location::Type::out);
 	
@@ -886,8 +865,42 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
-	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
-	flux->code = body->block;
+	bool found_no_carry = false;
+	bool found_main     = false;
+	
+	for(auto body : decl->bodies) {
+		auto fun = static_cast<Function_Body_AST *>(body);
+		if(body->notes.empty()) {
+			if(found_main) {
+				body->opens_at.print_error_header();
+				fatal_error("More than one main code body for flux.");
+			}
+			flux->code = fun->block;
+			found_main = true;
+		} else if (body->notes.size() == 1) {
+			if(body->notes[0].string_value != "no_carry") {
+				body->notes[0].print_error_header();
+				fatal_error("Unrecognized note '", body->notes[0].string_value, "'.");
+			}
+			if(found_no_carry) {
+				body->opens_at.print_error_header();
+				fatal_error("More than one 'no_carry' block for flux.");
+			}
+			if(!is_located(flux->source)) {
+				body->opens_at.print_error_header();
+				fatal_error("A 'no_carry' block does not make sense unless the source of the flux is specific.");
+			}
+			found_no_carry = true;
+			flux->no_carry_ast = fun->block;
+		} else {
+			body->opens_at.print_error_header();
+			fatal_error("At most one note is allowed for a flux body.");
+		}
+	}
+	if(!found_main) {
+		decl->source_loc.print_error_header();
+		fatal_error("This flux does not have a main code body.");
+	}
 			
 	flux->code_scope = scope->parent_id;
 	
@@ -942,7 +955,7 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 	auto comp = model->special_computations[id];
 	
 	comp->function_name = single_arg(decl, 1)->string_value;
-	process_location_argument(model, scope, decl, 2, &comp->target, false);
+	process_location_argument(model, scope, decl, 2, &comp->target);
 	
 	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	bool success = true;
@@ -1131,6 +1144,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 	}
 }
 
+/*
 void
 process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int chain_len) {
 	int which = match_declaration(decl,
@@ -1156,7 +1170,7 @@ process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *d
 		flux->no_carry_by_default = true;
 	} else {
 		Var_Location loc;
-		process_location_argument(model, scope, decl, 0, &loc, false);
+		process_location_argument(model, scope, decl, 0, &loc);
 		
 		bool found = false;
 		auto above = loc;
@@ -1175,6 +1189,7 @@ process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *d
 		flux->no_carry.push_back(loc);
 	}
 }
+*/
 
 void
 process_module_declaration(Mobius_Model *model, Entity_Id id) {
@@ -1270,7 +1285,6 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			case Decl_Type::compartment :
 			case Decl_Type::property :
 			case Decl_Type::quantity :
-			case Decl_Type::no_carry :
 			case Decl_Type::connection : {  // already processed above, or will be processed below
 			} break;
 			
@@ -1280,13 +1294,7 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 			};
 		}
 	}
-	
-	for(Decl_AST *child : body->child_decls) {
-		switch(child->type == Decl_Type::no_carry) {
-			// This requires the flux to have been processed already.
-			process_no_carry_declaration(model, &module->scope, child, 1);
-		}
-	}
+
 	module->scope.check_for_missing_decls(model);
 	
 	module->has_been_processed = true;
@@ -1294,7 +1302,7 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 
 void
 process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	// Process a "to" declaration
+	// Process a 'to' declaration
 	match_declaration(decl, {{Token_Type::identifier}}, 2, false);
 	
 	auto module_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::module);
@@ -1381,7 +1389,7 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 	solve->solver = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		Var_Location loc;
-		process_location_argument(model, scope, decl, idx, &loc, false);
+		process_location_argument(model, scope, decl, idx, &loc);
 		
 		if(loc.is_dissolved()) {
 			decl->args[idx]->chain[0].source_loc.print_error_header(Mobius_Error::model_building);
@@ -1447,8 +1455,8 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	Flux_Unit_Conversion_Data data = {};
 	
-	process_location_argument(model, scope, decl, 0, &data.source, false);
-	process_location_argument(model, scope, decl, 1, &data.target, false);
+	process_location_argument(model, scope, decl, 0, &data.source);
+	process_location_argument(model, scope, decl, 1, &data.target);
 	data.code = static_cast<Function_Body_AST *>(decl->bodies[0])->block;
 	data.code_scope = scope->parent_id;
 	
@@ -1569,7 +1577,12 @@ load_model(String_View file_name, String_View config) {
 	if(!success)
 		mobius_error_exit();
 	
-	std::reverse(extend_models.begin(), extend_models.end()); // Reverse inclusion order so that the modules from the base model are listed first in e.g. MobiView2.
+	/*
+	TODO:
+		It seems like doing this reverse is no longer the correct thing to do, but it actually breaks functionality if we don't do it.
+		This should just not be an issue.
+	*/
+	std::reverse(extend_models.begin(), extend_models.end());
 	
 	//TODO: now we just throw everything into a single model decl scope, but what happens if we have re-declarations of handles because of multiple extensions?
 
@@ -1665,10 +1678,6 @@ load_model(String_View file_name, String_View config) {
 				
 				case Decl_Type::to : {
 					process_to_declaration(model, scope, child);
-				} break;
-				
-				case Decl_Type::no_carry : {
-					process_no_carry_declaration(model, scope, child, 2);
 				} break;
 				
 				case Decl_Type::distribute : {

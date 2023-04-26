@@ -43,9 +43,13 @@ maybe_optimize_pow(Operator_FT *binary, Math_Expr_FT *lhs, Literal_FT *rhs) {
 		if(val == 0.5) {
 			result = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
 		} else if (valmh == (double)(s64)valmh) {
-			auto rt = make_intrinsic_function_call(Value_Type::real, "sqrt", lhs);
-			auto rest = optimize_pow_int(copy(lhs), (s64)valmh);   // TODO: oops, lhs should instead be a local var. Will probably be caught by optimizer though.
-			result = make_binop('*', rt, rest);
+			auto scope = new Math_Block_FT();
+			result = scope;
+			result->value_type = Value_Type::real;
+			auto ref = add_local_var(scope, lhs);
+			auto rt = make_intrinsic_function_call(Value_Type::real, "sqrt", ref);
+			auto rest = optimize_pow_int(copy(ref), (s64)valmh);   // TODO: oops, lhs should instead be a local var. Will probably be caught by optimizer though.
+			result->exprs.push_back(make_binop('*', rt, rest));
 		} else if(val == (double)(s64)val) {
 			result = optimize_pow_int(lhs, (s64)val);
 		}

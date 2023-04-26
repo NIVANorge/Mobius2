@@ -360,11 +360,11 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 			rhs = data->builder->CreateTrunc(rhs, llvm::Type::getInt32Ty(*data->context));
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context), llvm::Type::getInt32Ty(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::powi, arg_types);
-			result = data->builder->CreateCall(fun, { lhs, rhs });
+			result = data->builder->CreateCall(fun, { lhs, rhs }, "powtmp");
 		} else if(type2 == Value_Type::real) {
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::pow, arg_types);
-			result = data->builder->CreateCall(fun, { lhs, rhs });
+			result = data->builder->CreateCall(fun, { lhs, rhs }, "powitmp");
 		}
 	} else
 		fatal_error(Mobius_Error::internal, "build_binary_ir() unhandled operator ", name(oper), " .");
@@ -415,7 +415,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function,
 				fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in build_intrinsic_ir()."); \
 			std::vector<llvm::Type *> arg_types = { get_llvm_type(Value_Type::type1, data) }; \
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::intrin_name, arg_types); \
-			result = data->builder->CreateCall(fun, { a }); \
+			result = data->builder->CreateCall(fun, { a }, "calltmp"); \
 		}
 	// could name the function call
 	#define MAKE_INTRINSIC2(name, intrin_name, ret_type, type1, type2)
@@ -436,7 +436,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function,
 		auto fun = data->module->getFunction(function);
 		if(!fun)
 			fatal_error(Mobius_Error::internal, "Unhandled or unsupported function \"", function, "\" in build_intrinsic_ir().");
-		result = data->builder->CreateCall(fun, a);
+		result = data->builder->CreateCall(fun, a, "calltmp");
 	}
 	
 	return result;
@@ -458,11 +458,11 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 			fun = llvm::Intrinsic::getDeclaration(data->module.get(), ismin ? llvm::Intrinsic::minnum : llvm::Intrinsic::maxnum, arg_types);
 		} else
 			fatal_error(Mobius_Error::internal, "Somehow we got wrong type of arguments to \"", function, "\" in build_intrinsic_ir().");
-		result = data->builder->CreateCall(fun, { a, b });
+		result = data->builder->CreateCall(fun, { a, b }, "calltmp");
 	} else if (function == "copysign") {
 		std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context) };
 		llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::copysign, arg_types);
-		result = data->builder->CreateCall(fun, {a, b});
+		result = data->builder->CreateCall(fun, {a, b}, "calltmp");
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in build_intrinsic_ir().");
 	return result;
@@ -727,6 +727,9 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 			} else if(ident->variable_type == Variable_Type::no_override) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'no_override' is not in a branch that could be resolved at compile time."); // TODO: should probably check for that before this.
+			} else if(ident->variable_type == Variable_Type::any) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Got an 'any' in executable code."); // TODO: should probably be checked before this.
 			} else if (ident->variable_type == Variable_Type::connection) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This handle refers to a connection, and should only appear in an expression as an argument to a special instruction like 'target'."); //TODO: Should we name the rest when they are implemented?

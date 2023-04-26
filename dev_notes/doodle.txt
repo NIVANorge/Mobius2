@@ -105,12 +105,20 @@
 	distribute(soil, landscape_units, reaches)   # Makes it not immediately as clear what is being distributed over what...
 	solve(simply_solver, soil.water, river.water, gw.water)  # Varargs so that you can pass multiple
 	
-	# Or:
-	solve(simply_solver) {
-		soil.water river.water gw.water
-	}
-	distribute(soil) { landscape_units reaces }
-	# This is probably not the best use of this type of notation?
+	
+	
+	
+	# Main problem with solution below is that it is error prone to pass the arguments correctly.
+	# E.g. easy to pass two compartments in the wrong order.
+	# How to solve?
+	# Maybe we just live with it?
+	
+	# For things like EasyLake there will be a lot passed that is just atmospheric for instance. Could these be packed into "structs" or "var_groups" ?
+	
+	
+	# Need a (new) system for a model extending another to override stuff from that.
+	# esp. for connection declarations.
+	
 	
 	
 	
