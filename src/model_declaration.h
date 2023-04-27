@@ -74,15 +74,25 @@ Entity_Registration : Entity_Registration_Base {
 // REFACTOR: It doesn't look like there's a point in having module and library be separate reg types (?)
 
 template<> struct
-Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::module_template> : Entity_Registration_Base {
 	Module_Version version;
-	Decl_Scope     scope;
+	//Decl_Scope     scope;
 	Decl_AST      *decl;
-	bool           has_been_processed;
+	//bool           has_been_processed;
 	std::string    doc_string;
 	std::string    normalized_path;
 	
-	Entity_Registration() : decl(nullptr), has_been_processed(false) {}
+	Entity_Registration() : decl(nullptr) {}//, has_been_processed(false) {}
+};
+
+template<> struct
+Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
+	Entity_Id      template_id;
+	
+	Decl_Scope     scope;
+	//bool           has_been_processed;
+	
+	Entity_Registration() : template_id(invalid_entity_id) {}
 };
 
 template<> struct
@@ -321,6 +331,7 @@ Mobius_Model {
 	
 	std::string  mobius_base_path;
 	
+	Registry<Reg_Type::module_template> module_templates;
 	Registry<Reg_Type::module>      modules;
 	Registry<Reg_Type::library>     libraries;
 	Registry<Reg_Type::unit>        units;

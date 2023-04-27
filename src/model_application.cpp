@@ -248,6 +248,7 @@ Model_Application::all_indexes_are_set() {
 void
 process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, const std::string &module_name = "") {
 
+	// TODO: Have to figure out how to serialize here!
 	Entity_Id module_id = invalid_entity_id;
 	if(!module_name.empty()) {
 		module_id = model->modules.find_by_name(module_name);
@@ -313,6 +314,8 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	
 	auto group_id = model->par_groups.find_by_name(par_group_info->name);
 	
+	// TODO: Error messages should reference the name of the template rather than the module maybe.
+	
 	if(!model->get_scope(module_id)->has(group_id)) {
 		par_group_info->loc.print_error_header();
 		if(is_valid(module_id))
@@ -322,7 +325,12 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 			fatal_error("The model does not contain the parameter group \"", par_group_info->name, "\".");
 	}
 	
-	bool module_is_outdated = module_info && is_valid(module_id) && (module_info->version < model->modules[module_id]->version);
+	bool module_is_outdated = false;
+	if(module_info && is_valid(module_id)) {
+		auto mod  = model->modules[module_id];
+		auto temp = model->module_templates[mod->template_id];
+		module_is_outdated = (module_info->version < temp->version);
+	}
 	
 	for(auto &par : par_group_info->pars) {
 		auto par_id = model->parameters.find_by_name(par.name);
@@ -855,7 +863,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		process_parameters(this, &par_group);
 	for(auto &module : data_set->modules) {
 		Entity_Id module_id = model->modules.find_by_name(module.name);
-		if(!is_valid(module_id) || !model->modules[module_id]->has_been_processed) {
+		if(!is_valid(module_id)) {
 			warning_print("In ");
 			module.loc.print_warning_header();
 			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
@@ -924,25 +932,28 @@ Model_Application::save_to_data_set() {
 	}
 	*/
 	
+	// TODO: Rethink how to scope things here with the new module specialization system.
+	
 	// Hmm, this is a bit cumbersome
-	for(int idx = -1; idx < model->modules.count(); ++idx) {
+	for(int idx = -1; idx < model->module_templates.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
 		if(idx >= 0) module_id = { Reg_Type::module, idx };
 		
-		if(is_valid(module_id) && !model->modules[module_id]->has_been_processed)  // NOTE: This means that it was in a file that was loaded, but not actually included into the model.
-			continue;
+		//if(is_valid(module_id) && !model->module_templates[module_id]->has_been_processed)  // NOTE: This means that it was in a file that was loaded, but not actually included into the model.
+		//	continue;
 		
 		Module_Info *module_info = nullptr;
 		if(idx < 0)
 			module_info = &data_set->global_module;
 		else {
-			std::string &name = model->modules[module_id]->name;
+			auto module = model->modules[module_id];
+			std::string &name = module->name;
 			module_info = data_set->modules.find(name);
 		
 			if(!module_info)
 				module_info = data_set->modules.create(name, {});
 			
-			module_info->version = model->modules[module_id]->version;
+			module_info->version = model->module_templates[module->template_id]->version;
 		}
 		
 		for(auto group_id : model->by_scope<Reg_Type::par_group>(module_id)) {

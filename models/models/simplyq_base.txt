@@ -7,15 +7,14 @@ General model description.
 	###### Import modules
 	
 	load("modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river"))
-	#load("modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river trapezoid"))
-	
+	#load("modules/simplyq.txt",   sw : module("SimplyQ land"), rw : module("SimplyQ river trapezoid"))	
 	
 	soil  : compartment("Soil")
 	gw    : compartment("Groundwater")
 	river : compartment("River")
 	water : quantity("Water")
 		
-	###### Distribute modules over index sets and set solvers
+	###### Distribute compartments over index sets and set solvers
 	
 	sc : index_set("Subcatchment")
 	lu : index_set("Landscape units")
@@ -35,8 +34,6 @@ General model description.
 	sw.quick_flow .to(river.water)
 	sw.soil_runoff.to(river.water)
 	sw.gw_runoff  .to(river.water)
-	
-	#sw.evap.no_carry()   # By default, don't carry dissolved substances in the evapotranspiration.
 	
 	ds : connection("Downstream", directed_tree) { river* }
 	rw.reach_out  .to(ds)

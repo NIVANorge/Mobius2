@@ -1,20 +1,22 @@
 
 model("Yet another simple") {
 
-	module("So very very simple", version(0, 0, 1)) {
-
-		par_group("Pars", a) {
-			b : par_real("B", [], 0.99)
-		}
-		
-		p : property("P")
-		
-		var(a.p, []) {
-			last(p)*b
-		} @initial { 20 }
-	}
-	
 	a : compartment("A")
+
+	load("yet_another_simple_module.txt",
+		module("So very very simple",
+			a
+		)
+	)
 	
 	distribute(a, index_set("I"))
+	
+	module("A different simple module", version(1, 0, 0)) {
+	
+		test : property("Test")
+		
+		var(a.test, []) {
+			sin(time.step * 2*pi / 365.0 =>[])
+		}
+	}
 }

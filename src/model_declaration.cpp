@@ -131,12 +131,16 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 			if(is_valid(result_id))
 				fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to a declared copy with that handle.");
 			
-			std::string name = decl_name->string_value;
-			auto find = name_to_id.find(name);
-			if(find != name_to_id.end()) {
-				result_id = find->second;
-				linked_by_name = true;
-			}
+			
+		}
+	}
+	
+	if(is_valid(decl_name)) {
+		std::string name = decl_name->string_value;
+		auto find = name_to_id.find(name);
+		if(find != name_to_id.end()) {
+			result_id = find->second;
+			linked_by_name = true;
 		}
 	}
 	
@@ -149,6 +153,27 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 		registration.has_been_declared = false;
 		if(is_valid(handle))
 			registration.source_loc = handle->source_loc;
+		
+		if(is_valid(decl_name)) {
+			registration.name = decl_name->string_value;
+				
+			for(const char *c = registration.name.data(); *c != 0; ++c) {
+				if(*c == ':') {
+					decl_name->print_error_header();
+					fatal_error("The colon symbol ':' is not allowed inside the name of a declaration");
+				}
+			}
+			
+			//TODO: NOTE: for now names are globally scoped. This is necessary for some systems to work, but could cause problems in larger models. Make a better system later?
+			auto find = name_to_id.find(registration.name);
+			if(find != name_to_id.end()) {
+				decl->source_loc.print_error_header();
+				error_print("The name \"", registration.name, "\" was already used for another '", name(reg_type), "' declared here: ");
+				registrations[find->second.id].source_loc.print_error();
+				mobius_error_exit();
+			}
+			name_to_id[registration.name] = result_id;
+		}
 	}
 	
 	auto &registration = registrations[result_id.id];
@@ -163,6 +188,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 		registration.has_been_declared = true;
 		registration.decl_type = decl->type;
 		
+		/*
 		if(decl_name) {
 			registration.name = decl_name->string_value;
 			
@@ -183,6 +209,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 			}
 			name_to_id[registration.name] = result_id;
 		}
+		*/
 	}
 	
 	if(is_valid(handle) && scope) {
@@ -232,7 +259,7 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::par_group :                return &par_groups;
 		case Reg_Type::parameter :                return &parameters;
 		case Reg_Type::unit :                     return &units;
-		case Reg_Type::module :                   return &modules;
+		case Reg_Type::module_template :          return &module_templates;
 		case Reg_Type::library :                  return &libraries;
 		case Reg_Type::component :                return &components;
 		case Reg_Type::var :                      return &vars;
@@ -243,6 +270,7 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::solve :                    return &solves;
 		case Reg_Type::constant :                 return &constants;
 		case Reg_Type::connection :               return &connections;
+		case Reg_Type::module :                   return &modules;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
@@ -406,8 +434,13 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			if(stream.peek_token().type == Token_Type::eof) break;
 			Decl_AST *decl = parse_decl(&stream);
 			
+			// TODO: Could we find a way to not have to do these matches both here and inside process_module_declaration ?
 			if(decl->type == Decl_Type::module) {
-				match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::version}});
+				match_declaration(decl,
+					{
+						{Token_Type::quoted_string, Decl_Type::version},
+						{Token_Type::quoted_string, Decl_Type::version, {true}}
+					});
 			} else if (decl->type == Decl_Type::library) {
 				match_declaration(decl, {{Token_Type::quoted_string}});   //TODO: Should just have versions here too maybe..
 			} else {
@@ -426,11 +459,11 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
 			} else if (decl->type == Decl_Type::module) {
-				id = model->modules.standard_declaration(nullptr, decl);
-				auto mod = model->modules[id];
-				mod->has_been_processed = false;
+				id = model->module_templates.standard_declaration(nullptr, decl);
+				auto mod = model->module_templates[id];
+				//mod->has_been_processed = false;
 				mod->decl = decl;
-				mod->scope.parent_id = id;
+				//mod->scope.parent_id = id;
 				mod->normalized_path = normalized_path;
 			}
 			model->parsed_decls[normalized_path][found_name] = id;
@@ -807,20 +840,20 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 			if(str == "initial" || str == "initial_conc") {
 				if(var->initial_code) {
 					function->opens_at.print_error_header();
-					fatal_error("Declaration var more than one '.initial' or '.initial_conc' block.");
+					fatal_error("Declaration var more than one 'initial' or 'initial_conc' block.");
 				}
 				var->initial_code = function->block;
 				var->initial_is_conc = (str == "initial_conc");
 			} else if(str == "override" || str == "override_conc") {
 				if(var->override_code) {
 					function->opens_at.print_error_header();
-					fatal_error("Declaration has more than one '.override' or '.override_conc' block.");
+					fatal_error("Declaration has more than one 'override' or 'override_conc' block.");
 				}
 				var->override_code = function->block;
 				var->override_is_conc = (str == "override_conc");
 			} else {
-				function->opens_at.print_error_header();
-				fatal_error("Expected either no function body notes, '.initial' or '.override_conc'.");
+				function->notes[0].print_error_header();
+				fatal_error("Expected either no function body notes, 'initial' or 'override_conc'.");
 			}
 		} else {
 			if(var->code) {
@@ -1191,33 +1224,61 @@ process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *d
 }
 */
 
-void
-process_module_declaration(Mobius_Model *model, Entity_Id id) {
-		
-	auto module = model->modules[id];
-	if(module->has_been_processed) return;
+Entity_Id
+process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location &load_loc, const Decl_Scope *import_scope = nullptr) {
 	
-	auto decl = module->decl;
-	//match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}});
-	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::version}});
+	// TODO: Take potentially second name argument, as well as a list of load arguments.
+	
+	auto mod_temp = model->module_templates[template_id];
+	//if(module->has_been_processed) {
+		//warning_print("Multiple loads of module ", module->name, ".\n");
+		//return;
+	//}
+	
+	// TODO: It is a bit superfluous to process the arguments and version of the template every time it is specialized.
+	
+	auto decl = mod_temp->decl;
+	match_declaration(decl,
+		{
+			{Token_Type::quoted_string, Decl_Type::version},
+			{Token_Type::quoted_string, Decl_Type::version, {true}}
+		});
 	
 	auto version_decl = decl->args[1]->decl;
 	
 	match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}});
 	
-	module->version.major        = single_arg(version_decl, 0)->val_int;
-	module->version.minor        = single_arg(version_decl, 1)->val_int;
-	module->version.revision     = single_arg(version_decl, 2)->val_int;
-	
-	module->scope.import(model->global_scope);
+	mod_temp->version.major        = single_arg(version_decl, 0)->val_int;
+	mod_temp->version.minor        = single_arg(version_decl, 1)->val_int;
+	mod_temp->version.revision     = single_arg(version_decl, 2)->val_int;
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 	
 	if(body->doc_string.string_value.count)
-		module->doc_string = body->doc_string.string_value;
+		mod_temp->doc_string = body->doc_string.string_value;
 	
-	// NOTE we have to process these first since they have to be linked to their universal version. This could break if they were referenced before declared and the declaration was processed later.
-	// TODO: this may still break for in-argument declarations that happen after a reference, but that is probably rare..
+	// Create a module specialization of the module template:
+	
+	// TODO: Potentially a different name:
+	auto module_id = model->modules.find_by_name(mod_temp->name);
+	if(is_valid(module_id)) return module_id; // It has been specialized with this name already.
+	
+	// TODO: The other name must be used here too:
+	module_id = model->modules.find_or_create(nullptr, nullptr, single_arg(decl, 0), nullptr);
+	auto module = model->modules[module_id];
+	// Ouch, this is a bit hacky, but it is to avoid the problem that Decl_Type::module is tied to Reg_Type::module_template .
+	// Maybe we should instead have another flag on it?
+	module->has_been_declared = true;
+	module->name = single_arg(decl, 0)->string_value; // Hmm, why didn't it get a name though?
+	
+	module->scope.parent_id = module_id;
+	module->template_id = template_id;
+	module->scope.import(model->global_scope);
+	
+	if(import_scope)
+		module->scope.import(*import_scope, &load_loc);
+	
+	// TODO: Order of processing could probably be simplified when the new module load system is finished.
 	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
 			
@@ -1243,7 +1304,7 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
 			case Decl_Type::load : {
-				process_load_library_declaration(model, child, id, module->normalized_path);
+				process_load_library_declaration(model, child, module_id, mod_temp->normalized_path);
 			} break;
 			
 			case Decl_Type::unit : {
@@ -1297,12 +1358,15 @@ process_module_declaration(Mobius_Model *model, Entity_Id id) {
 
 	module->scope.check_for_missing_decls(model);
 	
-	module->has_been_processed = true;
+	return module_id;
+	//module->has_been_processed = true;
 }
 
 void
 process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	// Process a 'to' declaration
+	
+	
 	match_declaration(decl, {{Token_Type::identifier}}, 2, false);
 	
 	auto module_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::module);
@@ -1319,6 +1383,7 @@ process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	auto &chain = decl->args[0]->chain;
 	
 	process_location_argument(model, scope, decl, 0, &flux->target, false, true);
+
 }
 
 template<> Entity_Id
@@ -1637,32 +1702,38 @@ load_model(String_View file_name, String_View config) {
 					String_View file_name = single_arg(child, 0)->string_value;
 					for(int idx = 1; idx < child->args.size(); ++idx) {
 						Decl_AST *module_spec = child->args[idx]->decl;
+						if(!module_spec) {
+							single_arg(child, idx)->source_loc.print_error_header();
+							fatal_error("An argument to a load must be a module() or library() declaration.");
+						}
 						match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
 						
+						auto load_loc = single_arg(child, 0)->source_loc;
 						auto module_name = single_arg(module_spec, 0)->string_value;
-						auto module_id = load_top_decl_from_file(model, single_arg(child, 0)->source_loc, file_name, model_path, module_name, Decl_Type::module);
 						
+						auto template_id = load_top_decl_from_file(model, load_loc, file_name, model_path, module_name, Decl_Type::module);
+
+						auto module_id = process_module_load(model, template_id, load_loc);
+						
+						// TODO: We could maybe remove the ability to assign handles to modules.
 						std::string module_handle = "";
 						if(module_spec->handle_name.string_value.count)
 							module_handle = module_spec->handle_name.string_value;
 						scope->add_local(module_handle, module_spec->source_loc, module_id);
-						
-						process_module_declaration(model, module_id);
 					}
 					//TODO: should also allow loading libraries inside the model scope!
 				} break;
 				
 				case Decl_Type::module : {
 					// Inline module sub-scope inside the model declaration.
-					auto module_id = model->modules.standard_declaration(scope, child);
-					auto module = model->modules[module_id];
-					module->decl = child;
-					module->scope.parent_id = module_id;
-					module->normalized_path = model_path;
+					auto template_id = model->module_templates.standard_declaration(scope, child);
+					auto mod_temp = model->module_templates[template_id];
+					mod_temp->decl = child;
+					//module->scope.parent_id = module_id;
+					mod_temp->normalized_path = model_path;
 					auto load_loc = single_arg(child, 0)->source_loc;
-					module->scope.import(model->model_decl_scope, &load_loc);
 					
-					process_module_declaration(model, module_id);
+					process_module_load(model, template_id, load_loc, &model->model_decl_scope);
 				} break;
 			}
 		}

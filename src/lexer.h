@@ -43,8 +43,7 @@ Token {
 	union
 	{
 		s64       val_int;
-		// WARNING: val_double should never be read directly, instead use double_value() below. This is because something that is a valid int could also be interpreted as a double.
-		// TODO:    How to enforce that in the compiler without making too much boilerplate for accessing the other values?
+		// WARNING: val_double should never be read directly unless you know the type is real. Instead use double_value() below. This is because something that is a valid int could also be interpreted as a double.
 		double    val_double;
 		u64       val_bool;
 		Date_Time val_date;
@@ -53,8 +52,7 @@ Token {
 	
 	double
 	double_value() const {
-		if(type == Token_Type::real) return val_double;
-		return (double)val_int;
+		return (type == Token_Type::real) ? val_double : (double)val_int;
 	}
 	
 	void print_error_location();

@@ -424,15 +424,26 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::any) {
 			var2->no_carry_by_default = true;
-			//warning_print("The flux ", var2->name, " is no carry by default.\n");
+			if(res.fun->exprs.size() != 1) {
+				ident->source_loc.print_error_header();
+				fatal_error("An 'any' must appear alone.");
+			}
 			continue;
 		} else if(ident->variable_type != Variable_Type::state_var) {
 			ident->source_loc.print_error_header();
 			fatal_error("Only state variables are relevant for a 'no_carry'.");
 		}
-		// TODO; Should ideally enforce that if there is an 'any', that is the only symbol.
-		// TODO: Check for other things like flags or restrictions (should not be allowed).
-		// TODO: Check if this flux could even have carried this variable.
+		if(ident->flags != Identifier_Data::Flags::none || ident->restriction.restriction != Var_Loc_Restriction::Restriction::none) {
+			ident->source_loc.print_error_header();
+			fatal_error("Only plain variable identifiers are allowed in a 'no_carry'.");
+		}
+		auto carry_var = as<State_Var::Type::declared>(app->state_vars[ident->var_id]);
+		auto loc = remove_dissolved(carry_var->loc1);
+		if(loc != var->loc1 || carry_var->decl_type != Decl_Type::quantity) {
+			ident->source_loc.print_error_header();
+			fatal_error("This flux could not have carried this as a dissolved quantity.");
+		}
+		
 		var2->no_carry.push_back(ident->var_id);
 	}
 	

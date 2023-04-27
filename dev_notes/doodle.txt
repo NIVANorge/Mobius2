@@ -120,6 +120,22 @@
 	# esp. for connection declarations.
 	
 	
+	# How to disambiguate loads of the same module when it in theory could be loaded multiple times?
+	# guess we give the load a name?
+	
+	load("file_name.txt", module("Template name", "Specialization name", args..) # ??
+	
+	# Then this is the name that is used for serialization.
+	# Omitting the specialization name then uses the template name for the specialization name (and blocks multiple loads of the same thing).
+	# Only downside is that if we try to load the same module with the same name but different arguments, we don't get a warning or error.
+	
+	# Should we do it differently?
+	load("file_name.txt", module("Template name", "Specialization name") {
+			soil, gw, pet              # This just passes the symbols from the parent scope into the module scope. And only if we need to we could have a module argument that specializes something (?)
+		}, ..)
+	# Doesn't quite work for flux targets though, those would always have to be arguments.
+	
+	
 	
 	
 	flux(nowhere, layer.water.heat, vert, "Latent heat flux") .top {}

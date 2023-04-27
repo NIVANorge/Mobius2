@@ -4,7 +4,7 @@
 
 	Clean up how we generate code for computing indexes. It is very messy.
 	
-	Bake some allowance checks / var_id substitutions into the function tree resolution.
+	Put some allowance checks / var_id substitutions into the function tree resolution.
 	
 
 	Finish sub-indexed index sets
@@ -95,7 +95,6 @@
 				Match system for what body notes are allowed and/or required?
 				
 			Whether or not something is formatted as a var_location could be checked already in the match_declaration stage (e.g. Not just pass it as Token_Type::identifier).
-			
 			
 		
 		Check for conflicting declarations of variables (unit, name).
@@ -222,7 +221,9 @@
 			it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 			Finish regex checks or scrap them altogether.
 		
-		Other solvers.
+		Other solver algorithms.
+		
+		May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
 		
 	*****************   DONE:   ***********************
 	
