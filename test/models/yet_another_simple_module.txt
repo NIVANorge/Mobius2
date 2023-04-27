@@ -1,0 +1,18 @@
+
+module("So very very simple", version(1, 0, 0) #,
+	#a : compartment
+) {
+	
+	
+	a : compartment("A")
+	
+	par_group("Pars", a) {
+		b : par_real("B", [], 0.99)
+	}
+	
+	p : property("P")
+	
+	var(a.p, []) {
+		last(p)*b
+	} @initial { 20 }
+}
