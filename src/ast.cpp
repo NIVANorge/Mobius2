@@ -8,12 +8,10 @@
 	
 	The general form of a declaration is
 	
-		identifier : identifier.identifier... .identifier.decl_type(arg, ...) .note_1 { body_1 } ... .note_n { body_n }
+		identifier : decl_type(arg, ...) @note_1 { body_1 } ... @note_n { body_n }
 	
 	The first identifier is the "handle" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
 	In some cases you can make a declaration without a handle.
-	
-	The sequence of identifiers following the : is called the declaration chain. It typically attaches the declaration to a location specified by other identifiers. The chain can be empty.
 	
 	The decl_type is an identifier that belongs to 
 	
@@ -43,16 +41,18 @@
 	
 	Examples
 	
-	module("Snow", version(0, 0, 1)) {
-		air  : compartment("Atmosphere")
-		soil : compartment("Soil")
+	module("Snow", version(0, 0, 1),
+		air  : compartment,
+		soil : compartment,
+		temp : property
+	) {
 		
-		soil.par_group("Snow parameters") {
+		
+		par_group("Snow parameters", soil) {
 			ddf_melt   : par_real("Degree-day snow melt factor", [m m, deg_c-1], 0.1, 0, 2)
 		}
 		
 		pot_melt : property("Potential snow melt")
-		temp     : property("Temperature")
 		
 		var(soil.pot_melt, [m m, day-1]) {
 			air.temp * ddf_melt
@@ -159,9 +159,11 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 		stream->read_token(); // reads the ':'
 	}
 	
+	Token decl_type;
+	
 	next = stream->peek_token();
 	if(next.type == Token_Type::identifier) {
-		read_chain(stream, '.', &decl->decl_chain);
+		decl_type = stream->read_token();
 	} else if ((char)next.type == '[') {
 		parse_unit_decl(stream, decl);
 		if(body_type_out)
@@ -173,11 +175,10 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 	}
 	
 	// We generally have something on the form a.b.type(bla) . The chain is now {a, b, type}, but we want to store the type separately from the rest of the chain.
-	decl->source_loc = decl->decl_chain.back().source_loc;
+	decl->source_loc = decl_type.source_loc;
 	
 	Body_Type body_type;
-	decl->type = get_decl_type(&decl->decl_chain.back(), &body_type);
-	decl->decl_chain.pop_back(); // note: we only want to keep the first symbols (denoting location) in the chain since we now have stored the type separately.
+	decl->type = get_decl_type(&decl_type, &body_type);
 	
 	if(decl->type == Decl_Type::unit) {
 		next.source_loc.print_error_header();
@@ -714,14 +715,8 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_notes) {
 	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
 	
-	if(!allow_chain && !decl->decl_chain.empty()) {
-		decl->decl_chain[0].print_error_header();
-		fatal_error("This should not be a chained declaration.");
-	}
-	if(allow_chain > 0 && decl->decl_chain.size() != allow_chain) {
-		decl->decl_chain[0].print_error_header();
-		fatal_error("There should be ", allow_chain, " elements in the declaration chain. We found ", decl->decl_chain.size(), ".");
-	}
+	// TODO: Remove allow_chain argument!
+	
 	if(!allow_handle && decl->handle_name.string_value.count > 0) {
 		decl->handle_name.print_error_header();
 		fatal_error("A ", name(decl->type), " declaration can not be assigned to an identifier.");
@@ -766,7 +761,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	
 	if(found_match == -1) {
 		decl->source_loc.print_error_header();
-		error_print("The arguments to the declaration of type '", name(decl->type), "' don't match any recognized pattern. The recognized patterns are:\n");
+		error_print("The arguments to the declaration of type '", name(decl->type), "' don't match any recognized pattern for this context. The recognized patterns are:\n");
 		for(const auto &pattern : patterns) {
 			if(pattern.size() == 0) {
 				error_print("()\n");

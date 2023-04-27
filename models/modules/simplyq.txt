@@ -1,18 +1,22 @@
 
 
-module("SimplyQ land", version(0, 5, 0)) {
+module("SimplyQ land", version(0, 5, 0),
+	soil  : compartment,
+	gw    : compartment,
+	river : compartment,   # TODO: Should find a way to avoid passing river (and a_catch and maybe flow)
+	water : quantity,
+	flow  : property,
+	pet   : property,
+	a_catch : par_real,
+	runoff_target : loc,
+	gw_target     : loc,
+) {
 """
 This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
 
 [Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
 """
 	load("stdlib/basic_math.txt", library("Response"))
-
-	soil     : compartment("Soil")
-	gw       : compartment("Groundwater")
-	river    : compartment("River")
-	
-	water : quantity("Water")
 	
 	par_group("Hydrology general") {
 		bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
@@ -28,18 +32,13 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 		tc_g    : par_real("Groundwater time constant", [day],          30,  1,  400)
 	}
 	
-	a_catch : par_real("Catchment area", [k m 2]) # NOTE: This is a reference to a parameter that must be declared in the model file.
-	
 	var(soil.water, [m m], "Soil water volume")  @initial { fc }
 	var(gw.water,   [m m], "Groundwater volume") @initial {
 		tc_g * river.water.flow / a_catch -> [m m]
 	}
-
-	pet  : property("Potential evapotranspiration")
-	flow : property("Flow")
 	
 	quick_flow :
-	flux(soil.water, out, [m m, day-1], "Quick flow") {
+	flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
 		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
 		flow   := in_flux(water),
 		#flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)
@@ -57,24 +56,25 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	}
 	
 	soil_runoff :
-	flux(soil.water, out, [m m, day-1], "Soil runoff")            {   flow * (1 - bfi)   }
+	flux(soil.water, runoff_target, [m m, day-1], "Soil runoff")            {   flow * (1 - bfi)   }
 	
-	flux(soil.water, gw.water, [m m, day-1], "Recharge")          {   flow * bfi   }
+	flux(soil.water, gw.water, [m m, day-1], "Recharge")                    {   flow * bfi   }
 	
 	gw_runoff :
-	flux(gw.water, out, [m m, day-1], "Groundwater runoff")       {   water / tc_g   }
+	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff")           {   water / tc_g   }
 }
 
 
-module("SimplyQ river", version(0, 0, 1)) {
+module("SimplyQ river", version(0, 0, 1),
+	river : compartment,
+	water : quantity,
+	flow  : property,
+	river_target : loc
+) {
 """
 The river part of the SimplyQ module.
 """
 
-	river : compartment("River")
-	
-	water : quantity("Water")
-	
 	par_group("Reach parameters", river) {
 		slope          : par_real("Reach slope", [],                             0.014, 0.00001,        3)
 		len            : par_real("Reach length", [m],                           10000,       0, 10000000)
@@ -82,8 +82,6 @@ The river part of the SimplyQ module.
 			"Default of 0.04 is for clean winding natural channels. See e.g. Chow 1959 for a table of values for other channel types")
 		init_flow      : par_real("Initial reach flow", [m 3, s-1],                  1,       0,     100)
 	}
-	
-	flow : property("Flow")
 	
 	var(river.water, [m 3], "Reach water volume") @initial {
 		q := init_flow => [],   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
@@ -98,18 +96,19 @@ The river part of the SimplyQ module.
 	var(river.water.flow, [m 3, s-1], "Reach flow")        {  0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } @initial { init_flow }
 	
 	reach_out :
-	flux(river.water, out, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
+	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
 }
 
-module("SimplyQ river trapezoid", version(0, 0, 1)) {
+module("SimplyQ river trapezoid", version(0, 0, 1),
+	river : compartment,
+	water : quantity,
+	flow  : property,
+	river_target : loc
+) {
 """
 Alternative version of the SimplyQ river module assuming trapezoid cross-section of the river.
 """
 
-	river : compartment("River")
-	
-	water : quantity("Water")
-	
 	par_group("Reach parameters", river) {
 		slope          : par_real("Reach slope", [],                             0.014, 0.00001,        3)
 		sb             : par_real("Reach bank slope", [],                            1, 0.00001,       10)
@@ -120,7 +119,6 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 		init_flow      : par_real("Initial reach flow", [m 3, s-1],                  1,       0,     100)
 	}
 	
-	flow : property("Flow")
 	Rh   : property("Hydraulic radius")
 	
 	var(river.Rh, [m]) {
@@ -136,5 +134,5 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 	var(river.water.flow, [m 3, s -1], "Reach flow")    {  (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann  } @initial { init_flow }
 	
 	reach_out :
-	flux(river.water, out, [m 3, s-1], "Reach flow flux")     {	 flow  }
+	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")     {  flow  }
 }

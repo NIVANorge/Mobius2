@@ -96,6 +96,11 @@ Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 };
 
 template<> struct
+Entity_Registration<Reg_Type::loc> : Entity_Registration_Base {
+	Specific_Var_Location loc;
+};
+
+template<> struct
 Entity_Registration<Reg_Type::library> : Entity_Registration_Base {
 	Decl_Scope     scope;
 	Decl_AST      *decl;
@@ -187,10 +192,6 @@ template<> struct
 Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Specific_Var_Location   source;
 	Specific_Var_Location   target;
-	
-	// TODO: the whole concept of 'out' should be removed if we make the new module declaration system.
-	bool           target_was_out;       // We some times need info about if the target was initially declared as 'out', then re-directed by a 'to' declaration.
-	// Entity_Id computed_connection_index;
 	
 	Entity_Id      unit;
 	
@@ -348,6 +349,7 @@ Mobius_Model {
 	Registry<Reg_Type::solver>      solvers;
 	Registry<Reg_Type::solve>       solves;
 	Registry<Reg_Type::connection>  connections;
+	Registry<Reg_Type::loc>         locs;
 	
 	Decl_Scope model_decl_scope;
 	Decl_Scope global_scope;

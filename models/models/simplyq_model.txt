@@ -6,8 +6,16 @@ General model description.
 	
 	extend("simplyq_base.txt")
 	
-	load("modules/pet.txt",       pe : module("Degree-day PET"))
-	load("modules/hbv_snow.txt",  sn : module("HBVSnow"))
+	air      : compartment("Atmosphere")
+	snow_box : compartment("Snow layer")
+	
+	temp   : property("Temperature")
+	precip : property("Precipitation")
+	
+	snow   : quantity("Snow")
+	
+	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
+	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
 	
 }
 

@@ -49,7 +49,7 @@ Decl_AST : Expr_AST {
 	Source_Location              source_loc;
 	Decl_Type                    type;
 	
-	std::vector<Token>           decl_chain;
+	//std::vector<Token>           decl_chain;
 	std::vector<Argument_AST *>  args;
 	std::vector<Body_AST *>      bodies;
 	

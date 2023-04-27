@@ -258,7 +258,7 @@ constexpr int max_var_loc_components = 6;
 struct
 Var_Location {
 	enum class Type : s32 {
-		nowhere=0, out, located, connection,
+		nowhere=0, located, connection,
 	}   type;
 	s32 n_components;         //NOTE: it is here for better packing.
 	Entity_Id components[max_var_loc_components];

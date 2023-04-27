@@ -1,6 +1,14 @@
 
 
-module("HBVSnow", version(1, 0, 0)) {
+module("HBVSnow", version(1, 0, 0),
+	air      : compartment,
+	snow_box : compartment,            # TODO: There is maybe a case for allowing declaration of compartments inside modules, such as in this case...
+	snow     : quantity,
+	water    : quantity,
+	temp     : property,
+	precip   : property,
+	water_target : loc,
+) {
 """
 This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 
@@ -8,9 +16,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 
 [Model description](https://www.uio.no/studier/emner/matnat/geofag/nedlagte-emner/GEO4430/v06/undervisningsmateriale/HBVMOD.PDF)
 """
-	air        : compartment("Atmosphere")
-	snow_box   : compartment("Snow box")
-	
+
 	par_group("Snow", snow_box) {
 		ddf_melt  : par_real("Degree-day factor for snowmelt", [m m, deg_c-1, day-1], 2.74, 0, 5, "Linear correlation between rate of snow melt and air temperature")
 		t_snow    : par_real("Temperature at which precip falls as snow", [deg_c], 0, -4, 4)
@@ -20,13 +26,9 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 		init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
 	}
 	
-	snow  : quantity("Snow (water equivalents)")
-	water : quantity("Water")
-	
-	temp   : property("Temperature")
-	precip : property("Precipitation")
-	
 	# Note: We don't give a function body to compute temp and precip, and so if they are not re-declared with a formula in another module, they are assumed to be input series.
+	
+	#TODO: The declaration of input series should maybe be in model scope?
 	var(air.temp, [deg_c], "Air temperature")
 	var(air.precip, [m m, day-1])
 	
@@ -38,7 +40,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	}
 	
 	p_rain :
-	flux(nowhere, out, [m m, day-1], "Precipitation falling as rain") {
+	flux(nowhere, water_target, [m m, day-1], "Precipitation falling as rain") {
 		air.precip * (air.temp > t_snow)
 	}
 	
@@ -49,7 +51,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	flux(snow_box.water, snow_box.snow, [m m, day-1], "Refreeze") {   max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
 
 	melt_runoff :
-	flux(snow_box.water, out, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq)*1[day-1]  }
+	flux(snow_box.water, water_target, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq)*1[day-1]  }
 	
 	discrete_order {
 		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this model.

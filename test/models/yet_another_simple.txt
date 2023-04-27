@@ -2,10 +2,13 @@
 model("Yet another simple") {
 
 	a : compartment("A")
+	
+	q : quantity("Q")
 
 	load("yet_another_simple_module.txt",
 		module("So very very simple",
-			a
+			a,
+			q
 		)
 	)
 	

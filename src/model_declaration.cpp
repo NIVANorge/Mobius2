@@ -101,6 +101,9 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 	
 	bool found_in_scope = false;
 	if(is_valid(handle) && scope) {
+		if(handle->type != Token_Type::identifier)
+			fatal_error(Mobius_Error::internal, "Passed a non-identifier as a handle to find_or_create().");
+		
 		std::string hh = handle->string_value;
 		auto entity = (*scope)[hh];
 		if(entity) {
@@ -271,6 +274,7 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::constant :                 return &constants;
 		case Reg_Type::connection :               return &connections;
 		case Reg_Type::module :                   return &modules;
+		case Reg_Type::loc :                      return &locs;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
@@ -507,46 +511,62 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			if(token->string_value == "nowhere") {
 				location->type = Var_Location::Type::nowhere;
 				success = true;
-			} else if(token->string_value == "out") {
-				location->type = Var_Location::Type::out;
-				success = true;
 			}
 		}
-		if (allow_restriction && !success) {
-			location->type = Var_Location::Type::connection;
-			specific_loc->connection_id = model->connections.find_or_create(token, scope);
-			specific_loc->restriction   = Var_Loc_Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
-			success = true;
+		if(!success) {
+			std::string handle = token->string_value;
+			auto reg = (*scope)[handle];
+			if(reg) {
+				if(reg->id.reg_type == Reg_Type::connection) {
+					location->type = Var_Location::Type::connection;
+					specific_loc->connection_id = reg->id;
+					specific_loc->restriction   = Var_Loc_Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
+					success = true;
+				} else if (reg->id.reg_type == Reg_Type::loc) {
+					auto loc = model->locs[reg->id];
+					success = true;
+					if(specific_loc)
+						*specific_loc = loc->loc;
+					else {
+						*location = loc->loc;
+						if(loc->loc.restriction != Var_Loc_Restriction::none)
+							success = false;
+					}
+				}
+			}
 		}
+		if(!bracketed.empty())
+			success = false;
 	} else if (count >= 2 && count <= max_var_loc_components) {
 		location->type     = Var_Location::Type::located;
 		for(int idx = 0; idx < count; ++idx)
 			location->components[idx] = model->components.find_or_create(&symbol[idx], scope);
 		location->n_components        = count;
 		success = true;
+
+		if(bracketed.size() == 2) {
+			if(specific_loc) {
+				// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe, unless we implement it to work)
+				specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
+				auto type = bracketed[1].string_value;
+				if(type == "top")
+					specific_loc->restriction = Var_Loc_Restriction::top;
+				else if(type == "bottom")
+					specific_loc->restriction = Var_Loc_Restriction::bottom;
+				else
+					success = false;
+			} else
+				success = false;
+		} else if (!bracketed.empty())
+			success = false;
+		
 	} else {
 		symbol[0].print_error_header();
 		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
 	}
 	
-	if(!bracketed.empty() && (!allow_restriction || count == 1))
-		success = false;
-	
-	if(success && bracketed.size() == 2) {
-		// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe, unless we implement it to work)
-		specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
-		auto type = bracketed[1].string_value;
-		if(type == "top")
-			specific_loc->restriction = Var_Loc_Restriction::top;
-		else if(type == "bottom")
-			specific_loc->restriction = Var_Loc_Restriction::bottom;
-		else
-			success = false;
-	} else if (!bracketed.empty())
-		success = false;
-	
 	if(!success) {
-		//TODO: Give a reason for why it failed
+		//TODO: Give a reason for why it failed (requires 5 different potential error messages :( ).
 		symbol[0].print_error_header();
 		fatal_error("Misformatted variable location in this context.");
 	}
@@ -709,7 +729,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	if(which >= 1) {
 		par_group->component = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
 		if(model->components[par_group->component]->decl_type == Decl_Type::property) {
-			decl->decl_chain[0].source_loc.print_error_header();
+			single_arg(decl, 1)->source_loc.print_error_header();
 			fatal_error("A 'par_group' can not be attached to a 'property'.");
 		}
 	}
@@ -871,10 +891,9 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 template<> Entity_Id
 process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	
-	int which = match_declaration(decl,
+	match_declaration(decl,
 		{
 			{Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
-			//{Token_Type::identifier, Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
 		}, 0, true, -1, true);
 	
 	Token *name = single_arg(decl, 3);
@@ -886,13 +905,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	process_location_argument(model, scope, decl, 0, &flux->source, true, true);
 	process_location_argument(model, scope, decl, 1, &flux->target, true, true);
-
-	flux->target_was_out = (flux->target.type == Var_Location::Type::out);
 	
-	if(flux->source.type == Var_Location::Type::out) {
-		decl->source_loc.print_error_header();
-		fatal_error("The source of a flux can never be 'out'. Did you mean 'nowhere'?");
-	}
 	if(flux->source == flux->target && is_located(flux->source)) {
 		decl->source_loc.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
@@ -1081,19 +1094,14 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	return id;
 }
 
-Entity_Id
-process_par_ref_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::unit}});
+template<> Entity_Id
+process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::identifier}});
 	
-	auto id       = model->parameters.standard_declaration(scope, decl);
+	auto id  = model->locs.find_or_create(&decl->handle_name, scope, nullptr, decl);
+	auto loc = model->locs[id];
 	
-	// TODO: check for unit clashes with previous def.
-	auto unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
-	
-	if(!model->model_decl_scope.has(id)) {
-		decl->source_loc.print_error_header();
-		fatal_error("Reference to a parameter \"", single_arg(decl, 0)->string_value, "\" that was not declared in the main model scope.");
-	}
+	process_location_argument(model, scope, decl, 0, &loc->loc, true, true);
 	
 	return id;
 }
@@ -1177,63 +1185,12 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 	}
 }
 
-/*
-void
-process_no_carry_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int chain_len) {
-	int which = match_declaration(decl,
-		{
-			{},
-			{Token_Type::identifier},
-		}, chain_len, false);
-
-	Decl_Scope *sc = scope;
-	int flux_idx = 0;
-	
-	if(chain_len == 2) { // This is if this was called from a model object.
-		auto module_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::module);
-		auto module = model->modules[module_id];
-		sc = &module->scope;
-		flux_idx = 1;
-	}
-		
-	auto flux_id = sc->expect_exists(&decl->decl_chain[flux_idx], Reg_Type::flux);
-	auto flux = model->fluxes[flux_id];
-	
-	if(which == 0) {
-		flux->no_carry_by_default = true;
-	} else {
-		Var_Location loc;
-		process_location_argument(model, scope, decl, 0, &loc);
-		
-		bool found = false;
-		auto above = loc;
-		while(above.is_dissolved()) {
-			above = remove_dissolved(above);
-			if(above == flux->source) {
-				found = true;
-				break;
-			}
-		}
-		if(!found) {
-			decl->source_loc.print_error_header();
-			fatal_error("This flux could not have carried this quantity since the latter is not dissolved in the source of the flux.");
-		}
-		
-		flux->no_carry.push_back(loc);
-	}
-}
-*/
-
 Entity_Id
-process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location &load_loc, const Decl_Scope *import_scope = nullptr) {
+process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, const Decl_Scope *import_scope = nullptr) {
 	
 	// TODO: Take potentially second name argument, as well as a list of load arguments.
 	
 	auto mod_temp = model->module_templates[template_id];
-	//if(module->has_been_processed) {
-		//warning_print("Multiple loads of module ", module->name, ".\n");
-		//return;
-	//}
 	
 	// TODO: It is a bit superfluous to process the arguments and version of the template every time it is specialized.
 	
@@ -1269,7 +1226,6 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 	// Ouch, this is a bit hacky, but it is to avoid the problem that Decl_Type::module is tied to Reg_Type::module_template .
 	// Maybe we should instead have another flag on it?
 	module->has_been_declared = true;
-	module->name = single_arg(decl, 0)->string_value; // Hmm, why didn't it get a name though?
 	
 	module->scope.parent_id = module_id;
 	module->template_id = template_id;
@@ -1278,21 +1234,43 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 	if(import_scope)
 		module->scope.import(*import_scope, &load_loc);
 	
+	int required_args = decl->args.size() - 2;
+	if(load_args.size() != required_args) {
+		load_loc.print_error_header();
+		error_print("The module \"", module->name, "\" requires ", required_args, " load arguments. Only ", load_args.size(), " were passed. See declaration at\n");
+		decl->source_loc.print_error();
+		mobius_error_exit();
+	}
+	
+	for(int idx = 0; idx < required_args; ++idx) {
+		
+		Entity_Id load_id = load_args[idx];
+		
+		auto arg = decl->args[idx + 2];
+		if(!arg->decl || !is_valid(&arg->decl->handle_name)) {
+			arg->chain[0].print_error_header();
+			fatal_error("Load arguments to a module must be of the form  handle : decl_type.");
+		}
+		match_declaration(arg->decl, {{}}, 0, true, 0); // TODO: Not sure if we should allow passing a name to enforce name match.
+		std::string handle = arg->decl->handle_name.string_value;
+		auto *entity = model->find_entity(load_id);
+		if(arg->decl->type != entity->decl_type) {
+			load_loc.print_error_header();
+			error_print("Load argument ", idx, " to the module ", module->name, " should have type '", name(arg->decl->type), "'. A '", name(entity->decl_type), "' was passed instead. See declaration at\n");
+			decl->source_loc.print_error();
+			mobius_error_exit();
+		}
+		module->scope.add_local(handle, arg->decl->source_loc, load_id);
+	}
+	
 	// TODO: Order of processing could probably be simplified when the new module load system is finished.
 	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
 			
-			case Decl_Type::compartment :
-			case Decl_Type::quantity :
+			//case Decl_Type::compartment :
+			//case Decl_Type::quantity :
 			case Decl_Type::property : {
 				process_declaration<Reg_Type::component>(model, &module->scope, child);
-			} break;
-			
-			case Decl_Type::par_real :
-			case Decl_Type::par_int  :
-			case Decl_Type::par_bool :
-			case Decl_Type::par_enum : {
-				process_par_ref_declaration(model, &module->scope, child);
 			} break;
 			
 			case Decl_Type::connection : {
@@ -1339,13 +1317,7 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 				process_declaration<Reg_Type::special_computation>(model, &module->scope, child);
 			} break;
 			
-			case Decl_Type::par_real :
-			case Decl_Type::par_int  :
-			case Decl_Type::par_bool :
-			case Decl_Type::par_enum :
-			case Decl_Type::compartment :
 			case Decl_Type::property :
-			case Decl_Type::quantity :
 			case Decl_Type::connection : {  // already processed above, or will be processed below
 			} break;
 			
@@ -1359,31 +1331,6 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 	module->scope.check_for_missing_decls(model);
 	
 	return module_id;
-	//module->has_been_processed = true;
-}
-
-void
-process_to_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	// Process a 'to' declaration
-	
-	
-	match_declaration(decl, {{Token_Type::identifier}}, 2, false);
-	
-	auto module_id = scope->expect_exists(&decl->decl_chain[0], Reg_Type::module);
-	auto module = model->modules[module_id];
-	
-	auto flux_id = module->scope.expect_exists(&decl->decl_chain[1], Reg_Type::flux);
-	auto flux = model->fluxes[flux_id];
-	
-	if(flux->target.type != Var_Location::Type::out) {
-		decl->decl_chain[1].print_error_header();
-		fatal_error("The flux '", decl->decl_chain[1].string_value, "' does not have the target 'out', and so we can't re-assign its target.");
-	}
-	
-	auto &chain = decl->args[0]->chain;
-	
-	process_location_argument(model, scope, decl, 0, &flux->target, false, true);
-
 }
 
 template<> Entity_Id
@@ -1479,11 +1426,10 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	auto component = model->components[comp_id];
 	
 	if(component->decl_type == Decl_Type::property) {
-		decl->decl_chain[0].source_loc.print_error_header(Mobius_Error::model_building);
+		single_arg(decl, 0)->source_loc.print_error_header(Mobius_Error::model_building);  //TODO: Won't work if this was an inlined decl.
 		fatal_error("Only compartments and quantities can be distributed, not properties");
 	}
 	
-	//TODO: some guard against overlapping / contradictory declarations.
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
 		auto index_set = model->index_sets[id];
@@ -1618,6 +1564,38 @@ load_config(Mobius_Model *model, String_View config) {
 	model->file_handler.unload(config);
 }
 
+void
+process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, std::vector<Entity_Id> &load_args) {
+	for(int idx = 1; idx < decl->args.size(); ++idx) {
+		auto arg = decl->args[idx];
+		
+		if(arg->decl) {
+			// TODO: Make all relevant arguments inlinable:
+			if(arg->decl->type != Decl_Type::loc) {
+				arg->decl->source_loc.print_error_header();
+				fatal_error("For now, we don't support direct declarations in the arguments passed to a module load unless they are of type 'loc'.");
+			} else {
+				auto id = resolve_argument<Reg_Type::loc>(model, scope, decl, idx);
+				load_args.push_back(id);
+			}
+		} else {
+			auto &token = arg->chain[0];
+			if(arg->chain.size() != 1 || !arg->bracketed_chain.empty() || token.type != Token_Type::identifier) {
+				token.print_error_header();
+				fatal_error("Unsupported module load argument.");
+			}
+			std::string handle = token.string_value;
+			auto reg = (*scope)[handle];
+			if(!reg) {
+				token.print_error_header();
+				fatal_error("The handle '", token.string_value, "' was not declared in this scope.");
+			}
+			load_args.push_back(reg->id); // TODO: Check on what types of objects are allowed to be passed?
+		}
+	}
+}
+
+
 Mobius_Model *
 load_model(String_View file_name, String_View config) {
 	Mobius_Model *model = new Mobius_Model();
@@ -1642,14 +1620,7 @@ load_model(String_View file_name, String_View config) {
 	if(!success)
 		mobius_error_exit();
 	
-	/*
-	TODO:
-		It seems like doing this reverse is no longer the correct thing to do, but it actually breaks functionality if we don't do it.
-		This should just not be an issue.
-	*/
 	std::reverse(extend_models.begin(), extend_models.end());
-	
-	//TODO: now we just throw everything into a single model decl scope, but what happens if we have re-declarations of handles because of multiple extensions?
 
 	auto scope = &model->model_decl_scope;
 	
@@ -1661,12 +1632,17 @@ load_model(String_View file_name, String_View config) {
 		for(Decl_AST *child : body->child_decls) {
 			switch (child->type) {
 				case Decl_Type::compartment :
-				case Decl_Type::quantity : {
+				case Decl_Type::quantity :
+				case Decl_Type::property : {
 					process_declaration<Reg_Type::component>(model, scope, child);
 				} break;
 				
 				case Decl_Type::connection : {
-					process_declaration<Reg_Type::connection>(model, scope, child);  // NOTE: we also put this here since we expect we will need referencing it inside modules eventually.
+					process_declaration<Reg_Type::connection>(model, scope, child);
+				} break;
+				
+				case Decl_Type::loc : {
+					process_declaration<Reg_Type::loc>(model, scope, child);
 				} break;
 				
 				default : {
@@ -1680,14 +1656,14 @@ load_model(String_View file_name, String_View config) {
 		auto ast = extend.second;
 		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
-			if(child->type == Decl_Type::par_group) // Note: have to do this before loading modules because any loaded modules need to know if a parameter it references was declared in the model decl scope (for now at least).
+			if(child->type == Decl_Type::par_group)
 				process_declaration<Reg_Type::par_group>(model, scope, child);
 			else if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
 				process_declaration<Reg_Type::index_set>(model, scope, child);
 		}
 	}
 	
-	// NOTE: process loads before the rest of the model scope declarations. (may not be necessary).
+	// NOTE: process loads before the rest of the model scope declarations. (may no longer be necessary).
 	for(auto &extend : extend_models) {
 		auto model_path = extend.first;
 		auto ast = extend.second;
@@ -1706,20 +1682,30 @@ load_model(String_View file_name, String_View config) {
 							single_arg(child, idx)->source_loc.print_error_header();
 							fatal_error("An argument to a load must be a module() or library() declaration.");
 						}
-						match_declaration(module_spec, {{Token_Type::quoted_string}}, 0, true, 0);  //TODO: allow specifying the version also?
+						//TODO: allow specifying the version also?
+						//TODO: Allow specifying a separate name for the specialization.
+						match_declaration(module_spec, 
+							{
+								{Token_Type::quoted_string},
+								{Token_Type::quoted_string, {true}}
+							}, 0, false, 0);
 						
 						auto load_loc = single_arg(child, 0)->source_loc;
 						auto module_name = single_arg(module_spec, 0)->string_value;
 						
 						auto template_id = load_top_decl_from_file(model, load_loc, file_name, model_path, module_name, Decl_Type::module);
-
-						auto module_id = process_module_load(model, template_id, load_loc);
 						
-						// TODO: We could maybe remove the ability to assign handles to modules.
+						std::vector<Entity_Id> load_args;
+						process_module_arguments(model, scope, module_spec, load_args);
+
+						auto module_id = process_module_load(model, template_id, load_loc, load_args);
+						
+						/*
 						std::string module_handle = "";
 						if(module_spec->handle_name.string_value.count)
 							module_handle = module_spec->handle_name.string_value;
 						scope->add_local(module_handle, module_spec->source_loc, module_id);
+						*/
 					}
 					//TODO: should also allow loading libraries inside the model scope!
 				} break;
@@ -1733,7 +1719,8 @@ load_model(String_View file_name, String_View config) {
 					mod_temp->normalized_path = model_path;
 					auto load_loc = single_arg(child, 0)->source_loc;
 					
-					process_module_load(model, template_id, load_loc, &model->model_decl_scope);
+					std::vector<Entity_Id> load_args; // Inline modules don't have load arguments, so this should be left empty.
+					process_module_load(model, template_id, load_loc, load_args, scope);
 				} break;
 			}
 		}
@@ -1746,10 +1733,6 @@ load_model(String_View file_name, String_View config) {
 		for(Decl_AST *child : body->child_decls) {
 
 			switch (child->type) {
-				
-				case Decl_Type::to : {
-					process_to_declaration(model, scope, child);
-				} break;
 				
 				case Decl_Type::distribute : {
 					process_distribute_declaration(model, scope, child);
@@ -1775,9 +1758,11 @@ load_model(String_View file_name, String_View config) {
 				case Decl_Type::index_set :
 				case Decl_Type::compartment :
 				case Decl_Type::quantity :
+				case Decl_Type::property :
 				case Decl_Type::connection :
 				case Decl_Type::extend :
 				case Decl_Type::module :
+				case Decl_Type::loc :
 				case Decl_Type::load : {
 					// Don't do anything. We handled it above already
 				} break;

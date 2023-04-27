@@ -1,10 +1,8 @@
 
-module("So very very simple", version(1, 0, 0) #,
-	#a : compartment
+module("So very very simple", version(1, 0, 0),
+	a : compartment,
+	q : quantity
 ) {
-	
-	
-	a : compartment("A")
 	
 	par_group("Pars", a) {
 		b : par_real("B", [], 0.99)

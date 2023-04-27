@@ -30,8 +30,8 @@
 
 void
 check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_Location &source_loc) {
-	// Technically we shouldn't encounter an "out" at this point, but that is checked for separately in check_flux_location
-	if(loc.type == Var_Location::Type::nowhere || loc.type == Var_Location::Type::out) return;
+	
+	if(loc.type == Var_Location::Type::nowhere) return;
 	auto first = model->components[loc.first()];
 	if(first->decl_type != Decl_Type::compartment) {
 		source_loc.print_error_header(Mobius_Error::model_building);
@@ -910,10 +910,8 @@ compose_and_resolve(Model_Application *app) {
 		Decl_Scope *other_code_scope = nullptr;
 		
 		if(var2->decl_id.reg_type == Reg_Type::flux) {
-			bool target_was_out = false;
 			
 			auto flux_decl = model->fluxes[var2->decl_id];
-			target_was_out = flux_decl->target_was_out;
 			ast = flux_decl->code;
 			
 			code_scope = model->get_scope(flux_decl->code_scope);
@@ -923,7 +921,7 @@ compose_and_resolve(Model_Application *app) {
 			if(!is_valid(connection))
 				connection = flux_decl->target.connection_id;
 			
-			bool target_is_located = is_located(var->loc2) && !target_was_out; // Note: the target could have been re-directed by the model. In this setting we only care about how it was declared originally.
+			bool target_is_located = is_located(var->loc2);
 			if(is_located(var->loc1)) {
 				from_compartment = var->loc1.first();
 				//if(!target_is_located || var->loc1 == var->loc2)    // Hmm, it seems to make more sense to always let the source be the context if it is located.
