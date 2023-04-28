@@ -1,18 +1,15 @@
 
 
-module("RiverTemperature", version(0, 1, 0)) {
-
+module("RiverTemperature", version(0, 1, 0),
+	air   : compartment,
+	soil  : compartment,
+	river : compartment,
+	water : quantity,
+	heat  : quantity,
+	temp  : property,
+) {
 
 	load("stdlib/physiochemistry.txt", library("Water utils"))
-	
-	water : quantity("Water")
-	heat  : quantity("Thermal energy")
-	
-	soil  : compartment("Soil")
-	river : compartment("River")
-	air   : compartment("Atmosphere")
-	
-	temp  : property("Temperature")
 	
 	par_group("River temperature", river) {
 		coeff : par_real("Air-river heat conductivity coefficient", [day-1], 1, 0.1, 10)

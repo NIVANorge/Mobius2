@@ -935,7 +935,7 @@ Model_Application::save_to_data_set() {
 	// TODO: Rethink how to scope things here with the new module specialization system.
 	
 	// Hmm, this is a bit cumbersome
-	for(int idx = -1; idx < model->module_templates.count(); ++idx) {
+	for(int idx = -1; idx < model->modules.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
 		if(idx >= 0) module_id = { Reg_Type::module, idx };
 		

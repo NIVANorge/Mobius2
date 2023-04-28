@@ -1,5 +1,16 @@
 
-module("SimplyP", version(0, 5, 0)) {
+module("SimplyP", version(0, 5, 0),
+	soil    : compartment,
+	gw      : compartment,
+	river   : compartment,
+	water   : quantity,
+	tdp     : quantity,
+	plab    : quantity,
+	pp      : quantity,
+	flow    : property,
+	e_fact  : property,
+	a_catch : par_real,
+) {
 """
 SimplyP is a parsimonious phosphorus model. It was originally implemented in Python and published as
 
@@ -8,14 +19,14 @@ SimplyP is a parsimonious phosphorus model. It was originally implemented in Pyt
 For news, updates and references, see [the model's github home page](https://github.com/NIVANorge/Mobius/tree/master/Applications/SimplyP)
 
 New to version 0.5:
-The model has been ported to Mobius2. Everything is solved as one large coupled ODE system.
+* The model has been ported to Mobius2. Everything is solved as one large coupled ODE system.
 
 New to version 0.4:
-Landscape units are dynamic and user-specified instead of hardcoded.
-Sediment and hydrology equations are factored out into separate modules (SimplyQ, SimplySed)
+* Landscape units are dynamic and user-specified instead of hardcoded.
+* Sediment and hydrology equations are factored out into separate modules (SimplyQ, SimplySed)
 
 New to version 0.3:
-More realistic hydrology.
+* More realistic hydrology.
 
 [Detailed development log](https://github.com/NIVANorge/Mobius/blob/master/Applications/SimplyP/SimplyP_development_log.txt)
 
@@ -23,17 +34,6 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 """	
 	
 	load("stdlib/basic_math.txt", library("Basic"))
-	
-	soil  : compartment("Soil")
-	gw    : compartment("Groundwater")
-	river : compartment("River")
-	
-	water : quantity("Water")
-	tdp   : quantity("Total dissolved phosphorous")
-	plab  : quantity("Labile phosphorous")
-	pp    : quantity("Particulate phosphorous")
-	
-	flow  : property("Flow")
 	
 	par_group("P general") {
 		dyn_epc0  : par_bool("Dynamic EPC0, TDP and soil labile P", true)
@@ -56,9 +56,6 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	par_group("River P", river) {
 		eff_tdp   : par_real("Effluent TDP inputs", [k g, day-1], 0, 0, 10)
 	}
-	
-	#NOTE: This creates a reference to a parameter defined in the model.
-	a_catch : par_real("Catchment area", [k m 2])
 	
 	epc0 : property("EPC0")
 	
@@ -101,9 +98,10 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	}
 	
 	#NOTE: could also just have pp "dissolved in" ss, but would then need the soil to have a SS value (that is overridden to be constant), which could be confusing to model users?
+	#   Same for plab in soil mass.
 	
 	plabconc : property("Labile P concentration")
-	#NOTE: could use the inbuilt concentration system for this, but we don't model varying soil mass, so it is a bit superfluous
+
 	var(soil.plab.plabconc, [m g, k g-1]) {  plab / m_soil_m2  }
 	
 	var(gw.water.tdp, [k g, k m-2], [m g, l-1], "Groundwater TDP") @initial_conc { gw_tdp } @override_conc { gw_tdp }
@@ -114,7 +112,6 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	var(river.water.pp, [k g], [m g, l-1], "River PP") 
 	
-	e_fact : property("Erosion factor")
 	pp_fact : property("PP mobilization factor")
 
 	var(soil.plab.pp_fact, [k g, k m-2, day-1]) {

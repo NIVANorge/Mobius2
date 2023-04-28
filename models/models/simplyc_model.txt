@@ -1,14 +1,12 @@
 
 model("SimplyC") {
-"""
-Description
-"""
+
 	extend("simplyq_model.txt")
 	
-	load("modules/simplysoiltemp.txt", module("Simply soil temperature"))
-	load("modules/simplyc.txt", simplyc : module("SimplyC"))
-	
 	oc : quantity("Organic carbon")
+	
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
+	load("modules/simplyc.txt",        module("SimplyC", air, soil, gw, river, water, oc, temp))
 	
 	unit_conversion(soil.water.oc, river.water.oc) {  a_catch  }
 	unit_conversion(gw.water.oc, river.water.oc)   {  a_catch  }

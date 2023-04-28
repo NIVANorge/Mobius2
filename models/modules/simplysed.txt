@@ -1,16 +1,30 @@
 
-module("SimplySed", version(0, 5, 0)) {
+module("SimplySed", version(0, 6, 0),
+	soil    : compartment,
+	river   : compartment,
+	water   : quantity,
+	sed     : quantity,
+	e_fact  : property,
+	a_catch : par_real,
+) {
 """
 This is a simple sediment transport module created as a part of SimplyP.
+
+version 0.6:
+* First Mobius2 version.
+* Dynamic vegetation cover is computed a bit differently.
+
+New to version 0.5.1:
+* Updated parameter doc strings
+
+New to version 0.5:
+* Replaced Q - SS input relationship aQ^b with (aQ)^b. Reduces strong correlation/covariance of a and b params.
+* Moved reach slope to be a reach parameter.
+* Remove need for “Arable” land class.
+* Can have dynamic erodibility for all land classes and % spring-sown crops.
 """
 
 	load("stdlib/basic_math.txt", library("Response"), library("Basic"))
-
-	soil     : compartment("Soil")
-	river    : compartment("River")
-	
-	water    : quantity("Water")
-	sed      : quantity("Sediment")
 
 	par_group("Soil erodibility", soil) {
 		c_cov      : par_real("Vegetation cover factor", [], 0.2, 0, 1, "Vegetation cover factor, describing ratio between long-term erosion under the land use class, compared to under bare soil of the same soil type, slope, etc. Source from (R)USLE literature and area-weight as necessary to obtain a single value for the land class.")
@@ -29,9 +43,6 @@ This is a simple sediment transport module created as a part of SimplyP.
 		ksed  : par_real("Erosion scaling factor", [day, k m-1], 15, 0, 100)
 		psed  : par_real("Erosion power factor", [], 2, 0.1, 5)
 	}
-	
-	# NOTE: This creates a reference to a parameter defined in the model.
-	a_catch : par_real("Catchment area", [k m 2])
 	
 	c_cover : property("Time dependent vegetation cover factor")
 	
@@ -52,13 +63,13 @@ This is a simple sediment transport module created as a part of SimplyP.
 		spring*p_spring + autumn*(1 - p_spring)
 	}
 	
-	e_fact : property("Erosion factor")
+	#e_fact : property("Erosion factor")
 	
-	var(soil.e_fact, [k g, k m-2, day-1], "Erosion factor land")    {   land_slope * c_cover * (1 - loadred) =>>  }
+	var(soil.e_fact, [k g, k m-2, day-1], "Erosion factor land")          {   land_slope * c_cover * (1 - loadred) =>>  }
 	
-	var(river.e_fact, [], "Erosion factor river")                   {   (1e-3*ksed * in_flux(water) / a_catch)^psed  }
+	var(river.e_fact, [], "Erosion factor river")                         {   (1e-3*ksed * in_flux(water) / a_catch)^psed  }
 
-	flux(nowhere, river.water.sed, [k g, day-1], "Sediment mobilization")         {   a_catch * aggregate(soil.e_fact) * e_fact }
+	flux(nowhere, river.water.sed, [k g, day-1], "Sediment mobilization") {   a_catch * aggregate(soil.e_fact) * e_fact }
 }
 
 

@@ -1,23 +1,21 @@
 
-module("SimplyN", version(0, 0, 3)) {
+module("SimplyN", version(0, 0, 3),
+	air    : compartment,
+	soil   : compartment,
+	gw     : compartment,
+	river  : compartment,
+	water  : quantity,
+	din    : quantity,
+	sn     : quantity,
+	temp   : property,
+) {
 """
-Not finished, just for testing some systems.
+A simple dissolved inorganic nitrogen (DIN) model.
+This module is not finished.
 """
 
 	load("stdlib/basic_math.txt", library("Rates"))
 
-	#----------------------------------------------------------------
-	# Make compartments (locations) and quantities
-	
-	air : compartment("Atmosphere")
-	soil  : compartment("Soil")
-	gw    : compartment("Groundwater")
-	river : compartment("River")
-
-	water :  quantity("Water")
-	din   : quantity("Dissolved inorganic nitrogen")
-
-	sn    : quantity("Soild fertilizer N")
 	#----------------------------------------------------------------
 	# Define parameter groups and parameters
 	
@@ -54,18 +52,6 @@ Not finished, just for testing some systems.
 	par_group("River DIN", river) {
 		eff_din : par_real("Reach effluent DIN inputs", [k g, day -1], 0.0, 0.0, 100.0)		
 	}
-	
-	#----------------------------------------------------------------
-	# Define any other properties needed, assign quantities and properties to the
-	# compartments, and initial values for quantities.
-	
-	# Temperature
-	temp : property("Temperature")
-	
-	var(air.temp, [deg_c], "Air temperature")  # No calc for this, so assumes input timeseries
-	
-	# Don't need to declare soil.temp here, but do need to remember to include the
-	# soil temperature module so that soil temp is used in the context of soil.water
 	
 	var(soil.sn, [k g, k m-2], "Soil solid fertilizer N")
 	

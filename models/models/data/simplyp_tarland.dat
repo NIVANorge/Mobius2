@@ -101,7 +101,7 @@ module("SimplyQ river", 0, 0, 1) {
 	}
 }
 
-module("SimplySed", 0, 5, 0) {
+module("SimplySed", 0, 6, 0) {
 	par_group("Soil erodibility") [ "Landscape units" ] {
 		par_real("Vegetation cover factor")
 		[ 0.2 0.09 0.021 ]
@@ -119,7 +119,7 @@ module("SimplySed", 0, 5, 0) {
 		[ 0 0 0 ]
 
 		par_enum("Cover factor shape")
-		[ triangular flat flat ]
+		[ smooth flat flat ]
 	}
 
 	par_group("Land slope") [ "Landscape units" ] {
@@ -146,6 +146,9 @@ module("SimplyP", 0, 5, 0) {
 
 		par_real("Particulate P enrichment factor")
 		[ 1.2 ]
+
+		par_bool("Dynamic EPC0, TDP and soil labile P")
+		[ true ]
 	}
 
 	par_group("Soil P") [ "Landscape units" ] {

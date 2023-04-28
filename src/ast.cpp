@@ -713,9 +713,8 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
 	int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_notes) {
-	// allow_chain = 0 means no chain. allow_chain=-1 means any length. allow_chain = n means only of length n exactly.
 	
-	// TODO: Remove allow_chain argument!
+	// TODO: Remove allow_chain argument! (no longer relevant).
 	
 	if(!allow_handle && decl->handle_name.string_value.count > 0) {
 		decl->handle_name.print_error_header();
@@ -786,6 +785,10 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		decl->source_loc.print_error_header();
 		fatal_error("Expected ", allow_body_count, " bodies for this declaration, got ", decl->bodies.size(), ".");
 	}
+	
+	// TODO: Should enforce note uniqueness here (including uniqueness of body without a note).
+	//   Probably this will make allow_body_count argument superfluous also.
+	// TODO: Should also just be a single note per body.
 	
 	if(!allow_body_notes) {
 		for(auto body : decl->bodies) {

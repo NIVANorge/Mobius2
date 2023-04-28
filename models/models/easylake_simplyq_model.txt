@@ -3,20 +3,16 @@ model("EasyLake-SimplyQ") {
 	
 	extend("simplyq_base.txt")
 	
-	#load("modules/pet.txt",      module("Penman-Monteith PET"))
-	load("modules/pet.txt",       module("Degree-day PET"))
-	load("modules/hbv_snow.txt",  module("HBVSnow"))
+	epi : compartment("Epilimnion")
+	hyp : compartment("Hypolimnion")
+	
+	heat  : quantity("Heat energy")
+	ice   : quantity("Ice")
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature"))
 	load("modules/easylake.txt", el : module("EasyLake"))
 	load("modules/rivertemp.txt", module("RiverTemperature"))
 	load("modules/atmospheric.txt", module("Atmospheric"))
-	
-	epi : compartment("Epilimnion")
-	hyp : compartment("Hypolimnion")
-	
-	heat  : quantity("Thermal energy")
-	ice   : quantity("Ice")
 	
 	solve(simply_solver, epi.water, hyp.water, epi.ice)
 	

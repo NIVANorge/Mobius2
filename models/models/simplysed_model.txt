@@ -1,10 +1,11 @@
 
 
 model("SimplySed") {
-"""
-Description
-"""
+
 	extend("simplyq_model.txt")
 	
-	load("modules/simplysed.txt", ss : module("SimplySed"))
+	sed    : quantity("Sediments")
+	e_fact : property("Erosion factor")
+	
+	load("modules/simplysed.txt", module("SimplySed", soil, river, water, sed, e_fact, a_catch))
 }

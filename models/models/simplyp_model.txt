@@ -1,12 +1,12 @@
 model("SimplyP") {
-"""
-Description
-"""
+
 	extend("simplysed_model.txt")
 	
-	load("modules/simplyp.txt", sp : module("SimplyP"))
-	
 	tdp   : quantity("Total dissolved phosphorous")
+	plab  : quantity("Labile phosphorous")
+	pp    : quantity("Particulate phosphorous")
+	
+	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, tdp, plab, pp, flow, e_fact, a_catch))
 	
 	unit_conversion(soil.water.tdp, river.water.tdp) {  a_catch  }
 	unit_conversion(gw.water.tdp, river.water.tdp)   {  a_catch  }

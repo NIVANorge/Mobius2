@@ -1,22 +1,21 @@
 
 
-module("SimplyC", version(1, 0, 0)) {
+module("SimplyC", version(1, 0, 0),
+	air   : compartment,
+	soil  : compartment,
+	gw    : compartment,
+	river : compartment,
+	water : quantity,
+	oc    : quantity,
+	temp  : property
+) {
 """
-Not finished, just for testing some systems.
+A simple DOC model.
 """
 
 	load("stdlib/basic_math.txt", library("Rates"))
-
-	air   : compartment("Atmosphere")
-	soil  : compartment("Soil")
-	gw    : compartment("Groundwater")
-	river : compartment("River")
-
-	water : quantity("Water")
-	oc    : quantity("Organic carbon")
 	
 	so4   : property("SO4 deposition")
-	temp  : property("Temperature")
 	
 	var(air.so4, [m g, l-1])
 	
