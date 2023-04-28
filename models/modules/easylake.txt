@@ -1,17 +1,26 @@
 
 
-module("EasyLake", version(0, 1, 0)) {
+module("EasyLake", version(0, 1, 0),
+	air    : compartment,
+	epi    : compartment,
+	hyp    : compartment,
+	water  : quantity,
+	ice    : quantity,
+	heat   : quantity,
+	temp   : property,
+	precip : property,
+) {
 """
-TODO: description
+This is a very simple lake model for use along with cathcment models.
+The physical part of the model simulates water balance and temperature.
+
+The water balance part of the model is conceptually similar to VEMALA
+[A National-Scale Nutrient Loading Model for Finnish Watersheds - VEMALA, Inse Huttunen et. al. 2016, Environ Model Assess 21, 83-109](https://doi.org/10.1007/s10666-015-9470-6)
 """
 
 	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
 	load("stdlib/seawater.txt", library("Air-sea"))
-	
-	air  : compartment("Atmosphere")
-	epi  : compartment("Epilimnion")
-	hyp  : compartment("Hypolimnion")
 	
 	par_group("Lake physical", epi) {
 		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 1e8)
@@ -21,10 +30,10 @@ TODO: description
 		rate_l    : par_real("Rating function linear component", [m 2, s-1], 10, 0, 1000)
 		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
 		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
-		init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
-		ice_alb   : par_real("Ice albedo", [], 0.4, 0, 1)
-		th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
-		ice_temp  : par_real("Ice formation temperature", [deg_c], 0, -2, 2)
+		#init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
+		#ice_alb   : par_real("Ice albedo", [], 0.4, 0, 1)
+		#th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
+		#ice_temp  : par_real("Ice formation temperature", [deg_c], 0, -2, 2)
 	}
 	
 	#th_frazil  : constant("Frazil threshold", [m], 0.05)
@@ -107,78 +116,7 @@ TODO: description
 		water_temp_to_heat(water, t_hyp)
 	}
 	
-	stab : property("Stability")
-	ced : property("Transfer coefficient for latent heat flux")
-	chd : property("Transfer coefficent for sensible heat flux")
-	s_hum : property("Saturation specific humidity")
-	lwu : property("Emitted longwave radiation")
-	sw : property("Shortwave radiation")
-	albedo : property("Albedo")
 	
-	var(epi.stab, []) {
-		surface_stability(air.wind, water.temp, air.temp)
-	}
-	
-	var(epi.ced, []) {
-		tc_latent_heat(air.wind, stab)
-	}
-	
-	var(epi.chd, []) {
-		tc_sensible_heat(air.wind, stab)
-	}
-	
-	var(epi.s_hum, []) {
-		svap := saturation_vapor_pressure(water.temp),
-		specific_humidity_from_pressure(air.pressure, svap)
-	}
-	
-	var(epi.lwu, [W, m-2]) {
-		emissivity := 0.98,
-		emissivity * black_body_radiation(water.temp->[K])
-	}
-	
-	var(epi.albedo, []) {
-		ice_alb        if ice.indicator,
-		0.045          otherwise
-	}
-	
-	#TODO should be attn in epi also, and remainder to hyp
-	var(epi.sw, [W, m-2]) {
-		(1 - albedo) * (1 - ice.attn) * air.g_rad	
-	}
-	
-	flux(nowhere, epi.water.heat, [J, day-1], "Net shortwave") {
-		A_surf * sw ->>
-	}
-	
-	flux(nowhere, epi.water.heat, [J, day-1], "Net longwave") {
-		alb := 0.045,
-		net_rad := (1 - alb)*air.lwd - lwu,    # W/m2
-		0                              if epi.ice.indicator,
-		A_surf * net_rad ->>           otherwise
-	}
-	
-	flux(nowhere, epi.water.heat, [J, day-1], "Freeze heating") {  A_surf * ice.energy ->>  }    # Energy used to melt ice instead of heating the lake (or other way around with freezing)
-	
-	# TODO: Some of the surface fluxes should be modified for ice
-	flux(nowhere, epi.water.heat, [J, day-1], "Latent heat flux") {
-		l_vap := latent_heat_of_vaporization(temp),
-		0                                                                          if epi.ice.indicator,
-		A_surf * (ced * l_vap * air.rho * air.wind * (air.a_hum - s_hum)) ->>      otherwise
-	}
-	
-	flux(nowhere, epi.water.heat, [J, day-1], "Sensible heat flux") {
-		0                                                                             if epi.ice.indicator,
-		A_surf * (chd * C_air * air.rho * air.wind * (air.temp->[K] - temp->[K])) ->> otherwise
-	}
-	
-	evap_mm : property("Evaporation per area")
-	
-	var(epi.water.evap_mm, [m m, day-1]) {
-		rho_ref := 1025 [k g, m-3],
-		0                                                                          if epi.ice.indicator,
-		-(air.rho / rho_ref) * chd * air.wind * (air.a_hum - s_hum) ->>            otherwise
-	}
 	
 	evap :
 	flux(epi.water, nowhere, [m 3, day-1], "Evaporation") {
@@ -186,13 +124,6 @@ TODO: description
 	} @no_carry { any } # Don't carry any dissolved substances
 	
 	#evap.no_carry()   #TODO: This should be allowed.
-	
-	flux(nowhere, epi.water.heat, [J, day-1], "Precipitation heat") {
-		#precip_t := max(0.4[deg_c], air.temp),
-		precip_t := air.temp,
-		V := A_surf*air.precip -> [m 3, day-1],   
-		water_temp_to_heat(V => [m 3], precip_t) => [J, day-1] # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
-	}
 	
 	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
 		V := water + hyp.water,
@@ -208,49 +139,6 @@ TODO: description
 	
 	var(hyp.water.temp, [deg_c], "Hypolimnion temperature (mean)") {
 		water_heat_to_temp(water, water.heat)
-	}
-	
-	var(epi.ice, [m], "Ice thickness") @initial { init_ice }
-	
-	energy : property("Freeze energy")
-	indicator : property("Indicator")
-	attn : property("Attenuation coefficent")
-	
-	var(epi.ice.energy, [W, m-2]) {
-		z_surf := 1[m],   #  Thickness of water layer that ice formation can draw energy from.
-		K_ice := 200[W, m-3, deg_c-1],   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
-		e := (ice_temp - epi.water.temp)*z_surf*K_ice,
-		
-		0        if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
-		e        otherwise
-	}
-	
-	var(epi.ice.indicator, [], "Ice indicator") {   ice > th_frazil   }
-	
-	var(epi.ice.attn, []) {
-		0                       if !indicator,
-		1 - exp(-5[m -1] * ice) otherwise    #TODO: the 5 should be configurable?
-	}
-	
-	flux(nowhere, epi.ice, [m, day-1], "Ice change") {
-		(energy + {
-			{
-				#NOTE: Stefan's law, but turned into ODE equation:
-				# ice_n = sqrt(ice_{n-1}^2 + Y)  with   Y = 2*lambda_ice*(ice_temp - ice_t)
-				# => d(ice^2)/dt = Y
-				# and d(ice^2)/dt = 2*ice*d(ice)/dt
-				# => d(ice)/dt = Y / (2*ice)
-				factor := 1[m] / (10[m] + ice),
-				ice_t := (factor * ice_temp + air.temp) / (1 + factor),   # Approximation of ice temperature. TODO: separate state var?
-				lambda_ice * (ice_temp->[K] - ice_t->[K]) / ice
-			}                                             if (air.temp <= ice_temp) & indicator,
-			-(1-albedo)*air.g_rad*attn                    if indicator,  
-			0                                             otherwise
-		}) / (rho_ice * l_freeze) ->[m, day-1]
-		+ {
-			air.precip   if air.temp <= ice_temp & indicator,     # if there is ice, and temperature is below freezing, precipitation is added as ice
-			0            otherwise
-		}->[m, day-1]
 	}
 	
 	

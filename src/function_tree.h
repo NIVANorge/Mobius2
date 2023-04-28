@@ -222,8 +222,6 @@ prune_tree(Math_Expr_FT *expr);
 Math_Expr_FT *
 copy(Math_Expr_FT *source);
 
-//owns_code
-//copy(owns_code &source);
 
 Rational<s64>
 is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found);

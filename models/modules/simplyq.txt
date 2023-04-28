@@ -20,7 +20,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	
 	par_group("Hydrology general") {
 		bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
-		qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  500)
+		qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
 	}
 	
 	par_group("Hydrology land", soil) {

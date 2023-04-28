@@ -1,6 +1,19 @@
 
 
 
+
+	
+	# Want module parameters in the form of constants, and also if conditions
+	
+	if(some_bool_const) {
+		# Stuff
+	}
+	#etc.
+	
+
+
+
+
 	# Musings:
 	#
 	# directed_tree connections are in some ways very different from grid1d and all_to_all since the target is unspecified. Complicates the system a bit..

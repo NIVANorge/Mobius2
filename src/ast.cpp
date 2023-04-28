@@ -15,7 +15,9 @@
 	The first identifier is the "handle" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
 	In some cases you can make a declaration without a handle.
 	
-	The decl_type is an identifier that belongs to 
+	The decl_type is an identifier, the full list of allowed decl types are in decl_types.incl .
+	
+	Not all declarations need to have an argument list.
 	
 	There are 4 types of arguments:
 		- value : Something that is a valid parameter value, for instance
@@ -27,19 +29,17 @@
 	
 	
 	Not all declarations have bodies.
-	Bodies can have 0 or more notes (usually just one used to distinguish between multiple bodies).
+	Bodies can have 0 or 1 note
 	There are two overarching types of bodies, and which one is used depends on the decl_type
 		Decl body:
 			This contains just a sequence of other declarations. It can also contain one quoted string, called the docstring of the body.
 		Function body:
 			This contains a mathematical expression. This should be given separate documentation.
 	
-	
 	Unit declarations have their entirely separate syntax [a b c, d e f, ...], but are internally handled as a decl where a b c is the "chain" of the first argument, d e f the second. Unit arguments are generally on the form
 		si_prefix unit_symbol number . e.g.
 			k m 2
 		which means square kilometers. The si_prefix and number can be omitted if not needed. This should be given separate documentation.
-	
 	
 	Examples
 	

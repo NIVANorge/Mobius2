@@ -24,7 +24,6 @@ Body_Type {
 
 struct
 Body_AST : Expr_AST {
-	//std::vector<Token> notes;
 	Token           note;
 	Body_Type       type;
 	Source_Location opens_at;
@@ -105,7 +104,7 @@ Math_Expr_AST : Expr_AST {
 
 // TODO: A lot of these structs are superfluous... Could have one called   Single_Token_AST, Chain_AST and Operator_AST, but just with different Math_Expr_Types
 //    Can also unify struct for Function_Body_AST and Regex_Body_AST.
-//    Also a bit confusing that they are called Math_Expr_whatever when we reuse them for regexes. Just rename to Expr_whatever ? However Expr_AST is already taken...
+//    Also a bit confusing that they are called Math_Expr_whatever when we reuse them for regexes. Just rename to Expr_whatever ?
 
 struct
 Math_Block_AST : Math_Expr_AST {
