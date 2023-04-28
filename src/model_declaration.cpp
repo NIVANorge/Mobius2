@@ -330,7 +330,7 @@ read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, Stri
 		fatal_error("Model files should only have a single model declaration in the top scope.");
 	}
 	
-	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false);
+	match_declaration(decl, {{Token_Type::quoted_string}}, false);
 	
 	return decl;
 }
@@ -444,9 +444,9 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 					{
 						{Token_Type::quoted_string, Decl_Type::version},
 						{Token_Type::quoted_string, Decl_Type::version, {true}}
-					});
+					}, false);
 			} else if (decl->type == Decl_Type::library) {
-				match_declaration(decl, {{Token_Type::quoted_string}});   //TODO: Should just have versions here too maybe..
+				match_declaration(decl, {{Token_Type::quoted_string}}, false);   //TODO: Should just have versions here too maybe..
 			} else {
 				decl->source_loc.print_error_header();
 				fatal_error("Module files should only have modules or libraries in the top scope. Encountered a ", name(decl->type), ".");
@@ -596,7 +596,7 @@ process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope,
 		{
 			{Token_Type::quoted_string},
 			//{Token_Type::quoted_string, Decl_Type::unit},
-		}, 0, true, -1);
+		});
 		
 	auto id          = model->components.standard_declaration(scope, decl);
 	auto component   = model->components[id];
@@ -606,11 +606,7 @@ process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope,
 			decl->source_loc.print_error_header();
 			fatal_error("Only properties can have default code, not quantities or compartments.");
 		}
-		if(decl->bodies.size() > 1) {
-			decl->source_loc.print_error_header();
-			fatal_error("Expected at most one body for property declaration.");
-		}
-		// TODO : have to guard against clashes between different modules here!
+		// TODO : have to guard against clashes between different modules here! But that should be done in model_composition
 		auto fun = static_cast<Function_Body_AST *>(decl->bodies[0]);
 		component->default_code = fun->block;
 		component->code_scope = scope->parent_id;
@@ -721,7 +717,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 		{Token_Type::quoted_string},
 		{Token_Type::quoted_string, Decl_Type::compartment},   // Could eventually make the last a vararg?
 		{Token_Type::quoted_string, Decl_Type::quantity},
-	}, 0, false);
+	}, false);
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
 	auto par_group = model->par_groups[id];
@@ -824,7 +820,7 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 			{Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
 			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
 		},
-		0, false, -1, true);
+		false, true, true);
 	
 	auto id  = model->vars.find_or_create(&decl->handle_name, scope, nullptr, decl);
 	auto var = model->vars[id];
@@ -852,11 +848,9 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	for(Body_AST *body : decl->bodies) {
 		auto function = static_cast<Function_Body_AST *>(body);
-		if(function->notes.size() > 1) {
-			function->opens_at.print_error_header();
-			fatal_error("Bodies belonging to 'var' declarations can only have one note.");
-		} else if(function->notes.size() == 1) {
-			auto str = function->notes[0].string_value;
+		
+		if(is_valid(&function->note)) {
+			auto str = function->note.string_value;
 			if(str == "initial" || str == "initial_conc") {
 				if(var->initial_code) {
 					function->opens_at.print_error_header();
@@ -872,17 +866,13 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 				var->override_code = function->block;
 				var->override_is_conc = (str == "override_conc");
 			} else {
-				function->notes[0].print_error_header();
+				function->note.print_error_header();
 				fatal_error("Expected either no function body notes, 'initial' or 'override_conc'.");
 			}
-		} else {
-			if(var->code) {
-				function->opens_at.print_error_header();
-				fatal_error("Declaration has more than one main block.");
-			}
+		} else
 			var->code = function->block;
-		}
 	}
+	
 	var->code_scope = scope->parent_id;
 	
 	return id;
@@ -894,7 +884,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	match_declaration(decl,
 		{
 			{Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
-		}, 0, true, -1, true);
+		}, true, true, true);
 	
 	Token *name = single_arg(decl, 3);
 	
@@ -911,39 +901,24 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
-	bool found_no_carry = false;
-	bool found_main     = false;
-	
 	for(auto body : decl->bodies) {
 		auto fun = static_cast<Function_Body_AST *>(body);
-		if(body->notes.empty()) {
-			if(found_main) {
-				body->opens_at.print_error_header();
-				fatal_error("More than one main code body for flux.");
-			}
+		if(!is_valid(&body->note))
 			flux->code = fun->block;
-			found_main = true;
-		} else if (body->notes.size() == 1) {
-			if(body->notes[0].string_value != "no_carry") {
-				body->notes[0].print_error_header();
-				fatal_error("Unrecognized note '", body->notes[0].string_value, "'.");
-			}
-			if(found_no_carry) {
-				body->opens_at.print_error_header();
-				fatal_error("More than one 'no_carry' block for flux.");
+		else {
+			if(body->note.string_value != "no_carry") {
+				body->note.print_error_header();
+				fatal_error("Unrecognized note '", body->note.string_value, "' for a flux declaration.");
 			}
 			if(!is_located(flux->source)) {
 				body->opens_at.print_error_header();
-				fatal_error("A 'no_carry' block does not make sense unless the source of the flux is specific.");
+				fatal_error("A 'no_carry' block only makes sense if the source of the flux is specific (not 'nowhere').");
 			}
-			found_no_carry = true;
 			flux->no_carry_ast = fun->block;
-		} else {
-			body->opens_at.print_error_header();
-			fatal_error("At most one note is allowed for a flux body.");
 		}
 	}
-	if(!found_main) {
+	
+	if(!flux->code) {
 		decl->source_loc.print_error_header();
 		fatal_error("This flux does not have a main code body.");
 	}
@@ -955,7 +930,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 
 template<> Entity_Id
 process_declaration<Reg_Type::discrete_order>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{ }});
+	match_declaration(decl, {{ }}, false);
 	
 	auto id    = model->discrete_orders.find_or_create(nullptr, scope, nullptr, decl);
 	auto discr = model->discrete_orders[id];
@@ -995,7 +970,7 @@ template<> Entity_Id
 process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	// NOTE: Since we disambiguate entities on their name right now, we can't let the name and function_name be the same in case you want to reuse the same function many times.
 	//    could be fixed if/when we make the new module loading / scope system.
-	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::identifier }}, -1, false);
+	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::identifier }}, false);
 	
 	auto id = model->special_computations.standard_declaration(scope, decl);
 	auto comp = model->special_computations[id];
@@ -1120,7 +1095,7 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
   
 		lib->is_being_processed = true; // To not go into an infinite loop if we have a recursive load.
 		
-		match_declaration(lib->decl, {{Token_Type::quoted_string}}, 0, false); // REFACTOR. matching is already done in the load_top_decl_from_file
+		match_declaration(lib->decl, {{Token_Type::quoted_string}}, false); // REFACTOR. matching is already done in the load_top_decl_from_file
 		
 		auto body = static_cast<Decl_Body_AST *>(lib->decl->bodies[0]);
 		
@@ -1163,7 +1138,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 		{
 			{Token_Type::quoted_string, { Decl_Type::library, true } },
 			{{Decl_Type::library, true}},
-		});
+		}, false);
 	String_View file_name;
 	String_View relative_to;
 	if(which == 0) {
@@ -1178,7 +1153,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 	
 	for(int idx = offset; idx < decl->args.size(); ++idx) {
 		auto lib_load_decl = decl->args[idx]->decl;
-		match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, 0, true, 0);
+		match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, false, false);
 		std::string library_name = single_arg(lib_load_decl, 0)->string_value;
 
 		load_library(model, to_scope, file_name, relative_to, library_name, lib_load_decl->source_loc);
@@ -1199,11 +1174,11 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 		{
 			{Token_Type::quoted_string, Decl_Type::version},
 			{Token_Type::quoted_string, Decl_Type::version, {true}}
-		});
+		}, false);
 	
 	auto version_decl = decl->args[1]->decl;
 	
-	match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}});
+	match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false);
 	
 	mod_temp->version.major        = single_arg(version_decl, 0)->val_int;
 	mod_temp->version.minor        = single_arg(version_decl, 1)->val_int;
@@ -1251,7 +1226,7 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 			arg->chain[0].print_error_header();
 			fatal_error("Load arguments to a module must be of the form  handle : decl_type.");
 		}
-		match_declaration(arg->decl, {{}}, 0, true, 0); // TODO: Not sure if we should allow passing a name to enforce name match.
+		match_declaration(arg->decl, {{}}, true, false); // TODO: Not sure if we should allow passing a name to enforce name match.
 		std::string handle = arg->decl->handle_name.string_value;
 		auto *entity = model->find_entity(load_id);
 		if(arg->decl->type != entity->decl_type) {
@@ -1335,18 +1310,14 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 
 template<> Entity_Id
 process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	//TODO: index set type (maybe)
+	
 	int which = match_declaration(decl, {
 		{Token_Type::quoted_string},
-	}, 0, true, -1);
+	});
 	auto id        = model->index_sets.standard_declaration(scope, decl);
 	
 	// NOTE: the reason we do it this way is to force the higher index set to have a smaller Entity_Id. This is very useful in processing code later.
 	if(decl->bodies.size() > 0) {
-		if(decl->bodies.size() != 1) {
-			decl->bodies[1]->opens_at.print_error_header();
-			fatal_error("It is not allowed to have more than one declaration body to an index set");
-		}
 		auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 		for(auto child : body->child_decls) {
 			if(child->type != Decl_Type::index_set) {
@@ -1393,7 +1364,9 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 template<> Entity_Id
 process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 
-	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, 0, false);
+	// TODO: We may not need a special "solve" registry, we could just store these in the solver registry.
+
+	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, false);
 	
 	auto id = model->solves.find_or_create(nullptr, nullptr, nullptr, decl);
 	auto solve = model->solves[id];
@@ -1420,7 +1393,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	{
 		{Decl_Type::compartment, {Decl_Type::index_set, true}},
 		{Decl_Type::quantity, {Decl_Type::index_set, true}},
-	}, 0, false);
+	}, false);
 	
 	auto comp_id   = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
 	auto component = model->components[comp_id];
@@ -1445,7 +1418,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 
 void
 process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Decl_Type::compartment, Decl_Type::compartment}}, 0, false);
+	match_declaration(decl, {{Decl_Type::compartment, Decl_Type::compartment}}, false);
 	
 	auto from_comp = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
 	auto to_comp   = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
@@ -1462,7 +1435,7 @@ process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, D
 
 void
 process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::identifier, Token_Type::identifier}});
+	match_declaration(decl, {{Token_Type::identifier, Token_Type::identifier}}, false);
 	
 	Flux_Unit_Conversion_Data data = {};
 	
@@ -1488,7 +1461,7 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unor
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type != Decl_Type::extend) continue;
 			
-		match_declaration(child, {{Token_Type::quoted_string}});
+		match_declaration(child, {{Token_Type::quoted_string}}, false);
 		String_View extend_file_name = single_arg(child, 0)->string_value;
 		
 		// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
@@ -1545,7 +1518,7 @@ load_config(Mobius_Model *model, String_View config) {
 			decl->source_loc.print_error_header();
 			fatal_error("Unexpected declaration type '", name(decl->type), "' in a config file.");
 		}
-		match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}});
+		match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, false);
 		auto item = single_arg(decl, 0)->string_value;
 		if(item == "Mobius2 base path") {
 			model->mobius_base_path = single_arg(decl, 1)->string_value;
@@ -1674,7 +1647,7 @@ load_model(String_View file_name, String_View config) {
 			switch (child->type) {
 				case Decl_Type::load : {
 					// Load from another file using a "load" declaration
-					match_declaration(child, {{Token_Type::quoted_string, {Decl_Type::module, true}}}, 0, false);
+					match_declaration(child, {{Token_Type::quoted_string, {Decl_Type::module, true}}}, false);
 					String_View file_name = single_arg(child, 0)->string_value;
 					for(int idx = 1; idx < child->args.size(); ++idx) {
 						Decl_AST *module_spec = child->args[idx]->decl;
@@ -1688,7 +1661,7 @@ load_model(String_View file_name, String_View config) {
 							{
 								{Token_Type::quoted_string},
 								{Token_Type::quoted_string, {true}}
-							}, 0, false, 0);
+							}, false, false);
 						
 						auto load_loc = single_arg(child, 0)->source_loc;
 						auto module_name = single_arg(module_spec, 0)->string_value;
@@ -1699,13 +1672,6 @@ load_model(String_View file_name, String_View config) {
 						process_module_arguments(model, scope, module_spec, load_args);
 
 						auto module_id = process_module_load(model, template_id, load_loc, load_args);
-						
-						/*
-						std::string module_handle = "";
-						if(module_spec->handle_name.string_value.count)
-							module_handle = module_spec->handle_name.string_value;
-						scope->add_local(module_handle, module_spec->source_loc, module_id);
-						*/
 					}
 					//TODO: should also allow loading libraries inside the model scope!
 				} break;

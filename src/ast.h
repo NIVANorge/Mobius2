@@ -24,8 +24,9 @@ Body_Type {
 
 struct
 Body_AST : Expr_AST {
-	std::vector<Token> notes;
-	Body_Type type;
+	//std::vector<Token> notes;
+	Token           note;
+	Body_Type       type;
 	Source_Location opens_at;
 	
 	Body_AST(Body_Type type) : type(type) {};
@@ -246,13 +247,15 @@ struct Arg_Pattern {
 		switch(pattern_type) {
 			case Type::decl :         { error_print(name(decl_type));  } break;
 			case Type::value :        { error_print(name(token_type)); } break;
+			case Type::any :          { error_print("any"); } break;
 		}
 		if(is_vararg) error_print("...");
 	}
 };
 
 int
-match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_chain = 0, bool allow_handle = true, int allow_body_count = 1, bool allow_body_notes = false);
+match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
+	bool allow_handle = true, bool allow_body = true, bool allow_notes = false);
 
 int
 operator_precedence(Token_Type t);

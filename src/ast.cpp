@@ -1,4 +1,6 @@
 
+#include <unordered_set>
+
 #include "ast.h"
 
 /*
@@ -268,7 +270,8 @@ parse_decl(Token_Stream *stream) {
 			body->opens_at = next.source_loc;
 			
 			if(ch == '@') {
-				read_chain(stream, '@', &body->notes);
+				body->note = stream->peek_token();
+				stream->expect_identifier();
 				next = stream->read_token();
 			}
 			
@@ -707,18 +710,13 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
 	return result;
 }
 
-
-
-
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
-	int allow_chain, bool allow_handle, int allow_body_count, bool allow_body_notes) {
-	
-	// TODO: Remove allow_chain argument! (no longer relevant).
+	bool allow_handle, bool allow_body, bool allow_notes) {
 	
 	if(!allow_handle && decl->handle_name.string_value.count > 0) {
 		decl->handle_name.print_error_header();
-		fatal_error("A ", name(decl->type), " declaration can not be assigned to an identifier.");
+		fatal_error("A '", name(decl->type), "' declaration can not be assigned to an identifier.");
 	}
 	
 	int found_match = -1;
@@ -779,24 +777,34 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		mobius_error_exit();
 	}
 	
-	// NOTE: This check is only relevant if this type of declaration is allowed to have bodies at all. If a declaration that should not have a body gets one, that will be caught at the AST parsing stage.
 	Body_Type body_type = get_body_type(decl->type);
-	if(body_type != Body_Type::none && allow_body_count >= 0 && allow_body_count != decl->bodies.size()) {
-		decl->source_loc.print_error_header();
-		fatal_error("Expected ", allow_body_count, " bodies for this declaration, got ", decl->bodies.size(), ".");
+	if((body_type == Body_Type::none || !allow_body) && !decl->bodies.empty()) {
+		decl->bodies[0]->opens_at.print_error_header();
+		fatal_error("This '", name(decl->type), "' declaration should not have a body.");
 	}
 	
-	// TODO: Should enforce note uniqueness here (including uniqueness of body without a note).
-	//   Probably this will make allow_body_count argument superfluous also.
-	// TODO: Should also just be a single note per body.
-	
-	if(!allow_body_notes) {
+	if(allow_notes) {
+		bool found_main = false;
+		std::unordered_set<String_View, String_View_Hash> found_notes;
+		
 		for(auto body : decl->bodies) {
-			if(body->notes.size() > 0) {
-				decl->source_loc.print_error_header();
-				fatal_error("The bodies of this declaration should not have notes.");
+			if(is_valid(&body->note)) {
+				if(found_notes.find(body->note.string_value) != found_notes.end()) {
+					body->note.print_error_header();
+					fatal_error("Duplicate note '", body->note.string_value, "' for this declaration.");
+				}
+				found_notes.insert(body->note.string_value);
+			} else {
+				if(found_main) {
+					body->opens_at.print_error_header();
+					fatal_error("Duplicate main (note-free) body for this declaration.");
+				}
+				found_main = true;
 			}
 		}
+	} else if(decl->bodies.size() > 1) {
+		decl->bodies[1]->opens_at.print_error_header();
+		fatal_error("This declaration should not have more than one body.");
 	}
 	
 	return found_match;

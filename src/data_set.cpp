@@ -4,7 +4,7 @@
 #include "data_set.h"
 #include "ole_wrapper.h"
 
-int 
+int
 Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
 	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
 	if(idx_name->type == Token_Type::quoted_string) {
@@ -626,7 +626,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 void
 parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect_count) {
 	auto decl = parse_decl_header(stream);
-	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
+	match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
 	Token *arg = single_arg(decl, 0);
 	auto par = par_group->pars.create(arg->string_value, arg->source_loc);
 	par->type = decl->type;
@@ -666,7 +666,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 
 void
 parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stream, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
+	match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
 
 	auto name = single_arg(decl, 0);
 	auto group = module->par_groups.create(name->string_value, name->source_loc);
@@ -735,7 +735,7 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 		{
 			{Token_Type::quoted_string},
 			{Token_Type::quoted_string, Token_Type::quoted_string},
-		}, 0, false, 0);
+		}, false, false);
 				
 	auto name = single_arg(decl, which);
 	auto data = data_set->index_sets.create(name->string_value, name->source_loc);
@@ -847,7 +847,7 @@ Data_Set::read_from_file(String_View file_name) {
 				} break;
 				
 				case Decl_Type::connection : {
-					match_declaration(decl, {{Token_Type::quoted_string}}, 0, false, 0);
+					match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
 					
 					auto name = single_arg(decl, 0);
 					auto data = connections.create(name->string_value, name->source_loc);
@@ -856,7 +856,7 @@ Data_Set::read_from_file(String_View file_name) {
 				} break;
 				
 				case Decl_Type::series : {
-					int which = match_declaration(decl, {{Token_Type::quoted_string}, {}}, 0, false);
+					int which = match_declaration(decl, {{Token_Type::quoted_string}, {}}, false, false);
 					if(which == 0) {
 						String_View other_file_name = single_arg(decl, 0)->string_value;
 						
@@ -901,7 +901,7 @@ Data_Set::read_from_file(String_View file_name) {
 				} break;
 
 				case Decl_Type::module : {
-					match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, 0, false, 0);
+					match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false, false);
 				
 					auto name = single_arg(decl, 0);
 					auto module = modules.create(name->string_value, name->source_loc);
@@ -927,7 +927,7 @@ Data_Set::read_from_file(String_View file_name) {
 				} break;
 				
 				case Decl_Type::time_step : {
-					match_declaration(decl, {{Decl_Type::unit}}, 0, false);
+					match_declaration(decl, {{Decl_Type::unit}}, false);
 					time_step_unit.set_data(decl->args[0]->decl);
 					unit_source_loc = decl->source_loc;
 					time_step_was_provided = true;
