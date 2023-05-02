@@ -1,5 +1,9 @@
 
 
+	error printing var loc does not work if it was loaded as a loc parameter.
+		Check validity of loc at its declaration, will simplify several things and pre-empt needing separate check in function_tree resolution.
+
+
 	Make NIVAFjord!!
 
 	Clean up how we generate code for computing indexes. It is very messy.

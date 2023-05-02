@@ -1,33 +1,32 @@
 
-module("Atmospheric", version(0, 1, 0)) {
-	"""
-	Simple module for some common atmospheric attributes
-	"""
+module("Atmospheric", version(0, 1, 0),
+	air      : compartment,
+	temp     : property,
+	wind     : property,
+	g_rad    : property,
+	pressure : property,
+	a_hum    : property,
+	rho      : property,
+	lwd      : property,
+) {
+"""
+Simple module for some common atmospheric attributes
+"""
 	
 	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
 	load("stdlib/basic_math.txt", library("Basic"))
-	
-	air : compartment("Atmosphere")
-	
+
 	par_group("Location", air) {
 		 #TODO: maybe reused across modules, should instead be in model scope.
 		latitude : par_real("Latitude", [deg], 60, -90, 90)
 		elev     : par_real("Elevation", [m], 0, 0, 8887)
 	}
 	
-	temp             : property("Temperature")
 	r_hum            : property("Relative humidity")
-	wind             : property("Wind speed")
-	
 	g_rad_cloud_free : property("Solar radiation on a clear sky day")
-	g_rad            : property("Global radiation")
 	cloud            : property("Cloud cover")
-	pressure         : property("Pressure")
 	s_vap            : property("Saturation vapour pressure")
 	a_vap            : property("Actual vapour pressure")
-	a_hum            : property("Actual specific humidity")
-	dens             : property("Density")
-	lwd              : property("Downwelling longwave radiation")
 	
 	var(air.temp,  [deg_c], "Air temperature")
 	var(air.r_hum, [perc])
@@ -70,7 +69,7 @@ module("Atmospheric", version(0, 1, 0)) {
 		specific_humidity_from_pressure(air.pressure, air.a_vap)
 	}
 	
-	var(air.dens, [k g, m-3], "Air density") {
+	var(air.rho, [k g, m-3], "Air density") {
 		air_density(temp, pressure, a_vap)
 	}
 	

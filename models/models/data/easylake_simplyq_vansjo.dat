@@ -37,6 +37,11 @@ par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 	]
 }
 
+par_group("Lake data") [ "Lake" ] {
+	par_real("Lake surface area")
+	[ 23800000 12000000 ]
+}
+
 module("HBVSnow", 1, 0, 0) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
@@ -100,9 +105,6 @@ module("SimplyQ river", 0, 0, 1) {
 
 module("EasyLake", 0, 1, 0) {
 	par_group("Lake physical") [ "Lake" ] {
-		par_real("Lake surface area")
-		[ 23800000 12000000 ]
-
 		par_real("Lake depth at which outflow is 0")
 		[ 41 19 ]
 
@@ -118,20 +120,24 @@ module("EasyLake", 0, 1, 0) {
 		par_real("Bottom temperature")
 		[ 4 4 ]
 
-		par_real("Initial ice thickness")
-		[ 0 0 ]
-
 		par_real("Epilimnion thickening rate")
 		[ 0.01 0.01 ]
+	}
+}
+
+module("AirSea", 0, 1, 0) {
+	par_group("Lake ice") {
+		par_real("Initial ice thickness")
+		[ 0 ]
 
 		par_real("Ice albedo")
-		[ 0.045 0.4 ]
+		[ 0.4 ]
 
 		par_real("Frazil threshold")
-		[ 0.05 0.05 ]
+		[ 0.05 ]
 
 		par_real("Ice formation temperature")
-		[ 1.2 0 ]
+		[ 0 ]
 	}
 }
 
@@ -145,7 +151,7 @@ module("Degree-day PET", 1, 0, 0) {
 	}
 }
 
-module("Simply soil temperature", 0, 0, 0) {
+module("Simply soil temperature", 0, 1, 0) {
 	par_group("Soil temperature general") {
 		par_real("Snow depth / soil temperature factor")
 		[ -0.2 ]
@@ -210,26 +216,17 @@ module("EasyLake-C", 0, 0, 1) {
 }
 
 module("Priestley-Taylor PET", 1, 0, 0) {
-	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
+	par_group("Potential evapotranspiration") [ ] {
 		par_real("PET multiplication factor") [
-			1.28 1.28 
-			1.28 1.28 
-			1.28 1.28 
-			1.28 1.28 
+			1.28
 		]
 
 		par_real("Land albedo") [
-			0.23 0.23 
-			0.23 0.23 
-			0.23 0.23 
-			0.23 0.23 
+			0.23
 		]
 
 		par_real("Snow albedo") [
-			0.8 0.8 
-			0.8 0.8 
-			0.8 0.8 
-			0.8 0.8 
+			0.8
 		]
 	}
 }
@@ -254,7 +251,7 @@ module("SimplyN", 0, 0, 2) {
 
 		par_real("Groundwater DIN concentration")
 		[ 0.9 ]
-		
+
 		par_real("Reach denitrification rate at 20°C")
 		[ 2.17988143578024e-27 ]
 
@@ -268,10 +265,7 @@ module("SimplyN", 0, 0, 2) {
 
 		par_real("Net annual DIN input to soil")
 		[ 180.05062460061 22 ]
-		
 	}
-
-
 
 	par_group("River DIN") [ "Subcatchment" ] {
 		par_real("Reach effluent DIN inputs")

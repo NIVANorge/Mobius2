@@ -7,8 +7,6 @@ model("EasyLake-SimplyCNP") {
 	
 	module("EasyLake-C", version(0, 0, 1)) {
 		
-		sw_rad : property("Shortwave radiation")
-		
 		par_group("Lake C", epi) {
 			init_c : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
 			oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
@@ -28,7 +26,7 @@ model("EasyLake-SimplyCNP") {
 			# TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
 			attn_epi := 1,
 			
-			oc_doc * qy_doc * (f_par / e_par) * sw_rad * attn_epi * oc ->>
+			oc_doc * qy_doc * (f_par / e_par) * sw * attn_epi * oc ->>
 		}
 		
 		# TODO: Some other sinks of DOC (otherwise hypolimnion conc is constant between mixing events, for instance.
@@ -44,8 +42,6 @@ model("EasyLake-SimplyCNP") {
 			lake_din_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
 			hyp_din      : par_real("Hypolimnion N retention factor", [], 1, 0, 2)
 		}
-		
-		temp : property("Temperature")
 		
 		var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
 		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }

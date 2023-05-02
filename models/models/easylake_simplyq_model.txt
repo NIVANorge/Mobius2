@@ -1,18 +1,34 @@
 
 model("EasyLake-SimplyQ") {
 	
-	extend("simplyq_base.txt")
+	extend("simplyq_model.txt")
 	
 	epi : compartment("Epilimnion")
 	hyp : compartment("Hypolimnion")
 	
-	heat  : quantity("Heat energy")
+	#heat  : quantity("Heat energy")
 	ice   : quantity("Ice")
 	
-	load("modules/simplysoiltemp.txt", module("Simply soil temperature"))
-	load("modules/easylake.txt", el : module("EasyLake"))
-	load("modules/rivertemp.txt", module("RiverTemperature"))
-	load("modules/atmospheric.txt", module("Atmospheric"))
+	wind     : property("Wind speed")
+	g_rad    : property("Global radiation")
+	pressure : property("Pressure")
+	a_hum    : property("Actual specific humidity")
+	rho      : property("Density")
+	lwd      : property("Downwelling longwave radiation")
+	sw       : property("Shortwave radiation")
+	
+	evap_mm  : property("Evaporation per area")
+	
+	par_group("Lake data", epi) {
+		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 371e9)
+	}
+	
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
+	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
+	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
+	load("modules/airsea.txt",         module("AirSea", air, epi, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, A_surf,
+											loc(epi.water), loc(epi.water.heat), loc(epi.water.heat), loc(epi.water.temp)))
+	load("modules/easylake.txt",       module("EasyLake", air, epi, hyp, water, ice, heat, temp, precip, evap_mm, A_surf, loc(downstream)))
 	
 	solve(simply_solver, epi.water, hyp.water, epi.ice)
 	
@@ -21,9 +37,6 @@ model("EasyLake-SimplyQ") {
 	distribute(epi, lake_index)
 	distribute(hyp, lake_index)
 	
-	# TODO: This should override what is in the simplyq model.  Or do we need a more advanced system, because what happens if we now try to add a SimplyC component for instance ?
-	
 	# NOTE: Just update the regex for the compartments.
-	connection("Downstream", directed_tree) { (river|epi)* } 
-	el.lake_out .to(ds)
+	connection("Downstream", directed_tree) { (river|epi)* }
 }
