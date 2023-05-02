@@ -3,11 +3,10 @@ model("EasyLake-SimplyQ") {
 	
 	extend("simplyq_model.txt")
 	
-	epi : compartment("Epilimnion")
-	hyp : compartment("Hypolimnion")
+	epi      : compartment("Epilimnion")
+	hyp      : compartment("Hypolimnion")
 	
-	#heat  : quantity("Heat energy")
-	ice   : quantity("Ice")
+	ice      : quantity("Ice")
 	
 	wind     : property("Wind speed")
 	g_rad    : property("Global radiation")
@@ -27,7 +26,7 @@ model("EasyLake-SimplyQ") {
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
 	load("modules/airsea.txt",         module("AirSea", air, epi, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, A_surf,
-											loc(epi.water), loc(epi.water.heat), loc(epi.water.heat), loc(epi.water.temp)))
+											loc(epi.water.heat), loc(epi.water.heat), loc(epi.water.temp)))
 	load("modules/easylake.txt",       module("EasyLake", air, epi, hyp, water, ice, heat, temp, precip, evap_mm, A_surf, loc(downstream)))
 	
 	solve(simply_solver, epi.water, hyp.water, epi.ice)

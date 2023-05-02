@@ -591,6 +591,19 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		}
 	}
 	
+	for(auto loc_id : model->locs) {
+		auto loc = model->locs[loc_id];
+		if(!is_located(loc->loc)) continue;
+		Var_Id var_id = app->state_vars.id_of(loc->loc);
+		if(!is_valid(var_id)) {
+			auto scope = model->get_scope(loc->scope_id);
+			loc->source_loc.print_error_header(Mobius_Error::model_building);
+			error_print("The variable location ");
+			error_print_location(scope, loc->loc);
+			fatal_error(" has not been created using a 'var' declaration.");
+		}
+	}
+	
 	//TODO: make better name generation system!
 	char varname[1024];
 	

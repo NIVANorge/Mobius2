@@ -98,6 +98,9 @@ Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::loc> : Entity_Registration_Base {
 	Specific_Var_Location loc;
+	Entity_Id             scope_id;
+	
+	Entity_Registration() : scope_id(invalid_entity_id) {}
 };
 
 template<> struct

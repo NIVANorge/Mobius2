@@ -15,14 +15,13 @@ module("AirSea", version(0, 1, 0),
 	rho       : property,
 	a_hum     : property,
 	lwd       : property,
-	sw        : property,#("Shortwave radiation") # TODO: Should have a better name for it.
+	sw        : property,
 	
 	A_surf    : par_real,   # Ooops, for NIVAFjord, this must be A[vert.top], but we don't have a way of passing that for the moment.
 	
-	top_water : loc, 
-	top_water_heat : loc, # TODO: System for composing locs also? E.g. top_water.heat
+	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
 	top_water_heat_sw : loc, # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
-	top_water_temp : loc,
+	top_water_temp    : loc,
 ) {
 """
 Air-lake heat fluxes are based off of
@@ -47,12 +46,11 @@ The ice module is influenced by the one in MyLake, and uses Stefan's law for ice
 		ice_temp  : par_real("Ice formation temperature", [deg_c], 0, -2, 2)
 	}
 	
-	#wind : property("Wind")
-	stab : property("Stability")
-	ced : property("Transfer coefficient for latent heat flux")
-	chd : property("Transfer coefficent for sensible heat flux")
-	s_hum : property("Saturation specific humidity")
-	lwu : property("Emitted longwave radiation")
+	stab   : property("Stability")
+	ced    : property("Transfer coefficient for latent heat flux")
+	chd    : property("Transfer coefficent for sensible heat flux")
+	s_hum  : property("Saturation specific humidity")
+	lwu    : property("Emitted longwave radiation")
 	albedo : property("Albedo")
 	
 	energy : property("Freeze energy")

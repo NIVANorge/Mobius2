@@ -1,16 +1,14 @@
 
-module("So very very simple", version(1, 0, 0),
+module("Degradation", version(1, 0, 0),
 	a : compartment,
 	q : quantity
 ) {
 	
 	par_group("Pars", a) {
-		b : par_real("B", [], 0.99)
+		r : par_real("Rate", [day-1], 0.01)
 	}
 	
-	p : property("P")
-	
-	var(a.p, []) {
-		last(p)*b
-	} @initial { 20 }
+	flux(a.q, nowhere, [k g, day-1], "Degradation") {
+		r*a.q
+	}
 }

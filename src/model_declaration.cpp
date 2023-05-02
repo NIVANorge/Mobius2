@@ -125,20 +125,12 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 	}
 	
 	bool linked_by_name = false;
-	if(is_valid(decl_name) && decl) {
-		if(decl->type == Decl_Type::compartment || decl->type == Decl_Type::quantity || decl->type == Decl_Type::property || decl->type == Decl_Type::connection
-			|| decl->type == Decl_Type::par_real || decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_int || decl->type == Decl_Type::par_enum
-			|| decl->type == Decl_Type::solver// || decl->type == Decl_Type::library || decl->type == Decl_Type::module
-			) {
-			
-			if(is_valid(result_id))
-				fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to a declared copy with that handle.");
-			
-			
-		}
-	}
-	
-	if(is_valid(decl_name)) {
+	if(is_valid(decl_name) &&
+		(reg_type == Reg_Type::component || reg_type == Reg_Type::connection)) {
+		
+		if(decl && is_valid(result_id))
+			fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to a declared copy with that handle.");
+		
 		std::string name = decl_name->string_value;
 		auto find = name_to_id.find(name);
 		if(find != name_to_id.end()) {
@@ -167,7 +159,8 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 				}
 			}
 			
-			//TODO: NOTE: for now names are globally scoped. This is necessary for some systems to work, but could cause problems in larger models. Make a better system later?
+			// TODO: Remove global scoping of names
+			/*
 			auto find = name_to_id.find(registration.name);
 			if(find != name_to_id.end()) {
 				decl->source_loc.print_error_header();
@@ -175,6 +168,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 				registrations[find->second.id].source_loc.print_error();
 				mobius_error_exit();
 			}
+			*/
 			name_to_id[registration.name] = result_id;
 		}
 	}
@@ -1078,6 +1072,8 @@ process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	process_location_argument(model, scope, decl, 0, &loc->loc, true, true);
 	
+	loc->scope_id = scope->parent_id;
+	
 	return id;
 }
 
@@ -1161,9 +1157,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 }
 
 Entity_Id
-process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, const Decl_Scope *import_scope = nullptr) {
-	
-	// TODO: Take potentially second name argument, as well as a list of load arguments.
+process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, const Decl_Scope *import_scope = nullptr) {
 	
 	auto mod_temp = model->module_templates[template_id];
 	
@@ -1191,12 +1185,22 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 	
 	// Create a module specialization of the module template:
 	
+	std::string spec_name;
+	Token      *spec_name_token;
+	if(load_name) {
+		spec_name = load_name->string_value;
+		spec_name_token = load_name;
+	} else {
+		spec_name = mod_temp->name;
+		spec_name_token = single_arg(decl, 0);
+	}
+	
 	// TODO: Potentially a different name:
-	auto module_id = model->modules.find_by_name(mod_temp->name);
+	auto module_id = model->modules.find_by_name(spec_name);
 	if(is_valid(module_id)) return module_id; // It has been specialized with this name already.
 	
 	// TODO: The other name must be used here too:
-	module_id = model->modules.find_or_create(nullptr, nullptr, single_arg(decl, 0), nullptr);
+	module_id = model->modules.find_or_create(nullptr, nullptr, spec_name_token, nullptr);
 	auto module = model->modules[module_id];
 	// Ouch, this is a bit hacky, but it is to avoid the problem that Decl_Type::module is tied to Reg_Type::module_template .
 	// Maybe we should instead have another flag on it?
@@ -1209,10 +1213,15 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 	if(import_scope)
 		module->scope.import(*import_scope, &load_loc);
 	
+	if(import_scope && decl->args.size() > 2) {
+		decl->source_loc.print_error_header();
+		fatal_error("Inlined module declarations should not have load arguments.\n");
+	}
+	
 	int required_args = decl->args.size() - 2;
 	if(load_args.size() != required_args) {
 		load_loc.print_error_header();
-		error_print("The module \"", module->name, "\" requires ", required_args, " load arguments. Only ", load_args.size(), " were passed. See declaration at\n");
+		error_print("The module \"", mod_temp->name, "\" requires ", required_args, " load arguments. Only ", load_args.size(), " were passed. See declaration at\n");
 		decl->source_loc.print_error();
 		mobius_error_exit();
 	}
@@ -1231,7 +1240,7 @@ process_module_load(Mobius_Model *model, Entity_Id template_id, Source_Location 
 		auto *entity = model->find_entity(load_id);
 		if(arg->decl->type != entity->decl_type) {
 			load_loc.print_error_header();
-			error_print("Load argument ", idx, " to the module ", module->name, " should have type '", name(arg->decl->type), "'. A '", name(entity->decl_type), "' was passed instead. See declaration at\n");
+			error_print("Load argument ", idx, " to the module ", mod_temp->name, " should have type '", name(arg->decl->type), "'. A '", name(entity->decl_type), "' was passed instead. See declaration at\n");
 			decl->source_loc.print_error();
 			mobius_error_exit();
 		}
@@ -1399,7 +1408,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	auto component = model->components[comp_id];
 	
 	if(component->decl_type == Decl_Type::property) {
-		single_arg(decl, 0)->source_loc.print_error_header(Mobius_Error::model_building);  //TODO: Won't work if this was an inlined decl.
+		decl->source_loc.print_error_header(Mobius_Error::model_building);
 		fatal_error("Only compartments and quantities can be distributed, not properties");
 	}
 	
@@ -1538,8 +1547,8 @@ load_config(Mobius_Model *model, String_View config) {
 }
 
 void
-process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, std::vector<Entity_Id> &load_args) {
-	for(int idx = 1; idx < decl->args.size(); ++idx) {
+process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, std::vector<Entity_Id> &load_args, int first_idx) {
+	for(int idx = first_idx; idx < decl->args.size(); ++idx) {
 		auto arg = decl->args[idx];
 		
 		if(arg->decl) {
@@ -1657,21 +1666,28 @@ load_model(String_View file_name, String_View config) {
 						}
 						//TODO: allow specifying the version also?
 						//TODO: Allow specifying a separate name for the specialization.
-						match_declaration(module_spec, 
+						int which = match_declaration(module_spec, 
 							{
+								{Token_Type::quoted_string, Token_Type::quoted_string},
+								{Token_Type::quoted_string, Token_Type::quoted_string, {true}},
 								{Token_Type::quoted_string},
 								{Token_Type::quoted_string, {true}}
 							}, false, false);
 						
+						//warning_print("Which was ", which, "\n");
+						
 						auto load_loc = single_arg(child, 0)->source_loc;
 						auto module_name = single_arg(module_spec, 0)->string_value;
+						Token *load_name = nullptr;
+						if(which <= 1)
+							load_name = single_arg(module_spec, 1);
 						
 						auto template_id = load_top_decl_from_file(model, load_loc, file_name, model_path, module_name, Decl_Type::module);
 						
 						std::vector<Entity_Id> load_args;
-						process_module_arguments(model, scope, module_spec, load_args);
+						process_module_arguments(model, scope, module_spec, load_args, which <= 1 ? 2 : 1);
 
-						auto module_id = process_module_load(model, template_id, load_loc, load_args);
+						auto module_id = process_module_load(model, load_name, template_id, load_loc, load_args);
 					}
 					//TODO: should also allow loading libraries inside the model scope!
 				} break;
@@ -1686,7 +1702,7 @@ load_model(String_View file_name, String_View config) {
 					auto load_loc = single_arg(child, 0)->source_loc;
 					
 					std::vector<Entity_Id> load_args; // Inline modules don't have load arguments, so this should be left empty.
-					process_module_load(model, template_id, load_loc, load_args, scope);
+					process_module_load(model, nullptr, template_id, load_loc, load_args, scope);
 				} break;
 			}
 		}

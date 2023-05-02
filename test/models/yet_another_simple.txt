@@ -3,12 +3,15 @@ model("Yet another simple") {
 
 	a : compartment("A")
 	
-	q : quantity("Q")
+	toc : quantity("TOC")
+	din : quantity("DIN")
 
 	load("yet_another_simple_module.txt",
-		module("So very very simple",
-			a,
-			q
+		module("Degradation", "TOC degradation",
+			a, toc
+		),
+		module("Degradation", "DIN degradation",
+			a, din
 		)
 	)
 	
@@ -16,10 +19,7 @@ model("Yet another simple") {
 	
 	module("A different simple module", version(1, 0, 0)) {
 	
-		test : property("Test")
-		
-		var(a.test, []) {
-			sin(time.step * 2*pi / 365.0 =>[])
-		}
+		var(a.toc, [k g]) @initial { 20[k g] }
+		var(a.din, [k g]) @initial { 30[k g] }
 	}
 }
