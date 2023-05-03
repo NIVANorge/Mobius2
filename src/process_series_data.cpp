@@ -184,13 +184,13 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 	
 	int header_idx = 0;
 	for(auto header : series->header_data) {
-		std::set<Var_Id> ids = app->series[header.name];
+		std::set<Var_Id> ids = app->series.find_by_name(header.name);
 		
 		auto *data = &app->data.series;
 		series_type[header_idx] = Var_Id::Type::series;
 		
 		if(ids.empty()) {
-			ids = app->additional_series[header.name];
+			ids = app->additional_series.find_by_name(header.name);
 			data = &app->data.additional_series;
 			series_type[header_idx] = Var_Id::Type::additional_series;
 		}

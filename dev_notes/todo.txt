@@ -63,6 +63,9 @@
 	
 	*** Intermediate-pri ***
 	
+		Would it be sensible to merge all the Var_Registry's into one? It would simplify some parts of the code at least.
+	
+	
 		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.
 	
 		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).

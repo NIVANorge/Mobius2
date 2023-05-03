@@ -259,17 +259,28 @@ Mobius_Model::get_scope(Entity_Id id) {
 
 std::string
 Mobius_Model::serialize(Entity_Id id) {
-	//TODO: Needs to figure out the module and create a scope to it unless it is the global scope.
 	if(!is_valid(id))
 		fatal_error(Mobius_Error::api_usage, "An invalid entity id was passed to serialize().");
-	return find_entity(id)->name;
+	auto entity = find_entity(id);
+	if(is_valid(entity->scope_id)) {
+		std::stringstream ss;
+		ss << find_entity(entity->scope_id)->name << ':' << entity->name;
+		return ss.str();
+	}
+	return entity->name;
 }
 
 Entity_Id
 Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type) {
-	//TODO: Needs to be able to sub-scope into modules eventually.
-	auto result = model_decl_scope.deserialize(serial_name, expected_type);
-	return result;
+
+	auto vec = split(serial_name, ':');  // Hmm, this is maybe a bit inefficient, but probably not a problem.
+	if(vec.size() > 2) return invalid_entity_id;
+	else if(vec.size() == 2) {
+		auto scope_id = model_decl_scope.deserialize(vec[0], Reg_Type::module);
+		if(!is_valid(scope_id)) return invalid_entity_id;
+		return get_scope(scope_id)->deserialize(vec[1], expected_type);
+	}
+	return model_decl_scope.deserialize(serial_name, expected_type);
 }
 
 template<Reg_Type expected_type> Entity_Id
@@ -1569,6 +1580,7 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 
 Mobius_Model *
 load_model(String_View file_name, String_View config) {
+	
 	Mobius_Model *model = new Mobius_Model();
 	
 	load_config(model, config);

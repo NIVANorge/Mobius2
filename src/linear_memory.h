@@ -121,10 +121,22 @@ struct String_View_Hash {
     }
 };
 
-template <typename Value_Type>
-using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
+//template <typename Value_Type>
+//using string_map = std::unordered_map<String_View, Value_Type, String_View_Hash>;
 
-
+inline std::vector<String_View>
+split(String_View str, char delim) {
+	std::vector<String_View> result;
+	int base = 0;
+	for(int idx = 0; idx <= str.count; ++idx) {
+		if(idx == str.count || str[idx] == delim) {
+			if(idx != base)
+				result.push_back(str.substring(base, idx-base));
+			base = idx+1;
+		}
+	}
+	return std::move(result);
+}
 
 /*
 	This is an allocator useful for doing temporary allocation of memory, where you don't want to deallocate until you are finished with everything.

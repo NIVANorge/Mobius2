@@ -57,23 +57,13 @@ struct Var_Registry {
 		return find->second;
 	}
 	
-	// TODO: This one should just be removed in favor of deserialize once we have fixed a system for that.
-	const std::set<Var_Id> &operator[](const std::string &name) {
+	const std::set<Var_Id> find_by_name(const std::string &name) {
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end()) {
 			static std::set<Var_Id> empty_set = {};
 			return empty_set;
 		}
 		return find->second;
-	}
-	
-	// TODO: The serialization system needs to be much better since names are currently not unique.
-	std::string serialize  (Var_Id id) { return (*this)[id]->name; }
-	
-	Var_Id      deserialize(const std::string &name) {
-		auto &ids = (*this)[name];
-		if(ids.empty()) return invalid_var;
-		return *ids.begin();
 	}
 	
 	template<State_Var::Type type>
@@ -373,6 +363,9 @@ public :
 	void allocate_series_data(s64 time_steps, Date_Time start_date);
 	
 	void compile(bool store_code_strings = false);
+	
+	std::string serialize  (Var_Id id);
+	Var_Id      deserialize(const std::string &name);
 	
 	std::string batch_structure;
 	std::string batch_code;

@@ -411,13 +411,16 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 
 	for(auto &header : series->header_data) {
 		// NOTE: several time series could have been given the same name.
-		std::set<Var_Id> ids = app->series[header.name];
+		std::set<Var_Id> ids = app->series.find_by_name(header.name);
 		
-		if(ids.empty()) {
+		if(ids.size() > 1) {
+			header.loc.print_warning_header();
+			warning_print("The name \"", header.name, "\" is not unique, and identifies multiple input series.\n");
+		} else if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
 			// See if it was already registered.
 			Var_Id var_id = invalid_var;
-			ids = app->additional_series[header.name];
+			ids = app->additional_series.find_by_name(header.name);
 			if(ids.empty()) {
 				var_id = app->additional_series.register_var<State_Var::Type::declared>(invalid_var_location, header.name);
 				ids.insert(var_id);
@@ -1114,6 +1117,75 @@ Model_Data::copy(bool copy_results) {
 	cpy->index_counts.refer_to(&this->index_counts);
 	return cpy;
 }
-	
 
+inline std::string
+serialize_loc(Mobius_Model *model, const Var_Location &loc) {
+	std::stringstream ss;
+	for(int idx = 0; idx < loc.n_components; ++idx) {
+		ss << model->serialize(loc.components[idx]);
+		if(idx != loc.n_components-1) ss << '.';
+	}
+	return ss.str();
+}
+
+Var_Location
+deserialize_loc(Mobius_Model *model, std::vector<String_View> &vec) {
+	Var_Location result;
+	result.type = Var_Location::Type::located;
+	
+	if(vec.size() > max_var_loc_components)
+		result.type = Var_Location::Type::nowhere;
+	else {
+		result.n_components = vec.size();
+		for(int idx = 0; idx < vec.size(); ++idx) {
+			result.components[idx] = model->deserialize(vec[idx], Reg_Type::component);
+			if(!is_valid(result.components[idx]))
+				result.type = Var_Location::Type::nowhere;
+		}
+	}
+	return result;
+}
+
+// TODO: This system is not going to work for additional_series. They have to use name instead.
+
+std::string
+Model_Application::serialize(Var_Id id) { 
+	//return (*this)[id]->name;
+	auto var = state_vars[id];  //TODO: Could be series or additional_series
+	if(var->type == State_Var::Type::declared) {
+		auto var2 = as<State_Var::Type::declared>(var);
+		if(var2->is_flux())
+			return model->serialize(var2->decl_id);
+		else
+			return serialize_loc(model, var2->loc1);
+	} else
+		fatal_error(Mobius_Error::internal, "Unsupported State_Var::Type in serialize()");
+}
+	
+Var_Id
+Model_Application::deserialize(const std::string &name) {
+	// TODO: Other variable types.
+	// TODO: Could be series or additional_series.
+	auto vec = split(name, '.');
+	if(vec.size() == 1) {
+		auto flux_id = model->deserialize(name, Reg_Type::flux); // This is the entity id
+		if(!is_valid(flux_id))
+			return invalid_var;
+		// Ouch, this is a very inefficient way to look up the variable id given the declaration id.
+		for(auto var_id : state_vars) {
+			auto var = state_vars[var_id];
+			if(!var->is_valid() || var->type != State_Var::Type::declared || !var->is_flux())
+				continue;
+			auto var2 = as<State_Var::Type::declared>(var);
+			if(var2->decl_id == flux_id)
+				return var_id;
+		}
+		//fatal_error(Mobius_Error::internal, "Unimplemented");
+	} else {
+		auto loc = deserialize_loc(model, vec);
+		if(!is_located(loc)) return invalid_var;
+		return state_vars.id_of(loc);
+	}
+	return invalid_var; // It should not reach here though
+}
 
