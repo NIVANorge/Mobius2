@@ -42,6 +42,30 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 }
 
 void
+Decl_Scope::set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id) {
+	
+	auto find = serialized_entities.find(serial_name);
+	if(find != serialized_entities.end()) {
+		source_loc.print_error_header();
+		error_print("The name \"", serial_name, "\" has already been used for another entity in this scope of type '", name(find->second.id.reg_type), "'. See the declaration here:");
+		find->second.source_loc.print_error();
+		mobius_error_exit();
+	}
+	
+	serialized_entities[serial_name] = Serial_Entity {id, source_loc};
+}
+
+Entity_Id
+Decl_Scope::deserialize(const std::string &serial_name, Reg_Type expected_type) const {
+	auto find = serialized_entities.find(serial_name);
+	if(find == serialized_entities.end())
+		return invalid_entity_id;
+	auto result = find->second.id;
+	if(expected_type != Reg_Type::unrecognized && result.reg_type != expected_type) return invalid_entity_id;
+	return result;
+}
+
+void
 Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc) {
 	for(const auto &ent : other.visible_entities) {
 		const auto &handle = ent.first;
@@ -79,28 +103,16 @@ Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 	}
 }
 
-Entity_Id
-Decl_Scope::expect_exists(Token *handle_name, Reg_Type reg_type) {
-	std::string handle = handle_name->string_value;
-	auto reg = (*this)[handle];
-	if(!reg) {
-		handle_name->print_error_header();
-		fatal_error("There is no entity with the identifier '", handle, "' in the referenced scope.");
-	}
-	if(reg->id.reg_type != reg_type) {
-		handle_name->print_error_header();
-		fatal_error("The entity '", handle_name->string_value, "' does not have the type ", name(reg_type), ".");
-	}
-	return reg->id;
-}
-
 template<Reg_Type reg_type> Entity_Id
-Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl_name, Decl_AST *decl) {
+Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *serial_name, Decl_AST *decl) {
 	
 	Entity_Id result_id = invalid_entity_id;
 	
+	if(!scope)
+		fatal_error(Mobius_Error::internal, "find_or_create always requires a scope (except for declarations of module templates).");
+	
 	bool found_in_scope = false;
-	if(is_valid(handle) && scope) {
+	if(is_valid(handle)) {
 		if(handle->type != Token_Type::identifier)
 			fatal_error(Mobius_Error::internal, "Passed a non-identifier as a handle to find_or_create().");
 		
@@ -124,22 +136,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 		}
 	}
 	
-	bool linked_by_name = false;
-	if(is_valid(decl_name) &&
-		(reg_type == Reg_Type::component || reg_type == Reg_Type::connection)) {
-		
-		if(decl && is_valid(result_id))
-			fatal_error(Mobius_Error::internal, "We assigned an id to a '", name(decl->type), "' entity \"", decl_name->string_value, "\" too early without linking it to a declared copy with that handle.");
-		
-		std::string name = decl_name->string_value;
-		auto find = name_to_id.find(name);
-		if(find != name_to_id.end()) {
-			result_id = find->second;
-			linked_by_name = true;
-		}
-	}
-	
-	// It was not previously referenced. Create it instead.
+	// It was not previously referenced. Create a new entry for it.
 	if(!is_valid(result_id)) {
 		result_id.reg_type  = reg_type;
 		result_id.id        = (s32)registrations.size();
@@ -148,75 +145,42 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *decl
 		registration.has_been_declared = false;
 		if(is_valid(handle))
 			registration.source_loc = handle->source_loc;
-		
-		if(is_valid(decl_name)) {
-			registration.name = decl_name->string_value;
-				
-			for(const char *c = registration.name.data(); *c != 0; ++c) {
-				if(*c == ':') {
-					decl_name->print_error_header();
-					fatal_error("The colon symbol ':' is not allowed inside the name of a declaration");
-				}
-			}
-			
-			// TODO: Remove global scoping of names
-			/*
-			auto find = name_to_id.find(registration.name);
-			if(find != name_to_id.end()) {
-				decl->source_loc.print_error_header();
-				error_print("The name \"", registration.name, "\" was already used for another '", name(reg_type), "' declared here: ");
-				registrations[find->second.id].source_loc.print_error();
-				mobius_error_exit();
-			}
-			*/
-			name_to_id[registration.name] = result_id;
-		}
 	}
 	
 	auto &registration = registrations[result_id.id];
 	
-	if(decl && !linked_by_name) {
+	if(decl) {
 		if(get_reg_type(decl->type) != reg_type) {
 			decl->source_loc.print_error_header(Mobius_Error::internal);
 			fatal_error("Registering declaration with a mismatching type.");
 		}
 		
-		registration.source_loc = decl->source_loc;
+		registration.source_loc        = decl->source_loc;
 		registration.has_been_declared = true;
-		registration.decl_type = decl->type;
-		
-		/*
-		if(decl_name) {
-			registration.name = decl_name->string_value;
-			
-			for(const char *c = registration.name.data(); *c != 0; ++c) {
-				if(*c == ':') {
-					decl_name->print_error_header();
-					fatal_error("The colon symbol ':' is not allowed inside the name of a declaration");
-				}
-			}
-			
-			//TODO: NOTE: for now names are globally scoped. This is necessary for some systems to work, but could cause problems in larger models. Make a better system later?
-			auto find = name_to_id.find(registration.name);
-			if(find != name_to_id.end()) {
-				decl->source_loc.print_error_header();
-				error_print("The name \"", registration.name, "\" was already used for another '", name(reg_type), "' declared here: ");
-				registrations[find->second.id].source_loc.print_error();
-				mobius_error_exit();
-			}
-			name_to_id[registration.name] = result_id;
-		}
-		*/
+		registration.decl_type         = decl->type;
 	}
 	
-	if(is_valid(handle) && scope) {
+	if(is_valid(serial_name)) {
+		registration.name = serial_name->string_value;
+			
+		for(const char *c = registration.name.data(); *c != 0; ++c) {
+			if(*c == ':' || *c == '.') {
+				serial_name->print_error_header();
+				fatal_error("The symbol '", *c, "' is not allowed inside the name of a declaration");
+			}
+		}
+		
+		scope->set_serial_name(registration.name, serial_name->source_loc, result_id);
+	}
+	
+	if(is_valid(handle)) {
 		std::string hh = handle->string_value;
 		if(!found_in_scope)
 			scope->add_local(hh, registration.source_loc, result_id);
 		else if(decl) // Update source location to be the declaration location.
 			(*scope)[hh]->source_loc = registration.source_loc;
-	} else if(scope)
-		scope->add_local("", registration.source_loc, result_id);
+	} else
+		scope->add_local("", registration.source_loc, result_id);     // This is necessary so that it gets put into scope->all_ids.
 	
 	return result_id;
 }
@@ -237,10 +201,12 @@ Registry<reg_type>::create_internal(const std::string &handle, Decl_Scope *scope
 	registration.has_been_declared = true;
 	registration.decl_type = decl_type;
 	
-	name_to_id[name] = result_id;
+	//name_to_id[name] = result_id;
 	
-	if(scope)
+	if(scope) {
 		scope->add_local(handle, internal, result_id);
+		scope->set_serial_name(name, internal, result_id);
+	}
 	return result_id;
 }
 
@@ -284,8 +250,25 @@ Mobius_Model::get_scope(Entity_Id id) {
 		return &libraries[id]->scope;
 	else if(id.reg_type == Reg_Type::module)
 		return &modules[id]->scope;
+	else if(id.reg_type == Reg_Type::par_group)
+		return &par_groups[id]->scope;
 	fatal_error(Mobius_Error::internal, "Tried to look up the scope belonging to an id that is not a library or module.");
 	return nullptr;
+}
+
+std::string
+Mobius_Model::serialize(Entity_Id id) {
+	//TODO: Needs to figure out the module and create a scope to it unless it is the global scope.
+	if(!is_valid(id))
+		fatal_error(Mobius_Error::api_usage, "An invalid entity id was passed to serialize().");
+	return find_entity(id)->name;
+}
+
+Entity_Id
+Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type) {
+	//TODO: Needs to be able to sub-scope into modules eventually.
+	auto result = model_decl_scope.deserialize(serial_name, expected_type);
+	return result;
 }
 
 template<Reg_Type expected_type> Entity_Id
@@ -360,10 +343,11 @@ register_intrinsics(Mobius_Model *model) {
 	
 	auto mod_scope = &model->model_decl_scope;
 	
-	//TODO: We should actually make it so that these can't be referenced in code (i.e. not have a handle)
 	auto system_id = model->par_groups.create_internal("system", mod_scope, "System", Decl_Type::par_group);
-	auto start_id  = model->parameters.create_internal("start_date", mod_scope, "Start date", Decl_Type::par_datetime);
-	auto end_id    = model->parameters.create_internal("end_date", mod_scope, "End date", Decl_Type::par_datetime);
+	auto group_scope = model->get_scope(system_id);
+	auto start_id  = model->parameters.create_internal("start_date", group_scope, "Start date", Decl_Type::par_datetime);
+	auto end_id    = model->parameters.create_internal("end_date", group_scope, "End date", Decl_Type::par_datetime);
+	mod_scope->import(*group_scope);
 	
 	auto system = model->par_groups[system_id];
 	auto start  = model->parameters[start_id];
@@ -450,14 +434,14 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			Entity_Id id = invalid_entity_id;
 			
 			if(decl->type == Decl_Type::library) {
-				id = model->libraries.standard_declaration(nullptr, decl);
+				id = model->libraries.find_or_create(nullptr, &model->model_decl_scope, nullptr, decl);
 				auto lib = model->libraries[id];
 				lib->has_been_processed = false;
 				lib->decl = decl;
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
 			} else if (decl->type == Decl_Type::module) {
-				id = model->module_templates.standard_declaration(nullptr, decl);
+				id = model->module_templates.find_or_create(nullptr, &model->model_decl_scope, nullptr, decl);
 				auto mod = model->module_templates[id];
 				//mod->has_been_processed = false;
 				mod->decl = decl;
@@ -728,7 +712,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool || child->type == Decl_Type::par_enum) {
-			auto par_id = process_declaration<Reg_Type::parameter>(model, scope, child);
+			auto par_id = process_declaration<Reg_Type::parameter>(model, &par_group->scope, child);
 			par_group->parameters.push_back(par_id);
 			model->parameters[par_id]->par_group = id;
 		} else {
@@ -736,6 +720,10 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 			fatal_error("Did not expect a declaration of type '", name(child->type), "' inside a par_group declaration.");
 		}
 	}
+	
+	// All the parameters are visible in the module scope.
+	scope->import(par_group->scope, &decl->source_loc);
+	
 	//TODO: process doc string(s) in the par group?
 	
 	return id;
@@ -1157,7 +1145,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 }
 
 Entity_Id
-process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, const Decl_Scope *import_scope = nullptr) {
+process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, bool import_scope = false) {
 	
 	auto mod_temp = model->module_templates[template_id];
 	
@@ -1174,6 +1162,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false);
 	
+	mod_temp->name                 = single_arg(decl, 0)->string_value;
 	mod_temp->version.major        = single_arg(version_decl, 0)->val_int;
 	mod_temp->version.minor        = single_arg(version_decl, 1)->val_int;
 	mod_temp->version.revision     = single_arg(version_decl, 2)->val_int;
@@ -1185,22 +1174,21 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	// Create a module specialization of the module template:
 	
-	std::string spec_name;
-	Token      *spec_name_token;
-	if(load_name) {
-		spec_name = load_name->string_value;
+	auto spec_name_token = single_arg(decl, 0);
+	if(load_name)
 		spec_name_token = load_name;
-	} else {
-		spec_name = mod_temp->name;
-		spec_name_token = single_arg(decl, 0);
-	}
+	
+	std::string spec_name = spec_name_token->string_value;
+	
+	auto model_scope = &model->model_decl_scope;
 	
 	// TODO: Potentially a different name:
-	auto module_id = model->modules.find_by_name(spec_name);
-	if(is_valid(module_id)) return module_id; // It has been specialized with this name already.
+	auto module_id = model_scope->deserialize(spec_name, Reg_Type::module);
+	
+	if(is_valid(module_id)) return module_id; // It has been specialized with this name already, so just return the one that was already created.
 	
 	// TODO: The other name must be used here too:
-	module_id = model->modules.find_or_create(nullptr, nullptr, spec_name_token, nullptr);
+	module_id = model->modules.find_or_create(nullptr, model_scope, spec_name_token, nullptr);
 	auto module = model->modules[module_id];
 	// Ouch, this is a bit hacky, but it is to avoid the problem that Decl_Type::module is tied to Reg_Type::module_template .
 	// Maybe we should instead have another flag on it?
@@ -1211,7 +1199,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	module->scope.import(model->global_scope);
 	
 	if(import_scope)
-		module->scope.import(*import_scope, &load_loc);
+		module->scope.import(*model_scope, &load_loc);
 	
 	if(import_scope && decl->args.size() > 2) {
 		decl->source_loc.print_error_header();
@@ -1377,7 +1365,7 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 
 	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, false);
 	
-	auto id = model->solves.find_or_create(nullptr, nullptr, nullptr, decl);
+	auto id = model->solves.find_or_create(nullptr, scope, nullptr, decl);
 	auto solve = model->solves[id];
 	
 	solve->solver = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
@@ -1694,7 +1682,7 @@ load_model(String_View file_name, String_View config) {
 				
 				case Decl_Type::module : {
 					// Inline module sub-scope inside the model declaration.
-					auto template_id = model->module_templates.standard_declaration(scope, child);
+					auto template_id = model->module_templates.find_or_create(nullptr, scope, nullptr, child);
 					auto mod_temp = model->module_templates[template_id];
 					mod_temp->decl = child;
 					//module->scope.parent_id = module_id;
@@ -1702,7 +1690,7 @@ load_model(String_View file_name, String_View config) {
 					auto load_loc = single_arg(child, 0)->source_loc;
 					
 					std::vector<Entity_Id> load_args; // Inline modules don't have load arguments, so this should be left empty.
-					process_module_load(model, nullptr, template_id, load_loc, load_args, scope);
+					process_module_load(model, nullptr, template_id, load_loc, load_args, true);
 				} break;
 			}
 		}

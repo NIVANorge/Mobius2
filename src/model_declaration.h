@@ -20,6 +20,12 @@ Scope_Entity {
 	Source_Location source_loc;
 };
 
+struct
+Serial_Entity {
+	Entity_Id id = invalid_entity_id;
+	Source_Location source_loc;
+};
+
 struct Mobius_Model;
 
 struct
@@ -29,15 +35,17 @@ Decl_Scope {
 	};
 	
 	std::unordered_map<std::string, Scope_Entity>                  visible_entities;
+	std::unordered_map<std::string, Serial_Entity>                 serialized_entities;
 	std::unordered_map<Entity_Id, std::string, Entity_Id_Hash>     handles;
-	std::unordered_set<Entity_Id, Entity_Id_Hash>                  all_ids;   //TODO: it is annoying to have this extra set just for has() to work.
+	std::unordered_set<Entity_Id, Entity_Id_Hash>                  all_ids;   //TODO: it is annoying to have this extra set just for By_Scope to work.
 	
 	Entity_Id parent_id = invalid_entity_id; // Id of module or library this is the scope of. Invalid if it is the global or model scope.
 	
 	void add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
+	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr);
 	void check_for_missing_decls(Mobius_Model *model);
-	Entity_Id expect_exists(Token *handle_name, Reg_Type reg_type);
+	//Entity_Id expect_exists(Token *handle_name, Reg_Type reg_type);
 	
 	Scope_Entity *operator[](const std::string &handle) {
 		auto find = visible_entities.find(handle);
@@ -53,7 +61,9 @@ Decl_Scope {
 		return find->second;
 	}
 	
-	bool has(Entity_Id id) { return all_ids.find(id) != all_ids.end(); }
+	Entity_Id deserialize(const std::string &serial_name, Reg_Type expected_type = Reg_Type::unrecognized) const;
+	
+	//bool has(Entity_Id id) { return all_ids.find(id) != all_ids.end(); }
 };
 
 
@@ -93,6 +103,18 @@ Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 	//bool           has_been_processed;
 	
 	Entity_Registration() : template_id(invalid_entity_id) {}
+};
+
+template<> struct
+Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
+	Entity_Id              component;
+	
+	Decl_Scope             scope;
+	
+	//TODO: This vector should no longer be necessary since we have the scope.
+	std::vector<Entity_Id> parameters;
+	
+	Entity_Registration() : component(invalid_entity_id) {}
 };
 
 template<> struct
@@ -146,16 +168,6 @@ Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
 	Entity_Id code_scope;  // NOTE: module id where default code was provided.
 	
 	Entity_Registration() : default_code(nullptr) {}
-};
-
-template<> struct
-Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	Entity_Id              component;
-	
-	//TODO: may not be necessary to store these here since the parameters already know what group they are in? Easier this way for serialization though.
-	std::vector<Entity_Id> parameters;
-	
-	Entity_Registration() : component(invalid_entity_id) {}
 };
 
 template<> struct
@@ -291,11 +303,12 @@ Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
 
 struct
 Registry_Base {
-	std::unordered_map<std::string, Entity_Id>          name_to_id;
+	//std::unordered_map<std::string, Entity_Id>          name_to_id;
 	
 	virtual Entity_Id find_or_create(Token *handle = nullptr, Decl_Scope *scope = nullptr, Token *name = nullptr, Decl_AST *declaration = nullptr) = 0;
 	virtual Entity_Registration_Base *operator[](Entity_Id id) = 0;
 	
+	/*
 	Entity_Id
 	find_by_name(const std::string &name) {
 		auto find = name_to_id.find(name);
@@ -303,6 +316,7 @@ Registry_Base {
 			return find->second;
 		return invalid_entity_id;
 	}
+	*/
 };
 
 template <Reg_Type reg_type> struct
@@ -365,6 +379,12 @@ Mobius_Model {
 	
 	Decl_Scope *
 	get_scope(Entity_Id id);
+	
+	std::string
+	serialize(Entity_Id id);
+	
+	Entity_Id
+	deserialize(const std::string &serial_name, Reg_Type expected_type = Reg_Type::unrecognized);
 	
 	File_Data_Handler file_handler;
 	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;

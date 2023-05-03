@@ -3,7 +3,7 @@ model("EasyLake-SimplyQ") {
 	
 	extend("simplyq_model.txt")
 	
-	epi      : compartment("Epilimnion")
+	#epi      : compartment("Epilimnion")
 	hyp      : compartment("Hypolimnion")
 	
 	ice      : quantity("Ice")
@@ -19,7 +19,7 @@ model("EasyLake-SimplyQ") {
 	evap_mm  : property("Evaporation per area")
 	
 	par_group("Lake data", epi) {
-		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 371e9)
+		A_surf : par_real("Lake surface area", [m 2], 107183, 0, 371e9)
 	}
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
@@ -37,5 +37,5 @@ model("EasyLake-SimplyQ") {
 	distribute(hyp, lake_index)
 	
 	# NOTE: Just update the regex for the compartments.
-	connection("Downstream", directed_tree) { (river|epi)* }
+	# override(downstream) { (river|epi)* }
 }

@@ -126,7 +126,10 @@
 		
 		Make it easier to load a sub-model of a larger model with a data set that was declared for the larger model.
 			Needs for instance to handle additional input series that are indexed over index sets that don't appear in the sub-model.
-			
+		
+		
+		Inline decls in arguments don't quite work unless they are in the right order. Maybe pre-process them.
+		
 	
 	*** Low-pri ****
 	

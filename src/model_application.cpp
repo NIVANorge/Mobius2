@@ -251,13 +251,15 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 	// TODO: Have to figure out how to serialize here!
 	Entity_Id module_id = invalid_entity_id;
 	if(!module_name.empty()) {
-		module_id = model->modules.find_by_name(module_name);
+		module_id = model->model_decl_scope.deserialize(module_name, Reg_Type::module);
 		if(!is_valid(module_id)) //NOTE: we do error handling on missing modules on the second pass when we load the actual data.
 			return;
 	}
 	
-	Entity_Id group_id = model->par_groups.find_by_name(par_group->name);
-	if(!model->get_scope(module_id)->has(group_id)) return;  // NOTE: we do error handling on this on the second pass.
+	auto module_scope = model->get_scope(module_id);
+	
+	Entity_Id group_id = module_scope->deserialize(par_group->name, Reg_Type::par_group);
+	if(!is_valid(group_id)) return;  // NOTE: we do error handling on this on the second pass.
 	
 	if(par_group->index_sets.empty()) { // We have to signal it so that it is not filled with default index sets later
 		par_group_index_sets[group_id] = {};
@@ -279,7 +281,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 			int index_set_idx = par_group->index_sets[idx];
 			
 			auto &name = data_set->index_sets[index_set_idx]->name;
-			auto index_set_id = model->index_sets.find_by_name(name);
+			auto index_set_id = model->model_decl_scope.deserialize(name, Reg_Type::index_set);
 			if(!is_valid(index_set_id)) {
 				par_group->loc.print_error_header();
 				fatal_error("The index set \"", name, "\" does not exist in the model.");
@@ -312,11 +314,13 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	
 	Mobius_Model *model = app->model;
 	
-	auto group_id = model->par_groups.find_by_name(par_group_info->name);
+	auto module_scope = model->get_scope(module_id);
 	
-	// TODO: Error messages should reference the name of the template rather than the module maybe.
+	auto group_id = module_scope->deserialize(par_group_info->name, Reg_Type::par_group);
 	
-	if(!model->get_scope(module_id)->has(group_id)) {
+	// TODO: Error messages should reference the name of the module template rather than the module maybe.
+	
+	if(!is_valid(group_id)) {
 		par_group_info->loc.print_error_header();
 		if(is_valid(module_id))
 			fatal_error("The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_info->name, "\".");
@@ -332,10 +336,11 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		module_is_outdated = (module_info->version < temp->version);
 	}
 	
+	auto group_scope = model->get_scope(group_id);
 	for(auto &par : par_group_info->pars) {
-		auto par_id = model->parameters.find_by_name(par.name);
-		Entity_Registration<Reg_Type::parameter> *param;
-		if(!is_valid(par_id) || (param = model->parameters[par_id])->par_group != group_id) {
+		auto par_id = group_scope->deserialize(par.name, Reg_Type::parameter);
+		
+		if(!is_valid(par_id)) {
 			if(module_is_outdated) {
 				par.loc.print_warning_header();
 				warning_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
@@ -345,6 +350,8 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 			}
 			continue;
 		}
+		
+		auto param = model->parameters[par_id];
 		
 		if(param->decl_type != par.type) {
 			par.loc.print_error_header();
@@ -440,7 +447,7 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 		for(auto &index : header.indexes[0]) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
 			// NOTE: this should be valid since we already tested it internally in the data set.
 			auto idx_set = data_set->index_sets[index.first];
-			Entity_Id index_set = model->index_sets.find_by_name(idx_set->name);
+			Entity_Id index_set = model->model_decl_scope.deserialize(idx_set->name, Reg_Type::index_set);
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
@@ -630,7 +637,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	std::vector<Entity_Id> index_sets;
 	for(int idx_set_id : comp->index_sets) {
 		auto idx_set_info = data_set->index_sets[idx_set_id];
-		auto index_set = model->index_sets.find_by_name(idx_set_info->name);
+		auto index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);//model->index_sets.find_by_name(idx_set_info->name);
 		if(!is_valid(index_set)) {
 			idx_set_info->loc.print_error_header();
 			fatal_error("The index set \"", idx_set_info->name, " does not exist in the model.");  // Actually, this has probably been checked somewhere else already.
@@ -662,7 +669,12 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	
 	auto model = app->model;
 	
-	auto conn_id = model->connections.find_by_name(connection.name);
+	// TODO: There should be an ability to scope these to modules also.
+	
+	auto &scope = model->model_decl_scope;
+	
+	auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
+	
 	if(!is_valid(conn_id)) {
 		connection.loc.print_error_header();
 		fatal_error("The connection structure \"", connection.name, "\" has not been declared in the model.");
@@ -677,7 +689,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		compartment_only = false;
 	}
 	for(auto &comp : connection.components) {
-		Entity_Id comp_id = model->components.find_by_name(comp.name);
+		Entity_Id comp_id = scope.deserialize(comp.name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
 			comp.loc.print_warning_header();
 			warning_print("The component \"", comp.name, "\" has not been declared in the model.\n");
@@ -695,13 +707,17 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		
 		for(auto &arr : connection.arrows) {
 			auto comp_source = connection.components[arr.first.id];
-			Entity_Id source_comp_id = model->components.find_by_name(comp_source->name);
+			Entity_Id source_comp_id = scope.deserialize(comp_source->name, Reg_Type::component);
 			
 			auto comp_target = connection.components[arr.second.id];
-			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
+			Entity_Id target_comp_id = scope.deserialize(comp_target->name, Reg_Type::component);
 			
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
 			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
+			//if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) {
+			//	connection.loc.print_error_header();
+			//	fatal_error("Missing a component");
+			//}
 			
 			// Store useful information that allows us to prune away un-needed operations later.
 			auto target = app->find_connection_component(conn_id, target_comp_id);
@@ -727,17 +743,23 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 	
 	auto model = app->model;
 	
-	auto conn_id = model->connections.find_by_name(connection.name);
+	// TODO: scoping
+	
+	auto &scope = model->model_decl_scope;
+	
+	auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
 	auto cnd = model->connections[conn_id];
 			
 	if(cnd->type == Connection_Type::directed_tree) {
 
 		for(auto &arr : connection.arrows) {
 			auto comp = connection.components[arr.first.id];
-			Entity_Id source_comp_id = model->components.find_by_name(comp->name);
+			//Entity_Id source_comp_id = model->components.find_by_name(comp->name);
+			Entity_Id source_comp_id = scope.deserialize(comp->name, Reg_Type::component);
 			
 			auto comp_target = connection.components[arr.second.id];
-			Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
+			//Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
+			Entity_Id target_comp_id = scope.deserialize(comp_target->name, Reg_Type::component);
 			
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
 			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
@@ -793,7 +815,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	}
 	
 	for(auto &index_set : data_set->index_sets) {
-		auto id = model->index_sets.find_by_name(index_set.name);
+		auto id = model->model_decl_scope.deserialize(index_set.name);
+		//auto id = model->index_sets.find_by_name(index_set.name);
 		if(!is_valid(id)) {
 			// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
 			index_set.loc.print_error_header();
@@ -802,7 +825,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		}
 		Entity_Id sub_indexed_to = invalid_entity_id;
 		if(index_set.sub_indexed_to >= 0)
-			sub_indexed_to = model->index_sets.find_by_name(data_set->index_sets[index_set.sub_indexed_to]->name);
+			sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
 		if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
 			index_set.loc.print_error_header();
 			fatal_error("This index set has data that is sub-indexed to another index set, but the same sub-indexing is not declared in the model.");
@@ -862,7 +885,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto &par_group : data_set->global_module.par_groups)
 		process_parameters(this, &par_group);
 	for(auto &module : data_set->modules) {
-		Entity_Id module_id = model->modules.find_by_name(module.name);
+		Entity_Id module_id = model->model_decl_scope.deserialize(module.name, Reg_Type::module);
 		if(!is_valid(module_id)) {
 			warning_print("In ");
 			module.loc.print_warning_header();
@@ -1055,14 +1078,14 @@ Data_Storage<Val_T, Handle_T>::copy_from(Data_Storage<Val_T, Handle_T> *source, 
 
 Date_Time
 Model_Data::get_start_date_parameter() {
-	auto id = app->model->parameters.find_by_name("Start date");
+	auto id = app->model->model_decl_scope["start_date"]->id;
 	auto offset = parameters.structure->get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
 	return parameters.get_value(offset)->val_datetime;
 }
 
 Date_Time
 Model_Data::get_end_date_parameter() {
-	auto id = app->model->parameters.find_by_name("End date");
+	auto id = app->model->model_decl_scope["end_date"]->id;
 	auto offset = parameters.structure->get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
 	return parameters.get_value(offset)->val_datetime;
 }
