@@ -61,13 +61,15 @@ The water balance part of the model is conceptually similar to VEMALA
 		z_epi                                               otherwise
 	} 
 	
-	#flux(epi.water, hyp.water, "Metalimnion movement") {
-		#(0.5*A_surf/z_outflow)*(z_e^2-last(z_e)^2)/time.step_length_in_seconds->>
-		#-0.5*A_surf*dz_epi^2/z_outflow       if !epi.indicator & water.temp > t_bot
-		#(epi.water - 0.5*A_surf*z
+	/*
+	flux(epi.water, hyp.water, "Metalimnion movement") {
+		(0.5*A_surf/z_outflow)*(z_e^2-last(z_e)^2)/time.step_length_in_seconds->>
+		-0.5*A_surf*dz_epi^2/z_outflow       if !epi.indicator & water.temp > t_bot
+		(epi.water - 0.5*A_surf*z
 		#wedge_section(A_surf, z_outflow, z_e+depth-z_outflow, last(z_e)+last(depth)-z_outflow)/time.step_length_in_seconds->>
-	#	wedge_section(A_surf, z_outflow, z_outflow-z_e, z_outflow-last(z_e))/time.step_length_in_seconds->>
-	#}
+		wedge_section(A_surf, z_outflow, z_outflow-z_e, z_outflow-last(z_e))/time.step_length_in_seconds->>
+	}
+	*/
 	
 	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	

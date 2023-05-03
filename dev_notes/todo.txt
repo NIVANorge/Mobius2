@@ -30,6 +30,9 @@
 	Module loading system
 		Make airsea work for NIVAFjord, including all what that entails.
 			copy the bracket from a loc when referenced inside a function_tree.
+		Maybe the decl_type of module template should just be module_template (in the module files).
+			
+			
 
 	Finish connection system
 

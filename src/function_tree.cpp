@@ -1093,7 +1093,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					}
 					
 					Function_Resolve_Data sub_data = *data;
-					sub_data.scope = model->get_scope(fun_decl->code_scope);  // Resolve the function body in the scope of the library it was imported from (if relevant).
+					sub_data.scope = model->get_scope(fun_decl->scope_id);  // Resolve the function body in the scope of the library it was imported from (if relevant).
 					
 					auto res = resolve_function_tree(fun_decl->code, &sub_data, &new_scope);
 					inlined_fun->exprs.push_back(res.fun);

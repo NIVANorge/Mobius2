@@ -412,7 +412,7 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 	if(!is_located(var->loc1))
 		fatal_error(Mobius_Error::internal, "Got a flux without a source that has a no_carry.\n"); // NOTE: should be checked already in the model_declaration stage.
 	
-	auto code_scope = model->get_scope(flux->code_scope);
+	auto code_scope = model->get_scope(flux->scope_id);
 	Function_Resolve_Data res_data = { app, code_scope, var->loc1 };
 	auto res = resolve_function_tree(flux->no_carry_ast, &res_data);
 	
@@ -610,7 +610,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	for(Entity_Id id : model->fluxes) {
 		auto flux = model->fluxes[id];
 
-		auto scope = model->get_scope(flux->code_scope);
+		auto scope = model->get_scope(flux->scope_id);
 		check_flux_location(app, scope, flux->source_loc, flux->source, true);
 		check_flux_location(app, scope, flux->source_loc, flux->target, false); //TODO: The scope may not be correct if the flux was redirected!!! --- will not be relevant when we change decl system.
 		
@@ -927,7 +927,7 @@ compose_and_resolve(Model_Application *app) {
 			auto flux_decl = model->fluxes[var2->decl_id];
 			ast = flux_decl->code;
 			
-			code_scope = model->get_scope(flux_decl->code_scope);
+			code_scope = model->get_scope(flux_decl->scope_id);
 			
 			// Not sure if it would be better to pack both locations to the function resolve data and look up the connections from it that way. 
 			connection = flux_decl->source.connection_id;
@@ -951,7 +951,7 @@ compose_and_resolve(Model_Application *app) {
 			override_ast = var_decl->override_code;
 			override_is_conc = var_decl->override_is_conc;
 			initial_is_conc  = var_decl->initial_is_conc;
-			code_scope = model->get_scope(var_decl->code_scope);
+			code_scope = model->get_scope(var_decl->scope_id);
 			other_code_scope = code_scope;
 			
 			if(override_ast && !init_ast) {
@@ -968,7 +968,7 @@ compose_and_resolve(Model_Application *app) {
 				auto comp = model->components[var_decl->var_location.last()];
 				ast = comp->default_code;
 				if(ast)
-					code_scope = model->get_scope(comp->code_scope);
+					code_scope = model->get_scope(comp->scope_id);
 			}
 			
 			if(override_ast && (var2->decl_type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
@@ -1002,7 +1002,7 @@ compose_and_resolve(Model_Application *app) {
 				fatal_error("The variable was assigned a special computation, but it also has a regular equation assigned to it.");
 			}
 			auto res_data2 = res_data;
-			res_data2.scope = model->get_scope(special->code_scope);
+			res_data2.scope = model->get_scope(special->scope_id);
 			auto res = resolve_function_tree(special->code, &res_data2);
 			
 			// TODO: This could be separated out in its own function

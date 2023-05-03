@@ -77,7 +77,7 @@ Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc) {
 					import_loc->print_error_header();
 				else
 					begin_error(Mobius_Error::parsing);
-				error_print("There is a name conflict with the handle '", handle, "'. It was declared separately in the following two locations and loaded into this scope: ");
+				error_print("There is a name conflict with the handle '", handle, "'. It was declared separately in the following two locations:\n");
 				entity.source_loc.print_error();
 				find->second.source_loc.print_error();
 				fatal_error();
@@ -158,6 +158,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *seri
 		registration.source_loc        = decl->source_loc;
 		registration.has_been_declared = true;
 		registration.decl_type         = decl->type;
+		registration.scope_id          = scope->parent_id;
 	}
 	
 	if(is_valid(serial_name)) {
@@ -587,7 +588,7 @@ process_declaration<Reg_Type::component>(Mobius_Model *model, Decl_Scope *scope,
 		// TODO : have to guard against clashes between different modules here! But that should be done in model_composition
 		auto fun = static_cast<Function_Body_AST *>(decl->bodies[0]);
 		component->default_code = fun->block;
-		component->code_scope = scope->parent_id;
+		//component->code_scope = scope->parent_id;
 	}
 	/*
 	if(which == 1)
@@ -773,7 +774,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 	
 	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
 	function->code = body->block;
-	function->code_scope = scope->parent_id;
+	//function->code_scope = scope->parent_id;
 	function->fun_type = Function_Type::decl;
 	
 	return id;
@@ -855,7 +856,7 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 			var->code = function->block;
 	}
 	
-	var->code_scope = scope->parent_id;
+	//var->code_scope = scope->parent_id;
 	
 	return id;
 }
@@ -905,7 +906,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		fatal_error("This flux does not have a main code body.");
 	}
 			
-	flux->code_scope = scope->parent_id;
+	//flux->code_scope = scope->parent_id;
 	
 	return id;
 }
@@ -969,7 +970,7 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 		}
 	}
 	comp->code = body->block;
-	comp->code_scope = scope->parent_id;
+	//comp->code_scope = scope->parent_id;
 	
 	return id;
 }
@@ -1060,7 +1061,7 @@ process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	process_location_argument(model, scope, decl, 0, &loc->loc, true, true);
 	
-	loc->scope_id = scope->parent_id;
+	//loc->scope_id = scope->parent_id;
 	
 	return id;
 }

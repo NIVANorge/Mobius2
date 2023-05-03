@@ -62,9 +62,7 @@ Decl_Scope {
 		return find->second;
 	}
 	
-	Entity_Id deserialize(const std::string &serial_name, Reg_Type expected_type = Reg_Type::unrecognized) const;
-	
-	//bool has(Entity_Id id) { return all_ids.find(id) != all_ids.end(); }
+	Entity_Id deserialize(const std::string &serial_name, Reg_Type expected_type) const;
 };
 
 
@@ -72,6 +70,7 @@ struct
 Entity_Registration_Base {
 	Decl_Type       decl_type;
 	Source_Location source_loc;         // if it has_been_declared, this should be the declaration location. Will not always be canonical for all entity types (some can be redeclared)
+	Entity_Id       scope_id = invalid_entity_id;  // The id of the decl of the parent scope if it exists
 	std::string     name;
 	bool            has_been_declared = false;
 };
@@ -81,19 +80,14 @@ Entity_Registration : Entity_Registration_Base {
 	Entity_Registration() = delete;  // NOTE: prevent instantiation of the completely generic version.
 };
 
-
-// REFACTOR: It doesn't look like there's a point in having module and library be separate reg types (?)
-
 template<> struct
 Entity_Registration<Reg_Type::module_template> : Entity_Registration_Base {
 	Module_Version version;
-	//Decl_Scope     scope;
 	Decl_AST      *decl;
-	//bool           has_been_processed;
 	std::string    doc_string;
 	std::string    normalized_path;
 	
-	Entity_Registration() : decl(nullptr) {}//, has_been_processed(false) {}
+	Entity_Registration() : decl(nullptr) {}
 };
 
 template<> struct
@@ -101,7 +95,6 @@ Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 	Entity_Id      template_id;
 	
 	Decl_Scope     scope;
-	//bool           has_been_processed;
 	
 	Entity_Registration() : template_id(invalid_entity_id) {}
 };
@@ -112,18 +105,7 @@ Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
 	
 	Decl_Scope             scope;
 	
-	//TODO: This vector should no longer be necessary since we have the scope.
-	//std::vector<Entity_Id> parameters;
-	
 	Entity_Registration() : component(invalid_entity_id) {}
-};
-
-template<> struct
-Entity_Registration<Reg_Type::loc> : Entity_Registration_Base {
-	Specific_Var_Location loc;
-	Entity_Id             scope_id;
-	
-	Entity_Registration() : scope_id(invalid_entity_id) {}
 };
 
 template<> struct
@@ -136,6 +118,14 @@ Entity_Registration<Reg_Type::library> : Entity_Registration_Base {
 	std::string    normalized_path;
 	
 	Entity_Registration() : decl(nullptr), has_been_processed(false), is_being_processed(false) {}
+};
+
+template<> struct
+Entity_Registration<Reg_Type::loc> : Entity_Registration_Base {
+	Specific_Var_Location loc;
+	//Entity_Id             scope_id;
+	
+	//Entity_Registration() : scope_id(invalid_entity_id) {}
 };
 
 struct
@@ -166,7 +156,7 @@ Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
 	
 	// For properties:
 	Math_Block_AST *default_code;
-	Entity_Id code_scope;  // NOTE: module id where default code was provided.
+	//Entity_Id code_scope;  // NOTE: module id where default code was provided.
 	
 	Entity_Registration() : default_code(nullptr) {}
 };
@@ -201,7 +191,7 @@ Entity_Registration<Reg_Type::var> : Entity_Registration_Base {
 	Math_Block_AST *initial_code;
 	bool override_is_conc;
 	Math_Block_AST *override_code;
-	Entity_Id       code_scope;
+	//Entity_Id       code_scope;
 };
 
 template<> struct
@@ -216,9 +206,9 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Math_Block_AST  *no_carry_ast;
 	
 	Math_Block_AST  *code;
-	Entity_Id        code_scope;
+	//Entity_Id        code_scope;
 	
-	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), code_scope(invalid_entity_id), discrete_order(invalid_entity_id) {}
+	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), /*code_scope(invalid_entity_id),*/ discrete_order(invalid_entity_id) {}
 };
 
 template<> struct
@@ -232,7 +222,7 @@ Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
 	std::string      function_name;
 	Var_Location     target;
 	Math_Block_AST  *code;
-	Entity_Id        code_scope;
+	//Entity_Id        code_scope;
 };
 
 enum class
@@ -247,7 +237,7 @@ Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
 	
 	Function_Type    fun_type;
 	Math_Block_AST  *code;
-	Entity_Id        code_scope; // id of where the code was provided.
+	//Entity_Id        code_scope; // id of where the code was provided.
 	
 	// TODO: may need some info about how it transforms units.
 	// TODO: may need some info on expected argument types (especially for externals)
@@ -304,20 +294,8 @@ Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
 
 struct
 Registry_Base {
-	//std::unordered_map<std::string, Entity_Id>          name_to_id;
-	
 	virtual Entity_Id find_or_create(Token *handle = nullptr, Decl_Scope *scope = nullptr, Token *name = nullptr, Decl_AST *declaration = nullptr) = 0;
 	virtual Entity_Registration_Base *operator[](Entity_Id id) = 0;
-	
-	/*
-	Entity_Id
-	find_by_name(const std::string &name) {
-		auto find = name_to_id.find(name);
-		if(find != name_to_id.end())
-			return find->second;
-		return invalid_entity_id;
-	}
-	*/
 };
 
 template <Reg_Type reg_type> struct
@@ -385,7 +363,7 @@ Mobius_Model {
 	serialize(Entity_Id id);
 	
 	Entity_Id
-	deserialize(const std::string &serial_name, Reg_Type expected_type = Reg_Type::unrecognized);
+	deserialize(const std::string &serial_name, Reg_Type expected_type);
 	
 	File_Data_Handler file_handler;
 	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;

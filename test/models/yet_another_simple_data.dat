@@ -18,7 +18,7 @@ module("TOC degradation", 1, 0, 0) {
 module("DIN degradation", 1, 0, 0) {
 	par_group("Pars") [ "I" ] {
 		par_real("Rate")
-		[ 0.001 ]
+		[ 0.004 ]
 	}
 }
 

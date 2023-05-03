@@ -755,11 +755,9 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 
 		for(auto &arr : connection.arrows) {
 			auto comp = connection.components[arr.first.id];
-			//Entity_Id source_comp_id = model->components.find_by_name(comp->name);
 			Entity_Id source_comp_id = scope.deserialize(comp->name, Reg_Type::component);
 			
 			auto comp_target = connection.components[arr.second.id];
-			//Entity_Id target_comp_id = model->components.find_by_name(comp_target->name);
 			Entity_Id target_comp_id = scope.deserialize(comp_target->name, Reg_Type::component);
 			
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
@@ -816,7 +814,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	}
 	
 	for(auto &index_set : data_set->index_sets) {
-		auto id = model->model_decl_scope.deserialize(index_set.name);
+		auto id = model->model_decl_scope.deserialize(index_set.name, Reg_Type::index_set);
 		//auto id = model->index_sets.find_by_name(index_set.name);
 		if(!is_valid(id)) {
 			// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
@@ -988,20 +986,6 @@ Model_Application::save_to_data_set() {
 				par_group_info = module_info->par_groups.create(par_group->name, {});
 			
 			par_group_info->index_sets.clear();
-			/*
-			if(par_group->parameters.size() > 0) { // TODO: not sure if empty should just be an error.
-				auto id0 = par_group->parameters[0];
-				auto &index_sets = parameter_structure.get_index_sets(id0);
-				
-				for(auto index_set_id : index_sets) {
-					auto index_set = model->index_sets[index_set_id];
-					auto index_set_idx = data_set->index_sets.find_idx(index_set->name);
-					if(index_set_idx < 0)
-						fatal_error(Mobius_Error::internal, "Tried to set an index set for a parameter group in a data set, but the index set was not in the data set.");
-					par_group_info->index_sets.push_back(index_set_idx);
-				}
-			}
-			*/
 			
 			// TODO: not sure if we should have an error for an empty par group.
 			bool index_sets_resolved = false;
@@ -1017,6 +1001,7 @@ Model_Application::save_to_data_set() {
 							fatal_error(Mobius_Error::internal, "Tried to set an index set for a parameter group in a data set, but the index set was not in the data set.");
 						par_group_info->index_sets.push_back(index_set_idx);
 					}
+					index_sets_resolved = true;
 				}
 				
 				
