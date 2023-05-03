@@ -353,8 +353,8 @@ register_intrinsics(Mobius_Model *model) {
 	auto start  = model->parameters[start_id];
 	auto end    = model->parameters[end_id];
 	
-	system->parameters.push_back(start_id);
-	system->parameters.push_back(end_id);
+	//system->parameters.push_back(start_id);
+	//system->parameters.push_back(end_id);
 	system->component = invalid_entity_id;
 	
 	Date_Time default_start(1970, 1, 1);
@@ -713,7 +713,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool || child->type == Decl_Type::par_enum) {
 			auto par_id = process_declaration<Reg_Type::parameter>(model, &par_group->scope, child);
-			par_group->parameters.push_back(par_id);
+			//par_group->parameters.push_back(par_id);
 			model->parameters[par_id]->par_group = id;
 		} else {
 			child->source_loc.print_error_header();

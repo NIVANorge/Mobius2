@@ -56,8 +56,9 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 			}
 		}
 	
-		for(auto par : model->par_groups[group_id]->parameters)
-			par_by_index_sets[*index_sets].push_back(par);
+		//for(auto par : model->par_groups[group_id]->parameters)
+		for(auto par_id : model->by_scope<Reg_Type::parameter>(group_id))
+			par_by_index_sets[*index_sets].push_back(par_id);
 	}
 	
 	for(auto pair : par_by_index_sets) {
@@ -987,6 +988,7 @@ Model_Application::save_to_data_set() {
 				par_group_info = module_info->par_groups.create(par_group->name, {});
 			
 			par_group_info->index_sets.clear();
+			/*
 			if(par_group->parameters.size() > 0) { // TODO: not sure if empty should just be an error.
 				auto id0 = par_group->parameters[0];
 				auto &index_sets = parameter_structure.get_index_sets(id0);
@@ -999,8 +1001,25 @@ Model_Application::save_to_data_set() {
 					par_group_info->index_sets.push_back(index_set_idx);
 				}
 			}
+			*/
 			
-			for(auto par_id : par_group->parameters) {
+			// TODO: not sure if we should have an error for an empty par group.
+			bool index_sets_resolved = false;
+			for(auto par_id : model->by_scope<Reg_Type::parameter>(group_id)) {
+				
+				if(!index_sets_resolved) {
+					auto &index_sets = parameter_structure.get_index_sets(par_id);
+				
+					for(auto index_set_id : index_sets) {
+						auto index_set = model->index_sets[index_set_id];
+						auto index_set_idx = data_set->index_sets.find_idx(index_set->name);
+						if(index_set_idx < 0)
+							fatal_error(Mobius_Error::internal, "Tried to set an index set for a parameter group in a data set, but the index set was not in the data set.");
+						par_group_info->index_sets.push_back(index_set_idx);
+					}
+				}
+				
+				
 				auto par = model->parameters[par_id];
 				
 				auto par_info = par_group_info->pars.find(par->name);

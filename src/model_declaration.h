@@ -37,7 +37,8 @@ Decl_Scope {
 	std::unordered_map<std::string, Scope_Entity>                  visible_entities;
 	std::unordered_map<std::string, Serial_Entity>                 serialized_entities;
 	std::unordered_map<Entity_Id, std::string, Entity_Id_Hash>     handles;
-	std::unordered_set<Entity_Id, Entity_Id_Hash>                  all_ids;   //TODO: it is annoying to have this extra set just for By_Scope to work.
+	//TODO: Could we remove the all_ids set and just use the handles map instead? (would have to put empty handles there, but that should not be a problem)
+	std::unordered_set<Entity_Id, Entity_Id_Hash>                  all_ids;
 	
 	Entity_Id parent_id = invalid_entity_id; // Id of module or library this is the scope of. Invalid if it is the global or model scope.
 	
@@ -112,7 +113,7 @@ Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
 	Decl_Scope             scope;
 	
 	//TODO: This vector should no longer be necessary since we have the scope.
-	std::vector<Entity_Id> parameters;
+	//std::vector<Entity_Id> parameters;
 	
 	Entity_Registration() : component(invalid_entity_id) {}
 };
@@ -421,6 +422,13 @@ Mobius_Model {
 			return it;
 		}
 		Scope_It end() { return end_it; }
+		
+		s64 size() {
+			s64 sz = 0;
+			for(auto id : scope->all_ids)
+				if(id.reg_type == reg_type) ++sz;
+			return sz;
+		}
 	};
 	
 	template<Reg_Type reg_type> By_Scope<reg_type>
