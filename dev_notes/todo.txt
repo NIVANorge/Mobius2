@@ -18,14 +18,16 @@
 			
 			
 	New serialization system
-		Scoping of serial names to modules
+		//Scoping of serial names to modules
 		Scoping of connection data in data set.
 		Standardize serialization of state vars
+			remaining var types
 		Fix anything broken in MobiView
 			Search window, Optimizer setup, ...
 			Finish serialization (+save/load) of plot setup and use it also for model reloads.
 			When displaying the name of a module, make both the module template name and the module name clear.
 		(see also list below)
+		Re-consolidate input loading with the name serialization system.
 	
 	Module loading system
 		Make airsea work for NIVAFjord, including all what that entails.
@@ -64,6 +66,11 @@
 	*** Intermediate-pri ***
 	
 		Would it be sensible to merge all the Var_Registry's into one? It would simplify some parts of the code at least.
+		
+		
+		Override declaration.
+			How to do it for no_carry?
+				The way we now do no_carry is in general maybe not that good after all.
 	
 	
 		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.

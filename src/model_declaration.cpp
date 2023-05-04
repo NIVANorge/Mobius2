@@ -103,13 +103,25 @@ Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 	}
 }
 
+void
+check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
+	for(int idx = 0; idx < serial_name.count; ++idx) {
+		char c = serial_name[idx];
+		if(c == ':' || c == '.') {
+			loc.print_error_header();
+			fatal_error("The symbol '", c, "' is not allowed inside a name.");
+		}
+	}
+}
+
+// TODO: Should change scope to the first argument.
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *serial_name, Decl_AST *decl) {
 	
 	Entity_Id result_id = invalid_entity_id;
 	
 	if(!scope)
-		fatal_error(Mobius_Error::internal, "find_or_create always requires a scope (except for declarations of module templates).");
+		fatal_error(Mobius_Error::internal, "find_or_create always requires a scope.");
 	
 	bool found_in_scope = false;
 	if(is_valid(handle)) {
@@ -164,12 +176,7 @@ Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *seri
 	if(is_valid(serial_name)) {
 		registration.name = serial_name->string_value;
 			
-		for(const char *c = registration.name.data(); *c != 0; ++c) {
-			if(*c == ':' || *c == '.') {
-				serial_name->print_error_header();
-				fatal_error("The symbol '", *c, "' is not allowed inside the name of a declaration");
-			}
-		}
+		check_allowed_serial_name(serial_name->string_value, serial_name->source_loc);
 		
 		scope->set_serial_name(registration.name, serial_name->source_loc, result_id);
 	}
@@ -816,16 +823,21 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 		},
 		false, true, true);
 	
+	
+	
 	auto id  = model->vars.find_or_create(&decl->handle_name, scope, nullptr, decl);
 	auto var = model->vars[id];
 	
-	// NOTE: We don't register it with the name in find_or_create because that would cause name clashes if you re-declare variables (which should be allowed)
-		// TODO: This should be revised when we settle on a better naming system.
-	Token *name = nullptr;
-	if(which == 2)
-		var->var_name = single_arg(decl, 2)->string_value;
-	else if(which == 3)
-		var->var_name = single_arg(decl, 3)->string_value;
+	// NOTE: We don't register it with the name in find_or_create because it doesn't matter if this name clashes with other entities
+	int name_idx = which;
+	Token *var_name = nullptr;
+	if(which == 2 || which == 3)
+		var_name = single_arg(decl, name_idx);
+	
+	if(var_name) {
+		check_allowed_serial_name(var_name->string_value, var_name->source_loc);
+		var->var_name = var_name->string_value;
+	}
 
 	process_location_argument(model, scope, decl, 0, &var->var_location);	
 	
@@ -1451,7 +1463,7 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	process_location_argument(model, scope, decl, 0, &data.source);
 	process_location_argument(model, scope, decl, 1, &data.target);
 	data.code = static_cast<Function_Body_AST *>(decl->bodies[0])->block;
-	data.code_scope = scope->parent_id;
+	data.scope_id = scope->parent_id;
 	
 	//TODO: some guard against overlapping / contradictory declarations.
 	if(data.source == data.target) {

@@ -1118,14 +1118,12 @@ Model_Data::copy(bool copy_results) {
 	return cpy;
 }
 
-inline std::string
-serialize_loc(Mobius_Model *model, const Var_Location &loc) {
-	std::stringstream ss;
+inline void
+serialize_loc(Mobius_Model *model, std::stringstream &ss, const Var_Location &loc) {
 	for(int idx = 0; idx < loc.n_components; ++idx) {
 		ss << model->serialize(loc.components[idx]);
 		if(idx != loc.n_components-1) ss << '.';
 	}
-	return ss.str();
 }
 
 Var_Location
@@ -1146,46 +1144,70 @@ deserialize_loc(Mobius_Model *model, std::vector<String_View> &vec) {
 	return result;
 }
 
-// TODO: This system is not going to work for additional_series. They have to use name instead.
 
 std::string
 Model_Application::serialize(Var_Id id) { 
-	//return (*this)[id]->name;
-	auto var = state_vars[id];  //TODO: Could be series or additional_series
-	if(var->type == State_Var::Type::declared) {
-		auto var2 = as<State_Var::Type::declared>(var);
-		if(var2->is_flux())
-			return model->serialize(var2->decl_id);
-		else
-			return serialize_loc(model, var2->loc1);
+	
+	auto &reg = *registry(id);
+	
+	auto var = reg[id];
+	if(id.type != Var_Id::Type::additional_series) {
+		std::stringstream ss;
+		ss << ".";
+		if(var->type == State_Var::Type::declared) {
+			auto var2 = as<State_Var::Type::declared>(var);
+			if(var2->is_flux())
+				ss << model->serialize(var2->decl_id);
+			else
+				serialize_loc(model, ss, var2->loc1);
+		} else
+			fatal_error(Mobius_Error::internal, "Unsupported State_Var::Type in serialize()");
+		return ss.str();
 	} else
-		fatal_error(Mobius_Error::internal, "Unsupported State_Var::Type in serialize()");
+		return var->name;
+	
+	return "";
 }
 	
 Var_Id
 Model_Application::deserialize(const std::string &name) {
 	// TODO: Other variable types.
-	// TODO: Could be series or additional_series.
-	auto vec = split(name, '.');
-	if(vec.size() == 1) {
-		auto flux_id = model->deserialize(name, Reg_Type::flux); // This is the entity id
-		if(!is_valid(flux_id))
-			return invalid_var;
-		// Ouch, this is a very inefficient way to look up the variable id given the declaration id.
-		for(auto var_id : state_vars) {
-			auto var = state_vars[var_id];
-			if(!var->is_valid() || var->type != State_Var::Type::declared || !var->is_flux())
-				continue;
-			auto var2 = as<State_Var::Type::declared>(var);
-			if(var2->decl_id == flux_id)
-				return var_id;
+	
+	if(name.data()[0] == '.') {
+		auto vec = split(name, '.');
+		if(vec.size() == 1) {
+			
+			//warning_print("Got here, deserializing ", name, "\n");
+			
+			auto flux_id = model->deserialize(vec[0], Reg_Type::flux); // This is the entity id
+			if(!is_valid(flux_id))
+				return invalid_var;
+			// Ouch, this is a very inefficient way to look up the variable id given the declaration id.
+			for(auto var_id : state_vars) {
+				auto var = state_vars[var_id]; // Note: a flux could not be a series, only a state_var
+				if(!var->is_valid() || var->type != State_Var::Type::declared || !var->is_flux())
+					continue;
+				auto var2 = as<State_Var::Type::declared>(var);
+				if(var2->decl_id == flux_id)
+					return var_id;
+			}
+		} else {
+			auto loc = deserialize_loc(model, vec);
+			if(!is_located(loc)) return invalid_var;
+			auto id = state_vars.id_of(loc);
+			if(is_valid(id)) return id;
+			id = series.id_of(loc);
+			return id;
 		}
-		//fatal_error(Mobius_Error::internal, "Unimplemented");
 	} else {
-		auto loc = deserialize_loc(model, vec);
-		if(!is_located(loc)) return invalid_var;
-		return state_vars.id_of(loc);
+		// TODO: Review this:
+		auto ids = additional_series.find_by_name(name);
+		if(!ids.empty())
+			return *ids.begin();
+		ids = series.find_by_name(name);
+		if(!ids.empty())
+			return *ids.begin();
 	}
-	return invalid_var; // It should not reach here though
+	return invalid_var;
 }
 

@@ -3,35 +3,38 @@ model("SimplyTox") {
 	extend("simplyc_model.txt")
 	extend("simplysed_model.txt")
 	
-	load("modules/simplytox.txt", module("SimplyTox"))
-	load("modules/rivertemp.txt", module("RiverTemperature"))
+	
+	# TODO: Need a way to override no_carry in simplyc
+	
+	
 	#load("../modules/simplysed.txt", module("SimplySed"))
 	
 	tox   : quantity("Toxin")
-	sed   : quantity("Sediment")
-	
+	heat  : quantity("Heat energy")
+		
+		
 	dsoil : compartment("Slow-accessible soil")
+	distribute(dsoil, sc, lu)
+	distribute(tox, index_set("Toxin type"))
 	
-	dsoil.distribute(sc, lu)
-	
-	tox_idx : index_set("Toxin type")
-	
-	tox.distribute(tox_idx)
-	
-	simply_solver.solve(soil.oc)
-	simply_solver.solve(dsoil.oc)
-	#simply_solver.solve(soil.oc.tox)
-	#simply_solver.solve(dsoil.oc.tox)
-	
-	river.par_group("River data") {
+	par_group("River data", river) {
 		eff_a : par_real("River effective surface area", [m 2], 1000, 0, 1000000)
 	}
+
+
+	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
+	load("modules/simplytox.txt",      module("SimplyTox", air, soil, dsoil, gw, river, water, sed, oc, tox, temp, precip, e_fact, eff_a))
 	
+	solve(simply_solver, soil.oc)
+	solve(simply_solver, dsoil.oc)
+
+	
+	
+	
+	#TODO: Need a way to override this!
 	# For some reason the partitioning in the groundwater and river is numerically unstable, so we decrease the solver step.
-	solver("Simply solver", "INCADascru", 0.001)
+	#solver("Simply solver", "INCADascru", 0.001)
 	
-	simplyc.smin.no_carry()
-	simplyc.gwmin.no_carry()
 	
 	# Hmm, it seems a bit superfluous to have to type all of these, could it generate the ones for the dissolvedes based on what they are dissolved in, or try to?
 	unit_conversion(soil.water.tox, river.water.tox) { a_catch->> }

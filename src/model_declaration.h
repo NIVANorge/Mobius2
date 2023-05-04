@@ -123,16 +123,13 @@ Entity_Registration<Reg_Type::library> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::loc> : Entity_Registration_Base {
 	Specific_Var_Location loc;
-	//Entity_Id             scope_id;
-	
-	//Entity_Registration() : scope_id(invalid_entity_id) {}
 };
 
 struct
 Aggregation_Data {
 	Entity_Id to_compartment;
 	Math_Block_AST *code;
-	Entity_Id       code_scope;
+	Entity_Id       scope_id;
 };
 
 struct
@@ -140,7 +137,7 @@ Flux_Unit_Conversion_Data {
 	Var_Location source;
 	Var_Location target;
 	Math_Block_AST *code;
-	Entity_Id       code_scope;
+	Entity_Id       scope_id;
 };
 
 template<> struct
@@ -156,7 +153,6 @@ Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
 	
 	// For properties:
 	Math_Block_AST *default_code;
-	//Entity_Id code_scope;  // NOTE: module id where default code was provided.
 	
 	Entity_Registration() : default_code(nullptr) {}
 };
@@ -458,6 +454,9 @@ remove_dissolved(const Var_Location &loc);
 
 Var_Location
 add_dissolved(const Var_Location &loc, Entity_Id quantity);
+
+void
+check_allowed_serial_name(String_View name, Source_Location &loc);
 
 void
 error_print_location(Decl_Scope *scope, const Var_Location &loc);

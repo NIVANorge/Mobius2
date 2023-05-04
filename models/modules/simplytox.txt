@@ -1,13 +1,28 @@
 
 
 
-module("SimplyTox", version(0, 0, 1)) {
+module("SimplyTox", version(0, 0, 1),
+	air   : compartment,
+	soil  : compartment,
+	dsoil : compartment,
+	gw    : compartment,
+	river : compartment,
+	water : quantity,
+	sed   : quantity,
+	oc    : quantity,
+	tox   : quantity,
+	temp  : property,
+	precip : property,
+	e_fact : property,
+	eff_a : par_real
+) {
 """
 Testing functionality for now.
 """
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"))
 	load("stdlib/basic_math.txt", library("Rates"))
 
+/*
 	air   : compartment("Atmosphere")
 	soil  : compartment("Soil")
 	dsoil : compartment("Slow-accessible soil")
@@ -20,7 +35,7 @@ Testing functionality for now.
 	sed   : quantity("Sediment")
 	
 	temp  : property("Temperature")
-	
+*/
 	par_group("Physiochemistry", tox) {
 		molmass     : par_real("Contaminant molar mass", [g, mol-1], 50, 0, 1000)
 		molvol      : par_real("Contaminant molar volume", [c m 3, mol-1], 20, 0, 1000)
@@ -50,15 +65,14 @@ Testing functionality for now.
 	
 	# TODO: Production / resorption of DOC should maybe not exchange toxins. (Especially not like now where it goes to 'nowhere')
 	
-	var(soil.oc, [k g, m-2])  .initial { mocf }
-	var(dsoil.oc, [k g, m-2]) .initial { mocs }
+	var(soil.oc, [k g, m-2])  @initial { mocf }
+	var(dsoil.oc, [k g, m-2]) @initial { mocs }
 	
 	var(soil.water.tox, [n g, m-2], [n g, l-1], "Soil water dissolved toxin")
 	var(soil.oc.tox, [n g, m-2], [n g, k g-1], "Fast-accessible SOC toxin")
 	var(dsoil.oc.tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC toxin")
 	var(soil.water.oc.tox, [n g, m-2], [n g, k g-1], "Soil DOC toxin")
 	
-	precip : property("Precipitation")
 	prconc : property("Contaminant conc in precip")
 	
 	var(air.prconc, [n g, l-1])
@@ -120,8 +134,7 @@ Testing functionality for now.
 	
 	var(gw.water.tox.Kow, [])
 	var(gw.water.tox.Kdoc, [m 3, k g-1])
-	
-	eff_a : par_real("River effective surface area", [m 2])
+
 	
 	var(gw.temp, [deg_c]) {
 		aggregate(soil.temp) #Should probably be modeled separately.
@@ -138,8 +151,7 @@ Testing functionality for now.
 	#flux(river.water.tox, river.water.oc.tox, [n g, day-1], "Water-DOC contaminant exchange (river)") {
 	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
 	#}
-	
-	e_fact : property("Erosion factor")
+
 	
 	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Sediment mobilization tox") {
 		soil.e_fact*river.e_fact*sed_oc_c*conc(soil.oc.tox)->>

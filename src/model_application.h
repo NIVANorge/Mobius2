@@ -367,6 +367,14 @@ public :
 	std::string serialize  (Var_Id id);
 	Var_Id      deserialize(const std::string &name);
 	
+	Var_Registry *registry(Var_Id id) {
+		if(id.type == Var_Id::Type::state_var) return &state_vars;
+		if(id.type == Var_Id::Type::series)    return &series;
+		if(id.type == Var_Id::Type::additional_series) return &additional_series;
+		fatal_error(Mobius_Error::internal, "Invalid Var_Id type in registry().");
+		return nullptr;
+	}
+	
 	std::string batch_structure;
 	std::string batch_code;
 	std::string llvm_ir;

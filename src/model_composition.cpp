@@ -719,7 +719,7 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 	for(auto &agg : source->aggregations) {
 		if(agg.to_compartment != to_compartment) continue;
 		
-		auto scope = model->get_scope(agg.code_scope);
+		auto scope = model->get_scope(agg.scope_id);
 		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit, connection };
 		auto fun = resolve_function_tree(agg.code, &res_data);
@@ -765,7 +765,7 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 		
 		found = true;
 		auto ast   = conv.code;
-		auto scope = model->get_scope(conv.code_scope);
+		auto scope = model->get_scope(conv.scope_id);
 		
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
 		auto fun = resolve_function_tree(ast, &res_data);

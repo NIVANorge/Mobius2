@@ -53,9 +53,9 @@ The ice module is influenced by the one in MyLake, and uses Stefan's law for ice
 	lwu    : property("Emitted longwave radiation")
 	albedo : property("Albedo")
 	
-	energy : property("Freeze energy")
+	energy    : property("Freeze energy")
 	indicator : property("Ice indicator")
-	attn : property("Attenuation coefficent")
+	attn      : property("Attenuation coefficent")
 	
 	var(air.wind, [m, s-1], "Wind speed")
 	
