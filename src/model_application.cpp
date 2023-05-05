@@ -1126,6 +1126,7 @@ serialize_loc(Mobius_Model *model, std::stringstream &ss, const Var_Location &lo
 	}
 }
 
+/*
 Var_Location
 deserialize_loc(Mobius_Model *model, std::vector<String_View> &vec) {
 	Var_Location result;
@@ -1143,7 +1144,7 @@ deserialize_loc(Mobius_Model *model, std::vector<String_View> &vec) {
 	}
 	return result;
 }
-
+*/
 
 std::string
 Model_Application::serialize(Var_Id id) { 
@@ -1160,50 +1161,60 @@ Model_Application::serialize(Var_Id id) {
 				ss << model->serialize(var2->decl_id);
 			else
 				serialize_loc(model, ss, var2->loc1);
+		} else if(var->type == State_Var::Type::dissolved_conc) {
+			auto var2 = as<State_Var::Type::dissolved_conc>(var);
+			auto var_mass = reg[var2->conc_of];
+			ss << "dissolved_conc@";
+			serialize_loc(model, ss, var_mass->loc1);
+		} else if(var->type == State_Var::Type::dissolved_flux) {
+			auto var2 = as<State_Var::Type::dissolved_flux>(var);
+			auto var_conc = as<State_Var::Type::dissolved_conc>(reg[var2->conc]);
+			auto var_mass = reg[var_conc->conc_of];
+			State_Var *var_flux = var;
+			while(var_flux->type != State_Var::Type::declared)   // NOTE: It could be a chain of dissolvedes.
+				var_flux = reg[as<State_Var::Type::dissolved_flux>(var_flux)->flux_of_medium];
+			ss << "dissolved_flux@";
+			ss << model->serialize(as<State_Var::Type::declared>(var_flux)->decl_id) << '@';
+			serialize_loc(model, ss, var_mass->loc1);
+		} else if(var->type == State_Var::Type::regular_aggregate) {
+			auto var2 = as<State_Var::Type::regular_aggregate>(var);
+			ss << "regular_aggregate@";
+			ss << model->serialize(var2->agg_to_compartment) << '@';
+			ss << serialize(var2->agg_of);
+		} else if(var->type == State_Var::Type::in_flux_aggregate) {
+			auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
+			auto var_to = reg[var2->in_flux_to];
+			ss << "in_flux_aggregate@";
+			serialize_loc(model, ss, var_to->loc1);
+		} else if(var->type == State_Var::Type::connection_aggregate) {
+			auto var2 = as<State_Var::Type::connection_aggregate>(var);
+			auto agg_for = reg[var2->agg_for];
+			ss << "connection_aggregate@";
+			ss << (var2->is_source ? "source@" : "target@");
+			ss << model->serialize(var2->connection) << '@';
+			serialize_loc(model, ss, agg_for->loc1);
 		} else
 			fatal_error(Mobius_Error::internal, "Unsupported State_Var::Type in serialize()");
 		return ss.str();
-	} else
+	} else {
 		return var->name;
-	
+	}
+	fatal_error(Mobius_Error::internal, "Unimplemented possibility in Model_Application::serialize().");
 	return "";
 }
 	
 Var_Id
 Model_Application::deserialize(const std::string &name) {
-	// TODO: Other variable types.
-	
+
 	if(name.data()[0] == '.') {
-		auto vec = split(name, '.');
-		if(vec.size() == 1) {
-			
-			//warning_print("Got here, deserializing ", name, "\n");
-			
-			auto flux_id = model->deserialize(vec[0], Reg_Type::flux); // This is the entity id
-			if(!is_valid(flux_id))
-				return invalid_var;
-			// Ouch, this is a very inefficient way to look up the variable id given the declaration id.
-			for(auto var_id : state_vars) {
-				auto var = state_vars[var_id]; // Note: a flux could not be a series, only a state_var
-				if(!var->is_valid() || var->type != State_Var::Type::declared || !var->is_flux())
-					continue;
-				auto var2 = as<State_Var::Type::declared>(var);
-				if(var2->decl_id == flux_id)
-					return var_id;
-			}
-		} else {
-			auto loc = deserialize_loc(model, vec);
-			if(!is_located(loc)) return invalid_var;
-			auto id = state_vars.id_of(loc);
-			if(is_valid(id)) return id;
-			id = series.id_of(loc);
-			return id;
-		}
+		auto find = serial_to_id.find(name);
+		if(find == serial_to_id.end()) return invalid_var;
+		return find->second;
 	} else {
-		// TODO: Review this:
 		auto ids = additional_series.find_by_name(name);
 		if(!ids.empty())
 			return *ids.begin();
+		// TODO: Here it could be non-unique...
 		ids = series.find_by_name(name);
 		if(!ids.empty())
 			return *ids.begin();

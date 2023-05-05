@@ -198,6 +198,8 @@
 				
 				Optimizer callback doesn't update additional plot view.
 				
+				Crash when deleting a parameter and adding a new one. (after trying to add when one was not selected -> not sure if that is important).
+				
 				Additional plot view doesn't like reload (if the var_id's were changed).
 					In general allow for serialization of plot view, then use that for all the plots.
 			

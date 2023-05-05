@@ -58,8 +58,7 @@ Decl_Scope::set_serial_name(const std::string &serial_name, Source_Location sour
 Entity_Id
 Decl_Scope::deserialize(const std::string &serial_name, Reg_Type expected_type) const {
 	auto find = serialized_entities.find(serial_name);
-	if(find == serialized_entities.end())
-		return invalid_entity_id;
+	if(find == serialized_entities.end()) return invalid_entity_id;
 	auto result = find->second.id;
 	if(expected_type != Reg_Type::unrecognized && result.reg_type != expected_type) return invalid_entity_id;
 	return result;
@@ -271,7 +270,12 @@ Mobius_Model::serialize(Entity_Id id) {
 	auto entity = find_entity(id);
 	if(is_valid(entity->scope_id)) {
 		std::stringstream ss;
-		ss << find_entity(entity->scope_id)->name << ':' << entity->name;
+		auto scope = find_entity(entity->scope_id);
+		if(is_valid(scope->scope_id)) {
+			auto superscope = find_entity(scope->scope_id);
+			ss << superscope->name << ':';
+		}
+		ss << scope->name << ':' << entity->name;
 		return ss.str();
 	}
 	return entity->name;
@@ -281,13 +285,14 @@ Entity_Id
 Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type) {
 
 	auto vec = split(serial_name, ':');  // Hmm, this is maybe a bit inefficient, but probably not a problem.
-	if(vec.size() > 2) return invalid_entity_id;
-	else if(vec.size() == 2) {
-		auto scope_id = model_decl_scope.deserialize(vec[0], Reg_Type::module);
+	
+	Decl_Scope *scope = &model_decl_scope;
+	for(int idx = 0; idx < vec.size()-1; ++idx) {
+		auto scope_id = scope->deserialize(vec[idx], Reg_Type::unrecognized);
 		if(!is_valid(scope_id)) return invalid_entity_id;
-		return get_scope(scope_id)->deserialize(vec[1], expected_type);
+		scope = get_scope(scope_id);
 	}
-	return model_decl_scope.deserialize(serial_name, expected_type);
+	return scope->deserialize(vec.back(), expected_type);
 }
 
 template<Reg_Type expected_type> Entity_Id
@@ -718,6 +723,8 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
 	auto par_group = model->par_groups[id];
+	
+	par_group->scope.parent_id = id;
 	
 	if(which >= 1) {
 		par_group->component = resolve_argument<Reg_Type::component>(model, scope, decl, 1);

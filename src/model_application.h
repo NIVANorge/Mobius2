@@ -367,6 +367,8 @@ public :
 	std::string serialize  (Var_Id id);
 	Var_Id      deserialize(const std::string &name);
 	
+	std::unordered_map<std::string, Var_Id> serial_to_id;
+	
 	Var_Registry *registry(Var_Id id) {
 		if(id.type == Var_Id::Type::state_var) return &state_vars;
 		if(id.type == Var_Id::Type::series)    return &series;

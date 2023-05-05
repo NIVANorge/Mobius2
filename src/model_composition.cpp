@@ -1304,6 +1304,19 @@ compose_and_resolve(Model_Application *app) {
 	}
 	
 	
+	
+	for(auto var_id : app->state_vars) {
+		auto var = app->state_vars[var_id];
+		if(!var->is_valid()) continue;
+		app->serial_to_id[app->serialize(var_id)] = var_id;
+	}
+	for(auto var_id : app->series) {
+		auto var = app->series[var_id];
+		if(!var->is_valid()) continue;
+		app->serial_to_id[app->serialize(var_id)] = var_id;
+	}
+	
+	
 	// TODO: we can't really free everything here since the ASTs may need to be reused to build a new model app if it is recompiled later.
 	//   however, we want to have memory management for these things eventually.
 	

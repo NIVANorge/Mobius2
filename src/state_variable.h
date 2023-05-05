@@ -14,7 +14,7 @@ State_Var {
 		connection_aggregate,
 		dissolved_flux,
 		dissolved_conc,
-		boundary_flux,
+		//boundary_flux,
 	} type;
 	
 	enum Flags {
