@@ -9,8 +9,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
 Model_Application::Model_Application(Mobius_Model *model) :
 	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this),
-	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr),
-	state_vars(Var_Id::Type::state_var), series(Var_Id::Type::series), additional_series(Var_Id::Type::additional_series) {
+	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr)/*,
+	state_vars(Var_Id::Type::state_var), series(Var_Id::Type::series), additional_series(Var_Id::Type::additional_series)*/ {
 	
 	index_counts.resize(model->index_sets.count());
 	index_names_map.resize(model->index_sets.count());
@@ -81,7 +81,10 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 }
 
 void
-Model_Application::set_up_series_structure(Var_Registry &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata) {
+Model_Application::set_up_series_structure(Var_Id::Type type, Series_Metadata *metadata) {
+	
+	auto &data = get_storage_structure(type);
+	
 	if(data.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "Tried to set up series structure twice.");
 	if(!all_indexes_are_set())
@@ -93,7 +96,7 @@ Model_Application::set_up_series_structure(Var_Registry &reg, Storage_Structure<
 		std::map<std::vector<Entity_Id>, std::vector<Var_Id>> series_by_index_sets;
 		
 		std::vector<Entity_Id> empty;
-		for(auto series_id : reg) {
+		for(auto series_id : vars.all(type)) {
 			std::vector<Entity_Id> *index_sets = &empty;
 			if(metadata) {
 				auto *info = series_id.type == Var_Id::Type::series ? &metadata->index_sets : &metadata->index_sets_additional;
@@ -113,7 +116,7 @@ Model_Application::set_up_series_structure(Var_Registry &reg, Storage_Structure<
 		}
 	} else {
 		std::vector<Var_Id> handles;
-		for(auto series_id : reg)
+		for(auto series_id : vars.all(type))
 			handles.push_back(series_id);
 		Multi_Array_Structure<Var_Id> array({}, std::move(handles));
 		structure.push_back(std::move(array));
@@ -128,8 +131,9 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	data.series.allocate(time_steps, start_date);
 	data.additional_series.allocate(time_steps, start_date);
 	
-	for(auto series_id : series) {
-		if(!(series[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
+	// TODO: This could be factored into a function that is called twice.
+	for(auto series_id : vars.all_series()) {
+		if(!(vars[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
 		
 		series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -137,8 +141,8 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 		});
 	}
 	
-	for(auto series_id : additional_series) {
-		if(!(additional_series[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
+	for(auto series_id : vars.all_additional_series()) {
+		if(!(vars[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
 		
 		additional_series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -409,9 +413,11 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 	
 	metadata->any_data_at_all = true;
 
+	// TODO: This has to be redone to match the new Var_Registry! :::
+
 	for(auto &header : series->header_data) {
 		// NOTE: several time series could have been given the same name.
-		std::set<Var_Id> ids = app->series.find_by_name(header.name);
+		std::set<Var_Id> ids = app->vars.find_by_name(header.name);
 		
 		if(ids.size() > 1) {
 			header.loc.print_warning_header();
@@ -419,26 +425,21 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 		} else if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
 			// See if it was already registered.
-			Var_Id var_id = invalid_var;
-			ids = app->additional_series.find_by_name(header.name);
-			if(ids.empty()) {
-				var_id = app->additional_series.register_var<State_Var::Type::declared>(invalid_var_location, header.name);
-				ids.insert(var_id);
-			} else
-				var_id = *ids.begin();
-			auto var = app->additional_series[var_id];
+			
+			//Var_Id var_id = invalid_var;
+			//ids = app->additional_series.find_by_name(header.name);
+			//if(ids.empty()) {
+			auto var_id = app->vars.register_var<State_Var::Type::declared>(invalid_var_location, header.name, Var_Id::Type::additional_series);
+			ids.insert(var_id);
+			//} else
+			//	var_id = *ids.begin();
+			auto var = app->vars[var_id];
 			var->flags = State_Var::Flags::clear_series_to_nan;
 			var->unit = header.unit;
 			
 			//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions (when we implement that)?
-		} else {
-			/*
-			if(!header.unit.is_dimensioneless()) { //TODO: We could just check if it is equal to the declared unit for the input instead?
-				header.loc.print_error_header();
-				fatal_error("Did not expect a unit for a model input");
-			}
-			*/
-		}
+		} 
+		// TODO: If it is a declared series, check if the unit matches.
 		
 		if(header.indexes.empty()) continue;
 		
@@ -457,17 +458,16 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 			for(auto id : ids) {
 				
 				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
-					auto comp_id     = app->series[id]->loc1.first();
+					auto comp_id     = app->vars[id]->loc1.first();
 					auto comp        = model->components[comp_id];
 
 					if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set) == comp->index_sets.end()) {
 						header.loc.print_error_header();
 						fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set.");
 					}
-				}
-				if(id.type == Var_Id::Type::series)
+					
 					metadata->index_sets[id].push_back(index_set);
-				else
+				} else
 					metadata->index_sets_additional[id].push_back(index_set);
 			}
 		}
@@ -906,13 +906,13 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &series : data_set->series)
 			process_series_metadata(this, data_set, &series, &metadata);
 		
-		set_up_series_structure(series,            series_structure,            &metadata);
-		set_up_series_structure(additional_series, additional_series_structure, &metadata);
+		set_up_series_structure(Var_Id::Type::series,            &metadata);
+		set_up_series_structure(Var_Id::Type::additional_series, &metadata);
 		
 		s64 time_steps = 0;
 		if(metadata.any_data_at_all)
 			time_steps = steps_between(metadata.start_date, metadata.end_date, time_step_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
-		else if(series.count() != 0) {
+		else if(vars.count(Var_Id::Type::series) != 0) {
 			//TODO: use the model run start and end date.
 			// Or better yet, we could just bake in series default values as literals in the code. in this case.
 		}
@@ -924,8 +924,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &series : data_set->series)
 			process_series(this, data_set, &series, metadata.end_date);
 	} else {
-		set_up_series_structure(series,            series_structure,            nullptr);
-		set_up_series_structure(additional_series, additional_series_structure, nullptr);
+		set_up_series_structure(Var_Id::Type::series,            nullptr);
+		set_up_series_structure(Var_Id::Type::additional_series, nullptr);
 	}
 	
 	//warning_print("Model application set up with data.\n");
@@ -1126,32 +1126,10 @@ serialize_loc(Mobius_Model *model, std::stringstream &ss, const Var_Location &lo
 	}
 }
 
-/*
-Var_Location
-deserialize_loc(Mobius_Model *model, std::vector<String_View> &vec) {
-	Var_Location result;
-	result.type = Var_Location::Type::located;
-	
-	if(vec.size() > max_var_loc_components)
-		result.type = Var_Location::Type::nowhere;
-	else {
-		result.n_components = vec.size();
-		for(int idx = 0; idx < vec.size(); ++idx) {
-			result.components[idx] = model->deserialize(vec[idx], Reg_Type::component);
-			if(!is_valid(result.components[idx]))
-				result.type = Var_Location::Type::nowhere;
-		}
-	}
-	return result;
-}
-*/
-
 std::string
 Model_Application::serialize(Var_Id id) { 
 	
-	auto &reg = *registry(id);
-	
-	auto var = reg[id];
+	auto var = vars[id];
 	if(id.type != Var_Id::Type::additional_series) {
 		std::stringstream ss;
 		ss << ".";
@@ -1163,16 +1141,16 @@ Model_Application::serialize(Var_Id id) {
 				serialize_loc(model, ss, var2->loc1);
 		} else if(var->type == State_Var::Type::dissolved_conc) {
 			auto var2 = as<State_Var::Type::dissolved_conc>(var);
-			auto var_mass = reg[var2->conc_of];
+			auto var_mass = vars[var2->conc_of];
 			ss << "dissolved_conc@";
 			serialize_loc(model, ss, var_mass->loc1);
 		} else if(var->type == State_Var::Type::dissolved_flux) {
 			auto var2 = as<State_Var::Type::dissolved_flux>(var);
-			auto var_conc = as<State_Var::Type::dissolved_conc>(reg[var2->conc]);
-			auto var_mass = reg[var_conc->conc_of];
+			auto var_conc = as<State_Var::Type::dissolved_conc>(vars[var2->conc]);
+			auto var_mass = vars[var_conc->conc_of];
 			State_Var *var_flux = var;
 			while(var_flux->type != State_Var::Type::declared)   // NOTE: It could be a chain of dissolvedes.
-				var_flux = reg[as<State_Var::Type::dissolved_flux>(var_flux)->flux_of_medium];
+				var_flux = vars[as<State_Var::Type::dissolved_flux>(var_flux)->flux_of_medium];
 			ss << "dissolved_flux@";
 			ss << model->serialize(as<State_Var::Type::declared>(var_flux)->decl_id) << '@';
 			serialize_loc(model, ss, var_mass->loc1);
@@ -1183,12 +1161,12 @@ Model_Application::serialize(Var_Id id) {
 			ss << serialize(var2->agg_of);
 		} else if(var->type == State_Var::Type::in_flux_aggregate) {
 			auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
-			auto var_to = reg[var2->in_flux_to];
+			auto var_to = vars[var2->in_flux_to];
 			ss << "in_flux_aggregate@";
 			serialize_loc(model, ss, var_to->loc1);
 		} else if(var->type == State_Var::Type::connection_aggregate) {
 			auto var2 = as<State_Var::Type::connection_aggregate>(var);
-			auto agg_for = reg[var2->agg_for];
+			auto agg_for = vars[var2->agg_for];
 			ss << "connection_aggregate@";
 			ss << (var2->is_source ? "source@" : "target@");
 			ss << model->serialize(var2->connection) << '@';
@@ -1196,9 +1174,8 @@ Model_Application::serialize(Var_Id id) {
 		} else
 			fatal_error(Mobius_Error::internal, "Unsupported State_Var::Type in serialize()");
 		return ss.str();
-	} else {
+	} else
 		return var->name;
-	}
 	fatal_error(Mobius_Error::internal, "Unimplemented possibility in Model_Application::serialize().");
 	return "";
 }
@@ -1210,7 +1187,7 @@ Model_Application::deserialize(const std::string &name) {
 		auto find = serial_to_id.find(name);
 		if(find == serial_to_id.end()) return invalid_var;
 		return find->second;
-	} else {
+	} /*else {
 		auto ids = additional_series.find_by_name(name);
 		if(!ids.empty())
 			return *ids.begin();
@@ -1218,7 +1195,7 @@ Model_Application::deserialize(const std::string &name) {
 		ids = series.find_by_name(name);
 		if(!ids.empty())
 			return *ids.begin();
-	}
+	}*/
 	return invalid_var;
 }
 

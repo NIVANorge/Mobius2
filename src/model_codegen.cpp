@@ -22,7 +22,7 @@ get_index_count_code(Model_Application *app, Entity_Id index_set, Index_Exprs &i
 Math_Expr_FT *
 make_possibly_time_scaled_ident(Model_Application *app, Var_Id var_id) {
 	auto ident = make_state_var_identifier(var_id);
-	auto var = app->state_vars[var_id];
+	auto var = app->vars[var_id];
 	if(var->is_flux() && var->type == State_Var::Type::declared) {
 		auto var2 = as<State_Var::Type::declared>(var);
 		if(var2->flux_time_unit_conv != 1.0);
@@ -57,16 +57,16 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Initial values for dissolved quantities
 			if(!(instr.type == Model_Instruction::Type::compute_state_var && instr.code && is_valid(instr.var_id))) continue;
-			auto var = app->state_vars[instr.var_id];  // var is the mass or volume of the quantity
+			auto var = app->vars[instr.var_id];  // var is the mass or volume of the quantity
 			if(var->type != State_Var::Type::declared) continue;
 			auto var2 = as<State_Var::Type::declared>(var);
 			auto conc_id = var2->conc;
 			if(!is_valid(conc_id)) continue;
 			
 			// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
-			auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[conc_id]);
+			auto conc = as<State_Var::Type::dissolved_conc>(app->vars[conc_id]);
 			auto &conc_instr = instructions[conc_id.id];
-			auto dissolved_in = app->state_vars.id_of(remove_dissolved(var->loc1));
+			auto dissolved_in = app->vars.id_of(remove_dissolved(var->loc1));
 				
 			if(var2->initial_is_conc) {
 				// conc is given. compute mass
@@ -88,7 +88,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 	for(auto &instr : instructions) {
 		
 		if(!initial && instr.type == Model_Instruction::Type::compute_state_var) {
-			auto var = app->state_vars[instr.var_id];
+			auto var = app->vars[instr.var_id];
 			
 			//TODO: For overridden quantities they could just be removed from the solver. Also they shouldn't get any index set dependencies from fluxes connected to them.
 			//    not sure about the best way to do it (or where).
@@ -106,8 +106,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				auto conc = as<State_Var::Type::dissolved_conc>(var);
 				auto mass_id = conc->conc_of;
-				auto mass_var = as<State_Var::Type::declared>(app->state_vars[mass_id]);
-				auto dissolved_in = app->state_vars.id_of(remove_dissolved(mass_var->loc1));
+				auto mass_var = as<State_Var::Type::declared>(app->vars[mass_id]);
+				auto dissolved_in = app->vars.id_of(remove_dissolved(mass_var->loc1));
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
 					instr.code = copy(mass_var->override_tree.get());
@@ -128,7 +128,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for fluxes of dissolved variables
 			if(var->type == State_Var::Type::dissolved_flux) {
 				auto var2 = as<State_Var::Type::dissolved_flux>(var);
-				auto conc = as<State_Var::Type::dissolved_conc>(app->state_vars[var2->conc]);
+				auto conc = as<State_Var::Type::dissolved_conc>(app->vars[var2->conc]);
 				instr.code = make_binop('*', make_state_var_identifier(var2->conc), make_possibly_time_scaled_ident(app, var2->flux_of_medium));
 				// TODO: Here we could also just do the re-computation of the concentration so that we don't get the back-and-forth unit conversion...
 				
@@ -174,7 +174,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				// NOTE: it is a design decision by the framework to not allow negative discrete fluxes, otherwise the flux would get a much more
 				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
 
-				Var_Id source_id = app->state_vars.id_of(var->loc1);
+				Var_Id source_id = app->vars.id_of(var->loc1);
 				auto source_ref = make_state_var_identifier(source_id);
 				instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 			}
@@ -187,11 +187,11 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 				Math_Expr_FT *flux_sum = make_literal(0.0);
 				//  find all fluxes that has the given target and sum them up.
-				for(auto flux_id : app->state_vars) {
-					auto flux_var = app->state_vars[flux_id];
-					if(!flux_var->is_valid() || !flux_var->is_flux()) continue;
+				for(auto flux_id : app->vars.all_fluxes()) {
+					auto flux_var = app->vars[flux_id];
+					//if(!flux_var->is_valid() || !flux_var->is_flux()) continue;
 					if(is_valid(restriction_of_flux(flux_var).connection_id)) continue;
-					if(!is_located(flux_var->loc2) || app->state_vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
+					if(!is_located(flux_var->loc2) || app->vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
 					
 					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 					if(flux_var->unit_conversion_tree)
@@ -215,9 +215,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					for(auto source_agg : var2->conn_source_aggs)
 						fun = make_binop('-', fun, make_state_var_identifier(source_agg));
 					
-					for(Var_Id flux_id : app->state_vars) {
-						auto flux = app->state_vars[flux_id];
-						if(!flux->is_valid() || !flux->is_flux()) continue;
+					for(Var_Id flux_id : app->vars.all_fluxes()) {
+						auto flux = app->vars[flux_id];
+						//if(!flux->is_valid() || !flux->is_flux()) continue;
 						
 						// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
 						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
@@ -228,14 +228,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						
 						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution.
 						
-						if(is_located(flux->loc1) && app->state_vars.id_of(flux->loc1) == instr.var_id
+						if(is_located(flux->loc1) && app->vars.id_of(flux->loc1) == instr.var_id
 							&& !is_all_to_all && !is_bottom) {
 
 							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 							fun = make_binop('-', fun, flux_ref);
 						}
 						
-						if(is_located(flux->loc2) && app->state_vars.id_of(flux->loc2) == instr.var_id
+						if(is_located(flux->loc2) && app->vars.id_of(flux->loc2) == instr.var_id
 							&& (!is_valid(restriction.connection_id) || is_bottom)) {
 							
 							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
@@ -255,7 +255,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::add_discrete_flux_to_target) {
 			
-			auto unit_conv = app->state_vars[instr.var_id]->unit_conversion_tree.get();
+			auto unit_conv = app->vars[instr.var_id]->unit_conversion_tree.get();
 			if(unit_conv)
 				unit_conv = copy(unit_conv);
 			
@@ -263,7 +263,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
 			
-			auto agg_var = as<State_Var::Type::regular_aggregate>(app->state_vars[instr.target_id]);
+			auto agg_var = as<State_Var::Type::regular_aggregate>(app->vars[instr.target_id]);
 			
 			auto weight = agg_var->aggregation_weight_tree.get();
 			if(weight)
@@ -275,7 +275,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Note weights are applied directly inside the codegen for this one. TODO: do that for the others too?
 			
-			auto agg_var = app->state_vars[instr.target_id];
+			auto agg_var = app->vars[instr.target_id];
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id);
 			
 		} else if(instr.type == Model_Instruction::Type::special_computation) {
@@ -372,7 +372,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		offset_code = app->series_structure.get_offset_code(ident->var_id, index_expr);
 		back_step = app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
-		auto var = app->state_vars[ident->var_id];
+		auto var = app->vars[ident->var_id];
 		if(var->flags & State_Var::Flags::invalid)
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
@@ -454,11 +454,11 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
-	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
+	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	
 	// Hmm, these two lookups are very messy. See also similar in model_compilation a couple of places
-	Entity_Id source_compartment = app->state_vars[source_id]->loc1.components[0];
-	auto target_compartment = app->state_vars[target_agg->agg_for]->loc1.components[0];
+	Entity_Id source_compartment = app->vars[source_id]->loc1.components[0];
+	auto target_compartment = app->vars[target_agg->agg_for]->loc1.components[0];
 	auto find_target = app->find_connection_component(connection_id, target_compartment);
 	
 	Math_Expr_FT *agg_offset = nullptr;
@@ -493,7 +493,7 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	if(unit_conv)
 		put_var_lookup_indexes(unit_conv, app, indexes);
 	
-	//warning_print("*** *** Codegen for connection ", app->state_vars[source_id]->name, " to ", app->state_vars[target_agg->connection_agg]->name, " using agg var ", app->state_vars[agg_id]->name, "\n");
+	//warning_print("*** *** Codegen for connection ", app->vars[source_id]->name, " to ", app->vars[target_agg->connection_agg]->name, " using agg var ", app->vars[agg_id]->name, "\n");
 	
 	// Code for looking up the id of the target compartment of the current source.
 	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
@@ -526,7 +526,7 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 Math_Expr_FT *
 add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
 	
-	auto agg_var = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
+	auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 
 	Math_Expr_FT *agg_offset = nullptr;
 	
@@ -584,7 +584,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	
 	Math_Expr_FT *weight = nullptr;
 	Math_Expr_FT *unit_conv = nullptr;
-	auto target_agg = as<State_Var::Type::connection_aggregate>(app->state_vars[agg_id]);
+	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	for(auto &data : target_agg->conversion_data) {
 		if(data.source_id == source_id) {
 			weight    = data.weight.get();

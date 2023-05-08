@@ -285,16 +285,6 @@ fatal_error_trace(Function_Scope *scope) {
 	}
 }
 
-//TODO: could probably be factored as a utility function for the model. Similar to functionality in MobiView and c_api. Try to make a better api for accessing state variables in general.
-inline Var_Id
-find_var_at_location(Var_Location &loc, Model_Application *app) {
-	auto var_id = app->state_vars.id_of(loc);
-	if(!is_valid(var_id))
-	var_id = app->series.id_of(loc);
-	return var_id;
-}
-
-
 Var_Location
 make_var_location(const std::vector<Entity_Id> &chain) {
 	Var_Location result = {};
@@ -319,7 +309,7 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 		//TODO test that the chain is valid in the sense of the middle ones being quantities and the last being property or quantity.
 		//also validity of chain size.
 		Var_Location loc = make_var_location(chain);
-		return find_var_at_location(loc, app);
+		return app->vars.id_of(loc);
 	}
 	// TODO: test validity of the chain in the sense of the first ones being quantities and the last being property or quantity.
 	
@@ -341,7 +331,7 @@ try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chai
 		std::vector<Entity_Id> try_chain = context_chain;
 		try_chain.insert(try_chain.end(), chain.begin(), chain.end());
 		Var_Location loc = make_var_location(try_chain);
-		result = find_var_at_location(loc, app);
+		result = app->vars.id_of(loc);
 		
 		if(is_valid(result))
 			return result;
@@ -369,15 +359,9 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 			error_print("The location can not be inferred from the context.");
 		fatal_error_trace(scope);
 	}
-	if(var_id.type == Var_Id::Type::state_var) {
-		ident->variable_type = Variable_Type::state_var;
-		ident->var_id        = var_id;
-		unit = data->app->state_vars[var_id]->unit.standard_form;
-	} else {
-		ident->variable_type = Variable_Type::series;
-		ident->var_id        = var_id;
-		unit = data->app->series[var_id]->unit.standard_form;
-	}
+	ident->variable_type = (var_id.type == Var_Id::Type::state_var ? Variable_Type::state_var : Variable_Type::series);
+	ident->var_id        = var_id;
+	unit                 = data->app->vars[var_id]->unit.standard_form;
 	ident->value_type = Value_Type::real;
 }
 
@@ -664,8 +648,8 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	if(directive == Directive::in_flux) {
 		result.unit = multiply(arg_units[var_idx], data->app->time_step_unit.standard_form, -1);
 	} else if(directive == Directive::conc) {
-		auto conc_id = as<State_Var::Type::declared>(data->app->state_vars[var->var_id])->conc;
-		result.unit = data->app->state_vars[conc_id]->unit.standard_form;
+		auto conc_id = as<State_Var::Type::declared>(data->app->vars[var->var_id])->conc;
+		result.unit = data->app->vars[conc_id]->unit.standard_form;
 	} else
 		result.unit = std::move(arg_units[var_idx]);
 	
@@ -865,7 +849,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 						new_ident->restriction.connection_id = id;   // Note: this is in a way a repurposing of the 'restriction' that is not entirely clean?
 					} else if (id.reg_type == Reg_Type::loc) {
 						auto loc = model->locs[id];
-						Var_Id var_id = app->state_vars.id_of(loc->loc);
+						Var_Id var_id = app->vars.id_of(loc->loc);
 						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 						
 						// TODO: This does not preserve the bracket of the location (if there is one). Needs to be done separately.

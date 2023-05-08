@@ -31,6 +31,7 @@ Var_Location_Hash {
 	}
 };
 
+/*
 struct Var_Registry {
 	
 	Var_Registry(Var_Id::Type var_type) : var_type(var_type) {}
@@ -86,7 +87,122 @@ struct Var_Registry {
 	Var_Id end()   { return {var_type, (s32)vars.size()}; }
 	size_t count() { return vars.size(); }
 };
+*/
+struct Var_Registry {
+	
+	std::vector<std::unique_ptr<State_Var>>                     state_vars;
+	std::vector<std::unique_ptr<State_Var>>                     series;
+	std::vector<std::unique_ptr<State_Var>>                     additional_series;
+	
+	std::vector<std::unique_ptr<State_Var>> &get_vec(Var_Id::Type type) {
+		if(type == Var_Id::Type::state_var)         return state_vars;
+		if(type == Var_Id::Type::series)            return series;
+		if(type == Var_Id::Type::additional_series) return additional_series;
+		fatal_error(Mobius_Error::internal, "Unhandled Var_Id::Type.");
+	}
+	
+	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
+	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
+	
+	State_Var *operator[](Var_Id id) {
+		auto &vars = get_vec(id.type);
+		if(!is_valid(id) || id.id >= vars.size())
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
+		return vars[id.id].get();
+	}
+	
+	Var_Id id_of(const Var_Location &loc) {
+		if(!is_located(loc))
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable using a non-located location.");
+		auto find = location_to_id.find(loc);
+		if(find == location_to_id.end())
+			return invalid_var;
+		return find->second;
+	}
+	
+	const std::set<Var_Id> find_by_name(const std::string &name) {
+		auto find = name_to_id.find(name);
+		if(find == name_to_id.end()) {
+			static std::set<Var_Id> empty_set = {};
+			return empty_set;
+		}
+		return find->second;
+	}
+	
+	template<State_Var::Type type>
+	Var_Id register_var(Var_Location loc, const std::string &name, Var_Id::Type id_type) {
+		if(is_located(loc) && is_valid(id_of(loc)))
+			fatal_error(Mobius_Error::internal, "Re-registering a variable with the same Var_Location.");
+		
+		auto var = new State_Var_Sub<type>();
+		var->name = name;
+		auto &vars = get_vec(id_type);
 
+		vars.push_back(std::unique_ptr<State_Var>(var));
+		Var_Id id = {id_type, (s32)vars.size()-1};
+		
+		if(is_located(loc))
+			location_to_id[loc] = id;
+		
+		if(id_type != Var_Id::Type::state_var)
+			name_to_id[name].insert(id);
+		
+		return id;
+	}
+	
+	size_t count(Var_Id::Type type) { return get_vec(type).size(); }
+	
+	struct Var_Range {
+		Var_Id::Type type;
+		bool flux_only;
+		std::vector<std::unique_ptr<State_Var>> *vars;
+		Var_Range(Var_Id::Type type, std::vector<std::unique_ptr<State_Var>> *vars, bool flux_only=false)
+			: flux_only(flux_only), vars(vars), type(type) {}
+		
+		struct Var_Iter {
+			Var_Id at;
+			bool flux_only;
+			std::vector<std::unique_ptr<State_Var>> *vars;
+			
+			Var_Iter(Var_Id::Type type, std::vector<std::unique_ptr<State_Var>> *vars, bool flux_only) : flux_only(flux_only), vars(vars) {
+				at = {type, 0};
+				find_next_valid();
+			}
+			Var_Iter(Var_Id::Type type, std::vector<std::unique_ptr<State_Var>> *vars) {
+				at = Var_Id {type, (s32)vars->size()};
+				vars = nullptr;
+			}
+			
+			bool operator==(const Var_Iter &other) { return at == other.at;	}
+			bool operator!=(const Var_Iter &other) { return at != other.at;	}
+			Var_Iter &operator++() {
+				++at.id;
+				find_next_valid();
+				return *this;
+			}
+			Var_Id operator*() { return at; }
+			
+			void find_next_valid() {
+				if(at.id >= vars->size()) return;
+				auto var = (*vars)[at.id].get();
+				while(!var->is_valid() || (flux_only && !var->is_flux())) {
+					at.id++;
+					if(at.id >= vars->size()) break;
+					var = (*vars)[at.id].get();
+				}
+			}
+		};
+		
+		Var_Iter begin() { return Var_Iter(type, vars, flux_only); }
+		Var_Iter end()   { return Var_Iter(type, vars); }
+	};
+	
+	Var_Range all(Var_Id::Type type)  { return Var_Range(type,                            &get_vec(type)); }
+	Var_Range all_state_vars()        { return Var_Range(Var_Id::Type::state_var,         &state_vars); }
+	Var_Range all_fluxes()            { return Var_Range(Var_Id::Type::state_var,         &state_vars, true); }
+	Var_Range all_series()            { return Var_Range(Var_Id::Type::series,            &series); }
+	Var_Range all_additional_series() { return Var_Range(Var_Id::Type::additional_series, &additional_series); }
+};
 
 struct Connection_T {
 	Entity_Id connection;
@@ -100,7 +216,7 @@ template<typename Handle_T> struct Hash_Fun {
 	int operator()(const Handle_T&) const;
 };
 
-// TODO: it is a bit wasteful to usa a hash map for these first two at all, they could just be indexes into a vector.
+// TODO: it is a bit wasteful to use a hash map for these first two at all, they could just be indexes into a vector.
 template<> struct Hash_Fun<Entity_Id> {
 	int operator()(const Entity_Id& id) const { return id.id; }
 };
@@ -247,6 +363,13 @@ struct Model_Data {
 	Data_Storage<double, Var_Id>              additional_series;
 	Data_Storage<s32, Entity_Id>              index_counts;
 	
+	Data_Storage<double, Var_Id> &get_storage(Var_Id::Type type) {
+		if(type == Var_Id::Type::state_var)         return results;
+		if(type == Var_Id::Type::series)            return series;
+		if(type == Var_Id::Type::additional_series) return additional_series;
+		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
+	}
+	
 	Model_Data *copy(bool copy_results = true);
 	Date_Time get_start_date_parameter();
 	Date_Time get_end_date_parameter();
@@ -311,9 +434,10 @@ public :
 	Unit_Data                                                time_step_unit;
 	Time_Step_Size                                           time_step_size;
 	
-	Var_Registry                                             state_vars;
-	Var_Registry                                             series;
-	Var_Registry                                             additional_series;
+	//Var_Registry                                             state_vars;
+	//Var_Registry                                             series;
+	//Var_Registry                                             additional_series;
+	Var_Registry                                             vars;
 	
 	Storage_Structure<Entity_Id>                             parameter_structure;
 	Storage_Structure<Connection_T>                          connection_structure;
@@ -321,6 +445,13 @@ public :
 	Storage_Structure<Var_Id>                                series_structure;
 	Storage_Structure<Var_Id>                                additional_series_structure;
 	Storage_Structure<Entity_Id>                             index_counts_structure;
+	
+	Storage_Structure<Var_Id> &get_storage_structure(Var_Id::Type type) {
+		if(type == Var_Id::Type::state_var)         return result_structure;
+		if(type == Var_Id::Type::series)            return series_structure;
+		if(type == Var_Id::Type::additional_series) return additional_series_structure;
+		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
+	}
 	
 	Data_Set                                                *data_set;
 	
@@ -357,7 +488,7 @@ public :
 	void set_up_index_count_structure();
 	
 	void
-	set_up_series_structure(Var_Registry &reg, Storage_Structure<Var_Id> &data, Series_Metadata *metadata);
+	set_up_series_structure(Var_Id::Type type, Series_Metadata *metadata);
 	
 	// TODO: this one should maybe be on the Model_Data struct instead
 	void allocate_series_data(s64 time_steps, Date_Time start_date);
@@ -369,13 +500,14 @@ public :
 	
 	std::unordered_map<std::string, Var_Id> serial_to_id;
 	
+	/*
 	Var_Registry *registry(Var_Id id) {
 		if(id.type == Var_Id::Type::state_var) return &state_vars;
 		if(id.type == Var_Id::Type::series)    return &series;
 		if(id.type == Var_Id::Type::additional_series) return &additional_series;
 		fatal_error(Mobius_Error::internal, "Invalid Var_Id type in registry().");
 		return nullptr;
-	}
+	}*/
 	
 	std::string batch_structure;
 	std::string batch_code;
@@ -615,12 +747,15 @@ Storage_Structure<Entity_Id>::get_handle_name(Entity_Id id) {
 
 template<> inline const std::string&
 Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
+	return parent->vars[var_id]->name;
+	/*
 	if(var_id.type == Var_Id::Type::state_var)
 		return parent->state_vars[var_id]->name;
 	else if(var_id.type == Var_Id::Type::series)
 		return parent->series[var_id]->name;
 	else
 		return parent->additional_series[var_id]->name;
+	*/
 }
 
 template<> inline const std::string &

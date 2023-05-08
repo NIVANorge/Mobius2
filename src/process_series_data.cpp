@@ -184,16 +184,13 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 	
 	int header_idx = 0;
 	for(auto header : series->header_data) {
-		std::set<Var_Id> ids = app->series.find_by_name(header.name);
+		std::set<Var_Id> ids = app->vars.find_by_name(header.name);
 		
-		auto *data = &app->data.series;
-		series_type[header_idx] = Var_Id::Type::series;
+		// NOTE: Due to preprocessing steps, we should be guaranteed that at this point, for any given name all ids attached to it are of the same type, and at least one id is attached to each name.
 		
-		if(ids.empty()) {
-			ids = app->additional_series.find_by_name(header.name);
-			data = &app->data.additional_series;
-			series_type[header_idx] = Var_Id::Type::additional_series;
-		}
+		auto type = ids.begin()->type;
+		series_type[header_idx] = type;
+		auto *data = &app->data.get_storage(type);
 		
 		for(Var_Id id : ids) {
 			

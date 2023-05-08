@@ -20,11 +20,12 @@
 	New serialization system
 		//Scoping of serial names to modules
 		Scoping of connection data in data set.
-		Standardize serialization of state vars
-			remaining var types
-		Fix anything broken in MobiView
-			Search window, Optimizer setup, ...
-			Finish serialization (+save/load) of plot setup and use it also for model reloads.
+		//Standardize serialization of state vars
+		//	remaining var types
+		//Fix anything broken in MobiView
+			//Search window, Optimizer setup, ...
+			//Finish serialization (+save/load) of plot setup
+			use it also for model reloads.
 			When displaying the name of a module, make both the module template name and the module name clear.
 		(see also list below)
 		Re-consolidate input loading with the name serialization system.
@@ -197,8 +198,6 @@
 				Targets computed from aggregate series (stats of aggregate series).
 				
 				Optimizer callback doesn't update additional plot view.
-				
-				Crash when deleting a parameter and adding a new one. (after trying to add when one was not selected -> not sure if that is important).
 				
 				Additional plot view doesn't like reload (if the var_id's were changed).
 					In general allow for serialization of plot view, then use that for all the plots.

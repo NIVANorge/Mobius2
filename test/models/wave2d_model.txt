@@ -11,6 +11,9 @@ model("Wave2D") {
 	
 	solve(solver("Solver", "INCADascru", 0.1), cell.amp, cell.mom)
 	
+	v : connection("Vert", grid1d) { cell* }
+	h : connection("Horz", grid1d) { cell* }
+	
 	module("Wave2D", version(1, 0, 0)) {
 		
 		par_group("Layers", cell) {
@@ -18,10 +21,7 @@ model("Wave2D") {
 		}
 		
 		var(cell.amp, [m]) @initial { in_amp }
-		var(cell.mom, [m, day-1])
-		
-		h : connection("Horizontal", grid1d) { cell* }
-		v : connection("Vertical", grid1d) { cell* }
+		var(cell.mom, [m, day-1])	
 		
 		c : constant("Wave speed", [day-1], 0.08)
 		
