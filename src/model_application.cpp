@@ -413,9 +413,10 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 	
 	metadata->any_data_at_all = true;
 
-	// TODO: This has to be redone to match the new Var_Registry! :::
-
 	for(auto &header : series->header_data) {
+		
+		check_allowed_serial_name(header.name, header.loc);
+		
 		// NOTE: several time series could have been given the same name.
 		std::set<Var_Id> ids = app->vars.find_by_name(header.name);
 		
@@ -426,20 +427,14 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 			//This series is not recognized as a model input, so it is an "additional series"
 			// See if it was already registered.
 			
-			//Var_Id var_id = invalid_var;
-			//ids = app->additional_series.find_by_name(header.name);
-			//if(ids.empty()) {
 			auto var_id = app->vars.register_var<State_Var::Type::declared>(invalid_var_location, header.name, Var_Id::Type::additional_series);
 			ids.insert(var_id);
-			//} else
-			//	var_id = *ids.begin();
 			auto var = app->vars[var_id];
 			var->flags = State_Var::Flags::clear_series_to_nan;
 			var->unit = header.unit;
 			
-			//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions (when we implement that)?
-		} 
-		// TODO: If it is a declared series, check if the unit matches.
+			//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions?
+		}
 		
 		if(header.indexes.empty()) continue;
 		
@@ -677,7 +672,8 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	
 	auto &scope = model->model_decl_scope;
 	
-	auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
+	//auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
+	auto conn_id = model->deserialize(connection.name, Reg_Type::connection);
 	
 	if(!is_valid(conn_id)) {
 		connection.loc.print_error_header();
@@ -751,7 +747,8 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 	
 	auto &scope = model->model_decl_scope;
 	
-	auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
+	auto conn_id = model->deserialize(connection.name, Reg_Type::connection);
+	//auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
 	auto cnd = model->connections[conn_id];
 			
 	if(cnd->type == Connection_Type::directed_tree) {
@@ -802,7 +799,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to build model application after it was compiled.");
 	if(this->data_set)
-		fatal_error(Mobius_Error::api_usage, "Model application was provided more than one data sets.");
+		fatal_error(Mobius_Error::api_usage, "Model application was provided with more than one data set.");
 	this->data_set = data_set;
 	
 	//this->time_step_size = data_set->time_step_size;
@@ -1187,15 +1184,11 @@ Model_Application::deserialize(const std::string &name) {
 		auto find = serial_to_id.find(name);
 		if(find == serial_to_id.end()) return invalid_var;
 		return find->second;
-	} /*else {
-		auto ids = additional_series.find_by_name(name);
-		if(!ids.empty())
-			return *ids.begin();
-		// TODO: Here it could be non-unique...
-		ids = series.find_by_name(name);
-		if(!ids.empty())
-			return *ids.begin();
-	}*/
+	} 
+	const auto &ids = vars.find_by_name(name);
+	if(!ids.empty())
+		return *ids.begin();
+		
 	return invalid_var;
 }
 

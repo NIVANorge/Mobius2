@@ -18,7 +18,6 @@ module("AirSea", version(0, 1, 0),
 	sw        : property,
 	
 	A_surf            : loc,
-	
 	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
 	top_water_heat_sw : loc, # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
 	top_water_temp    : loc,
@@ -102,8 +101,6 @@ The ice module is influenced by the one in MyLake, and uses Stefan's law for ice
 		0                                                                                  if surf.ice.indicator,
 		A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) ->> otherwise
 	}
-	
-	#evap_mm : property("Evaporation per area")
 	
 	var(surf.evap_mm, [m m, day-1]) {
 		rho_ref := 1025 [k g, m-3],

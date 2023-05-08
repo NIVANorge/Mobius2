@@ -22,7 +22,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 		t_snow    : par_real("Temperature at which precip falls as snow", [deg_c], 0, -4, 4)
 		t_melt    : par_real("Temperature at which snow melts", [deg_c], 0, -4, 4)
 		refr_eff  : par_real("Refreeze efficiency", [], 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
-		snow_liq  : par_real("Liquid water fraction", [], 0.5, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before it is released")
+		snow_liq  : par_real("Liquid water fraction", [], 0.5, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before the water is released")
 		init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
 	}
 	
@@ -35,26 +35,21 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
 	var(snow_box.water, [m m], "Snow water") #@initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
-	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {
-		air.precip * (air.temp <= t_snow)  # Making use of auto-cast of boolean->real
-	}
+	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
 	
-	p_rain :
-	flux(nowhere, water_target, [m m, day-1], "Precipitation falling as rain") {
-		air.precip * (air.temp > t_snow)
-	}
+	flux(nowhere, water_target, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
 	
 	melt :
-	flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")     {   max(0, ddf_melt*(air.temp - t_melt))   }
+	flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")       {   max(0, ddf_melt*(air.temp - t_melt))   }
 	
 	refreeze :
-	flux(snow_box.water, snow_box.snow, [m m, day-1], "Refreeze") {   max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
+	flux(snow_box.water, snow_box.snow, [m m, day-1], "Refreeze")   {   max(0, refr_eff*ddf_melt*(t_melt - air.temp))  }
 
 	melt_runoff :
-	flux(snow_box.water, water_target, [m m, day-1], "Melt runoff")        {   max(0, water - snow*snow_liq)*1[day-1]  }
+	flux(snow_box.water, water_target, [m m, day-1], "Melt runoff") {   max(0, water - snow*snow_liq)*1[day-1]  }
 	
 	discrete_order {
-		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this model.
+		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this module.
 		melt
 		refreeze
 		melt_runoff

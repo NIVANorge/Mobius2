@@ -19,6 +19,7 @@
 			
 	New serialization system
 		Scoping of connection data in data set.
+			Fixed with stopgap, but we should actually disallow .,: in names in the dataset also.
 		MobiView
 			Finish serialization (+save/load) of plot setup
 			use it also for model reloads.

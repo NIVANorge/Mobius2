@@ -31,63 +31,7 @@ Var_Location_Hash {
 	}
 };
 
-/*
-struct Var_Registry {
-	
-	Var_Registry(Var_Id::Type var_type) : var_type(var_type) {}
-	
-	Var_Id::Type                                                var_type;
-	std::vector<std::unique_ptr<State_Var>>                     vars;
-	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> location_to_id;
-	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
-	
-	State_Var *operator[](Var_Id id) {
-		if(!is_valid(id) || id.id >= vars.size())
-			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
-		if(id.type != var_type)
-			fatal_error(Mobius_Error::internal, "Tried to look up a variable of wrong type.");
-		return vars[id.id].get();
-	}
-	
-	Var_Id id_of(const Var_Location &loc) {
-		if(!is_located(loc))
-			fatal_error(Mobius_Error::internal, "Tried to look up a variable using a non-located location.");
-		auto find = location_to_id.find(loc);
-		if(find == location_to_id.end())
-			return invalid_var;
-		return find->second;
-	}
-	
-	const std::set<Var_Id> find_by_name(const std::string &name) {
-		auto find = name_to_id.find(name);
-		if(find == name_to_id.end()) {
-			static std::set<Var_Id> empty_set = {};
-			return empty_set;
-		}
-		return find->second;
-	}
-	
-	template<State_Var::Type type>
-	Var_Id register_var(Var_Location loc, const std::string &name) {
-		if(is_located(loc) && is_valid(id_of(loc)))
-			fatal_error(Mobius_Error::internal, "Re-registering a variable.");
-		
-		// TODO: Better memory allocation system for these... Ideally want them in contiguous memory..
-		auto var = new State_Var_Sub<type>();
-		var->name = name;
-		vars.push_back(std::unique_ptr<State_Var>(var));
-		Var_Id id = {var_type, (s32)vars.size()-1};
-		if(is_located(loc))
-			location_to_id[loc] = id;
-		name_to_id[name].insert(id);
-		return id;
-	}
-	
-	Var_Id begin() { return {var_type, 0}; }
-	Var_Id end()   { return {var_type, (s32)vars.size()}; }
-	size_t count() { return vars.size(); }
-};
-*/
+
 struct Var_Registry {
 	
 	std::vector<std::unique_ptr<State_Var>>                     state_vars;
@@ -120,7 +64,7 @@ struct Var_Registry {
 		return find->second;
 	}
 	
-	const std::set<Var_Id> find_by_name(const std::string &name) {
+	const std::set<Var_Id> &find_by_name(const std::string &name) {
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end()) {
 			static std::set<Var_Id> empty_set = {};

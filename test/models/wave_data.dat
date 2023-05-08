@@ -1,6 +1,6 @@
 index_set("Layer index") [ 100 ]
 
-connection("Layer connection") [
+connection("Wave:Layer connection") [
 	compartment("Layer") [ "Layer index" ]
 ]
 
