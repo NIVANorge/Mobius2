@@ -354,7 +354,7 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 		error_print("\ncan not be inferred as a valid state variable that has been created using a 'var' declaration. ");
 		if(is_located(data->in_loc)) {
 			error_print("It was being resolved in the following context: ");
-			error_print_location(data->scope, data->in_loc);
+			error_print_location(data->app->model, data->in_loc);
 		} else
 			error_print("The location can not be inferred from the context.");
 		fatal_error_trace(scope);

@@ -489,6 +489,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	return result;
 }
 
+// TODO: A lot of this function could be merged with similar functionality in function_tree.cpp
 void
 process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location,
 	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr) {
@@ -496,6 +497,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	Specific_Var_Location *specific_loc = nullptr;
 	if(allow_restriction) {
 		specific_loc = static_cast<Specific_Var_Location *>(location);
+		specific_loc->orig_scope_id = scope->parent_id;
 	}
 	
 	if(decl->args[which]->decl) {
@@ -574,7 +576,6 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	if(bracketed.size() == 2 && !is_nowhere &&
 		(count >= 2 || (par_id && is_valid(*par_id)))) { // We can only have a bracket on something that is either a full var location or a parameter.
 		
-		// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe, unless we implement it to work). Could also be checked in later processing.
 		specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
 		auto type = bracketed[1].string_value;
 		if(type == "top")
@@ -1280,8 +1281,6 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
 			
-			//case Decl_Type::compartment :
-			//case Decl_Type::quantity :
 			case Decl_Type::property : {
 				process_declaration<Reg_Type::component>(model, &module->scope, child);
 			} break;
@@ -1293,6 +1292,11 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	}
 	
 	for(Decl_AST *child : body->child_decls) {
+		if(child->type == Decl_Type::loc)
+			process_declaration<Reg_Type::loc>(model, &module->scope, child);
+	}
+	
+	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
 			case Decl_Type::load : {
 				process_load_library_declaration(model, child, module_id, mod_temp->normalized_path);
@@ -1300,7 +1304,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 			
 			case Decl_Type::unit : {
 				process_declaration<Reg_Type::unit>(model, &module->scope, child);
-			};
+			} break;
 			
 			case Decl_Type::par_group : {
 				process_declaration<Reg_Type::par_group>(model, &module->scope, child);
@@ -1331,7 +1335,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 			} break;
 			
 			case Decl_Type::property :
-			case Decl_Type::connection : {  // already processed above, or will be processed below
+			case Decl_Type::connection :
+			case Decl_Type::loc : {  // Already processed in an earlier loop
 			} break;
 			
 			default : {
@@ -1813,13 +1818,15 @@ add_dissolved(const Var_Location &loc, Entity_Id quantity) {
 
 // NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the scope to get the names..
 void
-error_print_location(Decl_Scope *scope, const Var_Location &loc) {
+error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
+	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		error_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
 }
 
 void
-debug_print_location(Decl_Scope *scope, const Var_Location &loc) {
+debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
+	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		warning_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
 }

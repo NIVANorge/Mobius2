@@ -499,17 +499,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			for(auto &loc : solve->locs) {
 				Var_Id var_id = app->vars.id_of(loc);
 				
-				if(!is_valid(var_id)) {
-					//error_print_location(this, loc);
-					solve->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("This compartment does not have that quantity.");  // TODO: give the handles names in the error message.
-				}
-				auto hopefully_a_quantity = model->find_entity(loc.last());
-				if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-					solve->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Solvers can only be put on quantities.");
-				}
-				
 				instructions[var_id.id].solver = solve->solver;
 			}
 		}

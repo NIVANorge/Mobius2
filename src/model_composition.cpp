@@ -104,24 +104,26 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 }
 
 void
-check_flux_location(Model_Application *app, Decl_Scope *scope, Source_Location source_loc, Specific_Var_Location &loc, bool is_source) {
+check_location(Model_Application *app, Decl_Scope *scope, Source_Location source_loc, Specific_Var_Location &loc, bool must_quantity = false, bool is_flux = false, bool is_source = false) {
 	if(!is_located(loc)) return;
 	
 	auto model = app->model;
-	
-	auto hopefully_a_quantity = model->find_entity(loc.last());
-	if(hopefully_a_quantity->decl_type != Decl_Type::quantity) {
-		source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("Fluxes can only be assigned to quantities. '", (*scope)[loc.last()], "' is a property, not a quantity.");
-	}
 	
 	Var_Id var_id = app->vars.id_of(loc);
 	if(!is_valid(var_id)) {
 		source_loc.print_error_header(Mobius_Error::model_building);
 		error_print("The variable location ");
-		error_print_location(scope, loc);
+		error_print_location(model, loc);
 		fatal_error(" has not been created using a 'var' declaration.");
 	}
+	
+	// This check could be moved to model_declaration when the location is generated?
+	if(must_quantity && model->components[loc.last()]->decl_type != Decl_Type::quantity) {
+		source_loc.print_error_header(Mobius_Error::model_building);
+		fatal_error("This location is only allowed to be a quantity, not a property. '", (*scope)[loc.last()], "' is a property, not a quantity."); // TODO: It may not exist in this scope.
+	}
+	
+	if(!is_flux) return;
 	
 	if(is_valid(loc.connection_id)) {
 		auto conn = app->model->connections[loc.connection_id];
@@ -592,15 +594,15 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	for(auto loc_id : model->locs) {
 		auto loc = model->locs[loc_id];
-		if(!is_located(loc->loc)) continue;
-		Var_Id var_id = app->vars.id_of(loc->loc);
-		if(!is_valid(var_id)) {
-			auto scope = model->get_scope(loc->scope_id);
-			loc->source_loc.print_error_header(Mobius_Error::model_building);
-			error_print("The variable location ");
-			error_print_location(scope, loc->loc);
-			fatal_error(" has not been created using a 'var' declaration.");
-		}
+		if(!is_valid(loc->par_id)) continue;
+		check_location(app, model->get_scope(loc->scope_id), loc->source_loc, loc->loc);
+	}
+	
+	for(auto solve_id : model->solves) {
+		auto solve = model->solves[solve_id];
+		
+		for(auto &loc : solve->locs)
+			check_location(app, model->get_scope(solve->scope_id), solve->source_loc, loc, true);
 	}
 	
 	//TODO: make better name generation system!
@@ -610,11 +612,10 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		auto flux = model->fluxes[id];
 
 		auto scope = model->get_scope(flux->scope_id);
-		check_flux_location(app, scope, flux->source_loc, flux->source, true);
-		check_flux_location(app, scope, flux->source_loc, flux->target, false); //TODO: The scope may not be correct if the flux was redirected!!! --- will not be relevant when we change decl system.
+		check_location(app, scope, flux->source_loc, flux->source, true, true, true);
+		check_location(app, scope, flux->source_loc, flux->target, true, true, false);
 		
 		if(!is_located(flux->source) && is_valid(flux->target.connection_id) && flux->target.restriction == Var_Loc_Restriction::below) {
-			// TODO: The source_loc is wrong if the connection comes from a redirection. May no longer be relevant when we change the system later.
 			flux->source_loc.print_error_header(Mobius_Error::model_building); 
 			fatal_error("You can't have a flux from 'nowhere' to a connection.\n");
 		}
@@ -626,6 +627,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	}
 	
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
+	// For instance, we want the var_id of each concentration variable to exist when we resolve the function trees since the code in those could refer to concentrations.
 	for(auto var_id : dissolvedes) {
 		auto var = app->vars[var_id];
 		
@@ -633,7 +635,6 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		std::vector<Var_Id> generate;
 		for(auto flux_id : app->vars.all_fluxes()) {
 			auto flux = app->vars[flux_id];
-			//if(!flux->is_valid() || !flux->is_flux()) continue;
 			if(!(flux->loc1 == above_loc)) continue;
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
@@ -642,12 +643,9 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				if(!is_valid(below_var)) continue;
 			}
 			// See if it was declared that this flux should not carry this quantity (using a no_carry declaration)
-			if(flux->type == State_Var::Type::declared) { // If this flux was itself generated, it won't have a declaration to look at.
-				/*
-				auto flux_reg = model->fluxes[as<State_Var::Type::declared>(flux)->decl_id];
-				if(flux_reg->no_carry_by_default) continue;
-				if(std::find(flux_reg->no_carry.begin(), flux_reg->no_carry.end(), var->loc1) != flux_reg->no_carry.end()) continue;
-				*/
+			if(flux->type == State_Var::Type::declared) {
+				// If this flux was itself generated, it won't have a declaration to look at.
+				// TODO: However it is debatable whether or not 'no_carry' should carry over (no pun intended) from the parent flux.
 				auto flux_var = as<State_Var::Type::declared>(flux);
 				if(flux_var->no_carry_by_default)
 					continue;

@@ -312,6 +312,7 @@ struct
 Specific_Var_Location : Var_Location, Var_Loc_Restriction {
 	Specific_Var_Location() : Var_Location(), Var_Loc_Restriction() {}
 	Specific_Var_Location(const Var_Location &loc) : Var_Location(loc), Var_Loc_Restriction() {}
+	Entity_Id orig_scope_id = invalid_entity_id;
 };
 
 struct Index_T {

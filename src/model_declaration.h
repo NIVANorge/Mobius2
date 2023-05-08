@@ -286,7 +286,7 @@ Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
 	Entity_Id solver;
-	std::vector<Var_Location> locs;
+	std::vector<Specific_Var_Location> locs;   // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
 };
 
 struct
@@ -460,9 +460,9 @@ void
 check_allowed_serial_name(String_View name, Source_Location &loc);
 
 void
-error_print_location(Decl_Scope *scope, const Var_Location &loc);
+error_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 void
-debug_print_location(Decl_Scope *scope, const Var_Location &loc);
+debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 
 
 #endif // MOBIUS_MODEL_DECLARATION_H

@@ -26,10 +26,6 @@
 		(see also list below)
 		Re-consolidate input loading with the serialization system.
 	
-	Module loading system
-		Make airsea work for NIVAFjord, including all what that entails.
-			have to be able to pass a (bracketed) par as a loc.
-		Maybe the decl_type of module template should just be module_template (in the module files).
 
 	Finish connection system
 
@@ -39,9 +35,6 @@
 		graph connections
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 
-		//.select_minimize
-		//	etc. For selecting index for target of flux. See doodle.
-			Replaced with other system for now.
 			
 		Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 			Also only one matrix indexing for a given state variable (at least for now)
@@ -153,6 +146,9 @@
 	*** Low-pri ****
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
+		
+		Maybe the decl_type of module template should just be module_template (in the module files).
+		
 		
 	
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
@@ -420,3 +416,5 @@
 			Should be fixed now.
 	
 	The optimization of pow(a, 1.5) to sqrt(a)*a inlines all of a. Should just make it a local var instead.
+	
+	error_print_location does not always work if the location came from a loc() declaration.
