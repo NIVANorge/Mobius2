@@ -104,7 +104,7 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 }
 
 void
-check_location(Model_Application *app, Decl_Scope *scope, Source_Location source_loc, Specific_Var_Location &loc, bool must_quantity = false, bool is_flux = false, bool is_source = false) {
+check_location(Model_Application *app, Source_Location &source_loc, Specific_Var_Location &loc, bool must_quantity = false, bool is_flux = false, bool is_source = false) {
 	if(!is_located(loc)) return;
 	
 	auto model = app->model;
@@ -112,7 +112,7 @@ check_location(Model_Application *app, Decl_Scope *scope, Source_Location source
 	Var_Id var_id = app->vars.id_of(loc);
 	if(!is_valid(var_id)) {
 		source_loc.print_error_header(Mobius_Error::model_building);
-		error_print("The variable location ");
+		error_print("The location ");
 		error_print_location(model, loc);
 		fatal_error(" has not been created using a 'var' declaration.");
 	}
@@ -120,7 +120,9 @@ check_location(Model_Application *app, Decl_Scope *scope, Source_Location source
 	// This check could be moved to model_declaration when the location is generated?
 	if(must_quantity && model->components[loc.last()]->decl_type != Decl_Type::quantity) {
 		source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("This location is only allowed to be a quantity, not a property. '", (*scope)[loc.last()], "' is a property, not a quantity."); // TODO: It may not exist in this scope.
+		error_print("The location ");
+		error_print_location(model, loc);
+		fatal_error(" refers to something that is not a quantity. This is not allowed in this context.");
 	}
 	
 	if(!is_flux) return;
@@ -595,14 +597,14 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	for(auto loc_id : model->locs) {
 		auto loc = model->locs[loc_id];
 		if(!is_valid(loc->par_id)) continue;
-		check_location(app, model->get_scope(loc->scope_id), loc->source_loc, loc->loc);
+		check_location(app, loc->source_loc, loc->loc);
 	}
 	
-	for(auto solve_id : model->solves) {
-		auto solve = model->solves[solve_id];
+	for(auto solve_id : model->solvers) {
+		auto solver = model->solvers[solve_id];
 		
-		for(auto &loc : solve->locs)
-			check_location(app, model->get_scope(solve->scope_id), solve->source_loc, loc, true);
+		for(auto &loc : solver->locs)
+			check_location(app, solver->source_loc, loc, true);
 	}
 	
 	//TODO: make better name generation system!
@@ -611,9 +613,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	for(Entity_Id id : model->fluxes) {
 		auto flux = model->fluxes[id];
 
-		auto scope = model->get_scope(flux->scope_id);
-		check_location(app, scope, flux->source_loc, flux->source, true, true, true);
-		check_location(app, scope, flux->source_loc, flux->target, true, true, false);
+		check_location(app, flux->source_loc, flux->source, true, true, true);
+		check_location(app, flux->source_loc, flux->target, true, true, false);
 		
 		if(!is_located(flux->source) && is_valid(flux->target.connection_id) && flux->target.restriction == Var_Loc_Restriction::below) {
 			flux->source_loc.print_error_header(Mobius_Error::model_building); 

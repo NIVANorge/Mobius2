@@ -237,7 +237,7 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::function :                 return &functions;
 		case Reg_Type::index_set :                return &index_sets;
 		case Reg_Type::solver :                   return &solvers;
-		case Reg_Type::solve :                    return &solves;
+		//case Reg_Type::solve :                    return &solves;
 		case Reg_Type::constant :                 return &constants;
 		case Reg_Type::connection :               return &connections;
 		case Reg_Type::module :                   return &modules;
@@ -1404,17 +1404,16 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 	return id;
 }
 
-template<> Entity_Id
-process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+void
+process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 
 	// TODO: We may not need a special "solve" registry, we could just store these in the solver registry.
 
 	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, false);
 	
-	auto id = model->solves.find_or_create(nullptr, scope, nullptr, decl);
-	auto solve = model->solves[id];
+	auto solver_id = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
+	auto solver    = model->solvers[solver_id];
 	
-	solve->solver = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		Var_Location loc;
 		process_location_argument(model, scope, decl, idx, &loc);
@@ -1424,10 +1423,8 @@ process_declaration<Reg_Type::solve>(Mobius_Model *model, Decl_Scope *scope, Dec
 			fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
 		}
 		
-		solve->locs.push_back(loc);
+		solver->locs.push_back(loc);
 	}
-
-	return id;
 }
 
 void
@@ -1677,6 +1674,8 @@ load_model(String_View file_name, String_View config) {
 				process_declaration<Reg_Type::index_set>(model, scope, child);
 			else if(child->type == Decl_Type::loc)
 				process_declaration<Reg_Type::loc>(model, scope, child);
+			else if(child->type == Decl_Type::solver)
+				process_declaration<Reg_Type::solver>(model, scope, child);
 		}
 	}
 	
@@ -1755,12 +1754,8 @@ load_model(String_View file_name, String_View config) {
 					process_distribute_declaration(model, scope, child);
 				} break;
 				
-				case Decl_Type::solver : {
-					process_declaration<Reg_Type::solver>(model, scope, child);
-				} break;
-				
 				case Decl_Type::solve : {
-					process_declaration<Reg_Type::solve>(model, scope, child);
+					process_solve_declaration(model, scope, child);
 				} break;
 				
 				case Decl_Type::aggregation_weight : {
@@ -1773,6 +1768,7 @@ load_model(String_View file_name, String_View config) {
 				
 				case Decl_Type::par_group :
 				case Decl_Type::index_set :
+				case Decl_Type::solver :
 				case Decl_Type::compartment :
 				case Decl_Type::quantity :
 				case Decl_Type::property :
@@ -1822,6 +1818,7 @@ error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		error_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
+	// TODO: This should also print the bracket (restriction)
 }
 
 void
@@ -1829,4 +1826,5 @@ debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		warning_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
+	// TODO: This should also print the bracket (restriction)
 }

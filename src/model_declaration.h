@@ -281,12 +281,7 @@ Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
 	Solver_Function *solver_fun;
 	double h;
 	double hmin;
-};
-
-template<> struct
-Entity_Registration<Reg_Type::solve> : Entity_Registration_Base {
-	Entity_Id solver;
-	std::vector<Specific_Var_Location> locs;   // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
+	std::vector<Specific_Var_Location> locs; // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
 };
 
 struct
@@ -340,7 +335,7 @@ Mobius_Model {
 	Registry<Reg_Type::special_computation> special_computations;
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
-	Registry<Reg_Type::solve>       solves;
+	//Registry<Reg_Type::solve>       solves;
 	Registry<Reg_Type::connection>  connections;
 	Registry<Reg_Type::loc>         locs;
 	

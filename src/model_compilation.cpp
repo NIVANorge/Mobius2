@@ -493,13 +493,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	// Solvers are propagated to other instructions later based on need.
 	if(!initial) {
 
-		for(auto id : model->solves) {
-			auto solve = model->solves[id];
+		for(auto solver_id : model->solvers) {
+			auto solver = model->solvers[solver_id];
 			
-			for(auto &loc : solve->locs) {
+			for(auto &loc : solver->locs) {
 				Var_Id var_id = app->vars.id_of(loc);
-				
-				instructions[var_id.id].solver = solve->solver;
+				instructions[var_id.id].solver = solver_id;
 			}
 		}
 		
