@@ -125,7 +125,7 @@ module("EasyLake", 0, 1, 0) {
 	}
 }
 
-module("AirSea", 0, 1, 0) {
+module("AirSea Lake", 0, 1, 0) {
 	par_group("Lake ice") {
 		par_real("Initial ice thickness")
 		[ 0 ]

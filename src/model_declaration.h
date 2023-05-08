@@ -96,6 +96,8 @@ Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 	
 	Decl_Scope     scope;
 	
+	std::string    full_name;
+	
 	Entity_Registration() : template_id(invalid_entity_id) {}
 };
 

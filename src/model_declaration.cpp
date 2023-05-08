@@ -1232,6 +1232,12 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	// TODO: The other name must be used here too:
 	module_id = model->modules.find_or_create(nullptr, model_scope, spec_name_token, nullptr);
 	auto module = model->modules[module_id];
+	
+	if(load_name)
+		module->full_name = mod_temp->name + " (" + module->name + ")";
+	else
+		module->full_name = module->name;
+	
 	// Ouch, this is a bit hacky, but it is to avoid the problem that Decl_Type::module is tied to Reg_Type::module_template .
 	// Maybe we should instead have another flag on it?
 	module->has_been_declared = true;

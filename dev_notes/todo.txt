@@ -20,11 +20,7 @@
 	New serialization system
 		Scoping of connection data in data set.
 			Fixed with stopgap, but we should actually disallow .,: in names in the dataset also.
-		MobiView
-			Finish serialization (+save/load) of plot setup
-			use it also for model reloads.
-			When displaying the name of a module, make both the module template name and the module name clear.
-		(see also list below)
+		
 		Re-consolidate input loading with the serialization system.
 	
 
@@ -85,40 +81,28 @@
 			Hmm, now I don't remember why I wanted this, but it may have to do with module reusability.
 				
 
-		Falls under new module loading system if/when we make that:
-			Template system: Processes not specified per compartment / quantity. Can be attached to those.
-				- something like compartment_type etc.
-				- have to figure out what to do with duplicates of par_group etc. - ties into name system (next item).
-			
-			Better scoping system for declaration names (not just for symbols).
-				also for variable names.
-				
-			Let declarations in inlined modules be able to view decls the parent model scope.
+		More on module loading and the declaration format:
 			
 			The 'extend' system is just not that good. Will be problems when you want to override something in the earlier model,
 			or if two extended models load the same module (not a problem before, but will be if we allow multiple loads of the same module, which can then cause unintended duplicates)
-			
+				With inlined modules 'seeing' their parent scope it is not that nice that extend_model puts a lot of stuff into that scope.
+				+ other reasons like overriding earlier declarations being difficult.
+				
 			Dynamic module choice (based on data set)
-			
-			Rethink how parameters are scoped
-				Both in terms of symbol and serialization.
-			
-			With inlined modules 'seeing' their parent scope it is not that nice that extend_model puts a lot of stuff into that scope.
-			
-			Finish cleaning up declaration format.
-				Remove chained declarations
-				Maybe remove ability to have more than one note per body.
-					Always enforce uniqueness for notes.
-				Match system for what body notes are allowed and/or required?
 				
 			Whether or not something is formatted as a var_location could be checked already in the match_declaration stage (e.g. Not just pass it as Token_Type::identifier).
 			
 			For properties, maybe always just put the unit on the property (but not on quantities obviously).
 			
+			Make it easier to load a sub-model of a larger model with a data set that was declared for the larger model.
+				Needs for instance to handle additional input series that are indexed over index sets that don't appear in the sub-model.
 		
-		Check for conflicting declarations of variables (unit, name).
+			Check for conflicting declarations of variables (unit, name).
+			
+			Inline decls in arguments don't quite work unless they are in the right order. Maybe pre-process them.
 		
-		The new system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
+		
+		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
 			
 		More cleanup of State_Var system
@@ -128,20 +112,8 @@
 		Maybe have a separate lookup structure for fluxes and have the common flux things stored there.
 			(in many cases we just loop over all fluxes and try to find common things for them)
 			loc1, loc2, unit_conv, connection, etc.
-		
-		New location format identifier.chain[connection.qualifier] (partially done)
-			Make the placement on source or target of flux actually matter! (maybe tie it to the var location?)
-			Allow things like
-				flux(nowhere, layer.water[connection])
-				? Although how would you specify that in the data file??
 				
 		Let / always be a real division, and maybe have a separate operator // (or similar) to force integer division.
-		
-		Make it easier to load a sub-model of a larger model with a data set that was declared for the larger model.
-			Needs for instance to handle additional input series that are indexed over index sets that don't appear in the sub-model.
-		
-		
-		Inline decls in arguments don't quite work unless they are in the right order. Maybe pre-process them.
 		
 	
 	*** Low-pri ****
@@ -150,14 +122,11 @@
 		
 		Maybe the decl_type of module template should just be module_template (in the module files).
 		
-		
-	
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
 		
 		Capping of discrete fluxes from override variables not necessary?
 		
-		
-		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something more similar to Mobius1)
+		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
 	
 		Make in_flux deal correctly with boundary fluxes.
 			Should not be added in regular in_flux.
@@ -192,23 +161,17 @@
 				Targets computed from aggregate series (stats of aggregate series).
 				
 				Optimizer callback doesn't update additional plot view.
-				
-				Additional plot view doesn't like reload (if the var_id's were changed).
-					In general allow for serialization of plot view, then use that for all the plots.
 			
 			Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
 				Maybe not desirable
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
-				Saving and loading
-					Additional plot setup.
-			
-			
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
 				Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
+				Allow order by flux? By module?
 				
 			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
 				Could have both aggregation none and days, and in the later case it also aggregates m3/s -> m3/day .
@@ -237,8 +200,11 @@
 		
 		
 		Aggregation variables are not always necessary if we could just add things to derivatives directly, but this is not the case always.
+			Would require a big systemic change to model_compilation and model_codegen to implement this.
 		
 		Make discrete fluxes work like other fluxes for aggregation stuff so that everything works the same way for them (including some connection stuff).
+			Reimplement discrete fluxes for connections in some situations.
+			This may not go well with the above suggested change though.
 		
 		
 		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
@@ -252,170 +218,11 @@
 		Other solver algorithms.
 		
 		May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
-		
-	*****************   DONE:   ***********************
 	
-	unit conversions also applied to connection graph arrows.
 	
-	"scatter sparse" instead of "scatter inputs" ? So that full series are not scatter plotted.
-	
-	make bottom_boundary work.
-		Need to either give grid1d connections source aggregates or just subtract from the target aggregate this boundary flux.
-			right now it works as a hack with reversing the sign of the flux..
-				
-		make boundary fluxes with located sources/targets work.
-	
-	Make something like top() accessor top(layer.water.temp) etc. (And bottom?)
-			Makes it unnecessary to have above and below in boundary fluxes, so we could disallow that also? Could make some things easier.
-	
-	val[below] should not generate an index set dependency if we are inside a top_boundary!!
-			Neither should anything actually. That index set should be removed from the dependencies!
-	
-	check_valid_distribution_of_dependencies
-			need to take into account boundary and top(), bottom() directives.
-		
-	Make format for boundary fluxes always be
-		flux(from, to, connection) .top_boundary { ... }
-	
-	unit checking system
-		Simple part - generate units and scalings for concentrations and fluxes.
-	
-	Sub-indexing (most of it)
-		Data set formatting, read/write, interaction with Model_Application
-			a bit annoying for parameter format, and also indexing of other things within the data set.
-		Needs to have index_counts as lookup data for model code.
-		Need to revamp how to look up things from storage.
-			Easier to keep storage sized to the max number of indexes even though it is a bit wasteful. Could always be improved later.
-	
-	Interchangable components for connections. Simple system.
-		lake vs. river
-	
-	multiple connections per variable
-	
-	target(property)   --- Needs to be on separate for loop to property!! (is_blocking)
-	
-	'target' value fetching inside flux body (only for all-to-all and grid1d connection fluxes so far).
-	integer indexed index sets.
-	grid1d connection.
-	arbitrary target(val, conn) declarations for use in non-fluxes (only valid for grid1d (?))
-			quite a bit of work though... But should be worth it.
-			also source(val, conn) or source(val) (for grid1d at least, and later graph) for looking up the value of the previous thing.
-			Consider using 'above', 'below' instead of 'target' and 'source' directives (esp. source is confusing because it is the source of the previous arrow, not the current one).
-	
-	**component declarations in the data set should be local to the connection data. Otherwise it makes things annoying.
-			also, component data is not properly set up unless there is an arrow (which could more easily be fixed if we do it like this)
-	
-	connection fluxes of dissolvedes seem to add to the base substance rather than the dissolved substance.
-	**aggregation weights applied to graph arrows !!
-	
-	something is broken with fluxes from discrete variables to connections (should just be flat out disallowed for now, but for some reason isn't)
-	
-	Make and test a SimplyTox    (partial at least)
-	
-	Index set distribution of quantities
-		+ par groups on quantities
-		
-	Probably only allow connection fluxes between state variables that are on solvers. (Currently set to be the default)
-		
-	Relative paths are always relative to the model source file, but this breaks when you do extend_model of a model from another folder.
-	Same when including a library from another library...
-	
-	Make variables of type Source_Location be named source_loc consistently to not confuse with other things.
-	
-	Allow fluxes to have a default no_carry()
-	
-	Make it automatic that certain state variables are on solvers (dissolveds)
-	
-	Allow multiple has declarations for the same variable (or fix existing system).
-	
-	Matrix formatting of parameters in the data file.
-	
-	Other types of connections
-		all_to_all
-	all_to_all connections for quantities (not just compartments)
-	the index set(s) the connection is over should be taken from the data set.
-		compartments of multiple index sets
-		
-	Clean up the State_Variable struct to make it less easy to have usage errors.
-	
-	check what parts of the connection are actually used (not just based on arrows in the data set, but also on what fluxes are put along the arrows).
-		e.g. what variables can actually be a target - only generate code for those etc.
-		
-	No error for unlabeled code block for quantity !?
-	
-	New format for units.
-	
-	String_View auto-converting to bool also means that it auto-converts to int. This can cause bugs when we refactor some things.
-	
-	Dissolved fluxes - if the flux is negative, the concentration must be taken from the target, not the source!
-			Only the case for regular (non-aggregated?) fluxes and all-to-all + grid1d connections (later graph)
-			Alternatively just make it possible to have a connection in the opposite direction??
-			
-	grid1d:
-	
-			in_flux(connection, ...) Can only be refered to safely inside a flux on that connection if the index set is in the order of the arrows
-				- always true for grid1d
-				- sometimes true for directed_tree, always false for all_to_all.
-					Thus must be disallowed for those!
-			Similar issue: Variable can't refer to above() of itself -now fixed, but need to fix for:
-				below(itself) needs to have an is_blocking.
-			actually, circular references involving above() and below() are tricky and needs an expansion of the sorting system.
-			
-	Write unit back to file (only needed for time step units for now).
-	Allow rational coefficients and powers in units.  (powers now ok).
-	
-	sum aggregate plots should have the right units (if applicable)
-	
-	Units
-			Allow units to have the form [30, month] (i.e. leading multiplier)
-			
-	Making a robust system for the units of fluxes.
-	
-	Fix discrete fluxes!
-			Subtraction happens too late so that it is not taken into account when computing other fluxes.
-			
-	Move to std::string instead of String_View in path_utils.. (unfortunately not as trivial as it sounds - had a problem when trying it before)
-	
-	Aggregation weight should not be needed by default ( default to 1 )
-	
-	Initial value system;
-			.override or .override_conc should be used for initial value if no initial is provided (?)
-			
-	Allow declaration of no_carry inside modules.
-	
-	emulate_expression() is broken, at least for full model runs.
-	
-	System for having configured the root Mobius2 folder so that it knows where modules and stdlib are.
-	
-	special_computation
-		Must be organized a bit differently. The special_computation instruction must be separate from the "instruction" of the variable it computes so that index sets and storage can be properly set up for that variable.
-		
-		Fails when target is chained. Why??
-	
-	Make a separate procedure for figuring out if an expression is constant (in unit resolution).
-			Alternatively, prune_tree does not modify the original tree, but instead returns a pruned copy.
-			But we also want to get rational numbers in the checking.
-		
-	Block comments!
-	
-	Find out why subtraction of Melt runoff is put in its own batch at the end for SimplyQ
-		not incorrect, but unnecessary with that additional batch. It should have been able to insert it before the solver batch.
-	Also why is in_flux(Soil water volume) discrete ? It is ok in this instance, but may not always be.
-		Actually, this probably just uses the propagate_solvers system, so should be ok.
-		
-	Go over the uses of a state variable's boundary types and connection_id and properly make use of how it is now organized.
-		Store the Specific_Var_Location in the Identifier_Data (including inferred info about connection & boundary etc.). Should simplify set_var_lookup_indexes.
-		Don't pass connection in Function_Resolve_Data, instead use the info from in_loc (though this may disallow some shortcut brackets).
-		Try to remove connection_of_flux, or at least boundary_of_flux and use the specific loc1 and loc2 versions when appropriate.
-		Check that the declaration is allowed wrt the implemented functionality.
+	NOTES
 		
 	Hope for reply on one of these 
 		https://discourse.llvm.org/t/how-to-generate-ir-so-that-the-loop-vectorizer-can-vectorize-it/69096/2
 		https://stackoverflow.com/questions/75674759/llvm-loop-vectorizer-does-not-vectorize-my-ir?noredirect=1#comment133504571_75674759
 		
-	Deleting stuff from the parameter setup in Mobiview parameter setup is broken.
-			Should be fixed now.
-	
-	The optimization of pow(a, 1.5) to sqrt(a)*a inlines all of a. Should just make it a local var instead.
-	
-	error_print_location does not always work if the location came from a loc() declaration.
