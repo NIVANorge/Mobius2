@@ -490,7 +490,8 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 }
 
 void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location, bool allow_unspecified = false, bool allow_restriction = false) {
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location,
+	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr) {
 	
 	Specific_Var_Location *specific_loc = nullptr;
 	if(allow_restriction) {
@@ -501,76 +502,92 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		decl->args[which]->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
-	std::vector<Token> &symbol = decl->args[which]->chain;
-	std::vector<Token> &bracketed = decl->args[which]->bracketed_chain;
+	auto &symbol = decl->args[which]->chain;
+	auto &bracketed = decl->args[which]->bracketed_chain;
 	
 	int count = symbol.size();
+	bool is_nowhere = false;
 	
-	bool success = false;
 	if(count == 1) {
 		Token *token = &symbol[0];
-		if(allow_unspecified) {
-			if(token->string_value == "nowhere") {
-				location->type = Var_Location::Type::nowhere;
-				success = true;
+		if(token->string_value == "nowhere") {
+			if(!allow_unspecified) {
+				token->print_error_header();
+				fatal_error("A 'nowhere' is not allowed in this context.");
 			}
-		}
-		if(!success) {
-			std::string handle = token->string_value;
-			auto reg = (*scope)[handle];
+			location->type = Var_Location::Type::nowhere;
+			is_nowhere = true;
+		} else {
+			auto reg = (*scope)[token->string_value];
 			if(reg) {
 				if(reg->id.reg_type == Reg_Type::connection) {
 					location->type = Var_Location::Type::connection;
 					specific_loc->connection_id = reg->id;
 					specific_loc->restriction   = Var_Loc_Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
-					success = true;
 				} else if (reg->id.reg_type == Reg_Type::loc) {
 					auto loc = model->locs[reg->id];
-					success = true;
-					if(specific_loc)
+					
+					if(allow_restriction)
 						*specific_loc = loc->loc;
 					else {
 						*location = loc->loc;
-						if(loc->loc.restriction != Var_Loc_Restriction::none)
-							success = false;
+						if(loc->loc.restriction != Var_Loc_Restriction::none) {
+							loc->source_loc.print_error_header();
+							error_print("This declared location has a bracketed restriction, but that is not allowed when it is used in the following context :\n");
+							token->source_loc.print_error();
+							mobius_error_exit();
+						}
 					}
+					if(is_valid(loc->par_id)) {
+						if(par_id)
+							*par_id = loc->par_id;
+						else {
+							loc->source_loc.print_error_header();
+							error_print("This location is declared as a parameter, but that is not allowed when it is used in the following context :\n");
+							token->source_loc.print_error();
+							mobius_error_exit();
+						}
+					}
+				} else if (par_id && reg->id.reg_type == Reg_Type::parameter)
+					*par_id = reg->id;
+				else {
+					token->print_error_header();
+					fatal_error("The entity '", token->string_value, "' has not been declared in this scope, or is of a type that is not recognized in a location argument.");
 				}
 			}
 		}
-		if(!bracketed.empty())
-			success = false;
 	} else if (count >= 2 && count <= max_var_loc_components) {
 		location->type     = Var_Location::Type::located;
 		for(int idx = 0; idx < count; ++idx)
 			location->components[idx] = model->components.find_or_create(&symbol[idx], scope);
 		location->n_components        = count;
-		success = true;
-
-		if(bracketed.size() == 2) {
-			if(specific_loc) {
-				// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe, unless we implement it to work)
-				specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
-				auto type = bracketed[1].string_value;
-				if(type == "top")
-					specific_loc->restriction = Var_Loc_Restriction::top;
-				else if(type == "bottom")
-					specific_loc->restriction = Var_Loc_Restriction::bottom;
-				else
-					success = false;
-			} else
-				success = false;
-		} else if (!bracketed.empty())
-			success = false;
-		
 	} else {
 		symbol[0].print_error_header();
 		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
 	}
 	
-	if(!success) {
-		//TODO: Give a reason for why it failed (requires 5 different potential error messages :( ).
-		symbol[0].print_error_header();
-		fatal_error("Misformatted variable location in this context.");
+	if (!allow_restriction && !bracketed.empty()) {
+		bracketed[0].print_error_header();
+		fatal_error("A bracketed restriction on the location argument is not allowed in this context.");
+	}
+	
+	if(bracketed.size() == 2 && !is_nowhere &&
+		(count >= 2 || (par_id && is_valid(*par_id)))) { // We can only have a bracket on something that is either a full var location or a parameter.
+		
+		// TODO: We should have some kind of check that only a target is top and a source is bottom (maybe, unless we implement it to work). Could also be checked in later processing.
+		specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
+		auto type = bracketed[1].string_value;
+		if(type == "top")
+			specific_loc->restriction = Var_Loc_Restriction::top;
+		else if(type == "bottom")
+			specific_loc->restriction = Var_Loc_Restriction::bottom;
+		else {
+			bracketed[1].print_error_header();
+			fatal_error("Only 'top' and 'bottom' are allowed as location restrictions in this context.");
+		}
+	} else if(!bracketed.empty()) {
+		bracketed[0].print_error_header();
+		fatal_error("This bracketed restriction is invalid.");
 	}
 }
 
@@ -726,13 +743,8 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	
 	par_group->scope.parent_id = id;
 	
-	if(which >= 1) {
+	if(which >= 1)
 		par_group->component = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
-		if(model->components[par_group->component]->decl_type == Decl_Type::property) {
-			single_arg(decl, 1)->source_loc.print_error_header();
-			fatal_error("A 'par_group' can not be attached to a 'property'.");
-		}
-	}
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->bodies[0]);
 
@@ -1089,9 +1101,7 @@ process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	auto id  = model->locs.find_or_create(&decl->handle_name, scope, nullptr, decl);
 	auto loc = model->locs[id];
 	
-	process_location_argument(model, scope, decl, 0, &loc->loc, true, true);
-	
-	//loc->scope_id = scope->parent_id;
+	process_location_argument(model, scope, decl, 0, &loc->loc, true, true, &loc->par_id);
 	
 	return id;
 }
@@ -1180,7 +1190,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	auto mod_temp = model->module_templates[template_id];
 	
-	// TODO: It is a bit superfluous to process the arguments and version of the template every time it is specialized.
+	// TODO: It is a bit superfluous to process the name and version of the template every time it is specialized.
 	
 	auto decl = mod_temp->decl;
 	match_declaration(decl,
@@ -1643,8 +1653,8 @@ load_model(String_View file_name, String_View config) {
 					process_declaration<Reg_Type::connection>(model, scope, child);
 				} break;
 				
-				case Decl_Type::loc : {
-					process_declaration<Reg_Type::loc>(model, scope, child);
+				case Decl_Type::par_group : {
+					process_declaration<Reg_Type::par_group>(model, scope, child);
 				} break;
 				
 				default : {
@@ -1653,15 +1663,15 @@ load_model(String_View file_name, String_View config) {
 		}
 	}
 	
-	
 	for(auto &extend : extend_models) {
 		auto ast = extend.second;
 		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
-			if(child->type == Decl_Type::par_group)
-				process_declaration<Reg_Type::par_group>(model, scope, child);
-			else if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
+			
+			if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
 				process_declaration<Reg_Type::index_set>(model, scope, child);
+			else if(child->type == Decl_Type::loc)
+				process_declaration<Reg_Type::loc>(model, scope, child);
 		}
 	}
 	

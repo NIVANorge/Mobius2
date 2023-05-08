@@ -846,14 +846,22 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					} else if (id.reg_type == Reg_Type::connection) {
 						new_ident->variable_type = Variable_Type::connection;
 						new_ident->value_type = Value_Type::none;
-						new_ident->restriction.connection_id = id;   // Note: this is in a way a repurposing of the 'restriction' that is not entirely clean?
+						new_ident->restriction.connection_id = id;   // Note: this is in a way a re-purposing of the 'restriction' that is not entirely clean?
 					} else if (id.reg_type == Reg_Type::loc) {
+						// TODO: Will this break if the loc is a connection without a specific location? (In that case it should not be valid to reference it here).
 						auto loc = model->locs[id];
-						Var_Id var_id = app->vars.id_of(loc->loc);
-						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-						
-						// TODO: This does not preserve the bracket of the location (if there is one). Needs to be done separately.
-						
+						if(is_valid(loc->par_id)) {
+							auto par = model->parameters[loc->par_id];
+							new_ident->variable_type = Variable_Type::parameter;
+							new_ident->par_id = loc->par_id;
+							new_ident->value_type = get_value_type(par->decl_type);
+							if(is_valid(par->unit))
+								result.unit = model->units[par->unit]->data.standard_form;
+						} else {
+							Var_Id var_id = app->vars.id_of(loc->loc);
+							set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
+						}
+						new_ident->restriction = loc->loc;
 					} else {
 						ident->chain[0].print_error_header();
 						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");

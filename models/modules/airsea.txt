@@ -17,7 +17,7 @@ module("AirSea", version(0, 1, 0),
 	lwd       : property,
 	sw        : property,
 	
-	A_surf    : par_real,   # Ooops, for NIVAFjord, this must be A[vert.top], but we don't have a way of passing that for the moment.
+	A_surf            : loc,
 	
 	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
 	top_water_heat_sw : loc, # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
@@ -82,25 +82,25 @@ The ice module is influenced by the one in MyLake, and uses Stefan's law for ice
 	
 	var(surf.sw, [W, m-2]) {   (1 - albedo) * (1 - ice.attn) * air.g_rad   }
 	
-	flux(nowhere, top_water_heat_sw, [J, day-1], "Net shortwave") {   A_surf * sw ->>   }
+	flux(nowhere, top_water_heat_sw, [J, day-1], "Net shortwave") {   A_surf * surf.sw ->>   }
 	
 	flux(nowhere, top_water_heat,    [J, day-1], "Net longwave") {
-		net_rad := (1 - water_alb)*air.lwd - lwu,    # W/m2
+		net_rad := (1 - water_alb)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
 		0                              if surf.ice.indicator,
 		A_surf * net_rad ->>           otherwise
 	}
 	
-	flux(nowhere, top_water_heat, [J, day-1], "Freeze heating") {  A_surf * ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)
+	flux(nowhere, top_water_heat, [J, day-1], "Freeze heating") {  A_surf * surf.ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)
 	
 	flux(nowhere, top_water_heat, [J, day-1], "Latent heat flux") {
-		l_vap := latent_heat_of_vaporization(temp),
-		0                                                                          if surf.ice.indicator,
-		A_surf * (ced * l_vap * air.rho * air.wind * (air.a_hum - s_hum)) ->>      otherwise
+		l_vap := latent_heat_of_vaporization(top_water_temp),
+		0                                                                               if surf.ice.indicator,
+		A_surf * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_hum)) ->> otherwise
 	}
 	
 	flux(nowhere, top_water_heat, [J, day-1], "Sensible heat flux") {
-		0                                                                             if surf.ice.indicator,
-		A_surf * (chd * C_air * air.rho * air.wind * (air.temp->[K] - temp->[K])) ->> otherwise
+		0                                                                                  if surf.ice.indicator,
+		A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) ->> otherwise
 	}
 	
 	#evap_mm : property("Evaporation per area")

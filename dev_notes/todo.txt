@@ -5,7 +5,7 @@
 	Clean up how we generate code for computing indexes. It is very messy.
 	
 	Put some allowance checks / var_id substitutions into the function tree resolution.
-		Huh, what was this for??
+		e.g. conc.
 
 	Finish sub-indexed index sets
 		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
@@ -18,24 +18,18 @@
 			
 			
 	New serialization system
-		//Scoping of serial names to modules
 		Scoping of connection data in data set.
-		//Standardize serialization of state vars
-		//	remaining var types
-		//Fix anything broken in MobiView
-			//Search window, Optimizer setup, ...
-			//Finish serialization (+save/load) of plot setup
+		MobiView
+			Finish serialization (+save/load) of plot setup
 			use it also for model reloads.
 			When displaying the name of a module, make both the module template name and the module name clear.
 		(see also list below)
-		Re-consolidate input loading with the name serialization system.
+		Re-consolidate input loading with the serialization system.
 	
 	Module loading system
 		Make airsea work for NIVAFjord, including all what that entails.
-			copy the bracket from a loc when referenced inside a function_tree.
+			have to be able to pass a (bracketed) par as a loc.
 		Maybe the decl_type of module template should just be module_template (in the module files).
-			
-			
 
 	Finish connection system
 
@@ -157,6 +151,9 @@
 		
 	
 	*** Low-pri ****
+	
+		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
+		
 	
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
 		

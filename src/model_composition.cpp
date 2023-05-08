@@ -449,6 +449,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	auto model = app->model;
 	
+	// TODO: We could maybe put a 'check_validity' method on Entity_Registration, and loop over all of them and call that. Could even be done at the end of load_model in model_declaration.cpp
+	
 	for(auto conn_id : model->connections) {
 		auto conn = model->connections[conn_id];
 		if(conn->type == Connection_Type::unrecognized) {
@@ -465,6 +467,14 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				index_set->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("We currently don't support sub-indexing an index set to another index set that is again sub-indexed.");
 			}
+		}
+	}
+	
+	for(auto group_id : model->par_groups) {
+		auto par_group = model->par_groups[group_id];
+		if(is_valid(par_group->component) && model->components[par_group->component]->decl_type == Decl_Type::property) {
+			par_group->source_loc.print_error_header();
+			fatal_error("A 'par_group' can not be attached to a 'property', only to a 'compartment' or 'quantity'.");
 		}
 	}
 	
@@ -492,20 +502,18 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			}
 		}
 		
-		if(!found_code) {
-			// If it is a property, the property itself could have default code.
-			auto prop = model->components[var->var_location.last()];
-			if(prop->default_code) found_code = true;
-		}
+		auto comp = model->components[var->var_location.last()];
+		// Check if it has default code.
+		if(!found_code)
+			if(comp->default_code) found_code = true;
 		
-		Decl_Type type = model->find_entity(var->var_location.last())->decl_type;
 		// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
-		if(type == Decl_Type::property && found_code)
+		if(comp->decl_type == Decl_Type::property && found_code)
 			has_location[var->var_location] = id;
 		
 		// Note: for quantities, we can have some that don't have code associated with them at all, and we still need to choose one canonical one to use for the state variable registration below.
 		//     (thus quantities can also not be input series)
-		if(type == Decl_Type::quantity && (!var2 || !has_code(var2)))
+		if(comp->decl_type == Decl_Type::quantity && (!var2 || !has_code(var2)))
 			has_location[var->var_location] = id;
 	}
 	
