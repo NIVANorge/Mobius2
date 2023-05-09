@@ -171,17 +171,13 @@ typedef std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>> Var_Map;
 typedef std::map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_Map2;
 
 void
-find_other_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment, bool make_error_in_flux) {
-	for(auto arg : expr->exprs) find_other_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment, make_error_in_flux);
+find_identifier_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment) {
+	for(auto arg : expr->exprs) find_identifier_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment);
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->flags & Identifier_FT::Flags::in_flux) {
-			if(make_error_in_flux) {
-				expr->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Did not expect an in_flux() in an initial value function.");
-			}
+		if(ident->flags & Identifier_FT::Flags::in_flux)
 			in_fluxes[{ident->var_id, ident->restriction.connection_id}].push_back(looked_up_by);
-		}
+		
 		if(ident->flags & Identifier_FT::Flags::aggregate) {
 			if(!is_valid(lookup_compartment)) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
@@ -216,21 +212,6 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 		}
 	}
 	return expr;
-}
-
-void
-restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
-	//TODO : Should we just reuse register_dependencies() ?
-	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
-	if(expr->expr_type == Math_Expr_Type::identifier) {
-		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type != Variable_Type::local
-			&& ident->variable_type != Variable_Type::parameter) {
-			expr->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("The function body for a ", name(decl_type), " declaration is only allowed to look up parameters, no other types of state variables.");
-		} else if (ident->variable_type == Variable_Type::parameter)
-			parameter_refs.insert(ident->par_id);
-	}
 }
 
 bool
@@ -284,52 +265,33 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Va
 }
 
 void
-check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, State_Var *var, bool initial) {
+check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Specific_Var_Location &loc) {
 	Dependency_Set code_depends;
 	register_dependencies(function, &code_depends);
 	
 	// NOTE: We should not have undergone codegen yet, so the source location of the top node of the function should be valid.
 	Source_Location source_loc = function->source_loc;
 	
-	Var_Location loc = var->loc1;
-	loc = var->loc1;
-	
-	if(!is_located(loc))
-		loc = var->loc2;
-
 	if(!is_located(loc))
 		fatal_error(Mobius_Error::internal, "Somehow a totally unlocated variable checked in check_valid_distribution_of_dependencies().");
 	
-	String_View err_begin = initial ? "The code for the initial value of the state variable \"" : "The code for the state variable \"";
+	Entity_Id exclude_index_set_from_var = avoid_index_set_dependency(app, loc);
 	
-	Entity_Id exclude_index_set_from_var = invalid_entity_id;
-	if(var->is_flux()) {
-		exclude_index_set_from_var = avoid_index_set_dependency(app, var->loc1);
-		if(!is_valid(exclude_index_set_from_var))
-			exclude_index_set_from_var = avoid_index_set_dependency(app, var->loc2);
-	}
-	
-	// TODO: in this error messages we should really print out the two tuples of index sets.
+	// TODO: in these error messages we should really print out the two tuples of index sets.
 	for(auto &dep : code_depends.on_parameter) {
-		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		//if(dep.flags & Identifier_Data::Flags::top_bottom)
-		//	exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
 		if(!parameter_indexes_below_location(app->model, dep.par_id, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the the state variable.");
+			fatal_error(Mobius_Error::model_building, "This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
 		}
 	}
 	for(auto &dep : code_depends.on_series) {
-		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		//if(dep.flags & Identifier_Data::Flags::top_bottom)
-		//	exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
 		if(!location_indexes_below_location(app->model, app->vars[dep.var_id]->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, err_begin, var->name, "\" looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the state variable.");
+			fatal_error(Mobius_Error::model_building, "This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
 		}
 	}
 	
@@ -341,7 +303,6 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			dep_var = app->vars[as<State_Var::Type::in_flux_aggregate>(dep_var)->in_flux_to];
 		
 		// If it is an aggregate, index set dependencies will be generated to be correct.
-		//TODO: Do we need this here, or would it work anyway with the new system?
 		if(dep_var->type == State_Var::Type::regular_aggregate)
 			continue;
 		
@@ -357,14 +318,11 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		if(dep_var->is_flux() || !is_located(dep_var->loc1))
 			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 		
-		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		//if(dep.flags & Identifier_Data::Flags::top_bottom)
-		//	exclude_index_set_from_loc = app->get_single_connection_index_set(dep.connection);
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
 		if(!location_indexes_below_location(app->model, dep_var->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(err_begin, var->name, "\" looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the the prior.");
+			fatal_error(Mobius_Error::model_building, "This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
 		}
 	}
 }
@@ -390,6 +348,7 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 	
 	auto code_scope = model->get_scope(flux->scope_id);
 	Function_Resolve_Data res_data = { app, code_scope, var->loc1 };
+	res_data.allow_any = true;
 	auto res = resolve_function_tree(flux->no_carry_ast, &res_data);
 	
 	for(auto expr : res.fun->exprs) {
@@ -691,7 +650,6 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 	
 	auto model = app->model;
 	auto source = model->components[loc1.first()];
-	Math_Expr_FT *agg_weight = nullptr;
 	
 	for(auto &agg : source->aggregations) {
 		if(agg.to_compartment != to_compartment) continue;
@@ -699,6 +657,7 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		auto scope = model->get_scope(agg.scope_id);
 		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit, connection };
+		res_data.restrictive_lookups = true;
 		auto fun = resolve_function_tree(agg.code, &res_data);
 		
 		if(!match_exact(&fun.unit, &expected_unit)) {
@@ -706,21 +665,15 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 			fatal_error("Expected the unit an aggregation_weight expression to resolve to ", expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
 		}
 		
-		agg_weight = make_cast(fun.fun, Value_Type::real);
-		std::set<Entity_Id> parameter_refs;
-		restrictive_lookups(agg_weight, Decl_Type::aggregation_weight, parameter_refs);
+		auto agg_weight = make_cast(fun.fun, Value_Type::real);
 		
-		for(auto par_id : parameter_refs) {
-			bool ok = parameter_indexes_below_location(model, par_id, loc1);
-			if(!ok) {
-				agg.code->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("The parameter \"", (*scope)[par_id], "\" is distributed over index sets that the source of the aggregation weight is not distributed over.");
-			}
-		}
-		break;
+		Specific_Var_Location loc = loc1; // sigh
+		check_valid_distribution_of_dependencies(app, agg_weight, loc);
+		
+		return agg_weight;
 	}
 	
-	return agg_weight;
+	return nullptr;
 }
 
 Math_Expr_FT *
@@ -745,23 +698,17 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 		auto scope = model->get_scope(conv.scope_id);
 		
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
+		res_data.restrictive_lookups = true;
 		auto fun = resolve_function_tree(ast, &res_data);
 		unit_conv = make_cast(fun.fun, Value_Type::real);
-		std::set<Entity_Id> parameter_refs;
-		restrictive_lookups(unit_conv, Decl_Type::unit_conversion, parameter_refs);
-		
+
 		if(!match_exact(&fun.unit, &expected_unit.standard_form)) {
 			ast->source_loc.print_error_header();
 			fatal_error("Expected the unit of this unit_conversion expression to resolve to ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
 		}
 		
-		for(auto par_id : parameter_refs) {
-			bool ok = parameter_indexes_below_location(model, par_id, loc1);
-			if(!ok) {
-				ast->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("The parameter \"", (*scope)[par_id], "\" is distributed over index sets that the source of the unit conversion is not distributed over.");
-			}
-		}
+		Specific_Var_Location loc = loc1; // sigh
+		check_valid_distribution_of_dependencies(app, unit_conv, loc);
 		break;
 	}
 	
@@ -957,19 +904,20 @@ compose_and_resolve(Model_Application *app) {
 		}
 		
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
-		Math_Expr_FT *fun = nullptr;
+		
 		if(ast) {
 			auto res = resolve_function_tree(ast, &res_data);
-			fun = res.fun;
+			auto fun = res.fun;
 			fun = make_cast(fun, Value_Type::real);
-			find_other_flags(fun, in_flux_map, needs_aggregate, var_id, from_compartment, false);
+			find_identifier_flags(fun, in_flux_map, needs_aggregate, var_id, from_compartment);
 			
 			if(!match_exact(&res.unit, &res_data.expected_unit)) {
 				ast->source_loc.print_error_header();
 				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
 			}
+			
+			var2->function_tree = owns_code(fun);
 		}
-		var2->function_tree = owns_code(fun);
 		
 		if(is_valid(var2->special_computation)) {
 			auto special = model->special_computations[var2->special_computation];
@@ -1004,10 +952,11 @@ compose_and_resolve(Model_Application *app) {
 			if(initial_is_conc)
 				res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
 			
+			res_data.allow_in_flux = false;
 			auto fun = resolve_function_tree(init_ast, &res_data);
 			var2->initial_function_tree = owns_code(make_cast(fun.fun, Value_Type::real));
 			remove_lasts(var2->initial_function_tree.get(), true);
-			find_other_flags(var2->initial_function_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment, true);
+			find_identifier_flags(var2->initial_function_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment);
 			var2->initial_is_conc = initial_is_conc;
 			
 			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
@@ -1028,6 +977,8 @@ compose_and_resolve(Model_Application *app) {
 			else
 				res_data.expected_unit = var2->unit.standard_form; //In case it was overwritten above..
 			
+			res_data.allow_no_override = true;
+			res_data.allow_in_flux = true;
 			auto fun = resolve_function_tree(override_ast, &res_data);
 			auto override_tree = prune_tree(fun.fun);
 			bool no_override = false;
@@ -1045,7 +996,7 @@ compose_and_resolve(Model_Application *app) {
 				
 				var2->override_tree = owns_code(make_cast(override_tree, Value_Type::real));
 				var2->override_is_conc = override_is_conc;
-				find_other_flags(var2->override_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment, false);
+				find_identifier_flags(var2->override_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment);
 			}
 		} else
 			var2->override_tree = nullptr;
@@ -1105,13 +1056,13 @@ compose_and_resolve(Model_Application *app) {
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
 	for(auto var_id : app->vars.all_fluxes()) {
 		auto var = app->vars[var_id];
-		//if(!var->is_valid() || !var->is_flux()) continue;
+
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
-		// TODO: We should use the 'avoid_index_set_dependency' call here!
-		Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		if(var->loc1.restriction == Var_Loc_Restriction::bottom)
-			exclude_index_set_from_loc = app->get_single_connection_index_set(var->loc1.connection_id);
+		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, var->loc1);
+		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
+		//if(var->loc1.restriction == Var_Loc_Restriction::bottom)
+		//	exclude_index_set_from_loc = app->get_single_connection_index_set(var->loc1.connection_id);
 		
 		if(!location_indexes_below_location(model, var->loc1, var->loc2, exclude_index_set_from_loc))
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());
@@ -1262,19 +1213,24 @@ compose_and_resolve(Model_Application *app) {
 			replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux);
 		}
 	}
-
+	
+	
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
+	// NOTE: This must be done after all calls to replace_flagged, otherwise the references are not correctly in place.
 	for(auto var_id : app->vars.all_state_vars()) {
 		auto var = app->vars[var_id];
-		//if(!var->is_valid()) continue;
+		
 		if(var->type != State_Var::Type::declared) continue;
 		auto var2 = as<State_Var::Type::declared>(var);
 		
+		Specific_Var_Location &in_loc = (is_located(var->loc1) ? var->loc1 : var->loc2);
+		
 		if(var2->function_tree)
-			check_valid_distribution_of_dependencies(app, var2->function_tree.get(),         var, false);
+			check_valid_distribution_of_dependencies(app, var2->function_tree.get(), in_loc);
 		if(var2->initial_function_tree)
-			check_valid_distribution_of_dependencies(app, var2->initial_function_tree.get(), var, true);
-		// TODO: This should chekc the override tree too?
+			check_valid_distribution_of_dependencies(app, var2->initial_function_tree.get(), in_loc);
+		if(var2->override_tree)
+			check_valid_distribution_of_dependencies(app, var2->override_tree.get(), in_loc);
 	}
 	
 	

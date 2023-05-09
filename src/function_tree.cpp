@@ -616,6 +616,13 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	}
 	
 	if(directive == Directive::in_flux) {
+		
+		if(!data->allow_in_flux) {
+			new_fun->source_loc.print_error_header();
+			error_print("An 'in_flux' is not allowed in this context.");
+			fatal_error_trace(scope);
+		}
+		
 		if(arg_count == 2) {
 			bool error = false;
 			if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier) error = true;
@@ -769,11 +776,22 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::string n1 = ident->chain[0].string_value;
 			
 			if(chain_size == 1) {
-				if(!isfun && (n1 == "no_override" || n1 == "any")) {
-					if(n1 == "no_override")
+				if(n1 == "no_override" || n1 == "any") {
+					if(n1 == "no_override") {
+						if(!data->allow_no_override || isfun || data->simplified) {
+							ident->source_loc.print_error_header();
+							error_print("A 'no_override' does not make sense in this context.");
+							fatal_error_trace(scope);
+						}
 						new_ident->variable_type = Variable_Type::no_override;
-					else
+					} else {
+						if(!data->allow_any || isfun || data->simplified) {
+							ident->source_loc.print_error_header();
+							error_print("An 'any' does not make sense in this context.");
+							fatal_error_trace(scope);
+						}
 						new_ident->variable_type = Variable_Type::any;
+					}
 					new_ident->value_type = Value_Type::real;
 					found = true;
 					result.unit = data->expected_unit;
@@ -963,9 +981,20 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			} else {
 				if(!ident->bracketed_chain.empty()) {
 					ident->source_loc.print_error_header();
-					fatal_error("Bracketed declarations are not supported in this context.");
+					error_print("Bracketed declarations are not supported in this context.");
+					fatal_error_trace(scope);
 				}
 			}
+			
+			if(data->restrictive_lookups && result.fun->expr_type == Math_Expr_Type::identifier) {
+				auto new_ident = static_cast<Identifier_FT *>(result.fun);
+				if(new_ident->variable_type != Variable_Type::local && new_ident->variable_type != Variable_Type::parameter) {
+					ident->source_loc.print_error_header();
+					error_print("Only parameters and constants can be referenced in this context, not dynamic variables.");
+					fatal_error_trace(scope);
+				}
+			}
+			
 		} break;
 		
 		case Math_Expr_Type::literal : {

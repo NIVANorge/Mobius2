@@ -137,16 +137,21 @@ struct Math_Expr_AST;
 
 struct
 Function_Resolve_Data {
-	Model_Application *app;
-	Decl_Scope        *scope;
-	Specific_Var_Location       in_loc;
-	std::vector<Entity_Id> *baked_parameters = nullptr;
-	Standardized_Unit  expected_unit;
-	Entity_Id          connection = invalid_entity_id;
+	Model_Application           *app;
+	Decl_Scope                  *scope;
+	Specific_Var_Location        in_loc;
+	std::vector<Entity_Id>      *baked_parameters = nullptr;
+	Standardized_Unit            expected_unit;
+	Entity_Id                    connection = invalid_entity_id;
+	
+	bool                         restrictive_lookups = false;
+	bool                         allow_in_flux       = true;
+	bool                         allow_any           = false;
+	bool                         allow_no_override   = false;
 	
 	// The simplified option is if we are resolving a simple expression of provided symbols, not for main code, but e.g. for parameter exprs in an optimizer run.
-	bool                      simplified = false;
-	std::vector<std::string>  simplified_syms;
+	bool                         simplified = false;
+	std::vector<std::string>     simplified_syms;
 };
 
 struct
@@ -155,7 +160,7 @@ Function_Resolve_Result {
 	Standardized_Unit unit;
 };
 
-// TODO: When we remove pruning from the resolve_function_tree, we can have a simpler version of the Function_Scope for the pruning.
+// TODO: We could use a simpler version of the Function_Scope for the pruning.
 struct
 Function_Scope {
 	Function_Scope *parent;
