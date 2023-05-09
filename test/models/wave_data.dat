@@ -1,9 +1,5 @@
 index_set("Layer index") [ 100 ]
 
-connection("Wave:Layer connection") [
-	compartment("Layer") [ "Layer index" ]
-]
-
 par_group("System") {
 	par_datetime("Start date")
 	[ 1990-01-01 ]
@@ -13,6 +9,10 @@ par_group("System") {
 }
 
 module("Wave", 1, 0, 0) {
+	connection("Layer connection") [
+		compartment("Layer") [ "Layer index" ]
+	]
+
 	par_group("Layers") [ "Layer index" ] {
 		par_real("Initial amplitude")
 		[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0.4 0.6 0.8 1 0.8 0.6 0.4 0.2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]

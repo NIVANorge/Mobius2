@@ -288,7 +288,7 @@ Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
 
 struct
 Registry_Base {
-	virtual Entity_Id find_or_create(Token *handle = nullptr, Decl_Scope *scope = nullptr, Token *name = nullptr, Decl_AST *declaration = nullptr) = 0;
+	virtual Entity_Id find_or_create(Decl_Scope *scope, Token *handle = nullptr, Token *serial_name = nullptr, Decl_AST *declaration = nullptr) = 0;
 	virtual Entity_Registration_Base *operator[](Entity_Id id) = 0;
 };
 
@@ -297,7 +297,7 @@ Registry : Registry_Base {
 	std::vector<Entity_Registration<reg_type>> registrations;
 	
 	Entity_Id
-	find_or_create(Token *handle = nullptr, Decl_Scope *scope = nullptr, Token *name = nullptr, Decl_AST *declaration = nullptr);
+	find_or_create(Decl_Scope *scope, Token *handle = nullptr, Token *name = nullptr, Decl_AST *declaration = nullptr);
 	
 	Entity_Id
 	standard_declaration(Decl_Scope *decl_scope, Decl_AST *decl);

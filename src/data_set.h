@@ -171,7 +171,8 @@ struct
 Module_Info : Info_Type_Base {
 	Module_Version version;
 	
-	Info_Registry<Par_Group_Info> par_groups;
+	Info_Registry<Par_Group_Info>   par_groups;
+	Info_Registry<Connection_Info>  connections;
 };
 
 enum
@@ -237,9 +238,9 @@ Data_Set {
 	std::string main_file;
 	std::string doc_string;
 	
-	Module_Info                     global_module;   // This is for par groups that are not in a module but were declared in the model directly.
+	// TODO: Just put the global_module into the modules Info_Registry ... Could simplify some code.
+	Module_Info                     global_module;   // This is for par groups and connections that are not in a module but were declared in the model directly.
 	Info_Registry<Index_Set_Info>   index_sets;
-	Info_Registry<Connection_Info>  connections;
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;
 	

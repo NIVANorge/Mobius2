@@ -324,7 +324,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	
 	std::vector<Math_Expr_FT *> target_indexes;
 	
-	found_restriction.insert(ident->restriction);
+	if(is_valid(ident->restriction.connection_id))
+		found_restriction.insert(ident->restriction);
 	
 	// TODO: Should factor out the swapping.
 	// TODO: Swapping back and forth is very bug prone. Should maybe just make a copy that is modified?
@@ -400,7 +401,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 void
 put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx = nullptr) {
 		
-	std::set<Var_Loc_Restriction> found_restriction;
+	std::set<Var_Loc_Restriction> found_restriction; // TODO: This is wasteful. We should just pass a pointer instead so that it could be nullptr.
 	put_var_lookup_indexes(expr, app, index_expr, provided_target_idx, found_restriction);
 }
 
@@ -408,7 +409,7 @@ Math_Expr_FT *
 make_restriction_condition(Model_Application *app, Var_Loc_Restriction restriction, Math_Expr_FT *existing_condition, Index_Exprs &index_expr) {
 	
 	// For grid1d connections, if we look up 'above' or 'below', we can't do it if we are on the first or last index respecitively, and so the entire expression must be invalidated.
-	// Same if the expression itself is for a flux that is along a grid1d connection.
+	// Same if the expression itself is for a flux that is along a grid1d connection and we are at the last index.
 	// This function creates the code to compute the boolean condition that the expression should be invalidated.
 	
 	if(!is_valid(restriction.connection_id) || app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
@@ -675,8 +676,11 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			
 			Math_Expr_FT *fun = nullptr;
 			
+			// TODO: Two restrictions being different does not necessarily mean that they generate different conditions... This is e.g. if we have multiple connections over the same index set.
+			//   We could fix that, but it could be that this whole system is not that good in the first place, so we should think a bit more about it.
 			std::set<Var_Loc_Restriction> restrictions;
-			restrictions.insert(instr->restriction);
+			if(is_valid(instr->restriction.connection_id))
+				restrictions.insert(instr->restriction);			
 			
 			if(instr->code) {
 				fun = copy(instr->code);

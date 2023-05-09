@@ -2,6 +2,8 @@
 
 	Make NIVAFjord!!
 
+	
+
 	Clean up how we generate code for computing indexes. It is very messy.
 	
 	Put some allowance checks / var_id substitutions into the function tree resolution.
@@ -20,8 +22,6 @@
 	New serialization system
 		Scoping of connection data in data set.
 			Fixed with stopgap, but we should actually disallow .,: in names in the dataset also.
-		
-		Re-consolidate input loading with the serialization system.
 	
 
 	Finish connection system
@@ -114,6 +114,11 @@
 			loc1, loc2, unit_conv, connection, etc.
 				
 		Let / always be a real division, and maybe have a separate operator // (or similar) to force integer division.
+		
+		Re-consolidate input loading with the serialization system.
+			Tricky...
+			
+		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
 		
 	
 	*** Low-pri ****
@@ -218,6 +223,12 @@
 		Other solver algorithms.
 		
 		May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
+		
+		Codegen for the NIVAFjord model generates
+			state_var[iter_547 + 2764] <- state_var[3012 + iter_547] * exp(-state_var[879] * dz[8]) * A[24 + iter_547] / A[iter_547 + 23] if iter_547 + 1 < 124 & iter_547 + 1 < 124,
+			0 otherwise
+		It should have recognized that it is not necessary with the duplication of the condition.
+			Probably due to different Var_Restrictions resulting in the same condition on the index.
 	
 	
 	NOTES

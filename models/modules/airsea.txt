@@ -23,10 +23,11 @@ module("AirSea", version(0, 1, 0),
 	top_water_temp    : loc,
 ) {
 """
-Air-lake heat fluxes are based off of
+Air-sea/lake heat fluxes are based off of
 [Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112](https://link.springer.com/article/10.1007/BF00232256)
-The implementation is influenced by the implementation in [GOTM](https://github.com/gotm-model).
-The ice module is influenced by the one in MyLake, and uses Stefan's law for ice accumulation.
+The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
+
+The ice module is influenced by the ice module in MyLake, and uses Stefan's law for ice accumulation.
 """
 	
 	load("stdlib/seawater.txt", library("Air-sea"))
@@ -38,7 +39,7 @@ The ice module is influenced by the one in MyLake, and uses Stefan's law for ice
 	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
 	water_alb  : constant("Water albedo", [], 0.045)  # Could be a module parameter
 	
-	par_group("Lake ice", surf) {
+	par_group("Ice", surf) {
 		init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
 		ice_alb   : par_real("Ice albedo", [], 0.4, 0, 1)
 		th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
@@ -98,7 +99,7 @@ The ice module is influenced by the one in MyLake, and uses Stefan's law for ice
 	}
 	
 	flux(nowhere, top_water_heat, [J, day-1], "Sensible heat flux") {
-		0                                                                                  if surf.ice.indicator,
+		0                                                                                            if surf.ice.indicator,
 		A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) ->> otherwise
 	}
 	

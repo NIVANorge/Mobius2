@@ -115,7 +115,7 @@ check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
 
 // TODO: Should change scope to the first argument.
 template<Reg_Type reg_type> Entity_Id
-Registry<reg_type>::find_or_create(Token *handle, Decl_Scope *scope, Token *serial_name, Decl_AST *decl) {
+Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *serial_name, Decl_AST *decl) {
 	
 	Entity_Id result_id = invalid_entity_id;
 	
@@ -220,7 +220,7 @@ Registry<reg_type>::create_internal(const std::string &handle, Decl_Scope *scope
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::standard_declaration(Decl_Scope *scope, Decl_AST *decl) {
 	Token *name = single_arg(decl, 0);
-	return find_or_create(&decl->handle_name, scope, name, decl);
+	return find_or_create(scope, &decl->handle_name, name, decl);
 }
 
 Registry_Base *
@@ -314,7 +314,7 @@ resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int whi
 			arg->bracketed_chain[0].print_error_header();
 			fatal_error("Did not expect a bracketed location.");
 		}
-		return model->registry(expected_type)->find_or_create(&arg->chain[0], scope);
+		return model->registry(expected_type)->find_or_create(scope, &arg->chain[0]);
 	}
 	return invalid_entity_id;
 }
@@ -458,14 +458,14 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			Entity_Id id = invalid_entity_id;
 			
 			if(decl->type == Decl_Type::library) {
-				id = model->libraries.find_or_create(nullptr, &model->model_decl_scope, nullptr, decl);
+				id = model->libraries.find_or_create(&model->model_decl_scope, nullptr, nullptr, decl);
 				auto lib = model->libraries[id];
 				lib->has_been_processed = false;
 				lib->decl = decl;
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
 			} else if (decl->type == Decl_Type::module) {
-				id = model->module_templates.find_or_create(nullptr, &model->model_decl_scope, nullptr, decl);
+				id = model->module_templates.find_or_create(&model->model_decl_scope, nullptr, nullptr, decl);
 				auto mod = model->module_templates[id];
 				//mod->has_been_processed = false;
 				mod->decl = decl;
@@ -561,7 +561,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	} else if (count >= 2 && count <= max_var_loc_components) {
 		location->type     = Var_Location::Type::located;
 		for(int idx = 0; idx < count; ++idx)
-			location->components[idx] = model->components.find_or_create(&symbol[idx], scope);
+			location->components[idx] = model->components.find_or_create(scope, &symbol[idx]);
 		location->n_components        = count;
 	} else {
 		symbol[0].print_error_header();
@@ -576,7 +576,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	if(bracketed.size() == 2 && !is_nowhere &&
 		(count >= 2 || (par_id && is_valid(*par_id)))) { // We can only have a bracket on something that is either a full var location or a parameter.
 		
-		specific_loc->connection_id = model->connections.find_or_create(&bracketed[0], scope);
+		specific_loc->connection_id = model->connections.find_or_create(scope, &bracketed[0]);
 		auto type = bracketed[1].string_value;
 		if(type == "top")
 			specific_loc->restriction = Var_Loc_Restriction::top;
@@ -597,7 +597,7 @@ process_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl); //N
 
 template<> Entity_Id
 process_declaration<Reg_Type::unit>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	auto id   = model->units.find_or_create(&decl->handle_name, scope, nullptr, decl);
+	auto id   = model->units.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto unit = model->units[id];
 	
 	// NOTE: we could de-duplicate based on the standard form, but it is maybe not worth it.
@@ -776,7 +776,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 			{{Decl_Type::unit, true}},
 		});
 	
-	auto id =  model->functions.find_or_create(&decl->handle_name, scope, nullptr, decl);
+	auto id =  model->functions.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto function = model->functions[id];
 	
 	for(auto arg : decl->args) {
@@ -786,7 +786,7 @@ process_declaration<Reg_Type::function>(Mobius_Model *model, Decl_Scope *scope, 
 		}
 		if(arg->decl) {
 			// It is a bit annoying to not use  resolve_argument here, but we don't want it to be associated to the handle in the scope.
-			auto unit_id = model->units.find_or_create(nullptr, scope, nullptr, arg->decl);
+			auto unit_id = model->units.find_or_create(scope, nullptr, nullptr, arg->decl);
 			auto unit = model->units[unit_id];
 			unit->data.set_data(arg->decl);
 			if(!arg->decl->handle_name.string_value.count) {
@@ -845,7 +845,7 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	
 	
-	auto id  = model->vars.find_or_create(&decl->handle_name, scope, nullptr, decl);
+	auto id  = model->vars.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto var = model->vars[id];
 	
 	// NOTE: We don't register it with the name in find_or_create because it doesn't matter if this name clashes with other entities
@@ -914,7 +914,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	Token *name = single_arg(decl, 3);
 	
-	auto id   = model->fluxes.find_or_create(&decl->handle_name, scope, name, decl);
+	auto id   = model->fluxes.find_or_create(scope, &decl->handle_name, name, decl);
 	auto flux = model->fluxes[id];
 	
 	flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
@@ -958,7 +958,7 @@ template<> Entity_Id
 process_declaration<Reg_Type::discrete_order>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	match_declaration(decl, {{ }}, false);
 	
-	auto id    = model->discrete_orders.find_or_create(nullptr, scope, nullptr, decl);
+	auto id    = model->discrete_orders.find_or_create(scope, nullptr, nullptr, decl);
 	auto discr = model->discrete_orders[id];
 	
 	auto body = static_cast<Function_Body_AST *>(decl->bodies[0]);
@@ -973,7 +973,7 @@ process_declaration<Reg_Type::discrete_order>(Mobius_Model *model, Decl_Scope *s
 			success = false;
 			break;
 		}
-		auto flux_id = model->fluxes.find_or_create(&ident->chain[0], scope, nullptr, nullptr);
+		auto flux_id = model->fluxes.find_or_create(scope, &ident->chain[0], nullptr, nullptr);
 		discr->fluxes.push_back(flux_id);
 		auto flux = model->fluxes[flux_id];
 		if(is_valid(flux->discrete_order)) {
@@ -1058,7 +1058,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		
 		if(expr->type == Math_Expr_Type::regex_identifier) {
 			auto ident = static_cast<Regex_Identifier_AST *>(expr);
-			auto compartment_id = model->components.find_or_create(&ident->ident, scope);
+			auto compartment_id = model->components.find_or_create(scope, &ident->ident);
 			connection->components.push_back(compartment_id);
 			success = true;
 		} else if(expr->type == Math_Expr_Type::regex_or_chain) {
@@ -1069,7 +1069,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 					break;
 				}
 				auto ident = static_cast<Regex_Identifier_AST *>(expr2);
-				auto compartment_id = model->components.find_or_create(&ident->ident, scope);
+				auto compartment_id = model->components.find_or_create(scope, &ident->ident);
 				connection->components.push_back(compartment_id);
 			}
 			success = success2;
@@ -1099,7 +1099,7 @@ template<> Entity_Id
 process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	match_declaration(decl, {{Token_Type::identifier}});
 	
-	auto id  = model->locs.find_or_create(&decl->handle_name, scope, nullptr, decl);
+	auto id  = model->locs.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto loc = model->locs[id];
 	
 	process_location_argument(model, scope, decl, 0, &loc->loc, true, true, &loc->par_id);
@@ -1230,7 +1230,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	if(is_valid(module_id)) return module_id; // It has been specialized with this name already, so just return the one that was already created.
 	
 	// TODO: The other name must be used here too:
-	module_id = model->modules.find_or_create(nullptr, model_scope, spec_name_token, nullptr);
+	module_id = model->modules.find_or_create(model_scope, nullptr, spec_name_token, nullptr);
 	auto module = model->modules[module_id];
 	
 	if(load_name)
@@ -1734,7 +1734,7 @@ load_model(String_View file_name, String_View config) {
 				
 				case Decl_Type::module : {
 					// Inline module sub-scope inside the model declaration.
-					auto template_id = model->module_templates.find_or_create(nullptr, scope, nullptr, child);
+					auto template_id = model->module_templates.find_or_create(scope, nullptr, nullptr, child);
 					auto mod_temp = model->module_templates[template_id];
 					mod_temp->decl = child;
 					//module->scope.parent_id = module_id;

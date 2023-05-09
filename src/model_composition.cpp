@@ -541,7 +541,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			
 			auto name = var->var_name;
 			if(name.empty())
-				name = model->find_entity(var->var_location.last())->name;  //TODO: this is a pretty poor stopgap. We could generate something based on the Var_Location instead?
+				name = model->find_entity(var->var_location.last())->name;  //TODO: should this use the serial name instead?
 			
 			Decl_Type type = model->find_entity(var->var_location.last())->decl_type;
 			auto find = has_location.find(var->var_location);

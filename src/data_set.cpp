@@ -77,11 +77,34 @@ write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_se
 }
 
 void
-write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *data_set) {
+print_tabs(FILE *file, int ntabs) {
+	if(ntabs <= 0) return;
+	if(ntabs == 1) {
+		fprintf(file, "\t");
+		return;
+	}
+	if(ntabs == 2) {
+		fprintf(file, "\t\t");
+		return;
+	}
+	if(ntabs == 3) {
+		fprintf(file, "\t\t\t");
+		return;
+	}
+	if(ntabs == 4) {
+		fprintf(file, "\t\t\t\t");
+		return;
+	}
+}
+
+void
+write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *data_set, int n_tabs) {
+	print_tabs(file, n_tabs+1);
 	if(component.handle.empty())
-		fprintf(file, "\t%s(\"%s\") [", name(component.decl_type), component.name.data());
+		fprintf(file, "%s(\"%s\") [", name(component.decl_type), component.name.data());
 	else
-		fprintf(file, "\t%s : %s(\"%s\") [", component.handle.data(), name(component.decl_type), component.name.data());
+		fprintf(file, "%s : %s(\"%s\") [", component.handle.data(), name(component.decl_type), component.name.data());
+		
 	for(int idx_set_idx : component.index_sets) {
 		auto index_set = data_set->index_sets[idx_set_idx];
 		fprintf(file, " \"%s\"", index_set->name.data());
@@ -108,12 +131,13 @@ write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *da
 }
 
 void
-write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set) {
+write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set, int n_tabs = 0) {
 	
+	print_tabs(file, n_tabs);
 	fprintf(file, "connection(\"%s\") [\n", connection.name.data());
 	
 	for(auto &component : connection.components)
-		write_component_info_to_file(file, component, data_set);
+		write_component_info_to_file(file, component, data_set, n_tabs);
 	
 	if(connection.type == Connection_Info::Type::graph) {
 		if(connection.arrows.empty()) return;
@@ -126,7 +150,8 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 		Compartment_Ref *prev = nullptr;
 		for(auto &pair : connection.arrows) {
 			if(!prev || !(pair.first == *prev)) {
-				fprintf(file, "\n\t");
+				fprintf(file, "\n");
+				print_tabs(file, n_tabs+1);
 				write_indexed_compartment_to_file(file, pair.first, data_set, connection);
 			}
 			fprintf(file, " -> ");
@@ -139,28 +164,8 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 	} else {
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in write_to_file.");
 	}
+	print_tabs(file, n_tabs);
 	fprintf(file, "]\n\n");
-}
-
-void
-print_tabs(FILE *file, int ntabs) {
-	if(ntabs <= 0) return;
-	if(ntabs == 1) {
-		fprintf(file, "\t");
-		return;
-	}
-	if(ntabs == 2) {
-		fprintf(file, "\t\t");
-		return;
-	}
-	if(ntabs == 3) {
-		fprintf(file, "\t\t\t");
-		return;
-	}
-	if(ntabs == 4) {
-		fprintf(file, "\t\t\t\t");
-		return;
-	}
 }
 
 int
@@ -294,6 +299,8 @@ void
 write_module_to_file(FILE *file, Data_Set *data_set, Module_Info &module) {
 	fprintf(file, "module(\"%s\", %d, %d, %d) {\n", module.name.data(), module.version.major, module.version.minor, module.version.revision);
 	int idx = 0;
+	for(auto &connection : module.connections)
+		write_connection_info_to_file(file, connection, data_set, 1);
 	for(auto &par_group : module.par_groups)
 		write_par_group_to_file(file, data_set, par_group, 1, idx++ != module.par_groups.count()-1);
 	fprintf(file, "}\n\n");
@@ -335,7 +342,7 @@ Data_Set::write_to_file(String_View file_name) {
 		for(auto &index_set : index_sets)
 			write_index_set_to_file(file, this, index_set);
 		
-		for(auto &connection : connections)
+		for(auto &connection : global_module.connections)
 			write_connection_info_to_file(file, connection, this);
 		
 		std::set<std::string> already_processed;
@@ -434,8 +441,12 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	}
 }
 
-void
-read_connection_data(Data_Set *data_set, Token_Stream *stream, Connection_Info *info) {
+void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stream, Decl_AST *decl) {
+	match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
+						
+	auto name = single_arg(decl, 0);
+	auto info = module->connections.create(name->string_value, name->source_loc);
+	
 	stream->expect_token('[');
 	
 	Token token = stream->peek_token();
@@ -808,9 +819,9 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 
 void
 Data_Set::read_from_file(String_View file_name) {
-	if(main_file != "") {
+	if(main_file != "")
 		fatal_error(Mobius_Error::api_usage, "Tried make a data set read from a file ", file_name, ", but it already contains data from the file ", main_file, ".");
-	}
+	
 	main_file = std::string(file_name);
 	
 	auto file_data = file_handler.load_file(file_name);
@@ -847,12 +858,7 @@ Data_Set::read_from_file(String_View file_name) {
 				} break;
 				
 				case Decl_Type::connection : {
-					match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
-					
-					auto name = single_arg(decl, 0);
-					auto data = connections.create(name->string_value, name->source_loc);
-					
-					read_connection_data(this, &stream, data);
+					parse_connection_decl(this, &global_module, &stream, decl);
 				} break;
 				
 				case Decl_Type::series : {
@@ -915,6 +921,10 @@ Data_Set::read_from_file(String_View file_name) {
 						if(token.type == Token_Type::identifier && token.string_value == "par_group") {
 							Decl_AST *decl2 = parse_decl_header(&stream);
 							parse_par_group_decl(this, module, &stream, decl2);
+							delete decl2;
+						} else if(token.type == Token_Type::identifier && token.string_value == "connection") {
+							Decl_AST *decl2 = parse_decl_header(&stream);
+							parse_connection_decl(this, module, &stream, decl2);
 							delete decl2;
 						} else if((char)token.type == '}') {
 							stream.read_token();

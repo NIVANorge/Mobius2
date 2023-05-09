@@ -1,3 +1,4 @@
+#time_step([2, hr])
 time_step([day])
 
 index_set("Layer index") [ 124 ]

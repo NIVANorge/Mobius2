@@ -333,6 +333,15 @@ binop_reduction_first_pass(Math_Expr_FT *expr) {
 			}
 		}
 	}
+	
+	if((char)binary->oper == '&' && are_the_same(expr->exprs[0], expr->exprs[1])) {
+		auto result = expr->exprs[0];
+		delete expr->exprs[1];
+		expr->exprs.clear();
+		delete expr;
+		return result;
+	}
+	
 	return expr;
 }
 

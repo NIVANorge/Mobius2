@@ -422,7 +422,7 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 		
 		if(ids.size() > 1) {
 			header.loc.print_warning_header();
-			warning_print("The name \"", header.name, "\" is not unique, and identifies multiple input series.\n");
+			warning_print("The name \"", header.name, "\" is not unique, and identifies multiple series.\n");
 		} else if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
 			// See if it was already registered.
@@ -664,16 +664,17 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 }
 
 void
-pre_process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set) {
+pre_process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set, const std::string &module_name = "") {
 	
 	auto model = app->model;
 	
-	// TODO: There should be an ability to scope these to modules also.
+	Entity_Id module_id = invalid_entity_id;
+	if(!module_name.empty())
+		module_id = model->deserialize(module_name, Reg_Type::module);
 	
-	auto &scope = model->model_decl_scope;
+	auto scope = model->get_scope(module_id);
 	
-	//auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
-	auto conn_id = model->deserialize(connection.name, Reg_Type::connection);
+	auto conn_id = scope->deserialize(connection.name, Reg_Type::connection);
 	
 	if(!is_valid(conn_id)) {
 		connection.loc.print_error_header();
@@ -689,7 +690,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		compartment_only = false;
 	}
 	for(auto &comp : connection.components) {
-		Entity_Id comp_id = scope.deserialize(comp.name, Reg_Type::component);
+		Entity_Id comp_id = model->model_decl_scope.deserialize(comp.name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
 			comp.loc.print_warning_header();
 			warning_print("The component \"", comp.name, "\" has not been declared in the model.\n");
@@ -707,10 +708,10 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		
 		for(auto &arr : connection.arrows) {
 			auto comp_source = connection.components[arr.first.id];
-			Entity_Id source_comp_id = scope.deserialize(comp_source->name, Reg_Type::component);
+			Entity_Id source_comp_id = model->model_decl_scope.deserialize(comp_source->name, Reg_Type::component);
 			
 			auto comp_target = connection.components[arr.second.id];
-			Entity_Id target_comp_id = scope.deserialize(comp_target->name, Reg_Type::component);
+			Entity_Id target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
 			
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
 			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
@@ -739,26 +740,27 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 }
 
 void
-process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set) {
+process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set, const std::string &module_name = "") {
 	
 	auto model = app->model;
 	
-	// TODO: scoping
+	Entity_Id module_id = invalid_entity_id;
+	if(!module_name.empty())
+		module_id = model->deserialize(module_name, Reg_Type::module);
 	
-	auto &scope = model->model_decl_scope;
+	auto scope = model->get_scope(module_id);
 	
-	auto conn_id = model->deserialize(connection.name, Reg_Type::connection);
-	//auto conn_id = scope.deserialize(connection.name, Reg_Type::connection);
+	auto conn_id = scope->deserialize(connection.name, Reg_Type::connection);
 	auto cnd = model->connections[conn_id];
 			
 	if(cnd->type == Connection_Type::directed_tree) {
 
 		for(auto &arr : connection.arrows) {
 			auto comp = connection.components[arr.first.id];
-			Entity_Id source_comp_id = scope.deserialize(comp->name, Reg_Type::component);
+			Entity_Id source_comp_id = model->model_decl_scope.deserialize(comp->name, Reg_Type::component);
 			
 			auto comp_target = connection.components[arr.second.id];
-			Entity_Id target_comp_id = scope.deserialize(comp_target->name, Reg_Type::component);
+			Entity_Id target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
 			
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
 			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
@@ -855,21 +857,31 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		set_up_index_count_structure();
 	
 	connection_components.resize(model->connections.count());
-	for(auto &connection : data_set->connections)
+	
+	for(auto &connection : data_set->global_module.connections)
 		pre_process_connection_data(this, connection, data_set);
+	for(auto &module : data_set->modules) {
+		for(auto &connection : module.connections)
+			pre_process_connection_data(this, connection, data_set, module.name);
+	}
+	
 	for(auto conn_id : model->connections) {
 		auto &components = connection_components[conn_id.id];
 		if(components.empty()) {
 			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");
-			//TODO: Should maybe just auto-generate instead.
+			//TODO: Should maybe just print a warning and auto-generate the data instead of having an error. This is more convenient when creating a new project.
 		}
 	}
 	
 	if(!connection_structure.has_been_set_up)
 		set_up_connection_structure();
 	
-	for(auto &connection : data_set->connections)
+	for(auto &connection : data_set->global_module.connections)
 		process_connection_data(this, connection, data_set);
+	for(auto &module : data_set->modules) {
+		for(auto &connection : module.connections)
+			process_connection_data(this, connection, data_set, module.name);
+	}
 	
 	std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> par_group_index_sets;
 	for(auto &par_group : data_set->global_module.par_groups)

@@ -10,7 +10,25 @@
 	}
 	#etc.
 	
-
+	# Model options, that can be configured in the dataset
+	option_set("Evapotranspiration module") {
+		option("Degree-day") {
+			load(bla bla bla)
+		}
+		option("Penman-Monteith") {
+			sw : property("Shortwave radiation")
+			etc..
+			load( p-m)
+			load( atmospheric )
+		}
+	}
+	
+	#Dataset:
+	
+	option_set("Evapotranspiration module") [ "Degree-day" ]
+	
+	
+	
 
 
 
