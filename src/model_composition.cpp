@@ -219,27 +219,6 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 }
 
 void
-replace_conc(Model_Application *app, Math_Expr_FT *expr) {
-	// TODO: This should be baked into resolve_function_tree() since the var_id of the conc is available before we do the resolves.
-	
-	for(auto arg : expr->exprs) replace_conc(app, arg);
-	if(expr->expr_type != Math_Expr_Type::identifier) return;
-	auto ident = static_cast<Identifier_FT *>(expr);
-	if((ident->variable_type != Variable_Type::state_var) || !(ident->flags & Identifier_FT::Flags::conc)) return;
-	auto var = app->vars[ident->var_id];
-	
-	if(var->type != State_Var::Type::declared)
-		fatal_error(Mobius_Error::internal, "Somehow we tried to look up the conc of a generated state variable");
-	auto var2 = as<State_Var::Type::declared>(var);
-	if(!is_valid(var2->conc)) {
-		expr->source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("This variable does not have a concentration");
-	}
-	ident->var_id = var2->conc;
-	ident->flags = (Identifier_FT::Flags)(ident->flags & ~Identifier_FT::Flags::conc);
-}
-
-void
 restrictive_lookups(Math_Expr_FT *expr, Decl_Type decl_type, std::set<Entity_Id> &parameter_refs) {
 	//TODO : Should we just reuse register_dependencies() ?
 	for(auto arg : expr->exprs) restrictive_lookups(arg, decl_type, parameter_refs);
@@ -983,7 +962,6 @@ compose_and_resolve(Model_Application *app) {
 			auto res = resolve_function_tree(ast, &res_data);
 			fun = res.fun;
 			fun = make_cast(fun, Value_Type::real);
-			replace_conc(app, fun); // Replace explicit conc() calls by pointing them to the conc variable.
 			find_other_flags(fun, in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			
 			if(!match_exact(&res.unit, &res_data.expected_unit)) {
@@ -1029,7 +1007,6 @@ compose_and_resolve(Model_Application *app) {
 			auto fun = resolve_function_tree(init_ast, &res_data);
 			var2->initial_function_tree = owns_code(make_cast(fun.fun, Value_Type::real));
 			remove_lasts(var2->initial_function_tree.get(), true);
-			replace_conc(app, var2->initial_function_tree.get());  // Replace explicit conc() calls by pointing them to the conc variable
 			find_other_flags(var2->initial_function_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment, true);
 			var2->initial_is_conc = initial_is_conc;
 			
@@ -1068,7 +1045,6 @@ compose_and_resolve(Model_Application *app) {
 				
 				var2->override_tree = owns_code(make_cast(override_tree, Value_Type::real));
 				var2->override_is_conc = override_is_conc;
-				replace_conc(app, var2->override_tree.get());
 				find_other_flags(var2->override_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment, false);
 			}
 		} else

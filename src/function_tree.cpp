@@ -594,11 +594,11 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		error_print("A ", fun_name, "() declaration can only be applied to a state variable or input series.\n");
 		fatal_error_trace(scope);
 	}
-	auto var = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
+	auto ident = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
 	bool can_series = (directive != Directive::in_flux) && (directive != Directive::conc);
 	bool can_param  = false;
-	if(!(var->variable_type == Variable_Type::state_var || (can_series && var->variable_type == Variable_Type::series) || (can_param && var->variable_type == Variable_Type::parameter))) {
-		var->source_loc.print_error_header();
+	if(!(ident->variable_type == Variable_Type::state_var || (can_series && ident->variable_type == Variable_Type::series) || (can_param && ident->variable_type == Variable_Type::parameter))) {
+		ident->source_loc.print_error_header();
 		error_print("A ", fun_name, "() declaration can only be applied to a state variable");
 		if(can_series) error_print(" or input series");
 		if(can_param)  error_print(" or parameter");
@@ -606,13 +606,14 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		fatal_error_trace(scope);
 	}
 	if(directive == Directive::last)
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::last_result);
+		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::last_result);
 	else if(directive == Directive::in_flux)
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::in_flux);
+		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::in_flux);
 	else if(directive == Directive::aggregate)
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::aggregate);
-	else if(directive == Directive::conc)
-		var->flags = (Identifier_FT::Flags)(var->flags | Identifier_FT::Flags::conc);
+		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::aggregate);
+	else if(directive == Directive::conc) {
+		//Do nothing, we can solve it directly.
+	}
 	
 	if(directive == Directive::in_flux) {
 		if(arg_count == 2) {
@@ -622,7 +623,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 				auto ident = static_cast<Identifier_FT *>(new_fun->exprs[0]);
 				if(ident->variable_type != Variable_Type::connection) error = true;
 				else {
-					var->restriction.connection_id = ident->restriction.connection_id;   //TODO: Ooops, could this clash if there is in_flux(conn, bla[conn2.top])  . This should just not compile though. See also find_other_flags() in model_composition.cpp
+					ident->restriction.connection_id = ident->restriction.connection_id;   //TODO: Ooops, could this clash if there is in_flux(conn, bla[conn2.top])  . This should just not compile though. See also find_other_flags() in model_composition.cpp
 					delete ident;
 				}
 			}
@@ -637,18 +638,25 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 				error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the '", fun_name, "' expression.");
 				fatal_error_trace(scope);
 			}
-			var->restriction.connection_id = data->connection;
+			ident->restriction.connection_id = data->connection;
 		}
 	}
 	
 	new_fun->exprs.clear();
 	delete new_fun;
 	
-	result.fun = var;
+	result.fun = ident;
 	if(directive == Directive::in_flux) {
 		result.unit = multiply(arg_units[var_idx], data->app->time_step_unit.standard_form, -1);
 	} else if(directive == Directive::conc) {
-		auto conc_id = as<State_Var::Type::declared>(data->app->vars[var->var_id])->conc;
+		auto var = as<State_Var::Type::declared>(data->app->vars[ident->var_id]);
+		auto conc_id = var->conc;
+		if(!is_valid(conc_id)) {
+			ident->source_loc.print_error_header(Mobius_Error::model_building);
+			error_print("This variable does not have a concentration.");
+			fatal_error_trace(scope);
+		}
+		ident->var_id = conc_id;
 		result.unit = data->app->vars[conc_id]->unit.standard_form;
 	} else
 		result.unit = std::move(arg_units[var_idx]);

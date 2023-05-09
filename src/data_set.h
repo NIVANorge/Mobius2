@@ -50,6 +50,7 @@ Info_Registry {
 		return nullptr;
 	}
 	Info_Type *create(const std::string &name, Source_Location loc) {
+		check_allowed_serial_name(name, loc);
 		auto find = name_to_id.find(name);
 		if(find != name_to_id.end()) {
 			loc.print_error_header();

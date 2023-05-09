@@ -102,17 +102,6 @@ Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 	}
 }
 
-void
-check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
-	for(int idx = 0; idx < serial_name.count; ++idx) {
-		char c = serial_name[idx];
-		if(c == ':' || c == '.') {
-			loc.print_error_header();
-			fatal_error("The symbol '", c, "' is not allowed inside a name.");
-		}
-	}
-}
-
 // TODO: Should change scope to the first argument.
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *serial_name, Decl_AST *decl) {

@@ -155,7 +155,8 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 
 bool
 are_the_same(Math_Expr_FT *a, Math_Expr_FT *b) {
-	// NOTE: This is not currently guaranteed to return true for all cases where two expressions are the same, it just does some low hanging fruits that are useful for a particular optimization.
+	// NOTE: This is not currently guaranteed to return true for all cases where two expressions are the same
+	// it just does some low hanging fruits that are useful for a couple of particular optimizations.
 	
 	if(a->expr_type != b->expr_type) return false;
 	if(a->value_type != b->value_type) return false;
@@ -257,7 +258,7 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 		result.type = Value_Type::boolean;
 		result.val_boolean = val.val_boolean;
 	} else if (op == '|') {
-		if(result.val_boolean) {
+		if(val.val_boolean) {
 			result.type = Value_Type::boolean;
 			result.val_boolean = true;
 		} else

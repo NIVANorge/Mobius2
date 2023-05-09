@@ -259,4 +259,7 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 int
 operator_precedence(Token_Type t);
 
+void
+check_allowed_serial_name(String_View name, Source_Location &loc);
+
 #endif // MOBIUS_AST_H

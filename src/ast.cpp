@@ -845,3 +845,15 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 	}
 	return false;
 }
+
+void
+check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
+	for(int idx = 0; idx < serial_name.count; ++idx) {
+		char c = serial_name[idx];
+		if(c == ':' || c == '.') {
+			loc.print_error_header();
+			fatal_error("The symbol '", c, "' is not allowed inside a name.");
+		}
+	}
+}
+

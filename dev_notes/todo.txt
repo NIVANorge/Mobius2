@@ -17,11 +17,6 @@
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
 			This in particular may have been fixed now.
-			
-			
-	New serialization system
-		Scoping of connection data in data set.
-			Fixed with stopgap, but we should actually disallow .,: in names in the dataset also.
 	
 
 	Finish connection system
@@ -32,7 +27,6 @@
 		graph connections
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 
-			
 		Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
 			Also only one matrix indexing for a given state variable (at least for now)
 			A challenge is providing good error messages.
@@ -44,6 +38,7 @@
 			should not invalidate the entire expression, only make the something[above] evaluate to 0 (?)
 		Does this give the correct result in all instances ?
 			Would prefer to have this since it improves usability.
+			Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
 
 		
 	Fix order of registering modules.

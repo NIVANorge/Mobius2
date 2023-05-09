@@ -454,9 +454,6 @@ Var_Location
 add_dissolved(const Var_Location &loc, Entity_Id quantity);
 
 void
-check_allowed_serial_name(String_View name, Source_Location &loc);
-
-void
 error_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 void
 debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
