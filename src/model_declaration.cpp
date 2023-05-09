@@ -4,24 +4,11 @@
 
 void
 Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id) {
-	static std::string reserved[] = {
-		#define ENUM_VALUE(name, _a, _b) #name,
-		#include "decl_types.incl"
-		#undef ENUM_VALUE
-		
-		#define ENUM_VALUE(name) #name,
-		#include "special_directives.incl"
-		#undef ENUM_VALUE
-		
-		#include "other_reserved.incl"
-	};
+	
+	if(is_reserved(handle))
+		fatal_error(Mobius_Error::internal, "Somehow we got a reserved keyword '", handle, "' on a stage after it should have been ruled out.");
 	
 	if(!handle.empty()) {
-		if(std::find(std::begin(reserved), std::end(reserved), handle) != std::end(reserved)) {
-			source_loc.print_error_header();
-			fatal_error("The name '", handle, "' is reserved.");
-		}
-		
 		auto find = visible_entities.find(handle);
 		if(find != visible_entities.end()) {
 			source_loc.print_error_header();

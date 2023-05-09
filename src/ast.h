@@ -262,4 +262,7 @@ operator_precedence(Token_Type t);
 void
 check_allowed_serial_name(String_View name, Source_Location &loc);
 
+bool
+is_reserved(const std::string &handle);
+
 #endif // MOBIUS_AST_H

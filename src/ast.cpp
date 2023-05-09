@@ -857,3 +857,19 @@ check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
 	}
 }
 
+bool
+is_reserved(const std::string &handle) {
+	static std::string reserved[] = {
+		#define ENUM_VALUE(name, _a, _b) #name,
+		#include "decl_types.incl"
+		#undef ENUM_VALUE
+		
+		#define ENUM_VALUE(name) #name,
+		#include "special_directives.incl"
+		#undef ENUM_VALUE
+		
+		#include "other_reserved.incl"
+	};
+	return (std::find(std::begin(reserved), std::end(reserved), handle) != std::end(reserved));
+}
+
