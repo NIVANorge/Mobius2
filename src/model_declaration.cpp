@@ -1,5 +1,6 @@
 
 #include <sys/stat.h>
+#include <algorithm>
 #include "model_declaration.h"
 
 void
@@ -1475,8 +1476,17 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	model->components[data.source.first()]->unit_convs.push_back(data);
 }
 
+struct
+Model_Extension {
+	std::string normalized_path;
+	Decl_AST *decl;
+	int load_order;
+	int depth;
+};
+
 bool
-load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unordered_set<std::string> &loaded_paths, std::vector<std::pair<std::string, Decl_AST *>> &loaded_decls, String_View rel_path) {
+load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
+	std::unordered_set<std::string> &loaded_paths, std::vector<Model_Extension> &loaded_decls, String_View rel_path, int *load_order, int depth) {
 	
 	auto body = static_cast<Decl_Body_AST *>(from_decl->bodies[0]);
 	
@@ -1504,8 +1514,8 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unor
 		
 		// Make sure to only load it once.
 		bool found = false;
-		for(auto &pair : loaded_decls) {
-			if(pair.first == normalized_path) {
+		for(auto &extend : loaded_decls) {
+			if(extend.normalized_path == normalized_path) {
 				found = true;
 				break;
 			}
@@ -1513,10 +1523,10 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl, std::unor
 		if(found)
 			delete extend_model; // TODO: see above
 		else {
-			loaded_decls.push_back( { normalized_path, extend_model } );
-		
+			loaded_decls.push_back( { normalized_path, extend_model, *load_order, depth} );
+			(*load_order)++;
 			// Load extensions of extensions.
-			bool success = load_model_extensions(handler, extend_model, loaded_paths_sub, loaded_decls, normalized_path);
+			bool success = load_model_extensions(handler, extend_model, loaded_paths_sub, loaded_decls, normalized_path, load_order, depth+1);
 			if(!success) {
 				error_print(extend_file_name, "\n");
 				return false;
@@ -1611,18 +1621,23 @@ load_model(String_View file_name, String_View config) {
 	register_intrinsics(model);
 
 	std::unordered_set<std::string> loaded_files = { file_name };
-	std::vector<std::pair<std::string, Decl_AST *>> extend_models = { { file_name, decl} };
-	bool success = load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name);
+	std::vector<Model_Extension> extend_models = { { file_name, decl, 0, 0} };
+	int order = 1;
+	bool success = load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name, &order, 1);
 	if(!success)
 		mobius_error_exit();
 	
-	std::reverse(extend_models.begin(), extend_models.end());
+	//std::reverse(extend_models.begin(), extend_models.end());
+	std::sort(extend_models.begin(), extend_models.end(), [](const Model_Extension &extend1, const Model_Extension &extend2) -> bool {
+		if(extend1.depth == extend2.depth) return extend1.load_order < extend2.load_order;
+		return extend1.depth > extend2.depth;
+	});
 
 	auto scope = &model->model_decl_scope;
 	
 	// We need to process these first since some other declarations rely on these existing, such as par_group.
 	for(auto &extend : extend_models) {
-		auto ast = extend.second;
+		auto ast = extend.decl;
 		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		
 		for(Decl_AST *child : body->child_decls) {
@@ -1648,7 +1663,7 @@ load_model(String_View file_name, String_View config) {
 	}
 	
 	for(auto &extend : extend_models) {
-		auto ast = extend.second;
+		auto ast = extend.decl;
 		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
 			
@@ -1663,8 +1678,8 @@ load_model(String_View file_name, String_View config) {
 	
 	// NOTE: process loads before the rest of the model scope declarations. (may no longer be necessary).
 	for(auto &extend : extend_models) {
-		auto model_path = extend.first;
-		auto ast = extend.second;
+		auto &model_path = extend.normalized_path;
+		auto ast = extend.decl;
 		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		for(Decl_AST *child : body->child_decls) {
 			//TODO: do libraries also.
@@ -1725,7 +1740,7 @@ load_model(String_View file_name, String_View config) {
 	}
 	
 	for(auto &extend : extend_models) {
-		auto ast = extend.second;
+		auto ast = extend.decl;
 		auto body = static_cast<Decl_Body_AST *>(ast->bodies[0]);
 		
 		for(Decl_AST *child : body->child_decls) {

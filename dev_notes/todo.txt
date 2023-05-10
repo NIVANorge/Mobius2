@@ -5,14 +5,6 @@
 	
 
 	Clean up how we generate code for computing indexes. It is very messy.
-	
-	Put some allowance checks into the function tree resolution.
-		e.g. we can put in the Function_Resolve_Data whether or not a particular piece or code can look up non-constant values, or various things, removing the need for "restrictive_lookups" in model_declaration.cpp . Could similarly restrict in_flux etc.
-
-	Finish sub-indexed index sets
-		May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
-		Sub-indexed series data.
-		Named sub-indexes?
 
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
@@ -27,28 +19,26 @@
 		graph connections
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 
-		Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
-			Also only one matrix indexing for a given state variable (at least for now)
-			A challenge is providing good error messages.
-		ability to correctly view all_to_all fluxes (or other matrix results) in MobiView.
+		all_to_all:
+			Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
+				Also only one matrix indexing for a given state variable (at least for now)
+				A challenge is providing good error messages.
+			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
 
 		What about:
 			accessing
 				something[above]
-			should not invalidate the entire expression, only make the something[above] evaluate to 0 (?)
+			should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
+				Or maybe invalidate ( set to 0 ) just that particular expression ( though that is not as well defined ).
 		Does this give the correct result in all instances ?
 			Would prefer to have this since it improves usability.
 			Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
 
-		
-	Fix order of registering modules.
 	
 	*** Intermediate-pri ***
-	
-		Would it be sensible to merge all the Var_Registry's into one? It would simplify some parts of the code at least.
-		
 		
 		Override declaration.
+			E.g. to change the connection regex of a connection in an extending model.
 			How to do it for no_carry?
 				The way we now do no_carry is in general maybe not that good after all.
 	
@@ -63,8 +53,8 @@
 				Tried it, but it has a bug.
 			Memory management is easy to get wrong in this system.
 	
-		Some system for specifying state variables that should not be stored
-			Quite complicated. Does it mean that they are computed inline, or is there some temporary storage for them (the last maybe works best with most systems)?
+		Some system for specifying state variables that should not be stored (properties only).
+			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
 			First iteration could be to just not display them, but still have them stored in the same place as everything else
 
 		Normalized file paths can be different depending on how they were loaded using relative paths. This causes it some times to try to load the same library twice, which causes a name clash.
@@ -73,7 +63,7 @@
 		It could probably be better if you *only* declare the time unit for the flux
 			Alternatively need some way to construct units, like
 				combine_unit(soil.water.oc.tox, [day-1])
-			Hmm, now I don't remember why I wanted this, but it may have to do with module reusability.
+			This has to do with module reusability, could apply the module to quantities with different units.
 				
 
 		More on module loading and the declaration format:
@@ -94,7 +84,7 @@
 		
 			Check for conflicting declarations of variables (unit, name).
 			
-			Inline decls in arguments don't quite work unless they are in the right order. Maybe pre-process them.
+			Inline decls in arguments don't quite work unless they are in the right order. May need to recursively make a list of all decls in a decl body, then process that list. A bit tricky though.
 		
 		
 		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
@@ -112,27 +102,29 @@
 		
 		Re-consolidate input loading with the serialization system.
 			Tricky...
-			
-		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
 		
-	
+		Finish sub-indexed index sets
+			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
+			Sub-indexed series data.
+		
+		
 	*** Low-pri ****
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
+			Could at least infer unit conversion for dissolvedes if their conc units are compatible.
 		
 		Maybe the decl_type of module template should just be module_template (in the module files).
 		
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
 		
 		Capping of discrete fluxes from override variables not necessary?
+			I.e. don't have to check if a flux with the source in a variable that is 'override' overtaxes its source.
 		
 		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
-	
-		Make in_flux deal correctly with boundary fluxes.
-			Should not be added in regular in_flux.
-			Isn't this already the case since they have a connection though?
+		Similarly also want to allow inputs to override parameters.
 		
-		should the connection be scoped to a module in the data set file if it doesn't exist in the model scope in the model?
+		
+		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
 	
 		Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
 			Must also handle if there is a constant .override

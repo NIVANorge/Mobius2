@@ -780,6 +780,14 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			scope->exprs.push_back(result_code);
 		}
 		
+		if(scope->exprs.empty()) {
+			// This could happen in some rare cases where it just contains placeholders for aggregation variables, and so not additional computation should happen.
+			
+			// TODO: We could just check first if the block just contains placeholders and skip creating this in the first place.
+			top_scope->exprs.pop_back();
+			delete scope;
+		}
+		
 		indexes.clean();
 	}
 	

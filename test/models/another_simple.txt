@@ -2,45 +2,37 @@
 
 model("Another simple") {
 
-	sp : module("So simple", version(1, 0, 0)) {
+	module("So simple", version(1, 0, 0)) {
 	
-		load("stdlib/basic_math.txt", library("Response"))
+		#load("stdlib/basic_math.txt", library("Response"))
 	
-		par_group("Pars") {
-			fc : par_real("Rate", [], 10)
-		}
+		var(a.q, []) @initial { 20 }
 		
-		var(a.q, []) @initial { 10 }
+		var(b.q, []) @initial { 1 }
 		
-		#c : connection("C", all_to_all) { a* }
-		b : property("Test")
+		var(c.q, [])
 		
-		var(a.b, [day-1]) {
-			rate := (q - fc) / 20[day],
-			{
-				0 if 20 < fc,
-				rate if 20 >= 1.5*fc,
-				{
-					-22=>>
-				} otherwise
-			}
-			fc =>>
-		}
+		flux(a.q, b.q[d.top], [day-1], "Flixflux") { 0.01[day-1]*q }
 		
-		flux(nowhere, a.q, [day-1], "Q in") { 1[day-1] }
+		flux(b.q[d.bottom], c.q, [day-1], "Fluxflix") { 0.01[day-1]*q[d.bottom] }
+		#flux(a.q, b.q, [day-1], "Flixflux") { 0.01[day-1]*q }
 		
-		#flux(a.q, nowhere, [day-1], "Q out") {
-			#rate := (q - fc) / 20[day]
-			#s_response(q, fc, 1.5*fc, 0, rate)
-		#}
+		test : property("Test") 
+		
+		var(b.test, [day-1]) { in_flux(q) }
+		
+		var(c.test, [day-1]) { in_flux(q) }
 	}
 	a : compartment("A")
+	b : compartment("B")
+	c : compartment("C")
 	q : quantity("Q")
 	
-	#i : index_set("I")
+	i : index_set("I")
+	distribute(b, i)
+	d : connection("Grid", grid1d) { b* }
 	
-	#distribute(a, i)
 	
 	sol : solver("Solver", "INCADascru", 0.1)
-	solve(sol, a.q)
+	solve(sol, a.q, b.q)
 }

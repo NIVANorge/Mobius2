@@ -2,11 +2,11 @@ time_step([day])
 
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 
-connection("Migration route") [
-	compartment("Habitat") [ "Habitat index" ]
-]
-
 module("Giblet-Thrasher", 1, 0, 0) {
+	connection("Migration route") [
+		compartment("Habitat") [ "Habitat index" ]
+	]
+
 	par_group("General parameters") {
 		par_int ("Giblet preferred birthday") [ 120 ]
 		par_real("Giblet propensity to migrate") [ 0.02 ]
@@ -35,7 +35,7 @@ par_group("System") {
 	par_datetime("End date")   [ 2000-1-1 ]
 }
 
-series() [
+series [
 	"Meteor strikes"["Habitat index" : "Plateau"][[u mol, m-2]]
 1990-1-1	0
 1990-1-12	1
