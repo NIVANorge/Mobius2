@@ -137,11 +137,11 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 			auto &header = data.header_data.back();
 			// TODO: Make system for having more than one index tuple for the same series.
 			header.name = current_input_name;
-			header.loc.filename = handles->file_path;
-			header.loc.type = Source_Location::Type::spreadsheet;
-			header.loc.column = col+2;
-			header.loc.line   = 1;
-			header.loc.tab    = tab+1;
+			header.source_loc.filename = handles->file_path;
+			header.source_loc.type = Source_Location::Type::spreadsheet;
+			header.source_loc.column = col+2;
+			header.source_loc.line   = 1;
+			header.source_loc.tab    = tab+1;
 			
 			header.indexes.push_back(std::move(indexes));
 			

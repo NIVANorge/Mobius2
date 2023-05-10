@@ -20,9 +20,6 @@
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 
 		all_to_all:
-			Make sure only the right kind of Model_Instructions can be matrix indexed (maybe allow for properties, but not for most fluxes and quantities, except for all_to_all fluxes (and only with the right index set)).
-				Also only one matrix indexing for a given state variable (at least for now)
-				A challenge is providing good error messages.
 			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
 
 		What about:
@@ -106,7 +103,10 @@
 		Finish sub-indexed index sets
 			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 			Sub-indexed series data.
+			
+		Go over and improve diagnostics in error messages (all over the place).
 		
+		Make mobipy work again (and better).
 		
 	*** Low-pri ****
 	
@@ -120,21 +120,16 @@
 		Capping of discrete fluxes from override variables not necessary?
 			I.e. don't have to check if a flux with the source in a variable that is 'override' overtaxes its source.
 		
-		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
-		Similarly also want to allow inputs to override parameters.
 		
+		Separate var storage that is not temporal
+			Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
+			Similarly also want to allow inputs to override parameters.
+		
+			Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
+			Must also handle if there is a constant .override
+				Can use the same storage as for variables that are not stored temporally.
 		
 		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
-	
-		Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
-			Must also handle if there is a constant .override
-			
-		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
-			could be tricky wrt units.
-			could be tricky since right now we assume all quantities are declared.
-			sometimes you don't want it there (though that could be accomplished with no_carry)
-		
-		Iterating over state variables should skip invalid ones automatically.
 		
 		In all_to_all and grid1d connection data in the data set, it should be sufficient to just provide the name of the index set.
 		
@@ -153,9 +148,6 @@
 				Targets computed from aggregate series (stats of aggregate series).
 				
 				Optimizer callback doesn't update additional plot view.
-			
-			Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
-				Maybe not desirable
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
@@ -182,13 +174,16 @@
 			For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
 			similar for graph when that exists.
 		In grid1d, could have wrap-around boundary (?), or could have special values for the boundary (maybe even dynamic)
-		
-		Make mobipy work again (and better).
+	
 		
 		Set units of regular aggregation state variables so that they display correctly if viewed.
 			note that it is a bit tricky for fluxes.
 			
+			
 		aggregate() of series and parameters, or even of arbitrary expressions.
+			Would need a separate instruction type for it.
+			For parameters, ideally it should just be computed once using the constant system described above.
+			For arbitrary expressions, it could be tricky to figure out what compartment it actually aggregates from.
 		
 		
 		Aggregation variables are not always necessary if we could just add things to derivatives directly, but this is not the case always.
@@ -216,6 +211,23 @@
 			0 otherwise
 		It should have recognized that it is not necessary with the duplication of the condition.
 			Probably due to different Var_Restrictions resulting in the same condition on the index.
+		
+		Declaring units with a handle and reusing that handle does not quite work, at least not for parameters.
+		
+		
+
+	Probably not ?:
+	
+		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
+			Maybe only if you specify it to disperse.
+			could be tricky wrt units.
+			could be tricky since right now we assume all quantities are declared.
+			how to determine initial value?
+			sometimes you don't want it there (though that could be accomplished with no_carry)
+	
+		Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
+			Maybe not desirable
+	
 	
 	
 	NOTES

@@ -116,7 +116,7 @@ insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_
 }
 
 void
-insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep, int type) {
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep, int type, bool allow_matrix = true) {
 	
 	const std::vector<Entity_Id> *index_sets = nullptr;
 	if(type == 0)
@@ -236,6 +236,33 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 	}
 	if(changed)
 		fatal_error(Mobius_Error::internal, "Failed to resolve state variable index set dependencies in the alotted amount of iterations!");
+	
+	for(auto &instr : instructions) {
+		// TODO: Do we need to check others? Probably not as those would only happen if they were inherited from a state var.
+		if(instr.type != Model_Instruction::Type::compute_state_var) continue;
+		
+		Entity_Id allow_matrix = invalid_entity_id;
+		auto var = app->vars[instr.var_id];
+		// TODO: Maybe allow for properties ?
+		if(var->is_flux()) {
+			auto &restriction = restriction_of_flux(var);
+			if(is_valid(restriction.connection_id) && model->connections[restriction.connection_id]->type == Connection_Type::all_to_all)
+				allow_matrix = app->get_single_connection_index_set(restriction.connection_id);
+		}
+		
+		// TODO: Need a way to backtrack where this dependency came from. We could store that in the Index_Set_Dependency struct, which means that it would have to be stored in the Identifier_Data struct.
+		int n_matrix = 0;
+		for(auto &index_set : instr.index_sets) {
+			if(index_set.order >= 2) {
+				if(!is_valid(allow_matrix) || index_set.id != allow_matrix)
+					fatal_error(Mobius_Error::model_building, "The variable \"", var->name, "\" ended up with a matrix dependency on the index set \"", model->index_sets[index_set.id]->name, "\", but that is only allowed for fluxes that have an all_to_all connection over that index set as a target.");
+				++n_matrix;
+			}
+		}
+
+		if(n_matrix > 1)
+			fatal_error(Mobius_Error::model_building, "The variable \"", var->name, "\" ended up with more than one matrix dependency. That is currently not supported.");
+	}
 }
 
 void

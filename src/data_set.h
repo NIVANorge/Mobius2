@@ -59,7 +59,7 @@ Info_Registry {
 		name_to_id[name] = (int)data.size();
 		data.push_back({});
 		data.back().name = name;
-		data.back().loc = loc;
+		data.back().source_loc = loc;
 		return &data.back();
 	}
 	int count() { return data.size(); }
@@ -75,7 +75,7 @@ Info_Registry {
 struct
 Info_Type_Base {
 	std::string name;
-	Source_Location loc;
+	Source_Location source_loc;
 };
 
 struct

@@ -198,7 +198,7 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 			
 			if(header.indexes.empty()) {
 				if(!expected_index_sets.empty()) {
-					header.loc.print_error_header();
+					header.source_loc.print_error_header();
 					//TODO: need better error diagnostics here, because the number of index sets expected could have come from another data block or file.
 					fatal_error("Expected ", expected_index_sets.size(), " indexes for series \"", header.name, "\".");
 				}
@@ -215,7 +215,7 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 				int index_idx = 0;
 				
 				if(indexes.size() != expected_index_sets.size()) {
-					header.loc.print_error_header();
+					header.source_loc.print_error_header();
 					fatal_error("Got wrong number of index sets for input series. Expected ", expected_index_sets.size(), ", got ", indexes.size(), ".");
 				}
 				
@@ -224,7 +224,7 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 					Entity_Id index_set = model->model_decl_scope.deserialize(idx_set->name, Reg_Type::index_set);
 					Entity_Id expected = expected_index_sets[index_idx];
 					if(index_set != expected) {
-						header.loc.print_error_header();
+						header.source_loc.print_error_header();
 						//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
 						fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
 					}
@@ -264,7 +264,7 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 			|| (header.flags & series_data_interp_spline)) {
 			
 			if(!series->has_date_vector) {
-				header.loc.print_error_header();
+				header.source_loc.print_error_header();
 				fatal_error("Interpolation is only available when a date is provided per row of data.");
 			}
 			interpolate(app, series->dates, series->raw_values[col], offsets[col], header.flags, end_date, data);

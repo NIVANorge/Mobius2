@@ -1,13 +1,11 @@
-time_step([day])
-
-index_set("Habitat index") [ "Just one" ]
+time_step([month])
 
 par_group("System") {
 	par_datetime("Start date")
 	[ 2000-01-01 ]
 
 	par_datetime("End date")
-	[ 2005-12-31 ]
+	[ 2010-12-31 ]
 }
 
 module("Predator-prey", 1, 1, 0) {

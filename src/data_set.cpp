@@ -523,7 +523,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 	
 	while(true) {
 		Series_Header_Info header;
-		header.loc = token.source_loc;
+		header.source_loc = token.source_loc;
 		header.name = std::string(stream->expect_quoted_string());
 		while(true) {
 			token = stream->peek_token();

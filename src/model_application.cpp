@@ -274,7 +274,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 	auto pgd = model->par_groups[group_id];
 	if(!is_valid(pgd->component)) {
 		if(!par_group->index_sets.empty()) {
-			par_group->loc.print_error_header();
+			par_group->source_loc.print_error_header();
 			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets since it is not tied to a component.");
 		}
 	} else {
@@ -288,12 +288,12 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 			auto &name = data_set->index_sets[index_set_idx]->name;
 			auto index_set_id = model->model_decl_scope.deserialize(name, Reg_Type::index_set);
 			if(!is_valid(index_set_id)) {
-				par_group->loc.print_error_header();
+				par_group->source_loc.print_error_header();
 				fatal_error("The index set \"", name, "\" does not exist in the model.");
 			}
 			
 			if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) == comp->index_sets.end()) {
-				par_group->loc.print_error_header();
+				par_group->source_loc.print_error_header();
 				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the component \"", comp->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
 			}
 			
@@ -302,7 +302,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 			if(find != index_sets.end()) {
 				// If we are not currently processing the last index set or the duplicate is not the last one we inserted, there is an error
 				if(idx != par_group->index_sets.size()-1 || (++find) != index_sets.end()) {
-					par_group->loc.print_error_header();
+					par_group->source_loc.print_error_header();
 					fatal_error("Only the two last index sets of a parameter group are allowed to be duplicate.");
 				}
 			}
@@ -326,7 +326,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	// TODO: Error messages should reference the name of the module template rather than the module maybe.
 	
 	if(!is_valid(group_id)) {
-		par_group_info->loc.print_error_header();
+		par_group_info->source_loc.print_error_header();
 		if(is_valid(module_id))
 			fatal_error("The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_info->name, "\".");
 			//TODO: say what file the module was declared in?
@@ -347,10 +347,10 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		
 		if(!is_valid(par_id)) {
 			if(module_is_outdated) {
-				par.loc.print_warning_header();
+				par.source_loc.print_warning_header();
 				warning_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
 			} else {
-				par.loc.print_error_header();
+				par.source_loc.print_error_header();
 				fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
 			}
 			continue;
@@ -359,7 +359,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		auto param = model->parameters[par_id];
 		
 		if(param->decl_type != par.type) {
-			par.loc.print_error_header();
+			par.source_loc.print_error_header();
 			fatal_error("The parameter \"", par.name, "\" should be of type ", name(param->decl_type), ", not of type ", name(par.type), ".");
 		}
 		
@@ -382,7 +382,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 					}
 				}
 				if(!found) {
-					par.loc.print_error_header();
+					par.source_loc.print_error_header();
 					fatal_error("\"", par.values_enum[idx], "\" is not a valid value for the enum parameter \"", par.name, "\".");
 				}
 				value.val_integer = idx2;
@@ -415,13 +415,13 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 
 	for(auto &header : series->header_data) {
 		
-		check_allowed_serial_name(header.name, header.loc);
+		check_allowed_serial_name(header.name, header.source_loc);
 		
 		// NOTE: several time series could have been given the same name.
 		std::set<Var_Id> ids = app->vars.find_by_name(header.name);
 		
 		if(ids.size() > 1) {
-			header.loc.print_warning_header();
+			header.source_loc.print_warning_header();
 			warning_print("The name \"", header.name, "\" is not unique, and identifies multiple series.\n");
 		} else if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
@@ -457,7 +457,7 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 					auto comp        = model->components[comp_id];
 
 					if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set) == comp->index_sets.end()) {
-						header.loc.print_error_header();
+						header.source_loc.print_error_header();
 						fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set.");
 					}
 					
@@ -614,7 +614,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	auto component = model->components[component_id];
 	
 	if(!is_valid(component_id) || (compartment_only && component->decl_type != Decl_Type::compartment) || (comp->decl_type != component->decl_type)) {
-		comp->loc.print_error_header();
+		comp->source_loc.print_error_header();
 		if(compartment_only)
 			fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model. This connection type only supports compartments, not quantities.");
 		else
@@ -638,7 +638,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		auto idx_set_info = data_set->index_sets[idx_set_id];
 		auto index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);//model->index_sets.find_by_name(idx_set_info->name);
 		if(!is_valid(index_set)) {
-			idx_set_info->loc.print_error_header();
+			idx_set_info->source_loc.print_error_header();
 			fatal_error("The index set \"", idx_set_info->name, " does not exist in the model.");  // Actually, this has probably been checked somewhere else already.
 		}
 		if(std::find(component->index_sets.begin(), component->index_sets.end(), index_set) == component->index_sets.end()) {
@@ -677,7 +677,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	auto conn_id = scope->deserialize(connection.name, Reg_Type::connection);
 	
 	if(!is_valid(conn_id)) {
-		connection.loc.print_error_header();
+		connection.source_loc.print_error_header();
 		fatal_error("The connection structure \"", connection.name, "\" has not been declared in the model.");
 	}
 
@@ -692,17 +692,17 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	for(auto &comp : connection.components) {
 		Entity_Id comp_id = model->model_decl_scope.deserialize(comp.name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
-			comp.loc.print_warning_header();
+			comp.source_loc.print_warning_header();
 			warning_print("The component \"", comp.name, "\" has not been declared in the model.\n");
 			continue;
 		}
-		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.loc);
+		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.source_loc);
 	}
 	
 	if(cnd->type == Connection_Type::directed_tree) {
 		// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
 		if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
-			connection.loc.print_error_header();
+			connection.source_loc.print_error_header();
 			fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
 		}
 		
@@ -732,7 +732,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		
 	} else if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
 		if(connection.type != Connection_Info::Type::none || connection.components.count() != 1) {
-			connection.loc.print_error_header();
+			connection.source_loc.print_error_header();
 			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data, and no other data.");
 		}
 	} else
@@ -820,7 +820,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		//auto id = model->index_sets.find_by_name(index_set.name);
 		if(!is_valid(id)) {
 			// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
-			index_set.loc.print_error_header();
+			index_set.source_loc.print_error_header();
 			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 			//continue;
 		}
@@ -828,7 +828,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		if(index_set.sub_indexed_to >= 0)
 			sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
 		if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
-			index_set.loc.print_error_header();
+			index_set.source_loc.print_error_header();
 			fatal_error("This index set has data that is sub-indexed to another index set, but the same sub-indexing is not declared in the model.");
 		}
 		for(int idx = 0; idx < index_set.indexes.size(); ++idx) {
@@ -899,7 +899,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		Entity_Id module_id = model->model_decl_scope.deserialize(module.name, Reg_Type::module);
 		if(!is_valid(module_id)) {
 			warning_print("In ");
-			module.loc.print_warning_header();
+			module.source_loc.print_warning_header();
 			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
 			continue;
 		}

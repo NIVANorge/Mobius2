@@ -7,29 +7,28 @@ model("Predator-prey test model") {
 	
 	solve(solver("LV-Solver", "INCADascru", 0.1), habitat.prey, habitat.pred)
 	
-	distribute(habitat, index_set("Habitat index"))
-	
-	md : module("Predator-prey", version(1, 1, 0)) {
+	module("Predator-prey", version(1, 1, 0)) {
 		
 		par_group("Habitat parameters", habitat) {
+			
 			init_pred : par_real("Initial predators", [], 1)
 			init_prey : par_real("Initial prey", [], 1)
 			
-			prey_birth : par_real("Prey birth rate", [day -1], 0.2)
-			nomnom     : par_real("Predation rate", [day -1], 0.1)
-			pred_birth : par_real("Predator birth rate", [day -1], 0.025)
-			pred_death : par_real("Predator death rate", [day -1], 0.05)
+			prey_birth : par_real("Prey birth rate", [month-1], 0.2)
+			nomnom     : par_real("Predation rate", [month-1], 0.1)
+			pred_birth : par_real("Predator birth rate", [month-1], 0.025)
+			pred_death : par_real("Predator death rate", [month-1], 0.05)
 		}
 		
 		var(habitat.pred, []) @initial { init_pred }
 		var(habitat.prey, []) @initial { init_prey }
 		
-		flux(nowhere, habitat.prey, [day-1], "Prey birth")     {  prey * prey_birth  }  # NOTE: we can omit writing habitat.prey since the compartment can be inferred from the declaration
+		flux(nowhere, habitat.prey, [month-1], "Prey birth")     {  prey * prey_birth  }  # NOTE: we can omit writing habitat.prey since the compartment can be inferred from the declaration
 		
-		flux(habitat.prey, nowhere, [day-1], "Predation")      {  nomnom * prey * pred  }
+		flux(habitat.prey, nowhere, [month-1], "Predation")      {  nomnom * prey * pred  }
 		
-		flux(nowhere, habitat.pred, [day-1], "Predator birth") {  pred_birth * prey * pred  }
+		flux(nowhere, habitat.pred, [month-1], "Predator birth") {  pred_birth * prey * pred  }
 		
-		flux(habitat.pred, nowhere, [day-1], "Predator death") {  pred * pred_death  }
+		flux(habitat.pred, nowhere, [month-1], "Predator death") {  pred * pred_death  }
 	}
 }
