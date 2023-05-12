@@ -45,7 +45,8 @@
 
 
 	{
-		layer_water.has(horz_target : property("Target of horizontal flux"))
+		horz_target : property("Target of horizontal flux")
+		var(layer.water.horz_target, [], "bla")
 		
 		special_computation("Place horizontal fluxes", "place_horizontal_fluxes", ) {
 			#TODO: Make it something like this instead so that a special_computation could have several outputs.
@@ -59,8 +60,24 @@
 		# Something like this ?
 		flux(bnd_layer.water, layer.water[vert.horz_target], [k g, day-1], "Boundary exchange")
 		
+		# Implying that layer.water.horz_target gives the index along the vert connection where the target goes.
+		# Although wouldn't it just be better to allow any expression there (at least in code) ??
+		# 		Would not work for target of 
 		
+		layer.water[vert{ horz_target }]     # ???
 		
+		# Maybe not..
+		
+		# Is this really extendable to when we need to smooth it out over triangle though??
+		
+		# Maybe better. Then if there is just one expression in the target it sends it there, if there are three, it smooths it out.
+		flux(bnd_layer.water, layer.water[vert.specific], ...) {
+			bla
+		} @specific {
+			horz_target[vert.above]
+			horz_target
+			horz_target[vert.below]
+		}
 	}
 	
 	

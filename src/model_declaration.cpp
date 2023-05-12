@@ -559,9 +559,11 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			specific_loc->restriction = Var_Loc_Restriction::top;
 		else if(type == "bottom")
 			specific_loc->restriction = Var_Loc_Restriction::bottom;
-		else {
+		else if(type == "specific")
+			specific_loc->restriction = Var_Loc_Restriction::specific;
+		} else {
 			bracketed[1].print_error_header();
-			fatal_error("Only 'top' and 'bottom' are allowed as location restrictions in this context.");
+			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
 		}
 	} else if(!bracketed.empty()) {
 		bracketed[0].print_error_header();
@@ -904,30 +906,44 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
+	if(flux->source.restriction.restriction == Var_Loc_Restriction::specific) {
+		decl->source_loc.print_error_header();
+		fatal_error("For now we only allow the target of a flux to have the 'specific' restriction");
+	}
+	bool has_specific_target = (flux->target.restriction.restriction == Var_Loc_Restriction::specific);
+	bool has_specific_code = false;
+	
 	for(auto body : decl->bodies) {
 		auto fun = static_cast<Function_Body_AST *>(body);
 		if(!is_valid(&body->note))
 			flux->code = fun->block;
 		else {
-			if(body->note.string_value != "no_carry") {
+			if(body->note.string_value == "no_carry") {
+				if(!is_located(flux->source)) {
+					body->opens_at.print_error_header();
+					fatal_error("A 'no_carry' block only makes sense if the source of the flux is specific (not 'nowhere').");
+				}
+				flux->no_carry_ast = fun->block;
+			} else if(body->note.string_value == "specific") {
+				has_specific_code = true;
+				flux->specific_target_ast = fun->block;
+			} else {
 				body->note.print_error_header();
 				fatal_error("Unrecognized note '", body->note.string_value, "' for a flux declaration.");
 			}
-			if(!is_located(flux->source)) {
-				body->opens_at.print_error_header();
-				fatal_error("A 'no_carry' block only makes sense if the source of the flux is specific (not 'nowhere').");
-			}
-			flux->no_carry_ast = fun->block;
 		}
+	}
+	
+	if(has_specific_target != has_specific_code) {
+		decl->source_loc.print_error_header();
+		fatal_error("A flux must either have both a 'specific' in its target and a '@specific' code block, or have none of these.");
 	}
 	
 	if(!flux->code) {
 		decl->source_loc.print_error_header();
 		fatal_error("This flux does not have a main code body.");
 	}
-			
-	//flux->code_scope = scope->parent_id;
-	
+
 	return id;
 }
 

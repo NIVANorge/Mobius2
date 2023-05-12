@@ -297,7 +297,7 @@ struct
 Var_Loc_Restriction {
 	Entity_Id        connection_id;
 	enum Restriction {
-		none, top, bottom, above, below,
+		none, top, bottom, above, below, specific
 	}                restriction;
 	
 	Var_Loc_Restriction() : connection_id(invalid_entity_id), restriction(none) {};

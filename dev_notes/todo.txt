@@ -1,6 +1,9 @@
 
 
-	Make NIVAFjord!!
+	Finish NIVAFjord!!
+		horizontal fluxes.
+		
+		Need to let a state var indicate the target index of a flux
 
 	
 
@@ -27,9 +30,9 @@
 				something[above]
 			should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
 				Or maybe invalidate ( set to 0 ) just that particular expression ( though that is not as well defined ).
-		Does this give the correct result in all instances ?
-			Would prefer to have this since it improves usability.
-			Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
+			Does this give the correct result in all instances ?
+				Would prefer to have this since it improves usability.
+				Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
 
 	
 	*** Intermediate-pri ***

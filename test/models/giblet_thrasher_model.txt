@@ -50,9 +50,6 @@ model("Giblet-Thrasher test model") {
 		mig : connection("Migration route", all_to_all) { habitat* }
 		
 		flux(habitat.prey, mig, [day-1], "Giblet migration")     {  prey * pred * pmig * mig_wt  }
-		
-		test : property("Test")
-		var(habitat.test, []) { mig_wt }
 	}
 }
 

@@ -145,7 +145,7 @@ Flux_Unit_Conversion_Data {
 
 template<> struct
 Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
-	//Entity_Id    unit;            //NOTE: tricky. could clash between different scopes. Better just to have it on the "var" ?
+	//Entity_Id    unit;            //NOTE: tricky. could clash between different vars. Better just to have it on the "var" ?
 	
 	// For compartments:
 	std::vector<Aggregation_Data> aggregations;
@@ -202,12 +202,11 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	
 	Entity_Id      discrete_order; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
 	
-	Math_Block_AST  *no_carry_ast;
-	
 	Math_Block_AST  *code;
-	//Entity_Id        code_scope;
+	Math_Block_AST  *no_carry_ast;
+	Math_Block_AST  *specific_target_ast;
 	
-	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), /*code_scope(invalid_entity_id),*/ discrete_order(invalid_entity_id) {}
+	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), specific_target_ast(nullptr), discrete_order(invalid_entity_id) {}
 };
 
 template<> struct
@@ -221,7 +220,6 @@ Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
 	std::string      function_name;
 	Var_Location     target;
 	Math_Block_AST  *code;
-	//Entity_Id        code_scope;
 };
 
 enum class
@@ -236,9 +234,7 @@ Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
 	
 	Function_Type    fun_type;
 	Math_Block_AST  *code;
-	//Entity_Id        code_scope; // id of where the code was provided.
 	
-	// TODO: may need some info about how it transforms units.
 	// TODO: may need some info on expected argument types (especially for externals)
 	Entity_Registration() : code(nullptr) {}
 };
@@ -337,7 +333,6 @@ Mobius_Model {
 	Registry<Reg_Type::special_computation> special_computations;
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
-	//Registry<Reg_Type::solve>       solves;
 	Registry<Reg_Type::connection>  connections;
 	Registry<Reg_Type::loc>         locs;
 	

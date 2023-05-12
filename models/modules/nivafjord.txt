@@ -136,7 +136,7 @@ module("NIVAFjord", version(0, 0, 1),
 	}
 	
 	var(layer.water.wmix, [k g, day-1]) {
-		K := Kt + Ks + Kw,#+Kd,
+		K := Kt + Ks + Kw,#+Kd,              # Maybe make the sum of the mixing coefficients a separate state variable.
 		dens * A * K / dz ->>
 	}
 	
@@ -189,64 +189,6 @@ module("NIVAFjord", version(0, 0, 1),
 	
 	flux(layer.water, vert, [k g, day-1], "Water mixing down") { wmix }
 	flux(layer.water, vert, [k g, day-1], "Water mixing up") { -wmix }
-
-	var(layer.water.tracer, [k g])
-	
-	/*
-	flux(nowhere, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
-		1[k g, day-1]
-	}
-	
-	flux(layer.water.tracer[vert.bottom], nowhere, [k g, day-1], "Tracer vanishes") {
-		tracer[bottom]*0.3[day-1]
-	}
-	*/
-	
-	# Air-sea :
-	/*
-	lwd : property("Downwelling longwave radiation")
-	a_hum : property("Actual specific humidity")
-	stab : property("Surface stability")
-	ced : property("Transfer coefficient for latent heat flux")
-	chd : property("Transfer coefficent for sensible heat flux")
-	s_hum : property("Saturation specific humidity")
-	lwu : property("Emitted longwave radiation")
-	
-	var(oair.stab, []) {
-		surface_stability(air.wind, layer.water.temp[vert.top], air.temp)
-	}
-	
-	var(oair.ced, []) {
-		tc_latent_heat(air.wind, stab)
-	}
-	
-	var(oair.chd, []) {
-		tc_sensible_heat(air.wind, stab)
-	}
-	
-	var(oair.s_hum, []) {
-		svap := saturation_vapor_pressure(layer.water.temp[vert.top]),
-		specific_humidity_from_pressure(air.pressure, svap)
-	}
-	
-	var(oair.lwu, [W, m-2]) {
-		emissivity := 0.98,
-		emissivity * black_body_radiation(layer.water.temp[vert.top]->[K])
-	}
-
-	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Net longwave") {
-		A[top] * (air.lwd - oair.lwu) ->>
-	}
-	
-	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Latent heat flux") {
-		l_vap := latent_heat_of_vaporization(temp[top]),
-		A[top] * (oair.ced * l_vap * air.density * air.wind * (air.a_hum - oair.s_hum)) ->>
-	}
-	
-	flux(nowhere, layer.water.heat[vert.top], [J, day-1], "Sensible heat flux") {
-		A[top] * (oair.chd * C_air * air.density * air.wind * (air.temp->[K] - temp[top]->[K])) ->>
-	}
-	*/
 	
 	attn : property("Diffuse attenuation coefficent")
 	
@@ -321,9 +263,20 @@ module("NIVAFjord", version(0, 0, 1),
 		(1 - g + h)/2
 	}
 	
-	var(bnd_layer.water.tracer, [k g], "Boundary layer tracer") @override_conc {
-		lerp(prof, 0, 1, bnd.trac_top, bnd.trac_bot)
+	#var(bnd_layer.water.tracer, [k g], "Boundary layer tracer") @override_conc {
+	#	lerp(prof, 0, 1, bnd.trac_top, bnd.trac_bot)
+	#}
+	
+	var(layer.water.tracer, [k g])
+	
+	flux(nowhere, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
+		1[k g, day-1]
 	}
+	
+	#flux(layer.water.tracer[vert.bottom], nowhere, [k g, day-1], "Tracer vanishes") {
+	#	tracer[bottom]*0.3[day-1]
+	#}
+	
 	
 	var(bnd_layer.water, [k g], "Boundary layer water") @override { 1[k g] }   # This is just so that it can have a concentration of various things, for automatic flux generation to work.
 	

@@ -2,14 +2,6 @@ index_set("Layer index") [ 100 ]
 
 index_set("Branch index") [ "A" "B" "C" ]
 
-connection("Layer connection") [
-	compartment("Layer") [ "Layer index" ]
-]
-
-connection("Sideways") [
-	compartment("Layer") [ "Branch index" ]
-]
-
 par_group("System") {
 	par_datetime("Start date")
 	[ 1990-01-01 ]
@@ -19,6 +11,15 @@ par_group("System") {
 }
 
 module("Diffusion", 1, 0, 0) {
+
+	connection("Layer connection") [
+		compartment("Layer") [ "Layer index" ]
+	]
+
+	connection("Sideways") [
+		compartment("Layer") [ "Branch index" ]
+	]
+
 	par_group("Layers") [ "Layer index" ] {
 		par_real("Diffusion coeff")
 		[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.02 0.02 0.02 0.02 0.02 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]

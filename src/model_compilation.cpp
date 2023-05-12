@@ -164,7 +164,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 	Mobius_Model *model = app->model;
 	
 	// Collect direct dependencies coming from lookups in the declared functions of the variables.
-	// NOTE: we can't just reuse the dependency sets we computed in model_composition, because some of the variables have undergone codegen between then.
+	// NOTE: we can't just reuse the dependency sets we computed in model_composition, because some of the variables have undergone codegen between then and could have got new dependencies.
 	
 	for(auto &instr : instructions) {
 		
@@ -189,8 +189,9 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 					instr.instruction_is_blocking.insert(dep.var_id.id);
 					instr.depends_on_instruction.insert(dep.var_id.id);
 				}
-				// Ugh, this is a bit hacky. Could it be improved?
-				// TODO: Document why this was needed, or check if it is no longer needed.
+				// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
+					// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
+				// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
 				if(instr.type == Model_Instruction::Type::compute_state_var) {
 					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
 					instr.index_sets.insert(index_set);
