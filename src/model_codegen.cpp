@@ -371,7 +371,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	}
 	
 	Math_Expr_FT *offset_code = nullptr;
-	s64 back_step;
+	s64 back_step = -1;
 	if(ident->variable_type == Variable_Type::parameter) {
 		offset_code = app->parameter_structure.get_offset_code(ident->par_id, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
@@ -393,8 +393,14 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 			index_expr.swap(*provided_target_idx);
 	}
 	
-	if(offset_code && ident->variable_type != Variable_Type::parameter && (ident->flags & Identifier_FT::Flags::last_result)) {
-		offset_code = make_binop('-', offset_code, make_literal(back_step));
+	if(ident->flags & Identifier_FT::Flags::last_result) {
+		if(offset_code && back_step > 0)
+			offset_code = make_binop('-', offset_code, make_literal(back_step));
+		else
+			fatal_error(Mobius_Error::internal, "Received a last_result flag on an identifier that should not have one.");
+	} else if (ident->flags) { // NOTE: all other flags should have been resolved and removed at this point.
+		ident->source_loc.print_error_header(Mobius_Error::internal);
+		fatal_error("Forgot to resolve one or more flags on an identifier.");
 	}
 	
 	if(offset_code)

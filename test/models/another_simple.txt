@@ -2,8 +2,10 @@
 
 model("Another simple") {
 
+	a : compartment("A")
 	b : compartment("B")
 	q : quantity("Q")
+	r : quantity("R")
 	
 	i : index_set("I")
 	distribute(b, i)
@@ -11,19 +13,23 @@ model("Another simple") {
 	
 	
 	sol : solver("Solver", "INCADascru", 0.1)
-	solve(sol, b.q)
+	solve(sol, a.q, b.q)
 
 	module("So simple", version(1, 0, 0)) {
 	
-		test : property("Target") 
+		test : property("Target")
 		
-		var(b.test, []) { floor(5*0.5*(1 + sin((time.step=>[])*2*pi/150))) }
+		var(a.q, [])   @initial { 100000 }
+		var(a.q.r, []) @initial_conc { 0.1 }
+		
+		var(a.test, []) { floor(10*0.5*(1 + sin((time.step=>[])*2*pi/150))) }
 	
 		var(b.q, []) @initial { 0 }
+		var(b.q.r, [])
 		
 		
-		flux(nowhere, b.q[d.specific], [day-1], "Flixflux")
-			{ 0.01[day-1] }
+		flux(a.q, b.q[d.specific], [day-1], "Flixflux")
+			{ 1[day-1] }
 			@specific { test }
 	
 	}

@@ -11,6 +11,7 @@
 			Have to think about what types of variables it is allowed to reference.		
 		Make it work for dissolved fluxes of one that has a special target.
 		Tridiagonal distribution.
+		Clamp the index within allowed bounds (?).
 	
 
 	Clean up how we generate code for computing indexes. It is very messy.
@@ -146,6 +147,7 @@
 		
 			stacked_share has a slow implementation.
 				Should maybe not sum over all the values each time it is extracted, just do it once and store it.
+			Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
 			
 			Sensitivity & optimization - new features
 				Combine simple sensitivity into the advanced sensitivity setup.
@@ -222,6 +224,9 @@
 			Probably due to different Var_Restrictions resulting in the same condition on the index.
 		
 		Declaring units with a handle and reusing that handle does not quite work, at least not for parameters.
+		
+		last(something) doesn't automatically cause it to have an initial value computation (if one was not set).
+		
 		
 		
 

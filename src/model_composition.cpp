@@ -595,8 +595,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			generate.push_back(flux_id);
 		}
 		
-		Var_Location source  = var->loc1; // Note we have to copy it since we start registering new state variables, invalidating our pointer to var.
-		std::string var_name = var->name; // Same: Have to copy, not take reference.
+		Var_Location source  = var->loc1;
+		std::string var_name = var->name;
 		auto dissolved_in_id = app->vars.id_of(above_loc);
 		auto dissolved_in = app->vars[dissolved_in_id];
 		
@@ -632,6 +632,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->flux_of_medium = flux_id;
 			gen_flux->flags = (State_Var::Flags)(gen_flux->flags | State_Var::Flags::flux);
 			gen_flux->conc = gen_conc_id;
+			
+			// Hmm, this is a bit annoying.
 			gen_flux->loc1 = source;
 			gen_flux->loc1.connection_id = flux->loc1.connection_id;
 			gen_flux->loc2.restriction = flux->loc2.restriction;
@@ -848,7 +850,7 @@ compose_and_resolve(Model_Application *app) {
 		Decl_Scope *other_code_scope = nullptr;
 		
 		if(var2->decl_id.reg_type == Reg_Type::flux) {
-			
+			 
 			auto flux_decl = model->fluxes[var2->decl_id];
 			ast = flux_decl->code;
 			if(flux_decl->specific_target_ast)
@@ -1017,6 +1019,19 @@ compose_and_resolve(Model_Application *app) {
 			// TODO: We have to do more of the flag checking business here!
 		} else
 			var2->specific_target = nullptr;
+	}
+	
+	for(auto flux_id : app->vars.all_fluxes()) {
+		// We have to copy "specific target" to all dissolved child fluxes. We could not have done that before since the code was only just resolved above.
+		auto flux = app->vars[flux_id];
+		auto restriction = restriction_of_flux(flux);
+		if(restriction.restriction != Var_Loc_Restriction::specific || flux->type != State_Var::Type::dissolved_flux) continue;
+		auto orig_flux = flux;
+		while(orig_flux->type == State_Var::Type::dissolved_flux)
+			orig_flux = app->vars[as<State_Var::Type::dissolved_flux>(orig_flux)->flux_of_medium];
+		if(!orig_flux->specific_target)
+			fatal_error(Mobius_Error::internal, "Somehow we got a specific restriction on a flux without specific target code.");
+		flux->specific_target = owns_code(copy(orig_flux->specific_target.get()));
 	}
 	
 	// Invalidate dissolved fluxes if both source and target is overridden.
