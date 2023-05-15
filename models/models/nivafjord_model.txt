@@ -27,6 +27,7 @@ model("NIVAFjord") {
 	rho      : property("Density")
 	lwd      : property("Downwelling longwave radiation")
 	sw       : property("Shortwave radiation")
+	attn     : property("Attenuation coefficient")
 	
 	vert    : connection("Fjord vertical", grid1d) { layer* }
 	sw_vert : connection("Shortwave vertical", grid1d) { layer* }
@@ -39,10 +40,10 @@ model("NIVAFjord") {
 	
 	load("modules/atmospheric.txt", module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
 	
-	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, oair, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw,
+	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, oair, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn,
 											loc(A[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
-	load("modules/nivafjord.txt",   module("NIVAFjord", air, oair, layer, sed, bnd, bnd_layer, water, salt, heat, h, tracer, temp, precip, pressure, wind, g_rad, rho, vert, sw_vert, bnd_vert, A, w_bnd))
+	load("modules/nivafjord.txt",   module("NIVAFjord", air, oair, layer, sed, bnd, bnd_layer, water, salt, heat, h, tracer, temp, precip, pressure, wind, g_rad, rho, attn, vert, sw_vert, bnd_vert, A, w_bnd))
 	
 	layer_idx : index_set("Layer index")
 	

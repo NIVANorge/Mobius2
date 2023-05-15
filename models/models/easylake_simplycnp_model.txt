@@ -9,27 +9,40 @@ model("EasyLake-SimplyCNP") {
 		
 		par_group("Lake C", epi) {
 			init_c : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
+			#TODO: Maybe calibrate photomin differently than using the oc_doc as this should be fairly constant.
 			oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
 		}
 		
 		var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
 		var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
 		
-		flux(epi.water.oc, nowhere, [k g, day-1], "Photo-mineralization") {
-			
-			#TODO: Maybe scale photomin differently than using the oc_doc
-			
-			qy_doc := 0.1[m g, mol-1],    # Quantum yield
-			f_par  := 0.45,               # Fract. of PAR in incoming solar radiation
-			e_par  := 240800.0[J, mol-1], # Average energy of PAR photons
-			
-			# TODO: This should be computed, and actually depends on the DOC conc. Moreover, the excess should go into the hypolimnion and cause photomineralization there.
-			attn_epi := 1,
-			
-			oc_doc * qy_doc * (f_par / e_par) * sw * attn_epi * oc ->>
+		var(epi.attn, []) {
+			coeff := 5[m-1],#0.2[m-1],   # TODO: Maybe parametrize, and add effect from DOC,SS
+			1 - exp(-coeff*epi.z_e)
 		}
 		
-		# TODO: Some other sinks of DOC (otherwise hypolimnion conc is constant between mixing events, for instance.
+		var(hyp.sw, [W, m-2]) {
+			epi.sw * (1 - epi.attn)
+		}
+		
+		photodeg : function(sw, attn, substance, oc_doc) {
+			oc_doc * qy_doc * (f_par / e_par) * sw * attn * substance
+		}
+		
+		qy_doc : constant("DOC quantum yield",               [m g, mol-1], 0.1)
+		f_par  : constant("Fraction of PAR in SW radiation", [],           0.45)
+		e_par  : constant("Average energy of PAR photons",   [J, mol-1],  240800.0)
+		
+		flux(epi.water.oc, nowhere, [k g, day-1], "Photo-mineralization (epilimnion)") {
+			photodeg(sw, attn, oc, oc_doc)->>
+		}
+		
+		flux(hyp.water.oc, nowhere, [k g, day-1], "Photo-mineralization (hypolimnion)") {
+			# Just assume all remaining shortwave is attenuated in the hypolimnion
+			photodeg(sw, 1, oc, oc_doc)->>
+		}
+		
+		# TODO: Some other sinks of DOC (?)
 	}
 	
 	module("EasyLake-N", version(0, 0, 1)) {
@@ -37,23 +50,23 @@ model("EasyLake-SimplyCNP") {
 		load("stdlib/basic_math.txt", library("Rates"))
 
 		par_group("Lake N", epi) {
-			init_din : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
+			init_din     : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
 			lake_din_ret : par_real("Lake DIN retention at 20°C", [day-1], 0, 0, 5)
 			lake_din_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
-			hyp_din      : par_real("Hypolimnion N retention factor", [], 1, 0, 2)
+			hyp_din_ret  : par_real("Hypolimnion N retention factor", [], 1, 0, 2)
 		}
 		
 		var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
 		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
 		
 		flux(epi.water.din, nowhere, [k g, day-1], "Epilimnion N retention") {
-			rate := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
+			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
 			din * rate
 		}
 		
 		flux(hyp.water.din, nowhere, [k g, day-1], "Hypolimnion N retention") {
-			rate := q10_adjust(lake_din_ret*hyp_din, 20.0[deg_c], temp, lake_din_q10),
-			din * rate
+			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
+			din * ret * hyp_din_ret
 		}
 	}
 	

@@ -9,6 +9,7 @@ module("EasyLake", version(0, 1, 0),
 	heat   : quantity,
 	temp   : property,
 	precip : property,
+	z_e    : property,
 	evap_mm : property,
 	A_surf : par_real,
 	epi_target : loc,
@@ -40,9 +41,6 @@ The water balance part of the model is conceptually similar to VEMALA
 		wedge_tip(A, z0, z1) - wedge_tip(A, z0, z2)
 	}
 	
-	
-	#TODO should be attn in epi also, and remainder of shortwave to hyp
-	
 	var(epi.water, [m 3], "Epilimnion volume")  @initial {   0.5 * A_surf * z_outflow - hyp.water   }
 	
 	var(hyp.water, [m 3], "Hypolimnion volume") @initial {
@@ -50,8 +48,7 @@ The water balance part of the model is conceptually similar to VEMALA
 		A := A_surf * (z/z_outflow),
 		0.5 * A * z
 	}
-	
-	z_e : property("Thickness")
+
 	depth : property("Depth")
 	flow : property("Flow")
 	

@@ -17,6 +17,7 @@ module("NIVAFjord", version(0, 0, 1),
 	wind      : property,
 	g_rad     : property,
 	rho       : property,
+	attn      : property,
 	vert      : connection,
 	sw_vert   : connection,
 	bnd_vert  : connection,
@@ -190,14 +191,13 @@ module("NIVAFjord", version(0, 0, 1),
 	flux(layer.water, vert, [k g, day-1], "Water mixing down") { wmix }
 	flux(layer.water, vert, [k g, day-1], "Water mixing up") { -wmix }
 	
-	attn : property("Diffuse attenuation coefficent")
-	
-	var(layer.water.attn, [m-1]) {
-		attn0  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.
+	var(layer.water.attn, []) {
+		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.
+		1-exp(-coeff*dz)
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		(in_flux(sw_vert, heat)->[J, day-1]) * exp(-attn*dz) * A[vert.below] / A
+		(in_flux(sw_vert, heat)->[J, day-1]) * (1-attn) * A[vert.below] / A
 	}
 	
 	var(sed.heat, [J], "Sediment heat") @initial {

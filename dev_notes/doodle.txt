@@ -7,7 +7,11 @@
 	var(layer_water.horz_target, [])
 	
 	# Last arg says that this is called per horz index.
-	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", layer.water.horz_target, horz) {
+	# However this is a bit wrong because we don't know that the first component is always "layer", could also be "bnd_layer"...
+	# I guess we just make this a template that we apply both for layer and bnd_layer.
+	
+	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", horz) {
+		layer.water.horz_target
 		layer.water.dens[horz.below]
 		layer.water.dens
 		w_bnd

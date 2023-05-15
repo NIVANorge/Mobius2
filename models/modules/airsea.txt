@@ -16,6 +16,7 @@ module("AirSea", version(0, 1, 0),
 	a_hum     : property,
 	lwd       : property,
 	sw        : property,
+	attn      : property,
 	
 	A_surf            : loc,
 	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
@@ -55,7 +56,6 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	
 	energy    : property("Freeze energy")
 	indicator : property("Ice indicator")
-	attn      : property("Attenuation coefficent")
 	
 	var(air.wind, [m, s-1], "Wind speed")
 	
