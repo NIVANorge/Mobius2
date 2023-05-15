@@ -825,7 +825,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					for(int idx = 0; idx < flux_loc.n_components; ++idx)
 						if(flux_loc.components[idx] == source_comp) found = true;
 					if(components.size() != 1 || !found)
-						// TODO: It seems like this check is not performed anywhere else (?). It should be checked earlier.
+						// NOTE: This should already have been checked in model_compilation, this is just a safeguard.
 						fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
 					
 					auto index_set = app->get_single_connection_index_set(var2->connection);

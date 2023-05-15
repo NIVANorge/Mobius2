@@ -569,8 +569,11 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	if(restriction.restriction == Var_Loc_Restriction::bottom)
 		value = make_unary('-', value);
 	
-	auto specific_target = copy(app->vars[flux_id]->specific_target.get());
-	put_var_lookup_indexes(specific_target, app, indexes); // TODO: Ooops, what happens if there are special restrictions on the lookups in this one? We may have to pre-process it instead.
+	Math_Expr_FT *specific_target = nullptr;
+	if(restriction.restriction == Var_Loc_Restriction::specific) {
+		specific_target = copy(app->vars[flux_id]->specific_target.get());
+		put_var_lookup_indexes(specific_target, app, indexes); // TODO: Ooops, what happens if there are special restrictions on the lookups in this one? We may have to pre-process it instead.
+	}
 	
 	get_grid1d_target_indexes(app, target_indexes, indexes, restriction, specific_target);
 	

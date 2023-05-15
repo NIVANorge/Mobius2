@@ -145,9 +145,11 @@
 		
 		MobiView:
 		
-			stacked_share has a slow implementation.
-				Should maybe not sum over all the values each time it is extracted, just do it once and store it.
-			Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
+			Plot
+				stacked_share has a slow implementation.
+					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
+				Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
+				Normalized axis is weird when all of a series' values are 0.
 			
 			Sensitivity & optimization - new features
 				Combine simple sensitivity into the advanced sensitivity setup.

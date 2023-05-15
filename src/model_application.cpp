@@ -789,14 +789,7 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 
 void
 Model_Application::build_from_data_set(Data_Set *data_set) {
-	
-	std::vector<std::string> input_names;
-	for(auto &series : data_set->series) {
-		for(auto &header : series.header_data)
-			input_names.push_back(header.name);
-	}
-	
-	prelim_compose(this, input_names);
+		
 	
 	if(is_compiled)
 		fatal_error(Mobius_Error::api_usage, "Tried to build model application after it was compiled.");
@@ -804,7 +797,24 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		fatal_error(Mobius_Error::api_usage, "Model application was provided with more than one data set.");
 	this->data_set = data_set;
 	
-	//this->time_step_size = data_set->time_step_size;
+	
+	std::vector<std::string> input_names;
+	for(auto &series : data_set->series) {
+		for(auto &header : series.header_data)
+			input_names.push_back(header.name);
+	}
+	
+	connection_components.resize(model->connections.count());
+	
+	for(auto &connection : data_set->global_module.connections)
+		pre_process_connection_data(this, connection, data_set);
+	for(auto &module : data_set->modules) {
+		for(auto &connection : module.connections)
+			pre_process_connection_data(this, connection, data_set, module.name);
+	}
+	
+	prelim_compose(this, input_names);
+
 	if(data_set->time_step_was_provided) {
 		time_step_unit = data_set->time_step_unit;
 		bool success;
@@ -856,14 +866,6 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	if(!index_counts_structure.has_been_set_up)
 		set_up_index_count_structure();
 	
-	connection_components.resize(model->connections.count());
-	
-	for(auto &connection : data_set->global_module.connections)
-		pre_process_connection_data(this, connection, data_set);
-	for(auto &module : data_set->modules) {
-		for(auto &connection : module.connections)
-			pre_process_connection_data(this, connection, data_set, module.name);
-	}
 	
 	for(auto conn_id : model->connections) {
 		auto &components = connection_components[conn_id.id];

@@ -2,6 +2,32 @@
 
 
 
+	horz : connection("Fjord horizontal") { (layer|bnd_layer)* }
+
+	var(layer_water.horz_target, [])
+	
+	# Last arg says that this is called per horz index.
+	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", layer.water.horz_target, horz) {
+		layer.water.dens[horz.below]
+		layer.water.dens
+		w_bnd
+	}
+	
+	flux(layer.water, layer.water[horz, vert2.specific], [k g, day-1], "Flow from boundary") {
+		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,    # Hmm, these have to exist per horizontal connection also.
+		bcl    if bcl > 0,
+		0      otherwise
+	} @specific {
+		layer.water.horz_target[horz]
+	}
+
+
+
+
+
+
+
+
 	
 	# Want module parameters in the form of constants, and also if conditions
 	

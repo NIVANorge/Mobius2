@@ -356,25 +356,45 @@ module("NIVAFjord", version(0, 0, 1),
 	
 	var(layer.water.horz_target, [])
 	
-	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", layer.water.horz_target) {
+	special_computation("Place horizontal fluxes from bnd", "nivafjord_place_horizontal_fluxes", layer.water.horz_target) {
 		bnd_layer.water.dens
 		layer.water.dens
 		w_bnd
 	}
 	
 	#/*
-
-	flux(layer.water, nowhere, [k g, day-1], "Flow from boundary equivalent removal") {
-		bcl := -(barocline_bnd_u + barotropic_bnd_u)->>,
-		bcl    if bcl > 0,
-		0      otherwise
-	}
 	
-	flux(bnd_layer.water, layer.water, [k g, day-1], "Flow from boundary") {
+	vert2 : connection("Vert 2", grid1d) { layer* }
+	bndvert2 : connection("Boundary vert 2", grid1d) { bnd_layer* }
+
+	flux(bnd_layer.water, layer.water[vert2.specific], [k g, day-1], "Flow from boundary") {
 		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
 		bcl    if bcl > 0,
 		0      otherwise
+	} @specific {
+		layer.water.horz_target
 	}
+	
+	var(bnd_layer.water.horz_target, [])
+	
+	special_computation("Place horizontal fluxes to bnd", "nivafjord_place_horizontal_fluxes", bnd_layer.water.horz_target) {
+		layer.water.dens
+		bnd_layer.water.dens
+		w_bnd
+	}
+	
+	flux(layer.water, bnd_layer.water[bndvert2.specific], [k g, day-1], "Flow to boundary") {
+		bcl := (layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
+		bcl    if bcl > 0,
+		0      otherwise
+	} @specific {
+		bnd_layer.water.horz_target
+	}
+	
+	flux(layer.water, nowhere, [k g, day-1], "Flow from boundary equivalent removal") {
+		in_flux(vert2, water) - (layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>
+	}
+	
 
 	#*/
 }

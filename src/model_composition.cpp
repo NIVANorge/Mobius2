@@ -148,6 +148,18 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 				fatal_error("This connection type can't have fluxes with specified locations.");
 			}
 		}
+		
+		auto &components = app->connection_components[loc.connection_id.id];
+		bool found = false;
+		for(int idx = 0; idx < loc.n_components; ++idx) {
+			for(auto &comp : components)
+				if(loc.components[idx] == comp.id) found = true;
+		}
+		if(!found) {
+			source_loc.print_error_header();
+			fatal_error(Mobius_Error::model_building, "None of the components on this var location are supported for the connection \"", conn->name, "\".");
+		}
+			
 	} else if(loc.restriction != Var_Loc_Restriction::none) {
 		fatal_error(Mobius_Error::internal, "Got a var location with a restriction that was not tied to a connection.");
 	}
