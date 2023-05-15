@@ -14,7 +14,6 @@ State_Var {
 		connection_aggregate,
 		dissolved_flux,
 		dissolved_conc,
-		//boundary_flux,
 	} type;
 	
 	enum Flags {
@@ -38,7 +37,9 @@ State_Var {
 	
 	owns_code unit_conversion_tree;
 	
-	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location)/*, boundary_type(Boundary_Type::none)*/ {};
+	owns_code specific_target;
+	
+	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location) {};
 	
 	// Because these are very common queries
 	bool is_flux() { return (flags & flux);	}

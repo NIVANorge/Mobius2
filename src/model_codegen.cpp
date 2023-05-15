@@ -286,27 +286,32 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
-get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &target_indexes, Index_Exprs &indexes, Var_Loc_Restriction restriction) {
+get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &target_indexes, Index_Exprs &indexes, Var_Loc_Restriction restriction, Math_Expr_FT *specific_target = nullptr) {
 	if(app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
 		fatal_error(Mobius_Error::internal, "Misuse of get_grid1d_target_indexes().");
 	auto &comp = app->connection_components[restriction.connection_id.id][0];
 	auto index_set = comp.index_sets[0];
 	
-	bool is_boundary = (restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::bottom);
-	bool is_above = (restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::above);
+	bool is_specific = (restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::bottom || restriction.restriction == Var_Loc_Restriction::specific);
 	
 	target_indexes.resize(app->model->index_sets.count(), nullptr);
 	
-	if(is_boundary) {
-		if (is_above)
+	if(is_specific) {
+		if (restriction.restriction == Var_Loc_Restriction::top)
 			target_indexes[index_set.id] = make_literal((s64)0);
-		else {
+		else if(restriction.restriction == Var_Loc_Restriction::bottom) {
 			auto count = get_index_count_code(app, index_set, indexes);
 			target_indexes[index_set.id] = make_binop('-', count, make_literal((s64)1));
-		}
+		} else if(restriction.restriction == Var_Loc_Restriction::specific) {
+			// TODO: Should clamp it betwen 0 and index_count
+			if(!specific_target)
+				fatal_error(Mobius_Error::internal, "Wanted to set indexes for a specific connection target, but the code was not provided.");
+			target_indexes[index_set.id] = specific_target;
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled connection restriction type.");
 	} else {
 		auto index = copy(indexes.indexes[index_set.id]);
-		char oper = is_above ? '-' : '+';
+		char oper = (restriction.restriction == Var_Loc_Restriction::above) ? '-' : '+';
 		index = make_binop(oper, index, make_literal((s64)1));
 		target_indexes[index_set.id] = index;
 	}
@@ -549,7 +554,7 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 }
 
 Math_Expr_FT *
-add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Math_Expr_FT *weight, Var_Loc_Restriction restriction) {
+add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, Index_Exprs &indexes, Math_Expr_FT *weight, Var_Loc_Restriction restriction) {
 	
 	auto model = app->model;
 	
@@ -558,7 +563,10 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	if(restriction.restriction == Var_Loc_Restriction::bottom)
 		value = make_unary('-', value);
 	
-	get_grid1d_target_indexes(app, target_indexes, indexes, restriction);
+	auto specific_target = copy(app->vars[flux_id]->specific_target.get());
+	put_var_lookup_indexes(specific_target, app, indexes); // TODO: Ooops, what happens if there are special restrictions on the lookups in this one? We may have to pre-process it instead.
+	
+	get_grid1d_target_indexes(app, target_indexes, indexes, restriction, specific_target);
 	
 	indexes.swap(target_indexes);
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
@@ -576,8 +584,11 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 }
 
 Math_Expr_FT *
-add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Var_Loc_Restriction restriction) {
+add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Model_Instruction *instr, /*Var_Id agg_id, Var_Id source_id,*/ Index_Exprs &indexes) {//, Var_Loc_Restriction restriction) {
 	auto model = app->model;
+	
+	auto &restriction = instr->restriction;
+	auto agg_id = instr->target_id;
 	
 	auto connection = model->connections[restriction.connection_id];
 	
@@ -587,7 +598,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	Math_Expr_FT *unit_conv = nullptr;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	for(auto &data : target_agg->conversion_data) {
-		if(data.source_id == source_id) {
+		if(data.source_id == instr->source_id) {
 			weight    = data.weight.get();
 			unit_conv = data.unit_conv.get();
 			break;
@@ -598,7 +609,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 	
 	if(connection->type == Connection_Type::directed_tree) {
 		
-		return add_value_to_tree_agg(app, value, agg_id, source_id, indexes, restriction.connection_id, weight, unit_conv);
+		return add_value_to_tree_agg(app, value, agg_id, instr->source_id, indexes, restriction.connection_id, weight, unit_conv);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		
@@ -606,7 +617,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Var
 		
 	} else if (connection->type == Connection_Type::grid1d) {
 		
-		return add_value_to_grid1d_agg(app, value, agg_id, indexes, weight, restriction);
+		return add_value_to_grid1d_agg(app, value, agg_id, instr->var_id, indexes, weight, restriction);
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");
@@ -725,7 +736,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
 				
-				result_code = add_value_to_connection_agg_var(app, fun, instr->target_id, instr->source_id, indexes, instr->restriction);
+				result_code = add_value_to_connection_agg_var(app, fun, instr, indexes);//->target_id, instr->source_id, indexes, instr->restriction);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				

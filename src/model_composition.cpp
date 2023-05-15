@@ -89,9 +89,6 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			var->loc2 = flux->target;
 			var2->decl_type = Decl_Type::flux;
 			var2->flags = (State_Var::Flags)(var2->flags | State_Var::Flags::flux);
-			// These may not be needed, since we would check if the locations exist in any case (and the source location is confusing as it stands here).
-			// check_if_loc_is_well_formed(model, var.loc1, flux->source_loc);
-			// check_if_loc_is_well_formed(model, var.loc2, flux->source_loc);
 			
 			if(is_valid(flux->unit))
 				var->unit = model->units[flux->unit]->data;
@@ -138,13 +135,17 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("'bottom' can't be in the target of a flux.");
 			}
+			if(is_source && loc.restriction == Var_Loc_Restriction::specific) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("'specific' can't be in the source of a flux.");
+			}
 		} else {
 			if(is_source) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("For this connection type, the connection can't be specified in the source of the flux.");
 			} else if (loc.restriction != Var_Loc_Restriction::below) {
 				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This connection type can't have boundary fluxes.");
+				fatal_error("This connection type can't have fluxes with specified locations.");
 			}
 		}
 	} else if(loc.restriction != Var_Loc_Restriction::none) {
@@ -186,9 +187,8 @@ find_identifier_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregat
 				
 			aggregates[ident->var_id.id].first.insert(lookup_compartment);         //OOOps!!!! This is not correct if this was applied to an input series!
 			
-			if(is_valid(looked_up_by)) {
+			if(is_valid(looked_up_by))
 				aggregates[ident->var_id.id].second.push_back(looked_up_by);
-			}
 		}
 	}
 }
@@ -834,6 +834,7 @@ compose_and_resolve(Model_Application *app) {
 		Math_Expr_AST *ast = nullptr;
 		Math_Expr_AST *init_ast = nullptr;
 		Math_Expr_AST *override_ast = nullptr;
+		Math_Expr_AST *specific_ast = nullptr;
 		bool override_is_conc = false;
 		bool initial_is_conc = false;
 		
@@ -850,8 +851,11 @@ compose_and_resolve(Model_Application *app) {
 			
 			auto flux_decl = model->fluxes[var2->decl_id];
 			ast = flux_decl->code;
+			if(flux_decl->specific_target_ast)
+				specific_ast = flux_decl->specific_target_ast;
 			
 			code_scope = model->get_scope(flux_decl->scope_id);
+			other_code_scope = code_scope;
 			
 			// Not sure if it would be better to pack both locations to the function resolve data and look up the connections from it that way. 
 			connection = flux_decl->source.connection_id;
@@ -980,6 +984,7 @@ compose_and_resolve(Model_Application *app) {
 			res_data.allow_no_override = true;
 			res_data.allow_in_flux = true;
 			auto fun = resolve_function_tree(override_ast, &res_data);
+			// NOTE: It is not that clean to do this here, but we need to know if the expression resolves to 'no_override'
 			auto override_tree = prune_tree(fun.fun);
 			bool no_override = false;
 			if(override_tree->expr_type == Math_Expr_Type::identifier) {
@@ -993,17 +998,30 @@ compose_and_resolve(Model_Application *app) {
 					init_ast->source_loc.print_error_header();
 					fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
 				}
-				
 				var2->override_tree = owns_code(make_cast(override_tree, Value_Type::real));
 				var2->override_is_conc = override_is_conc;
 				find_identifier_flags(var2->override_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment);
 			}
 		} else
 			var2->override_tree = nullptr;
+		
+		if(specific_ast) {
+			res_data.expected_unit = {};
+			res_data.allow_no_override = false;
+			auto fun = resolve_function_tree(specific_ast, &res_data);
+			var2->specific_target = owns_code(make_cast(fun.fun, Value_Type::integer));
+			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
+				init_ast->source_loc.print_error_header();
+				fatal_error("Expected the unit of this expression to resolve to dimensionless, but got, ", fun.unit.to_utf8(), ".");
+			}
+			// TODO: We have to do more of the flag checking business here!
+		} else
+			var2->specific_target = nullptr;
 	}
 	
 	// Invalidate dissolved fluxes if both source and target is overridden.
 	// -- Update: TODO: This is too simplistic because it causes problems if there is something dissolved in the dissolved that is not overridden in the same way.
+	// One way to solve this is if we make dissolved fluxes refer to their grandparent rather than their direct parent (but need to do conc differently, which could be tricky if it is overridden).
 	/*
 	for(auto var_id : app->vars) {
 		auto var = app->vars[var_id];
@@ -1033,13 +1051,12 @@ compose_and_resolve(Model_Application *app) {
 	std::set<std::pair<Entity_Id, Var_Id>> may_need_connection_target;
 	for(auto var_id : app->vars.all_fluxes()) {
 		auto var = app->vars[var_id];
-		//if(!var->is_valid() || !var->is_flux()) continue;
 		
 		auto &restriction = restriction_of_flux(var);
 		if(is_valid(restriction.connection_id)) {
 			Var_Location loc = var->loc1;
-			if(restriction.restriction == Var_Loc_Restriction::top)
-				loc = var->loc2; // NOTE: For top_boundary only the target is set.
+			if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::specific)
+				loc = var->loc2; // NOTE: For top and specific the relevant location is the target.
 
 			if(is_located(loc)) {
 				Var_Id target_id = app->vars.id_of(loc);

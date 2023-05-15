@@ -386,11 +386,12 @@ llvm::Value *build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to
 	auto llvm_to_type = get_llvm_type(to_type, data);
 	
 	if(from_type == Value_Type::real) {
-		if(to_type == Value_Type::boolean) {
-			auto tmp = data->builder->CreateFPToSI(val, llvm_to_type, "castftoi"); // Do this before comparison to get rid of negative 0. TODO: check what the behaviour of overflow is here...
-			return data->builder->CreateICmpNE(tmp, llvm::ConstantInt::get(*data->context, llvm::APInt(1, 0)), "netmp");  // Force the value to be 0 or 1
-		} else
-			fatal_error(Mobius_Error::internal, "Cast from real to int not implemented");
+		// Note: for bool cast, we cast to int first, then compare != 0. This way -0 also casts to false.
+		auto to_int = data->builder->CreateFPToSI(val, llvm_to_type, "castftoi");
+		if(to_type == Value_Type::boolean)
+			return data->builder->CreateICmpNE(to_int, llvm::ConstantInt::get(*data->context, llvm::APInt(1, 0)), "netmp");  // Force the value to be 0 or 1
+		else if(to_type == Value_Type::integer)
+			return to_int;
 	} else if (from_type == Value_Type::integer) {
 		if(to_type == Value_Type::real)
 			return data->builder->CreateSIToFP(val, llvm_to_type, "castitof");

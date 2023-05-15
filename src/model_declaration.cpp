@@ -561,7 +561,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			specific_loc->restriction = Var_Loc_Restriction::bottom;
 		else if(type == "specific")
 			specific_loc->restriction = Var_Loc_Restriction::specific;
-		} else {
+		else {
 			bracketed[1].print_error_header();
 			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
 		}
@@ -906,11 +906,11 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
-	if(flux->source.restriction.restriction == Var_Loc_Restriction::specific) {
+	if(flux->source.restriction == Var_Loc_Restriction::specific) {
 		decl->source_loc.print_error_header();
 		fatal_error("For now we only allow the target of a flux to have the 'specific' restriction");
 	}
-	bool has_specific_target = (flux->target.restriction.restriction == Var_Loc_Restriction::specific);
+	bool has_specific_target = (flux->target.restriction == Var_Loc_Restriction::specific);
 	bool has_specific_code = false;
 	
 	for(auto body : decl->bodies) {

@@ -5,6 +5,12 @@
 		
 		Need to let a state var indicate the target index of a flux
 
+	Specific target:
+		Properly process the function tree, incl. flags
+		Check valid dependencies for the tree.
+			Have to think about what types of variables it is allowed to reference.		
+		Make it work for dissolved fluxes of one that has a special target.
+		Tridiagonal distribution.
 	
 
 	Clean up how we generate code for computing indexes. It is very messy.

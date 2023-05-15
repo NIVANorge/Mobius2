@@ -1,4 +1,4 @@
-index_set("I") [ 40 ]
+index_set("I") [ 10 ]
 
 connection("Grid") [
 	compartment("B") [ "I" ]

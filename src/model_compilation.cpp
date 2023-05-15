@@ -172,13 +172,13 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		
 		Dependency_Set code_depends;
 		register_dependencies(instr.code, &code_depends);
+		if(instr.specific_target)
+			register_dependencies(instr.specific_target, &code_depends);
 		
-		for(auto &dep : code_depends.on_parameter) {
+		for(auto &dep : code_depends.on_parameter)
 			insert_dependencies(app, instr.index_sets, dep, 0);
-		}
-		for(auto &dep : code_depends.on_series) {
+		for(auto &dep : code_depends.on_series)
 			insert_dependencies(app, instr.index_sets, dep, 1);
-		}
 		
 		for(auto &dep : code_depends.on_state_var) {
 			
@@ -473,13 +473,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		auto var = app->vars[var_id];
 		auto &instr = instructions[var_id.id];
 		
-		/*
-		if(!var->is_valid()) {
-			instr.type = Model_Instruction::Type::invalid;
-			continue;
-		}
-		*/
-		
 		// TODO: Couldn't the lookup of the function be moved to instruction_codegen ?
 		Math_Expr_FT *fun = nullptr;
 		if(var->type == State_Var::Type::declared) {
@@ -492,6 +485,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			}
 		}
+		Math_Expr_FT *specific = var->specific_target.get();
 		
 		instr.var_id = var_id;
 		instr.type = Model_Instruction::Type::compute_state_var;
@@ -500,6 +494,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			instr.code = copy(fun);
 		else if(initial)
 			instr.type = Model_Instruction::Type::invalid;
+		
+		if(!initial && specific)
+			instr.specific_target = copy(specific);
 		
 		if(var->is_flux())
 			instr.restriction = restriction_of_flux(var);
@@ -740,18 +737,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			for(auto var_id_flux : app->vars.all_fluxes()) {
 				auto var_flux = app->vars[var_id_flux];
-				//if(!var_flux->is_valid()) continue;
 				auto &restriction = restriction_of_flux(var_flux);
-				if(/*!var_flux->is_flux() ||*/ restriction.connection_id != var2->connection) continue;
+				if(restriction.connection_id != var2->connection) continue;
 				
 				auto conn_type = model->connections[var2->connection]->type;
 				
 				Var_Location flux_loc = var_flux->loc1;
-				if(restriction.restriction == Var_Loc_Restriction::top)
+				if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::specific)
 					flux_loc = var_flux->loc2;
-				
-				//if(var_flux->boundary_type == Boundary_Type::bottom && !is_located(var_flux->loc2))
-				//	continue;
 				
 				if(var2->is_source) {
 					if(!is_located(var_flux->loc1) || app->vars.id_of(var_flux->loc1) != var2->agg_for)
@@ -844,10 +837,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						if(var_flux->loc2.restriction == Var_Loc_Restriction::below) {    // TODO: Is this the right way to finally check it?
 							add_to_aggr_instr->index_sets.insert(index_set);
 							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
-						} //else {
-							//add_to_aggr_instr->excluded_index_sets.insert(index_set);
-							//instructions[var_id_flux.id].excluded_index_sets.insert(index_set);
-						//}
+						}
 					}
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
 				} else
@@ -1467,6 +1457,8 @@ Model_Application::compile(bool store_code_strings) {
 	for(auto &instr : instructions) {
 		if(instr.code)
 			delete instr.code;
+		if(instr.specific_target)
+			delete instr.specific_target;
 	}
 	
 #ifndef MOBIUS_EMULATE

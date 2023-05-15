@@ -2,30 +2,7 @@
 
 model("Another simple") {
 
-	module("So simple", version(1, 0, 0)) {
-	
-		#load("stdlib/basic_math.txt", library("Response"))
-	
-		var(a.q, []) @initial { 20 }
-		
-		var(b.q, []) @initial { 1 }
-		
-		var(c.q, [])
-		
-		flux(a.q, b.q[d.top], [day-1], "Flixflux") { 0.01[day-1]*q }
-		
-		flux(b.q[d.bottom], c.q, [day-1], "Fluxflix") { 0.01[day-1]*q[d.bottom] }
-		#flux(a.q, b.q, [day-1], "Flixflux") { 0.01[day-1]*q }
-		
-		test : property("Test") 
-		
-		var(b.test, [day-1]) { in_flux(q) }
-		
-		var(c.test, [day-1]) { in_flux(q) }
-	}
-	a : compartment("A")
 	b : compartment("B")
-	c : compartment("C")
 	q : quantity("Q")
 	
 	i : index_set("I")
@@ -34,5 +11,20 @@ model("Another simple") {
 	
 	
 	sol : solver("Solver", "INCADascru", 0.1)
-	solve(sol, a.q, b.q)
+	solve(sol, b.q)
+
+	module("So simple", version(1, 0, 0)) {
+	
+		test : property("Target") 
+		
+		var(b.test, []) { floor(5*0.5*(1 + sin((time.step=>[])*2*pi/150))) }
+	
+		var(b.q, []) @initial { 0 }
+		
+		
+		flux(nowhere, b.q[d.specific], [day-1], "Flixflux")
+			{ 0.01[day-1] }
+			@specific { test }
+	
+	}
 }
