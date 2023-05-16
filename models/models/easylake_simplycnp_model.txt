@@ -61,7 +61,7 @@ model("EasyLake-SimplyCNP") {
 		
 		flux(epi.water.din, nowhere, [k g, day-1], "Epilimnion N retention") {
 			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
-			din * rate
+			din * ret
 		}
 		
 		flux(hyp.water.din, nowhere, [k g, day-1], "Hypolimnion N retention") {

@@ -38,7 +38,7 @@ This is an adaption of a hydrology module originally implemented in Python as a 
 	}
 	
 	quick_flow :
-	flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
+	flux(soil.water, river.water, [m m, day-1], "Quick flow") {
 		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
 		flow   := in_flux(water),
 		#flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)

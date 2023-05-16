@@ -786,6 +786,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
 				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
 				
+				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Have to sum to target at least once per target.
+				
 				
 				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
 				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);

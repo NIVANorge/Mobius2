@@ -273,10 +273,21 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_connection_aggregate) {
 			
-			// Note weights are applied directly inside the codegen for this one. TODO: do that for the others too?
+			Math_Expr_FT *weight = nullptr;
+			Math_Expr_FT *unit_conv = nullptr;
+			auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[instr.target_id]);
+			for(auto &data : target_agg->conversion_data) {
+				if(data.source_id == instr.source_id) {
+					weight    = data.weight.get();
+					unit_conv = data.unit_conv.get();
+					break;
+				}
+			}
+			if(weight) weight = copy(weight);
+			if(unit_conv) unit_conv = copy(unit_conv);
 			
 			auto agg_var = app->vars[instr.target_id];
-			instr.code = make_possibly_weighted_var_ident(app, instr.var_id);
+			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, unit_conv);
 			
 		} else if(instr.type == Model_Instruction::Type::special_computation) {
 			
@@ -317,6 +328,29 @@ get_grid1d_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &t
 	}
 }
 
+bool
+get_tree_target_indexes(Model_Application *app, std::vector<Math_Expr_FT *> &target_indexes, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_compartment, Entity_Id target_compartment) {
+	auto model = app->model;
+
+	auto find_target = app->find_connection_component(connection_id, target_compartment);
+	
+	if(find_target->index_sets.empty()) return false;
+	
+	target_indexes.resize(model->index_sets.count(), nullptr);
+	for(int idx = 0; idx < find_target->index_sets.size(); ++idx) {
+		int id = idx+1;
+		auto index_set = find_target->index_sets[idx];
+		// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
+		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, id}, indexes);
+		auto target_index = new Identifier_FT();
+		target_index->variable_type = Variable_Type::connection_info;
+		target_index->value_type = Value_Type::integer;
+		target_index->exprs.push_back(idx_offset);
+		target_indexes[index_set.id] = target_index;
+	}
+	return true;
+}
+
 void
 put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::vector<Math_Expr_FT *> *provided_target_idx, std::set<Var_Loc_Restriction> &found_restriction) {
 	
@@ -340,21 +374,28 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		auto conn = app->model->connections[ident->restriction.connection_id];
 		conn_type = conn->type;
 		if(conn_type == Connection_Type::all_to_all) {
-			index_expr.transpose();
 			if(ident->restriction.restriction == Var_Loc_Restriction::above) {
 				ident->source_loc.print_error_header();
 				fatal_error("The 'above' directive is not allowed on a all_to_all connection");
 			}
+			index_expr.transpose();
 		} else if (conn_type == Connection_Type::grid1d) {
 			if(!provided_target_idx) {
 				get_grid1d_target_indexes(app, target_indexes, index_expr, ident->restriction);
 				provided_target_idx = &target_indexes;
 			}
 			index_expr.swap(*provided_target_idx);
-		} else {
-			ident->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Got a 'above' or 'below' directive for a connection \"", conn->name, "\" that is not of type all_to_all or grid1d.");
-		}
+		} else if (conn_type == Connection_Type::directed_tree) {
+			auto &res = ident->restriction;
+			if(!is_valid(res.source_comp) || !is_valid(res.target_comp) || res.source_comp != res.target_comp) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("The 'above' or 'below' directives are not allowed in this context.");
+			}
+			get_tree_target_indexes(app, target_indexes, index_expr, res.connection_id, res.source_comp, res.target_comp);
+			provided_target_idx = &target_indexes;
+			index_expr.swap(*provided_target_idx);
+		} else
+			fatal_error("Unhandled connection type in put_var_lookup_indexes.");
 	} else if(ident->restriction.restriction == Var_Loc_Restriction::top || ident->restriction.restriction == Var_Loc_Restriction::bottom) {
 		auto conn = app->model->connections[ident->restriction.connection_id];
 		conn_type = conn->type;
@@ -462,48 +503,29 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight, Math_Expr_FT *unit_conv) {
+add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id) {
 	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
 
 	auto model = app->model;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	
 	// Hmm, these two lookups are very messy. See also similar in model_compilation a couple of places
-	Entity_Id source_compartment = app->vars[source_id]->loc1.components[0];
+	auto source_compartment = app->vars[source_id]->loc1.components[0];
 	auto target_compartment = app->vars[target_agg->agg_for]->loc1.components[0];
-	auto find_target = app->find_connection_component(connection_id, target_compartment);
+	
+	std::vector<Math_Expr_FT *> target_indexes;
+	bool found = get_tree_target_indexes(app, target_indexes, indexes, connection_id, source_compartment, target_compartment);
 	
 	Math_Expr_FT *agg_offset = nullptr;
-	
-	if(find_target->index_sets.size() > 0) {
-		std::vector<Math_Expr_FT *> target_indexes(model->index_sets.count(), nullptr);
-		for(int idx = 0; idx < find_target->index_sets.size(); ++idx) {
-			int id = idx+1;
-			auto index_set = find_target->index_sets[idx];
-			// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
-			auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, id}, indexes);
-			auto target_index = new Identifier_FT();
-			target_index->variable_type = Variable_Type::connection_info;
-			target_index->value_type = Value_Type::integer;
-			target_index->exprs.push_back(idx_offset);
-			target_indexes[index_set.id] = target_index;
-		}
+	if(found) {
 		indexes.swap(target_indexes); // Set the indexes of the target compartment for looking up the target
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 		indexes.swap(target_indexes); // Swap back in the ones we had before.
 		
-		if(weight)
-			put_var_lookup_indexes(weight, app, indexes, &target_indexes);
-		
 		for(int idx = 0; idx < target_indexes.size(); ++idx) // NOTE: If they were used, they were copied, so we delete them again now.
 			delete target_indexes[idx];
-	} else {
-		if(weight) put_var_lookup_indexes(weight, app, indexes);
+	} else
 		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
-	}
-	
-	if(unit_conv)
-		put_var_lookup_indexes(unit_conv, app, indexes);
 	
 	//warning_print("*** *** Codegen for connection ", app->vars[source_id]->name, " to ", app->vars[target_agg->connection_agg]->name, " using agg var ", app->vars[agg_id]->name, "\n");
 	
@@ -521,11 +543,6 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
 	
-	if(weight)
-		value = make_binop('*', value, weight);
-	if(unit_conv)
-		value = make_binop('*', value, unit_conv);
-	
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
 	if_chain->exprs.push_back(condition);
 	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
@@ -536,7 +553,7 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 }
 
 Math_Expr_FT *
-add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id, Math_Expr_FT *weight) {
+add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id) {
 	
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 
@@ -551,16 +568,11 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 		indexes.transpose();
 	}
 	
-	if(weight) {
-		put_var_lookup_indexes(weight, app, indexes, nullptr);
-		value = make_binop('*', value, weight);
-	}
-	
 	return add_value_to_state_var(agg_id, agg_offset, value, '+'); // NOTE: it is a + regardless, since the subtraction happens explicitly when we use the value later.
 }
 
 Math_Expr_FT *
-add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, Index_Exprs &indexes, Math_Expr_FT *weight, Var_Loc_Restriction restriction) {
+add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, Index_Exprs &indexes, Var_Loc_Restriction restriction) {
 	
 	auto model = app->model;
 	
@@ -580,11 +592,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	indexes.swap(target_indexes);
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
 	indexes.swap(target_indexes);
-	
-	if(weight) {
-		put_var_lookup_indexes(weight, app, indexes, &target_indexes);
-		value = make_binop('*', value, weight);
-	}
+
 	//TODO: We don't free the target_indexes!
 	// Same goes for other places where we use get_grid1d_target_indexes() !
 	auto result = add_value_to_state_var(agg_id, agg_offset, value, '+');
@@ -593,7 +601,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 }
 
 Math_Expr_FT *
-add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Model_Instruction *instr, /*Var_Id agg_id, Var_Id source_id,*/ Index_Exprs &indexes) {//, Var_Loc_Restriction restriction) {
+add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Model_Instruction *instr, Index_Exprs &indexes) {
 	auto model = app->model;
 	
 	auto &restriction = instr->restriction;
@@ -601,32 +609,17 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 	
 	auto connection = model->connections[restriction.connection_id];
 	
-	// See if we should apply a weight and/or unit conversion to the value.
-	
-	Math_Expr_FT *weight = nullptr;
-	Math_Expr_FT *unit_conv = nullptr;
-	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
-	for(auto &data : target_agg->conversion_data) {
-		if(data.source_id == instr->source_id) {
-			weight    = data.weight.get();
-			unit_conv = data.unit_conv.get();
-			break;
-		}
-	}
-	if(weight) weight = copy(weight);
-	if(unit_conv) unit_conv = copy(unit_conv);
-	
 	if(connection->type == Connection_Type::directed_tree) {
 		
-		return add_value_to_tree_agg(app, value, agg_id, instr->source_id, indexes, restriction.connection_id, weight, unit_conv);
+		return add_value_to_tree_agg(app, value, agg_id, instr->source_id, indexes, restriction.connection_id);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		
-		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, restriction.connection_id, weight);
+		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, restriction.connection_id);
 		
 	} else if (connection->type == Connection_Type::grid1d) {
 		
-		return add_value_to_grid1d_agg(app, value, agg_id, instr->var_id, indexes, weight, restriction);
+		return add_value_to_grid1d_agg(app, value, agg_id, instr->var_id, indexes, restriction);
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");
@@ -704,7 +697,6 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			
 			if(instr->code) {
 				fun = copy(instr->code);
-				
 				put_var_lookup_indexes(fun, app, indexes, nullptr, restrictions);
 				
 			} else if (instr->type != Model_Instruction::Type::clear_state_var) {
@@ -745,7 +737,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
 				
-				result_code = add_value_to_connection_agg_var(app, fun, instr, indexes);//->target_id, instr->source_id, indexes, instr->restriction);
+				result_code = add_value_to_connection_agg_var(app, fun, instr, indexes);
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				

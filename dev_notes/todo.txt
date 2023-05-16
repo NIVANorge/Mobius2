@@ -8,13 +8,14 @@
 	Specific target:
 		Properly process the function tree, incl. flags
 		Check valid dependencies for the tree.
-			Have to think about what types of variables it is allowed to reference.		
-		Make it work for dissolved fluxes of one that has a special target.
+			Have to think about what types of variables it is allowed to reference.
 		Tridiagonal distribution.
-		Clamp the index within allowed bounds (?).
+		Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
+			This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
 	
 
 	Clean up how we generate code for computing indexes. It is very messy.
+		Get rid of provided_target_index, it is just messy.
 
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
@@ -34,7 +35,7 @@
 
 		What about:
 			accessing
-				something[above]
+				something[above]    ( or below )
 			should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
 				Or maybe invalidate ( set to 0 ) just that particular expression ( though that is not as well defined ).
 			Does this give the correct result in all instances ?

@@ -724,17 +724,253 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 		ident->restriction.restriction = Var_Loc_Restriction::top;
 	else if (type == "bottom")
 		ident->restriction.restriction = Var_Loc_Restriction::bottom;
+	
+	ident->restriction.source_comp = data->source_compartment;
+	ident->restriction.target_comp = data->target_compartment;
+}
+
+void
+resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
+	
+	auto app = data->app;
+	auto model = app->model;
+	Decl_Scope &decl_scope = *data->scope;
+	
+	auto new_ident = new Identifier_FT();
+	result.fun = new_ident;
+	
+	int chain_size = ident->chain.size();
+	
+	bool isfun = is_inside_function(scope);
+	bool found = false;
+	
+	std::string n1 = ident->chain[0].string_value;
+	
+	if(chain_size == 1) {
+		if(n1 == "no_override" || n1 == "any") {
+			if(n1 == "no_override") {
+				if(!data->allow_no_override || isfun || data->simplified) {
+					ident->source_loc.print_error_header();
+					error_print("A 'no_override' does not make sense in this context.");
+					fatal_error_trace(scope);
+				}
+				new_ident->variable_type = Variable_Type::no_override;
+			} else {
+				if(!data->allow_any || isfun || data->simplified) {
+					ident->source_loc.print_error_header();
+					error_print("An 'any' does not make sense in this context.");
+					fatal_error_trace(scope);
+				}
+				new_ident->variable_type = Variable_Type::any;
+			}
+			new_ident->value_type = Value_Type::real;
+			found = true;
+			result.unit = data->expected_unit;
+		} else
+			found = find_local_variable(new_ident, result.unit, n1, scope);
+	}
+	
+	auto reg = decl_scope[n1];
+	if(!found && chain_size == 1 && reg && reg->id.reg_type == Reg_Type::constant) {
+		delete new_ident; // A little stupid to do it that way, but oh well.
+		auto const_decl = model->constants[reg->id];
+		result.fun  = make_literal(const_decl->value);
+		result.unit = model->units[const_decl->unit]->data.standard_form;
+		found = true;
+	}
+	
+	if(!found && data->simplified) {
+		if(chain_size != 1) {
+			ident->chain[0].print_error_header();
+			fatal_error("Unable to resolve expressions with .'s in this context.");
+		}
+		for(int idx = 0; idx < data->simplified_syms.size(); ++idx) {
+			if(data->simplified_syms[idx] == n1) {
+				found = true;
+				new_ident->exprs.push_back(make_literal((s64)idx));
+				new_ident->value_type = Value_Type::real;
+				new_ident->variable_type = Variable_Type::parameter;
+				break;
+			}
+		}
+		if(!found) {
+			ident->chain[0].print_error_header();
+			fatal_error("Unable to resolve symbol '", n1, "'.");
+		}
+	}
+	
+	if(isfun && !found) {
+		ident->chain[0].print_error_header();
+		error_print("The name '", n1, "' is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
+		fatal_error_trace(scope);
+	}
+	
+	if(!found) {
+		if(chain_size == 1) {
+			if(!reg) {
+				ident->chain[0].print_error_header();
+				error_print("The name '", n1, "' is not the name of a local variable or entity declared or loaded in this scope.\n");
+				fatal_error_trace(scope);
+			}
+			Entity_Id id = reg->id;
+			
+			if(id.reg_type == Reg_Type::parameter) {
+				
+				auto par = model->parameters[id];
+				
+				if(par->decl_type == Decl_Type::par_enum) {
+					ident->chain[0].print_error_header();
+					error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
+					fatal_error_trace(scope);
+				} else if (par->decl_type == Decl_Type::par_datetime) {
+					ident->chain[0].print_error_header();
+					error_print("It is currently not supported to look up the value of date time parameters inside equations.\n");
+					fatal_error_trace(scope);
+				}
+				new_ident->variable_type = Variable_Type::parameter;
+				new_ident->par_id = id;
+				new_ident->value_type = get_value_type(par->decl_type);
+				if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
+					result.unit = model->units[par->unit]->data.standard_form;
+			} else if (id.reg_type == Reg_Type::component) {
+				if(!is_located(data->in_loc)) {
+					ident->chain[0].print_error_header();
+					error_print("The name \"", n1, "\" can not properly be resolved since the location can not be inferred from the context.\n");
+					fatal_error_trace(scope);
+				}
+				Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
+				set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
+			} else if (id.reg_type == Reg_Type::connection) {
+				new_ident->variable_type = Variable_Type::connection;
+				new_ident->value_type = Value_Type::none;
+				new_ident->restriction.connection_id = id;   // Note: this is in a way a re-purposing of the 'restriction' that is not entirely clean?
+			} else if (id.reg_type == Reg_Type::loc) {
+				// TODO: Will this break if the loc is a connection without a specific location? (In that case it should not be valid to reference it here).
+				auto loc = model->locs[id];
+				if(is_valid(loc->par_id)) {
+					auto par = model->parameters[loc->par_id];
+					new_ident->variable_type = Variable_Type::parameter;
+					new_ident->par_id = loc->par_id;
+					new_ident->value_type = get_value_type(par->decl_type);
+					if(is_valid(par->unit))
+						result.unit = model->units[par->unit]->data.standard_form;
+				} else {
+					Var_Id var_id = app->vars.id_of(loc->loc);
+					set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
+				}
+				new_ident->restriction = loc->loc;
+			} else {
+				ident->chain[0].print_error_header();
+				error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
+				fatal_error_trace(scope);
+			}
+		} else if(chain_size >= 2) {
+			// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
+			std::string n2 = ident->chain[1].string_value;
+			
+			bool resolved = false;
+			if(chain_size == 2) {
+				if(n1 == "time") {
+					new_ident->value_type = Value_Type::integer;
+					if(false){}
+					#define TIME_VALUE(name, bits) \
+					else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
+					#include "time_values.incl"
+					#undef TIME_VALUE
+					else if(n2 == "fractional_step") {
+						new_ident->value_type = Value_Type::real;
+						new_ident->variable_type = Variable_Type::time_fractional_step;
+					} else {
+						ident->chain[1].print_error_header();
+						error_print("The time structure does not have a member \"", n2, "\".\n");
+						fatal_error_trace(scope);
+					}
+					resolved = true;
+					set_time_unit(result.unit, app, new_ident->variable_type);
+					
+					if(new_ident->variable_type == Variable_Type::time_step_length_in_seconds && app->time_step_size.unit == Time_Step_Size::second) {
+						// If the step size is measured in seconds, it is constant.
+						auto new_literal = new Literal_FT();
+						new_literal->value_type = new_ident->value_type;
+						new_literal->value.val_integer = app->time_step_size.multiplier;
+						result.fun = new_literal;
+						delete new_ident;
+					}
+				} else {
+					auto reg = decl_scope[n1];
+					if(!reg) {
+						ident->chain[0].print_error_header();
+						error_print("The name '", n1, "' is not the name of an entity declared or loaded in this scope.\n");
+						fatal_error_trace(scope);
+					}
+					if(reg->id.reg_type == Reg_Type::parameter) {
+						auto parameter = model->parameters[reg->id];
+						
+						if(parameter->decl_type != Decl_Type::par_enum) {
+							ident->chain[0].print_error_header();
+							error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
+							fatal_error_trace(scope);
+						}
+						s64 val = enum_int_value(parameter, n2);
+						if(val < 0) {
+							ident->chain[1].print_error_header();
+							error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
+							fatal_error_trace(scope);
+						}
+						new_ident->variable_type = Variable_Type::parameter;
+						new_ident->par_id = reg->id;
+						new_ident->value_type = Value_Type::integer;
+						auto ft = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
+						result.fun = make_binop('=', ft, make_literal(val));
+						resolved = true;
+						// NOTE: In this case we don't set a unit, so it is dimensionless (which is what makes sense for truth values).
+					}
+				}
+			}
+			if(!resolved) {
+				std::vector<Entity_Id> chain;
+				for(int idx = 0; idx < chain_size; ++idx) {
+					std::string str = ident->chain[idx].string_value;
+					auto reg = decl_scope[str];
+					if(!reg) {
+						ident->chain[idx].print_error_header();
+						error_print("The name \"", str, "\" is not the name of an entity declared in this scope.");
+						fatal_error_trace(scope);
+					}
+					chain.push_back(reg->id);
+				}
+				Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
+				set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
+			}
+		}
+	}
+	
+	if(!data->simplified) {
+		if(!ident->bracketed_chain.empty())
+			maybe_add_bracketed_location(app, result, data, scope, ident->bracketed_chain);
+		result.fun = fixup_potentially_baked_value(app, result.fun, data->baked_parameters);
+	} else {
+		if(!ident->bracketed_chain.empty()) {
+			ident->source_loc.print_error_header();
+			error_print("Bracketed declarations are not supported in this context.");
+			fatal_error_trace(scope);
+		}
+	}
+	
+	if(data->restrictive_lookups && result.fun->expr_type == Math_Expr_Type::identifier) {
+		auto new_ident = static_cast<Identifier_FT *>(result.fun);
+		if(new_ident->variable_type != Variable_Type::local && new_ident->variable_type != Variable_Type::parameter) {
+			ident->source_loc.print_error_header();
+			error_print("Only parameters and constants can be referenced in this context, not dynamic variables.");
+			fatal_error_trace(scope);
+		}
+	}
 }
 
 
 Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
 	Function_Resolve_Result result = { nullptr, {}};
-	
-#define DEBUGGING_NOW 0
-#if DEBUGGING_NOW
-	warning_print("begin ", name(ast->type), "\n");
-#endif
 	
 	Decl_Scope &decl_scope = *data->scope;
 	
@@ -765,236 +1001,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		
 		case Math_Expr_Type::identifier : {
 			auto ident = static_cast<Identifier_Chain_AST *>(ast);
-			auto new_ident = new Identifier_FT();
-			result.fun = new_ident;
 			
-			int chain_size = ident->chain.size();
-			
-			bool isfun = is_inside_function(scope);
-			bool found = false;
-			
-			std::string n1 = ident->chain[0].string_value;
-			
-			if(chain_size == 1) {
-				if(n1 == "no_override" || n1 == "any") {
-					if(n1 == "no_override") {
-						if(!data->allow_no_override || isfun || data->simplified) {
-							ident->source_loc.print_error_header();
-							error_print("A 'no_override' does not make sense in this context.");
-							fatal_error_trace(scope);
-						}
-						new_ident->variable_type = Variable_Type::no_override;
-					} else {
-						if(!data->allow_any || isfun || data->simplified) {
-							ident->source_loc.print_error_header();
-							error_print("An 'any' does not make sense in this context.");
-							fatal_error_trace(scope);
-						}
-						new_ident->variable_type = Variable_Type::any;
-					}
-					new_ident->value_type = Value_Type::real;
-					found = true;
-					result.unit = data->expected_unit;
-				} else
-					found = find_local_variable(new_ident, result.unit, n1, scope);
-			}
-			
-			auto reg = decl_scope[n1];
-			if(!found && chain_size == 1 && reg && reg->id.reg_type == Reg_Type::constant) {
-				delete new_ident; // A little stupid to do it that way, but oh well.
-				auto const_decl = model->constants[reg->id];
-				result.fun  = make_literal(const_decl->value);
-				result.unit = model->units[const_decl->unit]->data.standard_form;
-				found = true;
-			}
-			
-			if(!found && data->simplified) {
-				if(chain_size != 1) {
-					ident->chain[0].print_error_header();
-					fatal_error("Unable to resolve expressions with .'s in this context.");
-				}
-				for(int idx = 0; idx < data->simplified_syms.size(); ++idx) {
-					if(data->simplified_syms[idx] == n1) {
-						found = true;
-						new_ident->exprs.push_back(make_literal((s64)idx));
-						new_ident->value_type = Value_Type::real;
-						new_ident->variable_type = Variable_Type::parameter;
-						break;
-					}
-				}
-				if(!found) {
-					ident->chain[0].print_error_header();
-					fatal_error("Unable to resolve symbol '", n1, "'.");
-				}
-			}
-			
-			if(isfun && !found) {
-				ident->chain[0].print_error_header();
-				error_print("The name '", n1, "' is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
-				fatal_error_trace(scope);
-			}
-			
-			if(!found) {
-				if(chain_size == 1) {
-					if(!reg) {
-						ident->chain[0].print_error_header();
-						error_print("The name '", n1, "' is not the name of a local variable or entity declared or loaded in this scope.\n");
-						fatal_error_trace(scope);
-					}
-					Entity_Id id = reg->id;
-					
-					if(id.reg_type == Reg_Type::parameter) {
-						
-						auto par = model->parameters[id];
-						
-						if(par->decl_type == Decl_Type::par_enum) {
-							ident->chain[0].print_error_header();
-							error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
-							fatal_error_trace(scope);
-						} else if (par->decl_type == Decl_Type::par_datetime) {
-							ident->chain[0].print_error_header();
-							error_print("It is currently not supported to look up the value of date time parameters inside equations.\n");
-							fatal_error_trace(scope);
-						}
-						new_ident->variable_type = Variable_Type::parameter;
-						new_ident->par_id = id;
-						new_ident->value_type = get_value_type(par->decl_type);
-						if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
-							result.unit = model->units[par->unit]->data.standard_form;
-					} else if (id.reg_type == Reg_Type::component) {
-						if(!is_located(data->in_loc)) {
-							ident->chain[0].print_error_header();
-							error_print("The name \"", n1, "\" can not properly be resolved since the location can not be inferred from the context.\n");
-							fatal_error_trace(scope);
-						}
-						Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
-						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-					} else if (id.reg_type == Reg_Type::connection) {
-						new_ident->variable_type = Variable_Type::connection;
-						new_ident->value_type = Value_Type::none;
-						new_ident->restriction.connection_id = id;   // Note: this is in a way a re-purposing of the 'restriction' that is not entirely clean?
-					} else if (id.reg_type == Reg_Type::loc) {
-						// TODO: Will this break if the loc is a connection without a specific location? (In that case it should not be valid to reference it here).
-						auto loc = model->locs[id];
-						if(is_valid(loc->par_id)) {
-							auto par = model->parameters[loc->par_id];
-							new_ident->variable_type = Variable_Type::parameter;
-							new_ident->par_id = loc->par_id;
-							new_ident->value_type = get_value_type(par->decl_type);
-							if(is_valid(par->unit))
-								result.unit = model->units[par->unit]->data.standard_form;
-						} else {
-							Var_Id var_id = app->vars.id_of(loc->loc);
-							set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-						}
-						new_ident->restriction = loc->loc;
-					} else {
-						ident->chain[0].print_error_header();
-						error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
-						fatal_error_trace(scope);
-					}
-				} else if(chain_size >= 2) {
-					// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
-					std::string n2 = ident->chain[1].string_value;
-					
-					bool resolved = false;
-					if(chain_size == 2) {
-						if(n1 == "time") {
-							new_ident->value_type = Value_Type::integer;
-							if(false){}
-							#define TIME_VALUE(name, bits) \
-							else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
-							#include "time_values.incl"
-							#undef TIME_VALUE
-							else if(n2 == "fractional_step") {
-								new_ident->value_type = Value_Type::real;
-								new_ident->variable_type = Variable_Type::time_fractional_step;
-							} else {
-								ident->chain[1].print_error_header();
-								error_print("The time structure does not have a member \"", n2, "\".\n");
-								fatal_error_trace(scope);
-							}
-							resolved = true;
-							set_time_unit(result.unit, app, new_ident->variable_type);
-							
-							if(new_ident->variable_type == Variable_Type::time_step_length_in_seconds && app->time_step_size.unit == Time_Step_Size::second) {
-								// If the step size is measured in seconds, it is constant.
-								auto new_literal = new Literal_FT();
-								new_literal->value_type = new_ident->value_type;
-								new_literal->value.val_integer = app->time_step_size.multiplier;
-								result.fun = new_literal;
-								delete new_ident;
-							}
-						} else {
-							auto reg = decl_scope[n1];
-							if(!reg) {
-								ident->chain[0].print_error_header();
-								error_print("The name '", n1, "' is not the name of an entity declared or loaded in this scope.\n");
-								fatal_error_trace(scope);
-							}
-							if(reg->id.reg_type == Reg_Type::parameter) {
-								auto parameter = model->parameters[reg->id];
-								
-								if(parameter->decl_type != Decl_Type::par_enum) {
-									ident->chain[0].print_error_header();
-									error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
-									fatal_error_trace(scope);
-								}
-								s64 val = enum_int_value(parameter, n2);
-								if(val < 0) {
-									ident->chain[1].print_error_header();
-									error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
-									fatal_error_trace(scope);
-								}
-								new_ident->variable_type = Variable_Type::parameter;
-								new_ident->par_id = reg->id;
-								new_ident->value_type = Value_Type::integer;
-								auto ft = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
-								result.fun = make_binop('=', ft, make_literal(val));
-								resolved = true;
-								// NOTE: In this case we don't set a unit, so it is dimensionless (which is what makes sense for truth values).
-							}
-						}
-					}
-					if(!resolved) {
-						std::vector<Entity_Id> chain;
-						for(int idx = 0; idx < chain_size; ++idx) {
-							std::string str = ident->chain[idx].string_value;
-							auto reg = decl_scope[str];
-							if(!reg) {
-								ident->chain[idx].print_error_header();
-								error_print("The name \"", str, "\" is not the name of an entity declared in this scope.");
-								fatal_error_trace(scope);
-							}
-							chain.push_back(reg->id);
-						}
-						Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
-						set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-					}
-				}
-			}
-			
-			if(!data->simplified) {
-				if(!ident->bracketed_chain.empty())
-					maybe_add_bracketed_location(app, result, data, scope, ident->bracketed_chain);
-				result.fun = fixup_potentially_baked_value(app, result.fun, data->baked_parameters);
-			} else {
-				if(!ident->bracketed_chain.empty()) {
-					ident->source_loc.print_error_header();
-					error_print("Bracketed declarations are not supported in this context.");
-					fatal_error_trace(scope);
-				}
-			}
-			
-			if(data->restrictive_lookups && result.fun->expr_type == Math_Expr_Type::identifier) {
-				auto new_ident = static_cast<Identifier_FT *>(result.fun);
-				if(new_ident->variable_type != Variable_Type::local && new_ident->variable_type != Variable_Type::parameter) {
-					ident->source_loc.print_error_header();
-					error_print("Only parameters and constants can be referenced in this context, not dynamic variables.");
-					fatal_error_trace(scope);
-				}
-			}
-			
+			resolve_identifier(ident, data, scope, result);
 		} break;
 		
 		case Math_Expr_Type::literal : {
@@ -1314,19 +1322,16 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		} break;
 	}
 	
-	if(!result.fun)
+	if(!result.fun) {
+		ast->source_loc.print_error_header(Mobius_Error::internal);
 		fatal_error(Mobius_Error::internal, "Result unassigned in resolve_function_tree().");
-	
-	result.fun->source_loc = ast->source_loc;
-	
+	}
 	if(result.fun->value_type == Value_Type::unresolved) {
-		ast->source_loc.print_error_header();
-		fatal_error("(internal error) did not resolve value type of expression.");
+		ast->source_loc.print_error_header(Mobius_Error::internal);
+		fatal_error("Did not resolve value type of expression.");
 	}
 	
-#if DEBUGGING_NOW
-	warning_print("end ", name(ast->type), "\n");
-#endif
+	result.fun->source_loc = ast->source_loc;
 
 	return result;
 }

@@ -299,6 +299,10 @@ Var_Loc_Restriction {
 	enum Restriction {
 		none, top, bottom, above, below, specific
 	}                restriction;
+
+	// NOTE: These two are only supposed to be used for tree (and maybe later graph) aggregates where the source/target could be ambiguous.
+	Entity_Id        source_comp = invalid_entity_id;
+	Entity_Id        target_comp = invalid_entity_id;
 	
 	Var_Loc_Restriction() : connection_id(invalid_entity_id), restriction(none) {};
 	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}

@@ -1,0 +1,161 @@
+"""
+TODO: description
+"""
+
+index_set("Landscape units") [ "Forest" "Bog" ]
+
+index_set("Subcatchment") [ "Inlet" ]
+
+connection("Downhill") [
+	s : compartment("Soil") [ "Landscape units" ]
+	r : compartment("River") [ ]
+
+	s[ "Forest" ] -> s[ "Bog" ] -> r[ ]
+]
+
+connection("Downstream") [
+	compartment("River") [ "Subcatchment" ]
+]
+
+series("langtjern.xlsx")
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1986-01-01 ]
+
+	par_datetime("End date")
+	[ 2015-12-31 ]
+}
+
+par_group("Catchment data") {
+	par_real("Catchment area")
+	[ 0.8 ]
+}
+
+par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
+	par_real("Land use proportions") [
+		0.6 0.4 
+	]
+}
+
+module("HBVSnow", 1, 0, 0) {
+	par_group("Snow") {
+		par_real("Degree-day factor for snowmelt")
+		[ 2.91657187378336 ]
+
+		par_real("Temperature at which precip falls as snow")
+		[ 0.0529440765581686 ]
+
+		par_real("Temperature at which snow melts")
+		[ -0.0611681153264756 ]
+
+		par_real("Refreeze efficiency")
+		[ 0.114510690439383 ]
+
+		par_real("Liquid water fraction")
+		[ 0.0553571251841209 ]
+
+		par_real("Initial snow depth (water equivalents)")
+		[ 0 ]
+	}
+}
+
+module("SimplyQ land", 0, 5, 0) {
+	par_group("Hydrology general") {
+		par_real("Baseflow index")
+		[ 0.05 ]
+
+		par_real("Quick flow inflection point")
+		[ 150 ]
+	}
+
+	par_group("Hydrology land") [ "Landscape units" ] {
+		par_real("Field capacity")
+		[ 30 50 ]
+
+		par_real("Soil water time constant")
+		[ 1 2 ]
+	}
+
+	par_group("Groundwater") {
+		par_real("Groundwater time constant")
+		[ 30.0527746167028 ]
+	}
+}
+
+module("SimplyQ river", 0, 0, 1) {
+	par_group("Reach parameters") {
+		par_real("Reach slope")
+		[ 0.014 ]
+
+		par_real("Reach length")
+		[ 800 ]
+
+		par_real("Manning's roughness coefficient")
+		[ 0.04 ]
+
+		par_real("Initial reach flow")
+		[ 0.001 ]
+	}
+}
+
+module("Degree-day PET", 1, 0, 0) {
+	par_group("Potential evapotranspiration") {
+		par_real("Deegree-day factor for evapotranspiration")
+		[ 0.12 ]
+
+		par_real("Minimal temperature for evapotranspiration")
+		[ 0 ]
+	}
+}
+
+module("Priestley-Taylor PET", 0, 0, 16) {
+}
+
+module("Simply soil temperature", 0, 1, 0) {
+	par_group("Soil temperature general") {
+		par_real("Snow depth / soil temperature factor")
+		[ -0.2 ]
+
+		par_real("Initial soil temperature")
+		[ 10 ]
+	}
+
+	par_group("Soil temperature land") {
+		par_real("Soil thermal conductivity / specific heat capacity")
+		[ 0.03 ]
+	}
+}
+
+module("SimplyC", 1, 0, 0) {
+	par_group("DOC general") {
+		par_real("Baseline soil DOC dissolution rate")
+		[ 10 ]
+
+		par_real("Soil temperature DOC creation linear coefficient")
+		[ 0.0192699922622986 ]
+
+		par_real("Soil DOC linear SO4 dependence")
+		[ 0.076 ]
+
+		par_real("Soil temperature DOC creation second-order coefficient")
+		[ 0.00276834666700925 ]
+	}
+
+	par_group("DOC land") [ "Landscape units" ] {
+		par_real("Baseline soil DOC concentration")
+		[ 8 14 ]
+	}
+
+	par_group("DOC deep soil") {
+		par_enum("Groundwater DOC computation type")
+		[ soil_avg ]
+
+		par_real("Groundwater DOC half-life")
+		[ 80 ]
+
+		par_real("Groundwater DOC concentration")
+		[ 3 ]
+	}
+}
+
