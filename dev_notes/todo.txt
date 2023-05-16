@@ -14,9 +14,6 @@
 			This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
 	
 
-	Clean up how we generate code for computing indexes. It is very messy.
-		Get rid of provided_target_index, it is just messy.
-
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
 			This in particular may have been fixed now.
@@ -92,7 +89,10 @@
 		
 			Check for conflicting declarations of variables (unit, name).
 			
-			Inline decls in arguments don't quite work unless they are in the right order. May need to recursively make a list of all decls in a decl body, then process that list. A bit tricky though.
+			To fix some issues, we should probably scan a decl body for declarations, *then* process them. E.g. to make sure inline decls are also processed out of order.
+			This could also allow us to have static if expressions. Would just have to resolve outer consts and parameters first, but that should be ok.
+				(see more in doodle)
+				
 		
 		
 		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.

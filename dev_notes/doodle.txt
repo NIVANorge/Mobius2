@@ -35,6 +35,28 @@
 	
 	# Want module parameters in the form of constants, and also if conditions
 	
+	# Since enum parameters are baked constants..
+	par_group("SimplyQ setup choice") {
+		etp_module : par_enum("Evapotranspiration module", degree_day) { degree_day penman_monteith }
+	}
+	
+	# Then we don't need the separate option system.
+	
+	if(etp_module.degree_day) {
+		load("...")
+	}
+	if(etp_module.penman_monteith) {
+		load(atmospheric,...)
+		load("...")
+	}
+	# This is probably the best system!
+		# Need to read values directly from the dataset, but that should be ok. The dataset can be loaded first independently.
+	
+	
+	
+	
+	
+	
 	if(some_bool_const) {
 		# Stuff
 	}

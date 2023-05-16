@@ -480,21 +480,15 @@ Index_Exprs {
 		mat_index_set = invalid_entity_id;
 	}
 	
-	void transpose() {
-		if(!is_valid(mat_index_set)) return;
-		auto tmp = mat_col;
-		mat_col = indexes[mat_index_set.id];
-		indexes[mat_index_set.id] = tmp;
-	}
-	
-	void swap(std::vector<Math_Expr_FT *> &other_indexes) {
-		for(int idx = 0; idx < indexes.size(); ++idx) {
-			if(other_indexes[idx]) {
-				auto tmp = indexes[idx];
-				indexes[idx] = other_indexes[idx];
-				other_indexes[idx] = tmp;
-			}
+	void copy(Index_Exprs &other) {
+		clean();
+		indexes = other.indexes;
+		for(auto &idx : indexes) {
+			if(idx) idx = ::copy(idx);
 		}
+		if(other.mat_col)
+			mat_col = ::copy(other.mat_col);
+		mat_index_set = other.mat_index_set;
 	}
 };
 
