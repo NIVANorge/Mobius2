@@ -11,7 +11,7 @@
 // NOTE: This is just some preliminary testing of the C api. Will build it out properly later.
 
 std::stringstream global_error_stream;
-std::stringstream global_warning_stream;
+std::stringstream global_log_stream;
 
 DLLEXPORT s64
 mobius_encountered_error(char *msg_out, s64 buf_len) {
@@ -22,9 +22,9 @@ mobius_encountered_error(char *msg_out, s64 buf_len) {
 }
 
 DLLEXPORT s64
-mobius_encountered_warning(char *msg_out, s64 buf_len) {
-	global_warning_stream.getline(msg_out, buf_len, 0);
-	global_warning_stream.clear(); // NOTE: see comment in mobius_encountered_error
+mobius_encountered_log(char *msg_out, s64 buf_len) {
+	global_log_stream.getline(msg_out, buf_len, 0);
+	global_log_stream.clear(); // NOTE: see comment in mobius_encountered_error
 	return strlen(msg_out);
 }
 
@@ -47,100 +47,49 @@ mobius_build_from_model_and_data_file(char * model_file, char * data_file) {
 	return nullptr;
 }
 
-DLLEXPORT void
-mobius_run_model(Model_Application *app) {
+// TODO: We should probably have most of these work with Model_Data instances instead of Model_Application instances.
+
+DLLEXPORT bool
+mobius_run_model(Model_Application *app, s64 ms_timeout) {
 	try {
-		run_model(app);
+		return run_model(app, ms_timeout);
 	} catch(int) {}
 }
 
-DLLEXPORT Model_Entity_Reference
-mobius_get_model_entity_by_handle(Model_Application *app, char *handle_name) {
-	Model_Entity_Reference result;
-	result.type = Model_Entity_Reference::Type::invalid;
-	
-	try {
-		auto reg = app->model->model_decl_scope[handle_name];
-		
-		if(reg && !reg->external) {
-			result.id = reg->id;
-			Decl_Type type = app->model->find_entity(reg->id)->decl_type;
-			if(type == Decl_Type::module) {
-				result.type = Model_Entity_Reference::Type::module;
-				return result;
-			} else if(type == Decl_Type::compartment) {
-				result.type = Model_Entity_Reference::Type::compartment;
-				return result;
-			}
-		}
-	} catch(int) {}
-
-	return result;
+DLLEXPORT s64
+mobius_get_steps(Model_Application *app, Var_Id::Type type) {
+	auto &storage = app->data.get_storage(type);
+	if(!storage.structure->has_been_set_up)
+		return 0;
+	return storage.time_steps;
 }
 
-DLLEXPORT Model_Entity_Reference
-mobius_get_module_reference_by_name(Model_Application *app, char *name) {
-	Model_Entity_Reference result;
-	result.type = Model_Entity_Reference::Type::invalid;
-	
-	try {
-		auto id = app->model->modules.find_by_name(name);
-		result.id = id;
-		
-		if(!is_valid(id))
-			fatal_error(Mobius_Error::api_usage, "\"", name, "\" is not a module in the model \"", app->model->model_name, "\".");
-	} catch(int) {}
-	
-	return result;
+DLLEXPORT Time_Step_Size
+mobius_get_time_step_size(Model_Application *app) {
+	return app->time_step_size;
 }
 
-DLLEXPORT Model_Entity_Reference
-mobius_get_module_entity_by_handle(Model_Application *app, Model_Entity_Reference module, char *handle_name) {
-	
-	auto model = app->model;
-	Decl_Scope *scope = model->get_scope(module.id);
-	
-	Model_Entity_Reference result;
-	result.type = Model_Entity_Reference::Type::invalid;
-	
-	try {
-		auto reg = (*scope)[handle_name];
-		if(!reg)
-			return result;
-		auto id = reg->id;
-		//TODO: do we disallow externals here?
-		
-		result.id = id;
-		
-		Decl_Type type = model->find_entity(id)->decl_type;
-		
-		if(id.reg_type == Reg_Type::parameter) {
-			result.type = Model_Entity_Reference::Type::parameter;
-			result.value_type = get_value_type(model->parameters[id]->decl_type);
-		} else if(type == Decl_Type::compartment) {
-			result.type = Model_Entity_Reference::Type::compartment;
-		} else if(type == Decl_Type::property || type == Decl_Type::quantity) {
-			result.type = Model_Entity_Reference::Type::prop_or_quant;
-		} else if(id.reg_type == Reg_Type::flux) {
-			result.type = Model_Entity_Reference::Type::flux;
-		}
-	} catch(int) {}
-	
-	return result;
+DLLEXPORT char *
+mobius_get_start_date(Model_Application *app, Var_Id::Type type) {
+	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
+	return app->data.get_storage(type).start_date.to_string().data;
 }
+
 
 template<typename Handle_T> s64
 get_offset_by_index_names(Model_Application *app, Storage_Structure<Handle_T> *storage, Handle_T handle, char **index_names, s64 indexes_count) {
 	
+	// TODO: Print what index sets are expected.
+	
 	const std::vector<Entity_Id> &index_sets = storage->get_index_sets(handle);
 	if(index_sets.size() != indexes_count)
-		fatal_error("The object requires ", index_sets.size(), " index", index_sets.size()>1?"es":"", ", got ", indexes_count, ".");
+		fatal_error(Mobius_Error::api_usage, "The object requires ", index_sets.size(), " index", index_sets.size()>1?"es":"", ", got ", indexes_count, ".");
 	
 	std::vector<Index_T> indexes(indexes_count);
 	for(s64 idxidx = 0; idxidx < indexes_count; ++idxidx) {
 		indexes[idxidx] = app->get_index(index_sets[idxidx], index_names[idxidx]);
 		if(indexes[idxidx].index < 0)
-			fatal_error("The index set \"", app->model->find_entity(index_sets[idxidx])->name, "\" does not contain the index \"", index_names[idxidx], "\".");
+			fatal_error(Mobius_Error::api_usage, "The index set \"", app->model->find_entity(index_sets[idxidx])->name, "\" does not contain the index \"", index_names[idxidx], "\".");
 	}
 	return storage->get_offset_alternate(handle, indexes);
 }
@@ -161,143 +110,68 @@ DLLEXPORT double
 mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
 	try {
 		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
+		return (*app->data.parameters.get_value(offset)).val_real;
 		
-		double value = (*app->data.parameters.get_value(offset)).val_real;
-		return value;
 	} catch(int) {}
 	return 0.0;
 }
 
-
-DLLEXPORT Var_Location
-mobius_get_var_location(Entity_Id comp_id, Entity_Id prop_id) {
-	Var_Location loc;
-	loc.type = Var_Location::Type::located;
-	loc.n_components = 2;
-	loc.components[0] = comp_id;
-	loc.components[1] = prop_id;
-	return loc;
+DLLEXPORT Entity_Id
+mobius_deserialize_entity(Model_Application *app, Entity_Id scope_id, char *serial_name) {
+	try {
+		auto scope = app->model->get_scope(scope_id);
+		return scope->deserialize(serial_name, Reg_Type::unrecognized);
+	} catch(int) {}
+	return invalid_entity_id;
 }
 
-DLLEXPORT Var_Location
-mobius_get_dissolved_location(Var_Location loc, Entity_Id prop_id) {
+DLLEXPORT Entity_Id
+mobius_get_entity(Model_Application *app, Entity_Id scope_id, char *handle_name) {
 	try {
-		return add_dissolved(loc, prop_id);
+		auto scope = app->model->get_scope(scope_id);
+		auto reg = (*scope)[handle_name];
+		if(!reg)
+			return invalid_entity_id;
+		return reg->id;
 	} catch(int) {}
-	return loc;
+	return invalid_entity_id;
 }
 
 DLLEXPORT Var_Id
-mobius_get_var_id(Model_Application *app, Var_Location loc) {
-	Var_Id result = invalid_var;
-	
-	try {
-		auto find = app->state_vars.location_to_id.find(loc);
-		if(find != app->state_vars.location_to_id.end())
-			return find->second;
-		auto find2 = app->series.location_to_id.find(loc);
-		if(find2 != app->series.location_to_id.end())
-			return find2->second;
-	} catch(int) {}
-	
-	return result;
+mobius_deserialize_var(Model_Application *app, char *serial_name) {
+	return app->deserialize(serial_name);
 }
 
 DLLEXPORT Var_Id
-mobius_get_conc_id(Model_Application *app, Var_Location loc) {
-	
-	Var_Id res = mobius_get_var_id(app, loc);
-	if(res.type == Var_Id::Type::series || res.type == Var_Id::Type::additional_series) res.type = Var_Id::Type::none; // Input series don't have concentrations.
-	if(res.type == Var_Id::Type::none) return res;
-	
-	auto var = app->state_vars[res];
-	if(is_valid(var->dissolved_conc))
-		res = var->dissolved_conc;
-	else
-		res.type = Var_Id::Type::none;
-	return res;
-}
-
-DLLEXPORT Var_Id
-mobius_get_additional_series_id(Model_Application *app, char *name) {
-	
-	std::set<Var_Id> ids = app->additional_series[name];
-	
+mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count) {
+	// TODO: Check that all the ids refer to components.
 	try {
-		if(ids.empty())
-			fatal_error(Mobius_Error::api_usage, "The series by the name \"", name, "\" was not provided in the input data.");
+		Var_Location loc;
+		loc.type = Var_Location::Type::located;
+		loc.n_components = id_count;
+		// TODO: Check that id_count does not exceed max_var_loc_components ?
+		for(int idx = 0; idx < id_count; ++idx)
+			loc.components[idx] = ids[idx];
+		
+		return app->vars.id_of(loc);
+		
 	} catch(int) {}
-	
-	return *ids.begin();     // NOTE: For additional series there will only be one per name.
+	return invalid_var;
 }
 
-DLLEXPORT s64
-mobius_get_steps(Model_Application *app, Var_Id::Type type) {
-	if(type == Var_Id::Type::state_var) {
-		if(!app->result_structure.has_been_set_up)
-			return 0;
-		return app->data.results.time_steps;
-	} else if(type == Var_Id::Type::series)
-		return app->data.series.time_steps;
-	else if(type == Var_Id::Type::additional_series)
-		return app->data.additional_series.time_steps;
-	
-	return 0;
-}
-
-// TODO: Getting the name should be a separate call though.
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size) {
+mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out) {
 	if(!time_steps_out) return;
 	
 	try {
-		s64 offset;
-		String_View name;
-		if(var_id.type == Var_Id::Type::state_var) {
-			offset = get_offset_by_index_names(app, &app->result_structure, var_id, index_names, indexes_count);
-			name = app->state_vars[var_id]->name;
-		} else if (var_id.type == Var_Id::Type::series) {
-			offset = get_offset_by_index_names(app, &app->series_structure, var_id, index_names, indexes_count);
-			name = app->series[var_id]->name;
-		} else if (var_id.type == Var_Id::Type::additional_series) {
-			offset = get_offset_by_index_names(app, &app->additional_series_structure, var_id, index_names, indexes_count);
-			name = app->additional_series[var_id]->name;
-		}
+		auto &storage = app->data.get_storage(var_id.type);
+		s64 offset = get_offset_by_index_names(app, storage.structure, var_id, index_names, indexes_count);
+
+		for(s64 step = 0; step < time_steps_out; ++step)
+			series_out[step] = *storage.get_value(offset, step);
 		
-		if(name.count > name_out_size)
-			name.count = name_out_size;
-		sprintf(name_out, "%.*s", name.count, name.data);
-		
-		for(s64 step = 0; step < time_steps_out; ++step) {
-			double value;
-			if(var_id.type == Var_Id::Type::state_var)
-				value = *app->data.results.get_value(offset, step);
-			else if(var_id.type == Var_Id::Type::series)
-				value = *app->data.series.get_value(offset, step);
-			else if(var_id.type == Var_Id::Type::additional_series)
-				value = *app->data.additional_series.get_value(offset, step);
-			series_out[step] = value;
-		}
 	} catch(int) {}
 }
 
 
-DLLEXPORT Time_Step_Size
-mobius_get_time_step_size(Model_Application *app) {
-	
-	return app->time_step_size;
-}
 
-DLLEXPORT char *
-mobius_get_start_date(Model_Application *app, Var_Id::Type type) {
-	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
-	String_View str;
-	if(type == Var_Id::Type::state_var)
-		str = app->data.results.start_date.to_string();
-	else if(type == Var_Id::Type::series)
-		str = app->data.series.start_date.to_string();
-	else if(type == Var_Id::Type::additional_series)
-		str = app->data.additional_series.start_date.to_string();
-	
-	return str.data;
-}

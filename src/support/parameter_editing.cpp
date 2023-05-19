@@ -19,7 +19,7 @@ recursive_update_parameter(int level, std::vector<Index_T> &current_indexes, con
 	} else {
 		if(par_data.locks[level]) {
 			//NOTE: this assumes that the index sets in par_data.indexes are ordered the same as in app->index_counts !
-			auto index_set = Entity_Id {Reg_Type::index_set, level};
+			auto index_set = Entity_Id {Reg_Type::index_set, (s16)level};
 			auto index_count = data->app->get_index_count(index_set, current_indexes); // NOTE: this will work if things are set up in the right order, but it is a bit volatile
 			for(Index_T index = {index_set, 0}; index < index_count; ++index) {
 			//for(Index_T index = {index_set, 0}; index < data->app->get_max_index_count(index_set); ++index) {

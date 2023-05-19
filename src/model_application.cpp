@@ -974,7 +974,7 @@ Model_Application::save_to_data_set() {
 	// Hmm, this is a bit cumbersome
 	for(int idx = -1; idx < model->modules.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
-		if(idx >= 0) module_id = { Reg_Type::module, idx };
+		if(idx >= 0) module_id = { Reg_Type::module, (s16)idx };
 		
 		//if(is_valid(module_id) && !model->module_templates[module_id]->has_been_processed)  // NOTE: This means that it was in a file that was loaded, but not actually included into the model.
 		//	continue;

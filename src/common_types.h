@@ -73,6 +73,7 @@ inline bool operator<(const Module_Version &a, const Module_Version &b) {
 	return false;
 }
 
+// TODO: Could probably narrow these to s16 also (though need to reflect in mobipy)
 struct Var_Id {
 	enum class Type : s32 {
 		none = -1, state_var, series, additional_series
@@ -226,7 +227,7 @@ get_reg_type(Decl_Type decl_type) {
 struct
 Entity_Id {
 	Reg_Type reg_type;
-	s32      id;			// This could probably be s16 (You won't have more than 32k different entitities of the same type (and we could detect it if it happens)). Needs to be reflected correctly in mobipy.
+	s16      id;
 	
 	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
 	Entity_Id &operator++() { id++; return *this; }
@@ -285,14 +286,7 @@ operator==(const Var_Location &a, const Var_Location &b) {
 }
 
 inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
-/*
-enum class
-Boundary_Type {
-	none,
-	top,
-	bottom,
-};
-*/
+
 struct
 Var_Loc_Restriction {
 	Entity_Id        connection_id;
@@ -307,6 +301,7 @@ Var_Loc_Restriction {
 	Var_Loc_Restriction() : connection_id(invalid_entity_id), restriction(none) {};
 	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
 };
+
 inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
 	if(a.connection_id == b.connection_id) return (int)a.restriction < (int)b.restriction;
 	return a.connection_id < b.connection_id;

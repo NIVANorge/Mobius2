@@ -13,36 +13,26 @@
 
 struct Model_Application;
 
-struct
-Model_Entity_Reference {
-	enum class Type : s16 { //TODO: hmm, is there really any reason not just to reuse Reg_Type ? Probably because it gets updated often and then mobipy breaks?
-		invalid = 0, module = 1, parameter = 2, compartment = 3, prop_or_quant = 4, flux = 5,
-	} type;
-	Entity_Id  id;
-	Value_Type value_type;
-};
-
-
 DLLEXPORT s64
 mobius_encountered_error(char *msg_out, s64 buf_len);
 
 DLLEXPORT s64
-mobius_encountered_warning(char *msg_out, s64 buf_len);
+mobius_encountered_log(char *msg_out, s64 buf_len);
 
 DLLEXPORT Model_Application *
 mobius_build_from_model_and_data_file(char * model_file, char * data_file);
 
-DLLEXPORT void
-mobius_run_model(Model_Application *app);
+DLLEXPORT bool
+mobius_run_model(Model_Application *app, s64 ms_timeout);
 
-DLLEXPORT Model_Entity_Reference
-mobius_get_model_entity_by_handle(Model_Application *app, char *handle_name);
+DLLEXPORT s64
+mobius_get_steps(Model_Application *app, Var_Id::Type type);
 
-DLLEXPORT Model_Entity_Reference
-mobius_get_module_reference_by_name(Model_Application *app, char *name);
+DLLEXPORT Time_Step_Size
+mobius_get_time_step_size(Model_Application *app);
 
-DLLEXPORT Model_Entity_Reference
-mobius_get_module_entity_by_handle(Model_Application *app, Model_Entity_Reference module, char *handle_name);
+DLLEXPORT char *
+mobius_get_start_date(Model_Application *app, Var_Id::Type type);
 
 DLLEXPORT void
 mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value);
@@ -50,32 +40,26 @@ mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index
 DLLEXPORT double
 mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
 
-DLLEXPORT Var_Location
-mobius_get_var_location(Entity_Id comp_id, Entity_Id prop_id);
 
-DLLEXPORT Var_Location
-mobius_get_dissolved_location(Var_Location loc, Entity_Id prop_id);
+DLLEXPORT Entity_Id
+mobius_deserialize_entity(Model_Application *app, Entity_Id scope_id, char *serial_name);
 
-DLLEXPORT Var_Id
-mobius_get_var_id(Model_Application *app, Var_Location loc);
+DLLEXPORT Entity_Id
+mobius_get_entity(Model_Application *app, Entity_Id scope_id, char *handle_name);
 
 DLLEXPORT Var_Id
-mobius_get_conc_id(Model_Application *app, Var_Location loc);
+mobius_deserialize_var(Model_Application *app, char *serial_name);
 
 DLLEXPORT Var_Id
-mobius_get_additional_series_id(Model_Application *app, char *name);
+mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count);
 
-DLLEXPORT s64
-mobius_get_steps(Model_Application *app, Var_Id::Type type);
 
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out, char *name_out, s64 name_out_size);
+mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out);
 
-DLLEXPORT Time_Step_Size
-mobius_get_time_step_size(Model_Application *app);
 
-DLLEXPORT char *
-mobius_get_start_date(Model_Application *app, Var_Id::Type type);
+
+
 
 
 

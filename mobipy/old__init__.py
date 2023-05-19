@@ -15,7 +15,7 @@ class Entity_Id(ctypes.Structure) :
 class Model_Entity_Reference(ctypes.Structure) :
 	_fields_ = [("type", ctypes.c_int16), ("entity", Entity_Id), ("value_type", ctypes.c_int32)]
 
-max_var_loc_components = 4
+max_var_loc_components = 6
 
 class Var_Location(ctypes.Structure) :
 	_fields_ = [("type", ctypes.c_int32), ("n_components", ctypes.c_int32), ("components", max_var_loc_components*Entity_Id)]
@@ -29,8 +29,8 @@ class Time_Step_Size(ctypes.Structure) :
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_error.restype = ctypes.c_int64
 	
-dll.mobius_encountered_warning.argtypes = [ctypes.c_char_p, ctypes.c_int64]
-dll.mobius_encountered_warning.restype = ctypes.c_int64
+dll.mobius_encountered_log.argtypes = [ctypes.c_char_p, ctypes.c_int64]
+dll.mobius_encountered_log.restype = ctypes.c_int64
 
 dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
 dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
@@ -85,13 +85,13 @@ def _pack_indexes(indexes) :
 	cindexes = [index.encode('utf-8') for index in indexes]
 	return (ctypes.c_char_p * len(cindexes))(*cindexes)
 	
-def check_for_errors() :
+def _check_for_errors() :
 	buflen = 1024
 	msgbuf = ctypes.create_string_buffer(buflen)
 	
 	warnmsg = ''
 	warning = False
-	warnlen = dll.mobius_encountered_warning(msgbuf, buflen)
+	warnlen = dll.mobius_encountered_log(msgbuf, buflen)
 	while warnlen > 0 :
 		warning = True
 		warnmsg += msgbuf.value.decode('utf-8')

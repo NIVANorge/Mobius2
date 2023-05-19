@@ -128,7 +128,7 @@ Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *seri
 	// It was not previously referenced. Create a new entry for it.
 	if(!is_valid(result_id)) {
 		result_id.reg_type  = reg_type;
-		result_id.id        = (s32)registrations.size();
+		result_id.id        = (s16)registrations.size();     // TODO: Detect overflow?
 		registrations.push_back(Entity_Registration<reg_type>());
 		auto &registration = registrations[result_id.id];
 		registration.has_been_declared = false;

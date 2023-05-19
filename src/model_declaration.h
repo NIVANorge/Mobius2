@@ -308,7 +308,7 @@ Registry : Registry_Base {
 	s64 count() { return (s64)registrations.size(); }
 	
 	Entity_Id begin() { return { reg_type, 0 }; }
-	Entity_Id end() { return { reg_type, (s32)registrations.size() }; }
+	Entity_Id end() { return { reg_type, (s16)registrations.size() }; }
 };
 
 struct
