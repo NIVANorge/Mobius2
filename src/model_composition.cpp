@@ -706,13 +706,28 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	auto second = app->vars[app->vars.id_of(loc2)];
 	auto expected_unit = divide(second->unit, first->unit);
 	
-	bool found = false;
+	Flux_Unit_Conversion_Data *found_conv = nullptr;
+	
 	for(auto &conv : source->unit_convs) {
-		if(loc1 != conv.source || loc2 != conv.target) continue;
+		Var_Location try_loc1 = loc1;
+		Var_Location try_loc2 = loc2;
+		while(true) {
+			if(found_conv && (found_conv->source.n_components > try_loc1.n_components || found_conv->target.n_components > try_loc2.n_components))
+				break;
+			if(try_loc1 == conv.source && try_loc2 == conv.target) {
+				found_conv = &conv;
+				break;
+			}
+			if(try_loc1.is_dissolved() && try_loc2.is_dissolved()) {
+				try_loc1 = remove_dissolved(try_loc1);
+				try_loc2 = remove_dissolved(try_loc2);
+			} else break;
+		}
+	}
 		
-		found = true;
-		auto ast   = conv.code;
-		auto scope = model->get_scope(conv.scope_id);
+	if(found_conv) {
+		auto ast   = found_conv->code;
+		auto scope = model->get_scope(found_conv->scope_id);
 		
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
 		res_data.restrictive_lookups = true;
@@ -721,18 +736,19 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 		
 		auto fun = resolve_function_tree(ast, &res_data);
 		unit_conv = make_cast(fun.fun, Value_Type::real);
-
-		if(!match_exact(&fun.unit, &expected_unit.standard_form)) {
-			ast->source_loc.print_error_header();
-			fatal_error("Expected the unit of this unit_conversion expression to resolve to ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
-		}
 		
-		Specific_Var_Location loc = loc1; // sigh
+		double conversion_factor;
+		if(!match(&fun.unit, &expected_unit.standard_form, &conversion_factor)) {
+			ast->source_loc.print_error_header();
+			fatal_error("Expected the unit of this unit_conversion expression to resolve to a scalar multiple of ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+		}
+		if(conversion_factor != 1.0)
+			unit_conv = make_binop('*', unit_conv, make_literal(conversion_factor));
+		
+		Specific_Var_Location loc = loc1;
 		check_valid_distribution_of_dependencies(app, unit_conv, loc);
-		break;
-	}
-	
-	if(!found && !expected_unit.standard_form.is_fully_dimensionless()) {
+		
+	} else if(!expected_unit.standard_form.is_fully_dimensionless()) {
 		// TODO: Better error if it is a connection_aggregate, not a flux.
 		fatal_error(Mobius_Error::model_building, "The units of the source and target of the flux \"", app->vars[flux_id]->name, "\" are not the same, but no unit conversion are provided between them in the model.");
 	}

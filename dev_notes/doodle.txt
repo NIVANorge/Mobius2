@@ -2,6 +2,15 @@
 
 
 
+
+	# We could maybe signal in the flux declaration if it is allowed to be bidirectional. Then give an error for that for fluxes that can't be bidirectional.
+	biflux(...) {
+	}
+	# Debatable whether we should then clamp other fluxes to min 0.
+	
+	
+
+
 	horz : connection("Fjord horizontal") { (layer|bnd_layer)* }
 
 	var(layer_water.horz_target, [])

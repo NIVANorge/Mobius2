@@ -6,7 +6,7 @@
 		Need to let a state var indicate the target index of a flux
 
 	Specific target:
-		Properly process the function tree, incl. flags
+		Properly process the @specific function tree, incl. flags
 		Check valid dependencies for the tree.
 			Have to think about what types of variables it is allowed to reference.
 		Tridiagonal distribution.
@@ -22,7 +22,7 @@
 	Finish connection system
 
 		Dissolved fluxes -
-			make dissolvedes of negatives work for other types (all_to_all, regular fluxes (maybe)).
+			make dissolvedes of negatives work for other types (all_to_all, graph (maybe) regular fluxes (maybe), but probably not directed tree).
 			
 		graph connections
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).

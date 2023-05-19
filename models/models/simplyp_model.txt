@@ -7,7 +7,4 @@ model("SimplyP") {
 	pp    : quantity("Particulate phosphorous")
 	
 	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, tdp, plab, pp, flow, e_fact, a_catch))
-	
-	unit_conversion(soil.water.tdp, river.water.tdp) {  a_catch  }
-	unit_conversion(gw.water.tdp, river.water.tdp)   {  a_catch  }
 }

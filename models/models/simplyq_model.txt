@@ -41,9 +41,9 @@ model("SimplyQ") {
 	aggregation_weight(soil, gw)    { lu_prop }
 	aggregation_weight(soil, river) { lu_prop }
 	
-	# Convert mm to m^3
-	unit_conversion(soil.water, river.water) { a_catch ->> }   # the ->> converts to the expected unit for the unit conversion factor, which is m^3/mm (factor of 1000 from km2)
-	unit_conversion(gw.water, river.water)   { a_catch ->> }
+	# Convert mm to m^3. The framework figures out how to use a_catch to do that.
+	unit_conversion(soil.water, river.water) { a_catch }
+	unit_conversion(gw.water, river.water)   { a_catch }
 	
 		
 	###### Distribute compartments over index sets and set solvers
@@ -55,7 +55,7 @@ model("SimplyQ") {
 	distribute(gw,    sc)
 	distribute(river, sc)
 	
-	simply_solver : solver("Simply solver", "INCADascru", 0.1)
+	simply_solver : solver("Simply solver", "INCADascru", 0.001)
 	
 	solve(simply_solver, soil.water, gw.water, river.water)
 	
