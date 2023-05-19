@@ -321,16 +321,17 @@ struct Model_Data {
 
 struct
 Run_Batch {
-	Solver_Function *solver_fun;
-	double           h;
-	double           hmin;
+	//Solver_Function *solver_fun;
+	//double           h;
+	//double           hmin;
+	Entity_Id        solver_id;
 	s64              first_ode_offset;
 	int              n_ode;
 	
 	Math_Expr_FT    *run_code;
 	batch_function  *compiled_code;
 	
-	Run_Batch() : run_code(nullptr), solver_fun(nullptr), compiled_code(nullptr) {}
+	Run_Batch() : run_code(nullptr), solver_id(invalid_entity_id), compiled_code(nullptr) {}
 };
 
 struct

@@ -1381,10 +1381,8 @@ Model_Application::compile(bool store_code_strings) {
 		Run_Batch new_batch;
 		new_batch.run_code = generate_run_code(this, &batch, instructions, false);
 		if(is_valid(batch.solver)) {
-			auto solver = model->solvers[batch.solver];
-			new_batch.solver_fun = solver->solver_fun;
-			new_batch.h          = solver->h;
-			new_batch.hmin       = solver->hmin;
+			new_batch.solver_id    = batch.solver;
+
 			// NOTE: same as noted above, all ODEs have to be stored contiguously.
 			new_batch.first_ode_offset = result_structure.get_offset_base(instructions[batch.arrays_ode[0].instr_ids[0]].var_id);
 			new_batch.n_ode = 0;

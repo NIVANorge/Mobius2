@@ -47,11 +47,8 @@ A test version of SimplyC where the land units can be connected as a chain inste
 	aggregation_weight(soil, river) { lu_prop }
 	aggregation_weight(soil, soil)  { lu_prop / lu_prop[below] }
 	
-	# Convert mm to m^3
-	unit_conversion(soil.water, river.water) { a_catch ->> }   # the ->> converts to the expected unit for the unit conversion factor, which is [m 3, m m-1](factor of 1000 from [k m 2])
-	unit_conversion(gw.water, river.water)   { a_catch ->> }
-	unit_conversion(soil.water.oc, river.water.oc) {  a_catch  }
-	unit_conversion(gw.water.oc, river.water.oc)   {  a_catch  }
+	unit_conversion(soil.water, river.water) { a_catch }
+	unit_conversion(gw.water, river.water)   { a_catch }
 		
 	###### Distribute compartments over index sets and set solvers
 	

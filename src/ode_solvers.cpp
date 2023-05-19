@@ -60,6 +60,8 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 			step_can_be_increased = true;
 
 			if (t + h > 1.0) {
+				*try_h = h; // return it out again so that it can be used for the next time the function is entered, if desirable.
+				
 				h = 1.0 - t;
 				run = false;
 			}
@@ -142,8 +144,6 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 			step_can_be_reduced = true;
 		}
 	}
-	
-	*try_h = h; // return it out again so that it can be used for the next time the function is entered, if desirable.
 	
 	return true;
 }

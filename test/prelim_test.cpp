@@ -9,51 +9,16 @@
 #include "../src/emulate.h"
 #include "../src/model_application.h"
 
-//#include <windows.h>
+//#include <windows.h>   // If you want to use SetConsoleOutputCP
 
-/*
-void read_input_data(String_View file_name, Model_Application *model_app) {	
-	// Dummy code for initial prototype. We should reuse stuff from Mobius 1.0 later!
-	
-	String_View file_data = read_entire_file(file_name);
-	Token_Stream stream(file_name, file_data);
-	
-	std::vector<std::vector<Var_Id>> order;
-	
-	Mobius_Model *model = model_app->model;
-	
-	while(true) {
-		auto token = stream.peek_token();
-		if(token.type != Token_Type::quoted_string) break;
-		stream.read_token();
-		order.resize(order.size() + 1);
-		String_View name = token.string_value;
-		for(auto id : *model->series[name]) order[order.size()-1].push_back(id);
-	}
-	
-	std::vector<Index_T> indexes;
-	
-	size_t count = order.size();
-	for(s64 ts = 0; ts < model_app->series_data.time_steps; ++ts)
-		for(int idx = 0; idx < count; ++idx) {
-			double val = stream.expect_real();
-			for(auto id : order[idx]) {
-				auto offset = model_app->series_data.get_offset(id, &indexes);
-				*(model_app->series_data.get_value(offset, ts)) = val;
-			}
-		}
-	free(file_data.data);
-}
-*/
-
-void write_result_data(String_View file_name, Model_Application *model_app) {
+void write_result_data(String_View file_name, Model_Application *app) {
 	FILE *file = open_file(file_name, "w");
 	
 	std::vector<s64> offsets;
-	for(auto var_id : model_app->state_vars) {
-		String_View name = model_app->state_vars[var_id]->name;
+	for(auto var_id : app->vars.all_state_vars()) {
+		String_View name = app->vars[var_id]->name;
 		//if(name != "Quick flow" && name != "in_flux") continue;
-		model_app->result_structure.for_each(var_id, [&](std::vector<Index_T> &indexes, s64 offset) {
+		app->result_structure.for_each(var_id, [&](std::vector<Index_T> &indexes, s64 offset) {
 			fprintf(file, "\"%.*s\"[", name.count, name.data);
 			for(auto index : indexes) fprintf(file, "%d ", index.index);
 			fprintf(file, "]\t");
@@ -62,9 +27,9 @@ void write_result_data(String_View file_name, Model_Application *model_app) {
 	}
 	fprintf(file, "\n");
 
-	for(s64 ts = -1; ts < model_app->data.results.time_steps; ++ts) {
+	for(s64 ts = -1; ts < app->data.results.time_steps; ++ts) {
 		for(s64 offset : offsets) {
-			fprintf(file, "%f\t", *(model_app->data.results.get_value(offset, ts)));
+			fprintf(file, "%f\t", *(app->data.results.get_value(offset, ts)));
 		}
 		fprintf(file, "\n");
 	}

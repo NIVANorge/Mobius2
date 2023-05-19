@@ -1,6 +1,7 @@
 
 #include <sys/stat.h>
 #include <algorithm>
+#include <sstream>
 #include "model_declaration.h"
 
 void
@@ -1378,6 +1379,8 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 	int which = match_declaration(decl, {
 		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real},
 		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Token_Type::real},
+		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real},
+		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real, Decl_Type::par_real},
 	});
 	auto id = model->solvers.standard_declaration(scope, decl);
 	auto solver = model->solvers[id];
@@ -1394,11 +1397,16 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 	}
 	//TODO: allow parametrization of the solver h and hmin like in Mobius1.
 	
-	solver->h = single_arg(decl, 2)->double_value();
-	if(which == 1)
-		solver->hmin = single_arg(decl, 3)->double_value();
-	else
-		solver->hmin = 0.01 * solver->h;
+	solver->hmin = 0.01;
+	if(which == 0 || which == 1) {
+		solver->h = single_arg(decl, 2)->double_value();
+		if(which == 1)
+			solver->hmin = single_arg(decl, 3)->double_value();
+	} else {
+		solver->h_par = resolve_argument<Reg_Type::parameter>(model, scope, decl, 2);
+		if(which == 3)
+			solver->hmin_par = resolve_argument<Reg_Type::parameter>(model, scope, decl, 3);
+	}
 	
 	return id;
 }

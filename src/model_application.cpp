@@ -3,6 +3,7 @@
 
 #include <map>
 #include <cstdlib>
+#include <sstream>
 
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);

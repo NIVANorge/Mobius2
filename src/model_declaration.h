@@ -279,6 +279,8 @@ Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
 	Solver_Function *solver_fun;
 	double h;
 	double hmin;
+	Entity_Id h_par = invalid_entity_id;
+	Entity_Id hmin_par = invalid_entity_id;
 	std::vector<Specific_Var_Location> locs; // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
 };
 

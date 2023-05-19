@@ -5,6 +5,20 @@
 #include "run_model.h"
 
 
+struct
+Batch_Data {
+#if MOBIUS_EMULATE
+	Math_Expr_FT    *run_code;
+#else
+	batch_function  *compiled_code;
+#endif
+	Solver_Function *solver_fun = nullptr;
+	double           h;
+	double           hmin;
+	s64              first_ode_offset;
+	int              n_ode;
+};
+
 
 bool
 run_model(Model_Data *data, s64 ms_timeout) {
@@ -52,16 +66,43 @@ run_model(Model_Data *data, s64 ms_timeout) {
 	run_state.date_time        = Expanded_Date_Time(start_date, app->time_step_size);
 	run_state.solver_t         = 0.0;
 	
+	std::vector<Batch_Data>   batch_data(app->batches.size());
+	
 	int solver_workspace_size = 0;
+	int idx = 0;
 	for(auto &batch : app->batches) {
-		if(batch.solver_fun)
+		auto &b_data = batch_data[idx];
+
+#if MOBIUS_EMULATE
+		b_data.run_code      = batch.run_code;
+#else
+		b_data.compiled_code = batch.compiled_code;
+#endif
+		
+		if(is_valid(batch.solver_id)) {
 			solver_workspace_size = std::max(solver_workspace_size, 4*batch.n_ode); // TODO:    the 4*  is INCA-Dascru specific. Make it general somehow.
+			
+			auto solver             = model->solvers[batch.solver_id];
+			b_data.solver_fun       = solver->solver_fun;
+			b_data.first_ode_offset = batch.first_ode_offset;
+			b_data.n_ode            = batch.n_ode;
+			if(is_valid(solver->h_par)) {
+				// TODO: Should probably check somewhere that this parameter is not indexed, but we could do that in the model_composition stage.
+				s64 offset   = data->parameters.structure->get_offset_base(solver->h_par);
+				b_data.h     = data->parameters.get_value(offset)->val_real;
+			} else
+				b_data.h     = solver->h;
+			if(is_valid(solver->hmin_par)) {
+				s64 offset   = data->parameters.structure->get_offset_base(solver->hmin_par);
+				b_data.hmin  = data->parameters.get_value(offset)->val_real;
+			} else
+				b_data.hmin  = solver->hmin;
+			b_data.hmin = b_data.hmin*b_data.h; //NOTE: The given one was relative, but we need to store it as absolute since h can change in the run.
+		}
+		++idx;
 	}
 	if(solver_workspace_size > 0)
 		run_state.solver_workspace = (double *)malloc(sizeof(double)*solver_workspace_size);
-	
-	//warning_print("begin run\n");
-	
 
 #if MOBIUS_EMULATE
 	#define BATCH_FUNCTION(batch) reinterpret_cast<batch_function *>(batch.run_code)
@@ -80,14 +121,13 @@ run_model(Model_Data *data, s64 ms_timeout) {
 		run_state.state_vars += var_count;
 		
 		//TODO: we *could* also generate code for this for loop to avoid the ifs (but branch prediction should work well since the branches don't change)
-		for(auto &batch : app->batches) {
+		for(auto &batch : batch_data) {
 			if(!batch.solver_fun)
 				call_fun(BATCH_FUNCTION(batch), &run_state);
 			else {
 				double *x0 = run_state.state_vars + batch.first_ode_offset;
-				double h   = batch.h;
-				//TODO: keep h around for the next time step (trying an initial h that we ended up with from the previous step)
-				batch.solver_fun(&h, batch.hmin, batch.n_ode, x0, &run_state, BATCH_FUNCTION(batch));
+				//NOTE: h is kept around for the next time step (trying an initial h that we ended up with from the previous step)
+				batch.solver_fun(&batch.h, batch.hmin, batch.n_ode, x0, &run_state, BATCH_FUNCTION(batch));
 			}
 		}
 		

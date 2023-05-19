@@ -46,7 +46,7 @@ model("SimplyQ") {
 	unit_conversion(gw.water, river.water)   { a_catch }
 	
 		
-	###### Distribute compartments over index sets and set solvers
+	###### Distribute compartments over index sets and set ODE solvers
 	
 	sc : index_set("Subcatchment")
 	lu : index_set("Landscape units")
@@ -55,7 +55,13 @@ model("SimplyQ") {
 	distribute(gw,    sc)
 	distribute(river, sc)
 	
-	simply_solver : solver("Simply solver", "INCADascru", 0.001)
+	#par_group("Solver configuration") {
+	#	solver_h : par_real("Solver fractional step", [], 0.1)
+	#	solver_hmin : par_real("Solver relative minimal step", [], 0.01)
+	#}
+	#simply_solver : solver("Simply solver", "INCADascru", solver_h, solver_hmin)
+	
+	simply_solver : solver("Simply solver", "INCADascru", 0.1, 1e-3)   # NOTE: The small relative minimal step is needed by SimplyTox.
 	
 	solve(simply_solver, soil.water, gw.water, river.water)
 	
