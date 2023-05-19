@@ -3,10 +3,6 @@ index_set("I") [ "I1" "I2" "I3" ]
 
 index_set("J") [ "J1" "J2" ]
 
-connection("Flow connection") [
-	quantity("Q") [ "J" ]
-]
-
 par_group("System") {
 	par_datetime("Start date")
 	[ 1990-01-01 ]
@@ -16,6 +12,10 @@ par_group("System") {
 }
 
 module("So very simple", 1, 1, 0) {
+	connection("Flow connection") [
+		quantity("Q") [ "J" ]
+	]
+
 	par_group("Init pars") [ "I" "J" ] {
 		par_real("Init a") [
 			0 1 

@@ -1,16 +1,16 @@
 
 model("Simple test model") {
 	
-	md : module("So very simple", version(1, 1, 0)) {
+	module("So very simple", version(1, 1, 0)) {
 		
-		var(a.q, [], "A Q") .initial { ia }
+		var(a.q, [], "A Q") @initial { ia }
 		
 		par_group("Init pars", q) {
 			ia : par_real("Init a", [], 0)
 		}
 		
 		par_group("Permissivity", q) {
-			pm : par_real("Permissivity", [], 0)
+			pm : par_real("Permissivity", [day-1], 0)
 		}
 		
 		par_group("Flow pars", q) {
@@ -20,7 +20,7 @@ model("Simple test model") {
 		c : connection("Flow connection", all_to_all) { q* }
 
 		flux(a.q, c, [day-1], "The flow") {
-			q * ff * pm[below] =>>
+			q * ff * pm[below]
 		}
 	}
 	

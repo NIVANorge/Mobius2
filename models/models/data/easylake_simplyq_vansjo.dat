@@ -131,7 +131,7 @@ module("AirSea Lake", 0, 1, 0) {
 		[ 0 ]
 
 		par_real("Ice albedo")
-		[ 0.4 ]
+		[ 0.31 ]
 
 		par_real("Frazil threshold")
 		[ 0.05 ]
@@ -216,18 +216,15 @@ module("EasyLake-C", 0, 0, 1) {
 }
 
 module("Priestley-Taylor PET", 1, 0, 0) {
-	par_group("Potential evapotranspiration") [ ] {
-		par_real("PET multiplication factor") [
-			1.28
-		]
+	par_group("Potential evapotranspiration") {
+		par_real("PET multiplication factor")
+		[ 1.28 ]
 
-		par_real("Land albedo") [
-			0.23
-		]
+		par_real("Land albedo")
+		[ 0.23 ]
 
-		par_real("Snow albedo") [
-			0.8
-		]
+		par_real("Snow albedo")
+		[ 0.8 ]
 	}
 }
 
@@ -241,7 +238,7 @@ module("Atmospheric", 0, 1, 0) {
 	}
 }
 
-module("SimplyN", 0, 0, 2) {
+module("SimplyN", 0, 0, 3) {
 	par_group("DIN universal params") {
 		par_real("Soilwater DIN uptake rate at 20°C")
 		[ 0.00591332993567999 ]
@@ -265,6 +262,15 @@ module("SimplyN", 0, 0, 2) {
 
 		par_real("Net annual DIN input to soil")
 		[ 180.05062460061 22 ]
+
+		par_int("Fertilizer addition day")
+		[ 60 60 ]
+
+		par_real("Fertilizer N")
+		[ 0 0 ]
+
+		par_real("Fertilizer DIN release")
+		[ 0 0 ]
 	}
 
 	par_group("River DIN") [ "Subcatchment" ] {
@@ -289,7 +295,7 @@ module("EasyLake-N", 0, 0, 1) {
 	}
 }
 
-module("SimplySed", 0, 5, 0) {
+module("SimplySed", 0, 6, 0) {
 	par_group("River erosion") [ "Subcatchment" ] {
 		par_real("Erosion scaling factor")
 		[ 10.169259546187 16 16 16 ]

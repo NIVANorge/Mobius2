@@ -43,8 +43,6 @@ int main(int argc, char** argv) {
 	
 	String_View model_file = "models/stupidly_simple_model.txt";
 	String_View input_file = "models/stupidly_simple_data.dat";
-	int nidx1 = 1;
-	int nidx2 = 1;
 	
 	if(argc >= 2)
 		model_file = argv[1];
