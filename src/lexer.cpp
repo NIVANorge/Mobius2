@@ -47,15 +47,15 @@ Source_Location::print_error_header(Mobius_Error type) const {
 }
 
 void
-Source_Location::print_warning_header() const {
+Source_Location::print_log_header() const {
 	if(type == Type::text_file)
-		warning_print("file ", filename, " line ", line+1, " column ", column, ":\n");
+		log_print("file ", filename, " line ", line+1, " column ", column, ":\n");
 	else if(type == Type::spreadsheet) {
 		static char buf[64];
 		col_row_to_cell(column, line, buf);
-		warning_print("file ", filename, " cell ", buf, ":\n");
+		log_print("file ", filename, " cell ", buf, ":\n");
 	} else
-		warning_print("(compiler internal)\n");
+		log_print("(compiler internal)\n");
 }
 
 void
@@ -69,8 +69,8 @@ Token::print_error_header() {
 }
 
 void
-Token::print_warning_header() {
-	source_loc.print_warning_header();
+Token::print_log_header() {
+	source_loc.print_log_header();
 }
 
 const Token *

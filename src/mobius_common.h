@@ -40,13 +40,13 @@ inline void
 error_print() {}
 
 inline void
-warning_print() {}
+log_print() {}
 
 #if defined(MOBIUS_ERROR_STREAMS)
 #include <sstream>
 
 extern std::stringstream global_error_stream;
-extern std::stringstream global_warning_stream;
+extern std::stringstream global_log_stream;
 
 template<typename T, typename... V> inline void
 error_print(T value, V... tail) {
@@ -55,9 +55,9 @@ error_print(T value, V... tail) {
 }	
 
 template<typename T, typename... V> inline void
-warning_print(T value, V... tail) {
-	global_warning_stream << value;
-	warning_print(tail...);
+log_print(T value, V... tail) {
+	global_log_stream << value;
+	log_print(tail...);
 }
 
 inline void
@@ -75,9 +75,9 @@ error_print(T value, V... tail) {
 }
 
 template<typename T, typename... V> inline void
-warning_print(T value, V... tail) {
+log_print(T value, V... tail) {
 	std::cout << value;
-	warning_print(tail...);
+	log_print(tail...);
 }
 
 inline void

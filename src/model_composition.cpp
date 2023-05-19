@@ -504,7 +504,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				// TODO: This warning is printed for every .var() declaration of it instead of just once. This problem may go away with the new module declaration system.
 				if(std::find(input_names.begin(), input_names.end(), name) != input_names.end()) {
 					is_series = true;
-					warning_print("Overriding property \"", name, "\" with an input series.\n");
+					log_print("Overriding property \"", name, "\" with an input series.\n");
 				}
 			}
 			

@@ -348,8 +348,8 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		
 		if(!is_valid(par_id)) {
 			if(module_is_outdated) {
-				par.source_loc.print_warning_header();
-				warning_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
+				par.source_loc.print_log_header();
+				log_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
 			} else {
 				par.source_loc.print_error_header();
 				fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
@@ -422,8 +422,8 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 		std::set<Var_Id> ids = app->vars.find_by_name(header.name);
 		
 		if(ids.size() > 1) {
-			header.source_loc.print_warning_header();
-			warning_print("The name \"", header.name, "\" is not unique, and identifies multiple series.\n");
+			header.source_loc.print_log_header();
+			log_print("The name \"", header.name, "\" is not unique, and identifies multiple series.\n");
 		} else if(ids.empty()) {
 			//This series is not recognized as a model input, so it is an "additional series"
 			// See if it was already registered.
@@ -478,7 +478,7 @@ Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &in
 	auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
 	if(is_valid(sub_indexed_to)) {
 		//TODO: If parent_idx is invalid, we could maybe just set the same index set to all instances of the parent.
-		warning_print("Names for sub-indexed index sets are not yet supported. Replacing with numerical indexes.");
+		log_print("Names for sub-indexed index sets are not yet supported. Replacing with numerical indexes.");
 		set_indexes(index_set, (int)indexes.size(), parent_idx);
 	} else {
 		index_counts[index_set.id] = { Index_T {index_set, (s32)indexes.size()} };
@@ -693,8 +693,8 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	for(auto &comp : connection.components) {
 		Entity_Id comp_id = model->model_decl_scope.deserialize(comp.name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
-			comp.source_loc.print_warning_header();
-			warning_print("The component \"", comp.name, "\" has not been declared in the model.\n");
+			comp.source_loc.print_log_header();
+			log_print("The component \"", comp.name, "\" has not been declared in the model.\n");
 			continue;
 		}
 		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.source_loc);
@@ -901,9 +901,9 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto &module : data_set->modules) {
 		Entity_Id module_id = model->model_decl_scope.deserialize(module.name, Reg_Type::module);
 		if(!is_valid(module_id)) {
-			warning_print("In ");
-			module.source_loc.print_warning_header();
-			warning_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
+			log_print("In ");
+			module.source_loc.print_log_header();
+			log_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
 			continue;
 		}
 		for(auto &par_group : module.par_groups)

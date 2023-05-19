@@ -1414,8 +1414,6 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 void
 process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 
-	// TODO: We may not need a special "solve" registry, we could just store these in the solver registry.
-
 	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, false);
 	
 	auto solver_id = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
@@ -1843,9 +1841,9 @@ error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 }
 
 void
-debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
+log_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
-		warning_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
+		log_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)
 }

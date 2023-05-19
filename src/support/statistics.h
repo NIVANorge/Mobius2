@@ -123,7 +123,8 @@ stat_type_from_name(const std::string &lookup) {
 	#include "log_likelihood_types.incl"
 	#undef SET_LOG_LIKELIHOOD
 	
-	warning_print("Unrecognized statistic type \"", lookup, "\".\n");
+	// TODO: Should be error?
+	log_print("Unrecognized statistic type \"", lookup, "\".\n");
 	
 	return -1;
 }

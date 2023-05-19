@@ -57,7 +57,7 @@ Token {
 	
 	void print_error_location();
 	void print_error_header();
-	void print_warning_header();
+	void print_log_header();
 };
 
 inline bool

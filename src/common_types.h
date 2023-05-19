@@ -41,7 +41,7 @@ Source_Location {
 	
 	void print_error() const;
 	void print_error_header(Mobius_Error type = Mobius_Error::parsing) const;
-	void print_warning_header() const;
+	void print_log_header() const;
 };
 
 char *

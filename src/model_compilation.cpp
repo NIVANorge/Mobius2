@@ -523,6 +523,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			for(auto &loc : solver->locs) {
 				Var_Id var_id = app->vars.id_of(loc);
+				if(is_valid(instructions[var_id.id].solver)) {
+					solver->source_loc.print_error_header(Mobius_Error::model_building); // TODO: It would be better to print the loc of the 'solve' decl, but we don't have that available here at the moment.
+					fatal_error("The quantity \"", app->vars[var_id]->name, "\" was put on a solver more than one time.");
+				}
 				instructions[var_id.id].solver = solver_id;
 			}
 		}
@@ -544,9 +548,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		for(auto var_id : app->vars.all_state_vars()) {
 			auto var = app->vars[var_id];
-			//if(!var->is_valid()) continue;
 			
-			// Fluxes with an ODE variable as source is given the same solver as it.
+			// Fluxes with an ODE variable as source is given the same solver as this variable.
 			if(var->is_flux() && is_located(var->loc1))
 				instructions[var_id.id].solver = instructions[app->vars.id_of(var->loc1).id].solver;
 
@@ -583,21 +586,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			}
 		}
 		
-		// Check if connection fluxes have discrete source (currently not supported)
-		// TODO: should also check if an arrow can go between different sources (also will not work
-		// correctly), but that is more tricky.
-		// TODO: Bug: this doesn't work!
-		
+		// Currently we don't support connections for fluxes that are not on solvers (except if the source is 'nowhere')
 		for(auto var_id : app->vars.all_fluxes()) {
 			
-			// TODO: May need to be fixed for boundary fluxes!
 			auto var = app->vars[var_id];
-			//if(!var->is_valid() || !var->is_flux()) continue;
 			if(!is_located(var->loc1)) continue;
 			if(!is_valid(restriction_of_flux(var).connection_id)) continue;
 			auto source_id = app->vars.id_of(var->loc1);
 			if(!is_valid(instructions[source_id.id].solver)) {
 				// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
+					// TODO: This is not all that robust.
 				model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc.print_error_header();
 				//TODO: this is not really enough info to tell the user where the error happened.
 				fatal_error("This flux was put on a connection, but the source is a discrete variable. This is currently not supported.");
@@ -920,7 +918,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			}
 		}
 		
-		// TODO: make an error or warning if an ODE flux is given a discrete order. Maybe also if a discrete flux is not given one.
+		// TODO: make an error or warning if an ODE flux is given a discrete order. Maybe also if a discrete flux is not given one (but maybe not).
 		
 		// TODO: may want to do somehting similar if it is dissolved (look up the decl of the parent flux).
 		if(var->type == State_Var::Type::declared) {
@@ -1024,7 +1022,6 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	// discrete batches:
 	// 	- can be multiple of these. 
 	
-	//warning_print("Propagate solvers\n");
 	// TODO: We need to make some guard to check that this is a sufficient amount of iterations!
 	for(int idx = 0; idx < 10; ++idx) {
 		for(auto &instr : instructions) instr.visited = false;
@@ -1042,7 +1039,6 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		}
 	}
 	
-	//warning_print("Remove ODE dependencies\n");
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		auto &instr = instructions[instr_id];
 		
@@ -1070,7 +1066,6 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		}
 	}
 	
-	//warning_print("Sorting begin\n");
 	std::vector<int> sorted_instructions;
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		if(instructions[instr_id].type == Model_Instruction::Type::invalid) continue;
@@ -1078,8 +1073,6 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		bool success = topological_sort_instructions_visit(app, instr_id, sorted_instructions, instructions, false);
 		if(!success) mobius_error_exit();
 	}
-	
-	//warning_print("Create batches\n");
 	
 	std::vector<Pre_Batch> pre_batches;
 	std::vector<int> pre_batch_of_solver(app->model->solvers.count(), -1);
@@ -1113,7 +1106,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	
 	// Now group discrete equations into single pre_batches.
 	std::vector<Pre_Batch> grouped_pre_batches;
-	//Entity_Id prev_solver = invalid_entity_id;
+	
 	for(int order : sorted_pre_batches) {
 		auto &pre_batch = pre_batches[order];
 		int insertion_point = -1;
@@ -1137,16 +1130,6 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		insertion_batch.solver = pre_batch.solver;
 		insertion_batch.instructions.insert(insertion_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
 		insertion_batch.depends_on.insert(pre_batch.depends_on.begin(), pre_batch.depends_on.end());
-		
-		/*
-		if(is_valid(prev_solver) || is_valid(pre_batch.solver) || grouped_pre_batches.empty())
-			grouped_pre_batches.resize(grouped_pre_batches.size()+1);
-		
-		auto &new_batch = grouped_pre_batches.back();
-		new_batch.instructions.insert(new_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
-		new_batch.solver = pre_batch.solver;
-		prev_solver = pre_batch.solver;
-		*/
 	}
 	
 	
@@ -1280,24 +1263,15 @@ Model_Application::compile(bool store_code_strings) {
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before connection data was set up.");
 	
 	compose_and_resolve(this);
-	
-	//warning_print("Create instruction arrays\n");
+
 	std::vector<Model_Instruction> initial_instructions;
 	std::vector<Model_Instruction> instructions;
 	build_instructions(this, initial_instructions, true);
 	build_instructions(this, instructions, false);
 	
-	//warning_print("Instruction codegen\n");
-	
-	// We can't check it like this anymore, because we can now invalidate instructions due to state variables being invalidated.
-	//for(auto &instr : instructions)
-	//	if(instr.type == Model_Instruction::Type::invalid)
-	//		fatal_error(Mobius_Error::internal, "Did not set up instruction types properly.");
-	
 	instruction_codegen(this, initial_instructions, true);
 	instruction_codegen(this, instructions, false);
 
-	//warning_print("Resolve index sets dependencies begin.\n");
 	resolve_index_set_dependencies(this, initial_instructions, true);
 	
 	// NOTE: state var inherits all index set dependencies from its initial code.
@@ -1319,14 +1293,12 @@ Model_Application::compile(bool store_code_strings) {
 	Batch initial_batch;
 	initial_batch.solver = invalid_entity_id;
 	
-	//warning_print("Sort initial.\n");
 	// Sort the initial instructions too.
 	for(int instr_id = 0; instr_id < initial_instructions.size(); ++instr_id) {
 		bool success = topological_sort_instructions_visit(this, instr_id, initial_batch.instrs, initial_instructions, true);
 		if(!success) mobius_error_exit();
 	}
 	
-	//warning_print("Build pre batches.\n");
 	build_batch_arrays(this, initial_batch.instrs, initial_instructions, initial_batch.arrays, true);
 	
 	for(auto &batch : batches) {
@@ -1370,12 +1342,9 @@ Model_Application::compile(bool store_code_strings) {
 	
 	jit_add_global_data(llvm_data, &constants);
 	
-	//warning_print("Generate inital run code\n");
 	this->initial_batch.run_code = generate_run_code(this, &initial_batch, initial_instructions, true);
 	jit_add_batch(this->initial_batch.run_code, "initial_values", llvm_data);
-	
-	//warning_print("Generate main run code\n");
-	
+
 	int batch_idx = 0;
 	for(auto &batch : batches) {
 		Run_Batch new_batch;
