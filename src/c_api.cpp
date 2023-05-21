@@ -94,28 +94,6 @@ get_offset_by_index_names(Model_Application *app, Storage_Structure<Handle_T> *s
 	return storage->get_offset_alternate(handle, indexes);
 }
 
-DLLEXPORT void
-mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value) {
-	try {
-		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
-		
-		Parameter_Value val;
-		val.val_real = value;
-		
-		*app->data.parameters.get_value(offset) = val;
-	} catch(int) {}
-}
-
-DLLEXPORT double
-mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
-	try {
-		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
-		return (*app->data.parameters.get_value(offset)).val_real;
-		
-	} catch(int) {}
-	return 0.0;
-}
-
 DLLEXPORT Entity_Id
 mobius_deserialize_entity(Model_Application *app, Entity_Id scope_id, char *serial_name) {
 	try {
@@ -159,6 +137,44 @@ mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count
 	return invalid_var;
 }
 
+DLLEXPORT Var_Id
+mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, State_Var::Type type) {
+	try {
+		for(auto var_id : app->vars.all_state_vars()) {
+			auto var = app->vars[var_id];
+			if(var->type != type) continue;
+			
+			if(type == State_Var::Type::dissolved_conc) {
+				auto conc = as<State_Var::Type::dissolved_conc>(var);
+				if(conc->conc_of == parent1) return var_id;
+			} else
+				fatal_error(Mobius_Error::internal, "Unimplemented special type");
+		}
+	} catch(int) {}
+	return invalid_var;
+}
+
+DLLEXPORT Mobius_Metadata
+mobius_get_series_metadata(Model_Application *app, Var_Id var_id) {
+	Mobius_Metadata result = {};
+	try {
+		auto var = app->vars[var_id];
+		result.name = (char *)var->name.data();
+		//result.unit = var->unit.to_utf8()    //TODO: Won't work, have to store it in some buffer.
+	} catch(int) {}
+	return result;
+}
+
+
+DLLEXPORT s64
+mobius_get_index_set_count(Model_Application *app, Entity_Id id) {
+	try {
+		if(id.reg_type == Reg_Type::parameter)
+			return app->data.parameters.structure->get_index_sets(id).size();
+	} catch(int) {}
+	return 0;
+}
+
 DLLEXPORT void
 mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out) {
 	if(!time_steps_out) return;
@@ -173,5 +189,94 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names
 	} catch(int) {}
 }
 
+// TODO: We could just have a get_decl_type eventually
+DLLEXPORT s64
+mobius_get_value_type(Model_Application *app, Entity_Id id) {
+	try {
+		if(id.reg_type == Reg_Type::parameter) {
+			Decl_Type type = app->model->parameters[id]->decl_type;
+			return (s64)type - (s64)Decl_Type::par_real;
+		}
+	} catch(int) {}
+	return -1;
+}
+
+DLLEXPORT void
+mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value) {
+	try {
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
+		Parameter_Value val;
+		val.val_real = value;
+		
+		*app->data.parameters.get_value(offset) = val;
+	} catch(int) {}
+}
+
+DLLEXPORT double
+mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
+	try {
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
+		return (*app->data.parameters.get_value(offset)).val_real;
+		
+	} catch(int) {}
+	return 0.0;
+}
+
+DLLEXPORT void
+mobius_set_parameter_int(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, s64 value) {
+	try {
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
+		Parameter_Value val;
+		val.val_integer = value;
+		
+		*app->data.parameters.get_value(offset) = val;
+	} catch(int) {}
+}
+
+DLLEXPORT s64
+mobius_get_parameter_int(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
+	try {
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
+		return (*app->data.parameters.get_value(offset)).val_integer;
+		
+	} catch(int) {}
+	return 0;
+}
+
+DLLEXPORT void
+mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, char *value) {
+	// TODO: All the others also need to check on types.
+	try {
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
+		Parameter_Value val;
+		auto par = app->model->parameters[par_id];
+		if(par->decl_type == Decl_Type::par_datetime) {
+			Token_Stream stream("app", value);
+			stream.allow_date_time_tokens = true;
+			val.val_datetime = stream.expect_datetime();
+		} else if (par->decl_type == Decl_Type::par_enum) {
+			s64 intval = enum_int_value(par, value);
+			val.val_integer = intval;
+		} else
+			fatal_error(Mobius_Error::api_usage, "mobius_set_parameter_string can not be called on parameters of this type.");
+		*app->data.parameters.get_value(offset) = val;
+	} catch(int) {}
+}
+
+DLLEXPORT char *
+mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
+	try {
+		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
+		auto par = app->model->parameters[par_id];
+		if(par->decl_type == Decl_Type::par_datetime) {
+			return (*app->data.parameters.get_value(offset)).val_datetime.to_string().data; // Oops, not thread safe.
+		} else if (par->decl_type == Decl_Type::par_enum) {
+			s64 intval = (*app->data.parameters.get_value(offset)).val_integer;
+			return (char *)par->enum_values[intval].data();
+		} else
+			fatal_error(Mobius_Error::api_usage, "mobius_get_parameter_string can not be called on parameters of this type.");
+	} catch(int) {}
+	return (char *)"";
+}
 
 

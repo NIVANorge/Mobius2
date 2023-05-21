@@ -7,7 +7,7 @@ State_Var {
 	
 	// TODO: This contains a lot of data that is irrelevant for input series. But annoying to have to factor it out. Could be put in yet another intermediate struct??
 	
-	enum class Type {
+	enum class Type : u16 {
 		declared,
 		regular_aggregate,
 		in_flux_aggregate,
@@ -24,8 +24,6 @@ State_Var {
 		invalid             = 0x1000,
 	} flags;
 	
-	//TODO: could probably combine some members of this struct in a union. They are not all going to be relevant at the same time.
-	
 	std::string name;
 
 	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for state variables.
@@ -36,7 +34,6 @@ State_Var {
 	Specific_Var_Location   loc2;
 	
 	owns_code unit_conversion_tree;
-	
 	owns_code specific_target;
 	
 	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location) {};

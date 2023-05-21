@@ -19,8 +19,13 @@ max_var_loc_components = 6
 class Var_Id(ctypes.Structure) :
 	_fields_ = [("type", ctypes.c_int32), ("id", ctypes.c_int32)]
 	
+invalid_var = Var_Id(0, -1)
+	
 class Time_Step_Size(ctypes.Structure) :
 	_fields_ = [("unit", ctypes.c_int32), ("magnitude", ctypes.c_int32)]
+	
+class Mobius_Metadata(ctypes.Structure) :
+	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p)]
 
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_error.restype = ctypes.c_int64
@@ -45,12 +50,6 @@ dll.mobius_get_time_step_size.restype  = Time_Step_Size
 dll.mobius_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 dll.mobius_get_start_date.restype = ctypes.c_char_p
 
-
-dll.mobius_set_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_double]
-
-dll.mobius_get_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
-dll.mobius_get_parameter_real.restype  = ctypes.c_double
-
 dll.mobius_deserialize_entity.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_char_p]
 dll.mobius_deserialize_entity.restype  = Entity_Id
 
@@ -63,17 +62,54 @@ dll.mobius_deserialize_var.restype = Var_Id
 dll.mobius_get_var_id_from_list.argtypes = [ctypes.c_void_p, ctypes.POINTER(Entity_Id), ctypes.c_int64]
 dll.mobius_get_var_id_from_list.restype = Var_Id
 
+dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Var_Id, ctypes.c_int16]
+dll.mobius_get_special_var.restype = Var_Id
+
 dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
+
+dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
+dll.mobius_get_series_metadata.restype = Mobius_Metadata
+
+
+dll.mobius_get_index_set_count.argtypes = [ctypes.c_void_p, Entity_Id]
+dll.mobius_get_index_set_count.restype = ctypes.c_int64
+
+
+dll.mobius_get_value_type.argtypes = [ctypes.c_void_p, Entity_Id]
+dll.mobius_get_value_type.restype = ctypes.c_int64
+
+dll.mobius_set_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_double]
+
+dll.mobius_get_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
+dll.mobius_get_parameter_real.restype  = ctypes.c_double
+
+dll.mobius_set_parameter_int.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_int64]
+
+dll.mobius_get_parameter_int.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
+dll.mobius_get_parameter_int.restype  = ctypes.c_int64
+
+dll.mobius_set_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_char_p]
+
+dll.mobius_get_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
+dll.mobius_get_parameter_string.restype  = ctypes.c_char_p
 
 #dll.mobius_get_conc_id.argtypes = [ctypes.c_void_p, Var_Id]
 #dll.mobius_get_conc_id.restype = Var_Id
+
+# NOTE: Must match Reg_Types: We should find a way to auto-generate this instead!
+MODULE_TYPE = 1
+COMPONENT_TYPE = 2
+PARAMETER_TYPE = 3
+
 
 def _c_str(string) :
 	return string.encode('utf-8')
 
 def _pack_indexes(indexes) :
 	#TODO: Allow integer indexes somehow
-	if isinstance(indexes, list) :
+	#print("Type is %s" % type(indexes))
+	
+	if isinstance(indexes, list) or isinstance(indexes, tuple):
 		cindexes = [index.encode('utf-8') for index in indexes]
 	elif isinstance(indexes, str) :
 		cindexes = [indexes.encode('utf-8')]
@@ -112,13 +148,37 @@ def _check_for_errors() :
 
 def _get_par_value(app_ptr, entity_id, indexes) :
 	#TODO: Other value types
-	result = dll.mobius_get_parameter_real(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
+	type = dll.mobius_get_value_type(app_ptr, entity_id)
+	if type == 0 :
+		result = dll.mobius_get_parameter_real(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
+	elif type == 1 :
+		result = dll.mobius_get_parameter_int(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
+	elif type == 2 :
+		res = dll.mobius_get_parameter_int(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
+		result = (res == 1)
+	elif type == 3 :
+		result = dll.mobius_get_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
+	elif type == 4 :
+		val_str = dll.mobius_get_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
+		result = pd.to_datetime(val_str)
+	else :
+		raise ValueError("Unimplemented parameter type")
 	_check_for_errors()
 	return result
 	
 def _set_par_value(app_ptr, entity_id, indexes, value) :
 	#TODO: Other value types
-	result = dll.mobius_set_parameter_real(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), value)
+	type = dll.mobius_get_value_type(app_ptr, entity_id)
+	if type == 0 :
+		dll.mobius_set_parameter_real(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), value)
+	elif type == 1 or type == 2:
+		dll.mobius_set_parameter_int(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), value)
+	elif type == 3 or type == 4 :
+		# TODO: If argument is of datetime type, decode it first
+		str_val = _c_str(value)
+		dll.mobius_set_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), str_val)
+	else :
+		raise ValueError("Unimplemented parameter type")
 	_check_for_errors()
 	
 def is_valid(id) :
@@ -138,18 +198,17 @@ class Scope :
 		entity_id = dll.mobius_deserialize_entity(self.app_ptr, self.scope_id, _c_str(serial_name))
 		_check_for_errors()
 		if not is_valid(entity_id) :
-			raise ValueError("This serial name does not refer to a valid entity")
+			raise ValueError('The serial name "%s" does not refer to a valid entity' % serial_name)
 		return Entity(self.app_ptr, self.scope_id, entity_id)
 
 	def __getattr__(self, handle_name) :
 		entity_id = dll.mobius_get_entity(self.app_ptr, self.scope_id, _c_str(handle_name))
 		if not is_valid(entity_id) :
-			raise ValueError("This handle does not refer to a valid entity")
+			raise ValueError("The handle name '%s' does not refer to a valid entity" % handle_name)
 		_check_for_errors()
 		return Entity(self.app_ptr, self.scope_id, entity_id)
 	
-	# TODO: In case of parameters that have 0 indexes, we could let getattr and setattr just be directly for the value instead of returning a class (?)
-	# Although that doesn't allow you to save an instance of that parameter object. Hmm.
+	# TODO: Would be nice if we could override __setattr__ for parameters with a single instance, but it is very tricky since it overrides also things like self.app_ptr = ..
 	
 	def list_all(type) :
 		# TODO
@@ -157,8 +216,13 @@ class Scope :
 
 class Model_Application(Scope) :
 	def __init__(self, app_ptr) :
-		Scope.__init__(self, app_ptr, invalid_entity_id) 
+		super().__init__(app_ptr, invalid_entity_id)
 		
+	
+	def __del__(self) :
+		#TODO
+		pass
+	
 	@classmethod
 	def build_from_model_and_data_file(cls, model_file, data_file) :
 		app_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file))
@@ -166,43 +230,46 @@ class Model_Application(Scope) :
 		return cls(app_ptr)
 		
 	def run(self, ms_timeout=-1) :
-		timeout = dll.mobius_run_model(self.app_ptr, ms_timeout)
+		finished = dll.mobius_run_model(self.app_ptr, ms_timeout)
 		_check_for_errors()
-		return timeout
+		return finished
 		
 	def var(self, serial_name) :
 		var_id = dll.mobius_deserialize_var(self.app_ptr, _c_str(serial_name))
+		if not is_valid(var_id) :
+			raise ValueError('The serial name "%s" does not refer to a valid state variable or series.' % serial_name)
 		_check_for_errors()
 		return State_Var(self.app_ptr, invalid_entity_id, [], var_id) #TODO: Should maybe retrieve the entity id list from loc1 (if relevant)?
+	
 		
 class Entity(Scope) :
 	def __init__(self, app_ptr, scope_id, entity_id) :		
 		self.entity_id = entity_id
 		self.superscope_id = scope_id
 		
-		if entity_id.reg_type == 1 :
+		if entity_id.reg_type == MODULE_TYPE :
 			Scope.__init__(self, app_ptr, entity_id)
 		else :
 			Scope.__init__(self, app_ptr, scope_id)
 			
 	def __getitem__(self, name_or_indexes) :
-		if self.entity_id.reg_type == 1 :
+		if self.entity_id.reg_type == MODULE_TYPE :
 			return Scope.__getitem__(self, name_or_indexes)
-		elif self.entity_id.reg_type == 3 :
-			_get_par_value(self.app_ptr, self.entity_id, name_or_indexes)
+		elif self.entity_id.reg_type == PARAMETER_TYPE :
+			return _get_par_value(self.app_ptr, self.entity_id, name_or_indexes)
 		else :
 			raise ValueError("This entity can't be accessed using []")
 	
 	def __setitem__(self, name_or_indexes, value) :
-		if self.entity_id.reg_type == 3 :
+		if self.entity_id.reg_type == PARAMETER_TYPE :
 			_set_par_value(self.app_ptr, self.entity_id, name_or_indexes, value)
 		else :
 			raise ValueError("This entity can't be accessed using []")
 	
 	def __getattr__(self, handle_name) :
-		if self.entity_id.reg_type == 1 : #Module
+		if self.entity_id.reg_type == MODULE_TYPE :
 			return Scope.__getattr__(self, handle_name)
-		elif self.entity_id.reg_type == 2 : #Component
+		elif self.entity_id.reg_type == COMPONENT_TYPE :
 			scope = Scope(self.app_ptr, self.superscope_id)
 			other = scope.__getattr__(handle_name)
 			return State_Var.from_id_list(self.app_ptr, self.superscope_id, [self.entity_id, other.entity_id])
@@ -269,9 +336,17 @@ class State_Var :
 		new_list = self.id_list + [other.entity_id]
 		return State_Var.from_id_list(self.app_ptr, self.scope_id, new_list)
 
+	def conc(self) :
+		conc_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, invalid_var, 5)
+		if not is_valid(conc_id) :
+			raise ValueError("This variable does not have a concentration.")
+		_check_for_errors()
+		return State_Var(self.app_ptr, self.scope_id, [], conc_id)
+
 	def name(self) :
-		#TODO
-		return "Some series"
+		data = dll.mobius_get_series_metadata(self.app_ptr, self.var_id)
+		_check_for_errors()
+		return data.name.decode('utf-8')
 		
 	def unit(self) :
 		#TODO
