@@ -251,9 +251,9 @@ Mobius_Model::serialize(Entity_Id id) {
 		auto scope = find_entity(entity->scope_id);
 		if(is_valid(scope->scope_id)) {
 			auto superscope = find_entity(scope->scope_id);
-			ss << superscope->name << ':';
+			ss << superscope->name << '\\';
 		}
-		ss << scope->name << ':' << entity->name;
+		ss << scope->name << '\\' << entity->name;
 		return ss.str();
 	}
 	return entity->name;
@@ -262,7 +262,7 @@ Mobius_Model::serialize(Entity_Id id) {
 Entity_Id
 Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type) {
 
-	auto vec = split(serial_name, ':');  // Hmm, this is maybe a bit inefficient, but probably not a problem.
+	auto vec = split(serial_name, '\\');  // Hmm, this is maybe a bit inefficient, but probably not a problem.
 	
 	Decl_Scope *scope = &model_decl_scope;
 	for(int idx = 0; idx < vec.size()-1; ++idx) {

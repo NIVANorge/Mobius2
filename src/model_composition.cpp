@@ -1068,32 +1068,46 @@ compose_and_resolve(Model_Application *app) {
 		flux->specific_target = owns_code(copy(orig_flux->specific_target.get()));
 	}
 	
-	// Invalidate dissolved fluxes if both source and target is overridden.
-	// -- Update: TODO: This is too simplistic because it causes problems if there is something dissolved in the dissolved that is not overridden in the same way.
-	// One way to solve this is if we make dissolved fluxes refer to their grandparent rather than their direct parent (but need to do conc differently, which could be tricky if it is overridden).
-	/*
-	for(auto var_id : app->vars) {
-		auto var = app->vars[var_id];
-		if(var->type == State_Var::Type::dissolved_flux) {
-			bool valid_source = true;
+	// Invalidate fluxes if both source and target is nowhere or overridden.
+	{
+		std::map<Var_Id, bool> could_be_invalidated;
+		for(auto var_id : app->vars.all_fluxes()) {
+			auto var = app->vars[var_id];
+			
+			bool valid_source = false;
 			if(is_located(var->loc1)) {
 				auto source = as<State_Var::Type::declared>(app->vars[app->vars.id_of(var->loc1)]);
-				if(source->override_tree)
-					valid_source = false;
-			} else
-				valid_source = false;
-			bool valid_target = true;
+				if(!source->override_tree)
+					valid_source = true;
+			}
+			bool valid_target = false;
 			if(is_located(var->loc2)) {
 				auto target = as<State_Var::Type::declared>(app->vars[app->vars.id_of(var->loc2)]);
-				if(target->override_tree)
-					valid_target = false;
-			} else
-				valid_target = false;
-			if(!valid_source && !valid_target)
-				var->flags = (State_Var::Flags)(var->flags | State_Var::Flags::invalid);
+				if(!target->override_tree)
+					valid_target = true;
+			}
+			bool invalidate = !valid_source && !valid_target;
+			could_be_invalidated[var_id] = invalidate;
+			if(invalidate) continue;
+			
+			// NOTE: If this flux could not be invalidated, neither could any of its parents since this one relies on them.
+			auto above_id = var_id;
+			auto above_var = var;
+			while(above_var->type == State_Var::Type::dissolved_flux) {
+				above_id = as<State_Var::Type::dissolved_flux>(above_var)->flux_of_medium;
+				could_be_invalidated[above_id] = false;
+				above_var = app->vars[above_id];
+			}
+		}
+		for(auto &pair : could_be_invalidated) {
+			if(pair.second) {
+				auto var = app->vars[pair.first];
+				var->flags = (State_Var::Flags)(var->flags & State_Var::Flags::invalid);
+				log_print("Invalidating \"", var->name, "\" due to both source or target being 'nowhere' or overridden.\n");
+			}
 		}
 	}
-	*/
+	
 	
 	// TODO: Is this necessary, or could we just do this directly when we build the connections below ??
 	// 	May have to do with aggregates of fluxes having that decl_type, and that is confusing? But they should not have connections any way.

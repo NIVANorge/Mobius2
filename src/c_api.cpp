@@ -79,16 +79,19 @@ mobius_get_start_date(Model_Application *app, Var_Id::Type type) {
 template<typename Handle_T> s64
 get_offset_by_index_names(Model_Application *app, Storage_Structure<Handle_T> *storage, Handle_T handle, char **index_names, s64 indexes_count) {
 	
-	// TODO: Print what index sets are expected.
-	
 	const std::vector<Entity_Id> &index_sets = storage->get_index_sets(handle);
-	if(index_sets.size() != indexes_count)
-		fatal_error(Mobius_Error::api_usage, "The object requires ", index_sets.size(), " index", index_sets.size()>1?"es":"", ", got ", indexes_count, ".");
+	if(index_sets.size() != indexes_count) {
+		begin_error(Mobius_Error::api_usage);
+		error_print("The object requires ", index_sets.size(), " index", index_sets.size()>1?"es":"", ", got ", indexes_count, ". The following index sets need to be addressed (in that order):\n");
+		for(auto index_set : index_sets)
+			error_print("\"", app->model->index_sets[index_set]->name, "\" ");
+		mobius_error_exit();
+	}
 	
 	std::vector<Index_T> indexes(indexes_count);
 	for(s64 idxidx = 0; idxidx < indexes_count; ++idxidx) {
 		indexes[idxidx] = app->get_index(index_sets[idxidx], index_names[idxidx]);
-		if(indexes[idxidx].index < 0)
+		if(!is_valid(indexes[idxidx]))
 			fatal_error(Mobius_Error::api_usage, "The index set \"", app->model->find_entity(index_sets[idxidx])->name, "\" does not contain the index \"", index_names[idxidx], "\".");
 	}
 	return storage->get_offset_alternate(handle, indexes);
@@ -221,6 +224,9 @@ mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index
 	} catch(int) {}
 	return 0.0;
 }
+
+// TODO: For some parameters we need to check if they are baked, and then set a flag on the Model_Application telling it it has to be recompiled before further use.
+//   This must then be reflected in mobipy so that it actually does the recompilation.
 
 DLLEXPORT void
 mobius_set_parameter_int(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, s64 value) {

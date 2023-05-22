@@ -254,7 +254,6 @@ Model_Application::all_indexes_are_set() {
 void
 process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, const std::string &module_name = "") {
 
-	// TODO: Have to figure out how to serialize here!
 	Entity_Id module_id = invalid_entity_id;
 	if(!module_name.empty()) {
 		module_id = model->model_decl_scope.deserialize(module_name, Reg_Type::module);
@@ -1134,7 +1133,7 @@ inline void
 serialize_loc(Mobius_Model *model, std::stringstream &ss, const Var_Location &loc) {
 	for(int idx = 0; idx < loc.n_components; ++idx) {
 		ss << model->serialize(loc.components[idx]);
-		if(idx != loc.n_components-1) ss << '.';
+		if(idx != loc.n_components-1) ss << ':';
 	}
 }
 
@@ -1144,7 +1143,7 @@ Model_Application::serialize(Var_Id id) {
 	auto var = vars[id];
 	if(id.type != Var_Id::Type::additional_series) {
 		std::stringstream ss;
-		ss << ".";
+		ss << ':';
 		if(var->type == State_Var::Type::declared) {
 			auto var2 = as<State_Var::Type::declared>(var);
 			if(var2->is_flux())
@@ -1195,7 +1194,7 @@ Model_Application::serialize(Var_Id id) {
 Var_Id
 Model_Application::deserialize(const std::string &name) {
 
-	if(name.data()[0] == '.') {
+	if(name.data()[0] == ':') {
 		auto find = serial_to_id.find(name);
 		if(find == serial_to_id.end()) return invalid_var;
 		return find->second;
