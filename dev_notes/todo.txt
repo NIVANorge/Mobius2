@@ -2,22 +2,14 @@
 
 	Finish NIVAFjord!!
 		horizontal fluxes.
-		
-		Need to let a state var indicate the target index of a flux
-
-	Specific target:
-		Properly process the @specific function tree, incl. flags
-		Check valid dependencies for the tree.
-			Have to think about what types of variables it is allowed to reference.
-		Tridiagonal distribution.
-		Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
-			This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
 	
 
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
 			This in particular may have been fixed now.
-	
+			
+	Flux invalidation does not work correctly if the flux involved is on a connection (seems to be invalidated, but is somehow revived again).
+		Test case is simplyc_chained with soil doc computation type set to 'equilibrium'
 
 	Finish connection system
 
@@ -38,6 +30,14 @@
 			Does this give the correct result in all instances ?
 				Would prefer to have this since it improves usability.
 				Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
+				
+		Specific target:
+			Properly process the @specific function tree, incl. flags
+			Check valid dependencies for the tree.
+				Have to think about what types of variables it is allowed to reference.
+			Tridiagonal distribution.
+			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
+				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
 
 	
 	*** Intermediate-pri ***

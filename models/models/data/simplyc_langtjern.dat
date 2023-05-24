@@ -7,7 +7,7 @@ index_set("Landscape units") [ "Forest" ]
 index_set("Subcatchment") [ "Inlet" ]
 
 connection("Downstream") [
-	compartment("River")["Subcatchment"]
+	compartment("River") [ "Subcatchment" ]
 ]
 
 series("langtjern.xlsx")
@@ -105,7 +105,7 @@ module("Degree-day PET", 1, 0, 0) {
 module("Priestley-Taylor PET", 0, 0, 16) {
 }
 
-module("Simply soil temperature", 0, 0, 0) {
+module("Simply soil temperature", 0, 1, 0) {
 	par_group("Soil temperature general") {
 		par_real("Snow depth / soil temperature factor")
 		[ -0.2 ]
@@ -120,7 +120,7 @@ module("Simply soil temperature", 0, 0, 0) {
 	}
 }
 
-module("SimplyC", 1, 0, 0) {
+module("SimplyC", 1, 0, 1) {
 	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
 		[ 100 ]
@@ -133,6 +133,12 @@ module("SimplyC", 1, 0, 0) {
 
 		par_real("Soil temperature DOC creation second-order coefficient")
 		[ 0.00276834666700925 ]
+
+		par_enum("Soil DOC computation type")
+		[ equilibrium ]
+
+		par_enum("Groundwater DOC computation type")
+		[ soil_avg ]
 	}
 
 	par_group("DOC land") [ "Landscape units" ] {
@@ -141,9 +147,6 @@ module("SimplyC", 1, 0, 0) {
 	}
 
 	par_group("DOC deep soil") {
-		par_enum("Groundwater DOC computation type")
-		[ soil_avg ]
-
 		par_real("Groundwater DOC half-life")
 		[ 80 ]
 

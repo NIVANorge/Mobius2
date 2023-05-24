@@ -286,8 +286,10 @@ write_par_group_to_file(FILE *file, Data_Set *data_set, Par_Group_Info &par_grou
 	}
 	fprintf(file, "{\n");
 	int idx = 0;
-	for(auto &par : par_group.pars)
+	for(auto &par : par_group.pars) {
+		if(par.mark_for_deletion) continue;
 		write_parameter_to_file(file, data_set, par_group, par, tabs+1, idx++ != par_group.pars.count()-1);
+	}
 	
 	print_tabs(file, tabs);
 	fprintf(file, "}\n");

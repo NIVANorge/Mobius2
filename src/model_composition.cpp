@@ -837,7 +837,6 @@ compose_and_resolve(Model_Application *app) {
 	for(auto var_id : app->vars.all_state_vars()) {
 		auto var = app->vars[var_id];
 		
-		//if(!var->is_valid()) continue;
 		if(var->is_flux()) {
 			// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
 			var->unit_conversion_tree = std::unique_ptr<Math_Expr_FT>(get_unit_conversion(app, var->loc1, var->loc2, var_id));
@@ -1132,7 +1131,7 @@ compose_and_resolve(Model_Application *app) {
 	// TODO: interaction between in_flux and aggregate declarations (i.e. we have something like an explicit aggregate(in_flux(soil.water)) in the code.
 	// Or what about last(aggregate(in_flux(bla))) ?
 	
-	// note: We always generate an aggregate if the source compartment of a flux has more indexes than the target compartment.
+	// Note: We always generate an aggregate if the source compartment of a flux has more indexes than the target compartment.
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
 	for(auto var_id : app->vars.all_fluxes()) {
 		auto var = app->vars[var_id];
@@ -1140,15 +1139,11 @@ compose_and_resolve(Model_Application *app) {
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, var->loc1);
-		//Entity_Id exclude_index_set_from_loc = invalid_entity_id;
-		//if(var->loc1.restriction == Var_Loc_Restriction::bottom)
-		//	exclude_index_set_from_loc = app->get_single_connection_index_set(var->loc1.connection_id);
 		
 		if(!location_indexes_below_location(model, var->loc1, var->loc2, exclude_index_set_from_loc))
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());
 	}
 	
-	//warning_print("Generate state vars for aggregates.\n");
 		
 	for(auto &need_agg : needs_aggregate) {
 		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};
@@ -1190,10 +1185,10 @@ compose_and_resolve(Model_Application *app) {
 			agg_var->loc2 = var->loc2;
 			var->loc2.type = Var_Location::Type::nowhere;
 			
-			agg_var->unit_conversion_tree = std::move(var->unit_conversion_tree);
 			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
 			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
-			//var->unit_conversion_tree = nullptr;
+			agg_var->unit_conversion_tree = std::move(var->unit_conversion_tree);
+			
 			agg_var->agg_to_compartment = to_compartment;
 			
 			for(auto looked_up_by : need_agg.second.second) {
@@ -1220,8 +1215,6 @@ compose_and_resolve(Model_Application *app) {
 	
 	// TODO: Should we give an error if there is a connection flux on an overridden variable?
 	
-	//warning_print("Generate state vars for in_flux_connection.\n");
-	// TODO: Support multiple connections for the same state variable.
 	for(auto &pair : may_need_connection_target) {
 		
 		auto &conn_id = pair.first;
@@ -1243,6 +1236,7 @@ compose_and_resolve(Model_Application *app) {
 					continue;
 				
 				// TODO: Even if it is present in the connection data, it may not appear as a target, only as a source. Should also be checked eventually.
+					// -- hmm, I wonder if this has been solved and I just forgot to remove the comment?
 				
 				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]);
 			}
@@ -1262,11 +1256,9 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
-	//warning_print("Generate state vars for in_flux.\n");
 	for(auto &in_flux : in_flux_map) {
 		
 		auto &key = in_flux.first;
-		//auto [target_id, connection] = key;
 		Var_Id target_id = key.first;
 		auto target = as<State_Var::Type::declared>(app->vars[target_id]);
 		Entity_Id connection = key.second;
@@ -1327,6 +1319,9 @@ compose_and_resolve(Model_Application *app) {
 	
 	// TODO: we can't really free everything here since the ASTs may need to be reused to build a new model app if it is recompiled later.
 	//   however, we want to have memory management for these things eventually.
+	
+	// Also, this code is a bit outdated since the ASTs are stored on the Mobius_Model object, while this function now belongs to the Model_Application.
+	// 	Maybe just put it in a destructor for the Model? Although it would be nice to be able to clean up the file data before that (without invalidating the ASTs). So just move away from using String_View in the ASTs and use std::string there too? Or have some string atom table?
 	
 	/*
 	// Free memory of loaded source files and all abstract syntax trees.

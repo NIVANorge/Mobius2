@@ -343,12 +343,16 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	
 	auto group_scope = model->get_scope(group_id);
 	for(auto &par : par_group_info->pars) {
+		
+		if(par.mark_for_deletion) continue;
+		
 		auto par_id = group_scope->deserialize(par.name, Reg_Type::parameter);
 		
 		if(!is_valid(par_id)) {
 			if(module_is_outdated) {
 				par.source_loc.print_log_header();
 				log_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
+				par.mark_for_deletion = true;
 			} else {
 				par.source_loc.print_error_header();
 				fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
@@ -968,8 +972,6 @@ Model_Application::save_to_data_set() {
 	}
 	*/
 	
-	// TODO: Rethink how to scope things here with the new module specialization system.
-	
 	// Hmm, this is a bit cumbersome
 	for(int idx = -1; idx < model->modules.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
@@ -1028,6 +1030,7 @@ Model_Application::save_to_data_set() {
 				par_info->type = par->decl_type;
 				par_info->values.clear();
 				par_info->values_enum.clear();
+				par_info->mark_for_deletion = false;
 				
 				parameter_structure.for_each(par_id, [&,this](std::vector<Index_T> &idxs, s64 offset) {
 					if(par_info->type == Decl_Type::par_enum) {
