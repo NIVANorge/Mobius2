@@ -613,7 +613,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		auto var = app->vars[var_id];
 		
 		bool is_aggregate  = var->type == State_Var::Type::regular_aggregate;
-		bool has_aggregate = var->flags & State_Var::Flags::has_aggregate;
+		bool has_aggregate = var->has_flag(State_Var::has_aggregate);
 		
 		auto var_solver = instr->solver;
 		

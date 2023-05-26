@@ -141,7 +141,7 @@ add_flux_edge(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Locat
 	
 	bool is_agg = false;
 	if(var->type == State_Var::Type::declared) {
-		if(var->flags & State_Var::Flags::has_aggregate) return;
+		if(var->has_flag(State_Var::has_aggregate)) return;
 		if(is_located(var->loc1)) loc1 = &var->loc1;
 		if(is_located(var->loc2)) loc2 = &var->loc2;
 		conn_id = var->loc2.connection_id;
@@ -255,6 +255,7 @@ build_flux_graph(Model_Application *app, Agraph_t *g, bool show_properties, bool
 
 struct Node_Data2 {
 	Agraph_t *subgraph = nullptr;
+	Agraph_t *instance_subg = nullptr;
 	
 	// Ugh, will be annoying with indexes here...
 	std::vector<std::unique_ptr<Node_Data2>> subnodes;
@@ -264,9 +265,10 @@ struct Node_Data2 {
 };
 
 Agraph_t *
-add_index_sets(Agraph_t *g, Model_Application *app, std::vector<std::unique_ptr<Node_Data2>> &nodes, std::vector<Entity_Id> &index_sets, int level = 0) {
+add_index_sets(Agraph_t *g, Agraph_t *sub, Model_Application *app, std::vector<std::unique_ptr<Node_Data2>> &nodes, std::vector<Entity_Id> &index_sets, int level = 0) {
 	static char buf[32];
 	static int clusterid = 0;
+	static int edgeid = 0;
 	
 	if(index_sets.empty()) return g;
 	
@@ -276,36 +278,134 @@ add_index_sets(Agraph_t *g, Model_Application *app, std::vector<std::unique_ptr<
 	auto &node = nodes[index_set.id];
 	if(!node) {
 		node.reset(new Node_Data2(model->index_sets.count()));
-		sprintf(buf, "cluster_%d", clusterid++);
-		node->subgraph = agsubg(g, buf, 1);
-		agsafeset(node->subgraph, "label", (char *)model->index_sets[index_set]->name.data(), "");
+		
+		std::stringstream ss;
+		int cluster1 = clusterid++;
+		int cluster2 = clusterid++;
+		auto set = model->index_sets[index_set];
+		
+		ss << "<table cellborder='0' border='0' style='rounded'>";
+		ss << "<tr><td><b>" << set->name << "</b></td></tr>";
+		if(is_valid(set->sub_indexed_to)) {
+			ss << "<tr><td>(variable index count)</td></tr>";
+		} else {
+			auto count = app->get_max_index_count(index_set).index;
+			if(count > 5)
+				ss << "<tr><td>" << count << " instances</td></tr>";
+			else {
+				for(int idx = 0; idx < count; ++idx) {
+					Index_T index = {index_set, idx};
+					ss << "<tr><td>" << app->get_index_name(index) << "</td></tr>";
+				}
+			}
+		}
+		ss << "</table>";
+		auto str1 = ss.str();
+		ss.str("");
+		
+		sprintf(buf, "cluster_%d", cluster1);
+		node->subgraph = agsubg(sub, buf, 1);
+		//agsafeset(node->subgraph, "shape", "plaintext", "");
+		agsafeset(node->subgraph, "style", "rounded", "");
+		agsafeset(node->subgraph, "label", agstrdup_html(g, str1.data()), "");
+		agsafeset(node->subgraph, "bgcolor", "white", "");
+		agsafeset(node->subgraph, "penwidth", "1", "");
+		
+		
+		sprintf(buf, "cluster_%d", cluster2);
+		node->instance_subg = agsubg(sub, buf, 1);
+		agsafeset(node->instance_subg, "bgcolor", "lightgrey", "");
+		agsafeset(node->instance_subg, "penwidth", "2", "");
+		
+		ss << set->name << " instance";
+		auto str = ss.str();
+		agsafeset(node->instance_subg, "label", str.data(), "");
+		
+		Agnode_t *a = make_empty(node->subgraph);
+		Agnode_t *b = make_empty(node->instance_subg);
+		sprintf(buf, "instanceedg_%d", edgeid++);
+		Agedge_t *e = agedge(sub, a, b, buf, 1);
+		
+		agsafeset(e, "dir", "both", "");
+		agsafeset(e, "arrowhead", "dot", "");
+		agsafeset(e, "arrowtail", "dot", "");
+		//agsafeset(e, "label", "instance", "");
+		sprintf(buf, "cluster_%d", cluster1);
+		agsafeset(e, "ltail", buf, "");
+		sprintf(buf, "cluster_%d", cluster2);
+		agsafeset(e, "lhead", buf, "");
 	}
-	if(level == index_sets.size()-1) return node->subgraph;
 	
-	return add_index_sets(node->subgraph, app, node->subnodes, index_sets, level+1);
+	if(level == index_sets.size()-1) return node->instance_subg;
+	
+	return add_index_sets(g, node->instance_subg, app, node->subnodes, index_sets, level+1);
 }
 
 
 void
-build_distrib_connection_graph(Model_Application *app, Agraph_t *g, bool show_indexes, bool show_short_names) {
+build_distrib_connection_graph(Model_Application *app, Agraph_t *g, bool show_short_names) {
+	
+	// TODO: Implement show short names
+	// TODO: Add show_connections (maybe)
+	
 	static char buf[32];
 	static int nodeid = 0;
+	static int edgeid = 0;
 	
 	auto model = app->model;
 	
 	agsafeset(g, "compound", "true", "");
 	
 	std::vector<std::unique_ptr<Node_Data2>> base_nodes(model->index_sets.count());
-	//std::vector<Anode_t *> compartment_nodes(model->components.size(), nullptr);
 	
+	std::vector<int> used_compartment(model->components.count(), 0);
+	for(auto var_id : app->vars.all_state_vars()) {
+		auto var = app->vars[var_id];
+		if(var->type != State_Var::Type::declared) continue;
+		if(is_located(var->loc1))
+			used_compartment[var->loc1.first().id] = 1;
+	}
+	for(auto var_id : app->vars.all_series()) {
+		auto var = app->vars[var_id];
+		if(is_located(var->loc1))
+			used_compartment[var->loc1.first().id] = 1;
+	}
+	
+	std::vector<Agnode_t *> component_instances(model->components.count(), nullptr);
 	for(auto comp_id : model->components) {
+		
+		if(!used_compartment[comp_id.id]) continue;
 		auto comp = model->components[comp_id];
 		if(comp->decl_type != Decl_Type::compartment) continue; // NOTE: For now only distribution of compartments. Could also do quantities later?
 		
-		auto subg = add_index_sets(g, app, base_nodes, comp->index_sets);
+		auto subg = add_index_sets(g, g, app, base_nodes, comp->index_sets);
 		sprintf(buf, "comp_%d", nodeid++);
 		Agnode_t *n = agnode(subg, buf, 1);
 		agsafeset(n, "label", (char *)comp->name.data(), "");
 		agsafeset(n, "shape", "rectangle", "");
+		agsafeset(n, "style", "filled", "");
+		agsafeset(n, "fillcolor", "white", "");
+		agsafeset(n, "penwidth", "1", "");
+		
+		component_instances[comp_id.id] = n;
+	}
+	
+	for(auto conn_id : model->connections) {
+		auto &comps = app->connection_components[conn_id.id];
+		
+		auto &name = model->connections[conn_id]->name;
+		
+		for(auto &comp : comps) {
+			// Note: this draws only the connections that are in the dataset, not all that are theoretically possible. Change that?
+			Agnode_t *n2 = component_instances[comp.id.id];
+			for(auto source_id : comp.possible_sources) {
+				Agnode_t *n1 = component_instances[source_id.id];
+				if(!n1 || !n2) continue;
+				
+				sprintf(buf, "conn_%d", edgeid++);
+				Agedge_t *e = agedge(g, n1, n2, buf, 1);
+				agsafeset(e, "label", name.data(), "");
+			}
+		}
 	}
 }

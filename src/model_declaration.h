@@ -313,6 +313,7 @@ Registry : Registry_Base {
 
 struct
 Mobius_Model {
+	
 	std::string model_name;
 	std::string doc_string;
 	
@@ -359,6 +360,14 @@ Mobius_Model {
 	File_Data_Handler file_handler;
 	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;
 	Decl_AST *main_decl = nullptr;
+	
+	// NOTE: The ASTs are reused every time you create a Model_Application from the model, so you should only free them if you know you are not going to create more Model_Applications from them.
+	//    A Model_Application is not dependent on the ASTs still existing after it is constructed though.
+	// TODO: Or do we get problems with some stored Source_Locations ?
+	void free_asts();
+	~Mobius_Model() {
+		//free_asts();   // TODO: Hmm, seems like it causes a problem some times??
+	}
 	
 	template<Reg_Type reg_type> struct
 	By_Scope {

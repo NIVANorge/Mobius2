@@ -14,6 +14,9 @@
 			make dissolvedes of negatives work for other types (all_to_all, graph (maybe) regular fluxes (maybe), but probably not directed tree).
 			
 		graph connections
+			Make them
+				How to organize them? Need to think especially about how one can associate things to the nodes of the connection. Difficult wrt layers in NIVAFjord.
+					May need union index sets?
 			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
 
 		all_to_all:
@@ -39,10 +42,11 @@
 	
 	*** Intermediate-pri ***
 		
-		Override declaration.
+		override {}  declaration.
 			E.g. to change the connection regex of a connection in an extending model.
 			How to do it for no_carry?
 				The way we now do no_carry is in general maybe not that good after all.
+				May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
 	
 	
 		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.
@@ -53,7 +57,7 @@
 		Clean up the prune_tree system.
 			Could get rid of using Function_Scope in prune_helper?
 				Tried it, but it has a bug.
-			Memory management is easy to get wrong in this system.
+			Easy to have leaks when moving and deleting nodes the way it is done now.
 	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
@@ -105,7 +109,7 @@
 				
 		Let / always be a real division, and maybe have a separate operator // (or similar) to force integer division.
 		
-		Re-consolidate input loading with the serialization system.
+		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
 		
 		Finish sub-indexed index sets
@@ -113,8 +117,6 @@
 			Sub-indexed series data.
 			
 		Go over and improve diagnostics in error messages (all over the place).
-		
-		Make mobipy work again (and better).
 		
 	*** Low-pri ****
 	
@@ -148,6 +150,7 @@
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
 				Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
 				Normalized axis is weird when all of a series' values are 0.
+				Flickering axis labels when scrolling.
 			
 			Sensitivity & optimization - new features
 				Combine simple sensitivity into the advanced sensitivity setup.
@@ -162,6 +165,7 @@
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
+				Finish graph views.
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
@@ -176,7 +180,9 @@
 				minute, hour, day. (esp. day).
 				
 			Trend line doesn't make sense for some aggregations.
-				
+			Make the residual trend one of the available residual statistics (in terms of optim. it should be minimized in absolute value).
+		
+		More mobipy functionality.
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
@@ -186,6 +192,10 @@
 			similar for graph when that exists.
 		In grid1d, could have wrap-around boundary (?), or could have special values for the boundary (maybe even dynamic)
 	
+	
+		Make it possible to free file memory before a model is deleted.
+			Requires ASTs to copy some string data, which is a bit annoying since right now they store Tokens directly.
+		
 		
 		Set units of regular aggregation state variables so that they display correctly if viewed.
 			note that it is a bit tricky for fluxes.
@@ -214,8 +224,6 @@
 			Finish regex checks or scrap them altogether.
 		
 		Other solver algorithms.
-		
-		May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
 		
 		Codegen for the NIVAFjord model generates
 			state_var[iter_547 + 2764] <- state_var[3012 + iter_547] * exp(-state_var[879] * dz[8]) * A[24 + iter_547] / A[iter_547 + 23] if iter_547 + 1 < 124 & iter_547 + 1 < 124,

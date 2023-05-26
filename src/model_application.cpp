@@ -134,7 +134,7 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	
 	// TODO: This could be factored into a function that is called twice.
 	for(auto series_id : vars.all_series()) {
-		if(!(vars[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
+		if(!(vars[series_id]->has_flag(State_Var::clear_series_to_nan))) continue;
 		
 		series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -143,7 +143,7 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 	}
 	
 	for(auto series_id : vars.all_additional_series()) {
-		if(!(vars[series_id]->flags & State_Var::Flags::clear_series_to_nan)) continue;
+		if(!(vars[series_id]->has_flag(State_Var::clear_series_to_nan))) continue;
 		
 		additional_series_structure.for_each(series_id, [time_steps, this](auto &indexes, s64 offset) {
 			for(s64 step = 0; step < time_steps; ++step)
@@ -434,7 +434,7 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 			auto var_id = app->vars.register_var<State_Var::Type::declared>(invalid_var_location, header.name, Var_Id::Type::additional_series);
 			ids.insert(var_id);
 			auto var = app->vars[var_id];
-			var->flags = State_Var::Flags::clear_series_to_nan;
+			var->set_flag(State_Var::clear_series_to_nan);
 			var->unit = header.unit;
 			
 			//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions?

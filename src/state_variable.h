@@ -24,6 +24,12 @@ State_Var {
 		invalid             = 0x1000,
 	} flags;
 	
+	void set_flag(Flags flag) { flags = (Flags)(flags | flag); }
+	bool has_flag(Flags flag) { return flags & flag; }
+	// Because these are very common queries
+	bool is_flux() { return has_flag(flux);	}
+	bool is_valid() { return !has_flag(invalid); }
+	
 	std::string name;
 
 	Unit_Data unit; //NOTE: this can't just be an Entity_Id, because we need to be able to generate units for state variables.
@@ -37,10 +43,6 @@ State_Var {
 	owns_code specific_target;
 	
 	State_Var() : type(Type::declared), unit_conversion_tree(nullptr), flags(Flags::none), loc1(invalid_var_location), loc2(invalid_var_location) {};
-	
-	// Because these are very common queries
-	bool is_flux() { return (flags & flux);	}
-	bool is_valid() { return !(flags & invalid); }
 };
 
 

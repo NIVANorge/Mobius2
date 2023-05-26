@@ -1847,3 +1847,20 @@ log_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 		log_print((*scope)[loc.components[idx]], idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)
 }
+
+void
+Mobius_Model::free_asts() {
+	// NOTE: All other ASTs that are stored are sub-trees of one of these, so we don't need to delete them separately (though we could maybe null them).
+	delete main_decl;
+	main_decl = nullptr;
+	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;
+	for(auto id : module_templates) {
+		delete module_templates[id]->decl;
+		module_templates[id]->decl = nullptr;
+	}
+	for(auto id : libraries) {
+		delete libraries[id]->decl;
+		libraries[id]->decl = nullptr;
+	}
+}
+

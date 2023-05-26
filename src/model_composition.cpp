@@ -88,7 +88,7 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			var->loc1 = flux->source;
 			var->loc2 = flux->target;
 			var2->decl_type = Decl_Type::flux;
-			var2->flags = (State_Var::Flags)(var2->flags | State_Var::Flags::flux);
+			var2->set_flag(State_Var::flux);
 			
 			if(is_valid(flux->unit))
 				var->unit = model->units[flux->unit]->data;
@@ -642,7 +642,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			auto flux = app->vars[flux_id];
 			gen_flux->type = State_Var::Type::dissolved_flux;
 			gen_flux->flux_of_medium = flux_id;
-			gen_flux->flags = (State_Var::Flags)(gen_flux->flags | State_Var::Flags::flux);
+			gen_flux->set_flag(State_Var::flux);
 			gen_flux->conc = gen_conc_id;
 			
 			// Hmm, this is a bit annoying.
@@ -1103,7 +1103,7 @@ compose_and_resolve(Model_Application *app) {
 		for(auto &pair : could_be_invalidated) {
 			if(pair.second) {
 				auto var = app->vars[pair.first];
-				var->flags = (State_Var::Flags)(var->flags | State_Var::Flags::invalid);
+				var->set_flag(State_Var::invalid);
 				log_print("Invalidating \"", var->name, "\" due to both source or target being 'nowhere' or overridden.\n");
 			}
 		}
@@ -1150,7 +1150,7 @@ compose_and_resolve(Model_Application *app) {
 	for(auto &need_agg : needs_aggregate) {
 		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};
 		auto var = app->vars[var_id];
-		if(var->flags & State_Var::Flags::invalid) continue;
+		if(!var->is_valid()) continue;
 		
 		auto loc1 = var->loc1;
 		if(var->type == State_Var::Type::dissolved_conc) {
@@ -1163,7 +1163,7 @@ compose_and_resolve(Model_Application *app) {
 		for(auto to_compartment : need_agg.second.first) {
 			
 			Math_Expr_FT *agg_weight = get_aggregation_weight(app, loc1, to_compartment);
-			var->flags = (State_Var::Flags)(var->flags | State_Var::has_aggregate);
+			var->set_flag(State_Var::has_aggregate);
 			
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
@@ -1175,7 +1175,7 @@ compose_and_resolve(Model_Application *app) {
 			agg_var->agg_of = var_id;
 			agg_var->aggregation_weight_tree = owns_code(agg_weight);
 			if(var->is_flux())
-				agg_var->flags = (State_Var::Flags)(agg_var->flags | State_Var::Flags::flux);
+				agg_var->set_flag(State_Var::flux);
 			
 			// TODO: Set the unit of the agg_var (only relevant if it is displayed somewhere, it is not function critical).
 			//   It is a bit tricky because of potential unit conversions and the fact that the unit of aggregated fluxes could be re-scaled to the time step.
@@ -1307,8 +1307,6 @@ compose_and_resolve(Model_Application *app) {
 			check_valid_distribution_of_dependencies(app, var2->override_tree.get(), in_loc);
 	}
 	
-	
-	
 	for(auto var_id : app->vars.all_state_vars()) {
 		auto var = app->vars[var_id];
 		app->serial_to_id[app->serialize(var_id)] = var_id;
@@ -1317,37 +1315,6 @@ compose_and_resolve(Model_Application *app) {
 		auto var = app->vars[var_id];
 		app->serial_to_id[app->serialize(var_id)] = var_id;
 	}
-	
-	
-	// TODO: we can't really free everything here since the ASTs may need to be reused to build a new model app if it is recompiled later.
-	//   however, we want to have memory management for these things eventually.
-	
-	// Also, this code is a bit outdated since the ASTs are stored on the Mobius_Model object, while this function now belongs to the Model_Application.
-	// 	Maybe just put it in a destructor for the Model? Although it would be nice to be able to clean up the file data before that (without invalidating the ASTs). So just move away from using String_View in the ASTs and use std::string there too? Or have some string atom table?
-	
-	/*
-	// Free memory of loaded source files and all abstract syntax trees.
-	file_handler.unload_all();
-	
-	delete main_decl;
-	main_decl = nullptr;
-	// NOTE: can't just iterate over all modules, because some could be inlined in the main decl. We can only free directly the ones that were loaded as top declarations.
-	for(auto &file : parsed_decls) {
-		for(auto &parsed : file.second) {
-			if(parsed.second.reg_type == Reg_Type::module) {
-				auto module = modules[parsed.second];
-				delete module->decl;
-				module->decl = nullptr;
-			} else if(parsed.second.reg_type == Reg_Type::library) {
-				auto lib = libraries[parsed.second];
-				delete lib->decl;
-				lib->decl = nullptr;
-			}
-		}
-	}
-	// NOTE: this also invalidates all other ASTs since they point into the top decl ASTs. Maybe we should null them too.
-	// The intention in any case is that all of them are translated into processed forms by this point and are no longer needed.
-	*/
 }
 
 
