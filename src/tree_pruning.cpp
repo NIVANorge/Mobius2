@@ -793,11 +793,10 @@ find_local_variable(Function_Scope *scope, s32 block_id, s32 id, bool *found) {
 	while(scope->block->unique_block_id != block_id)
 		scope = scope->parent;
 	for(auto expr : scope->block->exprs) {
-		if(expr->expr_type == Math_Expr_Type::local_var) {
-			auto local = static_cast<Local_Var_FT *>(expr);
-			if(local->id == id)
-				return is_constant_rational(expr->exprs[0], scope, found);
-		}
+		if(expr->expr_type != Math_Expr_Type::local_var) continue;
+		auto local = static_cast<Local_Var_FT *>(expr);
+		if(local->id == id)
+			return is_constant_rational(expr->exprs[0], scope, found);
 	}
 	*found = false;
 	return Rational<s64>(0);
@@ -846,7 +845,7 @@ is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found) {
 					return res1 - res2;
 				else if((char)binop->oper == '*')
 					return res1 * res2;
-				else if((char)binop->oper == '/')
+				else if((char)binop->oper == '/') // TODO: This is not technically correct if both are integers. Unless we make changes to how this operator works.
 					return res1 / res2;
 				else if((char)binop->oper == '^' && res2.is_int())
 					return pow_i(res1, res2.nom);
@@ -857,7 +856,7 @@ is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found) {
 			}
 		} break;
 		
-		// TODO: Could handle certain intrinsic function calls.
+		// TODO: Could handle certain intrinsic function calls, e.g. sqrt if it can be shown that both numerator and denominator are square.
 		
 		case Math_Expr_Type::cast : {
 			return is_constant_rational(expr->exprs[0], scope, found);

@@ -432,7 +432,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		back_step = app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
 		auto var = app->vars[ident->var_id];
-		if(var->flags & State_Var::Flags::invalid)
+		if(!var->is_valid())
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
 		offset_code = app->result_structure.get_offset_code(ident->var_id, *use_indexes);

@@ -7,9 +7,6 @@
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
 			This in particular may have been fixed now.
-			
-	Flux invalidation does not work correctly if the flux involved is on a connection (seems to be invalidated, but is somehow revived again).
-		Test case is simplyc_chained with soil doc computation type set to 'equilibrium'
 
 	Finish connection system
 

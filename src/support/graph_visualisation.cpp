@@ -16,7 +16,7 @@ Node_Data {
 Agnode_t *
 make_empty(Agraph_t *g) {
 	static int nodeid = 0;
-	static char buf[128];
+	static char buf[32];
 	
 	sprintf(buf, "nonode_%d", nodeid++);
 	Agnode_t *n = agnode(g, buf, 1);
@@ -33,10 +33,10 @@ make_empty(Agraph_t *g) {
 }
 
 void
-add_component_node(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Location_Hash> &nodes, Model_Application *app, Var_Location &loc) {
+add_component_node(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Location_Hash> &nodes, Model_Application *app, Var_Id var_id, Var_Location &loc) {
 	static int clusterid = 0;
 	static int nodeid = 0;
-	static char buf[128];
+	static char buf[32];
 	
 	auto find = nodes.find(loc);
 	if(find != nodes.end()) return;
@@ -51,12 +51,12 @@ add_component_node(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_
 		g_above = g;
 	else {
 		auto find = nodes.find(above);
-		if(find == nodes.end())
-			add_component_node(g, nodes, app, above);
+		if(find == nodes.end()) {
+			Var_Id above_id = app->vars.id_of(above);
+			add_component_node(g, nodes, app, above_id, above);
+		}
 		g_above = nodes[above].subgraph;
 	}
-	
-	auto var_id = app->vars.id_of(loc); // Could just be passed instead...
 	
 	if(comp->decl_type == Decl_Type::quantity || comp->decl_type == Decl_Type::compartment) {
 		sprintf(buf, "cluster_%d", clusterid);
@@ -100,7 +100,7 @@ add_connection_node(Agraph_t *g, std::vector<Agnode_t *> &connection_nodes, Enti
 	if(connection_nodes[conn_id.id]) return connection_nodes[conn_id.id];
 	
 	static int nodeid = 0;
-	static char buf[128];
+	static char buf[32];
 	
 	sprintf(buf, "connode_%d", nodeid++);
 	Agnode_t *n = agnode(g, buf, 1);
@@ -130,7 +130,7 @@ add_flux_edge(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Locat
 	std::vector<Agnode_t *> &connection_nodes, Model_Application *app, State_Var *var, bool show_flux_labels, bool show_short_names) {
 		
 	static int edgeid = 0;
-	static char buf[128];
+	static char buf[32];
 	
 	sprintf(buf, "edge_%d", edgeid++);
 	std::string *name = nullptr;
@@ -191,7 +191,8 @@ add_flux_edge(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Locat
 }
 
 
-void build_model_graph(Model_Application *app, Agraph_t *g, bool show_properties, bool show_flux_labels, bool show_short_names) {
+void
+build_flux_graph(Model_Application *app, Agraph_t *g, bool show_properties, bool show_flux_labels, bool show_short_names) {
 	
 	agsafeset(g, "compound", "true", "");
 	
@@ -203,12 +204,12 @@ void build_model_graph(Model_Application *app, Agraph_t *g, bool show_properties
 		if(var->type != State_Var::Type::declared) continue;
 		auto var2 = as<State_Var::Type::declared>(var);
 		if(var2->decl_type != Decl_Type::quantity && var2->decl_type != Decl_Type::property) continue;
-		add_component_node(g, nodes, app, var->loc1);
+		add_component_node(g, nodes, app, var_id, var->loc1);
 	}
 	
 	for(auto var_id : app->vars.all_series()) {
 		auto var = app->vars[var_id];
-		add_component_node(g, nodes, app, var->loc1);
+		add_component_node(g, nodes, app, var_id, var->loc1);
 	}
 	
 	for(auto &pair : nodes) {
@@ -247,5 +248,64 @@ void build_model_graph(Model_Application *app, Agraph_t *g, bool show_properties
 	for(auto var_id : app->vars.all_fluxes()) {
 		auto var = app->vars[var_id];
 		add_flux_edge(g, nodes, connection_nodes, app, var, show_flux_labels, show_short_names);
+	}
+}
+
+
+
+struct Node_Data2 {
+	Agraph_t *subgraph = nullptr;
+	
+	// Ugh, will be annoying with indexes here...
+	std::vector<std::unique_ptr<Node_Data2>> subnodes;
+	
+	Node_Data2(int size) : subnodes(size) {};
+	//~Node_Data2() {}
+};
+
+Agraph_t *
+add_index_sets(Agraph_t *g, Model_Application *app, std::vector<std::unique_ptr<Node_Data2>> &nodes, std::vector<Entity_Id> &index_sets, int level = 0) {
+	static char buf[32];
+	static int clusterid = 0;
+	
+	if(index_sets.empty()) return g;
+	
+	auto model = app->model;
+	
+	auto index_set = index_sets[level];
+	auto &node = nodes[index_set.id];
+	if(!node) {
+		node.reset(new Node_Data2(model->index_sets.count()));
+		sprintf(buf, "cluster_%d", clusterid++);
+		node->subgraph = agsubg(g, buf, 1);
+		agsafeset(node->subgraph, "label", (char *)model->index_sets[index_set]->name.data(), "");
+	}
+	if(level == index_sets.size()-1) return node->subgraph;
+	
+	return add_index_sets(node->subgraph, app, node->subnodes, index_sets, level+1);
+}
+
+
+void
+build_distrib_connection_graph(Model_Application *app, Agraph_t *g, bool show_indexes, bool show_short_names) {
+	static char buf[32];
+	static int nodeid = 0;
+	
+	auto model = app->model;
+	
+	agsafeset(g, "compound", "true", "");
+	
+	std::vector<std::unique_ptr<Node_Data2>> base_nodes(model->index_sets.count());
+	//std::vector<Anode_t *> compartment_nodes(model->components.size(), nullptr);
+	
+	for(auto comp_id : model->components) {
+		auto comp = model->components[comp_id];
+		if(comp->decl_type != Decl_Type::compartment) continue; // NOTE: For now only distribution of compartments. Could also do quantities later?
+		
+		auto subg = add_index_sets(g, app, base_nodes, comp->index_sets);
+		sprintf(buf, "comp_%d", nodeid++);
+		Agnode_t *n = agnode(subg, buf, 1);
+		agsafeset(n, "label", (char *)comp->name.data(), "");
+		agsafeset(n, "shape", "rectangle", "");
 	}
 }

@@ -1085,6 +1085,8 @@ compose_and_resolve(Model_Application *app) {
 				if(!target->override_tree)
 					valid_target = true;
 			}
+			if(is_valid(var->loc2.connection_id))
+				valid_target = true;
 			bool invalidate = !valid_source && !valid_target;
 			could_be_invalidated[var_id] = invalidate;
 			if(invalidate) continue;
@@ -1101,7 +1103,7 @@ compose_and_resolve(Model_Application *app) {
 		for(auto &pair : could_be_invalidated) {
 			if(pair.second) {
 				auto var = app->vars[pair.first];
-				var->flags = (State_Var::Flags)(var->flags & State_Var::Flags::invalid);
+				var->flags = (State_Var::Flags)(var->flags | State_Var::Flags::invalid);
 				log_print("Invalidating \"", var->name, "\" due to both source or target being 'nowhere' or overridden.\n");
 			}
 		}

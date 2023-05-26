@@ -152,7 +152,7 @@ Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
 	std::vector<Flux_Unit_Conversion_Data> unit_convs;
 	
 	// For compartments and quantities:
-	std::vector<Entity_Id> index_sets; //TODO: more info about distribution?
+	std::vector<Entity_Id> index_sets;
 	
 	// For properties:
 	Math_Block_AST *default_code;
