@@ -114,7 +114,7 @@ module("Degree-day PET", 1, 0, 0) {
 module("Priestley-Taylor PET", 0, 0, 16) {
 }
 
-module("Simply soil temperature", 0, 0, 0) {
+module("Simply soil temperature", 0, 1, 0) {
 	par_group("Soil temperature general") {
 		par_real("Snow depth / soil temperature factor")
 		[ -0.2 ]
@@ -129,7 +129,7 @@ module("Simply soil temperature", 0, 0, 0) {
 	}
 }
 
-module("SimplyC", 1, 0, 0) {
+module("SimplyC", 1, 0, 1) {
 	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
 		[ 10 ]
@@ -142,6 +142,12 @@ module("SimplyC", 1, 0, 0) {
 
 		par_real("Soil temperature DOC creation second-order coefficient")
 		[ 0.00276834666700925 ]
+
+		par_enum("Soil DOC computation type")
+		[ equilibrium ]
+
+		par_enum("Groundwater DOC computation type")
+		[ soil_avg ]
 	}
 
 	par_group("DOC land") [ "Landscape units" ] {
@@ -150,14 +156,12 @@ module("SimplyC", 1, 0, 0) {
 	}
 
 	par_group("DOC deep soil") {
-		par_enum("Groundwater DOC computation type")
-		[ soil_avg ]
-
 		par_real("Groundwater DOC half-life")
 		[ 80 ]
 
 		par_real("Groundwater DOC concentration")
 		[ 3 ]
+
 	}
 }
 
@@ -198,6 +202,12 @@ module("SimplyTox", 0, 0, 1) {
 
 		par_real("Contaminant half life (slow accessible)")
 		[ 20000 ]
+
+		par_real("Contaminant degradation Q10")
+		[ 2 ]
+
+		par_real("Temperature at which the half life is given.")
+		[ 15 ]
 	}
 
 	par_group("Soil carbon") [ "Landscape units" ] {
@@ -221,7 +231,7 @@ module("RiverTemperature", 0, 1, 0) {
 	}
 }
 
-module("SimplySed", 0, 5, 0) {
+module("SimplySed", 0, 6, 0) {
 	par_group("Soil erodibility") [ "Subcatchment" "Landscape units" ] {
 		par_real("Vegetation cover factor") [
 			0.2 

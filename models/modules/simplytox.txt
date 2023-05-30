@@ -22,20 +22,6 @@ Testing functionality for now.
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"))
 	load("stdlib/basic_math.txt", library("Rates"))
 
-/*
-	air   : compartment("Atmosphere")
-	soil  : compartment("Soil")
-	dsoil : compartment("Slow-accessible soil")
-	gw    : compartment("Groundwater")
-	river : compartment("River")
-	
-	water : quantity("Water")
-	oc    : quantity("Organic carbon")
-	tox   : quantity("Toxin")
-	sed   : quantity("Sediment")
-	
-	temp  : property("Temperature")
-*/
 	par_group("Physiochemistry", tox) {
 		molmass     : par_real("Contaminant molar mass", [g, mol-1], 50, 0, 1000)
 		molvol      : par_real("Contaminant molar volume", [c m 3, mol-1], 20, 0, 1000)
@@ -49,6 +35,8 @@ Testing functionality for now.
 		rfs         : par_real("Fast-Slow rate coefficient", [k g, m-2, day-1], 0.05, 0, 3)
 		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10)
 		hlslow      : par_real("Contaminant half life (slow accessible)", [day], 20000, 0.1, 2e10)
+		degrq10     : par_real("Contaminant degradation Q10", [], 1, 1, 5)
+		degrref     : par_real("Temperature at which the half life is given.", [deg_c], 25, 0, 40)
 	}
 	
 	par_group("Soil carbon", soil) {
@@ -113,10 +101,14 @@ Testing functionality for now.
 		rfs*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
 	}
 	
-	flux(soil.water.tox, nowhere, [n g, m-2, day-1], "Soil water dissolved toxin decay") { hl_to_rate(hlfast) * tox	}
-	flux(soil.water.oc.tox, nowhere, [n g, m-2, day-1], "Soil DOC toxin decay") { hl_to_rate(hlfast) * tox }
-	flux(soil.oc.tox, nowhere, [n g, m-2, day-1], "Fast-acessible SOC toxin decay") { hl_to_rate(hlfast) * tox }
-	flux(dsoil.oc.tox, nowhere, [n g, m-2, day-1], "Slow-acessible SOC toxin decay") { hl_to_rate(hlslow) * tox }
+	degr : function(hl : [day], q10 : [], reftemp : [deg_c], temp : [deg_c]) {
+		q10_adjust(hl_to_rate(hl), reftemp, temp, q10)
+	}
+	
+	flux(soil.water.tox, nowhere, [n g, m-2, day-1], "Soil water dissolved toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox	}
+	flux(soil.water.oc.tox, nowhere, [n g, m-2, day-1], "Soil DOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(soil.oc.tox, nowhere, [n g, m-2, day-1], "Fast-acessible SOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(dsoil.oc.tox, nowhere, [n g, m-2, day-1], "Slow-acessible SOC toxin decay") { degr(hlslow, degrq10, degrref, soil.temp)*tox }
 	
 	#TODO: Mineral layer should also maybe have a (smaller) slow SOC box
 	var(gw.water.tox, [n g, m-2], [n g, l-1], "Groundwater dissolved toxin")
@@ -130,7 +122,6 @@ Testing functionality for now.
 
 	var(river.water.tox.Kow, [])
 	var(river.water.tox.Koc, [m 3, k g-1])
-	#river.water.tox.has(Kdoc, [m 3, k g-1])
 	
 	var(gw.water.tox.Kow, [])
 	var(gw.water.tox.Kdoc, [m 3, k g-1])
@@ -145,8 +136,11 @@ Testing functionality for now.
 	}
 	
 	# These are very unstable, but because of the time scale they are probably not that important any way.
+	#    It has to do with water.sed.oc becoming very small. But it is very sensitive to the threshold, so it is not that good a solution to check for it.
+	
 	#flux(river.water.tox, river.water.sed.oc.tox, [n g, day-1], "Water-SOC contaminant exchange (river)") {
-	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.sed.oc.tox)/Koc)
+	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.sed.oc.tox)/Koc)    if water.sed.oc > 1e-6[k g, m-2]*eff_a,
+	#	0                                                                          otherwise
 	#}
 	#flux(river.water.tox, river.water.oc.tox, [n g, day-1], "Water-DOC contaminant exchange (river)") {
 	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
@@ -158,15 +152,16 @@ Testing functionality for now.
 	}
 	
 	# Could maybe have a separate groundwater rate
-	flux(gw.water.tox, nowhere, [n g, m-2, day-1], "Groundwater water dissolved toxin decay") { hl_to_rate(hlfast) * tox }
-	flux(gw.water.oc.tox, nowhere, [n g, m-2, day-1], "Groundwater DOC toxin decay") { hl_to_rate(hlfast) * tox }
+	flux(gw.water.tox, nowhere, [n g, m-2, day-1], "Groundwater water dissolved toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(gw.water.oc.tox, nowhere, [n g, m-2, day-1], "Groundwater DOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	
-	flux(river.water.tox, nowhere, [n g, day-1], "River water dissolved toxin decay") { hl_to_rate(hlfast) * tox }
-	flux(river.water.oc.tox, nowhere, [n g, day-1], "River DOC toxin decay") { hl_to_rate(hlfast) * tox }
-	flux(river.water.sed.oc.tox, nowhere, [n g, day-1], "River suspended sediment toxin decay") { hl_to_rate(hlfast) * tox }
+	flux(river.water.tox, nowhere, [n g, day-1], "River water dissolved toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(river.water.oc.tox, nowhere, [n g, day-1], "River DOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(river.water.sed.oc.tox, nowhere, [n g, day-1], "River suspended sediment toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	
 	
-	# Remains to do: River sediment bed, air-water exchange (soil and river)
+	# Remains to do: River sediment bed (+ exchanges), air-water exchange (soil and river), deposition computation (from air conc)
+	# Also slow SOC box in groundwater.
 }
 
 

@@ -235,7 +235,7 @@
 		
 		last(something) doesn't automatically cause it to have an initial value computation (if one was not set).
 		
-		
+		Error if you access time.fractional_step outside a solver?
 		
 
 	Probably not ?:
