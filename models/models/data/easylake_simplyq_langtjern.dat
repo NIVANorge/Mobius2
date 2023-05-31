@@ -131,7 +131,7 @@ module("Degree-day PET", 1, 0, 0) {
 }
 
 module("Simply soil temperature", 0, 0, 0) {
-	par_group("Soil temperature general") [ "Subcatchment" "Landscape units" ] {
+	par_group("Soil temperature general") [  ] {
 		par_real("Snow depth / soil temperature factor") [
 			-0.2 
 		]
@@ -152,7 +152,7 @@ module("Simply soil temperature", 0, 0, 0) {
 module("RiverTemperature", 0, 1, 0) {
 }
 
-module("EasyLake-C", 0, 0, 1) {
+module("EasyLake-CNP", 0, 0, 1) {
 	par_group("Lake C") [ "Lake" ] {
 		par_real("Initial lake DOC concentration")
 		[ 4 ]

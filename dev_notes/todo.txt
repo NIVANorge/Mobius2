@@ -1,5 +1,9 @@
 
 
+	Bug with bool parameters!
+	All-to-all flux should get double dependency if it references 'below'
+
+
 	Finish NIVAFjord!!
 		horizontal fluxes.
 	

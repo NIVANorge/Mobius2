@@ -43,8 +43,10 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	par_group("Ice", surf) {
 		init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
 		ice_alb   : par_real("Ice albedo", [], 0.4, 0, 1)
+		ice_att_c : par_real("Ice attenuation coefficient", [m-1], 5)
 		th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
 		freeze_temp  : par_real("Ice formation temperature", [deg_c], 0, -2, 2)
+		always_cover : par_real("Always cover", [], 0)
 	}
 	
 	stab   : property("Stability")
@@ -85,7 +87,7 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	flux(nowhere, top_water_heat_sw, [J, day-1], "Net shortwave") {  A_surf * surf.sw ->>  }
 	
 	flux(nowhere, top_water_heat,    [J, day-1], "Net longwave") {
-		net_rad := (1 - water_alb)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
+		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
 		0                              if surf.ice.indicator,
 		A_surf * net_rad ->>           otherwise
 	}
@@ -110,28 +112,34 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	}
 	
 	flux(nowhere, top_water_heat, [J, day-1], "Precipitation heat") {
-		#precip_t := max(0.4[deg_c], air.temp),
-		precip_t := air.temp,
+		precip_t := max(0.4[deg_c], air.temp),
+		#0 if surf.ice.indicator,
+		#{
+		#precip_t := air.temp,
 		V := A_surf*air.precip -> [m 3, day-1],   
 		water_temp_to_heat(V => [m 3], precip_t) => [J, day-1] # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
+		#} otherwise
 	}
 	
 	var(surf.ice, [m], "Ice thickness") @initial { init_ice }
 	
 	var(surf.ice.energy, [W, m-2]) {
-		z_surf := 1[m],   #  Thickness of water layer that ice formation can draw energy from. #TODO: Should probably be module parameter?
-		K_ice := 200[W, m-3, deg_c-1],   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
-		e := (freeze_temp - top_water_temp)*z_surf*K_ice,
-		
-		0        if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
-		e        otherwise
+		0[W, m-2] if always_cover,
+		{
+			z_surf := 1[m],   #  Thickness of water layer that ice formation can draw energy from. #TODO: Should probably be module parameter?
+			K_ice := 200[W, m-3, deg_c-1],   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
+			e := (freeze_temp - top_water_temp)*z_surf*K_ice,
+			
+			0        if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
+			e        otherwise
+		} otherwise
 	}
 	
-	var(surf.ice.indicator, [], "Ice indicator") {   ice > th_frazil   }
+	var(surf.ice.indicator, [], "Ice indicator") {   always_cover | (ice > th_frazil)   }
 	
 	var(surf.ice.attn, []) {
 		0                       if !indicator,
-		1 - exp(-5[m -1] * ice) otherwise    #TODO: the 5 should be configurable?
+		1 - exp(-ice_att_c * ice) otherwise
 	}
 	
 	var(surf.ice.temp, [deg_c], "Ice surface temperature") {
@@ -142,15 +150,18 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	
 	flux(nowhere, surf.ice, [m, day-1], "Ice change") {
 		#NOTE: Stefan's law in ODE form:
-		#d(ice)/dt = lambda_ice*(ice_bottom_temperature - ice_surface_temperature)/ice
-		(energy + {
-			lambda_ice * (freeze_temp->[K] - temp->[K]) / ice  if (temp <= freeze_temp) & indicator,
-			-(1-albedo)*air.g_rad*attn                         if indicator,  
-			0                                                  otherwise
-		}) / (rho_ice * l_freeze) ->>
-		+ {
-			air.precip   if indicator & (air.temp <= freeze_temp),     # if there is ice, and temperature is below freezing, precipitation is added as ice
-			0            otherwise
-		} ->>
+		#d(h_ice)/dt = lambda_ice*(ice_bottom_temperature - ice_surface_temperature)/(h_ice*rho_ice*l_freeze)
+		0[m, day-1] if always_cover,
+		{
+			(energy + {
+				lambda_ice * (freeze_temp->[K] - temp->[K]) / ice  if (temp <= freeze_temp) & indicator,  # TODO: Should the condition be on air.temp or ice.temp being less than freeze_temp?
+				-(1-albedo)*air.g_rad*attn                         if indicator,  # Hmm, MyLake includes all fluxes here, not just shortwave. Not sure if it matters since the thawing is so fast.
+				0                                                  otherwise
+			}) / (rho_ice * l_freeze) ->>
+			+ {
+				air.precip   if indicator & (air.temp <= freeze_temp),     # if there is ice, and temperature is below freezing, precipitation is added as ice
+				0            otherwise
+			} ->>
+		} otherwise
 	}
 }

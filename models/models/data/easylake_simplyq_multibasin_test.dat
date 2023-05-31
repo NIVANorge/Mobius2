@@ -13,6 +13,14 @@ connection("Downstream") [
 	r[ "Vanem" ] -> e[ "Vanem" ]
 ]
 
+connection("Horizontal") [
+	compartment("Epilimnion") [ "Lake" ]
+]
+
+connection("Horizontal hypo") [
+	compartment("Hypolimnion") [ "Lake" ]
+]
+
 series("vansjo.xlsx")
 
 par_group("System") {
@@ -40,6 +48,15 @@ par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 par_group("Lake data") [ "Lake" ] {
 	par_real("Lake surface area")
 	[ 23800000 12000000 ]
+}
+
+module("Horizontal mixing", 0, 0, 1) {
+	par_group("Horizontal mixing") [ "Lake" "Lake" ] {
+		par_real("Horizontal mixing coefficient") [
+			0 0.1 
+			0.1 0 
+		]
+	}
 }
 
 module("HBVSnow", 1, 0, 0) {
@@ -126,18 +143,24 @@ module("EasyLake", 0, 1, 0) {
 }
 
 module("AirSea Lake", 0, 1, 0) {
-	par_group("Ice") {
+	par_group("Ice") ["Lake"] {
 		par_real("Initial ice thickness")
-		[ 0 ]
+		[ 0 0 ]
 
 		par_real("Ice albedo")
-		[ 0.31 ]
+		[ 0.31 1 ]
 
 		par_real("Frazil threshold")
-		[ 0.05 ]
+		[ 0.05 0.05 ]
 
 		par_real("Ice formation temperature")
-		[ 0 ]
+		[ 0 0 ]
+
+		par_real("Ice attenuation coefficient")
+		[ 5 5 ]
+
+		par_real("Always cover")
+		[ 0 1]
 	}
 }
 
@@ -205,6 +228,16 @@ module("SimplyC", 1, 0, 0) {
 	}
 }
 
+module("EasyLake-C", 0, 0, 1) {
+	par_group("Lake C") {
+		par_real("Initial lake DOC concentration")
+		[ 7.5 ]
+
+		par_real("Optical cross-section of DOC")
+		[ 0.0009 ]
+	}
+}
+
 module("Priestley-Taylor PET", 1, 0, 0) {
 	par_group("Potential evapotranspiration") {
 		par_real("PET multiplication factor")
@@ -269,15 +302,7 @@ module("SimplyN", 0, 0, 3) {
 	}
 }
 
-module("EasyLake-CNP", 0, 0, 1) {
-	par_group("Lake C") {
-		par_real("Initial lake DOC concentration")
-		[ 7.5 ]
-
-		par_real("Optical cross-section of DOC")
-		[ 0.0009 ]
-	}
-
+module("EasyLake-N", 0, 0, 1) {
 	par_group("Lake N") [ "Lake" ] {
 		par_real("Initial lake DIN concentration")
 		[ 1 1 ]
@@ -290,17 +315,6 @@ module("EasyLake-CNP", 0, 0, 1) {
 
 		par_real("Hypolimnion N retention factor")
 		[ 0.0245307674894257 0.024 ]
-	}
-	
-	par_group("Lake P") [ "Lake" ] {
-		par_real("Initial lake TDP concentration")
-		[ 0.01 0.01 ]
-
-		par_real("Lake TDP retention")
-		[ 0.007 0.02 ]
-
-		par_real("Hyplimnion TDP retention factor")
-		[ 0.009 0.03 ]
 	}
 }
 
@@ -383,4 +397,16 @@ module("SimplyP", 0, 5, 0) {
 	}
 }
 
+module("EasyLake-P", 0, 0, 1) {
+	par_group("Lake P") [ "Lake" ] {
+		par_real("Initial lake TDP concentration")
+		[ 0.01 0.01 ]
+
+		par_real("Lake TDP retention")
+		[ 0.007 0.02 ]
+
+		par_real("Hyplimnion TDP retention factor")
+		[ 0.009 0.03 ]
+	}
+}
 
