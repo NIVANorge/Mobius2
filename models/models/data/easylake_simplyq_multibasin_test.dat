@@ -51,11 +51,9 @@ par_group("Lake data") [ "Lake" ] {
 }
 
 module("Horizontal mixing", 0, 0, 1) {
-	par_group("Horizontal mixing") [ "Lake" "Lake" ] {
-		par_real("Horizontal mixing coefficient") [
-			0 0.1 
-			0.1 0 
-		]
+	par_group("Horizontal mixing") {
+		par_real("Horizontal mixing coefficient")
+		[ 0 ]
 	}
 }
 
@@ -143,7 +141,7 @@ module("EasyLake", 0, 1, 0) {
 }
 
 module("AirSea Lake", 0, 1, 0) {
-	par_group("Ice") ["Lake"] {
+	par_group("Ice") [ "Lake" ] {
 		par_real("Initial ice thickness")
 		[ 0 0 ]
 

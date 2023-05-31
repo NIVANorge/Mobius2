@@ -194,8 +194,12 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 				// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
 				if(instr.type == Model_Instruction::Type::compute_state_var) {
 					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-					instr.index_sets.insert(index_set);
+					if(model->connections[dep.restriction.connection_id]->type == Connection_Type::all_to_all)
+						instr.index_sets.insert({index_set, 2});   // NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
+					else
+						instr.index_sets.insert(index_set);
 				}
+				
 			} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {
 				instr.depends_on_instruction.insert(dep.var_id.id);
 				if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
