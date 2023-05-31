@@ -1,6 +1,5 @@
 
 
-	Bug with bool parameters!
 	All-to-all flux should get double dependency if it references 'below'
 
 
@@ -241,6 +240,8 @@
 		
 		Error if you access time.fractional_step outside a solver?
 		
+		Loading parameter data: error message "Expected a parameter value or a ']'" should also state the expected type.
+
 
 	Probably not ?:
 	

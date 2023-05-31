@@ -381,17 +381,17 @@ get_llvm_type(Value_Type type, LLVM_Module_Data *data) {
 	return llvm::Type::getInt64Ty(*data->context);
 }
 
-llvm::Value *build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to_type, LLVM_Module_Data *data) {
+llvm::Value *
+build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to_type, LLVM_Module_Data *data) {
 	
 	auto llvm_to_type = get_llvm_type(to_type, data);
 	
 	if(from_type == Value_Type::real) {
-		// Note: for bool cast, we cast to int first, then compare != 0. This way -0 also casts to false.
-		auto to_int = data->builder->CreateFPToSI(val, llvm_to_type, "castftoi");
 		if(to_type == Value_Type::boolean)
-			return data->builder->CreateICmpNE(to_int, llvm::ConstantInt::get(*data->context, llvm::APInt(1, 0)), "netmp");  // Force the value to be 0 or 1
+			// TODO: Should probably check if it is also not -0.0?
+			return data->builder->CreateFCmpUNE(val, llvm::ConstantFP::get(*data->context, llvm::APFloat(0.0)), "netmp");
 		else if(to_type == Value_Type::integer)
-			return to_int;
+			return data->builder->CreateFPToSI(val, llvm_to_type, "castftoi");
 	} else if (from_type == Value_Type::integer) {
 		if(to_type == Value_Type::real)
 			return data->builder->CreateSIToFP(val, llvm_to_type, "castitof");
