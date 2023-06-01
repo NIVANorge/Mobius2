@@ -627,11 +627,11 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 			bool error = false;
 			if(new_fun->exprs[0]->expr_type != Math_Expr_Type::identifier) error = true;
 			else {
-				auto ident = static_cast<Identifier_FT *>(new_fun->exprs[0]);
-				if(ident->variable_type != Variable_Type::connection) error = true;
+				auto ident2 = static_cast<Identifier_FT *>(new_fun->exprs[0]);
+				if(ident2->variable_type != Variable_Type::connection) error = true;
 				else {
-					ident->restriction.connection_id = ident->restriction.connection_id;   //TODO: Ooops, could this clash if there is in_flux(conn, bla[conn2.top])  . This should just not compile though. See also find_other_flags() in model_composition.cpp
-					delete ident;
+					ident->restriction.connection_id = ident2->restriction.connection_id;   //TODO: Ooops, could this clash if there is in_flux(conn, bla[conn2.top])  . This should just not compile though. See also find_other_flags() in model_composition.cpp
+					delete ident2;
 				}
 			}
 			if(error) {

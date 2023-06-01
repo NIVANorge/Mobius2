@@ -217,6 +217,8 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 			if(is_valid(with)) {
 				ident->var_id = with;
 				ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
+				//if(flag == Identifier_FT::Flags::in_flux)                 // TODO: This is hacky. See also note about this elsewhere. This connection_id should not be stored on the restriction.
+					//ident->restriction.connection_id = invalid_entity_id;
 			} else {
 				delete expr;
 				return make_literal(0.0);

@@ -1,11 +1,11 @@
 
 
-	All-to-all flux should get double dependency if it references 'below'
 
+	Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
+		Ideally the entire system should be re-thought.
 
 	Finish NIVAFjord!!
 		horizontal fluxes.
-	
 
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
@@ -44,6 +44,10 @@
 
 	
 	*** Intermediate-pri ***
+	
+		Data set loading
+			Expected a token of type '[', got a '['
+				What it means is that it got a ']'. How does this happen?
 		
 		override {}  declaration.
 			E.g. to change the connection regex of a connection in an extending model.

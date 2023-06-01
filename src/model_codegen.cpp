@@ -419,8 +419,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		} else
 			fatal_error(Mobius_Error::internal, "Unimplemented connection type in put_var_lookup_indexes()");
 		
-	} else if(is_valid(ident->restriction.connection_id))
-		fatal_error(Mobius_Error::internal, "Got an identifier with a connection but without a restriction.");
+	} //else if(is_valid(ident->restriction.connection_id))
+		//fatal_error(Mobius_Error::internal, "Got an identifier with a connection but without a restriction.");
 
 	
 	Math_Expr_FT *offset_code = nullptr;
@@ -441,7 +441,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 
 	
 	if(ident->flags & Identifier_FT::Flags::last_result) {
-		if(offset_code && back_step > 0)
+		if(back_step > 0)
 			offset_code = make_binop('-', offset_code, make_literal(back_step));
 		else
 			fatal_error(Mobius_Error::internal, "Received a last_result flag on an identifier that should not have one.");
@@ -692,20 +692,22 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			if(is_valid(instr->restriction.connection_id))
 				restrictions.insert(instr->restriction);			
 			
-			if(instr->code) {
-				fun = copy(instr->code);
-				put_var_lookup_indexes(fun, app, indexes, restrictions);
-				
-			} else if (instr->type != Model_Instruction::Type::clear_state_var) {
-				//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
-				
-				// TODO: Should we try to infer if it is ok that there is no code for this compute_state_var (?). Or maybe have a separate type for it when we expect there to be no actual computation and it is only a placeholder for a value (?). Or maybe have a flag for it on the State_Variable.
-				if(instr->type == Model_Instruction::Type::compute_state_var)
-					continue;
-				fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
+			try {
+				if(instr->code) {
+					fun = copy(instr->code);
+					put_var_lookup_indexes(fun, app, indexes, restrictions);
+				} else if (instr->type != Model_Instruction::Type::clear_state_var) {
+					//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
+					
+					// TODO: Should we try to infer if it is ok that there is no code for this compute_state_var (?). Or maybe have a separate type for it when we expect there to be no actual computation and it is only a placeholder for a value (?). Or maybe have a flag for it on the State_Variable.
+					if(instr->type == Model_Instruction::Type::compute_state_var)
+						continue;
+					fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
+				}
+			} catch(int) {
+				fatal_error("The error happened when trying to put lookup indexes for the instruction ", instr->debug_string(app));
 			}
-			
-			
+				
 			Math_Expr_FT *result_code = nullptr;
 			
 			if(instr->type == Model_Instruction::Type::compute_state_var) {

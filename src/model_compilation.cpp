@@ -49,7 +49,10 @@ debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays
 					os << "\t\t\t** " << instructions[dep].debug_string(app) << "\n";
 				for(int dep : instr->instruction_is_blocking)
 					os << "\t\t\t| " << instructions[dep].debug_string(app) << "\n";
-					
+				for(int dep : instr->inherits_index_sets_from_instruction)
+					os << "\t\t\t- " << instructions[dep].debug_string(app) << "\n";
+				for(auto &dep : instr->inherits_index_sets_from_state_var)
+					os << "\t\t\t-- " << instructions[dep.var_id.id].debug_string(app) << "\n";
 			}
 		}
 	}
@@ -157,7 +160,25 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 	}
 	return changed;
 }
+/*
+void
+register_dependencies_test(Math_Expr_FT *expr, Dependency_Set *depends) {
+	for(auto arg : expr->exprs) register_dependencies_test(arg, depends);
+	
+	if(expr->expr_type != Math_Expr_Type::identifier) return;
+	auto ident = static_cast<Identifier_FT *>(expr);
+	
+	log_print("Found identifier\n");
 
+	if(ident->variable_type == Variable_Type::parameter)
+		depends->on_parameter.insert(*ident);
+	else if(ident->variable_type == Variable_Type::state_var)
+		depends->on_state_var.insert(*ident);
+	else if(ident->variable_type == Variable_Type::series)
+		depends->on_series.insert(*ident);
+	
+}
+*/
 void
 resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
@@ -174,7 +195,14 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		register_dependencies(instr.code, &code_depends);
 		if(instr.specific_target)
 			register_dependencies(instr.specific_target, &code_depends);
-		
+		/*
+		if(instr.type == Model_Instruction::Type::compute_state_var && app->vars[instr.var_id]->name == "dissolved_flux(Groundwater DIN, Groundwater runoff)") {
+			//for(auto dep : code_depends.on_state_var) {
+			//	log_print("Found ", app->vars[dep.var_id]->name, "\n");
+			//}
+			register_dependencies_test(instr.code, &code_depends);
+		}
+		*/
 		for(auto &dep : code_depends.on_parameter)
 			insert_dependencies(app, instr.index_sets, dep, 0);
 		for(auto &dep : code_depends.on_series)
@@ -788,7 +816,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
 				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
 				
-				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Have to sum to target at least once per target.
+				if(restriction.restriction == Var_Loc_Restriction::below)
+					add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Have to sum to target at least once per target.
 				
 				
 				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
@@ -796,6 +825,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
 				// TODO: We need something like this because otherwise there may be additional index sets that are not accounted for. But we need to skip the particular index set(s) belonging to the connection (otherwise there are problems with matrix indexing for all_to_all etc.)
+					// Maybe re-purpose inherits_index_sets_for_state_var.
 				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(add_to_aggr_id);
 				
 				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
@@ -838,7 +868,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					else if(conn_type == Connection_Type::grid1d) {
 						instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
 						
-						if(var_flux->loc2.restriction == Var_Loc_Restriction::below) {    // TODO: Is this the right way to finally check it?
+						if(add_to_aggr_instr->restriction.restriction == Var_Loc_Restriction::below) {    // TODO: Is this the right way to finally check it?
 							add_to_aggr_instr->index_sets.insert(index_set);
 							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
 						}
@@ -1328,6 +1358,8 @@ Model_Application::compile(bool store_code_strings) {
 			build_batch_arrays(this, vars_ode, instructions, batch.arrays_ode, false);
 		}
 	}
+	
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
 	
 	set_up_result_structure(this, batches, instructions);
 	

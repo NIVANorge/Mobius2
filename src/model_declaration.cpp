@@ -1039,6 +1039,11 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	
 	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
 	
+	if(decl->bodies.empty()) {
+		decl->source_loc.print_error_header();
+		fatal_error("Expected a connection regular expression body.");
+	}
+	
 	bool success = false;
 	auto expr = static_cast<Regex_Body_AST *>(decl->bodies[0])->expr;
 	if (expr->type == Math_Expr_Type::unary_operator) {

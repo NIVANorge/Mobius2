@@ -50,5 +50,5 @@ model("NIVAFjord") {
 	distribute(layer, layer_idx)
 	distribute(bnd_layer, layer_idx)
 	
-	solve(solver("Simply solver", "INCADascru", 0.1), layer.water, sed.heat, bnd_layer.water, oair.ice)
+	solve(solver("Simply solver", "INCADascru", 0.1), layer.water, sed.heat/*, bnd_layer.water*/, oair.ice)
 }

@@ -29,5 +29,10 @@ model("Wave") {
 		
 		flux(layer.amp, nowhere, [Pa, day-1], "Wave propagation") { mom }
 		
+		test : property("Test")
+		var(layer.test, []) {
+			in_flux(l, mom)=>>
+		}
+		
 	}
 }

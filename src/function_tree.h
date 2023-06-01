@@ -64,7 +64,7 @@ inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 			return a.restriction < b.restriction;
 		return a.flags < b.flags;
 	}
-	a.var_id.id < b.var_id.id;
+	return a.var_id.id < b.var_id.id;
 }
 
 struct

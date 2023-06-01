@@ -46,7 +46,7 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 		ice_att_c : par_real("Ice attenuation coefficient", [m-1], 5)
 		th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
 		freeze_temp  : par_real("Ice formation temperature", [deg_c], 0, -2, 2)
-		always_cover : par_bool("Always cover", true)
+		always_cover : par_bool("Always cover", false)
 	}
 	
 	stab   : property("Stability")

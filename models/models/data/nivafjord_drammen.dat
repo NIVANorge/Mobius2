@@ -1,4 +1,3 @@
-#time_step([2, hr])
 time_step([day])
 
 index_set("Layer index") [ 124 ]
@@ -34,15 +33,14 @@ par_group("Layer parameters") [ "Layer index" ] {
 }
 
 module("NIVAFjord", 0, 0, 1) {
-
 	connection("Vert 2") [
 		compartment("Fjord layer") [ "Layer index" ]
 	]
-	
+
 	connection("Boundary vert 2") [
 		compartment("Boundary layer") [ "Layer index" ]
 	]
-	
+
 	par_group("Mixing parameters") {
 		par_real("Brunt-Väisälä frequency reference")
 		[ 0.008 ]
@@ -102,6 +100,28 @@ module("Atmospheric", 0, 1, 0) {
 
 		par_real("Elevation")
 		[ 0 ]
+	}
+}
+
+module("AirSea Fjord", 0, 1, 0) {
+	par_group("Ice") {
+		par_real("Initial ice thickness")
+		[ 0 ]
+
+		par_real("Ice albedo")
+		[ 0.4 ]
+
+		par_real("Ice attenuation coefficient")
+		[ 5 ]
+
+		par_real("Frazil threshold")
+		[ 0.05 ]
+
+		par_real("Ice formation temperature")
+		[ 0 ]
+
+		par_bool("Always cover")
+		[ false ]
 	}
 }
 

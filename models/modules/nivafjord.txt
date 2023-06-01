@@ -75,7 +75,8 @@ module("NIVAFjord", version(0, 0, 1),
 	
 	var(layer.water.salt, [k g], [g, k g-1], "Layer salt")
 		#@initial_conc { init_S }
-		@initial_conc { bnd_layer.water.salinity =>> } #TODO: convert PSU to conc
+		#@initial_conc { bnd_layer.water.salinity =>> } #TODO: convert PSU to conc
+		@initial_conc { 35=>> }
 	
 	var(layer.water.heat, [J], "Layer thermal energy") 
 		#.initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
@@ -84,7 +85,8 @@ module("NIVAFjord", version(0, 0, 1),
 	var(layer.water.temp, [deg_c], "Layer temperature") {
 		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
 	} @initial {
-		bnd_layer.water.temp
+		#bnd_layer.water.temp
+		5=>>
 	}
 	
 	salinity : property("Salinity")
@@ -197,7 +199,7 @@ module("NIVAFjord", version(0, 0, 1),
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		(in_flux(sw_vert, heat)->[J, day-1]) * (1-attn) * A[vert.below] / A
+		(in_flux(sw_vert, layer.water.heat)->[J, day-1]) * (1-attn) * A[vert.below] / A
 	}
 	
 	var(sed.heat, [J], "Sediment heat") @initial {
@@ -221,7 +223,7 @@ module("NIVAFjord", version(0, 0, 1),
 	
 	# Horizontal exchange with boundary
 	
-	
+	/*
 	z1       : property("Epilimnion thickness")
 	z2diff   : property("log10(Metalimnion thickness)")
 	temp_top : property("Temperature top")
@@ -262,7 +264,7 @@ module("NIVAFjord", version(0, 0, 1),
 		h := b / sqrt(1 + b^2),
 		(1 - g + h)/2
 	}
-	
+	*/
 	#var(bnd_layer.water.tracer, [k g], "Boundary layer tracer") @override_conc {
 	#	lerp(prof, 0, 1, bnd.trac_top, bnd.trac_bot)
 	#}
@@ -277,7 +279,7 @@ module("NIVAFjord", version(0, 0, 1),
 	#	tracer[bottom]*0.3[day-1]
 	#}
 	
-	
+	/*
 	var(bnd_layer.water, [k g], "Boundary layer water") @override { 1[k g] }   # This is just so that it can have a concentration of various things, for automatic flux generation to work.
 	
 	var(bnd_layer.water.temp, [deg_c], "Boundary layer temperature") {  lerp(prof, 0, 1, bnd.temp_top, bnd.temp_bot)  }
@@ -361,11 +363,11 @@ module("NIVAFjord", version(0, 0, 1),
 		layer.water.dens
 		w_bnd
 	}
-	
-	#/*
+	*/
 	
 	vert2 : connection("Vert 2", grid1d) { layer* }
 	bndvert2 : connection("Boundary vert 2", grid1d) { bnd_layer* }
+	/*
 
 	flux(bnd_layer.water, layer.water[vert2.specific], [k g, day-1], "Flow from boundary") {
 		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
@@ -396,5 +398,5 @@ module("NIVAFjord", version(0, 0, 1),
 	}
 	
 
-	#*/
+	*/
 }
