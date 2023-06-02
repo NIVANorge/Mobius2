@@ -9,7 +9,7 @@ module("EasyLake", version(0, 1, 0),
 	heat   : quantity,
 	temp   : property,
 	precip : property,
-	z_e    : property,
+	th     : property,
 	evap_mm : property,
 	A_surf : par_real,
 	epi_target : loc,
@@ -25,37 +25,58 @@ The water balance part of the model is conceptually similar to VEMALA
 	load("stdlib/physiochemistry.txt", library("Water utils"))
 	
 	par_group("Lake physical", epi) {
-		z_outflow : par_real("Lake depth at which outflow is 0", [m], 10, 0.1, 1642.0)
-		z_epi     : par_real("Initial epilimnion thickness", [m], 2, 0.1, 10)
+		z_outflow : par_real("Water level at which outflow is 0", [m], 10, 0.1, 1642.0)
+		th_epi    : par_real("Initial epilimnion thickness", [m], 2, 0.1, 10)
+		theta     : par_real("Lake bathymetry factor", [], 0, 0, 1, "Interpolates the approximate shape between a wedge and a pyramid (hypsograph between quadratic or cubic function)")
 		dz_epi    : par_real("Epilimnion thickening rate", [m, day-1], 0.01)
 		rate_l    : par_real("Rating function linear component", [m 2, s-1], 10, 0, 1000)
 		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
 		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
 	}
 	
-	wedge_tip     : function(A : [m 2], z0 : [m], z : [m]) {
-		0.5*A * z^2 / z0
+	# This is the volume of a basin with water level z if the surface area is A_top when the water level is z_top. theta is a shape factor
+	# The volume is a wedge where the side length along the bottom is theta* the side length along the top.
+	# The horizontal cross-section at a given level z is
+	# 	A(z) = (z/z0)*(theta + (1-theta)(z/z0))
+	# The volume up to level z is as given in the formula below, and is equal to
+	# 	V(z) = integral(A(z)dz, 0, z)
+	shape_tip_V     : function(A_0 : [m 2], z_0 : [m], z : [m], theta : []) {
+		A_0 * (z^2/z_0) * (0.5*theta + (1-theta)*z/(3*z_0))
 	}
 	
-	wedge_section : function(A : [m 2], z0 : [m], z1 : [m], z2 : [m]) {
-		wedge_tip(A, z0, z1) - wedge_tip(A, z0, z2)
+	# This is the volume of a vertical section of the basin between levels z1 and z2
+	shape_section_V : function(A_0 : [m 2], z_0 : [m], z1 : [m], z2 : [m], theta : []) {
+		shape_tip_V(A_0, z_0, z1, theta) - shape_tip_V(A_0, z_0, z2, theta)
 	}
 	
-	var(epi.water, [m 3], "Epilimnion volume")  @initial {   0.5 * A_surf * z_outflow - hyp.water   }
-	
-	var(hyp.water, [m 3], "Hypolimnion volume") @initial {
-		z := z_outflow - z_epi,
-		A := A_surf * (z/z_outflow),
-		0.5 * A * z
+	# This is the level of the basin if it has volume V
+	# This formula is only approximately correct if the level is close to z_0
+	shape_tip_z     : function(A_0 : [m 2], z_0 : [m], V : [m 3], theta : []) {
+		dV := V - shape_tip_V(A_0, z_0, z_0, theta),
+		0.5*(z_0 + sqrt(z_0*(z_0 + 4*dV/A_0)))
 	}
+	
+	# This formula is integral(A(z)*T(z)dz, 0, z_e) where T(z) is the temperature profile in the hypolimnion, set in this model to be
+	#   T(z) = ((T_e - T_b)/z_e^2)*z^2 + T_b
+	# where T_e is epilimnion temperature and T_b is bottom temperature
+	# Can be symbolically integrated e.g. in sympy:
+	#	integrate((((T_e-T_b)/z_e**2)*z**2+T_b)*(z/z_0)*(t + (1-t)*z/z_0), (z, 0, z_e))
+	hypo_temperature_integral : function(A_0 : [m 2], T_e : [deg_c], T_b : [deg_c], z_e : [m], z_0 : [m], theta : []) {
+		A_0*(z_e^2/z_0)*(theta*(T_b+T_e)/4 + (z_e/z_0)*(1-theta)*(5*T_e - 2*T_b)/15)
+	}
+	
+	
+	var(epi.water, [m 3], "Epilimnion volume")  @initial {   shape_section_V(A_surf, z_outflow, z_outflow, z_outflow-th_epi, theta)  }
+	
+	var(hyp.water, [m 3], "Hypolimnion volume") @initial {   shape_tip_V(A_surf, z_outflow, z_outflow-th_epi, theta)   }
 
-	depth : property("Depth")
+	level : property("Water level")
 	flow : property("Flow")
 	
-	var(epi.z_e, [m], "Epilimnion thickness") @initial { z_epi }
+	var(epi.th, [m], "Epilimnion thickness") @initial { th_epi }
 	{
-		last(z_e) + (dz_epi)*time.step_length_in_seconds->> if !epi.ind & water.temp > t_bot,
-		z_epi                                               otherwise
+		last(th) + (dz_epi)*time.step_length_in_seconds->>  if !epi.ind & water.temp > t_bot,
+		th_epi                                              otherwise
 	} 
 	
 	/*
@@ -70,9 +91,9 @@ The water balance part of the model is conceptually similar to VEMALA
 	
 	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
-	var(epi.depth, [m], "Lake depth")                {   sqrt(2*(epi.water + hyp.water)*z_outflow/A_surf)   }
+	var(epi.level, [m], "Lake water level")                {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
 	
-	var(epi.water.flow, [m 3, s-1], "Lake outflow")  {   max(0, rate_l*(depth - z_outflow))   }
+	var(epi.water.flow, [m 3, s-1], "Lake outflow")  {   max(0, rate_l*(level - z_outflow))   }
 
 	lake_out :
 	flux(epi.water, epi_target, [m 3, day-1], "Lake outflow flux")                   {   flow ->>  }
@@ -94,13 +115,15 @@ The water balance part of the model is conceptually similar to VEMALA
 	evap :
 	flux(epi.water, nowhere, [m 3, day-1], "Evaporation") {
 		evap_mm*A_surf ->>
-	} @no_carry { any } # Don't carry any dissolved substances
+	} @no_carry { any } # Don't carry any dissolved substances in the evaporation
 	
 	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
 		V := water + hyp.water,
 		lake_t := water_heat_to_temp(V, heat + hyp.water.heat), # Mean lake temperature.
-		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water),
-		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be),
+		z_e := z_outflow-th_epi,
+		hypo_temp := hypo_temperature_integral(A_surf, temp, t_bot, z_e, z_outflow, theta),
+		T_e_should_be := (lake_t*V - hypo_temp)/water,
+		epi_heat_should_be := water_temp_to_heat(water, T_e_should_be),
 		5[day-1]*(heat - epi_heat_should_be)   # The 5 is pretty arbitrary. Just to get a quick equilibration
 	}
 	
@@ -119,13 +142,14 @@ The water balance part of the model is conceptually similar to VEMALA
 	
 	# NOTE: This moves an equal body of water up and down, which does not impact the water volume, but does mix dissolved substances.
 	# The no_carry for heat is because we can't let the mixing flux carry heat, since the heat transfer is computed in a different way.
+	# TODO: The area should be adjusted according to epi.th eventually.
 	mix_down :
 	flux(epi.water, hyp.water, [m 3, day-1], "Mixing down") {
-		A_surf * depth * epi.ind * 1[day-1]
+		A_surf * level * epi.ind * 1[day-1]
 	} @no_carry { heat }
 	
 	mix_up : 
 	flux(hyp.water, epi.water, [m 3, day-1], "Mixing up") {
-		A_surf * epi.depth * epi.ind * 1[day-1]
+		A_surf * epi.level * epi.ind * 1[day-1]
 	} @no_carry { heat }
 }

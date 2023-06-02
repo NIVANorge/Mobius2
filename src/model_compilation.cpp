@@ -160,25 +160,7 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 	}
 	return changed;
 }
-/*
-void
-register_dependencies_test(Math_Expr_FT *expr, Dependency_Set *depends) {
-	for(auto arg : expr->exprs) register_dependencies_test(arg, depends);
-	
-	if(expr->expr_type != Math_Expr_Type::identifier) return;
-	auto ident = static_cast<Identifier_FT *>(expr);
-	
-	log_print("Found identifier\n");
 
-	if(ident->variable_type == Variable_Type::parameter)
-		depends->on_parameter.insert(*ident);
-	else if(ident->variable_type == Variable_Type::state_var)
-		depends->on_state_var.insert(*ident);
-	else if(ident->variable_type == Variable_Type::series)
-		depends->on_series.insert(*ident);
-	
-}
-*/
 void
 resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
@@ -195,14 +177,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		register_dependencies(instr.code, &code_depends);
 		if(instr.specific_target)
 			register_dependencies(instr.specific_target, &code_depends);
-		/*
-		if(instr.type == Model_Instruction::Type::compute_state_var && app->vars[instr.var_id]->name == "dissolved_flux(Groundwater DIN, Groundwater runoff)") {
-			//for(auto dep : code_depends.on_state_var) {
-			//	log_print("Found ", app->vars[dep.var_id]->name, "\n");
-			//}
-			register_dependencies_test(instr.code, &code_depends);
-		}
-		*/
+		
 		for(auto &dep : code_depends.on_parameter)
 			insert_dependencies(app, instr.index_sets, dep, 0);
 		for(auto &dep : code_depends.on_series)

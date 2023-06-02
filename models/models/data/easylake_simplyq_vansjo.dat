@@ -105,7 +105,7 @@ module("SimplyQ river", 0, 0, 1) {
 
 module("EasyLake", 0, 1, 0) {
 	par_group("Lake physical") [ "Lake" ] {
-		par_real("Lake depth at which outflow is 0")
+		par_real("Water level at which outflow is 0")
 		[ 41 19 ]
 
 		par_real("Initial epilimnion thickness")
@@ -122,6 +122,9 @@ module("EasyLake", 0, 1, 0) {
 
 		par_real("Epilimnion thickening rate")
 		[ 0.01 0.01 ]
+
+		par_real("Lake bathymetry factor")
+		[ 1 1 ]
 	}
 }
 
@@ -138,6 +141,12 @@ module("AirSea Lake", 0, 1, 0) {
 
 		par_real("Ice formation temperature")
 		[ 0 ]
+
+		par_real("Ice attenuation coefficient")
+		[ 5 ]
+
+		par_bool("Always cover")
+		[ false ]
 	}
 }
 
@@ -173,7 +182,7 @@ module("RiverTemperature", 0, 1, 0) {
 	}
 }
 
-module("SimplyC", 1, 0, 0) {
+module("SimplyC", 1, 0, 1) {
 	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
 		[ 10 ]
@@ -186,6 +195,12 @@ module("SimplyC", 1, 0, 0) {
 
 		par_real("Soil DOC linear SO4 dependence")
 		[ 0 ]
+
+		par_enum("Soil DOC computation type")
+		[ equilibrium ]
+
+		par_enum("Groundwater DOC computation type")
+		[ soil_avg ]
 	}
 
 	par_group("DOC land") [ "Landscape units" ] {
@@ -194,14 +209,12 @@ module("SimplyC", 1, 0, 0) {
 	}
 
 	par_group("DOC deep soil") {
-		par_enum("Groundwater DOC computation type")
-		[ half_life ]
-
 		par_real("Groundwater DOC half-life")
 		[ 135 ]
 
 		par_real("Groundwater DOC concentration")
 		[ 7 ]
+
 	}
 }
 
@@ -291,7 +304,7 @@ module("EasyLake-CNP", 0, 0, 1) {
 		par_real("Hypolimnion N retention factor")
 		[ 0.0245307674894257 0.024 ]
 	}
-	
+
 	par_group("Lake P") [ "Lake" ] {
 		par_real("Initial lake TDP concentration")
 		[ 0.01 0.01 ]
@@ -382,5 +395,4 @@ module("SimplyP", 0, 5, 0) {
 		[ 0 0 0 0 ]
 	}
 }
-
 
