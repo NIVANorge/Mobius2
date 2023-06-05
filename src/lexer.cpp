@@ -104,8 +104,8 @@ Token_Stream::expect_token(Token_Type type) {
 	Token token = read_token();
 	if(token.type != type) {
 		token.print_error_header();
-		error_print("Expected a token of type '", name(type), "', got ", article(token.type), " '", name(token.type), "'");
-		//error_print("Expected a token of type ", (int)type, ", got ", article(token.type), " ", (int)token.type);
+		error_print("Expected a token of type '", name(type), "', got ", article(token.type), " '");
+		error_print(name(token.type), "'"); // NOTE: It is done in a second call since otherwise the name() function can be broken (it overwrites the same static buffer :( )
 		if(token.type == Token_Type::quoted_string || token.type == Token_Type::identifier)
 			error_print(" \"", token.string_value, "\".");
 		mobius_error_exit();

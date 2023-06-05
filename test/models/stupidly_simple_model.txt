@@ -3,6 +3,7 @@ model("Simple test model") {
 	
 	a : compartment("A")
 	q : quantity("Q")
+	p : property("P")
 	
 	sol : solver("Solver", "INCADascru", 0.1)
 	solve(sol, a.q)
@@ -16,6 +17,8 @@ model("Simple test model") {
 	module("So very simple", version(1, 1, 0)) {
 		
 		var(a.q, [], "A Q") @initial { 0 }
+		
+		var(a.q.p, [], "Test")
 		
 		flux(nowhere, a.q[c.top], [day-1], "Top flux")  {
 			sin(time.step*2*pi/365 =>[])=>>

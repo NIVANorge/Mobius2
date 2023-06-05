@@ -44,10 +44,6 @@
 
 	
 	*** Intermediate-pri ***
-	
-		Data set loading
-			Expected a token of type '[', got a '['
-				What it means is that it got a ']'. How does this happen?
 		
 		override {}  declaration.
 			E.g. to change the connection regex of a connection in an extending model.
@@ -125,7 +121,17 @@
 			
 		Go over and improve diagnostics in error messages (all over the place).
 		
+		Some way to test for NaN once per time step (but optional)?
+			If it is one if() per time step, branch prediction is probably so good it doesn't matter.
+		
 	*** Low-pri ****
+	
+		Make the data_set declarations match the model declarations better, e.g. version() in module decls.
+			Just let the data_set use the same AST, where a [] block parses as "data", which is just a token list.
+			Should be able to make registries match up better to simplify some things when loading into the Model_Application.
+			
+			Could have a serialization name for entities in the data set and use that to map them over to the model? Then use Entity_Id inside the data_set, but just map these to the model entity_ids.
+		
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
 			Could at least infer unit conversion for dissolvedes if their conc units are compatible.

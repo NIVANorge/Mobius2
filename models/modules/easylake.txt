@@ -60,7 +60,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	#   T(z) = ((T_e - T_b)/z_e^2)*z^2 + T_b
 	# where T_e is epilimnion temperature and T_b is bottom temperature
 	# Can be symbolically integrated e.g. in sympy:
-	#	integrate((((T_e-T_b)/z_e**2)*z**2+T_b)*(z/z_0)*(t + (1-t)*z/z_0), (z, 0, z_e))
+	#	integrate((((T_e-T_b)/z_e**2)*z**2+T_b)*(z/z_0)*(theta + (1-theta)*z/z_0), (z, 0, z_e))
 	hypo_temperature_integral : function(A_0 : [m 2], T_e : [deg_c], T_b : [deg_c], z_e : [m], z_0 : [m], theta : []) {
 		A_0*(z_e^2/z_0)*(theta*(T_b+T_e)/4 + (z_e/z_0)*(1-theta)*(5*T_e - 2*T_b)/15)
 	}
@@ -73,21 +73,15 @@ The water balance part of the model is conceptually similar to VEMALA
 	level : property("Water level")
 	flow : property("Flow")
 	
-	var(epi.th, [m], "Epilimnion thickness") @initial { th_epi }
-	{
+	var(epi.th, [m], "Epilimnion thickness") {
 		last(th) + (dz_epi)*time.step_length_in_seconds->>  if !epi.ind & water.temp > t_bot,
 		th_epi                                              otherwise
-	} 
+	} @initial { th_epi }
 	
-	/*
-	flux(epi.water, hyp.water, "Metalimnion movement") {
-		(0.5*A_surf/z_outflow)*(z_e^2-last(z_e)^2)/time.step_length_in_seconds->>
-		-0.5*A_surf*dz_epi^2/z_outflow       if !epi.indicator & water.temp > t_bot
-		(epi.water - 0.5*A_surf*z
-		#wedge_section(A_surf, z_outflow, z_e+depth-z_outflow, last(z_e)+last(depth)-z_outflow)/time.step_length_in_seconds->>
-		wedge_section(A_surf, z_outflow, z_outflow-z_e, z_outflow-last(z_e))/time.step_length_in_seconds->>
-	}
-	*/
+	# TODO: Fix this!
+	#flux(epi.water, hyp.water, "Metalimnion movement") {
+	#	
+	#}
 	
 	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
@@ -107,8 +101,8 @@ The water balance part of the model is conceptually similar to VEMALA
 	}
 	
 	var(hyp.water.heat, [J]) @initial {
-		# TODO: Not quite the correct formula for what the mean hypolimnion temperature should be.
-		t_hyp := 0.5*(t_epi + t_bot),
+		#TODO: This leads to it multiplying and dividing by water. That is unnecessary. Similar thing in transfer formula below.
+		t_hyp := hypo_temperature_integral(A_surf, t_epi, t_bot, z_outflow-th_epi, z_outflow, theta)/water,
 		water_temp_to_heat(water, t_hyp)
 	}
 	
@@ -135,21 +129,20 @@ The water balance part of the model is conceptually similar to VEMALA
 		water_heat_to_temp(water, water.heat)
 	}
 	
-	
-	# TODO: How does mixing interact with ice (?)
+	# TODO: How does mixing interact with ice (?).
 	ind : property("Mixing indicator")
 	var(epi.ind, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
 	
 	# NOTE: This moves an equal body of water up and down, which does not impact the water volume, but does mix dissolved substances.
 	# The no_carry for heat is because we can't let the mixing flux carry heat, since the heat transfer is computed in a different way.
-	# TODO: The area should be adjusted according to epi.th eventually.
+	# The magnitude of the rate is pretty arbitrary as long as it is big enough to "quickly" mix the entire lake.
 	mix_down :
 	flux(epi.water, hyp.water, [m 3, day-1], "Mixing down") {
-		A_surf * level * epi.ind * 1[day-1]
+		A_surf * th_epi * epi.ind * 1[day-1]
 	} @no_carry { heat }
 	
 	mix_up : 
 	flux(hyp.water, epi.water, [m 3, day-1], "Mixing up") {
-		A_surf * epi.level * epi.ind * 1[day-1]
+		A_surf * th_epi * epi.ind * 1[day-1]
 	} @no_carry { heat }
 }

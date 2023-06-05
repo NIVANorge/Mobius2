@@ -530,10 +530,6 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			if(is_valid(app->vars.id_of(var->var_location))) continue;
 			
 			if(is_series) {
-				if(var->var_location.is_dissolved()) {
-					var->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("For now we don't support input series with chained locations.");
-				}
 				register_state_variable<State_Var::Type::declared>(app, id, true, name);
 			} else if (is_valid(special_id) || id == find->second) {
 				// This is the particular var declaration that provided the code, so we register a state variable using this one.

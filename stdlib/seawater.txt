@@ -4,7 +4,8 @@ library("Air-sea") {
 	# TODO: Document and reference!
 	
 	surface_stability : function(wind : [m, s-1], water_temp : [deg_c], air_temp : [deg_c]) {
-		ww := max(wind, 0.1[m, s-1]),
+		#ww := max(wind, 0.001[m, s-1]),
+		ww := wind + 1e-10[m, s-1],
 		s0 := 0.25*(water_temp - air_temp) / (ww*ww) => [],
 		s0*abs(s0)/(abs(s0) + 0.01)
 	}
