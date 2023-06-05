@@ -1003,6 +1003,7 @@ struct Pre_Batch {
 	Entity_Id solver = invalid_entity_id;
 	std::vector<int> instructions;
 	std::set<int>    depends_on;
+	std::set<int>    consists_of;
 	bool visited = false;
 	bool temp_visited = false;
 };
@@ -1113,6 +1114,18 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	for(int idx = 0; idx < pre_batches.size(); ++idx)
 		topological_sort_pre_batch_visit(idx, sorted_pre_batches, pre_batches);
 	
+#if 0
+	log_print("**** Pre batches before grouping.");
+	for(int id : sorted_pre_batches) {
+		auto &batch = pre_batches[id];
+		if(is_valid(batch.solver))
+			log_print("* Solver : ", app->model->solvers[batch.solver]->name, "\n");
+		else
+			log_print(instructions[batch.instructions[0]].debug_string(app), "\n");
+	}
+	log_print("\n\n");
+#endif
+	
 	// Now group discrete equations into single pre_batches.
 	std::vector<Pre_Batch> grouped_pre_batches;
 	
@@ -1120,15 +1133,22 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		auto &pre_batch = pre_batches[order];
 		int insertion_point = -1;
 		if(!is_valid(pre_batch.solver)) {
+			// If it is not on a solver, try to group it with the previous non-solver instruction *if possible* (e.g. this instruction doesn't depend on another instruction in between.)
 			for(int compare_idx = (int)grouped_pre_batches.size()-1; compare_idx >= 0; --compare_idx) {
 				auto &compare = grouped_pre_batches[compare_idx];
 				if(!is_valid(compare.solver))
 					insertion_point = compare_idx;
-				if(compare.depends_on.find(order) != compare.depends_on.end()) {
-					if(!is_valid(compare.solver))
-						insertion_point = compare_idx;
-					break;
+	
+				bool found_dependency = false;
+				for(int other : compare.consists_of) {
+					if(pre_batch.depends_on.find(other) != pre_batch.depends_on.end()) {
+						if(!is_valid(compare.solver))
+							insertion_point = compare_idx;
+						found_dependency = true;
+						break;
+					}
 				}
+				if(found_dependency) break;
 			}
 		}
 		if(insertion_point < 0) {
@@ -1139,8 +1159,10 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		insertion_batch.solver = pre_batch.solver;
 		insertion_batch.instructions.insert(insertion_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
 		insertion_batch.depends_on.insert(pre_batch.depends_on.begin(), pre_batch.depends_on.end());
+		insertion_batch.consists_of.insert(order);
 	}
 	
+	//log_print("Number of grouped batches before re-moving: ", grouped_pre_batches.size(), "\n");
 	
 	// Try to move instructions to as late a batch as possible. Can some times improve the structure by eliminating unnecessary discrete batches.
 	bool changed = false;
@@ -1202,17 +1224,17 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	}
 	
 #if 0
-	warning_print("*** Batches before internal structuring: ***\n");
+	log_print("*** Batches before internal structuring: ***\n");
 	for(auto &batch : batches_out) {
 		if(is_valid(batch.solver))
-			warning_print("  solver(\"", model->solvers[batch.solver]->name, "\") :\n");
+			log_print("  solver(\"", app->model->solvers[batch.solver]->name, "\") :\n");
 		else
-			warning_print("  discrete :\n");
+			log_print("  discrete :\n");
 		for(int instr_id : batch.instrs) {
-			warning_print("\t\t", instructions[instr_id]->debug_string(app), "\n");
+			log_print("\t\t", instructions[instr_id].debug_string(app), "\n");
 		}
 	}
-	warning_print("\n\n");
+	log_print("\n\n");
 #endif
 }
 
