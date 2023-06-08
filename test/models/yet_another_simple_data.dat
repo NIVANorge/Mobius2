@@ -11,7 +11,7 @@ par_group("System") {
 module("TOC degradation", 1, 0, 0) {
 	par_group("Pars") [ "I" ] {
 		par_real("Rate")
-		[ 0.002 ]
+		[ 0.2 ]
 	}
 }
 

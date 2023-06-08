@@ -44,9 +44,9 @@ struct Model_Application;
 struct Model_Data;
 
 bool
-run_model(Model_Data *model_data, s64 ms_timeout = -1);
+run_model(Model_Data *model_data, s64 ms_timeout = -1, bool check_for_nan = false);
 
 bool
-run_model(Model_Application *app, s64 ms_timeout = -1);
+run_model(Model_Application *app, s64 ms_timeout = -1, bool check_for_nan = false);
 
 #endif // MOBIUS_RUN_MODEL_H

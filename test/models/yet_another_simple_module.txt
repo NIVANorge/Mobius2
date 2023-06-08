@@ -9,6 +9,6 @@ module("Degradation", version(1, 0, 0),
 	}
 	
 	flux(a.q, nowhere, [k g, day-1], "Degradation") {
-		r*a.q
+		-r*a.q
 	}
 }

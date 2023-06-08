@@ -21,7 +21,37 @@ Batch_Data {
 
 
 bool
-run_model(Model_Data *data, s64 ms_timeout) {
+check_for_nans(Model_Data *data, Model_Run_State *run_state) {
+	// TODO: This is awfully inefficient. Could we just scan the results vector for NaN first, and then do this if a NaN occurs at all?
+	auto &structure = *data->results.structure;
+	for(auto &array : structure.structure) {
+		for(Var_Id var_id : array.handles) {
+			bool error = false;
+			structure.for_each(var_id, [var_id, data, run_state, &error](std::vector<Index_T> &idxs, s64 offset) {
+				double val = run_state->state_vars[offset];
+				if(!std::isfinite(val)) {
+					// TODO: Also print indexes.
+					begin_error(Mobius_Error::numerical);
+					error_print("Got a non-finite value for \"", data->app->vars[var_id]->name, "\" at time step ", run_state->date_time.step, ". Indexes: [");
+					int i = 0;
+					for(auto idx : idxs) {
+						error_print(data->app->get_possibly_quoted_index_name(idx));
+						if(i < idxs.size()-1) error_print(" ");
+						++i;
+					}
+					error_print("]\n");
+					error = true;
+					return;
+				}
+			});
+			if(error) return false;
+		}
+	}
+	return true;
+}
+
+bool
+run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 	
 	Model_Application *app = data->app;
 	Mobius_Model *model    = app->model;
@@ -133,6 +163,9 @@ run_model(Model_Data *data, s64 ms_timeout) {
 		
 		run_state.series    += series_count;
 		
+		if(check_for_nan)
+			if(!check_for_nans(data, &run_state)) return false;
+		
 		if(ms_timeout > 0) {
 			s64 ms = run_timer.get_milliseconds();
 			if(ms > ms_timeout)
@@ -140,12 +173,12 @@ run_model(Model_Data *data, s64 ms_timeout) {
 		}
 	}
 	
-	if(run_state.solver_workspace) free(run_state.solver_workspace);
+	if(run_state.solver_workspace) free(run_state.solver_workspace); // Ooops, leak if we return early. Put in run state destructor?
 	
 	return true;
 }
 
 bool
-run_model(Model_Application *app, s64 ms_timeout) {
-	return run_model(&app->data, ms_timeout);
+run_model(Model_Application *app, s64 ms_timeout, bool check_for_nan) {
+	return run_model(&app->data, ms_timeout, check_for_nan);
 }
