@@ -525,7 +525,6 @@ Token_Stream::read_number(Token *token) {
 		s64 signed_exponent = exponent_is_negative ? -(s64)exponent : (s64)exponent;
 		signed_exponent -= digits_after_comma;
 		bool success;
-		//token->val_double = make_double_fast(signed_exponent, base, is_negative, &success);
 		token->val_double = fast_double_parser::compute_float_64(signed_exponent, base, is_negative, &success);
 		if(!success) {
 			token->print_error_header();

@@ -1158,7 +1158,8 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		auto &insertion_batch = grouped_pre_batches[insertion_point];
 		insertion_batch.solver = pre_batch.solver;
 		insertion_batch.instructions.insert(insertion_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
-		insertion_batch.depends_on.insert(pre_batch.depends_on.begin(), pre_batch.depends_on.end());
+		// This set doesn't seem to be used after this.
+		//insertion_batch.depends_on.insert(pre_batch.depends_on.begin(), pre_batch.depends_on.end());
 		insertion_batch.consists_of.insert(order);
 	}
 	

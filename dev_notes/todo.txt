@@ -44,6 +44,9 @@
 
 	
 	*** Intermediate-pri ***
+	
+		Make an (optional) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
+			Useful for catching errors, which we some times have but are slow to detect.
 		
 		override {}  declaration.
 			E.g. to change the connection regex of a connection in an extending model.
@@ -101,8 +104,6 @@
 		
 		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
-		Why is Total Phosphorous ordered before conc(TDP) when it depends on it? It should be put in a separate discrete batch after!
-			Makes it have a 1 day delay..
 			
 		More cleanup of State_Var system
 			the way we handle regular_aggregates of fluxes is not necessarily that nice.
@@ -136,7 +137,6 @@
 		
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
-			Could at least infer unit conversion for dissolvedes if their conc units are compatible.
 		
 		Maybe the decl_type of module template should just be module_template (in the module files).
 		
