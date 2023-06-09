@@ -841,6 +841,10 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		case Math_Expr_Type::special_computation : {
 			return build_special_computation_ir(expr, locals, args, data);
 		} break;
+		
+		case Math_Expr_Type::no_op : {
+			return nullptr;
+		} break;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Didn't generate llvm ir for ", name(expr->expr_type), " expression.");

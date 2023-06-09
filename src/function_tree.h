@@ -218,6 +218,9 @@ make_binop(Token_Type oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 Math_Expr_FT *
 make_simple_if(Math_Expr_FT *first, Math_Expr_FT *condition, Math_Expr_FT *otherwise);
 
+Math_Expr_FT *
+make_no_op();
+
 inline Math_Expr_FT *
 make_binop(char oper, Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	return make_binop((Token_Type)oper, lhs, rhs);

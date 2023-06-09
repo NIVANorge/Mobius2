@@ -185,7 +185,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Codegen for in_fluxes (not connection in_flux):
 			if(var->type == State_Var::Type::in_flux_aggregate) {
 				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
-				Math_Expr_FT *flux_sum = make_literal(0.0);
+				Math_Expr_FT *flux_sum = make_literal((double)0.0);
 				//  find all fluxes that has the given target and sum them up.
 				for(auto flux_id : app->vars.all_fluxes()) {
 					auto flux_var = app->vars[flux_id];
@@ -518,10 +518,12 @@ make_restriction_condition(Model_Application *app, Var_Loc_Restriction restricti
 		}
 	}
 	
+	if(!new_condition)
+		return existing_condition;
 	if(!existing_condition)
 		return new_condition;
-	else
-		return make_binop('&', existing_condition, new_condition);
+	
+	return make_binop('&', existing_condition, new_condition);
 }
 
 Math_Expr_FT *
@@ -572,7 +574,8 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	
 	if_chain->exprs.push_back(add_value_to_state_var(agg_id, agg_offset, value, '+'));
 	if_chain->exprs.push_back(condition);
-	if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
+	//if_chain->exprs.push_back(make_literal((s64)0));   // NOTE: This is a dummy value that won't be used. We don't support void 'else' clauses at the moment.
+	if_chain->exprs.push_back(make_no_op());
 	
 	Math_Expr_FT *result = if_chain;
 	
@@ -780,7 +783,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				auto offset = app->result_structure.get_offset_code(instr->var_id, indexes);
 				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
 				assignment->exprs.push_back(offset);
-				assignment->exprs.push_back(make_literal((double)0));
+				assignment->exprs.push_back(make_literal((double)0.0));
 				result_code = assignment;
 				
 			} else if (instr->type == Model_Instruction::Type::special_computation) {
@@ -819,7 +822,8 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				if_chain->exprs.push_back(result_code);
 				
 				if_chain->exprs.push_back(restriction_condition);
-				if_chain->exprs.push_back(make_literal(0.0));
+				//if_chain->exprs.push_back(make_literal((double)0.0));
+				if_chain->exprs.push_back(make_no_op());
 				
 				result_code = if_chain;
 			}

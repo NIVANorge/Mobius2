@@ -176,6 +176,13 @@ make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 	return block;
 }
 
+Math_Expr_FT *
+make_no_op() {
+	auto no_op = new Math_Expr_FT(Math_Expr_Type::no_op);
+	no_op->value_type = Value_Type::none;
+	return no_op;
+}
+
 
 void try_cast(Math_Expr_FT **a, Math_Expr_FT **b) {
 	if((*a)->value_type != Value_Type::real && (*b)->value_type == Value_Type::real)
@@ -1410,7 +1417,8 @@ copy(Math_Expr_FT *source) {
 		case Math_Expr_Type::if_chain :
 		case Math_Expr_Type::cast :
 		case Math_Expr_Type::state_var_assignment :
-		case Math_Expr_Type::derivative_assignment : {
+		case Math_Expr_Type::derivative_assignment : 
+		case Math_Expr_Type::no_op : {
 			result = copy_one<Math_Expr_FT>(source);
 		} break;
 		
@@ -1614,6 +1622,10 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 				if (idx++ != special->exprs.size()-1) os << ", ";
 			}
 			os << ")";
+		} break;
+		
+		case Math_Expr_Type::no_op : {
+			os << "(no-op)";
 		} break;
 		
 		default : {

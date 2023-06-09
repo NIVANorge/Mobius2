@@ -325,6 +325,10 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 			Typed_Value a = emulate_expression(expr->exprs[0], state, locals);
 			return apply_cast(a, expr->value_type);
 		} break;
+		
+		case Math_Expr_Type::no_op : {
+			return {Parameter_Value(), Value_Type::none};
+		} break;
 	}
 	
 	fatal_error(Mobius_Error::internal, "Didn't emulate ", name(expr->expr_type), " expression.");

@@ -24,10 +24,6 @@
 
 		all_to_all:
 			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
-			
-		directed_tree :
-			Should have to specify "-> nowhere" in the connection data if a flux should be subtracted at all (though it may be a bit easy to forget this for the user?).
-			Maybe make it part of the regex that "nowhere" is accepted (or required).
 
 		What about:
 			accessing
@@ -45,6 +41,8 @@
 			Tridiagonal distribution.
 			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
 				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
+				
+	Consider renaming 'nowhere' to 'out'
 	
 	*** Intermediate-pri ***
 	
