@@ -9,7 +9,7 @@ index_set("Subcatchment") [ "Coull" "Boyne" ]
 connection("Downstream") [
 	r : compartment("River") [ "Subcatchment" ]
 
-	r[ "Coull" ] -> r[ "Boyne" ]
+	r[ "Coull" ] -> r[ "Boyne" ] -> nowhere
 ]
 
 series("tarland_series.xlsx")

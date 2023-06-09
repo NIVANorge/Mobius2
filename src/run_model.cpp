@@ -168,6 +168,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 		
 		if(ms_timeout > 0) {
 			s64 ms = run_timer.get_milliseconds();
+			// NOTE: We don't want to write a log to the error stream (or log stream) here since we could get a lot of these during an optimizer run.
 			if(ms > ms_timeout)
 				return false;
 		}

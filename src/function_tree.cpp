@@ -42,6 +42,14 @@ make_literal(double val_real) {
 }
 
 Math_Expr_FT *
+make_literal(bool val_bool) {
+	auto literal = new Literal_FT();
+	literal->value_type = Value_Type::boolean;
+	literal->value.val_boolean = val_bool;
+	return literal;
+}
+
+Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var) {
 	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;

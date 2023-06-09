@@ -2,6 +2,14 @@
 
 
 
+	#Getting even earlier step valies?
+	last(water)
+	last(water, 1)
+	earlier(water, 2)
+	earlier(water) # Replace 'last' with 'earlier'?
+	
+	
+
 
 	# We could maybe signal in the flux declaration if it is allowed to be bidirectional. Then give an error for that for fluxes that can't be bidirectional.
 	biflux(...) {
@@ -33,7 +41,6 @@
 	} @specific {
 		layer.water.horz_target[horz]
 	}
-
 
 
 

@@ -8,7 +8,7 @@ connection("Downstream") [
 	e : compartment("Epilimnion") [ "Lake" ]
 	r : compartment("River") [ "Subcatchment" ]
 
-	r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ]
+	r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> nowhere
 	r[ "Store" ] -> e[ "Store" ]
 	r[ "Vanem" ] -> e[ "Vanem" ]
 ]

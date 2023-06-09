@@ -195,6 +195,9 @@ Math_Expr_FT *
 make_literal(double val_double);
 
 Math_Expr_FT *
+make_literal(bool val_bool);
+
+Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var);
 
 Math_Expr_FT *

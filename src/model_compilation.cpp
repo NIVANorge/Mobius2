@@ -768,7 +768,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(conn_type == Connection_Type::directed_tree) {
 						Entity_Id source_comp_id = var_flux->loc1.components[0];
 						auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
-						if(!find_source->can_be_source) continue;
+						if(!find_source->can_be_valid_source) continue;
 					}
 				}
 				

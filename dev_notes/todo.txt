@@ -24,6 +24,10 @@
 
 		all_to_all:
 			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
+			
+		directed_tree :
+			Should have to specify "-> nowhere" in the connection data if a flux should be subtracted at all (though it may be a bit easy to forget this for the user?).
+			Maybe make it part of the regex that "nowhere" is accepted (or required).
 
 		What about:
 			accessing
@@ -41,9 +45,14 @@
 			Tridiagonal distribution.
 			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
 				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
-
 	
 	*** Intermediate-pri ***
+	
+		no-op (void) instruction in function_tree so that we don't have all the dangling 0s
+	
+		Some system for specifying state variables that should not be stored (properties only).
+			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
+			First iteration could be to just not display them, but still have them stored in the same place as everything else
 	
 		Make an (optional) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
 			Useful for catching errors, which we some times have but are slow to detect.
@@ -64,10 +73,6 @@
 			Could get rid of using Function_Scope in prune_helper?
 				Tried it, but it has a bug.
 			Easy to have leaks when moving and deleting nodes the way it is done now.
-	
-		Some system for specifying state variables that should not be stored (properties only).
-			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
-			First iteration could be to just not display them, but still have them stored in the same place as everything else
 
 		Normalized file paths can be different depending on how they were loaded using relative paths. This causes it some times to try to load the same library twice, which causes a name clash.
 			Need a fully standardized normalized path (?)
@@ -124,8 +129,6 @@
 			
 		Go over and improve diagnostics in error messages (all over the place).
 		
-		Some way to test for NaN once per time step (but optional)?
-			If it is one if() per time step, branch prediction is probably so good it doesn't matter.
 		
 	*** Low-pri ****
 	
@@ -237,6 +240,8 @@
 		Connection Regexes
 			it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
 			Finish regex checks or scrap them altogether.
+			
+		Imperative constructs for the function scope.
 		
 		Other solver algorithms.
 		

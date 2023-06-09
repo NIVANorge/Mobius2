@@ -198,7 +198,7 @@ Model_Application::set_up_connection_structure() {
 			
 			for(auto &comp : connection_components[connection_id.id]) {
 				
-				if(!comp.can_be_source) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
+				if(!comp.can_be_valid_source && !comp.can_be_nowhere_source) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
 				
 				// TODO: group handles from multiple source compartments by index tuples.
 				Connection_T handle1 = { connection_id, comp.id, 0 };   // First info id for target compartment (indexed by the source compartment)
@@ -221,7 +221,7 @@ Model_Application::set_up_connection_structure() {
 	data.connections.allocate();
 	
 	for(int idx = 0; idx < connection_structure.total_count; ++idx)
-		data.connections.data[idx] = -1;                          // To signify that it doesn't point at anything (yet).
+		data.connections.data[idx] = 0xffffffff;                          // To signify that it doesn't point at anything (yet).
 };
 
 void
@@ -714,22 +714,27 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			auto comp_source = connection.components[arr.first.id];
 			Entity_Id source_comp_id = model->model_decl_scope.deserialize(comp_source->name, Reg_Type::component);
 			
-			auto comp_target = connection.components[arr.second.id];
-			Entity_Id target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
+			Entity_Id target_comp_id = invalid_entity_id;
+			if(arr.second.id >= 0) {
+				auto comp_target = connection.components[arr.second.id];
+				target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
+			}
 			
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
-			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
-			//if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) {
-			//	connection.loc.print_error_header();
-			//	fatal_error("Missing a component");
-			//}
+			if( !is_valid(source_comp_id) || (!is_valid(target_comp_id) && arr.second.id >= 0) ) continue;
 			
 			// Store useful information that allows us to prune away un-needed operations later.
-			auto target = app->find_connection_component(conn_id, target_comp_id);
 			auto source = app->find_connection_component(conn_id, source_comp_id);
-			source->can_be_source = true;
-			target->possible_sources.insert(source_comp_id);
-			source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
+			if(is_valid(target_comp_id))
+				source->can_be_valid_source = true;
+			else
+				source->can_be_nowhere_source = true;
+			
+			if(is_valid(target_comp_id)) {
+				auto target = app->find_connection_component(conn_id, target_comp_id);
+				target->possible_sources.insert(source_comp_id);
+				source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
+			}
 		}
 		
 		// TODO: finish the code for checking the regex and that the graph is a tree.
@@ -763,11 +768,14 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			auto comp = connection.components[arr.first.id];
 			Entity_Id source_comp_id = model->model_decl_scope.deserialize(comp->name, Reg_Type::component);
 			
-			auto comp_target = connection.components[arr.second.id];
-			Entity_Id target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
+			Entity_Id target_comp_id = invalid_entity_id;
+			if(arr.second.id >= 0) {
+				auto comp_target = connection.components[arr.second.id];
+				target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
+			}
 			
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
-			if(!is_valid(source_comp_id) || !is_valid(target_comp_id)) continue;
+			if( !is_valid(source_comp_id) || (!is_valid(target_comp_id) && arr.second.id >= 0) ) continue;
 			
 			auto &index_sets = app->find_connection_component(conn_id, source_comp_id)->index_sets;
 			std::vector<Index_T> indexes;
@@ -776,7 +784,8 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 				indexes.push_back(index);
 			}
 			s64 offset = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 0}, indexes);
-			*app->data.connections.get_value(offset) = (s32)target_comp_id.id;
+			s32 id_code = (is_valid(target_comp_id) ? (s32)target_comp_id.id : -1);
+			*app->data.connections.get_value(offset) = id_code;
 			
 			for(int idx = 0; idx < arr.second.indexes.size(); ++idx) {
 				int id = idx+1;

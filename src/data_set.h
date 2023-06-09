@@ -128,7 +128,7 @@ struct Component_Info : Info_Type_Base {
 };
 
 struct Compartment_Ref {
-	int id;
+	int id;   // This is the id of the Component_Info. -1 if it is a 'nowhere'
 	std::vector<int> indexes;
 };
 

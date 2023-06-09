@@ -114,6 +114,10 @@ write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *da
 
 void
 write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set, Connection_Info &connection) {
+	if(ref.id < 0) {
+		fprintf(file, "nowhere");
+		return;
+	}
 	auto component = connection.components[ref.id];
 	fprintf(file, "%s[", component->handle.data());
 	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
@@ -393,6 +397,10 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 	Token token = stream->peek_token();
 	stream->expect_identifier();
 	
+	if(token.string_value == "nowhere") {
+		read_to->id = -1;
+		return;
+	}
 	auto find = info->component_handle_to_id.find(token.string_value);
 	if(find == info->component_handle_to_id.end()) {
 		token.print_error_header();
@@ -423,6 +431,11 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 		read_compartment_identifier(data_set, stream, &entry.first, info);
 	else
 		entry.first = *first_in;
+	
+	if(entry.first.id < 0) {
+		info->source_loc.print_error_header();
+		fatal_error("A 'nowhere' can only be the target of an arrow in a directed_tree, not the source.");
+	}
 	
 	stream->expect_token(Token_Type::arr_r);
 	read_compartment_identifier(data_set, stream, &entry.second, info);

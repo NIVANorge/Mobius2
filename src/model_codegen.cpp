@@ -461,38 +461,67 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 }
 
 Math_Expr_FT *
-make_restriction_condition(Model_Application *app, Var_Loc_Restriction restriction, Math_Expr_FT *existing_condition, Index_Exprs &index_expr) {
+make_restriction_condition(Model_Application *app, Var_Loc_Restriction restriction, Math_Expr_FT *existing_condition, Index_Exprs &index_expr, Entity_Id source_compartment = invalid_entity_id) {
 	
 	// For grid1d connections, if we look up 'above' or 'below', we can't do it if we are on the first or last index respectively, and so the entire expression must be invalidated.
 	// Same if the expression itself is for a flux that is along a grid1d connection and we are at the last index.
 	// This function creates the code to compute the boolean condition that the expression should be invalidated.
+	auto connection_id = restriction.connection_id;
 	
-	if(!is_valid(restriction.connection_id) || app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
-		return existing_condition;
-	if(restriction.restriction != Var_Loc_Restriction::above && restriction.restriction != Var_Loc_Restriction::below)
-		return existing_condition;
+	if(!is_valid(connection_id)) return existing_condition;
 	
-	auto index_set = app->get_single_connection_index_set(restriction.connection_id);
+	auto type = app->model->connections[connection_id]->type;
+
+	Math_Expr_FT *new_condition = nullptr;
 	
-	// TODO: This is very wasteful just to get the single index. Could factor out a function
-	// for that instead.
-	Index_Exprs new_indexes(app->model);
-	new_indexes.copy(index_expr);
-	set_grid1d_target_indexes(app, new_indexes, restriction);
-	Math_Expr_FT *index = new_indexes.indexes[index_set.id];
-	
-	Math_Expr_FT *ltc = nullptr;
-	if(restriction.restriction == Var_Loc_Restriction::above)
-		ltc = make_binop(Token_Type::geq, copy(index), make_literal((s64)0));
-	else if(restriction.restriction == Var_Loc_Restriction::below) {
-		auto index_count = get_index_count_code(app, index_set, index_expr);
-		ltc = make_binop('<', copy(index), index_count);
+	if(type == Connection_Type::grid1d && (restriction.restriction == Var_Loc_Restriction::above || restriction.restriction == Var_Loc_Restriction::below)) {
+		
+		auto index_set = app->get_single_connection_index_set(connection_id);
+		
+		// TODO: This is very wasteful just to get the single index. Could factor out a function
+		// for that instead.
+		Index_Exprs new_indexes(app->model);
+		new_indexes.copy(index_expr);
+		set_grid1d_target_indexes(app, new_indexes, restriction);
+		Math_Expr_FT *index = new_indexes.indexes[index_set.id];
+		
+		if(restriction.restriction == Var_Loc_Restriction::above)
+			new_condition = make_binop(Token_Type::geq, copy(index), make_literal((s64)0));
+		else if(restriction.restriction == Var_Loc_Restriction::below) {
+			auto index_count = get_index_count_code(app, index_set, index_expr);
+			new_condition = make_binop('<', copy(index), index_count);
+		}
+	} else if (type == Connection_Type::directed_tree && is_valid(source_compartment)) {
+		// TODO: We could skip this check if we beforehand check if all nodes of this type have a target that is either an indexed component or a 'nowhere', which will be the case in many models..
+		// could be stored in the connection_components data.
+		
+		bool found = false;
+		for(auto &comp : app->connection_components[connection_id.id]) {
+			if(comp.id == source_compartment && (comp.can_be_valid_source || comp.can_be_nowhere_source)) {
+				found = true;
+				break;
+			}
+		}
+		
+		if(found) {
+			// Code for looking up the id of the target compartment of the current source.
+			auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
+			auto compartment_id = new Identifier_FT();
+			compartment_id->variable_type = Variable_Type::connection_info;
+			compartment_id->value_type = Value_Type::integer;
+			compartment_id->exprs.push_back(idx_offset);
+			
+			// I.e. it is -1 or it is a positive id.
+			new_condition = make_binop('>', compartment_id, make_literal((s64)-2));
+		} else {
+			new_condition = make_literal(false);
+		}
 	}
 	
 	if(!existing_condition)
-		return ltc;
+		return new_condition;
 	else
-		return make_binop('&', existing_condition, ltc);
+		return make_binop('&', existing_condition, new_condition);
 }
 
 Math_Expr_FT *
@@ -535,7 +564,7 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	compartment_id->exprs.push_back(idx_offset);
 	
 	// There can be multiple valid target components for the connection, so we have to make code to see if the value should indeed be added to this aggregation variable.
-	// (even if there could only be one valid target compartment, this makes sure that the set target is not -1 (i.e. nowhere)).
+	// (even if there could only be one valid target compartment, this makes sure that the set target is not 0xffffffff or -1 (i.e. nonexistent or nowhere)).
 	Math_Expr_FT *condition = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
 	
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
@@ -688,9 +717,17 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			
 			// TODO: Two restrictions being different does not necessarily mean that they generate different conditions... This is e.g. if we have multiple connections over the same index set.
 			//   We could fix that, but it could be that this whole system is not that good in the first place, so we should think a bit more about it.
+			Math_Expr_FT *restriction_condition = nullptr;
+			
 			std::set<Var_Loc_Restriction> restrictions;
-			if(is_valid(instr->restriction.connection_id))
-				restrictions.insert(instr->restriction);			
+			if(is_valid(instr->restriction.connection_id)) {
+				// TODO: This is a bit hacky for now. We should instead store the loc in the restrictions set together with the restriction somehow.
+				if(app->model->connections[instr->restriction.connection_id]->type == Connection_Type::directed_tree) {
+					Var_Location &loc1 = app->vars[instr->var_id]->loc1;
+					restriction_condition = make_restriction_condition(app, instr->restriction, restriction_condition, indexes, loc1.components[0]);
+				} else
+					restrictions.insert(instr->restriction);			
+			}
 			
 			try {
 				if(instr->code) {
@@ -773,16 +810,15 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			}
 			
 			// TODO: In some cases there are duplicates of a restriction that produces the same condition. How does this happen?
-			Math_Expr_FT *condition = nullptr;
 			for(auto &restriction : restrictions)
-				condition = make_restriction_condition(app, restriction, condition, indexes);
+				restriction_condition = make_restriction_condition(app, restriction, restriction_condition, indexes);
 			
-			if(condition) {
+			if(restriction_condition) {
 				auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 				if_chain->value_type = Value_Type::real;
 				if_chain->exprs.push_back(result_code);
 				
-				if_chain->exprs.push_back(condition);
+				if_chain->exprs.push_back(restriction_condition);
 				if_chain->exprs.push_back(make_literal(0.0));
 				
 				result_code = if_chain;

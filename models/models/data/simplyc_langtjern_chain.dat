@@ -14,7 +14,9 @@ connection("Downhill") [
 ]
 
 connection("Downstream") [
-	compartment("River") [ "Subcatchment" ]
+	r : compartment("River") [ "Subcatchment" ]
+	
+	r["Inlet"] -> nowhere
 ]
 
 series("langtjern.xlsx")
