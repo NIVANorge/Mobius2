@@ -471,54 +471,69 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 
 
 llvm::Value *
-build_if_chain_ir(Math_Expr_FT **exprs, size_t exprs_size, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
-	
-	//TODO: we could maybe optimize by having only one merge block and phi node!
-	
-	if(exprs_size % 2 != 1)
+build_if_chain_ir(std::vector<Math_Expr_FT *> &exprs, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+	 
+	if(exprs.size() % 2 != 1 || exprs.size() < 3)
 		fatal_error(Mobius_Error::internal, "Got a malformed if statement in ir generation. This should have been detected at an earlier stage!");
 	
-	if(exprs_size == 1)
-		return build_expression_ir(exprs[0], locals, args, data);
-	
-	llvm::Value *cond = build_expression_ir(exprs[1], locals, args, data);
 	llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
 	
-	llvm::BasicBlock *then_block  = llvm::BasicBlock::Create(*data->context, "then", fun);
-	llvm::BasicBlock *else_block  = llvm::BasicBlock::Create(*data->context, "else");
+	std::vector<llvm::BasicBlock *> blocks;
+	std::vector<llvm::BasicBlock *> cond_blocks;
+	std::vector<llvm::Value *> values;
+	
+	for(int if_case = 0; if_case < exprs.size() / 2 + 1; ++if_case) {
+		bool last = if_case != exprs.size() / 2;
+		if(!last) {
+			auto block0 = llvm::BasicBlock::Create(*data->context, "elseif");
+			cond_blocks.push_back(block0);
+		}
+		auto block = llvm::BasicBlock::Create(*data->context, (!last ? "then" : "else"));
+		blocks.push_back(block);
+	}
 	llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(*data->context, "endif");
 	
-	data->builder->CreateCondBr(cond, then_block, else_block);
-	
-	data->builder->SetInsertPoint(then_block);
-	llvm::Value *then_val = build_expression_ir(exprs[0], locals, args, data);
-	
-	data->builder->CreateBr(merge_block);
-	then_block = data->builder->GetInsertBlock();
-	
-	fun->getBasicBlockList().push_back(else_block);
-	data->builder->SetInsertPoint(else_block);
-	
-	llvm::Value *else_val = build_if_chain_ir(exprs+2, exprs_size-2, locals, args, data);
-	
-	data->builder->CreateBr(merge_block);
-	else_block = data->builder->GetInsertBlock();
+	bool val_is_none = false;
+	for(int if_case = 0; if_case < exprs.size() / 2 + 1; ++if_case) {
+		
+		if(if_case < exprs.size() / 2) {
+			fun->getBasicBlockList().push_back(cond_blocks[if_case]);
+			if(if_case == 0)
+				data->builder->CreateBr(cond_blocks[0]);
+			data->builder->SetInsertPoint(cond_blocks[if_case]);
+		
+			auto condition = exprs[2*if_case + 1];
+			auto cond = build_expression_ir(condition, locals, args, data);
+			// If we are at the last condition, the alt. block is the 'else' block, otherwise jump to a elseif check.
+			auto else_block = if_case+1 == exprs.size() / 2 ? blocks[if_case+1] : cond_blocks[if_case+1];
+			data->builder->CreateCondBr(cond, blocks[if_case], else_block);
+		}
+		
+		fun->getBasicBlockList().push_back(blocks[if_case]);
+		data->builder->SetInsertPoint(blocks[if_case]);
+		
+		auto value     = exprs[2*if_case];
+		if(value->value_type == Value_Type::none) val_is_none = true;
+		
+		auto val = build_expression_ir(value, locals, args, data);
+		values.push_back(val);
+		
+		data->builder->CreateBr(merge_block);
+		
+		blocks[if_case] = data->builder->GetInsertBlock(); // NOTE: The current block could have been changed in build_expression_ir e.g. if there are nested ifs or loops there.
+	}
 	
 	fun->getBasicBlockList().push_back(merge_block);
 	data->builder->SetInsertPoint(merge_block);
 	
-	if(exprs[0]->value_type == Value_Type::none)
-		return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be read by anyone.
+	if(val_is_none) return nullptr;
 	
-	if(then_val && else_val) {
-		llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
+	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
+	
+	for(int idx = 0; idx < values.size(); ++idx)	
+		phi->addIncoming(values[idx], blocks[idx]);
 		
-		phi->addIncoming(then_val, then_block);
-		phi->addIncoming(else_val, else_block);
-		
-		return phi;
-	}
-	return nullptr;
+	return phi;
 }
 
 llvm::Value *
@@ -553,7 +568,7 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Va
 	
 	iter->addIncoming(next_iter, loop_end_block);
 	
-	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
+	return nullptr;//llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
 }
 
 llvm::Function *
@@ -814,8 +829,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		} break;
 
 		case Math_Expr_Type::if_chain : {
-			//warning_print("*** New if chain, size is ", expr->exprs.size(), "\n");
-			return build_if_chain_ir(expr->exprs.data(), expr->exprs.size(), locals, args, data);
+			return build_if_chain_ir(expr->exprs, locals, args, data);
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {

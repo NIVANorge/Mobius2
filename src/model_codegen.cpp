@@ -690,16 +690,16 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 		
 			// Make it so that it skips when the two indexes of the same index set are the same...
 			auto the_scope = new Math_Block_FT();
-			the_scope->value_type = Value_Type::real;
+			the_scope->value_type = Value_Type::none;
 			auto condition = make_binop(Token_Type::neq, copy(indexes[index_set->id.id]), copy(index_expr.mat_col));
 			auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-			if_chain->value_type = Value_Type::real;
+			if_chain->value_type = Value_Type::none;
 			if_chain->exprs.push_back(the_scope);
 			if_chain->exprs.push_back(condition);
 			if_chain->exprs.push_back(make_no_op());
 			
 			auto block = new Math_Block_FT();
-			block->value_type = Value_Type::real;
+			block->value_type = Value_Type::none;
 			loop->exprs.push_back(block);
 			block->exprs.push_back(if_chain);
 			
