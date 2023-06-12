@@ -492,28 +492,27 @@ make_restriction_condition(Model_Application *app, Var_Loc_Restriction restricti
 			new_condition = make_binop('<', copy(index), index_count);
 		}
 	} else if (type == Connection_Type::directed_tree && is_valid(source_compartment)) {
-		// TODO: We could skip this check if we beforehand check if all nodes of this type have a target that is either an indexed component or a 'nowhere', which will be the case in many models..
-		// could be stored in the connection_components data.
 		
-		bool found = false;
-		for(auto &comp : app->connection_components[connection_id.id]) {
-			if(comp.id == source_compartment && (comp.can_be_valid_source || comp.can_be_nowhere_source)) {
-				found = true;
-				break;
+		auto *comp = app->find_connection_component(connection_id, source_compartment);
+		if(comp && comp->total_as_source > 0) {
+			int max_instances = 1;
+			for(auto index_set : comp->index_sets)
+				max_instances *= app->get_max_index_count(index_set).index;
+			if(comp->total_as_source < max_instances) {
+				// If the component some times appears as a source, but not always, we have to check for each instance whether or not to evaluate the flux.
+				
+				// Code for looking up the id of the target compartment of the current source.
+				auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
+				auto compartment_id = new Identifier_FT();
+				compartment_id->variable_type = Variable_Type::connection_info;
+				compartment_id->value_type = Value_Type::integer;
+				compartment_id->exprs.push_back(idx_offset);
+				
+				// I.e. it is -1 (nowhere) or it is a positive id (located).
+				new_condition = make_binop('>', compartment_id, make_literal((s64)-2));
 			}
-		}
-		
-		if(found) {
-			// Code for looking up the id of the target compartment of the current source.
-			auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
-			auto compartment_id = new Identifier_FT();
-			compartment_id->variable_type = Variable_Type::connection_info;
-			compartment_id->value_type = Value_Type::integer;
-			compartment_id->exprs.push_back(idx_offset);
-			
-			// I.e. it is -1 or it is a positive id.
-			new_condition = make_binop('>', compartment_id, make_literal((s64)-2));
 		} else {
+			// If this compartment never appears as a source, we can always turn off evaluating this flux
 			new_condition = make_literal(false);
 		}
 	}
@@ -566,7 +565,7 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	compartment_id->exprs.push_back(idx_offset);
 	
 	// There can be multiple valid target components for the connection, so we have to make code to see if the value should indeed be added to this aggregation variable.
-	// (even if there could only be one valid target compartment, this makes sure that the set target is not 0xffffffff or -1 (i.e. nonexistent or nowhere)).
+	// (even if there could only be one valid target compartment, this makes sure that the set target is not -2 or -1 (i.e. nonexistent or 'nowhere')).
 	Math_Expr_FT *condition = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
 	
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);

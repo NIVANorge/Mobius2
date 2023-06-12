@@ -198,7 +198,7 @@ Model_Application::set_up_connection_structure() {
 			
 			for(auto &comp : connection_components[connection_id.id]) {
 				
-				if(!comp.can_be_valid_source && !comp.can_be_nowhere_source) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
+				if(comp.total_as_source == 0) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
 				
 				// TODO: group handles from multiple source compartments by index tuples.
 				Connection_T handle1 = { connection_id, comp.id, 0 };   // First info id for target compartment (indexed by the source compartment)
@@ -221,7 +221,7 @@ Model_Application::set_up_connection_structure() {
 	data.connections.allocate();
 	
 	for(int idx = 0; idx < connection_structure.total_count; ++idx)
-		data.connections.data[idx] = 0xffffffff;                          // To signify that it doesn't point at anything (yet).
+		data.connections.data[idx] = -2;    // To signify that it doesn't point at anything (yet).
 };
 
 void
@@ -726,9 +726,8 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			// Store useful information that allows us to prune away un-needed operations later.
 			auto source = app->find_connection_component(conn_id, source_comp_id);
 			if(is_valid(target_comp_id))
-				source->can_be_valid_source = true;
-			else
-				source->can_be_nowhere_source = true;
+				source->can_be_located_source = true;
+			source->total_as_source++;
 			
 			if(is_valid(target_comp_id)) {
 				auto target = app->find_connection_component(conn_id, target_comp_id);

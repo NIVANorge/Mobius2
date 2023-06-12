@@ -161,6 +161,8 @@ are_the_same(Math_Expr_FT *a, Math_Expr_FT *b) {
 	if(a->expr_type != b->expr_type) return false;
 	if(a->value_type != b->value_type) return false;
 	if(a->exprs.size() != b->exprs.size()) return false;
+	if(a->expr_type == Math_Expr_Type::no_op) return true;
+	
 	for(int idx = 0; idx < a->exprs.size(); ++idx) {
 		if(!are_the_same(a->exprs[idx], b->exprs[idx])) return false;
 	}
