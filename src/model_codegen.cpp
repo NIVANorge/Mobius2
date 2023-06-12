@@ -655,7 +655,6 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 	return nullptr;
 }
 
-// TODO: This could maybe be a member method of Index_Exprs
 Math_Expr_FT *
 create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::set<Index_Set_Dependency> &index_sets, Index_Exprs &index_expr) {
 	
@@ -685,11 +684,30 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 			auto loop = make_for_loop();
 			auto index_count = get_index_count_code(app, index_set->id, index_expr);
 			loop->exprs.push_back(index_count);
-			scope->exprs.push_back(loop);
 			index_expr.mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
 			index_expr.mat_index_set = index_set->id;
 			
-			scope = loop;
+		
+			// Make it so that it skips when the two indexes of the same index set are the same...
+			auto the_scope = new Math_Block_FT();
+			the_scope->value_type = Value_Type::real;
+			auto condition = make_binop(Token_Type::neq, copy(indexes[index_set->id.id]), copy(index_expr.mat_col));
+			auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+			if_chain->value_type = Value_Type::real;
+			if_chain->exprs.push_back(the_scope);
+			if_chain->exprs.push_back(condition);
+			if_chain->exprs.push_back(make_no_op());
+			
+			auto block = new Math_Block_FT();
+			block->value_type = Value_Type::real;
+			loop->exprs.push_back(block);
+			block->exprs.push_back(if_chain);
+			
+			scope->exprs.push_back(loop);
+			scope = the_scope;
+		
+			//scope = loop;
+			
 		}
 		index_set++;
 	}

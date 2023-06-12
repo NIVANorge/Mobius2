@@ -510,12 +510,15 @@ build_if_chain_ir(Math_Expr_FT **exprs, size_t exprs_size, Scope_Local_Vars<llvm
 	if(exprs[0]->value_type == Value_Type::none)
 		return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be read by anyone.
 	
-	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
-	
-	phi->addIncoming(then_val, then_block);
-	phi->addIncoming(else_val, else_block);
-	
-	return phi;
+	if(then_val && else_val) {
+		llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
+		
+		phi->addIncoming(then_val, then_block);
+		phi->addIncoming(else_val, else_block);
+		
+		return phi;
+	}
+	return nullptr;
 }
 
 llvm::Value *
@@ -843,6 +846,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		} break;
 		
 		case Math_Expr_Type::no_op : {
+			//auto *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::donothing, {});
+			//return data->builder->CreateCall(fun, {}, "no_op");
 			return nullptr;
 		} break;
 	}
