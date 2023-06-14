@@ -878,6 +878,7 @@ compose_and_resolve(Model_Application *app) {
 		Math_Expr_AST *specific_ast = nullptr;
 		bool override_is_conc = false;
 		bool initial_is_conc = false;
+		bool init_is_override = false;
 		
 		//TODO: it would probably be better to default in_loc to be loc1 regardless (except when loc1 is not located).
 		Specific_Var_Location in_loc;
@@ -924,6 +925,7 @@ compose_and_resolve(Model_Application *app) {
 			other_code_scope = code_scope;
 			
 			if(override_ast && !init_ast) {
+				init_is_override = true;
 				init_ast = override_ast;
 				initial_is_conc = override_is_conc;
 			}
@@ -1000,7 +1002,7 @@ compose_and_resolve(Model_Application *app) {
 			res_data.allow_in_flux = false;
 			auto fun = resolve_function_tree(init_ast, &res_data);
 			var2->initial_function_tree = owns_code(make_cast(fun.fun, Value_Type::real));
-			remove_lasts(var2->initial_function_tree.get(), true);
+			remove_lasts(var2->initial_function_tree.get(), !init_is_override); // Only make an error for occurrences of 'last' if the block came from an @initial not an @override
 			find_identifier_flags(var2->initial_function_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment);
 			var2->initial_is_conc = initial_is_conc;
 			
