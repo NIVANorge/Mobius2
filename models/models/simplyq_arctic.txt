@@ -272,7 +272,8 @@ model("SimplyArctic") {
 		
 		flux(glacier.water, soil.water, [m m, day-1], "Glacier percolation") {
 			perc_frac*flow                            if ice > ice_epsilon,
-			in_flux(water)+in_flux(downhill, water)   otherwise             # TODO in_flux(downhill.water) gives internal error (Should just be syntax error)
+			
+			in_flux(water) otherwise # +in_flux(downhill, water)   otherwise             # TODO in_flux(downhill.water) gives internal error (Should just be syntax error) Also, this should have been an error since we are not on this connection anymore
 		}
 	}
 	
