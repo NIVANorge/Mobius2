@@ -645,7 +645,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 				auto ident2 = static_cast<Identifier_FT *>(new_fun->exprs[0]);
 				if(ident2->variable_type != Variable_Type::connection) error = true;
 				else {
-					ident->restriction.connection_id = ident2->restriction.connection_id;   //TODO: Ooops, could this clash if there is in_flux(conn, bla[conn2.top])  . This should just not compile though. See also find_other_flags() in model_composition.cpp
+					ident->other_connection = ident2->other_connection; 
 					delete ident2;
 				}
 			}
@@ -654,13 +654,6 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 				error_print("Expected a connection identifer.\n");
 				fatal_error_trace(scope);
 			}
-		} else if (directive != Directive::in_flux) {
-			if(!is_valid(data->connection)) {
-				new_fun->source_loc.print_error_header();
-				error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the '", fun_name, "' expression.");
-				fatal_error_trace(scope);
-			}
-			ident->restriction.connection_id = data->connection;
 		}
 	}
 	
@@ -858,7 +851,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 			} else if (id.reg_type == Reg_Type::connection) {
 				new_ident->variable_type = Variable_Type::connection;
 				new_ident->value_type = Value_Type::none;
-				new_ident->restriction.connection_id = id;   // Note: this is in a way a re-purposing of the 'restriction' that is not entirely clean?
+				new_ident->other_connection = id;
 			} else if (id.reg_type == Reg_Type::loc) {
 				// TODO: Will this break if the loc is a connection without a specific location? (In that case it should not be valid to reference it here).
 				auto loc = model->locs[id];
@@ -949,7 +942,12 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 					auto reg = decl_scope[str];
 					if(!reg) {
 						ident->chain[idx].print_error_header();
-						error_print("The name \"", str, "\" is not the name of an entity declared in this scope.");
+						error_print("The handle '", str, "' is not declared or loaded in this scope.");
+						fatal_error_trace(scope);
+					}
+					if(reg->id.reg_type != Reg_Type::component) {
+						ident->chain[idx].print_error_header();
+						error_print("The handle '", str, "' does not refer to a variable location component (compartment, quantity or property)");
 						fatal_error_trace(scope);
 					}
 					chain.push_back(reg->id);

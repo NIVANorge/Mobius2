@@ -189,7 +189,7 @@ find_identifier_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregat
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->flags & Identifier_FT::Flags::in_flux)
-			in_fluxes[{ident->var_id, ident->restriction.connection_id}].push_back(looked_up_by);
+			in_fluxes[{ident->var_id, ident->other_connection}].push_back(looked_up_by);
 		
 		if(ident->flags & Identifier_FT::Flags::aggregate) {
 			if(!is_valid(lookup_compartment)) {
@@ -205,26 +205,34 @@ find_identifier_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregat
 	}
 }
 
+
 Math_Expr_FT *
-replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier_FT::Flags flag) {
+replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier_FT::Flags flag, Entity_Id connection_id = invalid_entity_id) {
 	
 	for(int idx = 0; idx < expr->exprs.size(); ++idx)
-		expr->exprs[idx] = replace_flagged(expr->exprs[idx], replace_this, with, flag);
+		expr->exprs[idx] = replace_flagged(expr->exprs[idx], replace_this, with, flag, connection_id);
 	
-	if(expr->expr_type == Math_Expr_Type::identifier) {
-		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var && ident->var_id == replace_this && (ident->flags & flag)) {
-			if(is_valid(with)) {
-				ident->var_id = with;
-				ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
-				//if(flag == Identifier_FT::Flags::in_flux)                 // TODO: This is hacky. See also note about this elsewhere. This connection_id should not be stored on the restriction.
-					//ident->restriction.connection_id = invalid_entity_id;
-			} else {
-				delete expr;
-				return make_literal(0.0);
-			}
+	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
+	
+	auto ident = static_cast<Identifier_FT *>(expr);
+	
+	if(ident->variable_type == Variable_Type::state_var 
+		&& (ident->var_id == replace_this)
+		&& (ident->flags & flag)
+		&& ((ident->other_connection == connection_id) || (!is_valid(ident->other_connection) && !is_valid(connection_id)))
+		) {
+		
+		if(is_valid(with)) {
+			ident->var_id = with;
+			ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
+			ident->other_connection = invalid_entity_id;
+			//return ident;
+		} else {
+			delete expr;
+			return make_literal((double)0.0);
 		}
 	}
+
 	return expr;
 }
 
@@ -297,7 +305,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		
 		if(!parameter_indexes_below_location(app->model, dep.par_id, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, "This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
+			fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
 		}
 	}
 	for(auto &dep : code_depends.on_series) {
@@ -305,7 +313,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		
 		if(!location_indexes_below_location(app->model, app->vars[dep.var_id]->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, "This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
+			fatal_error("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
 		}
 	}
 	
@@ -1278,11 +1286,14 @@ compose_and_resolve(Model_Application *app) {
 					in_flux_id = conn_agg_id;
 			}
 		}
-		// NOTE: if there was no connection aggregate it means that there was no flux going there. This is not an error in the use of in_flux because the current module could not always know about it. In that case, replace_flagged will still correctly put a literal 0 there instead.
 		
+		// NOTE: If in_flux_id is invalid at this point (since the referenced connection aggregate did not exist), replace_flagged will put a 0.0 in place of this value.
+		//   TODO: Maybe print a warning?
+		
+		// TODO: What happens if we use in_flux in initial code or override code??
 		for(auto rep_id : in_flux.second) {
 			auto var = as<State_Var::Type::declared>(app->vars[rep_id]);
-			replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux);
+			replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
 		}
 	}
 	

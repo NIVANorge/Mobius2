@@ -45,16 +45,19 @@ Identifier_Data {
 		conc        = 0x8,
 	}                            flags;
 	Var_Loc_Restriction          restriction;
+	Entity_Id                    other_connection;
 	union {
 		Entity_Id                par_id;
 		Var_Id                   var_id;
 	};
 	
-	Identifier_Data() : flags(Flags::none) { };
+	Identifier_Data() : flags(Flags::none), other_connection(invalid_entity_id) { };
 };
 
 inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 	// NOTE: The current use case for this is such that they have the same variable type
+	// NOTE: We should not have to care about other_connection here, since it is just a
+	// placeholder used until the identifier is fully resolved.
 	if(a.variable_type == Variable_Type::parameter) {
 		if(a.par_id == b.par_id) return a.flags < b.flags;
 		return a.par_id.id < b.par_id.id;
