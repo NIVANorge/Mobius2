@@ -139,7 +139,7 @@ module("ArcticSnow", 0, 0, 1) {
 		[ 0 ]
 
 		par_real("Snow fall correction factor")
-		[ 0.7 ]
+		[ 1 ]
 	}
 
 	par_group("Snow facing") [ "Facing" ] {
@@ -152,6 +152,10 @@ module("SimplyPermafrost", 0, 0, 1) {
 	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
 		par_real("Soil water time constant") [
 			2 2 2 2 
+		]
+
+		par_real("Field capacity") [
+			120 120 120 120 
 		]
 	}
 

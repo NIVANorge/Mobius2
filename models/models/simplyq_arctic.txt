@@ -138,8 +138,8 @@ model("SimplyArctic") {
 		
 		var(soil.water, [m m], "Soil water volume")  @initial { th }
 		var(deepgw.water,   [m m], "Groundwater volume") @initial {
-			#tc_g * river.water.flow / a_catch -> [m m]
-			0[m m]     #TODO: make it actually "see" a_catch
+			tc_g * river.water.flow / a_catch -> [m m]
+			#0[m m]     #TODO: make it actually "see" a_catch
 		}
 		
 		
@@ -151,7 +151,7 @@ model("SimplyArctic") {
 		
 		flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
 			drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
-			flow   := in_flux(water),
+			flow   := in_flux(water) + in_flux(downhill, water),
 			flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
 		}
 		

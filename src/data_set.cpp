@@ -240,7 +240,7 @@ write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int lev
 		for(int idx = 0; idx < count; ++idx) {
 			write_parameter_recursive(file, data_set, par, level+1, idx, offset, index_sets, tabs);
 			fprintf(file, "\n");
-			if(level < (int)index_sets.size() - 2)
+			if(level < (int)index_sets.size() - 2 && idx != count-1)
 				fprintf(file, "\n");
 		}
 	}

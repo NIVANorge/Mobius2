@@ -54,11 +54,12 @@ Decl_Scope::deserialize(const std::string &serial_name, Reg_Type expected_type) 
 }
 
 void
-Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc) {
+Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc, bool allow_recursive_import_params) {
 	for(const auto &ent : other.visible_entities) {
 		const auto &handle = ent.first;
 		const auto &entity = ent.second;
-		if(!entity.external) { // NOTE: no chain importing
+		// NOTE: In a model, the parameters are in the scope of parameter groups, and would not otherwise be imported into inlined modules. This fix is a bit unelegant though.
+		if(!entity.external || (allow_recursive_import_params && entity.id.reg_type == Reg_Type::parameter)) { // NOTE: no recursive importing
 			auto find = visible_entities.find(handle);
 			if(find != visible_entities.end()) {
 				if(import_loc)
@@ -740,7 +741,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 		}
 	}
 	
-	// All the parameters are visible in the module scope.
+	// All the parameters are visible in the module or model scope.
 	scope->import(par_group->scope, &decl->source_loc);
 	
 	//TODO: process doc string(s) in the par group?
@@ -1246,7 +1247,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	module->scope.import(model->global_scope);
 	
 	if(import_scope)
-		module->scope.import(*model_scope, &load_loc);
+		module->scope.import(*model_scope, &load_loc, true);  // The 'true' is to signify that we also import parameters (that would otherwise be a double import since they come from a par_group scope)
 	
 	if(import_scope && decl->args.size() > 2) {
 		decl->source_loc.print_error_header();
@@ -1700,6 +1701,8 @@ load_model(String_View file_name, String_View config) {
 				process_declaration<Reg_Type::loc>(model, scope, child);
 			else if(child->type == Decl_Type::solver)
 				process_declaration<Reg_Type::solver>(model, scope, child);
+			else if(child->type == Decl_Type::constant)
+				process_declaration<Reg_Type::constant>(model, scope, child);
 		}
 	}
 	
@@ -1791,6 +1794,7 @@ load_model(String_View file_name, String_View config) {
 				} break;
 				
 				case Decl_Type::par_group :
+				case Decl_Type::constant :
 				case Decl_Type::index_set :
 				case Decl_Type::solver :
 				case Decl_Type::compartment :

@@ -44,7 +44,7 @@ Decl_Scope {
 	
 	void add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
 	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
-	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr);
+	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr, bool allow_recursive_import_params = false);
 	void check_for_missing_decls(Mobius_Model *model);
 	//Entity_Id expect_exists(Token *handle_name, Reg_Type reg_type);
 	
