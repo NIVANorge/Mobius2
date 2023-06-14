@@ -1432,12 +1432,7 @@ copy(Math_Expr_FT *source) {
 	
 	return result;
 }
-/*
-std::unique_ptr<Math_Expr_FT>
-copy(std::unique_ptr<Math_Expr_FT> &source) {
-	return std::move(std::unique_ptr<Math_Expr_FT>(copy(source.get())));
-}
-*/
+
 
 void
 print_tabs(int ntabs, std::ostream &os) { for(int i = 0; i < ntabs; ++i) os << '\t'; }
@@ -1453,9 +1448,24 @@ precedence(Math_Expr_FT *expr) {
 	return 1000'000;
 }
 
-void
-print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<std::string> *scope, std::ostream &os, int block_tabs) {
+struct
+Print_Tree_Context {
+	Model_Application *app;
+	std::ostream *os;
+	//int iter_name_gen = 0;
+};
 
+struct
+Print_Scope : Scope_Local_Vars<std::string> {
+	int iter_name_gen = 0;
+};
+
+void
+print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *scope, int block_tabs) {
+
+	std::ostream &os = *context->os;
+	auto app = context->app;
+	
 	auto model = app->model;
 	
 	bool always_bracket = false;
@@ -1472,20 +1482,23 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);
-			Scope_Local_Vars<std::string> new_scope;
+			Print_Scope new_scope;
 			new_scope.scope_id = block->unique_block_id;
 			new_scope.scope_up = scope;
-			//new_scope.local_vars.resize(block->n_locals);
+			int iter_id = -1;
+			if(scope) iter_id = scope->iter_name_gen;
+			new_scope.iter_name_gen = iter_id+1;
+			
 			if(block->is_for_loop) {
 				std::stringstream ss;
-				ss << "iter_" << block->unique_block_id;
+				ss << "iter_" << iter_id;
 				std::string iter_name = ss.str();
 				new_scope.values[0] = iter_name;
 				os << "for " << iter_name << " : 0..";
-				print_tree_helper(app, block->exprs[0], &new_scope, os, block_tabs);
+				print_tree_helper(block->exprs[0], context, &new_scope, block_tabs);
 				os << "\n";
 				print_tabs(block_tabs+1, os);
-				print_tree_helper(app, block->exprs[1], &new_scope, os, block_tabs+1);
+				print_tree_helper(block->exprs[1], context, &new_scope, block_tabs+1);
 			} else {
 				os << "{\n";
 				int idx = 0;
@@ -1495,7 +1508,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 						new_scope.values[local->id] = local->name;
 					}
 					print_tabs(block_tabs+1, os);
-					print_tree_helper(app, exp, &new_scope, os, block_tabs+1);
+					print_tree_helper(exp, context, &new_scope, block_tabs+1);
 					os << "\n";
 				}
 				print_tabs(block_tabs, os);
@@ -1520,7 +1533,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 				os << name(ident->variable_type);
 			if(!expr->exprs.empty()) {
 				os << '[';
-				print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
+				print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 				os << ']';
 			}
 			if(close) os << ')';
@@ -1539,7 +1552,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 			os << fun->fun_name << '(';
 			int idx = 0;
 			for(auto exp : fun->exprs) {
-				print_tree_helper(app, exp, scope, os, block_tabs);
+				print_tree_helper(exp, context, scope, block_tabs);
 				if(idx++ != fun->exprs.size()-1) os << ", ";
 			}
 			os << ')';
@@ -1551,7 +1564,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 			auto unary = static_cast<Operator_FT *>(expr);
 			os << name(unary->oper);
 			if(prec0 < prec || always_bracket) os << '(';
-			print_tree_helper(app, unary->exprs[0], scope, os, block_tabs);
+			print_tree_helper(unary->exprs[0], context, scope, block_tabs);
 			if(prec0 < prec || always_bracket) os << ')';
 		} break;
 		
@@ -1561,11 +1574,11 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 			int prec0 = precedence(expr->exprs[0]);
 			int prec1 = precedence(expr->exprs[1]);
 			if(prec0 < prec || always_bracket) os << '(';
-			print_tree_helper(app, binop->exprs[0], scope, os, block_tabs);
+			print_tree_helper(binop->exprs[0], context, scope, block_tabs);
 			if(prec0 < prec || always_bracket) os << ')';
 			os << ' ' << name(binop->oper) << ' ';
 			if(prec1 < prec || always_bracket) os << '(';
-			print_tree_helper(app, binop->exprs[1], scope, os, block_tabs);
+			print_tree_helper(binop->exprs[1], context, scope, block_tabs);
 			if(prec1 < prec || always_bracket) os << ')';
 		} break;
 		
@@ -1573,13 +1586,13 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 			os << "{\n";
 			print_tabs(block_tabs+1, os);
 			for(int idx = 0; idx < expr->exprs.size() / 2; ++idx) {
-				print_tree_helper(app, expr->exprs[2*idx], scope, os, block_tabs+1);
+				print_tree_helper(expr->exprs[2*idx], context, scope, block_tabs+1);
 				os << " if ";
-				print_tree_helper(app, expr->exprs[2*idx+1], scope, os, block_tabs+1);
+				print_tree_helper(expr->exprs[2*idx+1], context, scope, block_tabs+1);
 				os << ",\n";
 				print_tabs(block_tabs+1, os);
 			}
-			print_tree_helper(app, expr->exprs[expr->exprs.size()-1], scope, os, block_tabs+1);
+			print_tree_helper(expr->exprs[expr->exprs.size()-1], context, scope, block_tabs+1);
 			os << " otherwise\n";
 			print_tabs(block_tabs, os);
 			os << '}';
@@ -1587,7 +1600,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 		
 		case Math_Expr_Type::cast : {
 			os << "cast(" << name(expr->value_type) << ", ";
-			print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
+			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 			os << ')';
 		} break;
 		
@@ -1595,21 +1608,21 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 			auto local = static_cast<Local_Var_FT *>(expr);
 			if(!local->is_used) os << "(unused)";  // NOTE: if the tree has been pruned before printing, it is probably removed.
 			os << local->name << " := ";
-			print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
+			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {
 			os << "state_var[";    // TODO: name it --- actually tricky, because we don't have the symbol.
-			print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
+			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 			os << "] <- ";
-			print_tree_helper(app, expr->exprs[1], scope, os, block_tabs);
+			print_tree_helper(expr->exprs[1], context, scope, block_tabs);
 		} break;
 		
 		case Math_Expr_Type::derivative_assignment : {
 			os << "ddt_state_var[";    // TODO: name it --- see above.
-			print_tree_helper(app, expr->exprs[0], scope, os, block_tabs);
+			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 			os << "] <- ";
-			print_tree_helper(app, expr->exprs[1], scope, os, block_tabs);
+			print_tree_helper(expr->exprs[1], context, scope, block_tabs);
 		} break;
 		
 		case Math_Expr_Type::special_computation : {
@@ -1618,7 +1631,7 @@ print_tree_helper(Model_Application *app, Math_Expr_FT *expr, Scope_Local_Vars<s
 			//int n_args = special->arguments.size() + 1;
 			int idx = 0;
 			for(auto arg : special->exprs) {
-				print_tree_helper(app, arg, scope, os, block_tabs);
+				print_tree_helper(arg, context, scope, block_tabs);
 				if (idx++ != special->exprs.size()-1) os << ", ";
 			}
 			os << ")";
@@ -1641,6 +1654,9 @@ print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os) {//, co
 	//    that could then be compiled to a .dll or .so on a target machine like a web server if we don't want to set up llvm there.
 	
 	//os << "void " << function_name << "(Parameter_Value *parameter, double *series, double *state_var, double *solver_workspace, Expanded_Date_Time *time)\n";
+	Print_Tree_Context context;
+	context.app = app;
+	context.os = &os;
 	
-	print_tree_helper(app, expr, nullptr, os, 0);
+	print_tree_helper(expr, &context, nullptr, 0);
 }

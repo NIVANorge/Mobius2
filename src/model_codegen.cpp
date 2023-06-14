@@ -493,7 +493,7 @@ make_restriction_condition(Model_Application *app, Var_Loc_Restriction restricti
 		}
 	} else if (type == Connection_Type::directed_tree && is_valid(source_compartment)) {
 		
-		auto *comp = app->find_connection_component(connection_id, source_compartment);
+		auto *comp = app->find_connection_component(connection_id, source_compartment, false);
 		if(comp && comp->total_as_source > 0) {
 			int max_instances = 1;
 			for(auto index_set : comp->index_sets)

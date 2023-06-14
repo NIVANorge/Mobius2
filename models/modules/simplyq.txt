@@ -37,7 +37,7 @@ New to version 0.5 :
 	
 	var(soil.water, [m m], "Soil water volume")  @initial { fc }
 	var(gw.water,   [m m], "Groundwater volume") @initial {
-		tc_g * river.water.flow / a_catch -> [m m]
+		tc_g * river.water.flow / a_catch -> [m m]					# TODO: Should it know to use a unit_conversion in reverse here?
 	}
 	
 	quick_flow :

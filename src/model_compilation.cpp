@@ -767,8 +767,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
 					if(conn_type == Connection_Type::directed_tree) {
 						Entity_Id source_comp_id = var_flux->loc1.components[0];
-						auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
-						if(!find_source->can_be_located_source) continue;
+						auto *find_source = app->find_connection_component(var2->connection, source_comp_id, false);
+						if(!find_source || !find_source->can_be_located_source) continue;
 					}
 				}
 				

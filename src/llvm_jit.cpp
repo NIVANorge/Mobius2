@@ -483,7 +483,7 @@ build_if_chain_ir(std::vector<Math_Expr_FT *> &exprs, Scope_Local_Vars<llvm::Val
 	std::vector<llvm::Value *> values;
 	
 	for(int if_case = 0; if_case < exprs.size() / 2 + 1; ++if_case) {
-		bool last = if_case != exprs.size() / 2;
+		bool last = (if_case == exprs.size() / 2);
 		if(!last) {
 			auto block0 = llvm::BasicBlock::Create(*data->context, "elseif");
 			cond_blocks.push_back(block0);
@@ -504,7 +504,7 @@ build_if_chain_ir(std::vector<Math_Expr_FT *> &exprs, Scope_Local_Vars<llvm::Val
 		
 			auto condition = exprs[2*if_case + 1];
 			auto cond = build_expression_ir(condition, locals, args, data);
-			// If we are at the last condition, the alt. block is the 'else' block, otherwise jump to a elseif check.
+			// If we are at the last condition, the alt. block is the 'else' block, otherwise jump to next elseif check.
 			auto else_block = if_case+1 == exprs.size() / 2 ? blocks[if_case+1] : cond_blocks[if_case+1];
 			data->builder->CreateCondBr(cond, blocks[if_case], else_block);
 		}
@@ -528,7 +528,7 @@ build_if_chain_ir(std::vector<Math_Expr_FT *> &exprs, Scope_Local_Vars<llvm::Val
 	
 	if(val_is_none) return nullptr;
 	
-	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), 2, "iftemp");
+	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), values.size(), "iftemp");
 	
 	for(int idx = 0; idx < values.size(); ++idx)	
 		phi->addIncoming(values[idx], blocks[idx]);

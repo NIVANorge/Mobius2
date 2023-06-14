@@ -22,7 +22,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 		t_snow    : par_real("Temperature at which precip falls as snow", [deg_c], 0, -4, 4)
 		t_melt    : par_real("Temperature at which snow melts", [deg_c], 0, -4, 4)
 		refr_eff  : par_real("Refreeze efficiency", [], 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
-		snow_liq  : par_real("Liquid water fraction", [], 0.5, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before the water is released")
+		snow_liq  : par_real("Liquid water fraction", [], 0.1, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before the water is released")
 		init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
 	}
 	
