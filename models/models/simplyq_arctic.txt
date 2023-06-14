@@ -26,13 +26,11 @@ model("SimplyArctic") {
 	
 	#TODO: Air temperature should be variable based on elevation zone, and just have a single input series that is adjusted.
 	
-	load("modules/simplyq.txt",
-		#module("SimplyQ land", soil, deepgw, river, water, flow, pet, a_catch, loc(downhill), loc(river.water) ),            #Should get error if we put loc(downhill) for the second one, but we don't.
-		module("SimplyQ river", river, water, flow, loc(downstream)))
+	load("modules/simplyq.txt",	module("SimplyQ river", river, water, flow, loc(downstream)))
 	
 	
-	sc    : index_set("Subcatchment")
-	patch : index_set("Patch")
+	sc     : index_set("Subcatchment")
+	patch  : index_set("Patch")
 	facing : index_set("Facing")
 	
 	
@@ -41,8 +39,7 @@ model("SimplyArctic") {
 	distribute(soil,     sc, patch)
 	distribute(deepgw,   sc)
 	distribute(river,    sc)
-	
-	distribute(air, sc, patch)
+	distribute(air,      sc, patch)
 	
 
 	par_group("Catchment data", river) {
@@ -61,7 +58,6 @@ model("SimplyArctic") {
 	unit_conversion(soil.water, river.water)  { a_catch }
 	unit_conversion(deepgw.water, river.water) { a_catch }
 	
-	#aggregation_weight(glacier, glacier) { rel_area / rel_area[below] }
 	aggregation_weight(snow_box, glacier) { rel_facing }
 	aggregation_weight(soil, soil)     { rel_area / rel_area[below] }
 	aggregation_weight(glacier, river) { rel_area }
@@ -192,11 +188,9 @@ model("SimplyArctic") {
 		par_group("Snow facing", snow_box) {
 			facing_melt_factor : par_real("Facing melt factor", [], 1, 0.1, 1)
 		}
-		
-		# Note: We don't give a function body to compute temp and precip, and so if they are not re-declared with a formula in another module, they are assumed to be input series.
-		
+	
 		var(snow_box.snow.temp, [deg_c], "Snow temperature") {
-			air.temp   #TODO!
+			last(temp) + (air.temp - last(temp))*0.4   #TODO!
 		}
 		
 		var(snow_box.ddf, [m m, deg_c-1, day-1], "Snow melt degree-day factor") {
@@ -228,13 +222,6 @@ model("SimplyArctic") {
 	}
 	
 	module("SimplyGlacier", version(0, 0, 1)) {
-	
-		#temp0 : property("Air temperature")
-		#var(air.temp0, [deg_c])
-		# OOps, very hacky!
-		#var(air.temp, [deg_c], "Adjusted air temperature") {
-		#	air.temp0 - 10[deg_c]
-		#}
 		
 		ice_epsilon : constant("Ice epsilon", [m m], 1e-6)
 		
@@ -258,7 +245,6 @@ model("SimplyArctic") {
 		var(glacier.ice.temp, [deg_c], "Ice temperature") {
 			air.temp  # TODO
 		}
-		
 		
 		
 		flux(snow_box.snow, glacier.ice, [m m, day-1], "Glacier accumulation") {
