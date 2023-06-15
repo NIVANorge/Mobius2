@@ -7,9 +7,17 @@ model("Another simple") {
 	q : quantity("Q")
 	r : quantity("R")
 	
+	c : compartment("C")
+	distribute(c, j)
+	j : index_set("J")
+	par_group("Ploff", c) {
+		k : par_real("K", [], 0)
+	}
+	
 	i : index_set("I")
 	distribute(b, i)
 	d : connection("Grid", grid1d) { b* }
+	
 	
 	
 	sol : solver("Solver", "INCADascru", 0.1)
