@@ -11,7 +11,7 @@ index_set("Facing") [ 4 ]
 connection("Downhill") [
 	s : compartment("Soil") [ "Patch" ]
 	r : compartment("River") [ ]
-
+	
 	s[ "Hillslope facing glacier" ] -> s[ "Glacier" ] -> r[ ]
 	s[ "Hillslope facing valley" ] -> s[ "Valley" ] -> r[ ]
 ]

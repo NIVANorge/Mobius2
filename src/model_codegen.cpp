@@ -358,6 +358,10 @@ set_tree_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id 
 		auto index_set = find_target->index_sets[idx];
 		// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
 		auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, id}, indexes);
+		//} catch (...) {
+		//	fatal_error(Mobius_Error::internal, "Unable to find connection data for ", app->model->connections[connection_id]->name, 
+		//		" ", app->model->components[source_compartment]->name, " ", app->model->components[target_compartment]->name, " ", app->model->index_sets[index_set]->name);
+		//}
 		auto target_index = new Identifier_FT();
 		target_index->variable_type = Variable_Type::connection_info;
 		target_index->value_type = Value_Type::integer;
