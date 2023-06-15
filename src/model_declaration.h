@@ -413,8 +413,16 @@ Mobius_Model {
 	by_scope(Entity_Id scope_id) { return By_Scope<reg_type>(get_scope(scope_id)); }
 };
 
+struct
+Mobius_Config {
+	std::string mobius_base_path;
+};
+
+Mobius_Config
+load_config(String_View config = "config.txt");
+
 Mobius_Model *
-load_model(String_View file_name, String_View config = "config.txt");
+load_model(String_View file_name, Mobius_Config *config = nullptr);
 
 template<Reg_Type reg_type> Entity_Registration<reg_type> *
 Registry<reg_type>::operator[](Entity_Id id) {

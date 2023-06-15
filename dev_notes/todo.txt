@@ -15,7 +15,10 @@
 
 		Dissolved fluxes -
 			make dissolvedes of negatives work for other types (all_to_all, graph (maybe) regular fluxes (maybe), but probably not directed tree).
-			
+		
+		graph and directed_tree
+			Must specify nowhere in the regex for it to be an allowed target
+		
 		graph connections
 			Make them
 				How to organize them? Need to think especially about how one can associate things to the nodes of the connection. Difficult wrt layers in NIVAFjord.
@@ -42,7 +45,7 @@
 			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
 				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
 				
-	Consider renaming 'nowhere' to 'out'
+	Consider renaming 'nowhere' to 'out' (both connection data and regular fluxes)
 	
 	*** Intermediate-pri ***
 	

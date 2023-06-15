@@ -1565,11 +1565,14 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 	return true;
 }
 
-void
-load_config(Mobius_Model *model, String_View config) {
-	auto file_data = model->file_handler.load_file(config);
-	//warning_print("Loaded config\n");
-	Token_Stream stream(config, file_data);
+Mobius_Config
+load_config(String_View file_name) {
+	Mobius_Config config;
+	
+	File_Data_Handler files;
+	
+	auto file_data = files.load_file(file_name);
+	Token_Stream stream(file_name, file_data);
 	while(true) {
 		Token token = stream.peek_token();
 		if(token.type == Token_Type::eof) break;
@@ -1581,12 +1584,11 @@ load_config(Mobius_Model *model, String_View config) {
 		match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, false);
 		auto item = single_arg(decl, 0)->string_value;
 		if(item == "Mobius2 base path") {
-			model->mobius_base_path = single_arg(decl, 1)->string_value;
-			//warning_print("Loaded base path ", model->mobius_base_path, "\n");
+			config.mobius_base_path = single_arg(decl, 1)->string_value;
 			struct stat info;
-			if(stat(model->mobius_base_path.data(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
+			if(stat(config.mobius_base_path.data(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
 				single_arg(decl, 0)->print_error_header();
-				fatal_error("The path \"", model->mobius_base_path, "\" is not a valid directory path.");
+				fatal_error("The path \"", config.mobius_base_path, "\" is not a valid directory path.");
 			}
 		} else {
 			decl->source_loc.print_error_header();
@@ -1594,8 +1596,10 @@ load_config(Mobius_Model *model, String_View config) {
 		}
 		delete decl;
 	}
-	model->file_handler.unload(config);
+	
+	return std::move(config);
 }
+
 
 void
 process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, std::vector<Entity_Id> &load_args, int first_idx) {
@@ -1628,13 +1632,23 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 	}
 }
 
+void
+apply_config(Mobius_Model *model, Mobius_Config *config) {
+	// TODO: Maybe check validity of the path here instead of in load_config (Need to save the source_loc in that case).
+	model->mobius_base_path = config->mobius_base_path;
+}
 
 Mobius_Model *
-load_model(String_View file_name, String_View config) {
+load_model(String_View file_name, Mobius_Config *config) {
 	
 	Mobius_Model *model = new Mobius_Model();
 	
-	load_config(model, config);
+	if(config)
+		apply_config(model, config);
+	else {
+		Mobius_Config new_config = load_config();
+		apply_config(model, &new_config);
+	}
 	
 	auto decl = read_model_ast_from_file(&model->file_handler, file_name);
 	model->main_decl  = decl;

@@ -2,13 +2,64 @@
 
 
 
+	# Maybe allow arguments on notes, and/or notes without bodies
+	
+	# For instance, no_carry is always a list, and it could be empty (allows removing 'any')
+	@no_carry(heat)
+
+	# Also things like @subset . And this is an easy way to put flags on declarations.
+		# Should make declaration matching a bit easier.
+
+
+
+	# Graph connections
+	
+		s : index_set("Fjord section") {
+			l : index_set("Levels")
+			e : index_set("Edges") {
+				el : index_set("Edge levels") @subset(l)    # Hmm, requires sub-subindexing ...  I guess we just have to make that work.
+			}
+		}
+		# Can have automatic checking that el is a subset of l.
+		# This only works for indexing outgoing edges..
+		
+		distribute(oair, s)
+		distribute(layer, s, l)
+		distribute(edge, e)
+		
+		
+		# TODO: Could maybe specify that we always have bidirectional graph here..
+			# Or maybe not. Easier just to process a single direction at a time, and allow two-way flux for it.
+			
+		c    : connection("Fjord connections", graph) { oair[e]* }    # e is the index set of edges 
+		vert : connection("Fjord vertical", grid1d) { layer* }
+		
+		
+		var(edge.horz_target) {
+			
+		}
+		
+		
+		# How do we specify that this flux only happens over the vertical indexes ( l ) that match the edge vertical indexes ( el ) ?
+		# And that it matches these up when computing horz_target
+			# Ok since we declared @subset above, but maybe make this also arguments to @specific somehow?
+		
+		flux(layer.water, layer.water[c.below, vert.specific]) {
+			#something
+		} @specific { horz_target }
+
+		# (This also requires multiple arguments to the bracket)
+
+
+
+
+
+
 	#Getting even earlier step valies?
 	last(water)
 	last(water, 1)
 	earlier(water, 2)
 	earlier(water) # Replace 'last' with 'earlier'?
-	
-	
 
 
 	# We could maybe signal in the flux declaration if it is allowed to be bidirectional. Then give an error for that for fluxes that can't be bidirectional.
