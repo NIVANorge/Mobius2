@@ -24,7 +24,7 @@ Body_Type {
 
 struct
 Body_AST : Expr_AST {
-	Token           note;
+	//Token           note;
 	Body_Type       type;
 	Source_Location opens_at;
 	
@@ -43,18 +43,41 @@ Argument_AST : Expr_AST {
 	~Argument_AST();
 };
 
+#if 1
+struct
+Decl_Base_AST : Expr_AST {
+	Token                        decl;
+	std::vector<Argument_AST *>  args;
+	Body_AST                    *body = nullptr;
+	virtual ~Decl_Base_AST() { for(auto arg : args) delete arg; delete body; }
+};
+
+struct
+Decl_AST : Decl_Base_AST {
+	Token                        handle_name;
+	Source_Location              source_loc;    // Will be the same as decl.source_loc . Should we delete it? It is a handy short-hand in usage code though.
+	Decl_Type                    type;
+	std::vector<Decl_Base_AST *> notes;
+	
+	//std::vector<Token>           data;  //TODO: Do something like this for Data_Set so that we can simplify parsing it.
+	
+	virtual ~Decl_AST() { for(auto note : notes) delete note; }
+};
+#else
+
 struct
 Decl_AST : Expr_AST {
 	Token                        handle_name;
 	Source_Location              source_loc;
 	Decl_Type                    type;
 	
-	//std::vector<Token>           decl_chain;
 	std::vector<Argument_AST *>  args;
 	std::vector<Body_AST *>      bodies;
 	
 	~Decl_AST() { for(auto arg : args) delete arg; for(auto body : bodies) delete body; }
 };
+
+#endif
 
 struct
 Decl_Body_AST : Body_AST {
@@ -191,7 +214,7 @@ Regex_Identifier_AST : Math_Expr_AST {
 
 
 Decl_AST *
-parse_decl_header(Token_Stream *stream, Body_Type *body_type_out = nullptr);
+parse_decl_header(Token_Stream *stream);
 
 Decl_AST *
 parse_decl(Token_Stream *stream);
@@ -206,10 +229,10 @@ Math_Expr_AST *
 parse_primary_expr(Token_Stream *stream);
 
 Math_Block_AST *
-parse_math_block(Token_Stream *stream, Source_Location opens_at);
+parse_math_block(Token_Stream *stream);
 
 Math_Expr_AST *
-parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer);
+parse_regex_list(Token_Stream *stream, bool outer);
 
 
 inline Token *
@@ -252,9 +275,15 @@ struct Arg_Pattern {
 	}
 };
 
+
+int
+match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body);
+
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = true, bool allow_body = true, bool allow_notes = false);
+	bool allow_handle = true, int allow_body = true, bool allow_notes = false);
+	
+// TODO: Allow a version of match_declaration that operates on notes.
 
 int
 operator_precedence(Token_Type t);

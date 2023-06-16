@@ -4,7 +4,6 @@
 #if OLE_AVAILABLE
 
 #include "data_set.h"
-//#include "unit.h" // This is for Unit:: only. We could maybe move that to units.h untangle some stuff.
 
 #include <limits>
 
@@ -150,7 +149,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				VARIANT flags_var = ole_get_matrix_value(&matrix, potential_flag_row, col+2, handles);
 				ole_get_string(&flags_var, buf, buf_size);
 				
-				//warning_print("Flag string \"", buf, "\" tab ", tab, "\n");
+				//log_print("Flag string \"", buf, "\" tab ", tab, "\n");
 				if(strlen(buf) > 0) {
 					// TODO: make it possible to turn off errors in the stream and instead have it return an invalid token, so that it doesn't quit the program on us.
 					// TODO: or make it possible to have it have a custom source location for its error printing (since we support spreadsheet location types now)
@@ -167,7 +166,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 								fatal_error("Unrecognized input flag \"", token.string_value, "\".");
 							}
 						} else if ((char)token.type == '[') {
-							Decl_AST *unit_decl = parse_decl_header(&stream, nullptr);
+							Decl_AST *unit_decl = parse_decl_header(&stream);
 							header.unit.set_data(unit_decl);
 							delete unit_decl;
 						} else if (token.type == Token_Type::eof) {

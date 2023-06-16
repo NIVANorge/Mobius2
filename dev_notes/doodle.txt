@@ -39,7 +39,6 @@
 			
 		}
 		
-		
 		# How do we specify that this flux only happens over the vertical indexes ( l ) that match the edge vertical indexes ( el ) ?
 		# And that it matches these up when computing horz_target
 			# Ok since we declared @subset above, but maybe make this also arguments to @specific somehow?
@@ -49,6 +48,26 @@
 		} @specific { horz_target }
 
 		# (This also requires multiple arguments to the bracket)
+
+
+		# Hmm, do we put the river connection on the fjord graph or on "downstream" ?
+		# Would be nicer to have it on downstream. But then needs a horz_target per river which is only relevant for the outlet.
+		# So instead we have an "estuary?"
+		
+		estuary : compartment("Estuary")  # Not really an "estuary" since we don't model anything there, just a convenience for connecting things up.
+		
+		var(estuary.horz_target) { ... }
+		
+		# Could also have a "pair" connection that is a simplified directed tree
+		# And that makes it easier for horz_target to look up things like [ec.below] .
+		ec : connection("Estuary connection", directed_tree) { estuary layer }
+		
+		flux(estuary, layer.water[ec, vert.specific]) {
+			in_flux(downstream, water)
+		} @specific { horz_target }
+
+		# Then downstream is
+		downstream : connection("Downstream", directed_tree) { (river|epi)* (estuary|nowhere) }
 
 
 

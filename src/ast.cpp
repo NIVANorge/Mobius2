@@ -99,8 +99,8 @@ read_chain(Token_Stream *stream, char separator, std::vector<Token> *list_out, b
 }
 
 Decl_Type
-get_decl_type(Token *string_name, Body_Type *body_type_out) {
-	#define ENUM_VALUE(name, body_type, _) if(string_name->string_value == #name) { *body_type_out = Body_Type::body_type; return Decl_Type::name; }
+get_decl_type(Token *string_name) {
+	#define ENUM_VALUE(name, body_type, _) if(string_name->string_value == #name) { return Decl_Type::name; }
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
 	
@@ -151,48 +151,28 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 	}
 }
 
-Decl_AST *
-parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
-	Decl_AST *decl = new Decl_AST();
-	
-	Token next  = stream->peek_token(1);
-	if((char)next.type == ':') {
-		decl->handle_name = stream->expect_token(Token_Type::identifier);
-		stream->read_token(); // reads the ':'
-	}
-	
-	Token decl_type;
-	
-	next = stream->peek_token();
+void
+parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit = true) {
+	Token next = stream->peek_token();
 	if(next.type == Token_Type::identifier) {
-		decl_type = stream->read_token();
-	} else if ((char)next.type == '[') {
-		parse_unit_decl(stream, decl);
-		if(body_type_out)
-			*body_type_out = Body_Type::none;
-		return decl;
+		decl->decl = stream->read_token();
+	} else if (allow_unit && (char)next.type == '[') {
+		auto unit_decl = static_cast<Decl_AST *>(decl); // TODO: a bit hacky.
+		parse_unit_decl(stream, unit_decl);
+		return;
 	} else {
 		next.print_error_header();
 		fatal_error("Unexpected token: ", next.string_value, " .");
 	}
 	
-	// We generally have something on the form a.b.type(bla) . The chain is now {a, b, type}, but we want to store the type separately from the rest of the chain.
-	decl->source_loc = decl_type.source_loc;
-	
-	Body_Type body_type;
-	decl->type = get_decl_type(&decl_type, &body_type);
-	
-	if(decl->type == Decl_Type::unit) {
+	if(decl->decl.string_value == "unit") {
 		next.source_loc.print_error_header();
 		fatal_error("Direct unit() declarations are not allowed. Use the [] format instead.");
 	}
 	
-	if(body_type_out)
-		*body_type_out = body_type;
-	
 	next = stream->peek_token();
 	if((char)next.type != '(')
-		return decl;
+		return;
 
 	stream->read_token(); // Consume the '('
 		
@@ -240,85 +220,119 @@ parse_decl_header(Token_Stream *stream, Body_Type *body_type_out) {
 			fatal_error("Misformatted declaration argument list."); //TODO: better error message.
 		}
 	}
+}
+
+Decl_AST *
+parse_decl_header(Token_Stream *stream) {
+	Decl_AST *decl = new Decl_AST();
 	
+	Token next  = stream->peek_token(1);
+	if((char)next.type == ':') {
+		decl->handle_name = stream->expect_token(Token_Type::identifier);
+		stream->read_token(); // reads the ':'
+	}
+	
+	parse_decl_header_base(decl, stream);
+	
+	decl->source_loc = decl->decl.source_loc;
+	
+	if(is_valid(&decl->decl))
+		decl->type = get_decl_type(&decl->decl);
+
 	return decl;
+}
+
+Body_AST *
+parse_body(Token_Stream *stream, Decl_Type decl_type, Body_Type body_type) {
+	Body_AST *body;
+	
+	Token next = stream->peek_token();
+	if((char)next.type != '{')
+		fatal_error(Mobius_Error::internal, "Tried to parse an expression that did not open with '{' as a body.");
+	
+	if(body_type == Body_Type::decl) {
+		body = new Decl_Body_AST();
+	} else if(body_type == Body_Type::function) {
+		body = new Function_Body_AST();
+	} else if(body_type == Body_Type::regex) {
+		body = new Regex_Body_AST();
+	} else if(body_type == Body_Type::none) {
+		next.print_error_header();
+		fatal_error("Declarations of type '", name(decl_type), "' can't have declaration bodies.");
+	}
+	body->opens_at = next.source_loc;
+	
+	if(body_type == Body_Type::decl) {
+		auto decl_body = static_cast<Decl_Body_AST *>(body);
+		stream->read_token(); // Consume the '{'
+		while(true) {
+			Token token = stream->peek_token();
+			if(token.type == Token_Type::quoted_string) {
+				stream->read_token();
+				if(is_valid(&decl_body->doc_string)) {
+					// we already found one earlier.
+					token.print_error_header();
+					fatal_error("Multiple doc strings for declaration.");
+				}
+				decl_body->doc_string = token;
+			} else if (token.type == Token_Type::identifier) {
+				Decl_AST *child_decl = parse_decl(stream);
+				decl_body->child_decls.push_back(child_decl);
+			} else if ((char)token.type == '}') {
+				stream->read_token();
+				break;
+			} else {
+				token.print_error_header();
+				fatal_error("Expected a doc string, a declaration, or a }");
+			}
+		}
+	} else if(body_type == Body_Type::function) {
+		auto function_body = static_cast<Function_Body_AST *>(body);
+		
+		// Note: fold_minus=false causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
+		stream->fold_minus = false;
+		function_body->block = parse_math_block(stream);
+		stream->fold_minus = true;
+	} else if(body_type == Body_Type::regex) {
+		auto regex_body = static_cast<Regex_Body_AST *>(body);
+		regex_body->expr = parse_regex_list(stream, true);
+	}
+	
+	return body;
 }
 
 Decl_AST *
 parse_decl(Token_Stream *stream) {
 	
-	Body_Type body_type;
-	Decl_AST *decl = parse_decl_header(stream, &body_type);
+	Decl_AST *decl = parse_decl_header(stream);
+	
+	Body_Type body_type = get_body_type(decl->type);
 
 	while(true) {
 		Token next = stream->peek_token();
 		char ch = (char)next.type;
-		if(ch == '@' || ch == '{') {
+		
+		if(ch == '{') {
+			if(decl->body) {
+				next.print_error_header();
+				fatal_error("Multiple main bodies for declaration.");
+			}
+			decl->body = parse_body(stream, decl->type, body_type);
+		} else if (ch == '@') {
 			stream->read_token();
-			Body_AST *body;
 			
-			if(body_type == Body_Type::decl) {
-				body = new Decl_Body_AST();
-			} else if(body_type == Body_Type::function) {
-				body = new Function_Body_AST();
-			} else if(body_type == Body_Type::regex) {
-				body = new Regex_Body_AST();
-			} else if(body_type == Body_Type::none) {
-				next.print_error_header();
-				fatal_error("Declarations of type '", name(decl->type), "' can't have declaration bodies.");
-			}
-			body->opens_at = next.source_loc;
+			Decl_Base_AST *note = new Decl_Base_AST();
+			parse_decl_header_base(note, stream, false);
 			
-			if(ch == '@') {
-				body->note = stream->peek_token();
-				stream->expect_identifier();
-				next = stream->read_token();
+			next = stream->peek_token();
+			if((char)next.type == '{') {
+				// TODO: We should maybe allow different body types per note type eventually.
+				note->body = parse_body(stream, decl->type, body_type);
 			}
 			
-			if((char)next.type != '{') {
-				next.print_error_header();
-				fatal_error("Expected a {}-enclosed body for the declaration.");
-			}
+			decl->notes.push_back(note);
 			
-			if(body_type == Body_Type::decl) {
-				auto decl_body = static_cast<Decl_Body_AST *>(body);
-				while(true) {
-					Token token = stream->peek_token();
-					if(token.type == Token_Type::quoted_string) {
-						stream->read_token();
-						if(is_valid(&decl_body->doc_string)) {
-							// we already found one earlier.
-							token.print_error_header();
-							fatal_error("Multiple doc strings for declaration.");
-						}
-						decl_body->doc_string = token;
-					} else if (token.type == Token_Type::identifier) {
-						Decl_AST *child_decl = parse_decl(stream);
-						decl_body->child_decls.push_back(child_decl);
-					} else if ((char)token.type == '}') {
-						stream->read_token();
-						break;
-					} else {
-						token.print_error_header();
-						fatal_error("Expected a doc string, a declaration, or a }");
-					}
-				}
-			} else if(body_type == Body_Type::function) {
-				auto function_body = static_cast<Function_Body_AST *>(body);
-				
-				// Note: fold_minus=false causes e.g. -1 to be interpreted as two tokens '-' and '1' so that a-1 is an operation rather than just an identifier followed by a number.
-				stream->fold_minus = false;
-				function_body->block = parse_math_block(stream, next.source_loc);
-				stream->fold_minus = true;
-			} else if(body_type == Body_Type::regex) {
-				auto regex_body = static_cast<Regex_Body_AST *>(body);
-				regex_body->expr = parse_regex_list(stream, next.source_loc, true);
-			}
-			
-			decl->bodies.push_back(body);
-			
-		} else
-			break;
+		} else break;
 	}
 	
 	return decl;
@@ -484,8 +498,7 @@ parse_primary_expr(Token_Stream *stream) {
 		unary->source_loc = source_loc;
 		result = unary;
 	} else if((char)token.type == '{') {
-		stream->read_token();
-		result = parse_math_block(stream, token.source_loc);
+		result = parse_math_block(stream);
 	} else if (token.type == Token_Type::identifier) {
 		Token peek = stream->peek_token(1);
 		if((char)peek.type == '(') {
@@ -567,16 +580,21 @@ parse_potential_if_expr(Token_Stream *stream) {
 }
 
 Math_Block_AST *
-parse_math_block(Token_Stream *stream, Source_Location opens_at) {
+parse_math_block(Token_Stream *stream) {
+	
+	Token open = stream->read_token();
+	if((char)open.type != '{')
+		fatal_error(Mobius_Error::internal, "Tried to parse a math block that did not open with '{'.");
+	
 	auto block = new Math_Block_AST();
-	block->source_loc = opens_at;
+	block->source_loc = open.source_loc;
 	
 	while(true) {
 		Token token = stream->peek_token();
 		if(token.type == Token_Type::eof) {
 			token.print_error_header();
 			error_print("End of file while parsing math block starting at:\n");
-			opens_at.print_error();
+			open.source_loc.print_error();
 			mobius_error_exit();
 		} else if((char)token.type == '}') {
 			stream->read_token();
@@ -635,9 +653,7 @@ parse_primary_regex(Token_Stream *stream) {
 		result = ident;
 		stream->read_token();
 	} else if((char)token.type == '(') {
-		stream->read_token();
-		result = parse_regex_list(stream, token.source_loc, false);
-		//stream->expect_token(')'); // no, this is already taken care of by parse_regex_list
+		result = parse_regex_list(stream, false);
 	} else {
 		token.print_error_header();
 		fatal_error("Unexpected token '", token.string_value, "' while parsing regex.");
@@ -671,7 +687,12 @@ parse_regex_expr(Token_Stream *stream) {
 }
 
 Math_Expr_AST *
-parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
+parse_regex_list(Token_Stream *stream, bool outer) {
+	
+	Token open = stream->read_token();
+	if((outer && ((char)open.type != '{')) || (!outer && ((char)open.type != '(')))
+		fatal_error(Mobius_Error::internal, "Tried to read a regex block that did not open correctly.");
+	
 	std::vector<Math_Expr_AST *> exprs;
 	
 	while(true) {
@@ -679,7 +700,7 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
 		if(token.type == Token_Type::eof) {
 			token.print_error_header();
 			error_print("End of file while parsing regex block starting at:\n");
-			opens_at.print_error();
+			open.source_loc.print_error();
 			mobius_error_exit();
 		} else if((char)token.type == '}' || (char)token.type == ')') {
 			stream->read_token();
@@ -711,12 +732,14 @@ parse_regex_list(Token_Stream *stream, Source_Location opens_at, bool outer) {
 }
 
 int
-match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
-	bool allow_handle, bool allow_body, bool allow_notes) {
+match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body) {
 	
-	if(!allow_handle && decl->handle_name.string_value.count > 0) {
-		decl->handle_name.print_error_header();
-		fatal_error("A '", name(decl->type), "' declaration can not be assigned to an identifier.");
+	if((allow_body) == 0 && decl->body) {
+		decl->body->opens_at.print_error_header();
+		fatal_error("This declaration should not have a body.");
+	} else if (allow_body == -1 && !decl->body) {
+		decl->decl.source_loc.print_error_header();
+		fatal_error("This declaration must have a body.");
 	}
 	
 	int found_match = -1;
@@ -757,8 +780,8 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	}
 	
 	if(found_match == -1) {
-		decl->source_loc.print_error_header();
-		error_print("The arguments to the declaration of type '", name(decl->type), "' don't match any recognized pattern for this context. The recognized patterns are:\n");
+		decl->decl.print_error_header();
+		error_print("The arguments to the declaration '", decl->decl.string_value, "' don't match any recognized pattern for this context. The recognized patterns are:\n");
 		for(const auto &pattern : patterns) {
 			if(pattern.size() == 0) {
 				error_print("()\n");
@@ -777,33 +800,42 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		mobius_error_exit();
 	}
 	
-	Body_Type body_type = get_body_type(decl->type);
-	if((body_type == Body_Type::none || !allow_body) && !decl->bodies.empty()) {
-		decl->bodies[0]->opens_at.print_error_header();
-		fatal_error("This '", name(decl->type), "' declaration should not have a body.");
+	return found_match;
+}
+
+int
+match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
+	bool allow_handle, int allow_body, bool allow_notes) {
+	
+	// allow_body:
+	//    0 - not allowed
+	//    1 - allowed if the body type of the expression is not none.
+	//   -1 - must have a body.
+	
+	if(!allow_handle && decl->handle_name.string_value.count > 0) {
+		decl->handle_name.print_error_header();
+		fatal_error("A '", name(decl->type), "' declaration can not be assigned to an identifier.");
 	}
 	
+	if(get_body_type(decl->type) == Body_Type::none)
+		allow_body = 0;
+		
+	int found_match = match_declaration_base(decl, patterns, allow_body);
+	
 	if(allow_notes) {
-		bool found_main = false;
+		// Check for duplicate notes with the same name.
 		std::unordered_set<String_View, String_View_Hash> found_notes;
 		
-		for(auto body : decl->bodies) {
-			if(is_valid(&body->note)) {
-				if(found_notes.find(body->note.string_value) != found_notes.end()) {
-					body->note.print_error_header();
-					fatal_error("Duplicate note '", body->note.string_value, "' for this declaration.");
-				}
-				found_notes.insert(body->note.string_value);
-			} else {
-				if(found_main) {
-					body->opens_at.print_error_header();
-					fatal_error("Duplicate main (note-free) body for this declaration.");
-				}
-				found_main = true;
+		for(auto &note : decl->notes) {
+			auto note_name = note->decl.string_value;
+			if(found_notes.find(note_name) != found_notes.end()) {
+				note->decl.print_error_header();
+				fatal_error("Duplicate note '", note_name, "' for this declaration.");
 			}
+			found_notes.insert(note_name);
 		}
-	} else if(decl->bodies.size() > 1) {
-		decl->bodies[1]->opens_at.print_error_header();
+	} else if(!decl->notes.empty()) {
+		decl->notes[0]->body->opens_at.print_error_header();
 		fatal_error("This declaration should not have more than one body.");
 	}
 	

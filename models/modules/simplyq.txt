@@ -40,7 +40,6 @@ New to version 0.5 :
 		tc_g * river.water.flow / a_catch -> [m m]					# TODO: Should it know to use a unit_conversion in reverse here?
 	}
 	
-	quick_flow :
 	flux(soil.water, river.water, [m m, day-1], "Quick flow") {
 		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
 		flow   := in_flux(water),
@@ -48,7 +47,6 @@ New to version 0.5 :
 		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
 	}
 	
-	evap :
 	flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {
 		s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
 	} @no_carry { any }   # Don't carry dissolved substances in the evapotranspiration
@@ -58,12 +56,10 @@ New to version 0.5 :
 		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the flow rate on between water volumes of fc and 1.01*fc
 	}
 	
-	soil_runoff :
 	flux(soil.water, runoff_target, [m m, day-1], "Soil runoff")            {   flow * (1 - bfi)   }
 	
 	flux(soil.water, gw.water, [m m, day-1], "Recharge")                    {   flow * bfi   }
-	
-	gw_runoff :
+
 	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff")           {   water / tc_g   }
 }
 
@@ -98,7 +94,6 @@ The river part of the SimplyQ module.
 	# NOTE: Empirical formula, so the units don't make sense, hence force conversion.
 	var(river.water.flow, [m 3, s-1], "Reach flow")        {  0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } @initial { init_flow }
 	
-	reach_out :
 	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
 }
 
@@ -136,6 +131,5 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 
 	var(river.water.flow, [m 3, s -1], "Reach flow")    {  (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann  } @initial { init_flow }
 	
-	reach_out :
 	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")     {  flow  }
 }
