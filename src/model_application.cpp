@@ -207,6 +207,8 @@ Model_Application::set_up_connection_structure() {
 					Connection_T handle2 = { connection_id, comp.id, id };   // Info id for target index number id.
 					handles.push_back(handle2);
 				}
+				// TODO: For graph connections, have to include the edge index set.
+				
 				auto index_sets = comp.index_sets; // Copy vector
 				Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
 				structure.push_back(array);
@@ -703,11 +705,11 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.source_loc);
 	}
 	
-	if(cnd->type == Connection_Type::directed_tree) {
+	if(cnd->type == Connection_Type::directed_tree || cnd->type == Connection_Type::directed_graph) {
 		// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
 		if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
 			connection.source_loc.print_error_header();
-			fatal_error("Connection structures of type directed_tree can only be set up using graph data.");
+			fatal_error("Connection structures of type directed_tree or directed_graph can only be set up using graph data.");
 		}
 		
 		for(auto &arr : connection.arrows) {
@@ -776,6 +778,8 @@ process_connection_data(Model_Application *app, Connection_Info &connection, Dat
 			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
 			if( !is_valid(source_comp_id) || (!is_valid(target_comp_id) && arr.second.id >= 0) ) continue;
 			
+			// TODO: For directed graph, we also have to include the edge index set.
+			
 			auto &index_sets = app->find_connection_component(conn_id, source_comp_id)->index_sets;
 			std::vector<Index_T> indexes;
 			for(int idx = 0; idx < index_sets.size(); ++idx) {
@@ -824,6 +828,17 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		for(auto &connection : module.connections)
 			pre_process_connection_data(this, connection, data_set, module.name);
 	}
+	
+	for(auto conn_id : model->connections) {
+		auto &components = connection_components[conn_id.id];
+		if(components.empty()) {
+			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");
+			//TODO: Should maybe just print a warning and auto-generate the data instead of having an error. This is more convenient when creating a new project.
+		}
+	}
+	
+	// TODO: Somewhere at this point we have to validate/generate edge index sets for graph connections.
+	
 	
 	prelim_compose(this, input_names);
 
@@ -879,15 +894,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		set_up_index_count_structure();
 	
 	
-	for(auto conn_id : model->connections) {
-		auto &components = connection_components[conn_id.id];
-		if(components.empty()) {
-			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");
-			//TODO: Should maybe just print a warning and auto-generate the data instead of having an error. This is more convenient when creating a new project.
-		}
-	}
-	
-	if(!connection_structure.has_been_set_up)
+	if(!connection_structure.has_been_set_up) // Hmm, can this ever have been set up already?
 		set_up_connection_structure();
 	
 	for(auto &connection : data_set->global_module.connections)

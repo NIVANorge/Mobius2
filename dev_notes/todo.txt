@@ -18,6 +18,7 @@
 		
 		graph and directed_tree
 			Must specify nowhere in the regex for it to be an allowed target
+				Requires finishing the entire regex thing.
 		
 		graph connections
 			Make them
@@ -170,6 +171,9 @@
 				Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
 				Normalized axis is weird when all of a series' values are 0.
 				Flickering axis labels when scrolling.
+				
+				"Network" plot for connections. Draw the network along with amount (of some quantity(ies)) as bar plot per node. Animate over time.
+					Maybe not just for connection, but for any graph of that quantity?
 			
 			Sensitivity & optimization - new features
 				Combine simple sensitivity into the advanced sensitivity setup.

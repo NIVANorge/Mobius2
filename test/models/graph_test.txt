@@ -1,0 +1,26 @@
+
+model("Graph test") {
+
+	node : compartment("Node")
+	
+	water : quantity("Water")
+	
+	ni : index_set("Node index")
+	distribute(node, ni)
+	
+	sol : solver("Simply solver", "INCADascru", 0.1, 1e-3)
+	solve(sol, node.water)
+	
+	g : connection("The graph", directed_graph) {
+		node*			#TODO: Allow parsing the edge index?
+	}
+
+	module("Graph test", version(0, 0, 1)) {
+
+		var(node.water, [m 3]) @initial { 10 }
+		
+		flux(node.water, g, [m 3, day-1], "The flow") {
+			0.1*water
+		}
+	}
+}

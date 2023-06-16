@@ -1028,9 +1028,10 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	
 	if(which == 1) {
 		String_View structure_type = single_arg(decl, 1)->string_value;
-		if(structure_type == "directed_tree")	connection->type = Connection_Type::directed_tree;
-		else if(structure_type == "all_to_all") connection->type = Connection_Type::all_to_all;
-		else if(structure_type == "grid1d")     connection->type = Connection_Type::grid1d;
+		if(structure_type == "directed_tree")	    connection->type = Connection_Type::directed_tree;
+		else if(structure_type == "directed_graph") connection->type = Connection_Type::directed_graph;
+		else if(structure_type == "all_to_all")     connection->type = Connection_Type::all_to_all;
+		else if(structure_type == "grid1d")         connection->type = Connection_Type::grid1d;
 		else {
 			single_arg(decl, 1)->print_error_header();
 			fatal_error("Unsupported connection structure type '", structure_type, "'.");

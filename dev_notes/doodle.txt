@@ -2,17 +2,53 @@
 
 
 
-	# Maybe allow arguments on notes, and/or notes without bodies
-	
-	# For instance, no_carry is always a list, and it could be empty (allows removing 'any')
-	@no_carry(heat)
 
-	# Also things like @subset . And this is an easy way to put flags on declarations.
-		# Should make declaration matching a bit easier.
+	# Instead of discrete order, could have an @order on the flux
+	#
+	flux(something something) { something } @order { 1 }
+	# (Must be compile-time resolvable to a constant)
+	
+	# Then one could pass in a constant from the model and have
+	flux(something something) { something } @order { order_base + 1 }
+
+
+
 
 
 
 	# Graph connections
+	
+	
+		# Maybe make the specification of the edge index set non-mandatory.
+		# It could be generated based on the data unless you need it for something.
+		
+		c : connection("Sewer system", directed_graph) {
+			((store.se conduit.te) | nowhere)*
+		}
+		
+		# data set
+		
+		connection("Sewer system") [
+			s : compartment("Store")     ["Store index"]    ["Store out"]   # Second is if the edge index set is specified.
+			c : compartment("Conduit")   ["Conduit index"]
+			
+			# If the edge index set is specified:
+			
+			s[0] ->[2] c[1] ->[0] nowhere    
+			                                      # I think we just say that the edge is always indexed over an independent index set or one sub-indexed to the component index set.
+		]
+		
+		# If we generate, just make one index per outgoing edge.
+		# Actually, that is required, because we need to be able to iterate over it in the model code.
+		
+		# Start with generating! Make functionality for attaching data later?
+		# 	But if we generate, when do we do that, and how do we decide what it is sub-indexed to?
+		#   Only easy if the Sub_Indexed_Component just has a single index set (or none).
+		
+		# In some ways it is easier to implement if the model is required to specify the index sets. But it is a bit annoying to do in the data.
+		#    !!!!!!! What if you don't have to set up the data for the edge index set, instead it is inferred from the connection data?
+		
+		
 	
 		s : index_set("Fjord section") {
 			l : index_set("Levels")
@@ -23,15 +59,20 @@
 		# Can have automatic checking that el is a subset of l.
 		# This only works for indexing outgoing edges..
 		
+		# Actually also need  s  to be a union of fjord basin and boundary basin....
+		
 		distribute(oair, s)
 		distribute(layer, s, l)
-		distribute(edge, e)
+		distribute(edge, s, e)
 		
 		
 		# TODO: Could maybe specify that we always have bidirectional graph here..
 			# Or maybe not. Easier just to process a single direction at a time, and allow two-way flux for it.
 			
-		c    : connection("Fjord connections", graph) { oair[e]* }    # e is the index set of edges 
+		c    : connection("Fjord connections", graph) { oair[e]* }    # e is the index set of edges (or do we specify 'edge' instead?
+		                                              { oair.edge * }
+													  # Better to specify the index set since then one is not required to create the compartment.
+													  
 		vert : connection("Fjord vertical", grid1d) { layer* }
 		
 		

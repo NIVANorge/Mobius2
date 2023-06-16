@@ -734,6 +734,11 @@ parse_regex_list(Token_Stream *stream, bool outer) {
 int
 match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body) {
 	
+	// allow_body:
+	//    0 - not allowed
+	//    1 - allowed.
+	//   -1 - must have a body.
+	
 	if((allow_body) == 0 && decl->body) {
 		decl->body->opens_at.print_error_header();
 		fatal_error("This declaration should not have a body.");
