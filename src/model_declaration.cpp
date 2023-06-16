@@ -918,17 +918,19 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	for(auto note : decl->notes) {
 		auto str = note->decl.string_value;
-		if(str == "no_carry") { // TODO: Could do this as an argument list instead.
-			
-			match_declaration_base(note, {{}}, -1);
+		if(str == "no_carry") {
+			match_declaration_base(note, {{}}, 1);
 		
 			if(!is_located(flux->source)) {
 				note->decl.print_error_header();
 				fatal_error("A 'no_carry' block only makes sense if the source of the flux is specific (not 'nowhere').");
 			}
-			flux->no_carry_ast = static_cast<Function_Body_AST *>(note->body)->block;
-		} else if(str == "specific") {
+			if(note->body)
+				flux->no_carry_ast = static_cast<Function_Body_AST *>(note->body)->block;
+			else
+				flux->no_carry_by_default = true;
 			
+		} else if(str == "specific") {
 			match_declaration_base(note, {{}}, -1);
 			
 			has_specific_code = true;

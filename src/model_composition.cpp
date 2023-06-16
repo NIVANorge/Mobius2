@@ -363,14 +363,18 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 	auto var2 = as<State_Var::Type::declared>(var);
 	auto flux = model->fluxes[var2->decl_id];
 	
-	if(!flux->no_carry_ast) return;
+	if(!flux->no_carry_ast && !flux->no_carry_by_default) return;
 	
 	if(!is_located(var->loc1))
 		fatal_error(Mobius_Error::internal, "Got a flux without a source that has a no_carry.\n"); // NOTE: should be checked already in the model_declaration stage.
+
+	if(flux->no_carry_by_default) {
+		var2->no_carry_by_default = true;
+		return;
+	}
 	
 	auto code_scope = model->get_scope(flux->scope_id);
 	Function_Resolve_Data res_data = { app, code_scope, var->loc1 };
-	res_data.allow_any = true;
 	auto res = resolve_function_tree(flux->no_carry_ast, &res_data);
 	
 	for(auto expr : res.fun->exprs) {
@@ -379,14 +383,7 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 			fatal_error("Only quantity identifiers are allowed in a 'no_carry'.");
 		}
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::any) {
-			var2->no_carry_by_default = true;
-			if(res.fun->exprs.size() != 1) {
-				ident->source_loc.print_error_header();
-				fatal_error("An 'any' must appear alone.");
-			}
-			continue;
-		} else if(ident->variable_type != Variable_Type::state_var) {
+		if(ident->variable_type != Variable_Type::state_var) {
 			ident->source_loc.print_error_header();
 			fatal_error("Only state variables are relevant for a 'no_carry'.");
 		}

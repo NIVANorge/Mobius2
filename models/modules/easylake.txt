@@ -109,7 +109,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	evap :
 	flux(epi.water, nowhere, [m 3, day-1], "Evaporation") {
 		evap_mm*A_surf ->>
-	} @no_carry { any } # Don't carry any dissolved substances in the evaporation
+	} @no_carry # Don't carry any dissolved substances in the evaporation
 	
 	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
 		V := water + hyp.water,

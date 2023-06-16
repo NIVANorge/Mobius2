@@ -205,8 +205,9 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Math_Block_AST  *code;
 	Math_Block_AST  *no_carry_ast;
 	Math_Block_AST  *specific_target_ast;
+	bool             no_carry_by_default;
 	
-	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), specific_target_ast(nullptr), discrete_order(invalid_entity_id) {}
+	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), specific_target_ast(nullptr), discrete_order(invalid_entity_id), no_carry_by_default(false) {}
 };
 
 template<> struct

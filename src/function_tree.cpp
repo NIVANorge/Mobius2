@@ -755,22 +755,13 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 	std::string n1 = ident->chain[0].string_value;
 	
 	if(chain_size == 1) {
-		if(n1 == "no_override" || n1 == "any") {
-			if(n1 == "no_override") {
-				if(!data->allow_no_override || isfun || data->simplified) {
-					ident->source_loc.print_error_header();
-					error_print("A 'no_override' does not make sense in this context.");
-					fatal_error_trace(scope);
-				}
-				new_ident->variable_type = Variable_Type::no_override;
-			} else {
-				if(!data->allow_any || isfun || data->simplified) {
-					ident->source_loc.print_error_header();
-					error_print("An 'any' does not make sense in this context.");
-					fatal_error_trace(scope);
-				}
-				new_ident->variable_type = Variable_Type::any;
+		if(n1 == "no_override") {
+			if(!data->allow_no_override || isfun || data->simplified) {
+				ident->source_loc.print_error_header();
+				error_print("A 'no_override' does not make sense in this context.");
+				fatal_error_trace(scope);
 			}
+			new_ident->variable_type = Variable_Type::no_override;		
 			new_ident->value_type = Value_Type::real;
 			found = true;
 			result.unit = data->expected_unit;

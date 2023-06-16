@@ -746,9 +746,6 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 			} else if(ident->variable_type == Variable_Type::no_override) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'no_override' is not in a branch that could be resolved at compile time."); // TODO: should probably check for that before this.
-			} else if(ident->variable_type == Variable_Type::any) {
-				ident->source_loc.print_error_header(Mobius_Error::internal);
-				fatal_error("Got an 'any' in executable code."); // NOTE: this is checked before this
 			} else if (ident->variable_type == Variable_Type::connection) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This handle refers to a connection, and should only appear in an expression as an argument to a special instruction like 'target'."); //TODO: Should we name the rest when they are implemented?

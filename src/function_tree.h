@@ -153,7 +153,6 @@ Function_Resolve_Data {
 	
 	bool                         restrictive_lookups = false;
 	bool                         allow_in_flux       = true;
-	bool                         allow_any           = false;
 	bool                         allow_no_override   = false;
 	
 	// For unit_conversion and aggregation_weight :
