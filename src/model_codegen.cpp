@@ -201,7 +201,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				instr.code = flux_sum;
 			}
 			
-			// Codegen for the derivative of state variables:
+			// Codegen for the derivative of ODE state variables:
 			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
 				if(var2->decl_type == Decl_Type::quantity
@@ -217,19 +217,22 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					
 					for(Var_Id flux_id : app->vars.all_fluxes()) {
 						auto flux = app->vars[flux_id];
-						//if(!flux->is_valid() || !flux->is_flux()) continue;
 						
-						// NOTE: In the case of an all-to-all connection case we have set up an aggregation variable also for the source, so we already subtract using that.
+						// NOTE: In the case of an all-to-all or directed_graph connection case we have set up an aggregation variable also for the source, so we already subtract using that.
 						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
 						
 						auto &restriction = restriction_of_flux(flux);
 						bool is_bottom      = (restriction.restriction == Var_Loc_Restriction::bottom);
-						bool is_all_to_all  = is_valid(restriction.connection_id) && (model->connections[restriction.connection_id]->type == Connection_Type::all_to_all);
+						bool has_source_agg = false;
+						if(is_valid(restriction.connection_id)) {
+							auto type = model->connections[restriction.connection_id]->type;
+							has_source_agg = (type == Connection_Type::all_to_all) || (type == Connection_Type::directed_graph);
+						}
 						
 						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution.
 						
 						if(is_located(flux->loc1) && app->vars.id_of(flux->loc1) == instr.var_id
-							&& !is_all_to_all && !is_bottom) {
+							&& !has_source_agg && !is_bottom) {
 
 							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 							fun = make_binop('-', fun, flux_ref);
@@ -342,10 +345,11 @@ set_all_to_all_target_indexes(Model_Application *app, Index_Exprs &indexes, Enti
 }
 
 void
-set_tree_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_compartment, Entity_Id target_compartment) {
+set_graph_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_compartment, Entity_Id target_compartment) {
 	
-	if(app->model->connections[connection_id]->type != Connection_Type::directed_tree)
-		fatal_error(Mobius_Error::internal, "Misuse of set_tree_target_indexes().");
+	auto type = app->model->connections[connection_id]->type;
+	if(type != Connection_Type::directed_tree && type != Connection_Type::directed_graph)
+		fatal_error(Mobius_Error::internal, "Misuse of set_graph_target_indexes().");
 	
 	auto model = app->model;
 
@@ -419,9 +423,10 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("The 'below' directive is not allowed in this context.");
 			}
-			set_tree_target_indexes(app, new_indexes, res.connection_id, res.source_comp, res.target_comp);
+			set_graph_target_indexes(app, new_indexes, res.connection_id, res.source_comp, res.target_comp);
 		} else
 			fatal_error(Mobius_Error::internal, "Unimplemented connection type in put_var_lookup_indexes()");
+		// TODO: Graph!!
 		
 	} //else if(is_valid(ident->restriction.connection_id))
 		//fatal_error(Mobius_Error::internal, "Got an identifier with a connection but without a restriction.");
@@ -543,11 +548,15 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id) {
-	// TODO: Maybe refactor this so that it doesn't have code from different use cases mixed this much.
-
+add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id) {
+	
 	auto model = app->model;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
+	
+	if(target_agg->is_source) {
+		auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+		return add_value_to_state_var(agg_id, agg_offset, value, '+');
+	}
 	
 	// Hmm, these two lookups are very messy. See also similar in model_compilation a couple of places
 	auto source_compartment = app->vars[source_id]->loc1.components[0];
@@ -555,7 +564,7 @@ add_value_to_tree_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id
 	
 	Index_Exprs new_indexes(model);
 	new_indexes.copy(indexes);
-	set_tree_target_indexes(app, new_indexes, connection_id, source_compartment, target_compartment);
+	set_graph_target_indexes(app, new_indexes, connection_id, source_compartment, target_compartment);
 	
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
 	
@@ -641,9 +650,9 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 	
 	auto connection = model->connections[restriction.connection_id];
 	
-	if(connection->type == Connection_Type::directed_tree) {
+	if(connection->type == Connection_Type::directed_tree || connection->type == Connection_Type::directed_graph) {
 		
-		return add_value_to_tree_agg(app, value, agg_id, instr->source_id, indexes, restriction.connection_id);
+		return add_value_to_graph_agg(app, value, agg_id, instr->source_id, indexes, restriction.connection_id);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		

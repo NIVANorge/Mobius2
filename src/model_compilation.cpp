@@ -468,6 +468,58 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 	}
 }
 
+int
+make_clear_instr(std::vector<Model_Instruction> &instructions, Var_Id var_id, Entity_Id solver_id) {
+	// Make an instruction that clears the given var_id to 0.
+	
+	int clear_idx = instructions.size();
+	instructions.emplace_back();
+	auto &clear_instr = instructions[clear_idx]; 
+	
+	clear_instr.type = Model_Instruction::Type::clear_state_var;
+	clear_instr.solver = solver_id;
+	clear_instr.var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
+	clear_instr.inherits_index_sets_from_instruction.insert(var_id.id);
+	
+	return clear_idx;
+}
+
+int
+make_add_to_aggregate_instr(std::vector<Model_Instruction> &instructions, Entity_Id solver_id, Var_Id agg_var, Var_Id agg_of, int clear_id, Var_Id source_id = invalid_var, Var_Loc_Restriction *restriction = nullptr) {
+	
+	// Make an instruction that adds  the value of agg_of to the value of agg_var .
+
+	int add_to_aggr_id = instructions.size();
+	instructions.emplace_back();
+	auto &add_to_aggr_instr = instructions[add_to_aggr_id];
+	
+	add_to_aggr_instr.depends_on_instruction.insert(clear_id);  // We can only sum to the aggregation variable after the variable is cleared.
+	add_to_aggr_instr.instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction. Not strictly needed for non-connection aggregate, but probably doesn't hurt...
+	
+	add_to_aggr_instr.solver = solver_id;
+	add_to_aggr_instr.target_id = agg_var;
+	add_to_aggr_instr.var_id = agg_of;
+	
+	//add_to_aggr_instr.depends_on_instruction.insert(agg_of.id); // NOTE: Not necessary because of automatic dependency system.
+	
+	if(restriction) {
+		add_to_aggr_instr.restriction = *restriction;
+		add_to_aggr_instr.type = Model_Instruction::Type::add_to_connection_aggregate;
+		add_to_aggr_instr.source_id = source_id;
+		if(restriction->restriction == Var_Loc_Restriction::below)
+			add_to_aggr_instr.inherits_index_sets_from_instruction.insert(agg_var.id);
+	} else {
+		add_to_aggr_instr.type = Model_Instruction::Type::add_to_aggregate;
+		add_to_aggr_instr.inherits_index_sets_from_instruction.insert(agg_var.id);
+	}
+	
+	// The variable that we aggregate to is only "ready" after the summing is done.
+	instructions[agg_var.id].depends_on_instruction.insert(add_to_aggr_id);
+	instructions[agg_var.id].solver = solver_id;  // Strictly only needed for regular aggregate, since for connection aggregate it will have been done already
+	
+	return add_to_aggr_id;
+}
+
 
 void
 build_instructions(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
@@ -656,54 +708,27 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		}
 		
 		if(is_aggregate) {
-			// var (var_id) is now the variable that is being aggregated.
 			
-			//if(initial) warning_print("*** *** *** initial agg for ", var->name, "\n");
+			// NOTE: We have to look up the solver here. This is because we can't necessarily set it up before this point.
+			//    although TODO: Couldn't we though?
 			auto var2 = as<State_Var::Type::regular_aggregate>(var);
 			auto agg_of = var2->agg_of;
 			var_solver = instructions[agg_of.id].solver;
 			
-			//auto aggr_var = app->vars[var->agg];    // aggr_var is the aggregation variable (the one we sum to).
-			
-			// We need to clear the aggregation variable to 0 between each time it is needed.
-			int clear_idx = instructions.size();
-			instructions.emplace_back();
-			
-			int add_to_aggr_idx = instructions.size();
-			instructions.emplace_back();
+			int clear_id = make_clear_instr(instructions, var_id, var_solver);
+			make_add_to_aggregate_instr(instructions, var_solver, var_id, agg_of, clear_id);
 			
 			// The instruction for the var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
-			auto agg_instr = &instructions[var_id.id];
-			// The instruction for clearing to 0
-			auto clear_instr = &instructions[clear_idx];
-			// The instruction that takes the value of var and adds it to aggr_var (with a weight)
-			auto add_to_aggr_instr = &instructions[add_to_aggr_idx];
-			
-			// TODO: We may be able to remove a lot of explicit dependency declarations here now:
-			
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
+			// TODO: we could also check if this is necessary at all any more?
+			auto agg_instr = &instructions[var_id.id];
 			auto agg_to_comp = model->components[var2->agg_to_compartment];
-			//agg_instr->inherits_index_sets_from_instruction.clear(); // Should be unnecessary. We just constructed it.
 			
 			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
-			agg_instr->solver = var_solver;
-			agg_instr->depends_on_instruction.insert(add_to_aggr_idx); // The value of the aggregate is only done after we have finished summing to it.
-			
-			// Build the clear instruction
-			add_to_aggr_instr->depends_on_instruction.insert(clear_idx);  // We can only sum to the aggregation after the clear.
-			clear_instr->type = Model_Instruction::Type::clear_state_var;
-			clear_instr->solver = var_solver;
-			clear_instr->var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
-			clear_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
-
-			add_to_aggr_instr->type = Model_Instruction::Type::add_to_aggregate;
-			add_to_aggr_instr->var_id = agg_of;
-			add_to_aggr_instr->target_id = var_id;
-			add_to_aggr_instr->depends_on_instruction.insert(agg_of.id); // We can only sum the value in after it is computed.
-			//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Sum it in each time it is computed. Unnecessary to declare since it is handled by new dependency system.
-			add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // We need to look it up every time we sum to it.
-			add_to_aggr_instr->solver = var_solver;
+		
+			/*
+			// NOTE: Commenting this out. It should be taken care of by the automatic dependency system.
 			
 			if(var->is_flux() && is_located(var->loc2)) {
 				// If the aggregated variable is a flux, we potentially may have to tell it to get the right index sets.
@@ -713,6 +738,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto target_id = app->vars.id_of(var->loc2);
 				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var_id.id);
 			}
+			*/
 			
 		} else if(var->type == State_Var::Type::connection_aggregate) {
 			
@@ -721,17 +747,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(!is_valid(var_solver))
 				fatal_error(Mobius_Error::internal, "Got aggregation variable for connection fluxes without a solver.");
 			
-			//warning_print("************ Found it\n");
-			
-			int clear_id = instructions.size();
-			instructions.emplace_back();
-			auto clear_instr       = &instructions[clear_id];
-			clear_instr->type = Model_Instruction::Type::clear_state_var;
-			clear_instr->solver = var_solver;
-			clear_instr->var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
-			clear_instr->inherits_index_sets_from_instruction.insert(var_id.id);
-			
-			// Find all the connection fluxes pointing to the target (or going out from source)
+			// Make an instruction for clearing the aggregation variable to 0 before we start adding values to it.
+			int clear_id = make_clear_instr(instructions, var_id, var_solver);
 			
 			auto var2 = as<State_Var::Type::connection_aggregate>(var);
 			if(!is_valid(var2->agg_for))
@@ -740,6 +757,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// var is the aggregation variable for the target (or source)
 			// agg_for  is the id of the quantity state variable for the target (or source).
 			
+			// Find all the connection fluxes pointing to the target (or going out from source)
 			for(auto var_id_flux : app->vars.all_fluxes()) {
 				auto var_flux = app->vars[var_id_flux];
 				auto &restriction = restriction_of_flux(var_flux);
@@ -779,58 +797,48 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					}
 				}
 				
-				// Create instruction to add the flux to the target aggregate.
-				int add_to_aggr_id = instructions.size();
-				instructions.emplace_back();
+				Var_Id source_id = app->vars.id_of(var_flux->loc1);
+				
+				// Create an instruction that adds the flux value to the aggregate.
+				int add_to_aggr_id = make_add_to_aggregate_instr(instructions, var_solver, var_id, var_id_flux, clear_id, source_id, &restriction);
+				
 				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 				
-				add_to_aggr_instr->solver = var_solver;
-				
-				add_to_aggr_instr->restriction = restriction;
-	
-				add_to_aggr_instr->type = Model_Instruction::Type::add_to_connection_aggregate;
-				add_to_aggr_instr->var_id = var_id_flux;
-				if(conn_type == Connection_Type::directed_tree)
-					add_to_aggr_instr->source_id = app->vars.id_of(var_flux->loc1);
-				add_to_aggr_instr->target_id = var_id;
-				add_to_aggr_instr->depends_on_instruction.insert(clear_id); // Only start summing up after we cleared to 0.
-				add_to_aggr_instr->instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction
-				add_to_aggr_instr->depends_on_instruction.insert(var_id_flux.id); // We can only sum the value in after it is computed.
-				//add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id_flux.id); // Sum it in each time it is computed. Should no longer be needed with the new dependency system
-				
-				if(restriction.restriction == Var_Loc_Restriction::below)
-					add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id); // Have to sum to target at least once per target.
-				
-				
-				// The aggregate value is not ready before the summing is done. (This is maybe unnecessary since the target is an ODE (?))
-				instructions[var_id.id].depends_on_instruction.insert(add_to_aggr_id);
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
 				// TODO: We need something like this because otherwise there may be additional index sets that are not accounted for. But we need to skip the particular index set(s) belonging to the connection (otherwise there are problems with matrix indexing for all_to_all etc.)
-					// Maybe re-purpose inherits_index_sets_for_state_var.
+					// Wait isn't this what we do for directed_tree already??
 				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(add_to_aggr_id);
 				
-				// Hmm, not that nice that we have to do have knowledge about the specific types here, but maybe unavoidable.
-				if(conn_type == Connection_Type::directed_tree) {
+				if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
+					
 					// Hmm, could have kept find_source from above?
 					Entity_Id source_comp_id = var_flux->loc1.components[0];
-					Entity_Id target_comp_id = app->vars[var2->agg_for]->loc1.components[0];
 					auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
-					auto *find_target = app->find_connection_component(var2->connection, target_comp_id);
-					
-					// If the target compartment (not just what the connection indexes over) has an index set shared with the source connection, we must index the target variable over that.
-					auto target_comp = model->components[target_comp_id];
-					auto target_index_sets = find_target->index_sets; // vector copy;
-					for(auto index_set : find_source->index_sets) {
-						if(std::find(target_comp->index_sets.begin(), target_comp->index_sets.end(), index_set) != target_comp->index_sets.end())
-							target_index_sets.push_back(index_set);
-					}
 					
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
 					add_to_aggr_instr->index_sets.insert(find_source->index_sets.begin(), find_source->index_sets.end());
+					if(conn_type == Connection_Type::directed_graph)
+						add_to_aggr_instr->index_sets.insert(find_source->edge_index_set);
 					
-					// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
-					instructions[var2->agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
+					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate?
+						
+						// TODO: Make a better explanation of what is going on in this block.
+						
+						Entity_Id target_comp_id = app->vars[var2->agg_for]->loc1.components[0];
+						auto *find_target = app->find_connection_component(var2->connection, target_comp_id);
+						
+						// If the target compartment (not just what the connection indexes over) has an index set shared with the source compartment, we must index the target variable over that.
+						auto target_comp = model->components[target_comp_id];
+						auto target_index_sets = find_target->index_sets; // vector copy;
+						for(auto index_set : find_source->index_sets) {
+							if(std::find(target_comp->index_sets.begin(), target_comp->index_sets.end(), index_set) != target_comp->index_sets.end())
+								target_index_sets.push_back(index_set);
+						}
+						
+						// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
+						instructions[var2->agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
+					}
 					
 				} else if(conn_type == Connection_Type::all_to_all || conn_type == Connection_Type::grid1d) {
 					
@@ -850,17 +858,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					else if(conn_type == Connection_Type::grid1d) {
 						instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
 						
-						if(add_to_aggr_instr->restriction.restriction == Var_Loc_Restriction::below) {    // TODO: Is this the right way to finally check it?
+						if(add_to_aggr_instr->restriction.restriction == Var_Loc_Restriction::below) {
 							add_to_aggr_instr->index_sets.insert(index_set);
-							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all or be set to the bottom boundary (which is 0 by default).
+							
+							// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
+							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
 						}
 					}
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
 				} else
 					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
-				
-				// This is not needed because the target is always an ODE:
-				//instructions[var->connection_agg.id].depends_on_instruction.insert(var_id.id); // The target must be computed after the aggregation variable.
 			}
 		}
 		
@@ -1374,12 +1381,12 @@ Model_Application::compile(bool store_code_strings) {
 	constants.index_count_data       = data.index_counts.data;
 	constants.index_count_data_count = index_counts_structure.total_count;
 	
-	/*
-	warning_print("****Connection data is:\n");
+	
+	log_print("****Connection data is:\n");
 	for(int idx = 0; idx < constants.connection_data_count; ++idx)
-		warning_print(" ", constants.connection_data[idx]);
-	warning_print("\n");
-	*/
+		log_print(" ", constants.connection_data[idx]);
+	log_print("\n");
+	
 	
 	jit_add_global_data(llvm_data, &constants);
 	

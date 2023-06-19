@@ -767,7 +767,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	
 	auto var = as<State_Var::Type::declared>(app->vars[target_var_id]);
 	
-	// See if we have a connection aggregate for this connection already.
+	// See if we have a connection aggregate for this variable and connection already.
 	auto &aggs = is_source ? var->conn_source_aggs : var->conn_target_aggs;
 	for(auto existing_agg : aggs) {
 		if(as<State_Var::Type::connection_aggregate>(app->vars[existing_agg])->connection == conn_id)
@@ -1128,8 +1128,8 @@ compose_and_resolve(Model_Application *app) {
 				loc = var->loc2; // NOTE: For top and specific the relevant location is the target.
 
 			if(is_located(loc)) {
-				Var_Id target_id = app->vars.id_of(loc);
-				may_need_connection_target.insert({restriction.connection_id, target_id});
+				Var_Id source_id = app->vars.id_of(loc);
+				may_need_connection_target.insert({restriction.connection_id, source_id});
 			}
 		}
 	}
@@ -1229,11 +1229,14 @@ compose_and_resolve(Model_Application *app) {
 		
 		auto connection = model->connections[conn_id];
 		
-		if(connection->type == Connection_Type::directed_tree) {
+		if(connection->type == Connection_Type::directed_tree || connection->type == Connection_Type::directed_graph) {
+			
+			if(connection->type == Connection_Type::directed_graph)
+				register_connection_agg(app, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes on the connection
 			
 			for(auto &target_comp : app->connection_components[conn_id].components) {
 				
-				// If it wasn't actually put as a possible target in the data set, don't bother about it.
+				// If it wasn't actually put as a possible target in the data set, don't bother with it.
 				if(target_comp.possible_sources.empty()) continue;
 
 				auto target_loc = app->vars[source_id]->loc1;
@@ -1242,10 +1245,7 @@ compose_and_resolve(Model_Application *app) {
 				if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
 					continue;
 				
-				// TODO: Even if it is present in the connection data, it may not appear as a target, only as a source. Should also be checked eventually.
-					// -- hmm, I wonder if this has been solved and I just forgot to remove the comment?
-				
-				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]);
+				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]); // Aggregation variable for incoming fluxes.
 			}
 		} else if (connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d) {
 			if(connection->components.size() != 1 || app->connection_components[conn_id].components.size() != 1)

@@ -1673,13 +1673,23 @@ load_model(String_View file_name, Mobius_Config *config) {
 	if(!success)
 		mobius_error_exit();
 	
-	//std::reverse(extend_models.begin(), extend_models.end());
 	std::sort(extend_models.begin(), extend_models.end(), [](const Model_Extension &extend1, const Model_Extension &extend2) -> bool {
 		if(extend1.depth == extend2.depth) return extend1.load_order < extend2.load_order;
 		return extend1.depth > extend2.depth;
 	});
 
 	auto scope = &model->model_decl_scope;
+	
+	// This is a bit tricky, but we have to register index sets first so that they get in the right order, otherwise resolution of connection regexes could trip the order, and this is very important for sub-indexed index sets. TODO: we could improve the sorting of index set dependencies in codegen instead.
+	for(auto &extend : extend_models) {
+		auto ast = extend.decl;
+		auto body = static_cast<Decl_Body_AST *>(ast->body);
+		
+		for(Decl_AST *child : body->child_decls) {
+			if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
+				process_declaration<Reg_Type::index_set>(model, scope, child);
+		}
+	}
 	
 	// We need to process these first since some other declarations rely on these existing, such as par_group.
 	for(auto &extend : extend_models) {
@@ -1713,9 +1723,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 		auto body = static_cast<Decl_Body_AST *>(ast->body);
 		for(Decl_AST *child : body->child_decls) {
 			
-			if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
-				process_declaration<Reg_Type::index_set>(model, scope, child);
-			else if(child->type == Decl_Type::loc)
+			if(child->type == Decl_Type::loc)
 				process_declaration<Reg_Type::loc>(model, scope, child);
 			else if(child->type == Decl_Type::solver)
 				process_declaration<Reg_Type::solver>(model, scope, child);

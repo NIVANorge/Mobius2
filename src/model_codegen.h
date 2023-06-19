@@ -16,8 +16,10 @@ Index_Set_Dependency {
 };
 
 inline bool operator<(const Index_Set_Dependency &a, const Index_Set_Dependency &b) {
-	if(a.order == b.order) return a.id < b.id;
-	return a.order < b.order;
+	if(a.id == b.id) return a.order < b.order;
+	return a.id < b.id;
+	//if(a.order == b.order) return a.id < b.id;
+	//return a.order < b.order;
 }
 
 inline bool operator==(const Index_Set_Dependency &a, const Index_Set_Dependency &b) {
