@@ -499,7 +499,7 @@ make_restriction_condition(Model_Application *app, Var_Loc_Restriction restricti
 		
 		auto *comp = app->find_connection_component(connection_id, source_compartment, false);
 		if(comp && comp->total_as_source > 0) {
-			int max_instances = 1;
+			int max_instances = 1;    //TODO: use app->get_active_instance_count instead ?
 			for(auto index_set : comp->index_sets)
 				max_instances *= app->get_max_index_count(index_set).index;
 			if(comp->total_as_source < max_instances) {

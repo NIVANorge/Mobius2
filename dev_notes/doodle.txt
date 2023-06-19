@@ -13,11 +13,17 @@
 
 
 
-
+	# Make something like a compartment group
+	lake : group(epi, hypo)
+	distribute(lake, lake_idx)
+	
 
 
 	# Graph connections
 	
+	
+		# Could also have all_to_all from one single compartment to another..
+		# For all_to_all and graph1d we should give the index set in the connection regex .
 	
 		# Maybe make the specification of the edge index set non-mandatory.
 		# It could be generated based on the data unless you need it for something.

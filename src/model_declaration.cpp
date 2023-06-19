@@ -1040,6 +1040,8 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	
 	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
 	
+	// TODO: Should check what connections are allowed to have an edge index_set.
+	
 	bool success = false;
 	auto expr = static_cast<Regex_Body_AST *>(decl->body)->expr;
 	if (expr->type == Math_Expr_Type::unary_operator) {
@@ -1054,7 +1056,10 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		if(expr->type == Math_Expr_Type::regex_identifier) {
 			auto ident = static_cast<Regex_Identifier_AST *>(expr);
 			auto compartment_id = model->components.find_or_create(scope, &ident->ident);
-			connection->components.push_back(compartment_id);
+			Entity_Id index_set_id = invalid_entity_id;
+			if(is_valid(&ident->index_set))
+				index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
+			connection->components.push_back({compartment_id, index_set_id});
 			success = true;
 		} else if(expr->type == Math_Expr_Type::regex_or_chain) {
 			bool success2 = true;
@@ -1063,9 +1068,13 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 					success2 = false;
 					break;
 				}
+				// TODO: This is very rudimentary at the moment.
 				auto ident = static_cast<Regex_Identifier_AST *>(expr2);
 				auto compartment_id = model->components.find_or_create(scope, &ident->ident);
-				connection->components.push_back(compartment_id);
+				Entity_Id index_set_id = invalid_entity_id;
+				if(is_valid(&ident->index_set))
+					index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
+				connection->components.push_back({compartment_id, index_set_id});
 			}
 			success = success2;
 		}

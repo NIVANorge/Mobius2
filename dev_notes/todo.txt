@@ -46,6 +46,8 @@
 			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
 				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
 				
+		Could have the graph types be singly_directed and multiply_directed (?). No specific need for what we now call a tree to not have cycles.
+				
 	Consider renaming 'nowhere' to 'out' (both connection data and regular fluxes)
 	
 	*** Intermediate-pri ***

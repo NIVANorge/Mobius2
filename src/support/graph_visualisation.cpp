@@ -110,7 +110,7 @@ add_connection_node(Agraph_t *g, std::vector<Agnode_t *> &connection_nodes, Enti
 	ss << "<tr><td align=\"left\"><b>";
 	put_name(ss, app->model, conn_id, show_short_names);
 	ss << "</b></td></tr>";
-	auto &components = app->connection_components[conn_id.id];
+	auto &components = app->connection_components[conn_id].components;
 	for(auto comp : components) {
 		ss << "<tr><td align=\"left\"><font point-size=\"8\">";
 		put_name(ss, app->model, comp.id, show_short_names);
@@ -391,7 +391,7 @@ build_distrib_connection_graph(Model_Application *app, Agraph_t *g, bool show_sh
 	}
 	
 	for(auto conn_id : model->connections) {
-		auto &comps = app->connection_components[conn_id.id];
+		auto &comps = app->connection_components[conn_id].components;
 		
 		auto &name = model->connections[conn_id]->name;
 		

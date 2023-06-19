@@ -154,9 +154,8 @@ Model_Application::allocate_series_data(s64 time_steps, Date_Time start_date) {
 
 Sub_Indexed_Component *
 Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error) {
-	if(connection_components.size() < conn_id.id+1)
-		fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection components in time before they are used.");
-	auto &components = connection_components[conn_id.id];
+	
+	auto &components = connection_components[conn_id].components;
 	auto find = std::find_if(components.begin(), components.end(), [comp_id](auto &comp)->bool { return comp_id == comp.id; });
 	if(find == components.end()) {
 		if(make_error)
@@ -171,7 +170,7 @@ Model_Application::get_single_connection_index_set(Entity_Id conn_id) {
 	auto conn = model->connections[conn_id];
 	if(conn->type != Connection_Type::all_to_all && conn->type != Connection_Type::grid1d)
 		fatal_error(Mobius_Error::internal, "Misuse of get_single_connection_index_set().");
-	return connection_components[conn_id.id][0].index_sets[0];
+	return connection_components[conn_id].components[0].index_sets[0];
 }
 
 Entity_Id
@@ -193,10 +192,10 @@ Model_Application::set_up_connection_structure() {
 	for(auto connection_id : model->connections) {
 		auto connection = model->connections[connection_id];
 		
-		if(connection->type == Connection_Type::directed_tree) {
+		if(connection->type == Connection_Type::directed_tree || connection->type == Connection_Type::directed_graph) {
 			// TODO: This is a bit risky, we should actually check that connection_components is correctly set up.
 			
-			for(auto &comp : connection_components[connection_id.id]) {
+			for(auto &comp : connection_components[connection_id].components) {
 				
 				if(comp.total_as_source == 0) continue; // No out-going arrows from this source, so we don't need to pack info about them later.
 				
@@ -207,9 +206,11 @@ Model_Application::set_up_connection_structure() {
 					Connection_T handle2 = { connection_id, comp.id, id };   // Info id for target index number id.
 					handles.push_back(handle2);
 				}
-				// TODO: For graph connections, have to include the edge index set.
-				
+		
 				auto index_sets = comp.index_sets; // Copy vector
+				if(connection->type == Connection_Type::directed_graph)
+					index_sets.push_back(comp.edge_index_set);
+				
 				Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
 				structure.push_back(array);
 			}
@@ -482,9 +483,8 @@ void
 Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx) {
 	auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
 	if(is_valid(sub_indexed_to)) {
-		//TODO: If parent_idx is invalid, we could maybe just set the same index set to all instances of the parent.
 		log_print("Names for sub-indexed index sets are not yet supported. Replacing with numerical indexes.");
-		set_indexes(index_set, (int)indexes.size(), parent_idx);
+		set_index_count(index_set, (int)indexes.size(), parent_idx);
 	} else {
 		index_counts[index_set.id] = { Index_T {index_set, (s32)indexes.size()} };
 		index_names[index_set.id].resize(indexes.size());
@@ -498,12 +498,17 @@ Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &in
 }
 
 void
-Model_Application::set_indexes(Entity_Id index_set, int count, Index_T parent_idx) {
+Model_Application::set_index_count(Entity_Id index_set, int count, Index_T parent_idx) {
 	
 	index_names[index_set.id].clear();
 	auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
 	if(is_valid(sub_indexed_to)) {
-		//TODO: If parent_idx is invalid, we could maybe just set the same index set to all instances of the parent.
+		if(!is_valid(parent_idx)) { // If we did not provide an index for the parent index set of this one (if it exists), we set the same index count to all instances of the parent.
+			auto par_count = get_max_index_count(sub_indexed_to);
+			for(Index_T par_idx = { sub_indexed_to, 0 }; par_idx < par_count; ++par_idx)
+				set_index_count(index_set, count, par_idx);
+			return;
+		}
 		if(parent_idx.index_set != sub_indexed_to)
 			fatal_error(Mobius_Error::internal, "Mis-matched parent index in set_indexes.");
 		auto &counts = index_counts[index_set.id];
@@ -629,11 +634,15 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	
 	auto cnd = model->connections[connection_id];
 	
-	// TODO: Could also print the location of the declaration of the connection.
-	if(std::find(cnd->components.begin(), cnd->components.end(), component_id) == cnd->components.end()) {
+	auto find_decl = std::find_if(cnd->components.begin(), cnd->components.end(), [=](auto &pair){ return (pair.first == component_id); });
+	if(find_decl == cnd->components.end()) {
 		loc.print_error_header();
-		fatal_error("The connection \"", cnd->name,"\" is not allowed for the component \"", component->name, "\".");
+		error_print("The connection \"", cnd->name,"\" is not allowed for the component \"", component->name, "\". See declaration of the connection:\n");
+		cnd->source_loc.print_error();
+		mobius_error_exit();
 	}
+	Entity_Id edge_index_set = find_decl->second;
+	
 	
 	if(single_index_only && comp->index_sets.size() != 1) {
 		loc.print_error_header();
@@ -654,7 +663,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		index_sets.push_back(index_set);
 	}
 	
-	auto &components = app->connection_components[connection_id.id];
+	auto &components = app->connection_components[connection_id].components;
 	auto find = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
 	if(find != components.end()) {
 		if(index_sets != find->index_sets) { // This should no longer be necessary when we make component declarations local to the connection data in the data set.
@@ -665,8 +674,12 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		Sub_Indexed_Component comp;
 		comp.id = component_id;
 		comp.index_sets = index_sets;
+		comp.edge_index_set = edge_index_set;
 		components.push_back(std::move(comp));
 	}
+	
+	// TODO: For directed_graph we should probably check that the edge_index_set is sub_indexed to one of the index_sets (and probably only allow one index_set).
+	//   but maybe not here (?)
 }
 
 void
@@ -695,6 +708,12 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		single_index_only = true;
 		compartment_only = false;
 	}
+	
+	// TODO: Should also allow 0 index sets for this particular one, not exactly one.
+	// TODO: Should make sure the edge index set is sub-indexed to the component index set for this one.
+	if(cnd->type == Connection_Type::directed_graph)
+		single_index_only = true;
+	
 	for(auto &comp : connection.components) {
 		Entity_Id comp_id = model->model_decl_scope.deserialize(comp.name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
@@ -705,102 +724,178 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.source_loc);
 	}
 	
-	if(cnd->type == Connection_Type::directed_tree || cnd->type == Connection_Type::directed_graph) {
-		// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
-		if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
-			connection.source_loc.print_error_header();
-			fatal_error("Connection structures of type directed_tree or directed_graph can only be set up using graph data.");
-		}
-		
-		for(auto &arr : connection.arrows) {
-			auto comp_source = connection.components[arr.first.id];
-			Entity_Id source_comp_id = model->model_decl_scope.deserialize(comp_source->name, Reg_Type::component);
-			
-			Entity_Id target_comp_id = invalid_entity_id;
-			if(arr.second.id >= 0) {
-				auto comp_target = connection.components[arr.second.id];
-				target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
-			}
-			
-			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
-			if( !is_valid(source_comp_id) || (!is_valid(target_comp_id) && arr.second.id >= 0) ) continue;
-			
-			// Store useful information that allows us to prune away un-needed operations later.
-			auto source = app->find_connection_component(conn_id, source_comp_id);
-			if(is_valid(target_comp_id))
-				source->can_be_located_source = true;
-			source->total_as_source++;
-			
-			if(is_valid(target_comp_id)) {
-				auto target = app->find_connection_component(conn_id, target_comp_id);
-				target->possible_sources.insert(source_comp_id);
-				source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
-			}
-		}
-		
-		// TODO: finish the code for checking the regex and that the graph is a tree.
-		
-	} else if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
+	if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
 		if(connection.type != Connection_Info::Type::none || connection.components.count() != 1) {
 			connection.source_loc.print_error_header();
 			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data, and no other data.");
 		}
-	} else
+		return; // Nothing else to do.
+	}
+	
+	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph) 
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in pre_process_connection_data().");
-}
-
-void
-process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set, const std::string &module_name = "") {
 	
-	auto model = app->model;
+	// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
+	if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
+		connection.source_loc.print_error_header();
+		fatal_error("Connection structures of type directed_tree or directed_graph can only be set up using graph data.");
+	}
 	
-	Entity_Id module_id = invalid_entity_id;
-	if(!module_name.empty())
-		module_id = model->deserialize(module_name, Reg_Type::module);
+	for(auto &arr : connection.arrows) {
+		
+		Connection_Arrow arrow;
+		
+		auto comp_source = connection.components[arr.first.id];
+		arrow.source_id = model->model_decl_scope.deserialize(comp_source->name, Reg_Type::component);
 	
-	auto scope = model->get_scope(module_id);
-	
-	auto conn_id = scope->deserialize(connection.name, Reg_Type::connection);
-	auto cnd = model->connections[conn_id];
-			
-	if(cnd->type == Connection_Type::directed_tree) {
-
-		for(auto &arr : connection.arrows) {
-			auto comp = connection.components[arr.first.id];
-			Entity_Id source_comp_id = model->model_decl_scope.deserialize(comp->name, Reg_Type::component);
-			
-			Entity_Id target_comp_id = invalid_entity_id;
-			if(arr.second.id >= 0) {
-				auto comp_target = connection.components[arr.second.id];
-				target_comp_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
-			}
-			
-			// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
-			if( !is_valid(source_comp_id) || (!is_valid(target_comp_id) && arr.second.id >= 0) ) continue;
-			
-			// TODO: For directed graph, we also have to include the edge index set.
-			
-			auto &index_sets = app->find_connection_component(conn_id, source_comp_id)->index_sets;
-			std::vector<Index_T> indexes;
-			for(int idx = 0; idx < index_sets.size(); ++idx) {
-				Index_T index = {index_sets[idx], arr.first.indexes[idx]};
-				indexes.push_back(index);
-			}
-			s64 offset = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, 0}, indexes);
-			s32 id_code = (is_valid(target_comp_id) ? (s32)target_comp_id.id : -1);
-			*app->data.connections.get_value(offset) = id_code;
-			
-			for(int idx = 0; idx < arr.second.indexes.size(); ++idx) {
-				int id = idx+1;
-				s64 offset = app->connection_structure.get_offset_alternate({conn_id, source_comp_id, id}, indexes);
-				*app->data.connections.get_value(offset) = (s32)arr.second.indexes[idx];
+		if(arr.second.id >= 0) {
+			auto comp_target = connection.components[arr.second.id];
+			arrow.target_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
+		}
+		
+		// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
+		if( !is_valid(arrow.source_id) || (!is_valid(arrow.target_id) && arr.second.id >= 0) ) continue;
+		
+		// Store useful information that allows us to prune away un-needed operations later.
+		auto source = app->find_connection_component(conn_id, arrow.source_id);
+		if(is_valid(arrow.target_id))
+			source->can_be_located_source = true;
+		source->total_as_source++;
+		
+		// TODO: Maybe asser the two vectors are the same size (would mean bug in Data_Set code if they are not).
+		int idx = 0;
+		for(auto index_set : source->index_sets) {
+			arrow.source_indexes.push_back(Index_T { index_set, (s16)arr.first.indexes[idx] });
+			++idx;
+		}
+		
+		if(is_valid(arrow.target_id)) {
+			auto target = app->find_connection_component(conn_id, arrow.target_id);
+			target->possible_sources.insert(arrow.source_id);
+			source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
+		
+			// TODO: Maybe asser the two vectors are the same size.
+			int idx = 0;
+			for(auto index_set : target->index_sets) {
+				arrow.target_indexes.push_back(Index_T { index_set, (s16)arr.second.indexes[idx] });
+				++idx;
 			}
 		}
 		
-	} else if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
-		// No data to set up for these.
-	} else
+		app->connection_components[conn_id].arrows.push_back(std::move(arrow));
+	}
+	
+	if(cnd->type == Connection_Type::directed_graph) {
+		// Set up the index set of the edge index.
+		
+		auto &comps = app->connection_components[conn_id];
+		
+		Storage_Structure<Entity_Id> components_structure(app);
+		make_connection_component_indexing_structure(app, &components_structure, conn_id);
+		std::vector<int> n_edges(components_structure.total_count);
+		
+		for(auto &arrow : comps.arrows) {
+			s64 offset = components_structure.get_offset_alternate(arrow.source_id, arrow.source_indexes);
+			s16 edge_idx = n_edges[offset]++;
+			Entity_Id edge_index_set = app->find_connection_component(conn_id, arrow.source_id)->edge_index_set;
+			if(!is_valid(edge_index_set))
+				fatal_error(Mobius_Error::internal, "Got a directed_graph connection that has a component without an edge index set.");
+			arrow.edge_index = Index_T { edge_index_set, edge_idx };
+		}
+		
+		for(auto &comp : comps.components) {
+			if(comp.index_sets.size() != 1)   //TODO: Also allow zero index sets.
+				fatal_error(Mobius_Error::internal, "Somehow got different from 1 index sets for graph component.");
+			Entity_Id index_set = comp.index_sets[0];
+			
+			//TODO: This may be broken if we allow sub-indexing of sub-indexing.
+			// Also may be broken unless we *require* the edge index set to be sub-indexed (but we should do that).
+			std::vector<Index_T> indexes = { Index_T {index_set, 0} };
+			for(; indexes[0] < app->get_max_index_count(index_set); ++indexes[0]) {
+				s64 offset = components_structure.get_offset_alternate(comp.id, indexes );
+				app->set_index_count(comp.edge_index_set, n_edges[offset], indexes[0]);
+			}
+		}
+	}
+	
+	// TODO: finish the code for checking the regex and that it is a tree (if it should be a tree).
+
+}
+
+
+void
+process_connection_data(Model_Application *app, Entity_Id conn_id) {
+	
+	auto model = app->model;
+	
+	auto cnd = model->connections[conn_id];
+		
+	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d)   // No additional data to set up for these
+		return;
+		
+	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in process_connection_data().");
+
+	auto &comps = app->connection_components[conn_id];
+
+	for(auto &arr : comps.arrows) {
+		
+		Sub_Indexed_Component *component = app->find_connection_component(conn_id, arr.source_id);
+		
+		auto &index_sets = component->index_sets;
+		std::vector<Index_T> indexes = arr.source_indexes;
+		if(cnd->type == Connection_Type::directed_graph)
+			indexes.push_back(arr.edge_index);
+		
+		s64 offset = app->connection_structure.get_offset_alternate({conn_id, arr.source_id, 0}, indexes);
+		s32 id_code = (is_valid(arr.target_id) ? (s32)arr.target_id.id : -1);
+		*app->data.connections.get_value(offset) = id_code;
+		
+		for(int idx = 0; idx < arr.target_indexes.size(); ++idx) {
+			int id = idx+1;
+			s64 offset = app->connection_structure.get_offset_alternate({conn_id, arr.source_id, id}, indexes);
+			*app->data.connections.get_value(offset) = (s32)arr.target_indexes[idx].index;
+		}
+	}
+
+}
+
+void
+process_index_set_data(Model_Application *app, Data_Set *data_set, Index_Set_Info &index_set) {
+	
+	// TODO: Should test that what we get in the data set is not an edge index set (since these need to be generated).
+		// Also should not save edge index sets (elsewhere).
+	
+	auto model = app->model;
+	auto id = model->model_decl_scope.deserialize(index_set.name, Reg_Type::index_set);
+	//auto id = model->index_sets.find_by_name(index_set.name);
+	if(!is_valid(id)) {
+		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
+		index_set.source_loc.print_error_header();
+		fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
+		//continue;
+	}
+	Entity_Id sub_indexed_to = invalid_entity_id;
+	if(index_set.sub_indexed_to >= 0)
+		sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
+	if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
+		index_set.source_loc.print_error_header();
+		fatal_error("This index set has data that is sub-indexed to another index set, but the same sub-indexing is not declared in the model.");
+	}
+	for(int idx = 0; idx < index_set.indexes.size(); ++idx) {
+		auto &idxs = index_set.indexes[idx];
+		Index_T parent_idx = { sub_indexed_to, idx };
+		if(idxs.type == Sub_Indexing_Info::Type::named) {
+			std::vector<std::string> names;
+			names.reserve(idxs.indexes.count());
+			for(auto &index : idxs.indexes)
+				names.push_back(index.name);
+			app->set_indexes(id, names, parent_idx);
+		} else if (idxs.type == Sub_Indexing_Info::Type::numeric1) {
+			app->set_index_count(id, idxs.n_dim1, parent_idx);
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
+	}
 }
 
 void
@@ -820,7 +915,12 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			input_names.push_back(header.name);
 	}
 	
-	connection_components.resize(model->connections.count());
+	
+	for(auto &index_set : data_set->index_sets)
+		process_index_set_data(this, data_set, index_set);
+	
+	
+	connection_components.initialize(model);
 	
 	for(auto &connection : data_set->global_module.connections)
 		pre_process_connection_data(this, connection, data_set);
@@ -830,15 +930,13 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	}
 	
 	for(auto conn_id : model->connections) {
-		auto &components = connection_components[conn_id.id];
+		auto &components = connection_components[conn_id].components;
 		if(components.empty()) {
 			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");
 			//TODO: Should maybe just print a warning and auto-generate the data instead of having an error. This is more convenient when creating a new project.
+			//TODO: Should at least not need connection data for graph1d and all_to_all.
 		}
 	}
-	
-	// TODO: Somewhere at this point we have to validate/generate edge index sets for graph connections.
-	
 	
 	prelim_compose(this, input_names);
 
@@ -852,57 +950,20 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		}
 	}
 	
-	for(auto &index_set : data_set->index_sets) {
-		auto id = model->model_decl_scope.deserialize(index_set.name, Reg_Type::index_set);
-		//auto id = model->index_sets.find_by_name(index_set.name);
-		if(!is_valid(id)) {
-			// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
-			index_set.source_loc.print_error_header();
-			fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
-			//continue;
-		}
-		Entity_Id sub_indexed_to = invalid_entity_id;
-		if(index_set.sub_indexed_to >= 0)
-			sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
-		if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
-			index_set.source_loc.print_error_header();
-			fatal_error("This index set has data that is sub-indexed to another index set, but the same sub-indexing is not declared in the model.");
-		}
-		for(int idx = 0; idx < index_set.indexes.size(); ++idx) {
-			auto &idxs = index_set.indexes[idx];
-			Index_T parent_idx = { sub_indexed_to, idx };
-			if(idxs.type == Sub_Indexing_Info::Type::named) {
-				std::vector<std::string> names;
-				names.reserve(idxs.indexes.count());
-				for(auto &index : idxs.indexes)
-					names.push_back(index.name);
-				set_indexes(id, names, parent_idx);
-			} else if (idxs.type == Sub_Indexing_Info::Type::numeric1) {
-				set_indexes(id, idxs.n_dim1, parent_idx);
-			} else
-				fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
-		}
-	}
-	
-	std::vector<std::string> gen_index = { "(generated)" };
+	// Generate at least one index for index sets that were not provided in the data set.
 	for(auto index_set : model->index_sets) {
 		if(get_max_index_count(index_set).index == 0)
-			set_indexes(index_set, gen_index);
+			set_index_count(index_set, 1);
 	}
 	
 	if(!index_counts_structure.has_been_set_up)
 		set_up_index_count_structure();
 	
-	
 	if(!connection_structure.has_been_set_up) // Hmm, can this ever have been set up already?
 		set_up_connection_structure();
 	
-	for(auto &connection : data_set->global_module.connections)
-		process_connection_data(this, connection, data_set);
-	for(auto &module : data_set->modules) {
-		for(auto &connection : module.connections)
-			process_connection_data(this, connection, data_set, module.name);
-	}
+	for(auto &conn_id : model->connections)
+		process_connection_data(this, conn_id);
 	
 	std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> par_group_index_sets;
 	for(auto &par_group : data_set->global_module.par_groups)
@@ -1060,6 +1121,21 @@ Model_Application::save_to_data_set() {
 		
 		++module_id;
 	}
+}
+
+void
+make_connection_component_indexing_structure(Model_Application *app, Storage_Structure<Entity_Id> *components_structure, Entity_Id connection_id) {
+	
+	auto &comps = app->connection_components[connection_id].components;
+	
+	// TODO: Could also group them by the index sets.
+	std::vector<Multi_Array_Structure<Entity_Id>> structure;
+	for(auto &comp : comps) {
+		std::vector<Entity_Id> index_sets = comp.index_sets;
+		structure.push_back(std::move(Multi_Array_Structure<Entity_Id>(std::move(index_sets), {comp.id})));
+	}
+	
+	components_structure->set_up(std::move(structure));
 }
 
 inline size_t

@@ -642,16 +642,31 @@ potentially_parse_regex_unary(Token_Stream *stream, Math_Expr_AST *arg) {
 }
 
 Math_Expr_AST *
+parse_regex_identifier(Token_Stream *stream) {
+	auto ident = new Regex_Identifier_AST();
+	ident->ident = stream->read_token();
+	ident->source_loc = ident->ident.source_loc;
+	auto token = stream->peek_token();
+	if((char)token.type != '[') return ident;
+	
+	stream->read_token();
+	ident->index_set = stream->read_token();
+	if(ident->index_set.type != Token_Type::identifier) {
+		ident->index_set.print_error_header();
+		fatal_error("Expected an index set identifier.");
+	}
+	stream->expect_token(']');
+	
+	return ident;
+}
+
+Math_Expr_AST *
 parse_primary_regex(Token_Stream *stream) {
 	
 	Math_Expr_AST *result = nullptr;
 	Token token = stream->peek_token();
 	if(token.type == Token_Type::identifier) {
-		auto ident = new Regex_Identifier_AST();
-		ident->ident = token;
-		ident->source_loc = token.source_loc;
-		result = ident;
-		stream->read_token();
+		result = parse_regex_identifier(stream);
 	} else if((char)token.type == '(') {
 		result = parse_regex_list(stream, false);
 	} else {

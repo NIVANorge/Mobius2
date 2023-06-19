@@ -834,7 +834,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					
 				} else if(conn_type == Connection_Type::all_to_all || conn_type == Connection_Type::grid1d) {
 					
-					auto &components = app->connection_components[var2->connection.id];
+					auto &components = app->connection_components[var2->connection].components;
 					auto source_comp = components[0].id;
 					
 					bool found = false;

@@ -2,6 +2,7 @@
 #include "model_application.h"
 
 // TODO: have to make Regex_Body_FT * etc. And the function to resolve the AST.
+	// Hmm, that seems very superfluous. Why not just use the AST ?
 
 bool
 match_recursive(int &arr_idx, std::vector<int> &points_at, std::vector<Entity_Id> &ids, Regex_Body_FT *regex) {
@@ -65,9 +66,16 @@ match_regex(Model_Application *app, Data_Set *data_set, Connection_Info *conn, E
 	
 	// TODO: check on conn->type
 	
+	// TODO: support things like i{n}, where n is an exact number of repetitions. i{n m} : between n and m repetitions.
+	
+	
 	// TODO: This doesn't quite work, since not all nodes are necessarily represented by a source arrow.
 	// Also we should maybe match free-standing nodes against the regex too. (e.g. if the regex is (i j), then an i without an arrow going out should not match.
-	// TODO: support things like i{n}, where n is an exact number of repetitions. i{n m} : between n and m repetitions.
+	
+	// TODO: To resolve the problem noted above, use
+	// make_connection_component_indexing_structure
+	// from model_application.h
+	// Also, we should now just use the app->connection_components stored arrows, so we don't need the Data_Set
 	
 	auto model = app->model;
 	auto connection = model->connections[conn_id];

@@ -214,8 +214,6 @@ struct Multi_Array_Structure {
 	Multi_Array_Structure(std::vector<Entity_Id> &&index_sets, std::vector<Handle_T> &&handles) : index_sets(index_sets), handles(handles) {
 		finalize();
 	}
-	
-	//Multi_Array_Structure() {}
 };
 
 // TODO: remove Val_T template parameter (it is unused)
@@ -348,13 +346,44 @@ struct
 Sub_Indexed_Component {
 	Entity_Id id;
 	std::vector<Entity_Id> index_sets;
+	Entity_Id edge_index_set;
 	
 	bool can_be_located_source;           // if this can be a source of the connection to a located target (not 'nowhere').
 	int total_as_source;                  // How many of this type of component appears as a source (both to a located or 'nowhere').
 	std::set<Entity_Id> possible_sources; // what sources can have this as a target.
 	int max_target_indexes;               // max indexes of a target that has this as the source
 	
-	Sub_Indexed_Component() : id(invalid_entity_id), can_be_located_source(false), max_target_indexes(0), total_as_source(0) {}
+	Sub_Indexed_Component() : id(invalid_entity_id), edge_index_set(invalid_entity_id), can_be_located_source(false), max_target_indexes(0), total_as_source(0) {}
+};
+
+struct
+Connection_Arrow {
+	Entity_Id source_id                    = invalid_entity_id;
+	Entity_Id target_id                    = invalid_entity_id;
+	std::vector<Index_T> source_indexes;
+	std::vector<Index_T> target_indexes;
+	Index_T   edge_index                   = invalid_index;
+};
+
+struct
+Connection_Components {
+	std::vector<Sub_Indexed_Component>   components;
+	std::vector<Connection_Arrow>        arrows;
+};
+
+struct
+All_Connection_Components {
+	std::vector<Connection_Components>   components;
+	
+	Connection_Components &operator[](Entity_Id id) {
+		if(id.reg_type != Reg_Type::connection || !is_valid(id) || components.size() <= id.id)
+			fatal_error(Mobius_Error::internal, "Tried to access connection components with the wrong type of id, or at the wrong time (before they were set up).");
+		return components[id.id];
+	}
+	
+	void initialize(Mobius_Model *model) {
+		components.resize(model->connections.count());
+	}
 };
 
 struct
@@ -401,7 +430,7 @@ public :
 	
 	Data_Set                                                *data_set;
 	
-	std::vector<std::vector<Sub_Indexed_Component>>          connection_components;
+	All_Connection_Components                                connection_components;
 	
 	LLVM_Module_Data                                        *llvm_data;
 	
@@ -412,7 +441,7 @@ public :
 	std::vector<Entity_Id>                                   baked_parameters;
 	
 	void        set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx = invalid_index);
-	void        set_indexes(Entity_Id index_set, int count, Index_T parent_idx = invalid_index);
+	void        set_index_count(Entity_Id index_set, int count, Index_T parent_idx = invalid_index);
 	Index_T     get_max_index_count(Entity_Id index_set);
 	Index_T     get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes);
 	Index_T     get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes);
@@ -446,15 +475,6 @@ public :
 	
 	std::unordered_map<std::string, Var_Id> serial_to_id;
 	
-	/*
-	Var_Registry *registry(Var_Id id) {
-		if(id.type == Var_Id::Type::state_var) return &state_vars;
-		if(id.type == Var_Id::Type::series)    return &series;
-		if(id.type == Var_Id::Type::additional_series) return &additional_series;
-		fatal_error(Mobius_Error::internal, "Invalid Var_Id type in registry().");
-		return nullptr;
-	}*/
-	
 	std::string batch_structure;
 	std::string batch_code;
 	std::string llvm_ir;
@@ -462,6 +482,10 @@ public :
 
 Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction);
+
+// The point of this one is to make a structure that can be used for local computations, this is not the same as the connection_structure, which is used in the model code generation itself.
+void
+make_connection_component_indexing_structure(Model_Application *app, Storage_Structure<Entity_Id> *components, Entity_Id connection_id);
 
 struct
 Index_Exprs {
