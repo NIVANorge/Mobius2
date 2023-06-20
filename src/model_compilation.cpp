@@ -500,14 +500,10 @@ make_add_to_aggregate_instr(std::vector<Model_Instruction> &instructions, Entity
 	add_to_aggr_instr.target_id = agg_var;
 	add_to_aggr_instr.var_id = agg_of;
 	
-	//add_to_aggr_instr.depends_on_instruction.insert(agg_of.id); // NOTE: Not necessary because of automatic dependency system.
-	
 	if(restriction) {
 		add_to_aggr_instr.restriction = *restriction;
 		add_to_aggr_instr.type = Model_Instruction::Type::add_to_connection_aggregate;
 		add_to_aggr_instr.source_id = source_id;
-		if(restriction->restriction == Var_Loc_Restriction::below)
-			add_to_aggr_instr.inherits_index_sets_from_instruction.insert(agg_var.id);
 	} else {
 		add_to_aggr_instr.type = Model_Instruction::Type::add_to_aggregate;
 		add_to_aggr_instr.inherits_index_sets_from_instruction.insert(agg_var.id);
@@ -759,6 +755,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			// Find all the connection fluxes pointing to the target (or going out from source)
 			for(auto var_id_flux : app->vars.all_fluxes()) {
+				
+				// TODO: This section of the function is an awful mess and always breaks (some times silently). Just separate this out per connection type?
+				//		There are so many edge cases to take care of. Also think about how some of the information could be streamlined better.
+				
 				auto var_flux = app->vars[var_id_flux];
 				auto &restriction = restriction_of_flux(var_flux);
 				if(restriction.connection_id != var2->connection) continue;
@@ -768,6 +768,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				Var_Location flux_loc = var_flux->loc1;
 				if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::specific)
 					flux_loc = var_flux->loc2;
+				
+				Sub_Indexed_Component *find_source = nullptr;
+				Entity_Id              source_comp_id = invalid_entity_id;
+				if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
+					source_comp_id = var_flux->loc1.components[0];
+					find_source = app->find_connection_component(var2->connection, source_comp_id, false);
+					if(!find_source) continue; // Can happen if it is not given in the graph data (if this is a graph connection).
+				}
 				
 				if(var2->is_source) {
 					if(!is_located(var_flux->loc1) || app->vars.id_of(var_flux->loc1) != var2->agg_for)
@@ -783,12 +791,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(loc != target_loc) continue;
 					
 					// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
-					if(conn_type == Connection_Type::directed_tree) {
+					if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
 						// Can this source compartment be a source of an arrow at all?
 						// TODO: This test is maybe redundant given the next test?
-						Entity_Id source_comp_id = var_flux->loc1.components[0];
-						auto *find_source = app->find_connection_component(var2->connection, source_comp_id, false);
-						if(!find_source || !find_source->can_be_located_source) continue;
+						
+						if(!find_source->can_be_located_source) continue;
 						
 						// Can this source compartment target this target compartment with an arrow?
 						auto *find_target = app->find_connection_component(var2->connection, app->vars[var2->agg_for]->loc1.components[0]);
@@ -797,7 +804,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					}
 				}
 				
-				Var_Id source_id = app->vars.id_of(var_flux->loc1);
+				Var_Id source_id = invalid_var;
+				if(is_located(var_flux->loc1))
+					source_id = app->vars.id_of(var_flux->loc1);
 				
 				// Create an instruction that adds the flux value to the aggregate.
 				int add_to_aggr_id = make_add_to_aggregate_instr(instructions, var_solver, var_id, var_id_flux, clear_id, source_id, &restriction);
@@ -812,14 +821,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
 					
-					// Hmm, could have kept find_source from above?
-					Entity_Id source_comp_id = var_flux->loc1.components[0];
-					auto *find_source = app->find_connection_component(var2->connection, source_comp_id);
-					
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
 					add_to_aggr_instr->index_sets.insert(find_source->index_sets.begin(), find_source->index_sets.end());
-					if(conn_type == Connection_Type::directed_graph)
+					if(conn_type == Connection_Type::directed_graph) {
 						add_to_aggr_instr->index_sets.insert(find_source->edge_index_set);
+						instructions[var_id_flux.id].index_sets.insert(find_source->index_sets[0]); // Need this one since the edge set depends on it.
+						instructions[var_id_flux.id].index_sets.insert(find_source->edge_index_set);
+					}
 					
 					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate?
 						
@@ -866,6 +874,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						}
 					}
 					instructions[var2->agg_for.id].index_sets.insert(index_set);
+					
+					// TODO: Is this still needed: ?
+					if(restriction.restriction == Var_Loc_Restriction::below)
+						add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id);
 				} else
 					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
 			}
@@ -1371,7 +1383,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
 	
@@ -1381,13 +1393,17 @@ Model_Application::compile(bool store_code_strings) {
 	constants.index_count_data       = data.index_counts.data;
 	constants.index_count_data_count = index_counts_structure.total_count;
 	
-	
+#if 0
 	log_print("****Connection data is:\n");
 	for(int idx = 0; idx < constants.connection_data_count; ++idx)
 		log_print(" ", constants.connection_data[idx]);
 	log_print("\n");
 	
-	
+	log_print("****Index count data is:\n");
+	for(int idx = 0; idx < constants.index_count_data_count; ++idx)
+		log_print(" ", constants.index_count_data[idx]);
+	log_print("\n");
+#endif
 	jit_add_global_data(llvm_data, &constants);
 	
 	this->initial_batch.run_code = generate_run_code(this, &initial_batch, initial_instructions, true);

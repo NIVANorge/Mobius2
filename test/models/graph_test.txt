@@ -2,27 +2,47 @@
 model("Graph test") {
 
 	node : compartment("Node")
+	node2 : compartment("Node2")
+	
+	
+	
+	par_group("Edge pars", edge) {
+		rate : par_real("Flow rate", [day-1], 0.1)
+	}
 	
 	water : quantity("Water")
 	
 	ni : index_set("Node index") {
-		e : index_set("Edges")
+		e : index_set("Node edges")
+	}
+	n2i : index_set("Node2 index") {
+		e2 : index_set("Node2 edges")
 	}
 	distribute(node, ni)
+	distribute(node2, n2i)
+	
+	edge : compartment("Edge")
+	distribute(edge, ni, e)
 	
 	sol : solver("Simply solver", "INCADascru", 0.1, 1e-3)
-	solve(sol, node.water)
+	solve(sol, node.water, node2.water)
 	
 	g : connection("The graph", directed_graph) {
-		node[e]*			#TODO: Allow parsing the edge index?
+		(node[e]|node2[e2])*
 	}
 
 	module("Graph test", version(0, 0, 1)) {
 
-		var(node.water, [m 3]) @initial { 10[m 3] }
+		var(node.water, [m 3], "Node water") @initial { 10[m 3] }
 		
 		flux(node.water, g, [m 3, day-1], "The flow") {
-			0.1[day-1]*water
+			rate*water
+		}
+		
+		var(node2.water, [m 3], "Node2 water") @initial { 100[m 3] }
+		
+		flux(node2.water, g, [m 3, day-1], "The other flow") {
+			0.2[day-1]*water
 		}
 	}
 }

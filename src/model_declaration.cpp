@@ -1012,6 +1012,17 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 	return id;
 }
 
+void
+add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_Registration<Reg_Type::connection> *connection, Regex_Identifier_AST *ident) {
+	auto compartment_id = model->components.find_or_create(scope, &ident->ident);
+	Entity_Id index_set_id = invalid_entity_id;
+	if(is_valid(&ident->index_set)) {
+		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
+		model->index_sets[index_set_id]->is_edge_index_set = true;
+	}
+	connection->components.push_back({compartment_id, index_set_id}); // TODO: De-duplicate and check mis-matching index sets. And check that the index set is not already an edge_index_set (if this is the first occurrence of the pair.)
+}
+
 template<> Entity_Id
 process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	int which = match_declaration(decl,
@@ -1022,9 +1033,6 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	
 	auto id         = model->connections.standard_declaration(scope, decl);
 	auto connection = model->connections[id];
-	
-	// TODO: actually "compile" a regex and support more types
-	// TODO: we have to check somewhere in post that the handles are indeed a compartments (not quantity or property). This will probably be handled when we start to process regexes (?) (Although later we should allow connections between quantities also).
 	
 	if(which == 1) {
 		String_View structure_type = single_arg(decl, 1)->string_value;
@@ -1055,11 +1063,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		
 		if(expr->type == Math_Expr_Type::regex_identifier) {
 			auto ident = static_cast<Regex_Identifier_AST *>(expr);
-			auto compartment_id = model->components.find_or_create(scope, &ident->ident);
-			Entity_Id index_set_id = invalid_entity_id;
-			if(is_valid(&ident->index_set))
-				index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
-			connection->components.push_back({compartment_id, index_set_id});
+			add_connection_component_option(model, scope, connection, ident);
 			success = true;
 		} else if(expr->type == Math_Expr_Type::regex_or_chain) {
 			bool success2 = true;
@@ -1070,11 +1074,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 				}
 				// TODO: This is very rudimentary at the moment.
 				auto ident = static_cast<Regex_Identifier_AST *>(expr2);
-				auto compartment_id = model->components.find_or_create(scope, &ident->ident);
-				Entity_Id index_set_id = invalid_entity_id;
-				if(is_valid(&ident->index_set))
-					index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
-				connection->components.push_back({compartment_id, index_set_id});
+				add_connection_component_option(model, scope, connection, ident);
 			}
 			success = success2;
 		}
@@ -1461,10 +1461,15 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
 		auto index_set = model->index_sets[id];
+		
+		int list_idx = idx-1;
+		
 		if(is_valid(index_set->sub_indexed_to)) {
-			if(idx == 0 || component->index_sets[idx-1] != index_set->sub_indexed_to) {
-				index_set->source_loc.print_error_header();
-				fatal_error("This index set is sub-indexed to another index set, but it doesn't immediately follow that other index set in the 'distribute' declaration.");
+			if(list_idx == 0 || component->index_sets[list_idx-1] != index_set->sub_indexed_to) {
+				decl->args[idx]->source_loc().print_error_header();
+				error_print("The index set \"", index_set->name, "\" is sub-indexed to another index set \"", model->index_sets[index_set->sub_indexed_to]->name, "\", but the parent index set does not immediately precede it the 'distribute' declaration. See the declaration of the index set here:");
+				index_set->source_loc.print_error();
+				mobius_error_exit();
 			}
 		}
 		component->index_sets.push_back(id);

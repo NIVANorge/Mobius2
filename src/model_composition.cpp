@@ -268,11 +268,11 @@ location_indexes_below_location(Mobius_Model *model, const Var_Location &loc, co
 }
 
 bool
-parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Var_Location &below_loc,
-	Entity_Id exclude_index_set_from_loc = invalid_entity_id, Entity_Id exclude_index_set_from_var = invalid_entity_id) {
+parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, const Var_Location &below_loc, const Specific_Var_Location &loc2,
+	Entity_Id exclude_index_set_from_var = invalid_entity_id) {
 		
-	auto par = model->parameters[par_id];
-	auto par_comp_id = model->par_groups[par->par_group]->component;
+	auto par = app->model->parameters[dep.par_id];
+	auto par_comp_id = app->model->par_groups[par->par_group]->component;
 	
 	// Global parameters should be accessible from anywhere.
 	if(!is_valid(par_comp_id)) return true;
@@ -283,11 +283,24 @@ parameter_indexes_below_location(Mobius_Model *model, Entity_Id par_id, const Va
 	loc.n_components = 1;
 	loc.components[0] = par_comp_id;
 	
-	return location_indexes_below_location(model, loc, below_loc, exclude_index_set_from_loc, exclude_index_set_from_var);
+	Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
+	
+	// Ugh, also a bit hacky. Should be factored out.
+	// The purpose of this is to allow a flux on a graph connection to reference something that depends on the edge index set of the graph from the source of the flux.
+	if(!is_valid(exclude_index_set_from_loc) && is_valid(loc2.connection_id) && app->model->connections[loc2.connection_id]->type == Connection_Type::directed_graph) {
+		auto find_source = app->find_connection_component(loc2.connection_id, below_loc.components[0], false);
+		if(find_source)
+			exclude_index_set_from_loc = find_source->edge_index_set;
+	}
+	
+	return location_indexes_below_location(app->model, loc, below_loc, exclude_index_set_from_loc, exclude_index_set_from_var);
 }
 
 void
-check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Specific_Var_Location &loc) {
+check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Specific_Var_Location &loc, const Specific_Var_Location &loc2 = Specific_Var_Location()) {
+	
+	// TODO: The loc in this function is really the below_loc. Maybe rename it to avoid confusion.
+	
 	Dependency_Set code_depends;
 	register_dependencies(function, &code_depends);
 	
@@ -301,9 +314,8 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	
 	// TODO: in these error messages we should really print out the two tuples of index sets.
 	for(auto &dep : code_depends.on_parameter) {
-		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
-		if(!parameter_indexes_below_location(app->model, dep.par_id, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
+		if(!parameter_indexes_below_location(app, dep, loc, loc2, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
 		}
@@ -788,9 +800,9 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	var = as<State_Var::Type::declared>(app->vars[target_var_id]);
 	
 	agg_var->unit = divide(var->unit, app->time_step_unit);
-	if(is_source)
+	if(is_source) {
 		var->conn_source_aggs.push_back(agg_id);
-	else {
+	} else {
 		var->conn_target_aggs.push_back(agg_id);
 		
 		// NOTE: aggregation weights only supported for compartments for now..
@@ -1231,8 +1243,11 @@ compose_and_resolve(Model_Application *app) {
 		
 		if(connection->type == Connection_Type::directed_tree || connection->type == Connection_Type::directed_graph) {
 			
-			if(connection->type == Connection_Type::directed_graph)
-				register_connection_agg(app, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes on the connection
+			if(connection->type == Connection_Type::directed_graph) {
+				auto find_source = app->find_connection_component(conn_id, app->vars[source_id]->loc1.components[0], false);
+				if(find_source && find_source->total_as_source > 0)
+					register_connection_agg(app, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes on the connection
+			}
 			
 			for(auto &target_comp : app->connection_components[conn_id].components) {
 				
@@ -1308,7 +1323,7 @@ compose_and_resolve(Model_Application *app) {
 		Specific_Var_Location &in_loc = (is_located(var->loc1) ? var->loc1 : var->loc2);
 		
 		if(var2->function_tree)
-			check_valid_distribution_of_dependencies(app, var2->function_tree.get(), in_loc);
+			check_valid_distribution_of_dependencies(app, var2->function_tree.get(), in_loc, var->loc2);
 		if(var2->initial_function_tree)
 			check_valid_distribution_of_dependencies(app, var2->initial_function_tree.get(), in_loc);
 		if(var2->override_tree)

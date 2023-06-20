@@ -177,7 +177,7 @@ Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction) {
 	Entity_Id avoid = invalid_entity_id;
 	if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::bottom)
-		avoid = app->get_single_connection_index_set(restriction.connection_id);
+		return app->get_single_connection_index_set(restriction.connection_id);
 	return avoid;
 }
 
@@ -671,6 +671,8 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 			fatal_error("The component \"", app->model->components[component_id]->name, "\" appears twice in the same connection relation, but with different index set dependencies.");
 		}
 	} else {
+		//log_print("Add connection component ", app->model->components[component_id]->name, "\n");
+		
 		Sub_Indexed_Component comp;
 		comp.id = component_id;
 		comp.index_sets = index_sets;
@@ -805,7 +807,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		
 		for(auto &comp : comps.components) {
 			if(comp.index_sets.size() != 1)   //TODO: Also allow zero index sets.
-				fatal_error(Mobius_Error::internal, "Somehow got different from 1 index sets for graph component.");
+				fatal_error(Mobius_Error::internal, "Somehow got not exactly 1 index set for graph component.");
 			Entity_Id index_set = comp.index_sets[0];
 			
 			//TODO: This may be broken if we allow sub-indexing of sub-indexing.

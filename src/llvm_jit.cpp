@@ -543,8 +543,14 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Va
 	llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
 	llvm::BasicBlock *pre_header_block = data->builder->GetInsertBlock();
 	llvm::BasicBlock *loop_block       = llvm::BasicBlock::Create(*data->context, "loop", fun);
+	llvm::BasicBlock *after_block = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
 	
-	data->builder->CreateBr(loop_block);
+	llvm::Value *iter_end  = build_expression_ir(n, loop_local, args, data);
+	llvm::Value *count_not_zero = data->builder->CreateICmpNE(iter_end, start_val, "isloop");
+	//data->builder->CreateBr(loop_block);
+	
+	data->builder->CreateCondBr(count_not_zero, loop_block, after_block);  // NOTE: If the iteration count is 0, there will be no loop altogether, so we have to skip it.
+	
 	data->builder->SetInsertPoint(loop_block);
 	
 	// Create the iterator
@@ -557,11 +563,10 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Va
 	
 	llvm::Value *step_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 1, true));  // Step is always 1
 	llvm::Value *next_iter = data->builder->CreateAdd(iter, step_val, "next_iter");
-	llvm::Value *iter_end  = build_expression_ir(n, loop_local, args, data);
 	llvm::Value *loop_cond = data->builder->CreateICmpNE(next_iter, iter_end, "loopcond"); // iter+1 != n
 	
 	llvm::BasicBlock *loop_end_block = data->builder->GetInsertBlock();
-	llvm::BasicBlock *after_block = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
+	//llvm::BasicBlock *after_block = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
 	
 	data->builder->CreateCondBr(loop_cond, loop_block, after_block);
 	data->builder->SetInsertPoint(after_block);

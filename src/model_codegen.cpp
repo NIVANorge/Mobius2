@@ -500,7 +500,7 @@ make_restriction_condition(Model_Application *app, Var_Loc_Restriction restricti
 			auto index_count = get_index_count_code(app, index_set, index_expr);
 			new_condition = make_binop('<', copy(index), index_count);
 		}
-	} else if (type == Connection_Type::directed_tree && is_valid(source_compartment)) {
+	} else if ((type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) && is_valid(source_compartment)) {
 		
 		auto *comp = app->find_connection_component(connection_id, source_compartment, false);
 		if(comp && comp->total_as_source > 0) {
@@ -755,7 +755,9 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			std::set<Var_Loc_Restriction> restrictions;
 			if(is_valid(instr->restriction.connection_id)) {
 				// TODO: This is a bit hacky for now. We should instead store the loc in the restrictions set together with the restriction somehow.
-				if(app->model->connections[instr->restriction.connection_id]->type == Connection_Type::directed_tree) {
+				auto type = app->model->connections[instr->restriction.connection_id]->type;
+				// NOTE: Should not be necessary for the directed_graph, because if there are no edges, the for loop will skip.
+				if(type == Connection_Type::directed_tree) { // || type == Connection_Type::directed_graph) { 
 					Var_Location &loc1 = app->vars[instr->var_id]->loc1;
 					restriction_condition = make_restriction_condition(app, instr->restriction, restriction_condition, indexes, loc1.components[0]);
 				} else

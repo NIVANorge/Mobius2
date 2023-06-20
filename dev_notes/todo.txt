@@ -12,21 +12,27 @@
 			This in particular may have been fixed now.
 
 	Finish connection system
-
-		Dissolved fluxes -
-			make dissolvedes of negatives work for other types (all_to_all, graph (maybe) regular fluxes (maybe), but probably not directed tree).
 		
 		graph and directed_tree
 			Must specify nowhere in the regex for it to be an allowed target
-				Requires finishing the entire regex thing.
+			Could have the graph types be singly_directed and multiply_directed (?). No specific need for what we now call a tree to not have cycles.
+		
+		The above requires finishing the entire regex thing.
 		
 		graph connections
-			Make them
-				How to organize them? Need to think especially about how one can associate things to the nodes of the connection. Difficult wrt layers in NIVAFjord.
-					May need union index sets?
-			Figure out how to use sub-indexing for indexing outgoing connections (need to generate index sets (ouch)).
+			More stress testing
+				Attaching data to edges
+					How does this work when edge indexes are not saved in the data set (data set code should maybe itself do the edge index generation (?))
+			[below] accesses in flux.
+			Check that the edge index set is OK (i.e. sub-indexed to the right thing).
+			Allow naming edges (?)
+			Make sure edge indexes are not saved to data set.
+			
+			Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
 
-		all_to_all:
+		all_to_all, grid1d:
+			
+		
 			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
 
 		What about:
@@ -45,8 +51,11 @@
 			Tridiagonal distribution.
 			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
 				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
-				
-		Could have the graph types be singly_directed and multiply_directed (?). No specific need for what we now call a tree to not have cycles.
+		
+		Dissolved fluxes -
+			make dissolvedes of negatives work for other types (all_to_all, graph (maybe) regular fluxes (maybe), but probably not directed tree).
+			
+			
 				
 	Consider renaming 'nowhere' to 'out' (both connection data and regular fluxes)
 	

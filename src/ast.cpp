@@ -10,7 +10,7 @@
 	
 	The general form of a declaration is
 	
-		identifier : decl_type(arg, ...) @note_1 { body_1 } ... @note_n { body_n }
+		identifier : decl_type(arg, ...) { main_body } @note_1(args_1..) { body_1 } ... @note_n(args_n..) { body_n }
 	
 	The first identifier is the "handle" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
 	In some cases you can make a declaration without a handle.
@@ -29,12 +29,13 @@
 	
 	
 	Not all declarations have bodies.
-	Bodies can have 0 or 1 note
 	There are two overarching types of bodies, and which one is used depends on the decl_type
 		Decl body:
 			This contains just a sequence of other declarations. It can also contain one quoted string, called the docstring of the body.
 		Function body:
 			This contains a mathematical expression. This should be given separate documentation.
+			
+	Declarations can have 0 or more notes. A note is another declaration that can some times have arguments and a body, but not its own notes or identifier.
 	
 	Unit declarations have their entirely separate syntax [a b c, d e f, ...], but are internally handled as a decl where a b c is the "chain" of the first argument, d e f the second. Unit arguments are generally on the form
 		si_prefix unit_symbol number . e.g.
@@ -67,6 +68,13 @@ Argument_AST::~Argument_AST() { delete decl; }
 Function_Body_AST::~Function_Body_AST() { delete block; }
 Regex_Body_AST::~Regex_Body_AST() { delete expr; }
 
+Source_Location &
+Argument_AST::source_loc() {
+	if(decl)
+		return decl->source_loc;
+	else
+		return chain[0].source_loc;
+}
 
 inline bool
 is_accepted_for_chain(Token_Type type, bool identifier_only, bool allow_slash) {

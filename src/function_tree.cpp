@@ -1474,7 +1474,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			Print_Scope new_scope;
 			new_scope.scope_id = block->unique_block_id;
 			new_scope.scope_up = scope;
-			int iter_id = -1;
+			int iter_id = 0;
 			if(scope) iter_id = scope->iter_name_gen;
 			new_scope.iter_name_gen = iter_id+1;
 			

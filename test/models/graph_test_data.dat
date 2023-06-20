@@ -1,10 +1,20 @@
 
 index_set("Node index") [ 4 ]
 
+index_set("Node2 index") [ 2 ]
+
 connection("The graph") [
 	n : compartment("Node") [ "Node index" ]
 	
+	n2 : compartment("Node2") [ "Node2 index" ]
+	
+	
 	n[0] -> n[1] -> n[2]
 	n[0] -> n[3] -> n[1]
-	n[3] -> n[2]
+	n[3] -> n[2] #-> nowhere
+	n[1] -> nowhere
+	n2[0] -> n[0]
+	n2[1] -> n[1]
+	#n2[0] -> n2[1]
+	#n[2] -> n2[0]
 ]

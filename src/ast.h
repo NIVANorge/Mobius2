@@ -40,6 +40,8 @@ Argument_AST : Expr_AST {
 	std::vector<Token> bracketed_chain;
 	Decl_AST          *decl = nullptr;
 	
+	Source_Location &source_loc();
+	
 	~Argument_AST();
 };
 
