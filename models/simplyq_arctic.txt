@@ -147,7 +147,7 @@ model("SimplyArctic") {
 		flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {
 			0                                     if (aggregate(snow_box.snow) > ice_epsilon) | (glacier.ice > ice_epsilon),
 			s_response(water, 0.5*fc, fc, 0, pet) otherwise
-		} @no_carry   # Don't carry dissolved substances in the evapotranspiration
+		} @no_carry  # Don't carry dissolved substances in the evapotranspiration
 		
 		flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
 			drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc

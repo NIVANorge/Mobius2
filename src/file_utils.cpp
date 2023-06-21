@@ -58,15 +58,25 @@ read_entire_file(String_View file_name, Source_Location from) {
 
 inline bool is_slash(char c) { return c == '\\' || c == '/'; }
 
+bool
+is_relative_path(String_View file_name) {
+	if(file_name.count == 0) return true;
+	if(is_slash(file_name.data[0])) return false;  // TODO: Maybe only on linux
+	if(file_name.count >= 3) {
+		if(file_name.data[0] >= 'A' && file_name.data[0] <= 'Z' && file_name.data[1] == ':' && is_slash(file_name.data[2]))
+			return false;
+	}
+	return true;
+}
+
 String_View
 make_path_relative_to(String_View file_name, String_View relative_to) {
-	// TODO: this should maybe check that the file_name *is* actually a relative path..
 	// TODO: don't rewind past a directory name (in that case there should be an error).
 	
-	constexpr int maxpath = 1024;
-	static char new_path[maxpath]; //TODO make a string builder instead?
+	if(!is_relative_path(file_name)) return file_name;
 	
-	//warning_print("make_path_relative_to : ", file_name, " ", relative_to, "\n");
+	constexpr int maxpath = 1024;  // TODO: Should be system dependent?
+	static char new_path[maxpath]; //TODO make a string builder instead?
 	
 	int pos = 0;
 	int last_slash = -1;

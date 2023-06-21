@@ -1033,24 +1033,30 @@ Model_Application::save_to_data_set() {
 	// NOTE : This should only write parameter values. All other editing should go directly to the data set, and one should then reload the model with the data set.
 	// 		The exeption is if we generated an index for a data set that was not in the model.
 
-	
 	for(Entity_Id index_set_id : model->index_sets) {
 		auto index_set = model->index_sets[index_set_id];
 		auto index_set_info = data_set->index_sets.find(index_set->name);
 		// TODO: Maybe do a sanity check that the data set contains the same indexes as the model application?
-		if(index_set_info) continue;  // We are only interested in creating new index sets that were missing in the data set.
 		
-		// TODO: This error should probably happen on load..
-		if(is_valid(index_set->sub_indexed_to))
-			fatal_error(Mobius_Error::api_usage, "Sub-indexed index sets must be correctly set up in the data set, they can't be generated.");
+		if(index_set_info) continue;  // We are only interested in creating new index sets that were missing in the data set.
+		if(index_set->is_edge_index_set) continue; // These are handled differently.
 		
 		// TODO: We should have some api on the data set for this.
 		index_set_info = data_set->index_sets.create(index_set->name, {});
-		index_set_info->indexes.resize(1);
-		index_set_info->indexes[0].type = Sub_Indexing_Info::Type::named;
-		
-		for(Index_T idx = {index_set_id, 0}; idx < get_max_index_count(index_set_id); ++idx)
-			index_set_info->indexes[0].indexes.create(get_index_name(idx), {});
+		if(is_valid(index_set->sub_indexed_to)) {
+			index_set_info->indexes.resize(1);
+			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::numeric1;
+			index_set_info->indexes[0].n_dim1 = get_max_index_count(index_set_id).index; // Should be 1 unless we change the code somewhere else.
+		} else {
+			index_set_info->sub_indexed_to = data_set->index_sets.find_idx(model->index_sets[index_set->sub_indexed_to]->name);
+			auto parent_count = get_max_index_count(index_set->sub_indexed_to);
+			index_set_info->indexes.resize(parent_count.index);
+			for(Index_T parent_idx = {index_set->sub_indexed_to, 0}; parent_idx < parent_count; ++parent_idx) {
+				std::vector<Index_T> indexes = { parent_idx };
+				index_set_info->indexes[parent_idx.index].type = Sub_Indexing_Info::Type::numeric1;
+				index_set_info->indexes[parent_idx.index].n_dim1 = get_index_count_alternate(index_set_id, indexes).index;
+			}
+		}
 	}
 	
 	// Hmm, this is a bit cumbersome
