@@ -127,7 +127,7 @@ model("SimplyArctic") {
 		var(soil.temp2, [deg_c], "Soil surface temperature") @initial { 0[deg_c] } #TODO
 		
 		
-		flux(soil.temp2, nowhere, [deg_c, day-1], "Surface temperature change") {
+		flux(soil.temp2, out, [deg_c, day-1], "Surface temperature change") {
 			above_t := air.temp,  #TODO Modify if snow or ice and make snow temp not air temp
 			(soil.temp2 - above_t)*hc_by_hc->>
 		}
@@ -144,7 +144,7 @@ model("SimplyArctic") {
 		
 		
 		#TODO: Turn off when snow or ice cover.
-		flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {
+		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
 			0                                     if (aggregate(snow_box.snow) > ice_epsilon) | (glacier.ice > ice_epsilon),
 			s_response(water, 0.5*fc, fc, 0, pet) otherwise
 		} @no_carry  # Don't carry dissolved substances in the evapotranspiration
@@ -200,9 +200,9 @@ model("SimplyArctic") {
 		var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
 		var(snow_box.water, [m m], "Snow water")
 		
-		flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") { fall_factor * air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
+		flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") { fall_factor * air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
 		
-		flux(nowhere, water_target, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
+		flux(out, water_target, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
 		
 		melt :
 		flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")       {   max(0, ddf*(snow.temp - t_melt))   }

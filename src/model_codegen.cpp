@@ -517,7 +517,7 @@ make_restriction_condition(Model_Application *app, Var_Loc_Restriction restricti
 				compartment_id->value_type = Value_Type::integer;
 				compartment_id->exprs.push_back(idx_offset);
 				
-				// I.e. it is -1 (nowhere) or it is a positive id (located).
+				// I.e. it is -1 (out) or it is a positive id (located).
 				new_condition = make_binop('>', compartment_id, make_literal((s64)-2));
 			}
 		} else {
@@ -578,7 +578,7 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 	compartment_id->exprs.push_back(idx_offset);
 	
 	// There can be multiple valid target components for the connection, so we have to make code to see if the value should indeed be added to this aggregation variable.
-	// (even if there could only be one valid target compartment, this makes sure that the set target is not -2 or -1 (i.e. nonexistent or 'nowhere')).
+	// (even if there could only be one valid target compartment, this makes sure that the set target is not -2 or -1 (i.e. nonexistent or 'out')).
 	Math_Expr_FT *condition = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
 	
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);

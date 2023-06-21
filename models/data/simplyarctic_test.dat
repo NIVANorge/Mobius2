@@ -19,7 +19,7 @@ connection("Downhill") [
 connection("Downstream") [
 	r : compartment("River") [ "Subcatchment" ]
 
-	r[ "DeGeerdalen" ] -> nowhere
+	r[ "DeGeerdalen" ] -> out
 ]
 
 series("Svalbard/DeGeerelva_met_carra.xlsx")

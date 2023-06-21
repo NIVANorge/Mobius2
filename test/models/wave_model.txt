@@ -28,7 +28,7 @@ model("Wave") {
 			cc^2*(amp[below] - amp)
 		}
 		
-		flux(layer.amp, nowhere, [Pa, day-1], "Wave propagation") { mom }
+		flux(layer.amp, out, [Pa, day-1], "Wave propagation") { mom }
 		
 		test : property("Test")
 		var(layer.test, []) {

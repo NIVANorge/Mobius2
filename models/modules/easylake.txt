@@ -83,7 +83,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	#	
 	#}
 	
-	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
+	flux(out, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
 	var(epi.level, [m], "Lake water level")                {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
 	
@@ -107,7 +107,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	}
 	
 	evap :
-	flux(epi.water, nowhere, [m 3, day-1], "Evaporation") {
+	flux(epi.water, out, [m 3, day-1], "Evaporation") {
 		evap_mm*A_surf ->>
 	} @no_carry # Don't carry any dissolved substances in the evaporation
 	

@@ -41,13 +41,13 @@ model("Giblet-Thrasher test model") {
 		var(habitat.pred, []) @initial { init_pred }
 		var(habitat.prey, []) @initial { init_prey }
 		
-		flux(nowhere, habitat.prey, [day-1], "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0[day], birth_time, birth_time+60.0[day], 0.6, 1, 0.6) }
+		flux(out, habitat.prey, [day-1], "Giblet birth")     {  prey * prey_birth * bump_response(time.day_of_year, birth_time-60.0[day], birth_time, birth_time+60.0[day], 0.6, 1, 0.6) }
 		
-		flux(habitat.prey, nowhere, [day-1], "Predation")        {  nomnom * prey * pred ->> }
+		flux(habitat.prey, out, [day-1], "Predation")        {  nomnom * prey * pred ->> }
 		
-		flux(nowhere, habitat.pred, [day-1], "Thrasher birth")   {  pred_birth * prey * pred }
+		flux(out, habitat.pred, [day-1], "Thrasher birth")   {  pred_birth * prey * pred }
 		
-		flux(habitat.pred, nowhere, [day-1], "Thrasher death")   {  pred * (pred_death + meteor_dth*meteor) }
+		flux(habitat.pred, out, [day-1], "Thrasher death")   {  pred * (pred_death + meteor_dth*meteor) }
 		
 		mig : connection("Migration route", all_to_all) { habitat[hi] }
 		

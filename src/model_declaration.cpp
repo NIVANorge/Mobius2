@@ -487,17 +487,17 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	auto &bracketed = decl->args[which]->bracketed_chain;
 	
 	int count = symbol.size();
-	bool is_nowhere = false;
+	bool is_out = false;
 	
 	if(count == 1) {
 		Token *token = &symbol[0];
-		if(token->string_value == "nowhere") {
+		if(token->string_value == "out") {
 			if(!allow_unspecified) {
 				token->print_error_header();
-				fatal_error("A 'nowhere' is not allowed in this context.");
+				fatal_error("An 'out' is not allowed in this context.");
 			}
-			location->type = Var_Location::Type::nowhere;
-			is_nowhere = true;
+			location->type = Var_Location::Type::out;
+			is_out = true;
 		} else {
 			auto reg = (*scope)[token->string_value];
 			if(reg) {
@@ -552,7 +552,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		fatal_error("A bracketed restriction on the location argument is not allowed in this context.");
 	}
 	
-	if(bracketed.size() == 2 && !is_nowhere &&
+	if(bracketed.size() == 2 && !is_out &&
 		(count >= 2 || (par_id && is_valid(*par_id)))) { // We can only have a bracket on something that is either a full var location or a parameter.
 		
 		specific_loc->connection_id = model->connections.find_or_create(scope, &bracketed[0]);
@@ -923,7 +923,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		
 			if(!is_located(flux->source)) {
 				note->decl.print_error_header();
-				fatal_error("A 'no_carry' block only makes sense if the source of the flux is specific (not 'nowhere').");
+				fatal_error("A 'no_carry' block only makes sense if the source of the flux is specific (not 'out').");
 			}
 			if(note->body)
 				flux->no_carry_ast = static_cast<Function_Body_AST *>(note->body)->block;
@@ -1014,7 +1014,7 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 
 void
 add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_Registration<Reg_Type::connection> *connection, Regex_Identifier_AST *ident) {
-	auto compartment_id = model->components.find_or_create(scope, &ident->ident);
+	auto component_id = model->components.find_or_create(scope, &ident->ident);
 	Entity_Id index_set_id = invalid_entity_id;
 	if(is_valid(&ident->index_set)) {
 		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
@@ -1026,7 +1026,7 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_R
 	}
 	bool found = false;
 	for(auto &comp : connection->components) {
-		if(comp.first == compartment_id) {
+		if(comp.first == component_id) {
 			found = true;
 			break;
 		}
@@ -1038,7 +1038,7 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_R
 			ident->index_set.print_error_header();
 			fatal_error("Nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all' must have index sets assigned to them.");
 		}
-		connection->components.push_back({compartment_id, index_set_id});
+		connection->components.push_back({component_id, index_set_id});
 	} else if(is_valid(index_set_id)) {
 		ident->index_set.print_error_header();
 		fatal_error("An index set should only be declared on the first occurrence of a component in the regex.");

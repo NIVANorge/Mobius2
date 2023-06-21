@@ -641,7 +641,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			}
 		}
 		
-		// Currently we don't support connections for fluxes that are not on solvers (except if the source is 'nowhere')
+		// Currently we don't support connections for fluxes that are not on solvers (except if the source is 'out')
 		for(auto var_id : app->vars.all_fluxes()) {
 			
 			auto var = app->vars[var_id];

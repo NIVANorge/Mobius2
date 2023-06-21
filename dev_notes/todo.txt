@@ -14,7 +14,8 @@
 	Finish connection system
 		
 		graph and directed_tree
-			Must specify nowhere in the regex for it to be an allowed target
+			Must specify 'nowhere' in the regex for it to be an allowed target
+			
 			Could have the graph types be singly_directed and multiply_directed (?). No specific need for what we now call a tree to not have cycles.
 		
 		The above requires finishing the entire regex thing.
@@ -245,10 +246,6 @@
 		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
 			https://github.com/llvm/llvm-project/blob/main/llvm/examples/OrcV2Examples/LLJITWithObjectCache/LLJITWithObjectCache.cpp
 			One could then manually disassemble it.
-		
-		Connection Regexes
-			it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
-			Finish regex checks or scrap them altogether.
 			
 		Imperative constructs for the function scope.
 		

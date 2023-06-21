@@ -271,11 +271,11 @@ module("NIVAFjord", version(0, 0, 1),
 	
 	var(layer.water.tracer, [k g])
 	
-	flux(nowhere, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
+	flux(out, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
 		1[k g, day-1]
 	}
 	
-	#flux(layer.water.tracer[vert.bottom], nowhere, [k g, day-1], "Tracer vanishes") {
+	#flux(layer.water.tracer[vert.bottom], out, [k g, day-1], "Tracer vanishes") {
 	#	tracer[bottom]*0.3[day-1]
 	#}
 	
@@ -391,7 +391,7 @@ module("NIVAFjord", version(0, 0, 1),
 		bnd_layer.water.horz_target
 	}
 	
-	flux(layer.water, nowhere, [k g, day-1], "Flow from boundary equivalent removal") {
+	flux(layer.water, out, [k g, day-1], "Flow from boundary equivalent removal") {
 		in_flux(vert2, water) - (layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>
 	}
 	

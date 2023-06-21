@@ -35,11 +35,11 @@ model("EasyLake-SimplyCNP") {
 		f_par  : constant("Fraction of PAR in SW radiation", [],           0.45)
 		e_par  : constant("Average energy of PAR photons",   [J, mol-1],  240800.0)
 		
-		flux(epi.water.oc, nowhere, [k g, day-1], "Photo-mineralization (epilimnion)") {
+		flux(epi.water.oc, out, [k g, day-1], "Photo-mineralization (epilimnion)") {
 			photodeg(sw, attn, oc_doc) * oc ->>
 		}
 		
-		flux(hyp.water.oc, nowhere, [k g, day-1], "Photo-mineralization (hypolimnion)") {
+		flux(hyp.water.oc, out, [k g, day-1], "Photo-mineralization (hypolimnion)") {
 			# Just assume all remaining shortwave is attenuated in the hypolimnion
 			photodeg(sw, 1, oc_doc) * oc ->>
 		}
@@ -56,12 +56,12 @@ model("EasyLake-SimplyCNP") {
 		var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
 		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
 		
-		flux(epi.water.din, nowhere, [k g, day-1], "Epilimnion N retention") {
+		flux(epi.water.din, out, [k g, day-1], "Epilimnion N retention") {
 			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
 			din * ret
 		}
 		
-		flux(hyp.water.din, nowhere, [k g, day-1], "Hypolimnion N retention") {
+		flux(hyp.water.din, out, [k g, day-1], "Hypolimnion N retention") {
 			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
 			din * ret * hyp_din_ret
 		}
@@ -75,11 +75,11 @@ model("EasyLake-SimplyCNP") {
 		var(epi.water.tdp, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
 		var(hyp.water.tdp, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
 		
-		flux(epi.water.tdp, nowhere, [k g, day-1], "Epilimnion TDP retention") {
+		flux(epi.water.tdp, out, [k g, day-1], "Epilimnion TDP retention") {
 			tdp * tdp_ret
 		}
 		
-		flux(hyp.water.tdp, nowhere, [k g, day-1], "Hypolimnion TDP retention") {
+		flux(hyp.water.tdp, out, [k g, day-1], "Hypolimnion TDP retention") {
 			tdp * tdp_ret * hyp_tdp_ret
 		}
 		
