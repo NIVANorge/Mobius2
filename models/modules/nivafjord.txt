@@ -363,11 +363,9 @@ module("NIVAFjord", version(0, 0, 1),
 		layer.water.dens
 		w_bnd
 	}
-	*/
 	
-	vert2 : connection("Vert 2", grid1d) { layer* }
-	bndvert2 : connection("Boundary vert 2", grid1d) { bnd_layer* }
-	/*
+	#vert2 : connection("Vert 2", grid1d) { layer* }
+	#bndvert2 : connection("Boundary vert 2", grid1d) { bnd_layer* }
 
 	flux(bnd_layer.water, layer.water[vert2.specific], [k g, day-1], "Flow from boundary") {
 		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,

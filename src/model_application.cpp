@@ -685,6 +685,21 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 }
 
 void
+set_up_simple_connection_components(Model_Application *app, Entity_Id conn_id) {
+	auto conn = app->model->connections[conn_id];
+	
+	if(conn->components.size() != 1 || !is_valid(conn->components[0].second))
+		fatal_error(Mobius_Error::internal, "Somehow model declaration did not set up component data correctly for a grid1d or all_to_all.");
+	
+	auto &component = conn->components[0];
+	
+	Sub_Indexed_Component comp;
+	comp.id = component.first;
+	comp.index_sets.push_back(component.second);
+	app->connection_components[conn_id].components.push_back(comp);
+}
+
+void
 pre_process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set, const std::string &module_name = "") {
 	
 	auto model = app->model;
@@ -704,14 +719,14 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 
 	auto cnd = model->connections[conn_id];
 	
-	bool single_index_only = false;
-	bool compartment_only = true;
 	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
-		single_index_only = true;
-		compartment_only = false;
+		connection.source_loc.print_error_header();
+		fatal_error("No connection data should be provided for connections of type 'all_to_all' or 'grid1d'");
 	}
 	
-	// TODO: Should also allow 0 index sets for this particular one, not exactly one.
+	bool single_index_only = false;
+	bool compartment_only = true; 
+	// TODO: Should also allow 0 index sets for directed_graph, not exactly one.
 	// TODO: Should make sure the edge index set is sub-indexed to the component index set for this one.
 	if(cnd->type == Connection_Type::directed_graph)
 		single_index_only = true;
@@ -832,8 +847,8 @@ process_connection_data(Model_Application *app, Entity_Id conn_id) {
 	
 	auto cnd = model->connections[conn_id];
 		
-	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d)   // No additional data to set up for these
-		return;
+	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d)
+		return;  // Nothing else to do for these.
 		
 	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in process_connection_data().");
@@ -924,6 +939,12 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	connection_components.initialize(model);
 	
+	for(auto conn_id : model->connections) {
+		auto type = model->connections[conn_id]->type;
+		if(type == Connection_Type::all_to_all || type == Connection_Type::grid1d)
+			set_up_simple_connection_components(this, conn_id);
+	}
+	
 	for(auto &connection : data_set->global_module.connections)
 		pre_process_connection_data(this, connection, data_set);
 	for(auto &module : data_set->modules) {
@@ -936,7 +957,6 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		if(components.empty()) {
 			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");
 			//TODO: Should maybe just print a warning and auto-generate the data instead of having an error. This is more convenient when creating a new project.
-			//TODO: Should at least not need connection data for graph1d and all_to_all.
 		}
 	}
 	

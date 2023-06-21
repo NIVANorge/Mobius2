@@ -7,12 +7,15 @@ model("Wave2D") {
 	amp   : quantity("Amplitude")
 	mom   : quantity("Momentum")
 	
-	distribute(cell, index_set("Vertical"), index_set("Horizontal"))
+	vi : index_set("Vertical")
+	hi : index_set("Horizontal")
+	
+	distribute(cell, vi, hi)
 	
 	solve(solver("Solver", "INCADascru", 0.1), cell.amp, cell.mom)
 	
-	v : connection("Vert", grid1d) { cell* }
-	h : connection("Horz", grid1d) { cell* }
+	v : connection("Vert", grid1d) { cell[vi] }
+	h : connection("Horz", grid1d) { cell[hi] }
 	
 	module("Wave2D", version(1, 0, 0)) {
 		

@@ -682,7 +682,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 				fatal_error("Expected ", expect_count, " values for parameter, got ", idx, ".");
 			} else {
 				token.print_error_header();
-				fatal_error("Expected a parameter value or a ']'.");
+				fatal_error("Expected a parameter value of type ", name(get_value_type(decl->type)), ", or a ']'.");
 			}
 		}
 		stream->expect_token(']'); //TODO: should give better error message here, along (expected n values for parameter, ...)

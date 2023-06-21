@@ -1019,8 +1019,41 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_R
 	if(is_valid(&ident->index_set)) {
 		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
 		model->index_sets[index_set_id]->is_edge_index_set = true;
+		if(connection->type != Connection_Type::directed_graph && connection->type != Connection_Type::grid1d && connection->type != Connection_Type::all_to_all) {
+			ident->index_set.print_error_header();
+			fatal_error("Index sets should only be assigned to the nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all'");
+		}
 	}
-	connection->components.push_back({compartment_id, index_set_id}); // TODO: De-duplicate and check mis-matching index sets. And check that the index set is not already an edge_index_set (if this is the first occurrence of the pair.)
+	bool found = false;
+	for(auto &comp : connection->components) {
+		if(comp.first == compartment_id) {
+			found = true;
+			break;
+		}
+	}
+	if(!found) {
+		if(!is_valid(index_set_id) && 
+			(connection->type == Connection_Type::directed_graph || connection->type == Connection_Type::grid1d || connection->type == Connection_Type::all_to_all)) {
+			
+			ident->index_set.print_error_header();
+			fatal_error("Nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all' must have index sets assigned to them.");
+		}
+		connection->components.push_back({compartment_id, index_set_id});
+	} else if(is_valid(index_set_id)) {
+		ident->index_set.print_error_header();
+		fatal_error("An index set should only be declared on the first occurrence of a component in the regex.");
+	}
+}
+
+void
+recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *scope, Entity_Registration<Reg_Type::connection> *connection, Math_Expr_AST *expr) {
+	if(expr->type == Math_Expr_Type::regex_identifier)
+		add_connection_component_option(model, scope, connection, static_cast<Regex_Identifier_AST *>(expr));
+	else {
+		for(auto child : expr->exprs) {
+			recursive_gather_connection_component_options(model, scope, connection, child);
+		}
+	}
 }
 
 template<> Entity_Id
@@ -1048,54 +1081,21 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	
 	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
 	
-	// TODO: Should check what connections are allowed to have an edge index_set.
-	
-	bool success = false;
 	auto expr = static_cast<Regex_Body_AST *>(decl->body)->expr;
-	if (expr->type == Math_Expr_Type::unary_operator) {
-		char oper_type = (char)static_cast<Unary_Operator_AST *>(expr)->oper;
-		if(oper_type != '*') {
-			expr->source_loc.print_error_header();
-			fatal_error("We currently only support the '*' operator in connection regexes.");
-		}
-		
-		expr = expr->exprs[0];
-		
-		if(expr->type == Math_Expr_Type::regex_identifier) {
-			auto ident = static_cast<Regex_Identifier_AST *>(expr);
-			add_connection_component_option(model, scope, connection, ident);
-			success = true;
-		} else if(expr->type == Math_Expr_Type::regex_or_chain) {
-			bool success2 = true;
-			for(auto expr2 : expr->exprs) {
-				if(expr2->type != Math_Expr_Type::regex_identifier) {
-					success2 = false;
-					break;
-				}
-				// TODO: This is very rudimentary at the moment.
-				auto ident = static_cast<Regex_Identifier_AST *>(expr2);
-				add_connection_component_option(model, scope, connection, ident);
-			}
-			success = success2;
-		}
+	
+	if((connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d)
+		&& expr->type != Math_Expr_Type::regex_identifier) {
+		expr->source_loc.print_error_header();
+		fatal_error("For connections of type all_to_all and grid1d, only one component should be declared ( of the form {  c[i]  } , where i is the index set).");
 	}
 	
-	if(!success) {
-		expr->source_loc.print_error_header();
-		fatal_error("Temporary: This is not a supported regex format for connections yet.");
-	}
+	recursive_gather_connection_component_options(model, scope, connection, expr);
 	
 	if(connection->components.empty()) {
 		expr->source_loc.print_error_header();
 		fatal_error("At least one component must be involved in a connection.");
 	}
-	
-	if((connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d)
-		&& connection->components.size() > 1) {
-		expr->source_loc.print_error_header();
-		fatal_error("Connections of type all_to_all and grid1d are only supported for one component type at a time.");
-	}
-	
+
 	return id;
 }
 

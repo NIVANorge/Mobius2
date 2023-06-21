@@ -7,7 +7,9 @@ model("Giblet-Thrasher test model") {
 	
 	solve(solver("LV-Solver", "INCADascru", 0.1), habitat.pred, habitat.prey)
 	
-	distribute(habitat, index_set("Habitat index"))
+	distribute(habitat, hi)
+	
+	hi : index_set("Habitat index")     #TODO: There is an error if this is inline-declared in the distribute() declaration.
 	
 	module("Giblet-Thrasher", version(1, 1, 0)) {
 		
@@ -47,7 +49,7 @@ model("Giblet-Thrasher test model") {
 		
 		flux(habitat.pred, nowhere, [day-1], "Thrasher death")   {  pred * (pred_death + meteor_dth*meteor) }
 		
-		mig : connection("Migration route", all_to_all) { habitat* }
+		mig : connection("Migration route", all_to_all) { habitat[hi] }
 		
 		flux(habitat.prey, mig, [day-1], "Giblet migration")     {  prey * pred * pmig * mig_wt  }
 	}
