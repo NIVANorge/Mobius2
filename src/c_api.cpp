@@ -157,9 +157,9 @@ mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, S
 	return invalid_var;
 }
 
-DLLEXPORT Mobius_Metadata
+DLLEXPORT Mobius_Series_Metadata
 mobius_get_series_metadata(Model_Application *app, Var_Id var_id) {
-	Mobius_Metadata result = {};
+	Mobius_Series_Metadata result = {};
 	try {
 		auto var = app->vars[var_id];
 		result.name = (char *)var->name.data();
@@ -285,4 +285,22 @@ mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, char **ind
 	return (char *)"";
 }
 
-
+DLLEXPORT Mobius_Entity_Metadata
+mobius_get_entity_metadata(Model_Application *app, Entity_Id id) {
+	Mobius_Entity_Metadata result = {};
+	try {
+		auto *reg = (*app->model->registry(id.reg_type))[id];
+		result.name = (char *)reg->name.data();
+		if(id.reg_type == Reg_Type::parameter) {
+			// TODO: Unit;
+			auto par = app->model->parameters[id];
+			result.description = (char *)par->description.data();
+			if(par->decl_type == Decl_Type::par_real) {
+				result.min = par->min_val.val_real;
+				result.max = par->max_val.val_real;
+				//TODO: What to do about ints?
+			}
+		}
+	} catch(int) {}
+	return result;
+}

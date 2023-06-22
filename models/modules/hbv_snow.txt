@@ -37,7 +37,7 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	
 	flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
 	
-	flux(out, water_target, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
+	flux(out, snow_box.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
 	
 	melt :
 	flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")       {   max(0, ddf_melt*(air.temp - t_melt))   }

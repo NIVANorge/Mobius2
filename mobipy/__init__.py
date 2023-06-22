@@ -24,8 +24,12 @@ invalid_var = Var_Id(0, -1)
 class Time_Step_Size(ctypes.Structure) :
 	_fields_ = [("unit", ctypes.c_int32), ("magnitude", ctypes.c_int32)]
 	
-class Mobius_Metadata(ctypes.Structure) :
+class Mobius_Series_Metadata(ctypes.Structure) :
 	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p)]
+
+# TODO: Int parameters should have int min and max though...
+class Mobius_Entity_Metadata(ctypes.Structure) :
+	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", ctypes.c_double), ("max", ctypes.c_double)]
 
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_error.restype = ctypes.c_int64
@@ -68,7 +72,7 @@ dll.mobius_get_special_var.restype = Var_Id
 dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
 dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
-dll.mobius_get_series_metadata.restype = Mobius_Metadata
+dll.mobius_get_series_metadata.restype = Mobius_Series_Metadata
 
 
 dll.mobius_get_index_set_count.argtypes = [ctypes.c_void_p, Entity_Id]
@@ -92,6 +96,9 @@ dll.mobius_set_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.P
 
 dll.mobius_get_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
 dll.mobius_get_parameter_string.restype  = ctypes.c_char_p
+
+dll.mobius_get_entity_metadata.argtypes = [ctypes.c_void_p, Entity_Id]
+dll.mobius_get_entity_metadata.restype = Mobius_Entity_Metadata
 
 #dll.mobius_get_conc_id.argtypes = [ctypes.c_void_p, Var_Id]
 #dll.mobius_get_conc_id.restype = Var_Id
@@ -274,16 +281,40 @@ class Entity(Scope) :
 			other = scope.__getattr__(handle_name)
 			return State_Var.from_id_list(self.app_ptr, self.superscope_id, [self.entity_id, other.entity_id])
 		else :
-			raise ValueError("This entity doesn't have accessible sub-values.")
+			raise ValueError("This entity doesn't have accessible fields.")
 
 	def name(self) :
-		#TODO
-		pass
+		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
+		_check_for_errors()
+		return data.name.decode('utf-8')
 	
 	def min(self) :
-		#TODO
-		pass
-	#.. etc.  default, description, unit ..
+		if self.entity_id.reg_type != PARAMETER_TYPE :
+			raise ValueError("This entity doesn't have a min value.")
+		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
+		_check_for_errors()
+		return data.min
+		
+	def max(self) :
+		if self.entity_id.reg_type != PARAMETER_TYPE :
+			raise ValueError("This entity doesn't have a max value.")
+		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
+		_check_for_errors()
+		return data.max
+		
+	def description(self) :
+		if self.entity_id.reg_type != PARAMETER_TYPE :
+			raise ValueError("This entity doesn't have a description.")
+		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
+		_check_for_errors()
+		return data.description.decode('utf-8')
+		
+	def unit(self) :
+		if self.entity_id.reg_type != PARAMETER_TYPE :
+			raise ValueError("This entity doesn't have a description.")
+		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
+		_check_for_errors()
+		return data.unit.decode('utf-8')
 
 class State_Var :
 	
@@ -349,5 +380,6 @@ class State_Var :
 		return data.name.decode('utf-8')
 		
 	def unit(self) :
-		#TODO
-		pass
+		data = dll.mobius_get_series_metadata(self.app_ptr, self.var_id)
+		_check_for_errors()
+		return data.unit.decode('utf-8')

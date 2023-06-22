@@ -60,12 +60,12 @@ DLLEXPORT void
 mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out);
 
 struct
-Mobius_Metadata {
+Mobius_Series_Metadata {
 	char *name;
 	char *unit;
 };
 
-DLLEXPORT Mobius_Metadata
+DLLEXPORT Mobius_Series_Metadata
 mobius_get_series_metadata(Model_Application *app, Var_Id var_id);
 
 
@@ -90,5 +90,16 @@ mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, char **ind
 DLLEXPORT char *
 mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
 
+struct
+Mobius_Entity_Metadata {
+	char *name;
+	char *unit;
+	char *description;
+	double min;
+	double max;
+};
+
+DLLEXPORT Mobius_Entity_Metadata
+mobius_get_entity_metadata(Model_Application *app, Entity_Id id);
 
 #endif
