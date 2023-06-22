@@ -1014,6 +1014,15 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 
 void
 add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_Registration<Reg_Type::connection> *connection, Regex_Identifier_AST *ident) {
+	if(ident->ident.string_value == "out") {
+		if(is_valid(&ident->index_set)) {
+			ident->index_set.print_error_header();
+			fatal_error("There should not be an index set on 'out'");
+		}
+		
+		return;
+	}
+	
 	auto component_id = model->components.find_or_create(scope, &ident->ident);
 	Entity_Id index_set_id = invalid_entity_id;
 	if(is_valid(&ident->index_set)) {
@@ -1079,9 +1088,8 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		}
 	}
 	
-	connection->components.clear(); // NOTE: Needed since this could be a re-declaration.
-	
 	auto expr = static_cast<Regex_Body_AST *>(decl->body)->expr;
+	connection->regex = expr;
 	
 	if((connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d)
 		&& expr->type != Math_Expr_Type::regex_identifier) {

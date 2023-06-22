@@ -269,8 +269,9 @@ Connection_Type {
 template<> struct
 Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
 	Connection_Type type;
-	// TODO: This should eventually also have data about the regex.
+	
 	std::vector<std::pair<Entity_Id, Entity_Id>> components;
+	Math_Expr_AST *regex;
 	
 	Entity_Registration() : type(Connection_Type::unrecognized) {}
 };

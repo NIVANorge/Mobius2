@@ -832,8 +832,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		}
 	}
 	
-	// TODO: finish the code for checking the regex and that it is a tree (if it should be a tree).
-
+	match_regex(app, conn_id, connection.source_loc);
 }
 
 

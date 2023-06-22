@@ -487,6 +487,9 @@ avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restricti
 void
 make_connection_component_indexing_structure(Model_Application *app, Storage_Structure<Entity_Id> *components, Entity_Id connection_id);
 
+void
+match_regex(Model_Application *app, Entity_Id conn_id, Source_Location source_loc);
+
 struct
 Index_Exprs {
 	std::vector<Math_Expr_FT *> indexes;
