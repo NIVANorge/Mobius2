@@ -291,6 +291,9 @@ class Entity(Scope) :
 	def min(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
 			raise ValueError("This entity doesn't have a min value.")
+		type = dll.mobius_get_value_type(app_ptr, entity_id)
+		if type != 0 :
+			raise ValueError("This parameter does not have a min value.")
 		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
 		_check_for_errors()
 		return data.min
@@ -298,6 +301,9 @@ class Entity(Scope) :
 	def max(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
 			raise ValueError("This entity doesn't have a max value.")
+		type = dll.mobius_get_value_type(app_ptr, entity_id)
+		if type != 0 :
+			raise ValueError("This parameter does not have a max value.")
 		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
 		_check_for_errors()
 		return data.max
