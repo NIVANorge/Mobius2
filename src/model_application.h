@@ -826,7 +826,7 @@ for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::f
 
 template<typename Handle_T> void
 Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
-	auto array_idx   = handle_is_in_array[handle];
+	auto array_idx   = handle_is_in_array.at(handle);
 	auto &index_sets = structure[array_idx].index_sets;
 	std::vector<Index_T> indexes;
 	if(index_sets.empty()) {

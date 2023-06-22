@@ -217,7 +217,7 @@ class Scope :
 	
 	# TODO: Would be nice if we could override __setattr__ for parameters with a single instance, but it is very tricky since it overrides also things like self.app_ptr = ..
 	
-	def list_all(type) :
+	def list_all(self, type) :
 		# TODO
 		pass
 

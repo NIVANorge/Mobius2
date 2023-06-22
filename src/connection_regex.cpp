@@ -152,8 +152,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	
 	std::vector<Node_Data> nodes(node_structure.total_count);
 	
-	for(auto &pair : connection->components) {
-		auto id = pair.first;
+	for(auto &comp : app->connection_components[conn_id].components) {
+		auto id = comp.id;
 		node_structure.for_each(id, [id, &nodes](std::vector<Index_T> &indexes, s64 offset) {
 			nodes[offset].id = id;
 			nodes[offset].indexes = indexes; // TODO: Could be a bit slow if we have hundreds of nodes..
@@ -202,12 +202,14 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 			data_loc.print_error_header();
 			error_print("The regular expression for the connection \"", connection->name, "\" failed to match the provided graph. See the declaration of the regex here:\n");
 			regex->source_loc.print_error();
-			error_print("The matching failed at the marked '(***)' in the following sequence:\n");
+			error_print("The matching failed after the marked '(***)' in the following sequence:\n");
+			bool found_mark = false;
 			int pathidx = 0;
 			for(int nodeidx : path) {
-				if(pathidx == match.path_idx)
+				if(pathidx == match.path_idx) {
 					error_print("(***)");
-				if(nodeidx < 0)
+					found_mark = true;
+				} if(nodeidx < 0)
 					error_print("out");
 				else {
 					auto &node = nodes[nodeidx];
@@ -221,6 +223,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 				
 				++pathidx;
 			}
+			if(!found_mark)
+				error_print(" (***)"); // This happens if the path ended before we had matched the entire regex.
 			mobius_error_exit();
 		}
 	}
