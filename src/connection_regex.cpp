@@ -7,6 +7,7 @@ Node_Data {
 	Entity_Id id = invalid_entity_id;
 	int receives_count = 0;
 	bool visited       = false;
+	std::vector<Index_T> indexes;     // TODO: Why does this cause a crash??
 	std::vector<int> points_at;
 };
 
@@ -27,20 +28,17 @@ match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vect
 	
 	switch(regex->type) {
 		case Math_Expr_Type::block : {
-			int use_path_idx = path_idx;
 			bool mismatch = false;
 			for(auto expr : regex->exprs) {
-				auto match = match_path_recursive(scope, nodes, path, use_path_idx, expr);
+				auto match = match_path_recursive(scope, nodes, path, result.path_idx, expr);
+				result.path_idx = match.path_idx;
 				if(!match.match) {
 					mismatch = true;
 					break;
-				} else
-					use_path_idx = match.path_idx;
+				}	
 			}
-			if(!mismatch) {
+			if(!mismatch)
 				result.match = true;
-				result.path_idx = use_path_idx;
-			}
 		} break;
 		
 		case Math_Expr_Type::unary_operator : {
@@ -53,18 +51,19 @@ match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vect
 				min_matches = 1;
 			int n_matches = 0;
 			
-			int use_path_idx = path_idx;
 			while(true) {
-				auto match = match_path_recursive(scope, nodes, path, use_path_idx, regex->exprs[0]);
-				if(match.match) {
-					use_path_idx = match.path_idx;
+				auto match = match_path_recursive(scope, nodes, path, result.path_idx, regex->exprs[0]);
+				result.path_idx = match.path_idx;
+				if(match.match)
 					++n_matches;
-				} else break;
+				else break;
+				if(max_matches >= 0 && n_matches > max_matches) {
+					result.path_idx--; // This is to make the error cursor point at the right position if this results in a full failure.
+					break;
+				}
 			}
 			
 			result.match = (n_matches >= min_matches) && (max_matches < 0 || n_matches <= max_matches);
-			if(result.match)
-				result.path_idx = use_path_idx;
 			
 		} break;
 		
@@ -95,7 +94,8 @@ match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vect
 				path_id = nodes[node_idx].id;
 			
 			result.match = (path_id == regex_id);
-			result.path_idx = path_idx+1;
+			if(result.match)
+				result.path_idx = path_idx+1;
 		} break;
 		
 		default : {
@@ -133,12 +133,10 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	
 
 	// TODO: support things like i{n}, where n is an exact number of repetitions. i{n m} : between n and m repetitions.
+
+	// TODO: Handle branching graphs and cycles!
 	
-	// TODO: Need to also be able to check isolated nodes!
-	
-	// TODO: Check that directed_tree is a directed tree (?)
-	
-	// TODO: Handle cycles!
+	// TODO: Also print what part of the regex caused the the final failure.
 	
 	auto model = app->model;
 	auto connection = model->connections[conn_id];
@@ -152,12 +150,13 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	Storage_Structure<Entity_Id> node_structure(app);
 	make_connection_component_indexing_structure(app, &node_structure, conn_id);
 	
-	std::vector<Node_Data> nodes(node_structure.total_count, Node_Data {});
+	std::vector<Node_Data> nodes(node_structure.total_count);
 	
 	for(auto &pair : connection->components) {
 		auto id = pair.first;
 		node_structure.for_each(id, [id, &nodes](std::vector<Index_T> &indexes, s64 offset) {
 			nodes[offset].id = id;
+			nodes[offset].indexes = indexes; // TODO: Could be a bit slow if we have hundreds of nodes..
 		});
 	}
 	
@@ -166,15 +165,11 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		if(is_valid(arr.target_id)) {
 			target_idx = node_structure.get_offset_alternate(arr.target_id, arr.target_indexes);
 			++nodes[target_idx].receives_count;
-			//nodes[target_idx].id = arr.target_id;
 		}
 		
 		// TODO: Check for duplicate arrows? (Are they allowed?)
 		s64 source_idx = node_structure.get_offset_alternate(arr.source_id, arr.source_indexes);
 		nodes[source_idx].points_at.push_back(target_idx);
-		//nodes[source_idx].id = arr.source_id;
-		
-		//log_print("Found arrow ", source_idx, " to ", target_idx, "\n");
 	}
 	
 	auto scope = model->get_scope(connection->scope_id);
@@ -200,21 +195,32 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	}
 	
 	for(auto &path : paths) {
-		/*
-		for(int nodeidx : path) {
-			if(nodeidx < 0)
-				log_print("out ");
-			else
-				log_print(app->model->components[nodes[nodeidx].id]->name, " ");
-		}
-		log_print("\n");*/
+		
 		auto match = match_path_recursive(scope, nodes, path, 0, regex);
-		//log_print("Match: ", match.match, " patlen ", path.size(), " path_idx ", match.path_idx, "\n");
 		
 		if(!match.match || match.path_idx != path.size()) {
 			data_loc.print_error_header();
-			error_print("The regular expression for this connection failed to match the provided graph. See the declaration of the regex here:\n");
+			error_print("The regular expression for the connection \"", connection->name, "\" failed to match the provided graph. See the declaration of the regex here:\n");
 			regex->source_loc.print_error();
+			error_print("The matching failed at the marked '(***)' in the following sequence:\n");
+			int pathidx = 0;
+			for(int nodeidx : path) {
+				if(pathidx == match.path_idx)
+					error_print("(***)");
+				if(nodeidx < 0)
+					error_print("out");
+				else {
+					auto &node = nodes[nodeidx];
+					error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
+					for(auto &index : node.indexes)
+						error_print(app->get_possibly_quoted_index_name(index), " ");
+					error_print(']');
+				}
+				if(pathidx != path.size()-1)
+					error_print(" -> ");
+				
+				++pathidx;
+			}
 			mobius_error_exit();
 		}
 	}

@@ -19,8 +19,8 @@ model("SimplyArctic") {
 	pet    : property("Potential evapotranspiration")
 	ddf    : property("Degree-day factor")
 	
-	downhill   : connection("Downhill", directed_tree)   { (soil|river)* }
-	downstream : connection("Downstream", directed_tree) { river* }
+	downhill   : connection("Downhill", directed_tree)   { soil+ river }
+	downstream : connection("Downstream", directed_tree) { river+ out }
 	
 	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
 	
