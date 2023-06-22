@@ -29,9 +29,9 @@ model("NIVAFjord") {
 	sw       : property("Shortwave radiation")
 	attn     : property("Attenuation coefficient")
 	
-	vert    : connection("Fjord vertical", grid1d) { layer* }
-	sw_vert : connection("Shortwave vertical", grid1d) { layer* }
-	bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer* }
+	vert    : connection("Fjord vertical", grid1d) { layer[layer_idx] }
+	sw_vert : connection("Shortwave vertical", grid1d) { layer[layer_idx] }
+	bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer[layer_idx] }
 	
 	par_group("Layer parameters", layer) {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)

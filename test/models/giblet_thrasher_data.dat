@@ -3,9 +3,6 @@ time_step([day])
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 
 module("Giblet-Thrasher", 1, 0, 0) {
-	connection("Migration route") [
-		compartment("Habitat") [ "Habitat index" ]
-	]
 
 	par_group("General parameters") {
 		par_int ("Giblet preferred birthday") [ 120 ]

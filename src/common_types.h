@@ -259,7 +259,7 @@ constexpr int max_var_loc_components = 6;
 struct
 Var_Location {
 	enum class Type : s32 {
-		nowhere=0, located, connection,
+		out=0, located, connection,
 	}   type;
 	s32 n_components;         //NOTE: it is here for better packing.
 	Entity_Id components[max_var_loc_components];
@@ -274,7 +274,7 @@ is_located(const Var_Location &loc) {
 	return loc.type == Var_Location::Type::located;
 }
 
-constexpr Var_Location invalid_var_location = {Var_Location::Type::nowhere, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id, invalid_entity_id};
+constexpr Var_Location invalid_var_location = {Var_Location::Type::out, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id, invalid_entity_id};
 
 inline bool
 operator==(const Var_Location &a, const Var_Location &b) {

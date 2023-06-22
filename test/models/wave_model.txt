@@ -7,7 +7,8 @@ model("Wave") {
 	amp   : quantity("amplitude")
 	mom   : quantity("momentum")
 	
-	distribute(layer, index_set("Layer index"))
+	li : index_set("Layer index")
+	distribute(layer, li)
 	solve(solver("Solver", "INCADascru", 0.1), layer.amp, layer.mom)
 	
 	module("Wave", version(1, 0, 0)) {
@@ -20,14 +21,14 @@ model("Wave") {
 		var(layer.amp, [Pa]) @initial { in_amp }
 		var(layer.mom, [Pa, day-1])
 		
-		l : connection("Layer connection", grid1d) { layer* }
+		l : connection("Layer connection", grid1d) { layer[li] }
 		
 		flux(layer.mom, l, [Pa, day-2], "Momentum propagation") {
 			cc := 0.5*(c + c[below]),
 			cc^2*(amp[below] - amp)
 		}
 		
-		flux(layer.amp, nowhere, [Pa, day-1], "Wave propagation") { mom }
+		flux(layer.amp, out, [Pa, day-1], "Wave propagation") { mom }
 		
 		test : property("Test")
 		var(layer.test, []) {

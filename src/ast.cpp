@@ -642,6 +642,7 @@ potentially_parse_regex_unary(Token_Stream *stream, Math_Expr_AST *arg) {
 		auto unary = new Unary_Operator_AST();
 		unary->oper = token.type;
 		unary->exprs.push_back(arg);
+		unary->source_loc = token.source_loc;
 		result = unary;
 		stream->read_token();
 	} else

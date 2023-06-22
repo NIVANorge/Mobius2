@@ -69,7 +69,7 @@ New to version 0.5:
 	
 	var(river.e_fact, [], "Erosion factor river")                         {   (1e-3*ksed * in_flux(water) / a_catch)^psed  }
 
-	flux(nowhere, river.water.sed, [k g, day-1], "Sediment mobilization") {   a_catch * aggregate(soil.e_fact) * e_fact }
+	flux(out, river.water.sed, [k g, day-1], "Sediment mobilization") {   a_catch * aggregate(soil.e_fact) * e_fact }
 }
 
 

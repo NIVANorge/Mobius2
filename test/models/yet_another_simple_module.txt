@@ -8,7 +8,7 @@ module("Degradation", version(1, 0, 0),
 		r : par_real("Rate", [day-1], 0.01)
 	}
 	
-	flux(a.q, nowhere, [k g, day-1], "Degradation") {
+	flux(a.q, out, [k g, day-1], "Degradation") {
 		-r*a.q
 	}
 }

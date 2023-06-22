@@ -9,9 +9,6 @@ par_group("System") {
 }
 
 module("Wave", 1, 0, 0) {
-	connection("Layer connection") [
-		compartment("Layer") [ "Layer index" ]
-	]
 
 	par_group("Layers") [ "Layer index" ] {
 		par_real("Initial amplitude")

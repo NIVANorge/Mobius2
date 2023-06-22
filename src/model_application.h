@@ -348,8 +348,8 @@ Sub_Indexed_Component {
 	std::vector<Entity_Id> index_sets;
 	Entity_Id edge_index_set;
 	
-	bool can_be_located_source;           // if this can be a source of the connection to a located target (not 'nowhere').
-	int total_as_source;                  // How many of this type of component appears as a source (both to a located or 'nowhere').
+	bool can_be_located_source;           // if this can be a source of the connection to a located target (not 'out').
+	int total_as_source;                  // How many of this type of component appears as a source (both to a located or 'out').
 	std::set<Entity_Id> possible_sources; // what sources can have this as a target.
 	int max_target_indexes;               // max indexes of a target that has this as the source
 	
@@ -486,6 +486,9 @@ avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restricti
 // The point of this one is to make a structure that can be used for local computations, this is not the same as the connection_structure, which is used in the model code generation itself.
 void
 make_connection_component_indexing_structure(Model_Application *app, Storage_Structure<Entity_Id> *components, Entity_Id connection_id);
+
+void
+match_regex(Model_Application *app, Entity_Id conn_id, Source_Location source_loc);
 
 struct
 Index_Exprs {

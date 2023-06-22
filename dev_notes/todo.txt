@@ -14,7 +14,8 @@
 	Finish connection system
 		
 		graph and directed_tree
-			Must specify nowhere in the regex for it to be an allowed target
+			Must specify 'nowhere' in the regex for it to be an allowed target
+			
 			Could have the graph types be singly_directed and multiply_directed (?). No specific need for what we now call a tree to not have cycles.
 		
 		The above requires finishing the entire regex thing.
@@ -32,7 +33,6 @@
 
 		all_to_all, grid1d:
 			
-		
 			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
 
 		What about:
@@ -61,12 +61,14 @@
 	
 	*** Intermediate-pri ***
 	
-		no-op (void) instruction in function_tree so that we don't have all the dangling 0s
-	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
 			First iteration could be to just not display them, but still have them stored in the same place as everything else
-	
+		
+		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
+			This would be a major change, but could create some speedup.
+			Alternatively, have them be non-stored as a default. (Requires less drastic changes, but has almost the same benefits of less memory usage).
+		
 		Make an (optional) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
 			Useful for catching errors, which we some times have but are slow to detect.
 		
@@ -75,12 +77,8 @@
 			How to do it for no_carry?
 				The way we now do no_carry is in general maybe not that good after all.
 				May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
-	
-	
+
 		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.
-	
-		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
-			This would be a major change.
 	
 		Clean up the prune_tree system.
 			Could get rid of using Function_Scope in prune_helper?
@@ -119,7 +117,6 @@
 				(see more in doodle)
 				
 		
-		
 		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
 			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
 			
@@ -132,9 +129,6 @@
 			loc1, loc2, unit_conv, connection, etc.
 				
 		Let '/' always be a real division, and maybe have a separate operator // (or similar) to force integer division.
-		
-		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
-			Tricky...
 		
 		Finish sub-indexed index sets
 			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
@@ -252,29 +246,21 @@
 		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
 			https://github.com/llvm/llvm-project/blob/main/llvm/examples/OrcV2Examples/LLJITWithObjectCache/LLJITWithObjectCache.cpp
 			One could then manually disassemble it.
-		
-		Connection Regexes
-			it is a bit overzealous to require specification of a regex for all_to_all and grid1d connections (maybe just require the identifier symbol, not the operator).
-			Finish regex checks or scrap them altogether.
 			
 		Imperative constructs for the function scope.
 		
 		Other solver algorithms.
 		
-		Codegen for the NIVAFjord model generates
-			state_var[iter_547 + 2764] <- state_var[3012 + iter_547] * exp(-state_var[879] * dz[8]) * A[24 + iter_547] / A[iter_547 + 23] if iter_547 + 1 < 124 & iter_547 + 1 < 124,
-			0 otherwise
-		It should have recognized that it is not necessary with the duplication of the condition.
-			Probably due to different Var_Restrictions resulting in the same condition on the index.
+		Different Var_Restrictions resulting in the same condition on the index, and causing multiple checks of the same condition (in model_codegen).
 		
 		Declaring units with a handle and reusing that handle does not quite work, at least not for parameters.
 		
 		last(something) doesn't automatically cause it to have an initial value computation (if one was not set).
 		
 		Error if you access time.fractional_step outside a solver?
-		
-		Loading parameter data: error message "Expected a parameter value or a ']'" should also state the expected type.
 
+		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
+			Tricky...
 
 	Probably not ?:
 	

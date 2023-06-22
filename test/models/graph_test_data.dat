@@ -4,17 +4,27 @@ index_set("Node index") [ 4 ]
 index_set("Node2 index") [ 2 ]
 
 connection("The graph") [
-	n : compartment("Node") [ "Node index" ]
+
+	# Second bracket is declaring that that is the edge index set of the node. This "spawns" that index set (no separate declaration) (TODO implement)
+	# TODO: Could also allow the Node index to be spawned in this way unless it is separately declared.
+	n : compartment("Node") [ "Node index" ] #[ "Edge" ]
 	
+	n[0]->n[1]
+	
+	/*
 	n2 : compartment("Node2") [ "Node2 index" ]
 	
 	
 	n[0] -> n[1] -> n[2]
 	n[0] -> n[3] -> n[1]
-	n[3] -> n[2] #-> nowhere
-	n[1] -> nowhere
+	n[3] -> n[2] -> out
+	n[1] -> out
 	n2[0] -> n[0]
 	n2[1] -> n[1]
-	#n2[0] -> n2[1]
-	#n[2] -> n2[0]
+	n2[0] -> n2[1]
+	n[2] -> n2[0]
+	*/
 ]
+
+#par_group("Edge pars") ["Edge"] {
+#}

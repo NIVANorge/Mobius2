@@ -31,7 +31,7 @@
 void
 check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_Location &source_loc) {
 	
-	if(loc.type == Var_Location::Type::nowhere) return;
+	if(loc.type == Var_Location::Type::out) return;
 	auto first = model->components[loc.first()];
 	if(first->decl_type != Decl_Type::compartment) {
 		source_loc.print_error_header(Mobius_Error::model_building);
@@ -583,7 +583,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		
 		if(!is_located(flux->source) && is_valid(flux->target.connection_id) && flux->target.restriction == Var_Loc_Restriction::below) {
 			flux->source_loc.print_error_header(Mobius_Error::model_building); 
-			fatal_error("You can't have a flux from 'nowhere' to a connection.\n");
+			fatal_error("You can't have a flux from 'out' to a connection.\n");
 		}
 		
 		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false, flux->name);
@@ -891,7 +891,7 @@ compose_and_resolve(Model_Application *app) {
 		
 		//TODO: it would probably be better to default in_loc to be loc1 regardless (except when loc1 is not located).
 		Specific_Var_Location in_loc;
-		in_loc.type = Var_Location::Type::nowhere;
+		in_loc.type = Var_Location::Type::out;
 		Entity_Id from_compartment = invalid_entity_id;
 		Entity_Id connection = invalid_entity_id;
 		
@@ -1084,7 +1084,7 @@ compose_and_resolve(Model_Application *app) {
 		flux->specific_target = owns_code(copy(orig_flux->specific_target.get()));
 	}
 	
-	// Invalidate fluxes if both source and target is nowhere or overridden.
+	// Invalidate fluxes if both source and target is 'out' or overridden.
 	{
 		std::map<Var_Id, bool> could_be_invalidated;
 		for(auto var_id : app->vars.all_fluxes()) {
@@ -1121,7 +1121,7 @@ compose_and_resolve(Model_Application *app) {
 			if(pair.second) {
 				auto var = app->vars[pair.first];
 				var->set_flag(State_Var::invalid);
-				log_print("Invalidating \"", var->name, "\" due to both source or target being 'nowhere' or overridden.\n");
+				log_print("Invalidating \"", var->name, "\" due to both source or target being 'out' or overridden.\n");
 			}
 		}
 	}
@@ -1200,9 +1200,9 @@ compose_and_resolve(Model_Application *app) {
 			var = app->vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 
 			// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:
-			agg_var->loc1.type = Var_Location::Type::nowhere;
+			agg_var->loc1.type = Var_Location::Type::out;
 			agg_var->loc2 = var->loc2;
-			var->loc2.type = Var_Location::Type::nowhere;
+			var->loc2.type = Var_Location::Type::out;
 			
 			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
 			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.

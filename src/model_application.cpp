@@ -617,19 +617,16 @@ Model_Application::get_possibly_quoted_index_name(Index_T index) {
 }
 
 void
-add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only, bool compartment_only, Source_Location loc) {
+add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only, Source_Location loc) {
 	
 	// TODO: In general we should be more nuanced with what source location we print for errors in this procedure.
 	
 	auto model = app->model;
 	auto component = model->components[component_id];
 	
-	if(!is_valid(component_id) || (compartment_only && component->decl_type != Decl_Type::compartment) || (comp->decl_type != component->decl_type)) {
+	if(component->decl_type != Decl_Type::compartment) {
 		comp->source_loc.print_error_header();
-		if(compartment_only)
-			fatal_error("The name \"", comp->name, "\" does not refer to a compartment that was declared in this model. This connection type only supports compartments, not quantities.");
-		else
-			fatal_error("The name \"", comp->name, "\" does not refer to a ", name(comp->decl_type), " that was declared in this model.");
+		fatal_error("The name \"", comp->name, "\" does not refer to a compartment. This connection type only supports compartments, not quantities.");
 	}
 	
 	auto cnd = model->connections[connection_id];
@@ -642,7 +639,6 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		mobius_error_exit();
 	}
 	Entity_Id edge_index_set = find_decl->second;
-	
 	
 	if(single_index_only && comp->index_sets.size() != 1) {
 		loc.print_error_header();
@@ -663,6 +659,15 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		index_sets.push_back(index_set);
 	}
 	
+	if(is_valid(edge_index_set) && !index_sets.empty()) {
+		if(model->index_sets[edge_index_set]->sub_indexed_to != index_sets[0]) {
+			comp->source_loc.print_error_header();
+			error_print("The edge index set for this component is not declared as sub-indexed to the index set of the component. See declaration of the edge index set:\n");
+			model->index_sets[edge_index_set]->source_loc.print_error();
+			mobius_error_exit();
+		}
+	}
+	
 	auto &components = app->connection_components[connection_id].components;
 	auto find = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
 	if(find != components.end()) {
@@ -671,17 +676,33 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 			fatal_error("The component \"", app->model->components[component_id]->name, "\" appears twice in the same connection relation, but with different index set dependencies.");
 		}
 	} else {
-		//log_print("Add connection component ", app->model->components[component_id]->name, "\n");
-		
 		Sub_Indexed_Component comp;
 		comp.id = component_id;
 		comp.index_sets = index_sets;
 		comp.edge_index_set = edge_index_set;
 		components.push_back(std::move(comp));
 	}
+}
+
+void
+set_up_simple_connection_components(Model_Application *app, Entity_Id conn_id) {
+	auto conn = app->model->connections[conn_id];
 	
-	// TODO: For directed_graph we should probably check that the edge_index_set is sub_indexed to one of the index_sets (and probably only allow one index_set).
-	//   but maybe not here (?)
+	if(conn->components.size() != 1 || !is_valid(conn->components[0].second))
+		fatal_error(Mobius_Error::internal, "Somehow model declaration did not set up component data correctly for a grid1d or all_to_all.");
+	
+	auto &component = conn->components[0];
+	
+	auto comp_type = app->model->components[component.first]->decl_type;
+	if(conn->type != Connection_Type::all_to_all && comp_type != Decl_Type::compartment || comp_type == Decl_Type::property) {
+		conn->source_loc.print_error_header();
+		fatal_error("This connection can't have nodes of this component type.");
+	}
+	
+	Sub_Indexed_Component comp;
+	comp.id = component.first;
+	comp.index_sets.push_back(component.second);
+	app->connection_components[conn_id].components.push_back(comp);
 }
 
 void
@@ -704,14 +725,13 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 
 	auto cnd = model->connections[conn_id];
 	
-	bool single_index_only = false;
-	bool compartment_only = true;
 	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
-		single_index_only = true;
-		compartment_only = false;
+		connection.source_loc.print_error_header();
+		fatal_error("No connection data should be provided for connections of type 'all_to_all' or 'grid1d'");
 	}
 	
-	// TODO: Should also allow 0 index sets for this particular one, not exactly one.
+	bool single_index_only = false;
+	// TODO: Should also allow 0 index sets for directed_graph, not exactly one.
 	// TODO: Should make sure the edge index set is sub-indexed to the component index set for this one.
 	if(cnd->type == Connection_Type::directed_graph)
 		single_index_only = true;
@@ -723,15 +743,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			log_print("The component \"", comp.name, "\" has not been declared in the model.\n");
 			continue;
 		}
-		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, compartment_only, connection.source_loc);
-	}
-	
-	if (cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
-		if(connection.type != Connection_Info::Type::none || connection.components.count() != 1) {
-			connection.source_loc.print_error_header();
-			fatal_error("Connections of type all_to_all should have exactly a single component identifier in their data, and no other data.");
-		}
-		return; // Nothing else to do.
+		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, connection.source_loc);
 	}
 	
 	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph) 
@@ -820,8 +832,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		}
 	}
 	
-	// TODO: finish the code for checking the regex and that it is a tree (if it should be a tree).
-
+	match_regex(app, conn_id, connection.source_loc);
 }
 
 
@@ -832,8 +843,8 @@ process_connection_data(Model_Application *app, Entity_Id conn_id) {
 	
 	auto cnd = model->connections[conn_id];
 		
-	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d)   // No additional data to set up for these
-		return;
+	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d)
+		return;  // Nothing else to do for these.
 		
 	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in process_connection_data().");
@@ -924,6 +935,12 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	connection_components.initialize(model);
 	
+	for(auto conn_id : model->connections) {
+		auto type = model->connections[conn_id]->type;
+		if(type == Connection_Type::all_to_all || type == Connection_Type::grid1d)
+			set_up_simple_connection_components(this, conn_id);
+	}
+	
 	for(auto &connection : data_set->global_module.connections)
 		pre_process_connection_data(this, connection, data_set);
 	for(auto &module : data_set->modules) {
@@ -936,7 +953,6 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		if(components.empty()) {
 			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");
 			//TODO: Should maybe just print a warning and auto-generate the data instead of having an error. This is more convenient when creating a new project.
-			//TODO: Should at least not need connection data for graph1d and all_to_all.
 		}
 	}
 	
@@ -1033,24 +1049,30 @@ Model_Application::save_to_data_set() {
 	// NOTE : This should only write parameter values. All other editing should go directly to the data set, and one should then reload the model with the data set.
 	// 		The exeption is if we generated an index for a data set that was not in the model.
 
-	
 	for(Entity_Id index_set_id : model->index_sets) {
 		auto index_set = model->index_sets[index_set_id];
 		auto index_set_info = data_set->index_sets.find(index_set->name);
 		// TODO: Maybe do a sanity check that the data set contains the same indexes as the model application?
-		if(index_set_info) continue;  // We are only interested in creating new index sets that were missing in the data set.
 		
-		// TODO: This error should probably happen on load..
-		if(is_valid(index_set->sub_indexed_to))
-			fatal_error(Mobius_Error::api_usage, "Sub-indexed index sets must be correctly set up in the data set, they can't be generated.");
+		if(index_set_info) continue;  // We are only interested in creating new index sets that were missing in the data set.
+		if(index_set->is_edge_index_set) continue; // These are handled differently.
 		
 		// TODO: We should have some api on the data set for this.
 		index_set_info = data_set->index_sets.create(index_set->name, {});
-		index_set_info->indexes.resize(1);
-		index_set_info->indexes[0].type = Sub_Indexing_Info::Type::named;
-		
-		for(Index_T idx = {index_set_id, 0}; idx < get_max_index_count(index_set_id); ++idx)
-			index_set_info->indexes[0].indexes.create(get_index_name(idx), {});
+		if(is_valid(index_set->sub_indexed_to)) {
+			index_set_info->indexes.resize(1);
+			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::numeric1;
+			index_set_info->indexes[0].n_dim1 = get_max_index_count(index_set_id).index; // Should be 1 unless we change the code somewhere else.
+		} else {
+			index_set_info->sub_indexed_to = data_set->index_sets.find_idx(model->index_sets[index_set->sub_indexed_to]->name);
+			auto parent_count = get_max_index_count(index_set->sub_indexed_to);
+			index_set_info->indexes.resize(parent_count.index);
+			for(Index_T parent_idx = {index_set->sub_indexed_to, 0}; parent_idx < parent_count; ++parent_idx) {
+				std::vector<Index_T> indexes = { parent_idx };
+				index_set_info->indexes[parent_idx.index].type = Sub_Indexing_Info::Type::numeric1;
+				index_set_info->indexes[parent_idx.index].n_dim1 = get_index_count_alternate(index_set_id, indexes).index;
+			}
+		}
 	}
 	
 	// Hmm, this is a bit cumbersome

@@ -2,18 +2,6 @@ time_step([day])
 
 index_set("Layer index") [ 124 ]
 
-connection("Fjord vertical") [
-	compartment("Fjord layer") [ "Layer index" ]
-]
-
-connection("Shortwave vertical") [
-	compartment("Fjord layer") [ "Layer index" ]
-]
-
-connection("Boundary vertical") [
-	compartment("Boundary layer") [ "Layer index" ]
-]
-
 series("nivafjord_drammen.xlsx")
 
 par_group("System") {
@@ -33,13 +21,6 @@ par_group("Layer parameters") [ "Layer index" ] {
 }
 
 module("NIVAFjord", 0, 0, 1) {
-	connection("Vert 2") [
-		compartment("Fjord layer") [ "Layer index" ]
-	]
-
-	connection("Boundary vert 2") [
-		compartment("Boundary layer") [ "Layer index" ]
-	]
 
 	par_group("Mixing parameters") {
 		par_real("Brunt-Väisälä frequency reference")

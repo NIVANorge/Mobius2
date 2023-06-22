@@ -47,7 +47,7 @@ New to version 0.5 :
 		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
 	}
 	
-	flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {
+	flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
 		s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
 	} @no_carry   # Don't carry dissolved substances in the evapotranspiration
 	

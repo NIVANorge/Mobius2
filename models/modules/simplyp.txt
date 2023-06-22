@@ -108,7 +108,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	var(river.water.tdp, [k g], [m g, l-1], "River TDP") @initial_conc { gw_tdp }
 	
-	flux(nowhere, river.water.tdp, [k g, day-1], "River effluent TDP") { eff_tdp }
+	flux(out, river.water.tdp, [k g, day-1], "River effluent TDP") { eff_tdp }
 	
 	var(river.water.pp, [k g], [m g, l-1], "River PP") 
 	
@@ -118,7 +118,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		(plabconc + inactive_soil_p_conc) * e_fact * pp_enrich ->>
 	}
 	
-	flux(nowhere, river.water.pp, [k g, day-1], "PP mobilization") {
+	flux(out, river.water.pp, [k g, day-1], "PP mobilization") {
 		a_catch * river.e_fact * aggregate(soil.plab.pp_fact)
 	}
 	

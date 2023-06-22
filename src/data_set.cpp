@@ -115,7 +115,7 @@ write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *da
 void
 write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set, Connection_Info &connection) {
 	if(ref.id < 0) {
-		fprintf(file, "nowhere");
+		fprintf(file, "out");
 		return;
 	}
 	auto component = connection.components[ref.id];
@@ -397,7 +397,7 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 	Token token = stream->peek_token();
 	stream->expect_identifier();
 	
-	if(token.string_value == "nowhere") {
+	if(token.string_value == "out") {
 		read_to->id = -1;
 		return;
 	}
@@ -434,7 +434,7 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	
 	if(entry.first.id < 0) {
 		info->source_loc.print_error_header();
-		fatal_error("A 'nowhere' can only be the target of an arrow in a directed_tree, not the source.");
+		fatal_error("An 'out' can only be the target of an arrow, not the source.");
 	}
 	
 	stream->expect_token(Token_Type::arr_r);
@@ -682,7 +682,7 @@ parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect
 				fatal_error("Expected ", expect_count, " values for parameter, got ", idx, ".");
 			} else {
 				token.print_error_header();
-				fatal_error("Expected a parameter value or a ']'.");
+				fatal_error("Expected a parameter value of type ", name(get_value_type(decl->type)), ", or a ']'.");
 			}
 		}
 		stream->expect_token(']'); //TODO: should give better error message here, along (expected n values for parameter, ...)

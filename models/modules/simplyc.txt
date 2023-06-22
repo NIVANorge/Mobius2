@@ -57,13 +57,13 @@ A simple DOC model.
 	
 	var(river.water.oc, [k g], [m g, l-1], "River water DOC") @initial_conc {  conc(gw.water.oc)  }
 	
-	flux(nowhere, soil.water.oc, [k g, k m-2, day-1], "Soil DOC production") {  max(0, water*cdoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4))  }
+	flux(out, soil.water.oc, [k g, k m-2, day-1], "Soil DOC production") {  max(0, water*cdoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4))  }
 	
 	smin :
-	flux(soil.water.oc, nowhere, [k g, k m-2, day-1], "Soil DOC mineralization+resorption") {  oc * (cdoc / basedoc)  } @no_carry
+	flux(soil.water.oc, out, [k g, k m-2, day-1], "Soil DOC mineralization+resorption") {  oc * (cdoc / basedoc)  } @no_carry
 	
 	gwmin :
-	flux(gw.water.oc, nowhere, [k g, k m-2, day-1], "Deep soil DOC mineralization") {
+	flux(gw.water.oc, out, [k g, k m-2, day-1], "Deep soil DOC mineralization") {
 		rate := hl_to_rate(gwdochl),
 		oc * rate
 	} @no_carry

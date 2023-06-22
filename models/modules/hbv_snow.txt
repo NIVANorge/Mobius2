@@ -35,9 +35,9 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
 	var(snow_box.water, [m m], "Snow water") #@initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
-	flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
+	flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
 	
-	flux(nowhere, water_target, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
+	flux(out, water_target, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
 	
 	melt :
 	flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")       {   max(0, ddf_melt*(air.temp - t_melt))   }

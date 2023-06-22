@@ -55,7 +55,7 @@ This module is not finished.
 	
 	var(soil.sn, [k g, k m-2], "Soil solid fertilizer N")
 	
-	flux(nowhere, soil.sn, [k g, k m-2, day-1], "Fertilizer N addition") {
+	flux(out, soil.sn, [k g, k m-2, day-1], "Fertilizer N addition") {
 		fert_n*1[day-1]->>   if time.day_of_year = fert_day,
 		0                    otherwise
 	}
@@ -90,12 +90,12 @@ This module is not finished.
 	
 	# Soil water fluxes
 	
-	flux(nowhere, soil.water.din, [k g, k m-2, day-1], "Net DIN soilwater addition") {
+	flux(out, soil.water.din, [k g, k m-2, day-1], "Net DIN soilwater addition") {
 		net_annual_N_input / time.days_this_year ->> 
 		# To do: Implement other possible N input options
 	}
 	
-	flux(soil.water.din, nowhere, [k g, k m-2, day-1], "Soil water DIN uptake") {
+	flux(soil.water.din, out, [k g, k m-2, day-1], "Soil water DIN uptake") {
 #		growth_factor := {
 #			soil.growth_curve * 365	if use_growth_curve,
 #			1.0	                    otherwise
@@ -106,9 +106,9 @@ This module is not finished.
 	
 	# Reach fluxes
 	
-	flux(nowhere, river.water.din, [k g, day-1], "River effluent DIN") { eff_din }
+	flux(out, river.water.din, [k g, day-1], "River effluent DIN") { eff_din }
 	
-	flux(river.water.din, nowhere, [k g, day-1], "River DIN denitrification loss") {
+	flux(river.water.din, out, [k g, day-1], "River DIN denitrification loss") {
 		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10),
 		river.water.din * rate
 	}

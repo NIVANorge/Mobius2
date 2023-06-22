@@ -20,7 +20,7 @@ model("Simple test model") {
 		
 		var(a.q.p, [], "Test")
 		
-		flux(nowhere, a.q[c.top], [day-1], "Top flux")  {
+		flux(out, a.q[c.top], [day-1], "Top flux")  {
 			sin(time.step*2*pi/365 =>[])=>>
 		}
 		

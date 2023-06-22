@@ -23,12 +23,12 @@ model("Predator-prey test model") {
 		var(habitat.pred, []) @initial { init_pred }
 		var(habitat.prey, []) @initial { init_prey }
 		
-		flux(nowhere, habitat.prey, [month-1], "Prey birth")     {  prey * prey_birth  }  # NOTE: we can omit writing habitat.prey since the compartment can be inferred from the declaration
+		flux(out, habitat.prey, [month-1], "Prey birth")     {  prey * prey_birth  }  # NOTE: we can omit writing habitat.prey since the compartment can be inferred from the declaration
 		
-		flux(habitat.prey, nowhere, [month-1], "Predation")      {  nomnom * prey * pred  }
+		flux(habitat.prey, out, [month-1], "Predation")      {  nomnom * prey * pred  }
 		
-		flux(nowhere, habitat.pred, [month-1], "Predator birth") {  pred_birth * prey * pred  }
+		flux(out, habitat.pred, [month-1], "Predator birth") {  pred_birth * prey * pred  }
 		
-		flux(habitat.pred, nowhere, [month-1], "Predator death") {  pred * pred_death  }
+		flux(habitat.pred, out, [month-1], "Predator death") {  pred * pred_death  }
 	}
 }

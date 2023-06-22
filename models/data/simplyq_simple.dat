@@ -9,7 +9,7 @@ index_set("Subcatchment") [ "Coull" ]
 connection("Downstream") [
 	r : compartment("River") [ "Subcatchment" ]
 	
-	r["Coull"] -> nowhere
+	r["Coull"] -> out
 ]
 
 series("tarland_series.xlsx")
@@ -24,7 +24,7 @@ par_group("System") {
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 	par_real("Land use proportions") [
-		1 
+		1
 	]
 }
 

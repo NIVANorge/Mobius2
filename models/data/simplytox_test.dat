@@ -11,7 +11,7 @@ index_set("Toxin type") [ "PCB something" ]
 connection("Downstream") [
 	r : compartment("River") [ "Subcatchment" ]
 	
-	r["Inlet"] -> nowhere
+	r["Inlet"] -> out
 ]
 
 series("langtjern.xlsx")
