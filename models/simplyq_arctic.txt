@@ -19,72 +19,80 @@ model("SimplyArctic") {
 	pet    : property("Potential evapotranspiration")
 	ddf    : property("Degree-day factor")
 	
-	downhill   : connection("Downhill", directed_tree)   { (soil|river)* }
-	downstream : connection("Downstream", directed_tree) { river* }
+	downhill   : connection("Downhill", directed_tree)   { soil+ river }
+	downstream : connection("Downstream", directed_tree) { river+ out }
 	
 	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
-	
-	#TODO: Air temperature should be variable based on elevation zone, and just have a single input series that is adjusted.
 	
 	load("modules/simplyq.txt",	module("SimplyQ river", river, water, flow, loc(downstream)))
 	
 	
 	sc     : index_set("Subcatchment")
 	patch  : index_set("Patch")
-	facing : index_set("Facing")
+	aspect : index_set("Aspect")
 	
 	
-	distribute(snow_box, sc, patch, facing)
-	distribute(glacier,  sc, patch)
+	distribute(snow_box, sc, patch, aspect)
+	distribute(glacier,  sc, patch)  # Maybe also aspect? Then would need to change aggregation_weight
 	distribute(soil,     sc, patch)
 	distribute(deepgw,   sc)
 	distribute(river,    sc)
 	distribute(air,      sc, patch)
-	
 
 	par_group("Catchment data", river) {
-		a_catch  : par_real("Catchment area", [k m 2], 51.7, 1e-6, 7e6)
+		a_catch    : par_real("Catchment area", [k m 2], 51.7, 1e-6, 7e6)
+        elev_catch : par_real("Elevation of input met data", [m], 100, -420, 8848)
 	}
 	
 	par_group("Patch data", soil) {
 		rel_area : par_real("Relative area", [], 0.2, 0, 1)
 	}
 	
-	par_group("Facing data", snow_box) {
-		rel_facing : par_real("Facing relative area", [], 0.2, 0, 1)
+	par_group("Aspect data", snow_box) {
+		rel_aspect : par_real("Aspect relative area", [], 0.2, 0, 1)
 	}
+    
+    par_group("Global melt parameters") {
+		t_melt    : par_real("Melt temperature", [deg_c], 0, -4, 4, "Temperature at which snow and glacier ice start melting")
+    }
 	
 	unit_conversion(glacier.water, river.water) { a_catch }
 	unit_conversion(soil.water, river.water)  { a_catch }
 	unit_conversion(deepgw.water, river.water) { a_catch }
 	
-	aggregation_weight(snow_box, glacier) { rel_facing }
+	aggregation_weight(snow_box, glacier) { rel_aspect }
 	aggregation_weight(soil, soil)     { rel_area / rel_area[below] }
 	aggregation_weight(glacier, river) { rel_area }
 	aggregation_weight(soil, river)    { rel_area }
 	aggregation_weight(soil, deepgw)   { rel_area }  # Because in this setup the groundwater is the entire subcatchment.
 	
-	simply_solver : solver("Simply solver", "INCADascru", 0.1, 1e-3)   # NOTE: The small relative minimal step is needed by SimplyTox.
+	simply_solver : solver("Simply solver", "INCADascru", 0.1, 1e-3)
 	
 	solve(simply_solver, soil.water, deepgw.water, river.water, glacier.water)
 	
+    #-----------------------------------------------------
 	module("ArcticAtmosphere", version(0, 0, 1)) {
 		
 		par_group("Elevation data", soil) {
-			elev : par_real("Elevation", [m], 0, 0, 8887)
+			elev : par_real("Average elevation", [m], 0, 0, 8887)
 		}
 		
 		par_group("Temperature correction") {
-			temp_elev : par_real("Temperature elevation correction", [deg_c, m-1], -0.01, -0.1, 0)
+			lapse_rate : par_real("Temp lapse rate", [deg_c, m-1], -0.006, -0.1, 0, "Rate of change in air temperature as elevation increases")
 		}
 		
 		mtemp : property("Air temperature")
-		var(air.mtemp, [deg_c]) # This is the input series.
+		var(air.mtemp, [deg_c]) # Input series
 		
+        # Elevation correction of input air temperature
+        # N.B.1 THIS ASSUMES ELEVATION OF INPUT MET DATA = MEAN ELEVATION OF WHOLE CATCH. Come back to
+        # N.B.2 Could change air temp with aspect too, but decide to just implement that through changing
+        # the DDF by aspect for now
 		var(air.temp, [deg_c], "Local air temperature") {
-			mtemp + elev*temp_elev
+			mtemp + (elev-elev_catch)*lapse_rate
 		}
 		
+        # TO DO: may want to do a precipitation correction for elevation too. See Killingtveit.
 		var(air.precip, [m m, day-1]) # Input series
 	}
 	
@@ -93,6 +101,8 @@ model("SimplyArctic") {
 	temp2 : quantity("Surface temperature")
 	
 	solve(simply_solver, soil.temp2)
+    
+    #-----------------------------------------------------
 	
 	module("SimplyPermafrost", version(0, 0, 1)) {
 	
@@ -127,7 +137,7 @@ model("SimplyArctic") {
 		var(soil.temp2, [deg_c], "Soil surface temperature") @initial { 0[deg_c] } #TODO
 		
 		
-		flux(soil.temp2, nowhere, [deg_c, day-1], "Surface temperature change") {
+		flux(soil.temp2, out, [deg_c, day-1], "Surface temperature change") {
 			above_t := air.temp,  #TODO Modify if snow or ice and make snow temp not air temp
 			(soil.temp2 - above_t)*hc_by_hc->>
 		}
@@ -144,7 +154,7 @@ model("SimplyArctic") {
 		
 		
 		#TODO: Turn off when snow or ice cover.
-		flux(soil.water, nowhere, [m m, day-1], "Evapotranspiration") {
+		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
 			0                                     if (aggregate(snow_box.snow) > ice_epsilon) | (glacier.ice > ice_epsilon),
 			s_response(water, 0.5*fc, fc, 0, pet) otherwise
 		} @no_carry   # Don't carry dissolved substances in the evapotranspiration
@@ -168,6 +178,7 @@ model("SimplyArctic") {
 	}
 	
 	
+    #-----------------------------------------------------
 	#TODO Ice & snow sublimation?
 	
 	module("ArcticSnow", version(0, 0, 1)) {
@@ -177,7 +188,6 @@ model("SimplyArctic") {
 		par_group("Snow") {
 			ddf0_melt : par_real("Degree-day factor for snowmelt", [m m, deg_c-1, day-1], 2.74, 0, 5, "Linear correlation between rate of snow melt and air temperature")
 			t_snow    : par_real("Temperature at which precip falls as snow", [deg_c], 0, -4, 4)
-			t_melt    : par_real("Temperature at which snow melts", [deg_c], 0, -4, 4)
 			refr_eff  : par_real("Refreeze efficiency", [], 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
 			snow_liq  : par_real("Liquid water fraction", [], 0.1, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before the water is released")
 			init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
@@ -185,8 +195,8 @@ model("SimplyArctic") {
 			fall_factor : par_real("Snow fall correction factor", [], 1, 0, 1)
 		}
 		
-		par_group("Snow facing", snow_box) {
-			facing_melt_factor : par_real("Facing melt factor", [], 1, 0.1, 1)
+		par_group("Snow aspect", snow_box) {
+			aspect_melt_factor : par_real("Aspect melt factor", [], 1, 0.1, 1)
 		}
 	
 		var(snow_box.snow.temp, [deg_c], "Snow temperature") {
@@ -194,33 +204,39 @@ model("SimplyArctic") {
 		}
 		
 		var(snow_box.ddf, [m m, deg_c-1, day-1], "Snow melt degree-day factor") {
-			facing_melt_factor * ddf0_melt #TODO maybe also radiation something
+			aspect_melt_factor * ddf0_melt #TODO maybe also radiation something
 		}
 		
 		var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
 		var(snow_box.water, [m m], "Snow water")
 		
-		flux(nowhere, snow_box.snow, [m m, day-1], "Precipitation falling as snow") { fall_factor * air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
+		flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") { fall_factor * air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
 		
-		flux(nowhere, water_target, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
+        # this could  be to water_target if refreeze and liquid water fraction removed
+		flux(out, snow_box.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
 		
+        # Need to use snow.temp here rather than air.temp? What do people normally do?
 		melt :
 		flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt")       {   max(0, ddf*(snow.temp - t_melt))   }
 		
+        # Need this? Delete if not
 		refreeze :
 		flux(snow_box.water, snow_box.snow, [m m, day-1], "Refreeze")   {   max(0, refr_eff*ddf*(t_melt - snow.temp))  }
-
+        
+        # Need snow_liq? If not, redo this
 		melt_runoff :
 		flux(snow_box.water, water_target, [m m, day-1], "Melt runoff") {   max(0, water - snow*snow_liq)*1[day-1]  }
-		
+        
+        #TODO: Sublimation? ET from snow?
+
 		discrete_order {
-			#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this module.
 			melt
 			refreeze
 			melt_runoff
 		}
 	}
 	
+    #-----------------------------------------------------
 	module("SimplyGlacier", version(0, 0, 1)) {
 		
 		ice_epsilon : constant("Ice epsilon", [m m], 1e-6)
@@ -229,7 +245,7 @@ model("SimplyArctic") {
 			K_min   : par_real("Glacier runoff coefficient min", [day-1], 1)
 			K_range : par_real("Glacier runoff coefficient range", [day-1], 0)
 			A_G     : par_real("Glacier runoff snow dependence", [m m-1], 0)
-			perc_frac : par_real("Percolation fraction", [], 0.1)
+			perc_frac : par_real("Percolation fraction", [], 0.1, 0, 1, "Proportion of glacier water flow that percolates down to the underlying ground vs going directly to the reach")
 			ddf_ice : par_real("Relative degree-day ice melt", [m m, deg_c-1, day-1], 1)
 			snowtoice : par_real("Glacier accumulation coefficient", [day-1], 0, 2.7e-4, 1e-3)
 		}
@@ -242,10 +258,10 @@ model("SimplyArctic") {
 		
 		var(glacier.water, [m m], "Glacier melt water")
 		
+        # TODO. Maybe just delete and use air temp
 		var(glacier.ice.temp, [deg_c], "Ice temperature") {
 			air.temp  # TODO
 		}
-		
 		
 		flux(snow_box.snow, glacier.ice, [m m, day-1], "Glacier accumulation") {
 			snowtoice * snow if last(glacier.ice) > ice_epsilon,
@@ -253,13 +269,12 @@ model("SimplyArctic") {
 		}
 		
 		flux(glacier.ice, glacier.water, [m m, day-1], "Glacier melt") {
-			#ddf_ice := aggregate(snow_box.ddf) * ddf_ice_fac,
-		
+            # no melt if there is snow on the box					
 			0                     if aggregate(snow_box.snow) > ice_epsilon,
-			max(0, ddf_ice*temp)  otherwise
+			max(0, ddf_ice*(ice.temp - t_melt))  otherwise
 		}
 		
-		#TODO: Sublimation!
+		#TODO: glacier melt depends on aspect too
 		
 		var(glacier.water.flow, [m m, day-1], "Glacier water flow") {
 			water * (K_min + K_range * exp(-A_G * aggregate(snow_box.snow)))
@@ -270,6 +285,8 @@ model("SimplyArctic") {
 			0                  otherwise
 		}
 		
+        # Flux of glacier water down to underlying soil water vs going straight to the channel
+        # Water passes straight through the glacier box when no ice is present
 		flux(glacier.water, soil.water, [m m, day-1], "Glacier percolation") {
 			perc_frac*flow                            if ice > ice_epsilon,
 			in_flux(water)                            otherwise
