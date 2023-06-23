@@ -1021,7 +1021,8 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_R
 		}
 		
 		return;
-	}
+	} else if (ident->wildcard)
+		return;
 	
 	auto component_id = model->components.find_or_create(scope, &ident->ident);
 	Entity_Id index_set_id = invalid_entity_id;

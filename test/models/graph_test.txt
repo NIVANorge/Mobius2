@@ -3,12 +3,7 @@ model("Graph test") {
 
 	node : compartment("Node")
 	node2 : compartment("Node2")
-	
-	
-	
-	par_group("Edge pars", edge) {
-		rate : par_real("Flow rate", [day-1], 0.1)
-	}
+
 	
 	water : quantity("Water")
 	
@@ -28,11 +23,15 @@ model("Graph test") {
 	solve(sol, node.water, node2.water)
 	
 	g : connection("The graph", directed_graph) {
-		#(node[e]|node2[e2])*
-		node[e]*
+		(node[e]|node2[e2])*
+		#node[e]*
 	}
 
 	module("Graph test", version(0, 0, 1)) {
+
+		par_group("Edge pars", edge) {
+			rate : par_real("Flow rate", [day-1], 0.1)
+		}
 
 		var(node.water, [m 3], "Node water") @initial { 10[m 3] }
 		
@@ -42,8 +41,8 @@ model("Graph test") {
 		
 		var(node2.water, [m 3], "Node2 water") @initial { 100[m 3] }
 		
-		#flux(node2.water, g, [m 3, day-1], "The other flow") {
-		#	0.2[day-1]*water
-		#}
+		flux(node2.water, g, [m 3, day-1], "The other flow") {
+			0.2[day-1]*water
+		}
 	}
 }

@@ -41,14 +41,9 @@ match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vect
 				result.match = true;
 		} break;
 		
-		case Math_Expr_Type::unary_operator : {
-			auto unary = static_cast<Unary_Operator_AST *>(regex);
-			int min_matches = 0; int max_matches = -1;
-			char oper = (char)unary->oper;
-			if(oper == '?') {
-				max_matches = 1;
-			} else if (oper == '+')
-				min_matches = 1;
+		case Math_Expr_Type::regex_quantifier : {
+			auto quant = static_cast<Regex_Quantifier_AST *>(regex);
+			
 			int n_matches = 0;
 			
 			while(true) {
@@ -57,13 +52,13 @@ match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vect
 				if(match.match)
 					++n_matches;
 				else break;
-				if(max_matches >= 0 && n_matches > max_matches) {
+				if(quant->max_matches >= 0 && n_matches > quant->max_matches) {
 					result.path_idx--; // This is to make the error cursor point at the right position if this results in a full failure.
 					break;
 				}
 			}
 			
-			result.match = (n_matches >= min_matches) && (max_matches < 0 || n_matches <= max_matches);
+			result.match = (n_matches >= quant->min_matches) && (quant->max_matches < 0 || n_matches <= quant->max_matches);
 			
 		} break;
 		
@@ -79,21 +74,25 @@ match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vect
 		
 		case Math_Expr_Type::regex_identifier : {
 			auto ident = static_cast<Regex_Identifier_AST *>(regex);
-			std::string handle = ident->ident.string_value;
-			Entity_Id regex_id = invalid_entity_id;
-			if(handle != "out") {
-				auto res = (*scope)[handle];
-				if(!res)
-					fatal_error(Mobius_Error::internal, "Somehow we have a handle in a regex that does not correspond to a component.");
-				regex_id = res->id;
+			if(ident->wildcard)
+				result.match = true;
+			else {
+				std::string handle = ident->ident.string_value;
+				Entity_Id regex_id = invalid_entity_id;
+				if(handle != "out") {
+					auto res = (*scope)[handle];
+					if(!res)
+						fatal_error(Mobius_Error::internal, "Somehow we have a handle in a regex that does not correspond to a component.");
+					regex_id = res->id;
+				}
+				
+				Entity_Id path_id = invalid_entity_id;
+				auto node_idx = path[path_idx];
+				if(node_idx >= 0)
+					path_id = nodes[node_idx].id;
+				
+				result.match = (path_id == regex_id);
 			}
-			
-			Entity_Id path_id = invalid_entity_id;
-			auto node_idx = path[path_idx];
-			if(node_idx >= 0)
-				path_id = nodes[node_idx].id;
-			
-			result.match = (path_id == regex_id);
 			if(result.match)
 				result.path_idx = path_idx+1;
 		} break;
@@ -131,10 +130,10 @@ build_tree_paths_recursive(int idx, std::vector<Node_Data> &nodes, std::vector<i
 void
 match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc) {
 	
-
-	// TODO: support things like i{n}, where n is an exact number of repetitions. i{n m} : between n and m repetitions.
-
 	// TODO: Handle branching graphs and cycles!
+		// Cycles:  Need to have the cycle itself match (something)*
+		// Isolated cycles (no source entry) are a bit more challenging because they would have to match from any starting point...
+			// Does that mean that they have to match something of the form (a|b|c...)*  ?
 	
 	// TODO: Also print what part of the regex caused the the final failure.
 	

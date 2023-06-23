@@ -635,19 +635,49 @@ parse_math_block(Token_Stream *stream) {
 
 
 Math_Expr_AST *
-potentially_parse_regex_unary(Token_Stream *stream, Math_Expr_AST *arg) {
+potentially_parse_regex_quantifier(Token_Stream *stream, Math_Expr_AST *arg) {
 	Math_Expr_AST *result = arg;
 	Token token = stream->peek_token();
-	if((char)token.type == '?' || (char)token.type == '*' || (char)token.type == '+') {
-		auto unary = new Unary_Operator_AST();
-		unary->oper = token.type;
-		unary->exprs.push_back(arg);
-		unary->source_loc = token.source_loc;
-		result = unary;
+	char op = (char)token.type;
+	if(op == '?' || op == '*' || op == '+' || op == '{') {
 		stream->read_token();
+		auto quant = new Regex_Quantifier_AST();
+		if(op == '?')
+			quant->max_matches = 1;
+		else if(op == '+')
+			quant->min_matches = 1;
+		else if(op == '{') {    // Parse     {n} {n,} {n,m} or {,m}
+			Token next = stream->read_token();
+			if(next.type == Token_Type::integer) {
+				quant->min_matches = (int)next.val_int;
+				next = stream->peek_token();
+				if((char)next.type == '}')
+					quant->max_matches = quant->min_matches;
+				else if((char)next.type == ',') {
+					stream->read_token();
+					next = stream->peek_token();
+					if(next.type == Token_Type::integer)
+						quant->max_matches = stream->expect_int();
+				} else {
+					next.print_error_header();
+					fatal_error("Expected a '}' or ','.");	
+				}
+			} else if ((char)next.type == ',') {
+				quant->max_matches = (int)stream->expect_int();
+			} else {
+				next.print_error_header();
+				fatal_error("Expected an integer or a ','.");
+			}
+			stream->expect_token('}');
+		}
+		quant->exprs.push_back(arg);
+		quant->source_loc = token.source_loc;
+		result = quant;
+		
 	} else
 		return result;
-	return potentially_parse_regex_unary(stream, result);
+	// TODO: It doesn't really make sense to have these right after one another?
+	return potentially_parse_regex_quantifier(stream, result);
 }
 
 Math_Expr_AST *
@@ -655,17 +685,20 @@ parse_regex_identifier(Token_Stream *stream) {
 	auto ident = new Regex_Identifier_AST();
 	ident->ident = stream->read_token();
 	ident->source_loc = ident->ident.source_loc;
-	auto token = stream->peek_token();
-	if((char)token.type != '[') return ident;
-	
-	stream->read_token();
-	ident->index_set = stream->read_token();
-	if(ident->index_set.type != Token_Type::identifier) {
-		ident->index_set.print_error_header();
-		fatal_error("Expected an index set identifier.");
+	if((char)ident->ident.type == '.') {
+		ident->wildcard = true;
+	} else {
+		auto token = stream->peek_token();
+		if((char)token.type != '[') return ident;
+		
+		stream->read_token();
+		ident->index_set = stream->read_token();
+		if(ident->index_set.type != Token_Type::identifier) {
+			ident->index_set.print_error_header();
+			fatal_error("Expected an index set identifier.");
+		}
+		stream->expect_token(']');
 	}
-	stream->expect_token(']');
-	
 	return ident;
 }
 
@@ -674,7 +707,7 @@ parse_primary_regex(Token_Stream *stream) {
 	
 	Math_Expr_AST *result = nullptr;
 	Token token = stream->peek_token();
-	if(token.type == Token_Type::identifier) {
+	if(token.type == Token_Type::identifier || (char)token.type == '.') {
 		result = parse_regex_identifier(stream);
 	} else if((char)token.type == '(') {
 		result = parse_regex_list(stream, false);
@@ -682,7 +715,7 @@ parse_primary_regex(Token_Stream *stream) {
 		token.print_error_header();
 		fatal_error("Unexpected token '", token.string_value, "' while parsing regex.");
 	}
-	result = potentially_parse_regex_unary(stream, result);
+	result = potentially_parse_regex_quantifier(stream, result);
 	
 	return result;
 }
