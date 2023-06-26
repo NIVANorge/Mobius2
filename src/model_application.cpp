@@ -575,8 +575,13 @@ Model_Application::active_instance_count(const std::vector<Entity_Id> &index_set
 bool
 Model_Application::is_in_bounds(std::vector<Index_T> &indexes) {
 	for(auto &index : indexes) {
-		if(is_valid(index) && index >= get_index_count(index.index_set, indexes))  // NOTE: We should NOT check for index.index < 0, since that just means that this index is not set right now.
-			return false;
+		if(is_valid(index)) {
+			auto count = get_index_count(index.index_set, indexes);
+			if(index >= count) { // NOTE: We should NOT check for index.index < 0, since that just means that this index is not set right now.
+				//log_print("Failed for set ", model->index_sets[index.index_set]->name, " because index is ", index.index, " and count is ", count.index, "\n");
+				return false;
+			}
+		}
 	}
 	return true;
 }

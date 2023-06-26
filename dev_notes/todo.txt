@@ -12,6 +12,8 @@
 			This in particular may have been fixed now.
 			
 	Finish connection system
+	
+		Finish the simple hydraulics model.
 		
 		graph and directed_tree
 			Must specify 'nowhere' in the regex for it to be an allowed target
@@ -24,12 +26,14 @@
 			More stress testing
 				Attaching data to edges
 					How does this work when edge indexes are not saved in the data set (data set code should maybe itself do the edge index generation (?))
-			[below] accesses in flux.
+			
 			Check that the edge index set is OK (i.e. sub-indexed to the right thing).
 			Allow naming edges (?)
-			Make sure edge indexes are not saved to data set.
+			Make sure edge indexes are not saved to data set, but still make it work with parameter saving.
 			
 			Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
+			
+			For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
 
 		all_to_all, grid1d:
 			

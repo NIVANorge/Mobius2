@@ -465,14 +465,18 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 				fatal_error("On a directed_graph connection, 'below' can only be used on a state variable or series.");
 			}
 			
-			if(!is_valid(res.source_comp))
+			auto source_comp = app->vars[ident->var_id]->loc1.first();
+			
+			if(!is_valid(source_comp))
 				fatal_error(Mobius_Error::internal, "Did not properly set the source compartment of the expression.");
 			
 			// We have to check for each possible target of the graph.
-			auto component = app->find_connection_component(res.connection_id, res.source_comp);
+			auto component = app->find_connection_component(res.connection_id, source_comp, false);
 			
-			if(!component)
-				fatal_error(Mobius_Error::internal, "Did not find the component for this expression.");
+			if(!component) {
+				ident->source_loc.print_error_header(Mobius_Error::internal);
+				fatal_error("Did not find the component for this expression. Connection is ", connection->name, ", component is ", app->model->components[source_comp]->name, ".");
+			}
 			
 			auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
 			if_expr->value_type = expr->value_type;
@@ -495,14 +499,14 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 				
 				Index_Exprs new_indexes(app->model);
 				new_indexes.copy(index_expr);
-				set_graph_target_indexes(app, new_indexes, res.connection_id, res.source_comp, target_comp);
+				set_graph_target_indexes(app, new_indexes, res.connection_id, source_comp, target_comp);
 				put_var_lookup_indexes_basic(ident2, app, new_indexes);
 				
 				if_expr->exprs.push_back(ident2);
 				
 				// Note here we use the index_expr belonging to the source compartment, not the
 				// one belonging to the target compartment
-				auto idx_offset = app->connection_structure.get_offset_code(Connection_T {res.connection_id, res.source_comp, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
+				auto idx_offset = app->connection_structure.get_offset_code(Connection_T {res.connection_id, source_comp, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
 				auto compartment_id = new Identifier_FT();
 				compartment_id->variable_type = Variable_Type::connection_info;
 				compartment_id->value_type = Value_Type::integer;

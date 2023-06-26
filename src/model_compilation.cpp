@@ -493,7 +493,7 @@ make_clear_instr(std::vector<Model_Instruction> &instructions, Var_Id var_id, En
 }
 
 int
-make_add_to_aggregate_instr(std::vector<Model_Instruction> &instructions, Entity_Id solver_id, Var_Id agg_var, Var_Id agg_of, int clear_id, Var_Id source_id = invalid_var, Var_Loc_Restriction *restriction = nullptr) {
+make_add_to_aggregate_instr(Model_Application *app, std::vector<Model_Instruction> &instructions, Entity_Id solver_id, Var_Id agg_var, Var_Id agg_of, int clear_id, Var_Id source_id = invalid_var, Var_Loc_Restriction *restriction = nullptr) {
 	
 	// Make an instruction that adds  the value of agg_of to the value of agg_var .
 
@@ -720,7 +720,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			var_solver = instructions[agg_of.id].solver;
 			
 			int clear_id = make_clear_instr(instructions, var_id, var_solver);
-			make_add_to_aggregate_instr(instructions, var_solver, var_id, agg_of, clear_id);
+			make_add_to_aggregate_instr(app, instructions, var_solver, var_id, agg_of, clear_id);
+			
 			
 			// The instruction for the var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
@@ -817,7 +818,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					source_id = app->vars.id_of(var_flux->loc1);
 				
 				// Create an instruction that adds the flux value to the aggregate.
-				int add_to_aggr_id = make_add_to_aggregate_instr(instructions, var_solver, var_id, var_id_flux, clear_id, source_id, &restriction);
+				int add_to_aggr_id = make_add_to_aggregate_instr(app, instructions, var_solver, var_id, var_id_flux, clear_id, source_id, &restriction);
 				
 				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 				
@@ -1093,7 +1094,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 			std::vector<int> remove;
 			for(int other_id : instr.depends_on_instruction) {
 				auto &other_instr = instructions[other_id];
-				if(!is_valid(other_instr.var_id)) continue;
+				if(other_instr.type != Model_Instruction::Type::compute_state_var || !is_valid(other_instr.var_id)) continue;
 				auto other_var = app->vars[other_instr.var_id];
 				bool is_quantity = other_var->type == State_Var::Type::declared &&
 					as<State_Var::Type::declared>(other_var)->decl_type == Decl_Type::quantity;
@@ -1391,7 +1392,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
+	debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
 	
 	set_up_result_structure(this, batches, instructions);
 	
