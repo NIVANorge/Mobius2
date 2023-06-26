@@ -3,7 +3,7 @@
 
 
 struct
-Node_Data {
+Connection_Node_Data {
 	Entity_Id id = invalid_entity_id;
 	int receives_count = 0;
 	bool visited       = false;
@@ -18,7 +18,8 @@ Match_State {
 };
 
 Match_State
-match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vector<int> &path, int path_idx, Math_Expr_AST *regex) {
+match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes, std::vector<int> &path, int path_idx, Math_Expr_AST *regex) {
+	// NOTE: Currently this does greedy matching.
 	
 	Match_State result = {false, path_idx};
 	if(path_idx >= path.size()) {
@@ -109,7 +110,7 @@ match_path_recursive(Decl_Scope *scope, std::vector<Node_Data> &nodes, std::vect
 
 
 void
-build_tree_paths_recursive(int idx, std::vector<Node_Data> &nodes, std::vector<int> &current, Source_Location error_loc) {
+build_tree_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, std::vector<int> &current, Source_Location error_loc) {
 	current.push_back(idx);
 	if(idx < 0) // Means we hit an 'out'
 		return;
@@ -149,7 +150,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	Storage_Structure<Entity_Id> node_structure(app);
 	make_connection_component_indexing_structure(app, &node_structure, conn_id);
 	
-	std::vector<Node_Data> nodes(node_structure.total_count);
+	std::vector<Connection_Node_Data> nodes(node_structure.total_count);
 	
 	for(auto &comp : app->connection_components[conn_id].components) {
 		auto id = comp.id;
@@ -201,12 +202,12 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 			data_loc.print_error_header();
 			error_print("The regular expression for the connection \"", connection->name, "\" failed to match the provided graph. See the declaration of the regex here:\n");
 			regex->source_loc.print_error();
-			error_print("The matching failed after the marked '(***)' in the following sequence:\n");
+			error_print("The matching succeeded up to the marked '(***)' in the following sequence:\n");
 			bool found_mark = false;
 			int pathidx = 0;
 			for(int nodeidx : path) {
 				if(pathidx == match.path_idx) {
-					error_print("(***)");
+					error_print("(***) ");
 					found_mark = true;
 				} if(nodeidx < 0)
 					error_print("out");
@@ -218,7 +219,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 					error_print(']');
 				}
 				if(pathidx != path.size()-1)
-					error_print(" -> ");
+					error_print(" ");
 				
 				++pathidx;
 			}

@@ -960,6 +960,7 @@ compose_and_resolve(Model_Application *app) {
 		}
 		
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
+		res_data.source_compartment = in_loc.first();
 		
 		if(ast) {
 			auto res = resolve_function_tree(ast, &res_data);
@@ -1058,6 +1059,8 @@ compose_and_resolve(Model_Application *app) {
 			var2->override_tree = nullptr;
 		
 		if(specific_ast) {
+			res_data.allow_no_override = false;
+			res_data.allow_in_flux = false; // Do we??
 			res_data.expected_unit = {};
 			res_data.allow_no_override = false;
 			auto fun = resolve_function_tree(specific_ast, &res_data);

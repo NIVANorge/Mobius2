@@ -196,11 +196,19 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 					// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
 				// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
 				if(instr.type == Model_Instruction::Type::compute_state_var) {
-					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-					if(model->connections[dep.restriction.connection_id]->type == Connection_Type::all_to_all)
+					auto conn = model->connections[dep.restriction.connection_id];
+					if(conn->type == Connection_Type::directed_graph) {
+						// Hmm, maybe factor this out?
+						auto comp = app->find_connection_component(dep.restriction.connection_id, app->vars[dep.var_id]->loc1.components[0]);
+						instr.index_sets.insert(comp->edge_index_set);
+					} else if(conn->type == Connection_Type::all_to_all) {
+						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
 						instr.index_sets.insert({index_set, 2});   // NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
-					else
+					} else if(conn->type == Connection_Type::grid1d) {
+						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
 						instr.index_sets.insert(index_set);
+					} else
+						fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
 				}
 				
 			} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {

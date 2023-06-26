@@ -375,80 +375,23 @@ set_graph_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id
 }
 
 void
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::set<Var_Loc_Restriction> &found_restriction) {
-	
-	for(auto arg : expr->exprs)
-		put_var_lookup_indexes(arg, app, index_expr, found_restriction);
-	
-	if(expr->expr_type != Math_Expr_Type::identifier) return;
-	
-	auto ident = static_cast<Identifier_FT *>(expr);
-	
-	if(ident->variable_type != Variable_Type::parameter && ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var)
-		return;
-	
-	if(!expr->exprs.empty())
-		fatal_error(Mobius_Error::internal, "Tried to set var lookup indexes on an expr that already has them.");
-	
-	if(is_valid(ident->restriction.connection_id))
-		found_restriction.insert(ident->restriction);
-	
-	Index_Exprs new_indexes(app->model);
-
-	Index_Exprs *use_indexes = &index_expr;
-	auto &res = ident->restriction;
-	if(res.restriction != Var_Loc_Restriction::none) {
-		if(!is_valid(ident->restriction.connection_id))
-			fatal_error(Mobius_Error::internal, "Got an identifier with a restriction but without a connection");
-		
-		new_indexes.copy(index_expr);
-		use_indexes = &new_indexes;
-		
-		auto connection = app->model->connections[res.connection_id];
-		
-		if(connection->type == Connection_Type::all_to_all) {
-			if(res.restriction != Var_Loc_Restriction::below) {
-				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Only the 'below' restriction is allowed on an all_to_all connection.");
-			}
-			set_all_to_all_target_indexes(app, new_indexes, res.connection_id);
-		} else if(connection->type == Connection_Type::grid1d) {
-			set_grid1d_target_indexes(app, new_indexes, res);
-		} else if(connection->type == Connection_Type::directed_tree) {
-			if(res.restriction != Var_Loc_Restriction::below) {
-				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Only the 'below' restriction is allowed on an all_to_all connection.");
-			}
-			if(!is_valid(res.source_comp) || !is_valid(res.target_comp) || res.source_comp != res.target_comp) {
-				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("The 'below' directive is not allowed in this context.");
-			}
-			set_graph_target_indexes(app, new_indexes, res.connection_id, res.source_comp, res.target_comp);
-		} else
-			fatal_error(Mobius_Error::internal, "Unimplemented connection type in put_var_lookup_indexes()");
-		// TODO: Graph!!
-		
-	} //else if(is_valid(ident->restriction.connection_id))
-		//fatal_error(Mobius_Error::internal, "Got an identifier with a connection but without a restriction.");
-
-	
+put_var_lookup_indexes_basic(Identifier_FT *ident, Model_Application *app, Index_Exprs &index_expr) {
 	Math_Expr_FT *offset_code = nullptr;
 	s64 back_step = -1;
 	if(ident->variable_type == Variable_Type::parameter) {
-		offset_code = app->parameter_structure.get_offset_code(ident->par_id, *use_indexes);
+		offset_code = app->parameter_structure.get_offset_code(ident->par_id, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
-		offset_code = app->series_structure.get_offset_code(ident->var_id, *use_indexes);
+		offset_code = app->series_structure.get_offset_code(ident->var_id, index_expr);
 		back_step = app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
 		auto var = app->vars[ident->var_id];
 		if(!var->is_valid())
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
-		offset_code = app->result_structure.get_offset_code(ident->var_id, *use_indexes);
+		offset_code = app->result_structure.get_offset_code(ident->var_id, index_expr);
 		back_step = app->result_structure.total_count;
 	}
 
-	
 	if(ident->flags & Identifier_FT::Flags::last_result) {
 		if(back_step > 0)
 			offset_code = make_binop('-', offset_code, make_literal(back_step));
@@ -459,7 +402,129 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		fatal_error("Forgot to resolve one or more flags on an identifier.");
 	}
 	
-	expr->exprs.push_back(offset_code);
+	ident->exprs.push_back(offset_code);
+}
+
+Math_Expr_FT *
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, std::set<Var_Loc_Restriction> &found_restriction) {
+	
+	for(int idx = 0; idx < expr->exprs.size(); ++idx)
+		expr->exprs[idx] = put_var_lookup_indexes(expr->exprs[idx], app, index_expr, found_restriction);
+	
+	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
+	
+	auto ident = static_cast<Identifier_FT *>(expr);
+	
+	if(ident->variable_type != Variable_Type::parameter && ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var)
+		return expr;
+	
+	if(!expr->exprs.empty())
+		fatal_error(Mobius_Error::internal, "Tried to set var lookup indexes on an expr that already has them.");
+	
+	if(is_valid(ident->restriction.connection_id))
+		found_restriction.insert(ident->restriction);
+	
+	auto &res = ident->restriction;
+	if(res.restriction != Var_Loc_Restriction::none) {
+		if(!is_valid(ident->restriction.connection_id))
+			fatal_error(Mobius_Error::internal, "Got an identifier with a restriction but without a connection");
+		
+		auto connection = app->model->connections[res.connection_id];
+		
+		if(connection->type != Connection_Type::directed_graph) {
+			Index_Exprs new_indexes(app->model);
+			new_indexes.copy(index_expr);
+			
+			if(connection->type == Connection_Type::all_to_all) {
+				if(res.restriction != Var_Loc_Restriction::below) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("Only the 'below' restriction is allowed on an all_to_all connection.");
+				}
+				set_all_to_all_target_indexes(app, new_indexes, res.connection_id);
+			} else if(connection->type == Connection_Type::grid1d) {
+				set_grid1d_target_indexes(app, new_indexes, res);
+			} else if(connection->type == Connection_Type::directed_tree) {
+				if(res.restriction != Var_Loc_Restriction::below) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("Only the 'below' restriction is allowed in this context.");
+				}
+				if(!is_valid(res.source_comp) || !is_valid(res.target_comp) || res.source_comp != res.target_comp) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("The 'below' directive is not allowed in this context.");
+				}
+				set_graph_target_indexes(app, new_indexes, res.connection_id, res.source_comp, res.target_comp);
+			}
+			
+			put_var_lookup_indexes_basic(ident, app, new_indexes);
+			return ident;
+			
+		} else if (connection->type == Connection_Type::directed_graph) {
+			
+			if(ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("On a directed_graph connection, 'below' can only be used on a state variable or series.");
+			}
+			
+			if(!is_valid(res.source_comp))
+				fatal_error(Mobius_Error::internal, "Did not properly set the source compartment of the expression.");
+			
+			// We have to check for each possible target of the graph.
+			auto component = app->find_connection_component(res.connection_id, res.source_comp);
+			
+			if(!component)
+				fatal_error(Mobius_Error::internal, "Did not find the component for this expression.");
+			
+			auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
+			if_expr->value_type = expr->value_type;
+			
+			for(auto target_comp : component->possible_targets) {
+				
+				if(!is_valid(target_comp)) continue; // This happens if it is an 'out'. In that case it will be caught by the "otherwise" clause below (the value is 0).
+				
+				auto loc = app->vars[ident->var_id]->loc1;
+				loc.components[0] = target_comp;
+				auto target_id = app->vars.id_of(loc);
+				if(!is_valid(target_id)) {
+					 // TODO: Maybe we should do this validity check in model_composition already, before we do the codegen.
+					 //   Or the value should just default to 0 in this case? That could cause silent errors though.
+					ident->source_loc.print_error_header();
+					fatal_error("This variable does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
+				}
+				auto ident2 = static_cast<Identifier_FT *>(copy(ident));
+				ident2->var_id = target_id;
+				
+				Index_Exprs new_indexes(app->model);
+				new_indexes.copy(index_expr);
+				set_graph_target_indexes(app, new_indexes, res.connection_id, res.source_comp, target_comp);
+				put_var_lookup_indexes_basic(ident2, app, new_indexes);
+				
+				if_expr->exprs.push_back(ident2);
+				
+				// Note here we use the index_expr belonging to the source compartment, not the
+				// one belonging to the target compartment
+				auto idx_offset = app->connection_structure.get_offset_code(Connection_T {res.connection_id, res.source_comp, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
+				auto compartment_id = new Identifier_FT();
+				compartment_id->variable_type = Variable_Type::connection_info;
+				compartment_id->value_type = Value_Type::integer;
+				compartment_id->exprs.push_back(idx_offset);
+				
+				// The condition that the expression resolves to the ident2 value.
+				if_expr->exprs.push_back(make_binop('=', compartment_id, make_literal((s64)target_id.id)));
+			}
+			
+			delete ident;
+			
+			if_expr->exprs.push_back(make_literal((double)0.0));  // This is if the given target is not on the list.
+			
+			return if_expr;
+		} else
+			fatal_error(Mobius_Error::internal, "Unimplemented connection type in put_var_lookup_indexes()");
+		
+	} //else if(is_valid(ident->restriction.connection_id))
+		//fatal_error(Mobius_Error::internal, "Got an identifier with a connection but without a restriction.");
+
+	put_var_lookup_indexes_basic(ident, app, index_expr);
+	return ident;
 }
 
 void
@@ -767,7 +832,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			try {
 				if(instr->code) {
 					fun = copy(instr->code);
-					put_var_lookup_indexes(fun, app, indexes, restrictions);
+					fun = put_var_lookup_indexes(fun, app, indexes, restrictions);
 				} else if (instr->type != Model_Instruction::Type::clear_state_var) {
 					//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
 					

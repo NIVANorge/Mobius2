@@ -783,10 +783,14 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			++idx;
 		}
 		
+		source->possible_targets.insert(arrow.target_id);
+		
 		if(is_valid(arrow.target_id)) {
 			auto target = app->find_connection_component(conn_id, arrow.target_id);
 			target->possible_sources.insert(arrow.source_id);
 			source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
+		
+			
 		
 			// TODO: Maybe asser the two vectors are the same size.
 			int idx = 0;

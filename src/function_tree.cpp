@@ -148,8 +148,7 @@ make_for_loop() {
 
 Math_Expr_FT *
 make_simple_if(Math_Expr_FT *first, Math_Expr_FT *condition, Math_Expr_FT *otherwise) {
-	auto if_expr = new Math_Expr_FT();
-	if_expr->expr_type = Math_Expr_Type::if_chain;
+	auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_expr->value_type = first->value_type;
 	if_expr->exprs.push_back(first);
 	if_expr->exprs.push_back(condition);
@@ -695,12 +694,12 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 		error_print("A bracketed qualifier is not supported for this type of variable.");
 		fatal_error_trace(scope);
 	}
-	Entity_Id connection = invalid_entity_id;
+	Entity_Id conn_id = invalid_entity_id;
 	bool is_above = false;
 	int idx = 0;
 	if(chain.size() == 1) {   // TODO: It would maybe be cleaner just to remove the shorthand.
-		connection = data->connection;
-		if(!is_valid(connection)) {
+		conn_id = data->connection;
+		if(!is_valid(conn_id)) {
 			chain[0].source_loc.print_error_header();
 			error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the bracket.");
 			fatal_error_trace(scope);
@@ -714,13 +713,13 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 			error_print("The identifier '", n, "' does not refer to a connection.");
 			fatal_error_trace(scope);
 		}
-		connection = reg->id;
+		conn_id = reg->id;
 	} else {
 		chain[0].source_loc.print_error_header();
 		error_print("Expected at most two tokens in the chain inside the bracket.");
 		fatal_error_trace(scope);
 	}
-	ident->restriction.connection_id = connection;
+	ident->restriction.connection_id = conn_id;
 	
 	// TODO: Factor this out and reuse in model_declaration (although there we only allow top and bottom).
 	auto type = chain[idx].string_value;

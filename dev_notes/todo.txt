@@ -134,6 +134,8 @@
 			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 			Sub-indexed series data.
 			
+			Make MobiView2 display if a selected series was not computed.
+			
 		Go over and improve diagnostics in error messages (all over the place).
 		
 		

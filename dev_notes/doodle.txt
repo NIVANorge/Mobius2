@@ -3,19 +3,59 @@
 
 
 
+	# Maybe always have connection target of fluxes be explicit..
+	# instead of writing just 'downstream'.
+	flux(river.water, any.water[downstream.below], [m 3, s-1], "River flow flux") {
+		#something
+	}
+	
+
+	#Specify as not being stored. Should almost allow declaring it without having a property for it though...
+	var(soil.temp) {} @temporary
+
+
+
 	# Instead of discrete order, could have an @order on the flux
 	#
-	flux(something something) { something } @order { 1 }
+	flux(something, something) { something } @order { 1 }
 	# (Must be compile-time resolvable to a constant)
 	
 	# Then one could pass in a constant from the model and have
-	flux(something something) { something } @order { order_base + 1 }
+	flux(something, something) { something } @order { order_base + 1 }
+	# etc.
+	
+	# Or we have
+	
+	@after { melt_runoff }   # List other fluxes you want to order after.
+	# Would need to allow passing symbol lists into modules. That would also be nice for @no_carry.
+	# Although this is also maybe a good argument for allowing modification of @after or @no_carry from outside the module instead..
+	
+	# Something like add, override
+	# add merges more element into a list type body.
+	# override replaces it.
+	load(...,  module(....) {
+		add(melt_runoff : flux @after {
+			
+		} )
+	})
+	# Hmm, but that doesn't quite work if we don't have a flux symbol to put in there, which we don't have at model scope.
+	
+	extend(....) {
+		override(downstream : connection { (epi|river)* } )
+	}
+	# Would be a bit tricky parsing since we don't know the type of the body. Hmmm. Probably have to provide the decl type in the override then.
+	# Could then also override arguments if arguments are passed on the decl
+	override(a : constant("Trallala", [], 10))
+	# But that would not work for overriding names. Hmm. Named arguments then?
+	override(a : constant(value = 10))
+	
 
 
-
-	# Make something like a compartment group
+	# Make something like a compartment group (?)
+	# Maybe not that useful, since it doesn't allow you to do anything new, and it isn't that much simpler to write.
 	lake : group(epi, hypo)
 	distribute(lake, lake_idx)
+	
 	
 
 
@@ -26,26 +66,17 @@
 		# For all_to_all and graph1d we should give the index set in the connection regex .
 	
 		# Maybe make the specification of the edge index set non-mandatory.
-		# It could be generated based on the data unless you need it for something.
-		
-		c : connection("Sewer system", directed_graph) {
-			((store.se conduit.te) | nowhere)*
-		}
-		
+	
 		# data set
 		
 		connection("Sewer system") [
 			s : compartment("Store")     ["Store index"]    ["Store out"]   # Second is if the edge index set is specified.
 			c : compartment("Conduit")   ["Conduit index"]
 			
-			# If the edge index set is specified:
-			
-			s[0] ->[2] c[1] ->[0] nowhere    
+			# If the edge index set is specified, you could name the edges in the data directly.
+			s[0] ["First"]-> c[1] ["Something"]-> out    
 			                                      # I think we just say that the edge is always indexed over an independent index set or one sub-indexed to the component index set.
 		]
-		
-		# If we generate, just make one index per outgoing edge.
-		# Actually, that is required, because we need to be able to iterate over it in the model code.
 		
 		# Start with generating! Make functionality for attaching data later?
 		# 	But if we generate, when do we do that, and how do we decide what it is sub-indexed to?
@@ -59,7 +90,7 @@
 		s : index_set("Fjord section") {
 			l : index_set("Levels")
 			e : index_set("Edges") {
-				el : index_set("Edge levels") @subset(l)    # Hmm, requires sub-subindexing ...  I guess we just have to make that work.
+				el : index_set("Edge levels") @subset(l)    # Hmm, requires sub-subindexing ...  Would be very nice to be able to avoid that.
 			}
 		}
 		# Can have automatic checking that el is a subset of l.
@@ -90,11 +121,13 @@
 		# And that it matches these up when computing horz_target
 			# Ok since we declared @subset above, but maybe make this also arguments to @specific somehow?
 		
-		flux(layer.water, layer.water[c.below, vert.specific]) {
+		
+		# (This also requires multiple arguments to the bracket, which means we have to extend the Var_Loc_Restriction concept)
+		# Hmm, this probably has to count as coming in on the c connection in terms of aggregation variables
+		# This kind of exposes a flaw in the use of connections for indexing specific locations.
+		flux(layer.water, layer.water[c, vert.specific]) {
 			#something
 		} @specific { horz_target }
-
-		# (This also requires multiple arguments to the bracket)
 
 
 		# Hmm, do we put the river connection on the fjord graph or on "downstream" ?
