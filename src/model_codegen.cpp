@@ -609,7 +609,7 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 	target_ident->exprs.push_back(target_offset);
 	auto sum_or_difference = make_binop(oper, target_ident, value);
 	
-	auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
+	auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, target_id);
 	assignment->exprs.push_back(copy(target_offset));
 	assignment->exprs.push_back(sum_or_difference);
 	assignment->value_type = Value_Type::none;
@@ -854,7 +854,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
 				auto offset_code = app->result_structure.get_offset_code(instr->var_id, indexes);
-				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
+				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr->var_id);
 				assignment->exprs.push_back(offset_code);
 				assignment->exprs.push_back(fun);
 				assignment->value_type = Value_Type::none;
@@ -882,7 +882,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				
 				auto offset = app->result_structure.get_offset_code(instr->var_id, indexes);
-				auto assignment = new Math_Expr_FT(Math_Expr_Type::state_var_assignment);
+				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr->var_id);
 				assignment->exprs.push_back(offset);
 				assignment->exprs.push_back(make_literal((double)0.0));
 				result_code = assignment;
@@ -972,7 +972,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 				auto offset_var = app->result_structure.get_offset_code(instr->var_id, indexes);
 				auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
-				auto assignment = new Math_Expr_FT(Math_Expr_Type::derivative_assignment);
+				auto assignment = new Assignment_FT(Math_Expr_Type::derivative_assignment, instr->var_id);
 				assignment->exprs.push_back(offset_deriv);
 				assignment->exprs.push_back(fun);
 				scope->exprs.push_back(assignment);

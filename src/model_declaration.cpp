@@ -645,8 +645,6 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 	auto id        = model->parameters.standard_declaration(scope, decl);
 	auto parameter = model->parameters[id];
 	
-	if(decl->handle_name.string_value.count)
-		parameter->symbol = decl->handle_name.string_value;   // NOTE: This should be ok since parameters can only be declared uniquely in one place
 	int mt0 = 2;
 	if(token_type == Token_Type::boolean) mt0--;
 	if(decl->type != Decl_Type::par_enum)

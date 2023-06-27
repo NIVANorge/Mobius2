@@ -894,6 +894,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		if(initial || !var->is_flux()) continue;
 		
+		
+		// The rest is dealing with instructions for updating quantities based on discrete fluxes.
+		
 		var = app->vars[var_id];
 		auto loc1 = var->loc1;
 		auto loc2 = var->loc2;
@@ -1392,7 +1395,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
-	debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
 	
 	set_up_result_structure(this, batches, instructions);
 	

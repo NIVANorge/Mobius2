@@ -172,7 +172,6 @@ Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 	std::vector<std::string> enum_values;
 	
 	std::string     description;
-	std::string     symbol;
 	
 	Entity_Registration() : unit(invalid_entity_id), par_group(invalid_entity_id) {}
 };
@@ -414,6 +413,11 @@ Mobius_Model {
 	
 	template<Reg_Type reg_type> By_Scope<reg_type>
 	by_scope(Entity_Id scope_id) { return By_Scope<reg_type>(get_scope(scope_id)); }
+	
+	const std::string &get_symbol(Entity_Id id) {
+		auto decl = (*registry(id.reg_type))[id];
+		return (*get_scope(decl->scope_id))[id];
+	}
 };
 
 struct

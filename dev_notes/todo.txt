@@ -10,7 +10,9 @@
 	The "loose depends" system is kind of iffy.
 		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
 			This in particular may have been fixed now.
-			
+	
+	Use get_symbol a few places where it could be needed.
+	
 	Finish connection system
 	
 		Finish the simple hydraulics model.

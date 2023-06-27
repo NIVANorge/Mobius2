@@ -130,6 +130,13 @@ Special_Computation_FT : Math_Expr_FT {
 };
 
 struct
+Assignment_FT : Math_Expr_FT {
+	Var_Id var_id;
+	
+	Assignment_FT(Math_Expr_Type type, Var_Id var_id) : Math_Expr_FT(type), var_id(var_id) {}
+};
+
+struct
 Dependency_Set {
 	std::set<Identifier_Data>  on_parameter;
 	std::set<Identifier_Data>  on_series;

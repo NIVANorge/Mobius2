@@ -1449,6 +1449,39 @@ Print_Scope : Scope_Local_Vars<std::string> {
 };
 
 void
+print_var_symbol(Print_Tree_Context *context, Var_Id var_id) {
+	
+	std::ostream &os = *context->os;
+	auto app = context->app;
+	auto model = app->model;
+	
+	auto var = app->vars[var_id];
+	if(var->type == State_Var::Type::declared) {
+		if(var->is_flux()) {
+			auto flux_id = as<State_Var::Type::declared>(var)->decl_id;
+			const auto &sym = model->get_symbol(flux_id);
+			if(!sym.empty())
+				os << model->get_symbol(flux_id);
+			else
+				os << '\"' << model->fluxes[flux_id]->name << '\"';
+		} else {
+			auto &loc = var->loc1;
+			for(int idx = 0; idx < loc.n_components; ++idx) {
+				os << model->get_symbol(loc.components[idx]);
+				if(idx != loc.n_components-1) os << '.';
+			}
+		}
+	} else if(var->type == State_Var::Type::regular_aggregate) {
+		auto var2 = as<State_Var::Type::regular_aggregate>(var);
+		os << "aggregate(";
+		print_var_symbol(context, var2->agg_of);
+		os << ")";
+	} else {
+		// TODO
+	}
+}
+
+void
 print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *scope, int block_tabs) {
 
 	std::ostream &os = *context->os;
@@ -1516,9 +1549,15 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			if(ident->variable_type == Variable_Type::local)
 				os << find_local_var(scope, ident->local_var);
 			else if(ident->variable_type == Variable_Type::parameter)
-				os << model->parameters[ident->par_id]->symbol;
-			else
+				os << "par[" << model->get_symbol(ident->par_id) << "]";
+			else {
 				os << name(ident->variable_type);
+				if(ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series) {
+					os << "[";
+					print_var_symbol(context, ident->var_id);
+					os << "]";
+				}
+			}
 			if(!expr->exprs.empty()) {
 				os << '[';
 				print_tree_helper(expr->exprs[0], context, scope, block_tabs);
@@ -1597,17 +1636,25 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			if(!local->is_used) os << "(unused)";  // NOTE: if the tree has been pruned before printing, it is probably removed.
 			os << local->name << " := ";
 			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
+			os << ',';
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {
-			os << "state_var[";    // TODO: name it --- actually tricky, because we don't have the symbol.
+			// TODO: Want to be able to print the symbol of the variable here, but for that we need the var_id to be stored in the expression.
+			auto assign = static_cast<Assignment_FT *>(expr);
+			os << "state_var[";
+			print_var_symbol(context, assign->var_id);
+			os << "][";
 			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 			os << "] <- ";
 			print_tree_helper(expr->exprs[1], context, scope, block_tabs);
 		} break;
 		
 		case Math_Expr_Type::derivative_assignment : {
-			os << "ddt_state_var[";    // TODO: name it --- see above.
+			auto assign = static_cast<Assignment_FT *>(expr);
+			os << "ddt[";
+			print_var_symbol(context, assign->var_id);
+			os << "][";
 			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 			os << "] <- ";
 			print_tree_helper(expr->exprs[1], context, scope, block_tabs);
