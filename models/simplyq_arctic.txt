@@ -18,6 +18,7 @@ model("SimplyArctic") {
 	flow   : property("Flow")
 	pet    : property("Potential evapotranspiration")
 	ddf    : property("Degree-day factor")
+    thaw_depth : property("Soil thaw depth")
 	
 	downhill   : connection("Downhill", directed_tree)   { soil+ river }
 	downstream : connection("Downstream", directed_tree) { river+ out }
@@ -113,13 +114,13 @@ model("SimplyArctic") {
 		load("stdlib/basic_math.txt", library("Response"), library("Basic"))
 	
 		par_group("Hydrology general") {
-			bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
-			qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
+			#qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
 		}
 		
 		par_group("Hydrology land", soil) {
 			fc     : par_real("Field capacity", [m m],                     120,  0, 1000)
 			tc_s   : par_real("Soil water time constant", [day],             2,  1,   40)
+            bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
 		}
 			
 		par_group("Groundwater", deepgw) {
@@ -132,7 +133,7 @@ model("SimplyArctic") {
 			hc_by_hc : par_real("Soil heat conduction divided by heat capacity", [day-1], 1e-3)
 		}
 		
-		th : property("Thawing depth")
+		#thaw_depth : property("Thawing depth")
 		
 		var(soil.temp2, [deg_c], "Soil surface temperature") @initial { 0[deg_c] } #TODO
 		
@@ -142,28 +143,29 @@ model("SimplyArctic") {
 			(soil.temp2 - above_t)*hc_by_hc->>
 		}
 		
-		var(soil.th, [m m], "Soil thaw depth") {
+		#var(soil.thaw_depth, [m m], "Soil thaw depth") {
+        var(soil.thaw_depth, [m m]) {
 			max(0, b * ln((T_b - temp2)/T_b))
 		}
 		
-		var(soil.water, [m m], "Soil water volume")  @initial { th }
+		var(soil.water, [m m], "Soil water volume")  @initial { thaw_depth }
 		var(deepgw.water,   [m m], "Groundwater volume") @initial {
 			tc_g * river.water.flow / a_catch -> [m m]
 			#0[m m]     #TODO: make it actually "see" a_catch
 		}
 		
 		
-		#TODO: Turn off when snow or ice cover.
+		#TODO: Turn off when snow or ice cover?
 		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
 			0                                     if (aggregate(snow_box.snow) > ice_epsilon) | (glacier.ice > ice_epsilon),
 			s_response(water, 0.5*fc, fc, 0, pet) otherwise
 		} @no_carry  # Don't carry dissolved substances in the evapotranspiration
 		
-		flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
-			drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
-			flow   := in_flux(water) + in_flux(downhill, water),
-			flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
-		}
+		# flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
+			# drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
+			# flow   := in_flux(water) + in_flux(downhill, water),
+			# flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
+		# }
 		
 		var(soil.water.flow, [m m, day -1], "Soil water flow") {
 			rate := (water - fc)/tc_s,
@@ -210,10 +212,12 @@ model("SimplyArctic") {
 		var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
 		var(snow_box.water, [m m], "Snow water")
 		
-		flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") { fall_factor * air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
+		precip_as_snow :
+        flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") { fall_factor * air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
 		
-        # this could  be to water_target if refreeze and liquid water fraction removed
-		flux(out, snow_box.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
+        # this could be to water_target if refreeze and liquid water fraction removed
+		precip_as_rain :
+        flux(out, snow_box.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
 		
         # Need to use snow.temp here rather than air.temp? What do people normally do?
 		melt :
@@ -230,6 +234,8 @@ model("SimplyArctic") {
         #TODO: Sublimation? ET from snow?
 
 		discrete_order {
+            precip_as_rain
+            precip_as_snow
 			melt
 			refreeze
 			melt_runoff
@@ -242,12 +248,14 @@ model("SimplyArctic") {
 		ice_epsilon : constant("Ice epsilon", [m m], 1e-6)
 		
 		par_group("Glacier global") {
-			K_min   : par_real("Glacier runoff coefficient min", [day-1], 1)
-			K_range : par_real("Glacier runoff coefficient range", [day-1], 0)
-			A_G     : par_real("Glacier runoff snow dependence", [m m-1], 0)
-			perc_frac : par_real("Percolation fraction", [], 0.1, 0, 1, "Proportion of glacier water flow that percolates down to the underlying ground vs going directly to the reach")
+			# K_min   : par_real("Glacier runoff coefficient min", [day-1], 1)
+			# K_range : par_real("Glacier runoff coefficient range", [day-1], 0)
+			# A_G     : par_real("Glacier runoff snow dependence", [m m-1], 0)
+            # T_quick : par_real("Quick flow time constant", [day], 1, 0, 1)
+			perc_frac : par_real("Glacier percolation fraction", [], 0.1, 0, 1, "Proportion of glacier water flow that percolates down to the underlying ground vs going directly to the reach")
 			ddf_ice : par_real("Relative degree-day ice melt", [m m, deg_c-1, day-1], 1)
 			snowtoice : par_real("Glacier accumulation coefficient", [day-1], 0, 2.7e-4, 1e-3)
+            max_infiltratn_fracn : par_real("Max infiltration proportion", [], 0.8, 0, 1)
 		}
 		
 		par_group("Glacier", glacier) {
@@ -256,40 +264,60 @@ model("SimplyArctic") {
 		
 		var(glacier.ice, [m m], "Glacier ice") @initial { init_ice }
 		
-		var(glacier.water, [m m], "Glacier melt water")
+		var(glacier.water, [m m], "Glacier compartment water")
 		
         # TODO. Maybe just delete and use air temp
 		var(glacier.ice.temp, [deg_c], "Ice temperature") {
 			air.temp  # TODO
 		}
-		
+        	
 		flux(snow_box.snow, glacier.ice, [m m, day-1], "Glacier accumulation") {
 			snowtoice * snow if last(glacier.ice) > ice_epsilon,
 			0                otherwise
 		}
 		
+        #TODO: glacier melt depends on aspect too?
+        # TODO smoother transition from no glacial melt to melt as f(snow depth)
 		flux(glacier.ice, glacier.water, [m m, day-1], "Glacier melt") {
             # no melt if there is snow on the box					
-			0                     if aggregate(snow_box.snow) > ice_epsilon,
+			0                                    if aggregate(snow_box.snow) > ice_epsilon,
 			max(0, ddf_ice*(ice.temp - t_melt))  otherwise
 		}
 		
-		#TODO: glacier melt depends on aspect too
+        # Seibert et al. (2018) have a more complex version of this, varying with snow
+        # depth. However, don't have glacier melt unless snow is gone, and don't want it
+        # to affect flow in glacier compartment in non-glaciated areas. So simplify by removing for now
+		#var(glacier.water.flow, [m m, day-1], "Glacier compartment flow") {
+			#water * (K_min + K_range * exp(-A_G * aggregate(snow_box.snow)))            
+		#}
+        
+        infiltration : property("infiltration")
+        var(glacier.water.infiltration, [m m, day-1]) { 
+            glac_flow   := in_flux(water), # + in_flux(downhill, water)
+            # When glacier ice is present, a constant fraction percolates down to soil. The 
+            # rest heads straigh to the reach
+			perc_frac*glac_flow                            if ice > ice_epsilon,
+			#in_flux(water)                            otherwise
+
+            # If no glacier ice is present, the fraction that percolates depends on
+            # the soil thaw depth. Here, we assume a simple linear relationship between
+            # infiltration and thaw depth, and assume 0 infiltration when thaw depth=0,
+            # and full infiltration when thaw depth = 2m. This gives the gradient of the line.
+            # FUTURE TODO: maybe this 2m should be a parameter. Maybe nonlinear is better,...
+            (max_infiltratn_fracn/2000[m m]) * soil.thaw_depth * glac_flow  otherwise
+        }
 		
-		var(glacier.water.flow, [m m, day-1], "Glacier water flow") {
-			water * (K_min + K_range * exp(-A_G * aggregate(snow_box.snow)))
-		}
-		
-		flux(glacier.water, river.water, [m m, day-1], "Glacier runoff") {
-			(1-perc_frac)*flow if ice > ice_epsilon,
-			0                  otherwise
-		}
-		
-        # Flux of glacier water down to underlying soil water vs going straight to the channel
-        # Water passes straight through the glacier box when no ice is present
-		flux(glacier.water, soil.water, [m m, day-1], "Glacier percolation") {
-			perc_frac*flow                            if ice > ice_epsilon,
-			in_flux(water)                            otherwise
+        # Flux of water going down to underlying soil water vs going straight to the channel
+		flux(glacier.water, soil.water, [m m, day-1], "Soil infiltration") { infiltration }
+        
+        # Flux of water going down to the channel via overland/quick flow
+        # Instantly routed at the moment. TODO might want a delay on this
+		flux(glacier.water, river.water, [m m, day-1], "Quick flow") {
+            # If there's glacier ice, have some glacier runoff straight to the stream
+            # (supraglacial or very fast channels)
+            glac_flow   := in_flux(water),
+			(1-perc_frac)*glac_flow           if ice > ice_epsilon,
+            glac_flow - infiltration          otherwise
 		}
 	}
 	

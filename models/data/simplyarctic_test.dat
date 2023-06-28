@@ -2,20 +2,18 @@
 Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
 """
 
-# Set up index sets
 index_set("Subcatchment") [ "DeGeerdalen" ]
 
 index_set("Patch") [ "Hillslope facing glacier" "Hillslope facing valley" "Glacier" "Valley" ]
 
-index_set("Aspect") [ "N" "S" "E-W" ]
+index_set("Aspect") [ "All" ]
 
-# Set up connections
 connection("Downhill") [
-	s : compartment("Soil") [ "Patch" ]
-	r : compartment("River") [ ]
+	soil : compartment("Soil") [ "Patch" ]
+	river : compartment("River") [ ]
 
-	s[ "Hillslope facing glacier" ] -> s[ "Glacier" ] -> r[ ]
-	s[ "Hillslope facing valley" ] -> s[ "Valley" ] -> r[ ]
+	soil[ "Hillslope facing glacier" ] -> soil[ "Glacier" ] -> river[ ]
+	soil[ "Hillslope facing valley" ] -> soil[ "Valley" ] -> river[ ]
 ]
 
 connection("Downstream") [
@@ -24,14 +22,10 @@ connection("Downstream") [
 	r[ "DeGeerdalen" ] -> out
 ]
 
-# Location of input met data and observations
 series("Svalbard/DeGeerelva_met_carra.xlsx")
 
 series("Svalbard/q_degeerdalen_daily_cleaned_calendarday-mean.xlsx")
 
-# Parameter values
-
-# Model parameters
 par_group("System") {
 	par_datetime("Start date")
 	[ 1991-01-02 ]
@@ -55,7 +49,7 @@ par_group("Patch data") [ "Patch" ] {
 
 par_group("Aspect data") [ "Aspect" ] {
 	par_real("Aspect relative area")
-	[ 0.25 0.25 0.5 ]
+	[ 1 ]
 }
 
 par_group("Global melt parameters") {
@@ -63,11 +57,10 @@ par_group("Global melt parameters") {
 	[ 0 ]
 }
 
-# Module parameters
 module("Degree-day PET", 1, 0, 0) {
 	par_group("Potential evapotranspiration") [ "Subcatchment" ] {
 		par_real("Deegree-day factor for evapotranspiration")
-		[ 0 ]
+		[ 0.05 ]
 
 		par_real("Minimal temperature for evapotranspiration")
 		[ 0 ]
@@ -77,13 +70,13 @@ module("Degree-day PET", 1, 0, 0) {
 module("SimplyQ river", 0, 0, 1) {
 	par_group("Reach parameters") [ "Subcatchment" ] {
 		par_real("Reach slope")
-		[ 0.014 ]
+		[ 0.02 ]
 
 		par_real("Reach length")
 		[ 10000 ]
 
 		par_real("Manning's roughness coefficient")
-		[ 0.04 ]
+		[ 0.08 ]
 
 		par_real("Initial reach flow")
 		[ 1 ]
@@ -92,23 +85,17 @@ module("SimplyQ river", 0, 0, 1) {
 
 module("SimplyGlacier", 0, 0, 1) {
 	par_group("Glacier global") {
-		par_real("Glacier runoff coefficient min")
-		[ 1 ]
-
-		par_real("Glacier runoff coefficient range")
-		[ 0 ]
-
-		par_real("Glacier runoff snow dependence")
-		[ 0 ]
-
-		par_real("Percolation fraction")
-		[ 0.05 ]
+		par_real("Glacier percolation fraction")
+		[ 0.2 ]
 
 		par_real("Relative degree-day ice melt")
 		[ 4 ]
 
 		par_real("Glacier accumulation coefficient")
 		[ 0.002 ]
+
+		par_real("Max infiltration proportion")
+		[ 0.8 ]
 	}
 
 	par_group("Glacier") [ "Subcatchment" "Patch" ] {
@@ -127,14 +114,14 @@ module("ArcticAtmosphere", 0, 0, 1) {
 
 	par_group("Temperature correction") {
 		par_real("Temp lapse rate")
-		[ -0.006 ]
+		[ -0.01 ]
 	}
 }
 
 module("ArcticSnow", 0, 0, 1) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
-		[ 3.1 ]
+		[ 3.4 ]
 
 		par_real("Temperature at which precip falls as snow")
 		[ 0 ]
@@ -143,7 +130,7 @@ module("ArcticSnow", 0, 0, 1) {
 		[ 0 ]
 
 		par_real("Liquid water fraction")
-		[ 0 ]
+		[ 0.01 ]
 
 		par_real("Initial snow depth (water equivalents)")
 		[ 0 ]
@@ -154,19 +141,22 @@ module("ArcticSnow", 0, 0, 1) {
 
 	par_group("Snow aspect") [ "Aspect" ] {
 		par_real("Aspect melt factor")
-		[ 0.5 1.5 1 ]
+		[ 1 ]
 	}
 }
 
 module("SimplyPermafrost", 0, 0, 1) {
 	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
 		par_real("Soil water time constant") [
-			0.5 2 2 2 
+			1.5 1.5 1.5 1.5 
 		]
 
 		par_real("Field capacity") [
-			50 120 120 120 
+			40 40 40 40 
 		]
+        
+        par_real("Baseflow index")
+		[ 0 0 0 0]
 	}
 
 	par_group("Soil temperature") {
@@ -181,11 +171,7 @@ module("SimplyPermafrost", 0, 0, 1) {
 	}
 
 	par_group("Hydrology general") {
-		par_real("Baseflow index")
-		[ 0.05 ]
 
-		par_real("Quick flow inflection point")
-		[ 40 ]
 	}
 
 	par_group("Groundwater") [ "Subcatchment" ] {
