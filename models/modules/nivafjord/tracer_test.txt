@@ -3,9 +3,8 @@ module("NIVAFjord tracer test", version(0, 0, 1),
 	layer  : compartment,
 	water  : quantity,
 	tracer : quantity,
-	vert   : connection,
+	vert   : connection
 ) {
-
 
 	var(layer.water.tracer, [k g])
 	

@@ -2,6 +2,28 @@
 
 	*** High pri ***
 
+		The 'extend' system is just not that good.
+			- There are problems when you want to override something in the earlier model,
+			- There is a problem if two extended models declare the same symbol.
+			
+			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
+			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
+			
+			Maybe we could have an
+				if_main {
+				}
+			block. Things there are only processed if that model is loaded as the main one.
+				This rids us of the necessity to override model extensions.
+					Downside is that the extended model needs to know what other models want to override....... Hmmm...
+					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
+			
+			Could have an named_block("Name") { } block, and turn off blocks when extending
+				extend("simplyq_model.txt", "Name") turns off "Name".
+				
+				What about nested extensions in this system, and two models extend the same thing but disagree.
+					...nightmare...
+		Alternative: We just redeclare the entire model structure when that is necessary.
+
 
 		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
 			Ideally the entire system should be re-thought.
@@ -90,11 +112,6 @@
 			E.g. log_print_var_location .
 
 		More on module loading and the declaration format:
-			
-			The 'extend' system is just not that good. Will be problems when you want to override something in the earlier model,
-			or if two extended models load the same module (not a problem before, but will be if we allow multiple loads of the same module, which can then cause unintended duplicates)
-				With inlined modules 'seeing' their parent scope it is not that nice that extend_model puts a lot of stuff into that scope.
-				+ other reasons like overriding earlier declarations being difficult.
 				
 			Dynamic module choice (based on data set)
 				

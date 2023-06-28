@@ -12,7 +12,7 @@ module("EasyLake", version(0, 1, 0),
 	th     : property,
 	evap_mm : property,
 	A_surf : par_real,
-	epi_target : loc,
+	epi_target : loc
 ) {
 """
 This is a very simple lake model for use along with cathcment models.

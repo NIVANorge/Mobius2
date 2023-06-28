@@ -1370,6 +1370,25 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 
 	module->scope.check_for_missing_decls(model);
 	
+	/*
+	TODO: This was too naive. It must be done after the equation code in the module is processed (end of module_composition), but then we have to do something more to know what the
+	load arguments were.
+	
+	for(Entity_Id id : load_args) {
+		// Hmm, this is a bit inefficient... 
+		auto &handle = module->scope[id];
+		//auto reg = module->scope[handle]; // Ooops, this causes it to be referenced!!
+		auto find = module->scope.visible_entities.find(handle); // TODO: Hacky.
+		auto reg = &find->second;
+		
+		if(!reg->was_referenced) {
+			log_print("Warning: In ");
+			reg->source_loc.print_log_header();
+			log_print("The module argument '", reg->handle, "' was not referenced in the module.\n");
+		}
+	}
+	*/
+	
 	return module_id;
 }
 

@@ -1,7 +1,8 @@
 
 module("Degradation", version(1, 0, 0),
 	a : compartment,
-	q : quantity
+	q : quantity,
+	unused : quantity
 ) {
 	
 	par_group("Pars", a) {

@@ -2,6 +2,16 @@ time_step([day])
 
 index_set("Layer index") [ 124 ]
 
+index_set("Subcatchment") [ "The entire thing" ]
+
+index_set("Landscape units") [ "Just one" ]
+
+connection("Downstream") [
+	r : compartment("River") [ "Subcatchment" ]
+
+	r[ "The entire thing" ] -> out
+]
+
 series("nivafjord_drammen.xlsx")
 
 par_group("System") {
@@ -20,8 +30,18 @@ par_group("Layer parameters") [ "Layer index" ] {
 	[ 250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
 }
 
-module("NIVAFjord basin", 0, 0, 1) {
+par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
+	par_real("Land use proportions") [
+		1 
+	]
+}
 
+par_group("Catchment data") [ "Subcatchment" ] {
+	par_real("Catchment area")
+	[ 17110.6 ]
+}
+
+module("NIVAFjord basin", version(0, 0, 1)) {
 	par_group("Mixing parameters") {
 		par_real("Brunt-Väisälä frequency reference")
 		[ 0.008 ]
@@ -74,7 +94,7 @@ module("NIVAFjord basin", 0, 0, 1) {
 	}
 }
 
-module("Atmospheric", 0, 1, 0) {
+module("Atmospheric", version(0, 1, 0)) {
 	par_group("Location") {
 		par_real("Latitude")
 		[ 60 ]
@@ -84,7 +104,7 @@ module("Atmospheric", 0, 1, 0) {
 	}
 }
 
-module("AirSea Fjord", 0, 1, 0) {
+module("AirSea Fjord", version(0, 1, 0)) {
 	par_group("Ice") {
 		par_real("Initial ice thickness")
 		[ 0 ]
@@ -103,6 +123,84 @@ module("AirSea Fjord", 0, 1, 0) {
 
 		par_bool("Always cover")
 		[ false ]
+	}
+}
+
+module("NIVAFjord tracer test", version(0, 0, 1)) {
+}
+
+module("Degree-day PET", version(1, 0, 0)) {
+	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
+		par_real("Deegree-day factor for evapotranspiration") [
+			0.12 
+		]
+
+		par_real("Minimal temperature for evapotranspiration") [
+			0 
+		]
+	}
+}
+
+module("HBVSnow", version(1, 0, 0)) {
+	par_group("Snow") {
+		par_real("Degree-day factor for snowmelt")
+		[ 2.74 ]
+
+		par_real("Temperature at which precip falls as snow")
+		[ 0 ]
+
+		par_real("Temperature at which snow melts")
+		[ 0 ]
+
+		par_real("Refreeze efficiency")
+		[ 0.5 ]
+
+		par_real("Liquid water fraction")
+		[ 0.1 ]
+
+		par_real("Initial snow depth (water equivalents)")
+		[ 0 ]
+	}
+}
+
+module("SimplyQ land", version(0, 5, 0)) {
+	par_group("Hydrology general") {
+		par_real("Baseflow index")
+		[ 0.6 ]
+
+		par_real("Quick flow inflection point")
+		[ 160 ]
+	}
+
+	par_group("Hydrology land") [ "Subcatchment" "Landscape units" ] {
+		par_real("Field capacity") [
+			120 
+		]
+
+		par_real("Soil water time constant") [
+			2 
+		]
+	}
+
+	par_group("Groundwater") [ "Subcatchment" ] {
+		par_real("Groundwater time constant")
+		[ 30 ]
+	}
+}
+
+module("SimplyQ river", version(0, 0, 1)) {
+	par_group("Reach parameters") [ "Subcatchment" ] {
+		par_real("Reach slope")
+		[ 0.014 ]
+
+		par_real("Reach length")
+		[ 47300 ]
+
+		par_real("Manning's roughness coefficient")
+		[ 0.04 ]
+
+		par_real("Initial reach flow")
+		[ 250 ]
 	}
 }
 

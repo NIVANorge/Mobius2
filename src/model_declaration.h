@@ -17,6 +17,7 @@ Scope_Entity {
 	std::string handle;
 	Entity_Id id  = invalid_entity_id;
 	bool external = false;
+	bool was_referenced = false;
 	Source_Location source_loc;
 };
 
@@ -50,11 +51,14 @@ Decl_Scope {
 	
 	Scope_Entity *operator[](const std::string &handle) {
 		auto find = visible_entities.find(handle);
-		if(find != visible_entities.end())
+		if(find != visible_entities.end()) {
+			find->second.was_referenced = true;
 			return &find->second;
+		}
 		return nullptr;
 	}
 	
+	// TODO: The [Entity_Id] operator should return the reg instead (and that still allows you to access the handle)
 	const std::string& operator[](Entity_Id id) {
 		auto find = handles.find(id);
 		if(find == handles.end())

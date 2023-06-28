@@ -43,7 +43,7 @@ model("NIVAFjord") {
 	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, oair, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn,
 											loc(A[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
-	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, oair, layer, sed, bnd, bnd_layer, water, salt, heat, h, temp, precip, pressure, wind, g_rad, rho, attn, vert, sw_vert, bnd_vert, A, w_bnd))
+	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, oair, layer, sed, water, salt, heat, h, temp, precip, pressure, wind, g_rad, rho, attn, vert, sw_vert, A))
 	
 	load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, water, tracer, vert))
 	
@@ -52,5 +52,7 @@ model("NIVAFjord") {
 	distribute(layer, layer_idx)
 	distribute(bnd_layer, layer_idx)
 	
-	solve(solver("Simply solver", "INCADascru", 0.1), layer.water, sed.heat/*, bnd_layer.water*/, oair.ice)
+	sol : solver("Simply solver", "INCADascru", 0.1)
+	
+	solve(sol, layer.water, sed.heat, oair.ice)
 }

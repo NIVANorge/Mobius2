@@ -9,7 +9,7 @@ module("SimplyP", version(0, 5, 0),
 	pp      : quantity,
 	flow    : property,
 	e_fact  : property,
-	a_catch : par_real,
+	a_catch : par_real
 ) {
 """
 SimplyP is a parsimonious phosphorus model. It was originally implemented in Python and published as

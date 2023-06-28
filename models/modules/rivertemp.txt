@@ -6,7 +6,7 @@ module("RiverTemperature", version(0, 1, 0),
 	river : compartment,
 	water : quantity,
 	heat  : quantity,
-	temp  : property,
+	temp  : property
 ) {
 
 	load("stdlib/physiochemistry.txt", library("Water utils"))

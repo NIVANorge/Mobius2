@@ -7,7 +7,7 @@ module("HBVSnow", version(1, 0, 0),
 	water    : quantity,
 	temp     : property,
 	precip   : property,
-	water_target : loc,
+	water_target : loc
 ) {
 """
 This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)

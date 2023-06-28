@@ -1,7 +1,9 @@
 
 module("NIFAFjord boundary", version(0, 0, 1)) {
 
-	/*
+	#TODO: A lot of this should be done differently.
+	# Boundary profiles should be given as series instead.
+	
 	z1       : property("Epilimnion thickness")
 	z2diff   : property("log10(Metalimnion thickness)")
 	temp_top : property("Temperature top")
@@ -94,70 +96,5 @@ module("NIFAFjord boundary", version(0, 0, 1)) {
 		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step,
 		sealevel(sec->[hr])->[m]              
 	}
-	
-	#TODO: The barotropic flow must probably be limited to the max pressure-induced flow. In that case the value for h must be updated according to that.
-	#	Only relevant in very narrow passages though.
-	
-	w_bnd_ : property("Width to boundary")
-	A_bnd : property("Total area to boundary")
-	tot_barotropic_u : property("Total barotropic boundary flux")
-	barotropic_bnd_u : property("Barotropic boundary flux")
-	horz_target : property("Target of horizontal flux")
-	
-	var(layer.w_bnd_, [m]) { w_bnd	} # Since we cant aggregate() a parameter yet.
-	
-	var(oair.A_bnd, [m 2]) { aggregate(layer.w_bnd_)*dz }
-	
-	var(oair.h, [m]) @override { bnd.h } #+ (in_flux(downstream, water)/A_bnd)^2/(2*alpha_u*grav) }# TODO: different with river inflow.
-	
-	var(oair.tot_barotropic_u, [m 3, s-1]) {
-		-(h - last(h))*A[vert.top]/time.step_length_in_seconds
-	}
-	
-	var(layer.water.barotropic_bnd_u, [k g, s-1]) {
-		#0[m 3, s-1] #TODO.
-		oair.tot_barotropic_u * w_bnd * dz * rho_water / oair.A_bnd
-	}
-	
-	var(layer.water.horz_target, [])
-	
-	special_computation("Place horizontal fluxes from bnd", "nivafjord_place_horizontal_fluxes", layer.water.horz_target) {
-		bnd_layer.water.dens
-		layer.water.dens
-		w_bnd
-	}
-	
-	#vert2 : connection("Vert 2", grid1d) { layer* }
-	#bndvert2 : connection("Boundary vert 2", grid1d) { bnd_layer* }
 
-	flux(bnd_layer.water, layer.water[vert2.specific], [k g, day-1], "Flow from boundary") {
-		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
-		bcl    if bcl > 0,
-		0      otherwise
-	} @specific {
-		layer.water.horz_target
-	}
-	
-	var(bnd_layer.water.horz_target, [])
-	
-	special_computation("Place horizontal fluxes to bnd", "nivafjord_place_horizontal_fluxes", bnd_layer.water.horz_target) {
-		layer.water.dens
-		bnd_layer.water.dens
-		w_bnd
-	}
-	
-	flux(layer.water, bnd_layer.water[bndvert2.specific], [k g, day-1], "Flow to boundary") {
-		bcl := (layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
-		bcl    if bcl > 0,
-		0      otherwise
-	} @specific {
-		bnd_layer.water.horz_target
-	}
-	
-	flux(layer.water, out, [k g, day-1], "Flow from boundary equivalent removal") {
-		in_flux(vert2, water) - (layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>
-	}
-	
-
-	*/
 }

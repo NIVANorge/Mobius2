@@ -4,8 +4,6 @@ module("NIVAFjord basin", version(0, 0, 1),
 	oair      : compartment,
 	layer     : compartment,
 	sed       : compartment,
-	bnd       : compartment,
-	bnd_layer : compartment,
 	water     : quantity,
 	salt      : quantity,
 	heat      : quantity,
@@ -19,9 +17,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	attn      : property,
 	vert      : connection,
 	sw_vert   : connection,
-	bnd_vert  : connection,
-	A         : par_real,
-	w_bnd     : par_real,
+	A         : par_real
 ) {
 
 	load("stdlib/basic_math.txt", library("Basic"), library("Response"))
