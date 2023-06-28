@@ -622,7 +622,7 @@ Model_Application::get_possibly_quoted_index_name(Index_T index) {
 }
 
 void
-add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only, Source_Location loc) {
+add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only) {
 	
 	// TODO: In general we should be more nuanced with what source location we print for errors in this procedure.
 	
@@ -638,7 +638,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	
 	auto find_decl = std::find_if(cnd->components.begin(), cnd->components.end(), [=](auto &pair){ return (pair.first == component_id); });
 	if(find_decl == cnd->components.end()) {
-		loc.print_error_header();
+		comp->source_loc.print_error_header();
 		error_print("The connection \"", cnd->name,"\" is not allowed for the component \"", component->name, "\". See declaration of the connection:\n");
 		cnd->source_loc.print_error();
 		mobius_error_exit();
@@ -656,7 +656,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	}
 	
 	if(single_index_only && comp->index_sets.size() != 1) {
-		loc.print_error_header();
+		comp->source_loc.print_error_header();
 		fatal_error("This connection type only supports connections on components that are indexed by a single index set");
 	}
 	std::vector<Entity_Id> index_sets;
@@ -668,7 +668,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 			fatal_error("The index set \"", idx_set_info->name, " does not exist in the model.");  // Actually, this has probably been checked somewhere else already.
 		}
 		if(std::find(component->index_sets.begin(), component->index_sets.end(), index_set) == component->index_sets.end()) {
-			loc.print_error_header();
+			comp->source_loc.print_error_header();
 			fatal_error("The index sets indexing a component in a connection relation must also index that component in the model. The index set \"", idx_set_info->name, "\" does not index the component \"", component->name, "\" in the model");
 		}
 		index_sets.push_back(index_set);
@@ -687,7 +687,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	auto find = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
 	if(find != components.end()) {
 		if(index_sets != find->index_sets) { // This should no longer be necessary when we make component declarations local to the connection data in the data set.
-			loc.print_error_header();
+			comp->source_loc.print_error_header();
 			fatal_error("The component \"", app->model->components[component_id]->name, "\" appears twice in the same connection relation, but with different index set dependencies.");
 		}
 	} else {
@@ -701,6 +701,9 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 
 void
 set_up_simple_connection_components(Model_Application *app, Entity_Id conn_id) {
+	
+	// This is for all_to_all and grid1d where there is only one component.
+	
 	auto conn = app->model->connections[conn_id];
 	
 	if(conn->components.size() != 1 || !is_valid(conn->components[0].second))
@@ -758,7 +761,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			log_print("The component \"", comp.name, "\" has not been declared in the model.\n");
 			continue;
 		}
-		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only, connection.source_loc);
+		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only);
 	}
 	
 	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph) 

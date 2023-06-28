@@ -1,75 +1,62 @@
 
 
+	*** High pri ***
 
-	Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
-		Ideally the entire system should be re-thought.
 
-	Finish NIVAFjord!!
-		horizontal fluxes.
+		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
+			Ideally the entire system should be re-thought.
 
-	The "loose depends" system is kind of iffy.
-		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
-			This in particular may have been fixed now.
-	
-	Use get_symbol a few places where it could be needed.
-	
-	Finish connection system
-	
-		Finish the simple hydraulics model.
+		Finish NIVAFjord!!
+			horizontal fluxes.
+			Requires double bracket for some types of target, e.g.   any.water[fjord_horz.below, fjord_vert.specific]   (Also maybe the 'any' )
+				Also the restriction of this to the layers that 'participate' in the edge of that connection.
+
+		The "loose depends" system is kind of iffy.
+			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
+				This in particular may have been fixed now.
 		
-		graph and directed_tree
-			Must specify 'nowhere' in the regex for it to be an allowed target
-			
-			Could have the graph types be singly_directed and multiply_directed (?). No specific need for what we now call a tree to not have cycles.
+		Finish connection system
 		
-		The above requires finishing the entire regex thing.
-		
-		graph connections
-			More stress testing
-				Attaching data to edges
-					How does this work when edge indexes are not saved in the data set (data set code should maybe itself do the edge index generation (?))
+			Finish the simple hydraulics model.
 			
-			Check that the edge index set is OK (i.e. sub-indexed to the right thing).
-			Allow naming edges (?)
-			Make sure edge indexes are not saved to data set, but still make it work with parameter saving.
-			
-			Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
-			
-			For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
-
-		all_to_all, grid1d:
-			
-			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
-
-		What about:
-			accessing
-				something[above]    ( or below )
-			should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
-				Or maybe invalidate ( set to 0 ) just that particular expression ( though that is not as well defined ).
-			Does this give the correct result in all instances ?
-				Would prefer to have this since it improves usability.
-				Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
+			graph connections
 				
-		Specific target:
-			Properly process the @specific function tree, incl. flags
-			Check valid dependencies for the tree.
-				Have to think about what types of variables it is allowed to reference.
-			Tridiagonal distribution.
-			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
-				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
-		
-		Dissolved fluxes -
-			make dissolvedes of negatives work for other types (all_to_all, graph (maybe) regular fluxes (maybe), but probably not directed tree).
-			
-			
+				Allow naming edges (?)
 				
-	Consider renaming 'nowhere' to 'out' (both connection data and regular fluxes)
+				//Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
+				
+				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
+
+			all_to_all:
+				
+				Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
+
+			grid1d:
+				accessing
+					something[above]    ( or below )
+				should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
+				Does this give the correct result in all instances ?
+					Would prefer to have this since it improves usability.
+					Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
+					
+			Specific target:
+				Properly process the @specific function tree, incl. flags
+				Check valid dependencies for the tree.
+					Have to think about what types of variables it is allowed to reference.
+				Tridiagonal distribution.
+				Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
+					This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
+			
+			Dissolved fluxes -
+				make dissolvedes of negatives work for other types (graph (maybe) regular fluxes (maybe), but probably not directed tree).
+			
 	
 	*** Intermediate-pri ***
 	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
 			First iteration could be to just not display them, but still have them stored in the same place as everything else
+		Also a system for specifying different display variants (along with the code in MobiView2 to make use of that, which is the hard part).
 		
 		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
 			This would be a major change, but could create some speedup.
@@ -99,6 +86,8 @@
 				combine_unit(soil.water.oc.tox, [day-1])
 			This has to do with module reusability, could apply the module to quantities with different units.
 				
+		Use get_symbol a few places where it could be needed.
+			E.g. log_print_var_location .
 
 		More on module loading and the declaration format:
 			
@@ -174,7 +163,6 @@
 		
 		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
 		
-		In all_to_all and grid1d connection data in the data set, it should be sufficient to just provide the name of the index set.
 		
 		MobiView:
 		
@@ -182,8 +170,10 @@
 				stacked_share has a slow implementation.
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
 				Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
-				Normalized axis is weird when all of a series' values are 0.
+				Normalized axis needs to be more robust.
 				Flickering axis labels when scrolling.
+				
+				All-NaN line is broken (ScatterDraw bug - report to them!)
 				
 				"Network" plot for connections. Draw the network along with amount (of some quantity(ies)) as bar plot per node. Animate over time.
 					Maybe not just for connection, but for any graph of that quantity?
@@ -201,7 +191,6 @@
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
-				Finish graph views.
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.

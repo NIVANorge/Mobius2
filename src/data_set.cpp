@@ -310,7 +310,7 @@ write_par_group_to_file(FILE *file, Data_Set *data_set, Par_Group_Info &par_grou
 
 void
 write_module_to_file(FILE *file, Data_Set *data_set, Module_Info &module) {
-	fprintf(file, "module(\"%s\", %d, %d, %d) {\n", module.name.data(), module.version.major, module.version.minor, module.version.revision);
+	fprintf(file, "module(\"%s\", version(%d, %d, %d)) {\n", module.name.data(), module.version.major, module.version.minor, module.version.revision);
 	int idx = 0;
 	for(auto &connection : module.connections)
 		write_connection_info_to_file(file, connection, data_set, 1);
@@ -977,13 +977,27 @@ Data_Set::read_from_file(String_View file_name) {
 				} break;
 
 				case Decl_Type::module : {
-					match_declaration(decl, {{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false, false);
+					int which = match_declaration(decl, 
+					{
+						{Token_Type::quoted_string, Decl_Type::version},
+						{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}
+					}, false, false);
 				
 					auto name = single_arg(decl, 0);
 					auto module = modules.create(name->string_value, name->source_loc);
-					module->version.major    = single_arg(decl, 1)->val_int;
-					module->version.minor    = single_arg(decl, 2)->val_int;
-					module->version.revision = single_arg(decl, 3)->val_int;
+					if(which == 0) {
+						auto version_decl = decl->args[1]->decl;
+						match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false, false);
+						module->version.major    = single_arg(version_decl, 0)->val_int;
+						module->version.minor    = single_arg(version_decl, 1)->val_int;
+						module->version.revision = single_arg(version_decl, 2)->val_int;
+					} else {
+						decl->source_loc.print_log_header();
+						log_print("The format module(name, major, minor, revision) is deprecated in favor of module(name, version(major, minor, revision)) (this will be fixed if you save the data again).\n");
+						module->version.major    = single_arg(decl, 1)->val_int;
+						module->version.minor    = single_arg(decl, 2)->val_int;
+						module->version.revision = single_arg(decl, 3)->val_int;
+					}
 					
 					stream.expect_token('{');
 					while(true) {

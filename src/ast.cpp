@@ -676,7 +676,7 @@ potentially_parse_regex_quantifier(Token_Stream *stream, Math_Expr_AST *arg) {
 		
 	} else
 		return result;
-	// TODO: It doesn't really make sense to have these right after one another?
+	// TODO: It doesn't really make sense to have two quantifiers right after one another?
 	return potentially_parse_regex_quantifier(stream, result);
 }
 
