@@ -1,0 +1,64 @@
+time_step([s])
+
+index_set("Node index") [ "A" "B" "C" ]
+
+connection("Connection graph") [
+	n : compartment("Node") [ "Node index" ] [ "Conduit index" ]
+
+	n[ "A" ] -> n[ "B" ]
+	n[ "A" ] -> n[ "C" ]
+]
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1970-01-01 ]
+
+	par_datetime("End date")
+	[ 1970-01-01 00:01:00 ]
+}
+
+module("Hydraulics", 0, 0, 1) {
+	par_group("Node pars") [ "Node index" ] {
+		par_real("Node surface area")
+		[ 10 10 10 ]
+
+		par_real("Node invert elevation")
+		[ 0 10 10 ]
+
+		par_real("Initial node water level")
+		[ 5 0 0 ]
+	}
+
+	par_group("Conduit pars") [ "Node index" "Conduit index" ] {
+		par_real("Manning coefficient (roughness)") [
+			0.04 0.04 
+			
+			
+		]
+
+		par_real("Conduit invert elevation top") [
+			0 -2 
+			
+			
+		]
+
+		par_real("Conduit length") [
+			1 1 
+			
+			
+		]
+
+		par_real("Conduit width") [
+			0.2 0.2 
+			
+			
+		]
+
+		par_real("Conduit invert elevation bottom") [
+			10 10 
+			
+			
+		]
+	}
+}
+

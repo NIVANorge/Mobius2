@@ -237,11 +237,21 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 }
 
 bool
-location_indexes_below_location(Mobius_Model *model, const Var_Location &loc, const Var_Location &below_loc, 
+location_indexes_below_location(Model_Application *app, const Var_Location &loc, const Var_Location &below_loc, const Specific_Var_Location &loc2,
 	Entity_Id exclude_index_set_from_loc = invalid_entity_id, Entity_Id exclude_index_set_from_var = invalid_entity_id) {
+	
+	auto model = app->model;
 	
 	if(!is_located(loc) || !is_located(below_loc))
 		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
+	
+	// Ugh, also a bit hacky. Should be factored out.
+	// The purpose of this is to allow a flux on a graph connection to reference something that depends on the edge index set of the graph from the source of the flux.
+	if(!is_valid(exclude_index_set_from_loc) && is_valid(loc2.connection_id) && model->connections[loc2.connection_id]->type == Connection_Type::directed_graph) {
+		auto find_source = app->find_connection_component(loc2.connection_id, below_loc.components[0], false);
+		if(find_source)
+			exclude_index_set_from_loc = find_source->edge_index_set;
+	}
 	
 	for(int idx1 = 0; idx1 < loc.n_components; ++idx1) {
 		for(auto index_set : model->components[loc.components[idx1]]->index_sets) {
@@ -285,15 +295,7 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 	
 	Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 	
-	// Ugh, also a bit hacky. Should be factored out.
-	// The purpose of this is to allow a flux on a graph connection to reference something that depends on the edge index set of the graph from the source of the flux.
-	if(!is_valid(exclude_index_set_from_loc) && is_valid(loc2.connection_id) && app->model->connections[loc2.connection_id]->type == Connection_Type::directed_graph) {
-		auto find_source = app->find_connection_component(loc2.connection_id, below_loc.components[0], false);
-		if(find_source)
-			exclude_index_set_from_loc = find_source->edge_index_set;
-	}
-	
-	return location_indexes_below_location(app->model, loc, below_loc, exclude_index_set_from_loc, exclude_index_set_from_var);
+	return location_indexes_below_location(app, loc, below_loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var);
 }
 
 void
@@ -323,7 +325,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	for(auto &dep : code_depends.on_series) {
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
-		if(!location_indexes_below_location(app->model, app->vars[dep.var_id]->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
+		if(!location_indexes_below_location(app, app->vars[dep.var_id]->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
 		}
@@ -354,7 +356,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
-		if(!location_indexes_below_location(app->model, dep_var->loc1, loc, exclude_index_set_from_loc, exclude_index_set_from_var)) {
+		if(!location_indexes_below_location(app, dep_var->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error(Mobius_Error::model_building, "This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
 		}
@@ -1162,7 +1164,7 @@ compose_and_resolve(Model_Application *app) {
 		
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, var->loc1);
 		
-		if(!location_indexes_below_location(model, var->loc1, var->loc2, exclude_index_set_from_loc))
+		if(!location_indexes_below_location(app, var->loc1, var->loc2, Specific_Var_Location(), exclude_index_set_from_loc))
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());
 	}
 	
