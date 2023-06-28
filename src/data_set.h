@@ -102,6 +102,8 @@ struct
 Index_Set_Info : Info_Type_Base {
 
 	int sub_indexed_to = -1;
+	bool is_edge_index_set = false;
+	
 	std::vector<Sub_Indexing_Info> indexes;
 	int get_count(int index_of_super) {
 		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
@@ -125,6 +127,7 @@ struct Component_Info : Info_Type_Base {
 	Decl_Type decl_type;
 	std::string handle;
 	std::vector<int> index_sets;
+	int edge_index_set = -1;
 };
 
 struct Compartment_Ref {

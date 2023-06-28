@@ -23,7 +23,7 @@ model("Graph test") {
 	solve(sol, node.water, node2.water)
 	
 	g : connection("The graph", directed_graph) {
-		(node[e]|node2[e2])*
+		(node[e]|node2[e2])* out?
 		#node[e]*
 	}
 

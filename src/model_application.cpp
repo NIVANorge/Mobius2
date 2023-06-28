@@ -645,6 +645,16 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	}
 	Entity_Id edge_index_set = find_decl->second;
 	
+	Entity_Id proposed_edge_index_set = invalid_entity_id;
+	if(comp->edge_index_set >= 0) {
+		auto idx_set_info = data_set->index_sets[comp->edge_index_set];
+		proposed_edge_index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
+	}
+	if(proposed_edge_index_set != edge_index_set) {
+		comp->source_loc.print_error_header();
+		fatal_error("The edge index set of this component in the data set does not match the edge index set given in the model.");
+	}
+	
 	if(single_index_only && comp->index_sets.size() != 1) {
 		loc.print_error_header();
 		fatal_error("This connection type only supports connections on components that are indexed by a single index set");
@@ -652,7 +662,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	std::vector<Entity_Id> index_sets;
 	for(int idx_set_id : comp->index_sets) {
 		auto idx_set_info = data_set->index_sets[idx_set_id];
-		auto index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);//model->index_sets.find_by_name(idx_set_info->name);
+		auto index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
 		if(!is_valid(index_set)) {
 			idx_set_info->source_loc.print_error_header();
 			fatal_error("The index set \"", idx_set_info->name, " does not exist in the model.");  // Actually, this has probably been checked somewhere else already.
@@ -1064,7 +1074,7 @@ Model_Application::save_to_data_set() {
 		// TODO: Maybe do a sanity check that the data set contains the same indexes as the model application?
 		
 		if(index_set_info) continue;  // We are only interested in creating new index sets that were missing in the data set.
-		if(index_set->is_edge_index_set) continue; // These are handled differently.
+		if(is_valid(index_set->is_edge_of_connection)) continue; // These are handled differently.
 		
 		// TODO: We should have some api on the data set for this.
 		index_set_info = data_set->index_sets.create(index_set->name, {});
@@ -1121,6 +1131,7 @@ Model_Application::save_to_data_set() {
 				
 					for(auto index_set_id : index_sets) {
 						auto index_set = model->index_sets[index_set_id];
+						
 						auto index_set_idx = data_set->index_sets.find_idx(index_set->name);
 						if(index_set_idx < 0)
 							fatal_error(Mobius_Error::internal, "Tried to set an index set for a parameter group in a data set, but the index set was not in the data set.");

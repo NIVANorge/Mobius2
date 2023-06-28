@@ -255,9 +255,11 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 	Entity_Id sub_indexed_to;
-	bool      is_edge_index_set;
 	
-	Entity_Registration() : sub_indexed_to(invalid_entity_id), is_edge_index_set(false) {}
+	Entity_Id is_edge_of_connection;
+	Entity_Id is_edge_of_node;
+	
+	Entity_Registration() : sub_indexed_to(invalid_entity_id), is_edge_of_connection(invalid_entity_id), is_edge_of_node(invalid_entity_id) {}
 };
 
 enum class

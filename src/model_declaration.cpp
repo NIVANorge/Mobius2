@@ -1011,7 +1011,10 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 }
 
 void
-add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_Registration<Reg_Type::connection> *connection, Regex_Identifier_AST *ident) {
+add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_Id connection_id, Regex_Identifier_AST *ident) {
+	
+	auto connection = model->connections[connection_id];
+	
 	if(ident->ident.string_value == "out") {
 		if(is_valid(&ident->index_set)) {
 			ident->index_set.print_error_header();
@@ -1026,7 +1029,9 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_R
 	Entity_Id index_set_id = invalid_entity_id;
 	if(is_valid(&ident->index_set)) {
 		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
-		model->index_sets[index_set_id]->is_edge_index_set = true;
+		auto index_set = model->index_sets[index_set_id];
+		index_set->is_edge_of_connection = connection_id;
+		index_set->is_edge_of_node       = component_id;
 		if(connection->type != Connection_Type::directed_graph && connection->type != Connection_Type::grid1d && connection->type != Connection_Type::all_to_all) {
 			ident->index_set.print_error_header();
 			fatal_error("Index sets should only be assigned to the nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all'");
@@ -1054,12 +1059,12 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_R
 }
 
 void
-recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *scope, Entity_Registration<Reg_Type::connection> *connection, Math_Expr_AST *expr) {
+recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *scope, Entity_Id connection_id, Math_Expr_AST *expr) {
 	if(expr->type == Math_Expr_Type::regex_identifier)
-		add_connection_component_option(model, scope, connection, static_cast<Regex_Identifier_AST *>(expr));
+		add_connection_component_option(model, scope, connection_id, static_cast<Regex_Identifier_AST *>(expr));
 	else {
 		for(auto child : expr->exprs) {
-			recursive_gather_connection_component_options(model, scope, connection, child);
+			recursive_gather_connection_component_options(model, scope, connection_id, child);
 		}
 	}
 }
@@ -1096,7 +1101,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		fatal_error("For connections of type all_to_all and grid1d, only one component should be declared ( of the form {  c[i]  } , where i is the index set).");
 	}
 	
-	recursive_gather_connection_component_options(model, scope, connection, expr);
+	recursive_gather_connection_component_options(model, scope, id, expr);
 	
 	if(connection->components.empty()) {
 		expr->source_loc.print_error_header();

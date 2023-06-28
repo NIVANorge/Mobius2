@@ -50,6 +50,8 @@ write_index_set_indexes_to_file(FILE *file, Sub_Indexing_Info *info) {
 void
 write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_set) {
 	
+	if(index_set.is_edge_index_set) return; // These are not given explicitly, only as arrows in a connection.
+	
 	if(index_set.sub_indexed_to < 0) {
 		fprintf(file, "index_set(\"%s\") ", index_set.name.data());
 		write_index_set_indexes_to_file(file, &index_set.indexes[0]);
@@ -109,7 +111,12 @@ write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *da
 		auto index_set = data_set->index_sets[idx_set_idx];
 		fprintf(file, " \"%s\"", index_set->name.data());
 	}
-	fprintf(file, " ]\n");
+	fprintf(file, " ]");
+	if(component.edge_index_set >= 0) {
+		auto index_set = data_set->index_sets[component.edge_index_set];
+		fprintf(file, " [ \"%s\" ]", index_set->name.data());
+	}
+	fprintf(file, "\n");
 }
 
 void
@@ -393,6 +400,122 @@ read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident =
 }
 
 void
+parse_sub_indexes(Sub_Indexing_Info *set, Token_Stream *stream) {
+	//TODO: Error if these indexes were already given (?)
+	auto peek = stream->peek_token(1);
+	if(peek.type == Token_Type::quoted_string) {
+		set->type = Sub_Indexing_Info::Type::named;
+		std::vector<Token> indexes;
+		read_string_list(stream, indexes);
+		for(int idx = 0; idx < indexes.size(); ++idx)
+			set->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
+	} else if (peek.type == Token_Type::integer) {
+		set->type = Sub_Indexing_Info::Type::numeric1;
+		set->n_dim1 = peek.val_int;
+		if(set->n_dim1 < 1) {
+			peek.print_error_header();
+			fatal_error("You can only have a positive number for a dimension size.");
+		}
+		stream->expect_token('[');
+		stream->expect_int();
+		stream->expect_token(']');
+	} else {
+		peek.print_error_header();
+		fatal_error("Expected a list of quoted strings or a single integer.");
+	}
+}
+
+Index_Set_Info *
+make_sub_indexed_to(Data_Set *data_set, Index_Set_Info *data, Token *parent) {
+	Index_Set_Info *sub_indexed_to = nullptr;
+	
+	data->sub_indexed_to = data_set->index_sets.expect_exists_idx(parent, "index_set");
+	sub_indexed_to = data_set->index_sets[data->sub_indexed_to];
+	if(sub_indexed_to->sub_indexed_to != -1) {
+		parent->source_loc.print_error_header();
+		fatal_error("We currently don't support sub-indexing under an index set that is itself sub-indexed.");
+	}
+	data->indexes.resize(sub_indexed_to->get_max_count()); // NOTE: Should be correct to use max count since what we are sub-indexed to can't itself be sub-indexed.
+	
+	return sub_indexed_to;
+}
+
+void
+parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
+	int which = match_declaration(decl,
+		{
+			{Token_Type::quoted_string},
+			{Token_Type::quoted_string, Token_Type::quoted_string},
+		}, false, false);
+				
+	auto name = single_arg(decl, which);
+	auto data = data_set->index_sets.create(name->string_value, name->source_loc);
+	
+	Index_Set_Info *sub_indexed_to = nullptr;
+	if(which == 1) {
+		sub_indexed_to = make_sub_indexed_to(data_set, data, single_arg(decl, 0));
+		/*
+		data->sub_indexed_to = data_set->index_sets.expect_exists_idx(single_arg(decl, 0), "index_set");
+		sub_indexed_to = data_set->index_sets[data->sub_indexed_to];
+		if(sub_indexed_to->sub_indexed_to != -1) {
+			decl->source_loc.print_error_header();
+			fatal_error("We currently don't support sub-indexing under an index set that is itself sub-indexed.");
+		}
+		data->indexes.resize(sub_indexed_to->get_max_count()); // NOTE: Should be correct to use max count since what we are sub-indexed to can't itself be sub-indexed.
+		*/
+	}
+	
+	auto peek = stream->peek_token(1);
+	bool found_sub_indexes = false;
+	if(peek.type == Token_Type::quoted_string || peek.type == Token_Type::integer) {
+		peek = stream->peek_token(2);
+		if((char)peek.type == ':') {
+			found_sub_indexes = true;
+			if(!sub_indexed_to) {
+				decl->source_loc.print_error_header();
+				fatal_error("Got sub-indexes for an index set that is not sub-indexed.");
+			}
+			stream->expect_token('[');
+			while(true) {
+				auto token = stream->read_token();
+				int indexed_under = sub_indexed_to->get_index(&token, 0); // NOTE: The super index set is itself not sub-indexed, hence the 0.
+				stream->expect_token(':');
+				parse_sub_indexes(&data->indexes[indexed_under], stream);
+			
+				peek = stream->peek_token();
+				if((char)peek.type == ']') {
+					stream->read_token();
+					break;
+				} else if (peek.type == Token_Type::eof) {
+					peek.print_error_header();
+					fatal_error("End of file before an index_set declaration was closed.");
+				}
+			}
+		}
+	}
+	
+	if (!found_sub_indexes && (data->sub_indexed_to >= 0)) {
+		decl->source_loc.print_error_header();
+		fatal_error("Missing sub-indexes for a sub-indexed index set.");
+	}
+	
+	for(auto &idxs : data->indexes) {
+		if(idxs.get_count() <= 0) {
+			decl->source_loc.print_error_header();
+			if(data->sub_indexed_to >= 0)
+				fatal_error("Did not get an index set for all indexes of the parent index set.");
+			else
+				fatal_error("Empty index set.");
+		}
+	}
+	
+	if(!found_sub_indexes) {
+		data->indexes.resize(1);
+		parse_sub_indexes(&data->indexes[0], stream);
+	}
+}
+
+void
 read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartment_Ref *read_to, Connection_Info *info) {
 	Token token = stream->peek_token();
 	stream->expect_identifier();
@@ -441,6 +564,16 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	read_compartment_identifier(data_set, stream, &entry.second, info);
 	
 	info->arrows.push_back(entry);
+	{	// Make an edge index for the arrow if necessary.
+		auto first_comp = info->components[entry.first.id];
+		if(first_comp->edge_index_set >= 0) {
+			auto edge_set = data_set->index_sets[first_comp->edge_index_set];
+			int parent_idx = 0;
+			if(!entry.first.indexes.empty())
+				parent_idx = entry.first.indexes[0];
+			edge_set->indexes[parent_idx].n_dim1++; // For now we just have numerical indexes.
+		}
+	}
 	
 	Token token = stream->peek_token();
 	if(token.type == Token_Type::arr_r) {
@@ -497,6 +630,24 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 				fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear immediately after it on the index set list for this component declaration.");
 			}
 			prev = ref;
+		}
+		auto next = stream->peek_token();
+		if((char)next.type == '[') {
+			std::vector<Token> edge_list;
+			read_string_list(stream, edge_list);
+			if(edge_list.size() > 1 || data->index_sets.size() > 1) {
+				next.source_loc.print_error_header();
+				fatal_error("A component can have at most one edge index set, and if it does have one it must have at most one main index set.");
+			}
+			auto edge_set_data = data_set->index_sets.create(edge_list[0].string_value, edge_list[0].source_loc);
+			data->edge_index_set = data_set->index_sets.find_idx(edge_list[0].string_value);
+			edge_set_data->is_edge_index_set = true;
+			
+			if(!idx_set_list.empty())
+				make_sub_indexed_to(data_set, edge_set_data, &idx_set_list[0]);
+			// For now at least: May allow naming edges at a later point.
+			for(auto &idxs : edge_set_data->indexes)
+				idxs.type = Sub_Indexing_Info::Type::numeric1;
 		}
 		delete decl;
 	}
@@ -729,103 +880,7 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 	}
 }
 
-void
-parse_sub_indexes(Sub_Indexing_Info *set, Token_Stream *stream) {
-	//TODO: Error if these indexes were already given (?)
-	auto peek = stream->peek_token(1);
-	if(peek.type == Token_Type::quoted_string) {
-		set->type = Sub_Indexing_Info::Type::named;
-		std::vector<Token> indexes;
-		read_string_list(stream, indexes);
-		for(int idx = 0; idx < indexes.size(); ++idx)
-			set->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
-	} else if (peek.type == Token_Type::integer) {
-		set->type = Sub_Indexing_Info::Type::numeric1;
-		set->n_dim1 = peek.val_int;
-		if(set->n_dim1 < 1) {
-			peek.print_error_header();
-			fatal_error("You can only have a positive number for a dimension size.");
-		}
-		stream->expect_token('[');
-		stream->expect_int();
-		stream->expect_token(']');
-	} else {
-		peek.print_error_header();
-		fatal_error("Expected a list of quoted strings or a single integer.");
-	}
-}
 
-void
-parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
-	int which = match_declaration(decl,
-		{
-			{Token_Type::quoted_string},
-			{Token_Type::quoted_string, Token_Type::quoted_string},
-		}, false, false);
-				
-	auto name = single_arg(decl, which);
-	auto data = data_set->index_sets.create(name->string_value, name->source_loc);
-	
-	Index_Set_Info *sub_indexed_to = nullptr;
-	if(which == 1) {
-		data->sub_indexed_to = data_set->index_sets.expect_exists_idx(single_arg(decl, 0), "index_set");
-		sub_indexed_to = data_set->index_sets[data->sub_indexed_to];
-		if(sub_indexed_to->sub_indexed_to != -1) {
-			decl->source_loc.print_error_header();
-			fatal_error("We currently don't support sub-indexing under an index set that is itself sub-indexed.");
-		}
-		data->indexes.resize(sub_indexed_to->get_max_count()); // NOTE: Should be correct to use max count since what we are sub-indexed to can't itself be sub-indexed.
-	}
-	
-	auto peek = stream->peek_token(1);
-	bool found_sub_indexes = false;
-	if(peek.type == Token_Type::quoted_string || peek.type == Token_Type::integer) {
-		peek = stream->peek_token(2);
-		if((char)peek.type == ':') {
-			found_sub_indexes = true;
-			if(!sub_indexed_to) {
-				decl->source_loc.print_error_header();
-				fatal_error("Got sub-indexes for an index set that is not sub-indexed.");
-			}
-			stream->expect_token('[');
-			while(true) {
-				auto token = stream->read_token();
-				int indexed_under = sub_indexed_to->get_index(&token, 0); // NOTE: The super index set is itself not sub-indexed, hence the 0.
-				stream->expect_token(':');
-				parse_sub_indexes(&data->indexes[indexed_under], stream);
-			
-				peek = stream->peek_token();
-				if((char)peek.type == ']') {
-					stream->read_token();
-					break;
-				} else if (peek.type == Token_Type::eof) {
-					peek.print_error_header();
-					fatal_error("End of file before an index_set declaration was closed.");
-				}
-			}
-		}
-	}
-	
-	if (!found_sub_indexes && (data->sub_indexed_to >= 0)) {
-		decl->source_loc.print_error_header();
-		fatal_error("Missing sub-indexes for a sub-indexed index set.");
-	}
-	
-	for(auto &idxs : data->indexes) {
-		if(idxs.get_count() <= 0) {
-			decl->source_loc.print_error_header();
-			if(data->sub_indexed_to >= 0)
-				fatal_error("Did not get an index set for all indexes of the parent index set.");
-			else
-				fatal_error("Empty index set.");
-		}
-	}
-	
-	if(!found_sub_indexes) {
-		data->indexes.resize(1);
-		parse_sub_indexes(&data->indexes[0], stream);
-	}
-}
 
 #if OLE_AVAILABLE
 void
