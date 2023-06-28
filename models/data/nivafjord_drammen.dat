@@ -20,7 +20,7 @@ par_group("Layer parameters") [ "Layer index" ] {
 	[ 250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
 }
 
-module("NIVAFjord", 0, 0, 1) {
+module("NIVAFjord basin", 0, 0, 1) {
 
 	par_group("Mixing parameters") {
 		par_real("Brunt-Väisälä frequency reference")

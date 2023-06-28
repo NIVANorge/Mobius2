@@ -1,0 +1,16 @@
+
+module("NIVAFjord tracer test", version(0, 0, 1),
+	layer  : compartment,
+	water  : quantity,
+	tracer : quantity,
+	vert   : connection,
+) {
+
+
+	var(layer.water.tracer, [k g])
+	
+	flux(out, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
+		1[k g, day-1]
+	}
+
+}
