@@ -1395,7 +1395,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
 	

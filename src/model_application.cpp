@@ -645,15 +645,19 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	}
 	Entity_Id edge_index_set = find_decl->second;
 	
-	Entity_Id proposed_edge_index_set = invalid_entity_id;
 	if(comp->edge_index_set >= 0) {
 		auto idx_set_info = data_set->index_sets[comp->edge_index_set];
-		proposed_edge_index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
+		auto proposed_edge_index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
+		if(!is_valid(proposed_edge_index_set)) {
+			idx_set_info->source_loc.print_error_header();
+			fatal_error("The index set \"", idx_set_info->name, "\" is not found in the model.");
+		}
+		if(is_valid(proposed_edge_index_set) && (proposed_edge_index_set != edge_index_set)) {
+			idx_set_info->source_loc.print_error_header();
+			fatal_error("The edge index set of this component in the data set does not match the edge index set given in the model.");
+		}
 	}
-	if(proposed_edge_index_set != edge_index_set) {
-		comp->source_loc.print_error_header();
-		fatal_error("The edge index set of this component in the data set does not match the edge index set given in the model.");
-	}
+	
 	
 	if(single_index_only && comp->index_sets.size() != 1) {
 		comp->source_loc.print_error_header();
@@ -915,7 +919,7 @@ process_index_set_data(Model_Application *app, Data_Set *data_set, Index_Set_Inf
 		sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
 	if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
 		index_set.source_loc.print_error_header();
-		fatal_error("This index set has data that is sub-indexed to another index set, but the same sub-indexing is not declared in the model.");
+		fatal_error("The parent index set of this index set does not match between the model and the data set.");
 	}
 	for(int idx = 0; idx < index_set.indexes.size(); ++idx) {
 		auto &idxs = index_set.indexes[idx];

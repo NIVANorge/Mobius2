@@ -18,6 +18,7 @@ Scope_Entity {
 	Entity_Id id  = invalid_entity_id;
 	bool external = false;
 	bool was_referenced = false;
+	bool is_load_arg = false;
 	Source_Location source_loc;
 };
 
@@ -43,7 +44,7 @@ Decl_Scope {
 	
 	Entity_Id parent_id = invalid_entity_id; // Id of module or library this is the scope of. Invalid if it is the global or model scope.
 	
-	void add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
+	Scope_Entity *add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
 	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr, bool allow_recursive_import_params = false);
 	void check_for_missing_decls(Mobius_Model *model);

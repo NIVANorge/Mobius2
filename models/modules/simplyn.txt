@@ -1,6 +1,5 @@
 
 module("SimplyN", version(0, 0, 3),
-	air    : compartment,
 	soil   : compartment,
 	gw     : compartment,
 	river  : compartment,

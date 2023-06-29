@@ -25,6 +25,11 @@
 		Alternative: We just redeclare the entire model structure when that is necessary.
 
 
+		In NIVAFjord we get too many index sets for MobiView2 to handle.
+			Either organize edge index sets differently.
+			Or rethink the entire system
+				Hide index sets that are not active, for instance (and place the other selectors nicely).
+
 		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
 			Ideally the entire system should be re-thought.
 
@@ -38,6 +43,8 @@
 				This in particular may have been fixed now.
 		
 		Finish connection system
+		
+			Things could get an index set dependency from something like [connection.above], and this does not work if it is sub-indexed (then it should also get the parent index set).
 		
 			Finish the simple hydraulics model.
 			

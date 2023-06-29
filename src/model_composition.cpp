@@ -1343,6 +1343,19 @@ compose_and_resolve(Model_Application *app) {
 		auto var = app->vars[var_id];
 		app->serial_to_id[app->serialize(var_id)] = var_id;
 	}
+	
+	for(auto module_id : model->modules) {
+		auto module = model->modules[module_id];
+		for(auto &pair : module->scope.visible_entities) {
+			auto &reg = pair.second;
+			
+			if(reg.is_load_arg && !reg.was_referenced) {
+				log_print("Warning: In ");
+				reg.source_loc.print_log_header();
+				log_print("The module argument '", reg.handle, "' was never referenced.\n");
+			}
+		}
+	}
 }
 
 

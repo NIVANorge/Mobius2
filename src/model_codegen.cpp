@@ -982,21 +982,21 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		}
 	
 	}
-	/*
-	warning_print("\nTree before prune:\n");
+#if 0
+	log_print("\nTree before prune:\n");
 	std::stringstream ss;
 	print_tree(app, top_scope, ss);
-	warning_print(ss.str());
-	warning_print("\n");
-	*/
+	log_print(ss.str());
+	log_print("\n");
+#endif
 	auto result = prune_tree(top_scope);
-	/*
-	warning_print("\nTree after prune:\n");
+#if 0
+	log_print("\nTree after prune:\n");
 	std::stringstream ss;
 	print_tree(app, result, ss);
-	warning_print(ss.str());
-	warning_print("\n");
-	*/
+	log_print(ss.str());
+	log_print("\n");
+#endif
 	
 	return result;
 }
