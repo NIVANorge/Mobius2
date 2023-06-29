@@ -97,7 +97,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		[ 2600 ]
 	}
 
-	par_group("Fjord global parameters") ["Basin index"] {
+	par_group("Fjord global parameters")  {
 		par_real("Layer thickness")
 		[ 1 ]
 	}

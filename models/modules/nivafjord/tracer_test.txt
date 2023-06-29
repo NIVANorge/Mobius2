@@ -11,5 +11,4 @@ module("NIVAFjord tracer test", version(0, 0, 1),
 	flux(out, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
 		1[k g, day-1]
 	}
-
 }

@@ -1,0 +1,80 @@
+
+
+
+module("NIVAFjord horizontal target", version(0, 0, 1),
+	source : compartment,  # Should be passed as  layer, bnd_layer or outlet (or something like that).
+	edge   : compartment,
+	water  : quantity,
+	dens   : property,
+	horz_target : property,
+	w_bnd  : par_real
+) {
+
+	#TODO: The horz_target should be a property of the edge instead. Then we need one going in both directions, but that is fine.
+	# Could have <-> or just -  operator in the graph data.
+	
+	var(edge.water.horz_target, [])
+	
+	#TODO: Need to somehow make 
+	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge.water.horz_target) {
+		water.dens[horz.below]
+		water.dens
+		w_bnd   # Should be on the edge.
+	}
+}
+
+module("NIVAFjord horizontal fluxes", version(0, 0, 1),
+	layer  : compartment,
+	river  : compartment,
+	water  : quantity,
+	flow   : property,
+	#horz_target : property,
+	horz   : connection,
+	vert   : connection
+) {
+	
+	# Note: make it work with vert.top first so that we don't have to worry about the specific thing.
+	flux(river.water, layer.water[horz.below, vert.top], [m 3, day-1], "River discharge to fjord") {
+		flow
+	} #@specific { horz_target }
+	
+	#TODO: Only until we figure out where to move it.
+	flux(layer.water[vert.top], out, [m 3, day-1], "Horizontal flux equivalent removal") {
+		in_flux(horz, water)
+	}
+}
+
+
+
+
+/*
+	#TODO: This is now just sketching, it has to be reworked.
+
+	#w_bnd_ : property("Width to boundary")
+	A_bnd : property("Total area to boundary")
+	tot_barotropic_u : property("Total barotropic boundary flux")
+	barotropic_bnd_u : property("Barotropic boundary flux")
+	horz_target : property("Target of horizontal flux")
+	
+	var(oair.A_bnd, [m 2]) { aggregate(layer.w_bnd_)*dz }
+	
+	var(oair.h, [m]) @override { bnd.h }
+	
+	var(oair.tot_barotropic_u, [m 3, s-1]) {
+		-(h - last(h))*A[vert.top]/time.step_length_in_seconds
+	}
+	
+	var(layer.water.barotropic_bnd_u, [k g, s-1]) {
+		#0[m 3, s-1] #TODO.
+		oair.tot_barotropic_u * w_bnd * dz * rho_water / oair.A_bnd
+	}
+	
+	flux(bnd_layer.water, layer.water[vert2.specific], [k g, day-1], "Horizontal flow") {
+		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
+		bcl    if bcl > 0,
+		0      otherwise
+	} @specific {
+		layer.water.horz_target
+	}
+
+*/

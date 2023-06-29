@@ -68,6 +68,8 @@
 					Would prefer to have this since it improves usability.
 					Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
 					
+				sub-indexed grid1d is still a mess.
+					
 			Specific target:
 				Properly process the @specific function tree, incl. flags
 				Check valid dependencies for the tree.
