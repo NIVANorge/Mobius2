@@ -1896,7 +1896,7 @@ void
 error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
-		error_print(model->get_symbol(loc.components[idx], idx == loc.n_components-1 ? "" : ".");
+		error_print(model->get_symbol(loc.components[idx]), idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)
 }
 
@@ -1904,7 +1904,7 @@ void
 log_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
-		log_print(model->get_symbol(loc.components[idx], idx == loc.n_components-1 ? "" : ".");
+		log_print(model->get_symbol(loc.components[idx]), idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)
 }
 
