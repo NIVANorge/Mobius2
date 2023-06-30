@@ -1403,6 +1403,8 @@ Model_Application::compile(bool store_code_strings) {
 	instruction_codegen(this, initial_instructions, true);
 	instruction_codegen(this, instructions, false);
 
+	// TODO: What all the next suggests is that the index sets for the initial and main instruction are the same, so why keep them stored separately?
+
 	resolve_index_set_dependencies(this, initial_instructions, true, true);
 	
 	// NOTE: A state var inherits all index set dependencies from the code that computes its initial value.
@@ -1428,6 +1430,13 @@ Model_Application::compile(bool store_code_strings) {
 		// We have to do it again because we may need to propagate more internal dependencies now that we got more dependencies here.
 		if(resolve_index_set_dependencies(this, initial_instructions, true, false))
 			changed = true;
+		if(!changed) break;
+		
+		for(auto var_id : vars.all_state_vars()) {
+			if(initial_instructions[var_id.id].index_sets != instructions[var_id.id].index_sets)
+				changed = true;
+			instructions[var_id.id].index_sets = initial_instructions[var_id.id].index_sets;
+		}
 		if(!changed) break;
 		
 		if(resolve_index_set_dependencies(this, instructions, false, false))
