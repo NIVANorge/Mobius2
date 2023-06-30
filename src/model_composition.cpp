@@ -1196,7 +1196,7 @@ compose_and_resolve(Model_Application *app) {
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
-			sprintf(varname, "aggregate(%s)", var->name.data());
+			sprintf(varname, "aggregate(%s, %s)", var->name.data(), model->components[to_compartment]->name.data());
 			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, invalid_entity_id, false, varname);
 			
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->vars[agg_id]);
