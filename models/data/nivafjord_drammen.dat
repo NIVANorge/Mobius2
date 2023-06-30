@@ -16,9 +16,9 @@ connection("Downstream") [
 
 connection("Fjord horizontal") [
 	r : compartment("River") [ "Subcatchment" ]
-	b : compartment("Basin") [ "Basin index" ]
+	l : compartment("Fjord layer") [ "Basin index" ]
 	
-	r["Drammenselva"] -> b["Drammensfjorden"]
+	r["Drammenselva"] -> l["Drammensfjorden"]
 ]
 
 series("nivafjord_drammen.xlsx")

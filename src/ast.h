@@ -38,6 +38,7 @@ struct
 Argument_AST : Expr_AST {
 	std::vector<Token> chain;
 	std::vector<Token> bracketed_chain;
+	std::vector<Token> secondary_bracketed;
 	Decl_AST          *decl = nullptr;
 	
 	Source_Location &source_loc();

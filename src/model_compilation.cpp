@@ -1,4 +1,11 @@
 
+/*
+	This is the file that does all the really difficult stuff.
+	
+	TODO: Many functions here need a proper refactoring and cleanup!
+*/
+
+
 #include "model_application.h"
 #include "function_tree.h"
 #include "model_codegen.h"
@@ -169,82 +176,85 @@ safe_insert_dependency(Mobius_Model *model, Model_Instruction *instruction, cons
 	insert_dependency(instruction->index_sets, dep);
 }
 
-void
-resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
+bool
+resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial, bool first_pass) {
 	
 	Mobius_Model *model = app->model;
 	
 	// Collect direct dependencies coming from lookups in the declared functions of the variables.
 	// NOTE: we can't just reuse the dependency sets we computed in model_composition, because some of the variables have undergone codegen between then and could have got new dependencies.
 	
-	for(auto &instr : instructions) {
-		
-		if(!instr.code) continue;
-		
-		Dependency_Set code_depends;
-		register_dependencies(instr.code, &code_depends);
-		if(instr.specific_target)
-			register_dependencies(instr.specific_target, &code_depends);
-		
-		for(auto &dep : code_depends.on_parameter)
-			insert_dependencies(app, instr.index_sets, dep, 0);
-		for(auto &dep : code_depends.on_series)
-			insert_dependencies(app, instr.index_sets, dep, 1);
-		
-		for(auto &dep : code_depends.on_state_var) {
+	if(first_pass) {
+		for(auto &instr : instructions) {
 			
-			if(dep.restriction.restriction == Var_Loc_Restriction::above || dep.restriction.restriction == Var_Loc_Restriction::below) {
-				if(dep.restriction.restriction == Var_Loc_Restriction::above) {
-					instr.loose_depends_on_instruction.insert(dep.var_id.id);
-				} else {
-					instr.instruction_is_blocking.insert(dep.var_id.id);
-					instr.depends_on_instruction.insert(dep.var_id.id);
-				}
-				// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
-					// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
-				// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
+			if(!instr.code) continue;
+			
+			Dependency_Set code_depends;
+			register_dependencies(instr.code, &code_depends);
+			if(instr.specific_target)
+				register_dependencies(instr.specific_target, &code_depends);
+			
+			for(auto &dep : code_depends.on_parameter)
+				insert_dependencies(app, instr.index_sets, dep, 0);
+			for(auto &dep : code_depends.on_series)
+				insert_dependencies(app, instr.index_sets, dep, 1);
+			
+			for(auto &dep : code_depends.on_state_var) {
+				
+				if(dep.restriction.restriction == Var_Loc_Restriction::above || dep.restriction.restriction == Var_Loc_Restriction::below) {
+					if(dep.restriction.restriction == Var_Loc_Restriction::above) {
+						instr.loose_depends_on_instruction.insert(dep.var_id.id);
+					} else {
+						instr.instruction_is_blocking.insert(dep.var_id.id);
+						instr.depends_on_instruction.insert(dep.var_id.id);
+					}
+					// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
+						// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
+					// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
 
-				if(instr.type == Model_Instruction::Type::compute_state_var) {
-					auto conn = model->connections[dep.restriction.connection_id];
-					if(conn->type == Connection_Type::directed_graph) {
-						// Hmm, maybe factor this out?
-						auto comp = app->find_connection_component(dep.restriction.connection_id, app->vars[dep.var_id]->loc1.components[0]);
-						instr.index_sets.insert(comp->edge_index_set);
-					} else if(conn->type == Connection_Type::all_to_all) {
-						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-						//instr.index_sets.insert({index_set, 2});   // NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
-						safe_insert_dependency(model, &instr, {index_set, 2});
-					} else if(conn->type == Connection_Type::grid1d) {
-						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-						safe_insert_dependency(model, &instr, index_set);
-						//instr.index_sets.insert(index_set);
-					} else
-						fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
-				}
-				
-			} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {
-				instr.depends_on_instruction.insert(dep.var_id.id);
-				if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
-					instr.instruction_is_blocking.insert(dep.var_id.id);
-				
-				auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-				auto parent = app->model->index_sets[index_set]->sub_indexed_to;
-				if(is_valid(parent))
-					instr.index_sets.insert(parent);
-				
-			} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
-				auto var = app->vars[dep.var_id];
-				if(var->type == State_Var::Type::connection_aggregate)
-					instr.loose_depends_on_instruction.insert(dep.var_id.id);
-				else
+					if(instr.type == Model_Instruction::Type::compute_state_var) {
+						auto conn = model->connections[dep.restriction.connection_id];
+						if(conn->type == Connection_Type::directed_graph) {
+							// Hmm, maybe factor this out?
+							auto comp = app->find_connection_component(dep.restriction.connection_id, app->vars[dep.var_id]->loc1.components[0]);
+							instr.index_sets.insert(comp->edge_index_set);
+						} else if(conn->type == Connection_Type::all_to_all) {
+							auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+							//instr.index_sets.insert({index_set, 2});   // NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
+							safe_insert_dependency(model, &instr, {index_set, 2});
+						} else if(conn->type == Connection_Type::grid1d) {
+							auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+							safe_insert_dependency(model, &instr, index_set);
+							//instr.index_sets.insert(index_set);
+						} else
+							fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
+					}
+					
+				} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {
 					instr.depends_on_instruction.insert(dep.var_id.id);
+					if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
+						instr.instruction_is_blocking.insert(dep.var_id.id);
+					
+					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+					auto parent = app->model->index_sets[index_set]->sub_indexed_to;
+					if(is_valid(parent))
+						instr.index_sets.insert(parent);
+					
+				} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
+					auto var = app->vars[dep.var_id];
+					if(var->type == State_Var::Type::connection_aggregate)
+						instr.loose_depends_on_instruction.insert(dep.var_id.id);
+					else
+						instr.depends_on_instruction.insert(dep.var_id.id);
+				}
 			}
+			instr.inherits_index_sets_from_state_var = code_depends.on_state_var;
 		}
-		instr.inherits_index_sets_from_state_var = code_depends.on_state_var;
 	}
 	
 	// Let index set dependencies propagate from state variable to state variable. (For instance if a looks up the value of b, a needs to be indexed over (at least) the same index sets as b. This could propagate down a long chain of dependencies, so we have to keep iterating until nothing changes.
 	bool changed;
+	bool changed_at_all = false;
 	for(int it = 0; it < 100; ++it) {
 		changed = false;
 		
@@ -264,12 +274,16 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 			}
 		}
 		
+		if(changed)
+			changed_at_all = true;
+		
 		if(!changed) break;
 	}
 	if(changed)
 		fatal_error(Mobius_Error::internal, "Failed to resolve state variable index set dependencies in the alotted amount of iterations!");
 	
 	for(auto &instr : instructions) {
+		
 		// TODO: Do we need to check others? Probably not as those would only happen if they were inherited from a state var.
 		if(instr.type != Model_Instruction::Type::compute_state_var) continue;
 		
@@ -295,6 +309,8 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		if(n_matrix > 1)
 			fatal_error(Mobius_Error::model_building, "The variable \"", var->name, "\" ended up with more than one matrix dependency. That is currently not supported.");
 	}
+	
+	return changed_at_all;
 }
 
 void
@@ -438,56 +454,65 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 
 
 void
+create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std::vector<Model_Instruction> &instructions);
+
+void
+ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions) {
+	
+	auto instr = &instructions[var_id.id];
+			
+	if(instr->type != Model_Instruction::Type::invalid) return; // If it already exists, fine!
+	
+	// Some other variable wants to look up the value of this one in the initial step, but it doesn't have initial code. If it has regular code, we can substitute that!
+	
+	auto var = app->vars[var_id];
+	//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
+		
+	instr->type = Model_Instruction::Type::compute_state_var;
+	instr->var_id = var_id;
+	instr->code = nullptr;
+	
+	if(var->type == State_Var::Type::declared) {
+		auto var2 = as<State_Var::Type::declared>(var);
+		if(var2->function_tree) {
+			instr->code = copy(var2->function_tree.get());
+			// Have to do this recursively, since we may already have passed it in the outer loop.
+			create_initial_vars_for_lookups(app, instr->code, instructions);
+		}
+	}
+	
+	// If it is an aggregation variable, whatever it aggregates also must be computed.
+	if(var->type == State_Var::Type::regular_aggregate) {
+		auto var2 = as<State_Var::Type::regular_aggregate>(var);
+		
+		auto instr_agg_of = &instructions[var2->agg_of.id];
+		if(instr_agg_of->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
+		
+		auto var_agg_of = app->vars[var2->agg_of];
+		
+		instr_agg_of->type = Model_Instruction::Type::compute_state_var;
+		instr_agg_of->var_id = var2->agg_of;
+		instr_agg_of->code = nullptr;
+		
+		if(var_agg_of->type == State_Var::Type::declared) {
+			auto var_agg_of2 = as<State_Var::Type::declared>(var_agg_of);
+			if(var_agg_of2->function_tree) {
+				instr_agg_of->code = copy(var_agg_of2->function_tree.get());
+				create_initial_vars_for_lookups(app, instr_agg_of->code, instructions);
+			}
+		}
+	}
+}
+
+void
 create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std::vector<Model_Instruction> &instructions) {
 	for(auto arg : expr->exprs) create_initial_vars_for_lookups(app, arg, instructions);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var) {
-			auto instr = &instructions[ident->var_id.id];
 			
-			if(instr->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
-			
-			// This function wants to look up the value of another variable, but it doesn't have initial code. If it has regular code, we can substitute that!
-			
-			auto var = app->vars[ident->var_id];
-			//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
-				
-			instr->type = Model_Instruction::Type::compute_state_var;
-			instr->var_id = ident->var_id;
-			instr->code = nullptr;
-			
-			if(var->type == State_Var::Type::declared) {
-				auto var2 = as<State_Var::Type::declared>(var);
-				if(var2->function_tree) {
-					instr->code = copy(var2->function_tree.get());
-					// Have to do this recursively, since we may already have passed it in the outer loop.
-					create_initial_vars_for_lookups(app, instr->code, instructions);
-				}
-			}
-			
-			// If it is an aggregation variable, whatever it aggregates also must be computed.
-			if(var->type == State_Var::Type::regular_aggregate) {
-				auto var2 = as<State_Var::Type::regular_aggregate>(var);
-				
-				auto instr_agg_of = &instructions[var2->agg_of.id];
-				if(instr_agg_of->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
-				
-				auto var_agg_of = app->vars[var2->agg_of];
-				
-				instr_agg_of->type = Model_Instruction::Type::compute_state_var;
-				instr_agg_of->var_id = var2->agg_of;
-				instr_agg_of->code = nullptr;
-				
-				if(var_agg_of->type == State_Var::Type::declared) {
-					auto var_agg_of2 = as<State_Var::Type::declared>(var_agg_of);
-					if(var_agg_of2->function_tree) {
-						instr_agg_of->code = copy(var_agg_of2->function_tree.get());
-						create_initial_vars_for_lookups(app, instr_agg_of->code, instructions);
-					}
-				}
-			}
-			//TODO: if it is a conc and is not computed, do we need to check if the mass variable has an initial conc?
+			ensure_has_intial_value(app, ident->var_id, instructions);
 		}
 	}
 }
@@ -589,6 +614,13 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(!instr->code) continue;
 			
 			create_initial_vars_for_lookups(app, instr->code, instructions);
+			
+			/*
+			auto var = app->vars[var_id];
+			if(var->type == State_Var::Type::regular_aggregate) {
+				
+			}
+			*/
 		}
 	}
 	
@@ -1371,20 +1403,40 @@ Model_Application::compile(bool store_code_strings) {
 	instruction_codegen(this, initial_instructions, true);
 	instruction_codegen(this, instructions, false);
 
-	resolve_index_set_dependencies(this, initial_instructions, true);
+	resolve_index_set_dependencies(this, initial_instructions, true, true);
 	
-	// NOTE: state var inherits all index set dependencies from its initial code.
+	// NOTE: A state var inherits all index set dependencies from the code that computes its initial value.
 	for(auto var_id : vars.all_state_vars()) {
 		auto &init_idx = initial_instructions[var_id.id].index_sets;
 		
 		instructions[var_id.id].index_sets.insert(init_idx.begin(), init_idx.end());
 	}
 	
-	resolve_index_set_dependencies(this, instructions, false);
+	resolve_index_set_dependencies(this, instructions, false, true);
 	
-	// similarly, the initial state of a varialble has to be indexed like the variable. (this is just for simplicity in the code generation, so that a value is assigned to every instance of the variable, but it can cause re-computation of the same value many times. Probably not an issue since it is just for a single time step.)
-	for(auto var_id : vars.all_state_vars())
-		initial_instructions[var_id.id].index_sets = instructions[var_id.id].index_sets;
+	bool changed = false;
+	for(int it = 0; it < 10; ++it) {
+		changed = false;
+		
+		// similarly, the initial state of a varialble has to be indexed like the variable. (this is just for simplicity in the code generation, so that a value is assigned to every instance of the variable, but it can cause re-computation of the same value many times. Probably not an issue since it is just for a single time step.)
+		for(auto var_id : vars.all_state_vars()) {
+			if(initial_instructions[var_id.id].index_sets != instructions[var_id.id].index_sets)
+				changed = true;
+			initial_instructions[var_id.id].index_sets = instructions[var_id.id].index_sets;
+		}
+		if(!changed) break;
+		// We have to do it again because we may need to propagate more internal dependencies now that we got more dependencies here.
+		if(resolve_index_set_dependencies(this, initial_instructions, true, false))
+			changed = true;
+		if(!changed) break;
+		
+		if(resolve_index_set_dependencies(this, instructions, false, false))
+			changed = true;
+		if(!changed) break;
+	}
+	if(changed)
+		fatal_error(Mobius_Error::internal, "Failed to resolve all dependencies in the alotted amount of iterations.");
+	
 	
 	std::vector<Batch> batches;
 	create_batches(this, batches, instructions);
@@ -1408,7 +1460,7 @@ Model_Application::compile(bool store_code_strings) {
 			std::vector<int> vars_ode;
 			for(int var : batch.instrs) {
 				auto var_ref = this->vars[instructions[var].var_id];
-				// NOTE: if we override the conc or value of var, we instead compute the mass from the conc.
+				// NOTE: if we override the conc or value of var, it is not treated as an ODE variable, it is just computed directly
 				bool is_ode = false;
 				if(instructions[var].type == Model_Instruction::Type::compute_state_var && var_ref->type == State_Var::Type::declared) {
 					auto var2 = as<State_Var::Type::declared>(var_ref);
@@ -1424,6 +1476,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
+	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, true);
 	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
@@ -1509,7 +1562,7 @@ Model_Application::compile(bool store_code_strings) {
 	
 	is_compiled = true;
 
-/*
+#if 0
 	std::stringstream ss;
 	for(auto &instr : instructions) {
 		if(instr.code) {
@@ -1517,8 +1570,10 @@ Model_Application::compile(bool store_code_strings) {
 			ss << "\n";
 		}
 	}
-	warning_print(ss.str());
-*/
+	log_print(ss.str());
+#endif
+
+	// **** We don't need the tree representations of the code now that it is compiled into proper functions, so we can free them.
 
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
 	//    Has to do with the resizing of the instructions vector where instructions are moved, and it is tricky
@@ -1536,7 +1591,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 #ifndef MOBIUS_EMULATE
-	
+
 	delete initial_batch.run_code;
 	initial_batch.run_code = nullptr;
 	for(auto &batch : batches) {

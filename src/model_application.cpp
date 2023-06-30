@@ -761,9 +761,11 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	for(auto &comp : connection.components) {
 		Entity_Id comp_id = model->model_decl_scope.deserialize(comp.name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
-			comp.source_loc.print_log_header();
-			log_print("The component \"", comp.name, "\" has not been declared in the model.\n");
-			continue;
+			comp.source_loc.print_error_header();
+			fatal_error("The component \"", comp.name, "\" has not been declared in the model.");
+			//comp.source_loc.print_log_header();
+			//log_print("The component \"", comp.name, "\" has not been declared in the model.\n");
+			//continue;
 		}
 		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only);
 	}

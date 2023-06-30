@@ -149,6 +149,7 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 			}
 		}
 		
+		//TODO: This check should NOT use the connection_components. It must use the component options that are stored on the flux.
 		auto &components = app->connection_components[loc.connection_id].components;
 		bool found = false;
 		for(int idx = 0; idx < loc.n_components; ++idx) {
@@ -156,8 +157,8 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 				if(loc.components[idx] == comp.id) found = true;
 		}
 		if(!found) {
-			source_loc.print_error_header();
-			fatal_error(Mobius_Error::model_building, "None of the components on this var location are supported for the connection \"", conn->name, "\".");
+			source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("None of the components on this var location are supported for the connection \"", conn->name, "\".");
 		}
 			
 	} else if(loc.restriction != Var_Loc_Restriction::none) {
@@ -756,8 +757,13 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 		
 		double conversion_factor;
 		if(!match(&fun.unit, &expected_unit.standard_form, &conversion_factor)) {
+			
+			// TODO: Not entirely sure what to do here. The problem happens for dissolvedes that don't want a unit conversion, but where what they are dissolved in has one.
+			//if(expected_unit.is_fully_dimensionless())
+			//	return nullptr;
+			
 			ast->source_loc.print_error_header();
-			fatal_error("Expected the unit of this unit_conversion expression to resolve to a scalar multiple of ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+			fatal_error("Expected the unit of this unit_conversion expression to resolve to a scalar multiple of ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ". It should convert from ", first->unit.standard_form.to_utf8(), " to ", second->unit.standard_form.to_utf8(), ". The error happened when finding unit conversions for the flux \"", app->vars[flux_id]->name, "\".");
 		}
 		if(conversion_factor != 1.0)
 			unit_conv = make_binop('*', unit_conv, make_literal(conversion_factor));
@@ -1190,7 +1196,7 @@ compose_and_resolve(Model_Application *app) {
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
-			sprintf(varname, "aggregate(%s)", var->name.data());
+			sprintf(varname, "aggregate(%s, %s)", var->name.data(), model->components[to_compartment]->name.data());
 			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, invalid_entity_id, false, varname);
 			
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->vars[agg_id]);

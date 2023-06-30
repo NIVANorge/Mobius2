@@ -846,7 +846,8 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 					fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
 				}
 			} catch(int) {
-				fatal_error("The error happened when trying to put lookup indexes for the instruction ", instr->debug_string(app));
+				fatal_error("The error happened when trying to put lookup indexes for the instruction ", instr->debug_string(app), initial ? " during the initial value step." : ".");
+			
 			}
 				
 			Math_Expr_FT *result_code = nullptr;
