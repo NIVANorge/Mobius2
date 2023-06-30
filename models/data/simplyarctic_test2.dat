@@ -1,0 +1,199 @@
+"""
+Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
+"""
+
+index_set("Subcatchment") [ "DeGeerdalen" ]
+
+index_set("Patch") [ "Glaciers" "Valleys" "Hill1_100" "Hill2_300" "Hill3_500" "Hill4_700" "Hill5_900" ]
+
+index_set("Aspect") [ "N" "S" "E/W" ]
+
+connection("Downhill throughflow") [
+	s : compartment("Soil") [ "Patch" ]
+	river : compartment("River") [ ]
+
+	s[ "Hill5_900" ] -> s[ "Hill4_700" ] -> s[ "Hill3_500" ] -> s[ "Hill2_300" ] -> s[ "Hill1_100" ] -> s[ "Valleys" ] -> river[ ]
+	s[ "Glaciers" ] -> river[ ]
+]
+
+connection("Down glacier flow") [
+	g : compartment("Glacier") [ "Patch" ]
+	river : compartment("River") [ ]
+
+	g[ "Hill5_900" ] -> g[ "Hill4_700" ] -> g[ "Hill3_500" ] -> g[ "Hill2_300" ] -> g[ "Hill1_100" ] -> g[ "Valleys" ] -> river[ ]
+	g[ "Glaciers" ] -> river[ ]
+]
+
+connection("Downstream") [
+	r : compartment("River") [ "Subcatchment" ]
+
+	r[ "DeGeerdalen" ] -> out
+]
+
+connection("Downslope quickflow") [
+	q : compartment("Quick") [ "Patch" ]
+	river : compartment("River") [ ]
+
+	q[ "Hill5_900" ] -> q[ "Hill4_700" ] -> q[ "Hill3_500" ] -> q[ "Hill2_300" ] -> q[ "Hill1_100" ] -> q[ "Valleys" ] -> river[ ]
+	q[ "Glaciers" ] -> river[ ]
+]
+
+series("Svalbard/DeGeerelva_met_carra_shift_pptn-1.xlsx")
+
+series("Svalbard/q_degeerdalen_daily_cleaned_6am-mean_shift-1D.xlsx")
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1991-01-02 ]
+
+	par_datetime("End date")
+	[ 2022-08-31 ]
+}
+
+par_group("Catchment data") {
+	par_real("Catchment area")
+	[ 80 ]
+
+	par_real("Elevation of input met data")
+	[ 412 ]
+}
+
+par_group("Patch data") [ "Patch" ] {
+	par_real("Relative area")
+	[ 0.2 0.14 0.09 0.2 0.2 0.12 0.05 ]
+}
+
+par_group("Aspect data") [ "Aspect" ] {
+	par_real("Aspect relative area")
+	[ 0.33 0.33 0.33 ]
+}
+
+par_group("Global melt parameters") {
+	par_real("Melt temperature")
+	[ 0 ]
+}
+
+module("Degree-day PET", 1, 0, 0) {
+	par_group("Potential evapotranspiration") [ "Subcatchment" ] {
+		par_real("Deegree-day factor for evapotranspiration")
+		[ 0.05 ]
+
+		par_real("Minimal temperature for evapotranspiration")
+		[ 0 ]
+	}
+}
+
+module("SimplyQ river", 0, 0, 1) {
+	par_group("Reach parameters") [ "Subcatchment" ] {
+		par_real("Reach slope")
+		[ 0.8 ]
+
+		par_real("Reach length")
+		[ 10000 ]
+
+		par_real("Manning's roughness coefficient")
+		[ 0.05 ]
+
+		par_real("Initial reach flow")
+		[ 0 ]
+	}
+}
+
+module("SimplyGlacier", 0, 0, 1) {
+	par_group("Glacier global") {
+		par_real("Glacier percolation fraction")
+		[ 1 ]
+
+		par_real("Relative degree-day ice melt")
+		[ 5 ]
+
+		par_real("Glacier accumulation coefficient")
+		[ 0.002 ]
+	}
+
+	par_group("Glacier") [ "Subcatchment" "Patch" ] {
+		par_real("Initial ice thickness") [
+			100000 0 0 0 0 0 0 
+		]
+	}
+}
+
+module("ArcticAtmosphere", 0, 0, 1) {
+	par_group("Elevation data") [ "Subcatchment" "Patch" ] {
+		par_real("Average elevation") [
+			625 94 151 305 481 678 843 
+		]
+	}
+
+	par_group("Temperature correction") {
+		par_real("Temp lapse rate")
+		[ -0.0038 ]
+	}
+}
+
+module("ArcticSnow", 0, 0, 1) {
+	par_group("Snow") {
+		par_real("Degree-day factor for snowmelt")
+		[ 5 ]
+
+		par_real("Refreeze efficiency")
+		[ 1 ]
+
+		par_real("Liquid water fraction")
+		[ 0.1 ]
+
+		par_real("Initial snow depth (water equivalents)")
+		[ 0 ]
+
+		par_real("Snow fall correction factor")
+		[ 1 ]
+	}
+
+	par_group("Snow aspect") [ "Aspect" ] {
+		par_real("Aspect melt factor")
+		[ 1 1 1 ]
+	}
+}
+
+module("SimplyQuickflow", 0, 0, 1) {
+	par_group("Quick flow") {
+		par_real("Max infiltration proportion")
+		[ 0.8 ]
+	}
+}
+
+module("SimplyPermafrost", 0, 0, 1) {
+	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
+		par_real("Soil water time constant") [
+			2.5 2.5 2.5 2.5 2.5 2.5 2.5 
+		]
+
+		par_real("Field capacity") [
+			100 150 50 50 50 50 50 
+		]
+
+		par_real("Baseflow index") [
+			0 0 0 0 0 0 0 
+		]
+	}
+
+	par_group("Soil temperature") {
+		par_real("Deep soil temperature")
+		[ -4 ]
+
+		par_real("Soil heat conduction divided by heat capacity")
+		[ 0.005 ]
+
+		par_real("Thawing depth coefficient")
+		[ 1500 ]
+
+		par_real("Snow insulation depth")
+		[ 2000 ]
+	}
+
+	par_group("Groundwater") [ "Subcatchment" ] {
+		par_real("Groundwater time constant")
+		[ 30 ]
+	}
+}
+
