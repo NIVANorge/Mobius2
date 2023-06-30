@@ -567,7 +567,10 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			specific_loc->restriction = Var_Loc_Restriction::bottom;
 		else if(type == "specific")
 			specific_loc->restriction = Var_Loc_Restriction::specific;
-		else {
+		else if(type == "below") {
+			specific_loc->restriction = Var_Loc_Restriction::below;
+			specific_loc->type == Var_Location::Type::connection;
+		} else {
 			bracketed[1].print_error_header();
 			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
 		}

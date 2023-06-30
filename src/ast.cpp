@@ -211,6 +211,11 @@ parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_uni
 				if((char)next.type == '[') { // Bracketed var location, e.g. layer.water[vertical.top]
 					stream->read_token();
 					read_chain(stream, '.', &arg->bracketed_chain);
+					auto next = stream->peek_token();
+					if((char)next.type == ',') {
+						stream->read_token();
+						read_chain(stream, '.', &arg->secondary_bracketed);
+					}
 					stream->expect_token(']');
 				}
 			}

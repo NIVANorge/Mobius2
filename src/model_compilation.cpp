@@ -1,4 +1,11 @@
 
+/*
+	This is the file that does all the really difficult stuff.
+	
+	TODO: Many functions here need a proper refactoring and cleanup!
+*/
+
+
 #include "model_application.h"
 #include "function_tree.h"
 #include "model_codegen.h"
@@ -1373,7 +1380,7 @@ Model_Application::compile(bool store_code_strings) {
 
 	resolve_index_set_dependencies(this, initial_instructions, true);
 	
-	// NOTE: state var inherits all index set dependencies from its initial code.
+	// NOTE: A state var inherits all index set dependencies from the code that computes its initial value.
 	for(auto var_id : vars.all_state_vars()) {
 		auto &init_idx = initial_instructions[var_id.id].index_sets;
 		
@@ -1408,7 +1415,7 @@ Model_Application::compile(bool store_code_strings) {
 			std::vector<int> vars_ode;
 			for(int var : batch.instrs) {
 				auto var_ref = this->vars[instructions[var].var_id];
-				// NOTE: if we override the conc or value of var, we instead compute the mass from the conc.
+				// NOTE: if we override the conc or value of var, it is not treated as an ODE variable, it is just computed directly
 				bool is_ode = false;
 				if(instructions[var].type == Model_Instruction::Type::compute_state_var && var_ref->type == State_Var::Type::declared) {
 					auto var2 = as<State_Var::Type::declared>(var_ref);
@@ -1509,7 +1516,7 @@ Model_Application::compile(bool store_code_strings) {
 	
 	is_compiled = true;
 
-/*
+#if 0
 	std::stringstream ss;
 	for(auto &instr : instructions) {
 		if(instr.code) {
@@ -1517,8 +1524,10 @@ Model_Application::compile(bool store_code_strings) {
 			ss << "\n";
 		}
 	}
-	warning_print(ss.str());
-*/
+	log_print(ss.str());
+#endif
+
+	// **** We don't need the tree representations of the code now that it is compiled into proper functions, so we can free them.
 
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
 	//    Has to do with the resizing of the instructions vector where instructions are moved, and it is tricky
@@ -1536,7 +1545,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 #ifndef MOBIUS_EMULATE
-	
+
 	delete initial_batch.run_code;
 	initial_batch.run_code = nullptr;
 	for(auto &batch : batches) {

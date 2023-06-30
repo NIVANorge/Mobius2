@@ -44,7 +44,17 @@
 		
 		Finish connection system
 		
-			Things could get an index set dependency from something like [connection.above], and this does not work if it is sub-indexed (then it should also get the parent index set).
+			Component index sets should probably be declared in the connection declaration in the model. It is too integral to how to model works to leave it to users.
+			
+			Have to figure out what something like
+					flux(blabla, something[vert.below], ...)				
+			means. Right now the location 'something' is not checked.
+				Need this for NIVAFjord
+			Maybe just make the syntax
+					flux(blabla, any[vert.below]
+			And this is what we do for all 'below' connection targets.
+				Could later extend it to have different code depending on the target (for graph and directed_tree).
+			
 		
 			Finish the simple hydraulics model.
 			
@@ -68,7 +78,7 @@
 					Would prefer to have this since it improves usability.
 					Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
 					
-				sub-indexed grid1d is still a mess.
+				allow 'top' to be the source of a flux (?)
 					
 			Specific target:
 				Properly process the @specific function tree, incl. flags

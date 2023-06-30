@@ -33,14 +33,14 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	vert   : connection
 ) {
 	
-	# Note: make it work with vert.top first so that we don't have to worry about the specific thing.
+	# Note: make it work with vert.top first so that we don't have to worry about the 'specific' thing.
 	flux(river.water, layer.water[horz.below, vert.top], [m 3, day-1], "River discharge to fjord") {
-		flow
+		flow->>
 	} #@specific { horz_target }
 	
 	#TODO: Only until we figure out where to move it.
-	flux(layer.water[vert.top], out, [m 3, day-1], "Horizontal flux equivalent removal") {
-		in_flux(horz, water)
+	flux(out, layer.water[vert.top], [k g, day-1], "Horizontal flux equivalent removal") {
+		-in_flux(horz, water)
 	}
 }
 

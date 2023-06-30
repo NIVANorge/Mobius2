@@ -2,6 +2,36 @@
 
 
 
+	# How do we do this:
+
+	flux(river.water, layer.water[horz.below, vert.top], [m 3, day-1], "River discharge to fjord") {
+		flow
+	}
+	
+	connection("Fjord horizontal", directed_graph) {
+		# yes, yes, indexes, but forget about them for now.
+		river? layer
+	}
+	#data
+	connection("Fjord horizontal") [
+		r : compartment("River")       [ "Subcatchment" ]
+		l : compartment("Fjord layer") [ "Basin index" ]
+	]
+	
+	# d'uh, this is the obvious solution, and it is already supported....
+	
+	# We then just have to make the secondary bracket force the index set (And index set dependency) of the target
+	
+	
+	# For the checks to be really thorough, we have to make sure the first bracket and second bracket don't have overlapping index sets.
+	
+
+	
+	
+	
+
+
+
 
 	# Maybe always have connection target of fluxes be explicit..
 	# instead of writing just 'downstream'.
