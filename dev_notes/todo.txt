@@ -44,6 +44,12 @@
 		
 		Finish connection system
 		
+			in_flux(connection, something) will some times depend on the indexes being ordered in the same way as in the connection graph.
+				Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
+				This is not solvable without remapping the indexes (or asking the user to reorder them).
+				Could detect if this happens and give an error, but that alone is a bit of work.
+					But that is needed if it happens in a graph with cycles.
+		
 			Component index sets should probably be declared in the connection declaration in the model. It is too integral to how to model works to leave it to users.
 			
 			Have to figure out what something like
