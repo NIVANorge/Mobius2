@@ -4,7 +4,7 @@ Can have a docstring to describe the dataset. This gets saved when you save the 
 
 index_set("Subcatchment") [ "DeGeerdalen" ]
 
-index_set("Patch") [ "Glaciers" "Valleys" "Hill1_100" "Hill2_300" "Hill3_500" "Hill4_700" "Hill5_900" ]
+index_set("Patch") [ "Glaciers" "Hill5_900" "Hill4_700" "Hill3_500" "Hill2_300" "Hill1_100" "Valleys" ]
 
 index_set("Aspect") [ "N" "S" "E/W" ]
 
@@ -16,26 +16,10 @@ connection("Downhill throughflow") [
 	s[ "Glaciers" ] -> river[ ]
 ]
 
-connection("Down glacier flow") [
-	g : compartment("Glacier") [ "Patch" ]
-	river : compartment("River") [ ]
-
-	g[ "Hill5_900" ] -> g[ "Hill4_700" ] -> g[ "Hill3_500" ] -> g[ "Hill2_300" ] -> g[ "Hill1_100" ] -> g[ "Valleys" ] -> river[ ]
-	g[ "Glaciers" ] -> river[ ]
-]
-
 connection("Downstream") [
 	r : compartment("River") [ "Subcatchment" ]
 
 	r[ "DeGeerdalen" ] -> out
-]
-
-connection("Downslope quickflow") [
-	q : compartment("Quick") [ "Patch" ]
-	river : compartment("River") [ ]
-
-	q[ "Hill5_900" ] -> q[ "Hill4_700" ] -> q[ "Hill3_500" ] -> q[ "Hill2_300" ] -> q[ "Hill1_100" ] -> q[ "Valleys" ] -> river[ ]
-	q[ "Glaciers" ] -> river[ ]
 ]
 
 series("Svalbard/DeGeerelva_met_carra_shift_pptn-1.xlsx")
@@ -60,17 +44,12 @@ par_group("Catchment data") {
 
 par_group("Patch data") [ "Patch" ] {
 	par_real("Relative area")
-	[ 0.2 0.14 0.09 0.2 0.2 0.12 0.05 ]
+	[ 0.2 0.05 0.12 0.2 0.2 0.09 0.14 ]
 }
 
 par_group("Aspect data") [ "Aspect" ] {
 	par_real("Aspect relative area")
 	[ 0.33 0.33 0.33 ]
-}
-
-par_group("Global melt parameters") {
-	par_real("Melt temperature")
-	[ 0 ]
 }
 
 module("Degree-day PET", 1, 0, 0) {
@@ -105,7 +84,7 @@ module("SimplyGlacier", 0, 0, 1) {
 		[ 1 ]
 
 		par_real("Relative degree-day ice melt")
-		[ 5 ]
+		[ 3.9 ]
 
 		par_real("Glacier accumulation coefficient")
 		[ 0.002 ]
@@ -121,26 +100,26 @@ module("SimplyGlacier", 0, 0, 1) {
 module("ArcticAtmosphere", 0, 0, 1) {
 	par_group("Elevation data") [ "Subcatchment" "Patch" ] {
 		par_real("Average elevation") [
-			625 94 151 305 481 678 843 
+			625 843 678 481 305 151 94 
 		]
 	}
 
 	par_group("Temperature correction") {
 		par_real("Temp lapse rate")
-		[ -0.0038 ]
+		[ -0.0055 ]
 	}
 }
 
 module("ArcticSnow", 0, 0, 1) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
-		[ 5 ]
+		[ 3 ]
 
 		par_real("Refreeze efficiency")
-		[ 1 ]
+		[ 0 ]
 
 		par_real("Liquid water fraction")
-		[ 0.1 ]
+		[ 0 ]
 
 		par_real("Initial snow depth (water equivalents)")
 		[ 0 ]
@@ -156,20 +135,20 @@ module("ArcticSnow", 0, 0, 1) {
 }
 
 module("SimplyQuickflow", 0, 0, 1) {
-	par_group("Quick flow") {
+	par_group("Global quick flow") {
 		par_real("Max infiltration proportion")
-		[ 0.8 ]
+		[ 0.9 ]
 	}
 }
 
 module("SimplyPermafrost", 0, 0, 1) {
 	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
 		par_real("Soil water time constant") [
-			2.5 2.5 2.5 2.5 2.5 2.5 2.5 
+			1 1 1 1 1 1 1 
 		]
 
 		par_real("Field capacity") [
-			100 150 50 50 50 50 50 
+			0 0 0 0 0 0 0 
 		]
 
 		par_real("Baseflow index") [
@@ -181,14 +160,14 @@ module("SimplyPermafrost", 0, 0, 1) {
 		par_real("Deep soil temperature")
 		[ -4 ]
 
-		par_real("Soil heat conduction divided by heat capacity")
-		[ 0.005 ]
+		par_real("Soil temp lag factor")
+		[ 0.1 ]
 
 		par_real("Thawing depth coefficient")
-		[ 1500 ]
+		[ 3500 ]
 
 		par_real("Snow insulation depth")
-		[ 2000 ]
+		[ 1000 ]
 	}
 
 	par_group("Groundwater") [ "Subcatchment" ] {
