@@ -17,6 +17,8 @@ Scope_Entity {
 	std::string handle;
 	Entity_Id id  = invalid_entity_id;
 	bool external = false;
+	bool was_referenced = false;
+	bool is_load_arg = false;
 	Source_Location source_loc;
 };
 
@@ -42,7 +44,7 @@ Decl_Scope {
 	
 	Entity_Id parent_id = invalid_entity_id; // Id of module or library this is the scope of. Invalid if it is the global or model scope.
 	
-	void add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
+	Scope_Entity *add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
 	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr, bool allow_recursive_import_params = false);
 	void check_for_missing_decls(Mobius_Model *model);
@@ -50,11 +52,14 @@ Decl_Scope {
 	
 	Scope_Entity *operator[](const std::string &handle) {
 		auto find = visible_entities.find(handle);
-		if(find != visible_entities.end())
+		if(find != visible_entities.end()) {
+			find->second.was_referenced = true;
 			return &find->second;
+		}
 		return nullptr;
 	}
 	
+	// TODO: The [Entity_Id] operator should return the reg instead (and that still allows you to access the handle)
 	const std::string& operator[](Entity_Id id) {
 		auto find = handles.find(id);
 		if(find == handles.end())

@@ -591,7 +591,7 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	Math_Expr_FT *result;
 	if(index_sets.empty()) result = make_literal((s64)0);
 	int sz = index_sets.size();
-	for(int idx = 0; idx < index_sets.size(); ++idx) {
+	for(int idx = 0; idx < sz; ++idx) {
 		auto &index_set = index_sets[idx];
 		Math_Expr_FT *index = indexes[index_set.id];
 		if(!index) {

@@ -5,14 +5,13 @@ module("EasyLake", version(0, 1, 0),
 	epi    : compartment,
 	hyp    : compartment,
 	water  : quantity,
-	ice    : quantity,
 	heat   : quantity,
 	temp   : property,
 	precip : property,
 	th     : property,
 	evap_mm : property,
 	A_surf : par_real,
-	epi_target : loc,
+	epi_target : loc
 ) {
 """
 This is a very simple lake model for use along with cathcment models.
@@ -91,10 +90,6 @@ The water balance part of the model is conceptually similar to VEMALA
 
 	lake_out :
 	flux(epi.water, epi_target, [m 3, day-1], "Lake outflow flux")                   {   flow ->>  }
-	
-	rho_ice    : constant("Ice density", [k g, m-3], 917)
-	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
-	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
 	
 	var(epi.water.heat, [J]) @initial {
 		water_temp_to_heat(water, t_epi)

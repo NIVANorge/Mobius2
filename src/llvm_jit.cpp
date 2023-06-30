@@ -753,7 +753,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 				fatal_error("This 'no_override' is not in a branch that could be resolved at compile time."); // TODO: should probably check for that before this.
 			} else if (ident->variable_type == Variable_Type::connection) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This handle refers to a connection, and should only appear in an expression as an argument to a special instruction like 'target'."); //TODO: Should we name the rest when they are implemented?
+				fatal_error("This handle refers to a connection, and should only appear in an expression as an argument to a special instruction like 'in_flux'."); //TODO: Should we name the rest when they are implemented?
 			} else {
 				fatal_error(Mobius_Error::internal, "Unhandled variable type in build_expression_ir().");
 			}

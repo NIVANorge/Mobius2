@@ -5,7 +5,7 @@ module("SimplySed", version(0, 6, 0),
 	water   : quantity,
 	sed     : quantity,
 	e_fact  : property,
-	a_catch : par_real,
+	a_catch : par_real
 ) {
 """
 This is a simple sediment transport module created as a part of SimplyP.

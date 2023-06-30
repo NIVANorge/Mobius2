@@ -4,7 +4,7 @@ module("Simply soil temperature", version(0, 1, 0),
 	soil     : compartment,
 	snow_box : compartment,
 	snow     : quantity,
-	temp     : property,
+	temp     : property
 ) {
 """
 This is a simplification of the soil temperature model developed for the INCA models.

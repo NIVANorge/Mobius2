@@ -29,7 +29,7 @@ model("EasyLake-SimplyQ") {
 	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
 	load("modules/airsea.txt",         module("AirSea", "AirSea Lake", air, epi, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn,
 											loc(A_surf), ht : loc(epi.water.heat), ht, loc(epi.water.temp)))
-	load("modules/easylake.txt",       module("EasyLake", air, epi, hyp, water, ice, heat, temp, precip, z_e, evap_mm, A_surf, loc(downstream)))
+	load("modules/easylake.txt",       module("EasyLake", air, epi, hyp, water, heat, temp, precip, z_e, evap_mm, A_surf, loc(downstream)))
 	
 	solve(simply_solver, epi.water, hyp.water, epi.ice)
 	

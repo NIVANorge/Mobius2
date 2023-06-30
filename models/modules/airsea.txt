@@ -21,7 +21,7 @@ module("AirSea", version(0, 1, 0),
 	A_surf            : loc,
 	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
 	top_water_heat_sw : loc, # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
-	top_water_temp    : loc,
+	top_water_temp    : loc
 ) {
 """
 Air-sea/lake heat fluxes are based off of

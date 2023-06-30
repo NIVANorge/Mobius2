@@ -183,50 +183,56 @@ parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_uni
 		return;
 
 	stream->read_token(); // Consume the '('
-		
+	
+	next = stream->peek_token();
+	if((char)next.type == ')') {
+		stream->read_token();
+		return;
+	}
+	
 	while(true) {
 		next = stream->peek_token();
 		
-		if((char)next.type == ')') {
-			stream->read_token();
-			break;
-		} else if(can_be_value_token(next.type) || (char)next.type == '[') {
-			Argument_AST *arg = new Argument_AST();
-			
-			Token peek = stream->peek_token(1);
-			
-			if(next.type == Token_Type::identifier) { // Identifier chain, declaration
-				if((char)peek.type == '(' || (char)peek.type == ':')
-					arg->decl = parse_decl(stream);
-				else {
-					read_chain(stream, '.', &arg->chain);
-					next = stream->peek_token();
-					if((char)next.type == '[') { // Bracketed var location, e.g. layer.water[vertical.top]
-						stream->read_token();
-						read_chain(stream, '.', &arg->bracketed_chain);
-						stream->expect_token(']');
-					}
-				}
-			} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type)) { // Literal values.
-				arg->chain.push_back(next);
-				stream->read_token();
-			} else if ((char)next.type == '[') { // Unit declaration
-				arg->decl = parse_decl(stream);
-			}
-			
-			decl->args.push_back(arg);
-			
-			next = stream->peek_token();
-			if((char)next.type == ',')
-				stream->read_token();
-			else if((char)next.type != ')') {
-				next.print_error_header();
-				fatal_error("Expected a ) or a ,");
-			}
-		} else {
+		if(!can_be_value_token(next.type) && (char)next.type != '[') {
 			next.print_error_header();
 			fatal_error("Misformatted declaration argument list."); //TODO: better error message.
 		}
+			
+		Argument_AST *arg = new Argument_AST();
+		
+		Token peek = stream->peek_token(1);
+		
+		if(next.type == Token_Type::identifier) { // Identifier chain, declaration
+			if((char)peek.type == '(' || (char)peek.type == ':')
+				arg->decl = parse_decl(stream);
+			else {
+				read_chain(stream, '.', &arg->chain);
+				next = stream->peek_token();
+				if((char)next.type == '[') { // Bracketed var location, e.g. layer.water[vertical.top]
+					stream->read_token();
+					read_chain(stream, '.', &arg->bracketed_chain);
+					stream->expect_token(']');
+				}
+			}
+		} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type)) { // Literal values.
+			arg->chain.push_back(next);
+			stream->read_token();
+		} else if ((char)next.type == '[') { // Unit declaration
+			arg->decl = parse_decl(stream);
+		} else {
+			fatal_error(Mobius_Error::internal, "Unreachable code.");
+		}
+		
+		decl->args.push_back(arg);
+		
+		next = stream->read_token();
+
+		if((char)next.type == ')') {
+			break;
+		} else if((char)next.type != ',') {
+			next.print_error_header();
+			fatal_error("Expected a ) or a ,");
+		} 
 	}
 }
 
@@ -676,7 +682,7 @@ potentially_parse_regex_quantifier(Token_Stream *stream, Math_Expr_AST *arg) {
 		
 	} else
 		return result;
-	// TODO: It doesn't really make sense to have these right after one another?
+	// TODO: It doesn't really make sense to have two quantifiers right after one another?
 	return potentially_parse_regex_quantifier(stream, result);
 }
 

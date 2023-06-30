@@ -306,12 +306,12 @@ set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Var_Loc_
 		fatal_error(Mobius_Error::internal, "Misuse of set_grid1d_target_indexes().");
 
 	auto index_set = app->get_single_connection_index_set(restriction.connection_id);
-
+	
 	auto prev_index = indexes.indexes[index_set.id];
 
-	if (restriction.restriction == Var_Loc_Restriction::top)
+	if (restriction.restriction == Var_Loc_Restriction::top) {
 		indexes.indexes[index_set.id] = make_literal((s64)0);
-	else if(restriction.restriction == Var_Loc_Restriction::bottom) {
+	} else if(restriction.restriction == Var_Loc_Restriction::bottom) {
 		auto count = get_index_count_code(app, index_set, indexes);
 		indexes.indexes[index_set.id] = make_binop('-', count, make_literal((s64)1));
 	} else if(restriction.restriction == Var_Loc_Restriction::specific) {
@@ -982,21 +982,21 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		}
 	
 	}
-	/*
-	warning_print("\nTree before prune:\n");
+#if 0
+	log_print("\nTree before prune:\n");
 	std::stringstream ss;
 	print_tree(app, top_scope, ss);
-	warning_print(ss.str());
-	warning_print("\n");
-	*/
+	log_print(ss.str());
+	log_print("\n");
+#endif
 	auto result = prune_tree(top_scope);
-	/*
-	warning_print("\nTree after prune:\n");
+#if 0
+	log_print("\nTree after prune:\n");
 	std::stringstream ss;
 	print_tree(app, result, ss);
-	warning_print(ss.str());
-	warning_print("\n");
-	*/
+	log_print(ss.str());
+	log_print("\n");
+#endif
 	
 	return result;
 }

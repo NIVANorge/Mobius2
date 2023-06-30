@@ -9,7 +9,7 @@ module("SimplyQ land", version(0, 5, 0),
 	pet   : property,
 	a_catch : par_real,
 	runoff_target : loc,
-	gw_target     : loc,
+	gw_target     : loc
 ) {
 """
 This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as

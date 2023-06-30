@@ -119,7 +119,7 @@ insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_
 }
 
 void
-insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep, int type, bool allow_matrix = true) {
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep, int type) {
 	
 	const std::vector<Entity_Id> *index_sets = nullptr;
 	if(type == 0)
@@ -162,6 +162,14 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 }
 
 void
+safe_insert_dependency(Mobius_Model *model, Model_Instruction *instruction, const Index_Set_Dependency &dep) {
+	auto sub_indexed_to = model->index_sets[dep.id]->sub_indexed_to;
+	if(is_valid(sub_indexed_to))
+		insert_dependency(instruction->index_sets, sub_indexed_to);
+	insert_dependency(instruction->index_sets, dep);
+}
+
+void
 resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
 	Mobius_Model *model = app->model;
@@ -195,6 +203,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 				// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
 					// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
 				// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
+
 				if(instr.type == Model_Instruction::Type::compute_state_var) {
 					auto conn = model->connections[dep.restriction.connection_id];
 					if(conn->type == Connection_Type::directed_graph) {
@@ -203,10 +212,12 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 						instr.index_sets.insert(comp->edge_index_set);
 					} else if(conn->type == Connection_Type::all_to_all) {
 						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-						instr.index_sets.insert({index_set, 2});   // NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
+						//instr.index_sets.insert({index_set, 2});   // NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
+						safe_insert_dependency(model, &instr, {index_set, 2});
 					} else if(conn->type == Connection_Type::grid1d) {
 						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-						instr.index_sets.insert(index_set);
+						safe_insert_dependency(model, &instr, index_set);
+						//instr.index_sets.insert(index_set);
 					} else
 						fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
 				}
@@ -215,6 +226,11 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 				instr.depends_on_instruction.insert(dep.var_id.id);
 				if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
 					instr.instruction_is_blocking.insert(dep.var_id.id);
+				
+				auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+				auto parent = app->model->index_sets[index_set]->sub_indexed_to;
+				if(is_valid(parent))
+					instr.index_sets.insert(parent);
 				
 			} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
 				auto var = app->vars[dep.var_id];
@@ -833,9 +849,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
 					add_to_aggr_instr->index_sets.insert(find_source->index_sets.begin(), find_source->index_sets.end());
 					if(conn_type == Connection_Type::directed_graph) {
-						add_to_aggr_instr->index_sets.insert(find_source->edge_index_set);
-						instructions[var_id_flux.id].index_sets.insert(find_source->index_sets[0]); // Need this one since the edge set depends on it.
-						instructions[var_id_flux.id].index_sets.insert(find_source->edge_index_set);
+						//add_to_aggr_instr->index_sets.insert(find_source->edge_index_set);
+						safe_insert_dependency(model, add_to_aggr_instr, find_source->edge_index_set);
+						safe_insert_dependency(model, &instructions[var_id_flux.id], find_source->edge_index_set);
 					}
 					
 					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate?
@@ -870,19 +886,32 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
 					
 					auto index_set = app->get_single_connection_index_set(var2->connection);
-					if(conn_type == Connection_Type::all_to_all)
-						add_to_aggr_instr->index_sets.insert({index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
-					else if(conn_type == Connection_Type::grid1d) {
+					
+					if(conn_type == Connection_Type::all_to_all) {
+						safe_insert_dependency(model, add_to_aggr_instr, {index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
+						//add_to_aggr_instr->index_sets.insert({index_set, 2}); 
+					} else if(conn_type == Connection_Type::grid1d) {
 						instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
 						
-						if(add_to_aggr_instr->restriction.restriction == Var_Loc_Restriction::below) {
-							add_to_aggr_instr->index_sets.insert(index_set);
+						auto type = add_to_aggr_instr->restriction.restriction;
+						
+						if(type == Var_Loc_Restriction::below) {
+							safe_insert_dependency(model, add_to_aggr_instr, index_set);
+							//add_to_aggr_instr->index_sets.insert(index_set);
 							
+							safe_insert_dependency(model, &instructions[var_id_flux.id], index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
 							// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
-							instructions[var_id_flux.id].index_sets.insert(index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
+							//instructions[var_id_flux.id].index_sets.insert(index_set);
+						} else if (type == Var_Loc_Restriction::top || type == Var_Loc_Restriction::bottom) {
+							auto parent = model->index_sets[index_set]->sub_indexed_to;
+							if(is_valid(parent))
+								safe_insert_dependency(model, add_to_aggr_instr, parent);
+						} else {
+							fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[var_id_flux]->name, ".");
 						}
 					}
-					instructions[var2->agg_for.id].index_sets.insert(index_set);
+					safe_insert_dependency(model, &instructions[var2->agg_for.id], index_set);
+					//instructions[var2->agg_for.id].index_sets.insert(index_set);
 					
 					// TODO: Is this still needed: ?
 					if(restriction.restriction == Var_Loc_Restriction::below)
@@ -1395,7 +1424,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
 	

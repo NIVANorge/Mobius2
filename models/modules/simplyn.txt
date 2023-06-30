@@ -1,13 +1,12 @@
 
 module("SimplyN", version(0, 0, 3),
-	air    : compartment,
 	soil   : compartment,
 	gw     : compartment,
 	river  : compartment,
 	water  : quantity,
 	din    : quantity,
 	sn     : quantity,
-	temp   : property,
+	temp   : property
 ) {
 """
 A simple dissolved inorganic nitrogen (DIN) model.

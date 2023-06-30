@@ -1,3 +1,7 @@
+"""
+This is for now wrong in that it doesn't include the entire catchment of the lake, only LAE03 (what is called "Inlet")
+"""
+
 index_set("Lake") [ "Langtjern" ]
 
 index_set("Landscape units") [ "Forest" ]

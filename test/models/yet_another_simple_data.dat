@@ -8,20 +8,20 @@ par_group("System") {
 	[ 2030-05-01 ]
 }
 
-module("TOC degradation", 1, 0, 0) {
+module("TOC degradation", version(1, 0, 0)) {
 	par_group("Pars") [ "I" ] {
 		par_real("Rate")
 		[ 0.2 ]
 	}
 }
 
-module("DIN degradation", 1, 0, 0) {
+module("DIN degradation", version(1, 0, 0)) {
 	par_group("Pars") [ "I" ] {
 		par_real("Rate")
 		[ 0.004 ]
 	}
 }
 
-module("A different simple module", 1, 0, 0) {
+module("A different simple module", version(1, 0, 0)) {
 }
 

@@ -1,75 +1,93 @@
 
 
+	*** High pri ***
 
-	Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
-		Ideally the entire system should be re-thought.
-
-	Finish NIVAFjord!!
-		horizontal fluxes.
-
-	The "loose depends" system is kind of iffy.
-		I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
-			This in particular may have been fixed now.
-	
-	Use get_symbol a few places where it could be needed.
-	
-	Finish connection system
-	
-		Finish the simple hydraulics model.
-		
-		graph and directed_tree
-			Must specify 'nowhere' in the regex for it to be an allowed target
+		The 'extend' system is just not that good.
+			- There are problems when you want to override something in the earlier model,
+			- There is a problem if two extended models declare the same symbol.
 			
-			Could have the graph types be singly_directed and multiply_directed (?). No specific need for what we now call a tree to not have cycles.
-		
-		The above requires finishing the entire regex thing.
-		
-		graph connections
-			More stress testing
-				Attaching data to edges
-					How does this work when edge indexes are not saved in the data set (data set code should maybe itself do the edge index generation (?))
+			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
+			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
 			
-			Check that the edge index set is OK (i.e. sub-indexed to the right thing).
-			Allow naming edges (?)
-			Make sure edge indexes are not saved to data set, but still make it work with parameter saving.
+			Maybe we could have an
+				if_main {
+				}
+			block. Things there are only processed if that model is loaded as the main one.
+				This rids us of the necessity to override model extensions.
+					Downside is that the extended model needs to know what other models want to override....... Hmmm...
+					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
 			
-			Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
-			
-			For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
-
-		all_to_all, grid1d:
-			
-			Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
-
-		What about:
-			accessing
-				something[above]    ( or below )
-			should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
-				Or maybe invalidate ( set to 0 ) just that particular expression ( though that is not as well defined ).
-			Does this give the correct result in all instances ?
-				Would prefer to have this since it improves usability.
-				Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
+			Could have an named_block("Name") { } block, and turn off blocks when extending
+				extend("simplyq_model.txt", "Name") turns off "Name".
 				
-		Specific target:
-			Properly process the @specific function tree, incl. flags
-			Check valid dependencies for the tree.
-				Have to think about what types of variables it is allowed to reference.
-			Tridiagonal distribution.
-			Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
-				This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
+				What about nested extensions in this system, and two models extend the same thing but disagree.
+					...nightmare...
+		Alternative: We just redeclare the entire model structure when that is necessary.
+
+
+		In NIVAFjord we get too many index sets for MobiView2 to handle.
+			Either organize edge index sets differently.
+			Or rethink the entire system
+				Hide index sets that are not active, for instance (and place the other selectors nicely).
+
+		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
+			Ideally the entire system should be re-thought.
+
+		Finish NIVAFjord!!
+			horizontal fluxes.
+			Requires double bracket for some types of target, e.g.   any.water[fjord_horz.below, fjord_vert.specific]   (Also maybe the 'any' )
+				Also the restriction of this to the layers that 'participate' in the edge of that connection.
+
+		The "loose depends" system is kind of iffy.
+			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
+				This in particular may have been fixed now.
 		
-		Dissolved fluxes -
-			make dissolvedes of negatives work for other types (all_to_all, graph (maybe) regular fluxes (maybe), but probably not directed tree).
+		Finish connection system
+		
+			Things could get an index set dependency from something like [connection.above], and this does not work if it is sub-indexed (then it should also get the parent index set).
+		
+			Finish the simple hydraulics model.
 			
-			
+			graph connections
 				
-	Consider renaming 'nowhere' to 'out' (both connection data and regular fluxes)
+				Allow naming edges (?)
+				
+				//Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
+				
+				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
+
+			all_to_all:
+				
+				Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
+
+			grid1d:
+				accessing
+					something[above]    ( or below )
+				should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
+				Does this give the correct result in all instances ?
+					Would prefer to have this since it improves usability.
+					Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
+					
+				sub-indexed grid1d is still a mess.
+					
+			Specific target:
+				Properly process the @specific function tree, incl. flags
+				Check valid dependencies for the tree.
+					Have to think about what types of variables it is allowed to reference.
+				Tridiagonal distribution.
+				Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
+					This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
+			
+			Dissolved fluxes -
+				make dissolvedes of negatives work for other types (graph (maybe) regular fluxes (maybe), but probably not directed tree).
+			
 	
 	*** Intermediate-pri ***
 	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
 			First iteration could be to just not display them, but still have them stored in the same place as everything else
+		Also a system for specifying different display variants (along with the code in MobiView2 to make use of that, which is the hard part).
 		
 		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
 			This would be a major change, but could create some speedup.
@@ -99,13 +117,10 @@
 				combine_unit(soil.water.oc.tox, [day-1])
 			This has to do with module reusability, could apply the module to quantities with different units.
 				
+		Use get_symbol a few places where it could be needed.
+			E.g. log_print_var_location .
 
 		More on module loading and the declaration format:
-			
-			The 'extend' system is just not that good. Will be problems when you want to override something in the earlier model,
-			or if two extended models load the same module (not a problem before, but will be if we allow multiple loads of the same module, which can then cause unintended duplicates)
-				With inlined modules 'seeing' their parent scope it is not that nice that extend_model puts a lot of stuff into that scope.
-				+ other reasons like overriding earlier declarations being difficult.
 				
 			Dynamic module choice (based on data set)
 				
@@ -174,7 +189,6 @@
 		
 		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
 		
-		In all_to_all and grid1d connection data in the data set, it should be sufficient to just provide the name of the index set.
 		
 		MobiView:
 		
@@ -182,8 +196,10 @@
 				stacked_share has a slow implementation.
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
 				Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
-				Normalized axis is weird when all of a series' values are 0.
+				Normalized axis needs to be more robust.
 				Flickering axis labels when scrolling.
+				
+				All-NaN line is broken (ScatterDraw bug - report to them!)
 				
 				"Network" plot for connections. Draw the network along with amount (of some quantity(ies)) as bar plot per node. Animate over time.
 					Maybe not just for connection, but for any graph of that quantity?
@@ -201,7 +217,6 @@
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
-				Finish graph views.
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.

@@ -4,7 +4,7 @@
 #include <sstream>
 #include "model_declaration.h"
 
-void
+Scope_Entity *
 Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id) {
 	
 	if(is_reserved(handle))
@@ -24,10 +24,14 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 	entity.id = id;
 	entity.external = false;
 	entity.source_loc = source_loc;
-	if(!handle.empty())
+	Scope_Entity *result = nullptr;
+	if(!handle.empty()) {
 		visible_entities[handle] = entity;
+		result = &visible_entities[handle];
+	}
 	handles[id] = handle;
 	all_ids.insert(id);
+	return result;
 }
 
 void
@@ -1048,7 +1052,7 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_I
 		if(!is_valid(index_set_id) && 
 			(connection->type == Connection_Type::directed_graph || connection->type == Connection_Type::grid1d || connection->type == Connection_Type::all_to_all)) {
 			
-			ident->index_set.print_error_header();
+			ident->source_loc.print_error_header();
 			fatal_error("Nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all' must have index sets assigned to them.");
 		}
 		connection->components.push_back({component_id, index_set_id});
@@ -1296,7 +1300,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 			decl->source_loc.print_error();
 			mobius_error_exit();
 		}
-		module->scope.add_local(handle, arg->decl->source_loc, load_id);
+		auto reg = module->scope.add_local(handle, arg->decl->source_loc, load_id);
+		reg->is_load_arg = true;
 	}
 	
 	// TODO: Order of processing could probably be simplified when the new module load system is finished.

@@ -3,7 +3,7 @@ module("Degree-day PET", version(1, 0, 0),
 	air  : compartment,
 	soil : compartment,
 	pet  : property,
-	temp : property,
+	temp : property
 ) {
 "This is a very simple potential evapotranspiration model using a linear relationship between PET and air temperature."
 	
@@ -22,7 +22,7 @@ module("Penman-Monteith PET", version(1, 0, 0),
 	snow_box : compartment,
 	snow     : quantity,
 	temp     : property,
-	pet      : property,
+	pet      : property
 	
 ) {
 	# TODO: Docstring

@@ -5,13 +5,15 @@ model("Yet another simple") {
 	
 	toc : quantity("TOC")
 	din : quantity("DIN")
+	
+	unused : quantity("Unused")
 
 	load("yet_another_simple_module.txt",
 		module("Degradation", "TOC degradation",
-			a, toc
+			a, toc, unused
 		),
 		module("Degradation", "DIN degradation",
-			a, din
+			a, din, unused
 		)
 	)
 	

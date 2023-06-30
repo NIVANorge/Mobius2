@@ -7,7 +7,7 @@ module("Atmospheric", version(0, 1, 0),
 	pressure : property,
 	a_hum    : property,
 	rho      : property,
-	lwd      : property,
+	lwd      : property
 ) {
 """
 Simple module for some common atmospheric attributes
