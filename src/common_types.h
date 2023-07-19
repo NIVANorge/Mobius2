@@ -288,14 +288,20 @@ operator==(const Var_Location &a, const Var_Location &b) {
 inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
 
 struct
-Var_Loc_Restriction {
-	Entity_Id        connection_id = invalid_entity_id;
+Single_Restriction {
+	Entity_Id connection_id = invalid_entity_id;
 	enum Restriction {
 		none, top, bottom, above, below, specific
 	}                restriction = Restriction::none;
+	
+	Single_Restriction() {}
+	Single_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
+};
 
-	Entity_Id        secondary_id;
-	Restriction      secondary_res = Restriction::none;
+struct
+Var_Loc_Restriction : Single_Restriction {
+	
+	Single_Restriction restriction2;
 
 	// NOTE: These two are only supposed to be used for tree and graph aggregates where the source/target could be ambiguous.
 	// TODO: It would be nice to be able to be able to remove these.
@@ -303,7 +309,7 @@ Var_Loc_Restriction {
 	Entity_Id        target_comp = invalid_entity_id;
 	
 	Var_Loc_Restriction() {};
-	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
+	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : Single_Restriction(connection_id, restriction) {}
 };
 
 inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {

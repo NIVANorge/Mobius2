@@ -300,7 +300,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 void
-set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Var_Loc_Restriction restriction, Math_Expr_FT *specific_target = nullptr) {
+set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Single_Restriction &restriction, Math_Expr_FT *specific_target = nullptr) {
 	
 	if(app->model->connections[restriction.connection_id]->type != Connection_Type::grid1d)
 		fatal_error(Mobius_Error::internal, "Misuse of set_grid1d_target_indexes().");
@@ -617,7 +617,7 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Entity_Id connection_id) {
+add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Var_Loc_Restriction &restriction) {
 	
 	auto model = app->model;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
@@ -633,14 +633,14 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 	
 	Index_Exprs new_indexes(model);
 	new_indexes.copy(indexes);
-	set_graph_target_indexes(app, new_indexes, connection_id, source_compartment, target_compartment);
+	set_graph_target_indexes(app, new_indexes, restriction.connection_id, source_compartment, target_compartment);
 	
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
 	
 	//warning_print("*** *** Codegen for connection ", app->vars[source_id]->name, " to ", app->vars[target_agg->connection_agg]->name, " using agg var ", app->vars[agg_id]->name, "\n");
 	
 	// Code for looking up the id of the target compartment of the current source.
-	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
+	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {restriction.connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
 	auto compartment_id = new Identifier_FT();
 	compartment_id->variable_type = Variable_Type::connection_info;
 	compartment_id->value_type = Value_Type::integer;
@@ -664,7 +664,7 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 }
 
 Math_Expr_FT *
-add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Entity_Id connection_id) {
+add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Var_Loc_Restriction &restriction) {
 	
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 
@@ -676,32 +676,45 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 		
 		Index_Exprs new_indexes(app->model);
 		new_indexes.copy(indexes);
-		set_all_to_all_target_indexes(app, new_indexes, connection_id);
+		set_all_to_all_target_indexes(app, new_indexes, restriction.connection_id);
 		agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
 	}
 	
 	return add_value_to_state_var(agg_id, agg_offset, value, '+'); // NOTE: it is a + regardless, since the subtraction happens explicitly when we use the value later.
 }
 
+void
+set_grid1d_target_indexes_for_flux(Model_Application *app, Index_Exprs &indexes, Single_Restriction &restriction, Var_Id flux_id) {
+	Math_Expr_FT *specific_target = nullptr;
+	if(restriction.restriction == Var_Loc_Restriction::specific) {
+		specific_target = copy(app->vars[flux_id]->specific_target.get());
+		put_var_lookup_indexes(specific_target, app, indexes); // TODO: Ooops, what happens if there are special restrictions on the lookups in this one? We may have to pre-process it instead.
+	}
+
+	set_grid1d_target_indexes(app, indexes, restriction, specific_target);
+}
+
 Math_Expr_FT *
 add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, Index_Exprs &indexes, Var_Loc_Restriction restriction) {
 	
 	auto model = app->model;
-	
-	std::vector<Math_Expr_FT *> target_indexes;
+
 	// NOTE: This is a bit of a hack. We should maybe have a source aggregate here instead, but that can cause a lot of unnecessary work and memory use for the model.
 	if(restriction.restriction == Var_Loc_Restriction::bottom)
 		value = make_unary('-', value);
 	
+	Index_Exprs new_indexes(model);
+	new_indexes.copy(indexes);
+	/*
 	Math_Expr_FT *specific_target = nullptr;
 	if(restriction.restriction == Var_Loc_Restriction::specific) {
 		specific_target = copy(app->vars[flux_id]->specific_target.get());
 		put_var_lookup_indexes(specific_target, app, indexes); // TODO: Ooops, what happens if there are special restrictions on the lookups in this one? We may have to pre-process it instead.
 	}
 	
-	Index_Exprs new_indexes(model);
-	new_indexes.copy(indexes);
 	set_grid1d_target_indexes(app, new_indexes, restriction, specific_target);
+	*/
+	set_grid1d_target_indexes_for_flux(app, new_indexes, restriction, flux_id);
 	
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
 
@@ -719,17 +732,36 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 	
 	auto connection = model->connections[restriction.connection_id];
 	
+	// TODO: This is only needed if we have a secondary restriction. A bit wasteful..
+	Index_Exprs new_indexes(model);
+	new_indexes.copy(indexes);
+	
+	if(!as<State_Var::Type::connection_aggregate>(app->vars[agg_id])->is_source 
+		&& restriction.restriction2.restriction != Var_Loc_Restriction::none) {
+			
+		auto conn2 = model->connections[restriction.restriction2.connection_id];
+		if(conn2->type != Connection_Type::grid1d) {
+			model->fluxes[as<State_Var::Type::declared>(app->vars[instr->var_id])->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("Currently we only support if the type of a connection in a secondary bracket is grid1d.");
+		}
+		
+		//log_print("Got here! ", app->vars[agg_id]->name, " ", app->vars[instr->var_id]->name, "\n");
+		//log_print("Got here! ", instr->debug_string(app), "\n");
+		
+		set_grid1d_target_indexes_for_flux(app, new_indexes, restriction.restriction2, instr->var_id);
+	}
+	
 	if(connection->type == Connection_Type::directed_tree || connection->type == Connection_Type::directed_graph) {
 		
-		return add_value_to_graph_agg(app, value, agg_id, instr->source_id, indexes, restriction.connection_id);
+		return add_value_to_graph_agg(app, value, agg_id, instr->source_id, new_indexes, restriction);
 		
 	} else if (connection->type == Connection_Type::all_to_all) {
 		
-		return add_value_to_all_to_all_agg(app, value, agg_id, indexes, restriction.connection_id);
+		return add_value_to_all_to_all_agg(app, value, agg_id, new_indexes, restriction);
 		
 	} else if (connection->type == Connection_Type::grid1d) {
 		
-		return add_value_to_grid1d_agg(app, value, agg_id, instr->var_id, indexes, restriction);
+		return add_value_to_grid1d_agg(app, value, agg_id, instr->var_id, new_indexes, restriction);
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");

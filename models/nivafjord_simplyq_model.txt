@@ -66,6 +66,6 @@ model("NIVAFjord-SimplyQ") {
 	
 	horz : connection("Fjord horizontal", directed_graph) { river[ol_idx]? layer[e_idx]* }  # and bnd_layer eventually.
 	
-	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", layer, river, water, flow, horz, vert))
+	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", layer, river, water, heat, salt, flow, horz, vert))
 
 }

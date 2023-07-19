@@ -663,16 +663,18 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->set_flag(State_Var::flux);
 			gen_flux->conc = gen_conc_id;
 			
-			// Hmm, this is a bit annoying.
+			// TODO: This is annoying. There should be a Specific_Var_Location::add_dissolved that preserves the restrictions.
 			gen_flux->loc1 = source;
 			gen_flux->loc1.connection_id = flux->loc1.connection_id;
-			gen_flux->loc2.restriction = flux->loc2.restriction;
+			gen_flux->loc1.restriction   = flux->loc1.restriction;
+			gen_flux->loc1.restriction2  = flux->loc1.restriction2;
 			
 			if(is_located(flux->loc2))
 				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
 			gen_flux->loc2.type = flux->loc2.type;
 			gen_flux->loc2.restriction = flux->loc2.restriction;
 			gen_flux->loc2.connection_id = flux->loc2.connection_id;
+			gen_flux->loc2.restriction2 = flux->loc2.restriction2;
 		}
 	}
 }

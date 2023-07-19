@@ -472,6 +472,30 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	return result;
 }
 
+void
+process_bracket(Mobius_Model *model, Decl_Scope *scope, std::vector<Token> &bracket, Single_Restriction &res, bool allow_bracket) {
+	if(bracket.size() == 2 && allow_bracket) {
+		
+		res.connection_id = model->connections.find_or_create(scope, &bracket[0]);
+		auto type = bracket[1].string_value;
+		if(type == "top")
+			res.restriction = Var_Loc_Restriction::top;
+		else if(type == "bottom")
+			res.restriction = Var_Loc_Restriction::bottom;
+		else if(type == "specific")
+			res.restriction = Var_Loc_Restriction::specific;
+		else if(type == "below")
+			res.restriction = Var_Loc_Restriction::below;
+		else {
+			bracket[1].print_error_header();
+			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
+		}
+	} else if(!bracket.empty()) {
+		bracket[0].print_error_header();
+		fatal_error("This bracketed restriction is either invalidly placed or invalidly formatted.");
+	}
+}
+
 // TODO: A lot of this function could be merged with similar functionality in function_tree.cpp
 void
 process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location,
@@ -485,8 +509,9 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		decl->args[which]->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
-	auto &symbol = decl->args[which]->chain;
-	auto &bracketed = decl->args[which]->bracketed_chain;
+	auto &symbol     = decl->args[which]->chain;
+	auto &bracketed  = decl->args[which]->bracketed_chain;
+	auto &bracketed2 = decl->args[which]->secondary_bracketed;
 	
 	int count = symbol.size();
 	bool is_out = false;
@@ -549,32 +574,18 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
 	}
 	
-	if (!allow_restriction && !bracketed.empty()) {
+	if(allow_restriction) {
+		bool allow_bracket = !is_out &&	(count >= 2 || (par_id && is_valid(*par_id))); // We can only have a bracket on something that is either a full var location or a parameter.
+		process_bracket(model, scope, bracketed, *specific_loc, allow_bracket);
+		process_bracket(model, scope, bracketed2, specific_loc->restriction2, allow_bracket);
+		
+		// TODO: Check that if the second one is valid, the first one has to be "below"
+		
+		if(specific_loc->restriction == Var_Loc_Restriction::below)
+			specific_loc->type = Var_Location::Type::connection;
+	} else if (!bracketed.empty()) {
 		bracketed[0].print_error_header();
 		fatal_error("A bracketed restriction on the location argument is not allowed in this context.");
-	}
-	
-	if(bracketed.size() == 2 && !is_out &&
-		(count >= 2 || (par_id && is_valid(*par_id)))) { // We can only have a bracket on something that is either a full var location or a parameter.
-		
-		specific_loc->connection_id = model->connections.find_or_create(scope, &bracketed[0]);
-		auto type = bracketed[1].string_value;
-		if(type == "top")
-			specific_loc->restriction = Var_Loc_Restriction::top;
-		else if(type == "bottom")
-			specific_loc->restriction = Var_Loc_Restriction::bottom;
-		else if(type == "specific")
-			specific_loc->restriction = Var_Loc_Restriction::specific;
-		else if(type == "below") {
-			specific_loc->restriction = Var_Loc_Restriction::below;
-			specific_loc->type == Var_Location::Type::connection;
-		} else {
-			bracketed[1].print_error_header();
-			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
-		}
-	} else if(!bracketed.empty()) {
-		bracketed[0].print_error_header();
-		fatal_error("This bracketed restriction is invalid.");
 	}
 }
 
