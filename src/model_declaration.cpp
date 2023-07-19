@@ -478,10 +478,8 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr) {
 	
 	Specific_Var_Location *specific_loc = nullptr;
-	if(allow_restriction) {
+	if(allow_restriction)
 		specific_loc = static_cast<Specific_Var_Location *>(location);
-		specific_loc->orig_scope_id = scope->parent_id;
-	}
 	
 	if(decl->args[which]->decl) {
 		decl->args[which]->decl->source_loc.print_error_header();
@@ -1894,7 +1892,6 @@ add_dissolved(const Var_Location &loc, Entity_Id quantity) {
 // NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the scope to get the names..
 void
 error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
-	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		error_print(model->get_symbol(loc.components[idx]), idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)
@@ -1902,7 +1899,6 @@ error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 
 void
 log_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
-	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		log_print(model->get_symbol(loc.components[idx]), idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)

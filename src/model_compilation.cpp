@@ -995,7 +995,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		}
 		bool is_connection = is_valid(restriction_of_flux(var).connection_id);
 		if(is_connection && has_aggregate)
-			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate");
+			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate: ", var->name);
 		
 		if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
 			Var_Id target_id = app->vars.id_of(loc2);
@@ -1486,7 +1486,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, true);
-	debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
 	
 	set_up_result_structure(this, batches, instructions);
 	

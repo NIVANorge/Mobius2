@@ -359,7 +359,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		
 		if(!location_indexes_below_location(app, dep_var->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error(Mobius_Error::model_building, "This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
+			fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
 		}
 	}
 }
@@ -724,15 +724,23 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	auto second = app->vars[app->vars.id_of(loc2)];
 	auto expected_unit = divide(second->unit, first->unit);
 	
-	Flux_Unit_Conversion_Data *found_conv = nullptr;
+	bool need_conv = !expected_unit.standard_form.is_fully_dimensionless();
 	
+	Flux_Unit_Conversion_Data *found_conv = nullptr;
+	bool found_conv_is_main = false;
+	
+	// TODO: This is ambiguous to what unit conversion is used if there is no "main" unit conversion, that is if it tries to get a unit conversion from something it is dissolved in,
+	//   there is currently no preference about what it would choose. It should however choose the "nearest neighbor".
 	for(auto &conv : source->unit_convs) {
 		Var_Location try_loc1 = loc1;
 		Var_Location try_loc2 = loc2;
+		
+		bool first = true;
 		while(true) {
 			if(found_conv && (found_conv->source.n_components > try_loc1.n_components || found_conv->target.n_components > try_loc2.n_components))
 				break;
 			if(try_loc1 == conv.source && try_loc2 == conv.target) {
+				if(first) found_conv_is_main = true;
 				found_conv = &conv;
 				break;
 			}
@@ -740,41 +748,42 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 				try_loc1 = remove_dissolved(try_loc1);
 				try_loc2 = remove_dissolved(try_loc2);
 			} else break;
+			first = false;
 		}
+		if(found_conv && found_conv_is_main) break;
 	}
-		
-	if(found_conv) {
-		auto ast   = found_conv->code;
-		auto scope = model->get_scope(found_conv->scope_id);
-		
-		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
-		res_data.restrictive_lookups = true;
-		res_data.source_compartment = loc1.first();
-		res_data.target_compartment = loc2.first();
-		
-		auto fun = resolve_function_tree(ast, &res_data);
-		unit_conv = make_cast(fun.fun, Value_Type::real);
-		
-		double conversion_factor;
-		if(!match(&fun.unit, &expected_unit.standard_form, &conversion_factor)) {
-			
-			// TODO: Not entirely sure what to do here. The problem happens for dissolvedes that don't want a unit conversion, but where what they are dissolved in has one.
-			//if(expected_unit.is_fully_dimensionless())
-			//	return nullptr;
-			
-			ast->source_loc.print_error_header();
-			fatal_error("Expected the unit of this unit_conversion expression to resolve to a scalar multiple of ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ". It should convert from ", first->unit.standard_form.to_utf8(), " to ", second->unit.standard_form.to_utf8(), ". The error happened when finding unit conversions for the flux \"", app->vars[flux_id]->name, "\".");
-		}
-		if(conversion_factor != 1.0)
-			unit_conv = make_binop('*', unit_conv, make_literal(conversion_factor));
-		
-		Specific_Var_Location loc = loc1;
-		check_valid_distribution_of_dependencies(app, unit_conv, loc);
-		
-	} else if(!expected_unit.standard_form.is_fully_dimensionless()) {
+	
+	// If we did not need a unit conversion for this one, but found one for something this is dissolved in, we ignore it.
+	if(!need_conv && !found_conv_is_main)
+		return unit_conv;
+	
+	if(!found_conv && need_conv) {
 		// TODO: Better error if it is a connection_aggregate, not a flux.
 		fatal_error(Mobius_Error::model_building, "The units of the source and target of the flux \"", app->vars[flux_id]->name, "\" are not the same, but no unit conversion are provided between them in the model.");
 	}
+	
+	auto ast   = found_conv->code;
+	auto scope = model->get_scope(found_conv->scope_id);
+	
+	Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
+	res_data.restrictive_lookups = true;
+	res_data.source_compartment = loc1.first();
+	res_data.target_compartment = loc2.first();
+	
+	auto fun = resolve_function_tree(ast, &res_data);
+	unit_conv = make_cast(fun.fun, Value_Type::real);
+	
+	double conversion_factor;
+	if(!match(&fun.unit, &expected_unit.standard_form, &conversion_factor)) {
+		
+		ast->source_loc.print_error_header();
+		fatal_error("Expected the unit of this unit_conversion expression to resolve to a scalar multiple of ", expected_unit.standard_form.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ". It should convert from ", first->unit.standard_form.to_utf8(), " to ", second->unit.standard_form.to_utf8(), ". The error happened when finding unit conversions for the flux \"", app->vars[flux_id]->name, "\".");
+	}
+	if(conversion_factor != 1.0)
+		unit_conv = make_binop('*', unit_conv, make_literal(conversion_factor));
+	
+	Specific_Var_Location loc = loc1;
+	check_valid_distribution_of_dependencies(app, unit_conv, loc); 
 	
 	return unit_conv;
 }
@@ -862,7 +871,7 @@ compose_and_resolve(Model_Application *app) {
 		
 		if(var->is_flux()) {
 			// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
-			var->unit_conversion_tree = std::unique_ptr<Math_Expr_FT>(get_unit_conversion(app, var->loc1, var->loc2, var_id));
+			var->unit_conversion_tree = owns_code(get_unit_conversion(app, var->loc1, var->loc2, var_id));
 			auto transported_id = invalid_var;
 			if(is_located(var->loc1)) transported_id = app->vars.id_of(var->loc1);
 			else if(is_located(var->loc2)) transported_id = app->vars.id_of(var->loc2);
@@ -1129,11 +1138,10 @@ compose_and_resolve(Model_Application *app) {
 			}
 		}
 		for(auto &pair : could_be_invalidated) {
-			if(pair.second) {
-				auto var = app->vars[pair.first];
-				var->set_flag(State_Var::invalid);
-				log_print("Invalidating \"", var->name, "\" due to both source or target being 'out' or overridden.\n");
-			}
+			if(!pair.second) continue;
+			auto var = app->vars[pair.first];
+			var->set_flag(State_Var::invalid);
+			log_print("Invalidating \"", var->name, "\" due to both source or target being 'out' or overridden.\n");
 		}
 	}
 	
@@ -1170,8 +1178,16 @@ compose_and_resolve(Model_Application *app) {
 		
 		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, var->loc1);
 		
-		if(!location_indexes_below_location(app, var->loc1, var->loc2, Specific_Var_Location(), exclude_index_set_from_loc))
+		if(!location_indexes_below_location(app, var->loc1, var->loc2, Specific_Var_Location(), exclude_index_set_from_loc)) {
+			// NOTE: This could happen if it is a located connection like "water[vert.top]". TODO: Make it possible to support this.
+			if(is_valid(var->loc2.connection_id)) {
+				auto &loc = model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc;
+				loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This flux would need a regular aggregate, but that is not currently supported for fluxes with a bracketed target.");
+			}
+			
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());
+		}
 	}
 	
 		

@@ -289,16 +289,20 @@ inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(
 
 struct
 Var_Loc_Restriction {
-	Entity_Id        connection_id;
+	Entity_Id        connection_id = invalid_entity_id;
 	enum Restriction {
 		none, top, bottom, above, below, specific
-	}                restriction;
+	}                restriction = Restriction::none;
 
-	// NOTE: These two are only supposed to be used for tree (and maybe later graph) aggregates where the source/target could be ambiguous.
+	Entity_Id        secondary_id;
+	Restriction      secondary_res = Restriction::none;
+
+	// NOTE: These two are only supposed to be used for tree and graph aggregates where the source/target could be ambiguous.
+	// TODO: It would be nice to be able to be able to remove these.
 	Entity_Id        source_comp = invalid_entity_id;
 	Entity_Id        target_comp = invalid_entity_id;
 	
-	Var_Loc_Restriction() : connection_id(invalid_entity_id), restriction(none) {};
+	Var_Loc_Restriction() {};
 	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
 };
 
@@ -313,7 +317,6 @@ Specific_Var_Location : Var_Location, Var_Loc_Restriction {
 	Specific_Var_Location(const Var_Location &loc) : Var_Location(loc), Var_Loc_Restriction() {}
 	Specific_Var_Location(const Var_Location &loc, const Var_Loc_Restriction &res) : Var_Location(loc), Var_Loc_Restriction(res) {}
 	//Specific_Var_Location(const Var_Loc_Restriction &res) : Var_Location(), Var_Loc_Restriction(res) {}
-	Entity_Id orig_scope_id = invalid_entity_id;
 };
 
 struct Index_T {
