@@ -35,8 +35,10 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
 	var(snow_box.water, [m m], "Snow water") #@initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
+	p_snow :
 	flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
 	
+	p_rain :
 	flux(out, snow_box.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
 	
 	melt :
@@ -50,6 +52,8 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 	
 	discrete_order {
 		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this module.
+		p_snow
+		p_rain
 		melt
 		refreeze
 		melt_runoff

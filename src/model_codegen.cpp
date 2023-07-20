@@ -687,6 +687,8 @@ void
 set_grid1d_target_indexes_for_flux(Model_Application *app, Index_Exprs &indexes, Single_Restriction &restriction, Var_Id flux_id) {
 	Math_Expr_FT *specific_target = nullptr;
 	if(restriction.restriction == Var_Loc_Restriction::specific) {
+		if(!app->vars[flux_id]->specific_target.get())
+			fatal_error(Mobius_Error::internal, "Did not find @specific code for ", app->vars[flux_id]->name, " even though it was expected.");
 		specific_target = copy(app->vars[flux_id]->specific_target.get());
 		put_var_lookup_indexes(specific_target, app, indexes); // TODO: Ooops, what happens if there are special restrictions on the lookups in this one? We may have to pre-process it instead.
 	}
@@ -705,15 +707,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	
 	Index_Exprs new_indexes(model);
 	new_indexes.copy(indexes);
-	/*
-	Math_Expr_FT *specific_target = nullptr;
-	if(restriction.restriction == Var_Loc_Restriction::specific) {
-		specific_target = copy(app->vars[flux_id]->specific_target.get());
-		put_var_lookup_indexes(specific_target, app, indexes); // TODO: Ooops, what happens if there are special restrictions on the lookups in this one? We may have to pre-process it instead.
-	}
 	
-	set_grid1d_target_indexes(app, new_indexes, restriction, specific_target);
-	*/
 	set_grid1d_target_indexes_for_flux(app, new_indexes, restriction, flux_id);
 	
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);

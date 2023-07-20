@@ -289,7 +289,7 @@ inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(
 
 struct
 Single_Restriction {
-	Entity_Id connection_id = invalid_entity_id;
+	Entity_Id        connection_id = invalid_entity_id;
 	enum Restriction {
 		none, top, bottom, above, below, specific
 	}                restriction = Restriction::none;
@@ -303,8 +303,8 @@ Var_Loc_Restriction : Single_Restriction {
 	
 	Single_Restriction restriction2;
 
-	// NOTE: These two are only supposed to be used for tree and graph aggregates where the source/target could be ambiguous.
-	// TODO: It would be nice to be able to be able to remove these.
+	// NOTE: These two are only supposed to be used for tree aggregates where the source/target could be ambiguous.
+	// TODO: It would be nice to be able to be able to remove these. Go over how they are used and see if not one could use a similar thing to directed_graph instead?
 	Entity_Id        source_comp = invalid_entity_id;
 	Entity_Id        target_comp = invalid_entity_id;
 	

@@ -579,7 +579,10 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		process_bracket(model, scope, bracketed, *specific_loc, allow_bracket);
 		process_bracket(model, scope, bracketed2, specific_loc->restriction2, allow_bracket);
 		
-		// TODO: Check that if the second one is valid, the first one has to be "below"
+		if(!bracketed2.empty() && specific_loc->restriction != Var_Loc_Restriction::below) {
+			bracketed2[0].print_error_header();
+			fatal_error("For now, if there is a second argument in the location bracket, the first one must be 'below'.");
+		}
 		
 		if(specific_loc->restriction == Var_Loc_Restriction::below)
 			specific_loc->type = Var_Location::Type::connection;
@@ -924,7 +927,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		decl->source_loc.print_error_header();
 		fatal_error("For now we only allow the target of a flux to have the 'specific' restriction");
 	}
-	bool has_specific_target = (flux->target.restriction == Var_Loc_Restriction::specific);
+	bool has_specific_target = (flux->target.restriction == Var_Loc_Restriction::specific) || (flux->target.restriction2.restriction == Var_Loc_Restriction::specific);
 	bool has_specific_code = false;
 	
 	if(decl->body)

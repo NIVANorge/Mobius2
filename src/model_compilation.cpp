@@ -744,6 +744,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			spec_instr->var_id = instr->var_id;
 			
 			instr->depends_on_instruction.insert(spec_idx);
+			
+			// TODO: We have to completely rethink how to do index set dependencies here.
+			
 			//TODO: Various index set dependencies.
 			
 			for(auto &arg : special->arguments) {
@@ -751,9 +754,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					spec_instr->depends_on_instruction.insert(arg.var_id.id);
 					spec_instr->instruction_is_blocking.insert(arg.var_id.id);
 					
-					instr->inherits_index_sets_from_instruction.insert(arg.var_id.id);
+					//instr->inherits_index_sets_from_instruction.insert(arg.var_id.id);
 				} else if (arg.variable_type == Variable_Type::parameter) {
-					insert_dependencies(app, instr->index_sets, arg, 0);
+					//insert_dependencies(app, instr->index_sets, arg, 0);
 				} else
 					fatal_error(Mobius_Error::internal, "Unexpected variable type for special_computation argument.");
 			}

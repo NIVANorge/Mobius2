@@ -44,6 +44,13 @@ library("Air-sea") {
 library("Seawater") {
 
 	# TODO: Put in the references!
+	
+	fr_t_s : constant("Ice formation temperature dependence", [deg_c], 0.056)
+	
+	ice_formation_temperature   : function(S : []) {
+		# Ice formation temperature as a function of salinity
+		-S*fr_t_s
+	}
 
 	seawater_dens_standard_mean : function(T : [deg_c]) {
 		a0 := 999.842594,

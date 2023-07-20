@@ -59,13 +59,15 @@ model("NIVAFjord-SimplyQ") {
 	#epi        : compartment("Epilimnion")
 	downstream : connection("Downstream", directed_tree) { river+ }
 	
-	rho_water : constant("Water density", [k g, m-3], 1000) #TODO: use water library
-	
-	unit_conversion(river.water, layer.water) { rho_water }
+	rho_water : constant("Water density", [k g, m-3], 1000)
+	unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
 	
 	
 	horz : connection("Fjord horizontal", directed_graph) { river[ol_idx]? layer[e_idx]* }  # and bnd_layer eventually.
 	
-	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", layer, river, water, heat, salt, flow, horz, vert))
-
+	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", layer, river, water, heat, salt, flow, rho, temp, horz, vert))
+	
+	
+	tracer : quantity("Tracer")
+	load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, river, water, tracer, vert, horz))
 }

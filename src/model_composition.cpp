@@ -1096,13 +1096,15 @@ compose_and_resolve(Model_Application *app) {
 	for(auto flux_id : app->vars.all_fluxes()) {
 		// We have to copy "specific target" to all dissolved child fluxes. We could not have done that before since the code was only just resolved above.
 		auto flux = app->vars[flux_id];
-		auto restriction = restriction_of_flux(flux);
-		if(restriction.restriction != Var_Loc_Restriction::specific || flux->type != State_Var::Type::dissolved_flux) continue;
+		if(flux->type != State_Var::Type::dissolved_flux) continue;
+		auto res = restriction_of_flux(flux);
+		if(res.restriction != Var_Loc_Restriction::specific && res.restriction2.restriction != Var_Loc_Restriction::specific) continue;
 		auto orig_flux = flux;
 		while(orig_flux->type == State_Var::Type::dissolved_flux)
 			orig_flux = app->vars[as<State_Var::Type::dissolved_flux>(orig_flux)->flux_of_medium];
 		if(!orig_flux->specific_target)
 			fatal_error(Mobius_Error::internal, "Somehow we got a specific restriction on a flux without specific target code.");
+		//log_print("Setting specific target for ", flux->name, "\n");
 		flux->specific_target = owns_code(copy(orig_flux->specific_target.get()));
 	}
 	

@@ -14,6 +14,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	g_rad     : property,
 	rho       : property,
 	attn      : property,
+	freeze_temp : property,
 	vert      : connection,
 	sw_vert   : connection,
 	A         : par_real
@@ -59,6 +60,8 @@ module("NIVAFjord basin", version(0, 0, 1),
 		#TODO: porosity
 	}
 	
+	var(basin.freeze_temp, [deg_c]) { ice_formation_temperature(layer.water.salinity[vert.top])	}
+	
 	z : property("Depth (nominal)")
 	
 	var(layer.z, [m]) {
@@ -68,18 +71,17 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(layer.water, [k g], "Layer water") @override { A*dz*rho_water }
 	
 	var(layer.water.salt, [k g], [g, k g-1], "Layer salt")
-		#@initial_conc { init_S }
-		#@initial_conc { bnd_layer.water.salinity =>> } #TODO: convert PSU to conc
-		@initial_conc { 35=>> }
+		#TODO: Initial conc
+		@initial_conc { 25=>> }
 	
 	var(layer.water.heat, [J], "Layer thermal energy") 
-		#.initial_conc { C_water * (init_T->[K]) }   #TODO: C_water should at least be salinity dependent
+		#TODO: C_water should at least be salinity dependent
 		@initial_conc { C_water * (temp -> [K]) }
 
 	var(layer.water.temp, [deg_c], "Layer temperature") {
 		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
 	} @initial {
-		#bnd_layer.water.temp
+		#TODO: Initial temp
 		5=>>
 	}
 	
@@ -88,12 +90,11 @@ module("NIVAFjord basin", version(0, 0, 1),
 		conc(salt)=>[] # TODO: Convert salinity to PSU
 	}
 	
-	dens : property("Density") {
-		seawater_pot_dens(temp, salinity)
-	}
 	above_p : property("Above pressure")
 	
-	var(layer.water.dens, [k g, m-3], "Potential density")
+	var(layer.water.rho, [k g, m-3], "Potential density") {
+		seawater_pot_dens(temp, salinity)
+	}
 	
 	# TODO: When we make a change so that accessing vert.above does not zero out the entire equation, we won't need this one.
 	var(layer.water.above_p, [Pa]) {    accum_pressure[vert.above]   }
@@ -107,18 +108,18 @@ module("NIVAFjord basin", version(0, 0, 1),
 	wmix           : property("Water mixing")
 	
 	var(layer.water.accum_pressure, [Pa]) {
-		above_p + dens*grav*dz
+		above_p + rho*grav*dz
 	}
 	
 	var(layer.water.ddens, [k g, m-3]) {
-		(dens[vert.below]-dens)
+		(rho[vert.below]-rho)
 		#0.5*(below(vert, dens)-above(vert, dens))
 		#(dens - above(vert, dens))
 	}
 	
 	var(layer.water.Nfreq, [s-1]) {
 		mdz := 0.5*(dz + dz[vert.below]),
-		N2 := grav * ddens / (mdz*dens),
+		N2 := grav * ddens / (mdz*rho),
 		sqrt(max(Nmin^2, N2))
 	}
 	
@@ -134,7 +135,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.wmix, [k g, day-1]) {
 		K := Kt + Ks + Kw,#+Kd,              # Maybe make the sum of the mixing coefficients a separate state variable.
-		dens * A * K / dz ->>
+		rho * A * K / dz ->>
 	}
 	
 	stress         : property("Wind stress")
@@ -152,7 +153,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	#TODO: need to take into account of B_s in the fjord model document (?)
 	var(basin.emix, [J], "Total wind mixing energy") {
-		A[vert.top]*sqrt(stress^3/layer.water.dens[vert.top])*time.step_length_in_seconds
+		A[vert.top]*sqrt(stress^3/layer.water.rho[vert.top])*time.step_length_in_seconds
 	}
 	
 	var(layer.water.sumV, [m 3]) {

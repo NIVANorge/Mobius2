@@ -1,28 +1,6 @@
 
 
 
-module("NIVAFjord horizontal target", version(0, 0, 1),
-	source : compartment,  # Should be passed as  layer, bnd_layer or outlet (or something like that).
-	edge   : compartment,
-	water  : quantity,
-	dens   : property,
-	horz_target : property,
-	w_bnd  : par_real
-) {
-
-	#TODO: The horz_target should be a property of the edge instead. Then we need one going in both directions, but that is fine.
-	# Could have <-> or just -  operator in the graph data.
-	
-	var(edge.water.horz_target, [])
-	
-	#TODO: Need to somehow make 
-	special_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge.water.horz_target) {
-		water.dens[horz.below]
-		water.dens
-		w_bnd   # Should be on the edge.
-	}
-}
-
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	layer  : compartment,
 	river  : compartment,
@@ -30,24 +8,59 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	heat   : quantity,
 	salt   : quantity,
 	flow   : property,
-	#horz_target : property,
+	rho    : property,
+	temp   : property,
 	horz   : connection,
 	vert   : connection
 ) {
+
+	load("stdlib/seawater.txt", library("Seawater"))
+
+	vert_target : property("Fjord vertical exchange target")
 	
-	# Note: make it work with vert.top first so that we don't have to worry about the 'specific' thing.
-	flux(river.water, layer.water[horz.below, vert.top], [m 3, day-1], "River discharge to fjord") {
+	var(river.vert_target, [], "River vertical target")
+	
+	#TODO:
+		# Need to implement a proper way to specify over what index sets this is computed and over what index set(s) the arguments are.
+		# Something like
+		/*
+			# river_to_fjord is a compartment indexed over the edge index set for river on horz (?)
+			special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", river_to_fjord) {
+				result(river.vert_target)
+				river.water.rho
+				layer.water.rho[horz.below]
+			}
+		*/
+		# And it needs to be smarter with providing the counts and strides in the Special_Indexed_Variable than it is now.
+		
+	special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", river.vert_target) {
+		river.water.rho
+		layer.water.rho[horz.below]
+	}
+	
+	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
 		flow->>
-	} #@specific { horz_target }
+	} @specific { vert_target }
 	
 	#TODO: Only until we figure out how to do this properly
-	flux(out, layer.water.heat[vert.top], [J, day-1], "Horizontal flux heat equivalent removal") {
-		-in_flux(horz, layer.water[vert.top])*conc(heat[vert.top])
+	flux(out, layer.water.heat, [J, day-1], "Horizontal flux heat equivalent removal") {
+		-in_flux(horz, layer.water)*conc(heat)
 	}
-	flux(out, layer.water.salt[vert.top], [k g, day-1], "Horizontal flux salt equivalent removal") {
-		-in_flux(horz, layer.water[vert.top])*conc(salt[vert.top])->>
+	flux(out, layer.water.salt, [k g, day-1], "Horizontal flux salt equivalent removal") {
+		-in_flux(horz, layer.water)*conc(salt)->>
 	}
 	
+	var(river.water.salt, [k g]) @override_conc { 0=>> }
+	
+	salin : property("Salinity") #TODO: Import it.
+	var(river.water.salin, []) {
+		rho_water := 1000[k g, m-3],
+		(salt/(rho_water*water))*1000
+	}
+	
+	var(river.water.rho, [k g, m-3]) {
+		seawater_pot_dens(temp, salin)
+	}
 }
 
 
