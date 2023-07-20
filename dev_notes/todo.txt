@@ -2,9 +2,6 @@
 
 	*** High pri ***
 
-		Something wrong with operator precedence of *, /
-			a/b*c vs (a/b)*c
-
 		The 'extend' system is just not that good.
 			- There are problems when you want to override something in the earlier model,
 			- There is a problem if two extended models declare the same symbol.
