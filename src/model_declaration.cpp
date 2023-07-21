@@ -498,20 +498,20 @@ process_bracket(Mobius_Model *model, Decl_Scope *scope, std::vector<Token> &brac
 
 // TODO: A lot of this function could be merged with similar functionality in function_tree.cpp
 void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location,
-	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr) {
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
+	bool allow_unspecified, bool allow_restriction, Entity_Id *par_id) {
 	
 	Specific_Var_Location *specific_loc = nullptr;
 	if(allow_restriction)
 		specific_loc = static_cast<Specific_Var_Location *>(location);
 	
-	if(decl->args[which]->decl) {
-		decl->args[which]->decl->source_loc.print_error_header();
+	if(arg->decl) {   // Hmm, this disallows inlined loc() declarations, but those are nonsensical anyway.
+		arg->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
-	auto &symbol     = decl->args[which]->chain;
-	auto &bracketed  = decl->args[which]->bracketed_chain;
-	auto &bracketed2 = decl->args[which]->secondary_bracketed;
+	auto &symbol     = arg->chain;
+	auto &bracketed  = arg->bracketed_chain;
+	auto &bracketed2 = arg->secondary_bracketed;
 	
 	int count = symbol.size();
 	bool is_out = false;
@@ -853,7 +853,7 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 		var->var_name = var_name->string_value;
 	}
 
-	process_location_argument(model, scope, decl, 0, &var->var_location);	
+	process_location_argument(model, scope, decl->args[0], &var->var_location);	
 	
 	var->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
 	
@@ -915,8 +915,8 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
-	process_location_argument(model, scope, decl, 0, &flux->source, true, true);
-	process_location_argument(model, scope, decl, 1, &flux->target, true, true);
+	process_location_argument(model, scope, decl->args[0], &flux->source, true, true);
+	process_location_argument(model, scope, decl->args[1], &flux->target, true, true);
 	
 	if(flux->source == flux->target && is_located(flux->source)) {
 		decl->source_loc.print_error_header();
@@ -1008,22 +1008,16 @@ template<> Entity_Id
 process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	// NOTE: Since we disambiguate entities on their name right now, we can't let the name and function_name be the same in case you want to reuse the same function many times.
 	//    could be fixed if/when we make the new module loading / scope system.
-	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::identifier }}, false, -1);
+	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::compartment }}, false, -1);
 	
 	auto id = model->special_computations.standard_declaration(scope, decl);
 	auto comp = model->special_computations[id];
 	
 	comp->function_name = single_arg(decl, 1)->string_value;
-	process_location_argument(model, scope, decl, 2, &comp->target);
+	comp->component = resolve_argument<Reg_Type::component>(model, scope, decl, 2);
 	
 	auto body = static_cast<Function_Body_AST *>(decl->body);
-	bool success = true;
-	for(auto expr : body->block->exprs) {
-		if(expr->type != Math_Expr_Type::identifier) {
-			body->opens_at.print_error_header();
-			fatal_error("A 'special_computation' body should just contain a list of identifiers.");
-		}
-	}
+	
 	comp->code = body->block;
 	
 	return id;
@@ -1137,7 +1131,7 @@ process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	auto id  = model->locs.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto loc = model->locs[id];
 	
-	process_location_argument(model, scope, decl, 0, &loc->loc, true, true, &loc->par_id);
+	process_location_argument(model, scope, decl->args[0], &loc->loc, true, true, &loc->par_id);
 	
 	return id;
 }
@@ -1463,7 +1457,7 @@ process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		Var_Location loc;
-		process_location_argument(model, scope, decl, idx, &loc);
+		process_location_argument(model, scope, decl->args[idx], &loc);
 		
 		if(loc.is_dissolved()) {
 			decl->args[idx]->chain[0].source_loc.print_error_header(Mobius_Error::model_building);
@@ -1531,8 +1525,8 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	Flux_Unit_Conversion_Data data = {};
 	
-	process_location_argument(model, scope, decl, 0, &data.source);
-	process_location_argument(model, scope, decl, 1, &data.target);
+	process_location_argument(model, scope, decl->args[0], &data.source);
+	process_location_argument(model, scope, decl->args[1], &data.target);
 	data.code = static_cast<Function_Body_AST *>(decl->body)->block;
 	data.scope_id = scope->parent_id;
 	

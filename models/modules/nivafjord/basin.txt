@@ -8,6 +8,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	salt      : quantity,
 	heat      : quantity,
 	temp      : property,
+	salinity  : property,
 	precip    : property,
 	pressure  : property, # TODO: Should use this instead of "accumulated_pressure" ?
 	wind      : property,
@@ -85,7 +86,6 @@ module("NIVAFjord basin", version(0, 0, 1),
 		5=>>
 	}
 	
-	salinity : property("Salinity")
 	var(layer.water.salinity, [], "Layer salinity") {
 		conc(salt)=>[] # TODO: Convert salinity to PSU
 	}
@@ -185,7 +185,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	}
 	
 	flux(layer.water, vert, [k g, day-1], "Water mixing down") { wmix }
-	flux(layer.water, vert, [k g, day-1], "Water mixing up") { -wmix }
+	flux(layer.water, vert, [k g, day-1], "Water mixing up")   { -wmix }
 	
 	var(layer.water.attn, []) {
 		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.

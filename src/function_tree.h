@@ -43,6 +43,7 @@ Identifier_Data {
 		in_flux     = 0x2,
 		aggregate   = 0x4,
 		conc        = 0x8,
+		result      = 0x16,
 	}                            flags;
 	Var_Loc_Restriction          restriction;
 	Entity_Id                    other_connection;
@@ -50,6 +51,10 @@ Identifier_Data {
 		Entity_Id                par_id;
 		Var_Id                   var_id;
 	};
+	
+	void set_flag(Flags flag)   { flags = (Flags)(flags | flag); }
+	void remove_flag(Flags flag) { flags = (Flags)(flags & ~flag); }
+	bool has_flag(Flags flag)   { return flags & flag; }
 	
 	Identifier_Data() : flags(Flags::none), other_connection(invalid_entity_id) { };
 };
@@ -123,7 +128,6 @@ struct
 Special_Computation_FT : Math_Expr_FT {
 	std::string                  function_name;
 	
-	Var_Id                       target;
 	std::vector<Identifier_Data> arguments;
 	
 	Special_Computation_FT() : Math_Expr_FT(Math_Expr_Type::special_computation) { }
@@ -161,6 +165,7 @@ Function_Resolve_Data {
 	bool                         restrictive_lookups = false;
 	bool                         allow_in_flux       = true;
 	bool                         allow_no_override   = false;
+	bool                         allow_result        = false;
 	
 	// For unit_conversion and aggregation_weight :
 	Entity_Id                    source_compartment = invalid_entity_id;

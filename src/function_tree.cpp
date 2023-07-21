@@ -620,13 +620,20 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		fatal_error_trace(scope);
 	}
 	if(directive == Directive::last)
-		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::last_result);
+		ident->set_flag(Identifier_FT::last_result);
 	else if(directive == Directive::in_flux)
-		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::in_flux);
+		ident->set_flag(Identifier_FT::in_flux);
 	else if(directive == Directive::aggregate)
-		ident->flags = (Identifier_FT::Flags)(ident->flags | Identifier_FT::Flags::aggregate);
+		ident->set_flag(Identifier_FT::aggregate);
+	else if(directive == Directive::result)
+		ident->set_flag(Identifier_FT::result);
 	else if(directive == Directive::conc) {
 		//Do nothing, we can solve it directly.
+	}
+	
+	if(directive == Directive::result && !data->allow_result) {
+		new_fun->source_loc.print_error_header();
+		error_print("A 'result' is now allowed in this context.");
 	}
 	
 	if(directive == Directive::in_flux) {
@@ -1542,7 +1549,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			
 			bool close = false;
 			//TODO: name state_var, series and parameter
-			if(ident->flags & Identifier_FT::Flags::last_result) {  // Not sure if necessary to print other flags as they would have affected something else that is printed any way.
+			if(ident->has_flag(Identifier_FT::last_result)) {  // Not sure if necessary to print other flags as they would have affected something else that is printed any way.
 				close = true;
 				os << "last(";
 			}

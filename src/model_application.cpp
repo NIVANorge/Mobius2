@@ -1329,6 +1329,8 @@ Model_Application::serialize(Var_Id id) {
 			ss << (var2->is_source ? "source@" : "target@");
 			ss << model->serialize(var2->connection) << '@';
 			serialize_loc(model, ss, agg_for->loc1);
+		} else if(var->type == State_Var::Type::special_computation) {
+			ss << "special_computation@" << var->name;
 		} else
 			fatal_error(Mobius_Error::internal, "Unsupported State_Var::Type in serialize()");
 		return ss.str();

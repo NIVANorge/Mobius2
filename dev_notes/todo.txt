@@ -29,6 +29,8 @@
 			Either organize edge index sets differently.
 			Or rethink the entire system
 				Hide index sets that are not active, for instance (and place the other selectors nicely).
+			Or make a few more, but will not solve problem long term (?)
+			Or select edge by selecting what it is pointing at (?).
 
 		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
 			Ideally the entire system should be re-thought.

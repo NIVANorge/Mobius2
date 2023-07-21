@@ -39,6 +39,4 @@ model("EasyLake-SimplyQ") {
 	distribute(epi, lake_index)
 	distribute(hyp, lake_index)
 	
-	# NOTE: Just update the regex for the compartments.
-	# override(downstream) { (river|epi)* }
 }

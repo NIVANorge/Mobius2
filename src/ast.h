@@ -46,7 +46,6 @@ Argument_AST : Expr_AST {
 	~Argument_AST();
 };
 
-#if 1
 struct
 Decl_Base_AST : Expr_AST {
 	Token                        decl;
@@ -66,21 +65,6 @@ Decl_AST : Decl_Base_AST {
 	
 	virtual ~Decl_AST() { for(auto note : notes) delete note; }
 };
-#else
-
-struct
-Decl_AST : Expr_AST {
-	Token                        handle_name;
-	Source_Location              source_loc;
-	Decl_Type                    type;
-	
-	std::vector<Argument_AST *>  args;
-	std::vector<Body_AST *>      bodies;
-	
-	~Decl_AST() { for(auto arg : args) delete arg; for(auto body : bodies) delete body; }
-};
-
-#endif
 
 struct
 Decl_Body_AST : Body_AST {

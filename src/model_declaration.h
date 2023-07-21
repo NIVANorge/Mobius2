@@ -223,7 +223,10 @@ Entity_Registration<Reg_Type::discrete_order> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
 	std::string      function_name;
-	Var_Location     target;
+	
+	// TODO: May need a vector of components
+	Entity_Id        component;
+	
 	Math_Block_AST  *code;
 };
 
@@ -473,6 +476,10 @@ enum_int_value(Entity_Registration<Reg_Type::parameter> *reg, const std::string 
 		return (s64)(find - reg->enum_values.begin());
 	return -1;
 }
+
+void
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
+	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr);
 
 // TODO: these could be moved to common_types.h (along with impl.)
 Var_Location

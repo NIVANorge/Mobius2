@@ -4,9 +4,11 @@
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	layer  : compartment,
 	river  : compartment,
+	outlet : compartment,
 	water  : quantity,
 	heat   : quantity,
 	salt   : quantity,
+	salin  : property,
 	flow   : property,
 	rho    : property,
 	temp   : property,
@@ -23,20 +25,22 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	#TODO:
 		# Need to implement a proper way to specify over what index sets this is computed and over what index set(s) the arguments are.
 		# Something like
-		/*
-			# river_to_fjord is a compartment indexed over the edge index set for river on horz (?)
-			special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", river_to_fjord) {
-				result(river.vert_target)
-				river.water.rho
-				layer.water.rho[horz.below]
-			}
-		*/
-		# And it needs to be smarter with providing the counts and strides in the Special_Indexed_Variable than it is now.
 		
-	special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", river.vert_target) {
+			# outlet is a compartment indexed over the edge index set for river on horz (?)
+	special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", outlet) {
+		result(river.vert_target)
 		river.water.rho
 		layer.water.rho[horz.below]
 	}
+		
+		# And it needs to be smarter with providing the counts and strides in the Special_Indexed_Variable than it is now.
+	
+	/*
+	special_computation("Place river flux to fjord", "nivafjord_place_river_flux", river.vert_target) {
+		river.water.rho
+		layer.water.rho[horz.below]
+	}
+	*/
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
 		flow->>
@@ -50,9 +54,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		-in_flux(horz, layer.water)*conc(salt)->>
 	}
 	
+	# TODO: Could have a SimplyCl module
 	var(river.water.salt, [k g]) @override_conc { 0=>> }
 	
-	salin : property("Salinity") #TODO: Import it.
 	var(river.water.salin, []) {
 		rho_water := 1000[k g, m-3],
 		(salt/(rho_water*water))*1000
@@ -61,6 +65,14 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(river.water.rho, [k g, m-3]) {
 		seawater_pot_dens(temp, salin)
 	}
+	
+	/*
+	var(layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
+	
+	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", layer.vert_target) {
+		
+	}
+	*/
 }
 
 

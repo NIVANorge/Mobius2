@@ -584,7 +584,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			fun = var2->function_tree.get();
 			if(initial) fun = var2->initial_function_tree.get();
-			if(!initial && !fun) {
+			if(!initial && !fun && !is_valid(var2->special_computation)) {
 				if(var2->decl_type != Decl_Type::quantity) // NOTE: quantities typically don't have code associated with them directly (except for the initial value)
 					fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			}
@@ -614,13 +614,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(!instr->code) continue;
 			
 			create_initial_vars_for_lookups(app, instr->code, instructions);
-			
-			/*
-			auto var = app->vars[var_id];
-			if(var->type == State_Var::Type::regular_aggregate) {
-				
-			}
-			*/
 		}
 	}
 	
@@ -728,31 +721,31 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		auto var_solver = instr->solver;
 		
-		if(instr->code && instr->code->expr_type == Math_Expr_Type::special_computation) {
-			auto special = static_cast<Special_Computation_FT *>(instr->code);
+		if(var->type == State_Var::Type::special_computation) {
 			
-			int spec_idx = instructions.size();
-			instructions.emplace_back();
+			instr->type = Model_Instruction::Type::special_computation;
 			
-			auto instr      = &instructions[var_id.id];  // Have to refetch it because of resized array.
-			auto spec_instr = &instructions[spec_idx];
+			auto var2 = as<State_Var::Type::special_computation>(var);
+			auto special = model->special_computations[var2->decl_id];
 			
-			spec_instr->code = instr->code;
-			instr->code = nullptr;
-			spec_instr->type = Model_Instruction::Type::special_computation;
-			spec_instr->solver = var_solver;
-			spec_instr->var_id = instr->var_id;
+			// TODO: Check for solver conflicts.
+			for(auto target_id : var2->targets) {
+				auto &target = instructions[target_id.id];
+				instr->solver = target.solver;
+				target.depends_on_instruction.insert(var_id.id);
+			}
 			
-			instr->depends_on_instruction.insert(spec_idx);
-			
-			// TODO: We have to completely rethink how to do index set dependencies here.
+			instr->code = copy(var2->code.get());
 			
 			//TODO: Various index set dependencies.
+			auto code = static_cast<Special_Computation_FT *>(instr->code);
 			
-			for(auto &arg : special->arguments) {
+			for(auto &arg : code->arguments) {
+				if(arg.has_flag(Identifier_Data::result)) continue;
+				
 				if(arg.variable_type == Variable_Type::state_var) {
-					spec_instr->depends_on_instruction.insert(arg.var_id.id);
-					spec_instr->instruction_is_blocking.insert(arg.var_id.id);
+					instr->depends_on_instruction.insert(arg.var_id.id);
+					instr->instruction_is_blocking.insert(arg.var_id.id);
 					
 					//instr->inherits_index_sets_from_instruction.insert(arg.var_id.id);
 				} else if (arg.variable_type == Variable_Type::parameter) {
@@ -760,6 +753,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				} else
 					fatal_error(Mobius_Error::internal, "Unexpected variable type for special_computation argument.");
 			}
+			
+			continue;
 		}
 		
 		if(is_aggregate) {

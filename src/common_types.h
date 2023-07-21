@@ -261,7 +261,7 @@ Var_Location {
 	enum class Type : s32 {
 		out=0, located, connection,
 	}   type;
-	s32 n_components;         //NOTE: it is here for better packing.
+	s32 n_components = 0;         //NOTE: it is here for better packing.
 	Entity_Id components[max_var_loc_components];
 	
 	const Entity_Id &first() const { return components[0]; }

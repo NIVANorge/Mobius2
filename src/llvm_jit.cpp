@@ -602,8 +602,7 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *>
 	
 	auto special = static_cast<Special_Computation_FT *>(expr);
 	
-	// NOTE: the first call argument is currently the "return" value of the special computation, hence +1
-	int n_call_args = special->arguments.size() + 1;
+	int n_call_args = special->arguments.size();
 	
 	std::vector<llvm::Value *> valptrs;
 	std::vector<llvm::Value *> strides;

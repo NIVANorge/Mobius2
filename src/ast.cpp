@@ -34,6 +34,8 @@
 			This contains just a sequence of other declarations. It can also contain one quoted string, called the docstring of the body.
 		Function body:
 			This contains a mathematical expression. This should be given separate documentation.
+		Regex body:
+			This contains a regex expression used for connection path matching. Should eventually be documented separately.
 			
 	Declarations can have 0 or more notes. A note is another declaration that can some times have arguments and a body, but not its own notes or identifier.
 	
@@ -493,14 +495,13 @@ potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool
 		stream->fold_minus = false;
 	}
 	
-	return unit_conv;// potentially_parse_binary_operation_rhs(stream, 0, unit_conv);
+	return unit_conv;
 }
 
 Math_Expr_AST *
 parse_math_expr(Token_Stream *stream) {
 	auto lhs = parse_primary_expr(stream);
 	return potentially_parse_binary_operation_rhs(stream, 0, lhs);
-	//return potentially_parse_unit_conversion(stream, expr);
 }
 	
 Math_Expr_AST *
@@ -671,7 +672,7 @@ potentially_parse_regex_quantifier(Token_Stream *stream, Math_Expr_AST *arg) {
 						quant->max_matches = stream->expect_int();
 				} else {
 					next.print_error_header();
-					fatal_error("Expected a '}' or ','.");	
+					fatal_error("Expected a '}' or a ','.");
 				}
 			} else if ((char)next.type == ',') {
 				quant->max_matches = (int)stream->expect_int();

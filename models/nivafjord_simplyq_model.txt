@@ -65,7 +65,24 @@ model("NIVAFjord-SimplyQ") {
 	
 	horz : connection("Fjord horizontal", directed_graph) { river[ol_idx]? layer[e_idx]* }  # and bnd_layer eventually.
 	
-	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", layer, river, water, heat, salt, flow, rho, temp, horz, vert))
+	#edge : compartment("Basin edge")
+	#distribute(edge, basin_idx, e_idx, layer)
+	
+	#par_group("Fjord horizontal boundary", edge) {
+	#	w_bnd  : par_real("Width to boundary", [m], 0, 0, 10000)
+	#}
+	
+	outlet : compartment("Outlet")
+	distribute(outlet, sc, ol_idx)
+	
+	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", layer, river, outlet, water, heat, salt, salinity, flow, rho, temp, horz, vert))
+	
+	
+	
+	
+	
+	
+	
 	
 	
 	tracer : quantity("Tracer")

@@ -392,12 +392,15 @@ put_var_lookup_indexes_basic(Identifier_FT *ident, Model_Application *app, Index
 		back_step = app->result_structure.total_count;
 	}
 
-	if(ident->flags & Identifier_FT::Flags::last_result) {
+	if(ident->has_flag(Identifier_FT::last_result)) {
 		if(back_step > 0)
 			offset_code = make_binop('-', offset_code, make_literal(back_step));
 		else
-			fatal_error(Mobius_Error::internal, "Received a last_result flag on an identifier that should not have one.");
-	} else if (ident->flags) { // NOTE: all other flags should have been resolved and removed at this point.
+			fatal_error(Mobius_Error::internal, "Received a 'last_result' flag on an identifier that should not have one.");
+		ident->remove_flag(Identifier_FT::last_result);
+	} 
+	
+	if(ident->flags) { // NOTE: all flags should have been resolved and removed at this point.
 		ident->source_loc.print_error_header(Mobius_Error::internal);
 		fatal_error("Forgot to resolve one or more flags on an identifier.");
 	}
@@ -918,10 +921,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 				auto special = static_cast<Special_Computation_FT *>(instr->code);
 				// TODO: Have to set strides and indexing information eventually
-				special->exprs.push_back(make_literal(app->result_structure.get_offset_base(special->target)));
-				special->exprs.push_back(make_literal(app->result_structure.get_stride(special->target)));
-				// TODO: If when we specifically index over something, we should let this be a index count, not the instance count
-				special->exprs.push_back(make_literal(app->result_structure.instance_count(special->target)));
+				// TODO: If when we specifically index over something, we should let the counts be a index count, not the instance count.
 				
 				for(auto &arg : special->arguments) {
 					if(arg.variable_type == Variable_Type::state_var) {

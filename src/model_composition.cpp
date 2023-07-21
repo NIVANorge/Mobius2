@@ -171,12 +171,12 @@ remove_lasts(Math_Expr_FT *expr, bool make_error) {
 	for(auto arg : expr->exprs) remove_lasts(arg, make_error);
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var && (ident->flags & Identifier_FT::Flags::last_result)) {
+		if(ident->variable_type == Variable_Type::state_var && (ident->has_flag(Identifier_FT::last_result))) {
 			if(make_error) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Did not expect a last() in an initial value function.");
 			}
-			ident->flags = (Identifier_FT::Flags)(ident->flags & ~Identifier_FT::Flags::last_result);
+			ident->remove_flag(Identifier_FT::last_result);
 		}
 	}
 }
@@ -189,10 +189,10 @@ find_identifier_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregat
 	for(auto arg : expr->exprs) find_identifier_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment);
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->flags & Identifier_FT::Flags::in_flux)
+		if(ident->has_flag(Identifier_FT::in_flux))
 			in_fluxes[{ident->var_id, ident->other_connection}].push_back(looked_up_by);
 		
-		if(ident->flags & Identifier_FT::Flags::aggregate) {
+		if(ident->has_flag(Identifier_FT::aggregate)) {
 			if(!is_valid(lookup_compartment)) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Can't use aggregate() in this function body because it does not belong to a compartment.");
@@ -219,13 +219,13 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 	
 	if(ident->variable_type == Variable_Type::state_var 
 		&& (ident->var_id == replace_this)
-		&& (ident->flags & flag)
+		&& (ident->has_flag(flag))
 		&& ((ident->other_connection == connection_id) || (!is_valid(ident->other_connection) && !is_valid(connection_id)))
 		) {
 		
 		if(is_valid(with)) {
 			ident->var_id = with;
-			ident->flags = (Identifier_FT::Flags)(ident->flags & ~flag);
+			ident->remove_flag(flag);
 			ident->other_connection = invalid_entity_id;
 			//return ident;
 		} else {
@@ -419,6 +419,70 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 	delete res.fun;
 }
 
+void
+register_special_computations(Model_Application *app, std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> &special_targets) {
+	
+	// Unfortunately we have to do the below checks before resolving the function tree, because we need to know what locations are the targets of special computations before state variables are registered. Otherwise, a variable could be erroneously registered as an input series (since it lacked code), but should instead be computed by the special computation.
+	
+	auto model = app->model;
+	
+	for(auto special_id : model->special_computations) {
+		
+		auto special = model->special_computations[special_id];
+
+		Var_Id var_id = register_state_variable<State_Var::Type::special_computation>(app, invalid_entity_id, false, special->name);
+		as<State_Var::Type::special_computation>(app->vars[var_id])->decl_id = special_id;
+		
+		bool success = true;
+		for(auto expr : special->code->exprs) {
+			
+			bool is_result = false;
+			auto check_expr = expr;
+			if(expr->type == Math_Expr_Type::function_call) {
+				auto fun = static_cast<Function_Call_AST *>(expr);
+				if(fun->name.string_value != "result" || fun->exprs.size() != 1) {
+					success = false;
+					break;
+				}
+				is_result = true;
+				check_expr = fun->exprs[0];
+			}
+			if(check_expr->type != Math_Expr_Type::identifier) {
+				success = false;
+				break;
+			}
+			auto ident = static_cast<Identifier_Chain_AST *>(check_expr);
+			if(is_result && !ident->bracketed_chain.empty()) {
+				success = false;
+				break;
+			}
+			if(!is_result) continue;
+			
+			auto scope = model->get_scope(special->scope_id);
+			
+			// TODO: This is a stupid way to do it. Should instead unify some of the code for location argument and function tree resolution.
+			Argument_AST arg;
+			arg.chain = ident->chain;
+			
+			Var_Location loc;
+			process_location_argument(model, scope, &arg, &loc);
+			
+			auto find = special_targets.find(loc);
+			if(find != special_targets.end()) {
+				ident->source_loc.print_error_header();
+				error_print("This variable is declared as a 'result' of more than one special computation. See a different declaration here:\n");
+				model->special_computations[as<State_Var::Type::special_computation>(app->vars[find->second])->decl_id]->source_loc.print_error();
+				mobius_error_exit();
+			}
+			special_targets[loc] = var_id;
+		}
+		
+		if(!success) {
+			special->code->source_loc.print_error_header();
+			fatal_error("A 'special_computation' body should just contain a list of identifiers of variables that go into the computation. Targets of the computation can be enclosed with a result(). Targets can not have a bracket restriction.");
+		}
+	}
+}
 
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
@@ -454,6 +518,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		}
 	}
 	
+	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> special_targets;
+	register_special_computations(app, special_targets);
 	
 	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
 	// also make sure there are no conflicting var declarations of the same var_location (across modules)
@@ -530,19 +596,13 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				}
 			}
 			
-			// It is a bit annoying that we have to do this loop for every state variable registration, but we have to intercept it so that it doesn't become registered as a series.
-			auto special_id = invalid_entity_id;
-			for(auto special_id0 : model->special_computations) {
-				auto special = model->special_computations[special_id0];
-				if(special->target == var->var_location) {
-					is_series = false;
-					special_id = special_id0;
-					if(type != Decl_Type::property) {
-						special->source_loc.print_error_header();
-						fatal_error("A special_computation can only be assigned to a property.");
-					}
-					break;
-				}
+			// TODO: special_id or has_code should be mutually exclusive
+			
+			auto special_id = invalid_var;
+			auto find_special = special_targets.find(var->var_location);
+			if(find_special != special_targets.end()) {
+				special_id = find_special->second;
+				is_series = false;
 			}
 			
 			// If was already registered by another module, we don't need to re-register it.
@@ -995,34 +1055,6 @@ compose_and_resolve(Model_Application *app) {
 			var2->function_tree = owns_code(fun);
 		}
 		
-		if(is_valid(var2->special_computation)) {
-			auto special = model->special_computations[var2->special_computation];
-			if(var2->function_tree) {
-				special->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("The variable was assigned a special computation, but it also has a regular equation assigned to it.");
-			}
-			auto res_data2 = res_data;
-			res_data2.scope = model->get_scope(special->scope_id);
-			auto res = resolve_function_tree(special->code, &res_data2);
-			
-			// TODO: This could be separated out in its own function
-			auto special_comp = new Special_Computation_FT();
-			special_comp->target = var_id;
-			special_comp->function_name = special->function_name;
-			for(auto arg : res.fun->exprs) {
-				if(arg->expr_type != Math_Expr_Type::identifier)
-					fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a special_computation.");
-				auto ident = static_cast<Identifier_FT *>(arg);
-				if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::parameter) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("We only support state variables and parameters as the arguments to a 'special_computation'.");
-				}
-				special_comp->arguments.push_back(*ident);
-			}
-			delete res.fun;
-			var2->function_tree = owns_code(special_comp);
-		}
-		
 		res_data.scope = other_code_scope;
 		if(init_ast) {
 			if(initial_is_conc)
@@ -1091,6 +1123,46 @@ compose_and_resolve(Model_Application *app) {
 			// TODO: We have to do more of the flag checking business here!
 		} else
 			var2->specific_target = nullptr;
+	}
+	
+	for(auto var_id : app->vars.all_state_vars()) {
+		auto var = app->vars[var_id];
+		if(var->type != State_Var::Type::special_computation) continue;
+		
+		auto var2 = as<State_Var::Type::special_computation>(var);
+		auto special = model->special_computations[var2->decl_id];
+		
+		Function_Resolve_Data res_data;
+		res_data.app = { app };
+		res_data.scope = model->get_scope(special->scope_id);
+		res_data.baked_parameters = &app->baked_parameters;
+		res_data.allow_result = true;
+		
+		auto res = resolve_function_tree(special->code, &res_data);
+		
+		// TODO: This could be separated out in its own function
+		auto special_comp = new Special_Computation_FT();
+		special_comp->function_name = special->function_name;
+		for(auto arg : res.fun->exprs) {
+			if(arg->expr_type != Math_Expr_Type::identifier)
+				fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a special_computation.");
+			
+			auto ident = static_cast<Identifier_FT *>(arg);
+			if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::parameter) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("We only support state variables and parameters as the arguments to a 'special_computation'.");
+			}
+			special_comp->arguments.push_back(*ident);
+			if(ident->has_flag(Identifier_FT::result)) {
+				if(ident->variable_type != Variable_Type::state_var) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("Only state variables can be 'result' of a 'special_computation'.");
+				}
+				var2->targets.push_back(ident->var_id);
+			}
+		}
+		delete res.fun;
+		var2->code = owns_code(special_comp);
 	}
 	
 	for(auto flux_id : app->vars.all_fluxes()) {
