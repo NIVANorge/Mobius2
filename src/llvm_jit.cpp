@@ -612,10 +612,12 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *>
 		auto stride = build_expression_ir(special->exprs[3*idx + 1], locals, args, data);
 		auto count  = build_expression_ir(special->exprs[3*idx + 2], locals, args, data);
 		llvm::Value *valptr;
-		if(idx == 0 || special->arguments[idx-1].variable_type == Variable_Type::state_var)
+		if(special->arguments[idx].variable_type == Variable_Type::state_var)
 			valptr = data->builder->CreateGEP(double_ty, args[2], offset, "state_var_ptr");
-		else
+		else if(special->arguments[idx].variable_type == Variable_Type::parameter)
 			valptr = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
+		else
+			fatal_error(Mobius_Error::internal, "Unimplemented variable type for special computation LLVM IR generation.");
 		valptrs.push_back(valptr);
 		strides.push_back(stride);
 		counts.push_back(count);

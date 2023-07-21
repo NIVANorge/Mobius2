@@ -923,12 +923,15 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				// TODO: Have to set strides and indexing information eventually
 				// TODO: If when we specifically index over something, we should let the counts be a index count, not the instance count.
 				
+				//log_print("Got ", special->arguments.size(), " arguments\n");
 				for(auto &arg : special->arguments) {
 					if(arg.variable_type == Variable_Type::state_var) {
+						//log_print(app->result_structure.get_offset_base(arg.var_id), " ", app->result_structure.get_stride(arg.var_id), " ", app->result_structure.instance_count(arg.var_id), "\n");
 						special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
 						special->exprs.push_back(make_literal(app->result_structure.get_stride(arg.var_id)));
 						special->exprs.push_back(make_literal(app->result_structure.instance_count(arg.var_id)));
 					} else if(arg.variable_type == Variable_Type::parameter) {
+						//log_print(app->parameter_structure.get_offset_base(arg.par_id), " ", app->parameter_structure.get_stride(arg.par_id), " ", app->parameter_structure.instance_count(arg.par_id), "\n");
 						special->exprs.push_back(make_literal(app->parameter_structure.get_offset_base(arg.par_id)));
 						special->exprs.push_back(make_literal(app->parameter_structure.get_stride(arg.par_id)));
 						special->exprs.push_back(make_literal(app->parameter_structure.instance_count(arg.par_id)));

@@ -728,16 +728,18 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto var2 = as<State_Var::Type::special_computation>(var);
 			auto special = model->special_computations[var2->decl_id];
 			
+			auto &index_sets = model->components[special->component]->index_sets;
+			
 			// TODO: Check for solver conflicts.
 			for(auto target_id : var2->targets) {
 				auto &target = instructions[target_id.id];
 				instr->solver = target.solver;
 				target.depends_on_instruction.insert(var_id.id);
+				target.index_sets.insert(index_sets.begin(), index_sets.end());
 			}
 			
 			instr->code = copy(var2->code.get());
 			
-			//TODO: Various index set dependencies.
 			auto code = static_cast<Special_Computation_FT *>(instr->code);
 			
 			for(auto &arg : code->arguments) {

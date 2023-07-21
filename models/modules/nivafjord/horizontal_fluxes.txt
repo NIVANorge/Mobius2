@@ -30,17 +30,10 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", outlet) {
 		result(river.vert_target)
 		river.water.rho
-		layer.water.rho[horz.below]
+		layer.water.rho#[horz.below]
 	}
 		
 		# And it needs to be smarter with providing the counts and strides in the Special_Indexed_Variable than it is now.
-	
-	/*
-	special_computation("Place river flux to fjord", "nivafjord_place_river_flux", river.vert_target) {
-		river.water.rho
-		layer.water.rho[horz.below]
-	}
-	*/
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
 		flow->>
@@ -59,7 +52,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	var(river.water.salin, []) {
 		rho_water := 1000[k g, m-3],
-		(salt/(rho_water*water))*1000
+		(conc(salt)/rho_water)*1000
 	}
 	
 	var(river.water.rho, [k g, m-3]) {

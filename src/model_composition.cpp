@@ -1158,6 +1158,7 @@ compose_and_resolve(Model_Application *app) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Only state variables can be 'result' of a 'special_computation'.");
 				}
+				// TODO: Check that it is a property!
 				var2->targets.push_back(ident->var_id);
 			}
 		}

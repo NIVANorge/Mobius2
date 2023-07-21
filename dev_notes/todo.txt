@@ -2,6 +2,10 @@
 
 	*** High pri ***
 
+		Finish the new formulation of special_computation
+			Correct indexing of arguments.
+
+
 		The 'extend' system is just not that good.
 			- There are problems when you want to override something in the earlier model,
 			- There is a problem if two extended models declare the same symbol.
@@ -14,7 +18,7 @@
 				}
 			block. Things there are only processed if that model is loaded as the main one.
 				This rids us of the necessity to override model extensions.
-					Downside is that the extended model needs to know what other models want to override....... Hmmm...
+					Downside is that the extended model needs to know what things other models want to override....... Hmmm...
 					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
 			
 			Could have an named_block("Name") { } block, and turn off blocks when extending
@@ -22,7 +26,7 @@
 				
 				What about nested extensions in this system, and two models extend the same thing but disagree.
 					...nightmare...
-		Alternative: We just redeclare the entire model structure when that is necessary.
+		Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
 
 
 		In NIVAFjord we get too many index sets for MobiView2 to handle.

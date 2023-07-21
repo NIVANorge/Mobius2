@@ -1087,7 +1087,7 @@ Model_Application::save_to_data_set() {
 		
 		// TODO: We should have some api on the data set for this.
 		index_set_info = data_set->index_sets.create(index_set->name, {});
-		if(is_valid(index_set->sub_indexed_to)) {
+		if(!is_valid(index_set->sub_indexed_to)) {
 			index_set_info->indexes.resize(1);
 			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::numeric1;
 			index_set_info->indexes[0].n_dim1 = get_max_index_count(index_set_id).index; // Should be 1 unless we change the code somewhere else.
