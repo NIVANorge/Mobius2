@@ -728,17 +728,30 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto var2 = as<State_Var::Type::special_computation>(var);
 			auto special = model->special_computations[var2->decl_id];
 			
-			auto &index_sets = model->components[special->component]->index_sets;
+			std::vector<Entity_Id> index_sets;
+			if(is_valid(special->component))
+				index_sets = model->components[special->component]->index_sets;
 			
 			// TODO: Check for solver conflicts.
 			for(auto target_id : var2->targets) {
 				auto &target = instructions[target_id.id];
 				instr->solver = target.solver;
 				target.depends_on_instruction.insert(var_id.id);
-				target.index_sets.insert(index_sets.begin(), index_sets.end());
+				
+				// TODO: Check that every target could index over the computation index sets.
+				auto &loc = app->vars[target_id]->loc1;
+				for(int idx = 0; idx < loc.n_components; ++idx) {
+					auto comp = model->components[loc.components[idx]];
+					for(auto index_set : comp->index_sets) {
+						if(std::find(index_sets.begin(), index_sets.end(), index_set) == index_sets.end())
+							target.index_sets.insert(index_set);
+					}
+				}
 			}
 			
 			instr->code = copy(var2->code.get());
+			
+			instr->index_sets.insert(index_sets.begin(), index_sets.end());
 			
 			auto code = static_cast<Special_Computation_FT *>(instr->code);
 			
@@ -748,10 +761,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				if(arg.variable_type == Variable_Type::state_var) {
 					instr->depends_on_instruction.insert(arg.var_id.id);
 					instr->instruction_is_blocking.insert(arg.var_id.id);
-					
-					//instr->inherits_index_sets_from_instruction.insert(arg.var_id.id);
 				} else if (arg.variable_type == Variable_Type::parameter) {
-					//insert_dependencies(app, instr->index_sets, arg, 0);
+					
 				} else
 					fatal_error(Mobius_Error::internal, "Unexpected variable type for special_computation argument.");
 			}
@@ -873,7 +884,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
 				
 				// TODO: We need something like this because otherwise there may be additional index sets that are not accounted for. But we need to skip the particular index set(s) belonging to the connection (otherwise there are problems with matrix indexing for all_to_all etc.)
-					// Wait isn't this what we do for directed_tree already??
 				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(add_to_aggr_id);
 				
 				if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
@@ -886,9 +896,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						safe_insert_dependency(model, &instructions[var_id_flux.id], find_source->edge_index_set);
 					}
 					
-					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate?
+					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
 						
-						// TODO: Make a better explanation of what is going on in this block.
+						// TODO: Make a better explanation of what is going on in this block and why it is needed (What is the failure case otherwise).
 						
 						Entity_Id target_comp_id = app->vars[var2->agg_for]->loc1.components[0];
 						auto *find_target = app->find_connection_component(var2->connection, target_comp_id);
@@ -929,11 +939,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						
 						if(type == Var_Loc_Restriction::below) {
 							safe_insert_dependency(model, add_to_aggr_instr, index_set);
-							//add_to_aggr_instr->index_sets.insert(index_set);
 							
 							safe_insert_dependency(model, &instructions[var_id_flux.id], index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
 							// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
-							//instructions[var_id_flux.id].index_sets.insert(index_set);
 						} else if (type == Var_Loc_Restriction::top || type == Var_Loc_Restriction::bottom) {
 							auto parent = model->index_sets[index_set]->sub_indexed_to;
 							if(is_valid(parent))
@@ -943,7 +951,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						}
 					}
 					safe_insert_dependency(model, &instructions[var2->agg_for.id], index_set);
-					//instructions[var2->agg_for.id].index_sets.insert(index_set);
 					
 					// TODO: Is this still needed: ?
 					if(restriction.restriction == Var_Loc_Restriction::below)

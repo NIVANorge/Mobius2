@@ -4,6 +4,7 @@
 
 		Finish the new formulation of special_computation
 			Correct indexing of arguments.
+			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now.
 
 
 		The 'extend' system is just not that good.
@@ -34,15 +35,19 @@
 			Or rethink the entire system
 				Hide index sets that are not active, for instance (and place the other selectors nicely).
 			Or make a few more, but will not solve problem long term (?)
-			Or select edge by selecting what it is pointing at (?).
+			Or select edge by selecting what it is pointing at (?) - doesn't work if it is pointing at something indexed the same way (in that case would need something like the all_to_all).
+			Do the same as all_to_all. - Just plot all of them. (Doesn't solve for parameter selection).
+			Make a different way to organize sub-indexed index sets (could also solve other problems).
 
 		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
+			(in terms of how it is computed, not in terms of user-facing functionality)
 			Ideally the entire system should be re-thought.
 
 		Finish NIVAFjord!!
-			horizontal fluxes.
-			Requires double bracket for some types of target, e.g.   any.water[fjord_horz.below, fjord_vert.specific]   (Also maybe the 'any' )
-				Also the restriction of this to the layers that 'participate' in the edge of that connection.
+			horizontal fluxes -> where do they push water out to?
+			Also the restriction of vertical fluxes to the layers that 'participate' in the edge of that connection.
+			
+		Finish the simple hydraulics model.
 
 		The "loose depends" system is kind of iffy.
 			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
@@ -60,15 +65,15 @@
 			
 			Have to figure out what something like
 					flux(blabla, something[vert.below], ...)				
-			means. Right now the location 'something' is not checked.
+			means. Right now the location 'something' is not used.
 				Need this for NIVAFjord
 			Maybe just make the syntax
 					flux(blabla, any[vert.below]
 			And this is what we do for all 'below' connection targets.
 				Could later extend it to have different code depending on the target (for graph and directed_tree).
 			
-		
-			Finish the simple hydraulics model.
+			Make 'pair' connection (?).
+				Allows avoiding things like having an outlet index set for river->fjord.
 			
 			graph connections
 				
@@ -77,6 +82,7 @@
 				//Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
 				
 				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
+					May have to be done inside resolve_function_tree, so we need to access the connection data there.
 
 			all_to_all:
 				
@@ -90,7 +96,7 @@
 					Would prefer to have this since it improves usability.
 					Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
 					
-				allow 'top' to be the source of a flux (?)
+				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
 					
 			Specific target:
 				Properly process the @specific function tree, incl. flags
@@ -105,6 +111,9 @@
 			
 	
 	*** Intermediate-pri ***
+	
+		Give proper error when externally linked function is not found.
+			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
 	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.

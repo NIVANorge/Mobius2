@@ -30,7 +30,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", outlet) {
 		result(river.vert_target)
 		river.water.rho
-		layer.water.rho#[horz.below]
+		layer.water.rho[horz.below]
 	}
 		
 		# And it needs to be smarter with providing the counts and strides in the Special_Indexed_Variable than it is now.
@@ -62,12 +62,17 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	/*
 	var(layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
 	
-	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", layer.vert_target) {
+	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes") {
+		result(layer.vert_target)
 		
 	}
 	*/
 }
 
+
+#module("NIVAFjord boundary basin", version(0, 0, 1)) {
+#	
+#}
 
 
 

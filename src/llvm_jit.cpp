@@ -84,6 +84,7 @@ LLVM_Module_Data {
 	llvm::GlobalVariable                      *global_index_count_data;
 	
 	llvm::Type                                *dt_struct_type;
+	llvm::FunctionType                        *batch_fun_type;
 };
 
 LLVM_Module_Data *
@@ -118,17 +119,38 @@ create_llvm_module() {
 	data->libinfoimpl = std::make_unique<llvm::TargetLibraryInfoImpl>(triple);
 	data->libinfo     = std::make_unique<llvm::TargetLibraryInfo>(*data->libinfoimpl);
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
-	llvm::FunctionType *fun_type = llvm::FunctionType::get(double_ty, {double_ty}, false);
+	
+	llvm::FunctionType *mathfun_type = llvm::FunctionType::get(double_ty, {double_ty}, false);
 	
 	//TODO: If one calls tan(atan(a)) it does know that it should optimize it out in that it just returns a, but for some reason it still calls atan(a). Why? Does it not know that atan does not have side effects, and in that case, can we tell it by passing an attributelist here?
 	
-	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_tan, fun_type);
-	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_atan, fun_type);
-	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_acos, fun_type);
-	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_asin, fun_type);
-	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_cbrt, fun_type);
-	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_floor, fun_type);
-	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_ceil, fun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_tan, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_atan, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_acos, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_asin, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_cbrt, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_floor, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_ceil, mathfun_type);
+	
+	
+	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
+	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
+	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	
+	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
+	std::vector<llvm::Type *> dt_member_types = {
+		#include "time_values.incl"
+	};
+	#undef TIME_VALUE
+	
+	data->dt_struct_type = llvm::StructType::get(*data->context, dt_member_types);
+	llvm::Type       *dt_ptr_ty = llvm::PointerType::getUnqual(data->dt_struct_type);
+	
+	std::vector<llvm::Type *> arg_types = {
+		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty, double_ty
+		};
+		
+	data->batch_fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
 	
 	return data;
 }
@@ -238,29 +260,8 @@ jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
 void
 jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module_Data *data) {
 	
-	auto double_ty     = llvm::Type::getDoubleTy(*data->context);
-	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
-	auto int_64_ptr_ty = llvm::Type::getInt64PtrTy(*data->context);
-	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
-	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
 	
-	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
-	std::vector<llvm::Type *> dt_member_types = {
-		#include "time_values.incl"
-	};
-	#undef TIME_VALUE
-	
-	llvm::StructType *dt_ty     = llvm::StructType::get(*data->context, dt_member_types);
-	llvm::Type       *dt_ptr_ty = llvm::PointerType::getUnqual(dt_ty);
-	
-	data->dt_struct_type = dt_ty;
-	
-	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty, double_ty
-		};
-		
-	llvm::FunctionType *fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
-	llvm::Function *fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
+	llvm::Function *fun = llvm::Function::Create(data->batch_fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	
 	// Hmm, is it important to set the argument names, or could we skip it?
 	const char *argnames[6] = {"parameters", "series", "state_vars", "solver_workspace", "date_time", "fractional_step"};
@@ -279,12 +280,10 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(*data->context, "entry", fun);
 	data->builder->SetInsertPoint(basic_block);
 	
-	//warning_print("Begin llvm function creation\n");
 	
 	build_expression_ir(batch_code, nullptr, args, data);
 	data->builder->CreateRetVoid();
 	
-	//warning_print("Created llvm function\n");
 	
 	std::string errmsg = "";
 	llvm::raw_string_ostream errstream(errmsg);
@@ -294,8 +293,6 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 		//TODO: clean up the llvm context stuff. This is needed if the error exit does not close the process, but if we instead are in the GUI or python and we just catch an exception.
 		fatal_error(Mobius_Error::internal, "LLVM function verification failed for function \"", fun_name, "\" : ", errstream.str(), " .");
 	}
-	
-	//warning_print("Verification done.\n");
 }
 
 llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, LLVM_Module_Data *data) {
@@ -591,9 +588,6 @@ get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::T
 
 llvm::Value *
 build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
-	//TODO!
-	
-	//warning_print("****** Build special computation ir\n");
 	
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
 	auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
@@ -622,8 +616,6 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *>
 		strides.push_back(stride);
 		counts.push_back(count);
 	}
-	
-	//warning_print("***** The function name is ", special->function_name, "\n");
 	
 	// Must match Special_Indexed_Value in special_computations.h
 	std::vector<llvm::Type *> member_types = {

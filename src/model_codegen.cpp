@@ -920,22 +920,45 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			} else if (instr->type == Model_Instruction::Type::special_computation) {
 				
 				auto special = static_cast<Special_Computation_FT *>(instr->code);
-				// TODO: Have to set strides and indexing information eventually
-				// TODO: If when we specifically index over something, we should let the counts be a index count, not the instance count.
 				
-				//log_print("Got ", special->arguments.size(), " arguments\n");
+				Entity_Id source_compartment = invalid_entity_id;
 				for(auto &arg : special->arguments) {
+					
+					// TODO: Again, copy is only necessary if we have a restriction... Make a system to avoid it when not necessary.
+					Index_Exprs new_indexes(model);
+					new_indexes.copy(indexes);
+					
+					// TODO: The source_compartment setup is very error prone.
+					//      What happens if there are many different or none?
+					//      Also, the way it is done now presupposes that the results are declared first.
+					Entity_Id compartment = invalid_entity_id;
 					if(arg.variable_type == Variable_Type::state_var) {
-						//log_print(app->result_structure.get_offset_base(arg.var_id), " ", app->result_structure.get_stride(arg.var_id), " ", app->result_structure.instance_count(arg.var_id), "\n");
-						special->exprs.push_back(make_literal(app->result_structure.get_offset_base(arg.var_id)));
-						special->exprs.push_back(make_literal(app->result_structure.get_stride(arg.var_id)));
-						special->exprs.push_back(make_literal(app->result_structure.instance_count(arg.var_id)));
+						compartment = app->vars[arg.var_id]->loc1.components[0];
 					} else if(arg.variable_type == Variable_Type::parameter) {
-						//log_print(app->parameter_structure.get_offset_base(arg.par_id), " ", app->parameter_structure.get_stride(arg.par_id), " ", app->parameter_structure.instance_count(arg.par_id), "\n");
-						special->exprs.push_back(make_literal(app->parameter_structure.get_offset_base(arg.par_id)));
-						special->exprs.push_back(make_literal(app->parameter_structure.get_stride(arg.par_id)));
-						special->exprs.push_back(make_literal(app->parameter_structure.instance_count(arg.par_id)));
+						//TODO
 					}
+					if(arg.has_flag(Identifier_Data::result))
+						source_compartment = compartment;
+					
+					if(arg.restriction.restriction != Var_Loc_Restriction::none) {
+						auto conn_id = arg.restriction.connection_id;
+						auto conn = model->connections[conn_id];
+						if(conn->type == Connection_Type::directed_graph) {
+							set_graph_target_indexes(app, new_indexes, conn_id, source_compartment, compartment);
+						} else
+							fatal_error(Mobius_Error::internal, "Unimplemented special computation codegen for var loc restriction");
+					}
+					
+					Offset_Stride_Code res;
+					if(arg.variable_type == Variable_Type::state_var)
+						res = app->result_structure.get_special_offset_stride_code(arg.var_id, new_indexes);
+					else if(arg.variable_type == Variable_Type::parameter)
+						res = app->parameter_structure.get_special_offset_stride_code(arg.par_id, new_indexes);
+					else
+						fatal_error(Mobius_Error::internal, "Unrecognized variable type in special computation codegen.");
+					special->exprs.push_back(res.offset);
+					special->exprs.push_back(res.stride);
+					special->exprs.push_back(res.count);
 				}
 				result_code = special;
 				
@@ -953,7 +976,6 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				if_chain->exprs.push_back(result_code);
 				
 				if_chain->exprs.push_back(restriction_condition);
-				//if_chain->exprs.push_back(make_literal((double)0.0));
 				if_chain->exprs.push_back(make_no_op());
 				
 				result_code = if_chain;

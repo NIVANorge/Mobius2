@@ -225,7 +225,7 @@ Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
 	std::string      function_name;
 	
 	// TODO: May need a vector of components
-	Entity_Id        component;
+	Entity_Id        component = invalid_entity_id;
 	
 	Math_Block_AST  *code;
 };
