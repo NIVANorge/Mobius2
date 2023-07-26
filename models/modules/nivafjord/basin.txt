@@ -10,7 +10,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	temp      : property,
 	salinity  : property,
 	precip    : property,
-	pressure  : property, # TODO: Should use this instead of "accumulated_pressure" ?
+	pressure  : property,
 	wind      : property,
 	g_rad     : property,
 	rho       : property,
@@ -90,16 +90,15 @@ module("NIVAFjord basin", version(0, 0, 1),
 		conc(salt)=>[] # TODO: Convert salinity to PSU
 	}
 	
-	above_p : property("Above pressure")
+	#above_p : property("Above pressure")
 	
 	var(layer.water.rho, [k g, m-3], "Potential density") {
 		seawater_pot_dens(temp, salinity)
 	}
 	
 	# TODO: When we make a change so that accessing vert.above does not zero out the entire equation, we won't need this one.
-	var(layer.water.above_p, [Pa]) {    accum_pressure[vert.above]   }
+	#var(layer.water.above_p, [Pa]) {    accum_pressure[vert.above]   }
 	
-	accum_pressure : property("Accumulated pressure")
 	ddens          : property("d(dens)")
 	Nfreq          : property("Brunt-Väisälä frequency")
 	Kt             : property("Tide wave mixing coefficient")
@@ -107,14 +106,12 @@ module("NIVAFjord basin", version(0, 0, 1),
 	Kw             : property("Wind mixing coefficient")
 	wmix           : property("Water mixing")
 	
-	var(layer.water.accum_pressure, [Pa]) {
-		above_p + rho*grav*dz
+	var(layer.water.pressure, [Pa]) {
+		pressure[vert.above] + rho*grav*dz
 	}
 	
 	var(layer.water.ddens, [k g, m-3]) {
 		(rho[vert.below]-rho)
-		#0.5*(below(vert, dens)-above(vert, dens))
-		#(dens - above(vert, dens))
 	}
 	
 	var(layer.water.Nfreq, [s-1]) {
@@ -180,7 +177,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 		mixspeed := 1[m, day-1],
 		
 		mixspeed*dz->>                                                    if rem > 0 & potmix < 1e-20[J],
-		mixspeed*dz*safe_divide(emix[vert.below], potmix[vert.below])->> otherwise
+		mixspeed*dz*safe_divide(emix[vert.below], potmix[vert.below])->>  otherwise
 		#mixspeed*dz->>                                                    otherwise
 	}
 	

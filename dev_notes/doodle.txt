@@ -2,6 +2,27 @@
 
 
 
+
+	# Handling invalidation of [below] accesses for grid1d. If it just 0s the individual access, not the whole equation. Need a separate way to invalidate the entire equation when needed
+	
+	{
+		{
+			cc := 0.5*(c + c[below]),
+			cc^2*(amp[below] - amp)
+			
+		}     if exists(amp[below]),
+		0     otherwise
+	}
+	# It is actually not a problem for a flux, because it should be 0ed out any way.
+	
+
+
+
+
+
+
+
+
 	# How do we do this:
 
 	flux(river.water, layer.water[horz.below, vert.top], [m 3, day-1], "River discharge to fjord") {

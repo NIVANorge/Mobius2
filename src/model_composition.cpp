@@ -669,7 +669,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		std::vector<Var_Id> generate;
 		for(auto flux_id : app->vars.all_fluxes()) {
 			auto flux = app->vars[flux_id];
-			if(!(flux->loc1 == above_loc)) continue;
+			if(!(static_cast<Var_Location &>(flux->loc1) == above_loc)) continue;
 			if(is_located(flux->loc2)) {
 				// If the target of the flux is a specific location, we can only send the dissolved quantity if it exists in that location.
 				auto below_loc = add_dissolved(flux->loc2, var->loc1.last());

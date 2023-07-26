@@ -5,20 +5,20 @@ model("Diffusion") {
 	module("Diffusion", version(1, 0, 0)) {
 		
 		par_group("Layers", layer) {
-			in_o2   : par_real("initial O²", [m g, c m-2], 0)
+			in_o2   : par_real("initial O₂", [m g, c m-2], 0)
 			dc      : par_real("Diffusion coeff", [c m, day-1], 0.001)
 		}
 		
 		par_group("Bottom compartment", botcomp) {
-			in_o2_bot : par_real("Bottom initial O²", [m g, c m-2], 100)
+			in_o2_bot : par_real("Bottom initial O₂", [m g, c m-2], 100)
 		}
 		
 		par_group("Side transfer", layer) {
 			tc      : par_real("Transfer coeff", [], 0.05)
 		}
 		
-		var(layer.o2, [m g, c m-2], "Layer O²") @initial { in_o2 }
-		var(botcomp.o2, [m g, c m-2], "Bottom O²") @initial { in_o2_bot }
+		var(layer.o2, [m g, c m-2], "Layer O₂") @initial { in_o2 }
+		var(botcomp.o2, [m g, c m-2], "Bottom O₂") @initial { in_o2_bot }
 		
 		c : connection("Layer connection", grid1d) { layer[layer_index] }
 		s : connection("Sideways", all_to_all) { layer[branch_index] }
@@ -45,7 +45,7 @@ model("Diffusion") {
 	
 	layer : compartment("Layer")
 	botcomp : compartment("Bottom")
-	o2    : quantity("O²")
+	o2    : quantity("O₂")
 	
 	distribute(botcomp, branch_index)
 	distribute(layer, branch_index, layer_index)

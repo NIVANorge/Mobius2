@@ -298,6 +298,15 @@ Single_Restriction {
 	Single_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
 };
 
+inline bool operator<(const Single_Restriction &a, const Single_Restriction &b) {
+	if(a.connection_id == b.connection_id) return (int)a.restriction < (int)b.restriction;
+	return a.connection_id < b.connection_id;
+}
+
+inline bool operator==(const Single_Restriction &a, const Single_Restriction &b) {
+	return a.connection_id == b.connection_id && a.restriction == b.restriction;
+}
+
 struct
 Var_Loc_Restriction : Single_Restriction {
 	
@@ -313,8 +322,9 @@ Var_Loc_Restriction : Single_Restriction {
 };
 
 inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
-	if(a.connection_id == b.connection_id) return (int)a.restriction < (int)b.restriction;
-	return a.connection_id < b.connection_id;
+	if(static_cast<const Single_Restriction &>(a) == static_cast<const Single_Restriction &>(b))
+		return a.restriction2 < b.restriction2;
+	return static_cast<const Single_Restriction &>(a) < static_cast<const Single_Restriction &>(b);
 }
 
 struct
@@ -322,8 +332,11 @@ Specific_Var_Location : Var_Location, Var_Loc_Restriction {
 	Specific_Var_Location() : Var_Location(), Var_Loc_Restriction() {}
 	Specific_Var_Location(const Var_Location &loc) : Var_Location(loc), Var_Loc_Restriction() {}
 	Specific_Var_Location(const Var_Location &loc, const Var_Loc_Restriction &res) : Var_Location(loc), Var_Loc_Restriction(res) {}
-	//Specific_Var_Location(const Var_Loc_Restriction &res) : Var_Location(), Var_Loc_Restriction(res) {}
 };
+
+inline bool operator==(const Specific_Var_Location &a, const Specific_Var_Location &b) {
+	return static_cast<const Var_Location &>(a) == static_cast<const Var_Location &>(b) && static_cast<const Var_Loc_Restriction &>(a) == static_cast<const Var_Loc_Restriction &>(b);
+}
 
 struct Index_T {
 	Entity_Id index_set;

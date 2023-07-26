@@ -55,7 +55,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		seawater_pot_dens(temp, salin)
 	}
 	
-	
+	/*
 	var(edge_layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
 	
 	
@@ -63,18 +63,13 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	# Or maybe it doesn't need to, and it just does a 'break' when w_bnd becomes 0.
 	# That is simpler, but wastes some time series storage space.
 	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", edge) {
-		result(layer.vert_target)
+		result(edge_layer.vert_target)
 		layer.water.rho
 		layer.water.rho[horz.below]
 		w_bnd
 	}
-	
+	*/
 }
-
-
-#module("NIVAFjord boundary basin", version(0, 0, 1)) {
-#	
-#}
 
 
 
