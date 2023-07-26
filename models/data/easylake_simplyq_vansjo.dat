@@ -128,7 +128,7 @@ module("EasyLake", version(0, 1, 0)) {
 	}
 }
 
-module("AirSea Lake", version(0, 1, 0)) {
+module("AirSea Lake", version(0, 1, 1)) {
 	par_group("Ice") {
 		par_real("Initial ice thickness")
 		[ 0 ]
@@ -139,14 +139,12 @@ module("AirSea Lake", version(0, 1, 0)) {
 		par_real("Frazil threshold")
 		[ 0.05 ]
 
-		par_real("Ice formation temperature")
-		[ 0 ]
-
 		par_real("Ice attenuation coefficient")
 		[ 5 ]
 
 		par_bool("Always cover")
 		[ false ]
+
 	}
 }
 

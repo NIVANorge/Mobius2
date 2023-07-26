@@ -36,30 +36,28 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 	std::vector<Multi_Array_Structure<Entity_Id>> structure;
 	std::map<std::vector<Entity_Id>, std::vector<Entity_Id>> par_by_index_sets;
 	
-	std::vector<Entity_Id> empty;
-	
 	for(auto group_id : model->par_groups) {
-		std::vector<Entity_Id> *index_sets = &empty;
+		std::vector<Entity_Id> index_sets;
 		
 		bool found = false;
 		if(par_group_index_sets) {
 			auto find = par_group_index_sets->find(group_id);
 			if(find != par_group_index_sets->end()) {
 				found = true;
-				index_sets = &find->second;
+				index_sets = find->second;
 			}
 		}
 		if(!found) {
-			auto comp_id = model->par_groups[group_id]->component;
-			if(is_valid(comp_id)) {  // It is invalid for the "System" parameter group.
+			auto group = model->par_groups[group_id];
+			for(auto comp_id : group->components) {
 				auto comp = model->components[comp_id];
-				index_sets = &comp->index_sets;
+				index_sets.insert(index_sets.end(), comp->index_sets.begin(), comp->index_sets.end());
 			}
 		}
 	
 		//for(auto par : model->par_groups[group_id]->parameters)
 		for(auto par_id : model->by_scope<Reg_Type::parameter>(group_id))
-			par_by_index_sets[*index_sets].push_back(par_id);
+			par_by_index_sets[index_sets].push_back(par_id);
 	}
 	
 	for(auto pair : par_by_index_sets) {
@@ -275,14 +273,12 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 	}
 	
 	auto pgd = model->par_groups[group_id];
-	if(!is_valid(pgd->component)) {
+	if(pgd->components.empty()) {
 		if(!par_group->index_sets.empty()) {
 			par_group->source_loc.print_error_header();
 			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets since it is not tied to a component.");
 		}
 	} else {
-		auto comp  = model->components[pgd->component];
-		
 		auto &index_sets = par_group_index_sets[group_id];
 		
 		for(int idx = 0; idx < par_group->index_sets.size(); ++idx) {
@@ -295,9 +291,17 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 				fatal_error("The index set \"", name, "\" does not exist in the model.");
 			}
 			
-			if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) == comp->index_sets.end()) {
+			bool found = false;
+			for(auto comp_id : pgd->components) {
+				auto comp = model->components[comp_id];
+				if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) != comp->index_sets.end()) {
+					found = true;
+					break;
+				}
+			}
+			if(!found) {
 				par_group->source_loc.print_error_header();
-				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since the component \"", comp->name, "\" is not distributed over that index set in the model \"", model->model_name, "\".");
+				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since none of its attached components are distributed over that index set in the model \"", model->model_name, "\".");
 			}
 			
 			// The last two index sets are allowed to be the same, but no other duplicates are allowed.

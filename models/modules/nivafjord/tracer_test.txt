@@ -4,7 +4,6 @@ module("NIVAFjord tracer test", version(0, 0, 1),
 	river  : compartment,
 	water  : quantity,
 	tracer : quantity,
-	vert   : connection,
 	horz   : connection
 ) {
 
@@ -15,8 +14,4 @@ module("NIVAFjord tracer test", version(0, 0, 1),
 	flux(out, layer.water.tracer, [k g, day-1], "Horizontal flux tracer equivalent removal") {
 		-in_flux(horz, layer.water)*conc(tracer)->>
 	}
-	
-	#flux(out, layer.water.tracer[vert.top], [k g, day-1], "Tracer input") {
-	#	1[k g, day-1]
-	#}
 }

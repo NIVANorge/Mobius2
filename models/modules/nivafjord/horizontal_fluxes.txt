@@ -5,6 +5,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	layer  : compartment,
 	river  : compartment,
 	outlet : compartment,
+	edge   : compartment,
+	edge_layer : compartment,
 	water  : quantity,
 	heat   : quantity,
 	salt   : quantity,
@@ -13,7 +15,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	rho    : property,
 	temp   : property,
 	horz   : connection,
-	vert   : connection
+	vert   : connection,
+	w_bnd  : par_real
 ) {
 
 	load("stdlib/seawater.txt", library("Seawater"))
@@ -22,18 +25,11 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	var(river.vert_target, [], "River vertical target")
 	
-	#TODO:
-		# Need to implement a proper way to specify over what index sets this is computed and over what index set(s) the arguments are.
-		# Something like
-		
-			# outlet is a compartment indexed over the edge index set for river on horz (?)
 	special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", outlet) {
 		result(river.vert_target)
 		river.water.rho
 		layer.water.rho[horz.below]
 	}
-		
-		# And it needs to be smarter with providing the counts and strides in the Special_Indexed_Variable than it is now.
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
 		flow->>
@@ -59,14 +55,20 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		seawater_pot_dens(temp, salin)
 	}
 	
-	/*
-	var(layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
 	
-	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes") {
+	var(edge_layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
+	
+	
+	# How would the framework know that this one is only for the edge layers, not below that (?)
+	# Or maybe it doesn't need to, and it just does a 'break' when w_bnd becomes 0.
+	# That is simpler, but wastes some time series storage space.
+	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", edge) {
 		result(layer.vert_target)
-		
+		layer.water.rho
+		layer.water.rho[horz.below]
+		w_bnd
 	}
-	*/
+	
 }
 
 

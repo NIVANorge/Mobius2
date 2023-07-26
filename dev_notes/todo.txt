@@ -2,6 +2,11 @@
 
 	*** High pri ***
 
+		Don't require that parent index sets *immediately* precede. Only that they precede.
+			Halfway there, but now some index lookups must be fixed in data_set.cpp
+				get_instance_count must be fixed.
+
+
 		Finish the new formulation of special_computation
 			Correct indexing of arguments.
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now.
@@ -83,6 +88,7 @@
 				
 				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
+				Accessing [below] can break if there is no connection data set up for a pair of compartments. This could e.g. happen if the access is in a special_computation and there is no flux set up along the connection from that source compartment.
 
 			all_to_all:
 				
@@ -111,6 +117,8 @@
 			
 	
 	*** Intermediate-pri ***
+	
+		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
 	
 		Give proper error when externally linked function is not found.
 			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
@@ -193,11 +201,16 @@
 		
 	*** Low-pri ****
 	
-		Make the data_set declarations match the model declarations better, e.g. version() in module decls.
+		Make the data_set declarations match the model declarations better
 			Just let the data_set use the same AST, where a [] block parses as "data", which is just a token list.
 			Should be able to make registries match up better to simplify some things when loading into the Model_Application.
 			
 			Could have a serialization name for entities in the data set and use that to map them over to the model? Then use Entity_Id inside the data_set, but just map these to the model entity_ids.
+		
+			
+			Index sets refereced inside unused modules have still to be declared in the data set.
+				Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.
+		
 		
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?

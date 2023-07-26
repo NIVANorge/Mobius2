@@ -283,20 +283,23 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 	Entity_Id exclude_index_set_from_var = invalid_entity_id) {
 		
 	auto par = app->model->parameters[dep.par_id];
-	auto par_comp_id = app->model->par_groups[par->par_group]->component;
-	
-	// Global parameters should be accessible from anywhere.
-	if(!is_valid(par_comp_id)) return true;
-	
-	// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
-	Var_Location loc;
-	loc.type = Var_Location::Type::located;
-	loc.n_components = 1;
-	loc.components[0] = par_comp_id;
+	auto group = app->model->par_groups[par->par_group];
 	
 	Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 	
-	return location_indexes_below_location(app, loc, below_loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var);
+	bool success = true;
+	for(auto comp_id : group->components) {
+
+		// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
+		Var_Location loc;
+		loc.type = Var_Location::Type::located;
+		loc.n_components = 1;
+		loc.components[0] = comp_id;
+
+		success = location_indexes_below_location(app, loc, below_loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var);
+		if(!success) break;
+	}
+	return success;
 }
 
 void
@@ -512,9 +515,11 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	for(auto group_id : model->par_groups) {
 		auto par_group = model->par_groups[group_id];
-		if(is_valid(par_group->component) && model->components[par_group->component]->decl_type == Decl_Type::property) {
-			par_group->source_loc.print_error_header();
-			fatal_error("A 'par_group' can not be attached to a 'property', only to a 'compartment' or 'quantity'.");
+		for(auto comp_id : par_group->components) {
+			if(model->components[comp_id]->decl_type == Decl_Type::property) {
+				par_group->source_loc.print_error_header();
+				fatal_error("A 'par_group' can not be attached to a 'property', only to a 'compartment' or 'quantity'.");
+			}
 		}
 	}
 	

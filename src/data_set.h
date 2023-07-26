@@ -255,5 +255,8 @@ Data_Set {
 	bool                            time_step_was_provided = false;
 };
 
+void
+get_indexes(Data_Set *data_set, std::vector<int> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out);
+
 
 #endif // MOBIUS_DATA_SET_H

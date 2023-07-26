@@ -360,10 +360,6 @@ register_intrinsics(Mobius_Model *model) {
 	auto start  = model->parameters[start_id];
 	auto end    = model->parameters[end_id];
 	
-	//system->parameters.push_back(start_id);
-	//system->parameters.push_back(end_id);
-	system->component = invalid_entity_id;
-	
 	Date_Time default_start(1970, 1, 1);
 	Date_Time default_end(1970, 1, 16);
 	Date_Time min_date(1000, 1, 1);
@@ -732,8 +728,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	int which = match_declaration(decl,
 	{
 		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, Decl_Type::compartment},   // Could eventually make the last a vararg?
-		{Token_Type::quoted_string, Decl_Type::quantity},
+		{Token_Type::quoted_string, {Decl_Type::compartment, true}},   // Could eventually make the last a vararg?
 	}, false, -1);
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
@@ -741,8 +736,10 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	
 	par_group->scope.parent_id = id;
 	
-	if(which >= 1)
-		par_group->component = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
+	if(which >= 1) {
+		for(int idx = 1; idx < decl->args.size(); ++idx)
+			par_group->components.push_back(resolve_argument<Reg_Type::component>(model, scope, decl, idx));
+	}
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->body);
 
@@ -1478,7 +1475,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	match_declaration(decl,
 	{
 		{Decl_Type::compartment, {Decl_Type::index_set, true}},
-		{Decl_Type::quantity, {Decl_Type::index_set, true}},
+		{Decl_Type::quantity,    {Decl_Type::index_set, true}},
 	}, false);
 	
 	auto comp_id   = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
@@ -1496,9 +1493,17 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 		int list_idx = idx-1;
 		
 		if(is_valid(index_set->sub_indexed_to)) {
-			if(list_idx == 0 || component->index_sets[list_idx-1] != index_set->sub_indexed_to) {
+			bool found = false;
+			for(auto set_id : component->index_sets) {
+				if(set_id == index_set->sub_indexed_to) {
+					found = true;
+					break;
+				}
+			}
+			
+			if(!found) {
 				decl->args[idx]->source_loc().print_error_header();
-				error_print("The index set \"", index_set->name, "\" is sub-indexed to another index set \"", model->index_sets[index_set->sub_indexed_to]->name, "\", but the parent index set does not immediately precede it the 'distribute' declaration. See the declaration of the index set here:");
+				error_print("The index set \"", index_set->name, "\" is sub-indexed to another index set \"", model->index_sets[index_set->sub_indexed_to]->name, "\", but the parent index set does not precede it the 'distribute' declaration. See the declaration of the index set here:");
 				index_set->source_loc.print_error();
 				mobius_error_exit();
 			}
@@ -1663,7 +1668,12 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 			}
 			std::string handle = token.string_value;
 			auto reg = (*scope)[handle];
-			if(!reg) {
+			bool found = false;
+			if(reg) {
+				auto entity = model->find_entity(reg->id);
+				if(entity->has_been_declared) found = true;
+			}
+			if(!found) {
 				token.print_error_header();
 				fatal_error("The handle '", token.string_value, "' was not declared in this scope.");
 			}

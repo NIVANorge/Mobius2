@@ -80,8 +80,6 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 		if(potential_flag_row > 0) row_range = potential_flag_row;
 		search_len = 256;
 		
-		//warning_print("Potential flag row is ", potential_flag_row, "\n");
-		
 		//TODO: Ideally also do this in a loop in case there are more than 256 columns!
 		matrix = ole_get_range_matrix(1, row_range, 2, 1 + search_len, handles);
 		
@@ -102,35 +100,62 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				fatal_error("Missing an input name.");
 			}
 			
-			std::vector<std::pair<int, int>> indexes;
+			std::vector<std::string> index_names_str(index_sets.size()); // This is needed to have temporary storage for the data...
+			std::vector<Token> index_names;
 			for(int row = 0; row < index_sets.size(); ++row) {
 				
 				auto index_set = data_set->index_sets[index_sets[row]];
-				int idx_of_super = 0;// TODO: Properly do sub-indexes (with checking of index set order)..
 				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+2, handles);
-				int index = -1;
-				auto type = index_set->get_type(idx_of_super);
+				
+				auto type = index_set->get_type(0); // TODO: This currently only works because index name convention is the same for all sub-indexing. But that is maybe something we should enforce any way.
+				
+				//TODO: This should be done properly instead with a "ole_get_token(VARIANT*)" function or something like that which properly checks the type itself.
+				//   That should actually be the main way to read matrix values since that would streamline other parts of the code too.
+				Token token = {};
+				token.type = Token_Type::unknown;
+				token.source_loc.type = Source_Location::Type::spreadsheet;
+				token.source_loc.tab = tab;
+				token.source_loc.line = row+2;
+				token.source_loc.column = col+2;
+				token.source_loc.filename = file_name;
+				bool empty = false;
+				
+				// TODO: Could maybe check for emptyness in a more failsafe way.
+				
 				if(type == Sub_Indexing_Info::Type::numeric1) {
-					index = ole_get_int(&index_name);
-					if(index > std::numeric_limits<int>::lowest() && !index_set->check_index(index, idx_of_super)) {
-						ole_close_due_to_error(handles, tab, row+2, col+2);
-						fatal_error("The index ", index, " is out of bounds for the index set \"", index_set->name, "\".");
-					}
+					token.val_int = ole_get_int(&index_name);
+					if(token.val_int == std::numeric_limits<int>::lowest()) empty = true;
+					if(token.val_int >= 0)
+						token.type = Token_Type::integer;
 				} else if(type == Sub_Indexing_Info::Type::named) {
 					ole_get_string(&index_name, buf, buf_size);
 					if(strlen(buf) > 0) {
-						index = index_set->get_index(buf, 0);
-						if(index < 0) {
-							ole_close_due_to_error(handles, tab, row+2, col+2);
-							fatal_error("The index \"", buf, "\" was not already declared as a member of the index set \"", index_set->name, "\".");
-						}
-					}
+						index_names_str[row] = buf;
+						token.string_value = String_View(index_names_str[row].data());
+						token.type = Token_Type::quoted_string;
+					} else
+						empty = true;
 				}
-				if(index >= 0)
-					indexes.push_back({index_sets[row], index});
+				
+				if(empty) continue;
+				
+				if(token.type == Token_Type::unknown) {
+					ole_close_due_to_error(handles, tab, row+2, col+2);
+					fatal_error("This is not a valid index name.");
+				}
+				index_names.push_back(token);
 			}
-			if(!got_name_this_column && indexes.empty()) // There was no name on top of the column and no indexes. This means there are no more data columns
+			
+			if(!got_name_this_column && index_names.empty()) // There was no name on top of the column and no indexes. This means there are no more data columns
 				break;
+			
+			std::vector<int> indexes_int;
+			get_indexes(data_set, index_sets, index_names, indexes_int); 
+			
+			// TODO: (see same comment in data_set.cpp) Just maybe organize the data differently so that we don't need to do this zip.
+			std::vector<std::pair<int, int>> indexes(index_sets.size());
+			for(int lev = 0; lev < index_sets.size(); ++lev)
+				indexes[lev] = std::pair<int, int>{index_sets[lev], indexes_int[lev]};
 			
 			data.header_data.push_back({});
 			auto &header = data.header_data.back();

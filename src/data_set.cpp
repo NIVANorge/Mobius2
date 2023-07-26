@@ -129,7 +129,18 @@ write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *da
 	fprintf(file, "%s[", component->handle.data());
 	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
 		auto index_set = data_set->index_sets[component->index_sets[loc]];
-		int super_idx = 0; // TODO!!!!
+		int super_idx = 0;
+		if(index_set->sub_indexed_to >= 0) {
+			super_idx = -1;
+			for(int loc2 = 0; loc2 < loc; ++loc2) {
+				if(component->index_sets[loc2] == index_set->sub_indexed_to) {
+					super_idx = ref.indexes[loc2];
+					break;
+				}
+			}
+			if(super_idx < 0)
+				fatal_error(Mobius_Error::internal, "Parent index set of sub-indexed index set was not set up correctly before write_indexed_compartment_to_file.");
+		}
 		auto &indexes = index_set->indexes[super_idx];
 		if(indexes.type == Sub_Indexing_Info::Type::named)
 			fprintf(file, " \"%s\"", indexes.indexes[ref.indexes[loc]]->name.data());
@@ -182,34 +193,53 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 int
 get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Source_Location *error_loc = nullptr){
 	int count = 1;
+	std::vector<u8> already_counted(index_sets.size());
+	
 	for(int level = index_sets.size()-1; level >= 0; --level) {
+		if(already_counted[level]) continue;
+		
 		auto index_set = data_set->index_sets[index_sets[level]];
 		if(index_set->sub_indexed_to >= 0) {
-			if(level == 0 || index_sets[level-1] != index_set->sub_indexed_to) {
+			bool found = false;
+			for(int level_parent = 0; level_parent < level; ++level_parent) {
+				if(index_sets[level_parent] == index_set->sub_indexed_to) {
+					found = true;
+					already_counted[level_parent] = true;
+					break;
+				}
+			}
+			if(!found) {
 				if(error_loc) error_loc->print_error_header();
 				fatal_error("Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
-					data_set->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't immediately follow the latter.");
+					data_set->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter.");
 			}
 			int sum = 0;
 			for(auto &idxs : index_set->indexes) sum += idxs.get_count();
 			count *= sum;
-			level--;     // NOTE; in this sum we automatically count the size of the parent index set, so we have to skip it.
-		} else {
+		} else
 			count *= index_set->get_max_count();
-		}
 	}
 	return count;
 }
 
 void
-write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int level, int parent_idx, int *offset, const std::vector<int> &index_sets, int tabs) {
+write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int level, std::vector<int> &indexes, int *offset, const std::vector<int> &index_sets, int tabs) {
 	
 	int count = 1;
 	if(!index_sets.empty()) {
 		auto index_set = data_set->index_sets[index_sets[level]];
-		if(index_set->sub_indexed_to >= 0) //NOTE: We already checked that this was the one directly above in the get_instance_count call.
+		if(index_set->sub_indexed_to >= 0) {
+			int parent_idx = -1;
+			for(int l2 = 0; l2 < index_sets.size(); ++l2) {
+				if(index_sets[l2] == index_set->sub_indexed_to) {
+					parent_idx = indexes[l2];
+					break;
+				}
+			}
+			if(parent_idx < 0)
+				fatal_error(Mobius_Error::internal, "Got a sub-indexed index set without the parent index set in write_parameter_recursive.");
 			count = index_set->get_count(parent_idx);
-		else
+		} else
 			count = index_set->get_max_count();
 	}
 	
@@ -245,7 +275,8 @@ write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int lev
 		}
 	} else {
 		for(int idx = 0; idx < count; ++idx) {
-			write_parameter_recursive(file, data_set, par, level+1, idx, offset, index_sets, tabs);
+			indexes[level] = idx;
+			write_parameter_recursive(file, data_set, par, level+1, indexes, offset, index_sets, tabs);
 			fprintf(file, "\n");
 			if(level < (int)index_sets.size() - 2 && idx != count-1)
 				fprintf(file, "\n");
@@ -273,7 +304,8 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 	}
 	
 	int offset = 0;
-	write_parameter_recursive(file, data_set, par, 0, -1, &offset, par_group.index_sets, tabs+1);
+	std::vector<int> indexes(par_group.index_sets.size(), -1);
+	write_parameter_recursive(file, data_set, par, 0, indexes, &offset, par_group.index_sets, tabs+1);
 	
 	if(n_dims != 1)
 		print_tabs(file, tabs);
@@ -454,15 +486,6 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 	Index_Set_Info *sub_indexed_to = nullptr;
 	if(which == 1) {
 		sub_indexed_to = make_sub_indexed_to(data_set, data, single_arg(decl, 0));
-		/*
-		data->sub_indexed_to = data_set->index_sets.expect_exists_idx(single_arg(decl, 0), "index_set");
-		sub_indexed_to = data_set->index_sets[data->sub_indexed_to];
-		if(sub_indexed_to->sub_indexed_to != -1) {
-			decl->source_loc.print_error_header();
-			fatal_error("We currently don't support sub-indexing under an index set that is itself sub-indexed.");
-		}
-		data->indexes.resize(sub_indexed_to->get_max_count()); // NOTE: Should be correct to use max count since what we are sub-indexed to can't itself be sub-indexed.
-		*/
 	}
 	
 	auto peek = stream->peek_token(1);
@@ -516,6 +539,33 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 }
 
 void
+get_indexes(Data_Set *data_set, std::vector<int> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out) {
+	//TODO: Assertions on counts etc.
+	indexes_out.resize(index_sets.size());
+	for(int pos = 0; pos < index_names.size(); ++pos) {
+		auto index_set = data_set->index_sets[index_sets[pos]];
+		int parent_idx = 0;
+		if(index_set->sub_indexed_to >= 0) {
+			int parent_pos = -1;
+			for(int par_pos = 0; par_pos < pos; ++par_pos) {
+				if(index_sets[par_pos] == index_set->sub_indexed_to) {
+					parent_pos = par_pos;
+					break;
+				}
+			}
+			if(parent_pos < 0) {
+				index_names[pos].print_error_header();
+				// TODO: Should include some names here.
+				fatal_error("This index belongs to an index set that is sub-indexed to another index set, but this index does not appear after an index of the parent index set.");
+			}
+			parent_idx = indexes_out[parent_pos];
+		}
+		indexes_out[pos] = index_set->get_index(&index_names[pos], parent_idx);
+	}
+}
+
+
+void
 read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartment_Ref *read_to, Connection_Info *info) {
 	Token token = stream->peek_token();
 	stream->expect_identifier();
@@ -537,13 +587,8 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 		token.print_error_header();
 		fatal_error("The component '", token.string_value, "' should be indexed with ", comp_data->index_sets.size(), " indexes.");
 	}
-	int prev_idx = -1;
-	for(int pos = 0; pos < index_names.size(); ++pos) {
-		auto index_set = data_set->index_sets[comp_data->index_sets[pos]];
-		int idx = index_set->get_index(&index_names[pos], prev_idx);
-		read_to->indexes.push_back(idx);
-		prev_idx = idx;
-	}
+	
+	get_indexes(data_set, comp_data->index_sets, index_names, read_to->indexes);
 }
 
 void
@@ -620,16 +665,25 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 			info->component_handle_to_id[decl->handle_name.string_value] = comp_id;
 		std::vector<Token> idx_set_list;
 		read_string_list(stream, idx_set_list);
-		int prev = -1;
+		//int prev = -1;
 		for(auto &name : idx_set_list) {
 			int ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
 			data->index_sets.push_back(ref);
 			int sub_indexed_to = data_set->index_sets[ref]->sub_indexed_to;
-			if(sub_indexed_to >= 0 && sub_indexed_to != prev) {
-				name.print_error_header();
-				fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear immediately after it on the index set list for this component declaration.");
+			if(sub_indexed_to >= 0 ) {
+				bool found = false;
+				for(int prev : data->index_sets) {
+					if(prev == sub_indexed_to) {
+						found = true;
+						break;
+					}
+				}
+				if(!found) {
+					name.print_error_header();
+					fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear after it on the index set list for this component declaration.");
+				}
 			}
-			prev = ref;
+			//prev = ref;
 		}
 		auto next = stream->peek_token();
 		if((char)next.type == '[') {
@@ -698,15 +752,18 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 			stream->read_token();
 			token = stream->peek_token();
 			if(token.type == Token_Type::quoted_string) {
-				std::vector<std::pair<int, int>> indexes;
+				std::vector<int> index_sets;
+				std::vector<Token> index_names;
+				
 				while(true) {
 					stream->read_token();
 					auto index_set_idx = data_set->index_sets.expect_exists_idx(&token, "index_set");
-					auto index_set = data_set->index_sets[index_set_idx];
+					
 					stream->expect_token(':');
 					token = stream->read_token();
-					int index      = index_set->get_index(&token, 0); // TODO: Set correct index for super index set if it exists. (And check for correct indexing in that regard)
-					indexes.push_back(std::pair<int, int>{index_set_idx, index});
+					index_sets.push_back(index_set_idx);
+					index_names.push_back(token);
+				
 					token = stream->peek_token();
 					if((char)token.type == ']') {
 						stream->read_token();
@@ -717,13 +774,20 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 						fatal_error("Expected a ] or a new index set name.");
 					}
 				}
+				std::vector<int> indexes_int;
+				get_indexes(data_set, index_sets, index_names, indexes_int); 
+				
+				// TODO: Just maybe organize the data differently so that we don't need to do this zip.
+				std::vector<std::pair<int, int>> indexes(index_sets.size());
+				for(int lev = 0; lev < index_sets.size(); ++lev)
+					indexes[lev] = std::pair<int, int>{index_sets[lev], indexes_int[lev]};
+				
 				header.indexes.push_back(std::move(indexes));
 			} else if(token.type == Token_Type::identifier || (char)token.type == '[') {
 				while(true) {
 					if((char)token.type == '[') {
 						auto unit_decl = parse_decl_header(stream);
 						header.unit.set_data(unit_decl);
-						//warning_print("************Found unit: ", header.unit.to_utf8(), '\n');
 						delete unit_decl;
 					} else {
 						bool success = set_flag(&header.flags, token.string_value);

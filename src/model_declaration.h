@@ -108,11 +108,11 @@ Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	Entity_Id              component;
+	std::vector<Entity_Id> components;
 	
 	Decl_Scope             scope;
 	
-	Entity_Registration() : component(invalid_entity_id) {}
+	Entity_Registration() {}
 };
 
 template<> struct
