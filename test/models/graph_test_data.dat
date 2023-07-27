@@ -1,15 +1,20 @@
-index_set("Node index") [ 4 ]
+index_set("Node index") [ "A" "B" "C" "D" ]
 
-index_set("Node2 index") [ 2 ]
+index_set("Node2 index") [ "E" "F" ]
 
 connection("The graph") [
 	n : compartment("Node") [ "Node index" ] [ "Node edges" ]
 	n2 : compartment("Node2") [ "Node2 index" ] [ "Node2 edges" ]
 
-	n[ 0 ] -> n[ 1 ] -> n[ 2 ]
-	n[ 0 ] -> n[ 3 ] -> n[ 1 ]
-	n[ 3 ] -> n[ 2 ] -> out
-	n[ 2 ] -> n2[ 1 ] -> n2[ 0 ] -> n[ 0 ]
+	#n[ "A" ] -> n[ "B" ] -> n[ "C" ]
+	#n[ "A" ] -> n[ "D" ] -> n[ "B" ]
+	#n[ "D" ] -> n[ "C" ] -> out
+	#n[ "C" ] -> n2[ "F" ] -> n2[ "E" ] -> n[ "A" ]
+	n2["F"]->n2["E"]->out
+	n["C"]->out
+	n["A"]->out
+	#n["B"]->out
+	#n["D"]->out
 ]
 
 par_group("System") {

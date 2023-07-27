@@ -460,11 +460,13 @@ public :
 	Index_T     get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes);
 	Index_T     get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes);
 	Index_T     get_index(Entity_Id index_set, const std::string &name);
-	std::string get_index_name(Index_T index);
+	std::string get_index_name(Index_T index, bool *is_quotable = nullptr);
 	std::string get_possibly_quoted_index_name(Index_T index);
 	bool        all_indexes_are_set();
 	s64         active_instance_count(const std::vector<Entity_Id> &index_sets); // TODO: consider putting this on the Storage_Structure instead.
 	bool        is_in_bounds(std::vector<Index_T> &indexes); // same?
+	void        get_index_names_with_edge_naming(std::vector<Index_T> &indexes, std::vector<std::string> &names_out, bool quote);
+	
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
 	Entity_Id              get_single_connection_index_set(Entity_Id conn_id);

@@ -265,7 +265,7 @@ Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 	Entity_Id sub_indexed_to;
 	
 	Entity_Id is_edge_of_connection;
-	Entity_Id is_edge_of_node;
+	Entity_Id is_edge_of_node; // TODO: This one seems unused?
 	
 	Entity_Registration() : sub_indexed_to(invalid_entity_id), is_edge_of_connection(invalid_entity_id), is_edge_of_node(invalid_entity_id) {}
 };

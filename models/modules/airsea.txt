@@ -33,7 +33,7 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 """
 	
 	load("stdlib/seawater.txt", library("Air-sea"))
-	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	load("stdlib/atmospheric.txt", library("Meteorology"))
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
 	
 	rho_ice    : constant("Ice density", [k g, m-3], 917)

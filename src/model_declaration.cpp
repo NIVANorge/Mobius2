@@ -443,6 +443,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 				lib->decl = decl;
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
+				lib->name = found_name;
 			} else if (decl->type == Decl_Type::module) {
 				id = model->module_templates.find_or_create(&model->model_decl_scope, nullptr, nullptr, decl);
 				auto mod = model->module_templates[id];
@@ -1045,6 +1046,8 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_I
 	if(is_valid(&ident->index_set)) {
 		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
 		auto index_set = model->index_sets[index_set_id];
+		//TODO: This should only be set if it is a direcexted graph?
+		//	 Also check for duplicates
 		index_set->is_edge_of_connection = connection_id;
 		index_set->is_edge_of_node       = component_id;
 		if(connection->type != Connection_Type::directed_graph && connection->type != Connection_Type::grid1d && connection->type != Connection_Type::all_to_all) {

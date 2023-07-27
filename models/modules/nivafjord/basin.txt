@@ -21,10 +21,9 @@ module("NIVAFjord basin", version(0, 0, 1),
 	A         : par_real
 ) {
 
-	load("stdlib/basic_math.txt", library("Basic"), library("Response"))
-	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Thermodynamics"))
-	load("stdlib/seawater.txt", library("Seawater"), library("Air-sea"))
-	load("stdlib/atmospheric.txt", library("Meteorology"))#, library("Radiation"))
+	load("stdlib/basic_math.txt", library("Basic"))
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
+	load("stdlib/seawater.txt", library("Seawater"))
 
 	var(air.temp,  [deg_c], "Air temperature")
 	var(air.precip, [m m, day-1])      # TODO: Use this for something.

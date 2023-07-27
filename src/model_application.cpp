@@ -606,21 +606,84 @@ Model_Application::get_index(Entity_Id index_set, const std::string &name) {
 }
 
 std::string
-Model_Application::get_index_name(Index_T index) {
+Model_Application::get_index_name(Index_T index, bool *is_quotable) {
 	if(!is_valid(index) || index.index < 0 || index.index > get_max_index_count(index.index_set).index) // TODO : it is ok now since we only allow named index sets for indexes that are not sub-indexed.
 		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
+	
 	if(index_names[index.index_set.id].empty()) {
 		char buf[16];
 		itoa(index.index, buf, 10);
+		if(is_quotable) *is_quotable = false;
 		return buf;
-	} else
+	} else {
+		if(is_quotable) *is_quotable = true;
 		return index_names[index.index_set.id][index.index];
+	}
+}
+
+void
+Model_Application::get_index_names_with_edge_naming(std::vector<Index_T> &indexes, std::vector<std::string> &names_out, bool quote) {
+	
+	names_out.resize(indexes.size());
+	
+	int pos = 0;
+	for(auto &index : indexes) {
+		if(!is_valid(index)) { pos++; continue; }
+		
+		bool is_quotable = false;
+		
+		auto index_set = model->index_sets[index.index_set];
+		Entity_Id conn_id = index_set->is_edge_of_connection;
+		if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::directed_graph) {
+			names_out[pos] = get_index_name(index, &is_quotable);
+		} else {
+			Index_T parent_idx = invalid_index;
+			if(is_valid(index_set->sub_indexed_to)) {
+				for(Index_T &idx2 : indexes) {
+					if(idx2.index_set == index_set->sub_indexed_to) {
+						parent_idx = idx2;
+					}
+				}
+			}
+			
+			// If this index set is the edge index set of a graph connection, we generate a name for the index by the target of the edge (arrow).
+			//TODO: Can we make a faster way to find the arrow
+			auto &arrows = connection_components[conn_id].arrows;
+			for(auto arr : arrows) {
+				auto source_idx = invalid_index;
+				if(arr.source_indexes.size() == 1)
+					source_idx = arr.source_indexes[0];
+				else if(arr.source_indexes.size() > 1)
+					fatal_error(Mobius_Error::internal, "Graph arrows with multiple source indexes not supported by get_index_name.");
+				
+				if(arr.edge_index == index && source_idx == parent_idx) {
+					if(is_valid(arr.target_id)) {
+						if(arr.target_indexes.empty()) {
+							names_out[pos] = model->components[arr.target_id]->name;
+							is_quotable = true;
+						} else if (arr.target_indexes.size() == 1) {
+							names_out[pos] = get_index_name(arr.target_indexes[0], &is_quotable);
+						} else
+							fatal_error(Mobius_Error::internal, "Graph arrows with multiple target indexes not supported by get_index_name.");
+					} else {
+						is_quotable = false;
+						names_out[pos] = "out";
+					}
+				}
+			}
+		}
+		if(quote && is_quotable) {
+			names_out[pos] = "\"" + names_out[pos] + "\"";
+		}
+		++pos;
+	}
 }
 
 std::string
 Model_Application::get_possibly_quoted_index_name(Index_T index) {
-	std::string result = get_index_name(index);
-	if(!index_names[index.index_set.id].empty()) // i.e. it was actually named, not numeric
+	bool is_quotable;
+	std::string result = get_index_name(index, &is_quotable);
+	if(is_quotable)
 		result = "\"" + result + "\"";
 	return result;
 }
@@ -1087,6 +1150,8 @@ Model_Application::save_to_data_set() {
 		// TODO: Maybe do a sanity check that the data set contains the same indexes as the model application?
 		
 		if(index_set_info) continue;  // We are only interested in creating new index sets that were missing in the data set.
+		
+		// TODO: Hmm, this should only be skipped if it is a directed_graph?
 		if(is_valid(index_set->is_edge_of_connection)) continue; // These are handled differently.
 		
 		// TODO: We should have some api on the data set for this.

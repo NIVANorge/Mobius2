@@ -2,13 +2,19 @@
 
 	*** High pri ***
 
-		Don't require that parent index sets *immediately* precede. Only that they precede.
-			Halfway there, but now some index lookups must be fixed in data_set.cpp
-				get_instance_count must be fixed.
+
+		If graph connection data has declared two components, but arrows are given for only one, there is an error.
+			Probably because the edge index set for the first component will not be set up.
+				Happens only if the first index of a component doesn't have an arrow out..
+
+		Edge naming:
+			Oops, it doesn't depend on the node index (source index). Need a system for names of sub-indexes.
+				Need get_index_names(std::vector<Index_T>&)
 
 
 		Finish the new formulation of special_computation
-			Correct indexing of arguments.
+			Problems if it requires a connection lookup if there doesn't happen to be data for that connection (it did not appear in the data set).
+				May need to invalidate expression in that case.
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now.
 
 
@@ -66,7 +72,7 @@
 				Could detect if this happens and give an error, but that alone is a bit of work.
 					But that is needed if it happens in a graph with cycles.
 		
-			Component index sets should probably be declared in the connection declaration in the model. It is too integral to how to model works to leave it to users.
+			Component index sets should probably be declared in the connection declaration in the model. It is too integral to how to model works to leave it to data set.
 			
 			Have to figure out what something like
 					flux(blabla, something[vert.below], ...)				
@@ -82,26 +88,19 @@
 			
 			graph connections
 				
-				Allow naming edges (?)
+				Edge names are that of the target of the arrow.
+					Almost works, but is problematic for the name selection in MobiView.
+						May need a completely different selection for for sub-indexing though.
 				
-				//Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
-				
-				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
+				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc. and that "indexing below" is correct.
+					Alternatively do unit conversions, but how?
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
-				Accessing [below] can break if there is no connection data set up for a pair of compartments. This could e.g. happen if the access is in a special_computation and there is no flux set up along the connection from that source compartment.
 
 			all_to_all:
 				
 				Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
 
-			grid1d:
-				accessing
-					something[above]    ( or below )
-				should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
-				Does this give the correct result in all instances ?
-					Would prefer to have this since it improves usability.
-					Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
-					
+			grid1d:	
 				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
 					
 			Specific target:
@@ -258,13 +257,14 @@
 				Targets computed from aggregate series (stats of aggregate series).
 				
 				Optimizer callback doesn't update additional plot view.
+				
+				Matrix parameter selection doesn't work. Always selects the diagonal.
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
-				Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
 				Allow order by flux? By module?
 				
 			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
