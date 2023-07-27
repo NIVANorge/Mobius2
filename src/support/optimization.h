@@ -9,7 +9,7 @@
 struct
 Optimization_Target {
 	Var_Id sim_id, obs_id;
-	std::vector<Index_T> indexes;
+	Indexes indexes;
 	std::vector<int>     err_par_idx;
 	
 	int stat_type;
@@ -22,6 +22,8 @@ Optimization_Target {
 	s64 sim_stat_offset = -1, obs_stat_offset = -1, stat_ts = -1;
 	
 	void set_offsets(Model_Data *data); // This one sets the sim_offset and obs_offset.
+	
+	Optimization_Target(Mobius_Model *model) : indexes(model) {}
 };
 
 struct
@@ -35,7 +37,7 @@ Expr_Parameters {
 };
 
 void
-set_parameters(Model_Data *data, Expr_Parameters &parameters, const std::vector<double> &values);//const double *values);
+set_parameters(Model_Data *data, Expr_Parameters &parameters, const std::vector<double> &values);
 
 double
 evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param = nullptr);

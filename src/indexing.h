@@ -22,6 +22,8 @@ Multi_Array_Structure<Handle_T>::check_index_bounds(Model_Application *app, Hand
 
 #if INDEX_PACKING_ALTERNATIVE
 
+// TODO: This packing alternative is not up to date with code changes.
+
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
 	return (s64)handles.size();
@@ -178,6 +180,44 @@ Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
 }
 
 template<typename Handle_T> s64
+Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, Indexes &indexes, Model_Application *app) {
+	
+	s64 offset = handle_location[handle];
+	
+	if(indexes.lookup_ordered) {
+		
+		if(indexes.indexes.size() != index_sets.size())
+			fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset() (loookup_ordered = true).");
+		
+		int idx = 0;
+		for(auto &index_set : index_sets) {
+			auto index = indexes.indexes[idx];
+			check_index_bounds(app, handle, index_set, index);
+			offset *= (s64)app->get_max_index_count(index_set).index;
+			offset += (s64)index.index;
+			++idx;
+		}
+		return offset + begin_offset;
+	} else {
+
+		bool once = false;
+		for(auto &index_set : index_sets) {
+			auto index = indexes.indexes[index_set.id];
+			if(index_set == indexes.mat_col.index_set) {
+				if(once)
+					index = indexes.mat_col;
+				once = true;
+			}
+			check_index_bounds(app, handle, index_set, index);
+			offset *= (s64)app->get_max_index_count(index_set).index;
+			offset += (s64)index.index;
+		}
+		return offset + begin_offset;
+	}
+}
+
+/*
+template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
 	s64 offset = handle_location[handle];
 	for(auto &index_set : index_sets) {
@@ -222,6 +262,7 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 	}
 	return offset + begin_offset;
 }
+*/
 
 template<typename Handle_T> Math_Expr_FT *
 Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {

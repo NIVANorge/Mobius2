@@ -7,8 +7,10 @@ Connection_Node_Data {
 	Entity_Id id = invalid_entity_id;
 	int receives_count = 0;
 	bool visited       = false;
-	std::vector<Index_T> indexes;     // TODO: Why does this cause a crash??
+	Indexes indexes;
 	std::vector<int> points_at;
+	
+	Connection_Node_Data() : indexes() {}
 };
 
 struct
@@ -154,7 +156,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	
 	for(auto &comp : app->connection_components[conn_id].components) {
 		auto id = comp.id;
-		node_structure.for_each(id, [id, &nodes](std::vector<Index_T> &indexes, s64 offset) {
+		node_structure.for_each(id, [id, &nodes](Indexes &indexes, s64 offset) {
 			nodes[offset].id = id;
 			nodes[offset].indexes = indexes; // TODO: Could be a bit slow if we have hundreds of nodes..
 		});
@@ -163,12 +165,12 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	for(auto &arr : app->connection_components[conn_id].arrows) {
 		s64 target_idx = -1;
 		if(is_valid(arr.target_id)) {
-			target_idx = node_structure.get_offset_alternate(arr.target_id, arr.target_indexes);
+			target_idx = node_structure.get_offset(arr.target_id, arr.target_indexes);
 			++nodes[target_idx].receives_count;
 		}
 		
 		// TODO: Check for duplicate arrows? (Are they allowed?)
-		s64 source_idx = node_structure.get_offset_alternate(arr.source_id, arr.source_indexes);
+		s64 source_idx = node_structure.get_offset(arr.source_id, arr.source_indexes);
 		nodes[source_idx].points_at.push_back(target_idx);
 	}
 	
@@ -214,7 +216,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 				else {
 					auto &node = nodes[nodeidx];
 					error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
-					for(auto &index : node.indexes)
+					for(auto &index : node.indexes.indexes)
 						error_print(app->get_possibly_quoted_index_name(index), " ");
 					error_print(']');
 				}

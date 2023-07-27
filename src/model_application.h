@@ -176,6 +176,21 @@ template<> struct Hash_Fun<Connection_T> {
 struct Index_Exprs;
 struct Model_Application;
 
+struct Indexes {
+	bool lookup_ordered = false;
+	std::vector<Index_T> indexes;
+	Index_T mat_col = invalid_index;
+	
+	Indexes();
+	Indexes(Mobius_Model *model);
+	Indexes(Index_T index);
+	
+	void clear();
+	void add_index(Index_T index);
+	void add_index(Entity_Id index_set, s32 idx);
+	//Index_T get_index(Entity_Id index_set);
+};
+
 struct
 Offset_Stride_Code {
 	Math_Expr_FT *offset;
@@ -207,9 +222,10 @@ struct Multi_Array_Structure {
 	// Hmm, we could just store an app pointer here too to avoid passing it all the time.
 	
 	void check_index_bounds(Model_Application *app, Handle_T, Entity_Id index_set, Index_T index);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app);
-	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
+	//s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
+	//s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app);
+	//s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
+	s64 get_offset(Handle_T, Indexes &indexes, Model_Application *app);
 	Math_Expr_FT *get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out);
 	
 	static const std::string &
@@ -248,9 +264,10 @@ struct Storage_Structure {
 	s64 get_offset_base(Handle_T handle);
 	s64 get_stride(Handle_T handle);
 	s64 instance_count(Handle_T handle);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col);
-	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes);
+	//s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes);
+	//s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col);
+	//s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes);
+	s64 get_offset(Handle_T handle, Indexes &indexes);
 	
 	const std::vector<Entity_Id> &
 	get_index_sets(Handle_T handle);
@@ -262,7 +279,7 @@ struct Storage_Structure {
 	get_special_offset_stride_code(Handle_T handle, Index_Exprs &index_exprs);
 	
 	void
-	for_each(Handle_T, const std::function<void(std::vector<Index_T> &, s64)>&);
+	for_each(Handle_T, const std::function<void(Indexes &, s64)>&);
 	
 	Storage_Structure(Model_Application *parent) : parent(parent), has_been_set_up(false), total_count(0) {}
 };
@@ -377,9 +394,11 @@ struct
 Connection_Arrow {
 	Entity_Id source_id                    = invalid_entity_id;
 	Entity_Id target_id                    = invalid_entity_id;
-	std::vector<Index_T> source_indexes;
-	std::vector<Index_T> target_indexes;
+	Indexes   source_indexes;
+	Indexes   target_indexes;
 	Index_T   edge_index                   = invalid_index;
+	
+	Connection_Arrow() : source_indexes(), target_indexes() {}
 };
 
 struct
@@ -460,15 +479,15 @@ public :
 	void        set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx = invalid_index);
 	void        set_index_count(Entity_Id index_set, int count, Index_T parent_idx = invalid_index);
 	Index_T     get_max_index_count(Entity_Id index_set);
-	Index_T     get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes);
-	Index_T     get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes);
+	Index_T     get_index_count(Entity_Id index_set, Indexes &indexes);
+	//Index_T     get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes);
 	Index_T     get_index(Entity_Id index_set, const std::string &name);
 	std::string get_index_name(Index_T index, bool *is_quotable = nullptr);
 	std::string get_possibly_quoted_index_name(Index_T index);
 	bool        all_indexes_are_set();
 	s64         active_instance_count(const std::vector<Entity_Id> &index_sets); // TODO: consider putting this on the Storage_Structure instead.
-	bool        is_in_bounds(std::vector<Index_T> &indexes); // same?
-	void        get_index_names_with_edge_naming(std::vector<Index_T> &indexes, std::vector<std::string> &names_out, bool quote);
+	bool        is_in_bounds(Indexes &indexes); // same?
+	void        get_index_names_with_edge_naming(Indexes &indexes, std::vector<std::string> &names_out, bool quote);
 	
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
@@ -589,6 +608,7 @@ Storage_Structure<Handle_T>::instance_count(Handle_T handle) {
 	return structure[array_idx].instance_count(parent);
 }
 
+/*
 template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array.at(handle);
@@ -605,6 +625,12 @@ template<typename Handle_T> s64
 Storage_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
 	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].get_offset_alternate(handle, indexes, parent);
+}
+*/
+template<typename Handle_T> s64
+Storage_Structure<Handle_T>::get_offset(Handle_T handle, Indexes &indexes) {
+	auto array_idx = handle_is_in_array.at(handle);
+	return structure[array_idx].get_offset(handle, indexes, parent);
 }
 	
 template<typename Handle_T> Math_Expr_FT *
@@ -649,35 +675,34 @@ Storage_Structure<Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>>
 }
 
 template<typename Handle_T> void
-for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
-	Entity_Id index_set = indexes[level].index_set;
+for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::function<void(Indexes &, s64)> &do_stuff, Indexes &indexes, int level) {
+	Entity_Id index_set = indexes.indexes[level].index_set;
 	
-	if(level == indexes.size()-1) {
-		for(int idx = 0; idx < self->parent->get_index_count_alternate(index_set, indexes).index; ++idx) {
-			indexes[level].index = idx;
-			s64 offset = self->get_offset_alternate(handle, indexes);
+	if(level == indexes.indexes.size()-1) {
+		for(int idx = 0; idx < self->parent->get_index_count(index_set, indexes).index; ++idx) {
+			indexes.indexes[level].index = idx;
+			s64 offset = self->get_offset(handle, indexes);
 			do_stuff(indexes, offset);
 		}
 	} else {
-		for(int idx = 0; idx < self->parent->get_index_count_alternate(index_set, indexes).index; ++idx) {
-			indexes[level].index = idx;
+		for(int idx = 0; idx < self->parent->get_index_count(index_set, indexes).index; ++idx) {
+			indexes.indexes[level].index = idx;
 			for_each_helper(self, handle, do_stuff, indexes, level+1);
 		}
 	}
 }
 
 template<typename Handle_T> void
-Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
+Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(Indexes &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array.at(handle);
 	auto &index_sets = structure[array_idx].index_sets;
-	std::vector<Index_T> indexes;
+	Indexes indexes;
 	if(index_sets.empty()) {
-		s64 offset = get_offset_alternate(handle, indexes);
+		s64 offset = get_offset(handle, indexes);
 		do_stuff(indexes, offset);
 		return;
 	}
-	indexes.resize(index_sets.size());
-	for(int level = 0; level < index_sets.size(); ++level) indexes[level] = Index_T { index_sets[level], 0 };
+	for(int pos = 0; pos < index_sets.size(); ++pos) indexes.add_index( Index_T { index_sets[pos], 0 } );
 	for_each_helper(this, handle, do_stuff, indexes, 0);
 }
 

@@ -4,7 +4,27 @@
 
 
 		We should always pass index vectors along with the method they were indexed with in a struct so that the ordering is always checked.
-		Could also have handy methods for re-ordering if needed.
+			
+			After getting this to work, we could do a few convenience overhauls.
+				If they are lookup ordered, you should not need the model in the constructor.
+				
+				Construct lookup ordered containing a single index.
+				
+				Index_T &index(Entity_Id index_set)
+				
+				add_index(Entity_Id index_set, int idx)
+				
+				count()
+				
+				etc..
+				
+			get_index_names_with_edge_naming   must use mat_col if it exists.
+				Maybe just have an iterator on Indexes that includes mat_col if necessary.
+					Use that in check_for_nans and maybe other places.
+			
+			remove transform() if we don't need it.
+			
+			profile labels in MobiView are broken.
 
 
 		If graph connection data has declared two components, but arrows are given for only one, there is an error.

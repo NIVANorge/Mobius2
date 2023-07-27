@@ -204,9 +204,9 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 				}
 			}
 			
-			std::vector<Index_T> indexes_int(expected_index_sets.size());
+			Indexes indexes_int;
 			if(header.indexes.empty()) {
-				s64 offset = data->structure->get_offset_alternate(id, indexes_int);
+				s64 offset = data->structure->get_offset(id, indexes_int);
 				offsets[header_idx].push_back(offset);
 				continue;
 			}
@@ -228,11 +228,11 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 						//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
 						fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
 					}
-					indexes_int[index_idx] = {index_set, (s32)index.second};
+					indexes_int.add_index(index_set, (s32)index.second);
 					++index_idx;
 				}
 				
-				s64 offset = data->structure->get_offset_alternate(id, indexes_int);
+				s64 offset = data->structure->get_offset(id, indexes_int);
 				offsets[header_idx].push_back(offset);
 			}
 		}

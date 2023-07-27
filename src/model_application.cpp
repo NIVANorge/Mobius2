@@ -5,6 +5,64 @@
 #include <cstdlib>
 #include <sstream>
 
+
+Indexes::Indexes(Mobius_Model *model) {
+	lookup_ordered = false;
+	if(model)  // NOTE: We need the check model!=0 since some places we need to construct an Indexed_Par before the model is created.
+		indexes.resize(model->index_sets.count(), invalid_index);
+}
+Indexes::Indexes() {
+	lookup_ordered = true;
+}
+
+Indexes::Indexes(Index_T index) {
+	lookup_ordered = true;
+	add_index(index);
+}
+
+void
+Indexes::clear() {
+	if(lookup_ordered)
+		indexes.clear();
+	else {
+		for(auto &index : indexes) index = invalid_index;
+	}
+	mat_col = invalid_index;
+}
+
+void
+Indexes::add_index(Index_T index) {
+	if(!is_valid(index))
+		fatal_error(Mobius_Error::internal, "Tried to set an invalid index on an Indexes");
+	if(lookup_ordered)
+		indexes.push_back(index);
+	else {
+		if(is_valid(indexes[index.index_set.id])) {
+			if(is_valid(mat_col))
+				fatal_error(Mobius_Error::internal, "Got duplicate matrix column index for an Indexes.");
+			mat_col = index;
+		} else
+			indexes[index.index_set.id] = index;
+	}
+}
+
+void
+Indexes::add_index(Entity_Id index_set, s32 idx) {
+	add_index(Index_T { index_set, idx } );
+}
+
+/*
+Index_T
+Indexes::get_index(Entity_Id index_set) {
+	//TODO
+	if(lookup_ordered) {
+	} else {
+		return indexes[index_set.id];
+	}
+}
+*/
+
+
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
@@ -240,7 +298,7 @@ Model_Application::set_up_index_count_structure() {
 	
 	for(auto index_set : model->index_sets) {
 		int idx = 0;
-		index_counts_structure.for_each(index_set, [this, index_set, &idx](std::vector<Index_T> &indexes, s64 offset) {
+		index_counts_structure.for_each(index_set, [this, index_set, &idx](Indexes &indexes, s64 offset) {
 			data.index_counts.data[offset] = index_counts[index_set.id][idx++].index;
 		});
 	}
@@ -536,13 +594,21 @@ Model_Application::get_max_index_count(Entity_Id index_set) {
 }
 
 Index_T
-Model_Application::get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes) {
+Model_Application::get_index_count(Entity_Id index_set, Indexes &indexes) {
 	auto set = model->index_sets[index_set];
-	if(is_valid(set->sub_indexed_to))
-		return index_counts[index_set.id][indexes[set->sub_indexed_to.id].index];
+	if(is_valid(set->sub_indexed_to)) {
+		if(indexes.lookup_ordered) {
+			for(auto &index : indexes.indexes) {
+				if(index.index_set == set->sub_indexed_to)
+					return index_counts[index_set.id][index.index];
+			}
+		} else {
+			return index_counts[index_set.id][indexes.indexes[set->sub_indexed_to.id].index];
+		}
+	}
 	return index_counts[index_set.id][0];
 }
-
+/*
 Index_T
 Model_Application::get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes) {
 	auto set = model->index_sets[index_set];
@@ -555,7 +621,7 @@ Model_Application::get_index_count_alternate(Entity_Id index_set, std::vector<In
 	}
 	return index_counts[index_set.id][0];
 }
-
+*/
 s64
 Model_Application::active_instance_count(const std::vector<Entity_Id> &index_sets) {
 	s64 count = 1;
@@ -577,8 +643,8 @@ Model_Application::active_instance_count(const std::vector<Entity_Id> &index_set
 }
 
 bool
-Model_Application::is_in_bounds(std::vector<Index_T> &indexes) {
-	for(auto &index : indexes) {
+Model_Application::is_in_bounds(Indexes &indexes) {
+	for(auto &index : indexes.indexes) {
 		if(is_valid(index)) {
 			auto count = get_index_count(index.index_set, indexes);
 			if(index >= count) { // NOTE: We should NOT check for index.index < 0, since that just means that this index is not set right now.
@@ -622,12 +688,12 @@ Model_Application::get_index_name(Index_T index, bool *is_quotable) {
 }
 
 void
-Model_Application::get_index_names_with_edge_naming(std::vector<Index_T> &indexes, std::vector<std::string> &names_out, bool quote) {
+Model_Application::get_index_names_with_edge_naming(Indexes &indexes, std::vector<std::string> &names_out, bool quote) {
 	
-	names_out.resize(indexes.size());
+	names_out.resize(indexes.indexes.size());
 	
 	int pos = 0;
-	for(auto &index : indexes) {
+	for(auto &index : indexes.indexes) {
 		if(!is_valid(index)) { pos++; continue; }
 		
 		bool is_quotable = false;
@@ -639,10 +705,9 @@ Model_Application::get_index_names_with_edge_naming(std::vector<Index_T> &indexe
 		} else {
 			Index_T parent_idx = invalid_index;
 			if(is_valid(index_set->sub_indexed_to)) {
-				for(Index_T &idx2 : indexes) {
-					if(idx2.index_set == index_set->sub_indexed_to) {
+				for(Index_T &idx2 : indexes.indexes) {
+					if(idx2.index_set == index_set->sub_indexed_to)
 						parent_idx = idx2;
-					}
 				}
 			}
 			
@@ -651,18 +716,18 @@ Model_Application::get_index_names_with_edge_naming(std::vector<Index_T> &indexe
 			auto &arrows = connection_components[conn_id].arrows;
 			for(auto arr : arrows) {
 				auto source_idx = invalid_index;
-				if(arr.source_indexes.size() == 1)
-					source_idx = arr.source_indexes[0];
-				else if(arr.source_indexes.size() > 1)
+				if(arr.source_indexes.indexes.size() == 1)
+					source_idx = arr.source_indexes.indexes[0];
+				else if(arr.source_indexes.indexes.size() > 1)
 					fatal_error(Mobius_Error::internal, "Graph arrows with multiple source indexes not supported by get_index_name.");
 				
 				if(arr.edge_index == index && source_idx == parent_idx) {
 					if(is_valid(arr.target_id)) {
-						if(arr.target_indexes.empty()) {
+						if(arr.target_indexes.indexes.empty()) {
 							names_out[pos] = model->components[arr.target_id]->name;
 							is_quotable = true;
-						} else if (arr.target_indexes.size() == 1) {
-							names_out[pos] = get_index_name(arr.target_indexes[0], &is_quotable);
+						} else if (arr.target_indexes.indexes.size() == 1) {
+							names_out[pos] = get_index_name(arr.target_indexes.indexes[0], &is_quotable);
 						} else
 							fatal_error(Mobius_Error::internal, "Graph arrows with multiple target indexes not supported by get_index_name.");
 					} else {
@@ -870,7 +935,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		// TODO: Maybe asser the two vectors are the same size (would mean bug in Data_Set code if they are not).
 		int idx = 0;
 		for(auto index_set : source->index_sets) {
-			arrow.source_indexes.push_back(Index_T { index_set, (s16)arr.first.indexes[idx] });
+			arrow.source_indexes.add_index(Index_T { index_set, (s16)arr.first.indexes[idx] });
 			++idx;
 		}
 		
@@ -886,7 +951,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			// TODO: Maybe asser the two vectors are the same size.
 			int idx = 0;
 			for(auto index_set : target->index_sets) {
-				arrow.target_indexes.push_back(Index_T { index_set, (s16)arr.second.indexes[idx] });
+				arrow.target_indexes.add_index(Index_T { index_set, (s16)arr.second.indexes[idx] });
 				++idx;
 			}
 		}
@@ -904,7 +969,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		std::vector<int> n_edges(components_structure.total_count);
 		
 		for(auto &arrow : comps.arrows) {
-			s64 offset = components_structure.get_offset_alternate(arrow.source_id, arrow.source_indexes);
+			s64 offset = components_structure.get_offset(arrow.source_id, arrow.source_indexes);
 			s16 edge_idx = n_edges[offset]++;
 			Entity_Id edge_index_set = app->find_connection_component(conn_id, arrow.source_id)->edge_index_set;
 			if(!is_valid(edge_index_set))
@@ -919,10 +984,10 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			
 			//TODO: This may be broken if we allow sub-indexing of sub-indexing.
 			// Also may be broken unless we *require* the edge index set to be sub-indexed (but we should do that).
-			std::vector<Index_T> indexes = { Index_T {index_set, 0} };
-			for(; indexes[0] < app->get_max_index_count(index_set); ++indexes[0]) {
-				s64 offset = components_structure.get_offset_alternate(comp.id, indexes );
-				app->set_index_count(comp.edge_index_set, n_edges[offset], indexes[0]);
+			Indexes indexes(Index_T {index_set, 0});
+			for(; indexes.indexes[0] < app->get_max_index_count(index_set); ++indexes.indexes[0]) {
+				s64 offset = components_structure.get_offset(comp.id, indexes);
+				app->set_index_count(comp.edge_index_set, n_edges[offset], indexes.indexes[0]);
 			}
 		}
 	}
@@ -951,18 +1016,18 @@ process_connection_data(Model_Application *app, Entity_Id conn_id) {
 		Sub_Indexed_Component *component = app->find_connection_component(conn_id, arr.source_id);
 		
 		auto &index_sets = component->index_sets;
-		std::vector<Index_T> indexes = arr.source_indexes;
+		Indexes indexes = arr.source_indexes;
 		if(cnd->type == Connection_Type::directed_graph)
-			indexes.push_back(arr.edge_index);
+			indexes.add_index(arr.edge_index);
 		
-		s64 offset = app->connection_structure.get_offset_alternate({conn_id, arr.source_id, 0}, indexes);
+		s64 offset = app->connection_structure.get_offset({conn_id, arr.source_id, 0}, indexes);
 		s32 id_code = (is_valid(arr.target_id) ? (s32)arr.target_id.id : -1);
 		*app->data.connections.get_value(offset) = id_code;
 		
-		for(int idx = 0; idx < arr.target_indexes.size(); ++idx) {
+		for(int idx = 0; idx < arr.target_indexes.indexes.size(); ++idx) {
 			int id = idx+1;
-			s64 offset = app->connection_structure.get_offset_alternate({conn_id, arr.source_id, id}, indexes);
-			*app->data.connections.get_value(offset) = (s32)arr.target_indexes[idx].index;
+			s64 offset = app->connection_structure.get_offset({conn_id, arr.source_id, id}, indexes);
+			*app->data.connections.get_value(offset) = (s32)arr.target_indexes.indexes[idx].index;
 		}
 	}
 
@@ -1165,9 +1230,9 @@ Model_Application::save_to_data_set() {
 			auto parent_count = get_max_index_count(index_set->sub_indexed_to);
 			index_set_info->indexes.resize(parent_count.index);
 			for(Index_T parent_idx = {index_set->sub_indexed_to, 0}; parent_idx < parent_count; ++parent_idx) {
-				std::vector<Index_T> indexes = { parent_idx };
+				Indexes indexes(parent_idx);
 				index_set_info->indexes[parent_idx.index].type = Sub_Indexing_Info::Type::numeric1;
-				index_set_info->indexes[parent_idx.index].n_dim1 = get_index_count_alternate(index_set_id, indexes).index;
+				index_set_info->indexes[parent_idx.index].n_dim1 = get_index_count(index_set_id, indexes).index;
 			}
 		}
 	}
@@ -1230,7 +1295,7 @@ Model_Application::save_to_data_set() {
 				par_info->values_enum.clear();
 				par_info->mark_for_deletion = false;
 				
-				parameter_structure.for_each(par_id, [&,this](std::vector<Index_T> &idxs, s64 offset) {
+				parameter_structure.for_each(par_id, [&,this](Indexes &idxs, s64 offset) {
 					if(par_info->type == Decl_Type::par_enum) {
 						s64 ival = data.parameters.get_value(offset)->val_integer;
 						par_info->values_enum.push_back(par->enum_values[ival]);
