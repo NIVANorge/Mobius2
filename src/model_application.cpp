@@ -51,17 +51,6 @@ Indexes::add_index(Entity_Id index_set, s32 idx) {
 	add_index(Index_T { index_set, idx } );
 }
 
-/*
-Index_T
-Indexes::get_index(Entity_Id index_set) {
-	//TODO
-	if(lookup_ordered) {
-	} else {
-		return indexes[index_set.id];
-	}
-}
-*/
-
 
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
@@ -608,20 +597,23 @@ Model_Application::get_index_count(Entity_Id index_set, Indexes &indexes) {
 	}
 	return index_counts[index_set.id][0];
 }
-/*
-Index_T
-Model_Application::get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes) {
-	auto set = model->index_sets[index_set];
-	if(is_valid(set->sub_indexed_to)) {
-		for(auto &index : indexes) {
-			if(index.index_set == set->sub_indexed_to)
-				return index_counts[index_set.id][index.index];
-		}
-		fatal_error(Mobius_Error::internal, "get_index_count_alternate: Did not find the index of the parent index set for a sub-indexed index set.");
+
+Math_Expr_FT *
+Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexes) {
+	
+	// If the index count could depend on the state of another index set, we have to look it up dynamically
+	if(is_valid(model->index_sets[index_set]->sub_indexed_to)) {
+		auto offset = index_counts_structure.get_offset_code(index_set, indexes);
+		auto ident = new Identifier_FT();
+		ident->value_type = Value_Type::integer;
+		ident->variable_type = Variable_Type::index_count;
+		ident->exprs.push_back(offset);
+		return ident;
 	}
-	return index_counts[index_set.id][0];
+	// Otherwise we can just return the constant.
+	return make_literal((s64)get_max_index_count(index_set).index);
 }
-*/
+
 s64
 Model_Application::active_instance_count(const std::vector<Entity_Id> &index_sets) {
 	s64 count = 1;

@@ -4,22 +4,6 @@
 
 
 Math_Expr_FT *
-get_index_count_code(Model_Application *app, Entity_Id index_set, Index_Exprs &indexes) {
-	
-	// If the index count could depend on the state of another index set, we have to look it up dynamically
-	if(is_valid(app->model->index_sets[index_set]->sub_indexed_to)) {
-		auto offset = app->index_counts_structure.get_offset_code(index_set, indexes);
-		auto ident = new Identifier_FT();
-		ident->value_type = Value_Type::integer;
-		ident->variable_type = Variable_Type::index_count;
-		ident->exprs.push_back(offset);
-		return ident;
-	}
-	// Otherwise we can just return the constant.
-	return make_literal((s64)app->get_max_index_count(index_set).index);
-}
-
-Math_Expr_FT *
 make_possibly_time_scaled_ident(Model_Application *app, Var_Id var_id) {
 	auto ident = make_state_var_identifier(var_id);
 	auto var = app->vars[var_id];
@@ -312,7 +296,7 @@ set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Single_R
 	if (restriction.restriction == Var_Loc_Restriction::top) {
 		indexes.indexes[index_set.id] = make_literal((s64)0);
 	} else if(restriction.restriction == Var_Loc_Restriction::bottom) {
-		auto count = get_index_count_code(app, index_set, indexes);
+		auto count = app->get_index_count_code(index_set, indexes);
 		indexes.indexes[index_set.id] = make_binop('-', count, make_literal((s64)1));
 	} else if(restriction.restriction == Var_Loc_Restriction::specific) {
 		// TODO: Should clamp it betwen 0 and index_count
@@ -453,7 +437,7 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 		if(restriction.restriction == Var_Loc_Restriction::above)
 			new_condition = make_binop(Token_Type::geq, copy(index), make_literal((s64)0));
 		else if(restriction.restriction == Var_Loc_Restriction::below) {
-			auto index_count = get_index_count_code(app, index_set, index_expr);
+			auto index_count = app->get_index_count_code(index_set, index_expr);
 			new_condition = make_binop('<', copy(index), index_count);
 		}
 	} else if ((type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) && is_valid(source_compartment)) {
@@ -800,7 +784,7 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 		auto loop = make_for_loop();
 		// NOTE: There is a caveat here: This will only work if the parent index of a sub-indexed index set is always set up first,
 		//   and that  *should* work the way we order the Entity_Id's of those right now, but it is a smidge volatile...
-		auto index_count = get_index_count_code(app, index_set->id, index_expr);
+		auto index_count = app->get_index_count_code(index_set->id, index_expr);
 		loop->exprs.push_back(index_count);
 		scope->exprs.push_back(loop);
 		
@@ -815,7 +799,7 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency, or the order was larger than 2. Order: ", index_set->order);
 			}
 			auto loop = make_for_loop();
-			auto index_count = get_index_count_code(app, index_set->id, index_expr);
+			auto index_count = app->get_index_count_code(index_set->id, index_expr);
 			loop->exprs.push_back(index_count);
 			index_expr.mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
 			index_expr.mat_index_set = index_set->id;

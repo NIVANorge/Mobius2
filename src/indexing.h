@@ -153,8 +153,7 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 			}
 			undetermined_found = true;
 			
-			//count = app->get_max_index_count(index_set).index;
-			result.count = get_index_count_code(app, index_set, index_exprs);
+			result.count = app->get_index_count_code(index_set, index_exprs);
 		}
 	}
 	if(!result.count)
@@ -215,54 +214,6 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, Indexes &indexes, M
 		return offset + begin_offset;
 	}
 }
-
-/*
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
-	s64 offset = handle_location[handle];
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, handle, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		offset += (s64)indexes[index_set.id].index;
-	}
-	return offset + begin_offset;
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app) {
-	// If one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
-	s64 offset = handle_location[handle];
-	bool once = false;
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, handle, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		s64 index = (s64)indexes[index_set.id].index;
-		if(index_set == mat_col.index_set) {
-			if(once)
-				index = (s64)mat_col.index;
-			once = true;
-		}
-		offset += index;
-	}
-	return offset + begin_offset;
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
-	if(indexes.size() != index_sets.size())
-		fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
-	s64 offset = handle_location[handle];
-	int idx = 0;
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, handle, index_set, indexes[idx]);
-		auto &index = indexes[idx];
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		offset += (s64)index.index;
-		++idx;
-	}
-	return offset + begin_offset;
-}
-*/
 
 template<typename Handle_T> Math_Expr_FT *
 Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {
@@ -327,7 +278,7 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 			}
 			undetermined_found = true;
 			
-			result.count = get_index_count_code(app, index_set, index_exprs);
+			result.count = app->get_index_count_code(index_set, index_exprs);
 		}
 	}
 	if(!result.count)
