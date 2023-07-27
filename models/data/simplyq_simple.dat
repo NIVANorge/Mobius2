@@ -8,8 +8,8 @@ index_set("Subcatchment") [ "Coull" ]
 
 connection("Downstream") [
 	r : compartment("River") [ "Subcatchment" ]
-	
-	r["Coull"] -> out
+
+	r[ "Coull" ] -> out
 ]
 
 series("tarland_series.xlsx")
@@ -24,7 +24,7 @@ par_group("System") {
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 	par_real("Land use proportions") [
-		1
+		1 
 	]
 }
 
@@ -33,7 +33,7 @@ par_group("Catchment data") [ "Subcatchment" ] {
 	[ 51.7 ]
 }
 
-module("HBVSnow", 1, 0, 0) {
+module("HBVSnow", version(1, 0, 0)) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
 		[ 4.99633964178389 ]
@@ -55,7 +55,7 @@ module("HBVSnow", 1, 0, 0) {
 	}
 }
 
-module("Degree-day PET", 1, 0, 0) {
+module("Degree-day PET", version(1, 0, 0)) {
 	par_group("Potential evapotranspiration") {
 		par_real("Deegree-day factor for evapotranspiration")
 		[ 0.17377349447682 ]
@@ -65,7 +65,7 @@ module("Degree-day PET", 1, 0, 0) {
 	}
 }
 
-module("SimplyQ land", 0, 5, 0) {
+module("SimplyQ land", version(0, 5, 0)) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
 		[ 0.553624736510714 ]
@@ -88,7 +88,7 @@ module("SimplyQ land", 0, 5, 0) {
 	}
 }
 
-module("SimplyQ river", 0, 0, 1) {
+module("SimplyQ river", version(0, 0, 1)) {
 	par_group("Reach parameters") [ "Subcatchment" ] {
 		par_real("Reach slope")
 		[ 0.014 ]

@@ -3,6 +3,10 @@
 	*** High pri ***
 
 
+		We should always pass index vectors along with the method they were indexed with in a struct so that the ordering is always checked.
+		Could also have handy methods for re-ordering if needed.
+
+
 		If graph connection data has declared two components, but arrows are given for only one, there is an error.
 			Probably because the edge index set for the first component will not be set up.
 				Happens only if the first index of a component doesn't have an arrow out..
@@ -259,6 +263,8 @@
 				Optimizer callback doesn't update additional plot view.
 				
 				Matrix parameter selection doesn't work. Always selects the diagonal.
+				
+			Something where you can plot individual functions / state vars as functions of their inputs.
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).

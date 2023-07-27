@@ -2,6 +2,24 @@
 // NOTE: This should only be included inside model_application.h . It does not have meaning separately from it.
 
 
+template<typename Handle_T> void
+Multi_Array_Structure<Handle_T>::check_index_bounds(Model_Application *app, Handle_T handle, Entity_Id index_set, Index_T index) {
+	//TODO: This makes sure we are not out of bounds of the data, but it could still be
+	//incorrect for sub-indexed things.
+	if(index_set != index.index_set) {
+		begin_error(Mobius_Error::internal);
+		error_print("Mis-indexing the index set ", app->model->index_sets[index_set]->name, ", in one of the get_offset functions while looking up ", get_handle_name(app, handle), "\n");
+		error_print("The index used to address the index set is ");
+		if(is_valid(index.index_set))
+			error_print(app->model->index_sets[index.index_set]);
+		else
+			error_print("invalid");
+		mobius_error_exit();
+	}
+	if(index.index < 0 || index.index >= app->get_max_index_count(index_set).index)
+		fatal_error(Mobius_Error::internal, "Index out of bounds for the index set ", app->model->index_sets[index_set]->name, " in one of the get_offset functions while looking up ", get_handle_name(app, handle));
+}
+
 #if INDEX_PACKING_ALTERNATIVE
 
 template<typename Handle_T> s64
@@ -13,9 +31,10 @@ template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
 	s64 offset = 0;
 	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
+		auto &index = indexes[index_set.id];
+		check_index_bounds(app, handle, index_set, index);
 		offset *= (s64)app->get_max_index_count(index_set).index;
-		offset += (s64)indexes[index_set.id].index;
+		offset += (s64)index.index;
 	}
 	return (s64)offset*handles.size() + get_offset_base(handle, app);
 }
@@ -26,9 +45,10 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 	s64 offset = 0;
 	bool once = false;
 	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
+		auto &index = indexes[index_set.id];
+		check_index_bounds(app, handle, index_set, index);
 		offset *= (s64)app->get_max_index_count(index_set).index;
-		s64 index = (s64)indexes[index_set.id].index;
+		s64 index = (s64)index.index;
 		if(index_set == mat_col.index_set) {
 			if(once)
 				index = (s64)mat_col.index;
@@ -46,8 +66,8 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 	s64 offset = 0;
 	int idx = 0;
 	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[idx]);
 		auto &index = indexes[idx];
+		check_index_bounds(app, handle, index_set, index);
 		offset *= (s64)app->get_max_index_count(index_set).index;
 		offset += (s64)index.index;
 		++idx;
@@ -161,7 +181,7 @@ template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
 	s64 offset = handle_location[handle];
 	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
+		check_index_bounds(app, handle, index_set, indexes[index_set.id]);
 		offset *= (s64)app->get_max_index_count(index_set).index;
 		offset += (s64)indexes[index_set.id].index;
 	}
@@ -174,7 +194,7 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T
 	s64 offset = handle_location[handle];
 	bool once = false;
 	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
+		check_index_bounds(app, handle, index_set, indexes[index_set.id]);
 		offset *= (s64)app->get_max_index_count(index_set).index;
 		s64 index = (s64)indexes[index_set.id].index;
 		if(index_set == mat_col.index_set) {
@@ -194,7 +214,7 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 	s64 offset = handle_location[handle];
 	int idx = 0;
 	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[idx]);
+		check_index_bounds(app, handle, index_set, indexes[idx]);
 		auto &index = indexes[idx];
 		offset *= (s64)app->get_max_index_count(index_set).index;
 		offset += (s64)index.index;

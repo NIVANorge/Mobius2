@@ -1450,40 +1450,12 @@ compose_and_resolve(Model_Application *app) {
 	
 	
 	// Create convenient warnings for unused module load arguments and library loads.
-	
-	// TODO: Factor out to a function on Decl_Scope.
-	for(auto module_id : model->modules) {
-		auto module = model->modules[module_id];
-		
-		std::unordered_map<Entity_Id, bool, Decl_Scope::Entity_Id_Hash> lib_was_used;
-		for(auto &pair : module->scope.visible_entities) {
-			auto &reg = pair.second;
-			
-			if(reg.is_load_arg && !reg.was_referenced) {
-				log_print("Warning: In ");
-				reg.source_loc.print_log_header();
-				log_print("The module argument '", reg.handle, "' was never referenced.\n");
-			}
-			
-			if(reg.external) {
-				auto entity = model->find_entity(reg.id);
-				if(entity->scope_id.reg_type == Reg_Type::library) {
-					if(reg.was_referenced)
-						lib_was_used[entity->scope_id] = true;
-					else {
-						auto find = lib_was_used.find(entity->scope_id);
-						if(find == lib_was_used.end())
-							lib_was_used[entity->scope_id] = false;
-					}
-				}
-			}
-		}
-		for(auto &pair : lib_was_used) {
-			if(!pair.second)
-				// TODO: How would we find the load source location of the library?
-				log_print("Warning: The module \"", module->name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but does not use any of it.\n");
-		}
-	}
+
+	for(auto module_id : model->modules)
+		model->modules[module_id]->scope.check_for_unreferenced_things(model);
+	for(auto lib_id : model->libraries)
+		model->libraries[lib_id]->scope.check_for_unreferenced_things(model);
+	model->model_decl_scope.check_for_unreferenced_things(model);
 }
 
 

@@ -204,10 +204,16 @@ struct Multi_Array_Structure {
 	s64 get_stride(Handle_T handle);
 	s64 instance_count(Model_Application *app);
 	
+	// Hmm, we could just store an app pointer here too to avoid passing it all the time.
+	
+	void check_index_bounds(Model_Application *app, Handle_T, Entity_Id index_set, Index_T index);
 	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
 	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app);
 	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
 	Math_Expr_FT *get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out);
+	
+	static const std::string &
+	get_handle_name(Model_Application *app, Handle_T handle);
 	
 	Offset_Stride_Code
 	get_special_offset_stride_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app);
@@ -257,9 +263,6 @@ struct Storage_Structure {
 	
 	void
 	for_each(Handle_T, const std::function<void(std::vector<Index_T> &, s64)>&);
-	
-	const std::string &
-	get_handle_name(Handle_T handle);
 	
 	Storage_Structure(Model_Application *parent) : parent(parent), has_been_set_up(false), total_count(0) {}
 };
@@ -537,15 +540,6 @@ Index_Exprs {
 	}
 };
 
-inline void
-check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
-	//TODO: This makes sure we are not out of bounds of the data, but it could still be
-	//incorrect for sub-indexed things.
-	if(index_set != index.index_set ||
-		index.index < 0 || index.index >= app->get_max_index_count(index_set).index)
-			fatal_error(Mobius_Error::internal, "Mis-indexing in one of the get_offset functions.");
-}
-
 #include "indexing.h"
 
 template<typename Handle_T> s64
@@ -557,18 +551,18 @@ Multi_Array_Structure<Handle_T>::instance_count(Model_Application *app) {
 }
 
 template<> inline const std::string&
-Storage_Structure<Entity_Id>::get_handle_name(Entity_Id id) {
-	return (*parent->model->registry(id.reg_type))[id]->name;
+Multi_Array_Structure<Entity_Id>::get_handle_name(Model_Application *app, Entity_Id id) {
+	return app->model->find_entity(id)->name;
 }
 
 template<> inline const std::string&
-Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
-	return parent->vars[var_id]->name;
+Multi_Array_Structure<Var_Id>::get_handle_name(Model_Application *app, Var_Id var_id) {
+	return app->vars[var_id]->name;
 }
 
 template<> inline const std::string &
-Storage_Structure<Connection_T>::get_handle_name(Connection_T nb) {
-	return parent->model->connections[nb.connection]->name;
+Multi_Array_Structure<Connection_T>::get_handle_name(Model_Application *app, Connection_T nb) {
+	return app->model->connections[nb.connection]->name;
 }
 
 template<typename Handle_T> const std::vector<Entity_Id> &
@@ -619,7 +613,8 @@ Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index
 	Entity_Id err_idx_set;
 	auto code = structure[array_idx].get_offset_code(handle, indexes, parent, err_idx_set);
 	if(!code) {
-		fatal_error(Mobius_Error::internal, "A call to get_offset_code() somehow referenced an index that was not properly initialized. The name of the referenced variable was \"", get_handle_name(handle), "\". The index set was \"", parent->model->index_sets[err_idx_set]->name, "\".");
+		auto handle_name = Multi_Array_Structure<Handle_T>::get_handle_name(parent, handle);
+		fatal_error(Mobius_Error::internal, "A call to get_offset_code() somehow referenced an index that was not properly initialized. The name of the referenced variable was \"", handle_name , "\". The index set was \"", parent->model->index_sets[err_idx_set]->name, "\".");
 	}
 	return code;
 }

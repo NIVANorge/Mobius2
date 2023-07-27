@@ -96,6 +96,48 @@ Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 	}
 }
 
+void
+Decl_Scope::check_for_unreferenced_things(Mobius_Model *model) {
+	std::unordered_map<Entity_Id, bool, Entity_Id_Hash> lib_was_used;
+	for(auto &pair : visible_entities) {
+		auto &reg = pair.second;
+		
+		if(reg.is_load_arg && !reg.was_referenced) {
+			log_print("Warning: In ");
+			reg.source_loc.print_log_header();
+			log_print("The module argument '", reg.handle, "' was never referenced.\n");
+		}
+		
+		if(reg.external) {
+			auto entity = model->find_entity(reg.id);
+			if(entity->scope_id.reg_type == Reg_Type::library) {
+				if(reg.was_referenced)
+					lib_was_used[entity->scope_id] = true;
+				else {
+					auto find = lib_was_used.find(entity->scope_id);
+					if(find == lib_was_used.end())
+						lib_was_used[entity->scope_id] = false;
+				}
+			}
+		}
+	}
+	for(auto &pair : lib_was_used) {
+		if(!pair.second) {
+			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
+			// TODO:  we could put that in the Scope_Entity source_loc (?)
+			std::string scope_type;
+			if(parent_id.reg_type == Reg_Type::module)
+				scope_type = "module";
+			else if(parent_id.reg_type == Reg_Type::library)
+				scope_type = "library";
+			else
+				scope_type = "model";
+			log_print("Warning: The ", scope_type, " \"", model->find_entity(parent_id)->name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but does not use any of it.\n");
+		}
+	}
+	// TODO: Could also check for unreferenced parameters, and maybe some other types of entities (solver, connection..) (but not all entities in general).
+}
+
 // TODO: Should change scope to the first argument.
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *serial_name, Decl_AST *decl) {
