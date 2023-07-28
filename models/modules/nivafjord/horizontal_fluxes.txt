@@ -2,6 +2,7 @@
 
 
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
+	basin  : compartment,
 	layer  : compartment,
 	river  : compartment,
 	outlet : compartment,
@@ -10,44 +11,55 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	water  : quantity,
 	heat   : quantity,
 	salt   : quantity,
+	temp   : property,
 	salin  : property,
 	flow   : property,
 	rho    : property,
-	temp   : property,
+	pressure : property,
+	dz     : property,
+	
 	horz   : connection,
 	vert   : connection,
 	w_bnd  : par_real
 ) {
 
 	load("stdlib/seawater.txt", library("Seawater"))
+	load("stdlib/physiochemistry.txt", library("Water utils"))
+	
+	# Should we index this one over basin?
+	par_group("Horizontal coefficients") {
+		alpha_u : par_real("Pressure difference mixing coefficient", [], 0.5, 0.1, 1)
+	}
 
-	vert_target : property("Fjord vertical exchange target")
+	vert_target : property("Vertical exchange target")
 	
-	var(river.vert_target, [], "River vertical target")
+	#var(outlet.vert_target, [], "Outlet vertical target")
+	var(river.vert_target, [], "Outlet vertical target")
 	
-	special_computation("Place horizontal fluxes", "nivafjord_place_river_flux", outlet) {
+	special_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", outlet) {
+		#result(outlet.vert_target)
 		result(river.vert_target)
 		river.water.rho
+		
+		#TODO: This is broken now since we disable when there is no connection layer.water->layer.water . argh.
+		# If we say river.water.rho[horz.below], it will try to look up connection data from river to river, which also breaks.
+			# Need to the same thing here as for the below() lookup in a regular variable.
 		layer.water.rho[horz.below]
 	}
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
 		flow->>
-	} @specific { vert_target }
+	} @specific { river.vert_target }#outlet.vert_target }
 	
 	#TODO: Only until we figure out how to do this properly
-	flux(out, layer.water.heat, [J, day-1], "Horizontal flux heat equivalent removal") {
-		-in_flux(horz, layer.water)*conc(heat)
-	}
-	flux(out, layer.water.salt, [k g, day-1], "Horizontal flux salt equivalent removal") {
-		-in_flux(horz, layer.water)*conc(salt)->>
+	flux(layer.water, out, [k g, day-1], "Horizontal flux equivalent removal") {
+		in_flux(horz, water)
 	}
 	
 	# TODO: Could have a SimplyCl module
 	var(river.water.salt, [k g]) @override_conc { 0=>> }
 	
 	var(river.water.salin, []) {
-		rho_water := 1000[k g, m-3],
 		(conc(salt)/rho_water)*1000
 	}
 	
@@ -55,9 +67,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		seawater_pot_dens(temp, salin)
 	}
 	
-	/*
 	var(edge_layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
-	
 	
 	# How would the framework know that this one is only for the edge layers, not below that (?)
 	# Or maybe it doesn't need to, and it just does a 'break' when w_bnd becomes 0.
@@ -68,7 +78,37 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		layer.water.rho[horz.below]
 		w_bnd
 	}
-	*/
+	
+	horz_flow : property("Horizontal flow")
+	var(edge_layer.horz_flow, [k g, day-1], "Layer horizontal outflow") {
+		dP := layer.water.pressure - layer.water.pressure[vert.below],
+		
+		u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
+		u * w_bnd * layer.dz * rho_water->>
+	}
+	
+	# Should allow [horz, vert.specific] ?
+	
+	# TODO: if the edge is to a boundary, the 
+	flux(layer.water, layer.water[horz.below, vert.specific], [k g, day-1], "Layer horizontal outflow flux") {
+		edge_layer.horz_flow
+	} @specific {
+		edge_layer.vert_target
+	}
+	
+	horz_bal : property("Horizontal water balance")
+	var(layer.water.horz_bal, [k g, day-1]) {
+		aggregate(edge_layer.horz_flow) - in_flux(horz, water)
+	}
+	
+	align : property("Vertical realignment")
+	var(layer.water.align, [k g, day-1])
+	
+	# NOTE: Needs to be special computation since it would otherwise require reverse iteration (could be implemented later maybe)
+	special_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
+		result(layer.water.align)
+		layer.water.horz_bal
+	}
 }
 
 

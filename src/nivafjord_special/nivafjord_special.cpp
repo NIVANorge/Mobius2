@@ -55,3 +55,13 @@ nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Ind
 	}
 }
 
+extern "C" DLLEXPORT void
+nivafjord_vertical_realignment(Special_Indexed_Value *align_out, Special_Indexed_Value *horz_balance) {
+	for(int layer = align_out->count-1; layer >= 0; --layer) {
+		double align = horz_balance->at(layer);
+		if(layer != align_out->count-1)
+			align += align_out->at(layer+1);
+		align_out->at(layer) = align;
+	}
+}
+

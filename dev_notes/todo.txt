@@ -3,73 +3,33 @@
 	*** High pri ***
 
 
-		We should always pass index vectors along with the method they were indexed with in a struct so that the ordering is always checked.
-			
-			After getting this to work, we could do a few convenience overhauls.
-				count()
-				
-			Maybe just have an iterator on Indexes that includes mat_col if necessary.
-				Use that in check_for_nans and maybe other places. get_index_names_with_edge_naming, etc.
-			
-			profile labels in MobiView are broken.
-
-
-		If graph connection data has declared two components, but arrows are given for only one, there is an error.
-			Probably because the edge index set for the first component will not be set up.
-				Happens only if the first index of a component doesn't have an arrow out...
 
 
 		Finish the new formulation of special_computation
-			Problems if it requires a connection lookup if there doesn't happen to be data for that connection (it did not appear in the data set).
-				May need to invalidate expression in that case.
-			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment).
-
-
-		The 'extend' system is just not that good.
-			- There are problems when you want to override something in the earlier model,
-			- There is a problem if two extended models declare the same symbol.
+			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
 			
-			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
-			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
+			Make in_flux and out_flux be allowed as inputs to it.
 			
-			Maybe we could have an
-				if_main {
-				}
-			block. Things there are only processed if that model is loaded as the main one.
-				This rids us of the necessity to override model extensions.
-					Downside is that the extended model needs to know what things other models want to override....... Hmmm...
-					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
-			
-			Could have an named_block("Name") { } block, and turn off blocks when extending
-				extend("simplyq_model.txt", "Name") turns off "Name".
+			See the note in
+				nivafjord/horizontal_fluxes.txt "Place river horizontal fluxes"
 				
-				What about nested extensions in this system, and two models extend the same thing but disagree.
-					...nightmare...
-		Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
-
-
-		In NIVAFjord we get too many index sets for MobiView2 to handle.
-			Either organize edge index sets differently.
-			Or rethink the entire system
-				Hide index sets that are not active, for instance (and place the other selectors nicely).
-			Or make a few more, but will not solve problem long term (?)
-			Or select edge by selecting what it is pointing at (?) - doesn't work if it is pointing at something indexed the same way (in that case would need something like the all_to_all).
-			Do the same as all_to_all. - Just plot all of them. (Doesn't solve for parameter selection).
-			Make a different way to organize sub-indexed index sets (could also solve other problems).
-
-		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
-			(in terms of how it is computed, not in terms of user-facing functionality)
-			Ideally the entire system should be re-thought.
-
-		Finish NIVAFjord!!
-			horizontal fluxes -> where do they push water out to?
-			Also the restriction of vertical fluxes to the layers that 'participate' in the edge of that connection.
+				Problem with how one should identify what the source compartment of the lookup layer.water.rho[horz.below] is
+				Right now we default it to the compartment of the result(), but that is very error prone.
 			
-		Finish the simple hydraulics model.
 
-		The "loose depends" system is kind of iffy.
-			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
-				This in particular may have been fixed now.
+		Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
+			(in terms of how it is computed, not in terms of user-facing functionality)
+			Ideally the entire system should be re-thought or restructured.
+
+		Specific models
+			Finish NIVAFjord!!
+				horizontal fluxes -> where do they push water out to?
+				Also the restriction of vertical fluxes to the layers that 'participate' in the edge of that connection.
+				
+			Finish the simple hydraulics model.
+			
+			EasyLake-CNP
+
 		
 		Finish connection system
 		
@@ -87,11 +47,15 @@
 				Need this for NIVAFjord
 			Maybe just make the syntax
 					flux(blabla, any[vert.below]
-			And this is what we do for all 'below' connection targets.
+			and disallow having specific location there. And this is what we do for all 'below' connection targets.
 				Could later extend it to have different code depending on the target (for graph and directed_tree).
 			
 			Make 'pair' connection (?).
-				Allows avoiding things like having an outlet index set for river->fjord.
+				Allows avoiding things like having an outlet index set for river->fjord   or e.g.  sewage->river.
+					Could just use a directed tree for this though..
+			
+			graph and tree
+				One should need to explicitly allow isolated nodes using something like    a | (....)
 			
 			graph connections
 				
@@ -105,6 +69,7 @@
 
 			grid1d:	
 				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
+				
 					
 			Specific target:
 				Properly process the @specific function tree, incl. flags
@@ -120,10 +85,17 @@
 	
 	*** Intermediate-pri ***
 	
-		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
+		Ignore certain log_print if not in "developer mode" (should be configured in config.txt)
 	
-		Give proper error when externally linked function is not found.
-			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
+		In NIVAFjord we get too many index sets for MobiView2 to handle.
+			Either organize edge index sets differently.
+			Or rethink the entire system
+				Hide index sets that are not active, for instance (and place the other selectors nicely).
+			Or make a few more, but will not solve problem long term (?)
+			Or select edge by selecting what it is pointing at (?) - doesn't work if it is pointing at something indexed the same way (in that case would need something like the all_to_all).
+			Do the same as all_to_all. - Just plot all of them. (Doesn't solve for parameter selection).
+			Make a different way to organize sub-indexed index sets (could also solve other problems).
+	
 	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
@@ -158,8 +130,10 @@
 				combine_unit(soil.water.oc.tox, [day-1])
 			This has to do with module reusability, could apply the module to quantities with different units.
 				
-		Use get_symbol a few places where it could be needed.
-			E.g. log_print_var_location .
+		error_print_location
+			We could pass a scope to it, and only let it fall back on get_symbol when necessary.
+				(it can be necessary if the location was passed as a loc() to the scope where it is being used).
+			Make it print the bracket if needed.
 
 		More on module loading and the declaration format:
 				
@@ -200,8 +174,49 @@
 			
 		Go over and improve diagnostics in error messages (all over the place).
 		
+		The 'extend' system is just not that good.
+			- There are problems when you want to override something in the earlier model,
+			- There is a problem if two extended models declare the same symbol.
+			
+			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
+			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
+			
+			Maybe we could have an
+				if_main {
+				}
+			block. Things there are only processed if that model is loaded as the main one.
+				This rids us of the necessity to override model extensions.
+					Downside is that the extended model needs to know what things other models want to override....... Hmmm...
+					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
+			
+			Could have an named_block("Name") { } block, and turn off blocks when extending
+				extend("simplyq_model.txt", "Name") turns off "Name".
+				
+				What about nested extensions in this system, and two models extend the same thing but disagree.
+					...nightmare...
+		Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
+		
 		
 	*** Low-pri ****
+	
+		Maybe implement reverse iteration for grid1d
+			if you have a property depending on the [below] of itself.
+	
+		Make out_flux (?)
+			out_flux(connection, substance) first.
+			Also out_flux(substance).
+			Could also have out_flux(target, substance) (And also for in_flux).
+				where target is either a connection or a location.
+			Replace things like 'flow' in some places? Maybe doesn't work.
+			
+			Or do we just wait since out_flux could always be computed with a property.
+			
+			
+	
+		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
+	
+		Give proper error when externally linked function is not found.
+			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
 	
 		Make the data_set declarations match the model declarations better
 			Just let the data_set use the same AST, where a [] block parses as "data", which is just a token list.
@@ -213,6 +228,11 @@
 			Index sets refereced inside unused modules have still to be declared in the data set.
 				Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.
 		
+		
+		More correctness checks and convenience etc. for uses of Indexes.
+			count()
+			Maybe just have an iterator on Indexes that includes mat_col if necessary.
+				Use that in check_for_nans and maybe other places. get_index_names_with_edge_naming, etc.
 		
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
@@ -332,10 +352,14 @@
 		
 		last(something) doesn't automatically cause it to have an initial value computation (if one was not set).
 		
-		Error if you access time.fractional_step outside a solver?
+		Error if you access time.fractional_step outside a solver? Or it just defaults to 0?
 
 		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
+			
+		The "loose depends" system is kind of iffy.
+			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
+				This in particular may have been fixed now.
 
 	Probably not ?:
 	

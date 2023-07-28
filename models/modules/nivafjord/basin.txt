@@ -15,6 +15,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	g_rad     : property,
 	rho       : property,
 	attn      : property,
+	dz        : property,
 	freeze_temp : property,
 	vert      : connection,
 	sw_vert   : connection,
@@ -31,7 +32,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(air.g_rad, [W, m-2])
 	
 	par_group("Fjord global parameters") {
-		dz     : par_real("Layer thickness", [m], 1, 0.1, 5)
+		dz0     : par_real("Stable layer thickness", [m], 1, 0.1, 5)
 	}
 
 	par_group("Mixing parameters", basin) {
@@ -46,8 +47,6 @@ module("NIVAFjord basin", version(0, 0, 1),
 		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0)
 		zshalf : par_real("Halving depth of additional mixing energy", [m], 3)
 		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
-		
-		alpha_u : par_real("Pressure difference mixing coefficient", [], 0.5, 0.1, 1)
 	}
 	
 	# TODO: There should be a sediment compartment per layer instead..
@@ -62,13 +61,17 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(basin.freeze_temp, [deg_c]) { ice_formation_temperature(layer.water.salinity[vert.top])	}
 	
-	z : property("Depth (nominal)")
+	var(layer.dz, [m], "Layer thickness") {
+		water / (A*rho_water)
+	} @initial {    dz0   }
 	
-	var(layer.z, [m]) {
+	z : property("Depth")
+	
+	var(layer.z, [m], "Depth (to bottom of layer)") {
 		z[vert.above] + dz[vert.above]
 	}
 	
-	var(layer.water, [k g], "Layer water") @override { A*dz*rho_water }
+	var(layer.water, [k g], "Layer water") @initial { A*dz0*rho_water }
 	
 	var(layer.water.salt, [k g], [g, k g-1], "Layer salt")
 		#TODO: Initial conc
@@ -89,14 +92,9 @@ module("NIVAFjord basin", version(0, 0, 1),
 		conc(salt)=>[] # TODO: Convert salinity to PSU
 	}
 	
-	#above_p : property("Above pressure")
-	
 	var(layer.water.rho, [k g, m-3], "Potential density") {
 		seawater_pot_dens(temp, salinity)
 	}
-	
-	# TODO: When we make a change so that accessing vert.above does not zero out the entire equation, we won't need this one.
-	#var(layer.water.above_p, [Pa]) {    accum_pressure[vert.above]   }
 	
 	ddens          : property("d(dens)")
 	Nfreq          : property("Brunt-Väisälä frequency")

@@ -1148,22 +1148,30 @@ compose_and_resolve(Model_Application *app) {
 		// TODO: This could be separated out in its own function
 		auto special_comp = new Special_Computation_FT();
 		special_comp->function_name = special->function_name;
+		
 		for(auto arg : res.fun->exprs) {
 			if(arg->expr_type != Math_Expr_Type::identifier)
 				fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a special_computation.");
 			
 			auto ident = static_cast<Identifier_FT *>(arg);
+			// TODO: Also implement for series
 			if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::parameter) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("We only support state variables and parameters as the arguments to a 'special_computation'.");
 			}
+			
 			special_comp->arguments.push_back(*ident);
 			if(ident->has_flag(Identifier_FT::result)) {
 				if(ident->variable_type != Variable_Type::state_var) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only state variables can be 'result' of a 'special_computation'.");
+					fatal_error("Only state variables can be a 'result' of a 'special_computation'.");
 				}
-				// TODO: Check that it is a property!
+				auto result_var = as<State_Var::Type::declared>(app->vars[ident->var_id]);
+				if(result_var->decl_type != Decl_Type::property) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("Only a 'property' can be a 'result' of a 'special_computation'.");
+				}
+					
 				var2->targets.push_back(ident->var_id);
 			}
 		}
@@ -1236,11 +1244,26 @@ compose_and_resolve(Model_Application *app) {
 		
 		auto &restriction = restriction_of_flux(var);
 		if(is_valid(restriction.connection_id)) {
+			
 			Var_Location loc = var->loc1;
 			if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::specific)
 				loc = var->loc2; // NOTE: For top and specific the relevant location is the target.
 
 			if(is_located(loc)) {
+				
+				auto type = model->connections[restriction.connection_id]->type;
+				if(type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) {
+					// For graph-like connections, we can completely disable fluxes if they don't have any arrows to go along.
+					auto comp = app->find_connection_component(restriction.connection_id, loc.first(), false);
+					bool found_target = false;
+					if(comp)
+						found_target = !comp->possible_targets.empty();
+					if(!found_target) {
+						var->set_flag(State_Var::invalid);
+						continue;
+					}
+				}
+				
 				Var_Id source_id = app->vars.id_of(loc);
 				may_need_connection_target.insert({restriction.connection_id, source_id});
 			}

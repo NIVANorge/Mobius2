@@ -845,6 +845,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	Index_Exprs indexes(app->model);
 	
 	for(auto &array : batch->arrays) {
+		
 		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app, array.index_sets, indexes);
 		
 		for(int instr_id : array.instr_ids) {
@@ -911,6 +912,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 				auto special = static_cast<Special_Computation_FT *>(instr->code);
 				
+				bool disable = false;
 				Entity_Id source_compartment = invalid_entity_id;
 				for(auto &arg : special->arguments) {
 					
@@ -934,6 +936,11 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 						auto conn_id = arg.restriction.connection_id;
 						auto conn = model->connections[conn_id];
 						if(conn->type == Connection_Type::directed_graph) {
+							auto comp = app->find_connection_component(conn_id, source_compartment, false);
+							if(!comp || comp->possible_targets.empty()) {
+								disable = true;
+								break;
+							}
 							set_graph_target_indexes(app, new_indexes, conn_id, source_compartment, compartment);
 						} else
 							fatal_error(Mobius_Error::internal, "Unimplemented special computation codegen for var loc restriction");
@@ -950,7 +957,13 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 					special->exprs.push_back(res.stride);
 					special->exprs.push_back(res.count);
 				}
-				result_code = special;
+				if(disable) {
+					delete special;
+					log_print("Disabling special computation \"", special->function_name, "\" due to a connection lookup over a non-existing edge.\n");
+					log_print("Source comp was ", model->components[source_compartment]->name, "\n");
+					result_code = make_no_op();
+				} else
+					result_code = special;
 				
 			} else {
 				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");

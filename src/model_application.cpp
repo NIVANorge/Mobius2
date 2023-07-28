@@ -304,7 +304,7 @@ Model_Application::set_up_index_count_structure() {
 
 bool
 Model_Application::all_indexes_are_set() {
-	for(auto count : index_counts) if(count.empty() || !count[0].index) return false;
+	for(auto count : index_counts) if(count.empty()) return false;
 	return true;
 }
 
@@ -1142,7 +1142,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	// Generate at least one index for index sets that were not provided in the data set.
 	for(auto index_set : model->index_sets) {
-		if(get_max_index_count(index_set).index == 0)
+		if(get_max_index_count(index_set).index == 0 && !is_valid(model->index_sets[index_set]->is_edge_of_connection))
 			set_index_count(index_set, 1);
 	}
 	

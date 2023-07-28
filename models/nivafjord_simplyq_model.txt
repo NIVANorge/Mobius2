@@ -77,7 +77,7 @@ model("NIVAFjord-SimplyQ") {
 	outlet : compartment("Outlet")
 	distribute(outlet, sc, ol_idx)
 	
-	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", layer, river, outlet, edge, edge_layer, water, heat, salt, salinity, flow, rho, temp, horz, vert, w_bnd))
+	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", basin, layer, river, outlet, edge, edge_layer, water, heat, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
 	
 	
 	

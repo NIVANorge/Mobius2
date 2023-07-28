@@ -3,6 +3,37 @@
 
 
 
+	# Reverse iteration
+	
+	# Requires iterating that index set in reverse direction.
+		# Also requires the dependencies on [below] and [above] accesses in that loop to be accordingly.
+	# I.e. Index_Set_Dependency needs a 'reverse' flag, and we need that on the for loop math_expr along with codegen for it.
+	
+	
+	# This would have to be reverse-iterated
+	var(level.vertical_align, [k g, day-1], "Vertical realignment") {
+		bal := in_flux(horz, water) - out_flux(horz, water)
+		bal - vertical_align[below]
+	}
+	
+	#Maybe just do it with special_computation for now
+	special_computation("Vertical alignment", "nivafjord_compute_vertical_alignment", basin) {
+		result(level.vertical_align)
+		in_flux(horz, water)
+		out_flux(horz, water)  # Just need this one. Easier
+		# Also need in_flux and out_flux to work in special_computation
+	}
+	
+	#Need to allow this one, but it would not require reverse iteration on its own since it doesn't depend on itself.
+	flux(level.water, level.water[above], [k g, day-1], "Vertical alignment flux") {
+		-vertical_align
+	}
+	#We need to make sure that the top layer never depletes, but should be ok as long as 
+	
+
+
+
+
 	# Handling invalidation of [below] accesses for grid1d. If it just 0s the individual access, not the whole equation. Need a separate way to invalidate the entire equation when needed
 	
 	{
@@ -15,12 +46,6 @@
 	}
 	# It is actually not a problem for a flux, because it should be 0ed out any way.
 	
-
-
-
-
-
-
 
 
 	# How do we do this:

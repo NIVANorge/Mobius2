@@ -30,7 +30,7 @@ Model_Instruction::debug_string(Model_Application *app) {
 	else if(type == Model_Instruction::Type::add_to_aggregate)
 		ss << "\"" << app->vars[target_id]->name << "\" += \"" << app->vars[var_id]->name << "\" * weight";
 	else if(type == Model_Instruction::Type::special_computation)
-		ss << "(special_computation)";  //TODO: Give the function name.
+		ss << "special_computation(" << app->vars[var_id]->name << ")";
 	
 	return ss.str();
 }
@@ -738,14 +738,17 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				instr->solver = target.solver;
 				target.depends_on_instruction.insert(var_id.id);
 				
-				// TODO: Check that every target could index over the computation index sets.
+				// TODO: Check that every target could index over the computation index sets at all
+				
+				// NOTE: A target of a special_computation should always index over as many index sets as it can.
 				auto &loc = app->vars[target_id]->loc1;
 				for(int idx = 0; idx < loc.n_components; ++idx) {
 					auto comp = model->components[loc.components[idx]];
-					for(auto index_set : comp->index_sets) {
-						if(std::find(index_sets.begin(), index_sets.end(), index_set) == index_sets.end())
-							target.index_sets.insert(index_set);
-					}
+					//for(auto index_set : comp->index_sets) {
+					//	if(std::find(index_sets.begin(), index_sets.end(), index_set) == index_sets.end())
+					//		target.index_sets.insert(index_set);
+					//}
+					target.index_sets.insert(comp->index_sets.begin(), comp->index_sets.end());
 				}
 			}
 			
@@ -1493,7 +1496,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, true);
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
 	

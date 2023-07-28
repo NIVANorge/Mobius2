@@ -1,5 +1,14 @@
 
-module("NIFAFjord boundary", version(0, 0, 1)) {
+module("NIFAFjord boundary", version(0, 0, 1),
+	bnd       : compartment,
+	bnd_layer : compartment,
+	water     : quantity,
+	heat      : quantity,
+	salt      : quantity,
+	temp      : property,
+	salinity  : property,
+	z         : property,
+) {
 
 	#TODO: A lot of this should be done differently.
 	# Boundary profiles should be given as series instead.
@@ -61,17 +70,15 @@ module("NIFAFjord boundary", version(0, 0, 1)) {
 	
 	var(bnd_layer.water.dens, [k g, m-3], "Boundary layer density")
 	
-	# NOTE: see earlier use of above_p
-	var(bnd_layer.water.above_p, [Pa]) {    accum_pressure[bnd_vert.above]   }
-	
-	var(bnd_layer.water.accum_pressure, [Pa]) {
-		above_p + dens*grav*dz
+	var(bnd_layer.water.pressure, [Pa]) {
+		pressure[bnd_vert.above] + dens*grav*dz
 	}
 	
+	/*
 	barocline_bnd_u : property("Barocline boundary flux")
 	
 	var(layer.water.barocline_bnd_u, [k g, s-1]) {
-		dP := accum_pressure[vert.below] - bnd_layer.water.accum_pressure[vert.below],
+		dP := accum_pressure[vert.below] - bnd_layer.water.pressure[vert.below],
 		
 		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP),
 		u * w_bnd * dz * rho_water
@@ -96,5 +103,5 @@ module("NIFAFjord boundary", version(0, 0, 1)) {
 		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step,
 		sealevel(sec->[hr])->[m]              
 	}
-
+	*/
 }

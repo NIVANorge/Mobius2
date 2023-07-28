@@ -73,9 +73,6 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 
 		par_real("Diminishing rate of additional mixing energy")
 		[ 4 ]
-
-		par_real("Pressure difference mixing coefficient")
-		[ 0.5 ]
 	}
 
 	par_group("Sediment parameters") {
@@ -96,7 +93,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 	}
 
 	par_group("Fjord global parameters") {
-		par_real("Layer thickness")
+		par_real("Stable layer thickness")
 		[ 1 ]
 	}
 }

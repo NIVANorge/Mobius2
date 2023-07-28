@@ -6,15 +6,13 @@ connection("The graph") [
 	n : compartment("Node") [ "Node index" ] [ "Node edges" ]
 	n2 : compartment("Node2") [ "Node2 index" ] [ "Node2 edges" ]
 
-	#n[ "A" ] -> n[ "B" ] -> n[ "C" ]
-	#n[ "A" ] -> n[ "D" ] -> n[ "B" ]
-	#n[ "D" ] -> n[ "C" ] -> out
-	#n[ "C" ] -> n2[ "F" ] -> n2[ "E" ] -> n[ "A" ]
-	n2["F"]->n2["E"]->out
-	n["C"]->out
-	n["A"]->out
-	#n["B"]->out
-	#n["D"]->out
+	n[ "A" ] -> n[ "B" ] -> n[ "C" ]
+	n[ "A" ] -> n[ "D" ] -> n[ "B" ]
+	n[ "D" ] -> n[ "C" ] -> out
+	n[ "C" ] -> n2[ "F" ] -> n2[ "E" ] -> n[ "A" ]
+	
+	#n2["F"]->n2["E"]->out
+	#n["C"]->out
 ]
 
 par_group("System") {
