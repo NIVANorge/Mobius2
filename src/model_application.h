@@ -186,6 +186,7 @@ struct Indexes {
 	Indexes(Index_T index);
 	
 	void clear();
+	void set_index(Index_T index, bool overwrite = false);
 	void add_index(Index_T index);
 	void add_index(Entity_Id index_set, s32 idx);
 	//Index_T get_index(Entity_Id index_set);

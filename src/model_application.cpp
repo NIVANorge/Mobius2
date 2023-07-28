@@ -31,19 +31,28 @@ Indexes::clear() {
 }
 
 void
-Indexes::add_index(Index_T index) {
+Indexes::set_index(Index_T index, bool overwrite) {
 	if(!is_valid(index))
 		fatal_error(Mobius_Error::internal, "Tried to set an invalid index on an Indexes");
-	if(lookup_ordered)
-		indexes.push_back(index);
-	else {
-		if(is_valid(indexes[index.index_set.id])) {
+	if(!lookup_ordered) {
+		if(!overwrite && is_valid(indexes[index.index_set.id])) {
 			if(is_valid(mat_col))
 				fatal_error(Mobius_Error::internal, "Got duplicate matrix column index for an Indexes.");
 			mat_col = index;
 		} else
 			indexes[index.index_set.id] = index;
-	}
+	} else
+		fatal_error(Mobius_Error::internal, "Using set_index on an Indexes that is lookup_ordered");
+}
+
+void
+Indexes::add_index(Index_T index) {
+	if(!is_valid(index))
+		fatal_error(Mobius_Error::internal, "Tried to set an invalid index on an Indexes");
+	if(lookup_ordered)
+		indexes.push_back(index);
+	else
+		fatal_error(Mobius_Error::internal, "Using add_index on an Indexes that is not lookup_ordered");
 }
 
 void
@@ -680,60 +689,71 @@ Model_Application::get_index_name(Index_T index, bool *is_quotable) {
 }
 
 void
+put_index_name_with_edge_naming(Model_Application *app, Index_T &index, Indexes &indexes, std::vector<std::string> &names_out, int pos, bool quote) {
+	
+	auto model = app->model;
+	bool is_quotable = false;
+	
+	auto index_set = model->index_sets[index.index_set];
+	Entity_Id conn_id = index_set->is_edge_of_connection;
+	if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::directed_graph) {
+		names_out[pos] = app->get_index_name(index, &is_quotable);
+	} else {
+		Index_T parent_idx = invalid_index;
+		if(is_valid(index_set->sub_indexed_to)) {
+			for(Index_T &idx2 : indexes.indexes) {
+				if(idx2.index_set == index_set->sub_indexed_to)
+					parent_idx = idx2;
+			}
+		}
+		
+		// If this index set is the edge index set of a graph connection, we generate a name for the index by the target of the edge (arrow).
+		//TODO: Can we make a faster way to find the arrow
+		auto &arrows = app->connection_components[conn_id].arrows;
+		for(auto arr : arrows) {
+			auto source_idx = invalid_index;
+			if(arr.source_indexes.indexes.size() == 1)
+				source_idx = arr.source_indexes.indexes[0];
+			else if(arr.source_indexes.indexes.size() > 1)
+				fatal_error(Mobius_Error::internal, "Graph arrows with multiple source indexes not supported by get_index_name.");
+			
+			if(arr.edge_index == index && source_idx == parent_idx) {
+				if(is_valid(arr.target_id)) {
+					if(arr.target_indexes.indexes.empty()) {
+						names_out[pos] = model->components[arr.target_id]->name;
+						is_quotable = true;
+					} else if (arr.target_indexes.indexes.size() == 1) {
+						names_out[pos] = app->get_index_name(arr.target_indexes.indexes[0], &is_quotable);
+					} else
+						fatal_error(Mobius_Error::internal, "Graph arrows with multiple target indexes not supported by get_index_name.");
+				} else {
+					is_quotable = false;
+					names_out[pos] = "out";
+				}
+			}
+		}
+	}
+	
+	if(quote && is_quotable) {
+		names_out[pos] = "\"" + names_out[pos] + "\"";
+	}
+}
+
+void
 Model_Application::get_index_names_with_edge_naming(Indexes &indexes, std::vector<std::string> &names_out, bool quote) {
 	
-	names_out.resize(indexes.indexes.size());
+	int count = indexes.indexes.size();
+	if(is_valid(indexes.mat_col)) ++count;
+	names_out.resize(count);
 	
 	int pos = 0;
 	for(auto &index : indexes.indexes) {
 		if(!is_valid(index)) { pos++; continue; }
-		
-		bool is_quotable = false;
-		
-		auto index_set = model->index_sets[index.index_set];
-		Entity_Id conn_id = index_set->is_edge_of_connection;
-		if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::directed_graph) {
-			names_out[pos] = get_index_name(index, &is_quotable);
-		} else {
-			Index_T parent_idx = invalid_index;
-			if(is_valid(index_set->sub_indexed_to)) {
-				for(Index_T &idx2 : indexes.indexes) {
-					if(idx2.index_set == index_set->sub_indexed_to)
-						parent_idx = idx2;
-				}
-			}
-			
-			// If this index set is the edge index set of a graph connection, we generate a name for the index by the target of the edge (arrow).
-			//TODO: Can we make a faster way to find the arrow
-			auto &arrows = connection_components[conn_id].arrows;
-			for(auto arr : arrows) {
-				auto source_idx = invalid_index;
-				if(arr.source_indexes.indexes.size() == 1)
-					source_idx = arr.source_indexes.indexes[0];
-				else if(arr.source_indexes.indexes.size() > 1)
-					fatal_error(Mobius_Error::internal, "Graph arrows with multiple source indexes not supported by get_index_name.");
-				
-				if(arr.edge_index == index && source_idx == parent_idx) {
-					if(is_valid(arr.target_id)) {
-						if(arr.target_indexes.indexes.empty()) {
-							names_out[pos] = model->components[arr.target_id]->name;
-							is_quotable = true;
-						} else if (arr.target_indexes.indexes.size() == 1) {
-							names_out[pos] = get_index_name(arr.target_indexes.indexes[0], &is_quotable);
-						} else
-							fatal_error(Mobius_Error::internal, "Graph arrows with multiple target indexes not supported by get_index_name.");
-					} else {
-						is_quotable = false;
-						names_out[pos] = "out";
-					}
-				}
-			}
-		}
-		if(quote && is_quotable) {
-			names_out[pos] = "\"" + names_out[pos] + "\"";
-		}
+		put_index_name_with_edge_naming(this, index, indexes, names_out, pos, quote);
 		++pos;
 	}
+	if(is_valid(indexes.mat_col))
+		put_index_name_with_edge_naming(this, indexes.mat_col, indexes, names_out, count-1, quote);
 }
 
 std::string

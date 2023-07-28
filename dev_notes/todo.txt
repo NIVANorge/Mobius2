@@ -6,40 +6,23 @@
 		We should always pass index vectors along with the method they were indexed with in a struct so that the ordering is always checked.
 			
 			After getting this to work, we could do a few convenience overhauls.
-				If they are lookup ordered, you should not need the model in the constructor.
-				
-				Construct lookup ordered containing a single index.
-				
-				Index_T &index(Entity_Id index_set)
-				
-				add_index(Entity_Id index_set, int idx)
-				
 				count()
 				
-				etc..
-				
-			get_index_names_with_edge_naming   must use mat_col if it exists.
-				Maybe just have an iterator on Indexes that includes mat_col if necessary.
-					Use that in check_for_nans and maybe other places.
-			
-			remove transform() if we don't need it.
+			Maybe just have an iterator on Indexes that includes mat_col if necessary.
+				Use that in check_for_nans and maybe other places. get_index_names_with_edge_naming, etc.
 			
 			profile labels in MobiView are broken.
 
 
 		If graph connection data has declared two components, but arrows are given for only one, there is an error.
 			Probably because the edge index set for the first component will not be set up.
-				Happens only if the first index of a component doesn't have an arrow out..
-
-		Edge naming:
-			Oops, it doesn't depend on the node index (source index). Need a system for names of sub-indexes.
-				Need get_index_names(std::vector<Index_T>&)
+				Happens only if the first index of a component doesn't have an arrow out...
 
 
 		Finish the new formulation of special_computation
 			Problems if it requires a connection lookup if there doesn't happen to be data for that connection (it did not appear in the data set).
 				May need to invalidate expression in that case.
-			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now.
+			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment).
 
 
 		The 'extend' system is just not that good.
@@ -111,10 +94,6 @@
 				Allows avoiding things like having an outlet index set for river->fjord.
 			
 			graph connections
-				
-				Edge names are that of the target of the arrow.
-					Almost works, but is problematic for the name selection in MobiView.
-						May need a completely different selection for for sub-indexing though.
 				
 				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc. and that "indexing below" is correct.
 					Alternatively do unit conversions, but how?
@@ -282,7 +261,10 @@
 				
 				Optimizer callback doesn't update additional plot view.
 				
-				Matrix parameter selection doesn't work. Always selects the diagonal.
+				Matrix parameters don't serialize/deserialize correctly.
+					Probably same with optimization target.
+				
+				
 				
 			Something where you can plot individual functions / state vars as functions of their inputs.
 			
