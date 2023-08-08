@@ -165,6 +165,7 @@ If_Expr_AST : Math_Expr_AST {
 struct
 Local_Var_AST : Math_Expr_AST {
 	Token                        name;
+	bool                         is_reassignment = false;
 	
 	Local_Var_AST() : Math_Expr_AST(Math_Expr_Type::local_var) {};
 };

@@ -87,9 +87,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		u * w_bnd * layer.dz * rho_water->>
 	}
 	
-	# Should allow [horz, vert.specific] ?
-	
-	# TODO: if the edge is to a boundary, the 
+	# TODO: if the edge is to a boundary, this is different.
 	flux(layer.water, layer.water[horz.below, vert.specific], [k g, day-1], "Layer horizontal outflow flux") {
 		edge_layer.horz_flow
 	} @specific {
@@ -109,6 +107,12 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		result(layer.water.align)
 		layer.water.horz_bal
 	}
+	
+	/* # We can only get this one to work once we have some exchange with an outer boundary.
+	flux(layer.water, vert, [k g, day-1], "Vertical realignment flux") {
+		align
+	}
+	*/
 }
 
 

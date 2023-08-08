@@ -654,8 +654,6 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 	if(!expr)
 		fatal_error(Mobius_Error::internal, "Got a nullptr expression in build_expression_ir().");
 	
-	//warning_print("ir gen, ", name(expr->expr_type), "\n");
-	
 	switch(expr->expr_type) {
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);
@@ -663,7 +661,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 			Scope_Local_Vars<llvm::Value *> new_locals;
 			new_locals.scope_id = block->unique_block_id;
 			new_locals.scope_up = locals;
-			//new_locals.local_vars.resize(block->n_locals);
+			
 			if(!block->is_for_loop) {
 				for(auto sub_expr : expr->exprs) {
 					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
@@ -681,7 +679,23 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		} break;
 		
 		case Math_Expr_Type::local_var : {
-			return build_expression_ir(expr->exprs[0], locals, args, data);
+			auto local = static_cast<Local_Var_FT *>(expr);
+			auto value = build_expression_ir(expr->exprs[0], locals, args, data);
+			if(!local->is_reassignable)
+				return value;
+			auto pointer = data->builder->CreateAlloca(value->getType(), nullptr, "local_ptr");
+			data->builder->CreateStore(value, pointer);
+			return pointer;
+		} break;
+		
+		case Math_Expr_Type::local_var_assignment : {
+			auto assign = static_cast<Assignment_FT *>(expr);
+			auto local = find_local_var(locals, assign->local_var);
+			if(!local->getType()->isPointerTy())
+				fatal_error(Mobius_Error::internal, "LLVM, trying to reassign a value to a local var that was not set up for it.");
+			auto value = build_expression_ir(expr->exprs[0], locals, args, data);
+			data->builder->CreateStore(value, local);
+			return nullptr;
 		} break;
 		
 		case Math_Expr_Type::identifier : {
@@ -721,6 +735,10 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 				result = find_local_var(locals, ident->local_var);
 				if(!result)
 					fatal_error(Mobius_Error::internal, "A local var was not initialized in ir building.");
+				if(result->getType()->isPointerTy()) {
+					auto type = get_llvm_type(ident->value_type, data);
+					result = data->builder->CreateLoad(type, result, "local_load");
+				}
 			} else if(ident->variable_type == Variable_Type::connection_info) {
 				result = data->builder->CreateGEP(int_32_ty, data->global_connection_data, offset, "connection_info_ptr");
 				result = data->builder->CreateLoad(int_32_ty, result, "connection_info");

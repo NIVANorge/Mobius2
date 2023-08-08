@@ -260,6 +260,7 @@ Token_Stream::read_token_base(Token *token) {
 				else if(c == '>' && n == '=') token->type = Token_Type::geq;
 				else if(c == '!' && n == '=') token->type = Token_Type::neq;
 				else if(c == ':' && n == '=') token->type = Token_Type::def;
+				else if(c == '<' && n == '-') token->type = Token_Type::arr_l;
 				else if(c == '-' && n == '>') token->type = Token_Type::arr_r;
 				else if(c == '=' && n == '>') token->type = Token_Type::d_arr_r;
 				

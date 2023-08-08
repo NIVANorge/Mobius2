@@ -238,7 +238,7 @@ resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *d
 }
 
 bool
-find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::string &name, Function_Scope *scope) {
+find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::string &name, Function_Scope *scope, bool mark_as_reassignable = false) {
 	if(!scope) return false;
 	
 	auto block = scope->block;
@@ -253,13 +253,17 @@ find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::st
 					ident->value_type = local->value_type;
 					local->is_used = true;
 					unit = scope->local_var_units[local->id];
+					if(mark_as_reassignable) { // Arguably, in this case it should not be marked as used, but not doing it could complicate things if the assignment is a complicated expression.
+						local->is_reassignable = true;
+						//log_print("Marked as reassignable\n");
+					}
 					return true;
 				}
 			}
 		}
 	}
 	if(scope->function_name.empty())  //NOTE: scopes should not "bleed through" function substitutions.
-		return find_local_variable(ident, unit, name, scope->parent);
+		return find_local_variable(ident, unit, name, scope->parent, mark_as_reassignable);
 	return false;
 }
 
@@ -1255,28 +1259,61 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			auto local = static_cast<Local_Var_AST *>(ast);
 			std::string local_name = local->name.string_value;
 			
-			for(auto loc : scope->block->exprs) {
-				if(loc->expr_type == Math_Expr_Type::local_var) {
-					auto loc2 = static_cast<Local_Var_FT *>(loc);
-					
-					if(loc2->name == local_name) {
-						local->source_loc.print_error_header();
-						error_print("Re-declaration of local variable \"", loc2->name, "\" in the same scope.\n");
-						fatal_error_trace(scope);
+			if(!local->is_reassignment) { // It is a declaration
+			
+				for(auto loc : scope->block->exprs) {
+					if(loc->expr_type == Math_Expr_Type::local_var) {
+						auto loc2 = static_cast<Local_Var_FT *>(loc);
+						
+						if(loc2->name == local_name) {
+							local->source_loc.print_error_header();
+							error_print("Re-declaration of local variable \"", loc2->name, "\" in the same scope.\n");
+							fatal_error_trace(scope);
+						}
 					}
 				}
+				
+				auto new_local = new Local_Var_FT();
+				
+				std::vector<Standardized_Unit> arg_units;
+				resolve_arguments(new_local, ast, data, scope, arg_units);
+				
+				new_local->name = local_name;
+				new_local->value_type = new_local->exprs[0]->value_type;
+				
+				result.fun = new_local;
+				result.unit = std::move(arg_units[0]);
+			} else { // It is a reassignment, not a declaration
+				
+				// TODO: It is a bit unnecessary that we have to create an Identifier_FT for this. It is just because of code reuse, but maybe something could be factored out.
+				Identifier_FT ident;
+				Standardized_Unit old_unit;
+				bool found = find_local_variable(&ident, old_unit, local_name, scope, true);
+				if(!found) {
+					local->source_loc.print_error_header();
+					error_print("Can not re-assign a value to local variable '", local_name, "' because it has not been declared.");
+					fatal_error_trace(scope);
+				}
+				
+				auto new_assign = new Assignment_FT(ident.local_var);
+				//log_print("Local var at creation: ", ident.local_var.id, " ", ident.local_var.scope_id, "\n");
+				
+				std::vector<Standardized_Unit> arg_units;
+				resolve_arguments(new_assign, ast, data, scope, arg_units);
+				
+				// Make sure it keeps the value type it was declared with.
+				new_assign->exprs[0] = make_cast(new_assign->exprs[0], ident.value_type);
+				new_assign->value_type = ident.value_type;
+				
+				if(!match_exact(&old_unit, &arg_units[0])) {
+					local->source_loc.print_error_header();
+					error_print("Re-assigning to local variable '", local_name, "' with a value that has a different unit to the one it was declared with. It was declared with ", old_unit.to_utf8(), " (standard form), but reassigned with ", arg_units[0].to_utf8(), " .");
+					fatal_error_trace(scope);
+				}
+				
+				result.fun  = new_assign;
+				result.unit = std::move(arg_units[0]);
 			}
-			
-			auto new_local = new Local_Var_FT();
-			
-			std::vector<Standardized_Unit> arg_units;
-			resolve_arguments(new_local, ast, data, scope, arg_units);
-			
-			new_local->name = local_name;
-			new_local->value_type = new_local->exprs[0]->value_type;
-			
-			result.fun = new_local;
-			result.unit = std::move(arg_units[0]);
 		} break;
 		
 		case Math_Expr_Type::unit_convert : {
@@ -1409,10 +1446,14 @@ copy(Math_Expr_FT *source) {
 			result = copy_one<Special_Computation_FT>(source);
 		} break;
 		
+		case Math_Expr_Type::state_var_assignment :
+		case Math_Expr_Type::derivative_assignment :
+		case Math_Expr_Type::local_var_assignment : {
+			result = copy_one<Assignment_FT>(source);
+		} break;
+		
 		case Math_Expr_Type::if_chain :
 		case Math_Expr_Type::cast :
-		case Math_Expr_Type::state_var_assignment :
-		case Math_Expr_Type::derivative_assignment : 
 		case Math_Expr_Type::no_op : {
 			result = copy_one<Math_Expr_FT>(source);
 		} break;
@@ -1642,6 +1683,14 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			auto local = static_cast<Local_Var_FT *>(expr);
 			if(!local->is_used) os << "(unused)";  // NOTE: if the tree has been pruned before printing, it is probably removed.
 			os << local->name << " := ";
+			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
+			os << ',';
+		} break;
+		
+		case Math_Expr_Type::local_var_assignment : {
+			auto assign = static_cast<Assignment_FT *>(expr);
+			os << find_local_var(scope, assign->local_var);
+			os << " <- ";
 			print_tree_helper(expr->exprs[0], context, scope, block_tabs);
 			os << ',';
 		} break;

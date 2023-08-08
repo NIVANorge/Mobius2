@@ -1,3 +1,4 @@
+/*
 index_set("I") [ 10 ]
 
 index_set("J") [ "(generated)" ]
@@ -5,6 +6,7 @@ index_set("J") [ "(generated)" ]
 connection("Grid") [
 	compartment("B") [ "I" ]
 ]
+*/
 
 par_group("System") {
 	par_datetime("Start date")
@@ -13,7 +15,7 @@ par_group("System") {
 	par_datetime("End date")
 	[ 1990-12-31 ]
 }
-
+/*
 par_group("Ploff") [ "J" ] {
 	par_real("K")
 	[ 0 ]
@@ -22,3 +24,4 @@ par_group("Ploff") [ "J" ] {
 module("So simple", 1, 0, 0) {
 }
 
+*/

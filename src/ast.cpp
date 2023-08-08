@@ -627,10 +627,12 @@ parse_math_block(Token_Stream *stream) {
 		
 		token = stream->peek_token();
 		Token token2 = stream->peek_token(1);
-		if(token.type == Token_Type::identifier && token2.type == Token_Type::def) {
+		if(token.type == Token_Type::identifier && (token2.type == Token_Type::def || token2.type == Token_Type::arr_l)) {
 			auto local_var = new Local_Var_AST();
 			local_var->name = token;
 			local_var->source_loc = token.source_loc;
+			if(token2.type == Token_Type::arr_l)
+				local_var->is_reassignment = true;
 			stream->read_token(); stream->read_token();
 			auto expr = parse_math_expr(stream);
 			stream->expect_token(',');

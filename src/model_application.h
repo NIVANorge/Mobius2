@@ -463,6 +463,8 @@ public :
 	Run_Batch                                                initial_batch;
 	std::vector<Run_Batch>                                   batches;
 	
+	//std::unordered_map<std::string, owns_code>               separate_functions;
+	
 	bool                                                     is_compiled = false;
 	std::vector<Entity_Id>                                   baked_parameters;
 	

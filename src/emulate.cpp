@@ -305,11 +305,17 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 			return emulate_expression(expr->exprs.back(), state, locals);
 		} break;
 		
+		case Math_Expr_Type::local_var_assignment : {
+			auto assign = static_cast<Assignment_FT *>(expr);
+			Typed_Value new_val = emulate_expression(expr->exprs[0], state, locals);
+			replace_local_var(locals, assign->local_var, new_val);
+			return {Parameter_Value(), Value_Type::none};
+		} break;
+		
 		case Math_Expr_Type::state_var_assignment : {
 			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
 			state->state_vars[index.val_integer] = value.val_real;
-			//warning_print("offset for val assignment was ", index.val_integer, "\n");
 			return {Parameter_Value(), Value_Type::none};
 		} break;
 		
@@ -317,7 +323,6 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
 			state->solver_workspace[index.val_integer] = value.val_real;
-			//warning_print("offset for deriv assignment was ", index.val_integer, "\n");
 			return {Parameter_Value(), Value_Type::none};
 		} break;
 		

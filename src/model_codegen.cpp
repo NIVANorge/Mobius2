@@ -1034,19 +1034,18 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	
 	}
 #if 0
-	log_print("\nTree before prune:\n");
 	std::stringstream ss;
+	ss << "\nTree before prune:\n";
 	print_tree(app, top_scope, ss);
+	ss << "\n";
+	auto result = top_scope;
+	//auto result = prune_tree(top_scope);
+	//ss << "\nTree after prune:\n";
+	//print_tree(app, result, ss);
+	//ss << "\n";
 	log_print(ss.str());
-	log_print("\n");
-#endif
+#else
 	auto result = prune_tree(top_scope);
-#if 0
-	log_print("\nTree after prune:\n");
-	std::stringstream ss;
-	print_tree(app, result, ss);
-	log_print(ss.str());
-	log_print("\n");
 #endif
 	
 	return result;

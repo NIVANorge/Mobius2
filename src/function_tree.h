@@ -117,11 +117,13 @@ Operator_FT : Math_Expr_FT {
 
 struct
 Local_Var_FT : Math_Expr_FT {
+	// This is the declaration of a local var
 	std::string   name;
 	s32           id;
-	bool          is_used;
+	bool          is_used          = false;
+	bool          is_reassignable  = false;
 	
-	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
+	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var) { }
 };
 
 struct
@@ -135,9 +137,12 @@ Special_Computation_FT : Math_Expr_FT {
 
 struct
 Assignment_FT : Math_Expr_FT {
-	Var_Id var_id;
+	Var_Id        var_id;   // Used if the type is state_var_assignment or derivative_assignment
+	Local_Var_Id  local_var; // Used if the type is local_var_assignment
 	
+	Assignment_FT() : Math_Expr_FT(Math_Expr_Type::local_var_assignment) {}  // NOTE this one is only for use in copy(), should not really be used otherwise.
 	Assignment_FT(Math_Expr_Type type, Var_Id var_id) : Math_Expr_FT(type), var_id(var_id) {}
+	Assignment_FT(Local_Var_Id local_var) : Math_Expr_FT(Math_Expr_Type::local_var_assignment), local_var(local_var) {}
 };
 
 struct
@@ -283,6 +288,22 @@ find_local_var(Scope_Local_Vars<T> *scope, Local_Var_Id id) {
 		fatal_error(Mobius_Error::internal, "A local variable is missing from a scope.");
 	
 	return find->second;
+}
+
+template<typename T> void
+replace_local_var(Scope_Local_Vars<T> *scope, Local_Var_Id id, T entry) {
+	if(!scope)
+		fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Initial scope nullptr. Scope id: ", id.scope_id, " id: ", id.id, ".");
+	while(scope->scope_id != id.scope_id) {
+		scope = scope->scope_up;
+		if(!scope)
+			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Scope id: ", id.scope_id, " id: ", id.id, ".");
+	}
+	auto find = scope->values.find(id.id);
+	if(find == scope->values.end())
+		fatal_error(Mobius_Error::internal, "A local variable is missing from a scope.");
+	
+	scope->values[id.id] = entry;
 }
 
 

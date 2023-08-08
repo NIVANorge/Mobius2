@@ -3,6 +3,27 @@
 model("Another simple") {
 
 	a : compartment("A")
+	
+	p : property("P")
+	r : property("R")
+	
+	module("So simple", version(2, 0, 0)) {
+	
+		#var(a.r, [], "Bla") {
+		#	5
+		#}
+		
+		var(a.p, [], "The test") {
+			q := 20,
+			{
+				q<-q+10,
+				q
+			}
+		}
+	}
+
+/*
+	a : compartment("A")
 	b : compartment("B")
 	q : quantity("Q")
 	r : quantity("R")
@@ -41,4 +62,5 @@ model("Another simple") {
 			@specific { test }
 	
 	}
+*/
 }

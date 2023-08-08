@@ -127,6 +127,7 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 	//auto loc = find_local_var(scope, ident->local_var);
 	
 	if(!loc) return expr;
+	if(loc->is_reassignable) return expr; // We would have to do more work if it were to be safe to prune these.
 	
 	// NOTE: the reason we can say confidently that loc->is_used = false in the cases below is that any other references to this local will undergo exactly the same optimizations.
 		
@@ -143,7 +144,6 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 			loc->is_used = false;
 			auto identcopy = copy(ident2);
 			auto result = potentially_prune_local(identcopy, res.scope);
-			//auto result = potentially_prune_local(identcopy, scope);
 			if(result != identcopy)
 				delete identcopy;
 			return result;

@@ -4,6 +4,12 @@
 
 
 
+		Imperative constructs for the function scope!
+			Needed for solar panel thing.
+			For now:
+				loop, continue, <- assignment.
+			Do reassignable local vars with phi nodes later. For now, just use alloca.
+
 
 		Finish the new formulation of special_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
@@ -341,8 +347,6 @@
 		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
 			https://github.com/llvm/llvm-project/blob/main/llvm/examples/OrcV2Examples/LLJITWithObjectCache/LLJITWithObjectCache.cpp
 			One could then manually disassemble it.
-			
-		Imperative constructs for the function scope.
 		
 		Other solver algorithms.
 		
