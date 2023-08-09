@@ -1,0 +1,112 @@
+
+
+model("EasyReservoir-multibasin-EasyChem") {
+	
+	#extend("simplyq_model.txt")
+	
+	air		 : compartment("Atmosphere")
+	epi      : compartment("Epilimnion")
+	hyp      : compartment("Hypolimnion")
+	surf	 : compartment("Surface")
+	
+	ice      : quantity("Ice")
+	
+	FPV      : quantity("FPV")
+	
+	# for EasyChem
+	oc       : quantity("Organic Carbon")
+	phyt     : quantity("Phytoplankton")
+	o2       : quantity("Oxygen")
+	nitro    : quantity("Nitrogen")
+	phos     : quantity("Phosphorus")
+	resp     : property("Bacterial respiration")
+	###
+	
+	wind     : property("Wind speed")
+	g_rad    : property("Global radiation")
+	pressure : property("Pressure")
+	a_hum    : property("Actual specific humidity")
+	rho      : property("Density")
+	lwd      : property("Downwelling longwave radiation")
+	sw       : property("Shortwave radiation (Light)")
+	attn     : property("Attenuation coefficient")
+	z_e      : property("Thickness")
+    abstrac  : property("Lake abstraction")
+    area     : property("Lake surface area")
+	sed_area : property("Sediment area")
+	temp     : property("Temperature")
+	precip   : property("Precipitation")
+	level	 : property("Water level")
+	epi_inflow : property("Inflow to reservoir")
+	in_Temp  : property("Inflow Temp")
+
+	
+	heat : quantity("Heat energy")
+	water : quantity("Water")
+	
+	evap_mm  : property("Evaporation per area")
+		
+	par_group("Lake data", epi) {
+		A_surf : par_real("Initial lake surface area", [m 2], 107183, 0, 371e9)
+		precip_scalor : par_real("Precipitation scalor", [], 1, 0.5, 1.5)
+		evap_scalor : par_real("Humidity scalor", [], 1, 0.5, 1.5)
+		swr_scalor : par_real("SWR scalor", [], 1, 0.5, 1.5)
+		always_cover : par_bool("Always cover (FPV)", false)
+		deg_cov : par_real("Degree of FPV coverage", [], 1, 0.2, 1)
+	}
+	
+	par_group("Lake ensemble data") {
+		A_total : par_real("Total initial surface area", [m 2], 107183, 0, 371e9)
+	}
+	
+	
+	#load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
+	#load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
+	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
+	load("modules/airseaRes_bis.txt",         module("AirSeaRes_bis", air, epi, ice, FPV, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, precip_scalor, evap_scalor, swr_scalor, always_cover, deg_cov,
+											loc(epi.area), ht : loc(epi.water.heat), ht, loc(epi.water.temp)))
+	load("modules/easyreservoir.txt",       module("EasyReservoir", air, epi, hyp, water, ice, heat, temp, precip, z_e, evap_mm, abstrac, area, sed_area, A_surf, A_total, precip_scalor, always_cover, level, epi_inflow, in_Temp)) #, loc(downstream), downstream
+	load("modules/easyChem.txt",       module("EasyChem", air, epi, hyp, surf, water, ice, heat, oc, phyt, o2, nitro , phos, temp, precip, wind, z_e, evap_mm, abstrac, area, sed_area, sw, epi_inflow, in_Temp, always_cover, deg_cov, resp, horz, horz_hyp, loc(epi.water.temp)))
+	
+	simply_solver : solver("Simply solver", "INCADascru", 0.1, 1e-3)   # NOTE: The small relative minimal step is needed by SimplyTox.
+	
+	solve(simply_solver, epi.water, hyp.water, epi.ice)
+	
+	
+	
+	
+	lake_index : index_set("Lake")
+	
+	distribute(epi, lake_index)
+	distribute(hyp, lake_index)
+	distribute(surf, lake_index)
+
+
+	horz : connection("Horizontal", all_to_all) { epi[lake_index] }
+	horz_hyp : connection("Horizontal hypo", all_to_all) { hyp[lake_index] }
+	
+	module("Horizontal mixing", version(0, 0, 1)) {
+		
+		par_group("Horizontal mixing", epi) {
+			mix : par_real("Horizontal mixing coefficient", [day-1], 0.1)
+		}
+		
+		flux(epi.water, horz, [m 3, day-1], "Epi horizontal mixing") {
+			(water + water[below]) * mix
+		} 
+		
+		flux(hyp.water, horz_hyp, [m 3, day-1], "Hyp horizontal mixing") {
+			(water + water[below]) * mix
+		}
+		
+		flux(hyp.water, horz_hyp, [m 3, day-1], "Water level adjustment") {
+			dl := epi.level - epi.level[below],
+			dl*A_surf*10[day-1]   if dl > 0,
+			0=>>                   otherwise
+		} #@no_carry { heat }
+	}
+	
+	
+	# NOTE: Just update the regex for the compartments.
+	# override(downstream) { (river|epi)* }
+}
