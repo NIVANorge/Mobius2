@@ -109,7 +109,7 @@ Math_Expr_AST : Expr_AST {
 	Source_Location              source_loc;
 	
 	Math_Expr_AST(Math_Expr_Type type) : type(type) {};
-	~Math_Expr_AST() { for(auto expr : exprs) delete expr; }
+	virtual ~Math_Expr_AST() { for(auto expr : exprs) delete expr; }
 };
 
 // TODO: A lot of these structs are superfluous... Could have one called   Single_Token_AST, Chain_AST and Operator_AST, but just with different Math_Expr_Types
@@ -118,6 +118,8 @@ Math_Expr_AST : Expr_AST {
 
 struct
 Math_Block_AST : Math_Expr_AST {
+	Token                        iter_tag = {};
+	
 	Math_Block_AST() : Math_Expr_AST(Math_Expr_Type::block) {};
 };
 
@@ -172,10 +174,17 @@ Local_Var_AST : Math_Expr_AST {
 
 struct
 Unit_Convert_AST : Math_Expr_AST {
-	Decl_AST *unit;             // TODO: free in destructor.
+	Decl_AST *unit;
 	bool auto_convert, force;
 	
 	Unit_Convert_AST() : Math_Expr_AST(Math_Expr_Type::unit_convert) {};
+	~Unit_Convert_AST();
+};
+
+struct
+Iterate_AST : Math_Expr_AST {
+	Token iter_tag;
+	Iterate_AST() : Math_Expr_AST(Math_Expr_Type::iterate) {};
 };
 
 struct

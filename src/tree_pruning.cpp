@@ -650,7 +650,7 @@ remove_unused_locals(Math_Expr_FT *expr) {
 		expr->exprs.erase(std::remove_if(expr->exprs.begin(), expr->exprs.end(), [block](Math_Expr_FT *arg) {
 			if(arg->expr_type == Math_Expr_Type::local_var) {
 				auto local = static_cast<Local_Var_FT *>(arg);
-				if(!local->is_used) {
+				if(!local->is_used && !local->is_reassignable) {   // Could maybe just mark it as used if it is assigned to..
 					delete local;
 					block->n_locals--;
 					return true;
@@ -668,12 +668,10 @@ remove_unused_locals(Math_Expr_FT *expr) {
 		
 		bool merged = false;
 		
-		// Hmm, this doesn't work. Why?
-		
-		// If a block doesn't have local variables, merge it into the parent block
+		// If a block doesn't have local variables and does not have an iterator tag, merge it into the parent block
 		if(isblock && arg->expr_type == Math_Expr_Type::block) {
 			auto block = static_cast<Math_Block_FT *>(arg);
-			if(block->n_locals == 0) {
+			if(block->n_locals == 0 && block->iter_tag.empty()) {
 				expr->exprs.erase(expr->exprs.begin() + idx); // remove the block itself
 				if(!arg->exprs.empty()) {
 					expr->exprs.insert(expr->exprs.begin() + idx, arg->exprs.begin(), arg->exprs.end()); // Insert the exprs of the sub block.
@@ -699,6 +697,7 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 	if(expr->expr_type == Math_Expr_Type::block) {
 		auto block = static_cast<Math_Block_FT *>(expr);
 		
+		if(!block->iter_tag.empty()) return expr;
 		if(block->exprs.empty()) return expr; // TODO: Happened if the only code at all is a special_computation. Should it happen?
 		
 		// If the final value of a block is just a local var reference and that local var is declared on the line above, just replace the two last lines with the value of that local var.

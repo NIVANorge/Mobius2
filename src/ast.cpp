@@ -69,6 +69,7 @@
 Argument_AST::~Argument_AST() { delete decl; }
 Function_Body_AST::~Function_Body_AST() { delete block; }
 Regex_Body_AST::~Regex_Body_AST() { delete expr; }
+Unit_Convert_AST::~Unit_Convert_AST() { delete unit; }
 
 Source_Location &
 Argument_AST::source_loc() {
@@ -521,8 +522,17 @@ parse_primary_expr(Token_Stream *stream) {
 		result = parse_math_block(stream);
 	} else if (token.type == Token_Type::identifier) {
 		Token peek = stream->peek_token(1);
-		if((char)peek.type == '(') {
+		if(token.string_value == "iterate") {
+			auto iter = new Iterate_AST();
+			result = iter;
+			iter->source_loc = token.source_loc;
+			iter->iter_tag   = peek;
+			stream->read_token();
+			stream->expect_identifier(); // This is peek
+		} else if((char)peek.type == '(') {
 			result = parse_function_call(stream);
+		} else if ((char)peek.type == ':') {
+			result = parse_math_block(stream);
 		} else {
 			auto val = new Identifier_Chain_AST();
 			result = val;
@@ -602,11 +612,17 @@ parse_potential_if_expr(Token_Stream *stream) {
 Math_Block_AST *
 parse_math_block(Token_Stream *stream) {
 	
+	auto block = new Math_Block_AST();
+	
 	Token open = stream->read_token();
+	if(open.type == Token_Type::identifier) {
+		block->iter_tag = open;
+		stream->expect_token(':');
+		open = stream->read_token();
+	}
 	if((char)open.type != '{')
 		fatal_error(Mobius_Error::internal, "Tried to parse a math block that did not open with '{'.");
 	
-	auto block = new Math_Block_AST();
 	block->source_loc = open.source_loc;
 	
 	while(true) {

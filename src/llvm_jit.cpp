@@ -232,8 +232,9 @@ get_jitted_batch_function(const std::string &fun_name) {
 	since there are no union types in llvm, we treat Parameter_Value as a double and use bitcast when we want it as other types.
 */
 
-//struct Scope_Local_Vars;
-llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
+typedef Scope_Local_Vars<llvm::Value *, llvm::BasicBlock *> Scope_Data;
+
+llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Data *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
 
 llvm::GlobalVariable *
 jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const char *name) {
@@ -293,6 +294,18 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 		//TODO: clean up the llvm context stuff. This is needed if the error exit does not close the process, but if we instead are in the GUI or python and we just catch an exception.
 		fatal_error(Mobius_Error::internal, "LLVM function verification failed for function \"", fun_name, "\" : ", errstream.str(), " .");
 	}
+}
+
+llvm::Value *get_zero_value(LLVM_Module_Data *data, Value_Type type) {
+	if(type == Value_Type::real)
+		return llvm::ConstantFP::get(*data->context, llvm::APFloat(0.0));
+	else if(type == Value_Type::integer)
+		return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));
+	else if(type == Value_Type::boolean)
+		return llvm::ConstantInt::get(*data->context, llvm::APInt(1, 0));
+	
+	fatal_error(Mobius_Error::internal, "Unrecognized value type for get_dummy_value (LLVM).");
+	return nullptr;
 }
 
 llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, LLVM_Module_Data *data) {
@@ -468,7 +481,9 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 
 
 llvm::Value *
-build_if_chain_ir(std::vector<Math_Expr_FT *> &exprs, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+	 
+	auto &exprs = expr->exprs;
 	 
 	if(exprs.size() % 2 != 1 || exprs.size() < 3)
 		fatal_error(Mobius_Error::internal, "Got a malformed if statement in ir generation. This should have been detected at an earlier stage!");
@@ -515,9 +530,11 @@ build_if_chain_ir(std::vector<Math_Expr_FT *> &exprs, Scope_Local_Vars<llvm::Val
 		auto val = build_expression_ir(value, locals, args, data);
 		values.push_back(val);
 		
-		data->builder->CreateBr(merge_block);
-		
 		blocks[if_case] = data->builder->GetInsertBlock(); // NOTE: The current block could have been changed in build_expression_ir e.g. if there are nested ifs or loops there.
+		
+		auto terminated = blocks[if_case]->getTerminator();
+		if(!terminated)	// It is terminated if there is an 'iterate' here.  // I guess we could also just check !val
+			data->builder->CreateBr(merge_block);
 	}
 	
 	fun->getBasicBlockList().push_back(merge_block);
@@ -525,22 +542,25 @@ build_if_chain_ir(std::vector<Math_Expr_FT *> &exprs, Scope_Local_Vars<llvm::Val
 	
 	if(val_is_none) return nullptr;
 	
-	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(exprs[0]->value_type, data), values.size(), "iftemp");
+	llvm::PHINode *phi = data->builder->CreatePHI(get_llvm_type(expr->value_type, data), values.size(), "iftemp");
 	
-	for(int idx = 0; idx < values.size(); ++idx)	
-		phi->addIncoming(values[idx], blocks[idx]);
+	for(int idx = 0; idx < values.size(); ++idx) {
+		auto val = values[idx];
+		if(val) // It is nullptr if there is an 'iterate' that branches it elsewhere, and in that case there is no incoming value from that block
+			phi->addIncoming(val, blocks[idx]);
+	}
 		
 	return phi;
 }
 
 llvm::Value *
-build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Value *> *loop_local, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Data *loop_local, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	llvm::Value *start_val = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // Iterator starts at 0
 	
 	llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
 	llvm::BasicBlock *pre_header_block = data->builder->GetInsertBlock();
 	llvm::BasicBlock *loop_block       = llvm::BasicBlock::Create(*data->context, "loop", fun);
-	llvm::BasicBlock *after_block = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
+	llvm::BasicBlock *after_block      = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
 	
 	llvm::Value *iter_end  = build_expression_ir(n, loop_local, args, data);
 	llvm::Value *count_not_zero = data->builder->CreateICmpNE(iter_end, start_val, "isloop");
@@ -563,7 +583,6 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Local_Vars<llvm::Va
 	llvm::Value *loop_cond = data->builder->CreateICmpNE(next_iter, iter_end, "loopcond"); // iter+1 != n
 	
 	llvm::BasicBlock *loop_end_block = data->builder->GetInsertBlock();
-	//llvm::BasicBlock *after_block = llvm::BasicBlock::Create(*data->context, "afterloop", fun);
 	
 	data->builder->CreateCondBr(loop_cond, loop_block, after_block);
 	data->builder->SetInsertPoint(after_block);
@@ -587,7 +606,7 @@ get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::T
 }
 
 llvm::Value *
-build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_special_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
 	auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
@@ -649,7 +668,7 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *>
 }
 
 llvm::Value *
-build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
 	if(!expr)
 		fatal_error(Mobius_Error::internal, "Got a nullptr expression in build_expression_ir().");
@@ -658,9 +677,19 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		case Math_Expr_Type::block : {
 			auto block = static_cast<Math_Block_FT *>(expr);
 			llvm::Value *result = nullptr;
-			Scope_Local_Vars<llvm::Value *> new_locals;
+			Scope_Data new_locals;
 			new_locals.scope_id = block->unique_block_id;
 			new_locals.scope_up = locals;
+			
+			if(!block->iter_tag.empty()) {
+				// If this is a block we could potentially iterate on, we need to make it a BasicBlock.
+				llvm::Function *fun = data->builder->GetInsertBlock()->getParent();
+				llvm::BasicBlock *bb = llvm::BasicBlock::Create(*data->context, block->iter_tag, fun);
+				data->builder->CreateBr(bb);
+				data->builder->SetInsertPoint(bb);
+				new_locals.scope_value = bb;
+			} else
+				new_locals.scope_value = nullptr;
 			
 			if(!block->is_for_loop) {
 				for(auto sub_expr : expr->exprs) {
@@ -842,7 +871,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		} break;
 
 		case Math_Expr_Type::if_chain : {
-			return build_if_chain_ir(expr->exprs, locals, args, data);
+			return build_if_chain_ir(expr, locals, args, data);
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {
@@ -870,6 +899,13 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Local_Vars<llvm::Value *> *locals,
 		
 		case Math_Expr_Type::special_computation : {
 			return build_special_computation_ir(expr, locals, args, data);
+		} break;
+		
+		case Math_Expr_Type::iterate : {
+			auto iter = static_cast<Iterate_FT *>(expr);
+			auto scope_up = find_scope(locals, iter->scope_id);
+			data->builder->CreateBr(scope_up->scope_value);
+			return nullptr;
 		} break;
 		
 		case Math_Expr_Type::no_op : {

@@ -17,6 +17,11 @@ Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to) {
 	if(cast_to == expr->value_type) return expr;
 	
+	if(expr->value_type != Value_Type::real && expr->value_type != Value_Type::integer && expr->value_type != Value_Type::boolean) {
+		expr->source_loc.print_error_header();
+		fatal_error("This expression does not evaluate to a value.");
+	}
+	
 	auto cast = new Math_Expr_FT(Math_Expr_Type::cast);
 	cast->source_loc = expr->source_loc;     // not sure if this is good, it is just so that it has a valid location.
 	cast->value_type = cast_to;
@@ -237,6 +242,18 @@ resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *d
 	}
 }
 
+s32
+find_tagged_scope(const std::string &iter_tag, Function_Scope *scope) {
+	if(!scope) return -1;
+	
+	auto block = scope->block;
+	if(block->iter_tag == iter_tag)
+		return block->unique_block_id;
+	if(scope->function_name.empty()) // Can't refernce iteration scopes through function calls.
+		return find_tagged_scope(iter_tag, scope->parent);
+	return -1;
+}
+
 bool
 find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::string &name, Function_Scope *scope, bool mark_as_reassignable = false) {
 	if(!scope) return false;
@@ -250,7 +267,7 @@ find_local_variable(Identifier_FT *ident, Standardized_Unit &unit, const std::st
 					ident->variable_type = Variable_Type::local;
 					ident->local_var.id = local->id;
 					ident->local_var.scope_id = block->unique_block_id;
-					ident->value_type = local->value_type;
+					ident->value_type = local->exprs[0]->value_type;
 					local->is_used = true;
 					unit = scope->local_var_units[local->id];
 					if(mark_as_reassignable) { // Arguably, in this case it should not be marked as used, but not doing it could complicate things if the assignment is a complicated expression.
@@ -552,6 +569,7 @@ check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &u
 	Standardized_Unit *first_valid = nullptr;
 	for(int idx = 0; idx < units.size(); idx+=2) {
 		s64 val = -1;
+		if(exprs[idx]->value_type == Value_Type::iterate) continue; // An 'iterate' doesn't evaluate to anything.
 		bool is_0 = is_constant_zero(exprs[idx], scope);
 		if(is_0) continue; // We allow 0 to match against any other unit here.
 		if(!first_valid) {
@@ -981,6 +999,17 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 	}
 }
 
+void
+arguments_must_be_values(Math_Expr_FT *expr, Function_Scope *scope) {
+	for(auto arg : expr->exprs) {
+		if(!is_value(arg->value_type)) {
+			arg->source_loc.print_error_header();
+			error_print("This expression argument must resolve to a value.");
+			fatal_error_trace(scope);
+		}
+	}
+}
+
 
 Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
@@ -994,10 +1023,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 	switch(ast->type) {
 		
 		case Math_Expr_Type::block : {
+			auto block = static_cast<Math_Block_AST *>(ast);
+			
 			auto new_block = new Math_Block_FT();
 			Function_Scope new_scope;
 			new_scope.parent = scope;
 			new_scope.block = new_block;
+			
+			if(is_valid(&block->iter_tag))
+				new_block->iter_tag = block->iter_tag.string_value;
 			
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_block, ast, data, &new_scope, arg_units);
@@ -1010,6 +1044,16 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				fatal_error_trace(scope);
 			}
 			new_block->value_type = last->value_type;
+			
+			// TODO: Better message. This also applies if the 'iterate' value type passes up through several blocks.
+			for(int idx = 0; idx < new_block->exprs.size()-1; ++idx) {
+				if(new_block->exprs[idx]->value_type == Value_Type::iterate) {
+					new_block->exprs[idx]->source_loc.print_error_header();
+					error_print("An 'iterate' expression must be the last in a block.");
+					fatal_error_trace(scope);
+				}
+			}
+			
 			result = {new_block, std::move(arg_units.back())};
 		} break;
 		
@@ -1063,7 +1107,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					
 					std::vector<Standardized_Unit> arg_units;
 					resolve_arguments(new_fun, ast, data, scope, arg_units);
-				
+					
+					arguments_must_be_values(new_fun, scope);
+					
 					new_fun->fun_type = fun_type;
 					new_fun->fun_name = fun_name;
 					fixup_intrinsic(new_fun, &fun->name);
@@ -1086,12 +1132,6 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					std::vector<Standardized_Unit> arg_units;
 					resolve_arguments(new_fun, ast, data, scope, arg_units);
 					
-					for(int idx = 0; idx < new_fun->exprs.size(); ++idx) {
-						auto arg = new_fun->exprs[idx];
-						if(arg->value_type != Value_Type::real)
-							new_fun->exprs[idx] = make_cast(new_fun->exprs[idx], Value_Type::real);
-					}
-					
 					new_fun->fun_type = fun_type;
 					new_fun->fun_name = fun_name;
 					// TODO: If we make anything else of this than just the "_test_fun_" function, the types and units must be provided in the declaration.
@@ -1111,6 +1151,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					std::vector<Standardized_Unit> arg_units;
 					resolve_arguments(inlined_fun, ast, data, scope, arg_units);
 					
+					arguments_must_be_values(inlined_fun, scope);
+					
 					inlined_fun->n_locals = inlined_fun->exprs.size();
 					
 					Function_Scope new_scope;
@@ -1120,6 +1162,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 					
 					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
 						auto arg = inlined_fun->exprs[argidx];
+						
+						if(!is_value(arg->value_type)) {
+							arg->source_loc.print_error_header();
+							error_print("The arguments to a function must resolve to a value.");
+							fatal_error_trace(scope);
+						}
+						
 						auto inlined_arg = new Local_Var_FT();
 						inlined_arg->exprs.push_back(arg);
 						inlined_arg->name = fun_decl->args[argidx];
@@ -1164,6 +1213,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_unary, ast, data, scope, arg_units);
 			
+			arguments_must_be_values(new_unary, scope);
+			
 			new_unary->oper = unary->oper;
 			
 			if((char)unary->oper == '-') {
@@ -1191,6 +1242,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_binary, ast, data, scope, arg_units);
+			
+			arguments_must_be_values(new_binary, scope);
 			
 			new_binary->oper = binary->oper;
 			char op = (char)binary->oper;
@@ -1234,20 +1287,30 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_if, ast, data, scope, arg_units);
 			
-			// Cast all possible result values up to the same type
+			// Figure out what the 'highest' value type of the expression is.
 			Value_Type value_type = new_if->exprs[0]->value_type;
-			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2) {
-				new_if->exprs[idx+1] = make_cast(new_if->exprs[idx+1], Value_Type::boolean);
-				if(new_if->exprs[idx]->value_type == Value_Type::real) value_type = Value_Type::real;
-				else if(new_if->exprs[idx]->value_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::boolean;
+			for(int idx = 0; idx < (int)new_if->exprs.size(); idx+=2) {
+				auto new_type = new_if->exprs[idx]->value_type;
+				if(value_type == Value_Type::iterate) value_type = new_type;
+				
+				if(new_type == Value_Type::real) value_type = Value_Type::real;
+				else if(new_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::integer;
 			}
-			int otherwise_idx = (int)new_if->exprs.size()-1;
-			if(new_if->exprs[otherwise_idx]->value_type == Value_Type::real) value_type = Value_Type::real;
-			else if(new_if->exprs[otherwise_idx]->value_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::boolean;
 			
-			for(int idx = 0; idx < (int)new_if->exprs.size()-1; idx+=2)
-				new_if->exprs[idx] = make_cast(new_if->exprs[idx], value_type);
-			new_if->exprs[otherwise_idx] = make_cast(new_if->exprs[otherwise_idx], value_type);
+			if(value_type == Value_Type::iterate || value_type == Value_Type::none) {
+				ifexpr->source_loc.print_error_header();
+				error_print("At least one of the possible results of the 'if' expression must evaluate to a value.");
+			}
+			
+			// Cast all possible result values up to the same type
+			for(int idx = 0; idx < (int)new_if->exprs.size(); idx+=2) {
+				if(idx+1 < new_if->exprs.size())
+					new_if->exprs[idx+1] = make_cast(new_if->exprs[idx+1], Value_Type::boolean);
+					
+				auto val = new_if->exprs[idx];
+				if(val->value_type != Value_Type::iterate)
+					new_if->exprs[idx] = make_cast(val, value_type);
+			}
 			new_if->value_type = value_type;
 			
 			result.fun = new_if;
@@ -1278,8 +1341,10 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				std::vector<Standardized_Unit> arg_units;
 				resolve_arguments(new_local, ast, data, scope, arg_units);
 				
+				arguments_must_be_values(new_local, scope);
+				
 				new_local->name = local_name;
-				new_local->value_type = new_local->exprs[0]->value_type;
+				new_local->value_type = Value_Type::none;//new_local->exprs[0]->value_type;  // The assignment expression does itself not have a value.
 				
 				result.fun = new_local;
 				result.unit = std::move(arg_units[0]);
@@ -1296,14 +1361,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				}
 				
 				auto new_assign = new Assignment_FT(ident.local_var);
-				//log_print("Local var at creation: ", ident.local_var.id, " ", ident.local_var.scope_id, "\n");
 				
 				std::vector<Standardized_Unit> arg_units;
 				resolve_arguments(new_assign, ast, data, scope, arg_units);
 				
+				arguments_must_be_values(new_assign, scope);
+				
 				// Make sure it keeps the value type it was declared with.
 				new_assign->exprs[0] = make_cast(new_assign->exprs[0], ident.value_type);
-				new_assign->value_type = ident.value_type;
+				new_assign->value_type = Value_Type::none;//ident.value_type;
 				
 				if(!match_exact(&old_unit, &arg_units[0])) {
 					local->source_loc.print_error_header();
@@ -1316,17 +1382,36 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			}
 		} break;
 		
+		case Math_Expr_Type::iterate : {
+			auto iter = static_cast<Iterate_AST *>(ast);
+			s32 scope_id = find_tagged_scope(iter->iter_tag.string_value, scope);
+			if(scope_id < 0) {
+				iter->iter_tag.print_error_header();
+				error_print("This expression is not inside a scope that has been assigned the iterator '", iter->iter_tag.string_value, "'.");
+				fatal_error_trace(scope);
+			}
+			
+			auto new_iter = new Iterate_FT();
+			new_iter->scope_id = scope_id;
+			new_iter->value_type = Value_Type::iterate;
+			
+			result.fun = new_iter;
+		} break;
+		
 		case Math_Expr_Type::unit_convert : {
 			auto conv = static_cast<Unit_Convert_AST *>(ast);
 			
 			if(data->simplified) {
 				conv->source_loc.print_error_header();
-				fatal_error("Unit conversions are not available in this context.");
+				error_print("Unit conversions are not available in this context.");
+				fatal_error_trace(scope);
 			}
 			
 			auto new_binary = new Operator_FT(Math_Expr_Type::binary_operator);
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_binary, ast, data, scope, arg_units);
+			
+			arguments_must_be_values(new_binary, scope);
 			
 			Standardized_Unit to_unit;
 			if(conv->auto_convert) {
@@ -1452,6 +1537,10 @@ copy(Math_Expr_FT *source) {
 			result = copy_one<Assignment_FT>(source);
 		} break;
 		
+		case Math_Expr_Type::iterate : {
+			result = copy_one<Iterate_FT>(source);
+		} break;
+		
 		case Math_Expr_Type::if_chain :
 		case Math_Expr_Type::cast :
 		case Math_Expr_Type::no_op : {
@@ -1492,7 +1581,7 @@ Print_Tree_Context {
 };
 
 struct
-Print_Scope : Scope_Local_Vars<std::string> {
+Print_Scope : Scope_Local_Vars<std::string, std::string> {
 	int iter_name_gen = 0;
 };
 
@@ -1554,6 +1643,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			Print_Scope new_scope;
 			new_scope.scope_id = block->unique_block_id;
 			new_scope.scope_up = scope;
+			new_scope.scope_value = block->iter_tag;
 			int iter_id = 0;
 			if(scope) iter_id = scope->iter_name_gen;
 			new_scope.iter_name_gen = iter_id+1;
@@ -1569,6 +1659,8 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 				print_tabs(block_tabs+1, os);
 				print_tree_helper(block->exprs[1], context, &new_scope, block_tabs+1);
 			} else {
+				if(!block->iter_tag.empty())
+					os << block->iter_tag << ':';
 				os << "{\n";
 				int idx = 0;
 				for(auto exp : block->exprs) {
@@ -1726,6 +1818,16 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 				if (idx++ != special->exprs.size()-1) os << ", ";
 			}
 			os << ")";
+		} break;
+		
+		case Math_Expr_Type::iterate : {
+			auto iter = static_cast<Iterate_FT *>(expr);
+			try {
+				auto iter_scope = find_scope(scope, iter->scope_id);
+				os << "iterate " << iter_scope->scope_value;
+			} catch(int) {
+				os << "iterate " << "(missing)";
+			}
 		} break;
 		
 		case Math_Expr_Type::no_op : {

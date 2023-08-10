@@ -28,6 +28,7 @@ Math_Block_FT : Math_Expr_FT {
 	s32 unique_block_id;
 	int n_locals;
 	bool is_for_loop;
+	std::string iter_tag;
 	
 	void set_id();
 	Math_Block_FT() : Math_Expr_FT(Math_Expr_Type::block), n_locals(0), is_for_loop(false) { set_id(); };
@@ -143,6 +144,12 @@ Assignment_FT : Math_Expr_FT {
 	Assignment_FT() : Math_Expr_FT(Math_Expr_Type::local_var_assignment) {}  // NOTE this one is only for use in copy(), should not really be used otherwise.
 	Assignment_FT(Math_Expr_Type type, Var_Id var_id) : Math_Expr_FT(type), var_id(var_id) {}
 	Assignment_FT(Local_Var_Id local_var) : Math_Expr_FT(Math_Expr_Type::local_var_assignment), local_var(local_var) {}
+};
+
+struct
+Iterate_FT : Math_Expr_FT {
+	s32 scope_id = -1;
+	Iterate_FT() : Math_Expr_FT(Math_Expr_Type::iterate) {}
 };
 
 struct
@@ -267,43 +274,48 @@ is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found);
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);
 
-template<typename T> struct
+template<typename T, typename R=int> struct
 Scope_Local_Vars {
-	s32 scope_id;
-	Scope_Local_Vars<T> *scope_up;
-	std::map<s32, T> values;
+	s32                     scope_id;
+	Scope_Local_Vars<T, R> *scope_up;
+	R                       scope_value;
+	std::map<s32, T>        values;
 };
 
-template<typename T> T
-find_local_var(Scope_Local_Vars<T> *scope, Local_Var_Id id) {
-	if(!scope)
-		fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Initial scope nullptr. Scope id: ", id.scope_id, " id: ", id.id, ".");
-	while(scope->scope_id != id.scope_id) {
-		scope = scope->scope_up;
+template<typename T, typename R> Scope_Local_Vars<T, R> *
+find_scope(Scope_Local_Vars<T, R> *scope, s32 scope_id) {
+	while(true) {
 		if(!scope)
-			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Scope id: ", id.scope_id, " id: ", id.id, ".");
+			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up scope id: ", scope_id, ".");
+		if(scope->scope_id == scope_id)
+			return scope;
+		scope = scope->scope_up;
 	}
-	auto find = scope->values.find(id.id);
-	if(find == scope->values.end())
+	return nullptr; // Unreachable.
+}
+
+template<typename T, typename R> T
+find_local_var(Scope_Local_Vars<T, R> *scope, Local_Var_Id id) {
+	
+	auto scope2 = find_scope(scope, id.scope_id);
+	
+	auto find = scope2->values.find(id.id);
+	if(find == scope2->values.end())
 		fatal_error(Mobius_Error::internal, "A local variable is missing from a scope.");
 	
 	return find->second;
 }
 
-template<typename T> void
-replace_local_var(Scope_Local_Vars<T> *scope, Local_Var_Id id, T entry) {
-	if(!scope)
-		fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Initial scope nullptr. Scope id: ", id.scope_id, " id: ", id.id, ".");
-	while(scope->scope_id != id.scope_id) {
-		scope = scope->scope_up;
-		if(!scope)
-			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Scope id: ", id.scope_id, " id: ", id.id, ".");
-	}
-	auto find = scope->values.find(id.id);
-	if(find == scope->values.end())
+template<typename T, typename R> void
+replace_local_var(Scope_Local_Vars<T, R> *scope, Local_Var_Id id, T entry) {
+	
+	auto scope2 = find_scope(scope, id.scope_id);
+	
+	auto find = scope2->values.find(id.id);
+	if(find == scope2->values.end())
 		fatal_error(Mobius_Error::internal, "A local variable is missing from a scope.");
 	
-	scope->values[id.id] = entry;
+	scope2->values[id.id] = entry;
 }
 
 

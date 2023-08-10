@@ -117,8 +117,10 @@ name(Decl_Type type) {
 
 enum class
 Value_Type : s32 {
-	unresolved = 0, none, real, integer, boolean,    // NOTE: enum would resolve to bool.
+	unresolved = 0, none, iterate, real, integer, boolean,
 };
+
+inline bool is_value(Value_Type type) { return (s32)type >= (s32)Value_Type::real; }
 
 inline String_View
 name(Value_Type type) {
@@ -127,6 +129,7 @@ name(Value_Type type) {
 	if(type == Value_Type::real)       return "real";
 	if(type == Value_Type::integer)    return "integer";
 	if(type == Value_Type::boolean)    return "boolean";
+	if(type == Value_Type::iterate)    return "iterate";
 	return "unresolved";
 }
 

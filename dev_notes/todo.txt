@@ -3,11 +3,12 @@
 	*** High pri ***
 
 
-
 		Imperative constructs for the function scope!
 			Needed for solar panel thing.
 			For now:
-				loop, continue, <- assignment.
+				iterate.
+			Make the iter_tag be referencable as an iterator.
+				Could be tricky?
 			Do reassignable local vars with phi nodes later. For now, just use alloca.
 
 
@@ -263,6 +264,8 @@
 		
 		
 		MobiView:
+		
+			Parameter search & select crashes on 'Start date'
 		
 			Plot
 				stacked_share has a slow implementation.
