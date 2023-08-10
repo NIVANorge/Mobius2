@@ -3,15 +3,6 @@
 	*** High pri ***
 
 
-		Imperative constructs for the function scope!
-			Needed for solar panel thing.
-			For now:
-				iterate.
-			Make the iter_tag be referencable as an iterator.
-				Could be tricky?
-			Do reassignable local vars with phi nodes later. For now, just use alloca.
-
-
 		Finish the new formulation of special_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
 			
@@ -22,6 +13,8 @@
 				
 				Problem with how one should identify what the source compartment of the lookup layer.water.rho[horz.below] is
 				Right now we default it to the compartment of the result(), but that is very error prone.
+			
+			Rename to 'external_computation' ?
 			
 
 		Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
@@ -205,6 +198,11 @@
 		
 		
 	*** Low-pri ****
+	
+		Iterate in function scope.
+			Make the iter_tag be referencable as an iterator.
+			Do reassignable local vars with phi nodes later. For now, just use alloca.
+			
 	
 		Maybe implement reverse iteration for grid1d
 			if you have a property depending on the [below] of itself.

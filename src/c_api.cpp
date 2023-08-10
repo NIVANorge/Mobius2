@@ -88,13 +88,14 @@ get_offset_by_index_names(Model_Application *app, Storage_Structure<Handle_T> *s
 		mobius_error_exit();
 	}
 	
-	std::vector<Index_T> indexes(indexes_count);
+	Indexes indexes;
 	for(s64 idxidx = 0; idxidx < indexes_count; ++idxidx) {
-		indexes[idxidx] = app->get_index(index_sets[idxidx], index_names[idxidx]);
-		if(!is_valid(indexes[idxidx]))
-			fatal_error(Mobius_Error::api_usage, "The index set \"", app->model->find_entity(index_sets[idxidx])->name, "\" does not contain the index \"", index_names[idxidx], "\".");
+		auto index = app->get_index(index_sets[idxidx], index_names[idxidx]);
+		if(!is_valid(index))
+			fatal_error(Mobius_Error::api_usage, "The index set \"", app->model->index_sets[index_sets[idxidx]]->name, "\" does not contain the index \"", index_names[idxidx], "\".");
+		indexes.add_index(index);
 	}
-	return storage->get_offset_alternate(handle, indexes);
+	return storage->get_offset(handle, indexes);
 }
 
 DLLEXPORT Entity_Id

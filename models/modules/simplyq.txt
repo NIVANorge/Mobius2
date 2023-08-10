@@ -64,7 +64,7 @@ New to version 0.5 :
 }
 
 
-module("SimplyQ river", version(0, 0, 1),
+module("SimplyQ river", version(0, 5, 0),
 	river : compartment,
 	water : quantity,
 	flow  : property,
@@ -97,7 +97,7 @@ The river part of the SimplyQ module.
 	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
 }
 
-module("SimplyQ river trapezoid", version(0, 0, 1),
+module("SimplyQ river trapezoid", version(0, 1, 0),
 	river : compartment,
 	water : quantity,
 	flow  : property,

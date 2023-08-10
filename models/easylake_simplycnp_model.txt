@@ -27,8 +27,8 @@ model("EasyLake-SimplyCNP") {
 			epi.sw * (1 - epi.attn)
 		}
 		
-		photodeg : function(sw, attn, oc_doc) {
-			oc_doc * qy_doc * (f_par / e_par) * sw * attn
+		photodeg : function(sw, oc_doc) {
+			oc_doc * qy_doc * (f_par / e_par) * sw
 		}
 		
 		qy_doc : constant("DOC quantum yield",               [m g, mol-1], 0.1)
@@ -36,12 +36,12 @@ model("EasyLake-SimplyCNP") {
 		e_par  : constant("Average energy of PAR photons",   [J, mol-1],  240800.0)
 		
 		flux(epi.water.oc, out, [k g, day-1], "Photo-mineralization (epilimnion)") {
-			photodeg(sw, attn, oc_doc) * oc ->>
+			photodeg(sw*attn, oc_doc) * oc ->>
 		}
 		
 		flux(hyp.water.oc, out, [k g, day-1], "Photo-mineralization (hypolimnion)") {
 			# Just assume all remaining shortwave is attenuated in the hypolimnion
-			photodeg(sw, 1, oc_doc) * oc ->>
+			photodeg(sw, oc_doc) * oc ->>
 		}
 		
 		# TODO: Some other sinks of DOC (?)

@@ -176,7 +176,8 @@ template<> struct Hash_Fun<Connection_T> {
 struct Index_Exprs;
 struct Model_Application;
 
-struct Indexes {
+struct
+Indexes {
 	bool lookup_ordered = false;
 	std::vector<Index_T> indexes;
 	Index_T mat_col = invalid_index;
