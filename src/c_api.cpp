@@ -205,49 +205,24 @@ mobius_get_value_type(Model_Application *app, Entity_Id id) {
 	return -1;
 }
 
-DLLEXPORT void
-mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value) {
-	try {
-		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
-		Parameter_Value val;
-		val.val_real = value;
-		
-		*app->data.parameters.get_value(offset) = val;
-	} catch(int) {}
-}
-
-DLLEXPORT double
-mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
-	try {
-		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
-		return (*app->data.parameters.get_value(offset)).val_real;
-		
-	} catch(int) {}
-	return 0.0;
-}
-
 // TODO: For some parameters we need to check if they are baked, and then set a flag on the Model_Application telling it it has to be recompiled before further use.
 //   This must then be reflected in mobipy so that it actually does the recompilation.
 
 DLLEXPORT void
-mobius_set_parameter_int(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, s64 value) {
+mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, Parameter_Value value) {
 	try {
 		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
-		Parameter_Value val;
-		val.val_integer = value;
-		
-		*app->data.parameters.get_value(offset) = val;
+		*app->data.parameters.get_value(offset) = value;
 	} catch(int) {}
 }
 
-DLLEXPORT s64
-mobius_get_parameter_int(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
+DLLEXPORT Parameter_Value
+mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count) {
 	try {
 		s64 offset = get_offset_by_index_names(app, &app->parameter_structure, par_id, index_names, indexes_count);
-		return (*app->data.parameters.get_value(offset)).val_integer;
-		
+		return *app->data.parameters.get_value(offset);
 	} catch(int) {}
-	return 0;
+	return Parameter_Value();
 }
 
 DLLEXPORT void
@@ -296,11 +271,8 @@ mobius_get_entity_metadata(Model_Application *app, Entity_Id id) {
 			// TODO: Unit;
 			auto par = app->model->parameters[id];
 			result.description = (char *)par->description.data();
-			if(par->decl_type == Decl_Type::par_real) {
-				result.min = par->min_val.val_real;
-				result.max = par->max_val.val_real;
-				//TODO: What to do about ints?
-			}
+			result.min = par->min_val;
+			result.max = par->max_val;
 		}
 	} catch(int) {}
 	return result;

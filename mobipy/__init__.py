@@ -2,10 +2,11 @@
 import ctypes
 import numpy as np
 import pandas as pd
+import os
 
 #NOTE: Just sketching out for now. It is not implemented fully yet.
 
-dll = ctypes.CDLL("c_api.dll")
+dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_api.dll"))
 
 # Volatile! These structure must match the corresponding in the c++ code
 # TODO: we should have a way to auto-generate some of this.
@@ -27,9 +28,12 @@ class Time_Step_Size(ctypes.Structure) :
 class Mobius_Series_Metadata(ctypes.Structure) :
 	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p)]
 
-# TODO: Int parameters should have int min and max though...
+# TODO: Use this for interacting with parameter values instead of having separate functions.
+class Parameter_Value(ctypes.Union) :
+	_fields_ = [("val_real", ctypes.c_double), ("val_int", ctypes.c_int64)]
+
 class Mobius_Entity_Metadata(ctypes.Structure) :
-	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", ctypes.c_double), ("max", ctypes.c_double)]
+	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", Parameter_Value), ("max", Parameter_Value)]
 
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_error.restype = ctypes.c_int64
@@ -82,15 +86,10 @@ dll.mobius_get_index_set_count.restype = ctypes.c_int64
 dll.mobius_get_value_type.argtypes = [ctypes.c_void_p, Entity_Id]
 dll.mobius_get_value_type.restype = ctypes.c_int64
 
-dll.mobius_set_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_double]
+dll.mobius_set_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, Parameter_Value]
 
-dll.mobius_get_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
-dll.mobius_get_parameter_real.restype  = ctypes.c_double
-
-dll.mobius_set_parameter_int.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_int64]
-
-dll.mobius_get_parameter_int.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
-dll.mobius_get_parameter_int.restype  = ctypes.c_int64
+dll.mobius_get_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
+dll.mobius_get_parameter_numeric.restype  = Parameter_Value
 
 dll.mobius_set_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_char_p]
 
@@ -100,8 +99,6 @@ dll.mobius_get_parameter_string.restype  = ctypes.c_char_p
 dll.mobius_get_entity_metadata.argtypes = [ctypes.c_void_p, Entity_Id]
 dll.mobius_get_entity_metadata.restype = Mobius_Entity_Metadata
 
-#dll.mobius_get_conc_id.argtypes = [ctypes.c_void_p, Var_Id]
-#dll.mobius_get_conc_id.restype = Var_Id
 
 # NOTE: Must match Reg_Types: We should find a way to auto-generate this instead!
 MODULE_TYPE = 1
@@ -154,20 +151,20 @@ def _check_for_errors() :
 	if error : raise RuntimeError(errmsg)
 
 def _get_par_value(app_ptr, entity_id, indexes) :
-	#TODO: Other value types
+	
 	type = dll.mobius_get_value_type(app_ptr, entity_id)
-	if type == 0 :
-		result = dll.mobius_get_parameter_real(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
-	elif type == 1 :
-		result = dll.mobius_get_parameter_int(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
-	elif type == 2 :
-		res = dll.mobius_get_parameter_int(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
-		result = (res == 1)
-	elif type == 3 :
+	if type <= 2 :
+		res = dll.mobius_get_parameter_numeric(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
+		if type == 0 :
+			result = res.val_real
+		elif type == 1 :
+			result = res.val_int
+		elif type == 2 :
+			result = (res.val_int == 1)
+	elif type <= 4 :
 		result = dll.mobius_get_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
-	elif type == 4 :
-		val_str = dll.mobius_get_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
-		result = pd.to_datetime(val_str)
+		if type == 4 :
+			result = pd.to_datetime(result)
 	else :
 		raise ValueError("Unimplemented parameter type")
 	_check_for_errors()
@@ -176,11 +173,14 @@ def _get_par_value(app_ptr, entity_id, indexes) :
 def _set_par_value(app_ptr, entity_id, indexes, value) :
 	#TODO: Other value types
 	type = dll.mobius_get_value_type(app_ptr, entity_id)
-	if type == 0 :
-		dll.mobius_set_parameter_real(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), value)
-	elif type == 1 or type == 2:
-		dll.mobius_set_parameter_int(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), value)
-	elif type == 3 or type == 4 :
+	if type <= 2 :
+		val = Parameter_Value()
+		if type == 0 :
+			val.val_real = value
+		else :
+			val.val_int = value
+		dll.mobius_set_parameter_numeric(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), val)
+	elif type <= 4 :
 		# TODO: If argument is of datetime type, decode it first
 		str_val = _c_str(value)
 		dll.mobius_set_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), str_val)
@@ -292,21 +292,27 @@ class Entity(Scope) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
 			raise ValueError("This entity doesn't have a min value.")
 		type = dll.mobius_get_value_type(app_ptr, entity_id)
-		if type != 0 :  # Why not for par_int?
+		if type > 1 :
 			raise ValueError("This parameter does not have a min value.")
 		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
 		_check_for_errors()
-		return data.min
+		if type == 0 :
+			return data.min.val_real
+		else :
+			return data.min.val_int
 		
 	def max(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
 			raise ValueError("This entity doesn't have a max value.")
 		type = dll.mobius_get_value_type(self.app_ptr, self.entity_id)
-		if type != 0 :  # Why not for par_int?
+		if type > 1 :
 			raise ValueError("This parameter does not have a max value.")
 		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
 		_check_for_errors()
-		return data.max
+		if type == 0 :
+			return data.max.val_real
+		else :
+			return data.max.val_int
 		
 	def description(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :

@@ -73,16 +73,10 @@ DLLEXPORT s64
 mobius_get_value_type(Model_Application *app, Entity_Id id);
 
 DLLEXPORT void
-mobius_set_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, double value);
+mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, Parameter_Value value);
 
-DLLEXPORT double
-mobius_get_parameter_real(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
-
-DLLEXPORT void
-mobius_set_parameter_int(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, s64 value);
-
-DLLEXPORT s64
-mobius_get_parameter_int(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
+DLLEXPORT Parameter_Value
+mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
 
 DLLEXPORT void
 mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, char *value);
@@ -95,8 +89,8 @@ Mobius_Entity_Metadata {
 	char *name;
 	char *unit;
 	char *description;
-	double min;
-	double max;
+	Parameter_Value min;
+	Parameter_Value max;
 };
 
 DLLEXPORT Mobius_Entity_Metadata
