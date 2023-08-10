@@ -7,14 +7,15 @@ State_Var {
 	
 	// TODO: This contains a lot of data that is irrelevant for input series. But annoying to have to factor it out. Could be put in yet another intermediate struct??
 	
+	// NOTE: Volatile! Changing these numbers could break mobipy
 	enum class Type : u16 {
-		declared,
-		regular_aggregate,
-		in_flux_aggregate,
-		connection_aggregate,
-		dissolved_flux,
-		dissolved_conc,
-		special_computation,
+		declared              = 0,
+		regular_aggregate     = 1,
+		in_flux_aggregate     = 2,
+		connection_aggregate  = 3,
+		dissolved_flux        = 4,
+		dissolved_conc        = 5,
+		special_computation   = 6,
 	} type;
 	
 	enum Flags {

@@ -341,8 +341,6 @@ class State_Var :
 		_check_for_errors()
 		return State_Var(app_ptr, scope_id, id_list, var_id)
 	
-	#TODO: Also introduce concept of variable_type so that we can do things like .conc(), .dissolved(), .in_flux() etc.
-	
 	def __init__(self, app_ptr, scope_id, id_list, var_id) :
 		self.app_ptr = app_ptr
 		self.scope_id = scope_id
@@ -370,7 +368,10 @@ class State_Var :
 		return pd.Series(data=np.array(series, copy=False), index=dates, name=self.name())
 	
 	def __setitem__(self, indexes, values) :
-		# TODO
+		# TODO:
+		# Undecided what is the best way to set input series. Do we do it on a data_set object?
+		# If we do it directly on the app, we probably cut the series off by existing stard and end date?
+		# Still have to transform the date vector into a format that can be passed to the c_api. Probably best to transform to seconds after 1970-1-1 directly in python?
 		pass
 		
 	def __getattr__(self, handle_name) :
@@ -385,6 +386,12 @@ class State_Var :
 			raise ValueError("This variable does not have a concentration.")
 		_check_for_errors()
 		return State_Var(self.app_ptr, self.scope_id, [], conc_id)
+		
+	def transport(self, substance) :
+		# TODO
+		# flux_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, substance.var_id, 4)
+		#etc.
+		pass
 
 	def name(self) :
 		data = dll.mobius_get_series_metadata(self.app_ptr, self.var_id)
