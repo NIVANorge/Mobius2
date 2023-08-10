@@ -5,7 +5,7 @@ import pandas as pd
 
 #NOTE: Just sketching out for now. It is not implemented fully yet.
 
-dll = ctypes.CDLL("../test/c_api.dll")
+dll = ctypes.CDLL("c_api.dll")
 
 # Volatile! These structure must match the corresponding in the c++ code
 # TODO: we should have a way to auto-generate some of this.
