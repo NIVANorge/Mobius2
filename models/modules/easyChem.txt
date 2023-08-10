@@ -1,0 +1,302 @@
+module("EasyChem", version(0, 0, 1),
+	air    : compartment,
+	epi    : compartment,
+	hyp    : compartment,
+	surf   : compartment,
+	water  : quantity,
+	ice    : quantity,
+	heat   : quantity,
+	oc     : quantity,
+	phyt   : quantity,
+	o2     : quantity,
+	nitro  : quantity,
+	phos   : quantity,
+	temp   : property,
+	precip : property,
+	wind   : property,
+	z_e    : property,
+	evap_mm : property,
+	abstrac  : property,
+	area   : property,
+	sed_area : property,
+	sw     : property,
+	epi_inflow : property,
+	in_Temp : property,
+	always_cover : par_bool,
+	deg_cov : par_real,
+	resp : property,
+	horz : connection,
+	horz_hyp : connection,
+	top_water_temp    : loc
+) {
+"""
+This is a simple biogeochemical model for O2
+
+... similar to SelmaProtBas https://github.com/jorritmesman/selmaprotbas/tree/main
+"""
+
+	load("stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/seawater.txt", library("Air-sea"), library("Seawater"))
+	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
+
+	par_attn : property("PAR attenuation")
+	p_vel : property("O2 piston velocity")
+	nosc : property("Carbon Oxidation State")
+	par_sw : property("PAR for Photosynthesis")
+	light_lim : property("Light limitation")
+	N_lim : property("Nitrogen limitation")
+	P_lim : property("Phosphorus limitation")
+	Mgrowth : property("Maximum phytoplankton growth")
+	growth : property("Actual phytoplankton growth")
+	
+	f_par  : constant("Fraction of PAR in SW radiation", [],           0.45)
+	
+	FPV_indicator2 : property("FPV indicator2")
+	var(epi.FPV_indicator2, [], "FPV indicator2") {  always_cover }
+	
+	
+	par_group("Oxygen", epi) {
+		init_O2 : par_real("Initial O2 saturation", [], 1, 0, 1)
+		pvel_scalor : par_real("Piston velocity scalor for O2", [], 1, 0.5, 1.5)
+		O2_sat_inflow : par_real("O2 saturation inflow scalor", [], 1, 0, 1)
+		FPV_gas : par_real("Reduction in gas exchanges by FPV", [], 1, 0, 1)
+		sod : par_real("Background sediment O2 demand", [g, m-2, day-1], 0.5,0.1,4)
+	}
+	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O2")  @initial_conc { (o2_saturation(top_water_temp, 0 []) * init_O2  * 0.031998[g, m mol-1]) }
+	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O2") @initial_conc { (o2_saturation(top_water_temp, 0 []) * init_O2  * 0.031998[g, m mol-1]) }  
+	
+	flux(out, epi.water.o2, [k g, day-1], "O2 Inflow to epilimnion") {
+		epi.epi_inflow * (o2_saturation(epi.water.in_Temp, 0 [])) * O2_sat_inflow * ((31.998[]/ 1000000[])=>[k g,m mol-1])
+	}
+	
+	var(epi.p_vel, [c m, hr-1]) {
+		wnd := air.wind => [],
+		k_600 := 2.07 + 0.215* (wnd^1.7) => [],
+		schmidt := 1800.6-120.10*top_water_temp =>[]+3.7818*top_water_temp =>[]*top_water_temp =>[]-0.047608*top_water_temp =>[]*top_water_temp =>[]*top_water_temp =>[],
+		#sc :=(1450 + (1.1 * top_water_temp =>[] - 71 ) * top_water_temp=>[] ) => [],
+		#max(0.05, 5.9*(5.9* air.wind => [] - 49.3)/sqrt(sc)) => [] 				if air.wind >= 13[m, s-1],
+		#max(0.05, 1.003 * air.wind=>[] / ((sc)^0.66)) => []						if air.wind <= 3.6[m, s-1],
+		#max(0.05, 5.9 * ( 2.85 * air.wind =>[] - 9.65 ) / sqrt(sc)) => []		otherwise
+		k_600*(schmidt/600)^(-0.666) => [c m, hr-1]
+	}
+	
+	flux(out, epi.water.o2, [k g, day-1], "O2 gas exchange at surface") {
+		0.01[m, c m-1]* 24[hr, day-1] * epi.p_vel * pvel_scalor  * (1 - FPV_gas) * (o2_saturation(top_water_temp, 0 []) - conc(epi.water.o2) / 0.031998[g, m mol-1]) * area * ((31.998[]/ 1000000[])=>[k g,m mol-1])  	if epi.FPV_indicator2,
+		0.01[m, c m-1]* 24[hr, day-1] * epi.p_vel * pvel_scalor  * (o2_saturation(top_water_temp, 0 []) - conc(epi.water.o2) / 0.031998[g, m mol-1]) * area * ((31.998[]/ 1000000[])=>[k g,m mol-1]) 	otherwise
+	}
+
+	flux(epi.water.o2, nowhere, [k g, day-1], "O2 sediment consumption (epi)") {
+		sod / 1000[g, k g-1] * epi.sed_area	* min(1,1 - (0.05[m g, l-1]-conc(epi.water.o2))/0.05[m g, l-1])
+	}
+
+	flux(hyp.water.o2, nowhere, [k g, day-1], "O2 sediment consumption (hypo)") {
+		sod / 1000[g, k g-1] * hyp.sed_area	* min(1,1 - (0.05[m g, l-1]-conc(hyp.water.o2))/0.05[m g, l-1])
+	}	
+	
+	par_group("Lake C", epi) {
+		init_c : par_real("Initial lake DOC concentration", [m g, l-1], 10, 0, 1000)
+		oc_inflow : par_real("DOC concentration in inflow", [m g, l-1], 12, 0, 20)
+		theta_resp : par_real("Temperature adjustment coefficient", [], 1.047, 0.85, 1.15)
+		COS_resp : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
+		Km_o2 : par_real("Half-saturation concentration O2", [m mol, m-3], 1.23e-2, 0, 1e-1)
+		K_OM : par_real("Respiration rate", [year-1], 1, 0, 10)
+		COS_alloch : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
+		COS_autoch : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
+		#TODO: Maybe calibrate photomin differently than using the oc_doc as this should be fairly constant.
+		oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
+	}
+
+	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
+	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
+	var(epi.water.oc.o2, [k g], [], "Epilimnion DOC-O2 content")  @initial_conc { 1 }
+	var(hyp.water.oc.o2, [k g], [], "Hypolimnion DOC-O2 content")  @initial_conc { 1 }
+	
+	flux(out, epi.water.oc, [k g, day-1], "DOC Inflow to epilimnion") {
+		epi.epi_inflow * ((oc_inflow / 1000)=> [k g, m-3] )
+	}
+	flux(out, epi.water.oc.o2, [k g, day-1], "DOC-O2 inflow to epilimnion") {
+		epi.epi_inflow * ((oc_inflow / 1000)=> [k g, m-3] ) * (4+COS_alloch)/4
+	}
+	
+	var(epi.water.oc.nosc, [], "Epilimnion NOSC") @initial { 0 } {
+		(conc(epi.water.oc.o2) -1) *4
+	}
+	var(hyp.water.oc.nosc, [], "Hypolimnion NOSC") @initial { 0 } {
+		(conc(hyp.water.oc.o2) -1) *4
+	}
+	
+	var(epi.water.resp, [day-1], "Bacterial mineralization (epi)") {
+		temp_adj := theta_resp ^((epi.water.temp - 20[deg_c]) =>[]),
+		o2_adj := conc(epi.water.o2) / (Km_o2 * 0.031998[g, m mol-1] + conc(epi.water.o2)) * temp_adj,
+		K_OM / 365.25[day, year-1] * o2_adj * COS_resp^(epi.water.oc.nosc) # Bacterial respiration is adjusted for Temp, O2 concentration and COS of the DOC
+	}
+	
+	var(hyp.water.resp, [day-1], "Bacterial mineralization (hypo)") {
+		temp_adj := theta_resp ^((hyp.water.temp - 20[deg_c]) =>[]),
+		o2_adj := conc(hyp.water.o2) / (Km_o2 * 0.031998[g, m mol-1] + conc(hyp.water.o2)) * temp_adj,
+		K_OM / 365.25[day, year-1] * o2_adj * COS_resp^(hyp.water.oc.nosc)
+	}
+	
+	flux(hyp.water.oc, nowhere, [k g, day-1], "DOC bacterial mineralization (hypo)") { resp * oc }
+	flux(epi.water.oc, nowhere, [k g, day-1], "DOC bacterial mineralization (epi)")  { resp * oc }
+	flux(hyp.water.o2, nowhere, [k g, day-1], "O2 bacterial consump (hypo)") { resp * o2 * 32/12 * (2-(4+hyp.water.oc.nosc)/4) }  # 1 g of DOC is 1/12 mol of C, 1 g of O2 is 1/32 mol of O2
+	flux(epi.water.o2, nowhere, [k g, day-1], "O2 bacterial consump (epi)")  { resp * o2 * 32/12 * (2-(4+epi.water.oc.nosc)/4) }  # note also that DOC to O2 ratio changes with COS of DOC, this is why we have "(2-(4+nosc)/4)"
+	
+	par_group("Phytoplankton", epi) {
+		fpv_par : par_real("Reduction of PAR by FPV", [], 0.5, 0, 1)
+		init_phyt : par_real("Initial Phyto concentration", [m g, l-1], 0.5, 0.01, 1)
+		phyt_rate : par_real("Max Phyto growth at 20C", [day-1], 1, 0.5, 2)
+		phyt_death : par_real("Phytoplankton death rate", [day-1], 0.2, 0.05, 0.4)
+		beta : par_real("Temp adjustment of Phyto growth", [K], 2, 1, 4)
+		iopt : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
+		alpha : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
+		rPhytn : par_real("N to C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
+		rPhytp : par_real("P to C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
+	}
+	
+	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")   @initial_conc { init_phyt }
+	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton")  @initial_conc { init_phyt }
+	
+	var(epi.water.phyt.par_sw, [W, m-2]) {
+		sw * (1 - f_par)	 if epi.FPV_indicator2,
+		sw * (1 - f_par) 	 otherwise
+	}
+	
+	var(epi.water.phyt.Mgrowth, [day-1]) {
+		phyt_rate*10^(beta*(1000/293.15[K]-1000/(epi.water.temp->[K])))
+	}
+	
+	var(epi.water.phyt.light_lim, []) {
+		par_sw/max(0.5*par_sw,iopt)*exp(1-par_sw/max(0.5*par_sw,iopt))
+	}
+	
+	var(epi.water.phyt.N_lim, []) {
+		conc(epi.water.nitro) * conc(epi.water.nitro) / (0.062[g, m mol-1]*0.062[g, m mol-1]) / (alpha * alpha *rPhytn *rPhytn + (conc(epi.water.nitro) * conc(epi.water.nitro) / (0.062[g, m mol-1]*0.062[g, m mol-1])))
+	}
+	
+	var(epi.water.phyt.P_lim, []) {
+		conc(epi.water.phos) * conc(epi.water.phos) / (0.095[g, m mol-1]*0.095[g, m mol-1]) / (alpha * alpha *rPhytp *rPhytp + (conc(epi.water.phos) * conc(epi.water.phos) / (0.095[g, m mol-1]*0.095[g, m mol-1])))
+	}
+	
+	flux(out, epi.water.phyt, [k g, day-1], "Epilimnion photosynthetic C fixation") {
+		min(N_lim, P_lim) * Mgrowth * last(phyt) 		if light_lim >= N_lim,	
+		min(light_lim, P_lim) * Mgrowth * last(phyt)	otherwise
+	}
+	
+
+	
+	flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phyto death to DOC (epi)") {
+		phyt_death * phyt 		if conc(o2) >= 2[m g, l-1],
+		phyt_death * phyt * 10 	otherwise
+	}
+	
+	flux(out, epi.water.oc.o2, [k g, day-1], "Phyto death to DOC-O2 (epi)") {
+		phyt_death * phyt * (4+COS_autoch)/4 		if conc(epi.water.o2) >= 2[m g, l-1],
+		phyt_death * phyt * 10 * (4+COS_autoch)/4 	otherwise
+	}
+	
+
+	
+	flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phyto death (hypo)") {
+		phyt_death * phyt 		if conc(o2) >= 2[m g, l-1],
+		phyt_death * phyt * 10 	otherwise
+	}
+	
+	flux(out, hyp.water.oc.o2, [k g, day-1], "Phyto death to DOC-O2 (hyp)") {
+		phyt_death * phyt * (4+COS_autoch)/4 		if conc(hyp.water.o2) >= 2[m g, l-1],
+		phyt_death * phyt * 10 * (4+COS_autoch)/4 	otherwise
+	}
+	
+	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O2 photosynthesis") {
+		min(epi.water.phyt.N_lim, epi.water.phyt.P_lim) * epi.water.phyt.Mgrowth * last(epi.water.phyt) * 32/12 		if epi.water.phyt.light_lim >= epi.water.phyt.N_lim,	
+		min(epi.water.phyt.light_lim, epi.water.phyt.P_lim) * epi.water.phyt.Mgrowth * last(epi.water.phyt) * 32/12		otherwise
+	}
+	
+	
+#	var(epi.par_attn, []) {
+#		coeff := 5[m-1],#0.2[m-1],   # TODO: Maybe parametrize, and add effect from DOC,SS
+#		1 - exp(-coeff*epi.z_e)
+#	}
+	
+
+#	
+#	photodeg : function(sw, attn, oc_doc) {
+#		oc_doc * qy_doc * (f_par / e_par) * sw * attn
+#	}
+#	
+#	qy_doc : constant("DOC quantum yield",               [m g, mol-1], 0.1)
+#	
+#	e_par  : constant("Average energy of PAR photons",   [J, mol-1],  240800.0)
+#	
+#	flux(epi.water.oc, out, [k g, day-1], "Photo-mineralization (epilimnion)") {
+#		photodeg(surf.sw, par_attn, oc_doc) * oc ->>
+#	}
+#	
+#	flux(hyp.water.oc, out, [k g, day-1], "Photo-mineralization (hypolimnion)") {
+#		# Just assume all remaining shortwave is attenuated in the hypolimnion
+#		photodeg(h_sw, 1, oc_doc) * oc ->>
+#	}
+	
+	# TODO: Some other sinks of DOC (?)
+
+	par_group("Lake N", epi) {
+		init_nitro     : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
+		DIN_to_inOC      : par_real("DIN to C inflow ratio", [k g, k g-1], 0.03,0.01,0.1)
+		SRP_to_inOC      : par_real("SRP to C inflow ratio", [k g, k g-1], 0.003,0.001,0.01)
+		lake_nitro_ret : par_real("Lake DIN retention at 20°C", [day-1], 0, 0, 5)
+		lake_nitro_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
+		hyp_nitro_ret  : par_real("Hypolimnion N retention factor", [], 1, 0, 2)
+	}
+	
+	var(epi.water.nitro, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_nitro }
+	var(hyp.water.nitro, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_nitro }
+	
+	flux(out, epi.water.nitro, [k g, day-1], "Inflow DIN to epilimnion") {
+		epi.epi_inflow * ((oc_inflow / 1000)=> [k g, m-3] ) * DIN_to_inOC
+	}
+	
+	flux(out, epi.water.phos, [k g, day-1], "Inflow SRP to epilimnion") {
+		epi.epi_inflow * ((oc_inflow / 1000)=> [k g, m-3] ) * SRP_to_inOC
+	}
+
+
+	flux(epi.water.nitro, out, [k g, day-1], "Epilimnion N retention") {
+		ret := q10_adjust(lake_nitro_ret, 20.0[deg_c], temp, lake_nitro_q10),
+		nitro * ret
+	}
+	
+	flux(hyp.water.nitro, out, [k g, day-1], "Hypolimnion N retention") {
+		ret := q10_adjust(lake_nitro_ret, 20.0[deg_c], temp, lake_nitro_q10),
+		nitro * ret * hyp_nitro_ret
+	}
+	
+	flux(epi.water.nitro, nowhere, [k g, day-1], "Phytoplankton N uptake") {
+		min(epi.water.phyt.N_lim, epi.water.phyt.P_lim) * epi.water.phyt.Mgrowth * last(epi.water.phyt) * rPhytn 		if epi.water.phyt.light_lim >= epi.water.phyt.N_lim,	
+		min(epi.water.phyt.light_lim, epi.water.phyt.P_lim) * epi.water.phyt.Mgrowth * last(epi.water.phyt) * rPhytn		otherwise
+	}
+
+	par_group("Lake P", epi) {
+		init_phos : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
+		phos_ret : par_real("Lake TDP retention", [day-1], 0, 0, 5)
+		hyp_phos_ret : par_real("Hyplimnion TDP retention factor", [], 0, 0, 1)
+	}
+	
+	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_phos }
+	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_phos }
+	
+	flux(epi.water.phos, out, [k g, day-1], "Epilimnion TDP retention") {
+		phos * phos_ret
+	}
+	
+	flux(hyp.water.phos, out, [k g, day-1], "Hypolimnion TDP retention") {
+		phos * phos_ret * hyp_phos_ret
+	}
+	
+	flux(epi.water.phos, nowhere, [k g, day-1], "Phytoplankton P uptake") {
+		min(epi.water.phyt.N_lim, epi.water.phyt.P_lim) * epi.water.phyt.Mgrowth * last(epi.water.phyt) * rPhytp 		if epi.water.phyt.light_lim >= epi.water.phyt.N_lim,	
+		min(epi.water.phyt.light_lim, epi.water.phyt.P_lim) * epi.water.phyt.Mgrowth * last(epi.water.phyt) * rPhytp		otherwise
+	}
+	
+	# TODO: SS, PP
+}

@@ -123,19 +123,30 @@ library("Seawater") {
 		# P      := P -> [bar]
 		# densP0/(1.0 - p/K)
 	# }
-}
+
 
 
 
 #TODO: Fix the units of this one!
-# dynamic_viscosity_water : function(T : [deg_c], S : []) {
+	dynamic_viscosity_water : function(T : [deg_c], S : []) {
 	# # Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
 	# # Returns viscosity in centipose [k Pa, s]
 	# # It is also possible to add pressure corrections. Pressure is here assumed to be at 1atm.
-	# eta20 := 1.0020[k Pa, s]              # Dynamic viscosity at t=20, s=0
-	# tm20  := 20[deg_c]-T
-	# lograt := (1.1709*tm20 - 0.001827[deg_c-1]*tm20^2) / (T + 89.93[deg_c])
-	# eta_t := eta20*10^lograt      #Dynamic viscosity of distilled water, corrected for temperature
+		eta20 := 1.0020e-3[Pa, s],             # Dynamic viscosity at t=20, s=0  ### NOTE THAT UNITS SHOULD BE Pa s, this is now corrected
+		tm20  := 20[deg_c]-T,
+		lograt := (1.1709*tm20 - 0.001827[deg_c-1]*tm20^2) / (T + 89.93[deg_c]),
+		eta_t := eta20*10^lograt,   #Dynamic viscosity of distilled water, corrected for temperature
+		eta_t
+	}
+	
+	o2_saturation : function (T : [deg_c], S : []) {
+	# Formula from Weiss 1970 (also in Selma).
+		T_k := (T+ 273.15[deg_c] ) => [], # 
+		Cs_umol_L := exp (-135.90205 + (1.575701*100000 / T_k) - (6.642308*10000000/(T_k*T_k)) + (1.243800*10000000000/ (T_k*T_k*T_k)) - (8.621949*100000000000 / (T_k*T_k*T_k*T_k)) - (S * (0.017674 - (10.754 / T_k) + (2140.7/(T_k*T_k)) ))) => [m mol, m-3],
+		Cs_umol_L
+	}
+	
+}
 	# a := lerp(T, 5[deg_c], 25[deg_c], 0.000366, 0.001403)
 	# b := lerp(T, 5[deg_c], 25[deg_c], 0.002756, 0.003416)
 	# cl := max(0, (S-0.03)/1.805)
