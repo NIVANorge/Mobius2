@@ -276,10 +276,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			auto agg_var = app->vars[instr.target_id];
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, unit_conv);
 			
-		} else if(instr.type == Model_Instruction::Type::special_computation) {
-			
-			// Taken care of elsewhere.
 		}
+		// Other instry.types are handled differently.
 	}
 }
 
@@ -908,13 +906,13 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				assignment->exprs.push_back(make_literal((double)0.0));
 				result_code = assignment;
 				
-			} else if (instr->type == Model_Instruction::Type::special_computation) {
+			} else if (instr->type == Model_Instruction::Type::external_computation) {
 				
-				auto special = static_cast<Special_Computation_FT *>(instr->code);
+				auto external = static_cast<External_Computation_FT *>(instr->code);
 				
 				bool disable = false;
 				Entity_Id source_compartment = invalid_entity_id;
-				for(auto &arg : special->arguments) {
+				for(auto &arg : external->arguments) {
 					
 					// TODO: Again, copy is only necessary if we have a restriction... Make a system to avoid it when not necessary.
 					Index_Exprs new_indexes(model);
@@ -943,7 +941,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 							}
 							set_graph_target_indexes(app, new_indexes, conn_id, source_compartment, compartment);
 						} else
-							fatal_error(Mobius_Error::internal, "Unimplemented special computation codegen for var loc restriction");
+							fatal_error(Mobius_Error::internal, "Unimplemented external computation codegen for var loc restriction");
 					}
 					
 					Offset_Stride_Code res;
@@ -952,18 +950,18 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 					else if(arg.variable_type == Variable_Type::parameter)
 						res = app->parameter_structure.get_special_offset_stride_code(arg.par_id, new_indexes);
 					else
-						fatal_error(Mobius_Error::internal, "Unrecognized variable type in special computation codegen.");
-					special->exprs.push_back(res.offset);
-					special->exprs.push_back(res.stride);
-					special->exprs.push_back(res.count);
+						fatal_error(Mobius_Error::internal, "Unrecognized variable type in external computation codegen.");
+					external->exprs.push_back(res.offset);
+					external->exprs.push_back(res.stride);
+					external->exprs.push_back(res.count);
 				}
 				if(disable) {
-					delete special;
-					log_print("Disabling special computation \"", special->function_name, "\" due to a connection lookup over a non-existing edge.\n");
-					log_print("Source comp was ", model->components[source_compartment]->name, "\n");
+					log_print("Disabling external computation \"", external->function_name, "\" due to a connection lookup over a non-existing edge.\n");
+					log_print("The source compartmet was ", model->components[source_compartment]->name, "\n");
+					delete external;
 					result_code = make_no_op();
 				} else
-					result_code = special;
+					result_code = external;
 				
 			} else {
 				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");

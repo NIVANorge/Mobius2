@@ -38,7 +38,7 @@
 
 
 #include "llvm_jit.h"
-#include "special_computations.h"
+#include "external_computations.h"
 
 
 extern "C" DLLEXPORT double
@@ -606,37 +606,37 @@ get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::T
 }
 
 llvm::Value *
-build_special_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
 	auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
 	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
 	auto void_ty = llvm::Type::getVoidTy(*data->context);
 	
-	auto special = static_cast<Special_Computation_FT *>(expr);
+	auto external = static_cast<External_Computation_FT *>(expr);
 	
-	int n_call_args = special->arguments.size();
+	int n_call_args = external->arguments.size();
 	
 	std::vector<llvm::Value *> valptrs;
 	std::vector<llvm::Value *> strides;
 	std::vector<llvm::Value *> counts;
 	for(int idx = 0; idx < n_call_args; ++idx) {
-		auto offset = build_expression_ir(special->exprs[3*idx], locals, args, data);
-		auto stride = build_expression_ir(special->exprs[3*idx + 1], locals, args, data);
-		auto count  = build_expression_ir(special->exprs[3*idx + 2], locals, args, data);
+		auto offset = build_expression_ir(external->exprs[3*idx], locals, args, data);
+		auto stride = build_expression_ir(external->exprs[3*idx + 1], locals, args, data);
+		auto count  = build_expression_ir(external->exprs[3*idx + 2], locals, args, data);
 		llvm::Value *valptr;
-		if(special->arguments[idx].variable_type == Variable_Type::state_var)
+		if(external->arguments[idx].variable_type == Variable_Type::state_var)
 			valptr = data->builder->CreateGEP(double_ty, args[2], offset, "state_var_ptr");
-		else if(special->arguments[idx].variable_type == Variable_Type::parameter)
+		else if(external->arguments[idx].variable_type == Variable_Type::parameter)
 			valptr = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
 		else
-			fatal_error(Mobius_Error::internal, "Unimplemented variable type for special computation LLVM IR generation.");
+			fatal_error(Mobius_Error::internal, "Unimplemented variable type for external computation LLVM IR generation.");
 		valptrs.push_back(valptr);
 		strides.push_back(stride);
 		counts.push_back(count);
 	}
 	
-	// Must match Special_Indexed_Value in special_computations.h
+	// Must match struct Special_Indexed_Value in external_computations.h
 	std::vector<llvm::Type *> member_types = {
 		double_ptr_ty,
 		int_64_ty,
@@ -647,7 +647,7 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector
 	
 	std::vector<llvm::Type *> arguments_ty(n_call_args, struct_ptr_ty);
 	
-	auto special_fun = get_linked_function(data, special->function_name, void_ty, arguments_ty);
+	auto external_fun = get_linked_function(data, external->function_name, void_ty, arguments_ty);
 	
 	// Construct the struct arguments
 	std::vector<llvm::Value *> arguments;
@@ -662,7 +662,7 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector
 		arguments.push_back(alloc);
 	}
 	
-	data->builder->CreateCall(special_fun, arguments);
+	data->builder->CreateCall(external_fun, arguments);
 	
 	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
 }
@@ -897,8 +897,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			return build_cast_ir(a, expr->exprs[0]->value_type, expr->value_type, data);
 		} break;
 		
-		case Math_Expr_Type::special_computation : {
-			return build_special_computation_ir(expr, locals, args, data);
+		case Math_Expr_Type::external_computation : {
+			return build_external_computation_ir(expr, locals, args, data);
 		} break;
 		
 		case Math_Expr_Type::iterate : {

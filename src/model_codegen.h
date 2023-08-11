@@ -37,7 +37,7 @@ Model_Instruction {
 		add_discrete_flux_to_target,
 		add_to_aggregate,
 		add_to_connection_aggregate,
-		special_computation,
+		external_computation,
 	}                   type;
 	
 	Var_Id              var_id;

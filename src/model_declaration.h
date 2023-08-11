@@ -75,7 +75,7 @@ struct
 Entity_Registration_Base {
 	Decl_Type       decl_type;
 	Source_Location source_loc;         // if it has_been_declared, this should be the declaration location. Will not always be canonical for all entity types (some can be redeclared)
-	Entity_Id       scope_id = invalid_entity_id;  // The id of the decl of the parent scope if it exists
+	Entity_Id       scope_id = invalid_entity_id;  // The id of the module or library where this entity was declared. (It could have been imported to other scopes also, that is not reflected here)
 	std::string     name;
 	bool            has_been_declared = false;
 };
@@ -221,7 +221,7 @@ Entity_Registration<Reg_Type::discrete_order> : Entity_Registration_Base {
 };
 
 template<> struct
-Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::external_computation> : Entity_Registration_Base {
 	std::string      function_name;
 	
 	// TODO: May need a vector of components
@@ -345,7 +345,7 @@ Mobius_Model {
 	Registry<Reg_Type::var>         vars;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::discrete_order> discrete_orders;
-	Registry<Reg_Type::special_computation> special_computations;
+	Registry<Reg_Type::external_computation> external_computations;
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
 	Registry<Reg_Type::connection>  connections;

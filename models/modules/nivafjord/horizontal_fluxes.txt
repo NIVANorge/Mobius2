@@ -36,14 +36,13 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	#var(outlet.vert_target, [], "Outlet vertical target")
 	var(river.vert_target, [], "Outlet vertical target")
 	
-	special_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", outlet) {
+	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", outlet) {
 		#result(outlet.vert_target)
 		result(river.vert_target)
 		river.water.rho
 		
-		#TODO: This is broken now since we disable when there is no connection layer.water->layer.water . argh.
-		# If we say river.water.rho[horz.below], it will try to look up connection data from river to river, which also breaks.
-			# Need to the same thing here as for the below() lookup in a regular variable.
+		#NOTE: the 'source' of the horz.below is now assumed to be river since that is what is in the result(), but that is a bad way of specifying it.
+		# This is also why we are forced to put the vert_target on the river even though it is only necessary to have it on the outlet.
 		layer.water.rho[horz.below]
 	}
 	
@@ -57,10 +56,10 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	}
 	
 	# TODO: Could have a SimplyCl module
-	var(river.water.salt, [k g]) @override_conc { 0=>> }
+	var(river.water.salt, [k g], [g, l-1]) @override_conc { 0[g, l-1] }
 	
 	var(river.water.salin, []) {
-		(conc(salt)/rho_water)*1000
+		(conc(salt)/rho_water)->>
 	}
 	
 	var(river.water.rho, [k g, m-3]) {
@@ -72,7 +71,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	# How would the framework know that this one is only for the edge layers, not below that (?)
 	# Or maybe it doesn't need to, and it just does a 'break' when w_bnd becomes 0.
 	# That is simpler, but wastes some time series storage space.
-	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", edge) {
+	external_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", edge) {
 		result(edge_layer.vert_target)
 		layer.water.rho
 		layer.water.rho[horz.below]
@@ -102,8 +101,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	align : property("Vertical realignment")
 	var(layer.water.align, [k g, day-1])
 	
-	# NOTE: Needs to be special computation since it would otherwise require reverse iteration (could be implemented later maybe)
-	special_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
+	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
+	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
 		result(layer.water.align)
 		layer.water.horz_bal
 	}

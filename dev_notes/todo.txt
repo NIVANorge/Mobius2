@@ -6,15 +6,14 @@
 		Finish the new formulation of special_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
 			
-			Make in_flux and out_flux be allowed as inputs to it.
+			Make in_flux (and out_flux) be allowed as inputs to it.
+				At least in_flux(connection, ..)
 			
 			See the note in
 				nivafjord/horizontal_fluxes.txt "Place river horizontal fluxes"
 				
 				Problem with how one should identify what the source compartment of the lookup layer.water.rho[horz.below] is
 				Right now we default it to the compartment of the result(), but that is very error prone.
-			
-			Rename to 'external_computation' ?
 			
 
 		Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.

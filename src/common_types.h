@@ -163,13 +163,14 @@ get_token_type(Decl_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var, connection_info, index_count, local, no_override, connection,
+	parameter, series, state_var, connection_info, index_count, local,
+	// Not really variables, but identifier types:
+	no_override, is_at, connection,
 	// "special" state variables
 	#define TIME_VALUE(name, bits) time_##name,
 	#include "time_values.incl"
 	#undef TIME_VALUE
 	time_fractional_step,
-	// Maybe also computed_parameter eventually.
 };
 
 inline const char *

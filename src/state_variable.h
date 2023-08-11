@@ -15,7 +15,7 @@ State_Var {
 		connection_aggregate  = 3,
 		dissolved_flux        = 4,
 		dissolved_conc        = 5,
-		special_computation   = 6,
+		external_computation  = 6,
 	} type;
 	
 	enum Flags {
@@ -75,13 +75,13 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	bool override_is_conc;
 	owns_code override_tree;
 	
-	Var_Id special_computation; // If this variable is the result of a special computation.
+	Var_Id external_computation; // If this variable is the result of a special computation.
 	
 	// These can be set for a declared flux.
 	std::vector<Var_Id> no_carry;
 	bool no_carry_by_default;
 	
-	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false), flux_time_unit_conv(1.0), special_computation(invalid_var), no_carry_by_default(false) {}
+	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false), flux_time_unit_conv(1.0), external_computation(invalid_var), no_carry_by_default(false) {}
 };
 
 template<> struct
@@ -136,7 +136,7 @@ State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 };
 
 template<> struct
-State_Var_Sub<State_Var::Type::special_computation> : State_Var {
+State_Var_Sub<State_Var::Type::external_computation> : State_Var {
 	Entity_Id       decl_id;
 	
 	owns_code       code;

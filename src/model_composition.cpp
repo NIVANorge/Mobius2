@@ -307,7 +307,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	
 	// TODO: The loc in this function is really the below_loc. Maybe rename it to avoid confusion.
 	
-	Dependency_Set code_depends;
+	std::set<Identifier_Data> code_depends;
 	register_dependencies(function, &code_depends);
 	
 	// NOTE: We should not have undergone codegen yet, so the source location of the top node of the function should be valid.
@@ -319,50 +319,49 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	Entity_Id exclude_index_set_from_var = avoid_index_set_dependency(app, loc);
 	
 	// TODO: in these error messages we should really print out the two tuples of index sets.
-	for(auto &dep : code_depends.on_parameter) {
+	for(auto &dep : code_depends) {
 		
-		if(!parameter_indexes_below_location(app, dep, loc, loc2, exclude_index_set_from_var)) {
-			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
-		}
-	}
-	for(auto &dep : code_depends.on_series) {
-		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
+		if(dep.variable_type == Variable_Type::parameter) {
+			if(!parameter_indexes_below_location(app, dep, loc, loc2, exclude_index_set_from_var)) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
+			}
+		} else if (dep.variable_type == Variable_Type::series) {
+			Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
 		
-		if(!location_indexes_below_location(app, app->vars[dep.var_id]->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
-			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
-		}
-	}
-	
-	for(auto &dep : code_depends.on_state_var) {
-		auto dep_var = app->vars[dep.var_id];
+			if(!location_indexes_below_location(app, app->vars[dep.var_id]->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
+			}
+		} else if (dep.variable_type == Variable_Type::state_var) {
+			auto dep_var = app->vars[dep.var_id];
 		
-		// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
-		if(dep_var->type == State_Var::Type::in_flux_aggregate)
-			dep_var = app->vars[as<State_Var::Type::in_flux_aggregate>(dep_var)->in_flux_to];
-		
-		// If it is an aggregate, index set dependencies will be generated to be correct.
-		if(dep_var->type == State_Var::Type::regular_aggregate)
-			continue;
-		
-		// If it is a conc, check vs the mass instead.
-		if(dep_var->type == State_Var::Type::dissolved_conc) {
-			auto var2 = as<State_Var::Type::dissolved_conc>(dep_var);
-			dep_var = app->vars[var2->conc_of];
-		}
-		
-		if(dep_var->type == State_Var::Type::connection_aggregate)
-			dep_var = app->vars[as<State_Var::Type::connection_aggregate>(dep_var)->agg_for];
-		
-		if(dep_var->is_flux() || !is_located(dep_var->loc1))
-			fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
-		
-		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
-		
-		if(!location_indexes_below_location(app, dep_var->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
-			source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
+			// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
+			if(dep_var->type == State_Var::Type::in_flux_aggregate)
+				dep_var = app->vars[as<State_Var::Type::in_flux_aggregate>(dep_var)->in_flux_to];
+			
+			// If it is an aggregate, index set dependencies will be generated to be correct.
+			if(dep_var->type == State_Var::Type::regular_aggregate)
+				continue;
+			
+			// If it is a conc, check vs the mass instead.
+			if(dep_var->type == State_Var::Type::dissolved_conc) {
+				auto var2 = as<State_Var::Type::dissolved_conc>(dep_var);
+				dep_var = app->vars[var2->conc_of];
+			}
+			
+			if(dep_var->type == State_Var::Type::connection_aggregate)
+				dep_var = app->vars[as<State_Var::Type::connection_aggregate>(dep_var)->agg_for];
+			
+			if(dep_var->is_flux() || !is_located(dep_var->loc1))
+				fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
+			
+			Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
+			
+			if(!location_indexes_below_location(app, dep_var->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
+			}
 		}
 	}
 }
@@ -423,21 +422,21 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 }
 
 void
-register_special_computations(Model_Application *app, std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> &special_targets) {
+register_external_computations(Model_Application *app, std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> &external_targets) {
 	
-	// Unfortunately we have to do the below checks before resolving the function tree, because we need to know what locations are the targets of special computations before state variables are registered. Otherwise, a variable could be erroneously registered as an input series (since it lacked code), but should instead be computed by the special computation.
+	// Unfortunately we have to do the below checks before resolving the function tree, because we need to know what locations are the targets of external computations before state variables are registered. Otherwise, a variable could be erroneously registered as an input series (since it lacked code), but should instead be computed by the external computation.
 	
 	auto model = app->model;
 	
-	for(auto special_id : model->special_computations) {
+	for(auto external_id : model->external_computations) {
 		
-		auto special = model->special_computations[special_id];
+		auto external = model->external_computations[external_id];
 
-		Var_Id var_id = register_state_variable<State_Var::Type::special_computation>(app, invalid_entity_id, false, special->name);
-		as<State_Var::Type::special_computation>(app->vars[var_id])->decl_id = special_id;
+		Var_Id var_id = register_state_variable<State_Var::Type::external_computation>(app, invalid_entity_id, false, external->name);
+		as<State_Var::Type::external_computation>(app->vars[var_id])->decl_id = external_id;
 		
 		bool success = true;
-		for(auto expr : special->code->exprs) {
+		for(auto expr : external->code->exprs) {
 			
 			bool is_result = false;
 			auto check_expr = expr;
@@ -461,7 +460,7 @@ register_special_computations(Model_Application *app, std::unordered_map<Var_Loc
 			}
 			if(!is_result) continue;
 			
-			auto scope = model->get_scope(special->scope_id);
+			auto scope = model->get_scope(external->scope_id);
 			
 			// TODO: This is a stupid way to do it. Should instead unify some of the code for location argument and function tree resolution.
 			Argument_AST arg;
@@ -470,19 +469,19 @@ register_special_computations(Model_Application *app, std::unordered_map<Var_Loc
 			Var_Location loc;
 			process_location_argument(model, scope, &arg, &loc);
 			
-			auto find = special_targets.find(loc);
-			if(find != special_targets.end()) {
+			auto find = external_targets.find(loc);
+			if(find != external_targets.end()) {
 				ident->source_loc.print_error_header();
-				error_print("This variable is declared as a 'result' of more than one special computation. See a different declaration here:\n");
-				model->special_computations[as<State_Var::Type::special_computation>(app->vars[find->second])->decl_id]->source_loc.print_error();
+				error_print("This variable is declared as a 'result' of more than one external computation. See a different declaration here:\n");
+				model->external_computations[as<State_Var::Type::external_computation>(app->vars[find->second])->decl_id]->source_loc.print_error();
 				mobius_error_exit();
 			}
-			special_targets[loc] = var_id;
+			external_targets[loc] = var_id;
 		}
 		
 		if(!success) {
-			special->code->source_loc.print_error_header();
-			fatal_error("A 'special_computation' body should just contain a list of identifiers of variables that go into the computation. Targets of the computation can be enclosed with a result(). Targets can not have a bracket restriction.");
+			external->code->source_loc.print_error_header();
+			fatal_error("A 'external_computation' body should just contain a list of identifiers of variables that go into the computation. Targets of the computation can be enclosed with a result(). Targets can not have a bracket restriction.");
 		}
 	}
 }
@@ -523,8 +522,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		}
 	}
 	
-	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> special_targets;
-	register_special_computations(app, special_targets);
+	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> external_targets;
+	register_external_computations(app, external_targets);
 	
 	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
 	// also make sure there are no conflicting var declarations of the same var_location (across modules)
@@ -601,12 +600,12 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				}
 			}
 			
-			// TODO: special_id or has_code should be mutually exclusive
+			// TODO: Chech that external_id and has_code are be mutually exclusive
 			
-			auto special_id = invalid_var;
-			auto find_special = special_targets.find(var->var_location);
-			if(find_special != special_targets.end()) {
-				special_id = find_special->second;
+			auto external_id = invalid_var;
+			auto find_external = external_targets.find(var->var_location);
+			if(find_external != external_targets.end()) {
+				external_id = find_external->second;
 				is_series = false;
 			}
 			
@@ -616,13 +615,13 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			
 			if(is_series) {
 				register_state_variable<State_Var::Type::declared>(app, id, true, name);
-			} else if (is_valid(special_id) || id == find->second) {
+			} else if (is_valid(external_id) || id == find->second) {
 				// This is the particular var declaration that provided the code, so we register a state variable using this one.
 				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, id, false, name);
-				if(var->var_location.is_dissolved() && type == Decl_Type::quantity && !is_valid(special_id))
+				if(var->var_location.is_dissolved() && type == Decl_Type::quantity && !is_valid(external_id))
 					dissolvedes.push_back(var_id);
-				if(is_valid(special_id))
-					as<State_Var::Type::declared>(app->vars[var_id])->special_computation = special_id;
+				if(is_valid(external_id))
+					as<State_Var::Type::declared>(app->vars[var_id])->external_computation = external_id;
 			}
 		}
 	}
@@ -1132,51 +1131,51 @@ compose_and_resolve(Model_Application *app) {
 	
 	for(auto var_id : app->vars.all_state_vars()) {
 		auto var = app->vars[var_id];
-		if(var->type != State_Var::Type::special_computation) continue;
+		if(var->type != State_Var::Type::external_computation) continue;
 		
-		auto var2 = as<State_Var::Type::special_computation>(var);
-		auto special = model->special_computations[var2->decl_id];
+		auto var2 = as<State_Var::Type::external_computation>(var);
+		auto external = model->external_computations[var2->decl_id];
 		
 		Function_Resolve_Data res_data;
 		res_data.app = { app };
-		res_data.scope = model->get_scope(special->scope_id);
+		res_data.scope = model->get_scope(external->scope_id);
 		res_data.baked_parameters = &app->baked_parameters;
 		res_data.allow_result = true;
 		
-		auto res = resolve_function_tree(special->code, &res_data);
+		auto res = resolve_function_tree(external->code, &res_data);
 		
 		// TODO: This could be separated out in its own function
-		auto special_comp = new Special_Computation_FT();
-		special_comp->function_name = special->function_name;
+		auto external_comp = new External_Computation_FT();
+		external_comp->function_name = external->function_name;
 		
 		for(auto arg : res.fun->exprs) {
 			if(arg->expr_type != Math_Expr_Type::identifier)
-				fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a special_computation.");
+				fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a external_computation.");
 			
 			auto ident = static_cast<Identifier_FT *>(arg);
 			// TODO: Also implement for series
 			if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::parameter) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("We only support state variables and parameters as the arguments to a 'special_computation'.");
+				fatal_error("We only support state variables and parameters as the arguments to a 'external_computation'.");
 			}
 			
-			special_comp->arguments.push_back(*ident);
+			external_comp->arguments.push_back(*ident);
 			if(ident->has_flag(Identifier_FT::result)) {
 				if(ident->variable_type != Variable_Type::state_var) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only state variables can be a 'result' of a 'special_computation'.");
+					fatal_error("Only state variables can be a 'result' of a 'sexternal_computation'.");
 				}
 				auto result_var = as<State_Var::Type::declared>(app->vars[ident->var_id]);
 				if(result_var->decl_type != Decl_Type::property) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only a 'property' can be a 'result' of a 'special_computation'.");
+					fatal_error("Only a 'property' can be a 'result' of a 'external_computation'.");
 				}
 					
 				var2->targets.push_back(ident->var_id);
 			}
 		}
 		delete res.fun;
-		var2->code = owns_code(special_comp);
+		var2->code = owns_code(external_comp);
 	}
 	
 	for(auto flux_id : app->vars.all_fluxes()) {

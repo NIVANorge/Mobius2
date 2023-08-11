@@ -64,6 +64,8 @@ inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 	// NOTE: The current use case for this is such that they have the same variable type
 	// NOTE: We should not have to care about other_connection here, since it is just a
 	// placeholder used until the identifier is fully resolved.
+	if(a.variable_type != b.variable_type)
+		return a.variable_type < b.variable_type;
 	if(a.variable_type == Variable_Type::parameter) {
 		if(a.par_id == b.par_id) return a.flags < b.flags;
 		return a.par_id.id < b.par_id.id;
@@ -128,12 +130,12 @@ Local_Var_FT : Math_Expr_FT {
 };
 
 struct
-Special_Computation_FT : Math_Expr_FT {
+External_Computation_FT : Math_Expr_FT {
 	std::string                  function_name;
 	
 	std::vector<Identifier_Data> arguments;
 	
-	Special_Computation_FT() : Math_Expr_FT(Math_Expr_Type::special_computation) { }
+	External_Computation_FT() : Math_Expr_FT(Math_Expr_Type::external_computation) { }
 };
 
 struct
@@ -150,13 +152,6 @@ struct
 Iterate_FT : Math_Expr_FT {
 	s32 scope_id = -1;
 	Iterate_FT() : Math_Expr_FT(Math_Expr_Type::iterate) {}
-};
-
-struct
-Dependency_Set {
-	std::set<Identifier_Data>  on_parameter;
-	std::set<Identifier_Data>  on_series;
-	std::set<Identifier_Data>  on_state_var;
 };
 
 
@@ -209,7 +204,7 @@ Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope = nullptr);
 
 void
-register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends);
+register_dependencies(Math_Expr_FT *expr, std::set<Identifier_Data> *depends);
 
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to);

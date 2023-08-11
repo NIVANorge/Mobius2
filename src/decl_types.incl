@@ -30,7 +30,7 @@ ENUM_VALUE(function, function, function)
 ENUM_VALUE(var, function, var)
 ENUM_VALUE(flux, function, flux)
 ENUM_VALUE(discrete_order, function, discrete_order)
-ENUM_VALUE(special_computation, function, special_computation)
+ENUM_VALUE(external_computation, function, external_computation)
 ENUM_VALUE(series, none, unrecognized)    // NOTE: This one is only for data sets, not in model code.
 ENUM_VALUE(time_step, none, unrecognized) // only for data sets.
 ENUM_VALUE(config, none, unrecognized)    // only for config files.

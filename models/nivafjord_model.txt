@@ -13,7 +13,7 @@ model("NIVAFjord") {
 	ice   : quantity("Ice")
 	salt  : quantity("Salt")
 	heat  : quantity("Heat energy")
-	h     : quantity("Sea level")
+	
 	
 	
 	evap_mm : property("Evaporation per area")
@@ -31,11 +31,16 @@ model("NIVAFjord") {
 	attn     : property("Attenuation coefficient")
 	freeze_temp : property("Ice formation temperature")
 	
+	z  : property("Depth")
 	dz : property("Thickness")
 	
 	vert    : connection("Fjord vertical", grid1d) { layer[layer_idx] }
 	sw_vert : connection("Shortwave vertical", grid1d) { layer[layer_idx] }
 	#bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer[layer_idx] }
+	
+	par_group("Fjord global parameters") {
+		dz0     : par_real("Stable layer thickness", [m], 1, 0.1, 5)
+	}
 	
 	par_group("Layer parameters", layer) {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
@@ -46,7 +51,7 @@ model("NIVAFjord") {
 	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp,
 											loc(A[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
-	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sed, water, salt, heat, temp, salinity, precip, pressure, wind, g_rad, rho, attn, dz, freeze_temp, vert, sw_vert, A))
+	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sed, water, salt, heat, temp, salinity, precip, pressure, wind, g_rad, rho, attn, z, dz, freeze_temp, vert, sw_vert, A, dz0))
 	
 	basin_idx : index_set("Basin index") {
 		layer_idx : index_set("Layer index")

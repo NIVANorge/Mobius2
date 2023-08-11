@@ -29,8 +29,8 @@ Model_Instruction::debug_string(Model_Application *app) {
 		ss << "\"" << app->vars[target_id]->name << "\" += \"" << app->vars[var_id]->name << "\"";
 	else if(type == Model_Instruction::Type::add_to_aggregate)
 		ss << "\"" << app->vars[target_id]->name << "\" += \"" << app->vars[var_id]->name << "\" * weight";
-	else if(type == Model_Instruction::Type::special_computation)
-		ss << "special_computation(" << app->vars[var_id]->name << ")";
+	else if(type == Model_Instruction::Type::external_computation)
+		ss << "external_computation(" << app->vars[var_id]->name << ")";
 	
 	return ss.str();
 }
@@ -126,12 +126,12 @@ insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_
 }
 
 void
-insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep, int type) {
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep) {
 	
 	const std::vector<Entity_Id> *index_sets = nullptr;
-	if(type == 0)
+	if(dep.variable_type == Variable_Type::parameter)
 		index_sets = &app->parameter_structure.get_index_sets(dep.par_id);
-	else if(type == 1)
+	else if(dep.variable_type == Variable_Type::series)
 		index_sets = &app->series_structure.get_index_sets(dep.var_id);
 	else
 		fatal_error(Mobius_Error::internal, "Misuse of insert_dependencies().");
@@ -189,66 +189,66 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 			
 			if(!instr.code) continue;
 			
-			Dependency_Set code_depends;
+			std::set<Identifier_Data> code_depends;
 			register_dependencies(instr.code, &code_depends);
 			if(instr.specific_target)
 				register_dependencies(instr.specific_target, &code_depends);
 			
-			for(auto &dep : code_depends.on_parameter)
-				insert_dependencies(app, instr.index_sets, dep, 0);
-			for(auto &dep : code_depends.on_series)
-				insert_dependencies(app, instr.index_sets, dep, 1);
-			
-			for(auto &dep : code_depends.on_state_var) {
+			for(auto &dep : code_depends) {
+				if(dep.variable_type == Variable_Type::parameter || dep.variable_type == Variable_Type::series) {
+					
+					insert_dependencies(app, instr.index_sets, dep);
 				
-				if(dep.restriction.restriction == Var_Loc_Restriction::above || dep.restriction.restriction == Var_Loc_Restriction::below) {
-					if(dep.restriction.restriction == Var_Loc_Restriction::above) {
-						instr.loose_depends_on_instruction.insert(dep.var_id.id);
-					} else {
-						instr.instruction_is_blocking.insert(dep.var_id.id);
-						instr.depends_on_instruction.insert(dep.var_id.id);
-					}
-					// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
-						// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
-					// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
+				} else if(dep.variable_type == Variable_Type::state_var) {
+					
+					instr.inherits_index_sets_from_state_var.insert(dep);
+					
+					if(dep.restriction.restriction == Var_Loc_Restriction::above || dep.restriction.restriction == Var_Loc_Restriction::below) {
+						if(dep.restriction.restriction == Var_Loc_Restriction::above) {
+							instr.loose_depends_on_instruction.insert(dep.var_id.id);
+						} else {
+							instr.instruction_is_blocking.insert(dep.var_id.id);
+							instr.depends_on_instruction.insert(dep.var_id.id);
+						}
+						// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
+							// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
+						// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
 
-					if(instr.type == Model_Instruction::Type::compute_state_var) {
-						auto conn = model->connections[dep.restriction.connection_id];
-						if(conn->type == Connection_Type::directed_graph) {
-							// Hmm, maybe factor this out?
-							auto comp = app->find_connection_component(dep.restriction.connection_id, app->vars[dep.var_id]->loc1.components[0]);
-							instr.index_sets.insert(comp->edge_index_set);
-						} else if(conn->type == Connection_Type::all_to_all) {
-							auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-							//instr.index_sets.insert({index_set, 2});   // NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
-							safe_insert_dependency(model, &instr, {index_set, 2});
-						} else if(conn->type == Connection_Type::grid1d) {
-							auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-							safe_insert_dependency(model, &instr, index_set);
-							//instr.index_sets.insert(index_set);
-						} else
-							fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
-					}
-					
-				} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {
-					instr.depends_on_instruction.insert(dep.var_id.id);
-					if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
-						instr.instruction_is_blocking.insert(dep.var_id.id);
-					
-					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-					auto parent = app->model->index_sets[index_set]->sub_indexed_to;
-					if(is_valid(parent))
-						instr.index_sets.insert(parent);
-					
-				} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
-					auto var = app->vars[dep.var_id];
-					if(var->type == State_Var::Type::connection_aggregate)
-						instr.loose_depends_on_instruction.insert(dep.var_id.id);
-					else
+						if(instr.type == Model_Instruction::Type::compute_state_var) {
+							auto conn = model->connections[dep.restriction.connection_id];
+							if(conn->type == Connection_Type::directed_graph) {
+								auto comp = app->find_connection_component(dep.restriction.connection_id, app->vars[dep.var_id]->loc1.components[0]);
+								instr.index_sets.insert(comp->edge_index_set);
+							} else if(conn->type == Connection_Type::all_to_all) {
+								auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+								// NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
+								safe_insert_dependency(model, &instr, {index_set, 2});
+							} else if(conn->type == Connection_Type::grid1d) {
+								auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+								safe_insert_dependency(model, &instr, index_set);
+							} else
+								fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
+						}
+						
+					} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {
 						instr.depends_on_instruction.insert(dep.var_id.id);
+						if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
+							instr.instruction_is_blocking.insert(dep.var_id.id);
+						
+						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+						auto parent = app->model->index_sets[index_set]->sub_indexed_to;
+						if(is_valid(parent))
+							instr.index_sets.insert(parent);
+						
+					} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
+						auto var = app->vars[dep.var_id];
+						if(var->type == State_Var::Type::connection_aggregate)
+							instr.loose_depends_on_instruction.insert(dep.var_id.id);
+						else
+							instr.depends_on_instruction.insert(dep.var_id.id);
+					}
 				}
 			}
-			instr.inherits_index_sets_from_state_var = code_depends.on_state_var;
 		}
 	}
 	
@@ -584,7 +584,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			fun = var2->function_tree.get();
 			if(initial) fun = var2->initial_function_tree.get();
-			if(!initial && !fun && !is_valid(var2->special_computation)) {
+			if(!initial && !fun && !is_valid(var2->external_computation)) {
 				if(var2->decl_type != Decl_Type::quantity) // NOTE: quantities typically don't have code associated with them directly (except for the initial value)
 					fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			}
@@ -721,16 +721,16 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		auto var_solver = instr->solver;
 		
-		if(var->type == State_Var::Type::special_computation) {
+		if(var->type == State_Var::Type::external_computation) {
 			
-			instr->type = Model_Instruction::Type::special_computation;
+			instr->type = Model_Instruction::Type::external_computation;
 			
-			auto var2 = as<State_Var::Type::special_computation>(var);
-			auto special = model->special_computations[var2->decl_id];
+			auto var2 = as<State_Var::Type::external_computation>(var);
+			auto external = model->external_computations[var2->decl_id];
 			
 			std::vector<Entity_Id> index_sets;
-			if(is_valid(special->component))
-				index_sets = model->components[special->component]->index_sets;
+			if(is_valid(external->component))
+				index_sets = model->components[external->component]->index_sets;
 			
 			// TODO: Check for solver conflicts.
 			for(auto target_id : var2->targets) {
@@ -740,7 +740,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				// TODO: Check that every target could index over the computation index sets at all
 				
-				// NOTE: A target of a special_computation should always index over as many index sets as it can.
+				// NOTE: A target of a external_computation should always index over as many index sets as it can.
 				auto &loc = app->vars[target_id]->loc1;
 				for(int idx = 0; idx < loc.n_components; ++idx) {
 					auto comp = model->components[loc.components[idx]];
@@ -756,7 +756,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			instr->index_sets.insert(index_sets.begin(), index_sets.end());
 			
-			auto code = static_cast<Special_Computation_FT *>(instr->code);
+			auto code = static_cast<External_Computation_FT *>(instr->code);
 			
 			for(auto &arg : code->arguments) {
 				if(arg.has_flag(Identifier_Data::result)) continue;
@@ -767,7 +767,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				} else if (arg.variable_type == Variable_Type::parameter) {
 					
 				} else
-					fatal_error(Mobius_Error::internal, "Unexpected variable type for special_computation argument.");
+					fatal_error(Mobius_Error::internal, "Unexpected variable type for external_computation argument.");
 			}
 			
 			continue;

@@ -15,11 +15,13 @@ module("NIVAFjord basin", version(0, 0, 1),
 	g_rad     : property,
 	rho       : property,
 	attn      : property,
+	z         : property,
 	dz        : property,
 	freeze_temp : property,
 	vert      : connection,
 	sw_vert   : connection,
-	A         : par_real
+	A         : par_real,
+	dz0       : par_real
 ) {
 
 	load("stdlib/basic_math.txt", library("Basic"))
@@ -30,10 +32,6 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(air.precip, [m m, day-1])      # TODO: Use this for something.
 	var(air.wind,  [m, s-1])
 	var(air.g_rad, [W, m-2])
-	
-	par_group("Fjord global parameters") {
-		dz0     : par_real("Stable layer thickness", [m], 1, 0.1, 5)
-	}
 
 	par_group("Mixing parameters", basin) {
 		attn0  : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
@@ -65,8 +63,6 @@ module("NIVAFjord basin", version(0, 0, 1),
 		water / (A*rho_water)
 	} @initial {    dz0   }
 	
-	z : property("Depth")
-	
 	var(layer.z, [m], "Depth (to bottom of layer)") {
 		z[vert.above] + dz[vert.above]
 	}
@@ -75,7 +71,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.salt, [k g], [g, k g-1], "Layer salt")
 		#TODO: Initial conc
-		@initial_conc { 25=>> }
+		@initial_conc { salinity=>> }
 	
 	var(layer.water.heat, [J], "Layer thermal energy") 
 		#TODO: C_water should at least be salinity dependent
@@ -89,7 +85,10 @@ module("NIVAFjord basin", version(0, 0, 1),
 	}
 	
 	var(layer.water.salinity, [], "Layer salinity") {
-		conc(salt)=>[] # TODO: Convert salinity to PSU
+		conc(salt)=>>
+	} @initial {
+		# TODO: Initial salinity setup
+		25
 	}
 	
 	var(layer.water.rho, [k g, m-3], "Potential density") {

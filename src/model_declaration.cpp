@@ -1045,7 +1045,7 @@ process_declaration<Reg_Type::discrete_order>(Mobius_Model *model, Decl_Scope *s
 }
 
 template<> Entity_Id
-process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+process_declaration<Reg_Type::external_computation>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	// NOTE: Since we disambiguate entities on their name right now, we can't let the name and function_name be the same in case you want to reuse the same function many times.
 	//    could be fixed if/when we make the new module loading / scope system.
 	int which = match_declaration(decl,
@@ -1054,8 +1054,8 @@ process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Sco
 			{ Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::compartment },
 		}, false, -1);
 	
-	auto id = model->special_computations.standard_declaration(scope, decl);
-	auto comp = model->special_computations[id];
+	auto id = model->external_computations.standard_declaration(scope, decl);
+	auto comp = model->external_computations[id];
 	
 	comp->function_name = single_arg(decl, 1)->string_value;
 	if(which == 1)
@@ -1413,8 +1413,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 				process_declaration<Reg_Type::discrete_order>(model, &module->scope, child);
 			} break;
 			
-			case Decl_Type::special_computation : {
-				process_declaration<Reg_Type::special_computation>(model, &module->scope, child);
+			case Decl_Type::external_computation : {
+				process_declaration<Reg_Type::external_computation>(model, &module->scope, child);
 			} break;
 			
 			case Decl_Type::property :

@@ -3,7 +3,7 @@
 NOTE: only doodling for now.
 */
 
-#include "../special_computations.h"
+#include "../external_computations.h"
 
 
 extern "C" DLLEXPORT void

@@ -3,6 +3,31 @@
 
 
 
+
+
+	
+	is_top(vert)
+	is(vert.top) # Better in a way, but doesn't parse right now.
+	is[vert.top]  # Maybe?
+	
+	# For specific, would be nice to be able to pass the specific index inline?
+	something[vert.specific{vert_target}]
+	# Would also make it possible to use .specific inside code blocks (though dependency is tricky for that).
+	
+	# Could then have
+	is[vert.specific{5}]
+	# Could also have things like
+	count(vert)
+	current(vert)
+	# [vert.top] is then [vert.specific[0]] and [vert.bottom] is [vert.specific{count(vert)-1}]
+	#etc.
+	# But not necessary yet probably.
+	
+
+
+
+
+
 	# Reverse iteration
 	
 	# Requires iterating that index set in reverse direction.

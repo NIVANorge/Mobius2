@@ -698,7 +698,7 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 		auto block = static_cast<Math_Block_FT *>(expr);
 		
 		if(!block->iter_tag.empty()) return expr;
-		if(block->exprs.empty()) return expr; // TODO: Happened if the only code at all is a special_computation. Should it happen?
+		if(block->exprs.empty()) return expr; // TODO: Happened if the only code at all is a external_computation. Should it happen?
 		
 		// If the final value of a block is just a local var reference and that local var is declared on the line above, just replace the two last lines with the value of that local var.
 		//			We could maybe do something more sophisticated where we keep track of the number of references to a local var and substitute it if there is just one.
