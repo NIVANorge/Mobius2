@@ -199,6 +199,11 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 					
 					insert_dependencies(app, instr.index_sets, dep);
 				
+				} else if(dep.variable_type == Variable_Type::is_at) {
+					
+					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+					safe_insert_dependency(model, &instr, index_set);
+					
 				} else if(dep.variable_type == Variable_Type::state_var) {
 					
 					instr.inherits_index_sets_from_state_var.insert(dep);

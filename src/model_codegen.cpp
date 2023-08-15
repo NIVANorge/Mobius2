@@ -478,6 +478,26 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 }
 
 Math_Expr_FT *
+process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes) {
+	auto &res = ident->restriction;
+	auto index_set = app->get_single_connection_index_set(res.connection_id);
+	
+	Math_Expr_FT *check_against = nullptr;
+	if(res.restriction == Var_Loc_Restriction::top) {
+		check_against = make_literal((s64)0);
+	} else if (res.restriction == Var_Loc_Restriction::bottom) {
+		check_against = make_binop('-', app->get_index_count_code(index_set, indexes), make_literal((s64)1));  // count-1
+	} else {
+		ident->source_loc.print_error_header(Mobius_Error::internal);
+		fatal_error("Unimplemented codegen for 'is_at' check.");
+	}
+	
+	delete ident;
+	
+	return make_binop('=', copy(indexes.indexes[index_set.id]), check_against);
+}
+
+Math_Expr_FT *
 put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction = nullptr) {
 	
 	for(int idx = 0; idx < expr->exprs.size(); ++idx)
@@ -486,6 +506,9 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
+	
+	if(ident->variable_type == Variable_Type::is_at)
+		return process_is_at(app, ident, index_expr);
 	
 	if(ident->variable_type != Variable_Type::parameter && ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var)
 		return expr;

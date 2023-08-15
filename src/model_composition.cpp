@@ -279,6 +279,16 @@ location_indexes_below_location(Model_Application *app, const Var_Location &loc,
 }
 
 bool
+location_indexes_with(Model_Application *app, const Var_Location &loc, Entity_Id index_set) {
+	
+	for(int idx1 = 0; idx1 < loc.n_components; ++idx1) {
+		for(auto index_set2 : app->model->components[loc.components[idx1]]->index_sets)
+			if(index_set == index_set2) return true;
+	}
+	return false;
+}
+
+bool
 parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, const Var_Location &below_loc, const Specific_Var_Location &loc2,
 	Entity_Id exclude_index_set_from_var = invalid_entity_id) {
 		
@@ -306,6 +316,8 @@ void
 check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Specific_Var_Location &loc, const Specific_Var_Location &loc2 = Specific_Var_Location()) {
 	
 	// TODO: The loc in this function is really the below_loc. Maybe rename it to avoid confusion.
+	
+	auto model = app->model;
 	
 	std::set<Identifier_Data> code_depends;
 	register_dependencies(function, &code_depends);
@@ -361,6 +373,22 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			if(!location_indexes_below_location(app, dep_var->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
+			}
+		} else if (dep.variable_type == Variable_Type::is_at) {
+			auto conn_id = dep.restriction.connection_id;
+			if(!is_valid(conn_id)) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This 'is_at' expression does not reference a connection.");
+			}
+			auto conn = model->connections[conn_id];
+			if(conn->type != Connection_Type::grid1d) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("An 'is_at' is only supported for grid1d connections.");
+			}
+			auto index_set = app->get_single_connection_index_set(conn_id);
+			if(!location_indexes_with(app, loc, index_set)) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This 'is_at' expression references a connection over an index set \"", model->index_sets[index_set]->name, "\" that the context location of the code does not index over.");
 			}
 		}
 	}

@@ -1504,7 +1504,7 @@ register_dependencies(Math_Expr_FT *expr, std::set<Identifier_Data> *depends) {
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 
-	if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series)
+	if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series || ident->variable_type == Variable_Type::is_at)
 		depends->insert(*ident);
 }
 
