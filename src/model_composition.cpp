@@ -237,83 +237,111 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 	return expr;
 }
 
-bool
-location_indexes_below_location(Model_Application *app, const Var_Location &loc, const Var_Location &below_loc, const Specific_Var_Location &loc2,
-	Entity_Id exclude_index_set_from_loc = invalid_entity_id, Entity_Id exclude_index_set_from_var = invalid_entity_id) {
+void
+insert_dependency_helper(Mobius_Model *model, std::set<Entity_Id> &index_sets, Entity_Id index_set) {
+	
+	if(index_sets.find(index_set) != index_sets.end()) return;
+	
+	// Replace an existing index set with a union member if applicable
+	// TODO: Is there a more efficient way to do this: ? It should be very rare also.
+	std::set<Entity_Id> remove;
+	for(auto existing : index_sets) {
+		auto set = model->index_sets[existing];
+		if(!set->union_of.empty()) {
+			auto find = std::find(set->union_of.begin(), set->union_of.end(), index_set);
+			if(find != set->union_of.end()) {
+				// TODO:    It may be better to give an error in this case rather than allowing the overwrite. We'll see how it works out.
+				remove.insert(existing);
+			}
+		}
+	}
+	for(auto rem : remove) index_sets.erase(rem);
+	
+	index_sets.insert(index_set);
+}
+
+void
+get_maximal_index_sets(Model_Application *app, std::set<Entity_Id> &index_sets, Specific_Var_Location &loc1, Specific_Var_Location &loc2 = Specific_Var_Location() ) {
 	
 	auto model = app->model;
 	
-	if(!is_located(loc) || !is_located(below_loc))
-		fatal_error(Mobius_Error::internal, "Got a non-located location to a location_indexes_below_location() call.");
+	// Find the primary location
+	Specific_Var_Location *loc = &loc1;
+	if(!is_located(loc1))
+		loc = &loc2;
+	if(!is_located(*loc))
+		return;
 	
-	// Ugh, also a bit hacky. Should be factored out.
-	// The purpose of this is to allow a flux on a graph connection to reference something that depends on the edge index set of the graph from the source of the flux.
-	if(!is_valid(exclude_index_set_from_loc) && is_valid(loc2.connection_id) && model->connections[loc2.connection_id]->type == Connection_Type::directed_graph) {
-		auto find_source = app->find_connection_component(loc2.connection_id, below_loc.components[0], false);
-		if(find_source)
-			exclude_index_set_from_loc = find_source->edge_index_set;
+	Entity_Id exclude = avoid_index_set_dependency(app, *loc);
+	
+	// The purpose of this first check is to allow a flux on a graph connection to reference something that depends on the edge index set of the graph situated at the source of the flux.
+	if(is_valid(loc2.connection_id) && model->connections[loc2.connection_id]->type == Connection_Type::directed_graph) {
+		auto find_source = app->find_connection_component(loc2.connection_id, loc1.components[0], false);
+		if(find_source && find_source->edge_index_set != exclude)
+			insert_dependency_helper(model, index_sets, find_source->edge_index_set);
 	}
 	
-	for(int idx1 = 0; idx1 < loc.n_components; ++idx1) {
-		for(auto index_set : model->components[loc.components[idx1]]->index_sets) {
-			bool found = false;
-			for(auto idx2 = 0; idx2 < below_loc.n_components; ++idx2) {
-				if(index_set == exclude_index_set_from_loc) { // We don't care if the loc has this index_set.
-					found = true;
-					break;
-				}
-				for(auto index_set2 : model->components[below_loc.components[idx2]]->index_sets) {
-					if(index_set2 == exclude_index_set_from_var) continue;
-					if(index_set == index_set2) {
-						found = true;
-						break;
-					}
-				}
-				if(found) break;
-			}
-			if(!found) return false;
+	for(int idx = 0; idx < loc->n_components; ++idx) {
+		for(auto index_set : model->components[loc->components[idx]]->index_sets) {
+			if(index_set != exclude)
+				insert_dependency_helper(model, index_sets, index_set);
 		}
 	}
-
-	return true;
 }
 
+
 bool
-location_indexes_with(Model_Application *app, const Var_Location &loc, Entity_Id index_set) {
+index_set_is_contained_in(Mobius_Model *model, Entity_Id first, std::set<Entity_Id> &second) {
 	
-	for(int idx1 = 0; idx1 < loc.n_components; ++idx1) {
-		for(auto index_set2 : app->model->components[loc.components[idx1]]->index_sets)
-			if(index_set == index_set2) return true;
+	if(second.find(first) != second.end()) return true;
+	
+	// A union member *can* be used to address the union.
+	auto set = model->index_sets[first];
+	if(!set->union_of.empty()) {
+		for(auto ui_id : set->union_of) {
+			if(second.find(ui_id) != second.end())
+				return true;
+		}
 	}
+	
 	return false;
 }
 
+
 bool
-parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, const Var_Location &below_loc, const Specific_Var_Location &loc2,
-	Entity_Id exclude_index_set_from_var = invalid_entity_id) {
-		
-	auto par = app->model->parameters[dep.par_id];
-	auto group = app->model->par_groups[par->par_group];
-	
-	Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
-	
+index_sets_are_contained_in(Mobius_Model *model, std::set<Entity_Id> &first, std::set<Entity_Id> &second) {
 	bool success = true;
-	for(auto comp_id : group->components) {
-
-		// NOTE: This is a bit of a hack that allows us to reuse location_indexes_below_location. We have to monitor that it doesn't break.
-		Var_Location loc;
-		loc.type = Var_Location::Type::located;
-		loc.n_components = 1;
-		loc.components[0] = comp_id;
-
-		success = location_indexes_below_location(app, loc, below_loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var);
-		if(!success) break;
+	for(auto set : first) {
+		if(!index_set_is_contained_in(model, set, second)) {
+			success = false;
+			break;
+		}
 	}
 	return success;
 }
 
+bool
+parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, std::set<Entity_Id> &allowed_index_sets) {
+		
+	auto model = app->model;
+	auto par = model->parameters[dep.par_id];
+	auto group = model->par_groups[par->par_group];
+	
+	Entity_Id exclude = avoid_index_set_dependency(app, dep.restriction);
+	
+	std::set<Entity_Id> maximal_group_sets;
+	for(auto comp_id : group->components) {
+		for(auto index_set : model->components[comp_id]->index_sets) {
+			if(index_set != exclude)
+				insert_dependency_helper(model, maximal_group_sets, index_set);
+		}
+	}
+	
+	return index_sets_are_contained_in(model, maximal_group_sets, allowed_index_sets);
+}
+
 void
-check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Specific_Var_Location &loc, const Specific_Var_Location &loc2 = Specific_Var_Location()) {
+check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, std::set<Entity_Id> &allowed_index_sets) {
 	
 	// TODO: The loc in this function is really the below_loc. Maybe rename it to avoid confusion.
 	
@@ -325,26 +353,25 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	// NOTE: We should not have undergone codegen yet, so the source location of the top node of the function should be valid.
 	Source_Location source_loc = function->source_loc;
 	
-	if(!is_located(loc))
-		fatal_error(Mobius_Error::internal, "Somehow a totally unlocated variable checked in check_valid_distribution_of_dependencies().");
-	
-	Entity_Id exclude_index_set_from_var = avoid_index_set_dependency(app, loc);
-	
 	// TODO: in these error messages we should really print out the two tuples of index sets.
 	for(auto &dep : code_depends) {
 		
 		if(dep.variable_type == Variable_Type::parameter) {
-			if(!parameter_indexes_below_location(app, dep, loc, loc2, exclude_index_set_from_var)) {
+			if(!parameter_indexes_below_location(app, dep, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
 			}
 		} else if (dep.variable_type == Variable_Type::series) {
-			Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
-		
-			if(!location_indexes_below_location(app, app->vars[dep.var_id]->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
+			
+			std::set<Entity_Id> maximal_series_sets;
+			Specific_Var_Location ident_loc(app->vars[dep.var_id]->loc1, dep.restriction);
+			get_maximal_index_sets(app, maximal_series_sets, ident_loc);
+			
+			if(!index_sets_are_contained_in(model, maximal_series_sets, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
 			}
+		
 		} else if (dep.variable_type == Variable_Type::state_var) {
 			auto dep_var = app->vars[dep.var_id];
 		
@@ -368,9 +395,11 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			if(dep_var->is_flux() || !is_located(dep_var->loc1))
 				fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 			
-			Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, dep.restriction);
+			std::set<Entity_Id> maximal_var_sets;
+			Specific_Var_Location var_loc(dep_var->loc1, dep.restriction);
+			get_maximal_index_sets(app, maximal_var_sets, var_loc);
 			
-			if(!location_indexes_below_location(app, dep_var->loc1, loc, loc2, exclude_index_set_from_loc, exclude_index_set_from_var)) {
+			if(!index_sets_are_contained_in(model, maximal_var_sets, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
 			}
@@ -386,7 +415,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 				fatal_error("An 'is_at' is only supported for grid1d connections.");
 			}
 			auto index_set = app->get_single_connection_index_set(conn_id);
-			if(!location_indexes_with(app, loc, index_set)) {
+			if(!index_set_is_contained_in(model, index_set, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'is_at' expression references a connection over an index set \"", model->index_sets[index_set]->name, "\" that the context location of the code does not index over.");
 			}
@@ -523,9 +552,16 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	for(auto conn_id : model->connections) {
 		auto conn = model->connections[conn_id];
-		if(conn->type == Connection_Type::unrecognized) {
+		if(conn->type == Connection_Type::unrecognized) {  // TODO: This check is probably not necessary anymore
 			conn->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("This connection never received a type. Declare it as connection(name, type) somewhere.");
+		}
+		if(conn->type == Connection_Type::grid1d) {
+			auto index_set = app->get_single_connection_index_set(conn_id);
+			if(!model->index_sets[index_set]->union_of.empty()) {
+				conn->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("A 'grid1d' connection can not be placed over a union index set.");
+			}
 		}
 	}
 	
@@ -536,6 +572,27 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			if(is_valid(super->sub_indexed_to)) {
 				index_set->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("We currently don't support sub-indexing an index set to another index set that is again sub-indexed.");
+			}
+			if(!index_set->union_of.empty()) {
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("A union index set should not be sub-indexed to anything.");
+			}
+		}
+		for(auto ui_id : index_set->union_of) {
+			//TODO:
+			index_set->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("Union index sets are currently not fully supported.");
+			
+			auto ui = model->index_sets[ui_id];
+			if(is_valid(ui->sub_indexed_to)) {
+				// TODO: We could maybe support it if the union and all the union members are sub-indexed to the same thing.
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("We currently don't support union index sets of sub-indexed index sets.");
+			}
+			if(!ui->union_of.empty()) {
+				// Although we could maybe just 'flatten' the union. That would have to be done in model_declaration post-processing.
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("We currently don't support unions of unions.");
 			}
 		}
 	}
@@ -641,16 +698,20 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data (which is not implemented yet))
 			if(is_valid(app->vars.id_of(var->var_location))) continue;
 			
+			Var_Id var_id;
 			if(is_series) {
-				register_state_variable<State_Var::Type::declared>(app, id, true, name);
+				var_id = register_state_variable<State_Var::Type::declared>(app, id, true, name);
 			} else if (is_valid(external_id) || id == find->second) {
 				// This is the particular var declaration that provided the code, so we register a state variable using this one.
-				Var_Id var_id = register_state_variable<State_Var::Type::declared>(app, id, false, name);
+				var_id = register_state_variable<State_Var::Type::declared>(app, id, false, name);
 				if(var->var_location.is_dissolved() && type == Decl_Type::quantity && !is_valid(external_id))
 					dissolvedes.push_back(var_id);
 				if(is_valid(external_id))
 					as<State_Var::Type::declared>(app->vars[var_id])->external_computation = external_id;
 			}
+			
+			auto state_var = as<State_Var::Type::declared>(app->vars[var_id]);
+			get_maximal_index_sets(app, state_var->maximal_allowed_index_sets, state_var->loc1);
 		}
 	}
 	
@@ -682,9 +743,11 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		}
 		
 		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false, flux->name);
-		auto var = app->vars[var_id];
+		auto var = as<State_Var::Type::declared>(app->vars[var_id]);
 		
 		resolve_no_carry(app, var);
+		
+		get_maximal_index_sets(app, var->maximal_allowed_index_sets, var->loc1, var->loc2);
 	}
 	
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
@@ -796,8 +859,13 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		
 		auto agg_weight = make_cast(fun.fun, Value_Type::real);
 		
+		// TODO: It may be a bit inefficient that we build the maximal dependency set every time this aggregation
+		// weight is resolved.
 		Specific_Var_Location loc = loc1; // sigh
-		check_valid_distribution_of_dependencies(app, agg_weight, loc);
+		std::set<Entity_Id> allowed_index_sets;
+		get_maximal_index_sets(app, allowed_index_sets, loc);
+		
+		check_valid_distribution_of_dependencies(app, agg_weight, allowed_index_sets);
 		
 		return agg_weight;
 	}
@@ -876,8 +944,13 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	if(conversion_factor != 1.0)
 		unit_conv = make_binop('*', unit_conv, make_literal(conversion_factor));
 	
+	// TODO: It may be a bit inefficient that we build the maximal dependency set every time
+	// this unit conversion is resolved.
 	Specific_Var_Location loc = loc1;
-	check_valid_distribution_of_dependencies(app, unit_conv, loc); 
+	std::set<Entity_Id> allowed_index_sets;
+	get_maximal_index_sets(app, allowed_index_sets, loc);
+	
+	check_valid_distribution_of_dependencies(app, unit_conv, allowed_index_sets);
 	
 	return unit_conv;
 }
@@ -1308,11 +1381,23 @@ compose_and_resolve(Model_Application *app) {
 
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
-		Entity_Id exclude_index_set_from_loc = avoid_index_set_dependency(app, var->loc1);
+		std::set<Entity_Id> max_target_indexes;
+		get_maximal_index_sets(app, max_target_indexes, var->loc2);
 		
-		if(!location_indexes_below_location(app, var->loc1, var->loc2, Specific_Var_Location(), exclude_index_set_from_loc)) {
-			// NOTE: This could happen if it is a located connection like "water[vert.top]". TODO: Make it possible to support this.
+		bool is_below;
+		if(var->type == State_Var::Type::declared) {
+			// We have computed the index sets of loc1 already.
+			is_below = index_sets_are_contained_in(model, as<State_Var::Type::declared>(var)->maximal_allowed_index_sets, max_target_indexes);
+		} else {
+			std::set<Entity_Id> max_source_index_sets;
+			get_maximal_index_sets(app, max_source_index_sets, var->loc1, var->loc2);
+			is_below = index_sets_are_contained_in(model, max_source_index_sets, max_target_indexes);
+		}
+		
+		if(!is_below) {
+			
 			if(is_valid(var->loc2.connection_id)) {
+				// NOTE: This could happen if it is a located connection like "water[vert.top]". TODO: Make it possible to support this.
 				auto &loc = model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc;
 				loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This flux would need a regular aggregate, but that is not currently supported for fluxes with a bracketed target.");
@@ -1478,15 +1563,13 @@ compose_and_resolve(Model_Application *app) {
 		
 		if(var->type != State_Var::Type::declared) continue;
 		auto var2 = as<State_Var::Type::declared>(var);
-		
-		Specific_Var_Location &in_loc = (is_located(var->loc1) ? var->loc1 : var->loc2);
-		
+
 		if(var2->function_tree)
-			check_valid_distribution_of_dependencies(app, var2->function_tree.get(), in_loc, var->loc2);
+			check_valid_distribution_of_dependencies(app, var2->function_tree.get(), var2->maximal_allowed_index_sets);
 		if(var2->initial_function_tree)
-			check_valid_distribution_of_dependencies(app, var2->initial_function_tree.get(), in_loc);
+			check_valid_distribution_of_dependencies(app, var2->initial_function_tree.get(), var2->maximal_allowed_index_sets);
 		if(var2->override_tree)
-			check_valid_distribution_of_dependencies(app, var2->override_tree.get(), in_loc);
+			check_valid_distribution_of_dependencies(app, var2->override_tree.get(), var2->maximal_allowed_index_sets);
 	}
 	
 	for(auto var_id : app->vars.all_state_vars()) {

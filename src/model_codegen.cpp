@@ -289,27 +289,28 @@ set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Single_R
 
 	auto index_set = app->get_single_connection_index_set(restriction.connection_id);
 	
-	auto prev_index = indexes.indexes[index_set.id];
+	auto prev_index = indexes.get_index(app, index_set);
 
 	if (restriction.restriction == Var_Loc_Restriction::top) {
-		indexes.indexes[index_set.id] = make_literal((s64)0);
+		indexes.set_index(index_set, make_literal((s64)0));
 	} else if(restriction.restriction == Var_Loc_Restriction::bottom) {
 		auto count = app->get_index_count_code(index_set, indexes);
-		indexes.indexes[index_set.id] = make_binop('-', count, make_literal((s64)1));
+		indexes.set_index(index_set, make_binop('-', count, make_literal((s64)1)));
 	} else if(restriction.restriction == Var_Loc_Restriction::specific) {
 		// TODO: Should clamp it betwen 0 and index_count
 		if(!specific_target)
 			fatal_error(Mobius_Error::internal, "Wanted to set indexes for a specific connection target, but the code was not provided.");
-		indexes.indexes[index_set.id] = specific_target;
+		indexes.set_index(index_set, specific_target);
 		
 	} else if(restriction.restriction == Var_Loc_Restriction::above || restriction.restriction == Var_Loc_Restriction::below) {
 		auto index = copy(prev_index);
 		char oper = (restriction.restriction == Var_Loc_Restriction::above) ? '-' : '+';
 		index = make_binop(oper, index, make_literal((s64)1));
-		indexes.indexes[index_set.id] = index;
+		indexes.set_index(index_set, index);
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection restriction type.");
 	
+	// TODO: Maybe deleting should be automatic inside Index_Exprs::set_index on overwrite?
 	delete prev_index;
 }
 
@@ -319,11 +320,7 @@ set_all_to_all_target_indexes(Model_Application *app, Index_Exprs &indexes, Enti
 		fatal_error(Mobius_Error::internal, "Misuse of set_all_to_all_target_indexes().");
 	
 	auto index_set = app->get_single_connection_index_set(connection_id);
-	if(!indexes.mat_col || index_set != indexes.mat_index_set) return;
-	
-	auto tmp = indexes.indexes[index_set.id];
-	indexes.indexes[index_set.id] = indexes.mat_col;
-	indexes.mat_col = tmp;
+	indexes.transpose_matrix(index_set);
 }
 
 void
@@ -354,7 +351,7 @@ set_graph_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id
 		target_index->variable_type = Variable_Type::connection_info;
 		target_index->value_type = Value_Type::integer;
 		target_index->exprs.push_back(idx_offset);
-		indexes.indexes[index_set.id] = target_index;
+		indexes.set_index(index_set, target_index);
 	}
 }
 
@@ -430,7 +427,7 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 		Index_Exprs new_indexes(app->model);
 		new_indexes.copy(index_expr);
 		set_grid1d_target_indexes(app, new_indexes, restriction);
-		Math_Expr_FT *index = new_indexes.indexes[index_set.id];
+		Math_Expr_FT *index = new_indexes.get_index(app, index_set);
 		
 		if(restriction.restriction == Var_Loc_Restriction::above)
 			new_condition = make_binop(Token_Type::geq, copy(index), make_literal((s64)0));
@@ -494,7 +491,7 @@ process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes
 	
 	delete ident;
 	
-	return make_binop('=', copy(indexes.indexes[index_set.id]), check_against);
+	return make_binop('=', copy(indexes.get_index(app, index_set)), check_against);
 }
 
 Math_Expr_FT *
@@ -794,9 +791,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 }
 
 Math_Expr_FT *
-create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::set<Index_Set_Dependency> &index_sets, Index_Exprs &index_expr) {
-	
-	auto &indexes = index_expr.indexes;
+create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::set<Index_Set_Dependency> &index_sets, Index_Exprs &indexes) {
 	
 	Math_Block_FT *scope = top_scope;
 	auto index_set = index_sets.begin();
@@ -805,13 +800,12 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 		auto loop = make_for_loop();
 		// NOTE: There is a caveat here: This will only work if the parent index of a sub-indexed index set is always set up first,
 		//   and that  *should* work the way we order the Entity_Id's of those right now, but it is a smidge volatile...
-		auto index_count = app->get_index_count_code(index_set->id, index_expr);
+		auto index_count = app->get_index_count_code(index_set->id, indexes);
 		loop->exprs.push_back(index_count);
 		scope->exprs.push_back(loop);
 		
-		//NOTE: the scope of this item itself is replaced when it is inserted later.
-		// note: this is a reference to the iterator of the for loop.
-		indexes[index_set->id.id] = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
+		// NOTE: this is a reference to the iterator of the for loop.
+		indexes.set_index(index_set->id, make_local_var_reference(0, loop->unique_block_id, Value_Type::integer));
 		
 		scope = loop;
 		
@@ -820,16 +814,14 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency, or the order was larger than 2. Order: ", index_set->order);
 			}
 			auto loop = make_for_loop();
-			auto index_count = app->get_index_count_code(index_set->id, index_expr);
+			auto index_count = app->get_index_count_code(index_set->id, indexes);
 			loop->exprs.push_back(index_count);
-			index_expr.mat_col = make_local_var_reference(0, loop->unique_block_id, Value_Type::integer);
-			index_expr.mat_index_set = index_set->id;
-			
+			indexes.set_index(index_set->id, make_local_var_reference(0, loop->unique_block_id, Value_Type::integer), true);  // 'true' signifies that we set the matrix column
 		
 			// Make it so that it skips when the two indexes of the same index set are the same...
 			auto the_scope = new Math_Block_FT();
 			the_scope->value_type = Value_Type::none;
-			auto condition = make_binop(Token_Type::neq, copy(indexes[index_set->id.id]), copy(index_expr.mat_col));
+			auto condition = make_binop(Token_Type::neq, copy(indexes.get_index(app, index_set->id)), copy(indexes.get_index(app, index_set->id, true)));
 			auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 			if_chain->value_type = Value_Type::none;
 			if_chain->exprs.push_back(the_scope);
@@ -843,9 +835,6 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 			
 			scope->exprs.push_back(loop);
 			scope = the_scope;
-		
-			//scope = loop;
-			
 		}
 		index_set++;
 	}

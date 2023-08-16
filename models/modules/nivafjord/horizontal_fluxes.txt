@@ -1,6 +1,4 @@
 
-
-
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	basin  : compartment,
 	layer  : compartment,
@@ -50,7 +48,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		flow->>
 	} @specific { river.vert_target }#outlet.vert_target }
 	
-	#TODO: Only until we figure out how to do this properly
+	#TODO: Only until we make realignment work.
 	flux(layer.water, out, [k g, day-1], "Horizontal flux equivalent removal") {
 		in_flux(horz, water)
 	}
@@ -66,12 +64,12 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		seawater_pot_dens(temp, salin)
 	}
 	
-	var(edge_layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
+	var(edge_layer.vert_target, [], "Fjord layer horizontal exchange vertical target")
 	
 	# How would the framework know that this one is only for the edge layers, not below that (?)
 	# Or maybe it doesn't need to, and it just does a 'break' when w_bnd becomes 0.
 	# That is simpler, but wastes some time series storage space.
-	external_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", edge) {
+	external_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge) {
 		result(edge_layer.vert_target)
 		layer.water.rho
 		layer.water.rho[horz.below]
@@ -86,7 +84,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		u * w_bnd * layer.dz * rho_water->>
 	}
 	
-	# TODO: if the edge is to a boundary, this is different.
 	flux(layer.water, layer.water[horz.below, vert.specific], [k g, day-1], "Layer horizontal outflow flux") {
 		edge_layer.horz_flow
 	} @specific {
@@ -111,6 +108,41 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	flux(layer.water, vert, [k g, day-1], "Vertical realignment flux") {
 		align
 	}
+	*/
+	
+	################
+		#TODO: No, it is probably even simpler than what we have thought of. We only need outgoing edges from layer, and the fluxes just need to be bidirectional.
+		#    We just need to fix the codegen for that.
+		#    Maybe make a 'biflux' declaration for that to be explicit
+		
+	################
+	
+	/*
+	# TODO: It should be possible to make it so that this is a module on its own:
+	
+	
+	var(bnd_edge_layer.vert_target, [], "Fjord boundary layer horizontal exchange vertical target")
+	
+	external_computation("Place boundary horizontal fluxes", "nivafjord_place_horizontal_fluxes", bnd_edge) {
+		result(bnd_edge_layer.vert_target)
+		bnd_layer.water.rho
+		bnd_layer.water.rho[horz.below]
+		w_bnd_bnd # TODO: This one is a bit awkward before we figure out bidirectional stuff
+	}
+	
+	var(bnd_edge_layer.horz_flow, [k g, day-1], "Boundary layer horizontal outflow") {
+		dP := bnd_layer.water.pressure - layer.water.pressure[vert.below],   # TODO: Not sure how the second one should be addressed
+		
+		u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
+		u * w_bnd_bnd * bnd_layer.dz * rho_water->>       # See note about w_bnd_bnd above
+	}
+	
+	flux(bnd_layer.water, layer.water[horz.below, vert.specific], [k g, day-1], "Boundary layer horizontal outflow flux") {
+		bnd_edge_layer.horz_flow
+	} @specific {
+		bnd_edge_layer.vert_target
+	}
+	
 	*/
 }
 

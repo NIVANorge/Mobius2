@@ -7,7 +7,7 @@ NOTE: only doodling for now.
 
 
 extern "C" DLLEXPORT void
-nivafjord_place_river_flux(Special_Indexed_Value *target_out, Special_Indexed_Value *density_river, Special_Indexed_Value *densities_target) {
+nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river, Value_Access *densities_target) {
 	double dens0 = density_river->at(0);
 	int closest = 0;
 	
@@ -31,7 +31,7 @@ nivafjord_place_river_flux(Special_Indexed_Value *target_out, Special_Indexed_Va
 }
 
 extern "C" DLLEXPORT void
-nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Indexed_Value *densities_source, Special_Indexed_Value *densities_target, Special_Indexed_Value *widths) {
+nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densities_source, Value_Access *densities_target, Value_Access *widths) {
 	
 	// In the end, for 2-way fluxes between separate simulated basins we would need something that could take the direction of the flux also.
 	
@@ -56,7 +56,7 @@ nivafjord_place_horizontal_fluxes(Special_Indexed_Value *target_out, Special_Ind
 }
 
 extern "C" DLLEXPORT void
-nivafjord_vertical_realignment(Special_Indexed_Value *align_out, Special_Indexed_Value *horz_balance) {
+nivafjord_vertical_realignment(Value_Access *align_out, Value_Access *horz_balance) {
 	for(int layer = align_out->count-1; layer >= 0; --layer) {
 		double align = horz_balance->at(layer);
 		if(layer != align_out->count-1)

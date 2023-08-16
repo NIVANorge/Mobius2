@@ -121,9 +121,6 @@ module("AirSea Fjord", version(0, 1, 1)) {
 
 		par_real("Frazil threshold")
 		[ 0.05 ]
-
-		par_bool("Always cover")
-		[ false ]
 	}
 }
 

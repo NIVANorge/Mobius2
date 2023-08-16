@@ -141,10 +141,6 @@ module("AirSea Lake", version(0, 1, 1)) {
 
 		par_real("Ice attenuation coefficient")
 		[ 5 ]
-
-		par_bool("Always cover")
-		[ false ]
-
 	}
 }
 

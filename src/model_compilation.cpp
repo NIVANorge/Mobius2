@@ -110,11 +110,45 @@ topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::
 }
 
 bool
-insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_Dependency &to_insert) {
+insert_dependency_base(Mobius_Model *model, std::set<Index_Set_Dependency> &dependencies, const Index_Set_Dependency &to_insert, std::set<Entity_Id> *maximal_index_sets) {
 	// Returns true if there is a change in dependencies
 	auto find = std::find_if(dependencies.begin(), dependencies.end(), [&](const Index_Set_Dependency &dep) -> bool { return dep.id == to_insert.id; });
 	
 	if(find == dependencies.end()) {
+		auto set = model->index_sets[to_insert.id];
+		
+		// What do we do with double dependencies in either of the special cases? Maybe easiest to disallow double dependencies on union sets for now?
+		
+		// If we insert a union index set and there is already one of the union members there, we should ignore it.
+		if(!set->union_of.empty()) {
+			
+			Entity_Id union_member_allowed = invalid_entity_id;
+			for(auto ui_id : set->union_of) {
+				auto find2 = std::find_if(dependencies.begin(), dependencies.end(), [&](const Index_Set_Dependency &dep) -> bool { return dep.id == ui_id; });
+				if(find2 != dependencies.end())
+					return false;
+				if(maximal_index_sets) {
+					if(maximal_index_sets->find(ui_id) != maximal_index_sets->end());
+					union_member_allowed = ui_id;
+				}
+			}
+			// If the reference var location could only depend on a union member, we should insert the union member rather than the union.
+			// (note that if the union member was already a dependency, we have exited already, so this insertion is indeed new).
+			if(is_valid(union_member_allowed)) {
+				dependencies.insert(union_member_allowed);
+				return true;
+			}
+		}
+		
+		if(maximal_index_sets) {
+			if(maximal_index_sets->find(to_insert.id) == maximal_index_sets->end())
+				fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency");
+		}
+		
+		// TODO: If any of the existing index sets in dependencies is a union and we try to insert a union member, that should overwrite the union?
+		//   Hmm, however, this should not really happen as a Var_Location should not be able to have such a double dependency in the first place.
+		//   We should monitor how this works out.
+		
 		dependencies.insert(to_insert);
 		return true;
 	} else if(to_insert.order > find->order) {
@@ -125,8 +159,21 @@ insert_dependency(std::set<Index_Set_Dependency> &dependencies, const Index_Set_
 	return false;
 }
 
+bool
+insert_dependency(Mobius_Model *model, std::set<Index_Set_Dependency> &dependencies, const Index_Set_Dependency &to_insert, std::set<Entity_Id> *maximal_index_sets = nullptr) {
+	// Returns true if there is a change in dependencies
+	
+	bool changed = false;
+	auto sub_indexed_to = model->index_sets[to_insert.id]->sub_indexed_to;
+	if(is_valid(sub_indexed_to))
+		changed = insert_dependency_base(model, dependencies, sub_indexed_to, maximal_index_sets);
+	changed = changed || insert_dependency_base(model, dependencies, to_insert, maximal_index_sets);
+	
+	return changed;
+}
+
 void
-insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep) {
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, const Identifier_Data &dep, std::set<Entity_Id> *maximal_index_sets = nullptr) {
 	
 	const std::vector<Entity_Id> *index_sets = nullptr;
 	if(dep.variable_type == Variable_Type::parameter)
@@ -143,37 +190,40 @@ insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &depe
 	for(auto index_set : *index_sets) {
 		
 		if(index_set == avoid) continue;
-		// NOTE: Specialized logic to handle if a parameter is indexing over the same index set twice.
+		// NOTE: Specialized logic to handle if a parameter (or series?) is indexing over the same index set twice.
 		//   Currently we only support this for the two last index sets being the same.
 		if(idx == sz-2 && index_set == (*index_sets)[sz-1]) {
-			insert_dependency(dependencies, {index_set, 2});
+			insert_dependency(app->model, dependencies, {index_set, 2}, maximal_index_sets);
 			break;
 		} else {
-			insert_dependency(dependencies, index_set);
+			insert_dependency(app->model, dependencies, index_set, maximal_index_sets);
 		}
 		++idx;
 	}
 }
 
 bool
-insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, std::set<Index_Set_Dependency> &to_insert, const Identifier_Data &dep) {
+insert_dependencies(Model_Application *app, std::set<Index_Set_Dependency> &dependencies, std::set<Index_Set_Dependency> &to_insert, const Identifier_Data &dep, std::set<Entity_Id> *maximal_index_sets = nullptr) {
 	auto avoid = avoid_index_set_dependency(app, dep.restriction);
 	
 	bool changed = false;
 	for(auto index_set_dep : to_insert) {
 		if(index_set_dep.id == avoid) continue;
 		
-		changed = changed || insert_dependency(dependencies, index_set_dep);
+		changed = changed || insert_dependency(app->model, dependencies, index_set_dep, maximal_index_sets);
 	}
 	return changed;
 }
 
-void
-safe_insert_dependency(Mobius_Model *model, Model_Instruction *instruction, const Index_Set_Dependency &dep) {
-	auto sub_indexed_to = model->index_sets[dep.id]->sub_indexed_to;
-	if(is_valid(sub_indexed_to))
-		insert_dependency(instruction->index_sets, sub_indexed_to);
-	insert_dependency(instruction->index_sets, dep);
+
+std::set<Entity_Id> *
+get_maximal_index_sets(Model_Application *app, Model_Instruction &instr) {
+	if(instr.type == Model_Instruction::Type::compute_state_var) {
+		auto var = app->vars[instr.var_id];
+		if(var->type == State_Var::Type::declared)
+			return &as<State_Var::Type::declared>(var)->maximal_allowed_index_sets;
+	}
+	return nullptr;
 }
 
 bool
@@ -189,6 +239,8 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 			
 			if(!instr.code) continue;
 			
+			auto max_index_sets = get_maximal_index_sets(app, instr);
+			
 			std::set<Identifier_Data> code_depends;
 			register_dependencies(instr.code, &code_depends);
 			if(instr.specific_target)
@@ -197,12 +249,12 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 			for(auto &dep : code_depends) {
 				if(dep.variable_type == Variable_Type::parameter || dep.variable_type == Variable_Type::series) {
 					
-					insert_dependencies(app, instr.index_sets, dep);
+					insert_dependencies(app, instr.index_sets, dep, max_index_sets);
 				
 				} else if(dep.variable_type == Variable_Type::is_at) {
 					
 					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-					safe_insert_dependency(model, &instr, index_set);
+					insert_dependency(model, instr.index_sets, index_set, max_index_sets);
 					
 				} else if(dep.variable_type == Variable_Type::state_var) {
 					
@@ -223,14 +275,14 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 							auto conn = model->connections[dep.restriction.connection_id];
 							if(conn->type == Connection_Type::directed_graph) {
 								auto comp = app->find_connection_component(dep.restriction.connection_id, app->vars[dep.var_id]->loc1.components[0]);
-								instr.index_sets.insert(comp->edge_index_set);
+								insert_dependency(model, instr.index_sets, comp->edge_index_set, max_index_sets);
 							} else if(conn->type == Connection_Type::all_to_all) {
 								auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
 								// NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
-								safe_insert_dependency(model, &instr, {index_set, 2});
+								insert_dependency(model, instr.index_sets, {index_set, 2}, max_index_sets);
 							} else if(conn->type == Connection_Type::grid1d) {
 								auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
-								safe_insert_dependency(model, &instr, index_set);
+								insert_dependency(model, instr.index_sets, index_set, max_index_sets);
 							} else
 								fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
 						}
@@ -243,7 +295,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
 						auto parent = app->model->index_sets[index_set]->sub_indexed_to;
 						if(is_valid(parent))
-							instr.index_sets.insert(parent);
+							insert_dependency(model, instr.index_sets, parent, max_index_sets);
 						
 					} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
 						auto var = app->vars[dep.var_id];
@@ -265,16 +317,18 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		
 		for(auto &instr : instructions) {
 			
+			auto max_index_sets = get_maximal_index_sets(app, instr);
+			
 			for(int dep : instr.inherits_index_sets_from_instruction) {
 				auto &dep_idx = instructions[dep].index_sets;
 				for(auto &dep_idx_set : dep_idx) {
-					if(insert_dependency(instr.index_sets, dep_idx_set))
+					if(insert_dependency(model, instr.index_sets, dep_idx_set, max_index_sets))
 						changed = true;
 				}
 			}
 			for(auto &dep : instr.inherits_index_sets_from_state_var) {
 				auto &dep_idx = instructions[dep.var_id.id].index_sets;
-				if(insert_dependencies(app, instr.index_sets, dep_idx, dep))
+				if(insert_dependencies(app, instr.index_sets, dep_idx, dep, max_index_sets))
 					changed = true;
 			}
 		}
@@ -287,6 +341,9 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 	if(changed)
 		fatal_error(Mobius_Error::internal, "Failed to resolve state variable index set dependencies in the alotted amount of iterations!");
 	
+	
+	
+	// Check that only the right state variables get matrix indexing. This could maybe be factored out since it is a very special case.
 	for(auto &instr : instructions) {
 		
 		// TODO: Do we need to check others? Probably not as those would only happen if they were inherited from a state var.
@@ -749,17 +806,15 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto &loc = app->vars[target_id]->loc1;
 				for(int idx = 0; idx < loc.n_components; ++idx) {
 					auto comp = model->components[loc.components[idx]];
-					//for(auto index_set : comp->index_sets) {
-					//	if(std::find(index_sets.begin(), index_sets.end(), index_set) == index_sets.end())
-					//		target.index_sets.insert(index_set);
-					//}
-					target.index_sets.insert(comp->index_sets.begin(), comp->index_sets.end());
+					for(auto index_set : comp->index_sets)
+						insert_dependency(model, target.index_sets, index_set);
 				}
 			}
 			
 			instr->code = copy(var2->code.get());
 			
-			instr->index_sets.insert(index_sets.begin(), index_sets.end());
+			for(auto index_set : index_sets)
+				insert_dependency(model, instr->index_sets, index_set);
 			
 			auto code = static_cast<External_Computation_FT *>(instr->code);
 			
@@ -797,7 +852,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto agg_instr = &instructions[var_id.id];
 			auto agg_to_comp = model->components[var2->agg_to_compartment];
 			
-			agg_instr->index_sets.insert(agg_to_comp->index_sets.begin(), agg_to_comp->index_sets.end());
+			for(auto index_set : agg_to_comp->index_sets)
+				insert_dependency(model, agg_instr->index_sets, index_set);
 		
 			/*
 			// NOTE: Commenting this out. It should be taken care of by the automatic dependency system.
@@ -897,11 +953,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
 					
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
-					add_to_aggr_instr->index_sets.insert(find_source->index_sets.begin(), find_source->index_sets.end());
+					for(auto index_set : find_source->index_sets)
+						insert_dependency(model, add_to_aggr_instr->index_sets, index_set);
+					
 					if(conn_type == Connection_Type::directed_graph) {
-						//add_to_aggr_instr->index_sets.insert(find_source->edge_index_set);
-						safe_insert_dependency(model, add_to_aggr_instr, find_source->edge_index_set);
-						safe_insert_dependency(model, &instructions[var_id_flux.id], find_source->edge_index_set);
+						insert_dependency(model, add_to_aggr_instr->index_sets, find_source->edge_index_set);
+						insert_dependency(model, instructions[var_id_flux.id].index_sets, find_source->edge_index_set);
 					}
 					
 					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
@@ -920,7 +977,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						}
 						
 						// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
-						instructions[var2->agg_for.id].index_sets.insert(target_index_sets.begin(), target_index_sets.end());
+						for(auto index_set : target_index_sets)
+							insert_dependency(model, instructions[var2->agg_for.id].index_sets, index_set);
 					}
 					
 				} else if(conn_type == Connection_Type::all_to_all || conn_type == Connection_Type::grid1d) {
@@ -938,27 +996,26 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					auto index_set = app->get_single_connection_index_set(var2->connection);
 					
 					if(conn_type == Connection_Type::all_to_all) {
-						safe_insert_dependency(model, add_to_aggr_instr, {index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
-						//add_to_aggr_instr->index_sets.insert({index_set, 2}); 
+						insert_dependency(model, add_to_aggr_instr->index_sets, {index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
 					} else if(conn_type == Connection_Type::grid1d) {
 						instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
 						
 						auto type = add_to_aggr_instr->restriction.restriction;
 						
 						if(type == Var_Loc_Restriction::below) {
-							safe_insert_dependency(model, add_to_aggr_instr, index_set);
+							insert_dependency(model, add_to_aggr_instr->index_sets, index_set);
 							
-							safe_insert_dependency(model, &instructions[var_id_flux.id], index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
+							insert_dependency(model, instructions[var_id_flux.id].index_sets, index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
 							// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
 						} else if (type == Var_Loc_Restriction::top || type == Var_Loc_Restriction::bottom) {
 							auto parent = model->index_sets[index_set]->sub_indexed_to;
 							if(is_valid(parent))
-								safe_insert_dependency(model, add_to_aggr_instr, parent);
+								insert_dependency(model, add_to_aggr_instr->index_sets, parent);
 						} else {
 							fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[var_id_flux]->name, ".");
 						}
 					}
-					safe_insert_dependency(model, &instructions[var2->agg_for.id], index_set);
+					insert_dependency(model, instructions[var2->agg_for.id].index_sets, index_set);
 					
 					// TODO: Is this still needed: ?
 					if(restriction.restriction == Var_Loc_Restriction::below)
@@ -1426,7 +1483,8 @@ Model_Application::compile(bool store_code_strings) {
 	for(auto var_id : vars.all_state_vars()) {
 		auto &init_idx = initial_instructions[var_id.id].index_sets;
 		
-		instructions[var_id.id].index_sets.insert(init_idx.begin(), init_idx.end());
+		for(auto index_set : init_idx)
+			insert_dependency(model, instructions[var_id.id].index_sets, index_set);
 	}
 	
 	resolve_index_set_dependencies(this, instructions, false, true);

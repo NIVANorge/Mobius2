@@ -636,7 +636,7 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 		counts.push_back(count);
 	}
 	
-	// Must match struct Special_Indexed_Value in external_computations.h
+	// Must match struct Value_Access in external_computations.h
 	std::vector<llvm::Type *> member_types = {
 		double_ptr_ty,
 		int_64_ty,

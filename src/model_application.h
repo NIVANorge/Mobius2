@@ -469,6 +469,9 @@ public :
 	bool                                                     is_compiled = false;
 	std::vector<Entity_Id>                                   baked_parameters;
 	
+	//Index_T map_down_from_union(Index_T index);
+	//Index_T map_up_to_union(Index_T index, Entity_Id union_id);
+	
 	void        set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx = invalid_index);
 	void        set_index_count(Entity_Id index_set, int count, Index_T parent_idx = invalid_index);
 	Index_T     get_max_index_count(Entity_Id index_set);
@@ -524,33 +527,19 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location source_lo
 
 struct
 Index_Exprs {
-	std::vector<Math_Expr_FT *> indexes;
-	Math_Expr_FT               *mat_col;
-	Entity_Id                   mat_index_set;
-	
 	Index_Exprs(Mobius_Model *model) : mat_col(nullptr), indexes(model->index_sets.count(), nullptr), mat_index_set(invalid_entity_id) { }
 	~Index_Exprs() { clean(); }
 	
-	void clean() {
-		for(int idx = 0; idx < indexes.size(); ++idx) {
-			delete indexes[idx];
-			indexes[idx] = nullptr;
-		}
-		delete mat_col;
-		mat_col = nullptr;
-		mat_index_set = invalid_entity_id;
-	}
+	void clean();
+	void copy(Index_Exprs &other);
+	Math_Expr_FT *get_index(Model_Application *app, Entity_Id index_set, bool matrix_column = false);
+	void set_index(Entity_Id index_set, Math_Expr_FT *index, bool matrix_column = false);
+	void transpose_matrix(Entity_Id index_set);
 	
-	void copy(Index_Exprs &other) {
-		clean();
-		indexes = other.indexes;
-		for(auto &idx : indexes) {
-			if(idx) idx = ::copy(idx);
-		}
-		if(other.mat_col)
-			mat_col = ::copy(other.mat_col);
-		mat_index_set = other.mat_index_set;
-	}
+private :
+	std::vector<Math_Expr_FT *> indexes;
+	Math_Expr_FT               *mat_col;
+	Entity_Id                   mat_index_set;
 };
 
 #include "indexing.h"

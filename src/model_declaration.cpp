@@ -1439,19 +1439,45 @@ process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope,
 	
 	int which = match_declaration(decl, {
 		{Token_Type::quoted_string},
+		{Token_Type::quoted_string, {Decl_Type::index_set, true}}
 	});
-	auto id        = model->index_sets.standard_declaration(scope, decl);
 	
-	// NOTE: the reason we do it this way is to force the higher index set to have a smaller Entity_Id. This is very useful in processing code later.
+	auto id  = model->index_sets.standard_declaration(scope, decl);
+	auto index_set = model->index_sets[id];
+	
+	if(which == 1) {
+		// This is a union declaration.
+		if(decl->args.size() < 3) {
+			decl->source_loc.print_error_header();
+			fatal_error("A union index set must be the union of at least two other index sets.");
+		}
+		
+		for(int argidx = 1; argidx < decl->args.size(); ++argidx) {
+			auto union_set = resolve_argument<Reg_Type::index_set>(model, scope, decl, argidx);
+			if(union_set == id || std::find(index_set->union_of.begin(), index_set->union_of.end(), union_set) != index_set->union_of.end()) {
+				decl->args[argidx]->source_loc().print_error_header();
+				fatal_error("Any index set can only appear once in a union.");
+			}
+			index_set->union_of.push_back(union_set);
+		}
+	}
+	
+	// NOTE: the reason we do it this way is to force the higher index set to have a smaller Entity_Id. This is very useful in later processing.
 	if(decl->body) {
 		auto body = static_cast<Decl_Body_AST *>(decl->body);
 		for(auto child : body->child_decls) {
 			if(child->type != Decl_Type::index_set) {
 				child->source_loc.print_error_header();
-				fatal_error("Only 'index_set' declarations are allowed in the body of another index_set declaration.");
+				fatal_error("Only 'index_set' declarations are allowed in the body of another 'index_set' declaration.");
 			}
 			auto sub_id = process_declaration<Reg_Type::index_set>(model, scope, child);
 			model->index_sets[sub_id]->sub_indexed_to = id;
+			
+			index_set = model->index_sets[id]; // We have to look up the pointer again since it could have changed when processing other index_set declarations.
+			if(std::find(index_set->union_of.begin(), index_set->union_of.end(), sub_id) != index_set->union_of.end()) {
+				child->source_loc.print_error_header();
+				fatal_error("An index set can not be sub-indexed to something that is a union of it.");
+			}
 		}
 	}
 	return id;
@@ -1533,28 +1559,9 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
-		auto index_set = model->index_sets[id];
-		
-		int list_idx = idx-1;
-		
-		if(is_valid(index_set->sub_indexed_to)) {
-			bool found = false;
-			for(auto set_id : component->index_sets) {
-				if(set_id == index_set->sub_indexed_to) {
-					found = true;
-					break;
-				}
-			}
-			
-			if(!found) {
-				decl->args[idx]->source_loc().print_error_header();
-				error_print("The index set \"", index_set->name, "\" is sub-indexed to another index set \"", model->index_sets[index_set->sub_indexed_to]->name, "\", but the parent index set does not precede it the 'distribute' declaration. See the declaration of the index set here:");
-				index_set->source_loc.print_error();
-				mobius_error_exit();
-			}
-		}
 		component->index_sets.push_back(id);
 	}
+	check_valid_distribution(model, component->index_sets, decl->source_loc);
 }
 
 void
@@ -1955,6 +1962,33 @@ add_dissolved(const Var_Location &loc, Entity_Id quantity) {
 	result.n_components++;
 	result.components[result.n_components-1] = quantity;
 	return result;
+}
+
+void
+check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets, Source_Location &err_loc) {
+	int idx = 0;
+	for(auto id : index_sets) {
+		auto set = model->index_sets[id];
+		if(is_valid(set->sub_indexed_to)) {
+			if(std::find(index_sets.begin(), index_sets.begin()+idx, set->sub_indexed_to) == index_sets.begin()+idx) {
+				err_loc.print_error_header();
+				error_print("The index set \"", set->name, "\" is sub-indexed to another index set \"", model->index_sets[set->sub_indexed_to]->name, "\", but the parent index set does not precede it in this distribution. See the declaration of the index sets here:");
+				set->source_loc.print_error();
+				mobius_error_exit();
+			}
+		}
+		if(!set->union_of.empty()) {
+			for(auto ui_id : set->union_of) {
+				if(std::find(index_sets.begin(), index_sets.end(), ui_id) != index_sets.end()) {
+					err_loc.print_error_header();
+					error_print("The index set \"", set->name, "\" is a union consisting among others of the index set \"", model->index_sets[ui_id]->name, "\", but both appear in the same distribution. See the declaration of the index sets here:");
+					set->source_loc.print_error();
+					mobius_error_exit();
+				}
+			}
+		}
+		++idx;
+	}
 }
 
 // NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the scope to get the names..

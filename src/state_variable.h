@@ -75,11 +75,13 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	bool override_is_conc;
 	owns_code override_tree;
 	
-	Var_Id external_computation; // If this variable is the result of a special computation.
+	Var_Id external_computation; // If this variable is the result of an external computation.
 	
 	// These can be set for a declared flux.
 	std::vector<Var_Id> no_carry;
 	bool no_carry_by_default;
+	
+	std::set<Entity_Id> maximal_allowed_index_sets;
 	
 	State_Var_Sub() : decl_type(Decl_Type::property), decl_id(invalid_entity_id), connection(invalid_entity_id), conc(invalid_var), function_tree(nullptr), initial_function_tree(nullptr), initial_is_conc(false), override_tree(nullptr), override_is_conc(false), flux_time_unit_conv(1.0), external_computation(invalid_var), no_carry_by_default(false) {}
 };

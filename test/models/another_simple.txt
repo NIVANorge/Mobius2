@@ -5,14 +5,19 @@ model("Another simple") {
 	a : compartment("A")
 	
 	qf : property("Q!")
-	r : property("R")
+	
+	i  : index_set("I")
+	j  : index_set("J")
+	k  : index_set("K", i, j)
+	
+	distribute(a, k)
 	
 	module("So simple", version(2, 0, 0)) {
 
-		par_group("The Q") {
+		par_group("The Q", a) {
 			q : par_int("Q", [], 4)
 		}
-		
+
 		var(a.qf, [], "Q!") {
 			i := 0,
 			r := 1,

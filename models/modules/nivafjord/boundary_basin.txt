@@ -1,6 +1,6 @@
 
 module("NIFAFjord boundary", version(0, 0, 1),
-	bnd       : compartment,
+	bnd_basin : compartment,
 	bnd_layer : compartment,
 	water     : quantity,
 	heat      : quantity,
@@ -14,6 +14,8 @@ module("NIFAFjord boundary", version(0, 0, 1),
 	dz0       : par_real,
 ) {
 
+	var(bnd_layer.water, [k g], "Boundary layer water") @override { bnd_layer.dz * rho_water }
+
 	 # Input series:
 	var(bnd_layer.water.temp,     [deg_c], "Boundary layer temperature")
 	var(bnd_layer.water.salinity, [],      "Boundary layer salinity")
@@ -23,42 +25,44 @@ module("NIFAFjord boundary", version(0, 0, 1),
 		seawater_pot_dens(temp, salinity)
 	}
 	
-	# These are needed for automatic transport
+	# These are needed for automatic transport with fluxes going from the boundary into a basin.
 	var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) } #See note in basin.txt about maybe having salinity dependence of C_water
 	var(bnd_layer.water.salt, [k g], [g, k g-1], "Boundary layer salt") @override_conc { salinity =>> }
 	
 	h : property("Sea level")
 	
-	sealevel_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
+	sea_level_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
 		amp * cos( (pi/180[deg])*(t*360[deg]/per - phase) )
 	}
 	
-	sealevel : function(t : [hr]) {
+	sea_level : function(t : [hr]) {
 		# TODO: Parametrize and put in a library. This one in particular is for Oscarsborg.
-		  sealevel_component(11.2[c m], 282[deg], 365.24*24[hr], t)
-		+ sealevel_component(13.4[c m], 152[deg], 12.42[hr], t)
-		+ sealevel_component( 3.4[c m], 101[deg], 12.00[hr], t)
-		+ sealevel_component( 3.3[c m], 101[deg], 12.66[hr], t)
-		+ sealevel_component( 0.9[c m],  76[deg], 11.97[hr], t)
-		+ sealevel_component( 0.5[c m], 172[deg], 23.93[hr], t)
-		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
+		  sea_level_component(11.2[c m], 282[deg], 365.24*24[hr], t)
+		+ sea_level_component(13.4[c m], 152[deg], 12.42[hr], t)
+		+ sea_level_component( 3.4[c m], 101[deg], 12.00[hr], t)
+		+ sea_level_component( 3.3[c m], 101[deg], 12.66[hr], t)
+		+ sea_level_component( 0.9[c m],  76[deg], 11.97[hr], t)
+		+ sea_level_component( 0.5[c m], 172[deg], 23.93[hr], t)
+		+ sea_level_component( 2.1[c m], 299[deg], 15.82[hr], t)
 	}
 	
-	var(bnd.h, [m]) @override {
-		hour := (time.second_of_day + time.step_length_in_seconds * time.fractional_step)->[hr],
-		sealevel(hour)->[m]              
+	var(bnd_basin.h, [m]) @override {
+		#TODO: Check that it is correct to use the hour of year rather than the hour of day. Maybe it needs to use absolute hour (relative to a start date)?
+		hour := (time.second_of_day + time.step_length_in_seconds * time.fractional_step)->[hr] + time.day_of_year->[hr],
+		sea_level(hour)->[m]              
 	}
 	
 	var(bnd_layer.dz, [m], "Boundary layer thickness") {
-		dz0 + h  if is_top(bnd_vert), #TODO: implement is_top, is_bottom (?)
+		dz0 + h  if is_at[bnd_vert.top],
 		dz0      otherwise
 	}
 	
-	var(bnd_layer.z, [m], "Depth (to bottom of layer)") {
-		dz + z[bnd_vert.above]
-	}
+	# This one does not appear to be necessary:
+	#var(bnd_layer.z, [m], "Depth (to bottom of layer)") {
+	#	dz + z[bnd_vert.above]
+	#}
 	
-	var(bnd_layer.pressure, [Pa]) {
+	var(bnd_layer.water.pressure, [Pa]) {
 		pressure[bnd_vert.above] + rho*grav*dz
 	}
 }

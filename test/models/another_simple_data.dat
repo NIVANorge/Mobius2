@@ -1,8 +1,11 @@
+
+index_set("I") [ "A" "B" "C" ]
+
+index_set("J") [ "D" "E" "F" "G" ]
+
+index_set("K") [ "bladi" "remove" "later" ]
+
 /*
-index_set("I") [ 10 ]
-
-index_set("J") [ "(generated)" ]
-
 connection("Grid") [
 	compartment("B") [ "I" ]
 ]
@@ -15,13 +18,20 @@ par_group("System") {
 	par_datetime("End date")
 	[ 1990-12-31 ]
 }
+
+module("So simple", 2, 0, 0) {
+	par_group("The Q") [ "K" ] {
+		par_int("Q") [ 1 2 3 ]
+	}
+}
+
+
 /*
 par_group("Ploff") [ "J" ] {
 	par_real("K")
 	[ 0 ]
 }
 
-module("So simple", 1, 0, 0) {
-}
+
 
 */

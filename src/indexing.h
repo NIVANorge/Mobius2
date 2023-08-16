@@ -78,21 +78,22 @@ Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vect
 }
 
 template<typename Handle_T> Math_Expr_FT *
-Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {
+Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &indexes, Model_Application *app, Entity_Id &err_idx_set_out) {
 	
 	Math_Expr_FT *result = nullptr;
 	
 	int sz = index_sets.size();
 	for(int idx = 0; idx < sz; ++idx) {
 		auto &index_set = index_sets[idx];
-		Math_Expr_FT *index = index_exprs.indexes[index_set.id];
+		
+		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
+		bool matrix_column = (idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1]);
+		Math_Expr_FT *index = indexes.get_index(index_set, matrix_column);
+		
 		if(!index) {
 			err_idx_set_out = index_set;
 			return result;
 		}
-		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
-		if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
-			index = index_exprs.mat_col;
 		
 		index = copy(index);
 		
@@ -113,7 +114,7 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 }
 
 template<typename Handle_T> Offset_Stride_Code
-Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app) {
+Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle, Index_Exprs &indexes, Model_Application *app) {
 	
 	// NOTE: This version is not yet tested
 	
@@ -125,7 +126,7 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 	int sz = index_sets.size();
 	for(int idx = 0; idx < sz; ++idx) {
 		auto &index_set = index_sets[idx];
-		auto index = index_exprs.indexes[index_set.id];
+		auto index = indexes.get_index(index_set);
 		if(index) {
 			index = copy(index);
 			if(idx == 0)
@@ -146,7 +147,7 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 			if(undetermined_found) {
 				error_print(Mobius_Error::internal, "Got more than one indetermined index in get_offset_code(). The indetermined index sets were:\n");
 				for(auto idx_set : index_sets) {
-					if(!index_exprs.indexes[idx_set.id])
+					if(!indexes.get_index(idx_set))
 						error_print(app->model->index_sets[idx_set]->name, "\n");
 				}
 				mobius_error_exit();
@@ -216,20 +217,21 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, Indexes &indexes, M
 }
 
 template<typename Handle_T> Math_Expr_FT *
-Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {
+Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &indexes, Model_Application *app, Entity_Id &err_idx_set_out) {
 	
 	Math_Expr_FT *result = make_literal((s64)handle_location[handle]);
 	int sz = index_sets.size();
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		auto &index_set = index_sets[idx];
-		Math_Expr_FT *index = index_exprs.indexes[index_set.id];
+		
+		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
+		bool matrix_column = (idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1]);
+		Math_Expr_FT *index = indexes.get_index(app, index_set, matrix_column);
+		
 		if(!index) {
 			err_idx_set_out = index_set;
 			return nullptr;
 		}
-		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
-		if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
-			index = index_exprs.mat_col;
 		
 		index = copy(index);
 		
@@ -241,9 +243,8 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 }
 
 template<typename Handle_T> Offset_Stride_Code
-Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app) {
+Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle, Index_Exprs &indexes, Model_Application *app) {
 	
-	auto &indexes = index_exprs.indexes;
 	Offset_Stride_Code result = {};
 	
 	result.offset = make_literal((s64)handle_location[handle]);
@@ -256,7 +257,7 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 		auto &index_set = index_sets[idx];
 		
 		result.offset = make_binop('*', result.offset, make_literal((s64)app->get_max_index_count(index_set).index));
-		auto index = index_exprs.indexes[index_set.id];
+		auto index = indexes.get_index(app, index_set);
 		if(index) {
 			index = copy(index);
 			result.offset = make_binop('+', result.offset, index);
@@ -271,14 +272,14 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 				begin_error(Mobius_Error::internal);
 				error_print("Got more than one indetermined index in get_special_offset_stride_code(). The indetermined index sets were:\n");
 				for(auto idx_set : index_sets) {
-					if(!index_exprs.indexes[idx_set.id])
+					if(!indexes.get_index(app, idx_set))
 						error_print(app->model->index_sets[idx_set]->name, "\n");
 				}
 				mobius_error_exit();
 			}
 			undetermined_found = true;
 			
-			result.count = app->get_index_count_code(index_set, index_exprs);
+			result.count = app->get_index_count_code(index_set, indexes);
 		}
 	}
 	if(!result.count)

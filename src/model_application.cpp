@@ -62,6 +62,87 @@ Indexes::add_index(Entity_Id index_set, s32 idx) {
 
 
 void
+Index_Exprs::clean() {
+	for(int idx = 0; idx < indexes.size(); ++idx) {
+		delete indexes[idx];
+		indexes[idx] = nullptr;
+	}
+	delete mat_col;
+	mat_col = nullptr;
+	mat_index_set = invalid_entity_id;
+}
+	
+void
+Index_Exprs::copy(Index_Exprs &other) {
+	clean();
+	indexes = other.indexes;
+	for(auto &idx : indexes) {
+		if(idx) idx = ::copy(idx);
+	}
+	if(other.mat_col)
+		mat_col = ::copy(other.mat_col);
+	mat_index_set = other.mat_index_set;
+}
+
+// Hmm, this could also maybe be used elsewhere. Put it as utility in function_tree.h ?
+Math_Expr_FT *
+add_exprs(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
+	if(!lhs) return rhs;
+	return make_binop('+', lhs, rhs);
+}
+
+Math_Expr_FT *
+Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, bool matrix_column) {
+	
+	// TODO: How to handle matrix column for union index sets? Probably disallow it?
+	
+	Math_Expr_FT *result = nullptr;
+	if(matrix_column && mat_col) {
+		if(index_set != mat_index_set)
+			fatal_error(Mobius_Error::internal, "Unexpected matrix column index set.");
+		result = mat_col;
+	} else {
+		result = indexes[index_set.id];
+		if(!result) {
+			// Try to index a union index set (if a direct index is absent) by an index belonging to a member of that union.
+			bool found = false;
+			auto set = app->model->index_sets[index_set];
+			for(auto ui_id : set->union_of) {
+				if(ui_id == index_set) {
+					result = add_exprs(result, get_index(app, ui_id));
+					found = true;
+					break;
+				}
+				result = add_exprs(result, app->get_index_count_code(index_set, *this));
+			}
+			if(!found) {    // Do this since we want this to raise an error.
+				delete result;
+				result = nullptr;
+			}
+		}
+	}
+	return result;
+}
+
+void
+Index_Exprs::set_index(Entity_Id index_set, Math_Expr_FT *index, bool matrix_column) {
+	if(matrix_column) {
+		mat_index_set = index_set;
+		mat_col = index;
+	} else
+		indexes[index_set.id] = index;
+}
+
+void
+Index_Exprs::transpose_matrix(Entity_Id index_set) {
+	if(!mat_col || mat_index_set != index_set) return;
+	auto tmp = mat_col;
+	mat_col = indexes[index_set.id];
+	indexes[index_set.id] = tmp;
+}
+
+
+void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
 Model_Application::Model_Application(Mobius_Model *model) :
@@ -582,6 +663,44 @@ Model_Application::set_index_count(Entity_Id index_set, int count, Index_T paren
 	}
 }
 
+/*
+Index_T
+Model_Application::map_down_from_union(Index_T index) {
+	Index_T result = index;
+	auto set = model->index_sets[index.index_set];
+	if(set->union_of.empty())
+		return result;
+	for(auto ui_id : set->union_of) {
+		auto count = get_max_index_count(ui_id);   // NOTE: Only ok since we don't support sub-indexed unions.
+		if(count.index < result.index)
+			result.index -= count.index;
+		else {
+			result.index_set = ui_id;
+			break;
+		}
+	}
+	return result;
+}
+
+Index_T
+Model_Application::map_up_to_union(Index_T index, Entity_Id union_id) {
+	auto set = model->index_sets[union_id];
+	bool found = false;
+	Index_T result = index;
+	for(auto ui_id : set->union_of) {
+		if(ui_id == index.index_set) {
+			found = true;
+			result.index_set = union_id;
+			break;
+		}
+		result.index += get_max_index_count(ui_id).index; // NOTE: Only ok since we don't support sub-indexed unions.
+	}
+	if(!found)
+		fatal_error(Mobius_Error::internal, "Mis-use of map_up function.");
+	return result;
+}
+*/
+
 Index_T
 Model_Application::get_max_index_count(Entity_Id index_set) {
 	auto &count = index_counts[index_set.id];
@@ -659,15 +778,18 @@ Model_Application::is_in_bounds(Indexes &indexes) {
 
 Index_T
 Model_Application::get_index(Entity_Id index_set, const std::string &name) {
+	
 	auto &map = index_names_map[index_set.id];
-	Index_T result;
-	result.index_set = index_set;
-	result.index = -1;  //TODO: Should we throw an error here instead?
-	auto find = map.find(name);
-	if(find != map.end())
-		return find->second;
-	else {
-		result.index = atoi(name.data()); //TODO: this is not robust.
+	Index_T result = invalid_index;
+	
+	if(!map.empty()) {
+		auto find = map.find(name);
+		if(find != map.end())
+			return find->second;
+	} else {
+		// TODO: Should be made more robust
+		result.index_set = index_set;
+		result.index = atoi(name.data());
 	}
 	return result;
 }
@@ -1060,6 +1182,11 @@ process_index_set_data(Model_Application *app, Data_Set *data_set, Index_Set_Inf
 		fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
 		//continue;
 	}
+	if(!model->index_sets[id]->union_of.empty()) {
+		index_set.source_loc.print_error_header();
+		fatal_error("The index set \"", index_set.name, "\" is a union index set, and so should not receive separate index data.");
+	}
+	
 	Entity_Id sub_indexed_to = invalid_entity_id;
 	if(index_set.sub_indexed_to >= 0)
 		sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
@@ -1142,8 +1269,40 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	// Generate at least one index for index sets that were not provided in the data set.
 	for(auto index_set : model->index_sets) {
-		if(get_max_index_count(index_set).index == 0 && !is_valid(model->index_sets[index_set]->is_edge_of_connection))
+		auto set = model->index_sets[index_set];
+		// NOTE: Edge index sets are generated in a different way. Moreover, union index sets are handled differently (below).
+		if(get_max_index_count(index_set).index == 0 && !is_valid(set->is_edge_of_connection) && set->union_of.empty())
 			set_index_count(index_set, 1);
+	}
+	// Set up counts for union index sets. Note that these are not allowed to be sub-indexed currently, neither are their unionees.
+	for(auto index_set : model->index_sets) {
+		auto set = model->index_sets[index_set];
+		if(set->union_of.empty()) continue;
+		if(get_max_index_count(index_set).index != 0)
+			fatal_error(Mobius_Error::internal, "An index count was explicitly set for a union index set.");
+		int numeric = -1;
+		for(auto ui_id : set->union_of) {
+			int numeric_new = -1;
+			numeric_new = index_names[ui_id.id].empty();
+			if(numeric >= 0 && numeric_new != numeric) {
+				fatal_error(Mobius_Error::model_building, "The index set \"", set->name, "\" is a union of index sets where the data is a mix of numeric and non-numeric index names. This is not allowed.");
+				// TODO: We could maybe look into the data_set to give a couple of source locations.
+			}
+			numeric = numeric_new;
+		}
+		if(numeric) {
+			s32 count = 0;
+			for(auto ui_id : set->union_of)
+				count += get_max_index_count(ui_id).index;
+			set_index_count(index_set, count);
+		} else {
+			std::vector<std::string> union_names;
+			for(auto ui_id : set->union_of) {
+				// TODO: We must check that they are not overlapping in names.
+				union_names.insert(union_names.end(), index_names[ui_id.id].begin(), index_names[ui_id.id].end());
+			}
+			set_indexes(index_set, union_names);
+		}
 	}
 	
 	if(!index_counts_structure.has_been_set_up)

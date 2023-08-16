@@ -262,6 +262,9 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
+	
+	std::vector<Entity_Id>  union_of;
+	
 	Entity_Id sub_indexed_to;
 	
 	Entity_Id is_edge_of_connection;
@@ -493,5 +496,7 @@ error_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 void
 debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 
+void
+check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets, Source_Location &err_loc);
 
 #endif // MOBIUS_MODEL_DECLARATION_H

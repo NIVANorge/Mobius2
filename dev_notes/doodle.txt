@@ -2,6 +2,61 @@
 
 
 
+	a : union(b, c)     # Prefer this one (?) -- oops, that clashes with a C++ reserved identifier, so that is a bit tricky.
+	a : index_set(b, c)
+	a : index_set_union(b, c) # This one then
+	
+	z : 
+
+
+	# Two-way graph edges.
+	
+connection("Fjord horizontal") [
+	r : compartment("River") [ "Subcatchment" ]
+	l : compartment("Fjord layer") [ "Basin index" ]
+	bl : compartment("Boundary layer") [ "Boundary basin index" ]
+
+	r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] <-> l["Something else"] <- bl["Ytre Oslofjord"]
+]
+
+	horz : connection("Fjord horizontal", directed_graph) { 
+		(river[ol_idx] | bnd_layer[e_idx])? layer[e_idx]+ bnd_layer?
+		# Ideally we would like to be able to specify that the river can only go to one place and that any layer<->bnd_layer connection must be bidirectional...
+	}
+
+	# How does that work? need unions..
+	basin_idx : index_set("Basin index")
+	bnd_basin_idx : index_set("Boundary basin index")
+	
+	basin_idx_union : union(basin_idx, bnd_basin_idx) {     # Figure out exact notation later
+		
+		layer_idx : index_set("Layer index")
+		e_idx     : index_set("Fjord connection index")
+	}
+	
+
+	# We want unions any way, e.g for atmosphere.
+	
+	# Allow separate meteorological data per subcatchment and/or fjord basin.
+	atm_idx : union(sc, basin_idx)
+	distribute(air, atm_idx)
+
+	# Need a few concepts:
+		# a union member index set can 'alias' as that union index set, but then may need to remap the index value.
+			# e.g. if    a : union(b, c)  and    x is an index of c, the corresponding index of a is count(b)+c
+		# Something that is sub-indexed to a union counts as being sub-indexed to each union member.
+		
+	# Need a separate type of remap for bidirectional edge indexes.
+		
+		# E.g. if    x <-> y,  and   e is a compartment of that edge, the order it 'appeared' for y may be different than for x.
+		
+		# Probably need to go into the implementation details to understand how that would work. Although it *should* not be that difficult.
+		
+		# A primary direction must still be implicit (e.g. the one given in the data set) for lookups like [below] from the point of view of the edge to make sense.
+		
+		# Maybe with the primary direction given, the index remap is not necessary. Any edge is only resolved for the edge index set of the primary (?)
+
+
 
 
 

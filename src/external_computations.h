@@ -12,7 +12,7 @@
 #include "mobius_common.h"
 
 struct
-Special_Indexed_Value {
+Value_Access {
 	//Parameter_Value *val;
 	double *val;
 	s64 stride;

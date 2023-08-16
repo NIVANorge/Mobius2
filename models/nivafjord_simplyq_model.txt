@@ -55,11 +55,10 @@ model("NIVAFjord-SimplyQ") {
 	solve(sol, soil.water, gw.water, river.water)
 	
 	
-	# TODO: For now we have to do this since we don't have a way to override the connection regex later in easylake_simplyq_model.txt
 	#epi        : compartment("Epilimnion")
 	downstream : connection("Downstream", directed_tree) { river+ }
 	
-	rho_water : constant("Water density", [k g, m-3], 1000)
+	rho_water : constant("Water density", [k g, m-3], 1000) #TODO: allow loading library into model scope.
 	unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
 	
 	
