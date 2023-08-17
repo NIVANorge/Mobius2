@@ -59,14 +59,13 @@ Model_Instruction {
 	std::set<Identifier_Data> inherits_index_sets_from_state_var;
 	
 	Math_Expr_FT *code;
-	Math_Expr_FT *specific_target;
 	
 	bool visited;
 	bool temp_visited;
 	
 	std::string debug_string(Model_Application *app);
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), restriction(), solver(invalid_entity_id), type(Type::invalid), code(nullptr), specific_target(nullptr) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), restriction(), solver(invalid_entity_id), type(Type::invalid), code(nullptr) {};
 	
 	// Having trouble getting this to work. Seems like the destructor is called too early when the Instructions vector resizes, and setting up move constructors etc. to work around that is irksome.
 	/*

@@ -29,8 +29,6 @@ make_possibly_weighted_var_ident(Model_Application *app, Var_Id var_id, Math_Exp
 	return var_ident;
 }
 
-
-
 void
 instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
@@ -281,6 +279,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 	}
 }
 
+Math_Expr_FT *
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction = nullptr, Var_Id context_var = invalid_var);
+
 void
 set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Restriction &res, Math_Expr_FT *specific_target = nullptr) {
 	
@@ -308,6 +309,20 @@ set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Restrict
 		indexes.set_index(index_set, index);
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection restriction type.");
+}
+
+void
+set_grid1d_target_indexes_with_possible_specific(Model_Application *app, Index_Exprs &indexes, Restriction &restriction, Var_Id var_id) {
+	// TODO: The specific_target should be stored on the Restriction instead so that we don't need this separate function.
+	Math_Expr_FT *specific_target = nullptr;
+	if(restriction.type == Restriction::specific) {
+		if(!is_valid(var_id) || !app->vars[var_id]->specific_target.get())
+			fatal_error(Mobius_Error::internal, "Did not find @specific code for ", app->vars[var_id]->name, " even though it was expected.");
+		specific_target = copy(app->vars[var_id]->specific_target.get());
+		put_var_lookup_indexes(specific_target, app, indexes);
+	}
+
+	set_grid1d_target_indexes(app, indexes, restriction, specific_target);
 }
 
 void
@@ -491,10 +506,10 @@ process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes
 }
 
 Math_Expr_FT *
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction = nullptr) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction, Var_Id context_var) {
 	
 	for(int idx = 0; idx < expr->exprs.size(); ++idx)
-		expr->exprs[idx] = put_var_lookup_indexes(expr->exprs[idx], app, index_expr, existing_restriction);
+		expr->exprs[idx] = put_var_lookup_indexes(expr->exprs[idx], app, index_expr, existing_restriction, context_var);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
 	
@@ -508,9 +523,6 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	
 	if(!expr->exprs.empty())
 		fatal_error(Mobius_Error::internal, "Tried to set var lookup indexes on an expr that already has them.");
-	
-	//if(is_valid(ident->restriction.connection_id))
-	//	found_restriction.insert(ident->restriction);
 	
 	auto &res = ident->restriction;
 	if(res.r1.type != Restriction::none) {
@@ -619,8 +631,15 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		} else
 			fatal_error(Mobius_Error::internal, "Unimplemented connection type in put_var_lookup_indexes()");
 		
-	} //else if(is_valid(ident->restriction.connection_id))
-		//fatal_error(Mobius_Error::internal, "Got an identifier with a connection but without a restriction.");
+	}
+	
+	if(res.r2.type != Restriction::none) {
+		auto connection = app->model->connections[res.r2.connection_id];
+		if(connection->type == Connection_Type::grid1d)
+			set_grid1d_target_indexes_with_possible_specific(app, index_expr, res.r2, context_var); // TODO: The specific code should be stored directly on the restriction itself so that we don't have to pass the context var.
+		else
+			fatal_error(Mobius_Error::internal, "Got a secondary restriction for an identifier that was not a grid1d.");
+	}
 
 	put_var_lookup_indexes_basic(ident, app, index_expr);
 	return ident;
@@ -706,19 +725,6 @@ add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id 
 	return add_value_to_state_var(agg_id, agg_offset, value, '+'); // NOTE: it is a + regardless, since the subtraction happens explicitly when we use the value later.
 }
 
-void
-set_grid1d_target_indexes_for_flux(Model_Application *app, Index_Exprs &indexes, Restriction &restriction, Var_Id flux_id) {
-	Math_Expr_FT *specific_target = nullptr;
-	if(restriction.type == Restriction::specific) {
-		if(!app->vars[flux_id]->specific_target.get())
-			fatal_error(Mobius_Error::internal, "Did not find @specific code for ", app->vars[flux_id]->name, " even though it was expected.");
-		specific_target = copy(app->vars[flux_id]->specific_target.get());
-		put_var_lookup_indexes(specific_target, app, indexes);
-	}
-
-	set_grid1d_target_indexes(app, indexes, restriction, specific_target);
-}
-
 Math_Expr_FT *
 add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, Index_Exprs &indexes, Restriction restriction) {
 	
@@ -731,7 +737,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	Index_Exprs new_indexes(model);
 	new_indexes.copy(indexes);
 	
-	set_grid1d_target_indexes_for_flux(app, new_indexes, restriction, flux_id);
+	set_grid1d_target_indexes_with_possible_specific(app, new_indexes, restriction, flux_id);
 	
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
 
@@ -763,7 +769,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 		//log_print("Got here! ", app->vars[agg_id]->name, " ", app->vars[instr->var_id]->name, "\n");
 		//log_print("Got here! ", instr->debug_string(app), "\n");
 		
-		set_grid1d_target_indexes_for_flux(app, new_indexes, restriction.r2, instr->var_id);
+		set_grid1d_target_indexes_with_possible_specific(app, new_indexes, restriction.r2, instr->var_id);
 	}
 	
 	auto type = model->connections[restriction.r1.connection_id]->type;
@@ -861,8 +867,11 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			
 			try {
 				if(instr->code) {
+					Var_Id context_id = invalid_var;
+					if(instr->type == Model_Instruction::Type::compute_state_var)
+						context_id = instr->var_id;
 					fun = copy(instr->code);
-					fun = put_var_lookup_indexes(fun, app, indexes, &instr->restriction);
+					fun = put_var_lookup_indexes(fun, app, indexes, &instr->restriction, context_id);
 				} else if (instr->type != Model_Instruction::Type::clear_state_var) {
 					//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
 					
@@ -949,7 +958,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 							}
 							set_graph_target_indexes(app, new_indexes, conn_id, source_compartment, compartment);
 						} else
-							fatal_error(Mobius_Error::internal, "Unimplemented external computation codegen for var loc restriction");
+							fatal_error(Mobius_Error::internal, "Unimplemented external computation codegen for var loc restriction.");
 					}
 					
 					Offset_Stride_Code res;
@@ -967,6 +976,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 					log_print("Disabling external computation \"", external->function_name, "\" due to a connection lookup over a non-existing edge.\n");
 					log_print("The source compartmet was ", model->components[source_compartment]->name, "\n");
 					delete external;
+					instr->code = nullptr;
 					result_code = make_no_op();
 				} else
 					result_code = external;
@@ -1051,6 +1061,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 	ss << "\n";
 	log_print(ss.str());
 #else
+	//auto result = top_scope;
 	auto result = prune_tree(top_scope);
 #endif
 	

@@ -243,8 +243,11 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 			
 			std::set<Identifier_Data> code_depends;
 			register_dependencies(instr.code, &code_depends);
-			if(instr.specific_target)
-				register_dependencies(instr.specific_target, &code_depends);
+			if(instr.type == Model_Instruction::Type::compute_state_var) {
+				auto var = app->vars[instr.var_id];
+				if(var->specific_target.get())
+					register_dependencies(var->specific_target.get(), &code_depends);
+			}
 			
 			for(auto &dep : code_depends) {
 				if(dep.variable_type == Variable_Type::parameter || dep.variable_type == Variable_Type::series) {
@@ -654,7 +657,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 			}
 		}
-		Math_Expr_FT *specific = var->specific_target.get();
 		
 		instr.var_id = var_id;
 		instr.type = Model_Instruction::Type::compute_state_var;
@@ -663,9 +665,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			instr.code = copy(fun);
 		else if(initial)
 			instr.type = Model_Instruction::Type::invalid;
-		
-		if(!initial && specific)
-			instr.specific_target = copy(specific);
 		
 		if(var->is_flux())
 			instr.restriction = restriction_of_flux(var);
@@ -1663,16 +1662,15 @@ Model_Application::compile(bool store_code_strings) {
 	// NOTE: For some reason it doesn't work to have the deletion in the destructor of the Model_Instruction ..
 	//    Has to do with the resizing of the instructions vector where instructions are moved, and it is tricky
 	//    to get that to work.
+	
 	for(auto &instr : initial_instructions) {
 		if(instr.code)
 			delete instr.code;
 	}
-	
+
 	for(auto &instr : instructions) {
 		if(instr.code)
 			delete instr.code;
-		if(instr.specific_target)
-			delete instr.specific_target;
 	}
 	
 #ifndef MOBIUS_EMULATE

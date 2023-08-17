@@ -30,6 +30,7 @@ nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river
 	target_out->at(0) = (double)closest;
 }
 
+/*
 extern "C" DLLEXPORT void
 nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densities_source, Value_Access *densities_target, Value_Access *widths) {
 	
@@ -54,9 +55,10 @@ nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densit
 		target_out->at(layer) = (double)closest;
 	}
 }
+*/
 
 extern "C" DLLEXPORT void
-nivafjord_place_horizontal_fluxes_redux(Value_Access *target_out, Value_Access *densities1, Value_Access *densities2, Value_Access *pressure1, Value_Access *pressure2, Value_Access *widths) {
+nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densities1, Value_Access *densities2, Value_Access *pressure1, Value_Access *pressure2, Value_Access *widths) {
 	
 	for(int layer = 0; layer < target_out->count; ++layer) {
 		

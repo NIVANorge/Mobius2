@@ -56,13 +56,19 @@ model("NIVAFjord-SimplyQ") {
 	
 	
 	#epi        : compartment("Epilimnion")
-	downstream : connection("Downstream", directed_tree) { river+ }
+	downstream : connection("Downstream", directed_tree) { 
+		river+
+		#(river|epi)+
+	}
 	
 	rho_water : constant("Water density", [k g, m-3], 1000) #TODO: allow loading library into model scope.
 	unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
 	
 	
-	horz : connection("Fjord horizontal", directed_graph) { river[ol_idx]? layer[e_idx]* }  # and bnd_layer eventually.
+	horz : connection("Fjord horizontal", directed_graph) { 
+		river[ol_idx]? layer[e_idx]+
+		#river[ol_idx]? layer[e_idx]+ bnd_layer
+	}
 	
 	edge       : compartment("Basin edge")
 	edge_layer : compartment("Basin edge layer")

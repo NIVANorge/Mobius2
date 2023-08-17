@@ -73,6 +73,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		result(edge_layer.vert_target)
 		layer.water.rho
 		layer.water.rho[horz.below]
+		layer.water.pressure
+		layer.water.pressure[horz.below]
 		w_bnd
 	}
 	
