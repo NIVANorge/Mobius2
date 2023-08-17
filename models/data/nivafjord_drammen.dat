@@ -2,7 +2,7 @@ time_step([day])
 
 index_set("Basin index") [ "Drammensfjorden" ]
 
-index_set("Basin index", "Layer index") [
+index_set("Layer index") @sub("Basin index") [
 	"Drammensfjorden" : [ 124 ]
 ]
 
@@ -15,8 +15,8 @@ connection("Downstream") [
 ]
 
 connection("Fjord horizontal") [
-	r : compartment("River") [ "Subcatchment" ]
-	l : compartment("Fjord layer") [ "Basin index" ]
+	r : compartment("River") [ "Subcatchment" ] [ "Outlet index" ]
+	l : compartment("Fjord layer") [ "Basin index" ] [ "Fjord connection index" ]
 
 	r[ "Drammenselva" ] -> l[ "Drammensfjorden" ]
 ]
@@ -51,6 +51,12 @@ par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 par_group("Catchment data") [ "Subcatchment" ] {
 	par_real("Catchment area")
 	[ 17110.6 ]
+}
+
+par_group("Fjord horizontal boundary") [ "Basin index" "Fjord connection index" "Layer index" ] {
+	par_real("Boundary width") [
+
+	]
 }
 
 module("NIVAFjord basin", version(0, 0, 1)) {
@@ -186,7 +192,7 @@ module("SimplyQ land", version(0, 5, 0)) {
 	}
 }
 
-module("SimplyQ river", version(0, 0, 1)) {
+module("SimplyQ river", version(0, 5, 0)) {
 	par_group("Reach parameters") [ "Subcatchment" ] {
 		par_real("Reach slope")
 		[ 0.014 ]
@@ -226,5 +232,9 @@ module("RiverTemperature", version(0, 1, 0)) {
 }
 
 module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
+	par_group("Horizontal coefficients") {
+		par_real("Pressure difference mixing coefficient")
+		[ 0.5 ]
+	}
 }
 

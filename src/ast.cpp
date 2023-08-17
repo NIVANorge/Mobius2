@@ -163,7 +163,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 }
 
 void
-parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit = true) {
+parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit) {
 	Token next = stream->peek_token();
 	if(next.type == Token_Type::identifier) {
 		decl->decl = stream->read_token();

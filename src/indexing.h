@@ -88,7 +88,7 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 		
 		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
 		bool matrix_column = (idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1]);
-		Math_Expr_FT *index = indexes.get_index(index_set, matrix_column);
+		Math_Expr_FT *index = indexes.get_index(app, index_set, matrix_column);
 		
 		if(!index) {
 			err_idx_set_out = index_set;
@@ -126,7 +126,7 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 	int sz = index_sets.size();
 	for(int idx = 0; idx < sz; ++idx) {
 		auto &index_set = index_sets[idx];
-		auto index = indexes.get_index(index_set);
+		auto index = indexes.get_index(app, index_set);
 		if(index) {
 			index = copy(index);
 			if(idx == 0)
@@ -147,7 +147,7 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 			if(undetermined_found) {
 				error_print(Mobius_Error::internal, "Got more than one indetermined index in get_offset_code(). The indetermined index sets were:\n");
 				for(auto idx_set : index_sets) {
-					if(!indexes.get_index(idx_set))
+					if(!indexes.get_index(app, idx_set))
 						error_print(app->model->index_sets[idx_set]->name, "\n");
 				}
 				mobius_error_exit();

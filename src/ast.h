@@ -218,6 +218,8 @@ Regex_Quantifier_AST : Math_Expr_AST {
 
 
 
+void
+parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit = true);
 
 Decl_AST *
 parse_decl_header(Token_Stream *stream);
@@ -242,7 +244,7 @@ parse_regex_list(Token_Stream *stream, bool outer);
 
 
 inline Token *
-single_arg(Decl_AST *decl, int which) {
+single_arg(Decl_Base_AST *decl, int which) {
 	if(decl->args[which]->chain.size() != 1) {
 		decl->args[which]->chain[1].source_loc.print_error_header(Mobius_Error::internal);
 		fatal_error(Mobius_Error::internal, "Expected a single value or identifier, not a chain.");
@@ -287,7 +289,7 @@ match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::ini
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = true, int allow_body = true, bool allow_notes = false);
+	bool allow_handle = true, int allow_body = 1, bool allow_notes = false);
 	
 // TODO: Allow a version of match_declaration that operates on notes.
 

@@ -43,9 +43,9 @@ model("NIVAFjord-SimplyQ") {
 	unit_conversion(gw.water, river.water)   { a_catch }
 	
 
-	sc : index_set("Subcatchment") {
-		ol_idx : index_set("Outlet index")
-	}
+	sc     : index_set("Subcatchment")	
+	ol_idx : index_set("Outlet index") @sub(sc)
+
 	lu : index_set("Landscape units")
 	
 	distribute(soil,  sc, lu)

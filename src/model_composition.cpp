@@ -579,10 +579,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			}
 		}
 		for(auto ui_id : index_set->union_of) {
-			//TODO:
-			index_set->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Union index sets are currently not fully supported.");
-			
+						
 			auto ui = model->index_sets[ui_id];
 			if(is_valid(ui->sub_indexed_to)) {
 				// TODO: We could maybe support it if the union and all the union members are sub-indexed to the same thing.

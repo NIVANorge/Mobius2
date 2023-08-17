@@ -321,7 +321,7 @@ Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type
 }
 
 template<Reg_Type expected_type> Entity_Id
-resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, int max_sub_chain_size=1) {
+resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_Base_AST *decl, int which, int max_sub_chain_size=1) {
 	// We could do more error checking here, but it should really only be called after calling match_declaration...
 	
 	Argument_AST *arg = decl->args[which];
@@ -1088,10 +1088,11 @@ add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_I
 	if(is_valid(&ident->index_set)) {
 		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
 		auto index_set = model->index_sets[index_set_id];
-		//TODO: This should only be set if it is a direcexted graph?
-		//	 Also check for duplicates
-		index_set->is_edge_of_connection = connection_id;
-		index_set->is_edge_of_node       = component_id;
+		//	TODO: Also check for duplicates
+		if(connection->type == Connection_Type::directed_graph) {
+			index_set->is_edge_of_connection = connection_id;
+			index_set->is_edge_of_node       = component_id;
+		}
 		if(connection->type != Connection_Type::directed_graph && connection->type != Connection_Type::grid1d && connection->type != Connection_Type::all_to_all) {
 			ident->index_set.print_error_header();
 			fatal_error("Index sets should only be assigned to the nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all'");
@@ -1437,49 +1438,43 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 template<> Entity_Id
 process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	
-	int which = match_declaration(decl, {
-		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, {Decl_Type::index_set, true}}
-	});
+	match_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true);
 	
 	auto id  = model->index_sets.standard_declaration(scope, decl);
 	auto index_set = model->index_sets[id];
 	
-	if(which == 1) {
-		// This is a union declaration.
-		if(decl->args.size() < 3) {
-			decl->source_loc.print_error_header();
-			fatal_error("A union index set must be the union of at least two other index sets.");
-		}
-		
-		for(int argidx = 1; argidx < decl->args.size(); ++argidx) {
-			auto union_set = resolve_argument<Reg_Type::index_set>(model, scope, decl, argidx);
-			if(union_set == id || std::find(index_set->union_of.begin(), index_set->union_of.end(), union_set) != index_set->union_of.end()) {
-				decl->args[argidx]->source_loc().print_error_header();
-				fatal_error("Any index set can only appear once in a union.");
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "sub") {
+			match_declaration_base(note, {{Decl_Type::index_set}}, 0);
+			auto subto_id = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
+			auto subto = model->index_sets[subto_id];
+			if(!subto->has_been_declared) {
+				note->decl.print_error_header();
+				fatal_error("For technical reasons, an index set must be declared after an index sets it is sub-indexed to.");
 			}
-			index_set->union_of.push_back(union_set);
+			index_set->sub_indexed_to = subto_id;
+			if(std::find(subto->union_of.begin(), subto->union_of.end(), id) != subto->union_of.end()) {
+				decl->source_loc.print_error_header();
+				fatal_error("An index set can not be sub-indexed to something that is a union of it.");
+			}
+		} else if(str == "union") {
+			match_declaration_base(note, {{Decl_Type::index_set, {Decl_Type::index_set, true}}}, 0);
+			
+			for(int argidx = 0; argidx < note->args.size(); ++argidx) {
+				auto union_set = resolve_argument<Reg_Type::index_set>(model, scope, note, argidx);
+				if(union_set == id || std::find(index_set->union_of.begin(), index_set->union_of.end(), union_set) != index_set->union_of.end()) {
+					decl->args[argidx]->source_loc().print_error_header();
+					fatal_error("Any index set can only appear once in a union.");
+				}
+				index_set->union_of.push_back(union_set);
+			}
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note '", str, "' for 'index_set' declaration.");
 		}
 	}
 	
-	// NOTE: the reason we do it this way is to force the higher index set to have a smaller Entity_Id. This is very useful in later processing.
-	if(decl->body) {
-		auto body = static_cast<Decl_Body_AST *>(decl->body);
-		for(auto child : body->child_decls) {
-			if(child->type != Decl_Type::index_set) {
-				child->source_loc.print_error_header();
-				fatal_error("Only 'index_set' declarations are allowed in the body of another 'index_set' declaration.");
-			}
-			auto sub_id = process_declaration<Reg_Type::index_set>(model, scope, child);
-			model->index_sets[sub_id]->sub_indexed_to = id;
-			
-			index_set = model->index_sets[id]; // We have to look up the pointer again since it could have changed when processing other index_set declarations.
-			if(std::find(index_set->union_of.begin(), index_set->union_of.end(), sub_id) != index_set->union_of.end()) {
-				child->source_loc.print_error_header();
-				fatal_error("An index set can not be sub-indexed to something that is a union of it.");
-			}
-		}
-	}
 	return id;
 }
 

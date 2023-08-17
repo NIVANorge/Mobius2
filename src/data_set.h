@@ -98,23 +98,20 @@ Sub_Indexing_Info {
 	Sub_Indexing_Info() : n_dim1(0), type(Type::none) {}
 };
 
+struct Data_Set;
+
 struct
 Index_Set_Info : Info_Type_Base {
 
 	int sub_indexed_to = -1;
+	std::vector<int> union_of;
 	bool is_edge_index_set = false;
+	Data_Set *data_set = nullptr;
 	
 	std::vector<Sub_Indexing_Info> indexes;
-	int get_count(int index_of_super) {
-		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-		return indexes[super].get_count();
-	}
-	int get_max_count() {
-		int max = -1;
-		for(auto &idxs : indexes) max = std::max(max, idxs.get_count());
-		return max;
-	}
-	Sub_Indexing_Info::Type get_type(int index_of_super) {
+	int get_count(int index_of_super);
+	int get_max_count();
+	Sub_Indexing_Info::Type get_type(int index_of_super) {  // TODO: should just allow one type for all.
 		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
 		return indexes[super].type;
 	}
@@ -168,6 +165,7 @@ Par_Info : Info_Type_Base {
 
 struct
 Par_Group_Info : Info_Type_Base {
+	bool error = false;
 	std::vector<int> index_sets;
 	Info_Registry<Par_Info> pars;
 };

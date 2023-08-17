@@ -108,12 +108,12 @@ Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, bool matrix_
 			bool found = false;
 			auto set = app->model->index_sets[index_set];
 			for(auto ui_id : set->union_of) {
-				if(ui_id == index_set) {
-					result = add_exprs(result, get_index(app, ui_id));
+				if(indexes[ui_id.id]) {
+					result = add_exprs(result, indexes[ui_id.id]);
 					found = true;
 					break;
-				}
-				result = add_exprs(result, app->get_index_count_code(index_set, *this));
+				} else
+					result = add_exprs(result, app->get_index_count_code(ui_id, *this));
 			}
 			if(!found) {    // Do this since we want this to raise an error.
 				delete result;
@@ -747,15 +747,15 @@ Model_Application::active_instance_count(const std::vector<Entity_Id> &index_set
 	s64 count = 1;
 	if(index_sets.empty()) return count;
 	
-	for(int idx = (int)index_sets.size()-1; idx >= 0; --idx) {
+	for(int idx = 0; idx < index_sets.size(); ++idx) {
+		
 		auto index_set = model->index_sets[index_sets[idx]];
 		if(is_valid(index_set->sub_indexed_to)) {
-			if(idx == 0 || index_set->sub_indexed_to != index_sets[idx-1])
-				fatal_error(Mobius_Error::internal, "Got a sub-indexed index set that was not ordered right after its parent index set.");
+			// NOTE: For now removing the correctness check of the parent index set appearing first here since it should be sufficiently checked elsewhere
 			s64 sum = 0;
 			for(Index_T &c : index_counts[index_sets[idx].id]) sum += c.index;
 			count *= sum;
-			idx--; // NOTE: The sum already takes into account the size of the parent index set, so we skip it.
+			count /= get_max_index_count(index_set->sub_indexed_to).index; // NOTE: This is overcounted in the sum.
 		} else
 			count *= get_max_index_count(index_sets[idx]).index;
 	}
@@ -912,6 +912,10 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	Entity_Id edge_index_set = find_decl->second;
 	
 	if(comp->edge_index_set >= 0) {
+		if(cnd->type == Connection_Type::directed_tree) {
+			comp->source_loc.print_error_header();
+			fatal_error("The components of a 'directed_tree' should not be provided with an edge index set in the data set.");
+		}
 		auto idx_set_info = data_set->index_sets[comp->edge_index_set];
 		auto proposed_edge_index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
 		if(!is_valid(proposed_edge_index_set)) {
@@ -922,6 +926,9 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 			idx_set_info->source_loc.print_error_header();
 			fatal_error("The edge index set of this component in the data set does not match the edge index set given in the model.");
 		}
+	} else if (cnd->type == Connection_Type::directed_graph) {
+		comp->source_loc.print_error_header();
+		fatal_error("The components of a 'directed_graph' connection must be provided with an edge index set in the data set.");
 	}
 	
 	
@@ -1183,8 +1190,36 @@ process_index_set_data(Model_Application *app, Data_Set *data_set, Index_Set_Inf
 		//continue;
 	}
 	if(!model->index_sets[id]->union_of.empty()) {
+		// Check that the unions match
+		std::vector<int> union_of = index_set.union_of;
+		bool error = false;
+		for(auto ui_id : model->index_sets[id]->union_of) {
+			int ui_id_dataset = data_set->index_sets.find_idx(model->index_sets[ui_id]->name);
+			auto find = std::find(union_of.begin(), union_of.end(), ui_id_dataset);
+			if(find == union_of.end()) {
+				error = true;
+				break;
+			}
+			*find = -10;
+		}
+		if(!error) {
+			for(int ui_id_dataset : union_of) {
+				if(ui_id_dataset != -10) {
+					error = true;
+					break;
+				}
+			}
+		}
+		if(error) {
+			index_set.source_loc.print_error_header();
+			fatal_error("This index set is declared as a union in the model, but is not the same union in the data set.");
+		}
+		
+		// For union index sets, the index data is not separately processed here.
+		return;
+	} else if (!index_set.union_of.empty()) {
 		index_set.source_loc.print_error_header();
-		fatal_error("The index set \"", index_set.name, "\" is a union index set, and so should not receive separate index data.");
+		fatal_error("This index set is not declared as a union in the model, but is in the data set");
 	}
 	
 	Entity_Id sub_indexed_to = invalid_entity_id;
@@ -1438,6 +1473,7 @@ Model_Application::save_to_data_set() {
 			
 			// TODO: not sure if we should have an error for an empty par group.
 			bool index_sets_resolved = false;
+			
 			for(auto par_id : model->by_scope<Reg_Type::parameter>(group_id)) {
 				
 				if(!index_sets_resolved) {
@@ -1446,14 +1482,20 @@ Model_Application::save_to_data_set() {
 					for(auto index_set_id : index_sets) {
 						auto index_set = model->index_sets[index_set_id];
 						
-						auto index_set_idx = data_set->index_sets.find_idx(index_set->name);
-						if(index_set_idx < 0)
-							fatal_error(Mobius_Error::internal, "Tried to set an index set for a parameter group in a data set, but the index set was not in the data set.");
+						int	index_set_idx = data_set->index_sets.find_idx(index_set->name);
+						
+						if(index_set_idx < 0) {
+							par_group_info->error = true;
+							log_print("WARNING: Tried to set an index set dependency \"", index_set->name, "\" for the parameter group \"", par_group->name, "\" in the data set, but the index set was not in the data set. This will cause this parameter group to not be saved.\n");
+							break;
+						}
+						
 						par_group_info->index_sets.push_back(index_set_idx);
 					}
+					if(par_group_info->error) break;
+					
 					index_sets_resolved = true;
 				}
-				
 				
 				auto par = model->parameters[par_id];
 				

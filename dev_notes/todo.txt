@@ -1,6 +1,35 @@
 
 
 	*** High pri ***
+	
+		Union index sets
+		
+			Just make one Index_Data structure that can be reused between Data_Set and Model_Application
+			// get_instance_count is wrong if there are multiple sub-indexed things of the same parent.
+			// when reaching the parent, need to scan for the children and sum the products of those (not take the product of the sum).
+			
+			say     a : index_set("A") @union(b, c)
+			
+			If a variable can index over b  then it can depend on something that indexes over a, but this only confers a dependency on b, not on a.
+			
+			We probably have to disallow dependency on a if you have dependency on both b and c, or it is ambiguous.
+				On what level do we check this? Must be during the resolution loop?
+				
+			A Var_Location or a par_group should not be able to both depend on a union and a member of that union
+				This is currently checked per component basis, but not combined. Should be done in model_composition
+			
+			edge index sets should not be union index sets.
+				Right now implicit because of sub-indexing restriction of union index sets.
+			
+			Matching functionality in data_set.
+				For data that is indexed over a union set.
+				
+			Unless we find a reason not to, API access should not allow remapping, only the internal codegen.
+				Although if you index by name, the remap should be automatic also via API.
+				
+			Parameters and input series that could index over the union can't substitute a 'smaller' index set, or things could break (in the data_set)
+			
+			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
 
 
 		Redo memory handling of Index_Exprs.
@@ -92,33 +121,7 @@
 			
 	
 	*** Intermediate-pri ***
-	
-		Union index sets
-			
-			say     a : index_set("A", b, c)   # (a is the union of b and c)
-			
-			If a variable can index over b  then it can depend on something that indexes over a, but this only confers a dependency on b, not on a.
-			
-			We probably have to disallow dependency on a if you have dependency on both b and c, or it is ambiguous.
-				On what level do we check this? Must be during the resolution loop?
-				
-			A Var_Location or a par_group should not be able to both depend on a union and a member of that union
-				This is currently checked per component basis, but not combined. Should be done in model_composition
-			
-			edge index sets should not be union index sets.
-				Right now implicit because of sub-indexing restriction of union index sets.
-			
-			Matching functionality in data_set.
-				For data that is indexed over a union set.
-				
-			Unless we find a reason not to, API access should not allow remapping, only the internal codegen.
-				Although if you index by name, the remap should be automatic also via API.
-				
-			Parameters and input series that could index over the union can't substitute a 'smaller' index set, or things could break (in the data_set)
-			
-			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
-			
-			
+		
 			
 	
 		Ignore certain log_print if not in "developer mode" (should be configured in config.txt)

@@ -1,6 +1,49 @@
 
 
 
+# In data set:
+
+# B is sub-indexed to A
+index_set("A", "B") [
+
+]
+# How to denote union (?)
+
+index_set("A") [
+	index_set("B")
+	index_set("C")
+]
+
+# Now the syntax is almost opposite to what is in the model code, which is counter-intuitive
+
+# New maybe:
+
+# Sub-indexing:
+
+index_set("A") {
+	index_set("B") [
+	]
+}
+index_set("B") @sub("A") [
+	...
+]
+# Unions:
+index_set("A") @union("B", "C") # no data.
+
+# Should we also match that in the model declaration?
+
+index_set("A") @union(b, c) #?
+
+# For sub-indexing it is not that easy, unless we make another way of forcing dependency.
+
+index_set("A") @sub(b)   # Would have to enforce that b is declared before a, but we could actually check that.
+
+
+
+
+
+
+
 
 	a : union(b, c)     # Prefer this one (?) -- oops, that clashes with a C++ reserved identifier, so that is a bit tricky.
 	a : index_set(b, c)

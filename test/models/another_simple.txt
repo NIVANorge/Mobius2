@@ -3,14 +3,16 @@
 model("Another simple") {
 
 	a : compartment("A")
+	b : compartment("B")
 	
 	qf : property("Q!")
 	
 	i  : index_set("I")
 	j  : index_set("J")
-	k  : index_set("K", i, j)
+	k  : index_set("K") @union(i, j)
 	
 	distribute(a, k)
+	distribute(b, j)
 	
 	module("So simple", version(2, 0, 0)) {
 
@@ -19,6 +21,8 @@ model("Another simple") {
 		}
 
 		var(a.qf, [], "Q!") {
+			q
+			/*
 			i := 0,
 			r := 1,
 			p:{
@@ -26,6 +30,7 @@ model("Another simple") {
 				{ r <- r*i, iterate p }  if i <= q,
 				r                        otherwise
 			}
+			*/
 		}
 	}
 }

@@ -4,22 +4,79 @@
 #include "data_set.h"
 #include "ole_wrapper.h"
 
+
 int
-Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
+Index_Set_Info::get_count(int index_of_super) {
+
 	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+	if(union_of.empty()) {
+		return indexes[super].get_count();
+	} else {
+		int sum = 0;
+		for(int set_idx : union_of) {
+			auto set = data_set->index_sets[set_idx];
+			sum += set->get_count(super);
+		}
+		return sum;
+	}
+}
+
+int
+Index_Set_Info::get_max_count() {
+	if(!union_of.empty())
+		return get_count(0);
+	int max = -1;
+	for(auto &idxs : indexes) max = std::max(max, idxs.get_count());
+	return max;
+}
+
+int
+find_index_base(Index_Set_Info *info, Token *idx_name, int index_of_super) {
+	int super = (info->sub_indexed_to >= 0) ? index_of_super : 0;
 	if(idx_name->type == Token_Type::quoted_string) {
-		return indexes[super].indexes.expect_exists_idx(idx_name, "index");
+		return info->indexes[super].indexes.find_idx(idx_name->string_value);
 	} else if (idx_name->type == Token_Type::integer) {
 		int idx = idx_name->val_int;
-		if(!check_index(idx, super)) {
-			idx_name->print_error_header();
-			fatal_error("Index is out of bounds for this index set.");
-		}
+		if(!info->check_index(idx, super))
+			return -1;
 		return idx;
 	} else {
 		idx_name->print_error_header();
 		fatal_error("Only quoted strings and integers can be used to identify indexes.");
 	}
+}
+
+int
+Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
+	
+	int result = -1;
+	if(!union_of.empty() && indexes[0].type == Sub_Indexing_Info::Type::named) {
+		if(sub_indexed_to >= 0)
+			fatal_error(Mobius_Error::internal, "Unimplemented sub-indexing for unions");
+		
+		int sum = 0;
+		bool found = false;
+		for(int set_idx : union_of) {
+			auto set = data_set->index_sets[set_idx];
+			int find = find_index_base(set, idx_name, 0);
+			if(find < 0) {
+				sum += find;
+				found = true;
+				break;
+			} else
+				sum += set->get_count(0);
+		}
+		result = sum;
+		if(!found)
+			result = -1;
+	} else
+		result = find_index_base(this, idx_name, index_of_super);
+	
+	if(result < 0) {
+		idx_name->print_error_header();
+		fatal_error("This is not a valid index for the index set \"", this->name, "\".");
+	}
+	return result;
 }
 
 int 
@@ -54,10 +111,25 @@ write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_se
 	
 	if(index_set.sub_indexed_to < 0) {
 		fprintf(file, "index_set(\"%s\") ", index_set.name.data());
-		write_index_set_indexes_to_file(file, &index_set.indexes[0]);
+		if(!index_set.union_of.empty()) {
+			fprintf(file, "@union(");
+			int idx = 0;
+			for(int set_idx : index_set.union_of) {
+				auto set = data_set->index_sets[set_idx];
+				fprintf(file, "\"%s\"", set->name.data());
+				if(idx != index_set.union_of.size()-1)
+					fprintf(file, ", ");
+				++idx;
+			}
+			fprintf(file, ")");
+		} else
+			write_index_set_indexes_to_file(file, &index_set.indexes[0]);
 	} else {
+		if(!index_set.union_of.empty())
+			fatal_error(Mobius_Error::internal, "Unimplemented sub-indexed union index set.");
+		
 		auto parent = data_set->index_sets[index_set.sub_indexed_to];
-		fprintf(file, "index_set(\"%s\", \"%s\") [\n", parent->name.data(), index_set.name.data());
+		fprintf(file, "index_set(\"%s\") @sub(\"%s\") [\n", parent->name.data(), index_set.name.data());
 
 		int count = parent->get_max_count();
 		if(count != index_set.indexes.size())
@@ -193,18 +265,16 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 int
 get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Source_Location *error_loc = nullptr){
 	int count = 1;
-	std::vector<u8> already_counted(index_sets.size());
 	
-	for(int level = index_sets.size()-1; level >= 0; --level) {
-		if(already_counted[level]) continue;
-		
+	for(int level = 0; level < index_sets.size(); ++level) {
+
 		auto index_set = data_set->index_sets[index_sets[level]];
 		if(index_set->sub_indexed_to >= 0) {
+			// TODO: Do we need the check here, or is there sufficient checks of this in other locations?
 			bool found = false;
 			for(int level_parent = 0; level_parent < level; ++level_parent) {
 				if(index_sets[level_parent] == index_set->sub_indexed_to) {
 					found = true;
-					already_counted[level_parent] = true;
 					break;
 				}
 			}
@@ -216,6 +286,7 @@ get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Sourc
 			int sum = 0;
 			for(auto &idxs : index_set->indexes) sum += idxs.get_count();
 			count *= sum;
+			count /= data_set->index_sets[index_set->sub_indexed_to]->get_max_count(); // This is overcounted in the sum.
 		} else
 			count *= index_set->get_max_count();
 	}
@@ -316,6 +387,8 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 
 void
 write_par_group_to_file(FILE *file, Data_Set *data_set, Par_Group_Info &par_group, int tabs, bool double_newline = true) {
+	if(par_group.error) return;
+	
 	print_tabs(file, tabs);
 	fprintf(file, "par_group(\"%s\") ", par_group.name.data());
 	if(par_group.index_sets.size() > 0) {
@@ -474,20 +547,74 @@ make_sub_indexed_to(Data_Set *data_set, Index_Set_Info *data, Token *parent) {
 
 void
 parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
-	int which = match_declaration(decl,
-		{
-			{Token_Type::quoted_string},
-			{Token_Type::quoted_string, Token_Type::quoted_string},
-		}, false, false);
-				
-	auto name = single_arg(decl, which);
+	
+	match_declaration(decl,	{{Token_Type::quoted_string}}, false, false);
+	
+	auto name = single_arg(decl, 0);
 	auto data = data_set->index_sets.create(name->string_value, name->source_loc);
+	data->data_set = data_set;
 	
 	Index_Set_Info *sub_indexed_to = nullptr;
-	if(which == 1) {
-		sub_indexed_to = make_sub_indexed_to(data_set, data, single_arg(decl, 0));
+	
+	while(true) {
+		auto peek = stream->peek_token();
+		if((char)peek.type == '@') {
+			stream->read_token();
+			Decl_Base_AST *note = new Decl_Base_AST();
+			parse_decl_header_base(note, stream, false);
+			auto str = note->decl.string_value;
+			if(str == "sub") {
+				match_declaration_base(note, {{Token_Type::quoted_string}}, 0);
+				sub_indexed_to = make_sub_indexed_to(data_set, data, single_arg(note, 0));
+			} else if (str == "union") {
+				match_declaration_base(note, {{Token_Type::quoted_string, {Token_Type::quoted_string, true}}}, 0);
+				for(int argidx = 0; argidx < note->args.size(); ++argidx) {
+					int set_idx = data_set->index_sets.expect_exists_idx(single_arg(note, argidx), "index_set");
+					if(std::find(data->union_of.begin(), data->union_of.end(), set_idx) != data->union_of.end()) {
+						single_arg(note, argidx)->print_error_header();
+						fatal_error("Double appearance of index set in union declaration.");
+					}
+					auto set_data = data_set->index_sets[set_idx];
+					if(set_data->sub_indexed_to > 0 || !set_data->union_of.empty()) {
+						single_arg(note, argidx)->print_error_header();
+						fatal_error("It is not currently supported to have unions of sub-indexed index sets or other unions.");
+					}
+					data->union_of.push_back(set_idx);
+				}
+				
+			} else {
+				note->decl.print_error_header();
+				fatal_error("Unrecognized note '", str, "' for 'index_set' declaration.");
+			}
+			
+			delete note;
+		} else break;
 	}
 	
+	if(!data->union_of.empty() && data->sub_indexed_to > 0) {
+		decl->source_loc.print_error_header();
+		fatal_error("It is not currently supported that an index set can both be sub-indexed and be a union.");
+	}
+	
+	if(!data->union_of.empty()) {
+		data->indexes.resize(1);
+		auto &idx = data->indexes[0];
+		
+		idx.type = Sub_Indexing_Info::Type::none;
+		for(int set_idx : data->union_of) {
+			auto &index_data = data_set->index_sets[set_idx]->indexes[0];
+			if(idx.type == Sub_Indexing_Info::Type::none)
+				idx.type = index_data.type;
+			else if(idx.type != index_data.type) {
+				decl->source_loc.print_error_header();
+				fatal_error("It is not supported to have a union of index sets that have different index name type (e.g. numeric vs named)");
+			}
+			// TODO: Check for overlapping names!
+		}
+		
+		return;
+	}
+
 	auto peek = stream->peek_token(1);
 	bool found_sub_indexes = false;
 	if(peek.type == Token_Type::quoted_string || peek.type == Token_Type::integer) {
@@ -694,6 +821,7 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 				fatal_error("A component can have at most one edge index set, and if it does have one it must have at most one main index set.");
 			}
 			auto edge_set_data = data_set->index_sets.create(edge_list[0].string_value, edge_list[0].source_loc);
+			edge_set_data->data_set = data_set;
 			data->edge_index_set = data_set->index_sets.find_idx(edge_list[0].string_value);
 			edge_set_data->is_edge_index_set = true;
 			
@@ -1079,7 +1207,7 @@ Data_Set::read_from_file(String_View file_name) {
 							break;
 						} else {
 							token.print_error_header();
-							fatal_error("Expected a } or a par_group declaration.");
+							fatal_error("Expected a } or a 'par_group' declaration.");
 						}
 					}
 				} break;
