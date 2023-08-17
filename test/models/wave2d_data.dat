@@ -1,7 +1,6 @@
-index_set("Horizontal") [ 100  ]
+index_set("Horizontal") [ 100 ]
 
-index_set("Vertical") [ 100  ]
-
+index_set("Vertical") [ 100 ]
 
 par_group("System") {
 	par_datetime("Start date")
@@ -11,7 +10,7 @@ par_group("System") {
 	[ 1995-12-31 ]
 }
 
-module("Wave2D", 1, 0, 0) {
+module("Wave2D", version(1, 0, 0)) {
 	par_group("Layers") [ "Vertical" "Horizontal" ] {
 		par_real("Initial amplitude") [
 			0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 

@@ -747,21 +747,21 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 		error_print("Expected at most two tokens in the chain inside the bracket.");
 		fatal_error_trace(scope);
 	}
-	ident->restriction.connection_id = conn_id;
+	ident->restriction.r1.connection_id = conn_id;
 	
-	auto &res = ident->restriction.restriction;
+	auto &res = ident->restriction.r1.type;
 	// TODO: Factor this out and reuse in model_declaration (although there we only allow top and bottom).
 	auto type = chain[idx].string_value;
 	if(type == "above")
-		res = Var_Loc_Restriction::above;
+		res = Restriction::above;
 	else if (type == "below")
-		res = Var_Loc_Restriction::below;
+		res = Restriction::below;
 	else if (type == "top")
-		res = Var_Loc_Restriction::top;
+		res = Restriction::top;
 	else if (type == "bottom")
-		res = Var_Loc_Restriction::bottom;
+		res = Restriction::bottom;
 	
-	if(ident->variable_type == Variable_Type::is_at && (res == Var_Loc_Restriction::above || res == Var_Loc_Restriction::below)) {
+	if(ident->variable_type == Variable_Type::is_at && (res != Restriction::top && res != Restriction::below)) {
 		ident->source_loc.print_error_header();
 		error_print("Only 'top' and 'bottom' are supported quantifiers for an 'is_at'.");
 		fatal_error_trace(scope);

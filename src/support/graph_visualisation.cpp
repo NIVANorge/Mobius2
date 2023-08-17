@@ -144,7 +144,7 @@ add_flux_edge(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Locat
 		if(var->has_flag(State_Var::has_aggregate)) return;
 		if(is_located(var->loc1)) loc1 = &var->loc1;
 		if(is_located(var->loc2)) loc2 = &var->loc2;
-		conn_id = var->loc2.connection_id;
+		conn_id = var->loc2.r1.connection_id;
 		name = &var->name;
 	} else if (var->type == State_Var::Type::regular_aggregate) {
 		auto var2 = as<State_Var::Type::regular_aggregate>(var);

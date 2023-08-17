@@ -100,16 +100,17 @@ Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, bool matrix_
 	if(matrix_column && mat_col) {
 		if(index_set != mat_index_set)
 			fatal_error(Mobius_Error::internal, "Unexpected matrix column index set.");
-		result = mat_col;
+		result = ::copy(mat_col);
 	} else {
-		result = indexes[index_set.id];
-		if(!result) {
+		if(indexes[index_set.id]) {
+			result = ::copy(indexes[index_set.id]);
+		} else {
 			// Try to index a union index set (if a direct index is absent) by an index belonging to a member of that union.
 			bool found = false;
 			auto set = app->model->index_sets[index_set];
 			for(auto ui_id : set->union_of) {
 				if(indexes[ui_id.id]) {
-					result = add_exprs(result, indexes[ui_id.id]);
+					result = add_exprs(result, ::copy(indexes[ui_id.id]));
 					found = true;
 					break;
 				} else
@@ -126,11 +127,16 @@ Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, bool matrix_
 
 void
 Index_Exprs::set_index(Entity_Id index_set, Math_Expr_FT *index, bool matrix_column) {
+	if(!index)
+		fatal_error(Mobius_Error::internal, "It is not allowed to set a nullptr index on an Index_Exprs.");
 	if(matrix_column) {
+		if(mat_col) delete mat_col;
 		mat_index_set = index_set;
 		mat_col = index;
-	} else
+	} else {
+		if(indexes[index_set.id]) delete indexes[index_set.id];
 		indexes[index_set.id] = index;
+	}
 }
 
 void
@@ -310,9 +316,12 @@ Model_Application::get_single_connection_index_set(Entity_Id conn_id) {
 
 Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction) {
+	
+	// TODO: For secondary restriction r2 also!
+	
 	Entity_Id avoid = invalid_entity_id;
-	if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::bottom)
-		return app->get_single_connection_index_set(restriction.connection_id);
+	if(restriction.r1.type == Restriction::top || restriction.r1.type == Restriction::bottom)
+		return app->get_single_connection_index_set(restriction.r1.connection_id);
 	return avoid;
 }
 

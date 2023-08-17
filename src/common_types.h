@@ -291,30 +291,32 @@ operator==(const Var_Location &a, const Var_Location &b) {
 
 inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
 
+
 struct
-Single_Restriction {
+Restriction {
 	Entity_Id        connection_id = invalid_entity_id;
-	enum Restriction {
+	enum Type {
 		none, top, bottom, above, below, specific
-	}                restriction = Restriction::none;
+	}                type = none;
 	
-	Single_Restriction() {}
-	Single_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
+	Restriction() {}
+	Restriction(Entity_Id connection_id, Type type) : connection_id(connection_id), type(type) {}
 };
 
-inline bool operator<(const Single_Restriction &a, const Single_Restriction &b) {
-	if(a.connection_id == b.connection_id) return (int)a.restriction < (int)b.restriction;
+inline bool operator<(const Restriction &a, const Restriction &b) {
+	if(a.connection_id == b.connection_id) return (int)a.type < (int)b.type;
 	return a.connection_id < b.connection_id;
 }
 
-inline bool operator==(const Single_Restriction &a, const Single_Restriction &b) {
-	return a.connection_id == b.connection_id && a.restriction == b.restriction;
+inline bool operator==(const Restriction &a, const Restriction &b) {
+	return a.connection_id == b.connection_id && a.type == b.type;
 }
 
 struct
-Var_Loc_Restriction : Single_Restriction {
+Var_Loc_Restriction {
 	
-	Single_Restriction restriction2;
+	Restriction r1;
+	Restriction r2;
 
 	// NOTE: These two are only supposed to be used for tree aggregates where the source/target could be ambiguous.
 	// TODO: It would be nice to be able to be able to remove these. Go over how they are used and see if not one could use a similar thing to directed_graph instead?
@@ -322,13 +324,17 @@ Var_Loc_Restriction : Single_Restriction {
 	Entity_Id        target_comp = invalid_entity_id;
 	
 	Var_Loc_Restriction() {};
-	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : Single_Restriction(connection_id, restriction) {}
+	Var_Loc_Restriction(Entity_Id connection_id, Restriction::Type type) : r1(connection_id, type) {}
 };
 
+inline bool operator==(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
+	return a.r1 == b.r1 && a.r2 == b.r2;
+}
+
 inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
-	if(static_cast<const Single_Restriction &>(a) == static_cast<const Single_Restriction &>(b))
-		return a.restriction2 < b.restriction2;
-	return static_cast<const Single_Restriction &>(a) < static_cast<const Single_Restriction &>(b);
+	if(a.r1 == b.r1)
+		return a.r2 < b.r2;
+	return a.r1 < b.r1;
 }
 
 struct

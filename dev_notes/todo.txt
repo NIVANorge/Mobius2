@@ -2,40 +2,14 @@
 
 	*** High pri ***
 	
-		Union index sets
-		
-			Just make one Index_Data structure that can be reused between Data_Set and Model_Application
-			// get_instance_count is wrong if there are multiple sub-indexed things of the same parent.
-			// when reaching the parent, need to scan for the children and sum the products of those (not take the product of the sum).
-			
-			say     a : index_set("A") @union(b, c)
-			
-			If a variable can index over b  then it can depend on something that indexes over a, but this only confers a dependency on b, not on a.
-			
-			We probably have to disallow dependency on a if you have dependency on both b and c, or it is ambiguous.
-				On what level do we check this? Must be during the resolution loop?
-				
-			A Var_Location or a par_group should not be able to both depend on a union and a member of that union
-				This is currently checked per component basis, but not combined. Should be done in model_composition
-			
-			edge index sets should not be union index sets.
-				Right now implicit because of sub-indexing restriction of union index sets.
-			
-			Matching functionality in data_set.
-				For data that is indexed over a union set.
-				
-			Unless we find a reason not to, API access should not allow remapping, only the internal codegen.
-				Although if you index by name, the remap should be automatic also via API.
-				
-			Parameters and input series that could index over the union can't substitute a 'smaller' index set, or things could break (in the data_set)
-			
-			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
-
-
-		Redo memory handling of Index_Exprs.
-			get_index does a copy. (So caller should not copy)
-			Overwrite does a delete on existing.
-
+	
+	
+		Have to get the secondary restriction to work for identifier lookups also (needed for bidirectional horizontal exchange in NIVAFjord).
+	
+	
+		get_instance_count is wrong if there are multiple sub-indexed things of the same parent.
+			when reaching the parent, need to scan for the children and sum the products of those (not take the product of the sum).
+	
 
 		Finish the new formulation of special_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
@@ -122,7 +96,15 @@
 	
 	*** Intermediate-pri ***
 		
-			
+		Union index sets
+			say     a : index_set("A") @union(b, c)
+			We probably have to disallow dependency on a if you have dependency on both b and c, or it is ambiguous.
+				On what level do we check this? Must be during the resolution loop?
+			A Var_Location or a par_group should not be able to both depend on a union and a member of that union
+				This is currently checked per component basis, but not combined. Should be done in model_composition
+			Edge index sets should not be union index sets.
+				Right now implicit because of sub-indexing restriction of union index sets.
+			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
 	
 		Ignore certain log_print if not in "developer mode" (should be configured in config.txt)
 	
@@ -268,6 +250,8 @@
 			
 			Could have a serialization name for entities in the data set and use that to map them over to the model? Then use Entity_Id inside the data_set, but just map these to the model entity_ids.
 		
+			Just make one Index_Data structure that can be reused between Data_Set and Model_Application
+				Handles all get_count, get_instance_count, name lookup etc. etc.
 			
 			Index sets refereced inside unused modules have still to be declared in the data set.
 				Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.

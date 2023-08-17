@@ -160,7 +160,7 @@ State_Var_Sub<type> *as(State_Var *var) {
 inline Var_Loc_Restriction &
 restriction_of_flux(State_Var *var) {
 	// TODO: Should this check if it is actually a flux?
-	if(is_valid(var->loc1.connection_id))
+	if(is_valid(var->loc1.r1.connection_id))
 		return var->loc1;
 	return var->loc2;
 }

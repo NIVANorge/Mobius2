@@ -56,6 +56,43 @@ nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densit
 }
 
 extern "C" DLLEXPORT void
+nivafjord_place_horizontal_fluxes_redux(Value_Access *target_out, Value_Access *densities1, Value_Access *densities2, Value_Access *pressure1, Value_Access *pressure2, Value_Access *widths) {
+	
+	for(int layer = 0; layer < target_out->count; ++layer) {
+		
+		if(widths->at(layer) == 0.0) break;
+		
+		double dP = pressure1->at(layer) - pressure2->at(layer);
+		int closest = layer;
+		double minabs = std::numeric_limits<double>::infinity();
+		
+		if(dP > 0) {
+			double dens = densities1->at(layer);
+			for(int layer2 = layer; layer2 < densities2->count; ++layer2) {
+				double abs = std::abs(dens - densities2->at(layer2));
+				if(abs < minabs) {
+					closest = layer2;
+					minabs = abs;
+				} else
+					break;
+			}
+			target_out->at(layer) = (double)closest;
+		} else {
+			double dens = densities2->at(layer);
+			for(int layer2 = layer; layer2 < densities1->count; ++layer2) {
+				double abs = std::abs(dens - densities1->at(layer2));
+				if(abs < minabs) {
+					closest = layer2;
+					minabs = abs;
+				} else
+					break;
+			}
+			target_out->at(closest) = (double)layer; // This instead gives the level of the other layer that flows to this one.
+		}
+	}
+}
+
+extern "C" DLLEXPORT void
 nivafjord_vertical_realignment(Value_Access *align_out, Value_Access *horz_balance) {
 	for(int layer = align_out->count-1; layer >= 0; --layer) {
 		double align = horz_balance->at(layer);

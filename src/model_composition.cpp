@@ -124,18 +124,18 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 	
 	if(!is_flux) return;
 	
-	if(is_valid(loc.connection_id)) {
-		auto conn = app->model->connections[loc.connection_id];
+	if(is_valid(loc.r1.connection_id)) {
+		auto conn = app->model->connections[loc.r1.connection_id];
 		if(conn->type == Connection_Type::grid1d) {
-			if(is_source && loc.restriction == Var_Loc_Restriction::top) {
+			if(is_source && loc.r1.type == Restriction::top) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("'top' can't be in the source of a flux.");
 			}
-			if(!is_source && loc.restriction == Var_Loc_Restriction::bottom) {
+			if(!is_source && loc.r1.type == Restriction::bottom) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("'bottom' can't be in the target of a flux.");
 			}
-			if(is_source && loc.restriction == Var_Loc_Restriction::specific) {
+			if(is_source && loc.r1.type == Restriction::specific) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("'specific' can't be in the source of a flux.");
 			}
@@ -143,14 +143,15 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 			if(is_source) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("For this connection type, the connection can't be specified in the source of the flux.");
-			} else if (loc.restriction != Var_Loc_Restriction::below) {
+			} else if (loc.r1.type != Restriction::below) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This connection type can't have fluxes with specified locations.");
 			}
 		}
+		// TODO: We could just do the checks on loc.r2 here ?
 		
 		//TODO: This check should NOT use the connection_components. It must use the component options that are stored on the flux.
-		auto &components = app->connection_components[loc.connection_id].components;
+		auto &components = app->connection_components[loc.r1.connection_id].components;
 		bool found = false;
 		for(int idx = 0; idx < loc.n_components; ++idx) {
 			for(auto &comp : components)
@@ -161,7 +162,7 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 			fatal_error("None of the components on this var location are supported for the connection \"", conn->name, "\".");
 		}
 			
-	} else if(loc.restriction != Var_Loc_Restriction::none) {
+	} else if(loc.r1.type != Restriction::none) {
 		fatal_error(Mobius_Error::internal, "Got a var location with a restriction that was not tied to a connection.");
 	}
 }
@@ -275,8 +276,8 @@ get_maximal_index_sets(Model_Application *app, std::set<Entity_Id> &index_sets, 
 	Entity_Id exclude = avoid_index_set_dependency(app, *loc);
 	
 	// The purpose of this first check is to allow a flux on a graph connection to reference something that depends on the edge index set of the graph situated at the source of the flux.
-	if(is_valid(loc2.connection_id) && model->connections[loc2.connection_id]->type == Connection_Type::directed_graph) {
-		auto find_source = app->find_connection_component(loc2.connection_id, loc1.components[0], false);
+	if(is_valid(loc2.r1.connection_id) && model->connections[loc2.r1.connection_id]->type == Connection_Type::directed_graph) {
+		auto find_source = app->find_connection_component(loc2.r1.connection_id, loc1.components[0], false);
 		if(find_source && find_source->edge_index_set != exclude)
 			insert_dependency_helper(model, index_sets, find_source->edge_index_set);
 	}
@@ -404,7 +405,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 				fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
 			}
 		} else if (dep.variable_type == Variable_Type::is_at) {
-			auto conn_id = dep.restriction.connection_id;
+			auto conn_id = dep.restriction.r1.connection_id;
 			if(!is_valid(conn_id)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'is_at' expression does not reference a connection.");
@@ -461,7 +462,7 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 			ident->source_loc.print_error_header();
 			fatal_error("Only state variables are relevant for a 'no_carry'.");
 		}
-		if(ident->flags != Identifier_Data::Flags::none || ident->restriction.restriction != Var_Loc_Restriction::Restriction::none) {
+		if(ident->flags != Identifier_Data::Flags::none || ident->restriction.r1.type != Restriction::none) {
 			ident->source_loc.print_error_header();
 			fatal_error("Only plain variable identifiers are allowed in a 'no_carry'.");
 		}
@@ -734,7 +735,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		check_location(app, flux->source_loc, flux->source, true, true, true);
 		check_location(app, flux->source_loc, flux->target, true, true, false);
 		
-		if(!is_located(flux->source) && is_valid(flux->target.connection_id) && flux->target.restriction == Var_Loc_Restriction::below) {
+		if(!is_located(flux->source) && is_valid(flux->target.r1.connection_id) && flux->target.r1.type == Restriction::below) {
 			flux->source_loc.print_error_header(Mobius_Error::model_building); 
 			fatal_error("You can't have a flux from 'out' to a connection.\n");
 		}
@@ -817,16 +818,14 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			
 			// TODO: This is annoying. There should be a Specific_Var_Location::add_dissolved that preserves the restrictions.
 			gen_flux->loc1 = source;
-			gen_flux->loc1.connection_id = flux->loc1.connection_id;
-			gen_flux->loc1.restriction   = flux->loc1.restriction;
-			gen_flux->loc1.restriction2  = flux->loc1.restriction2;
+			gen_flux->loc1.r1 = flux->loc1.r1;
+			gen_flux->loc1.r2 = flux->loc1.r2;
 			
 			if(is_located(flux->loc2))
 				gen_flux->loc2 = add_dissolved(flux->loc2, source.last());
 			gen_flux->loc2.type = flux->loc2.type;
-			gen_flux->loc2.restriction = flux->loc2.restriction;
-			gen_flux->loc2.connection_id = flux->loc2.connection_id;
-			gen_flux->loc2.restriction2 = flux->loc2.restriction2;
+			gen_flux->loc2.r1 = flux->loc2.r1;
+			gen_flux->loc2.r2 = flux->loc2.r2;
 		}
 	}
 }
@@ -1090,9 +1089,9 @@ compose_and_resolve(Model_Application *app) {
 			other_code_scope = code_scope;
 			
 			// Not sure if it would be better to pack both locations to the function resolve data and look up the connections from it that way. 
-			connection = flux_decl->source.connection_id;
+			connection = flux_decl->source.r1.connection_id;
 			if(!is_valid(connection))
-				connection = flux_decl->target.connection_id;
+				connection = flux_decl->target.r1.connection_id;
 			
 			bool target_is_located = is_located(var->loc2);
 			if(is_located(var->loc1)) {
@@ -1280,8 +1279,8 @@ compose_and_resolve(Model_Application *app) {
 		// We have to copy "specific target" to all dissolved child fluxes. We could not have done that before since the code was only just resolved above.
 		auto flux = app->vars[flux_id];
 		if(flux->type != State_Var::Type::dissolved_flux) continue;
-		auto res = restriction_of_flux(flux);
-		if(res.restriction != Var_Loc_Restriction::specific && res.restriction2.restriction != Var_Loc_Restriction::specific) continue;
+		auto &res = restriction_of_flux(flux);
+		if(res.r1.type != Restriction::specific && res.r2.type != Restriction::specific) continue;
 		auto orig_flux = flux;
 		while(orig_flux->type == State_Var::Type::dissolved_flux)
 			orig_flux = app->vars[as<State_Var::Type::dissolved_flux>(orig_flux)->flux_of_medium];
@@ -1309,7 +1308,7 @@ compose_and_resolve(Model_Application *app) {
 				if(!target->override_tree)
 					valid_target = true;
 			}
-			if(is_valid(var->loc2.connection_id))
+			if(is_valid(var->loc2.r1.connection_id))
 				valid_target = true;
 			bool invalidate = !valid_source && !valid_target;
 			could_be_invalidated[var_id] = invalidate;
@@ -1339,19 +1338,19 @@ compose_and_resolve(Model_Application *app) {
 	for(auto var_id : app->vars.all_fluxes()) {
 		auto var = app->vars[var_id];
 		
-		auto &restriction = restriction_of_flux(var);
-		if(is_valid(restriction.connection_id)) {
+		auto &res = restriction_of_flux(var).r1;
+		if(is_valid(res.connection_id)) {
 			
 			Var_Location loc = var->loc1;
-			if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::specific)
+			if(res.type == Restriction::top || res.type == Restriction::specific)
 				loc = var->loc2; // NOTE: For top and specific the relevant location is the target.
 
 			if(is_located(loc)) {
 				
-				auto type = model->connections[restriction.connection_id]->type;
+				auto type = model->connections[res.connection_id]->type;
 				if(type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) {
 					// For graph-like connections, we can completely disable fluxes if they don't have any arrows to go along.
-					auto comp = app->find_connection_component(restriction.connection_id, loc.first(), false);
+					auto comp = app->find_connection_component(res.connection_id, loc.first(), false);
 					bool found_target = false;
 					if(comp)
 						found_target = !comp->possible_targets.empty();
@@ -1362,7 +1361,7 @@ compose_and_resolve(Model_Application *app) {
 				}
 				
 				Var_Id source_id = app->vars.id_of(loc);
-				may_need_connection_target.insert({restriction.connection_id, source_id});
+				may_need_connection_target.insert({res.connection_id, source_id});
 			}
 		}
 	}
@@ -1393,11 +1392,11 @@ compose_and_resolve(Model_Application *app) {
 		
 		if(!is_below) {
 			
-			if(is_valid(var->loc2.connection_id)) {
+			if(is_valid(var->loc2.r1.connection_id)) {
 				// NOTE: This could happen if it is a located connection like "water[vert.top]". TODO: Make it possible to support this.
 				auto &loc = model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc;
 				loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This flux would need a regular aggregate, but that is not currently supported for fluxes with a bracketed target.");
+				fatal_error("This flux would need a regular aggregate, but that is not currently supported for fluxes with a connection target.");
 			}
 			
 			needs_aggregate[var_id.id].first.insert(var->loc2.first());

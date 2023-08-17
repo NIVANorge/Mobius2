@@ -78,9 +78,11 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	horz_flow : property("Horizontal flow")
 	var(edge_layer.horz_flow, [k g, day-1], "Layer horizontal outflow") {
-		dP := layer.water.pressure - layer.water.pressure[vert.below],
+		#NOTE: This could go in both directions
 		
-		u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
+		dP := layer.water.pressure - layer.water.pressure[vert.below],
+		#u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
+		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP),
 		u * w_bnd * layer.dz * rho_water->>
 	}
 	
@@ -112,14 +114,14 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	################
 		#TODO: No, it is probably even simpler than what we have thought of. We only need outgoing edges from layer, and the fluxes just need to be bidirectional.
-		#    We just need to fix the codegen for that.
+		#    We just need to fix the codegen for that for dissolved stuff (get the right concentration).
 		#    Maybe make a 'biflux' declaration for that to be explicit
+		#    Although we have to be careful with the vertical target in that case. It has to go 'up'
 		
 	################
 	
 	/*
 	# TODO: It should be possible to make it so that this is a module on its own:
-	
 	
 	var(bnd_edge_layer.vert_target, [], "Fjord boundary layer horizontal exchange vertical target")
 	

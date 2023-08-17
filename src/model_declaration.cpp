@@ -512,19 +512,19 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 }
 
 void
-process_bracket(Mobius_Model *model, Decl_Scope *scope, std::vector<Token> &bracket, Single_Restriction &res, bool allow_bracket) {
+process_bracket(Mobius_Model *model, Decl_Scope *scope, std::vector<Token> &bracket, Restriction &res, bool allow_bracket) {
 	if(bracket.size() == 2 && allow_bracket) {
 		
 		res.connection_id = model->connections.find_or_create(scope, &bracket[0]);
 		auto type = bracket[1].string_value;
 		if(type == "top")
-			res.restriction = Var_Loc_Restriction::top;
+			res.type = Restriction::top;
 		else if(type == "bottom")
-			res.restriction = Var_Loc_Restriction::bottom;
+			res.type = Restriction::bottom;
 		else if(type == "specific")
-			res.restriction = Var_Loc_Restriction::specific;
+			res.type = Restriction::specific;
 		else if(type == "below")
-			res.restriction = Var_Loc_Restriction::below;
+			res.type = Restriction::below;
 		else {
 			bracket[1].print_error_header();
 			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
@@ -569,8 +569,8 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 			if(reg) {
 				if(reg->id.reg_type == Reg_Type::connection) {
 					location->type = Var_Location::Type::connection;
-					specific_loc->connection_id = reg->id;
-					specific_loc->restriction   = Var_Loc_Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
+					specific_loc->r1.connection_id = reg->id;
+					specific_loc->r1.type          = Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
 				} else if (reg->id.reg_type == Reg_Type::loc) {
 					auto loc = model->locs[reg->id];
 					
@@ -578,7 +578,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 						*specific_loc = loc->loc;
 					else {
 						*location = loc->loc;
-						if(loc->loc.restriction != Var_Loc_Restriction::none) {
+						if(loc->loc.r1.type != Restriction::none) {
 							loc->source_loc.print_error_header();
 							error_print("This declared location has a bracketed restriction, but that is not allowed when it is used in the following context :\n");
 							token->source_loc.print_error();
@@ -615,15 +615,15 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 	
 	if(allow_restriction) {
 		bool allow_bracket = !is_out &&	(count >= 2 || (par_id && is_valid(*par_id))); // We can only have a bracket on something that is either a full var location or a parameter.
-		process_bracket(model, scope, bracketed, *specific_loc, allow_bracket);
-		process_bracket(model, scope, bracketed2, specific_loc->restriction2, allow_bracket);
+		process_bracket(model, scope, bracketed,  specific_loc->r1, allow_bracket);
+		process_bracket(model, scope, bracketed2, specific_loc->r2, allow_bracket);
 		
-		if(!bracketed2.empty() && specific_loc->restriction != Var_Loc_Restriction::below) {
+		if(!bracketed2.empty() && specific_loc->r1.type != Restriction::below) {
 			bracketed2[0].print_error_header();
 			fatal_error("For now, if there is a second argument in the location bracket, the first one must be 'below'.");
 		}
 		
-		if(specific_loc->restriction == Var_Loc_Restriction::below)
+		if(specific_loc->r1.type == Restriction::below)
 			specific_loc->type = Var_Location::Type::connection;
 	} else if (!bracketed.empty()) {
 		bracketed[0].print_error_header();
@@ -963,11 +963,11 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
-	if(flux->source.restriction == Var_Loc_Restriction::specific) {
+	if(flux->source.r1.type == Restriction::specific) {
 		decl->source_loc.print_error_header();
 		fatal_error("For now we only allow the target of a flux to have the 'specific' restriction");
 	}
-	bool has_specific_target = (flux->target.restriction == Var_Loc_Restriction::specific) || (flux->target.restriction2.restriction == Var_Loc_Restriction::specific);
+	bool has_specific_target = (flux->target.r1.type == Restriction::specific) || (flux->target.r2.type == Restriction::specific);
 	bool has_specific_code = false;
 	
 	if(decl->body)

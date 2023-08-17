@@ -95,8 +95,6 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 			return result;
 		}
 		
-		index = copy(index);
-		
 		if(idx == 0)
 			result = index;
 		else {
@@ -128,7 +126,6 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 		auto &index_set = index_sets[idx];
 		auto index = indexes.get_index(app, index_set);
 		if(index) {
-			index = copy(index);
 			if(idx == 0)
 				result.offset = index;
 			else {
@@ -233,8 +230,6 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 			return nullptr;
 		}
 		
-		index = copy(index);
-		
 		result = make_binop('*', result, make_literal((s64)app->get_max_index_count(index_set).index));
 		result = make_binop('+', result, index);
 	}
@@ -259,7 +254,6 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 		result.offset = make_binop('*', result.offset, make_literal((s64)app->get_max_index_count(index_set).index));
 		auto index = indexes.get_index(app, index_set);
 		if(index) {
-			index = copy(index);
 			result.offset = make_binop('+', result.offset, index);
 			
 			if(!undetermined_found)

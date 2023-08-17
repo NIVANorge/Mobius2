@@ -253,15 +253,18 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 				
 				} else if(dep.variable_type == Variable_Type::is_at) {
 					
-					auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+					auto index_set = app->get_single_connection_index_set(dep.restriction.r1.connection_id);
 					insert_dependency(model, instr.index_sets, index_set, max_index_sets);
 					
 				} else if(dep.variable_type == Variable_Type::state_var) {
 					
 					instr.inherits_index_sets_from_state_var.insert(dep);
 					
-					if(dep.restriction.restriction == Var_Loc_Restriction::above || dep.restriction.restriction == Var_Loc_Restriction::below) {
-						if(dep.restriction.restriction == Var_Loc_Restriction::above) {
+					// TODO: Secondary restriction r2 also?
+					auto &res = dep.restriction.r1;
+					
+					if(res.type == Restriction::above || res.type == Restriction::below) {
+						if(dep.restriction.r1.type == Restriction::above) {
 							instr.loose_depends_on_instruction.insert(dep.var_id.id);
 						} else {
 							instr.instruction_is_blocking.insert(dep.var_id.id);
@@ -272,27 +275,27 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 						// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
 
 						if(instr.type == Model_Instruction::Type::compute_state_var) {
-							auto conn = model->connections[dep.restriction.connection_id];
+							auto conn = model->connections[res.connection_id];
 							if(conn->type == Connection_Type::directed_graph) {
-								auto comp = app->find_connection_component(dep.restriction.connection_id, app->vars[dep.var_id]->loc1.components[0]);
+								auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0]);
 								insert_dependency(model, instr.index_sets, comp->edge_index_set, max_index_sets);
 							} else if(conn->type == Connection_Type::all_to_all) {
-								auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+								auto index_set = app->get_single_connection_index_set(res.connection_id);
 								// NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
 								insert_dependency(model, instr.index_sets, {index_set, 2}, max_index_sets);
 							} else if(conn->type == Connection_Type::grid1d) {
-								auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+								auto index_set = app->get_single_connection_index_set(res.connection_id);
 								insert_dependency(model, instr.index_sets, index_set, max_index_sets);
 							} else
 								fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
 						}
 						
-					} else if(dep.restriction.restriction == Var_Loc_Restriction::top || dep.restriction.restriction == Var_Loc_Restriction::bottom) {
+					} else if(res.type == Restriction::top || res.type == Restriction::bottom) {
 						instr.depends_on_instruction.insert(dep.var_id.id);
-						if(dep.restriction.restriction == Var_Loc_Restriction::bottom)
+						if(res.type == Restriction::bottom)
 							instr.instruction_is_blocking.insert(dep.var_id.id);
 						
-						auto index_set = app->get_single_connection_index_set(dep.restriction.connection_id);
+						auto index_set = app->get_single_connection_index_set(res.connection_id);
 						auto parent = app->model->index_sets[index_set]->sub_indexed_to;
 						if(is_valid(parent))
 							insert_dependency(model, instr.index_sets, parent, max_index_sets);
@@ -354,8 +357,8 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 		// TODO: Maybe allow for properties ?
 		if(var->is_flux()) {
 			auto &restriction = restriction_of_flux(var);
-			if(is_valid(restriction.connection_id) && model->connections[restriction.connection_id]->type == Connection_Type::all_to_all)
-				allow_matrix = app->get_single_connection_index_set(restriction.connection_id);
+			if(is_valid(restriction.r1.connection_id) && model->connections[restriction.r1.connection_id]->type == Connection_Type::all_to_all)
+				allow_matrix = app->get_single_connection_index_set(restriction.r1.connection_id);
 		}
 		
 		// TODO: Need a way to backtrack where this dependency came from. We could store that in the Index_Set_Dependency struct, which means that it would have to be stored in the Identifier_Data struct.
@@ -757,7 +760,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			auto var = app->vars[var_id];
 			if(!is_located(var->loc1)) continue;
-			if(!is_valid(restriction_of_flux(var).connection_id)) continue;
+			if(!is_valid(restriction_of_flux(var).r1.connection_id)) continue;
 			auto source_id = app->vars.id_of(var->loc1);
 			if(!is_valid(instructions[source_id.id].solver)) {
 				// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
@@ -893,12 +896,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				auto var_flux = app->vars[var_id_flux];
 				auto &restriction = restriction_of_flux(var_flux);
-				if(restriction.connection_id != var2->connection) continue;
+				if(restriction.r1.connection_id != var2->connection) continue;
 				
 				auto conn_type = model->connections[var2->connection]->type;
 				
 				Var_Location flux_loc = var_flux->loc1;
-				if(restriction.restriction == Var_Loc_Restriction::top || restriction.restriction == Var_Loc_Restriction::specific)
+				if(restriction.r1.type == Restriction::top || restriction.r1.type == Restriction::specific)
 					flux_loc = var_flux->loc2;
 				
 				Sub_Indexed_Component *find_source = nullptr;
@@ -1000,14 +1003,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					} else if(conn_type == Connection_Type::grid1d) {
 						instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
 						
-						auto type = add_to_aggr_instr->restriction.restriction;
+						auto type = add_to_aggr_instr->restriction.r1.type;
 						
-						if(type == Var_Loc_Restriction::below) {
+						if(type == Restriction::below) {
 							insert_dependency(model, add_to_aggr_instr->index_sets, index_set);
 							
 							insert_dependency(model, instructions[var_id_flux.id].index_sets, index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
 							// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
-						} else if (type == Var_Loc_Restriction::top || type == Var_Loc_Restriction::bottom) {
+						} else if (type == Restriction::top || type == Restriction::bottom) {
 							auto parent = model->index_sets[index_set]->sub_indexed_to;
 							if(is_valid(parent))
 								insert_dependency(model, add_to_aggr_instr->index_sets, parent);
@@ -1018,7 +1021,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					insert_dependency(model, instructions[var2->agg_for.id].index_sets, index_set);
 					
 					// TODO: Is this still needed: ?
-					if(restriction.restriction == Var_Loc_Restriction::below)
+					if(restriction.r1.type == Restriction::below)
 						add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id);
 				} else
 					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
@@ -1065,9 +1068,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				//instructions[var_id.id].loose_depends_on_instruction.insert(sub_idx);
 			}
 		}
-		bool is_connection = is_valid(restriction_of_flux(var).connection_id);
+		bool is_connection = is_valid(restriction_of_flux(var).r1.connection_id);
 		if(is_connection && has_aggregate)
-			fatal_error(Mobius_Error::internal, "Somehow a connection flux got an aggregate: ", var->name);
+			fatal_error(Mobius_Error::internal, "Somehow a connection flux got a regular aggregate: ", var->name);
 		
 		if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
 			Var_Id target_id = app->vars.id_of(loc2);
@@ -1559,7 +1562,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, true);
-	debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
 	
