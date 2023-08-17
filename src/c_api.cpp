@@ -144,16 +144,10 @@ mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count
 DLLEXPORT Var_Id
 mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, State_Var::Type type) {
 	try {
-		for(auto var_id : app->vars.all_state_vars()) {
-			auto var = app->vars[var_id];
-			if(var->type != type) continue;
-			
-			if(type == State_Var::Type::dissolved_conc) {
-				auto conc = as<State_Var::Type::dissolved_conc>(var);
-				if(conc->conc_of == parent1) return var_id;
-			} else
-				fatal_error(Mobius_Error::internal, "Unimplemented special type");
-		}
+		if(type == State_Var::Type::dissolved_conc) {
+			return app->vars.find_conc(parent1);
+		else
+			fatal_error(Mobius_Error::internal, "Unimplemented special type");
 	} catch(int) {}
 	return invalid_var;
 }

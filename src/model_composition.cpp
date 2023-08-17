@@ -1331,6 +1331,26 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
+	// Invalidate connection fluxes if they have no possible targets
+	{
+		for(auto var_id : app->vars.all_fluxes()) {
+			auto var = app->vars[var_id];
+			
+			auto &res = restriction_of_flux(var).r1;
+			
+			if(is_valid(res.connection_id) && res.type == Restriction::below) {
+				auto type = model->connections[res.connection_id]->type;
+				if(type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) {
+					auto comp = app->find_connection_component(res.connection_id, var->loc1.first(), false);
+					if(!comp || comp->possible_targets.empty()) {
+						var->set_flag(State_Var::invalid);
+						log_print("Invalidating \"", var->name, "\" due to it not having any possible targets.\n");
+					}
+				}
+			}
+		}
+	}
+	
 	
 	// TODO: Is this necessary, or could we just do this directly when we build the connections below ??
 	// 	May have to do with aggregates of fluxes having that decl_type, and that is confusing? But they should not have connections any way.

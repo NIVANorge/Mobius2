@@ -2,11 +2,6 @@
 
 	*** High pri ***
 	
-	
-	
-		Have to get the secondary restriction to work for identifier lookups also (needed for bidirectional horizontal exchange in NIVAFjord).
-	
-	
 		get_instance_count is wrong if there are multiple sub-indexed things of the same parent.
 			when reaching the parent, need to scan for the children and sum the products of those (not take the product of the sum).
 	

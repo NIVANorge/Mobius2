@@ -94,6 +94,8 @@ struct Var_Registry {
 		return id;
 	}
 	
+	Var_Id find_conc(Var_Id mass_id);
+	
 	size_t count(Var_Id::Type type) { return get_vec(type).size(); }
 	
 	struct Var_Range {
@@ -377,7 +379,7 @@ Sub_Indexed_Component {
 	bool can_be_located_source;           // if this can be a source of the connection to a located target (not 'out').
 	int total_as_source;                  // How many of this type of component appears as a source (both to a located or 'out').
 	std::set<Entity_Id> possible_sources; // what sources can have this as a target.
-	std::set<Entity_Id> possible_targets; // what targets can have this as a source. (both to a located or 'out').
+	std::set<Entity_Id> possible_targets; // what targets can have this as a source. (both to a located or 'out' - the latter are recorded as invalid_entity_id).
 	int max_target_indexes;               // max indexes of a target that has this as the source
 	
 	Sub_Indexed_Component() : id(invalid_entity_id), edge_index_set(invalid_entity_id), can_be_located_source(false), max_target_indexes(0), total_as_source(0) {}

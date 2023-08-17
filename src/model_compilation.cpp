@@ -111,6 +111,10 @@ topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::
 
 bool
 insert_dependency_base(Mobius_Model *model, std::set<Index_Set_Dependency> &dependencies, const Index_Set_Dependency &to_insert, std::set<Entity_Id> *maximal_index_sets) {
+	
+	if(!is_valid(to_insert.id))
+		fatal_error(Mobius_Error::internal, "Tried to insert an invalid id as an index set dependency.");
+	
 	// Returns true if there is a change in dependencies
 	auto find = std::find_if(dependencies.begin(), dependencies.end(), [&](const Index_Set_Dependency &dep) -> bool { return dep.id == to_insert.id; });
 	
@@ -280,8 +284,9 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 						if(instr.type == Model_Instruction::Type::compute_state_var) {
 							auto conn = model->connections[res.connection_id];
 							if(conn->type == Connection_Type::directed_graph) {
-								auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0]);
-								insert_dependency(model, instr.index_sets, comp->edge_index_set, max_index_sets);
+								auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
+								if(comp && is_valid(comp->edge_index_set))
+									insert_dependency(model, instr.index_sets, comp->edge_index_set, max_index_sets);
 							} else if(conn->type == Connection_Type::all_to_all) {
 								auto index_set = app->get_single_connection_index_set(res.connection_id);
 								// NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.

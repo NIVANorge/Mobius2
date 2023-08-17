@@ -147,6 +147,17 @@ Index_Exprs::transpose_matrix(Entity_Id index_set) {
 	indexes[index_set.id] = tmp;
 }
 
+Var_Id
+Var_Registry::find_conc(Var_Id mass_id) {
+	for(auto var_id : all_state_vars()) {
+		auto var = (*this)[var_id];
+		if(var->type != State_Var::Type::dissolved_conc) continue;
+		if(as<State_Var::Type::dissolved_conc>(var)->conc_of == mass_id)
+			return var_id;
+	}
+	return invalid_var;
+}
+
 
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
