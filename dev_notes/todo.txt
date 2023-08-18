@@ -2,9 +2,6 @@
 
 	*** High pri ***
 	
-		get_instance_count is wrong if there are multiple sub-indexed things of the same parent.
-			when reaching the parent, need to scan for the children and sum the products of those (not take the product of the sum).
-	
 
 		Finish the new formulation of special_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
@@ -25,10 +22,8 @@
 
 		Specific models
 			Finish NIVAFjord!!
-				horizontal fluxes -> where do they push water out to?
-				Also the restriction of vertical fluxes to the layers that 'participate' in the edge of that connection.
 				
-				Move to m 3 of water instead of k g?
+				Move to m 3 of water instead of k g?			
 				
 			Finish the simple hydraulics model.
 			

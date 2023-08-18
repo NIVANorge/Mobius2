@@ -1965,9 +1965,18 @@ check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets
 	for(auto id : index_sets) {
 		auto set = model->index_sets[id];
 		if(is_valid(set->sub_indexed_to)) {
-			if(std::find(index_sets.begin(), index_sets.begin()+idx, set->sub_indexed_to) == index_sets.begin()+idx) {
+			bool found = (std::find(index_sets.begin(), index_sets.begin()+idx, set->sub_indexed_to) != index_sets.begin()+idx);
+			auto parent_set = model->index_sets[set->sub_indexed_to];
+			if(!found && !parent_set->union_of.empty()) {
+				for(auto ui_id : parent_set->union_of) {
+					found = (std::find(index_sets.begin(), index_sets.begin()+idx, ui_id) != index_sets.begin()+idx);
+					if(found) break;
+				}
+			}
+			if(!found) {
+				log_print("\n");
 				err_loc.print_error_header();
-				error_print("The index set \"", set->name, "\" is sub-indexed to another index set \"", model->index_sets[set->sub_indexed_to]->name, "\", but the parent index set does not precede it in this distribution. See the declaration of the index sets here:");
+				error_print("The index set \"", set->name, "\" is sub-indexed to another index set \"", model->index_sets[set->sub_indexed_to]->name, "\", but the parent index set (or a union member of it) does not precede it in this distribution. See the declaration of the index sets here:");
 				set->source_loc.print_error();
 				mobius_error_exit();
 			}

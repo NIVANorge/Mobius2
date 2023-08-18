@@ -115,6 +115,8 @@ State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
 	Var_Id         conc;                   // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
+	std::set<Entity_Id> maximal_allowed_index_sets;
+	
 	State_Var_Sub() : flux_of_medium(invalid_var), conc(invalid_var) {}
 };
 

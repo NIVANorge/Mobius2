@@ -535,7 +535,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		// tripwire.
 		s64 expect_count = app->active_instance_count(app->parameter_structure.get_index_sets(par_id));
 		if(expect_count != par.get_count())
-			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly).");
+			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly). Got ", par.get_count(), " expected ", expect_count, ".");
 		
 		int idx = 0;
 		app->parameter_structure.for_each(par_id, [&idx, &app, &param, &par](auto idxs, s64 offset) {
@@ -723,6 +723,14 @@ Model_Application::map_up_to_union(Index_T index, Entity_Id union_id) {
 
 Index_T
 Model_Application::get_max_index_count(Entity_Id index_set) {
+	auto set = model->index_sets[index_set];
+	if(!set->union_of.empty()) {
+		Index_T sum { index_set, 0 };
+		for(auto other : set->union_of)
+			sum.index += get_max_index_count(other).index;
+		return sum;
+	}
+	
 	auto &count = index_counts[index_set.id];
 	if(count.empty()) return Index_T {index_set, 0};
 	Index_T max = count[0];
@@ -734,14 +742,34 @@ Index_T
 Model_Application::get_index_count(Entity_Id index_set, Indexes &indexes) {
 	auto set = model->index_sets[index_set];
 	if(is_valid(set->sub_indexed_to)) {
-		if(indexes.lookup_ordered) {
-			for(auto &index : indexes.indexes) {
-				if(index.index_set == set->sub_indexed_to)
-					return index_counts[index_set.id][index.index];
+		Index_T super_index = invalid_index;
+		auto find = std::find_if(indexes.indexes.begin(), indexes.indexes.end(), [&](Index_T &idx) { return idx.index_set == set->sub_indexed_to; });
+		if(find == indexes.indexes.end() || !is_valid(*find)) {
+			
+			// TODO: Bake this into a get_index
+			// Attempt to index a union index set by the index of a member.
+			auto super = model->index_sets[set->sub_indexed_to];
+			bool found = false;
+			super_index.index_set = set->sub_indexed_to;
+			super_index.index = 0;
+			for(auto ui_id : super->union_of) {
+				auto find = std::find_if(indexes.indexes.begin(), indexes.indexes.end(), [&](Index_T &idx) { return idx.index_set == ui_id; });
+				if(find != indexes.indexes.end() && is_valid(*find)) {
+					found = true;
+					super_index.index += find->index;
+					break;
+				} else {
+					super_index.index += get_max_index_count(ui_id).index;
+				}
 			}
-		} else {
-			return index_counts[index_set.id][indexes.indexes[set->sub_indexed_to.id].index];
-		}
+			if(!found) super_index = invalid_index;
+		} else
+			super_index = *find;
+		
+		if(!is_valid(super_index))
+			fatal_error(Mobius_Error::internal, "The index of the index set another index set was sub-indexed to was not properly set up.");
+		
+		return index_counts[index_set.id][super_index.index];
 	}
 	return index_counts[index_set.id][0];
 }
@@ -762,11 +790,67 @@ Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexe
 	return make_literal((s64)get_max_index_count(index_set).index);
 }
 
+bool
+can_be_sub_indexed_to(Model_Application *app, Entity_Id parent_set, Entity_Id other_set, s32* offset) {
+	*offset = 0;
+	auto index_set = app->model->index_sets[other_set];
+	if(!is_valid(index_set->sub_indexed_to))
+		return false;
+	if(index_set->sub_indexed_to == parent_set)
+		return true;
+	auto super = app->model->index_sets[index_set->sub_indexed_to];
+	if(super->union_of.empty())
+		return false;
+	for(auto ui_id : super->union_of) {
+		if(parent_set == ui_id)
+			return true;
+		else
+			*offset += app->get_max_index_count(ui_id).index;
+	}
+	return false;
+}
+
 s64
 Model_Application::active_instance_count(const std::vector<Entity_Id> &index_sets) {
 	s64 count = 1;
 	if(index_sets.empty()) return count;
 	
+	std::vector<u8> already_counted(index_sets.size(), 0);
+	
+	for(int level = 0; level < index_sets.size(); ++level) {
+		
+		if(already_counted[level]) continue;
+		
+		auto index_set = model->index_sets[index_sets[level]];
+		if(is_valid(index_set->sub_indexed_to)) {
+			fatal_error(Mobius_Error::internal, "Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
+				model->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter or a union member of the latter.");
+		}
+		
+		std::vector<std::pair<Entity_Id, s32>> subs;
+		for(int level2 = level+1; level2 < index_sets.size(); ++level2) {
+			s32 offset = 0;
+			if(can_be_sub_indexed_to(this, index_sets[level], index_sets[level2], &offset)) {
+				already_counted[level2] = true;
+				subs.push_back({index_sets[level2], offset});
+			}
+		}
+		s32 count0 = get_max_index_count(index_sets[level]).index;
+		if(subs.empty())
+			count *= count0;
+		else {
+			s64 sum = 0;
+			for(int idx = 0; idx < count0; ++idx) {
+				int subcount = 1;
+				for(auto &sub : subs)
+					subcount *= index_counts[sub.first.id][sub.second + idx].index;
+				sum += subcount;
+			}
+			count *= sum;
+		}
+	}
+	return count;
+	/*
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		
 		auto index_set = model->index_sets[index_sets[idx]];
@@ -780,6 +864,7 @@ Model_Application::active_instance_count(const std::vector<Entity_Id> &index_set
 			count *= get_max_index_count(index_sets[idx]).index;
 	}
 	return count;
+	*/
 }
 
 bool
@@ -1333,7 +1418,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto index_set : model->index_sets) {
 		auto set = model->index_sets[index_set];
 		if(set->union_of.empty()) continue;
-		if(get_max_index_count(index_set).index != 0)
+		if(!index_counts[index_set.id].empty())
 			fatal_error(Mobius_Error::internal, "An index count was explicitly set for a union index set.");
 		int numeric = -1;
 		for(auto ui_id : set->union_of) {

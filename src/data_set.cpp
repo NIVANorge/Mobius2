@@ -59,7 +59,7 @@ Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
 		for(int set_idx : union_of) {
 			auto set = data_set->index_sets[set_idx];
 			int find = find_index_base(set, idx_name, 0);
-			if(find < 0) {
+			if(find >= 0) {
 				sum += find;
 				found = true;
 				break;
@@ -79,11 +79,13 @@ Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
 	return result;
 }
 
+/*
 int 
 Index_Set_Info::get_index(const char *buf, int index_of_super) {
 	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
 	return indexes[super].indexes.find_idx(buf);
 }
+*/
 
 bool
 Index_Set_Info::check_index(int idx, int index_of_super) {
@@ -262,33 +264,62 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 	fprintf(file, "]\n\n");
 }
 
+bool
+can_be_sub_indexed_to(Data_Set *data_set, int parent_set, int other_set, int* offset) {
+	*offset = 0;
+	auto index_set = data_set->index_sets[other_set];
+	if(index_set->sub_indexed_to < 0)
+		return false;
+	if(index_set->sub_indexed_to == parent_set)
+		return true;
+	auto super = data_set->index_sets[index_set->sub_indexed_to];
+	if(super->union_of.empty())
+		return false;
+	for(int ui_id : super->union_of) {
+		if(parent_set == ui_id)
+			return true;
+		else
+			*offset += data_set->index_sets[ui_id]->get_max_count();
+	}
+	return false;
+}
+
 int
 get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Source_Location *error_loc = nullptr){
 	int count = 1;
 	
+	std::vector<u8> already_counted(index_sets.size(), 0);
 	for(int level = 0; level < index_sets.size(); ++level) {
-
+		
+		if(already_counted[level]) continue;
+		
 		auto index_set = data_set->index_sets[index_sets[level]];
 		if(index_set->sub_indexed_to >= 0) {
-			// TODO: Do we need the check here, or is there sufficient checks of this in other locations?
-			bool found = false;
-			for(int level_parent = 0; level_parent < level; ++level_parent) {
-				if(index_sets[level_parent] == index_set->sub_indexed_to) {
-					found = true;
-					break;
-				}
+			if(error_loc) error_loc->print_error_header();
+			fatal_error("Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
+				data_set->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter or a union member of the latter.");
+		}
+		
+		std::vector<std::pair<int, int>> subs;
+		for(int level2 = level+1; level2 < index_sets.size(); ++level2) {
+			int offset = 0;
+			if(can_be_sub_indexed_to(data_set, index_sets[level], index_sets[level2], &offset)) {
+				already_counted[level2] = true;
+				subs.push_back({index_sets[level2], offset});
 			}
-			if(!found) {
-				if(error_loc) error_loc->print_error_header();
-				fatal_error("Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
-					data_set->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter.");
-			}
-			int sum = 0;
-			for(auto &idxs : index_set->indexes) sum += idxs.get_count();
-			count *= sum;
-			count /= data_set->index_sets[index_set->sub_indexed_to]->get_max_count(); // This is overcounted in the sum.
-		} else
+		}
+		if(subs.empty())
 			count *= index_set->get_max_count();
+		else {
+			int sum = 0;
+			for(int idx = 0; idx < index_set->get_max_count(); ++idx) {
+				int subcount = 1;
+				for(auto &sub : subs)
+					subcount *= data_set->index_sets[sub.first]->get_count(sub.second + idx);
+				sum += subcount;
+			}
+			count *= sum;
+		}
 	}
 	return count;
 }
@@ -302,6 +333,7 @@ write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int lev
 		if(index_set->sub_indexed_to >= 0) {
 			int parent_idx = -1;
 			for(int l2 = 0; l2 < index_sets.size(); ++l2) {
+				// TODO: Must take into account parent possibly being a union member.
 				if(index_sets[l2] == index_set->sub_indexed_to) {
 					parent_idx = indexes[l2];
 					break;
@@ -682,7 +714,7 @@ get_indexes(Data_Set *data_set, std::vector<int> &index_sets, std::vector<Token>
 			}
 			if(parent_pos < 0) {
 				index_names[pos].print_error_header();
-				// TODO: Should include some names here.
+				// TODO: Should include some names here. TODO: Need to take into account union index sets.
 				fatal_error("This index belongs to an index set that is sub-indexed to another index set, but this index does not appear after an index of the parent index set.");
 			}
 			parent_idx = indexes_out[parent_pos];

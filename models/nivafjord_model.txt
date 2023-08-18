@@ -54,13 +54,19 @@ model("NIVAFjord") {
 	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sed, water, salt, heat, temp, salinity, precip, pressure, wind, g_rad, rho, attn, z, dz, freeze_temp, vert, sw_vert, A, dz0))
 	
 	basin_idx : index_set("Basin index")
-	layer_idx : index_set("Layer index") @sub(basin_idx)
 	e_idx     : index_set("Fjord connection index") @sub(basin_idx)
+	
+	bnd_basin_idx : index_set("Boundary basin index")
+	all_basins : index_set("All basins") @union(basin_idx, bnd_basin_idx)
+	
+	layer_idx : index_set("Layer index") @sub(all_basins)
 	
 	distribute(basin, basin_idx)
 	distribute(layer, basin_idx, layer_idx)
-	distribute(sed, basin_idx)
-	#distribute(bnd_layer, layer_idx)
+	distribute(sed,   basin_idx)
+	
+	#distribute(bnd,       bnd_basin_idx)
+	#distribute(bnd_layer, bnd_basin_idx, layer_idx)
 	
 	sol : solver("Simply solver", "INCADascru", 0.1)
 	

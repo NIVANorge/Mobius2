@@ -42,6 +42,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		#NOTE: the 'source' of the horz.below is now assumed to be river since that is what is in the result(), but that is a bad way of specifying it.
 		# This is also why we are forced to put the vert_target on the river even though it is only necessary to have it on the outlet.
 		layer.water.rho[horz.below]
+		# Could maybe do an operator
+		# layer.water.rho[horz.below]/river.water.rho
+		# We just have to parse it.
 	}
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {

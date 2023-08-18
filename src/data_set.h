@@ -116,7 +116,7 @@ Index_Set_Info : Info_Type_Base {
 		return indexes[super].type;
 	}
 	int get_index(Token *idx_name, int index_of_super);
-	int get_index(const char *buf, int index_of_super);
+	//int get_index(const char *buf, int index_of_super);
 	bool check_index(int index, int index_of_super);
 };
 

@@ -2,8 +2,13 @@ time_step([day])
 
 index_set("Basin index") [ "Drammensfjorden" ]
 
-index_set("Layer index") @sub("Basin index") [
+index_set("Boundary basin index") [ "Yttre Oslofjord" ]
+
+index_set("All basins") @union("Basin index", "Boundary basin index")
+
+index_set("Layer index") @sub("All basins") [
 	"Drammensfjorden" : [ 124 ]
+	"Yttre Oslofjord" : [ 20 ] #TODO: Set the correct amount of layers
 ]
 
 index_set("Subcatchment") [ "Drammenselva" ]

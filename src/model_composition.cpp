@@ -826,6 +826,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->loc2.type = flux->loc2.type;
 			gen_flux->loc2.r1 = flux->loc2.r1;
 			gen_flux->loc2.r2 = flux->loc2.r2;
+			
+			get_maximal_index_sets(app, gen_flux->maximal_allowed_index_sets, gen_flux->loc1, gen_flux->loc2);
 		}
 	}
 }
