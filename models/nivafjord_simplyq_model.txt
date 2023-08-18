@@ -81,9 +81,7 @@ model("NIVAFjord-SimplyQ") {
 	outlet : compartment("Outlet")
 	distribute(outlet, sc, ol_idx)
 	
-	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", basin, layer, river, outlet, edge, edge_layer, water, heat, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
-	
-	
+	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", basin, layer, river, outlet, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
 	
 	tracer : quantity("Tracer")
 	load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, river, water, tracer, horz))

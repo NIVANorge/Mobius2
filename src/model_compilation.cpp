@@ -167,20 +167,7 @@ insert_dependency_base(Model_Application *app, Model_Instruction *instr, const I
 			if(maximal_index_sets->find(to_insert.id) == maximal_index_sets->end())
 				fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency ", model->index_sets[to_insert.id]->name, " for ", instr->debug_string(app), "\n");
 		}
-		
-			
-			
-		if(model->index_sets[to_insert.id]->name == "All basins") {
-			if(maximal_index_sets) {
-				for(auto id : *maximal_index_sets) {
-					log_print(model->index_sets[id]->name, " ");
-				}
-				log_print("\n");
-			}
-			fatal_error("Whoooops! For ", instr->debug_string(app));
-		}
-			
-		
+
 		// TODO: If any of the existing index sets in dependencies is a union and we try to insert a union member, that should overwrite the union?
 		//   Hmm, however, this should not really happen as a Var_Location should not be able to have such a double dependency in the first place.
 		//   We should monitor how this works out.

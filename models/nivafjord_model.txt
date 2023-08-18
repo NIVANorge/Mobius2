@@ -2,12 +2,12 @@
 model("NIVAFjord") {
 	
 	
-	air   : compartment("Atmosphere")
-	basin : compartment("Basin")
-	layer : compartment("Fjord layer")
-	sed   : compartment("Fjord sediment")
-	#bnd   : compartment("Boundary ocean")
-	#bnd_layer : compartment("Boundary layer")
+	air       : compartment("Atmosphere")
+	basin     : compartment("Basin")
+	layer     : compartment("Fjord layer")
+	sed       : compartment("Fjord sediment")
+	bnd_basin : compartment("Boundary ocean")
+	bnd_layer : compartment("Boundary layer")
 	
 	water : quantity("Water")
 	ice   : quantity("Ice")
@@ -65,8 +65,10 @@ model("NIVAFjord") {
 	distribute(layer, basin_idx, layer_idx)
 	distribute(sed,   basin_idx)
 	
-	#distribute(bnd,       bnd_basin_idx)
-	#distribute(bnd_layer, bnd_basin_idx, layer_idx)
+	distribute(bnd_basin, bnd_basin_idx)
+	distribute(bnd_layer, bnd_basin_idx, layer_idx)
+	
+	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, rho, pressure, dz0, vert))
 	
 	sol : solver("Simply solver", "INCADascru", 0.1)
 	

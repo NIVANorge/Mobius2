@@ -1,5 +1,5 @@
 
-module("NIFAFjord boundary", version(0, 0, 1),
+module("NIVAFjord boundary", version(0, 0, 1),
 	bnd_basin : compartment,
 	bnd_layer : compartment,
 	water     : quantity,
@@ -8,13 +8,17 @@ module("NIFAFjord boundary", version(0, 0, 1),
 	temp      : property,
 	salinity  : property,
 	dz        : property,
-	z         : property,
 	rho       : property,
 	pressure  : property,
 	dz0       : par_real,
+	vert      : connection
 ) {
 
-	var(bnd_layer.water, [k g], "Boundary layer water") @override { bnd_layer.dz * rho_water }
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
+	load("stdlib/seawater.txt", library("Seawater"))
+	
+	# It doesn't matter what we set as the surface area here since we are only interested in concs and not mass balance.
+	var(bnd_layer.water, [k g], "Boundary layer water") @override { bnd_layer.dz * rho_water * 1[m 2] }
 
 	 # Input series:
 	var(bnd_layer.water.temp,     [deg_c], "Boundary layer temperature")
@@ -46,24 +50,24 @@ module("NIFAFjord boundary", version(0, 0, 1),
 		+ sea_level_component( 2.1[c m], 299[deg], 15.82[hr], t)
 	}
 	
-	var(bnd_basin.h, [m]) @override {
+	var(bnd_basin.h, [m]) {
 		#TODO: Check that it is correct to use the hour of year rather than the hour of day. Maybe it needs to use absolute hour (relative to a start date)?
 		hour := (time.second_of_day + time.step_length_in_seconds * time.fractional_step)->[hr] + time.day_of_year->[hr],
 		sea_level(hour)->[m]              
 	}
 	
 	var(bnd_layer.dz, [m], "Boundary layer thickness") {
-		dz0 + h  if is_at[bnd_vert.top],
-		dz0      otherwise
+		dz0 + bnd_basin.h  if is_at[vert.top],
+		dz0                otherwise
 	}
 	
 	# This one does not appear to be necessary:
 	#var(bnd_layer.z, [m], "Depth (to bottom of layer)") {
-	#	dz + z[bnd_vert.above]
+	#	dz + z[vert.above]
 	#}
 	
 	var(bnd_layer.water.pressure, [Pa]) {
-		pressure[bnd_vert.above] + rho*grav*dz
+		pressure[vert.above] + rho*grav*dz
 	}
 }
 
@@ -131,7 +135,7 @@ module("NIFAFjord boundary", version(0, 0, 1),
 	var(bnd_layer.water.dens, [k g, m-3], "Boundary layer density")
 	
 	var(bnd_layer.water.pressure, [Pa]) {
-		pressure[bnd_vert.above] + dens*grav*dz
+		pressure[vert.above] + dens*grav*dz
 	}
 	
 	barocline_bnd_u : property("Barocline boundary flux")
