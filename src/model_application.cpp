@@ -94,12 +94,12 @@ add_exprs(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 Math_Expr_FT *
 Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, bool matrix_column) {
 	
-	// TODO: How to handle matrix column for union index sets? Probably disallow it?
+	// TODO: How to handle matrix column for union index sets? Probably disallow it? (See also Index_Tuple)
 	
 	Math_Expr_FT *result = nullptr;
 	if(matrix_column && mat_col) {
 		if(index_set != mat_index_set)
-			fatal_error(Mobius_Error::internal, "Unexpected matrix column index set.");
+			fatal_error(Mobius_Error::internal, "Unexpected matrix column index set in Index_Exprs::get_index.");
 		result = ::copy(mat_col);
 	} else {
 		if(indexes[index_set.id]) {
