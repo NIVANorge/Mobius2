@@ -8,13 +8,13 @@
 int
 Index_Set_Info::get_count(int index_of_super) {
 
-	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+	int super = is_valid(sub_indexed_to) ? index_of_super : 0;
 	if(union_of.empty()) {
 		return indexes[super].get_count();
 	} else {
 		int sum = 0;
-		for(int set_idx : union_of) {
-			auto set = data_set->index_sets[set_idx];
+		for(auto set_id : union_of) {
+			auto set = data_set->index_sets[set_id];
 			sum += set->get_count(super);
 		}
 		return sum;
@@ -32,9 +32,9 @@ Index_Set_Info::get_max_count() {
 
 int
 find_index_base(Index_Set_Info *info, Token *idx_name, int index_of_super) {
-	int super = (info->sub_indexed_to >= 0) ? index_of_super : 0;
+	int super = is_valid(info->sub_indexed_to) ? index_of_super : 0;
 	if(idx_name->type == Token_Type::quoted_string) {
-		return info->indexes[super].indexes.find_idx(idx_name->string_value);
+		return info->indexes[super].indexes.find_idx(idx_name->string_value).id;
 	} else if (idx_name->type == Token_Type::integer) {
 		int idx = idx_name->val_int;
 		if(!info->check_index(idx, super))
@@ -51,13 +51,13 @@ Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
 	
 	int result = -1;
 	if(!union_of.empty() && indexes[0].type == Sub_Indexing_Info::Type::named) {
-		if(sub_indexed_to >= 0)
+		if(is_valid(sub_indexed_to))
 			fatal_error(Mobius_Error::internal, "Unimplemented sub-indexing for unions");
 		
 		int sum = 0;
 		bool found = false;
-		for(int set_idx : union_of) {
-			auto set = data_set->index_sets[set_idx];
+		for(auto set_id : union_of) {
+			auto set = data_set->index_sets[set_id];
 			int find = find_index_base(set, idx_name, 0);
 			if(find >= 0) {
 				sum += find;
@@ -89,7 +89,7 @@ Index_Set_Info::get_index(const char *buf, int index_of_super) {
 
 bool
 Index_Set_Info::check_index(int idx, int index_of_super) {
-	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+	int super = is_valid(sub_indexed_to) ? index_of_super : 0;
 	return idx >= 0 && idx < indexes[super].get_count();
 }
 
@@ -111,13 +111,13 @@ write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_se
 	
 	if(index_set.is_edge_index_set) return; // These are not given explicitly, only as arrows in a connection.
 	
-	if(index_set.sub_indexed_to < 0) {
+	if(!is_valid(index_set.sub_indexed_to)) {
 		fprintf(file, "index_set(\"%s\") ", index_set.name.data());
 		if(!index_set.union_of.empty()) {
 			fprintf(file, "@union(");
 			int idx = 0;
-			for(int set_idx : index_set.union_of) {
-				auto set = data_set->index_sets[set_idx];
+			for(auto set_id : index_set.union_of) {
+				auto set = data_set->index_sets[set_id];
 				fprintf(file, "\"%s\"", set->name.data());
 				if(idx != index_set.union_of.size()-1)
 					fprintf(file, ", ");
@@ -139,7 +139,7 @@ write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_se
 		auto &parent_info = parent->indexes[0];
 		for(int idx = 0; idx < count; ++idx) {
 			if(parent_info.type == Sub_Indexing_Info::Type::named)
-				fprintf(file, "\t\"%s\" : ", parent_info.indexes[idx]->name.data());
+				fprintf(file, "\t\"%s\" : ", parent_info.indexes[Data_Id{idx}]->name.data());
 			else if (parent_info.type == Sub_Indexing_Info::Type::numeric1)
 				fprintf(file, "\t%d : ", idx);
 			else
@@ -181,12 +181,12 @@ write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *da
 	else
 		fprintf(file, "%s : %s(\"%s\") [", component.handle.data(), name(component.decl_type), component.name.data());
 		
-	for(int idx_set_idx : component.index_sets) {
-		auto index_set = data_set->index_sets[idx_set_idx];
+	for(auto set_id : component.index_sets) {
+		auto index_set = data_set->index_sets[set_id];
 		fprintf(file, " \"%s\"", index_set->name.data());
 	}
 	fprintf(file, " ]");
-	if(component.edge_index_set >= 0) {
+	if(is_valid(component.edge_index_set)) {
 		auto index_set = data_set->index_sets[component.edge_index_set];
 		fprintf(file, " [ \"%s\" ]", index_set->name.data());
 	}
@@ -195,7 +195,7 @@ write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *da
 
 void
 write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set, Connection_Info &connection) {
-	if(ref.id < 0) {
+	if(!is_valid(ref.id)) {
 		fprintf(file, "out");
 		return;
 	}
@@ -204,7 +204,7 @@ write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *da
 	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
 		auto index_set = data_set->index_sets[component->index_sets[loc]];
 		int super_idx = 0;
-		if(index_set->sub_indexed_to >= 0) {
+		if(is_valid(index_set->sub_indexed_to)) {
 			super_idx = -1;
 			for(int loc2 = 0; loc2 < loc; ++loc2) {
 				if(component->index_sets[loc2] == index_set->sub_indexed_to) {
@@ -217,7 +217,7 @@ write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *da
 		}
 		auto &indexes = index_set->indexes[super_idx];
 		if(indexes.type == Sub_Indexing_Info::Type::named)
-			fprintf(file, " \"%s\"", indexes.indexes[ref.indexes[loc]]->name.data());
+			fprintf(file, " \"%s\"", indexes.indexes[Data_Id{ref.indexes[loc]}]->name.data());
 		else if(indexes.type == Sub_Indexing_Info::Type::numeric1)
 			fprintf(file, " %d", ref.indexes[loc]);
 		else
@@ -265,17 +265,17 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 }
 
 bool
-can_be_sub_indexed_to(Data_Set *data_set, int parent_set, int other_set, int* offset) {
+can_be_sub_indexed_to(Data_Set *data_set, Data_Id parent_set, Data_Id other_set, int* offset) {
 	*offset = 0;
 	auto index_set = data_set->index_sets[other_set];
-	if(index_set->sub_indexed_to < 0)
+	if(!is_valid(index_set->sub_indexed_to))
 		return false;
 	if(index_set->sub_indexed_to == parent_set)
 		return true;
 	auto super = data_set->index_sets[index_set->sub_indexed_to];
 	if(super->union_of.empty())
 		return false;
-	for(int ui_id : super->union_of) {
+	for(auto ui_id : super->union_of) {
 		if(parent_set == ui_id)
 			return true;
 		else
@@ -285,7 +285,7 @@ can_be_sub_indexed_to(Data_Set *data_set, int parent_set, int other_set, int* of
 }
 
 int
-get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Source_Location *error_loc = nullptr){
+get_instance_count(Data_Set *data_set, const std::vector<Data_Id> &index_sets, Source_Location *error_loc = nullptr){
 	int count = 1;
 	
 	std::vector<u8> already_counted(index_sets.size(), 0);
@@ -294,13 +294,13 @@ get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Sourc
 		if(already_counted[level]) continue;
 		
 		auto index_set = data_set->index_sets[index_sets[level]];
-		if(index_set->sub_indexed_to >= 0) {
+		if(is_valid(index_set->sub_indexed_to)) {
 			if(error_loc) error_loc->print_error_header();
 			fatal_error("Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
 				data_set->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter or a union member of the latter.");
 		}
 		
-		std::vector<std::pair<int, int>> subs;
+		std::vector<std::pair<Data_Id, int>> subs;
 		for(int level2 = level+1; level2 < index_sets.size(); ++level2) {
 			int offset = 0;
 			if(can_be_sub_indexed_to(data_set, index_sets[level], index_sets[level2], &offset)) {
@@ -325,12 +325,12 @@ get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Sourc
 }
 
 void
-write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int level, std::vector<int> &indexes, int *offset, const std::vector<int> &index_sets, int tabs) {
+write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int level, std::vector<int> &indexes, int *offset, const std::vector<Data_Id> &index_sets, int tabs) {
 	
 	int count = 1;
 	if(!index_sets.empty()) {
 		auto index_set = data_set->index_sets[index_sets[level]];
-		if(index_set->sub_indexed_to >= 0) {
+		if(is_valid(index_set->sub_indexed_to)) {
 			int parent_idx = -1;
 			for(int l2 = 0; l2 < index_sets.size(); ++l2) {
 				// TODO: Must take into account parent possibly being a union member.
@@ -426,8 +426,8 @@ write_par_group_to_file(FILE *file, Data_Set *data_set, Par_Group_Info &par_grou
 	if(par_group.index_sets.size() > 0) {
 		fprintf(file, "[ ");
 		int idx = 0;
-		for(int index_set_idx : par_group.index_sets) {
-			auto index_set = data_set->index_sets[index_set_idx];
+		for(auto index_set_id : par_group.index_sets) {
+			auto index_set = data_set->index_sets[index_set_id];
 			fprintf(file, "\"%s\" ", index_set->name.data());
 		}
 		fprintf(file, "] ");
@@ -568,7 +568,7 @@ make_sub_indexed_to(Data_Set *data_set, Index_Set_Info *data, Token *parent) {
 	
 	data->sub_indexed_to = data_set->index_sets.expect_exists_idx(parent, "index_set");
 	sub_indexed_to = data_set->index_sets[data->sub_indexed_to];
-	if(sub_indexed_to->sub_indexed_to != -1) {
+	if(is_valid(sub_indexed_to->sub_indexed_to)) {
 		parent->source_loc.print_error_header();
 		fatal_error("We currently don't support sub-indexing under an index set that is itself sub-indexed.");
 	}
@@ -601,17 +601,17 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 			} else if (str == "union") {
 				match_declaration_base(note, {{Token_Type::quoted_string, {Token_Type::quoted_string, true}}}, 0);
 				for(int argidx = 0; argidx < note->args.size(); ++argidx) {
-					int set_idx = data_set->index_sets.expect_exists_idx(single_arg(note, argidx), "index_set");
-					if(std::find(data->union_of.begin(), data->union_of.end(), set_idx) != data->union_of.end()) {
+					auto set_id = data_set->index_sets.expect_exists_idx(single_arg(note, argidx), "index_set");
+					if(std::find(data->union_of.begin(), data->union_of.end(), set_id) != data->union_of.end()) {
 						single_arg(note, argidx)->print_error_header();
 						fatal_error("Double appearance of index set in union declaration.");
 					}
-					auto set_data = data_set->index_sets[set_idx];
-					if(set_data->sub_indexed_to > 0 || !set_data->union_of.empty()) {
+					auto set_data = data_set->index_sets[set_id];
+					if(is_valid(set_data->sub_indexed_to) || !set_data->union_of.empty()) {
 						single_arg(note, argidx)->print_error_header();
 						fatal_error("It is not currently supported to have unions of sub-indexed index sets or other unions.");
 					}
-					data->union_of.push_back(set_idx);
+					data->union_of.push_back(set_id);
 				}
 				
 			} else {
@@ -623,7 +623,7 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 		} else break;
 	}
 	
-	if(!data->union_of.empty() && data->sub_indexed_to > 0) {
+	if(!data->union_of.empty() && is_valid(data->sub_indexed_to)) {
 		decl->source_loc.print_error_header();
 		fatal_error("It is not currently supported that an index set can both be sub-indexed and be a union.");
 	}
@@ -633,8 +633,8 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 		auto &idx = data->indexes[0];
 		
 		idx.type = Sub_Indexing_Info::Type::none;
-		for(int set_idx : data->union_of) {
-			auto &index_data = data_set->index_sets[set_idx]->indexes[0];
+		for(auto set_id : data->union_of) {
+			auto &index_data = data_set->index_sets[set_id]->indexes[0];
 			if(idx.type == Sub_Indexing_Info::Type::none)
 				idx.type = index_data.type;
 			else if(idx.type != index_data.type) {
@@ -676,7 +676,7 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 		}
 	}
 	
-	if (!found_sub_indexes && (data->sub_indexed_to >= 0)) {
+	if (!found_sub_indexes && is_valid(data->sub_indexed_to)) {
 		decl->source_loc.print_error_header();
 		fatal_error("Missing sub-indexes for a sub-indexed index set.");
 	}
@@ -684,7 +684,7 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 	for(auto &idxs : data->indexes) {
 		if(idxs.get_count() <= 0) {
 			decl->source_loc.print_error_header();
-			if(data->sub_indexed_to >= 0)
+			if(is_valid(data->sub_indexed_to))
 				fatal_error("Did not get an index set for all indexes of the parent index set.");
 			else
 				fatal_error("Empty index set.");
@@ -698,13 +698,13 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 }
 
 void
-get_indexes(Data_Set *data_set, std::vector<int> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out) {
+get_indexes(Data_Set *data_set, std::vector<Data_Id> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out) {
 	//TODO: Assertions on counts etc.
 	indexes_out.resize(index_sets.size());
 	for(int pos = 0; pos < index_names.size(); ++pos) {
 		auto index_set = data_set->index_sets[index_sets[pos]];
 		int parent_idx = 0;
-		if(index_set->sub_indexed_to >= 0) {
+		if(is_valid(index_set->sub_indexed_to)) {
 			int parent_pos = -1;
 			for(int par_pos = 0; par_pos < pos; ++par_pos) {
 				if(index_sets[par_pos] == index_set->sub_indexed_to) {
@@ -730,7 +730,7 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 	stream->expect_identifier();
 	
 	if(token.string_value == "out") {
-		read_to->id = -1;
+		read_to->id = invalid_data;
 		return;
 	}
 	auto find = info->component_handle_to_id.find(token.string_value);
@@ -759,7 +759,7 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	else
 		entry.first = *first_in;
 	
-	if(entry.first.id < 0) {
+	if(!is_valid(entry.first.id)) {
 		info->source_loc.print_error_header();
 		fatal_error("An 'out' can only be the target of an arrow, not the source.");
 	}
@@ -770,7 +770,7 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	info->arrows.push_back(entry);
 	{	// Make an edge index for the arrow if necessary.
 		auto first_comp = info->components[entry.first.id];
-		if(first_comp->edge_index_set >= 0) {
+		if(is_valid(first_comp->edge_index_set)) {
 			auto edge_set = data_set->index_sets[first_comp->edge_index_set];
 			int parent_idx = 0;
 			if(!entry.first.indexes.empty())
@@ -817,7 +817,7 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 		
 		auto name = single_arg(decl, 0);
 		auto data = info->components.create(name->string_value, name->source_loc);
-		int comp_id = info->components.find_idx(name->string_value);
+		auto comp_id = info->components.find_idx(name->string_value);
 		data->decl_type = decl->type;
 		data->handle = decl->handle_name.string_value;
 		if(decl->handle_name.string_value.count)
@@ -826,12 +826,12 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 		read_string_list(stream, idx_set_list);
 		//int prev = -1;
 		for(auto &name : idx_set_list) {
-			int ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
+			auto ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
 			data->index_sets.push_back(ref);
-			int sub_indexed_to = data_set->index_sets[ref]->sub_indexed_to;
-			if(sub_indexed_to >= 0 ) {
+			auto sub_indexed_to = data_set->index_sets[ref]->sub_indexed_to;
+			if(is_valid(sub_indexed_to)) {
 				bool found = false;
-				for(int prev : data->index_sets) {
+				for(auto prev : data->index_sets) {
 					if(prev == sub_indexed_to) {
 						found = true;
 						break;
@@ -842,7 +842,6 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 					fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear after it on the index set list for this component declaration.");
 				}
 			}
-			//prev = ref;
 		}
 		auto next = stream->peek_token();
 		if((char)next.type == '[') {
@@ -912,8 +911,8 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 			stream->read_token();
 			token = stream->peek_token();
 			if(token.type == Token_Type::quoted_string) {
-				std::vector<int> index_sets;
-				std::vector<Token> index_names;
+				std::vector<Data_Id> index_sets;
+				std::vector<Token>   index_names;
 				
 				while(true) {
 					stream->read_token();
@@ -938,9 +937,9 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 				get_indexes(data_set, index_sets, index_names, indexes_int); 
 				
 				// TODO: Just maybe organize the data differently so that we don't need to do this zip.
-				std::vector<std::pair<int, int>> indexes(index_sets.size());
+				std::vector<std::pair<Data_Id, int>> indexes(index_sets.size());
 				for(int lev = 0; lev < index_sets.size(); ++lev)
-					indexes[lev] = std::pair<int, int>{index_sets[lev], indexes_int[lev]};
+					indexes[lev] = std::pair<Data_Id, int>{index_sets[lev], indexes_int[lev]};
 				
 				header.indexes.push_back(std::move(indexes));
 			} else if(token.type == Token_Type::identifier || (char)token.type == '[') {
@@ -1082,8 +1081,8 @@ parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stre
 				fatal_error("The global \"System\" parameter group should not be indexed by index sets.");
 			}
 			for(Token &item : list) {
-				int index_set_idx = data_set->index_sets.expect_exists_idx(&item, "index_set");
-				group->index_sets.push_back(index_set_idx);
+				auto set_id = data_set->index_sets.expect_exists_idx(&item, "index_set");
+				group->index_sets.push_back(set_id);
 			}
 		}
 	}

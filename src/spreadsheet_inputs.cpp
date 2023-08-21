@@ -28,7 +28,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 		data.has_date_vector = true;
 		data.file_name = std::string(file_name);
 		
-		std::vector<int> index_sets;
+		std::vector<Data_Id> index_sets;
 		
 		int search_len = 128; //NOTE: We only search for index sets among the first 128 rows since anything more than that would be ridiculous.
 		auto matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles);
@@ -57,12 +57,12 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				}
 				
 				// Otherwise, if it is some non-date string we assume it to be the name of an index set.
-				auto index_set_idx = data_set->index_sets.find_idx(buf);
-				if(index_set_idx < 0) {
+				auto index_set_id = data_set->index_sets.find_idx(buf);
+				if(!is_valid(index_set_id)) {
 					ole_close_due_to_error(handles, tab, 1, row+2);
 					fatal_error("The index set ", buf, " was not previously declared in the data set.");
 				}
-				index_sets.push_back(index_set_idx);
+				index_sets.push_back(index_set_id);
 			} else {
 				// Empty row (or at least it did not have date or string format (TODO: check if there is some other data here).
 				// This row could have flags for the time series
@@ -153,9 +153,9 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 			get_indexes(data_set, index_sets, index_names, indexes_int); 
 			
 			// TODO: (see same comment in data_set.cpp) Just maybe organize the data differently so that we don't need to do this zip.
-			std::vector<std::pair<int, int>> indexes(index_sets.size());
+			std::vector<std::pair<Data_Id, int>> indexes(index_sets.size());
 			for(int lev = 0; lev < index_sets.size(); ++lev)
-				indexes[lev] = std::pair<int, int>{index_sets[lev], indexes_int[lev]};
+				indexes[lev] = std::pair<Data_Id, int>{index_sets[lev], indexes_int[lev]};
 			
 			data.header_data.push_back({});
 			auto &header = data.header_data.back();

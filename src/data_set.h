@@ -9,25 +9,36 @@
 #include "ast.h"
 #include "units.h"
 
-// NOTE: the idea is that this class should not have to know about the rest of the framework except for what is needed for the ast parser and lexer.
+// NOTE: the idea is that the Data_Set class should not have to know about the rest of the framework except for what is needed for the ast parser and lexer. This is just a self-contained parsed version of the data in the data files, that can then later be combined with a Mobius_Application to form a runnable model.
 
+// NOTE: We could also later put the type in the Data_Id like we do with Entity_Id, but for now it has not been necessary.
+struct
+Data_Id {
+	s32 id;
+};
+
+constexpr Data_Id invalid_data = { -1 };
+
+inline bool operator==(const Data_Id &a, const Data_Id &b) { return a.id == b.id; }
+
+inline bool is_valid(Data_Id id) { return id.id >= 0; }
 
 // Hmm, this is the n'th time we make something like this.
 // But it is not that trivial to just merge them since there are slight differences in functionality needed.
 template<typename Info_Type> struct
 Info_Registry {
 	
-	std::unordered_map<std::string, int>        name_to_id;
+	std::unordered_map<std::string, Data_Id>        name_to_id;
 	std::vector<Info_Type> data;
 	
 	//bool has(String_View name) { return name_to_id.find(name) != name_to_id.end(); }
 	
-	Info_Type *operator[](int idx) {
-		if(idx < 0 || idx >= data.size())
+	Info_Type *operator[](Data_Id id) {
+		if(id.id < 0 || id.id >= data.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up data set info using an invalid index.\n");
-		return &data[idx];
+		return &data[id.id];
 	}
-	int expect_exists_idx(Token *name, String_View info_type) {
+	Data_Id expect_exists_idx(Token *name, String_View info_type) {
 		auto find = name_to_id.find(name->string_value);
 		if(find == name_to_id.end()) {
 			name->print_error_header();
@@ -36,17 +47,17 @@ Info_Registry {
 		return find->second;
 	}
 	Info_Type *expect_exists(Token *name, String_View info_type) {
-		return &data[expect_exists_idx(name, info_type)];
+		return &data[expect_exists_idx(name, info_type).id];
 	}
-	int find_idx(String_View name) {
+	Data_Id find_idx(String_View name) {
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end())
-			return -1;
+			return invalid_data;
 		return find->second;
 	}
 	Info_Type *find(String_View name) {
-		int idx = find_idx(name);
-		if(idx >= 0) return &data[idx];
+		auto id = find_idx(name);
+		if(is_valid(id)) return &data[id.id];
 		return nullptr;
 	}
 	Info_Type *create(const std::string &name, Source_Location loc) {
@@ -56,13 +67,13 @@ Info_Registry {
 			loc.print_error_header();
 			fatal_error("Re-declaration of \"", name, "\".");
 		}
-		name_to_id[name] = (int)data.size();
+		name_to_id[name] = Data_Id { (s32)data.size() };
 		data.push_back({});
 		data.back().name = name;
 		data.back().source_loc = loc;
 		return &data.back();
 	}
-	int count() { return data.size(); }
+	s64 count() { return data.size(); }
 	void clear() {
 		name_to_id.clear();
 		data.clear();
@@ -90,8 +101,8 @@ Sub_Indexing_Info {
 		numeric1,
 	} type;
 	Info_Registry<Index_Info> indexes;
-	int                       n_dim1;
-	int get_count() {
+	s32                       n_dim1;
+	s32 get_count() {
 		if(type == Type::named) return indexes.count();
 		return n_dim1;
 	}
@@ -103,8 +114,8 @@ struct Data_Set;
 struct
 Index_Set_Info : Info_Type_Base {
 
-	int sub_indexed_to = -1;
-	std::vector<int> union_of;
+	Data_Id sub_indexed_to = invalid_data;
+	std::vector<Data_Id> union_of;
 	bool is_edge_index_set = false;
 	Data_Set *data_set = nullptr;
 	
@@ -112,7 +123,7 @@ Index_Set_Info : Info_Type_Base {
 	int get_count(int index_of_super);
 	int get_max_count();
 	Sub_Indexing_Info::Type get_type(int index_of_super) {  // TODO: should just allow one type for all.
-		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
+		int super = is_valid(sub_indexed_to) ? index_of_super : 0;
 		return indexes[super].type;
 	}
 	int get_index(Token *idx_name, int index_of_super);
@@ -123,12 +134,12 @@ Index_Set_Info : Info_Type_Base {
 struct Component_Info : Info_Type_Base {
 	Decl_Type decl_type;
 	std::string handle;
-	std::vector<int> index_sets;
-	int edge_index_set = -1;
+	std::vector<Data_Id> index_sets;
+	Data_Id edge_index_set = invalid_data;
 };
 
 struct Compartment_Ref {
-	int id;   // This is the id of the Component_Info. -1 if it is an 'out'
+	Data_Id id = invalid_data;   // This is the id of the Component_Info. invalid_data if it is an 'out'
 	std::vector<int> indexes;
 };
 
@@ -146,7 +157,7 @@ Connection_Info : Info_Type_Base {    // This must either be subclased or have d
 	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
 	
 	Info_Registry<Component_Info>        components;
-	std::unordered_map<std::string, int> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
+	std::unordered_map<std::string, Data_Id> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
 	
 	Connection_Info() : type(Type::none) {}
 };
@@ -166,7 +177,7 @@ Par_Info : Info_Type_Base {
 struct
 Par_Group_Info : Info_Type_Base {
 	bool error = false;
-	std::vector<int> index_sets;
+	std::vector<Data_Id> index_sets;
 	Info_Registry<Par_Info> pars;
 };
 
@@ -203,7 +214,7 @@ set_flag(Series_Data_Flags *flags, String_View name) {
 
 struct
 Series_Header_Info : Info_Type_Base {
-	std::vector<std::vector<std::pair<int, int>>> indexes;
+	std::vector<std::vector<std::pair<Data_Id, int>>> indexes;
 	Series_Data_Flags flags;
 	Unit_Data         unit;
 	
@@ -254,7 +265,7 @@ Data_Set {
 };
 
 void
-get_indexes(Data_Set *data_set, std::vector<int> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out);
+get_indexes(Data_Set *data_set, std::vector<Data_Id> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out);
 
 
 #endif // MOBIUS_DATA_SET_H

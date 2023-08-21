@@ -439,9 +439,9 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 		auto &index_sets = par_group_index_sets[group_id];
 		
 		for(int idx = 0; idx < par_group->index_sets.size(); ++idx) {
-			int index_set_idx = par_group->index_sets[idx];
+			auto index_set_data_id = par_group->index_sets[idx];
 			
-			auto &name = data_set->index_sets[index_set_idx]->name;
+			auto &name = data_set->index_sets[index_set_data_id]->name;
 			auto index_set_id = model->model_decl_scope.deserialize(name, Reg_Type::index_set);
 			if(!is_valid(index_set_id)) {
 				par_group->source_loc.print_error_header();
@@ -1016,7 +1016,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	}
 	Entity_Id edge_index_set = find_decl->second;
 	
-	if(comp->edge_index_set >= 0) {
+	if(is_valid(comp->edge_index_set)) {
 		if(cnd->type == Connection_Type::directed_tree) {
 			comp->source_loc.print_error_header();
 			fatal_error("The components of a 'directed_tree' should not be provided with an edge index set in the data set.");
@@ -1042,8 +1042,8 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		fatal_error("This connection type only supports connections on components that are indexed by a single index set");
 	}
 	std::vector<Entity_Id> index_sets;
-	for(int idx_set_id : comp->index_sets) {
-		auto idx_set_info = data_set->index_sets[idx_set_id];
+	for(auto set_id : comp->index_sets) {
+		auto idx_set_info = data_set->index_sets[set_id];
 		auto index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
 		if(!is_valid(index_set)) {
 			idx_set_info->source_loc.print_error_header();
@@ -1164,13 +1164,13 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		auto comp_source = connection.components[arr.first.id];
 		arrow.source_id = model->model_decl_scope.deserialize(comp_source->name, Reg_Type::component);
 	
-		if(arr.second.id >= 0) {
+		if(is_valid(arr.second.id)) {
 			auto comp_target = connection.components[arr.second.id];
 			arrow.target_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
 		}
 		
 		// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
-		if( !is_valid(arrow.source_id) || (!is_valid(arrow.target_id) && arr.second.id >= 0) ) continue;
+		if( !is_valid(arrow.source_id) || (!is_valid(arrow.target_id) && is_valid(arr.second.id)) ) continue;
 		
 		// Store useful information that allows us to prune away un-needed operations later.
 		auto source = app->find_connection_component(conn_id, arrow.source_id);
@@ -1296,20 +1296,20 @@ process_index_set_data(Model_Application *app, Data_Set *data_set, Index_Set_Inf
 	}
 	if(!model->index_sets[id]->union_of.empty()) {
 		// Check that the unions match
-		std::vector<int> union_of = index_set.union_of;
+		std::vector<Data_Id> union_of = index_set.union_of;
 		bool error = false;
 		for(auto ui_id : model->index_sets[id]->union_of) {
-			int ui_id_dataset = data_set->index_sets.find_idx(model->index_sets[ui_id]->name);
+			auto ui_id_dataset = data_set->index_sets.find_idx(model->index_sets[ui_id]->name);
 			auto find = std::find(union_of.begin(), union_of.end(), ui_id_dataset);
 			if(find == union_of.end()) {
 				error = true;
 				break;
 			}
-			*find = -10;
+			find->id = -10;  // TODO: This is a horrible way to record this info.
 		}
 		if(!error) {
-			for(int ui_id_dataset : union_of) {
-				if(ui_id_dataset != -10) {
+			for(auto ui_id_dataset : union_of) {
+				if(ui_id_dataset.id != -10) {
 					error = true;
 					break;
 				}
@@ -1328,7 +1328,7 @@ process_index_set_data(Model_Application *app, Data_Set *data_set, Index_Set_Inf
 	}
 	
 	Entity_Id sub_indexed_to = invalid_entity_id;
-	if(index_set.sub_indexed_to >= 0)
+	if(is_valid(index_set.sub_indexed_to))
 		sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
 	if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
 		index_set.source_loc.print_error_header();
@@ -1587,15 +1587,15 @@ Model_Application::save_to_data_set() {
 					for(auto index_set_id : index_sets) {
 						auto index_set = model->index_sets[index_set_id];
 						
-						int	index_set_idx = data_set->index_sets.find_idx(index_set->name);
+						auto index_set_id = data_set->index_sets.find_idx(index_set->name);
 						
-						if(index_set_idx < 0) {
+						if(!is_valid(index_set_id)) {
 							par_group_info->error = true;
 							log_print("WARNING: Tried to set an index set dependency \"", index_set->name, "\" for the parameter group \"", par_group->name, "\" in the data set, but the index set was not in the data set. This will cause this parameter group to not be saved.\n");
 							break;
 						}
 						
-						par_group_info->index_sets.push_back(index_set_idx);
+						par_group_info->index_sets.push_back(index_set_id);
 					}
 					if(par_group_info->error) break;
 					
