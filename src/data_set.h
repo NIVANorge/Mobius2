@@ -8,18 +8,26 @@
 #include "linear_memory.h"
 #include "ast.h"
 #include "units.h"
+#include "index_data.h"
 
 // NOTE: the idea is that the Data_Set class should not have to know about the rest of the framework except for what is needed for the ast parser and lexer. This is just a self-contained parsed version of the data in the data files, that can then later be combined with a Mobius_Application to form a runnable model.
 
 // NOTE: We could also later put the type in the Data_Id like we do with Entity_Id, but for now it has not been necessary.
+
+
 struct
 Data_Id {
 	s32 id;
+	static constexpr Data_Id invalid() { return Data_Id { -1 }; }
 };
 
-constexpr Data_Id invalid_data = { -1 };
+typedef Index_Type<Data_Id> Index_D;
+typedef Index_Tuple<Data_Id> Indexes_D;
+
+constexpr Data_Id invalid_data = Data_Id::invalid();
 
 inline bool operator==(const Data_Id &a, const Data_Id &b) { return a.id == b.id; }
+inline bool operator!=(const Data_Id &a, const Data_Id &b) { return a.id != b.id; }
 
 inline bool is_valid(Data_Id id) { return id.id >= 0; }
 
@@ -60,18 +68,20 @@ Info_Registry {
 		if(is_valid(id)) return &data[id.id];
 		return nullptr;
 	}
-	Info_Type *create(const std::string &name, Source_Location loc) {
+	Data_Id create(const std::string &name, Source_Location loc) {
 		check_allowed_serial_name(name, loc);
 		auto find = name_to_id.find(name);
 		if(find != name_to_id.end()) {
 			loc.print_error_header();
 			fatal_error("Re-declaration of \"", name, "\".");
 		}
-		name_to_id[name] = Data_Id { (s32)data.size() };
+		Data_Id id = Data_Id { (s32)data.size() };
+		name_to_id[name] = id;
 		data.push_back({});
+		data.back().id = id;
 		data.back().name = name;
 		data.back().source_loc = loc;
-		return &data.back();
+		return id;
 	}
 	s64 count() { return data.size(); }
 	void clear() {
@@ -85,31 +95,10 @@ Info_Registry {
 
 struct
 Info_Type_Base {
+	Data_Id id;
 	std::string name;
 	Source_Location source_loc;
 };
-
-struct
-Index_Info : Info_Type_Base {
-};
-
-struct
-Sub_Indexing_Info {
-	enum class Type {
-		none,
-		named,
-		numeric1,
-	} type;
-	Info_Registry<Index_Info> indexes;
-	s32                       n_dim1;
-	s32 get_count() {
-		if(type == Type::named) return indexes.count();
-		return n_dim1;
-	}
-	Sub_Indexing_Info() : n_dim1(0), type(Type::none) {}
-};
-
-struct Data_Set;
 
 struct
 Index_Set_Info : Info_Type_Base {
@@ -117,18 +106,6 @@ Index_Set_Info : Info_Type_Base {
 	Data_Id sub_indexed_to = invalid_data;
 	std::vector<Data_Id> union_of;
 	bool is_edge_index_set = false;
-	Data_Set *data_set = nullptr;
-	
-	std::vector<Sub_Indexing_Info> indexes;
-	int get_count(int index_of_super);
-	int get_max_count();
-	Sub_Indexing_Info::Type get_type(int index_of_super) {  // TODO: should just allow one type for all.
-		int super = is_valid(sub_indexed_to) ? index_of_super : 0;
-		return indexes[super].type;
-	}
-	int get_index(Token *idx_name, int index_of_super);
-	//int get_index(const char *buf, int index_of_super);
-	bool check_index(int index, int index_of_super);
 };
 
 struct Component_Info : Info_Type_Base {
@@ -140,7 +117,7 @@ struct Component_Info : Info_Type_Base {
 
 struct Compartment_Ref {
 	Data_Id id = invalid_data;   // This is the id of the Component_Info. invalid_data if it is an 'out'
-	std::vector<int> indexes;
+	Indexes_D indexes;
 };
 
 inline bool operator==(const Compartment_Ref &a, const Compartment_Ref &b) {
@@ -214,7 +191,7 @@ set_flag(Series_Data_Flags *flags, String_View name) {
 
 struct
 Series_Header_Info : Info_Type_Base {
-	std::vector<std::vector<std::pair<Data_Id, int>>> indexes;
+	std::vector<Indexes_D> indexes;
 	Series_Data_Flags flags;
 	Unit_Data         unit;
 	
@@ -235,12 +212,15 @@ Series_Set_Info {
 	Series_Set_Info() : has_date_vector(true) {};
 };
 
+template<>
 struct
-Data_Set {
+Record_Type<Data_Id> {
+	
+	//typedef Data_Id Id_Type;
 	
 	File_Data_Handler file_handler;
 	
-	Data_Set() {
+	Record_Type() : index_data(this) {
 		// Default to one day.
 		time_step_unit.declared_form.push_back({0, 1, Compound_Unit::day});
 		time_step_unit.set_standard_form();
@@ -248,6 +228,8 @@ Data_Set {
 	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
+	
+	void generate_index_set(const std::string &name);
 	
 	std::string main_file;
 	std::string doc_string;
@@ -258,14 +240,14 @@ Data_Set {
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;
 	
+	Index_Data<Data_Id>             index_data;
 	
 	Source_Location                 unit_source_loc;
 	Unit_Data                       time_step_unit;
 	bool                            time_step_was_provided = false;
 };
 
-void
-get_indexes(Data_Set *data_set, std::vector<Data_Id> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out);
+typedef Record_Type<Data_Id> Data_Set;
 
 
 #endif // MOBIUS_DATA_SET_H

@@ -28,7 +28,7 @@ Serial_Entity {
 	Source_Location source_loc;
 };
 
-struct Mobius_Model;
+typedef Record_Type<Entity_Id> Mobius_Model;
 
 struct
 Decl_Scope {
@@ -326,8 +326,9 @@ Registry : Registry_Base {
 	Entity_Id end() { return { reg_type, (s16)registrations.size() }; }
 };
 
+template<>
 struct
-Mobius_Model {
+Record_Type<Entity_Id> {
 	
 	std::string model_name;
 	std::string doc_string;
@@ -380,7 +381,7 @@ Mobius_Model {
 	//    A Model_Application is not dependent on the ASTs still existing after it is constructed though.
 	// TODO: Or do we get problems with some stored Source_Locations ?
 	void free_asts();
-	~Mobius_Model() {
+	~Record_Type() {
 		//free_asts();   // TODO: Hmm, seems like it causes a problem some times??
 	}
 	

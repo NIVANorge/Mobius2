@@ -214,13 +214,13 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 			for(auto &indexes : header.indexes) {
 				int index_idx = 0;
 				
-				if(indexes.size() != expected_index_sets.size()) {
+				if(indexes.indexes.size() != expected_index_sets.size()) {
 					header.source_loc.print_error_header();
-					fatal_error("Got wrong number of index sets for input series. Expected ", expected_index_sets.size(), ", got ", indexes.size(), ".");
+					fatal_error("Got wrong number of index sets for input series. Expected ", expected_index_sets.size(), ", got ", indexes.indexes.size(), ".");
 				}
 				
-				for(auto &index : indexes) {
-					auto idx_set = data_set->index_sets[index.first];
+				for(auto &index : indexes.indexes) {
+					auto idx_set = data_set->index_sets[index.index_set];
 					Entity_Id index_set = model->model_decl_scope.deserialize(idx_set->name, Reg_Type::index_set);
 					Entity_Id expected = expected_index_sets[index_idx];
 					if(index_set != expected) {
@@ -228,7 +228,7 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 						//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
 						fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
 					}
-					indexes_int.add_index(index_set, (s32)index.second);
+					indexes_int.add_index(index_set, index.index);
 					++index_idx;
 				}
 				

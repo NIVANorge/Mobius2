@@ -2,6 +2,13 @@
 
 	*** High pri ***
 	
+	
+		Remove all_to_all along with matrix indexing, mat_col etc. etc.
+			Can be replaced with directed_graph always, and this will be a very nice simplification.
+		Fix index set selection in MobiView.
+		
+	
+	
 
 		Finish the new formulation of special_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)

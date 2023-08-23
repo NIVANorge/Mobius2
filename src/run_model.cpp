@@ -35,7 +35,10 @@ check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 					error_print("Got a non-finite value for \"", data->app->vars[var_id]->name, "\" at time step ", run_state->date_time.step, ". Indexes: [");
 					int i = 0;
 					for(auto idx : idxs.indexes) {
-						error_print(data->app->get_possibly_quoted_index_name(idx));
+						bool quote;
+						auto index_name = data->app->index_data.get_index_name(idxs, idx, &quote);
+						maybe_quote(index_name, quote);
+						error_print(index_name);
 						if(i < idxs.indexes.size()-1) error_print(" ");
 						++i;
 					}

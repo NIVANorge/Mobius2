@@ -102,32 +102,32 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 			
 			std::vector<std::string> index_names_str(index_sets.size()); // This is needed to have temporary storage for the data...
 			std::vector<Token> index_names;
+			std::vector<Data_Id> active_index_sets;
+			
+			Token token = {};
+			token.source_loc.filename = file_name;
+			token.source_loc.type = Source_Location::Type::spreadsheet;
+			
 			for(int row = 0; row < index_sets.size(); ++row) {
 				
-				auto index_set = data_set->index_sets[index_sets[row]];
 				VARIANT index_name = ole_get_matrix_value(&matrix, row+2, col+2, handles);
-				
-				auto type = index_set->get_type(0); // TODO: This currently only works because index name convention is the same for all sub-indexing. But that is maybe something we should enforce any way.
 				
 				//TODO: This should be done properly instead with a "ole_get_token(VARIANT*)" function or something like that which properly checks the type itself.
 				//   That should actually be the main way to read matrix values since that would streamline other parts of the code too.
-				Token token = {};
+				
 				token.type = Token_Type::unknown;
-				token.source_loc.type = Source_Location::Type::spreadsheet;
-				token.source_loc.tab = tab;
-				token.source_loc.line = row+2;
-				token.source_loc.column = col+2;
-				token.source_loc.filename = file_name;
+				
 				bool empty = false;
 				
-				// TODO: Could maybe check for emptyness in a more failsafe way.
+				auto type = data_set->index_data.get_index_type(index_sets[row]);
 				
-				if(type == Sub_Indexing_Info::Type::numeric1) {
+				// TODO: Could maybe check for emptyness in a more failsafe way.
+				if(type == Index_Record::Type::numeric1) {
 					token.val_int = ole_get_int(&index_name);
 					if(token.val_int == std::numeric_limits<int>::lowest()) empty = true;
 					if(token.val_int >= 0)
 						token.type = Token_Type::integer;
-				} else if(type == Sub_Indexing_Info::Type::named) {
+				} else if(type == Index_Record::Type::named) {
 					ole_get_string(&index_name, buf, buf_size);
 					if(strlen(buf) > 0) {
 						index_names_str[row] = buf;
@@ -139,23 +139,25 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				
 				if(empty) continue;
 				
+				token.source_loc.tab = tab;
+				token.source_loc.line = row+2;
+				token.source_loc.column = col+2;
+				
 				if(token.type == Token_Type::unknown) {
 					ole_close_due_to_error(handles, tab, row+2, col+2);
 					fatal_error("This is not a valid index name.");
 				}
+				active_index_sets.push_back(index_sets[row]);
 				index_names.push_back(token);
 			}
 			
 			if(!got_name_this_column && index_names.empty()) // There was no name on top of the column and no indexes. This means there are no more data columns
 				break;
 			
-			std::vector<int> indexes_int;
-			get_indexes(data_set, index_sets, index_names, indexes_int); 
+			data_set->index_data.check_valid_distribution(active_index_sets, token.source_loc);
 			
-			// TODO: (see same comment in data_set.cpp) Just maybe organize the data differently so that we don't need to do this zip.
-			std::vector<std::pair<Data_Id, int>> indexes(index_sets.size());
-			for(int lev = 0; lev < index_sets.size(); ++lev)
-				indexes[lev] = std::pair<Data_Id, int>{index_sets[lev], indexes_int[lev]};
+			Indexes_D indexes;
+			data_set->index_data.find_indexes(active_index_sets, index_names, indexes); 
 			
 			data.header_data.push_back({});
 			auto &header = data.header_data.back();

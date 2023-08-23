@@ -233,6 +233,8 @@ Entity_Id {
 	Reg_Type reg_type;
 	s16      id;
 	
+	static constexpr Entity_Id invalid() { return { Reg_Type::unrecognized, -1}; }
+	
 	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
 	Entity_Id &operator++() { id++; return *this; }
 };
@@ -254,9 +256,15 @@ operator<(const Entity_Id &a, const Entity_Id &b) {
 	return a.reg_type < b.reg_type;
 }
 
-constexpr Entity_Id invalid_entity_id = {Reg_Type::unrecognized, -1};
+constexpr Entity_Id invalid_entity_id = Entity_Id::invalid();
 
 inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
+
+template<typename Id_Type>
+struct Record_Type {
+};
+
+
 
 constexpr int max_var_loc_components = 6;
 
@@ -347,24 +355,6 @@ Specific_Var_Location : Var_Location, Var_Loc_Restriction {
 inline bool operator==(const Specific_Var_Location &a, const Specific_Var_Location &b) {
 	return static_cast<const Var_Location &>(a) == static_cast<const Var_Location &>(b) && static_cast<const Var_Loc_Restriction &>(a) == static_cast<const Var_Loc_Restriction &>(b);
 }
-
-struct Index_T {
-	Entity_Id index_set;
-	s32       index;
-	
-	Index_T& operator++() { index++; return *this; }
-};
-
-//TODO: should we do sanity check on the index_set in the order comparison operators?
-inline bool operator<(const Index_T &a, const Index_T &b) {	return a.index < b.index; }
-inline bool operator>=(const Index_T &a, const Index_T &b) { return a.index >= b.index; }
-inline bool operator==(const Index_T &a, const Index_T &b) { return a.index_set == b.index_set && a.index == b.index; }
-inline bool operator!=(const Index_T &a, const Index_T &b) { return a.index_set != b.index_set || a.index != b.index; }
-
-constexpr Index_T invalid_index = {invalid_entity_id, -1};
-
-inline bool
-is_valid(const Index_T &index) { return is_valid(index.index_set) && index.index >= 0; }
 
 enum class
 Aggregation_Period {

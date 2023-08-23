@@ -5,62 +5,6 @@
 #include <cstdlib>
 #include <sstream>
 
-
-Indexes::Indexes(Mobius_Model *model) {
-	lookup_ordered = false;
-	if(model)  // NOTE: We need the check model!=0 since some places we need to construct an Indexed_Par before the model is created.
-		indexes.resize(model->index_sets.count(), invalid_index);
-}
-Indexes::Indexes() {
-	lookup_ordered = true;
-}
-
-Indexes::Indexes(Index_T index) {
-	lookup_ordered = true;
-	add_index(index);
-}
-
-void
-Indexes::clear() {
-	if(lookup_ordered)
-		indexes.clear();
-	else {
-		for(auto &index : indexes) index = invalid_index;
-	}
-	mat_col = invalid_index;
-}
-
-void
-Indexes::set_index(Index_T index, bool overwrite) {
-	if(!is_valid(index))
-		fatal_error(Mobius_Error::internal, "Tried to set an invalid index on an Indexes");
-	if(!lookup_ordered) {
-		if(!overwrite && is_valid(indexes[index.index_set.id])) {
-			if(is_valid(mat_col))
-				fatal_error(Mobius_Error::internal, "Got duplicate matrix column index for an Indexes.");
-			mat_col = index;
-		} else
-			indexes[index.index_set.id] = index;
-	} else
-		fatal_error(Mobius_Error::internal, "Using set_index on an Indexes that is lookup_ordered");
-}
-
-void
-Indexes::add_index(Index_T index) {
-	if(!is_valid(index))
-		fatal_error(Mobius_Error::internal, "Tried to set an invalid index on an Indexes");
-	if(lookup_ordered)
-		indexes.push_back(index);
-	else
-		fatal_error(Mobius_Error::internal, "Using add_index on an Indexes that is not lookup_ordered");
-}
-
-void
-Indexes::add_index(Entity_Id index_set, s32 idx) {
-	add_index(Index_T { index_set, idx } );
-}
-
-
 void
 Index_Exprs::clean() {
 	for(int idx = 0; idx < indexes.size(); ++idx) {
@@ -164,12 +108,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
 Model_Application::Model_Application(Mobius_Model *model) :
 	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this),
-	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr)/*,
-	state_vars(Var_Id::Type::state_var), series(Var_Id::Type::series), additional_series(Var_Id::Type::additional_series)*/ {
-	
-	index_counts.resize(model->index_sets.count());
-	index_names_map.resize(model->index_sets.count());
-	index_names.resize(model->index_sets.count());
+	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr), index_data(model) {
 	
 	time_step_size.unit       = Time_Step_Size::second;
 	time_step_size.multiplier = 86400;
@@ -398,14 +337,17 @@ Model_Application::set_up_index_count_structure() {
 	for(auto index_set : model->index_sets) {
 		int idx = 0;
 		index_counts_structure.for_each(index_set, [this, index_set, &idx](Indexes &indexes, s64 offset) {
-			data.index_counts.data[offset] = index_counts[index_set.id][idx++].index;
+			data.index_counts.data[offset] = index_data.get_index_count(index_set, indexes).index;
 		});
 	}
 }
 
 bool
 Model_Application::all_indexes_are_set() {
-	for(auto count : index_counts) if(count.empty()) return false;
+	for(auto index_set : model->index_sets) {
+		if(!index_data.are_all_indexes_set(index_set))
+			return false;
+	}
 	return true;
 }
 
@@ -533,7 +475,7 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 		
 		// NOTE: This should be tested for somewhere else already, so this is just a safety
 		// tripwire.
-		s64 expect_count = app->active_instance_count(app->parameter_structure.get_index_sets(par_id));
+		s64 expect_count = app->index_data.get_instance_count(app->parameter_structure.get_index_sets(par_id));
 		if(expect_count != par.get_count())
 			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly). Got ", par.get_count(), " expected ", expect_count, ".");
 		
@@ -612,21 +554,21 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 			if(metadata->index_sets_additional.find(*ids.begin()) != metadata->index_sets_additional.end()) continue;
 		}
 		
-		for(auto &index : header.indexes[0]) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
+		for(auto &index : header.indexes[0].indexes) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
 			// NOTE: this should be valid since we already tested it internally in the data set.
-			auto idx_set = data_set->index_sets[index.first];
+			auto idx_set = data_set->index_sets[index.index_set];
 			Entity_Id index_set = model->model_decl_scope.deserialize(idx_set->name, Reg_Type::index_set);
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
 				
 				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
-					auto comp_id     = app->vars[id]->loc1.first();
-					auto comp        = model->components[comp_id];
-
-					if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set) == comp->index_sets.end()) {
+					
+					auto var = as<State_Var::Type::declared>(app->vars[id]);
+					
+					if(var->maximal_allowed_index_sets.find(index_set) == var->maximal_allowed_index_sets.end()) {
 						header.source_loc.print_error_header();
-						fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the compartment \"", comp->name, "\" is not distributed over that index set.");
+						fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the relevant components are not distributed over that index set.");
 					}
 					
 					metadata->index_sets[id].push_back(index_set);
@@ -640,139 +582,6 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 void
 process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *series_info, Date_Time end_date);
 
-void
-Model_Application::set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx) {
-	auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
-	if(is_valid(sub_indexed_to)) {
-		log_print("Names for sub-indexed index sets are not yet supported. Replacing with numerical indexes.");
-		set_index_count(index_set, (int)indexes.size(), parent_idx);
-	} else {
-		index_counts[index_set.id] = { Index_T {index_set, (s32)indexes.size()} };
-		index_names[index_set.id].resize(indexes.size());
-		s32 idx = 0;
-		for(auto index : indexes) {
-			index_names_map[index_set.id][index] = Index_T {index_set, idx};
-			index_names[index_set.id][idx] = index;
-			++idx;
-		}
-	}
-}
-
-void
-Model_Application::set_index_count(Entity_Id index_set, int count, Index_T parent_idx) {
-	
-	index_names[index_set.id].clear();
-	auto sub_indexed_to = model->index_sets[index_set]->sub_indexed_to;
-	if(is_valid(sub_indexed_to)) {
-		if(!is_valid(parent_idx)) { // If we did not provide an index for the parent index set of this one (if it exists), we set the same index count to all instances of the parent.
-			auto par_count = get_max_index_count(sub_indexed_to);
-			for(Index_T par_idx = { sub_indexed_to, 0 }; par_idx < par_count; ++par_idx)
-				set_index_count(index_set, count, par_idx);
-			return;
-		}
-		if(parent_idx.index_set != sub_indexed_to)
-			fatal_error(Mobius_Error::internal, "Mis-matched parent index in set_indexes.");
-		auto &counts = index_counts[index_set.id];
-		s64 parent_count = get_max_index_count(sub_indexed_to).index;
-		if(!parent_count)
-			fatal_error(Mobius_Error::internal, "Tried to set indexes of an index set that was sub-indexed before setting the indexes of the parent.");
-		counts.resize(parent_count, {index_set, 0});
-		counts[parent_idx.index].index = count;
-	} else {
-		index_counts[index_set.id] = { Index_T {index_set, (s32)count} };
-	}
-}
-
-/*
-Index_T
-Model_Application::map_down_from_union(Index_T index) {
-	Index_T result = index;
-	auto set = model->index_sets[index.index_set];
-	if(set->union_of.empty())
-		return result;
-	for(auto ui_id : set->union_of) {
-		auto count = get_max_index_count(ui_id);   // NOTE: Only ok since we don't support sub-indexed unions.
-		if(count.index < result.index)
-			result.index -= count.index;
-		else {
-			result.index_set = ui_id;
-			break;
-		}
-	}
-	return result;
-}
-
-Index_T
-Model_Application::map_up_to_union(Index_T index, Entity_Id union_id) {
-	auto set = model->index_sets[union_id];
-	bool found = false;
-	Index_T result = index;
-	for(auto ui_id : set->union_of) {
-		if(ui_id == index.index_set) {
-			found = true;
-			result.index_set = union_id;
-			break;
-		}
-		result.index += get_max_index_count(ui_id).index; // NOTE: Only ok since we don't support sub-indexed unions.
-	}
-	if(!found)
-		fatal_error(Mobius_Error::internal, "Mis-use of map_up function.");
-	return result;
-}
-*/
-
-Index_T
-Model_Application::get_max_index_count(Entity_Id index_set) {
-	auto set = model->index_sets[index_set];
-	if(!set->union_of.empty()) {
-		Index_T sum { index_set, 0 };
-		for(auto other : set->union_of)
-			sum.index += get_max_index_count(other).index;
-		return sum;
-	}
-	
-	auto &count = index_counts[index_set.id];
-	if(count.empty()) return Index_T {index_set, 0};
-	Index_T max = count[0];
-	for(auto &c : count) max = std::max(max, c);
-	return max;
-}
-
-Index_T
-Model_Application::get_index_count(Entity_Id index_set, Indexes &indexes) {
-	auto set = model->index_sets[index_set];
-	if(is_valid(set->sub_indexed_to)) {
-		Index_T super_index = invalid_index;
-		auto find = std::find_if(indexes.indexes.begin(), indexes.indexes.end(), [&](Index_T &idx) { return idx.index_set == set->sub_indexed_to; });
-		if(find == indexes.indexes.end() || !is_valid(*find)) {
-			
-			// TODO: Bake this into a get_index
-			// Attempt to index a union index set by the index of a member.
-			auto super = model->index_sets[set->sub_indexed_to];
-			bool found = false;
-			super_index.index_set = set->sub_indexed_to;
-			super_index.index = 0;
-			for(auto ui_id : super->union_of) {
-				auto find = std::find_if(indexes.indexes.begin(), indexes.indexes.end(), [&](Index_T &idx) { return idx.index_set == ui_id; });
-				if(find != indexes.indexes.end() && is_valid(*find)) {
-					found = true;
-					super_index.index += find->index;
-					break;
-				} else {
-					super_index.index += get_max_index_count(ui_id).index;
-				}
-			}
-			if(!found) super_index = invalid_index;
-		} else
-			super_index = *find;
-		
-		if(!is_valid(super_index))
-			fatal_error(Mobius_Error::internal, "The index of the index set another index set was sub-indexed to was not properly set up.");
-		
-		return index_counts[index_set.id][super_index.index];
-	}
-	return index_counts[index_set.id][0];
-}
 
 Math_Expr_FT *
 Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexes) {
@@ -787,209 +596,7 @@ Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexe
 		return ident;
 	}
 	// Otherwise we can just return the constant.
-	return make_literal((s64)get_max_index_count(index_set).index);
-}
-
-bool
-can_be_sub_indexed_to(Model_Application *app, Entity_Id parent_set, Entity_Id other_set, s32* offset) {
-	*offset = 0;
-	auto index_set = app->model->index_sets[other_set];
-	if(!is_valid(index_set->sub_indexed_to))
-		return false;
-	if(index_set->sub_indexed_to == parent_set)
-		return true;
-	auto super = app->model->index_sets[index_set->sub_indexed_to];
-	if(super->union_of.empty())
-		return false;
-	for(auto ui_id : super->union_of) {
-		if(parent_set == ui_id)
-			return true;
-		else
-			*offset += app->get_max_index_count(ui_id).index;
-	}
-	return false;
-}
-
-s64
-Model_Application::active_instance_count(const std::vector<Entity_Id> &index_sets) {
-	s64 count = 1;
-	if(index_sets.empty()) return count;
-	
-	std::vector<u8> already_counted(index_sets.size(), 0);
-	
-	for(int level = 0; level < index_sets.size(); ++level) {
-		
-		if(already_counted[level]) continue;
-		
-		auto index_set = model->index_sets[index_sets[level]];
-		if(is_valid(index_set->sub_indexed_to)) {
-			fatal_error(Mobius_Error::internal, "Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
-				model->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter or a union member of the latter.");
-		}
-		
-		std::vector<std::pair<Entity_Id, s32>> subs;
-		for(int level2 = level+1; level2 < index_sets.size(); ++level2) {
-			s32 offset = 0;
-			if(can_be_sub_indexed_to(this, index_sets[level], index_sets[level2], &offset)) {
-				already_counted[level2] = true;
-				subs.push_back({index_sets[level2], offset});
-			}
-		}
-		s32 count0 = get_max_index_count(index_sets[level]).index;
-		if(subs.empty())
-			count *= count0;
-		else {
-			s64 sum = 0;
-			for(int idx = 0; idx < count0; ++idx) {
-				int subcount = 1;
-				for(auto &sub : subs)
-					subcount *= index_counts[sub.first.id][sub.second + idx].index;
-				sum += subcount;
-			}
-			count *= sum;
-		}
-	}
-	return count;
-	/*
-	for(int idx = 0; idx < index_sets.size(); ++idx) {
-		
-		auto index_set = model->index_sets[index_sets[idx]];
-		if(is_valid(index_set->sub_indexed_to)) {
-			// NOTE: For now removing the correctness check of the parent index set appearing first here since it should be sufficiently checked elsewhere
-			s64 sum = 0;
-			for(Index_T &c : index_counts[index_sets[idx].id]) sum += c.index;
-			count *= sum;
-			count /= get_max_index_count(index_set->sub_indexed_to).index; // NOTE: This is overcounted in the sum.
-		} else
-			count *= get_max_index_count(index_sets[idx]).index;
-	}
-	return count;
-	*/
-}
-
-bool
-Model_Application::is_in_bounds(Indexes &indexes) {
-	for(auto &index : indexes.indexes) {
-		if(is_valid(index)) {
-			auto count = get_index_count(index.index_set, indexes);
-			if(index >= count) { // NOTE: We should NOT check for index.index < 0, since that just means that this index is not set right now.
-				//log_print("Failed for set ", model->index_sets[index.index_set]->name, " because index is ", index.index, " and count is ", count.index, "\n");
-				return false;
-			}
-		}
-	}
-	return true;
-}
-
-Index_T
-Model_Application::get_index(Entity_Id index_set, const std::string &name) {
-	
-	auto &map = index_names_map[index_set.id];
-	Index_T result = invalid_index;
-	
-	if(!map.empty()) {
-		auto find = map.find(name);
-		if(find != map.end())
-			return find->second;
-	} else {
-		// TODO: Should be made more robust
-		result.index_set = index_set;
-		result.index = atoi(name.data());
-	}
-	return result;
-}
-
-std::string
-Model_Application::get_index_name(Index_T index, bool *is_quotable) {
-	if(!is_valid(index) || index.index < 0 || index.index > get_max_index_count(index.index_set).index) // TODO : it is ok now since we only allow named index sets for indexes that are not sub-indexed.
-		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
-	
-	if(index_names[index.index_set.id].empty()) {
-		char buf[16];
-		itoa(index.index, buf, 10);
-		if(is_quotable) *is_quotable = false;
-		return buf;
-	} else {
-		if(is_quotable) *is_quotable = true;
-		return index_names[index.index_set.id][index.index];
-	}
-}
-
-void
-put_index_name_with_edge_naming(Model_Application *app, Index_T &index, Indexes &indexes, std::vector<std::string> &names_out, int pos, bool quote) {
-	
-	auto model = app->model;
-	bool is_quotable = false;
-	
-	auto index_set = model->index_sets[index.index_set];
-	Entity_Id conn_id = index_set->is_edge_of_connection;
-	if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::directed_graph) {
-		names_out[pos] = app->get_index_name(index, &is_quotable);
-	} else {
-		Index_T parent_idx = invalid_index;
-		if(is_valid(index_set->sub_indexed_to)) {
-			for(Index_T &idx2 : indexes.indexes) {
-				if(idx2.index_set == index_set->sub_indexed_to)
-					parent_idx = idx2;
-			}
-		}
-		
-		// If this index set is the edge index set of a graph connection, we generate a name for the index by the target of the edge (arrow).
-		//TODO: Can we make a faster way to find the arrow
-		auto &arrows = app->connection_components[conn_id].arrows;
-		for(auto arr : arrows) {
-			auto source_idx = invalid_index;
-			if(arr.source_indexes.indexes.size() == 1)
-				source_idx = arr.source_indexes.indexes[0];
-			else if(arr.source_indexes.indexes.size() > 1)
-				fatal_error(Mobius_Error::internal, "Graph arrows with multiple source indexes not supported by get_index_name.");
-			
-			if(arr.edge_index == index && source_idx == parent_idx) {
-				if(is_valid(arr.target_id)) {
-					if(arr.target_indexes.indexes.empty()) {
-						names_out[pos] = model->components[arr.target_id]->name;
-						is_quotable = true;
-					} else if (arr.target_indexes.indexes.size() == 1) {
-						names_out[pos] = app->get_index_name(arr.target_indexes.indexes[0], &is_quotable);
-					} else
-						fatal_error(Mobius_Error::internal, "Graph arrows with multiple target indexes not supported by get_index_name.");
-				} else {
-					is_quotable = false;
-					names_out[pos] = "out";
-				}
-			}
-		}
-	}
-	
-	if(quote && is_quotable) {
-		names_out[pos] = "\"" + names_out[pos] + "\"";
-	}
-}
-
-void
-Model_Application::get_index_names_with_edge_naming(Indexes &indexes, std::vector<std::string> &names_out, bool quote) {
-	
-	int count = indexes.indexes.size();
-	if(is_valid(indexes.mat_col)) ++count;
-	names_out.resize(count);
-	
-	int pos = 0;
-	for(auto &index : indexes.indexes) {
-		if(!is_valid(index)) { pos++; continue; }
-		put_index_name_with_edge_naming(this, index, indexes, names_out, pos, quote);
-		++pos;
-	}
-	if(is_valid(indexes.mat_col))
-		put_index_name_with_edge_naming(this, indexes.mat_col, indexes, names_out, count-1, quote);
-}
-
-std::string
-Model_Application::get_possibly_quoted_index_name(Index_T index) {
-	bool is_quotable;
-	std::string result = get_index_name(index, &is_quotable);
-	if(is_quotable)
-		result = "\"" + result + "\"";
-	return result;
+	return make_literal((s64)index_data.get_max_count(index_set).index);
 }
 
 void
@@ -1178,10 +785,13 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			source->can_be_located_source = true;
 		source->total_as_source++;
 		
-		// TODO: Maybe asser the two vectors are the same size (would mean bug in Data_Set code if they are not).
+		// TODO: Maybe assert the two vectors are the same size (would mean bug in Data_Set code if they are not).
+		
+		// TODO: Make a function to translate from Indexes_D to Indexes instead (also to be used in
+		// process_input_data and maybe other places.
 		int idx = 0;
 		for(auto index_set : source->index_sets) {
-			arrow.source_indexes.add_index(Index_T { index_set, (s16)arr.first.indexes[idx] });
+			arrow.source_indexes.add_index(Index_T { index_set, (s16)arr.first.indexes.indexes[idx].index });
 			++idx;
 		}
 		
@@ -1194,10 +804,12 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		
 			
 		
-			// TODO: Maybe asser the two vectors are the same size.
+			// TODO: Maybe assert the two vectors are the same size.
+			
+			// TODO: See same comment as above.
 			int idx = 0;
 			for(auto index_set : target->index_sets) {
-				arrow.target_indexes.add_index(Index_T { index_set, (s16)arr.second.indexes[idx] });
+				arrow.target_indexes.add_index(Index_T { index_set, (s16)arr.second.indexes.indexes[idx].index });
 				++idx;
 			}
 		}
@@ -1228,13 +840,14 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 				fatal_error(Mobius_Error::internal, "Somehow got not exactly 1 index set for graph component.");
 			Entity_Id index_set = comp.index_sets[0];
 			
-			//TODO: This may be broken if we allow sub-indexing of sub-indexing.
-			// Also may be broken unless we *require* the edge index set to be sub-indexed (but we should do that).
+			// TODO: Is this necessary anymore?
+			/*
 			Indexes indexes(Index_T {index_set, 0});
-			for(; indexes.indexes[0] < app->get_max_index_count(index_set); ++indexes.indexes[0]) {
+			for(; indexes.indexes[0] < app->index_data.get_max_count(index_set); ++indexes.indexes[0]) {
 				s64 offset = components_structure.get_offset(comp.id, indexes);
 				app->set_index_count(comp.edge_index_set, n_edges[offset], indexes.indexes[0]);
 			}
+			*/
 		}
 	}
 	
@@ -1280,77 +893,6 @@ process_connection_data(Model_Application *app, Entity_Id conn_id) {
 }
 
 void
-process_index_set_data(Model_Application *app, Data_Set *data_set, Index_Set_Info &index_set) {
-	
-	// TODO: Should test that what we get in the data set is not an edge index set (since these need to be generated).
-		// Also should not save edge index sets (elsewhere).
-	
-	auto model = app->model;
-	auto id = model->model_decl_scope.deserialize(index_set.name, Reg_Type::index_set);
-	//auto id = model->index_sets.find_by_name(index_set.name);
-	if(!is_valid(id)) {
-		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
-		index_set.source_loc.print_error_header();
-		fatal_error("\"", index_set.name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
-		//continue;
-	}
-	if(!model->index_sets[id]->union_of.empty()) {
-		// Check that the unions match
-		std::vector<Data_Id> union_of = index_set.union_of;
-		bool error = false;
-		for(auto ui_id : model->index_sets[id]->union_of) {
-			auto ui_id_dataset = data_set->index_sets.find_idx(model->index_sets[ui_id]->name);
-			auto find = std::find(union_of.begin(), union_of.end(), ui_id_dataset);
-			if(find == union_of.end()) {
-				error = true;
-				break;
-			}
-			find->id = -10;  // TODO: This is a horrible way to record this info.
-		}
-		if(!error) {
-			for(auto ui_id_dataset : union_of) {
-				if(ui_id_dataset.id != -10) {
-					error = true;
-					break;
-				}
-			}
-		}
-		if(error) {
-			index_set.source_loc.print_error_header();
-			fatal_error("This index set is declared as a union in the model, but is not the same union in the data set.");
-		}
-		
-		// For union index sets, the index data is not separately processed here.
-		return;
-	} else if (!index_set.union_of.empty()) {
-		index_set.source_loc.print_error_header();
-		fatal_error("This index set is not declared as a union in the model, but is in the data set");
-	}
-	
-	Entity_Id sub_indexed_to = invalid_entity_id;
-	if(is_valid(index_set.sub_indexed_to))
-		sub_indexed_to = model->model_decl_scope.deserialize(data_set->index_sets[index_set.sub_indexed_to]->name, Reg_Type::index_set);
-	if(model->index_sets[id]->sub_indexed_to != sub_indexed_to) {
-		index_set.source_loc.print_error_header();
-		fatal_error("The parent index set of this index set does not match between the model and the data set.");
-	}
-	for(int idx = 0; idx < index_set.indexes.size(); ++idx) {
-		auto &idxs = index_set.indexes[idx];
-		Index_T parent_idx = { sub_indexed_to, idx };
-		if(idxs.type == Sub_Indexing_Info::Type::named) {
-			std::vector<std::string> names;
-			names.reserve(idxs.indexes.count());
-			for(auto &index : idxs.indexes)
-				names.push_back(index.name);
-			app->set_indexes(id, names, parent_idx);
-		} else if (idxs.type == Sub_Indexing_Info::Type::numeric1) {
-			app->set_index_count(id, idxs.n_dim1, parent_idx);
-		} else
-			fatal_error(Mobius_Error::internal, "Unhandled index set info type in build_from_data_set().");
-	}
-}
-
-void
 Model_Application::build_from_data_set(Data_Set *data_set) {
 		
 	
@@ -1367,10 +909,25 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			input_names.push_back(header.name);
 	}
 	
+	// Generate at least one index for index sets that were not provided in the data set.
+	for(auto index_set : model->index_sets) {
+		auto set = model->index_sets[index_set];
+		
+		if(!is_valid(data_set->index_sets.find_idx(set->name))) {
+		
+			// TODO: What if it is sub-indexed?
+			// TODO: Should still generate it if it is a union.
+			// TODO: Also do something if it is an edge?
+			if(set->union_of.empty())	
+				data_set->generate_index_set(set->name);
+				
+		}
+	}
 	
-	for(auto &index_set : data_set->index_sets)
-		process_index_set_data(this, data_set, index_set);
-	
+	for(auto &index_set : data_set->index_sets) {
+		//process_index_set_data(this, data_set, index_set);
+		data_set->index_data.transfer_data(this->index_data, index_set.id);
+	}
 	
 	connection_components.initialize(model);
 	
@@ -1406,44 +963,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			fatal_error("This is not a valid time step unit.");
 		}
 	}
-	
-	// Generate at least one index for index sets that were not provided in the data set.
-	for(auto index_set : model->index_sets) {
-		auto set = model->index_sets[index_set];
-		// NOTE: Edge index sets are generated in a different way. Moreover, union index sets are handled differently (below).
-		if(get_max_index_count(index_set).index == 0 && !is_valid(set->is_edge_of_connection) && set->union_of.empty())
-			set_index_count(index_set, 1);
-	}
-	// Set up counts for union index sets. Note that these are not allowed to be sub-indexed currently, neither are their unionees.
-	for(auto index_set : model->index_sets) {
-		auto set = model->index_sets[index_set];
-		if(set->union_of.empty()) continue;
-		if(!index_counts[index_set.id].empty())
-			fatal_error(Mobius_Error::internal, "An index count was explicitly set for a union index set.");
-		int numeric = -1;
-		for(auto ui_id : set->union_of) {
-			int numeric_new = -1;
-			numeric_new = index_names[ui_id.id].empty();
-			if(numeric >= 0 && numeric_new != numeric) {
-				fatal_error(Mobius_Error::model_building, "The index set \"", set->name, "\" is a union of index sets where the data is a mix of numeric and non-numeric index names. This is not allowed.");
-				// TODO: We could maybe look into the data_set to give a couple of source locations.
-			}
-			numeric = numeric_new;
-		}
-		if(numeric) {
-			s32 count = 0;
-			for(auto ui_id : set->union_of)
-				count += get_max_index_count(ui_id).index;
-			set_index_count(index_set, count);
-		} else {
-			std::vector<std::string> union_names;
-			for(auto ui_id : set->union_of) {
-				// TODO: We must check that they are not overlapping in names.
-				union_names.insert(union_names.end(), index_names[ui_id.id].begin(), index_names[ui_id.id].end());
-			}
-			set_indexes(index_set, union_names);
-		}
-	}
+
 	
 	if(!index_counts_structure.has_been_set_up)
 		set_up_index_count_structure();
@@ -1517,9 +1037,13 @@ Model_Application::save_to_data_set() {
 	if(!data_set)
 		fatal_error(Mobius_Error::api_usage, "Tried to save model application to data set, but no data set was attached to the model application.");
 	
+	
+	// The commented-out part should be possible to be removed when
+	// Data_Set::generate_index_set is implemented.
+	
 	// NOTE : This should only write parameter values. All other editing should go directly to the data set, and one should then reload the model with the data set.
 	// 		The exeption is if we generated an index for a data set that was not in the model.
-
+	/*
 	for(Entity_Id index_set_id : model->index_sets) {
 		auto index_set = model->index_sets[index_set_id];
 		auto index_set_info = data_set->index_sets.find(index_set->name);
@@ -1547,6 +1071,7 @@ Model_Application::save_to_data_set() {
 			}
 		}
 	}
+	*/
 	
 	// Hmm, this is a bit cumbersome
 	for(int idx = -1; idx < model->modules.count(); ++idx) {
@@ -1561,8 +1086,10 @@ Model_Application::save_to_data_set() {
 			std::string &name = module->name;
 			module_info = data_set->modules.find(name);
 		
-			if(!module_info)
-				module_info = data_set->modules.create(name, {});
+			if(!module_info) {
+				auto module_id_data = data_set->modules.create(name, {});
+				module_info = data_set->modules[module_id_data];
+			}
 			
 			module_info->version = model->module_templates[module->template_id]->version;
 		}
@@ -1571,8 +1098,10 @@ Model_Application::save_to_data_set() {
 			auto par_group = model->par_groups[group_id];
 			
 			Par_Group_Info *par_group_info = module_info->par_groups.find(par_group->name);
-			if(!par_group_info)
-				par_group_info = module_info->par_groups.create(par_group->name, {});
+			if(!par_group_info) {
+				auto group_id_data = module_info->par_groups.create(par_group->name, {});
+				par_group_info = module_info->par_groups[group_id_data];
+			}
 			
 			par_group_info->index_sets.clear();
 			
@@ -1605,8 +1134,10 @@ Model_Application::save_to_data_set() {
 				auto par = model->parameters[par_id];
 				
 				auto par_info = par_group_info->pars.find(par->name);
-				if(!par_info)
-					par_info = par_group_info->pars.create(par->name, {});
+				if(!par_info) {
+					auto par_id_data = par_group_info->pars.create(par->name, {});
+					par_info = par_group_info->pars[par_id_data];
+				}
 				
 				par_info->type = par->decl_type;
 				par_info->values.clear();
@@ -1642,6 +1173,85 @@ make_connection_component_indexing_structure(Model_Application *app, Storage_Str
 	
 	components_structure->set_up(std::move(structure));
 }
+
+template<>
+void
+Index_Data<Data_Id>::transfer_data(Index_Data<Entity_Id> &other, Data_Id data_id) {
+	
+	auto model = other.record;
+	auto set_data = record->index_sets[data_id];
+	auto model_set_id = model->model_decl_scope.deserialize(set_data->name, Reg_Type::index_set);
+	if(!is_valid(model_set_id)) {
+		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
+		set_data->source_loc.print_error_header();
+		fatal_error("\"", set_data->name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
+		//return;
+	}
+	auto set = model->index_sets[model_set_id];
+	
+	//TODO: Finish!
+	
+	if(!set->union_of.empty()) {
+		// Check that the unions match
+		bool error = false;
+		if(set_data->union_of.size() != set->union_of.size())
+			error = true;
+		else {
+			int idx = 0;
+			for(auto ui_id : set_data->union_of) {
+				auto ui_data = record->index_sets[ui_id];
+				auto ui_id_model = model->model_decl_scope.deserialize(ui_data->name, Reg_Type::index_set);
+				if(!is_valid(ui_id_model) || ui_id_model != set->union_of[idx]) {
+					error = true;
+					break;
+				}
+				++idx;
+			}
+		}
+		
+		if(error) {
+			set_data->source_loc.print_error_header();
+			fatal_error("The index set \"", set_data->name, "\" is declared as a union in the model, but is not the same union in the data set.");
+		}
+		
+		other.initialize_union(model_set_id, set_data->source_loc);
+		return; // NOTE: There is no separate index data to copy for a union.
+		
+	} else if (!set_data->union_of.empty()) {
+		set_data->source_loc.print_error_header();
+		fatal_error("The index set \"", set_data->name, "\" is not declared as a union in the model, but is in the data set");
+	}
+	
+	Entity_Id sub_indexed_to = invalid_entity_id;
+	if(is_valid(set_data->sub_indexed_to))
+		sub_indexed_to = model->model_decl_scope.deserialize(record->index_sets[set_data->sub_indexed_to]->name, Reg_Type::index_set);
+	if(set->sub_indexed_to != sub_indexed_to) {
+		set_data->source_loc.print_error_header();
+		fatal_error("The parent index set of the index set \"", set_data->name, "\" does not match between the model and the data set.");
+	}
+	
+	auto &data = index_data[data_id.id];
+	
+	for(int super = 0; super < data.index_counts.size(); ++super) {
+		Index_T parent_idx = Index_T { sub_indexed_to, super };
+		if(!is_valid(sub_indexed_to))
+			parent_idx = invalid_index;
+		
+		other.initialize(model_set_id, parent_idx, data.type, set_data->source_loc);
+		
+		auto &new_data = other.index_data[model_set_id.id];
+		
+		new_data.index_counts[super] = data.index_counts[super];
+		if(data.type == Index_Record::Type::numeric1) {
+			// Nothing else to do.
+		} else if (data.type == Index_Record::Type::named) {
+			new_data.index_names[super] = data.index_names[super];
+			new_data.name_to_index[super] = data.name_to_index[super];
+		} else
+			fatal_error(Mobius_Error::internal, "Unimplemented index data type.");
+	}
+}
+
 
 inline size_t
 round_up(int align, size_t size) {
@@ -1807,3 +1417,54 @@ Model_Application::deserialize(const std::string &name) {
 	return invalid_var;
 }
 
+
+template<>
+void
+Index_Data<Entity_Id>::put_index_name_with_edge_naming(Model_Application *app, Indexes &indexes, Index_T index, std::vector<std::string> &names_out, int pos, bool quote) {
+	
+	auto model = app->model; // = record;
+	
+	bool is_quotable = false;
+	
+	auto index_set = model->index_sets[index.index_set];
+	auto conn_id = index_set->is_edge_of_connection;
+	if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::directed_graph) {
+		names_out[pos] = get_index_name(indexes, index, &is_quotable);
+		maybe_quote(names_out[pos], is_quotable);
+		return;
+	}
+	
+	Index_T index_of_super = invalid_index;
+	if(is_valid(index_set->sub_indexed_to)) {
+		index_of_super = indexes.get_index(*this, index_set->sub_indexed_to);
+		if(!is_valid(index_of_super))
+			fatal_error(Mobius_Error::internal, "Invalid index tuple in put_index_name_with_edge_naming.");
+	}
+	
+	// If this index set is the edge index set of a graph connection, we generate a name for the index by the target of the edge (arrow).
+	//TODO: Can we make a faster way to find the arrow
+	auto &arrows = app->connection_components[conn_id].arrows;
+	for(auto arr : arrows) {
+		auto source_idx = invalid_index;
+		if(arr.source_indexes.indexes.size() == 1)
+			source_idx = arr.source_indexes.indexes[0];
+		else if(arr.source_indexes.indexes.size() > 1)
+			fatal_error(Mobius_Error::internal, "Graph arrows with multiple source indexes not supported by get_index_name.");
+		
+		if(arr.edge_index == index && source_idx == index_of_super) {
+			if(is_valid(arr.target_id)) {
+				if(arr.target_indexes.indexes.empty()) {
+					names_out[pos] = model->components[arr.target_id]->name;
+					is_quotable = true;
+				} else if (arr.target_indexes.indexes.size() == 1) {
+					names_out[pos] = get_index_name(indexes, arr.target_indexes.indexes[0], &is_quotable);
+				} else
+					fatal_error(Mobius_Error::internal, "Graph arrows with multiple target indexes not supported by get_index_name.");
+			} else {
+				is_quotable = false;
+				names_out[pos] = "out";
+			}
+		}
+	}
+	maybe_quote(names_out[pos], is_quotable);
+}

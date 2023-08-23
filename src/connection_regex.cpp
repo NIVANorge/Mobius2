@@ -216,8 +216,12 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 				else {
 					auto &node = nodes[nodeidx];
 					error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
-					for(auto &index : node.indexes.indexes)
-						error_print(app->get_possibly_quoted_index_name(index), " ");
+					for(auto &index : node.indexes.indexes) {
+						bool quote;
+						auto index_name = app->index_data.get_index_name(node.indexes, index, &quote);
+						maybe_quote(index_name, quote);
+						error_print(index_name, " ");
+					}
 					error_print(']');
 				}
 				if(pathidx != path.size()-1)

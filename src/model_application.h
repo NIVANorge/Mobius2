@@ -10,7 +10,10 @@
 #include <functional>
 
 
-#define INDEX_PACKING_ALTERNATIVE 0
+typedef Index_Type<Entity_Id> Index_T;
+constexpr Index_T invalid_index = Index_T::no_index(); // TODO: Maybe we don't need the invalid_index alias..
+
+typedef Index_Tuple<Entity_Id> Indexes;
 
 
 struct Math_Expr_FT;
@@ -178,22 +181,6 @@ template<> struct Hash_Fun<Connection_T> {
 struct Index_Exprs;
 struct Model_Application;
 
-struct
-Indexes {
-	bool lookup_ordered = false;
-	std::vector<Index_T> indexes;
-	Index_T mat_col = invalid_index;
-	
-	Indexes();
-	Indexes(Mobius_Model *model);
-	Indexes(Index_T index);
-	
-	void clear();
-	void set_index(Index_T index, bool overwrite = false);
-	void add_index(Index_T index);
-	void add_index(Entity_Id index_set, s32 idx);
-	//Index_T get_index(Entity_Id index_set);
-};
 
 struct
 Offset_Stride_Code {
@@ -210,15 +197,9 @@ struct Multi_Array_Structure {
 	std::unordered_map<Handle_T, s32, Hash_Fun<Handle_T>> handle_location;
 	s64 begin_offset;
 	
-#if INDEX_PACKING_ALTERNATIVE
-	s64 get_offset_base(Handle_T handle, Model_Application *app) {
-		return begin_offset + handle_location[handle];
-	}
-#else
 	s64 get_offset_base(Handle_T handle, Model_Application *app) {
 		return begin_offset + handle_location[handle]*instance_count(app);
 	}
-#endif
 	
 	s64 get_stride(Handle_T handle);
 	s64 instance_count(Model_Application *app);
@@ -429,15 +410,7 @@ Model_Application {
 	
 	Mobius_Model                                            *model;
 	Model_Data                                               data;
-	
-private :
-	// TODO: could we find a way of getting rid of this and just using the index_counts structure in the Model_Data ?
-	//   In that case it could also be easier to have multiple parent indexes.
-	std::vector<std::vector<Index_T>>                        index_counts;
-	std::vector<std::unordered_map<std::string, Index_T>>    index_names_map;
-	std::vector<std::vector<std::string>>                    index_names;
-public :
-	
+
 	Unit_Data                                                time_step_unit;
 	Time_Step_Size                                           time_step_size;
 	
@@ -457,6 +430,8 @@ public :
 		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
 	}
 	
+	Index_Data<Entity_Id>                                    index_data;
+	
 	Data_Set                                                *data_set;
 	
 	All_Connection_Components                                connection_components;
@@ -466,25 +441,11 @@ public :
 	Run_Batch                                                initial_batch;
 	std::vector<Run_Batch>                                   batches;
 	
-	//std::unordered_map<std::string, owns_code>               separate_functions;
-	
 	bool                                                     is_compiled = false;
 	std::vector<Entity_Id>                                   baked_parameters;
 	
-	//Index_T map_down_from_union(Index_T index);
-	//Index_T map_up_to_union(Index_T index, Entity_Id union_id);
 	
-	void        set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx = invalid_index);
-	void        set_index_count(Entity_Id index_set, int count, Index_T parent_idx = invalid_index);
-	Index_T     get_max_index_count(Entity_Id index_set);
-	Index_T     get_index_count(Entity_Id index_set, Indexes &indexes);
-	Index_T     get_index(Entity_Id index_set, const std::string &name);
-	std::string get_index_name(Index_T index, bool *is_quotable = nullptr);
-	std::string get_possibly_quoted_index_name(Index_T index);
 	bool        all_indexes_are_set();
-	s64         active_instance_count(const std::vector<Entity_Id> &index_sets); // TODO: consider putting this on the Storage_Structure instead.
-	bool        is_in_bounds(Indexes &indexes); // same?
-	void        get_index_names_with_edge_naming(Indexes &indexes, std::vector<std::string> &names_out, bool quote);
 	
 	Math_Expr_FT *
 	get_index_count_code(Entity_Id index_set, Index_Exprs &indexes);
@@ -550,7 +511,7 @@ template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::instance_count(Model_Application *app) {
 	s64 count = 1;
 	for(auto &index_set : index_sets)
-		count *= (s64)app->get_max_index_count(index_set).index;
+		count *= (s64)app->index_data.get_max_count(index_set).index;
 	return count;
 }
 
@@ -641,35 +602,14 @@ Storage_Structure<Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>>
 }
 
 template<typename Handle_T> void
-for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::function<void(Indexes &, s64)> &do_stuff, Indexes &indexes, int level) {
-	Entity_Id index_set = indexes.indexes[level].index_set;
-	
-	if(level == indexes.indexes.size()-1) {
-		for(int idx = 0; idx < self->parent->get_index_count(index_set, indexes).index; ++idx) {
-			indexes.indexes[level].index = idx;
-			s64 offset = self->get_offset(handle, indexes);
-			do_stuff(indexes, offset);
-		}
-	} else {
-		for(int idx = 0; idx < self->parent->get_index_count(index_set, indexes).index; ++idx) {
-			indexes.indexes[level].index = idx;
-			for_each_helper(self, handle, do_stuff, indexes, level+1);
-		}
-	}
-}
-
-template<typename Handle_T> void
 Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(Indexes &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array.at(handle);
 	auto &index_sets = structure[array_idx].index_sets;
-	Indexes indexes;
-	if(index_sets.empty()) {
+	
+	parent->index_data.for_each(index_sets, [&](auto &indexes) {
 		s64 offset = get_offset(handle, indexes);
 		do_stuff(indexes, offset);
-		return;
-	}
-	for(int pos = 0; pos < index_sets.size(); ++pos) indexes.add_index( Index_T { index_sets[pos], 0 } );
-	for_each_helper(this, handle, do_stuff, indexes, 0);
+	});
 }
 
 

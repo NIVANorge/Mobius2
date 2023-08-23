@@ -453,9 +453,10 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 		
 		auto *comp = app->find_connection_component(connection_id, source_compartment, false);
 		if(comp && comp->total_as_source > 0) {
-			int max_instances = 1;    //TODO: use app->get_active_instance_count instead ?
+			// TODO: Should use index_data.get_instance_count() ?
+			int max_instances = 1;
 			for(auto index_set : comp->index_sets)
-				max_instances *= app->get_max_index_count(index_set).index;
+				max_instances *= app->index_data.get_max_count(index_set).index;
 			if(comp->total_as_source < max_instances) {
 				// If the component some times appears as a source, but not always, we have to check for each instance whether or not to evaluate the flux.
 				
