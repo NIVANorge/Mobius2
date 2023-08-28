@@ -420,7 +420,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("An 'is_at' is only supported for grid1d connections.");
 			}
-			auto index_set = app->get_single_connection_index_set(conn_id);
+			auto index_set = conn->node_index_set;
 			if(!index_set_is_contained_in(model, index_set, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'is_at' expression references a connection over an index set \"", model->index_sets[index_set]->name, "\" that the context location of the code does not index over.");
@@ -563,7 +563,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			fatal_error("This connection never received a type. Declare it as connection(name, type) somewhere.");
 		}
 		if(conn->type == Connection_Type::grid1d) {
-			auto index_set = app->get_single_connection_index_set(conn_id);
+			auto index_set = conn->node_index_set;
 			if(!model->index_sets[index_set]->union_of.empty()) {
 				conn->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("A 'grid1d' connection can not be placed over a union index set.");
@@ -998,8 +998,6 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 		if(model->components[target_comp]->decl_type != Decl_Type::compartment) return;
 		
 		// Get aggregation weights if relevant
-		// TODO: Won't this crash if there is an all_to_all flux that is over a quantity not a
-		// compartment and it finds a weight?
 		auto find = app->find_connection_component(conn_id, target_comp);
 		for(auto source_id : find->possible_sources) {
 			Var_Location loc2 = app->vars[target_var_id]->loc1;
@@ -1513,7 +1511,7 @@ compose_and_resolve(Model_Application *app) {
 		if(connection->type == Connection_Type::directed_graph) {
 			
 			auto find_source = app->find_connection_component(conn_id, app->vars[source_id]->loc1.components[0], false);
-			if(find_source && find_source->is_edge_indexed) // NOTE: Could instead be find_source->is_edge_indexed, but it is tricky wrt index set dependencies for the flux.
+			if(find_source && find_source->is_edge_indexed) // NOTE: Could instead be find_source->max_outgoing_edges, but it is tricky wrt index set dependencies for the flux.
 				register_connection_agg(app, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes.
 			
 			for(auto &target_comp : app->connection_components[conn_id].components) {
@@ -1530,12 +1528,11 @@ compose_and_resolve(Model_Application *app) {
 				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]); // Aggregation variable for incoming fluxes.
 			}
 		} else if (connection->type == Connection_Type::grid1d) {
-			if(connection->components.size() != 1 || app->connection_components[conn_id].components.size() != 1)
+			if(connection->components.size() != 1)
 				fatal_error(Mobius_Error::internal, "Expected exactly one compartment for this type of connection."); // Should have been detected earlier
 			
-			// NOTE: all_to_all and grid1d connections can (currently) only go from one state variable to another
-			// instance of itself ( the source_id ).
-			auto target_comp = app->connection_components[conn_id].components[0].id;
+			// Note: A grid1d connection can only go over one node type.
+			auto target_comp = connection->components[0];
 			
 			register_connection_agg(app, false, source_id, target_comp, conn_id, &varname[0]);
 			

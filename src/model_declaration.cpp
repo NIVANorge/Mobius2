@@ -1143,6 +1143,11 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 		}
 	}
 	
+	if(connection->type == Connection_Type::unrecognized) {
+		connection->source_loc.print_error_header();
+		fatal_error("This connection did not receive a type.");
+	}
+	
 	return id;
 }
 

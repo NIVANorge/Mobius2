@@ -233,21 +233,13 @@ Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_i
 }
 
 Entity_Id
-Model_Application::get_single_connection_index_set(Entity_Id conn_id) {
-	auto conn = model->connections[conn_id];
-	if(conn->type != Connection_Type::grid1d)
-		fatal_error(Mobius_Error::internal, "Misuse of get_single_connection_index_set().");
-	return connection_components[conn_id].components[0].index_sets[0];
-}
-
-Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction) {
 	
 	// TODO: For secondary restriction r2 also!
 	
 	Entity_Id avoid = invalid_entity_id;
 	if(restriction.r1.type == Restriction::top || restriction.r1.type == Restriction::bottom)
-		return app->get_single_connection_index_set(restriction.r1.connection_id);
+		return app->model->connections[restriction.r1.connection_id]->node_index_set;
 	return avoid;
 }
 
@@ -879,6 +871,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	connection_components.initialize(model);
 	
+	// TODO: The only reason we still do this seems to be that it makes looking up aggregation weights easier when registering connection aggregates, but there is no reason we should need it.
 	for(auto conn_id : model->connections) {
 		auto type = model->connections[conn_id]->type;
 		if(type == Connection_Type::grid1d)
@@ -893,6 +886,9 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	}
 	
 	for(auto conn_id : model->connections) {
+		if(model->connections[conn_id]->type != Connection_Type::directed_graph)
+			continue;
+		
 		auto &components = connection_components[conn_id].components;
 		if(components.empty()) {
 			fatal_error(Mobius_Error::model_building, "Did not get compartment data for the connection \"", model->connections[conn_id]->name, "\" in the data set.");

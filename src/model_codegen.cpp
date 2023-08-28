@@ -288,16 +288,16 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 Math_Expr_FT *
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction = nullptr, Var_Id context_var = invalid_var);
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction = nullptr, Model_Instruction *context_instr = nullptr);
 
 void
 set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Restriction &res, Math_Expr_FT *specific_target = nullptr) {
 	
-	if(app->model->connections[res.connection_id]->type != Connection_Type::grid1d)
+	auto conn = app->model->connections[res.connection_id];
+	if(conn->type != Connection_Type::grid1d)
 		fatal_error(Mobius_Error::internal, "Misuse of set_grid1d_target_indexes().");
 
-	auto index_set = app->get_single_connection_index_set(res.connection_id);
-	
+	auto index_set = conn->node_index_set;
 
 	if (res.type == Restriction::top) {
 		indexes.set_index(index_set, make_literal((s64)0));
@@ -408,7 +408,7 @@ give_the_same_condition(Model_Application *app, Var_Loc_Restriction *a, Var_Loc_
 	if(model->connections[a->r1.connection_id]->type != Connection_Type::grid1d || model->connections[b->r1.connection_id]->type != Connection_Type::grid1d)
 		return a->r1.connection_id == b->r1.connection_id;
 	if(a->r1.type != b->r1.type) return false;
-	return app->get_single_connection_index_set(a->r1.connection_id) == app->get_single_connection_index_set(b->r1.connection_id);
+	return app->model->connections[a->r1.connection_id]->node_index_set == app->model->connections[b->r1.connection_id]->node_index_set;
 }
 
 
@@ -424,13 +424,14 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 	
 	if(!is_valid(connection_id)) return value;
 	
-	auto type = app->model->connections[connection_id]->type;
+	auto conn = app->model->connections[connection_id];
+	auto type = conn->type;
 
 	Math_Expr_FT *new_condition = nullptr;
 	
 	if(type == Connection_Type::grid1d && (restriction.r1.type == Restriction::above || restriction.r1.type == Restriction::below)) {
 		
-		auto index_set = app->get_single_connection_index_set(connection_id);
+		auto index_set = conn->node_index_set;
 		
 		// TODO: This is very wasteful just to get the single index. Could factor out a function
 		// for that instead.
@@ -486,7 +487,7 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 Math_Expr_FT *
 process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes) {
 	auto &res = ident->restriction;
-	auto index_set = app->get_single_connection_index_set(res.r1.connection_id);
+	auto index_set = app->model->connections[res.r1.connection_id]->node_index_set;
 	
 	Math_Expr_FT *check_against = nullptr;
 	if(res.r1.type == Restriction::top) {
@@ -504,10 +505,10 @@ process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes
 }
 
 Math_Expr_FT *
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction, Var_Id context_var) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction, Model_Instruction *context_instr) {
 	
 	for(int idx = 0; idx < expr->exprs.size(); ++idx)
-		expr->exprs[idx] = put_var_lookup_indexes(expr->exprs[idx], app, index_expr, existing_restriction, context_var);
+		expr->exprs[idx] = put_var_lookup_indexes(expr->exprs[idx], app, index_expr, existing_restriction, context_instr);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
 	
@@ -546,90 +547,119 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 			
 		} else if (connection->type == Connection_Type::directed_graph) {
 			
-			// TODO: Make it work for parameters?
-			if(ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var) {
-				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("On a directed_graph connection, 'below' can only be used on a state variable or series.");
-			}
-			
-			Var_Location loc0;
-			
-			bool is_conc = false;
-			auto var = app->vars[ident->var_id];
-			if(var->type == State_Var::Type::declared) {
-				loc0 = var->loc1;
-			} else if (var->type == State_Var::Type::dissolved_conc) {
-				is_conc = true;
-				auto var2 = app->vars[as<State_Var::Type::dissolved_conc>(var)->conc_of];
-				loc0 = var2->loc1;
-			} else
-				fatal_error(Mobius_Error::internal, "Access of unhandled variable type along graph edge.");
-			
-			auto source_comp = loc0.first();
-			
-			if(!is_valid(source_comp))
-				fatal_error(Mobius_Error::internal, "Did not properly set the source compartment of the expression.");
-			
-			// We have to check for each possible target of the graph.
-			auto component = app->find_connection_component(res.r1.connection_id, source_comp, false);
-			
-			if(!component) {
-				ident->source_loc.print_error_header(Mobius_Error::internal);
-				fatal_error("Did not find the component for this expression. Connection is ", connection->name, ", component is ", app->model->components[source_comp]->name, ".");
-			}
-			
-			auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
-			if_expr->value_type = expr->value_type;
-			
-			for(auto target_comp : component->possible_targets) {
+			if(ident->variable_type == Variable_Type::parameter) {
 				
-				if(!is_valid(target_comp)) continue; // This happens if it is an 'out'. In that case it will be caught by the "otherwise" clause below (the value is 0).
-				
-				auto loc = loc0;
-				loc.components[0] = target_comp;
-				auto target_id = app->vars.id_of(loc);
-				if(!is_valid(target_id)) {
-					 // TODO: Maybe we should do this validity check in model_composition already, before we do the codegen.
-					 //   Or the value should just default to 0 in this case? That could cause silent errors though.
-					ident->source_loc.print_error_header();
-					fatal_error("The variable \"", var->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
+				bool valid = false;
+				if(context_instr && context_instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
+					auto flux_var = app->vars[context_instr->var_id];
+					auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[context_instr->target_id]);
+					auto agg_for = app->vars[agg_var->agg_for];
+					
+					if(!agg_var->is_source && flux_var->loc1 == agg_for->loc1) {
+						valid = true;
+						
+						Entity_Id target_comp = agg_for->loc1.first();
+						Index_Exprs new_indexes(app->model);
+						new_indexes.copy(index_expr);
+						set_graph_target_indexes(app, new_indexes, res.r1.connection_id, target_comp, target_comp);
+						
+						put_var_lookup_indexes_basic(ident, app, new_indexes);
+					}
 				}
-				auto ident2 = static_cast<Identifier_FT *>(copy(ident));
-				if(is_conc) {
-					ident2->var_id = app->vars.find_conc(target_id);
+				if(!valid) {
+					// TODO: Also allow it for graphs in general as long as it only has one component type (but in that case it must be 0-ed on an 'out'.
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("A 'below' indexing can only be applied to a parameter in a context where it can be guaranteed that the source and target of the flux are the same node type of the graph.");
+				}
+				return ident;
+					
+			} else {
+			
+				if(ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("On a directed_graph connection, 'below' can only be used on a state variable, series or parameter.");
+				}
+				
+				Var_Location loc0;
+				
+				bool is_conc = false;
+				auto var = app->vars[ident->var_id];
+				if(var->type == State_Var::Type::declared) {
+					loc0 = var->loc1;
+				} else if (var->type == State_Var::Type::dissolved_conc) {
+					is_conc = true;
+					auto var2 = app->vars[as<State_Var::Type::dissolved_conc>(var)->conc_of];
+					loc0 = var2->loc1;
 				} else
-					ident2->var_id = target_id;
+					fatal_error(Mobius_Error::internal, "Access of unhandled variable type along graph edge.");
 				
-				Index_Exprs new_indexes(app->model);
-				new_indexes.copy(index_expr);
-				set_graph_target_indexes(app, new_indexes, res.r1.connection_id, source_comp, target_comp);
-				if(res.r2.type != Restriction::none) {
-					auto connection = app->model->connections[res.r2.connection_id];
-					if(connection->type != Connection_Type::grid1d)
-						fatal_error(Mobius_Error::internal, "Got a secondary restriction for an identifier that was not a grid1d.");
-					set_grid1d_target_indexes_with_possible_specific(app, new_indexes, res.r2, context_var); // TODO: The specific code should be stored directly on the restriction itself so that we don't have to pass the context var.
+				auto source_comp = loc0.first();
+				
+				if(!is_valid(source_comp))
+					fatal_error(Mobius_Error::internal, "Did not properly set the source compartment of the expression.");
+				
+				// We have to check for each possible target of the graph.
+				auto component = app->find_connection_component(res.r1.connection_id, source_comp, false);
+				
+				if(!component) {
+					ident->source_loc.print_error_header(Mobius_Error::internal);
+					fatal_error("Did not find the component for this expression. Connection is ", connection->name, ", component is ", app->model->components[source_comp]->name, ".");
 				}
-				put_var_lookup_indexes_basic(ident2, app, new_indexes);
 				
-				if_expr->exprs.push_back(ident2);
+				auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
+				if_expr->value_type = expr->value_type;
 				
-				// Note here we use the index_expr belonging to the source compartment, not the
-				// one belonging to the target compartment
-				auto idx_offset = app->connection_structure.get_offset_code(Connection_T {res.r1.connection_id, source_comp, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
-				auto compartment_id = new Identifier_FT();
-				compartment_id->variable_type = Variable_Type::connection_info;
-				compartment_id->value_type = Value_Type::integer;
-				compartment_id->exprs.push_back(idx_offset);
+				for(auto target_comp : component->possible_targets) {
+					
+					if(!is_valid(target_comp)) continue; // This happens if it is an 'out'. In that case it will be caught by the "otherwise" clause below (the value is 0).
+					
+					auto loc = loc0;
+					loc.components[0] = target_comp;
+					auto target_id = app->vars.id_of(loc);
+					if(!is_valid(target_id)) {
+						 // TODO: Maybe we should do this validity check in model_composition already, before we do the codegen.
+						 //   Or the value should just default to 0 in this case? That could cause silent errors though.
+						ident->source_loc.print_error_header();
+						fatal_error("The variable \"", var->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
+					}
+					auto ident2 = static_cast<Identifier_FT *>(copy(ident));
+					if(is_conc) {
+						ident2->var_id = app->vars.find_conc(target_id);
+					} else
+						ident2->var_id = target_id;
+					
+					Index_Exprs new_indexes(app->model);
+					new_indexes.copy(index_expr);
+					set_graph_target_indexes(app, new_indexes, res.r1.connection_id, source_comp, target_comp);
+					if(res.r2.type != Restriction::none) {
+						auto connection = app->model->connections[res.r2.connection_id];
+						if(connection->type != Connection_Type::grid1d)
+							fatal_error(Mobius_Error::internal, "Got a secondary restriction for an identifier that was not a grid1d.");
+						auto context_id = context_instr ? context_instr->var_id : invalid_var;
+						set_grid1d_target_indexes_with_possible_specific(app, new_indexes, res.r2, context_id); // TODO: The specific code should be stored directly on the restriction itself so that we don't have to pass the context var.
+					}
+					put_var_lookup_indexes_basic(ident2, app, new_indexes);
+					
+					if_expr->exprs.push_back(ident2);
+					
+					// Note here we use the index_expr belonging to the source compartment, not the
+					// one belonging to the target compartment
+					auto idx_offset = app->connection_structure.get_offset_code(Connection_T {res.r1.connection_id, source_comp, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
+					auto compartment_id = new Identifier_FT();
+					compartment_id->variable_type = Variable_Type::connection_info;
+					compartment_id->value_type = Value_Type::integer;
+					compartment_id->exprs.push_back(idx_offset);
+					
+					// The condition that the expression resolves to the ident2 value.
+					if_expr->exprs.push_back(make_binop('=', compartment_id, make_literal((s64)target_comp.id)));
+				}
 				
-				// The condition that the expression resolves to the ident2 value.
-				if_expr->exprs.push_back(make_binop('=', compartment_id, make_literal((s64)target_comp.id)));
+				delete ident;
+				
+				if_expr->exprs.push_back(make_literal((double)0.0));  // This is if the given target is not on the list.
+				
+				return if_expr;
 			}
-			
-			delete ident;
-			
-			if_expr->exprs.push_back(make_literal((double)0.0));  // This is if the given target is not on the list.
-			
-			return if_expr;
 		} else
 			fatal_error(Mobius_Error::internal, "Unimplemented connection type in put_var_lookup_indexes()");
 		
@@ -806,13 +836,10 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			
 			Math_Expr_FT *fun = nullptr;
 			
-			//try {
+			try {
 				if(instr->code) {
-					Var_Id context_id = invalid_var;
-					if(instr->type == Model_Instruction::Type::compute_state_var)
-						context_id = instr->var_id;
 					fun = copy(instr->code);
-					fun = put_var_lookup_indexes(fun, app, indexes, &instr->restriction, context_id);
+					fun = put_var_lookup_indexes(fun, app, indexes, &instr->restriction, instr);
 				} else if (instr->type != Model_Instruction::Type::clear_state_var) {
 					//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
 					
@@ -821,10 +848,9 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 						continue;
 					fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
 				}
-			//} catch(int) {
-			//	fatal_error("The error happened when trying to put lookup indexes for the instruction ", instr->debug_string(app), initial ? " during the initial value step." : ".");
-			
-			//}
+			} catch(int) {
+				fatal_error("The error happened when trying to put lookup indexes for the instruction ", instr->debug_string(app), initial ? " during the initial value step." : ".");
+			}
 				
 			Math_Expr_FT *result_code = nullptr;
 			

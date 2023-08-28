@@ -8,11 +8,13 @@ index_set("Subcatchment") [ "Inlet" ]
 
 index_set("Toxin type") [ "PCB something" ]
 
-connection("Downstream") [
+connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
-	
-	r["Inlet"] -> out
-]
+
+	directed_graph [
+		r["Inlet"] -> out
+	]
+}
 
 series("langtjern.xlsx")
 

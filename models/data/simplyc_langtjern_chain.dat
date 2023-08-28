@@ -6,18 +6,22 @@ index_set("Landscape units") [ "Forest" "Bog" ]
 
 index_set("Subcatchment") [ "Inlet" ]
 
-connection("Downhill") [
+connection("Downhill") {
 	s : compartment("Soil") [ "Landscape units" ]
 	r : compartment("River") [ ]
+	
+	directed_graph [
+		s[ "Forest" ] -> s[ "Bog" ] -> r[ ]
+	]
+}
 
-	s[ "Forest" ] -> s[ "Bog" ] -> r[ ]
-]
-
-connection("Downstream") [
+connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
-
-	r[ "Inlet" ] -> out
-]
+	
+	directed_graph [
+		r[ "Inlet" ] -> out
+	]
+}
 
 series("langtjern.xlsx")
 

@@ -452,7 +452,7 @@ Model_Application {
 	get_index_count_code(Entity_Id index_set, Index_Exprs &indexes);
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
-	Entity_Id              get_single_connection_index_set(Entity_Id conn_id);
+	//Entity_Id              get_single_connection_index_set(Entity_Id conn_id);
 	
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set();

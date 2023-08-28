@@ -129,9 +129,9 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 		print_tabs(file, n_tabs+1);
 		if(is_valid(connection.edge_index_set)) {
 			auto edge_set = data_set->index_sets[connection.edge_index_set];
-			fprintf(file, "directed_graph(\"%s\") [\n", edge_set->name.data());
+			fprintf(file, "directed_graph(\"%s\") [", edge_set->name.data());
 		} else
-			fprintf(file, "directed_graph [\n");
+			fprintf(file, "directed_graph [");
 		
 		if(connection.arrows.empty()) return;
 		
@@ -182,7 +182,7 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 		print_tabs(file, tabs);
 		fprintf(file, "[ ");
 	} else {
-		fprintf(file, " [");
+		fprintf(file, " [\n");
 	}
 	
 	int offset = 0;
@@ -217,15 +217,17 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 		},
 		[&](int pos) {
 			int dist = (n_dims-1) - pos;
-			if(dist == 1)
-				print_tabs(file, tabs);
+			if(dist == 1 && n_dims != 1)
+				print_tabs(file, tabs+1);
 			if(dist > 1)
 				fprintf(file, "\n");
 		}
 		);
 
-	if(n_dims != 1)
+	if(n_dims != 1) {
+		fprintf(file, "\n");
 		print_tabs(file, tabs);
+	}
 	fprintf(file, "]\n");
 	if(double_newline)
 		fprintf(file, "\n");

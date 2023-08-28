@@ -253,7 +253,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 				
 				} else if(dep.variable_type == Variable_Type::is_at) {
 					
-					auto index_set = app->get_single_connection_index_set(dep.restriction.r1.connection_id);
+					auto index_set = app->model->connections[dep.restriction.r1.connection_id]->node_index_set;
 					insert_dependency(app, &instr, index_set);
 					
 				} else if(dep.variable_type == Variable_Type::state_var) {
@@ -281,7 +281,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 								if(comp && comp->is_edge_indexed)
 									insert_dependency(app, &instr, conn->edge_index_set);
 							} else if(conn->type == Connection_Type::grid1d) {
-								auto index_set = app->get_single_connection_index_set(res.connection_id);
+								auto index_set = conn->node_index_set;
 								insert_dependency(app, &instr, index_set);
 							} else
 								fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
@@ -292,7 +292,7 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 						if(res.type == Restriction::bottom)
 							instr.instruction_is_blocking.insert(dep.var_id.id);
 						
-						auto index_set = app->get_single_connection_index_set(res.connection_id);
+						auto index_set = app->model->connections[res.connection_id]->node_index_set;
 						auto parent = app->model->index_sets[index_set]->sub_indexed_to;
 						if(is_valid(parent))
 							insert_dependency(app, &instr, parent);
@@ -956,7 +956,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 						// NOTE: This should already have been checked in model_compilation, this is just a safeguard.
 						fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
 					
-					auto index_set = app->get_single_connection_index_set(var2->connection);
+					auto index_set = conn->node_index_set;
 					
 					instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
 					
