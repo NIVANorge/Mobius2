@@ -34,9 +34,8 @@ model("NIVAFjord") {
 	z  : property("Depth")
 	dz : property("Thickness")
 	
-	vert    : connection("Fjord vertical", grid1d) { layer[layer_idx] }
-	sw_vert : connection("Shortwave vertical", grid1d) { layer[layer_idx] }
-	#bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer[layer_idx] }
+	vert    : connection("Fjord vertical") @grid1d(layer, layer_idx)
+	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 	
 	par_group("Fjord global parameters") {
 		dz0     : par_real("Stable layer thickness", [m], 1, 0.1, 5)

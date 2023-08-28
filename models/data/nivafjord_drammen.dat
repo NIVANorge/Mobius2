@@ -15,16 +15,20 @@ index_set("Subcatchment") [ "Drammenselva" ]
 
 index_set("Landscape units") [ "Just one" ]
 
-connection("Downstream") [
+index_set("Fjord connection index") @sub("Basin index")
+
+connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
-]
+}
 
-connection("Fjord horizontal") [
-	r : compartment("River") [ "Subcatchment" ] [ "Outlet index" ]
-	l : compartment("Fjord layer") [ "Basin index" ] [ "Fjord connection index" ]
+connection("Fjord horizontal") {
+	r : compartment("River") [ "Subcatchment" ] 
+	l : compartment("Fjord layer") [ "Basin index" ]
 
-	r[ "Drammenselva" ] -> l[ "Drammensfjorden" ]
-]
+	directed_graph("Fjord connection index") [
+		r[ "Drammenselva" ] -> l[ "Drammensfjorden" ]
+	]
+}
 
 series("nivafjord_drammen.xlsx")
 

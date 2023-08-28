@@ -763,25 +763,23 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 }
 
 Math_Expr_FT *
-create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::set<Index_Set_Dependency> &index_sets, Index_Exprs &indexes) {
+create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::set<Entity_Id> &index_sets, Index_Exprs &indexes) {
 	
 	Math_Block_FT *scope = top_scope;
-	auto index_set = index_sets.begin();
-	for(int idx = 0; idx < index_sets.size(); ++idx) {
+
+	for(auto index_set : index_sets) {
 		
 		auto loop = make_for_loop();
 		// NOTE: There is a caveat here: This will only work if the parent index of a sub-indexed index set is always set up first,
 		//   and that  *should* work the way we order the Entity_Id's of those right now, but it is a smidge volatile...
-		auto index_count = app->get_index_count_code(index_set->id, indexes);
+		auto index_count = app->get_index_count_code(index_set, indexes);
 		loop->exprs.push_back(index_count);
 		scope->exprs.push_back(loop);
 		
 		// NOTE: this is a reference to the iterator of the for loop.
-		indexes.set_index(index_set->id, make_local_var_reference(0, loop->unique_block_id, Value_Type::integer));
+		indexes.set_index(index_set, make_local_var_reference(0, loop->unique_block_id, Value_Type::integer));
 		
 		scope = loop;
-		
-		index_set++;
 	}
 	
 	auto body = new Math_Block_FT();

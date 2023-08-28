@@ -1116,8 +1116,8 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 			match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::index_set}}, 0);
 			
 			connection->type = Connection_Type::grid1d;
-			connection->node_index_set = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
-			connection->components.push_back(resolve_argument<Reg_Type::component>(model, scope, note, 1));
+			connection->node_index_set = resolve_argument<Reg_Type::index_set>(model, scope, note, 1);
+			connection->components.push_back(resolve_argument<Reg_Type::component>(model, scope, note, 0));
 			
 		} else if(note->decl.string_value == "directed_graph") {
 			

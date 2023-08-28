@@ -666,6 +666,10 @@ Index_Data<Id_Type>::check_valid_distribution(std::vector<Id_Type> &index_sets, 
 	int idx = 0;
 	for(auto id : index_sets) {
 		auto set = record->index_sets[id];
+		if(std::find(index_sets.begin(), index_sets.begin()+idx, id) != index_sets.begin()+idx) {
+			source_loc.print_error_header();
+			fatal_error("The index set \"", set->name, "\" appears twice in the same distribution.");
+		}
 		if(is_valid(set->sub_indexed_to)) {
 			bool found = (std::find(index_sets.begin(), index_sets.begin()+idx, set->sub_indexed_to) != index_sets.begin()+idx);
 			auto parent_set = record->index_sets[set->sub_indexed_to];
@@ -677,7 +681,7 @@ Index_Data<Id_Type>::check_valid_distribution(std::vector<Id_Type> &index_sets, 
 			}
 			if(!found) {
 				source_loc.print_error_header();
-				fatal_error("The index set \"", set->name, "\" is sub-indexed to another index set \"", record->index_sets[set->sub_indexed_to]->name, "\", but the parent index set (or a union member of it) does not precede it in this distribution");
+				fatal_error("The index set \"", set->name, "\" is sub-indexed to another index set \"", record->index_sets[set->sub_indexed_to]->name, "\", but the parent index set (or a union member of it) does not precede it in this distribution.");
 			}
 		}
 		if(!set->union_of.empty()) {

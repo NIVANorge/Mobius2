@@ -43,8 +43,7 @@ model("NIVAFjord-SimplyQ") {
 	unit_conversion(gw.water, river.water)   { a_catch }
 	
 
-	sc     : index_set("Subcatchment")	
-	ol_idx : index_set("Outlet index") @sub(sc)
+	sc     : index_set("Subcatchment")
 
 	lu : index_set("Landscape units")
 	
@@ -56,7 +55,7 @@ model("NIVAFjord-SimplyQ") {
 	
 	
 	#epi        : compartment("Epilimnion")
-	downstream : connection("Downstream", directed_tree) { 
+	downstream : connection("Downstream") @directed_graph { 
 		river+
 		#(river|epi)+
 	}
@@ -64,9 +63,9 @@ model("NIVAFjord-SimplyQ") {
 	rho_water : constant("Water density", [k g, m-3], 1000) #TODO: allow loading library into model scope.
 	unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
 	
-	horz : connection("Fjord horizontal", directed_graph) { 
-		river[ol_idx]? layer[e_idx]+
-		#river[ol_idx]? layer[e_idx]+ bnd_layer
+	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
+		river? layer+
+		#river? layer+ bnd_layer
 	}
 	
 	edge       : compartment("Basin edge")
@@ -78,10 +77,7 @@ model("NIVAFjord-SimplyQ") {
 		w_bnd  : par_real("Boundary width", [m], 0, 0, 10000)
 	}
 	
-	outlet : compartment("Outlet")
-	distribute(outlet, sc, ol_idx)
-	
-	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", basin, layer, river, outlet, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
+	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", basin, layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
 	
 	tracer : quantity("Tracer")
 	load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, river, water, tracer, horz))

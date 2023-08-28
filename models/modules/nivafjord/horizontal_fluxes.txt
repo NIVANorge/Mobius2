@@ -3,7 +3,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	basin  : compartment,
 	layer  : compartment,
 	river  : compartment,
-	outlet : compartment,
 	edge   : compartment,
 	edge_layer : compartment,
 	water  : quantity,
@@ -30,11 +29,10 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 
 	vert_target : property("Vertical exchange target")
 	
-	#var(outlet.vert_target, [], "Outlet vertical target")
 	var(river.vert_target, [], "Outlet vertical target")
 	
-	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", outlet) {
-		#result(outlet.vert_target)
+	#TODO: We have to conditionalize the computation of this one in codegen based on the existence of horz.below.
+	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
 		result(river.vert_target)
 		river.water.rho
 		
@@ -48,7 +46,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
 		flow->>
-	} @specific { river.vert_target }#outlet.vert_target }
+	} @specific { river.vert_target }
 	
 	#TODO: Only until we make realignment work.
 	flux(layer.water, out, [k g, day-1], "Horizontal flux equivalent removal") {

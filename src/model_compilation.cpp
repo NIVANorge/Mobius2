@@ -39,12 +39,8 @@ void
 debug_print_batch_array(Model_Application *app, std::vector<Batch_Array> &arrays, std::vector<Model_Instruction> &instructions, std::ostream &os, bool show_dependencies = false) {
 	for(auto &array : arrays) {
 		os << "\t[";
-		for(auto index_set : array.index_sets) {
-			os << "\"" << app->model->index_sets[index_set.id]->name << "\"";
-			if(index_set.order > 1)
-				os << "^" << index_set.order;
-			os << " ";
-		}
+		for(auto index_set : array.index_sets)
+			os << "\"" << app->model->index_sets[index_set]->name << "\" ";
 		os << "]\n";
 		for(auto instr_id : array.instr_ids) {
 			auto instr = &instructions[instr_id];
@@ -110,7 +106,7 @@ topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::
 }
 
 bool
-insert_dependency_base(Model_Application *app, Model_Instruction *instr, const Index_Set_Dependency &to_insert) {
+insert_dependency_base(Model_Application *app, Model_Instruction *instr, Entity_Id to_insert) {
 	
 	// Returns true if there is a change in dependencies
 	
@@ -131,63 +127,59 @@ insert_dependency_base(Model_Application *app, Model_Instruction *instr, const I
 	
 	auto &dependencies = instr->index_sets;
 	
-	if(!is_valid(to_insert.id))
+	if(!is_valid(to_insert))
 		fatal_error(Mobius_Error::internal, "Tried to insert an invalid id as an index set dependency.");
 
-	auto find = std::find_if(dependencies.begin(), dependencies.end(), [&](const Index_Set_Dependency &dep) -> bool { return dep.id == to_insert.id; });
+	auto find = std::find(dependencies.begin(), dependencies.end(), to_insert);
 	
-	if(find == dependencies.end()) {
-		auto set = model->index_sets[to_insert.id];
+	if(find != dependencies.end())
+		return false;
+	
+	auto set = model->index_sets[to_insert];
+	
+	// What do we do with higher order dependencies in either of the special cases? Maybe easiest to disallow double dependencies on union sets for now?
+	
+	// If we insert a union index set and there is already one of the union members there, we should ignore it.
+	if(!set->union_of.empty()) {
 		
-		// What do we do with higher order dependencies in either of the special cases? Maybe easiest to disallow double dependencies on union sets for now?
-		
-		// If we insert a union index set and there is already one of the union members there, we should ignore it.
-		if(!set->union_of.empty()) {
+		Entity_Id union_member_allowed = invalid_entity_id;
+		for(auto ui_id : set->union_of) {
+			auto find2 = std::find(dependencies.begin(), dependencies.end(), ui_id);
+			if(find2 != dependencies.end())
+				return false;
+			if(maximal_index_sets) {
+				if(maximal_index_sets->find(ui_id) != maximal_index_sets->end())
+					union_member_allowed = ui_id;
+			}
+		}
+		// If the reference var location could only depend on a union member, we should insert the union member rather than the union.
+		// (note that if the union member was already a dependency, we have exited already, so this insertion is indeed new).
+		if(is_valid(union_member_allowed)) {
 			
-			Entity_Id union_member_allowed = invalid_entity_id;
-			for(auto ui_id : set->union_of) {
-				auto find2 = std::find_if(dependencies.begin(), dependencies.end(), [&](const Index_Set_Dependency &dep) -> bool { return dep.id == ui_id; });
-				if(find2 != dependencies.end())
-					return false;
-				if(maximal_index_sets) {
-					if(maximal_index_sets->find(ui_id) != maximal_index_sets->end())
-						union_member_allowed = ui_id;
-				}
-			}
-			// If the reference var location could only depend on a union member, we should insert the union member rather than the union.
-			// (note that if the union member was already a dependency, we have exited already, so this insertion is indeed new).
-			if(is_valid(union_member_allowed)) {
-				
-				dependencies.insert(union_member_allowed);
-				return true;
-			}
+			dependencies.insert(union_member_allowed);
+			return true;
 		}
-		
-		if(maximal_index_sets) {
-			if(maximal_index_sets->find(to_insert.id) == maximal_index_sets->end())
-				fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency ", model->index_sets[to_insert.id]->name, " for ", instr->debug_string(app), "\n");
-		}
-
-		// TODO: If any of the existing index sets in dependencies is a union and we try to insert a union member, that should overwrite the union?
-		//   Hmm, however, this should not really happen as a Var_Location should not be able to have such a double dependency in the first place.
-		//   We should monitor how this works out.
-		
-		dependencies.insert(to_insert);
-		return true;
-	} else if(to_insert.order > find->order) {
-		dependencies.erase(find);
-		dependencies.insert(to_insert);
-		return true;
 	}
-	return false;
+	
+	if(maximal_index_sets) {
+		if(maximal_index_sets->find(to_insert) == maximal_index_sets->end())
+			fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency ", model->index_sets[to_insert]->name, " for ", instr->debug_string(app), "\n");
+	}
+
+	// TODO: If any of the existing index sets in dependencies is a union and we try to insert a union member, that should overwrite the union?
+	//   Hmm, however, this should not really happen as a Var_Location should not be able to have such a double dependency in the first place.
+	//   We should monitor how this works out.
+	
+	dependencies.insert(to_insert);
+	return true;
 }
 
 bool
-insert_dependency(Model_Application *app, Model_Instruction *instr, const Index_Set_Dependency &to_insert) {
+insert_dependency(Model_Application *app, Model_Instruction *instr, Entity_Id to_insert) {
 	// Returns true if there is a change in dependencies
 	
 	bool changed = false;
-	auto sub_indexed_to = app->model->index_sets[to_insert.id]->sub_indexed_to;
+	auto sub_indexed_to = app->model->index_sets[to_insert]->sub_indexed_to;
 	if(is_valid(sub_indexed_to))
 		changed = insert_dependency_base(app, instr, sub_indexed_to);
 	changed = changed || insert_dependency_base(app, instr, to_insert);
@@ -213,27 +205,22 @@ insert_dependencies(Model_Application *app, Model_Instruction *instr, const Iden
 	for(auto index_set : *index_sets) {
 		
 		if(index_set == avoid) continue;
-		// NOTE: Specialized logic to handle if a parameter (or series?) is indexing over the same index set twice.
-		//   Currently we only support this for the two last index sets being the same.
-		if(idx == sz-2 && index_set == (*index_sets)[sz-1]) {
-			insert_dependency(app, instr, {index_set, 2});
-			break;
-		} else {
-			insert_dependency(app, instr, index_set);
-		}
+		
+		insert_dependency(app, instr, index_set);
+
 		++idx;
 	}
 }
 
 bool
-insert_dependencies(Model_Application *app, Model_Instruction *instr, std::set<Index_Set_Dependency> &to_insert, const Identifier_Data &dep) {
+insert_dependencies(Model_Application *app, Model_Instruction *instr, std::set<Entity_Id> &to_insert, const Identifier_Data &dep) {
 	auto avoid = avoid_index_set_dependency(app, dep.restriction);
 	
 	bool changed = false;
-	for(auto index_set_dep : to_insert) {
-		if(index_set_dep.id == avoid) continue;
+	for(auto index_set : to_insert) {
+		if(index_set == avoid) continue;
 		
-		changed = changed || insert_dependency(app, instr, index_set_dep);
+		changed = changed || insert_dependency(app, instr, index_set);
 	}
 	return changed;
 }
@@ -1388,8 +1375,7 @@ void
 add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Batch_Array &array, std::vector<Model_Instruction> &instructions) {
 	std::vector<Entity_Id> index_sets;
 	for(auto &index_set : array.index_sets)
-		for(int order = 0; order < index_set.order; ++order)
-			index_sets.push_back(index_set.id);
+		index_sets.push_back(index_set);
 	
 	std::vector<Var_Id>    handles;
 	for(int instr_id : array.instr_ids) {

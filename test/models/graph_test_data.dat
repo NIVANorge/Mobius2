@@ -4,20 +4,18 @@ index_set("Node2 index") [ "E" "F" ]
 
 index_set("All nodes") @union("Node index", "Node2 index")
 
-index_set("Edge index") @sub("All nodes")
+index_set("Edge index") @sub("All nodes") 
 
 connection("The graph") {
 	n : compartment("Node") [ "Node index" ]
 	n2 : compartment("Node2") [ "Node2 index" ]
-	
+
 	directed_graph("Edge index") [
+
 		n[ "A" ] -> n[ "B" ] -> n[ "C" ]
 		n[ "A" ] -> n[ "D" ] -> n[ "B" ]
 		n[ "D" ] -> n[ "C" ] -> out
 		n[ "C" ] -> n2[ "F" ] -> n2[ "E" ] -> n[ "A" ]
-		
-		#n2["F"]->n2["E"]->out
-		#n["C"]->out
 	]
 }
 
@@ -29,7 +27,7 @@ par_group("System") {
 	[ 1970-06-16 ]
 }
 
-module("Graph test", 0, 0, 1) {
+module("Graph test", version(0, 0, 1)) {
 	par_group("Node pars") [ "Node index" ] {
 		par_real("Height")
 		[ 10 5 20 9 ]

@@ -178,7 +178,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	}
 	
 	flux(layer.water, vert, [k g, day-1], "Water mixing down") { wmix }
-	flux(layer.water, vert, [k g, day-1], "Water mixing up")   { -wmix }
+	flux(layer.water, vert, [k g, day-1], "Water mixing up")   { -wmix } @bidirectional #It is negative, but in effect working in the opposite direction.
 	
 	var(layer.water.attn, []) {
 		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.

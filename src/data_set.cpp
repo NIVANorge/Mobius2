@@ -8,45 +8,48 @@
 void
 write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_set) {
 	
-	if(is_valid(index_set.is_edge_of_connection)) return; // These are not given explicitly, only as arrows in a connection.
+	fprintf(file, "index_set(\"%s\") ", index_set.name.data());
 	
-	if(!is_valid(index_set.sub_indexed_to)) {
-		fprintf(file, "index_set(\"%s\") ", index_set.name.data());
-		if(!index_set.union_of.empty()) {
-			fprintf(file, "@union(");
-			int idx = 0;
-			for(auto set_id : index_set.union_of) {
-				auto set = data_set->index_sets[set_id];
-				fprintf(file, "\"%s\"", set->name.data());
-				if(idx != index_set.union_of.size()-1)
-					fprintf(file, ", ");
-				++idx;
-			}
-			fprintf(file, ")");
-		} else {
+	if(is_valid(index_set.sub_indexed_to)) {
+		auto parent = data_set->index_sets[index_set.sub_indexed_to];
+		fprintf(file, "@sub(\"%s\") ", parent->name.data());
+	}
+	if(!index_set.union_of.empty()) {
+		fprintf(file, "@union(");
+		int idx = 0;
+		for(auto set_id : index_set.union_of) {
+			auto set = data_set->index_sets[set_id];
+			fprintf(file, "\"%s\"", set->name.data());
+			if(idx != index_set.union_of.size()-1)
+				fprintf(file, ", ");
+			++idx;
+		}
+		fprintf(file, ")");
+	}
+	
+	if(index_set.union_of.empty() && !is_valid(index_set.is_edge_of_connection)) { // NOTE: These don't have explicit index data.
+		if(!is_valid(index_set.sub_indexed_to)) {
 			fprintf(file, "[ ");
 			data_set->index_data.write_indexes_to_file(file, index_set.id);
 			fprintf(file, "]");
+		} else {
+			if(!index_set.union_of.empty())
+				fatal_error(Mobius_Error::internal, "Unimplemented sub-indexed union index set.");
+			
+			fprintf(file, " [\n");
+			s32 count = data_set->index_data.get_max_count(index_set.sub_indexed_to).index;
+			for(int idx = 0; idx < count; ++idx) {
+				Index_D parent_idx = Index_D  { index_set.sub_indexed_to, idx };
+				fprintf(file, "\t");
+				data_set->index_data.write_index_to_file(file, parent_idx);
+				fprintf(file, " : [ ");
+				data_set->index_data.write_indexes_to_file(file, index_set.id, parent_idx);
+				fprintf(file, "]\n");
+			}
+			fprintf(file, "]");
 		}
-	} else {
-		if(!index_set.union_of.empty())
-			fatal_error(Mobius_Error::internal, "Unimplemented sub-indexed union index set.");
-		
-		auto parent = data_set->index_sets[index_set.sub_indexed_to];
-		fprintf(file, "index_set(\"%s\") @sub(\"%s\") [\n", parent->name.data(), index_set.name.data());
-
-		s32 count = data_set->index_data.get_max_count(index_set.sub_indexed_to).index;
-	
-		for(int idx = 0; idx < count; ++idx) {
-			Index_D parent_idx = Index_D  { index_set.sub_indexed_to, idx };
-			fprintf(file, "\t");
-			data_set->index_data.write_index_to_file(file, parent_idx);
-			fprintf(file, " : [ ");
-			data_set->index_data.write_indexes_to_file(file, index_set.id, parent_idx);
-			fprintf(file, "]\n");
-		}
-		fprintf(file, "]");
 	}
+	
 	fprintf(file, "\n\n");
 }
 
@@ -115,19 +118,20 @@ void
 write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set, int n_tabs = 0) {
 	
 	print_tabs(file, n_tabs);
-	fprintf(file, "connection(\"%s\") [\n", connection.name.data());
+	fprintf(file, "connection(\"%s\") {\n", connection.name.data());
 	
 	for(auto &component : connection.components)
 		write_component_info_to_file(file, component, data_set, n_tabs);
 	
 	if(connection.type == Connection_Info::Type::directed_graph) {
 		
+		fprintf(file, "\n");
 		print_tabs(file, n_tabs+1);
 		if(is_valid(connection.edge_index_set)) {
 			auto edge_set = data_set->index_sets[connection.edge_index_set];
-			fprintf(file, "\tdirected_graph(\"%s\") [\n", edge_set->name.data());
+			fprintf(file, "directed_graph(\"%s\") [\n", edge_set->name.data());
 		} else
-			fprintf(file, "\tdirected_graph [\n");
+			fprintf(file, "directed_graph [\n");
 		
 		if(connection.arrows.empty()) return;
 		
@@ -156,7 +160,7 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in write_to_file.");
 	}
 	print_tabs(file, n_tabs);
-	fprintf(file, "]\n\n");
+	fprintf(file, "}\n\n");
 }
 
 void
@@ -325,7 +329,7 @@ Data_Set::write_to_file(String_View file_name) {
 		mobius_error_exit();
 }
 
-// TODDO: rename it to something else.
+// TODO: rename it to something else.
 void
 read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident = false, bool allow_int = false) {
 	stream->expect_token('[');
