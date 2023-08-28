@@ -8,7 +8,7 @@
 void
 write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_set) {
 	
-	if(index_set.is_edge_index_set) return; // These are not given explicitly, only as arrows in a connection.
+	if(is_valid(index_set.is_edge_of_connection)) return; // These are not given explicitly, only as arrows in a connection.
 	
 	if(!is_valid(index_set.sub_indexed_to)) {
 		fprintf(file, "index_set(\"%s\") ", index_set.name.data());
@@ -83,12 +83,7 @@ write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *da
 		auto index_set = data_set->index_sets[set_id];
 		fprintf(file, " \"%s\"", index_set->name.data());
 	}
-	fprintf(file, " ]");
-	if(is_valid(component.edge_index_set)) {
-		auto index_set = data_set->index_sets[component.edge_index_set];
-		fprintf(file, " [ \"%s\" ]", index_set->name.data());
-	}
-	fprintf(file, "\n");
+	fprintf(file, " ]\n");
 }
 
 void
@@ -125,7 +120,15 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 	for(auto &component : connection.components)
 		write_component_info_to_file(file, component, data_set, n_tabs);
 	
-	if(connection.type == Connection_Info::Type::graph) {
+	if(connection.type == Connection_Info::Type::directed_graph) {
+		
+		print_tabs(file, n_tabs+1);
+		if(is_valid(connection.edge_index_set)) {
+			auto edge_set = data_set->index_sets[connection.edge_index_set];
+			fprintf(file, "\tdirected_graph(\"%s\") [\n", edge_set->name.data());
+		} else
+			fprintf(file, "\tdirected_graph [\n");
+		
 		if(connection.arrows.empty()) return;
 		
 		// TODO!
@@ -137,7 +140,7 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 		for(auto &pair : connection.arrows) {
 			if(!prev || !(pair.first == *prev)) {
 				fprintf(file, "\n");
-				print_tabs(file, n_tabs+1);
+				print_tabs(file, n_tabs+2);
 				write_indexed_compartment_to_file(file, pair.first, data_set, connection);
 			}
 			fprintf(file, " -> ");
@@ -145,6 +148,8 @@ write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set 
 			prev = &pair.second;
 		}
 		fprintf(file, "\n");
+		print_tabs(file, n_tabs+1);
+		fprintf(file, "]\n");
 	} else if (connection.type == Connection_Info::Type::none) {
 		// Nothing else to write.
 	} else {
@@ -356,7 +361,7 @@ make_sub_indexed_to(Data_Set *data_set, Index_Set_Info *data, Token *parent) {
 	return data->sub_indexed_to;
 }
 
-void
+Data_Id
 parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 	
 	match_declaration(decl,	{{Token_Type::quoted_string}}, false, false);
@@ -409,9 +414,13 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 	
 	if(!data->union_of.empty()) {
 		data_set->index_data.initialize_union(index_set_id, decl->source_loc);
-		return;
+		return index_set_id;
 	}
-
+	
+	auto peek0 = stream->peek_token();
+	if((char)peek0.type != '[')
+		return index_set_id;
+	
 	auto peek = stream->peek_token(1);
 	bool found_sub_indexes = false;
 	if(peek.type == Token_Type::quoted_string || peek.type == Token_Type::integer) {
@@ -461,6 +470,8 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 		decl->source_loc.print_error_header();
 		fatal_error("The index set \"", data->name, "\" was not fully initialized.");
 	}
+	
+	return index_set_id;
 }
 
 void
@@ -492,38 +503,70 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 void
 read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_Stream *stream, Connection_Info *info) {
 	
-	std::pair<Compartment_Ref, Compartment_Ref> entry;
+	std::pair<Compartment_Ref, Compartment_Ref> arrow;
 	if(!first_in)
-		read_compartment_identifier(data_set, stream, &entry.first, info);
+		read_compartment_identifier(data_set, stream, &arrow.first, info);
 	else
-		entry.first = *first_in;
+		arrow.first = *first_in;
 	
-	if(!is_valid(entry.first.id)) {
+	if(!is_valid(arrow.first.id)) {
 		info->source_loc.print_error_header();
 		fatal_error("An 'out' can only be the target of an arrow, not the source.");
 	}
 	
 	auto token = stream->peek_token();
 	stream->expect_token(Token_Type::arr_r);
-	read_compartment_identifier(data_set, stream, &entry.second, info);
 	
-	info->arrows.push_back(entry);
+	read_compartment_identifier(data_set, stream, &arrow.second, info);
+	
+	info->arrows.push_back(arrow);
 	{	// Make an edge index for the arrow if necessary.
-		auto first_comp = info->components[entry.first.id];
-		if(is_valid(first_comp->edge_index_set)) {
+		auto first_comp = info->components[arrow.first.id];
+	
+		if(is_valid(info->edge_index_set) && first_comp->can_have_edge_index) {
 			
 			Index_D parent_idx = Index_D::no_index();
-			auto parent_set = data_set->index_sets[first_comp->edge_index_set]->sub_indexed_to;
-			if(is_valid(parent_set)) //TODO: This should always be the case I guess?
-				parent_idx = entry.first.indexes.get_index(data_set->index_data, first_comp->edge_index_set);
+			auto parent_set = data_set->index_sets[info->edge_index_set]->sub_indexed_to;
+			if(!is_valid(parent_set))
+				fatal_error(Mobius_Error::internal, "Got an edge index set that was not sub-indexed to the connection component index.");
 			
-			data_set->index_data.increment_index_count(first_comp->edge_index_set, token.source_loc, parent_idx);
+			if(first_comp->index_sets.size() != 1)  // TODO: We should allow 0 also.
+				fatal_error(Mobius_Error::internal, "Got an unsupported amount of indexes for a connection component with an indexed edge.");
+			
+			parent_idx = arrow.first.indexes.get_index(data_set->index_data, first_comp->index_sets[0]);
+			if(!is_valid(parent_idx))
+				fatal_error(Mobius_Error::internal, "Something went wrong with looking up the component index.");
+			
+			std::string index_name;
+			if(is_valid(arrow.second.id)) {
+				auto count = arrow.second.indexes.count();
+				if(count == 0) {
+					index_name = info->components[arrow.second.id]->name;
+				} else {
+					if(count == 1)
+						index_name = data_set->index_data.get_index_name(arrow.second.indexes, arrow.second.indexes.indexes[0]);
+					else {
+						std::vector<std::string> index_names;
+						data_set->index_data.get_index_names(arrow.second.indexes, index_names);
+						std::stringstream ss;
+						for(int pos = 0; pos < index_names.size(); ++pos) {
+							ss << index_names[pos];
+							if(pos != index_names.size()-1) ss << ';';
+						}
+						index_name = ss.str();
+					}
+				} 
+			} else
+				index_name = "out";
+			
+			// TODO: There could be potential name clashes here.
+			data_set->index_data.add_edge_index(info->edge_index_set, index_name, token.source_loc, parent_idx);
 		}
 	}
 	
 	token = stream->peek_token();
 	if(token.type == Token_Type::arr_r) {
-		read_connection_sequence(data_set, &entry.second, stream, info);
+		read_connection_sequence(data_set, &arrow.second, stream, info);
 	} else if(token.type == Token_Type::identifier) {
 		read_connection_sequence(data_set, nullptr, stream, info);
 	} else if((char)token.type == ']') {
@@ -542,87 +585,107 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 	auto info_id = module->connections.create(name->string_value, name->source_loc);
 	auto info    = module->connections[info_id];
 	
-	stream->expect_token('[');
+	stream->expect_token('{');
 	
 	Token token = stream->peek_token();
-	if((char)token.type == ']') {
+	if((char)token.type == '}') {
 		stream->read_token();
 		return;
 	}
+	
+	bool data_found = false;
 	
 	while(true) {
 		auto token  = stream->peek_token();
-		auto token2 = stream->peek_token(1);
-		if(token.type != Token_Type::identifier || ((char)token2.type != ':' && (char)token2.type != '(')) break;
-			
+		
+		if((char)token.type == '}') {
+			stream->read_token();
+			return;
+		}
+		
 		Decl_AST *decl = parse_decl_header(stream);
-		match_declaration(decl, {{Token_Type::quoted_string}});
 		
-		auto name = single_arg(decl, 0);
-		auto comp_id = info->components.create(name->string_value, name->source_loc);
-		auto data =    info->components[comp_id];
-		
-		data->decl_type = decl->type;
-		data->handle = decl->handle_name.string_value;
-		if(decl->handle_name.string_value.count)
-			info->component_handle_to_id[decl->handle_name.string_value] = comp_id;
-		std::vector<Token> idx_set_list;
-		read_string_list(stream, idx_set_list);
-		//int prev = -1;
-		for(auto &name : idx_set_list) {
-			auto ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
-			data->index_sets.push_back(ref);
-			auto sub_indexed_to = data_set->index_sets[ref]->sub_indexed_to;
-			if(is_valid(sub_indexed_to)) {
-				bool found = false;
-				for(auto prev : data->index_sets) {
-					if(prev == sub_indexed_to) {
-						found = true;
-						break;
+		if (decl->type == Decl_Type::directed_graph) {
+			
+			if(data_found) {
+				decl->source_loc.print_error_header();
+				fatal_error("Multiple data for the same connection");
+			}
+			data_found = true;
+			
+			int which = match_declaration(decl, {{}, {Token_Type::quoted_string}}, false, false);
+			
+			if(which == 1) {
+				auto edge_set_id = data_set->index_sets.expect_exists_idx(single_arg(decl, 0), "index_set");
+				auto edge_set_data = data_set->index_sets[edge_set_id];
+				edge_set_data->is_edge_of_connection = info_id;
+				
+				info->edge_index_set = edge_set_id;
+				
+				if(!edge_set_data->union_of.empty()) {
+					edge_set_data->source_loc.print_error_header();
+					fatal_error("An edge index set can not be a union.");
+				}
+				
+				if(data_set->index_data.are_all_indexes_set(edge_set_id)) {
+					edge_set_data->source_loc.print_error_header();
+					fatal_error("Edge index sets should not receive index data explicitly.");
+				}
+				
+				data_set->index_data.initialize_edge_index_set(edge_set_id, edge_set_data->source_loc);
+				
+				for(auto &component : info->components) {  // NOTE: If they were not declared before this, they could not be referenced any way.
+					if(component.index_sets.size() == 1) {
+						if(data_set->index_data.can_be_sub_indexed_to(component.index_sets[0], edge_set_id))
+							component.can_have_edge_index = true;
+					} else if(component.index_sets.empty())
+						component.can_have_edge_index = true;
+				}
+			}
+			
+			info->type = Connection_Info::Type::directed_graph;
+			
+			stream->expect_token('[');
+			read_connection_sequence(data_set, nullptr, stream, info);
+			
+			delete decl;
+		} else if (decl->type == Decl_Type::compartment || decl->type == Decl_Type::quantity) {
+			match_declaration(decl, {{Token_Type::quoted_string}}, true, false);
+			
+			auto name = single_arg(decl, 0);
+			auto comp_id = info->components.create(name->string_value, name->source_loc);
+			auto data =    info->components[comp_id];
+			
+			data->decl_type = decl->type;
+			data->handle = decl->handle_name.string_value;
+			if(decl->handle_name.string_value.count)
+				info->component_handle_to_id[decl->handle_name.string_value] = comp_id;
+			std::vector<Token> idx_set_list;
+			read_string_list(stream, idx_set_list);
+			
+			for(auto &name : idx_set_list) {
+				auto ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
+				data->index_sets.push_back(ref);
+				auto sub_indexed_to = data_set->index_sets[ref]->sub_indexed_to;
+				if(is_valid(sub_indexed_to)) {
+					bool found = false;
+					for(auto prev : data->index_sets) {
+						if(prev == sub_indexed_to) {
+							found = true;
+							break;
+						}
+					}
+					if(!found) {
+						name.print_error_header();
+						fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear after it on the index set list for this component declaration.");
 					}
 				}
-				if(!found) {
-					name.print_error_header();
-					fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear after it on the index set list for this component declaration.");
-				}
 			}
+			delete decl;
+		} else {
+			decl->source_loc.print_error_header();
+			fatal_error("Did not expect a '", ::name(decl->type), "' declaration inside a 'connection' declaration in the data set.");
 		}
-		auto next = stream->peek_token();
-		if((char)next.type == '[') {
-			std::vector<Token> edge_list;
-			read_string_list(stream, edge_list);
-			if(edge_list.size() > 1 || data->index_sets.size() > 1) {
-				next.source_loc.print_error_header();
-				fatal_error("A component can have at most one edge index set, and if it does have one it must have at most one main index set.");
-			}
-			auto edge_set_id = data_set->index_sets.create(edge_list[0].string_value, edge_list[0].source_loc);
-			auto edge_set_data = data_set->index_sets[edge_set_id];
-			data->edge_index_set = edge_set_id;
-			edge_set_data->is_edge_index_set = true;
-			
-			if(!idx_set_list.empty())
-				make_sub_indexed_to(data_set, edge_set_data, &idx_set_list[0]);
-		}
-		delete decl;
-	}
-	
-	token = stream->peek_token();
-	if((char)token.type == ']') {
-		stream->read_token();
-		return;
-	}
-	if(token.type != Token_Type::identifier) {
-		token.print_error_header();
-		fatal_error("Expected a ] or the start of an component identifier.");
-	}
-	
-	auto token2 = stream->peek_token(1);
-	if((char)token2.type == '[') {
-		info->type = Connection_Info::Type::graph;
-		read_connection_sequence(data_set, nullptr, stream, info);
-	} else if ((char)token2.type != ']') {
-		token.print_error_header();
-		fatal_error("Unrecognized connection data format.");
 	}
 }
 
@@ -1005,6 +1068,14 @@ Data_Set::read_from_file(String_View file_name) {
 			
 			delete decl;
 		}
+		
+		for(auto &index_set : index_sets) {
+			if(!index_data.are_all_indexes_set(index_set.id)) {
+				index_set.source_loc.print_error_header();
+				fatal_error("The index set \"", index_set.name, "\" did not receive index data.");
+			}
+		}
+		
 	} catch(int) {
 		// NOTE: Catch it so that we get to properly unload file data below.
 		error = true;
@@ -1021,8 +1092,47 @@ Data_Set::read_from_file(String_View file_name) {
 
 
 void
-Data_Set::generate_index_set(const std::string &name) {
-	log_print("WARNING: Data_Set::generate_index_set is not implemented!!\n");
+Data_Set::generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of) {
+	
+	// NOTE: We don't check for correctness of sub-indexing vs. union here since we assume this was done by the model.
+	
+	Source_Location loc = {};
+	auto id = index_sets.create(name, loc);
+	auto set = index_sets[id];
+	
+	auto sub_to = invalid_data;
+	if(!sub_indexed_to.empty()) {
+		sub_to = index_sets.find_idx(sub_indexed_to);
+		if(!is_valid(sub_to))
+			fatal_error(Mobius_Error::internal, "Did not find the parent index set ", sub_indexed_to, " in generate_index_data.");
+		set->sub_indexed_to = sub_to;
+	}
+		
+	if(!union_of.empty()) {
+		for(auto ui : union_of) {
+			auto ui_id = index_sets.find_idx(ui);
+			if(!is_valid(ui_id))
+				fatal_error(Mobius_Error::internal, "Did not find the union member ", ui, " in generate_index_data.");
+			set->union_of.push_back(ui_id);
+		}
+		
+		index_data.initialize_union(id, loc);
+		return;
+	}
+	
+	s32 instance_count = 1;
+	if(is_valid(sub_to))
+		instance_count = index_data.get_max_count(sub_to).index;
+	
+	Token count;
+	count.source_loc = loc;
+	count.type = Token_Type::integer;
+	count.val_int = 1;
+	
+	for(int par_idx = 0; par_idx < instance_count; ++par_idx) {
+		Index_D parent_idx = Index_D { sub_to, par_idx };
+		index_data.set_indexes(id, { count }, parent_idx);
+	}
 }
 
 

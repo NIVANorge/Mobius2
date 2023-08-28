@@ -291,12 +291,8 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 							auto conn = model->connections[res.connection_id];
 							if(conn->type == Connection_Type::directed_graph) {
 								auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
-								if(comp && is_valid(comp->edge_index_set))
-									insert_dependency(app, &instr, comp->edge_index_set);
-							} else if(conn->type == Connection_Type::all_to_all) {
-								auto index_set = app->get_single_connection_index_set(res.connection_id);
-								// NOTE: Referencing 'below' in an all-to-all is only meaningful if we also have an index for the below.
-								insert_dependency(app, &instr, {index_set, 2});
+								if(comp && comp->is_edge_indexed)
+									insert_dependency(app, &instr, conn->edge_index_set);
 							} else if(conn->type == Connection_Type::grid1d) {
 								auto index_set = app->get_single_connection_index_set(res.connection_id);
 								insert_dependency(app, &instr, index_set);
@@ -355,37 +351,6 @@ resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruc
 	}
 	if(changed)
 		fatal_error(Mobius_Error::internal, "Failed to resolve state variable index set dependencies in the alotted amount of iterations!");
-	
-	
-	
-	// Check that only the right state variables get matrix indexing. This could maybe be factored out since it is a very special case.
-	for(auto &instr : instructions) {
-		
-		// TODO: Do we need to check others? Probably not as those would only happen if they were inherited from a state var.
-		if(instr.type != Model_Instruction::Type::compute_state_var) continue;
-		
-		Entity_Id allow_matrix = invalid_entity_id;
-		auto var = app->vars[instr.var_id];
-		// TODO: Maybe allow for properties ?
-		if(var->is_flux()) {
-			auto &restriction = restriction_of_flux(var);
-			if(is_valid(restriction.r1.connection_id) && model->connections[restriction.r1.connection_id]->type == Connection_Type::all_to_all)
-				allow_matrix = app->get_single_connection_index_set(restriction.r1.connection_id);
-		}
-		
-		// TODO: Need a way to backtrack where this dependency came from. We could store that in the Index_Set_Dependency struct, which means that it would have to be stored in the Identifier_Data struct.
-		int n_matrix = 0;
-		for(auto &index_set : instr.index_sets) {
-			if(index_set.order >= 2) {
-				if(!is_valid(allow_matrix) || index_set.id != allow_matrix)
-					fatal_error(Mobius_Error::model_building, "The variable \"", var->name, "\" ended up with a matrix dependency on the index set \"", model->index_sets[index_set.id]->name, "\", but that is only allowed for fluxes that have an all_to_all connection over that index set as a target.");
-				++n_matrix;
-			}
-		}
-
-		if(n_matrix > 1)
-			fatal_error(Mobius_Error::model_building, "The variable \"", var->name, "\" ended up with more than one matrix dependency. That is currently not supported.");
-	}
 	
 	return changed_at_all;
 }
@@ -906,7 +871,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				auto &restriction = restriction_of_flux(var_flux);
 				if(restriction.r1.connection_id != var2->connection) continue;
 				
-				auto conn_type = model->connections[var2->connection]->type;
+				auto conn = model->connections[var2->connection];
 				
 				Var_Location flux_loc = var_flux->loc1;
 				if(restriction.r1.type == Restriction::top || restriction.r1.type == Restriction::specific)
@@ -914,7 +879,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				
 				Sub_Indexed_Component *find_source = nullptr;
 				Entity_Id              source_comp_id = invalid_entity_id;
-				if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
+				if(conn->type == Connection_Type::directed_graph) {
 					source_comp_id = var_flux->loc1.components[0];
 					find_source = app->find_connection_component(var2->connection, source_comp_id, false);
 					if(!find_source) continue; // Can happen if it is not given in the graph data (if this is a graph connection).
@@ -934,7 +899,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					if(loc != target_loc) continue;
 					
 					// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
-					if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
+					if(conn->type == Connection_Type::directed_graph) {
 						// Can this source compartment be a source of an arrow at all?
 						// TODO: This test is maybe redundant given the next test?
 						
@@ -961,15 +926,15 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				// TODO: We need something like this because otherwise there may be additional index sets that are not accounted for. But we need to skip the particular index set(s) belonging to the connection (otherwise there are problems with matrix indexing for all_to_all etc.)
 				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(add_to_aggr_id);
 				
-				if(conn_type == Connection_Type::directed_tree || conn_type == Connection_Type::directed_graph) {
+				if(conn->type == Connection_Type::directed_graph) {
 					
 					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
 					for(auto index_set : find_source->index_sets)
 						insert_dependency(app, add_to_aggr_instr, index_set);
 					
-					if(conn_type == Connection_Type::directed_graph) {
-						insert_dependency(app, add_to_aggr_instr, find_source->edge_index_set);
-						insert_dependency(app, &instructions[var_id_flux.id], find_source->edge_index_set);
+					if(find_source->is_edge_indexed) {
+						insert_dependency(app, add_to_aggr_instr, conn->edge_index_set);
+						insert_dependency(app, &instructions[var_id_flux.id], conn->edge_index_set);
 					}
 					
 					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
@@ -992,7 +957,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 							insert_dependency(app, &instructions[var2->agg_for.id], index_set);
 					}
 					
-				} else if(conn_type == Connection_Type::all_to_all || conn_type == Connection_Type::grid1d) {
+				} else if(conn->type == Connection_Type::grid1d) {
 					
 					auto &components = app->connection_components[var2->connection].components;
 					auto source_comp = components[0].id;
@@ -1006,26 +971,23 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					
 					auto index_set = app->get_single_connection_index_set(var2->connection);
 					
-					if(conn_type == Connection_Type::all_to_all) {
-						insert_dependency(app, add_to_aggr_instr, {index_set, 2}); // The summation to the aggregate must always be per pair of indexes.
-					} else if(conn_type == Connection_Type::grid1d) {
-						instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
+					instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
+					
+					auto type = add_to_aggr_instr->restriction.r1.type;
+					
+					if(type == Restriction::below) {
+						insert_dependency(app, add_to_aggr_instr, index_set);
 						
-						auto type = add_to_aggr_instr->restriction.r1.type;
-						
-						if(type == Restriction::below) {
-							insert_dependency(app, add_to_aggr_instr, index_set);
-							
-							insert_dependency(app, &instructions[var_id_flux.id], index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
-							// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
-						} else if (type == Restriction::top || type == Restriction::bottom) {
-							auto parent = model->index_sets[index_set]->sub_indexed_to;
-							if(is_valid(parent))
-								insert_dependency(app, add_to_aggr_instr, parent);
-						} else {
-							fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[var_id_flux]->name, ".");
-						}
+						insert_dependency(app, &instructions[var_id_flux.id], index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
+						// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
+					} else if (type == Restriction::top || type == Restriction::bottom) {
+						auto parent = model->index_sets[index_set]->sub_indexed_to;
+						if(is_valid(parent))
+							insert_dependency(app, add_to_aggr_instr, parent);
+					} else {
+						fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[var_id_flux]->name, ".");
 					}
+					
 					insert_dependency(app, &instructions[var2->agg_for.id], index_set);
 					
 					// TODO: Is this still needed: ?

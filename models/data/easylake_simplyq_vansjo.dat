@@ -4,14 +4,16 @@ index_set("Landscape units") [ "Arable" "Semi-natural" ]
 
 index_set("Subcatchment") [ "Kure" "Vaaler" "Store" "Vanem" ]
 
-connection("Downstream") [
+connection("Downstream") {
 	e : compartment("Epilimnion") [ "Lake" ]
 	r : compartment("River") [ "Subcatchment" ]
-
-	r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> out
-	r[ "Store" ] -> e[ "Store" ]
-	r[ "Vanem" ] -> e[ "Vanem" ]
-]
+	
+	directed_graph [
+		r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> out
+		r[ "Store" ] -> e[ "Store" ]
+		r[ "Vanem" ] -> e[ "Vanem" ]
+	]
+}
 
 series("vansjo.xlsx")
 

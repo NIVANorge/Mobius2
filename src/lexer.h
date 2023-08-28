@@ -55,9 +55,9 @@ Token {
 		return (type == Token_Type::real) ? val_double : (double)val_int;
 	}
 	
-	void print_error_location();
-	void print_error_header();
-	void print_log_header();
+	void print_error_location() const;
+	void print_error_header() const;
+	void print_log_header() const;
 };
 
 inline bool

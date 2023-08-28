@@ -715,20 +715,9 @@ parse_regex_identifier(Token_Stream *stream) {
 	auto ident = new Regex_Identifier_AST();
 	ident->ident = stream->read_token();
 	ident->source_loc = ident->ident.source_loc;
-	if((char)ident->ident.type == '.') {
+	if((char)ident->ident.type == '.')
 		ident->wildcard = true;
-	} else {
-		auto token = stream->peek_token();
-		if((char)token.type != '[') return ident;
-		
-		stream->read_token();
-		ident->index_set = stream->read_token();
-		if(ident->index_set.type != Token_Type::identifier) {
-			ident->index_set.print_error_header();
-			fatal_error("Expected an index set identifier.");
-		}
-		stream->expect_token(']');
-	}
+	
 	return ident;
 }
 

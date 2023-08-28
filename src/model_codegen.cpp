@@ -120,36 +120,36 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
 				
 				// TODO: Allow for other types of fluxes to be bidirectional also
-				// The way it is currently set up will probably only work if the restriction is
+				// The way it is currently set up will probably only work if the flux is
 				// along a connection. Otherwise the concentration is another
 				// state variable altogether. If we fix that however, this should also
 				// work for more general fluxes.
 				auto &restriction = instr.restriction;
-				if(is_valid(restriction.r1.connection_id) && restriction.r1.type == Restriction::below) {
-					auto conn = model->connections[restriction.r1.connection_id];
-					if(conn->type == Connection_Type::grid1d || conn->type == Connection_Type::all_to_all || conn->type == Connection_Type::directed_graph) {
-						auto condition = make_binop(Token_Type::geq, make_state_var_identifier(var2->flux_of_medium), make_literal(0.0));
-						auto conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
-						
-						conc2->restriction = restriction;
-						
-						auto altval = make_binop('*', conc2, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
-						if(conc->unit_conversion != 1.0)
-							altval = make_binop('/', altval, make_literal(conc->unit_conversion));
-						
-						// TODO: There is a problematic thing if there is a non-trivial unit conversion between the source and target..
-						//    Should we support handling that?
-						
-						auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-						if_chain->value_type = Value_Type::real;
-						if_chain->exprs.push_back(instr.code);
-						if_chain->exprs.push_back(condition);
-						if_chain->exprs.push_back(altval);
-						instr.code = if_chain;
-					}
+				if(var->bidirectional) {
+					
+					if(!is_valid(restriction.r1.connection_id) || restriction.r1.type != Restriction::below)
+						fatal_error(Mobius_Error::internal, "Unsupported bidirectional flux.");
+					
+					auto condition = make_binop(Token_Type::geq, make_state_var_identifier(var2->flux_of_medium), make_literal(0.0));
+					auto conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
+					
+					conc2->restriction = restriction;
+					
+					auto altval = make_binop('*', conc2, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
+					if(conc->unit_conversion != 1.0)
+						altval = make_binop('/', altval, make_literal(conc->unit_conversion));
+					
+					// TODO: There is a problematic thing if there is a non-trivial unit conversion between the source and target..
+					//    Should we support handling that?
+					
+					auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+					if_chain->value_type = Value_Type::real;
+					if_chain->exprs.push_back(instr.code);
+					if_chain->exprs.push_back(condition);
+					if_chain->exprs.push_back(altval);
+					instr.code = if_chain;
 				}
 			}
-		
 			
 			// Restrict discrete fluxes to not overtax their source.
 			if(var->is_flux() && !is_valid(instr.solver) && instr.code && is_located(var->loc1)) {
@@ -209,9 +209,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 						auto &restriction = restriction_of_flux(flux);
 						bool is_bottom      = (restriction.r1.type == Restriction::bottom);
 						bool has_source_agg = false;
+						
 						if(is_valid(restriction.r1.connection_id)) {
+							// TODO: This is very hacky. Should this info be better organized?
 							auto type = model->connections[restriction.r1.connection_id]->type;
-							has_source_agg = (type == Connection_Type::all_to_all) || (type == Connection_Type::directed_graph);
+							if(type == Connection_Type::directed_graph) {
+								auto find_source = app->find_connection_component(restriction.r1.connection_id, flux->loc1.first(), false);
+								has_source_agg = find_source && find_source->is_edge_indexed; // NOTE: Could instead be find_source->max_outgoing_per_node > 1, but it is tricky wrt index set dependencies for the flux.
+							}
 						}
 						
 						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution.
@@ -329,19 +334,10 @@ set_grid1d_target_indexes_with_possible_specific(Model_Application *app, Index_E
 }
 
 void
-set_all_to_all_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id) {
-	if(app->model->connections[connection_id]->type != Connection_Type::all_to_all)
-		fatal_error(Mobius_Error::internal, "Misuse of set_all_to_all_target_indexes().");
-	
-	auto index_set = app->get_single_connection_index_set(connection_id);
-	indexes.transpose_matrix(index_set);
-}
-
-void
 set_graph_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_compartment, Entity_Id target_compartment) {
 	
 	auto type = app->model->connections[connection_id]->type;
-	if(type != Connection_Type::directed_tree && type != Connection_Type::directed_graph)
+	if(type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "Misuse of set_graph_target_indexes().");
 	
 	auto model = app->model;
@@ -449,14 +445,12 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 			auto index_count = app->get_index_count_code(index_set, index_expr);
 			new_condition = make_binop('<', index, index_count);
 		}
-	} else if ((type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) && is_valid(source_compartment)) {
+	} else if (type == Connection_Type::directed_graph && is_valid(source_compartment)) {
 		
 		auto *comp = app->find_connection_component(connection_id, source_compartment, false);
 		if(comp && comp->total_as_source > 0) {
-			// TODO: Should use index_data.get_instance_count() ?
-			int max_instances = 1;
-			for(auto index_set : comp->index_sets)
-				max_instances *= app->index_data.get_max_count(index_set).index;
+			
+			auto max_instances = app->index_data.get_instance_count(comp->index_sets);
 			if(comp->total_as_source < max_instances) {
 				// If the component some times appears as a source, but not always, we have to check for each instance whether or not to evaluate the flux.
 				
@@ -535,31 +529,12 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		
 		auto connection = app->model->connections[res.r1.connection_id];
 		
-		if(connection->type != Connection_Type::directed_graph) {
+		if(connection->type == Connection_Type::grid1d) {
 			Index_Exprs new_indexes(app->model);
 			new_indexes.copy(index_expr);
-			
-			if(connection->type == Connection_Type::all_to_all) {
-				if(res.r1.type != Restriction::below) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only the 'below' restriction is allowed on an all_to_all connection.");
-				}
-				set_all_to_all_target_indexes(app, new_indexes, res.r1.connection_id);
-			} else if(connection->type == Connection_Type::grid1d) {
-				set_grid1d_target_indexes(app, new_indexes, res.r1);
 				
-			} else if(connection->type == Connection_Type::directed_tree) {
-				if(res.r1.type != Restriction::below) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only the 'below' restriction is allowed in this context.");
-				}
-				if(!is_valid(res.source_comp) || !is_valid(res.target_comp) || res.source_comp != res.target_comp) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("The 'below' directive is not allowed in this context.");
-				}
-				set_graph_target_indexes(app, new_indexes, res.r1.connection_id, res.source_comp, res.target_comp);
-			}
-			
+			set_grid1d_target_indexes(app, new_indexes, res.r1);
+
 			put_var_lookup_indexes_basic(ident, app, new_indexes);
 			
 			// If there is an exisiting condition, it will enclose the entire expression, so we don't need to check for it again.
@@ -571,6 +546,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 			
 		} else if (connection->type == Connection_Type::directed_graph) {
 			
+			// TODO: Make it work for parameters?
 			if(ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("On a directed_graph connection, 'below' can only be used on a state variable or series.");
@@ -616,7 +592,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					 // TODO: Maybe we should do this validity check in model_composition already, before we do the codegen.
 					 //   Or the value should just default to 0 in this case? That could cause silent errors though.
 					ident->source_loc.print_error_header();
-					fatal_error("This variable does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
+					fatal_error("The variable \"", var->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
 				}
 				auto ident2 = static_cast<Identifier_FT *>(copy(ident));
 				if(is_conc) {
@@ -724,26 +700,6 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 }
 
 Math_Expr_FT *
-add_value_to_all_to_all_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Index_Exprs &indexes, Restriction &restriction) {
-	
-	auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
-
-	Math_Expr_FT *agg_offset = nullptr;
-	
-	if(agg_var->is_source)
-		agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
-	else {
-		
-		Index_Exprs new_indexes(app->model);
-		new_indexes.copy(indexes);
-		set_all_to_all_target_indexes(app, new_indexes, restriction.connection_id);
-		agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
-	}
-	
-	return add_value_to_state_var(agg_id, agg_offset, value, '+'); // NOTE: it is a + regardless, since the subtraction happens explicitly when we use the value later.
-}
-
-Math_Expr_FT *
 add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, Index_Exprs &indexes, Restriction restriction) {
 	
 	auto model = app->model;
@@ -792,13 +748,9 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 	
 	auto type = model->connections[restriction.r1.connection_id]->type;
 	
-	if(type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) {
+	if(type == Connection_Type::directed_graph) {
 		
 		return add_value_to_graph_agg(app, value, agg_id, instr->source_id, new_indexes, restriction.r1);
-		
-	} else if (type == Connection_Type::all_to_all) {
-		
-		return add_value_to_all_to_all_agg(app, value, agg_id, new_indexes, restriction.r1);
 		
 	} else if (type == Connection_Type::grid1d) {
 		
@@ -829,33 +781,6 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 		
 		scope = loop;
 		
-		if(index_set->order != 1) {
-			if(idx != index_sets.size()-1 || index_set->order > 2) {
-				fatal_error(Mobius_Error::internal, "Somehow got a higher-order indexing over an index set that was not the last index set dependency, or the order was larger than 2. Order: ", index_set->order);
-			}
-			auto loop = make_for_loop();
-			auto index_count = app->get_index_count_code(index_set->id, indexes);
-			loop->exprs.push_back(index_count);
-			indexes.set_index(index_set->id, make_local_var_reference(0, loop->unique_block_id, Value_Type::integer), true);  // 'true' signifies that we set the matrix column
-		
-			// Make it so that it skips when the two indexes of the same index set are the same...
-			auto the_scope = new Math_Block_FT();
-			the_scope->value_type = Value_Type::none;
-			auto condition = make_binop(Token_Type::neq, indexes.get_index(app, index_set->id), indexes.get_index(app, index_set->id, true));
-			auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-			if_chain->value_type = Value_Type::none;
-			if_chain->exprs.push_back(the_scope);
-			if_chain->exprs.push_back(condition);
-			if_chain->exprs.push_back(make_no_op());
-			
-			auto block = new Math_Block_FT();
-			block->value_type = Value_Type::none;
-			loop->exprs.push_back(block);
-			block->exprs.push_back(if_chain);
-			
-			scope->exprs.push_back(loop);
-			scope = the_scope;
-		}
 		index_set++;
 	}
 	
@@ -1007,8 +932,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 				Entity_Id source_comp = invalid_entity_id;
 				//TODO: Could this be organized in a better way so that we don't need this lookup?
-				//   similar to the problem of why we need to store the source_comp and target_comp in the restriction itself some times.
-				if(model->connections[instr->restriction.r1.connection_id]->type == Connection_Type::directed_tree)
+				if(model->connections[instr->restriction.r1.connection_id]->type == Connection_Type::directed_graph)
 					source_comp = app->vars[instr->var_id]->loc1.first();
 				
 				result_code = make_restriction_condition(app, result_code, make_no_op(), instr->restriction, indexes, source_comp);

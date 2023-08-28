@@ -87,6 +87,7 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			auto flux = model->fluxes[decl_id];
 			var->loc1 = flux->source;
 			var->loc2 = flux->target;
+			var->bidirectional = flux->bidirectional;
 			var2->decl_type = Decl_Type::flux;
 			var2->set_flag(State_Var::flux);
 			
@@ -273,13 +274,17 @@ get_maximal_index_sets(Model_Application *app, std::set<Entity_Id> &index_sets, 
 	if(!is_located(*loc))
 		return;
 	
+	// TODO: We should be able to get an exclude from both restrictions (if applicable).
 	Entity_Id exclude = avoid_index_set_dependency(app, *loc);
 	
 	// The purpose of this first check is to allow a flux on a graph connection to reference something that depends on the edge index set of the graph situated at the source of the flux.
-	if(is_valid(loc2.r1.connection_id) && model->connections[loc2.r1.connection_id]->type == Connection_Type::directed_graph) {
-		auto find_source = app->find_connection_component(loc2.r1.connection_id, loc1.components[0], false);
-		if(find_source && find_source->edge_index_set != exclude)
-			insert_dependency_helper(model, index_sets, find_source->edge_index_set);
+	if(is_valid(loc2.r1.connection_id)) {
+		auto conn = model->connections[loc2.r1.connection_id];
+		if(conn->type == Connection_Type::directed_graph) {
+			auto find_source = app->find_connection_component(loc2.r1.connection_id, loc1.components[0], false);
+			if(find_source && find_source->is_edge_indexed && conn->edge_index_set != exclude)
+				insert_dependency_helper(model, index_sets, conn->edge_index_set);
+		}
 	}
 	
 	for(int idx = 0; idx < loc->n_components; ++idx) {
@@ -816,6 +821,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->set_flag(State_Var::flux);
 			gen_flux->conc = gen_conc_id;
 			
+			gen_flux->bidirectional = flux->bidirectional;
+			
 			// TODO: This is annoying. There should be a Specific_Var_Location::add_dissolved that preserves the restrictions.
 			gen_flux->loc1 = source;
 			gen_flux->loc1.r1 = flux->loc1.r1;
@@ -845,8 +852,8 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit, connection };
 		res_data.restrictive_lookups = true;
-		res_data.source_compartment = loc1.first();
-		res_data.target_compartment = to_compartment;
+		//res_data.source_compartment = loc1.first();
+		//res_data.target_compartment = to_compartment;
 		
 		auto fun = resolve_function_tree(agg.code, &res_data);
 		
@@ -927,8 +934,8 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	
 	Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
 	res_data.restrictive_lookups = true;
-	res_data.source_compartment = loc1.first();
-	res_data.target_compartment = loc2.first();
+	//res_data.source_compartment = loc1.first();
+	//res_data.target_compartment = loc2.first();
 	
 	auto fun = resolve_function_tree(ast, &res_data);
 	unit_conv = make_cast(fun.fun, Value_Type::real);
@@ -1142,7 +1149,7 @@ compose_and_resolve(Model_Application *app) {
 		}
 		
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
-		res_data.source_compartment = in_loc.first();
+		//res_data.source_compartment = in_loc.first();
 		
 		if(ast) {
 			auto res = resolve_function_tree(ast, &res_data);
@@ -1342,7 +1349,7 @@ compose_and_resolve(Model_Application *app) {
 			
 			if(is_valid(res.connection_id) && res.type == Restriction::below) {
 				auto type = model->connections[res.connection_id]->type;
-				if(type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) {
+				if(type == Connection_Type::directed_graph) {
 					auto comp = app->find_connection_component(res.connection_id, var->loc1.first(), false);
 					if(!comp || comp->possible_targets.empty()) {
 						var->set_flag(State_Var::invalid);
@@ -1370,7 +1377,7 @@ compose_and_resolve(Model_Application *app) {
 			if(is_located(loc)) {
 				
 				auto type = model->connections[res.connection_id]->type;
-				if(type == Connection_Type::directed_tree || type == Connection_Type::directed_graph) {
+				if(type == Connection_Type::directed_graph) {
 					// For graph-like connections, we can completely disable fluxes if they don't have any arrows to go along.
 					auto comp = app->find_connection_component(res.connection_id, loc.first(), false);
 					bool found_target = false;
@@ -1503,13 +1510,11 @@ compose_and_resolve(Model_Application *app) {
 		
 		auto connection = model->connections[conn_id];
 		
-		if(connection->type == Connection_Type::directed_tree || connection->type == Connection_Type::directed_graph) {
+		if(connection->type == Connection_Type::directed_graph) {
 			
-			if(connection->type == Connection_Type::directed_graph) {
-				auto find_source = app->find_connection_component(conn_id, app->vars[source_id]->loc1.components[0], false);
-				if(find_source && find_source->total_as_source > 0)
-					register_connection_agg(app, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes on the connection
-			}
+			auto find_source = app->find_connection_component(conn_id, app->vars[source_id]->loc1.components[0], false);
+			if(find_source && find_source->is_edge_indexed) // NOTE: Could instead be find_source->is_edge_indexed, but it is tricky wrt index set dependencies for the flux.
+				register_connection_agg(app, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes.
 			
 			for(auto &target_comp : app->connection_components[conn_id].components) {
 				
@@ -1524,15 +1529,14 @@ compose_and_resolve(Model_Application *app) {
 				
 				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]); // Aggregation variable for incoming fluxes.
 			}
-		} else if (connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d) {
+		} else if (connection->type == Connection_Type::grid1d) {
 			if(connection->components.size() != 1 || app->connection_components[conn_id].components.size() != 1)
 				fatal_error(Mobius_Error::internal, "Expected exactly one compartment for this type of connection."); // Should have been detected earlier
 			
 			// NOTE: all_to_all and grid1d connections can (currently) only go from one state variable to another
 			// instance of itself ( the source_id ).
 			auto target_comp = app->connection_components[conn_id].components[0].id;
-			if(connection->type == Connection_Type::all_to_all)
-				register_connection_agg(app, true, source_id, target_comp, conn_id, &varname[0]);
+			
 			register_connection_agg(app, false, source_id, target_comp, conn_id, &varname[0]);
 			
 		} else {

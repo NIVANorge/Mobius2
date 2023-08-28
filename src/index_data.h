@@ -50,11 +50,11 @@ Index_Tuple {
 	void set_index(Idx_T index, bool overwrite = false);
 	void add_index(Idx_T index);
 	void add_index(Id_Type index_set, s32 idx);
-	Idx_T get_index(Index_Data<Id_Type> &index_data, Id_Type index_set, bool matrix_column = false);
+	Idx_T get_index(Index_Data<Id_Type> &index_data, Id_Type index_set);
 	
 	std::vector<Idx_T> indexes; // Should probably have this as private, but it is very inconvenient.
 	bool lookup_ordered = false;
-	Idx_T mat_col = Idx_T::no_index();
+	
 private :
 	Idx_T get_index_base(Id_Type index_set);
 };
@@ -64,7 +64,6 @@ inline bool
 operator==(const Index_Tuple<Id_Type> &a, const Index_Tuple<Id_Type> &b) {
 	if(a.lookup_ordered != b.lookup_ordered) return false;   // TODO: We could maybe make them comparable, but there doesn't seem to be a use case
 	if(a.indexes != b.indexes) return false;
-	if(a.mat_col != b.mat_col) return false;
 	return true;
 }
 
@@ -94,8 +93,7 @@ Index_Data {
 	
 	typedef Index_Type<Id_Type> Idx_T;
 	
-	void set_indexes(Id_Type index_set, std::vector<Token> &names, Idx_T parent_idx = Idx_T::no_index());
-	void increment_index_count(Id_Type index_set_id, Source_Location source_loc, Idx_T parent_idx = Idx_T::no_index());
+	void set_indexes(Id_Type index_set, const std::vector<Token> &names, Idx_T parent_idx = Idx_T::no_index());
 	void initialize_union(Id_Type index_set_id, Source_Location source_loc);
 	
 	void find_indexes(std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out);
@@ -110,9 +108,12 @@ Index_Data {
 	s64 get_instance_count(const std::vector<Id_Type> &index_sets);
 	
 	std::string get_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, bool *is_quotable = nullptr);
-	std::string get_possibly_quoted_index_name(Index_Tuple<Id_Type> &indexes, Id_Type index_set);
-	void get_index_names_with_edge_naming(Model_Application *app, Index_Tuple<Id_Type> &indexes, std::vector<std::string> &names_out, bool quote = false);
+	std::string get_possibly_quoted_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, bool quote = true);
+	void get_index_names(Index_Tuple<Id_Type> &indexes, std::vector<std::string> &names_out, bool quote = false);
 
+
+	void initialize_edge_index_set(Id_Type index_set_id, Source_Location source_loc);
+	void add_edge_index(Id_Type index_set_id, const std::string &index_name, Source_Location source_loc, Idx_T parent_idx);
 	
 	std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable = nullptr); //TODO: Make private when we fix MobiView2
 	
@@ -121,6 +122,8 @@ Index_Data {
 	void write_index_to_file(FILE *file, Idx_T index, Idx_T parent_idx = Idx_T::no_index());
 	void write_indexes_to_file(FILE *file, Id_Type index_set, Idx_T parent_idx = Idx_T::no_index());
 	// TODO: Some method to copy to another Index_Data.
+	
+	bool can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set, s32* offset = nullptr);
 	
 	Index_Record::Type get_index_type(Id_Type index_set_id);
 	
@@ -140,11 +143,9 @@ private :
 	Idx_T find_index_base(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index());
 	s32   get_count_base(Id_Type index_set, Idx_T index_of_super = Idx_T::no_index());
 	//std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable);
-	bool  can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set, s32* offset);
 	
-	void initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc, bool error_on_double = true);
-	void put_index_name_with_edge_naming(Model_Application *app, Index_Tuple<Id_Type> &indexes, Idx_T index, std::vector<std::string> &names_out, int pos, bool quote);
-	
+	void initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc);
+
 	void for_each_helper(
 		const std::function<void(Index_Tuple<Id_Type> &indexes)> &do_stuff,
 		const std::function<void(int)> &new_level,
@@ -180,7 +181,6 @@ Index_Tuple<Id_Type>::clear() {
 		for(auto &index : indexes)
 			index = Idx_T::no_index();
 	}
-	mat_col = Idx_T::no_index();
 }
 
 template<typename Id_Type>
@@ -191,7 +191,6 @@ Index_Tuple<Id_Type>::count() {
 	else {
 		s64 result = 0;
 		for(auto &index : indexes) result += is_valid(index);
-		result += is_valid(mat_col);
 		return result;
 	}
 }
@@ -199,13 +198,11 @@ Index_Tuple<Id_Type>::count() {
 template<typename Id_Type>
 void
 Index_Tuple<Id_Type>::set_index(Idx_T index, bool overwrite) {
-	if(!is_valid(index))
-		fatal_error(Mobius_Error::internal, "Tried to set an invalid index on an Indexes");
+	if(!is_valid(index.index_set))
+		fatal_error(Mobius_Error::internal, "Tried to set an invalid index set on an Indexes");
 	if(!lookup_ordered) {
 		if(!overwrite && is_valid(indexes[index.index_set.id])) {
-			if(is_valid(mat_col))
-				fatal_error(Mobius_Error::internal, "Got duplicate matrix column index for an Indexes.");
-			mat_col = index;
+			fatal_error(Mobius_Error::internal, "Got duplicate matrix column index for an Indexes.");
 		} else
 			indexes[index.index_set.id] = index;
 	} else
@@ -245,43 +242,34 @@ Index_Tuple<Id_Type>::get_index_base(Id_Type index_set_id) {
 
 template<typename Id_Type>
 Index_Type<Id_Type>
-Index_Tuple<Id_Type>::get_index(Index_Data<Id_Type> &index_data, Id_Type index_set_id, bool matrix_column) {
-	
-	// TODO: How to handle matrix column for union index sets? Probably disallow it? (See also Index_Exprs)
-	
-	if(matrix_column && is_valid(mat_col)) {
-		if(index_set_id != mat_col.index_set)
-			fatal_error(Mobius_Error::internal, "Unexpected matrix column index set in Index_Tuple::get_index.");
-		return mat_col;
-	} else {
-		auto result = get_index_base(index_set_id);
-		if(is_valid(result))
-			return result;
+Index_Tuple<Id_Type>::get_index(Index_Data<Id_Type> &index_data, Id_Type index_set_id) {
 		
-		// Try to index a union index set (if a direct index is absent) by an index belonging to a member of that union.
-		result.index_set = index_set_id;
-		result.index = 0;
-		bool found = false;
-		auto index_set = index_data.record->index_sets[index_set_id];
-		for(auto ui_id : index_set->union_of) {
-			auto idx = get_index_base(index_set_id);
-			if(is_valid(idx)) {
-				found = true;
-				result.index += idx.index;
-				break;
-			} else
-				result.index += index_data.get_index_count(ui_id, *this).index;
-		}
-		if(!found)
-			return Idx_T::no_index();
+	auto result = get_index_base(index_set_id);
+	if(is_valid(result))
 		return result;
+	
+	// Try to index a union index set (if a direct index is absent) by an index belonging to a member of that union.
+	result.index_set = index_set_id;
+	result.index = 0;
+	bool found = false;
+	auto index_set = index_data.record->index_sets[index_set_id];
+	for(auto ui_id : index_set->union_of) {
+		auto idx = get_index_base(ui_id);
+		if(is_valid(idx)) {
+			found = true;
+			result.index += idx.index;
+			break;
+		} else
+			result.index += index_data.get_index_count(ui_id, *this).index;
 	}
-	return Idx_T::no_index();
+	if(!found)
+		return Idx_T::no_index();
+	return result;
 }
 
 template<typename Id_Type>
 void
-Index_Data<Id_Type>::initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc, bool error_on_double) {
+Index_Data<Id_Type>::initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc) {
 	s64 id = index_set_id.id;
 	if(id >= index_data.size())
 		index_data.resize(id+1);
@@ -308,13 +296,14 @@ Index_Data<Id_Type>::initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Re
 	if(is_valid(index_set->sub_indexed_to)) {
 		if(!are_all_indexes_set(index_set->sub_indexed_to))
 			fatal_error(Mobius_Error::internal, "Somehow a parent index set was not initialized before we tried to set data of an index set that was sub-indexed to it.");
+		instance_count = get_max_count(index_set->sub_indexed_to).index;
 	}
 	
 	if(data.index_counts.empty())
-		data.index_counts.resize(instance_count);
+		data.index_counts.resize(instance_count, 0);
 	
 	s32 count = data.index_counts[super];
-	if(error_on_double && count != 0) {
+	if(count != 0) {
 		source_loc.print_error_header();
 		fatal_error("Trying to set indexes for the same index set instance \"", index_set->name, "\" twice.");
 	}
@@ -330,22 +319,41 @@ Index_Data<Id_Type>::initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Re
 
 template<typename Id_Type>
 void
-Index_Data<Id_Type>::increment_index_count(Id_Type index_set_id, Source_Location source_loc, Idx_T parent_idx) {
+Index_Data<Id_Type>::initialize_edge_index_set(Id_Type index_set_id, Source_Location source_loc) {
 	
-	// TODO: This is only safe while the index set is being constructed, not later. Maybe we should introduce a concept of a lock.
+	auto parent_id = record->index_sets[index_set_id]->sub_indexed_to;
+	if(!is_valid(parent_id))
+		fatal_error(Mobius_Error::internal, "Got an edge index set that is not sub-indexed to a component index set.");
 	
-	initialize(index_set_id, parent_idx, Index_Record::Type::numeric1, source_loc, false);
+	s32 count = get_count_base(parent_id, Idx_T::no_index());
+	for(s32 par_idx = 0; par_idx < count; ++par_idx) {
+		Idx_T parent_idx = Idx_T { parent_id, par_idx };
+		initialize(index_set_id, parent_idx, Index_Record::Type::named, source_loc);
+	}
+	
+}
+
+template<typename Id_Type>
+void
+Index_Data<Id_Type>::add_edge_index(Id_Type index_set_id, const std::string &index_name, Source_Location source_loc, Idx_T parent_idx) {
+	
+	// NOTE: This is only safe while the index set is being constructed, not later.
+	
+	// TODO: We should check for name clashes?
+	// Or in the data_set, it should check that there are no double edges?
 	
 	auto &data = index_data[index_set_id.id];
 	
 	int super = is_valid(parent_idx) ? parent_idx.index : 0;
 	
-	data.index_counts[super]++;
+	s32 val = data.index_counts[super]++;
+	data.index_names[super].push_back(index_name);
+	data.name_to_index[super][index_name] = val;
 }
 
 template<typename Id_Type>
 void 
-Index_Data<Id_Type>::set_indexes(Id_Type index_set_id, std::vector<Token> &names, Idx_T parent_idx) {
+Index_Data<Id_Type>::set_indexes(Id_Type index_set_id, const std::vector<Token> &names, Idx_T parent_idx) {
 	
 	Index_Record::Type type;
 	if(names[0].type == Token_Type::integer)
@@ -387,8 +395,11 @@ Index_Data<Id_Type>::set_indexes(Id_Type index_set_id, std::vector<Token> &names
 				name.print_error_header();
 				fatal_error("Expected just quoted strings for this index data.");
 			}
-			// TODO: Check for name conflict!
 			std::string nn = name.string_value;
+			if(nmap.find(nn) != nmap.end()) {
+				name.print_error_header();
+				fatal_error("The index name \"", nn, "\" is repeated for the index set \"", record->index_sets[index_set_id]->name, "\"");
+			}
 			inames.push_back(nn);
 			nmap[nn] = index.index;
 			++index.index;
@@ -423,7 +434,29 @@ Index_Data<Id_Type>::initialize_union(Id_Type index_set_id, Source_Location sour
 		}
 	}
 	
-	// TODO: If these are named, check for overlapping names between them!
+	// If these are named, check for overlapping names between them!
+	if(data.type == Index_Record::Type::named) {
+		if(is_valid(index_set->sub_indexed_to))
+			fatal_error(Mobius_Error::internal, "Sub-indexed unions not entirely supported.");
+		int super = 0; // NOTE: Have to iterate over this if we are to allow sub-indexed unions
+		for(int idx = 1; idx < index_set->union_of.size(); ++idx) {
+			for(int idx2 = 0; idx2 < idx; ++idx2) {
+				
+				auto ui_id1 = index_set->union_of[idx];
+				auto ui_id2 = index_set->union_of[idx2];
+				auto &names1 = index_data[ui_id1.id].index_names[super];
+				auto &names2 = index_data[ui_id2.id].index_names[super];
+				
+				for(auto &name : names1) {
+					if(std::find(names2.begin(), names2.end(), name) != names2.end()) {
+						source_loc.print_error_header();
+						fatal_error("The index name \"", name, "\" overlaps between the two union members \"", record->index_sets[ui_id1]->name, "\" and \"", record->index_sets[ui_id2]->name, "\" in the index set union \"", index_set->name, "\".");
+					}
+				}
+			}
+		}
+	}
+	
 }
 
 template<typename Id_Type>
@@ -439,6 +472,11 @@ Index_Data<Id_Type>::get_count_base(Id_Type index_set_id, Idx_T index_of_super) 
 		return sum;
 	}
 	int super = is_valid(index_of_super) ? index_of_super.index : 0;
+	
+	if(index_data.size() <= index_set_id.id)
+		fatal_error(Mobius_Error::internal, "Tried to look up count of uninitialized index set ", index_set->name, "\n");
+	if(index_data[index_set_id.id].index_counts.size() <= super)
+		fatal_error(Mobius_Error::internal, "Index counts were not properly set before a lookup, or the lookup was malformed.");
 	return index_data[index_set_id.id].index_counts[super];
 }
 
@@ -522,8 +560,8 @@ Index_Data<Id_Type>::find_indexes(std::vector<Id_Type> &index_sets, std::vector<
 
 			if(!is_valid(index_of_super)) {
 				idx_names[pos].print_error_header();
-				// TODO: Print some names here!
-				fatal_error("This index belongs to an index set that is sub-indexed to another index set, but this index does not appear after an index of the parent index set.");
+				fatal_error("(find_indexes) This index (position ", pos, ") belongs to an index set ", index_set->name, " that is sub-indexed to another index set ",
+				record->index_sets[index_set->sub_indexed_to]->name, ", but this index does not appear after an index of the parent index set.");
 			}
 		}
 		auto index = find_index(index_sets[pos], &idx_names[pos], index_of_super);
@@ -548,8 +586,8 @@ Index_Data<Id_Type>::are_in_bounds(Index_Tuple<Id_Type> &indexes) {
 			index_of_super = indexes.get_index(*this, index_set->sub_indexed_to);
 			
 			if(!is_valid(index_of_super)) {
-				// TODO: Print some names here!
-				fatal_error(Mobius_Error::internal, "Got an index belonging to an index set that is sub-indexed to another index set, but this index does not appear after an index of the parent index set.");
+				fatal_error(Mobius_Error::internal, "(are_in_bounds) This index (position ", pos, ") belongs to an index set ", index_set->name, " that is sub-indexed to another index set ",
+				record->index_sets[index_set->sub_indexed_to]->name, ", but this index does not appear after an index of the parent index set.");
 			}
 		}
 		s32 count = get_count_base(index.index_set, index_of_super);
@@ -585,8 +623,14 @@ Index_Data<Id_Type>::get_index_count(Id_Type index_set_id, Index_Tuple<Id_Type> 
 		index_of_super = indexes.get_index(*this, index_set->sub_indexed_to);
 		
 		if(!is_valid(index_of_super)) {
-			// TODO: Print some names here!
-			fatal_error(Mobius_Error::internal, "Got an index that belongs to an index set that is sub-indexed to another index set, but this index does not appear after an index of the parent index set.");
+			begin_error(Mobius_Error::internal);
+			error_print("(get_index_count) This index belongs to an index set ", index_set->name, " that is sub-indexed to another index set ",
+				record->index_sets[index_set->sub_indexed_to]->name, ", but this index does not appear after an index of the parent index set. Tuple is: ");
+			for(auto &index : indexes.indexes) {
+				if(is_valid(index))
+					error_print("\"", record->index_sets[index.index_set]->name, "\" ");
+			}
+			mobius_error_exit();
 		}
 	}
 	return Idx_T {index_set_id, get_count_base(index_set_id, index_of_super)};
@@ -595,7 +639,7 @@ Index_Data<Id_Type>::get_index_count(Id_Type index_set_id, Index_Tuple<Id_Type> 
 template<typename Id_Type>
 bool
 Index_Data<Id_Type>::can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set, s32* offset) {
-	*offset = 0;
+	if(offset) *offset = 0;
 	auto index_set = record->index_sets[other_set];
 	if(!is_valid(index_set->sub_indexed_to))
 		return false;
@@ -607,9 +651,10 @@ Index_Data<Id_Type>::can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set
 	for(auto ui_id : super->union_of) {
 		if(parent_set == ui_id)
 			return true;
-		else
-			*offset += get_max_count(ui_id).index;
-		// NOTE: It is ok to use get_max_count for the following reason: Even if we allowed union index sets to be sub-indexed, the supposition here is that it is a parent index set, and we don't allow double sub-indexing.
+		else if(offset)
+			*offset += get_count_base(ui_id, Idx_T::no_index());
+		// NOTE: It is ok to use an invalid parent index in get_count_base here for the following reason: 
+		// Even if we allowed union index sets to be sub-indexed, the supposition here is that it is a parent index set, and we don't allow double sub-indexing.
 	}
 	return false;
 }
@@ -617,7 +662,34 @@ Index_Data<Id_Type>::can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set
 template<typename Id_Type>
 void
 Index_Data<Id_Type>::check_valid_distribution(std::vector<Id_Type> &index_sets, Source_Location source_loc) {
-	//TODO:
+	
+	int idx = 0;
+	for(auto id : index_sets) {
+		auto set = record->index_sets[id];
+		if(is_valid(set->sub_indexed_to)) {
+			bool found = (std::find(index_sets.begin(), index_sets.begin()+idx, set->sub_indexed_to) != index_sets.begin()+idx);
+			auto parent_set = record->index_sets[set->sub_indexed_to];
+			if(!found && !parent_set->union_of.empty()) {
+				for(auto ui_id : parent_set->union_of) {
+					found = (std::find(index_sets.begin(), index_sets.begin()+idx, ui_id) != index_sets.begin()+idx);
+					if(found) break;
+				}
+			}
+			if(!found) {
+				source_loc.print_error_header();
+				fatal_error("The index set \"", set->name, "\" is sub-indexed to another index set \"", record->index_sets[set->sub_indexed_to]->name, "\", but the parent index set (or a union member of it) does not precede it in this distribution");
+			}
+		}
+		if(!set->union_of.empty()) {
+			for(auto ui_id : set->union_of) {
+				if(std::find(index_sets.begin(), index_sets.end(), ui_id) != index_sets.end()) {
+					source_loc.print_error_header();
+					fatal_error("The index set \"", set->name, "\" is a union consisting among others of the index set \"", record->index_sets[ui_id]->name, "\", but both appear in the same distribution.");
+				}
+			}
+		}
+		++idx;
+	}
 	
 }
 
@@ -639,7 +711,7 @@ Index_Data<Id_Type>::get_instance_count(const std::vector<Id_Type> &index_sets) 
 		auto index_set = record->index_sets[index_set_id];
 		if(is_valid(index_set->sub_indexed_to)) {
 			// NOTE: This algorithm assures that if this index set is sub-indexed, it should already have been processed, and thus skipped (unless the tuple is incorrectly set up).
-			fatal_error(Mobius_Error::internal, "Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
+			fatal_error(Mobius_Error::internal, "(get_instance_count) Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
 				record->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter or a union member of the latter.");
 		}
 		
@@ -674,17 +746,20 @@ Index_Data<Id_Type>::get_index_name_base(Idx_T index, Idx_T index_of_super, bool
 	auto &data = index_data[index.index_set.id];
 	
 	// TODO: Remove this once we fix MobiView2
-	bool invalid_super = is_valid(record->index_sets[index.index_set]->sub_indexed_to) && !is_valid(index_of_super);
+	auto set = record->index_sets[index.index_set];
+	bool invalid_name_support = (is_valid(set->sub_indexed_to) && !is_valid(index_of_super)) || !set->union_of.empty();
 	
-	if(data.type == Index_Record::Type::numeric1 || invalid_super) {
+	if(data.type == Index_Record::Type::numeric1 || invalid_name_support) {
 		if(is_quotable) *is_quotable = false;
-		char buf[16];
-		itoa(index.index, buf, 10);
-		return buf;
+		return std::to_string(index.index);
 	} else if (data.type == Index_Record::Type::named) {
 		if(is_quotable) *is_quotable = true;
 
 		int super = is_valid(index_of_super) ? index_of_super.index : 0;
+		if(data.index_names.size() <= super)
+			fatal_error(Mobius_Error::internal, "Trying to look up uninitialized index names for index set ", record->index_sets[index.index_set]->name, "\".");
+		if(data.index_names[super].size() <= index.index)
+			fatal_error(Mobius_Error::internal, "Trying to look up uninitialized index name for index set ", record->index_sets[index.index_set]->name, "\" and index ", index.index, ".");
 		return data.index_names[super][index.index];
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled index type in get_index_name_base.");
@@ -707,8 +782,13 @@ Index_Data<Id_Type>::get_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, 
 	if(!is_valid(index) || index.index >= get_count_base(index.index_set, index_of_super))
 		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
 	
-	// TODO: This is not correct when the type is numeric!!
 	if(!index_set->union_of.empty()) {
+		
+		// NOTE: For numeric indexes, we just return the number. For a union, we have to lower the number to the right union member to be able to look up the name value.
+		auto &data = index_data[index.index_set.id];
+		if(data.type == Index_Record::Type::numeric1)
+			return get_index_name_base(index, index_of_super, is_quotable);
+		
 		Idx_T lower = index;
 		for(auto ui_id : index_set->union_of) {
 			s32 count = get_count_base(ui_id, index_of_super);
@@ -732,28 +812,28 @@ maybe_quote(std::string &str, bool quote) {
 
 template<typename Id_Type>
 std::string
-Index_Data<Id_Type>::get_possibly_quoted_index_name(Index_Tuple<Id_Type> &indexes, Id_Type index_set_id) {
+Index_Data<Id_Type>::get_possibly_quoted_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, bool quote) {
 	bool is_quotable;
-	std::string result = get_index_name(indexes, index_set_id, &is_quotable);
-	maybe_quote(result, is_quotable);
+	std::string result = get_index_name(indexes, index, &is_quotable);
+	maybe_quote(result, quote && is_quotable);
 	return result;
 }
 
 template<typename Id_Type>
 void
-Index_Data<Id_Type>::get_index_names_with_edge_naming(Model_Application *app, Index_Tuple<Id_Type> &indexes, std::vector<std::string> &names_out, bool quote) {
+Index_Data<Id_Type>::get_index_names(Index_Tuple<Id_Type> &indexes, std::vector<std::string> &names_out, bool quote) {
+	
+	// TODO: Should probably change this to only put the valid ones in the vector
+	
 	int count = indexes.indexes.size();
-	if(is_valid(indexes.mat_col)) ++count;
 	names_out.resize(count);
 	
 	int pos = 0;
 	for(auto &index : indexes.indexes) {
-		if(!is_valid(index)) { pos++; continue; }
-		put_index_name_with_edge_naming(app, indexes, index, names_out, pos, quote);
+		if(!is_valid(index)) { ++pos; continue; }
+		names_out[pos] = get_possibly_quoted_index_name(indexes, index);
 		++pos;
 	}
-	if(is_valid(indexes.mat_col))
-		put_index_name_with_edge_naming(app, indexes, indexes.mat_col, names_out, count-1, quote);
 }
 
 template<typename Id_Type>
@@ -768,11 +848,14 @@ Index_Data<Id_Type>::are_all_indexes_set(Id_Type index_set_id) {
 		}
 		return true;
 	}
+	if(index_data.size() <= index_set_id.id)
+		return false;
 	auto &data = index_data[index_set_id.id];
 	if(data.index_counts.empty())
 		return false;
-	for(s32 count : data.index_counts)
-		if(!count) return false;
+	//for(s32 count : data.index_counts)
+	//	if(count) return true;
+	
 	return true;
 }
 

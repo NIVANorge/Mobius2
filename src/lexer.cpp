@@ -59,17 +59,17 @@ Source_Location::print_log_header() const {
 }
 
 void
-Token::print_error_location() {
+Token::print_error_location() const {
 	source_loc.print_error();
 }
 
 void
-Token::print_error_header() {
+Token::print_error_header() const {
 	source_loc.print_error_header();
 }
 
 void
-Token::print_log_header() {
+Token::print_log_header() const {
 	source_loc.print_log_header();
 }
 

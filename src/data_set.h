@@ -105,14 +105,14 @@ Index_Set_Info : Info_Type_Base {
 
 	Data_Id sub_indexed_to = invalid_data;
 	std::vector<Data_Id> union_of;
-	bool is_edge_index_set = false;
+	Data_Id is_edge_of_connection = invalid_data;
 };
 
 struct Component_Info : Info_Type_Base {
 	Decl_Type decl_type;
 	std::string handle;
 	std::vector<Data_Id> index_sets;
-	Data_Id edge_index_set = invalid_data;
+	bool can_have_edge_index = false;
 };
 
 struct Compartment_Ref {
@@ -129,9 +129,11 @@ Connection_Info : Info_Type_Base {    // This must either be subclased or have d
 
 	enum class Type {
 		none,
-		graph,
+		directed_graph,
 	} type;
 	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
+	
+	Data_Id edge_index_set = invalid_data;
 	
 	Info_Registry<Component_Info>        components;
 	std::unordered_map<std::string, Data_Id> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
@@ -229,7 +231,7 @@ Record_Type<Data_Id> {
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
 	
-	void generate_index_set(const std::string &name);
+	void generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of);
 	
 	std::string main_file;
 	std::string doc_string;

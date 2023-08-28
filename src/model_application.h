@@ -353,17 +353,18 @@ Series_Metadata {
 
 struct
 Sub_Indexed_Component {
-	Entity_Id id;
+	Entity_Id id = invalid_entity_id;
 	std::vector<Entity_Id> index_sets;
-	Entity_Id edge_index_set;
 	
-	bool can_be_located_source;           // if this can be a source of the connection to a located target (not 'out').
-	int total_as_source;                  // How many of this type of component appears as a source (both to a located or 'out').
-	std::set<Entity_Id> possible_sources; // what sources can have this as a target.
-	std::set<Entity_Id> possible_targets; // what targets can have this as a source. (both to a located or 'out' - the latter are recorded as invalid_entity_id).
-	int max_target_indexes;               // max indexes of a target that has this as the source
+	bool can_be_located_source = false;       // if this can be a source of the connection to a located target (not 'out').
+	int total_as_source = 0;                  // How many instances of this type of node appears as a source (both to a located or 'out').
+	int max_outgoing_per_node = 0;            // How many outgoing arrows there could be per node.
+	std::set<Entity_Id> possible_sources;     // what sources can have this as a target.
+	std::set<Entity_Id> possible_targets;     // what targets can have this as a source. (both to a located or 'out' - the latter are recorded as invalid_entity_id).
+	int max_target_indexes = 0;               // max node indexes of a target that has this as the source
+	bool is_edge_indexed = false;
 	
-	Sub_Indexed_Component() : id(invalid_entity_id), edge_index_set(invalid_entity_id), can_be_located_source(false), max_target_indexes(0), total_as_source(0) {}
+	Sub_Indexed_Component() {}
 };
 
 struct
@@ -490,19 +491,16 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location source_lo
 
 struct
 Index_Exprs {
-	Index_Exprs(Mobius_Model *model) : mat_col(nullptr), indexes(model->index_sets.count(), nullptr), mat_index_set(invalid_entity_id) { }
+	Index_Exprs(Mobius_Model *model) : indexes(model->index_sets.count(), nullptr) { }
 	~Index_Exprs() { clean(); }
 	
 	void clean();
 	void copy(Index_Exprs &other);
-	Math_Expr_FT *get_index(Model_Application *app, Entity_Id index_set, bool matrix_column = false);
-	void set_index(Entity_Id index_set, Math_Expr_FT *index, bool matrix_column = false);
-	void transpose_matrix(Entity_Id index_set);
+	Math_Expr_FT *get_index(Model_Application *app, Entity_Id index_set);
+	void set_index(Entity_Id index_set, Math_Expr_FT *index);
 	
 private :
 	std::vector<Math_Expr_FT *> indexes;
-	Math_Expr_FT               *mat_col;
-	Entity_Id                   mat_index_set;
 };
 
 #include "indexing.h"

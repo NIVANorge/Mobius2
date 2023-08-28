@@ -11,21 +11,14 @@ Index_Exprs::clean() {
 		delete indexes[idx];
 		indexes[idx] = nullptr;
 	}
-	delete mat_col;
-	mat_col = nullptr;
-	mat_index_set = invalid_entity_id;
 }
 	
 void
 Index_Exprs::copy(Index_Exprs &other) {
 	clean();
 	indexes = other.indexes;
-	for(auto &idx : indexes) {
+	for(auto &idx : indexes)
 		if(idx) idx = ::copy(idx);
-	}
-	if(other.mat_col)
-		mat_col = ::copy(other.mat_col);
-	mat_index_set = other.mat_index_set;
 }
 
 // Hmm, this could also maybe be used elsewhere. Put it as utility in function_tree.h ?
@@ -36,59 +29,42 @@ add_exprs(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 }
 
 Math_Expr_FT *
-Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, bool matrix_column) {
+Index_Exprs::get_index(Model_Application *app, Entity_Id index_set) {
 	
 	// TODO: How to handle matrix column for union index sets? Probably disallow it? (See also Index_Tuple)
 	
 	Math_Expr_FT *result = nullptr;
-	if(matrix_column && mat_col) {
-		if(index_set != mat_index_set)
-			fatal_error(Mobius_Error::internal, "Unexpected matrix column index set in Index_Exprs::get_index.");
-		result = ::copy(mat_col);
+	
+	if(indexes[index_set.id]) {
+		result = ::copy(indexes[index_set.id]);
 	} else {
-		if(indexes[index_set.id]) {
-			result = ::copy(indexes[index_set.id]);
-		} else {
-			// Try to index a union index set (if a direct index is absent) by an index belonging to a member of that union.
-			bool found = false;
-			auto set = app->model->index_sets[index_set];
-			for(auto ui_id : set->union_of) {
-				if(indexes[ui_id.id]) {
-					result = add_exprs(result, ::copy(indexes[ui_id.id]));
-					found = true;
-					break;
-				} else
-					result = add_exprs(result, app->get_index_count_code(ui_id, *this));
-			}
-			if(!found) {    // Do this since we want this to raise an error.
-				delete result;
-				result = nullptr;
-			}
+		// Try to index a union index set (if a direct index is absent) by an index belonging to a member of that union.
+		bool found = false;
+		auto set = app->model->index_sets[index_set];
+		for(auto ui_id : set->union_of) {
+			if(indexes[ui_id.id]) {
+				result = add_exprs(result, ::copy(indexes[ui_id.id]));
+				found = true;
+				break;
+			} else
+				result = add_exprs(result, app->get_index_count_code(ui_id, *this));
+		}
+		if(!found) {    // Do this since we want this to raise an error.
+			delete result;
+			result = nullptr;
 		}
 	}
+
 	return result;
 }
 
 void
-Index_Exprs::set_index(Entity_Id index_set, Math_Expr_FT *index, bool matrix_column) {
+Index_Exprs::set_index(Entity_Id index_set, Math_Expr_FT *index) {
 	if(!index)
 		fatal_error(Mobius_Error::internal, "It is not allowed to set a nullptr index on an Index_Exprs.");
-	if(matrix_column) {
-		if(mat_col) delete mat_col;
-		mat_index_set = index_set;
-		mat_col = index;
-	} else {
-		if(indexes[index_set.id]) delete indexes[index_set.id];
-		indexes[index_set.id] = index;
-	}
-}
-
-void
-Index_Exprs::transpose_matrix(Entity_Id index_set) {
-	if(!mat_col || mat_index_set != index_set) return;
-	auto tmp = mat_col;
-	mat_col = indexes[index_set.id];
-	indexes[index_set.id] = tmp;
+	
+	if(indexes[index_set.id]) delete indexes[index_set.id];
+	indexes[index_set.id] = index;
 }
 
 Var_Id
@@ -259,7 +235,7 @@ Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_i
 Entity_Id
 Model_Application::get_single_connection_index_set(Entity_Id conn_id) {
 	auto conn = model->connections[conn_id];
-	if(conn->type != Connection_Type::all_to_all && conn->type != Connection_Type::grid1d)
+	if(conn->type != Connection_Type::grid1d)
 		fatal_error(Mobius_Error::internal, "Misuse of get_single_connection_index_set().");
 	return connection_components[conn_id].components[0].index_sets[0];
 }
@@ -286,8 +262,7 @@ Model_Application::set_up_connection_structure() {
 	for(auto connection_id : model->connections) {
 		auto connection = model->connections[connection_id];
 		
-		if(connection->type == Connection_Type::directed_tree || connection->type == Connection_Type::directed_graph) {
-			// TODO: This is a bit risky, we should actually check that connection_components is correctly set up.
+		if(connection->type == Connection_Type::directed_graph) {
 			
 			for(auto &comp : connection_components[connection_id].components) {
 				
@@ -302,13 +277,13 @@ Model_Application::set_up_connection_structure() {
 				}
 		
 				auto index_sets = comp.index_sets; // Copy vector
-				if(connection->type == Connection_Type::directed_graph)
-					index_sets.push_back(comp.edge_index_set);
+				if(comp.is_edge_indexed)
+					index_sets.push_back(connection->edge_index_set);
 				
 				Multi_Array_Structure<Connection_T> array(std::move(index_sets), std::move(handles));
 				structure.push_back(array);
 			}
-		} else if (connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d) {
+		} else if (connection->type == Connection_Type::grid1d) {
 			// There is no connection data associated with these.
 		} else {
 			fatal_error(Mobius_Error::internal, "Unsupported connection structure type in set_up_connection_structure()");
@@ -600,7 +575,7 @@ Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexe
 }
 
 void
-add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id, bool single_index_only) {
+add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id) {
 	
 	// TODO: In general we should be more nuanced with what source location we print for errors in this procedure.
 	
@@ -614,40 +589,14 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	
 	auto cnd = model->connections[connection_id];
 	
-	auto find_decl = std::find_if(cnd->components.begin(), cnd->components.end(), [=](auto &pair){ return (pair.first == component_id); });
-	if(find_decl == cnd->components.end()) {
+	auto find = std::find(cnd->components.begin(), cnd->components.end(), component_id);
+	if(find == cnd->components.end()) {
 		comp->source_loc.print_error_header();
 		error_print("The connection \"", cnd->name,"\" is not allowed for the component \"", component->name, "\". See declaration of the connection:\n");
 		cnd->source_loc.print_error();
 		mobius_error_exit();
 	}
-	Entity_Id edge_index_set = find_decl->second;
 	
-	if(is_valid(comp->edge_index_set)) {
-		if(cnd->type == Connection_Type::directed_tree) {
-			comp->source_loc.print_error_header();
-			fatal_error("The components of a 'directed_tree' should not be provided with an edge index set in the data set.");
-		}
-		auto idx_set_info = data_set->index_sets[comp->edge_index_set];
-		auto proposed_edge_index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
-		if(!is_valid(proposed_edge_index_set)) {
-			idx_set_info->source_loc.print_error_header();
-			fatal_error("The index set \"", idx_set_info->name, "\" is not found in the model.");
-		}
-		if(is_valid(proposed_edge_index_set) && (proposed_edge_index_set != edge_index_set)) {
-			idx_set_info->source_loc.print_error_header();
-			fatal_error("The edge index set of this component in the data set does not match the edge index set given in the model.");
-		}
-	} else if (cnd->type == Connection_Type::directed_graph) {
-		comp->source_loc.print_error_header();
-		fatal_error("The components of a 'directed_graph' connection must be provided with an edge index set in the data set.");
-	}
-	
-	
-	if(single_index_only && comp->index_sets.size() != 1) {
-		comp->source_loc.print_error_header();
-		fatal_error("This connection type only supports connections on components that are indexed by a single index set");
-	}
 	std::vector<Entity_Id> index_sets;
 	for(auto set_id : comp->index_sets) {
 		auto idx_set_info = data_set->index_sets[set_id];
@@ -663,19 +612,10 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		index_sets.push_back(index_set);
 	}
 	
-	if(is_valid(edge_index_set) && !index_sets.empty()) {
-		if(model->index_sets[edge_index_set]->sub_indexed_to != index_sets[0]) {
-			comp->source_loc.print_error_header();
-			error_print("The edge index set for this component is not declared as sub-indexed to the index set of the component. See declaration of the edge index set:\n");
-			model->index_sets[edge_index_set]->source_loc.print_error();
-			mobius_error_exit();
-		}
-	}
-	
 	auto &components = app->connection_components[connection_id].components;
-	auto find = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
-	if(find != components.end()) {
-		if(index_sets != find->index_sets) { // This should no longer be necessary when we make component declarations local to the connection data in the data set.
+	auto find2 = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
+	if(find2 != components.end()) {
+		if(index_sets != find2->index_sets) { // This should no longer be necessary when we make component declarations local to the connection data in the data set.
 			comp->source_loc.print_error_header();
 			fatal_error("The component \"", app->model->components[component_id]->name, "\" appears twice in the same connection relation, but with different index set dependencies.");
 		}
@@ -683,7 +623,6 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 		Sub_Indexed_Component comp;
 		comp.id = component_id;
 		comp.index_sets = index_sets;
-		comp.edge_index_set = edge_index_set;
 		components.push_back(std::move(comp));
 	}
 }
@@ -691,24 +630,26 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 void
 set_up_simple_connection_components(Model_Application *app, Entity_Id conn_id) {
 	
-	// This is for all_to_all and grid1d where there is only one component.
+	// TODO: May not need this now that we store the node index set in the connection registration.
+	
+	// This is for grid1d where there is only one component.
 	
 	auto conn = app->model->connections[conn_id];
 	
-	if(conn->components.size() != 1 || !is_valid(conn->components[0].second))
-		fatal_error(Mobius_Error::internal, "Somehow model declaration did not set up component data correctly for a grid1d or all_to_all.");
+	if(conn->components.size() != 1 || !is_valid(conn->components[0]) || !is_valid(conn->node_index_set))
+		fatal_error(Mobius_Error::internal, "Somehow model declaration did not set up component data correctly for a grid1d.");
 	
-	auto &component = conn->components[0];
+	auto component_id = conn->components[0];
 	
-	auto comp_type = app->model->components[component.first]->decl_type;
-	if(conn->type != Connection_Type::all_to_all && comp_type != Decl_Type::compartment || comp_type == Decl_Type::property) {
+	auto comp_type = app->model->components[component_id]->decl_type;
+	if(comp_type != Decl_Type::compartment || comp_type == Decl_Type::property) {
 		conn->source_loc.print_error_header();
 		fatal_error("This connection can't have nodes of this component type.");
 	}
 	
 	Sub_Indexed_Component comp;
-	comp.id = component.first;
-	comp.index_sets.push_back(component.second);
+	comp.id = component_id;
+	comp.index_sets.push_back(conn->node_index_set);
 	app->connection_components[conn_id].components.push_back(comp);
 }
 
@@ -732,16 +673,22 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 
 	auto cnd = model->connections[conn_id];
 	
-	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d) {
+	if(cnd->type != Connection_Type::directed_graph) {
 		connection.source_loc.print_error_header();
-		fatal_error("No connection data should be provided for connections of type 'all_to_all' or 'grid1d'");
+		fatal_error("Connection data should only be provided for connections of type 'directed_graph'.");
 	}
 	
-	bool single_index_only = false;
-	// TODO: Should also allow 0 index sets for directed_graph, not exactly one.
-	// TODO: Should make sure the edge index set is sub-indexed to the component index set for this one.
-	if(cnd->type == Connection_Type::directed_graph)
-		single_index_only = true;
+	bool error = false;
+	if(is_valid(connection.edge_index_set)) {
+		auto edge_id = scope->deserialize(data_set->index_sets[connection.edge_index_set]->name, Reg_Type::index_set); // TODO: This is not the best.. The name may not exist in module scope..
+		if(!is_valid(edge_id) || edge_id != cnd->edge_index_set) {
+			cnd->source_loc.print_error_header();
+			fatal_error("The edge index set of this connection don't match between the model and the data set.");
+		}
+	} else if (is_valid(cnd->edge_index_set)) {
+		cnd->source_loc.print_error_header();
+		fatal_error("This connection was given an edge index set in the model, but not in the data set."); 
+	}
 	
 	for(auto &comp : connection.components) {
 		Entity_Id comp_id = model->model_decl_scope.deserialize(comp.name, Reg_Type::component);
@@ -752,14 +699,11 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			//log_print("The component \"", comp.name, "\" has not been declared in the model.\n");
 			//continue;
 		}
-		add_connection_component(app, data_set, &comp, conn_id, comp_id, single_index_only);
+		add_connection_component(app, data_set, &comp, conn_id, comp_id);
 	}
 	
-	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph) 
-		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in pre_process_connection_data().");
-	
 	// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
-	if(connection.type != Connection_Info::Type::graph && connection.type != Connection_Info::Type::none) {
+	if(connection.type != Connection_Info::Type::directed_graph && connection.type != Connection_Info::Type::none) {
 		connection.source_loc.print_error_header();
 		fatal_error("Connection structures of type directed_tree or directed_graph can only be set up using graph data.");
 	}
@@ -783,7 +727,6 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		auto source = app->find_connection_component(conn_id, arrow.source_id);
 		if(is_valid(arrow.target_id))
 			source->can_be_located_source = true;
-		source->total_as_source++;
 		
 		// TODO: Maybe assert the two vectors are the same size (would mean bug in Data_Set code if they are not).
 		
@@ -817,38 +760,42 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		app->connection_components[conn_id].arrows.push_back(std::move(arrow));
 	}
 	
-	if(cnd->type == Connection_Type::directed_graph) {
-		// Set up the index set of the edge index.
+	// Set up the index set of the edge index (if applicable)
+	auto &comps = app->connection_components[conn_id];
+	
+	
+	for(auto &comp : comps.components) {
+		if(comp.index_sets.size() == 1 && is_valid(cnd->edge_index_set))  // TODO: Also make it work for 0 (non-indexed nodes) eventually
+			comp.is_edge_indexed = app->index_data.can_be_sub_indexed_to(comp.index_sets[0], cnd->edge_index_set);
+	}
+	
+	Storage_Structure<Entity_Id> components_structure(app);
+	make_connection_component_indexing_structure(app, &components_structure, conn_id);
+	std::vector<int> n_edges(components_structure.total_count);
+	
+	for(auto &arrow : comps.arrows) {
+		s64 offset   = components_structure.get_offset(arrow.source_id, arrow.source_indexes);
+		s16 edge_idx = n_edges[offset]++;
 		
-		auto &comps = app->connection_components[conn_id];
+		auto find_source = app->find_connection_component(conn_id, arrow.source_id);
 		
-		Storage_Structure<Entity_Id> components_structure(app);
-		make_connection_component_indexing_structure(app, &components_structure, conn_id);
-		std::vector<int> n_edges(components_structure.total_count);
+		if(find_source->is_edge_indexed)
+			arrow.edge_index = Index_T { cnd->edge_index_set, edge_idx };
+	}
+	
+	for(auto &comp : comps.components) {
 		
-		for(auto &arrow : comps.arrows) {
-			s64 offset = components_structure.get_offset(arrow.source_id, arrow.source_indexes);
-			s16 edge_idx = n_edges[offset]++;
-			Entity_Id edge_index_set = app->find_connection_component(conn_id, arrow.source_id)->edge_index_set;
-			if(!is_valid(edge_index_set))
-				fatal_error(Mobius_Error::internal, "Got a directed_graph connection that has a component without an edge index set.");
-			arrow.edge_index = Index_T { edge_index_set, edge_idx };
+		components_structure.for_each(comp.id, [&](Indexes &indexes, s64 offset) {
+			if(n_edges[offset] > 0)
+				comp.total_as_source++;
+			comp.max_outgoing_per_node = std::max(comp.max_outgoing_per_node, n_edges[offset]);
+		});
+
+		if(!comp.is_edge_indexed && comp.max_outgoing_per_node > 1) {
+			cnd->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("A component of type \"", model->components[comp.id]->name, "\" can have more than one outgoing edge in this connection, but its edges can't be indexed by the edge index set (or an edge index set was not given).");
 		}
-		
-		for(auto &comp : comps.components) {
-			if(comp.index_sets.size() != 1)   //TODO: Also allow zero index sets.
-				fatal_error(Mobius_Error::internal, "Somehow got not exactly 1 index set for graph component.");
-			Entity_Id index_set = comp.index_sets[0];
-			
-			// TODO: Is this necessary anymore?
-			/*
-			Indexes indexes(Index_T {index_set, 0});
-			for(; indexes.indexes[0] < app->index_data.get_max_count(index_set); ++indexes.indexes[0]) {
-				s64 offset = components_structure.get_offset(comp.id, indexes);
-				app->set_index_count(comp.edge_index_set, n_edges[offset], indexes.indexes[0]);
-			}
-			*/
-		}
+		// NOTE: We still have to allow it to be edge indexed even if max outgoing <= 1 since that is dependent on the data, not on the model.
 	}
 	
 	match_regex(app, conn_id, connection.source_loc);
@@ -862,10 +809,10 @@ process_connection_data(Model_Application *app, Entity_Id conn_id) {
 	
 	auto cnd = model->connections[conn_id];
 		
-	if(cnd->type == Connection_Type::all_to_all || cnd->type == Connection_Type::grid1d)
+	if(cnd->type == Connection_Type::grid1d)
 		return;  // Nothing else to do for these.
 		
-	if(cnd->type != Connection_Type::directed_tree && cnd->type != Connection_Type::directed_graph)
+	if(cnd->type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in process_connection_data().");
 
 	auto &comps = app->connection_components[conn_id];
@@ -876,7 +823,7 @@ process_connection_data(Model_Application *app, Entity_Id conn_id) {
 		
 		auto &index_sets = component->index_sets;
 		Indexes indexes = arr.source_indexes;
-		if(cnd->type == Connection_Type::directed_graph)
+		if(component->is_edge_indexed)
 			indexes.add_index(arr.edge_index);
 		
 		s64 offset = app->connection_structure.get_offset({conn_id, arr.source_id, 0}, indexes);
@@ -915,12 +862,13 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		
 		if(!is_valid(data_set->index_sets.find_idx(set->name))) {
 		
-			// TODO: What if it is sub-indexed?
-			// TODO: Should still generate it if it is a union.
-			// TODO: Also do something if it is an edge?
-			if(set->union_of.empty())	
-				data_set->generate_index_set(set->name);
-				
+			std::string sub_indexed_to = is_valid(set->sub_indexed_to) ? model->index_sets[set->sub_indexed_to]->name : "";
+			std::vector<std::string> union_of;
+			for(auto ui_id : set->union_of)
+				union_of.push_back(model->index_sets[ui_id]->name);
+			
+			// TODO: Also do something if it is an edge index set!
+			data_set->generate_index_data(set->name, sub_indexed_to, union_of);
 		}
 	}
 	
@@ -933,7 +881,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	for(auto conn_id : model->connections) {
 		auto type = model->connections[conn_id]->type;
-		if(type == Connection_Type::all_to_all || type == Connection_Type::grid1d)
+		if(type == Connection_Type::grid1d)
 			set_up_simple_connection_components(this, conn_id);
 	}
 	
@@ -1415,56 +1363,4 @@ Model_Application::deserialize(const std::string &name) {
 		return *ids.begin();
 		
 	return invalid_var;
-}
-
-
-template<>
-void
-Index_Data<Entity_Id>::put_index_name_with_edge_naming(Model_Application *app, Indexes &indexes, Index_T index, std::vector<std::string> &names_out, int pos, bool quote) {
-	
-	auto model = app->model; // = record;
-	
-	bool is_quotable = false;
-	
-	auto index_set = model->index_sets[index.index_set];
-	auto conn_id = index_set->is_edge_of_connection;
-	if(!is_valid(conn_id) || model->connections[conn_id]->type != Connection_Type::directed_graph) {
-		names_out[pos] = get_index_name(indexes, index, &is_quotable);
-		maybe_quote(names_out[pos], is_quotable);
-		return;
-	}
-	
-	Index_T index_of_super = invalid_index;
-	if(is_valid(index_set->sub_indexed_to)) {
-		index_of_super = indexes.get_index(*this, index_set->sub_indexed_to);
-		if(!is_valid(index_of_super))
-			fatal_error(Mobius_Error::internal, "Invalid index tuple in put_index_name_with_edge_naming.");
-	}
-	
-	// If this index set is the edge index set of a graph connection, we generate a name for the index by the target of the edge (arrow).
-	//TODO: Can we make a faster way to find the arrow
-	auto &arrows = app->connection_components[conn_id].arrows;
-	for(auto arr : arrows) {
-		auto source_idx = invalid_index;
-		if(arr.source_indexes.indexes.size() == 1)
-			source_idx = arr.source_indexes.indexes[0];
-		else if(arr.source_indexes.indexes.size() > 1)
-			fatal_error(Mobius_Error::internal, "Graph arrows with multiple source indexes not supported by get_index_name.");
-		
-		if(arr.edge_index == index && source_idx == index_of_super) {
-			if(is_valid(arr.target_id)) {
-				if(arr.target_indexes.indexes.empty()) {
-					names_out[pos] = model->components[arr.target_id]->name;
-					is_quotable = true;
-				} else if (arr.target_indexes.indexes.size() == 1) {
-					names_out[pos] = get_index_name(indexes, arr.target_indexes.indexes[0], &is_quotable);
-				} else
-					fatal_error(Mobius_Error::internal, "Graph arrows with multiple target indexes not supported by get_index_name.");
-			} else {
-				is_quotable = false;
-				names_out[pos] = "out";
-			}
-		}
-	}
-	maybe_quote(names_out[pos], is_quotable);
 }

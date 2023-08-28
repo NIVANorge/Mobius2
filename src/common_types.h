@@ -328,8 +328,8 @@ Var_Loc_Restriction {
 
 	// NOTE: These two are only supposed to be used for tree aggregates where the source/target could be ambiguous.
 	// TODO: It would be nice to be able to be able to remove these. Go over how they are used and see if not one could use a similar thing to directed_graph instead?
-	Entity_Id        source_comp = invalid_entity_id;
-	Entity_Id        target_comp = invalid_entity_id;
+	//Entity_Id        source_comp = invalid_entity_id;
+	//Entity_Id        target_comp = invalid_entity_id;
 	
 	Var_Loc_Restriction() {};
 	Var_Loc_Restriction(Entity_Id connection_id, Restriction::Type type) : r1(connection_id, type) {}

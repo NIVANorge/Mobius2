@@ -203,7 +203,6 @@ Regex_Or_Chain_AST : Math_Expr_AST {
 struct
 Regex_Identifier_AST : Math_Expr_AST {
 	Token                        ident;
-	Token                        index_set;
 	bool                         wildcard;
 	
 	Regex_Identifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_identifier), wildcard(false) {};

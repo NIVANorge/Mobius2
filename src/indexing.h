@@ -53,14 +53,8 @@ Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, Indexes &indexes, M
 		return offset + begin_offset;
 	} else {
 
-		bool once = false;
 		for(auto &index_set : index_sets) {
 			auto index = indexes.indexes[index_set.id];
-			if(index_set == indexes.mat_col.index_set) {
-				if(once)
-					index = indexes.mat_col;
-				once = true;
-			}
 			check_index_bounds(app, handle, index_set, index);
 			offset *= (s64)app->index_data.get_max_count(index_set).index;
 			offset += (s64)index.index;
@@ -77,9 +71,7 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		auto &index_set = index_sets[idx];
 		
-		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
-		bool matrix_column = (idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1]);
-		Math_Expr_FT *index = indexes.get_index(app, index_set, matrix_column);
+		Math_Expr_FT *index = indexes.get_index(app, index_set);
 		
 		if(!index) {
 			err_idx_set_out = index_set;

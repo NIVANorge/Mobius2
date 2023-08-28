@@ -10,6 +10,12 @@ model("Giblet-Thrasher test model") {
 	distribute(habitat, hi)
 	
 	hi : index_set("Habitat index")     #TODO: There is an error if this is inline-declared in the distribute() declaration.
+	route : index_set("Migration route index") @sub(hi)
+	
+	mig : connection("Migration route connection") @directed_graph(route) { habitat* }
+	
+	migr : compartment("Migration route")
+	distribute(migr, hi, route)
 	
 	module("Giblet-Thrasher", version(1, 1, 0)) {
 		
@@ -30,7 +36,7 @@ model("Giblet-Thrasher test model") {
 			prey_birth : par_real("Giblet birth rate", [day-1], 0.2)
 		}
 		
-		par_group("Migration weights", habitat) {
+		par_group("Migration weights", migr) {
 			mig_wt : par_real("Migration weight", [], 0.1, 0, 1)
 		}
 		
@@ -48,8 +54,6 @@ model("Giblet-Thrasher test model") {
 		flux(out, habitat.pred, [day-1], "Thrasher birth")   {  pred_birth * prey * pred }
 		
 		flux(habitat.pred, out, [day-1], "Thrasher death")   {  pred * (pred_death + meteor_dth*meteor) }
-		
-		mig : connection("Migration route", all_to_all) { habitat[hi] }
 		
 		flux(habitat.prey, mig, [day-1], "Giblet migration")     {  prey * pred * pmig * mig_wt  }
 	}

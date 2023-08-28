@@ -992,6 +992,14 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 			
 			has_specific_code = true;
 			flux->specific_target_ast = static_cast<Function_Body_AST *>(note->body)->block;
+		} else if(str == "bidirectional") {
+			match_declaration_base(note, {{}}, 0);
+			flux->bidirectional = true;
+			
+			if(!is_valid(flux->target.r1.connection_id) || flux->target.r1.type != Restriction::below) {
+				note->decl.print_error_header();
+				fatal_error("Bidirectionality is for now only supported for connection fluxes.");
+			}
 		} else {
 			note->decl.print_error_header();
 			fatal_error("Unrecognized note '", str, "' for a flux declaration.");
@@ -1069,61 +1077,18 @@ process_declaration<Reg_Type::external_computation>(Mobius_Model *model, Decl_Sc
 }
 
 void
-add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_Id connection_id, Regex_Identifier_AST *ident) {
-	
-	auto connection = model->connections[connection_id];
-	
-	if(ident->ident.string_value == "out") {
-		if(is_valid(&ident->index_set)) {
-			ident->index_set.print_error_header();
-			fatal_error("There should not be an index set on 'out'");
-		}
-		
-		return;
-	} else if (ident->wildcard)
-		return;
-	
-	auto component_id = model->components.find_or_create(scope, &ident->ident);
-	Entity_Id index_set_id = invalid_entity_id;
-	if(is_valid(&ident->index_set)) {
-		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
-		auto index_set = model->index_sets[index_set_id];
-		//	TODO: Also check for duplicates
-		if(connection->type == Connection_Type::directed_graph) {
-			index_set->is_edge_of_connection = connection_id;
-			index_set->is_edge_of_node       = component_id;
-		}
-		if(connection->type != Connection_Type::directed_graph && connection->type != Connection_Type::grid1d && connection->type != Connection_Type::all_to_all) {
-			ident->index_set.print_error_header();
-			fatal_error("Index sets should only be assigned to the nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all'");
-		}
-	}
-	bool found = false;
-	for(auto &comp : connection->components) {
-		if(comp.first == component_id) {
-			found = true;
-			break;
-		}
-	}
-	if(!found) {
-		if(!is_valid(index_set_id) && 
-			(connection->type == Connection_Type::directed_graph || connection->type == Connection_Type::grid1d || connection->type == Connection_Type::all_to_all)) {
-			
-			ident->source_loc.print_error_header();
-			fatal_error("Nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all' must have index sets assigned to them.");
-		}
-		connection->components.push_back({component_id, index_set_id});
-	} else if(is_valid(index_set_id)) {
-		ident->index_set.print_error_header();
-		fatal_error("An index set should only be declared on the first occurrence of a component in the regex.");
-	}
-}
-
-void
 recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *scope, Entity_Id connection_id, Math_Expr_AST *expr) {
-	if(expr->type == Math_Expr_Type::regex_identifier)
-		add_connection_component_option(model, scope, connection_id, static_cast<Regex_Identifier_AST *>(expr));
-	else {
+	if(expr->type == Math_Expr_Type::regex_identifier) {
+		
+		auto ident = static_cast<Regex_Identifier_AST *>(expr);
+		if(ident->ident.string_value == "out" || ident->wildcard)
+			return;
+		
+		auto connection = model->connections[connection_id];
+		auto component_id = model->components.find_or_create(scope, &ident->ident);
+		if(std::find(connection->components.begin(), connection->components.end(), component_id) == connection->components.end())
+			connection->components.push_back(component_id);
+	} else {
 		for(auto child : expr->exprs) {
 			recursive_gather_connection_component_options(model, scope, connection_id, child);
 		}
@@ -1132,43 +1097,52 @@ recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *s
 
 template<> Entity_Id
 process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	int which = match_declaration(decl,
+	match_declaration(decl,
 	{
 		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, Token_Type::identifier},
-	}, true, -1);
+	}, true, 0, true);
 	
 	auto id         = model->connections.standard_declaration(scope, decl);
 	auto connection = model->connections[id];
 	
-	if(which == 1) {
-		String_View structure_type = single_arg(decl, 1)->string_value;
-		if(structure_type == "directed_tree")	    connection->type = Connection_Type::directed_tree;
-		else if(structure_type == "directed_graph") connection->type = Connection_Type::directed_graph;
-		else if(structure_type == "all_to_all")     connection->type = Connection_Type::all_to_all;
-		else if(structure_type == "grid1d")         connection->type = Connection_Type::grid1d;
-		else {
-			single_arg(decl, 1)->print_error_header();
-			fatal_error("Unsupported connection structure type '", structure_type, "'.");
+	if(decl->notes.size() != 1) {
+		decl->source_loc.print_error_header();
+		fatal_error("Expected exactly one note for 'connection' declaration");
+	}
+	
+	for(auto note : decl->notes) {
+		if(note->decl.string_value == "grid1d") {
+			
+			match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::index_set}}, 0);
+			
+			connection->type = Connection_Type::grid1d;
+			connection->node_index_set = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
+			connection->components.push_back(resolve_argument<Reg_Type::component>(model, scope, note, 1));
+			
+		} else if(note->decl.string_value == "directed_graph") {
+			
+			int which = match_declaration_base(note, {{}, {Decl_Type::index_set}}, -1);
+			
+			connection->type = Connection_Type::directed_graph;
+			if(which == 1)
+				connection->edge_index_set = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
+			
+			auto expr = static_cast<Regex_Body_AST *>(note->body)->expr;
+			connection->regex = expr;
+			
+			recursive_gather_connection_component_options(model, scope, id, expr);
+			
+			if(connection->components.empty()) {
+				expr->source_loc.print_error_header();
+				fatal_error("At least one component must be involved in a connection.");
+			}
+			
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized connection structure type '", note->decl.string_value, "'.");
 		}
 	}
 	
-	auto expr = static_cast<Regex_Body_AST *>(decl->body)->expr;
-	connection->regex = expr;
-	
-	if((connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d)
-		&& expr->type != Math_Expr_Type::regex_identifier) {
-		expr->source_loc.print_error_header();
-		fatal_error("For connections of type all_to_all and grid1d, only one component should be declared ( of the form {  c[i]  } , where i is the index set).");
-	}
-	
-	recursive_gather_connection_component_options(model, scope, id, expr);
-	
-	if(connection->components.empty()) {
-		expr->source_loc.print_error_header();
-		fatal_error("At least one component must be involved in a connection.");
-	}
-
 	return id;
 }
 
@@ -1961,6 +1935,9 @@ add_dissolved(const Var_Location &loc, Entity_Id quantity) {
 
 void
 check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets, Source_Location &err_loc) {
+	
+	// TODO: This overlaps with functionality in index_data.h. Do we need both?
+	
 	int idx = 0;
 	for(auto id : index_sets) {
 		auto set = model->index_sets[id];
@@ -1974,7 +1951,6 @@ check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets
 				}
 			}
 			if(!found) {
-				log_print("\n");
 				err_loc.print_error_header();
 				error_print("The index set \"", set->name, "\" is sub-indexed to another index set \"", model->index_sets[set->sub_indexed_to]->name, "\", but the parent index set (or a union member of it) does not precede it in this distribution. See the declaration of the index sets here:");
 				set->source_loc.print_error();

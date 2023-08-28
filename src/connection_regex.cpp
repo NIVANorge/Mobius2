@@ -183,10 +183,12 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		if(!is_valid(node.id))
 			continue;
 		
+		/*
 		if(connection->type == Connection_Type::directed_tree && node.points_at.size() > 1) {
 			data_loc.print_error_header();
 			fatal_error("The graph for the directed tree has a node that has more than one outgoing edge.");
 		}
+		*/
 		
 		if(node.receives_count == 0) {
 			std::vector<int> path = {};

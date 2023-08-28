@@ -767,8 +767,8 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 		fatal_error_trace(scope);
 	}
 	
-	ident->restriction.source_comp = data->source_compartment;
-	ident->restriction.target_comp = data->target_compartment;
+	//ident->restriction.source_comp = data->source_compartment;
+	//ident->restriction.target_comp = data->target_compartment;
 }
 
 void

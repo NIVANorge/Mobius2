@@ -202,16 +202,16 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Specific_Var_Location   source;
 	Specific_Var_Location   target;
 	
-	Entity_Id      unit;
+	Entity_Id      unit           = invalid_entity_id;
+	Entity_Id      discrete_order = invalid_entity_id; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
 	
-	Entity_Id      discrete_order; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
+	Math_Block_AST  *code                = nullptr;
+	Math_Block_AST  *no_carry_ast        = nullptr;
+	Math_Block_AST  *specific_target_ast = nullptr;
+	bool             no_carry_by_default = false;
+	bool             bidirectional       = false;
 	
-	Math_Block_AST  *code;
-	Math_Block_AST  *no_carry_ast;
-	Math_Block_AST  *specific_target_ast;
-	bool             no_carry_by_default;
-	
-	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), specific_target_ast(nullptr), discrete_order(invalid_entity_id), no_carry_by_default(false) {}
+	Entity_Registration() {}
 };
 
 template<> struct
@@ -275,17 +275,20 @@ Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 
 enum class
 Connection_Type {
-	unrecognized = 0, directed_tree, directed_graph, all_to_all, grid1d,
+	unrecognized = 0, directed_graph, grid1d,
 };
 
 template<> struct
 Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
-	Connection_Type type;
+	Connection_Type type = Connection_Type::unrecognized;
 	
-	std::vector<std::pair<Entity_Id, Entity_Id>> components;
-	Math_Expr_AST *regex;
+	Entity_Id node_index_set = invalid_entity_id;  // Only for grid1d. For directed graph, the nodes could be indexed variously
+	Entity_Id edge_index_set = invalid_entity_id;  // Only for directed graph for now.
 	
-	Entity_Registration() : type(Connection_Type::unrecognized) {}
+	std::vector<Entity_Id> components;
+	Math_Expr_AST *regex = nullptr;
+	
+	Entity_Registration() {}
 };
 
 
