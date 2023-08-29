@@ -65,7 +65,8 @@ Batch_Array {
 	std::set<Entity_Id>            index_sets;
 };
 
-struct Batch {
+struct
+Batch {
 	Entity_Id solver;
 	std::vector<int> instrs;
 	std::vector<Batch_Array> arrays;

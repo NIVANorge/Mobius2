@@ -3,10 +3,7 @@
 	*** High pri ***
 	
 	
-		Fix index set selection in MobiView.
-		
-		
-		Finish the new formulation of special_computation
+		Finish the new formulation of external_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
 			
 			Make in_flux (and out_flux) be allowed as inputs to it.

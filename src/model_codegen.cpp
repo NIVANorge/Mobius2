@@ -449,7 +449,10 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 	} else if (type == Connection_Type::directed_graph && is_valid(source_compartment)) {
 		
 		auto *comp = app->find_connection_component(connection_id, source_compartment, false);
-		if(comp && comp->total_as_source > 0) {
+		if(comp && comp->is_edge_indexed) {
+			// In this case we don't need to check if the flux should be computed, since that is taken care of by the iteration over the arrows.
+			new_condition = nullptr;
+		} else if(comp && comp->total_as_source > 0) {
 			
 			auto max_instances = app->index_data.get_instance_count(comp->index_sets);
 			if(comp->total_as_source < max_instances) {

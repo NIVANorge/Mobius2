@@ -102,7 +102,7 @@ Index_Data {
 	bool are_in_bounds(Index_Tuple<Id_Type> &indexes);
 	
 	Idx_T get_max_count(Id_Type index_set);
-	Idx_T get_index_count(Id_Type index_set, Index_Tuple<Id_Type> &indexes);
+	Idx_T get_index_count(Index_Tuple<Id_Type> &indexes, Id_Type index_set);
 	
 	void check_valid_distribution(std::vector<Id_Type> &index_sets, Source_Location source_loc);
 	s64 get_instance_count(const std::vector<Id_Type> &index_sets);
@@ -115,13 +115,12 @@ Index_Data {
 	void initialize_edge_index_set(Id_Type index_set_id, Source_Location source_loc);
 	void add_edge_index(Id_Type index_set_id, const std::string &index_name, Source_Location source_loc, Idx_T parent_idx);
 	
-	std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable = nullptr); //TODO: Make private when we fix MobiView2
+	//std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable = nullptr); //TODO: Make private when we fix MobiView2
 	
 	bool are_all_indexes_set(Id_Type index_set);
 	
 	void write_index_to_file(FILE *file, Idx_T index, Idx_T parent_idx = Idx_T::no_index());
 	void write_indexes_to_file(FILE *file, Id_Type index_set, Idx_T parent_idx = Idx_T::no_index());
-	// TODO: Some method to copy to another Index_Data.
 	
 	bool can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set, s32* offset = nullptr);
 	
@@ -142,7 +141,7 @@ private :
 	
 	Idx_T find_index_base(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index());
 	s32   get_count_base(Id_Type index_set, Idx_T index_of_super = Idx_T::no_index());
-	//std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable);
+	std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable);
 	
 	void initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc);
 
@@ -260,7 +259,7 @@ Index_Tuple<Id_Type>::get_index(Index_Data<Id_Type> &index_data, Id_Type index_s
 			result.index += idx.index;
 			break;
 		} else
-			result.index += index_data.get_index_count(ui_id, *this).index;
+			result.index += index_data.get_index_count(*this, ui_id).index;
 	}
 	if(!found)
 		return Idx_T::no_index();
@@ -614,7 +613,7 @@ Index_Data<Id_Type>::get_max_count(Id_Type index_set_id) {
 
 template<typename Id_Type>
 Index_Type<Id_Type>
-Index_Data<Id_Type>::get_index_count(Id_Type index_set_id, Index_Tuple<Id_Type> &indexes) {
+Index_Data<Id_Type>::get_index_count(Index_Tuple<Id_Type> &indexes, Id_Type index_set_id) {
 	
 	auto index_set = record->index_sets[index_set_id];
 	
@@ -914,7 +913,7 @@ Index_Data<Id_Type>::for_each_helper(
 	auto index_set = indexes.indexes[pos].index_set;
 	
 	new_level(pos);
-	for(int idx = 0; idx < get_index_count(index_set, indexes).index; ++idx) {
+	for(int idx = 0; idx < get_index_count(indexes, index_set).index; ++idx) {
 		indexes.indexes[pos].index = idx;
 		if(pos == indexes.indexes.size()-1)
 			do_stuff(indexes);

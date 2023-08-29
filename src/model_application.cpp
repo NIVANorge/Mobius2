@@ -304,7 +304,7 @@ Model_Application::set_up_index_count_structure() {
 	for(auto index_set : model->index_sets) {
 		int idx = 0;
 		index_counts_structure.for_each(index_set, [this, index_set, &idx](Indexes &indexes, s64 offset) {
-			data.index_counts.data[offset] = index_data.get_index_count(index_set, indexes).index;
+			data.index_counts.data[offset] = index_data.get_index_count(indexes, index_set).index;
 		});
 	}
 }

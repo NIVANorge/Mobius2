@@ -11,7 +11,7 @@ recursive_update_parameter(int level, Indexes &current_indexes, const Indexed_Pa
 	} else {
 		if(par_data.locks[level]) {
 			auto index_set = Entity_Id {Reg_Type::index_set, (s16)level};
-			auto index_count = data->app->index_data.get_index_count(index_set, current_indexes); // NOTE: this will work if things are set up in the right order, but it is a bit volatile
+			auto index_count = data->app->index_data.get_index_count(current_indexes, index_set);
 			for(Index_T index = {index_set, 0}; index < index_count; ++index) {
 				current_indexes.indexes[level] = index;
 				recursive_update_parameter(level+1, current_indexes, par_data, data, val);

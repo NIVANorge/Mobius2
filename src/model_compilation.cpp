@@ -225,89 +225,90 @@ insert_dependencies(Model_Application *app, Model_Instruction *instr, std::set<E
 	return changed;
 }
 
-bool
-resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial, bool first_pass) {
+void
+resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
-	Mobius_Model *model = app->model;
+	auto model = app->model;
 	
-	// Collect direct dependencies coming from lookups in the declared functions of the variables.
-	// NOTE: we can't just reuse the dependency sets we computed in model_composition, because some of the variables have undergone codegen between then and could have got new dependencies.
-	
-	if(first_pass) {
-		for(auto &instr : instructions) {
+	for(auto &instr : instructions) {
 			
-			if(!instr.code) continue;
-			
-			std::set<Identifier_Data> code_depends;
-			register_dependencies(instr.code, &code_depends);
-			if(instr.type == Model_Instruction::Type::compute_state_var) {
-				auto var = app->vars[instr.var_id];
-				if(var->specific_target.get())
-					register_dependencies(var->specific_target.get(), &code_depends);
-			}
-			
-			for(auto &dep : code_depends) {
-				if(dep.variable_type == Variable_Type::parameter || dep.variable_type == Variable_Type::series) {
-					
-					insert_dependencies(app, &instr, dep);
+		if(!instr.code) continue;
+		
+		std::set<Identifier_Data> code_depends;
+		register_dependencies(instr.code, &code_depends);
+		if(instr.type == Model_Instruction::Type::compute_state_var) {
+			auto var = app->vars[instr.var_id];
+			if(var->specific_target.get())
+				register_dependencies(var->specific_target.get(), &code_depends);
+		}
+		
+		for(auto &dep : code_depends) {
+			if(dep.variable_type == Variable_Type::parameter || dep.variable_type == Variable_Type::series) {
 				
-				} else if(dep.variable_type == Variable_Type::is_at) {
-					
-					auto index_set = app->model->connections[dep.restriction.r1.connection_id]->node_index_set;
-					insert_dependency(app, &instr, index_set);
-					
-				} else if(dep.variable_type == Variable_Type::state_var) {
-					
-					instr.inherits_index_sets_from_state_var.insert(dep);
-					
-					// TODO: Secondary restriction r2 also?
-					auto &res = dep.restriction.r1;
-					
-					if(res.type == Restriction::above || res.type == Restriction::below) {
-						if(dep.restriction.r1.type == Restriction::above) {
-							instr.loose_depends_on_instruction.insert(dep.var_id.id);
-						} else {
-							instr.instruction_is_blocking.insert(dep.var_id.id);
-							instr.depends_on_instruction.insert(dep.var_id.id);
-						}
-						// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
-							// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
-						// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
-
-						if(instr.type == Model_Instruction::Type::compute_state_var) {
-							auto conn = model->connections[res.connection_id];
-							if(conn->type == Connection_Type::directed_graph) {
-								auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
-								if(comp && comp->is_edge_indexed)
-									insert_dependency(app, &instr, conn->edge_index_set);
-							} else if(conn->type == Connection_Type::grid1d) {
-								auto index_set = conn->node_index_set;
-								insert_dependency(app, &instr, index_set);
-							} else
-								fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
-						}
-						
-					} else if(res.type == Restriction::top || res.type == Restriction::bottom) {
+				insert_dependencies(app, &instr, dep);
+			
+			} else if(dep.variable_type == Variable_Type::is_at) {
+				
+				auto index_set = app->model->connections[dep.restriction.r1.connection_id]->node_index_set;
+				insert_dependency(app, &instr, index_set);
+				
+			} else if(dep.variable_type == Variable_Type::state_var) {
+				
+				instr.inherits_index_sets_from_state_var.insert(dep);
+				
+				// TODO: Secondary restriction r2 also?
+				auto &res = dep.restriction.r1;
+				
+				if(res.type == Restriction::above || res.type == Restriction::below) {
+					if(dep.restriction.r1.type == Restriction::above) {
+						instr.loose_depends_on_instruction.insert(dep.var_id.id);
+					} else {
+						instr.instruction_is_blocking.insert(dep.var_id.id);
 						instr.depends_on_instruction.insert(dep.var_id.id);
-						if(res.type == Restriction::bottom)
-							instr.instruction_is_blocking.insert(dep.var_id.id);
-						
-						auto index_set = app->model->connections[res.connection_id]->node_index_set;
-						auto parent = app->model->index_sets[index_set]->sub_indexed_to;
-						if(is_valid(parent))
-							insert_dependency(app, &instr, parent);
-						
-					} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
-						auto var = app->vars[dep.var_id];
-						if(var->type == State_Var::Type::connection_aggregate)
-							instr.loose_depends_on_instruction.insert(dep.var_id.id);
-						else
-							instr.depends_on_instruction.insert(dep.var_id.id);
 					}
+					// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
+						// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
+					// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
+
+					if(instr.type == Model_Instruction::Type::compute_state_var) {
+						auto conn = model->connections[res.connection_id];
+						if(conn->type == Connection_Type::directed_graph) {
+							auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
+							if(comp && comp->is_edge_indexed)
+								insert_dependency(app, &instr, conn->edge_index_set);
+						} else if(conn->type == Connection_Type::grid1d) {
+							auto index_set = conn->node_index_set;
+							insert_dependency(app, &instr, index_set);
+						} else
+							fatal_error(Mobius_Error::internal, "Got a 'below' dependency for something that should not have it.");
+					}
+					
+				} else if(res.type == Restriction::top || res.type == Restriction::bottom) {
+					instr.depends_on_instruction.insert(dep.var_id.id);
+					if(res.type == Restriction::bottom)
+						instr.instruction_is_blocking.insert(dep.var_id.id);
+					
+					auto index_set = app->model->connections[res.connection_id]->node_index_set;
+					auto parent = app->model->index_sets[index_set]->sub_indexed_to;
+					if(is_valid(parent))
+						insert_dependency(app, &instr, parent);
+					
+				} else if(!(dep.flags & Identifier_Data::Flags::last_result)) {  // TODO: Shouldn't last_result disqualify more of the strict dependencies in other cases above?
+					auto var = app->vars[dep.var_id];
+					if(var->type == State_Var::Type::connection_aggregate)
+						instr.loose_depends_on_instruction.insert(dep.var_id.id);
+					else
+						instr.depends_on_instruction.insert(dep.var_id.id);
 				}
 			}
 		}
 	}
+}
+
+bool
+resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
+	
+	Mobius_Model *model = app->model;
 	
 	// Let index set dependencies propagate from state variable to state variable. (For instance if a looks up the value of b, a needs to be indexed over (at least) the same index sets as b. This could propagate down a long chain of dependencies, so we have to keep iterating until nothing changes.
 	bool changed;
@@ -594,6 +595,255 @@ make_add_to_aggregate_instr(Model_Application *app, std::vector<Model_Instructio
 	return add_to_aggr_id;
 }
 
+void
+set_up_connection_aggregation(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id var_id) {
+	
+	auto model = app->model;
+	
+	// The var_id is the id of the aggregation variable.
+	
+	auto var_solver = instructions[var_id.id].solver;
+	
+	// Make an instruction for clearing the aggregation variable to 0 before we start adding values to it.
+	int clear_id = make_clear_instr(instructions, var_id, var_solver);
+	
+	auto var  = app->vars[var_id];
+	auto var2 = as<State_Var::Type::connection_aggregate>(var);
+	if(!is_valid(var2->agg_for))
+		fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection aggregates");
+	
+	// var is the aggregation variable for the target (or source)
+	// agg_for  is the id of the quantity state variable for the target (or source).
+	
+	// Find all the connection fluxes pointing to the target (or going out from source)
+	for(auto var_id_flux : app->vars.all_fluxes()) {
+		
+		// TODO: This section of the function is an awful mess and always breaks (some times silently). Just separate this out per connection type?
+		//		There are so many edge cases to take care of. Also think about how some of the information could be streamlined better.
+		
+		auto var_flux = app->vars[var_id_flux];
+		auto &restriction = restriction_of_flux(var_flux);
+		if(restriction.r1.connection_id != var2->connection) continue;
+		
+		auto conn = model->connections[var2->connection];
+		
+		Var_Location flux_loc = var_flux->loc1;
+		if(restriction.r1.type == Restriction::top || restriction.r1.type == Restriction::specific)
+			flux_loc = var_flux->loc2;
+		
+		Sub_Indexed_Component *find_source = nullptr;
+		Entity_Id              source_comp_id = invalid_entity_id;
+		if(conn->type == Connection_Type::directed_graph) {
+			source_comp_id = var_flux->loc1.components[0];
+			find_source = app->find_connection_component(var2->connection, source_comp_id, false);
+			if(!find_source) continue; // Can happen if it is not given in the graph data (if this is a graph connection).  .. although isn't the flux already disabled then?
+		}
+		
+		if(var2->is_source) {
+			if(!is_located(var_flux->loc1) || app->vars.id_of(var_flux->loc1) != var2->agg_for)
+				continue;
+		} else {
+			// Ouch, these tests are super super awkward. Is there no better way to set up the data??
+			
+			// See if this flux has a loc that is the same quantity (chain) as the target variable.
+			auto loc = flux_loc;
+			Var_Location target_loc = app->vars[var2->agg_for]->loc1;
+			loc.components[0] = invalid_entity_id;
+			target_loc.components[0] = invalid_entity_id;
+			if(loc != target_loc) continue;
+			
+			// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
+			if(conn->type == Connection_Type::directed_graph) {
+				// Can this source compartment be a source of an arrow at all?
+				// TODO: This test is maybe redundant given the next test?
+				
+				if(!find_source->can_be_located_source) continue;
+				
+				// Can this source compartment target this target compartment with an arrow?
+				auto *find_target = app->find_connection_component(var2->connection, app->vars[var2->agg_for]->loc1.components[0]);
+				auto find = find_target->possible_sources.find(source_comp_id);
+				if(find == find_target->possible_sources.end()) continue;
+			}
+		}
+		
+		Var_Id source_id = invalid_var;
+		if(is_located(var_flux->loc1))
+			source_id = app->vars.id_of(var_flux->loc1);
+		
+		// Create an instruction that adds the flux value to the aggregate.
+		int add_to_aggr_id = make_add_to_aggregate_instr(app, instructions, var_solver, var_id, var_id_flux, clear_id, source_id, &restriction);
+		
+		auto add_to_aggr_instr = &instructions[add_to_aggr_id];
+		
+		instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
+		
+		// TODO: We need something like this because otherwise there may be additional index sets that are not accounted for. But we need to skip the particular index set(s) belonging to the connection (otherwise there are problems with matrix indexing for all_to_all etc.)
+		//instructions[var_id.id].inherits_index_sets_from_instruction.insert(add_to_aggr_id);
+		
+		if(conn->type == Connection_Type::directed_graph) {
+			
+			// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
+			for(auto index_set : find_source->index_sets)
+				insert_dependency(app, add_to_aggr_instr, index_set);
+			
+			if(find_source->is_edge_indexed) {
+				insert_dependency(app, add_to_aggr_instr, conn->edge_index_set);
+				insert_dependency(app, &instructions[var_id_flux.id], conn->edge_index_set);
+			}
+			
+			if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
+				
+				// TODO: Make a better explanation of what is going on in this block and why it is needed (What is the failure case otherwise).
+				
+				Entity_Id target_comp_id = app->vars[var2->agg_for]->loc1.components[0];
+				auto *find_target = app->find_connection_component(var2->connection, target_comp_id);
+				
+				// If the target compartment (not just what the connection indexes over) has an index set shared with the source compartment, we must index the target variable over that.
+				auto target_comp = model->components[target_comp_id];
+				auto target_index_sets = find_target->index_sets; // vector copy;
+				for(auto index_set : find_source->index_sets) {
+					if(std::find(target_comp->index_sets.begin(), target_comp->index_sets.end(), index_set) != target_comp->index_sets.end())
+						target_index_sets.push_back(index_set);
+				}
+				
+				// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
+				for(auto index_set : target_index_sets)
+					insert_dependency(app, &instructions[var2->agg_for.id], index_set);
+			}
+			
+		} else if(conn->type == Connection_Type::grid1d) {
+			
+			auto &components = app->connection_components[var2->connection].components;
+			auto source_comp = components[0].id;
+			
+			bool found = false;
+			for(int idx = 0; idx < flux_loc.n_components; ++idx)
+				if(flux_loc.components[idx] == source_comp) found = true;
+			if(components.size() != 1 || !found)
+				// NOTE: This should already have been checked in model_compilation, this is just a safeguard.
+				fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
+			
+			auto index_set = conn->node_index_set;
+			
+			instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
+			
+			auto type = add_to_aggr_instr->restriction.r1.type;
+			
+			if(type == Restriction::below) {
+				insert_dependency(app, add_to_aggr_instr, index_set);
+				
+				insert_dependency(app, &instructions[var_id_flux.id], index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
+				// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
+			} else if (type == Restriction::top || type == Restriction::bottom) {
+				auto parent = model->index_sets[index_set]->sub_indexed_to;
+				if(is_valid(parent))
+					insert_dependency(app, add_to_aggr_instr, parent);
+			} else {
+				fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[var_id_flux]->name, ".");
+			}
+			
+			insert_dependency(app, &instructions[var2->agg_for.id], index_set);
+			
+			// TODO: Is this still needed: ?
+			if(restriction.r1.type == Restriction::below)
+				add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id);
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
+	}
+	
+}
+
+
+void
+basic_instruction_solver_configuration(Model_Application *app, std::vector<Model_Instruction> &instructions) {
+	
+	auto model = app->model;
+	
+	for(auto solver_id : model->solvers) {
+		auto solver = model->solvers[solver_id];
+		
+		for(auto &loc : solver->locs) {
+			Var_Id var_id = app->vars.id_of(loc);
+			if(is_valid(instructions[var_id.id].solver)) {
+				solver->source_loc.print_error_header(Mobius_Error::model_building); // TODO: It would be better to print the loc of the 'solve' decl, but we don't have that available here at the moment.
+				fatal_error("The quantity \"", app->vars[var_id]->name, "\" was put on a solver more than one time.");
+			}
+			instructions[var_id.id].solver = solver_id;
+		}
+	}
+	
+	// Automatically let dissolved substances have the solvers of what they are dissolved in.
+	// Do it in stages of number of components so that we propagate them out.
+	for(int n_components = 3; n_components <= max_var_loc_components; ++n_components) {
+		for(Var_Id var_id : app->vars.all_state_vars()) {
+			auto var = app->vars[var_id];
+			if(var->type != State_Var::Type::declared) continue;
+			auto var2 = as<State_Var::Type::declared>(var);
+			if(var2->decl_type != Decl_Type::quantity) continue;
+			if(var->loc1.n_components != n_components) continue;
+
+			auto parent_id = app->vars.id_of(remove_dissolved(var->loc1));
+			instructions[var_id.id].solver = instructions[parent_id.id].solver;
+		}
+	}
+	
+	for(auto var_id : app->vars.all_state_vars()) {
+		auto var = app->vars[var_id];
+		
+		// Fluxes with an ODE variable as source is given the same solver as this variable.
+		if(var->is_flux() && is_located(var->loc1))
+			instructions[var_id.id].solver = instructions[app->vars.id_of(var->loc1).id].solver;
+
+		// Also set the solver for an aggregation variable for a connection flux.
+		if(var->type == State_Var::Type::connection_aggregate) {
+			auto var2 = as<State_Var::Type::connection_aggregate>(var);
+			
+			instructions[var_id.id].solver = instructions[var2->agg_for.id].solver;
+			
+			if(!is_valid(instructions[var_id.id].solver)) {
+				auto conn_var = as<State_Var::Type::declared>(app->vars[var2->agg_for]);
+				auto var_decl = model->vars[conn_var->decl_id];
+				// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
+				// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
+				auto conn = model->connections[var2->connection];
+				var_decl->source_loc.print_error_header(Mobius_Error::model_building);
+				error_print("This state variable is the source or target of a connection \"", conn->name, "\", declared here:\n");
+				conn->source_loc.print_error();
+				fatal_error("but the state variable is not on a solver. This is currently not allowed.");
+			}
+		}
+
+		// Dissolved fluxes of fluxes with solvers must be on solvers
+		//TODO: it seems to work on dissolvedes of dissolvedes, but this is only because they happen to be in the right order in the state_vars array. Should be more robust.
+		if(var->type == State_Var::Type::dissolved_flux) {
+			auto var2 = as<State_Var::Type::dissolved_flux>(var);
+			instructions[var_id.id].solver = instructions[var2->flux_of_medium.id].solver;
+		}
+		
+		// Also for concs. Can be overkill some times, but safer just to do it.
+		if(var->type == State_Var::Type::dissolved_conc) {
+			auto var2 = as<State_Var::Type::dissolved_conc>(var);
+			instructions[var_id.id].solver = instructions[var2->conc_of.id].solver;
+		}
+	}
+	
+	// Currently we don't support connections for fluxes that are not on solvers (except if the source is 'out')
+	for(auto var_id : app->vars.all_fluxes()) {
+		
+		auto var = app->vars[var_id];
+		if(!is_located(var->loc1)) continue;
+		if(!is_valid(restriction_of_flux(var).r1.connection_id)) continue;
+		auto source_id = app->vars.id_of(var->loc1);
+		if(!is_valid(instructions[source_id.id].solver)) {
+			// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
+				// TODO: This is not all that robust.
+			model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc.print_error_header();
+			//TODO: this is not really enough info to tell the user where the error happened.
+			fatal_error("This flux was put on a connection, but the source is a discrete variable. This is currently not supported.");
+		}
+	}
+}
+
 
 void
 build_instructions(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
@@ -640,97 +890,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			create_initial_vars_for_lookups(app, instr->code, instructions);
 		}
-	}
-	
-	
-	// Put solvers on instructions for computing ODE variables.
-	// Solvers are propagated to other instructions later based on need.
-	if(!initial) {
+	} else
+		basic_instruction_solver_configuration(app, instructions);
 
-		for(auto solver_id : model->solvers) {
-			auto solver = model->solvers[solver_id];
-			
-			for(auto &loc : solver->locs) {
-				Var_Id var_id = app->vars.id_of(loc);
-				if(is_valid(instructions[var_id.id].solver)) {
-					solver->source_loc.print_error_header(Mobius_Error::model_building); // TODO: It would be better to print the loc of the 'solve' decl, but we don't have that available here at the moment.
-					fatal_error("The quantity \"", app->vars[var_id]->name, "\" was put on a solver more than one time.");
-				}
-				instructions[var_id.id].solver = solver_id;
-			}
-		}
-		
-		// Automatically let dissolved substances have the solvers of what they are dissolved in.
-		// Do it in stages of number of components so that we propagate them out.
-		for(int n_components = 3; n_components <= max_var_loc_components; ++n_components) {
-			for(Var_Id var_id : app->vars.all_state_vars()) {
-				auto var = app->vars[var_id];
-				if(var->type != State_Var::Type::declared) continue;
-				auto var2 = as<State_Var::Type::declared>(var);
-				if(var2->decl_type != Decl_Type::quantity) continue;
-				if(var->loc1.n_components != n_components) continue;
-
-				auto parent_id = app->vars.id_of(remove_dissolved(var->loc1));
-				instructions[var_id.id].solver = instructions[parent_id.id].solver;
-			}
-		}
-		
-		for(auto var_id : app->vars.all_state_vars()) {
-			auto var = app->vars[var_id];
-			
-			// Fluxes with an ODE variable as source is given the same solver as this variable.
-			if(var->is_flux() && is_located(var->loc1))
-				instructions[var_id.id].solver = instructions[app->vars.id_of(var->loc1).id].solver;
-
-			// Also set the solver for an aggregation variable for a connection flux.
-			if(var->type == State_Var::Type::connection_aggregate) {
-				auto var2 = as<State_Var::Type::connection_aggregate>(var);
-				
-				instructions[var_id.id].solver = instructions[var2->agg_for.id].solver;
-				
-				if(!is_valid(instructions[var_id.id].solver)) {
-					auto conn_var = as<State_Var::Type::declared>(app->vars[var2->agg_for]);
-					auto var_decl = model->vars[conn_var->decl_id];
-					// TODO: This is not really the location where the problem happens. The error is the direction of the flux along this connection, but right now we can't access the source loc for that from here.
-					// TODO: The problem is more complex. We should check that the source and target is on the same solver (maybe - or at least have some strategy for how to handle it)
-					auto conn = model->connections[var2->connection];
-					var_decl->source_loc.print_error_header(Mobius_Error::model_building);
-					error_print("This state variable is the source or target of a connection \"", conn->name, "\", declared here:\n");
-					conn->source_loc.print_error();
-					fatal_error("but the state variable is not on a solver. This is currently not allowed.");
-				}
-			}
-
-			// Dissolved fluxes of fluxes with solvers must be on solvers
-			//TODO: it seems to work on dissolvedes of dissolvedes, but this is only because they happen to be in the right order in the state_vars array. Should be more robust.
-			if(var->type == State_Var::Type::dissolved_flux) {
-				auto var2 = as<State_Var::Type::dissolved_flux>(var);
-				instructions[var_id.id].solver = instructions[var2->flux_of_medium.id].solver;
-			}
-			
-			// Also for concs. Can be overkill some times, but safer just to do it.
-			if(var->type == State_Var::Type::dissolved_conc) {
-				auto var2 = as<State_Var::Type::dissolved_conc>(var);
-				instructions[var_id.id].solver = instructions[var2->conc_of.id].solver;
-			}
-		}
-		
-		// Currently we don't support connections for fluxes that are not on solvers (except if the source is 'out')
-		for(auto var_id : app->vars.all_fluxes()) {
-			
-			auto var = app->vars[var_id];
-			if(!is_located(var->loc1)) continue;
-			if(!is_valid(restriction_of_flux(var).r1.connection_id)) continue;
-			auto source_id = app->vars.id_of(var->loc1);
-			if(!is_valid(instructions[source_id.id].solver)) {
-				// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
-					// TODO: This is not all that robust.
-				model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc.print_error_header();
-				//TODO: this is not really enough info to tell the user where the error happened.
-				fatal_error("This flux was put on a connection, but the source is a discrete variable. This is currently not supported.");
-			}
-		}
-	}
 	
 	// Generate instructions needed to compute different types of specialized variables.
 	
@@ -817,19 +979,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			for(auto index_set : agg_to_comp->index_sets)
 				insert_dependency(app, agg_instr, index_set);
-		
-			/*
-			// NOTE: Commenting this out. It should be taken care of by the automatic dependency system.
-			
-			if(var->is_flux() && is_located(var->loc2)) {
-				// If the aggregated variable is a flux, we potentially may have to tell it to get the right index sets.
-				
-				//note: this is only ok for auto-generated aggregations. Not if somebody called aggregate() on a flux explicitly, because then it is not necessarily the target of the flux that wants to know the aggregate.
-				// But I guess you can't explicitly reference fluxes in code any way. We have to keep in mind that if that is implemented though.
-				auto target_id = app->vars.id_of(var->loc2);
-				instructions[target_id.id].inherits_index_sets_from_instruction.insert(var_id.id);
-			}
-			*/
 			
 		} else if(var->type == State_Var::Type::connection_aggregate) {
 			
@@ -838,151 +987,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(!is_valid(var_solver))
 				fatal_error(Mobius_Error::internal, "Got aggregation variable for connection fluxes without a solver.");
 			
-			// Make an instruction for clearing the aggregation variable to 0 before we start adding values to it.
-			int clear_id = make_clear_instr(instructions, var_id, var_solver);
-			
-			auto var2 = as<State_Var::Type::connection_aggregate>(var);
-			if(!is_valid(var2->agg_for))
-				fatal_error(Mobius_Error::internal, "Something went wrong with setting up connection aggregates");
-			
-			// var is the aggregation variable for the target (or source)
-			// agg_for  is the id of the quantity state variable for the target (or source).
-			
-			// Find all the connection fluxes pointing to the target (or going out from source)
-			for(auto var_id_flux : app->vars.all_fluxes()) {
-				
-				// TODO: This section of the function is an awful mess and always breaks (some times silently). Just separate this out per connection type?
-				//		There are so many edge cases to take care of. Also think about how some of the information could be streamlined better.
-				
-				auto var_flux = app->vars[var_id_flux];
-				auto &restriction = restriction_of_flux(var_flux);
-				if(restriction.r1.connection_id != var2->connection) continue;
-				
-				auto conn = model->connections[var2->connection];
-				
-				Var_Location flux_loc = var_flux->loc1;
-				if(restriction.r1.type == Restriction::top || restriction.r1.type == Restriction::specific)
-					flux_loc = var_flux->loc2;
-				
-				Sub_Indexed_Component *find_source = nullptr;
-				Entity_Id              source_comp_id = invalid_entity_id;
-				if(conn->type == Connection_Type::directed_graph) {
-					source_comp_id = var_flux->loc1.components[0];
-					find_source = app->find_connection_component(var2->connection, source_comp_id, false);
-					if(!find_source) continue; // Can happen if it is not given in the graph data (if this is a graph connection).
-				}
-				
-				if(var2->is_source) {
-					if(!is_located(var_flux->loc1) || app->vars.id_of(var_flux->loc1) != var2->agg_for)
-						continue;
-				} else {
-					// Ouch, these tests are super super awkward. Is there no better way to set up the data??
-					
-					// See if this flux has a loc that is the same quantity (chain) as the target variable.
-					auto loc = flux_loc;
-					Var_Location target_loc = app->vars[var2->agg_for]->loc1;
-					loc.components[0] = invalid_entity_id;
-					target_loc.components[0] = invalid_entity_id;
-					if(loc != target_loc) continue;
-					
-					// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
-					if(conn->type == Connection_Type::directed_graph) {
-						// Can this source compartment be a source of an arrow at all?
-						// TODO: This test is maybe redundant given the next test?
-						
-						if(!find_source->can_be_located_source) continue;
-						
-						// Can this source compartment target this target compartment with an arrow?
-						auto *find_target = app->find_connection_component(var2->connection, app->vars[var2->agg_for]->loc1.components[0]);
-						auto find = find_target->possible_sources.find(source_comp_id);
-						if(find == find_target->possible_sources.end()) continue;
-					}
-				}
-				
-				Var_Id source_id = invalid_var;
-				if(is_located(var_flux->loc1))
-					source_id = app->vars.id_of(var_flux->loc1);
-				
-				// Create an instruction that adds the flux value to the aggregate.
-				int add_to_aggr_id = make_add_to_aggregate_instr(app, instructions, var_solver, var_id, var_id_flux, clear_id, source_id, &restriction);
-				
-				auto add_to_aggr_instr = &instructions[add_to_aggr_id];
-				
-				instructions[var_id.id].inherits_index_sets_from_instruction.insert(var2->agg_for.id);    // Get at least one instance of the aggregation variable per instance of the variable we are aggregating for.
-				
-				// TODO: We need something like this because otherwise there may be additional index sets that are not accounted for. But we need to skip the particular index set(s) belonging to the connection (otherwise there are problems with matrix indexing for all_to_all etc.)
-				//instructions[var_id.id].inherits_index_sets_from_instruction.insert(add_to_aggr_id);
-				
-				if(conn->type == Connection_Type::directed_graph) {
-					
-					// NOTE: The target of the flux could be different per source, so even if the value flux itself doesn't have any index set dependencies, it could still be targeted differently depending on the connection data.
-					for(auto index_set : find_source->index_sets)
-						insert_dependency(app, add_to_aggr_instr, index_set);
-					
-					if(find_source->is_edge_indexed) {
-						insert_dependency(app, add_to_aggr_instr, conn->edge_index_set);
-						insert_dependency(app, &instructions[var_id_flux.id], conn->edge_index_set);
-					}
-					
-					if(!var2->is_source) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
-						
-						// TODO: Make a better explanation of what is going on in this block and why it is needed (What is the failure case otherwise).
-						
-						Entity_Id target_comp_id = app->vars[var2->agg_for]->loc1.components[0];
-						auto *find_target = app->find_connection_component(var2->connection, target_comp_id);
-						
-						// If the target compartment (not just what the connection indexes over) has an index set shared with the source compartment, we must index the target variable over that.
-						auto target_comp = model->components[target_comp_id];
-						auto target_index_sets = find_target->index_sets; // vector copy;
-						for(auto index_set : find_source->index_sets) {
-							if(std::find(target_comp->index_sets.begin(), target_comp->index_sets.end(), index_set) != target_comp->index_sets.end())
-								target_index_sets.push_back(index_set);
-						}
-						
-						// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
-						for(auto index_set : target_index_sets)
-							insert_dependency(app, &instructions[var2->agg_for.id], index_set);
-					}
-					
-				} else if(conn->type == Connection_Type::grid1d) {
-					
-					auto &components = app->connection_components[var2->connection].components;
-					auto source_comp = components[0].id;
-					
-					bool found = false;
-					for(int idx = 0; idx < flux_loc.n_components; ++idx)
-						if(flux_loc.components[idx] == source_comp) found = true;
-					if(components.size() != 1 || !found)
-						// NOTE: This should already have been checked in model_compilation, this is just a safeguard.
-						fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
-					
-					auto index_set = conn->node_index_set;
-					
-					instructions[var_id_flux.id].restriction = add_to_aggr_instr->restriction; // TODO: This one should be set first, then used to set the aggr instr restriction.
-					
-					auto type = add_to_aggr_instr->restriction.r1.type;
-					
-					if(type == Restriction::below) {
-						insert_dependency(app, add_to_aggr_instr, index_set);
-						
-						insert_dependency(app, &instructions[var_id_flux.id], index_set); // This is because we have to check per index if the value should be computed at all (no if we are at the bottom).
-						// TODO: Shouldn't an index count lookup give a direct index set dependency in the dependency system instead?
-					} else if (type == Restriction::top || type == Restriction::bottom) {
-						auto parent = model->index_sets[index_set]->sub_indexed_to;
-						if(is_valid(parent))
-							insert_dependency(app, add_to_aggr_instr, parent);
-					} else {
-						fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[var_id_flux]->name, ".");
-					}
-					
-					insert_dependency(app, &instructions[var2->agg_for.id], index_set);
-					
-					// TODO: Is this still needed: ?
-					if(restriction.r1.type == Restriction::below)
-						add_to_aggr_instr->inherits_index_sets_from_instruction.insert(var_id.id);
-				} else
-					fatal_error(Mobius_Error::internal, "Unhandled connection type in build_instructions()");
-			}
+			set_up_connection_aggregation(app, instructions, var_id);
 		}
 		
 		if(initial || !var->is_flux()) continue;
@@ -990,7 +995,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		// The rest is dealing with instructions for updating quantities based on discrete fluxes.
 		
-		var = app->vars[var_id];
 		auto loc1 = var->loc1;
 		auto loc2 = var->loc2;
 		
@@ -1434,9 +1438,12 @@ Model_Application::compile(bool store_code_strings) {
 	instruction_codegen(this, initial_instructions, true);
 	instruction_codegen(this, instructions, false);
 
-	// TODO: What all the next suggests is that the index sets for the initial and main instruction are the same, so why keep them stored separately?
 
-	resolve_index_set_dependencies(this, initial_instructions, true, true);
+
+	resolve_basic_dependencies(this, initial_instructions, true);
+	resolve_basic_dependencies(this, instructions, false);
+
+	resolve_index_set_dependencies(this, initial_instructions, true);
 	
 	// NOTE: A state var inherits all index set dependencies from the code that computes its initial value.
 	for(auto var_id : vars.all_state_vars()) {
@@ -1446,37 +1453,43 @@ Model_Application::compile(bool store_code_strings) {
 			insert_dependency(this, &instructions[var_id.id], index_set);
 	}
 	
-	resolve_index_set_dependencies(this, instructions, false, true);
+	resolve_index_set_dependencies(this, instructions, false);
 	
 	bool changed = false;
 	for(int it = 0; it < 10; ++it) {
+		// TODO: It would be a bit nicer if the two dependency sets were just stored as one, however
+		//   it is a bit tricky because this is only the case for the entities that are state variables.
+		
 		changed = false;
 		
 		// similarly, the initial state of a varialble has to be indexed like the variable. (this is just for simplicity in the code generation, so that a value is assigned to every instance of the variable, but it can cause re-computation of the same value many times. Probably not an issue since it is just for a single time step.)
 		for(auto var_id : vars.all_state_vars()) {
-			if(initial_instructions[var_id.id].index_sets != instructions[var_id.id].index_sets)
+			if(initial_instructions[var_id.id].index_sets != instructions[var_id.id].index_sets) {
 				changed = true;
-			initial_instructions[var_id.id].index_sets = instructions[var_id.id].index_sets;
+				initial_instructions[var_id.id].index_sets = instructions[var_id.id].index_sets;
+			}
 		}
 		if(!changed) break;
 		// We have to do it again because we may need to propagate more internal dependencies now that we got more dependencies here.
-		if(resolve_index_set_dependencies(this, initial_instructions, true, false))
+		if(resolve_index_set_dependencies(this, initial_instructions, true))
 			changed = true;
 		if(!changed) break;
 		
 		for(auto var_id : vars.all_state_vars()) {
-			if(initial_instructions[var_id.id].index_sets != instructions[var_id.id].index_sets)
+			if(initial_instructions[var_id.id].index_sets != instructions[var_id.id].index_sets) {
 				changed = true;
-			instructions[var_id.id].index_sets = initial_instructions[var_id.id].index_sets;
+				instructions[var_id.id].index_sets = initial_instructions[var_id.id].index_sets;
+			}
 		}
 		if(!changed) break;
 		
-		if(resolve_index_set_dependencies(this, instructions, false, false))
+		if(resolve_index_set_dependencies(this, instructions, false))
 			changed = true;
 		if(!changed) break;
 	}
 	if(changed)
 		fatal_error(Mobius_Error::internal, "Failed to resolve all dependencies in the alotted amount of iterations.");
+	
 	
 	
 	std::vector<Batch> batches;
