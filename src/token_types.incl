@@ -11,6 +11,7 @@ ENUM_VALUE(leq, "<=")
 //ENUM_VALUE(eq, "==")    //note: we decided to use '=' for equals comparison.
 ENUM_VALUE(neq, "!=")
 ENUM_VALUE(def, ":=")
+ENUM_VALUE(arr_l, "<-")
 ENUM_VALUE(arr_r, "->")
 ENUM_VALUE(arr_r_r, "->>")
 ENUM_VALUE(d_arr_r, "=>")

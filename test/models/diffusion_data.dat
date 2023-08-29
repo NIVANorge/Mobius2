@@ -10,27 +10,23 @@ par_group("System") {
 	[ 1995-01-01 ]
 }
 
-module("Diffusion", 1, 0, 0) {
-
+module("Diffusion", version(1, 0, 0)) {
 	par_group("Layers") [ "Layer index" ] {
 		par_real("Diffusion coeff")
 		[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.02 0.02 0.02 0.02 0.02 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
 
-		par_real("initial O²")
+		par_real("initial O₂")
 		[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
 	}
 
 	par_group("Bottom compartment") [ "Branch index" ] {
-		par_real("Bottom initial O²")
+		par_real("Bottom initial O₂")
 		[ 1000 500 10 ]
 	}
 
-	par_group("Side transfer") [ "Branch index" "Branch index" ] {
-		par_real("Transfer coeff") [
-			0 0 0 
-			0 0 0 
-			0 0.05 0 
-		]
+	par_group("Side transfer") [ "Branch index" ] {
+		par_real("Transfer coeff")
+		[ 0.5 0.05 0 ]
 	}
 }
 

@@ -28,7 +28,7 @@ Serial_Entity {
 	Source_Location source_loc;
 };
 
-struct Mobius_Model;
+typedef Record_Type<Entity_Id> Mobius_Model;
 
 struct
 Decl_Scope {
@@ -48,7 +48,7 @@ Decl_Scope {
 	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr, bool allow_recursive_import_params = false);
 	void check_for_missing_decls(Mobius_Model *model);
-	//Entity_Id expect_exists(Token *handle_name, Reg_Type reg_type);
+	void check_for_unreferenced_things(Mobius_Model *model);
 	
 	Scope_Entity *operator[](const std::string &handle) {
 		auto find = visible_entities.find(handle);
@@ -75,7 +75,7 @@ struct
 Entity_Registration_Base {
 	Decl_Type       decl_type;
 	Source_Location source_loc;         // if it has_been_declared, this should be the declaration location. Will not always be canonical for all entity types (some can be redeclared)
-	Entity_Id       scope_id = invalid_entity_id;  // The id of the decl of the parent scope if it exists
+	Entity_Id       scope_id = invalid_entity_id;  // The id of the module or library where this entity was declared. (It could have been imported to other scopes also, that is not reflected here)
 	std::string     name;
 	bool            has_been_declared = false;
 };
@@ -108,11 +108,11 @@ Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	Entity_Id              component;
+	std::vector<Entity_Id> components;
 	
 	Decl_Scope             scope;
 	
-	Entity_Registration() : component(invalid_entity_id) {}
+	Entity_Registration() {}
 };
 
 template<> struct
@@ -202,16 +202,16 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	Specific_Var_Location   source;
 	Specific_Var_Location   target;
 	
-	Entity_Id      unit;
+	Entity_Id      unit           = invalid_entity_id;
+	Entity_Id      discrete_order = invalid_entity_id; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
 	
-	Entity_Id      discrete_order; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
+	Math_Block_AST  *code                = nullptr;
+	Math_Block_AST  *no_carry_ast        = nullptr;
+	Math_Block_AST  *specific_target_ast = nullptr;
+	bool             no_carry_by_default = false;
+	bool             bidirectional       = false;
 	
-	Math_Block_AST  *code;
-	Math_Block_AST  *no_carry_ast;
-	Math_Block_AST  *specific_target_ast;
-	bool             no_carry_by_default;
-	
-	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), specific_target_ast(nullptr), discrete_order(invalid_entity_id), no_carry_by_default(false) {}
+	Entity_Registration() {}
 };
 
 template<> struct
@@ -221,9 +221,12 @@ Entity_Registration<Reg_Type::discrete_order> : Entity_Registration_Base {
 };
 
 template<> struct
-Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
+Entity_Registration<Reg_Type::external_computation> : Entity_Registration_Base {
 	std::string      function_name;
-	Var_Location     target;
+	
+	// TODO: May need a vector of components
+	Entity_Id        component = invalid_entity_id;
+	
 	Math_Block_AST  *code;
 };
 
@@ -259,6 +262,9 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
+	
+	std::vector<Entity_Id>  union_of;
+	
 	Entity_Id sub_indexed_to;
 	
 	Entity_Id is_edge_of_connection;
@@ -269,17 +275,22 @@ Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 
 enum class
 Connection_Type {
-	unrecognized = 0, directed_tree, directed_graph, all_to_all, grid1d,
+	unrecognized = 0, directed_graph, grid1d,
 };
 
 template<> struct
 Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
-	Connection_Type type;
+	Connection_Type type = Connection_Type::unrecognized;
 	
-	std::vector<std::pair<Entity_Id, Entity_Id>> components;
-	Math_Expr_AST *regex;
+	Entity_Id node_index_set = invalid_entity_id;  // Only for grid1d. For directed graph, the nodes could be indexed variously
+	Entity_Id edge_index_set = invalid_entity_id;  // Only for directed graph for now.
 	
-	Entity_Registration() : type(Connection_Type::unrecognized) {}
+	bool no_cycles = false;
+	
+	std::vector<Entity_Id> components;
+	Math_Expr_AST *regex = nullptr;
+	
+	Entity_Registration() {}
 };
 
 
@@ -320,8 +331,9 @@ Registry : Registry_Base {
 	Entity_Id end() { return { reg_type, (s16)registrations.size() }; }
 };
 
+template<>
 struct
-Mobius_Model {
+Record_Type<Entity_Id> {
 	
 	std::string model_name;
 	std::string doc_string;
@@ -342,7 +354,7 @@ Mobius_Model {
 	Registry<Reg_Type::var>         vars;
 	Registry<Reg_Type::flux>        fluxes;
 	Registry<Reg_Type::discrete_order> discrete_orders;
-	Registry<Reg_Type::special_computation> special_computations;
+	Registry<Reg_Type::external_computation> external_computations;
 	Registry<Reg_Type::index_set>   index_sets;
 	Registry<Reg_Type::solver>      solvers;
 	Registry<Reg_Type::connection>  connections;
@@ -374,7 +386,7 @@ Mobius_Model {
 	//    A Model_Application is not dependent on the ASTs still existing after it is constructed though.
 	// TODO: Or do we get problems with some stored Source_Locations ?
 	void free_asts();
-	~Mobius_Model() {
+	~Record_Type() {
 		//free_asts();   // TODO: Hmm, seems like it causes a problem some times??
 	}
 	
@@ -474,6 +486,10 @@ enum_int_value(Entity_Registration<Reg_Type::parameter> *reg, const std::string 
 	return -1;
 }
 
+void
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
+	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr);
+
 // TODO: these could be moved to common_types.h (along with impl.)
 Var_Location
 remove_dissolved(const Var_Location &loc);
@@ -486,5 +502,7 @@ error_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 void
 debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 
+void
+check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets, Source_Location &err_loc);
 
 #endif // MOBIUS_MODEL_DECLARATION_H

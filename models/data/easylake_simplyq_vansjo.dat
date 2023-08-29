@@ -4,14 +4,16 @@ index_set("Landscape units") [ "Arable" "Semi-natural" ]
 
 index_set("Subcatchment") [ "Kure" "Vaaler" "Store" "Vanem" ]
 
-connection("Downstream") [
+connection("Downstream") {
 	e : compartment("Epilimnion") [ "Lake" ]
 	r : compartment("River") [ "Subcatchment" ]
-
-	r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> out
-	r[ "Store" ] -> e[ "Store" ]
-	r[ "Vanem" ] -> e[ "Vanem" ]
-]
+	
+	directed_graph [
+		r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> out
+		r[ "Store" ] -> e[ "Store" ]
+		r[ "Vanem" ] -> e[ "Vanem" ]
+	]
+}
 
 series("vansjo.xlsx")
 
@@ -128,7 +130,7 @@ module("EasyLake", version(0, 1, 0)) {
 	}
 }
 
-module("AirSea Lake", version(0, 1, 0)) {
+module("AirSea Lake", version(0, 1, 1)) {
 	par_group("Ice") {
 		par_real("Initial ice thickness")
 		[ 0 ]
@@ -139,14 +141,8 @@ module("AirSea Lake", version(0, 1, 0)) {
 		par_real("Frazil threshold")
 		[ 0.05 ]
 
-		par_real("Ice formation temperature")
-		[ 0 ]
-
 		par_real("Ice attenuation coefficient")
 		[ 5 ]
-
-		par_bool("Always cover")
-		[ false ]
 	}
 }
 

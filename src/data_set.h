@@ -8,26 +8,45 @@
 #include "linear_memory.h"
 #include "ast.h"
 #include "units.h"
+#include "index_data.h"
 
-// NOTE: the idea is that this class should not have to know about the rest of the framework except for what is needed for the ast parser and lexer.
+// NOTE: the idea is that the Data_Set class should not have to know about the rest of the framework except for what is needed for the ast parser and lexer. This is just a self-contained parsed version of the data in the data files, that can then later be combined with a Mobius_Application to form a runnable model.
 
+// NOTE: We could also later put the type in the Data_Id like we do with Entity_Id, but for now it has not been necessary.
+
+
+struct
+Data_Id {
+	s32 id;
+	static constexpr Data_Id invalid() { return Data_Id { -1 }; }
+};
+
+typedef Index_Type<Data_Id> Index_D;
+typedef Index_Tuple<Data_Id> Indexes_D;
+
+constexpr Data_Id invalid_data = Data_Id::invalid();
+
+inline bool operator==(const Data_Id &a, const Data_Id &b) { return a.id == b.id; }
+inline bool operator!=(const Data_Id &a, const Data_Id &b) { return a.id != b.id; }
+
+inline bool is_valid(Data_Id id) { return id.id >= 0; }
 
 // Hmm, this is the n'th time we make something like this.
 // But it is not that trivial to just merge them since there are slight differences in functionality needed.
 template<typename Info_Type> struct
 Info_Registry {
 	
-	std::unordered_map<std::string, int>        name_to_id;
+	std::unordered_map<std::string, Data_Id>        name_to_id;
 	std::vector<Info_Type> data;
 	
 	//bool has(String_View name) { return name_to_id.find(name) != name_to_id.end(); }
 	
-	Info_Type *operator[](int idx) {
-		if(idx < 0 || idx >= data.size())
+	Info_Type *operator[](Data_Id id) {
+		if(id.id < 0 || id.id >= data.size())
 			fatal_error(Mobius_Error::internal, "Tried to look up data set info using an invalid index.\n");
-		return &data[idx];
+		return &data[id.id];
 	}
-	int expect_exists_idx(Token *name, String_View info_type) {
+	Data_Id expect_exists_idx(Token *name, String_View info_type) {
 		auto find = name_to_id.find(name->string_value);
 		if(find == name_to_id.end()) {
 			name->print_error_header();
@@ -36,33 +55,35 @@ Info_Registry {
 		return find->second;
 	}
 	Info_Type *expect_exists(Token *name, String_View info_type) {
-		return &data[expect_exists_idx(name, info_type)];
+		return &data[expect_exists_idx(name, info_type).id];
 	}
-	int find_idx(String_View name) {
+	Data_Id find_idx(String_View name) {
 		auto find = name_to_id.find(name);
 		if(find == name_to_id.end())
-			return -1;
+			return invalid_data;
 		return find->second;
 	}
 	Info_Type *find(String_View name) {
-		int idx = find_idx(name);
-		if(idx >= 0) return &data[idx];
+		auto id = find_idx(name);
+		if(is_valid(id)) return &data[id.id];
 		return nullptr;
 	}
-	Info_Type *create(const std::string &name, Source_Location loc) {
+	Data_Id create(const std::string &name, Source_Location loc) {
 		check_allowed_serial_name(name, loc);
 		auto find = name_to_id.find(name);
 		if(find != name_to_id.end()) {
 			loc.print_error_header();
 			fatal_error("Re-declaration of \"", name, "\".");
 		}
-		name_to_id[name] = (int)data.size();
+		Data_Id id = Data_Id { (s32)data.size() };
+		name_to_id[name] = id;
 		data.push_back({});
+		data.back().id = id;
 		data.back().name = name;
 		data.back().source_loc = loc;
-		return &data.back();
+		return id;
 	}
-	int count() { return data.size(); }
+	s64 count() { return data.size(); }
 	void clear() {
 		name_to_id.clear();
 		data.clear();
@@ -74,65 +95,29 @@ Info_Registry {
 
 struct
 Info_Type_Base {
+	Data_Id id;
 	std::string name;
 	Source_Location source_loc;
 };
 
 struct
-Index_Info : Info_Type_Base {
-};
-
-struct
-Sub_Indexing_Info {
-	enum class Type {
-		none,
-		named,
-		numeric1,
-	} type;
-	Info_Registry<Index_Info> indexes;
-	int                       n_dim1;
-	int get_count() {
-		if(type == Type::named) return indexes.count();
-		return n_dim1;
-	}
-	Sub_Indexing_Info() : n_dim1(0), type(Type::none) {}
-};
-
-struct
 Index_Set_Info : Info_Type_Base {
 
-	int sub_indexed_to = -1;
-	bool is_edge_index_set = false;
-	
-	std::vector<Sub_Indexing_Info> indexes;
-	int get_count(int index_of_super) {
-		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-		return indexes[super].get_count();
-	}
-	int get_max_count() {
-		int max = -1;
-		for(auto &idxs : indexes) max = std::max(max, idxs.get_count());
-		return max;
-	}
-	Sub_Indexing_Info::Type get_type(int index_of_super) {
-		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-		return indexes[super].type;
-	}
-	int get_index(Token *idx_name, int index_of_super);
-	int get_index(const char *buf, int index_of_super);
-	bool check_index(int index, int index_of_super);
+	Data_Id sub_indexed_to = invalid_data;
+	std::vector<Data_Id> union_of;
+	Data_Id is_edge_of_connection = invalid_data;
 };
 
 struct Component_Info : Info_Type_Base {
 	Decl_Type decl_type;
 	std::string handle;
-	std::vector<int> index_sets;
-	int edge_index_set = -1;
+	std::vector<Data_Id> index_sets;
+	bool can_have_edge_index = false;
 };
 
 struct Compartment_Ref {
-	int id;   // This is the id of the Component_Info. -1 if it is an 'out'
-	std::vector<int> indexes;
+	Data_Id id = invalid_data;   // This is the id of the Component_Info. invalid_data if it is an 'out'
+	Indexes_D indexes;
 };
 
 inline bool operator==(const Compartment_Ref &a, const Compartment_Ref &b) {
@@ -144,12 +129,14 @@ Connection_Info : Info_Type_Base {    // This must either be subclased or have d
 
 	enum class Type {
 		none,
-		graph,
+		directed_graph,
 	} type;
 	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
 	
+	Data_Id edge_index_set = invalid_data;
+	
 	Info_Registry<Component_Info>        components;
-	std::unordered_map<std::string, int> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
+	std::unordered_map<std::string, Data_Id> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
 	
 	Connection_Info() : type(Type::none) {}
 };
@@ -168,7 +155,8 @@ Par_Info : Info_Type_Base {
 
 struct
 Par_Group_Info : Info_Type_Base {
-	std::vector<int> index_sets;
+	bool error = false;
+	std::vector<Data_Id> index_sets;
 	Info_Registry<Par_Info> pars;
 };
 
@@ -205,7 +193,7 @@ set_flag(Series_Data_Flags *flags, String_View name) {
 
 struct
 Series_Header_Info : Info_Type_Base {
-	std::vector<std::vector<std::pair<int, int>>> indexes;
+	std::vector<Indexes_D> indexes;
 	Series_Data_Flags flags;
 	Unit_Data         unit;
 	
@@ -226,12 +214,15 @@ Series_Set_Info {
 	Series_Set_Info() : has_date_vector(true) {};
 };
 
+template<>
 struct
-Data_Set {
+Record_Type<Data_Id> {
+	
+	//typedef Data_Id Id_Type;
 	
 	File_Data_Handler file_handler;
 	
-	Data_Set() {
+	Record_Type() : index_data(this) {
 		// Default to one day.
 		time_step_unit.declared_form.push_back({0, 1, Compound_Unit::day});
 		time_step_unit.set_standard_form();
@@ -239,6 +230,8 @@ Data_Set {
 	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
+	
+	void generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of);
 	
 	std::string main_file;
 	std::string doc_string;
@@ -249,11 +242,14 @@ Data_Set {
 	Info_Registry<Module_Info>      modules;
 	std::vector<Series_Set_Info>    series;
 	
+	Index_Data<Data_Id>             index_data;
 	
 	Source_Location                 unit_source_loc;
 	Unit_Data                       time_step_unit;
 	bool                            time_step_was_provided = false;
 };
+
+typedef Record_Type<Data_Id> Data_Set;
 
 
 #endif // MOBIUS_DATA_SET_H

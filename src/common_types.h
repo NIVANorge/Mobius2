@@ -117,8 +117,10 @@ name(Decl_Type type) {
 
 enum class
 Value_Type : s32 {
-	unresolved = 0, none, real, integer, boolean,    // NOTE: enum would resolve to bool.
+	unresolved = 0, none, iterate, real, integer, boolean,
 };
+
+inline bool is_value(Value_Type type) { return (s32)type >= (s32)Value_Type::real; }
 
 inline String_View
 name(Value_Type type) {
@@ -127,6 +129,7 @@ name(Value_Type type) {
 	if(type == Value_Type::real)       return "real";
 	if(type == Value_Type::integer)    return "integer";
 	if(type == Value_Type::boolean)    return "boolean";
+	if(type == Value_Type::iterate)    return "iterate";
 	return "unresolved";
 }
 
@@ -160,13 +163,14 @@ get_token_type(Decl_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var, connection_info, index_count, local, no_override, connection,
+	parameter, series, state_var, connection_info, index_count, local,
+	// Not really variables, but identifier types:
+	no_override, is_at, connection,
 	// "special" state variables
 	#define TIME_VALUE(name, bits) time_##name,
 	#include "time_values.incl"
 	#undef TIME_VALUE
 	time_fractional_step,
-	// Maybe also computed_parameter eventually.
 };
 
 inline const char *
@@ -229,6 +233,8 @@ Entity_Id {
 	Reg_Type reg_type;
 	s16      id;
 	
+	static constexpr Entity_Id invalid() { return { Reg_Type::unrecognized, -1}; }
+	
 	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
 	Entity_Id &operator++() { id++; return *this; }
 };
@@ -250,9 +256,15 @@ operator<(const Entity_Id &a, const Entity_Id &b) {
 	return a.reg_type < b.reg_type;
 }
 
-constexpr Entity_Id invalid_entity_id = {Reg_Type::unrecognized, -1};
+constexpr Entity_Id invalid_entity_id = Entity_Id::invalid();
 
 inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
+
+template<typename Id_Type>
+struct Record_Type {
+};
+
+
 
 constexpr int max_var_loc_components = 6;
 
@@ -261,7 +273,7 @@ Var_Location {
 	enum class Type : s32 {
 		out=0, located, connection,
 	}   type;
-	s32 n_components;         //NOTE: it is here for better packing.
+	s32 n_components = 0;         //NOTE: it is here for better packing.
 	Entity_Id components[max_var_loc_components];
 	
 	const Entity_Id &first() const { return components[0]; }
@@ -287,24 +299,50 @@ operator==(const Var_Location &a, const Var_Location &b) {
 
 inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
 
-struct
-Var_Loc_Restriction {
-	Entity_Id        connection_id;
-	enum Restriction {
-		none, top, bottom, above, below, specific
-	}                restriction;
 
-	// NOTE: These two are only supposed to be used for tree (and maybe later graph) aggregates where the source/target could be ambiguous.
-	Entity_Id        source_comp = invalid_entity_id;
-	Entity_Id        target_comp = invalid_entity_id;
+struct
+Restriction {
+	Entity_Id        connection_id = invalid_entity_id;
+	enum Type {
+		none, top, bottom, above, below, specific
+	}                type = none;
 	
-	Var_Loc_Restriction() : connection_id(invalid_entity_id), restriction(none) {};
-	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
+	Restriction() {}
+	Restriction(Entity_Id connection_id, Type type) : connection_id(connection_id), type(type) {}
 };
 
-inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
-	if(a.connection_id == b.connection_id) return (int)a.restriction < (int)b.restriction;
+inline bool operator<(const Restriction &a, const Restriction &b) {
+	if(a.connection_id == b.connection_id) return (int)a.type < (int)b.type;
 	return a.connection_id < b.connection_id;
+}
+
+inline bool operator==(const Restriction &a, const Restriction &b) {
+	return a.connection_id == b.connection_id && a.type == b.type;
+}
+
+struct
+Var_Loc_Restriction {
+	
+	Restriction r1;
+	Restriction r2;
+
+	// NOTE: These two are only supposed to be used for tree aggregates where the source/target could be ambiguous.
+	// TODO: It would be nice to be able to be able to remove these. Go over how they are used and see if not one could use a similar thing to directed_graph instead?
+	//Entity_Id        source_comp = invalid_entity_id;
+	//Entity_Id        target_comp = invalid_entity_id;
+	
+	Var_Loc_Restriction() {};
+	Var_Loc_Restriction(Entity_Id connection_id, Restriction::Type type) : r1(connection_id, type) {}
+};
+
+inline bool operator==(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
+	return a.r1 == b.r1 && a.r2 == b.r2;
+}
+
+inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
+	if(a.r1 == b.r1)
+		return a.r2 < b.r2;
+	return a.r1 < b.r1;
 }
 
 struct
@@ -312,27 +350,11 @@ Specific_Var_Location : Var_Location, Var_Loc_Restriction {
 	Specific_Var_Location() : Var_Location(), Var_Loc_Restriction() {}
 	Specific_Var_Location(const Var_Location &loc) : Var_Location(loc), Var_Loc_Restriction() {}
 	Specific_Var_Location(const Var_Location &loc, const Var_Loc_Restriction &res) : Var_Location(loc), Var_Loc_Restriction(res) {}
-	//Specific_Var_Location(const Var_Loc_Restriction &res) : Var_Location(), Var_Loc_Restriction(res) {}
-	Entity_Id orig_scope_id = invalid_entity_id;
 };
 
-struct Index_T {
-	Entity_Id index_set;
-	s32       index;
-	
-	Index_T& operator++() { index++; return *this; }
-};
-
-//TODO: should we do sanity check on the index_set in the order comparison operators?
-inline bool operator<(const Index_T &a, const Index_T &b) {	return a.index < b.index; }
-inline bool operator>=(const Index_T &a, const Index_T &b) { return a.index >= b.index; }
-inline bool operator==(const Index_T &a, const Index_T &b) { return a.index_set == b.index_set && a.index == b.index; }
-inline bool operator!=(const Index_T &a, const Index_T &b) { return a.index_set != b.index_set || a.index != b.index; }
-
-constexpr Index_T invalid_index = {invalid_entity_id, -1};
-
-inline bool
-is_valid(const Index_T &index) { return is_valid(index.index_set) && index.index >= 0; }
+inline bool operator==(const Specific_Var_Location &a, const Specific_Var_Location &b) {
+	return static_cast<const Var_Location &>(a) == static_cast<const Var_Location &>(b) && static_cast<const Var_Loc_Restriction &>(a) == static_cast<const Var_Loc_Restriction &>(b);
+}
 
 enum class
 Aggregation_Period {

@@ -2,24 +2,33 @@ time_step([day])
 
 index_set("Basin index") [ "Drammensfjorden" ]
 
-index_set("Basin index", "Layer index") [ 
-	"Drammensfjorden" : [ 124 ] 
+index_set("Boundary basin index") [ "Yttre Oslofjord" ]
+
+index_set("All basins") @union("Basin index", "Boundary basin index")
+
+index_set("Layer index") @sub("All basins") [
+	"Drammensfjorden" : [ 124 ]
+	"Yttre Oslofjord" : [ 20 ] #TODO: Set the correct amount of layers
 ]
 
 index_set("Subcatchment") [ "Drammenselva" ]
 
 index_set("Landscape units") [ "Just one" ]
 
-connection("Downstream") [
-	r : compartment("River") [ "Subcatchment" ]
-]
+index_set("Fjord connection index") @sub("Basin index")
 
-connection("Fjord horizontal") [
+connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
+}
+
+connection("Fjord horizontal") {
+	r : compartment("River") [ "Subcatchment" ] 
 	l : compartment("Fjord layer") [ "Basin index" ]
-	
-	r["Drammenselva"] -> l["Drammensfjorden"]
-]
+
+	directed_graph("Fjord connection index") [
+		r[ "Drammenselva" ] -> l[ "Drammensfjorden" ]
+	]
+}
 
 series("nivafjord_drammen.xlsx")
 
@@ -28,15 +37,18 @@ par_group("System") {
 	[ 1980-01-01 ]
 
 	par_datetime("End date")
-	[ 1981-01-01 ]
+	[ 1987-01-01 ]
+}
+
+par_group("Fjord global parameters") {
+	par_real("Stable layer thickness")
+	[ 1 ]
 }
 
 par_group("Layer parameters") [ "Basin index" "Layer index" ] {
-	par_real("Layer area")
-	[ 49030000 48547000 48064000 47581000 47098000 46615000 46132000 45649000 45166000 44683000 44200000 43936000 43672000 43408000 43144000 42880000 42616000 42352000 42088000 41824000 41560000 41304000 41048000 40792000 40536000 40280000 40024000 39768000 39512000 39256000 39000000 38744000 38488000 38232000 37976000 37720000 37464000 37208000 36952000 36696000 36440000 36184000 35928000 35672000 35416000 35160000 34904000 34648000 34392000 34136000 33880000 33570000 33260000 32950000 32640000 32330000 32020000 31710000 31400000 31090000 30780000 30470000 30160000 29850000 29540000 29230000 28920000 28610000 28300000 27990000 27680000 27370000 27060000 26750000 26440000 26130000 25820000 25510000 25200000 24890000 24580000 24270000 23960000 23650000 23340000 23030000 22720000 22410000 22100000 21790000 21480000 21170000 20860000 20550000 20240000 19930000 19620000 19310000 19000000 18690000 18380000 17663300 16946700 16230000 15513300 14796700 14080000 13363300 12646700 11930000 11213300 10496700 9780000 9063330 8346670 7630000 6694000 5758000 4822000 3886000 2950000 2212500 1475000 737500 ]
-
-	#par_real("Width to boundary")
-	#[ 250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+	par_real("Layer area") [
+		49030000 48547000 48064000 47581000 47098000 46615000 46132000 45649000 45166000 44683000 44200000 43936000 43672000 43408000 43144000 42880000 42616000 42352000 42088000 41824000 41560000 41304000 41048000 40792000 40536000 40280000 40024000 39768000 39512000 39256000 39000000 38744000 38488000 38232000 37976000 37720000 37464000 37208000 36952000 36696000 36440000 36184000 35928000 35672000 35416000 35160000 34904000 34648000 34392000 34136000 33880000 33570000 33260000 32950000 32640000 32330000 32020000 31710000 31400000 31090000 30780000 30470000 30160000 29850000 29540000 29230000 28920000 28610000 28300000 27990000 27680000 27370000 27060000 26750000 26440000 26130000 25820000 25510000 25200000 24890000 24580000 24270000 23960000 23650000 23340000 23030000 22720000 22410000 22100000 21790000 21480000 21170000 20860000 20550000 20240000 19930000 19620000 19310000 19000000 18690000 18380000 17663300 16946700 16230000 15513300 14796700 14080000 13363300 12646700 11930000 11213300 10496700 9780000 9063330 8346670 7630000 6694000 5758000 4822000 3886000 2950000 2212500 1475000 737500 
+	]
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
@@ -48,6 +60,12 @@ par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 par_group("Catchment data") [ "Subcatchment" ] {
 	par_real("Catchment area")
 	[ 17110.6 ]
+}
+
+par_group("Fjord horizontal boundary") [ "Basin index" "Fjord connection index" "Layer index" ] {
+	par_real("Boundary width") [
+
+	]
 }
 
 module("NIVAFjord basin", version(0, 0, 1)) {
@@ -75,9 +93,6 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 
 		par_real("Diminishing rate of additional mixing energy")
 		[ 4 ]
-
-		par_real("Pressure difference mixing coefficient")
-		[ 0.5 ]
 	}
 
 	par_group("Sediment parameters") {
@@ -96,11 +111,6 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		par_real("Sediment density")
 		[ 2600 ]
 	}
-
-	par_group("Fjord global parameters")  {
-		par_real("Layer thickness")
-		[ 1 ]
-	}
 }
 
 module("Atmospheric", version(0, 1, 0)) {
@@ -113,7 +123,7 @@ module("Atmospheric", version(0, 1, 0)) {
 	}
 }
 
-module("AirSea Fjord", version(0, 1, 0)) {
+module("AirSea Fjord", version(0, 1, 1)) {
 	par_group("Ice") {
 		par_real("Initial ice thickness")
 		[ 0 ]
@@ -126,12 +136,6 @@ module("AirSea Fjord", version(0, 1, 0)) {
 
 		par_real("Frazil threshold")
 		[ 0.05 ]
-
-		par_real("Ice formation temperature")
-		[ 0 ]
-
-		par_bool("Always cover")
-		[ false ]
 	}
 }
 
@@ -197,7 +201,7 @@ module("SimplyQ land", version(0, 5, 0)) {
 	}
 }
 
-module("SimplyQ river", version(0, 0, 1)) {
+module("SimplyQ river", version(0, 5, 0)) {
 	par_group("Reach parameters") [ "Subcatchment" ] {
 		par_real("Reach slope")
 		[ 0.014 ]
@@ -210,6 +214,36 @@ module("SimplyQ river", version(0, 0, 1)) {
 
 		par_real("Initial reach flow")
 		[ 250 ]
+	}
+}
+
+module("Simply soil temperature", version(0, 1, 0)) {
+	par_group("Soil temperature general") {
+		par_real("Snow depth / soil temperature factor")
+		[ -0.2 ]
+
+		par_real("Initial soil temperature")
+		[ 10 ]
+	}
+
+	par_group("Soil temperature land") [ "Subcatchment" "Landscape units" ] {
+		par_real("Soil thermal conductivity / specific heat capacity") [
+			0.4 
+		]
+	}
+}
+
+module("RiverTemperature", version(0, 1, 0)) {
+	par_group("River temperature") [ "Subcatchment" ] {
+		par_real("Air-river heat conductivity coefficient")
+		[ 1 ]
+	}
+}
+
+module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
+	par_group("Horizontal coefficients") {
+		par_real("Pressure difference mixing coefficient")
+		[ 0.5 ]
 	}
 }
 

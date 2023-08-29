@@ -1,63 +1,50 @@
-index_set("Lake") [ "Store" "Vanem" ]
+index_set("Lake") [ "Magat" ]
 
 index_set("Landscape units") [ "Arable" "Semi-natural" ]
 
-index_set("Subcatchment") [ "Kure" "Vaaler" "Store" "Vanem" ]
+index_set("Subcatchment") [ "Inflow" ]
 
 connection("Downstream") [
 	e : compartment("Epilimnion") [ "Lake" ]
 	r : compartment("River") [ "Subcatchment" ]
 
-	r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> nowhere
-	r[ "Store" ] -> e[ "Store" ]
-	r[ "Vanem" ] -> e[ "Vanem" ]
+	r[ "Inflow" ] -> e[ "Magat" ] -> out
 ]
 
-connection("Horizontal") [
-	compartment("Epilimnion") [ "Lake" ]
-]
-
-connection("Horizontal hypo") [
-	compartment("Hypolimnion") [ "Lake" ]
-]
-
-series("vansjo.xlsx")
+series("magat.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
-	[ 1980-01-01 ]
+	[ 2015-01-01 ]
 
 	par_datetime("End date")
-	[ 2016-12-31 ]
+	[ 2021-12-31 ]
 }
 
 par_group("Catchment data") [ "Subcatchment" ] {
 	par_real("Catchment area")
-	[ 304.4 31.4 252.9 54.3 ]
+	[ 4463 ]
 }
 
 par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 	par_real("Land use proportions") [
-		0.168 0.832 
-		0.2 0.8 
-		0.12 0.88 
-		0.162 0.838 
+		0.35 0.65 
 	]
 }
 
 par_group("Lake data") [ "Lake" ] {
-	par_real("Lake surface area")
-	[ 23800000 12000000 ]
+	par_real("Initial lake surface area")
+	[ 30200000 ]
 }
 
-module("Horizontal mixing", 0, 0, 1) {
+module("Horizontal mixing", version(0, 0, 1)) {
 	par_group("Horizontal mixing") {
 		par_real("Horizontal mixing coefficient")
 		[ 0 ]
 	}
 }
 
-module("HBVSnow", 1, 0, 0) {
+module("HBVSnow", version(1, 0, 0)) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
 		[ 2.4 ]
@@ -79,7 +66,7 @@ module("HBVSnow", 1, 0, 0) {
 	}
 }
 
-module("SimplyQ land", 0, 5, 0) {
+module("SimplyQ land", version(0, 5, 0)) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
 		[ 0.5 ]
@@ -102,67 +89,79 @@ module("SimplyQ land", 0, 5, 0) {
 	}
 }
 
-module("SimplyQ river", 0, 0, 1) {
+module("SimplyQ river", version(0, 0, 1)) {
 	par_group("Reach parameters") [ "Subcatchment" ] {
 		par_real("Reach slope")
-		[ 0.02 0.02 0.02 0.02 ]
+		[ 0.02 ]
 
 		par_real("Reach length")
-		[ 46000 13000 15000 5000 ]
+		[ 110000 ]
 
 		par_real("Manning's roughness coefficient")
-		[ 0.04 0.04 0.04 0.04 ]
+		[ 0.04 ]
 
 		par_real("Initial reach flow")
-		[ 1 1 1 1 ]
+		[ 1 ]
 	}
 }
 
-module("EasyLake", 0, 1, 0) {
+module("EasyReservoir", version(0, 1, 0)) {
 	par_group("Lake physical") [ "Lake" ] {
-		par_real("Lake depth at which outflow is 0")
-		[ 41 19 ]
+		par_real("Altitude of natural outlet (masl)")
+		[ 250 ]
+
+		par_real("Altitude of abstraction (masl)")
+		[ 145 ]
+
+		par_real("Initial water level (masl)")
+		[ 200 ]
+
+		par_real("Altitude of lake bottom (masl)")
+		[ 135 ]
 
 		par_real("Initial epilimnion thickness")
-		[ 2 1 ]
+		[ 15 ]
 
 		par_real("Rating function linear component")
-		[ 550 550 ]
+		[ 550 ]
 
 		par_real("Initial epilimnion temperature")
-		[ 1.5 1.5 ]
+		[ 30 ]
 
 		par_real("Bottom temperature")
-		[ 4 4 ]
+		[ 29 ]
 
 		par_real("Epilimnion thickening rate")
-		[ 0.01 0.01 ]
+		[ 0.01 ]
+
+		par_real("T. diff threshold for epi and hypo mixing")
+		[ 0.4 ]
 	}
 }
 
-module("AirSea Lake", 0, 1, 0) {
+module("AirSea Lake", version(0, 1, 0)) {
 	par_group("Ice") [ "Lake" ] {
 		par_real("Initial ice thickness")
-		[ 0 0 ]
+		[ 0 ]
 
 		par_real("Ice albedo")
-		[ 0.31 1 ]
+		[ 0.31 ]
 
 		par_real("Frazil threshold")
-		[ 0.05 0.05 ]
+		[ 0.05 ]
 
 		par_real("Ice formation temperature")
-		[ 0 0 ]
+		[ 0 ]
 
 		par_real("Ice attenuation coefficient")
-		[ 5 5 ]
+		[ 5 ]
 
 		par_bool("Always cover")
-		[ false true ]
+		[ false ]
 	}
 }
 
-module("Degree-day PET", 1, 0, 0) {
+module("Degree-day PET", version(1, 0, 0)) {
 	par_group("Potential evapotranspiration") {
 		par_real("Deegree-day factor for evapotranspiration")
 		[ 0.19 ]
@@ -172,7 +171,7 @@ module("Degree-day PET", 1, 0, 0) {
 	}
 }
 
-module("Simply soil temperature", 0, 1, 0) {
+module("Simply soil temperature", version(0, 1, 0)) {
 	par_group("Soil temperature general") {
 		par_real("Snow depth / soil temperature factor")
 		[ -0.2 ]
@@ -187,14 +186,14 @@ module("Simply soil temperature", 0, 1, 0) {
 	}
 }
 
-module("RiverTemperature", 0, 1, 0) {
+module("RiverTemperature", version(0, 1, 0)) {
 	par_group("River temperature") [ "Subcatchment" ] {
 		par_real("Air-river heat conductivity coefficient")
-		[ 1 1 1 1 ]
+		[ 1 ]
 	}
 }
 
-module("SimplyC", 1, 0, 0) {
+module("SimplyC", version(1, 0, 0)) {
 	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
 		[ 10 ]
@@ -226,7 +225,7 @@ module("SimplyC", 1, 0, 0) {
 	}
 }
 
-module("EasyLake-C", 0, 0, 1) {
+module("EasyLake-C", version(0, 0, 1)) {
 	par_group("Lake C") {
 		par_real("Initial lake DOC concentration")
 		[ 7.5 ]
@@ -236,7 +235,7 @@ module("EasyLake-C", 0, 0, 1) {
 	}
 }
 
-module("Priestley-Taylor PET", 1, 0, 0) {
+module("Priestley-Taylor PET", version(1, 0, 0)) {
 	par_group("Potential evapotranspiration") {
 		par_real("PET multiplication factor")
 		[ 1.28 ]
@@ -249,7 +248,7 @@ module("Priestley-Taylor PET", 1, 0, 0) {
 	}
 }
 
-module("Atmospheric", 0, 1, 0) {
+module("Atmospheric", version(0, 1, 0)) {
 	par_group("Location") {
 		par_real("Latitude")
 		[ 60 ]
@@ -259,7 +258,7 @@ module("Atmospheric", 0, 1, 0) {
 	}
 }
 
-module("SimplyN", 0, 0, 3) {
+module("SimplyN", version(0, 0, 3)) {
 	par_group("DIN universal params") {
 		par_real("Soilwater DIN uptake rate at 20°C")
 		[ 0.00591332993567999 ]
@@ -296,33 +295,33 @@ module("SimplyN", 0, 0, 3) {
 
 	par_group("River DIN") [ "Subcatchment" ] {
 		par_real("Reach effluent DIN inputs")
-		[ 0 0 0 0 ]
+		[ 0 ]
 	}
 }
 
-module("EasyLake-N", 0, 0, 1) {
+module("EasyLake-N", version(0, 0, 1)) {
 	par_group("Lake N") [ "Lake" ] {
 		par_real("Initial lake DIN concentration")
-		[ 1 1 ]
+		[ 1 ]
 
 		par_real("Lake DIN retention at 20°C")
-		[ 0.0094084558573921 0.04 ]
+		[ 0.0094084558573921 ]
 
 		par_real("Lake DIN retention Q10")
-		[ 1 1 ]
+		[ 1 ]
 
 		par_real("Hypolimnion N retention factor")
-		[ 0.0245307674894257 0.024 ]
+		[ 0.0245307674894257 ]
 	}
 }
 
-module("SimplySed", 0, 6, 0) {
+module("SimplySed", version(0, 6, 0)) {
 	par_group("River erosion") [ "Subcatchment" ] {
 		par_real("Erosion scaling factor")
-		[ 10.169259546187 16 16 16 ]
+		[ 10.169259546187 ]
 
 		par_real("Erosion power factor")
-		[ 1.86560829134272 2 2 2 ]
+		[ 1.86560829134272 ]
 	}
 
 	par_group("Soil erodibility") [ "Landscape units" ] {
@@ -348,14 +347,11 @@ module("SimplySed", 0, 6, 0) {
 	par_group("Land slope") [ "Subcatchment" "Landscape units" ] {
 		par_real("Mean slope of land") [
 			4 10 
-			4 10 
-			4 10 
-			4 10 
 		]
 	}
 }
 
-module("SimplyP", 0, 5, 0) {
+module("SimplyP", version(0, 5, 0)) {
 	par_group("P general") {
 		par_real("Soil mass per m2")
 		[ 95 ]
@@ -391,20 +387,20 @@ module("SimplyP", 0, 5, 0) {
 
 	par_group("River P") [ "Subcatchment" ] {
 		par_real("Effluent TDP inputs")
-		[ 0 0 0 0 ]
+		[ 0 ]
 	}
 }
 
-module("EasyLake-P", 0, 0, 1) {
+module("EasyLake-P", version(0, 0, 1)) {
 	par_group("Lake P") [ "Lake" ] {
 		par_real("Initial lake TDP concentration")
-		[ 0.01 0.01 ]
+		[ 0.01 ]
 
 		par_real("Lake TDP retention")
-		[ 0.007 0.02 ]
+		[ 0.007 ]
 
 		par_real("Hyplimnion TDP retention factor")
-		[ 0.009 0.03 ]
+		[ 0.009 ]
 	}
 }
 

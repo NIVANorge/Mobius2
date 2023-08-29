@@ -1,46 +1,39 @@
 
 
 	*** High pri ***
-
-		The 'extend' system is just not that good.
-			- There are problems when you want to override something in the earlier model,
-			- There is a problem if two extended models declare the same symbol.
+	
+	
+		Fix index set selection in MobiView.
+		
+		
+		Finish the new formulation of special_computation
+			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
 			
-			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
-			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
+			Make in_flux (and out_flux) be allowed as inputs to it.
+				At least in_flux(connection, ..)
 			
-			Maybe we could have an
-				if_main {
-				}
-			block. Things there are only processed if that model is loaded as the main one.
-				This rids us of the necessity to override model extensions.
-					Downside is that the extended model needs to know what other models want to override....... Hmmm...
-					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
-			
-			Could have an named_block("Name") { } block, and turn off blocks when extending
-				extend("simplyq_model.txt", "Name") turns off "Name".
+			See the note in
+				nivafjord/horizontal_fluxes.txt "Place river horizontal fluxes"
 				
-				What about nested extensions in this system, and two models extend the same thing but disagree.
-					...nightmare...
-		Alternative: We just redeclare the entire model structure when that is necessary.
+				Problem with how one should identify what the source compartment of the lookup layer.water.rho[horz.below] is
+				Right now we default it to the compartment of the result(), but that is very error prone.
+			
 
+		Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
+			(in terms of how it is computed, not in terms of user-facing functionality)
+			Ideally the entire system should be re-thought or restructured.
 
-		In NIVAFjord we get too many index sets for MobiView2 to handle.
-			Either organize edge index sets differently.
-			Or rethink the entire system
-				Hide index sets that are not active, for instance (and place the other selectors nicely).
+		Specific models
+			Finish NIVAFjord!!
+				
+				Move to m 3 of water instead of k g?			
+				
+			Finish the simple hydraulics model.
+			
+			EasyLake-CNP
 
-		Dependency system for connection aggregations is very error prone. Esp. wrt. 'top' and 'bottom'.
-			Ideally the entire system should be re-thought.
-
-		Finish NIVAFjord!!
-			horizontal fluxes.
-			Requires double bracket for some types of target, e.g.   any.water[fjord_horz.below, fjord_vert.specific]   (Also maybe the 'any' )
-				Also the restriction of this to the layers that 'participate' in the edge of that connection.
-
-		The "loose depends" system is kind of iffy.
-			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
-				This in particular may have been fixed now.
+		Load modules from modules (?)
+			How to scope them in that case? Should probably just be scoped under the model, but a bit tricky wrt. name conflicts.
 		
 		Finish connection system
 		
@@ -48,43 +41,33 @@
 				Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
 				This is not solvable without remapping the indexes (or asking the user to reorder them).
 				Could detect if this happens and give an error, but that alone is a bit of work.
-					But that is needed if it happens in a graph with cycles.
+					We should only allow it if no_cycles is specified.
+					If no_cycles is specified, we should demand that the indexes in the data set are in the order of appearance.
 		
-			Component index sets should probably be declared in the connection declaration in the model. It is too integral to how to model works to leave it to users.
+			Component index sets should probably be declared in the connection declaration in the model (also for directed_graph). It is too integral to how to model works to leave it to data set.
 			
 			Have to figure out what something like
 					flux(blabla, something[vert.below], ...)				
-			means. Right now the location 'something' is not checked.
+			means. Right now the location 'something' is not used.
 				Need this for NIVAFjord
 			Maybe just make the syntax
 					flux(blabla, any[vert.below]
-			And this is what we do for all 'below' connection targets.
+			and disallow having specific location there. And this is what we do for all 'below' connection targets.
 				Could later extend it to have different code depending on the target (for graph and directed_tree).
-			
 		
-			Finish the simple hydraulics model.
-			
 			graph connections
 				
-				Allow naming edges (?)
+				One should need to explicitly allow isolated nodes using something like    a | (....)
 				
-				//Should not put restriction condition on graph flux, since it won't be evaluated any way if there are no edges.
-				
-				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc.
-
-			all_to_all:
-				
-				Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
-
-			grid1d:
-				accessing
-					something[above]    ( or below )
-				should not invalidate the entire function, only make the something[above] itself evaluate to 0 (?)
-				Does this give the correct result in all instances ?
-					Would prefer to have this since it improves usability.
-					Could also allow manual checking of validity to circumvent edge cases, but maybe prefer not to.
+				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc. and that "indexing below" is correct.
+					Alternatively do unit conversions, but how?
+					May have to be done inside resolve_function_tree, so we need to access the connection data there.
 					
-				allow 'top' to be the source of a flux (?)
+				Finish regex check in the general case
+
+			grid1d:	
+				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
+				
 					
 			Specific target:
 				Properly process the @specific function tree, incl. flags
@@ -97,8 +80,21 @@
 			Dissolved fluxes -
 				make dissolvedes of negatives work for other types (graph (maybe) regular fluxes (maybe), but probably not directed tree).
 			
+			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
+	
 	
 	*** Intermediate-pri ***
+		
+		Union index sets
+			say     a : index_set("A") @union(b, c)
+			We probably have to disallow dependency on a if you have dependency on both b and c, or it is ambiguous.
+				Already fixed for direct dependencies (parameters, index sets)
+				On what level do we check this? Must be during the resolution loop?
+			A Var_Location hould not be able to both depend on a union and a member of that union
+				This is currently checked per component basis, but not combined. Should be done in model_composition
+			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
+	
+		Ignore certain log_print if not in "developer mode" (should be configured in config.txt)
 	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
@@ -133,8 +129,10 @@
 				combine_unit(soil.water.oc.tox, [day-1])
 			This has to do with module reusability, could apply the module to quantities with different units.
 				
-		Use get_symbol a few places where it could be needed.
-			E.g. log_print_var_location .
+		error_print_location
+			We could pass a scope to it, and only let it fall back on get_symbol when necessary.
+				(it can be necessary if the location was passed as a loc() to the scope where it is being used).
+			Make it print the bracket if needed.
 
 		More on module loading and the declaration format:
 				
@@ -175,14 +173,72 @@
 			
 		Go over and improve diagnostics in error messages (all over the place).
 		
+		The 'extend' system is just not that good.
+			- There are problems when you want to override something in the earlier model,
+			- There is a problem if two extended models declare the same symbol.
+			
+			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
+			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
+			
+			Maybe we could have an
+				if_main {
+				}
+			block. Things there are only processed if that model is loaded as the main one.
+				This rids us of the necessity to override model extensions.
+					Downside is that the extended model needs to know what things other models want to override....... Hmmm...
+					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
+			
+			Could have an named_block("Name") { } block, and turn off blocks when extending
+				extend("simplyq_model.txt", "Name") turns off "Name".
+				
+				What about nested extensions in this system, and two models extend the same thing but disagree.
+					...nightmare...
+		Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
+		
 		
 	*** Low-pri ****
 	
-		Make the data_set declarations match the model declarations better, e.g. version() in module decls.
+		Iterate in function scope.
+			Make the iter_tag be referencable as an iterator.
+			Do reassignable local vars with phi nodes later. For now, just use alloca.
+			
+	
+		Maybe implement reverse iteration for grid1d
+			if you have a property depending on the [below] of itself.
+	
+		Make out_flux (?)
+			out_flux(connection, substance) first.
+			Also out_flux(substance).
+			Could also have out_flux(target, substance) (And also for in_flux).
+				where target is either a connection or a location.
+			Replace things like 'flow' in some places? Maybe doesn't work.
+			
+			Or do we just wait since out_flux could always be computed with a property.
+			
+			
+	
+		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
+	
+		Give proper error when externally linked function is not found.
+			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
+	
+		Make the data_set declarations match the model declarations better
 			Just let the data_set use the same AST, where a [] block parses as "data", which is just a token list.
 			Should be able to make registries match up better to simplify some things when loading into the Model_Application.
 			
 			Could have a serialization name for entities in the data set and use that to map them over to the model? Then use Entity_Id inside the data_set, but just map these to the model entity_ids.
+		
+			Just make one Index_Data structure that can be reused between Data_Set and Model_Application
+				Handles all get_count, get_instance_count, name lookup etc. etc.
+			
+			Index sets refereced inside unused modules have still to be declared in the data set.
+				Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.
+		
+		
+		More correctness checks and convenience etc. for uses of Indexes.
+			count()
+			Maybe just have an iterator on Indexes that includes mat_col if necessary.
+				Use that in check_for_nans and maybe other places. get_index_names_with_edge_naming, etc.
 		
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
@@ -208,6 +264,8 @@
 		
 		MobiView:
 		
+			Parameter search & select crashes on 'Start date'
+		
 			Plot
 				stacked_share has a slow implementation.
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
@@ -230,13 +288,19 @@
 				Targets computed from aggregate series (stats of aggregate series).
 				
 				Optimizer callback doesn't update additional plot view.
+				
+				Matrix parameters don't serialize/deserialize correctly.
+					Probably same with optimization target.
+				
+				
+				
+			Something where you can plot individual functions / state vars as functions of their inputs.
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
-				Maybe order direct properties and fluxes above dissolved substances (or have it as an option)
 				Allow order by flux? By module?
 				
 			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
@@ -285,8 +349,6 @@
 		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
 			https://github.com/llvm/llvm-project/blob/main/llvm/examples/OrcV2Examples/LLJITWithObjectCache/LLJITWithObjectCache.cpp
 			One could then manually disassemble it.
-			
-		Imperative constructs for the function scope.
 		
 		Other solver algorithms.
 		
@@ -296,10 +358,14 @@
 		
 		last(something) doesn't automatically cause it to have an initial value computation (if one was not set).
 		
-		Error if you access time.fractional_step outside a solver?
+		Error if you access time.fractional_step outside a solver? Or it just defaults to 0?
 
 		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
+			
+		The "loose depends" system is kind of iffy.
+			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
+				This in particular may have been fixed now.
 
 	Probably not ?:
 	

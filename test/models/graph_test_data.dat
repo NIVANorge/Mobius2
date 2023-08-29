@@ -1,16 +1,23 @@
-index_set("Node index") [ 4 ]
+index_set("Node index") [ "A" "B" "C" "D" ]
 
-index_set("Node2 index") [ 2 ]
+index_set("Node2 index") [ "E" "F" ]
 
-connection("The graph") [
-	n : compartment("Node") [ "Node index" ] [ "Node edges" ]
-	n2 : compartment("Node2") [ "Node2 index" ] [ "Node2 edges" ]
+index_set("All nodes") @union("Node index", "Node2 index")
 
-	n[ 0 ] -> n[ 1 ] -> n[ 2 ]
-	n[ 0 ] -> n[ 3 ] -> n[ 1 ]
-	n[ 3 ] -> n[ 2 ] -> out
-	n[ 2 ] -> n2[ 1 ] -> n2[ 0 ] -> n[ 0 ]
-]
+index_set("Edge index") @sub("All nodes") 
+
+connection("The graph") {
+	n : compartment("Node") [ "Node index" ]
+	n2 : compartment("Node2") [ "Node2 index" ]
+
+	directed_graph("Edge index") [
+
+		n[ "A" ] -> n[ "B" ] -> n[ "C" ]
+		n[ "A" ] -> n[ "D" ] -> n[ "B" ]
+		n[ "D" ] -> n[ "C" ] -> out
+		n[ "C" ] -> n2[ "F" ] -> n2[ "E" ] -> n[ "A" ]
+	]
+}
 
 par_group("System") {
 	par_datetime("Start date")
@@ -20,7 +27,7 @@ par_group("System") {
 	[ 1970-06-16 ]
 }
 
-module("Graph test", 0, 0, 1) {
+module("Graph test", version(0, 0, 1)) {
 	par_group("Node pars") [ "Node index" ] {
 		par_real("Height")
 		[ 10 5 20 9 ]

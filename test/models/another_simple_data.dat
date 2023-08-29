@@ -1,10 +1,9 @@
-index_set("I") [ 10 ]
 
-index_set("J") [ "(generated)" ]
+index_set("I") [ "A" "B" "C" ]
 
-connection("Grid") [
-	compartment("B") [ "I" ]
-]
+index_set("J") [ "D" "E" "F" "G" ]
+
+index_set("K") @union("I", "J")
 
 par_group("System") {
 	par_datetime("Start date")
@@ -14,11 +13,9 @@ par_group("System") {
 	[ 1990-12-31 ]
 }
 
-par_group("Ploff") [ "J" ] {
-	par_real("K")
-	[ 0 ]
-}
-
-module("So simple", 1, 0, 0) {
+module("So simple", version(2, 0, 0)) {
+	par_group("The Q") [ "K" ] {
+		par_int("Q") [ 1 2 3 4 5 6 7 ]
+	}
 }
 

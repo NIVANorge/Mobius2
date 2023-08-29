@@ -96,6 +96,48 @@ Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 	}
 }
 
+void
+Decl_Scope::check_for_unreferenced_things(Mobius_Model *model) {
+	std::unordered_map<Entity_Id, bool, Entity_Id_Hash> lib_was_used;
+	for(auto &pair : visible_entities) {
+		auto &reg = pair.second;
+		
+		if(reg.is_load_arg && !reg.was_referenced) {
+			log_print("Warning: In ");
+			reg.source_loc.print_log_header();
+			log_print("The module argument '", reg.handle, "' was never referenced.\n");
+		}
+		
+		if(reg.external) {
+			auto entity = model->find_entity(reg.id);
+			if(entity->scope_id.reg_type == Reg_Type::library) {
+				if(reg.was_referenced)
+					lib_was_used[entity->scope_id] = true;
+				else {
+					auto find = lib_was_used.find(entity->scope_id);
+					if(find == lib_was_used.end())
+						lib_was_used[entity->scope_id] = false;
+				}
+			}
+		}
+	}
+	for(auto &pair : lib_was_used) {
+		if(!pair.second) {
+			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
+			// TODO:  we could put that in the Scope_Entity source_loc (?)
+			std::string scope_type;
+			if(parent_id.reg_type == Reg_Type::module)
+				scope_type = "module";
+			else if(parent_id.reg_type == Reg_Type::library)
+				scope_type = "library";
+			else
+				scope_type = "model";
+			log_print("Warning: The ", scope_type, " \"", model->find_entity(parent_id)->name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but does not use any of it.\n");
+		}
+	}
+	// TODO: Could also check for unreferenced parameters, and maybe some other types of entities (solver, connection..) (but not all entities in general).
+}
+
 // TODO: Should change scope to the first argument.
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *serial_name, Decl_AST *decl) {
@@ -279,7 +321,7 @@ Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type
 }
 
 template<Reg_Type expected_type> Entity_Id
-resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, int max_sub_chain_size=1) {
+resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_Base_AST *decl, int which, int max_sub_chain_size=1) {
 	// We could do more error checking here, but it should really only be called after calling match_declaration...
 	
 	Argument_AST *arg = decl->args[which];
@@ -359,10 +401,6 @@ register_intrinsics(Mobius_Model *model) {
 	auto system = model->par_groups[system_id];
 	auto start  = model->parameters[start_id];
 	auto end    = model->parameters[end_id];
-	
-	//system->parameters.push_back(start_id);
-	//system->parameters.push_back(end_id);
-	system->component = invalid_entity_id;
 	
 	Date_Time default_start(1970, 1, 1);
 	Date_Time default_end(1970, 1, 16);
@@ -447,6 +485,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 				lib->decl = decl;
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
+				lib->name = found_name;
 			} else if (decl->type == Decl_Type::module) {
 				id = model->module_templates.find_or_create(&model->model_decl_scope, nullptr, nullptr, decl);
 				auto mod = model->module_templates[id];
@@ -472,23 +511,46 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	return result;
 }
 
+void
+process_bracket(Mobius_Model *model, Decl_Scope *scope, std::vector<Token> &bracket, Restriction &res, bool allow_bracket) {
+	if(bracket.size() == 2 && allow_bracket) {
+		
+		res.connection_id = model->connections.find_or_create(scope, &bracket[0]);
+		auto type = bracket[1].string_value;
+		if(type == "top")
+			res.type = Restriction::top;
+		else if(type == "bottom")
+			res.type = Restriction::bottom;
+		else if(type == "specific")
+			res.type = Restriction::specific;
+		else if(type == "below")
+			res.type = Restriction::below;
+		else {
+			bracket[1].print_error_header();
+			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
+		}
+	} else if(!bracket.empty()) {
+		bracket[0].print_error_header();
+		fatal_error("This bracketed restriction is either invalidly placed or invalidly formatted.");
+	}
+}
+
 // TODO: A lot of this function could be merged with similar functionality in function_tree.cpp
 void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl, int which, Var_Location *location,
-	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr) {
+process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
+	bool allow_unspecified, bool allow_restriction, Entity_Id *par_id) {
 	
 	Specific_Var_Location *specific_loc = nullptr;
-	if(allow_restriction) {
+	if(allow_restriction)
 		specific_loc = static_cast<Specific_Var_Location *>(location);
-		specific_loc->orig_scope_id = scope->parent_id;
-	}
 	
-	if(decl->args[which]->decl) {
-		decl->args[which]->decl->source_loc.print_error_header();
+	if(arg->decl) {   // Hmm, this disallows inlined loc() declarations, but those are nonsensical anyway.
+		arg->decl->source_loc.print_error_header();
 		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
 	}
-	auto &symbol = decl->args[which]->chain;
-	auto &bracketed = decl->args[which]->bracketed_chain;
+	auto &symbol     = arg->chain;
+	auto &bracketed  = arg->bracketed_chain;
+	auto &bracketed2 = arg->secondary_bracketed;
 	
 	int count = symbol.size();
 	bool is_out = false;
@@ -507,8 +569,8 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 			if(reg) {
 				if(reg->id.reg_type == Reg_Type::connection) {
 					location->type = Var_Location::Type::connection;
-					specific_loc->connection_id = reg->id;
-					specific_loc->restriction   = Var_Loc_Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
+					specific_loc->r1.connection_id = reg->id;
+					specific_loc->r1.type          = Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
 				} else if (reg->id.reg_type == Reg_Type::loc) {
 					auto loc = model->locs[reg->id];
 					
@@ -516,7 +578,7 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 						*specific_loc = loc->loc;
 					else {
 						*location = loc->loc;
-						if(loc->loc.restriction != Var_Loc_Restriction::none) {
+						if(loc->loc.r1.type != Restriction::none) {
 							loc->source_loc.print_error_header();
 							error_print("This declared location has a bracketed restriction, but that is not allowed when it is used in the following context :\n");
 							token->source_loc.print_error();
@@ -551,32 +613,21 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
 	}
 	
-	if (!allow_restriction && !bracketed.empty()) {
+	if(allow_restriction) {
+		bool allow_bracket = !is_out &&	(count >= 2 || (par_id && is_valid(*par_id))); // We can only have a bracket on something that is either a full var location or a parameter.
+		process_bracket(model, scope, bracketed,  specific_loc->r1, allow_bracket);
+		process_bracket(model, scope, bracketed2, specific_loc->r2, allow_bracket);
+		
+		if(!bracketed2.empty() && specific_loc->r1.type != Restriction::below) {
+			bracketed2[0].print_error_header();
+			fatal_error("For now, if there is a second argument in the location bracket, the first one must be 'below'.");
+		}
+		
+		if(specific_loc->r1.type == Restriction::below)
+			specific_loc->type = Var_Location::Type::connection;
+	} else if (!bracketed.empty()) {
 		bracketed[0].print_error_header();
 		fatal_error("A bracketed restriction on the location argument is not allowed in this context.");
-	}
-	
-	if(bracketed.size() == 2 && !is_out &&
-		(count >= 2 || (par_id && is_valid(*par_id)))) { // We can only have a bracket on something that is either a full var location or a parameter.
-		
-		specific_loc->connection_id = model->connections.find_or_create(scope, &bracketed[0]);
-		auto type = bracketed[1].string_value;
-		if(type == "top")
-			specific_loc->restriction = Var_Loc_Restriction::top;
-		else if(type == "bottom")
-			specific_loc->restriction = Var_Loc_Restriction::bottom;
-		else if(type == "specific")
-			specific_loc->restriction = Var_Loc_Restriction::specific;
-		else if(type == "below") {
-			specific_loc->restriction = Var_Loc_Restriction::below;
-			specific_loc->type == Var_Location::Type::connection;
-		} else {
-			bracketed[1].print_error_header();
-			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
-		}
-	} else if(!bracketed.empty()) {
-		bracketed[0].print_error_header();
-		fatal_error("This bracketed restriction is invalid.");
 	}
 }
 
@@ -720,8 +771,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	int which = match_declaration(decl,
 	{
 		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, Decl_Type::compartment},   // Could eventually make the last a vararg?
-		{Token_Type::quoted_string, Decl_Type::quantity},
+		{Token_Type::quoted_string, {Decl_Type::compartment, true}},   // Could eventually make the last a vararg?
 	}, false, -1);
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
@@ -729,8 +779,10 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	
 	par_group->scope.parent_id = id;
 	
-	if(which >= 1)
-		par_group->component = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
+	if(which >= 1) {
+		for(int idx = 1; idx < decl->args.size(); ++idx)
+			par_group->components.push_back(resolve_argument<Reg_Type::component>(model, scope, decl, idx));
+	}
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->body);
 
@@ -841,7 +893,7 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 		var->var_name = var_name->string_value;
 	}
 
-	process_location_argument(model, scope, decl, 0, &var->var_location);	
+	process_location_argument(model, scope, decl->args[0], &var->var_location);	
 	
 	var->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
 	
@@ -903,19 +955,19 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	flux->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
-	process_location_argument(model, scope, decl, 0, &flux->source, true, true);
-	process_location_argument(model, scope, decl, 1, &flux->target, true, true);
+	process_location_argument(model, scope, decl->args[0], &flux->source, true, true);
+	process_location_argument(model, scope, decl->args[1], &flux->target, true, true);
 	
 	if(flux->source == flux->target && is_located(flux->source)) {
 		decl->source_loc.print_error_header();
 		fatal_error("The source and the target of a flux can't be the same.");
 	}
 	
-	if(flux->source.restriction == Var_Loc_Restriction::specific) {
+	if(flux->source.r1.type == Restriction::specific) {
 		decl->source_loc.print_error_header();
 		fatal_error("For now we only allow the target of a flux to have the 'specific' restriction");
 	}
-	bool has_specific_target = (flux->target.restriction == Var_Loc_Restriction::specific);
+	bool has_specific_target = (flux->target.r1.type == Restriction::specific) || (flux->target.r2.type == Restriction::specific);
 	bool has_specific_code = false;
 	
 	if(decl->body)
@@ -940,6 +992,14 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 			
 			has_specific_code = true;
 			flux->specific_target_ast = static_cast<Function_Body_AST *>(note->body)->block;
+		} else if(str == "bidirectional") {
+			match_declaration_base(note, {{}}, 0);
+			flux->bidirectional = true;
+			
+			if(!is_valid(flux->target.r1.connection_id) || flux->target.r1.type != Restriction::below) {
+				note->decl.print_error_header();
+				fatal_error("Bidirectionality is for now only supported for connection fluxes.");
+			}
 		} else {
 			note->decl.print_error_header();
 			fatal_error("Unrecognized note '", str, "' for a flux declaration.");
@@ -993,83 +1053,42 @@ process_declaration<Reg_Type::discrete_order>(Mobius_Model *model, Decl_Scope *s
 }
 
 template<> Entity_Id
-process_declaration<Reg_Type::special_computation>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+process_declaration<Reg_Type::external_computation>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	// NOTE: Since we disambiguate entities on their name right now, we can't let the name and function_name be the same in case you want to reuse the same function many times.
 	//    could be fixed if/when we make the new module loading / scope system.
-	match_declaration(decl, {{ Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::identifier }}, false, -1);
+	int which = match_declaration(decl,
+		{
+			{ Token_Type::quoted_string, Token_Type::quoted_string },
+			{ Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::compartment },
+		}, false, -1);
 	
-	auto id = model->special_computations.standard_declaration(scope, decl);
-	auto comp = model->special_computations[id];
+	auto id = model->external_computations.standard_declaration(scope, decl);
+	auto comp = model->external_computations[id];
 	
 	comp->function_name = single_arg(decl, 1)->string_value;
-	process_location_argument(model, scope, decl, 2, &comp->target);
+	if(which == 1)
+		comp->component = resolve_argument<Reg_Type::component>(model, scope, decl, 2);
 	
 	auto body = static_cast<Function_Body_AST *>(decl->body);
-	bool success = true;
-	for(auto expr : body->block->exprs) {
-		if(expr->type != Math_Expr_Type::identifier) {
-			body->opens_at.print_error_header();
-			fatal_error("A 'special_computation' body should just contain a list of identifiers.");
-		}
-	}
+	
 	comp->code = body->block;
 	
 	return id;
 }
 
 void
-add_connection_component_option(Mobius_Model *model, Decl_Scope *scope, Entity_Id connection_id, Regex_Identifier_AST *ident) {
-	
-	auto connection = model->connections[connection_id];
-	
-	if(ident->ident.string_value == "out") {
-		if(is_valid(&ident->index_set)) {
-			ident->index_set.print_error_header();
-			fatal_error("There should not be an index set on 'out'");
-		}
-		
-		return;
-	} else if (ident->wildcard)
-		return;
-	
-	auto component_id = model->components.find_or_create(scope, &ident->ident);
-	Entity_Id index_set_id = invalid_entity_id;
-	if(is_valid(&ident->index_set)) {
-		index_set_id = model->index_sets.find_or_create(scope, &ident->index_set);
-		auto index_set = model->index_sets[index_set_id];
-		index_set->is_edge_of_connection = connection_id;
-		index_set->is_edge_of_node       = component_id;
-		if(connection->type != Connection_Type::directed_graph && connection->type != Connection_Type::grid1d && connection->type != Connection_Type::all_to_all) {
-			ident->index_set.print_error_header();
-			fatal_error("Index sets should only be assigned to the nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all'");
-		}
-	}
-	bool found = false;
-	for(auto &comp : connection->components) {
-		if(comp.first == component_id) {
-			found = true;
-			break;
-		}
-	}
-	if(!found) {
-		if(!is_valid(index_set_id) && 
-			(connection->type == Connection_Type::directed_graph || connection->type == Connection_Type::grid1d || connection->type == Connection_Type::all_to_all)) {
-			
-			ident->source_loc.print_error_header();
-			fatal_error("Nodes in connections of type 'directed_graph', 'grid1d' or 'all_to_all' must have index sets assigned to them.");
-		}
-		connection->components.push_back({component_id, index_set_id});
-	} else if(is_valid(index_set_id)) {
-		ident->index_set.print_error_header();
-		fatal_error("An index set should only be declared on the first occurrence of a component in the regex.");
-	}
-}
-
-void
 recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *scope, Entity_Id connection_id, Math_Expr_AST *expr) {
-	if(expr->type == Math_Expr_Type::regex_identifier)
-		add_connection_component_option(model, scope, connection_id, static_cast<Regex_Identifier_AST *>(expr));
-	else {
+	if(expr->type == Math_Expr_Type::regex_identifier) {
+		
+		auto ident = static_cast<Regex_Identifier_AST *>(expr);
+		if(ident->ident.string_value == "out" || ident->wildcard)
+			return;
+		
+		auto connection = model->connections[connection_id];
+		auto component_id = model->components.find_or_create(scope, &ident->ident);
+		if(std::find(connection->components.begin(), connection->components.end(), component_id) == connection->components.end())
+			connection->components.push_back(component_id);
+	} else {
 		for(auto child : expr->exprs) {
 			recursive_gather_connection_component_options(model, scope, connection_id, child);
 		}
@@ -1078,43 +1097,74 @@ recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *s
 
 template<> Entity_Id
 process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	int which = match_declaration(decl,
+	match_declaration(decl,
 	{
 		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, Token_Type::identifier},
-	}, true, -1);
+	}, true, 0, true);
 	
 	auto id         = model->connections.standard_declaration(scope, decl);
 	auto connection = model->connections[id];
 	
-	if(which == 1) {
-		String_View structure_type = single_arg(decl, 1)->string_value;
-		if(structure_type == "directed_tree")	    connection->type = Connection_Type::directed_tree;
-		else if(structure_type == "directed_graph") connection->type = Connection_Type::directed_graph;
-		else if(structure_type == "all_to_all")     connection->type = Connection_Type::all_to_all;
-		else if(structure_type == "grid1d")         connection->type = Connection_Type::grid1d;
-		else {
-			single_arg(decl, 1)->print_error_header();
-			fatal_error("Unsupported connection structure type '", structure_type, "'.");
+	
+	for(auto note : decl->notes) {
+		if(note->decl.string_value == "grid1d") {
+			
+			if(connection->type != Connection_Type::unrecognized) {
+				note->decl.print_error_header();
+				fatal_error("This connection received a type twice.");
+			}
+			
+			match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::index_set}}, 0);
+			
+			connection->type = Connection_Type::grid1d;
+			connection->node_index_set = resolve_argument<Reg_Type::index_set>(model, scope, note, 1);
+			connection->components.push_back(resolve_argument<Reg_Type::component>(model, scope, note, 0));
+			
+		} else if(note->decl.string_value == "directed_graph") {
+			
+			if(connection->type != Connection_Type::unrecognized) {
+				note->decl.print_error_header();
+				fatal_error("This connection received a type twice.");
+			}
+			
+			int which = match_declaration_base(note, {{}, {Decl_Type::index_set}}, -1);
+			
+			connection->type = Connection_Type::directed_graph;
+			if(which == 1)
+				connection->edge_index_set = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
+			
+			auto expr = static_cast<Regex_Body_AST *>(note->body)->expr;
+			connection->regex = expr;
+			
+			recursive_gather_connection_component_options(model, scope, id, expr);
+			
+			if(connection->components.empty()) {
+				expr->source_loc.print_error_header();
+				fatal_error("At least one component must be involved in a connection.");
+			}
+			
+		} else if(note->decl.string_value == "no_cycles") {
+			
+			match_declaration_base(note, {{}}, 0);
+			
+			connection->no_cycles = true;
+			
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized connection structure type '", note->decl.string_value, "'.");
 		}
 	}
 	
-	auto expr = static_cast<Regex_Body_AST *>(decl->body)->expr;
-	connection->regex = expr;
-	
-	if((connection->type == Connection_Type::all_to_all || connection->type == Connection_Type::grid1d)
-		&& expr->type != Math_Expr_Type::regex_identifier) {
-		expr->source_loc.print_error_header();
-		fatal_error("For connections of type all_to_all and grid1d, only one component should be declared ( of the form {  c[i]  } , where i is the index set).");
+	if(connection->no_cycles && connection->type != Connection_Type::directed_graph) {
+		connection->source_loc.print_error_header();
+		fatal_error("A 'no_cycles' note only makes sense for a 'directed_graph'.");
 	}
 	
-	recursive_gather_connection_component_options(model, scope, id, expr);
-	
-	if(connection->components.empty()) {
-		expr->source_loc.print_error_header();
-		fatal_error("At least one component must be involved in a connection.");
+	if(connection->type == Connection_Type::unrecognized) {
+		connection->source_loc.print_error_header();
+		fatal_error("This connection did not receive a type.");
 	}
-
+	
 	return id;
 }
 
@@ -1125,7 +1175,7 @@ process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	auto id  = model->locs.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto loc = model->locs[id];
 	
-	process_location_argument(model, scope, decl, 0, &loc->loc, true, true, &loc->par_id);
+	process_location_argument(model, scope, decl->args[0], &loc->loc, true, true, &loc->par_id);
 	
 	return id;
 }
@@ -1307,7 +1357,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		reg->is_load_arg = true;
 	}
 	
-	// TODO: Order of processing could probably be simplified when the new module load system is finished.
+
 	for(Decl_AST *child : body->child_decls) {
 		switch(child->type) {
 			
@@ -1360,8 +1410,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 				process_declaration<Reg_Type::discrete_order>(model, &module->scope, child);
 			} break;
 			
-			case Decl_Type::special_computation : {
-				process_declaration<Reg_Type::special_computation>(model, &module->scope, child);
+			case Decl_Type::external_computation : {
+				process_declaration<Reg_Type::external_computation>(model, &module->scope, child);
 			} break;
 			
 			case Decl_Type::property :
@@ -1384,23 +1434,43 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 template<> Entity_Id
 process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	
-	int which = match_declaration(decl, {
-		{Token_Type::quoted_string},
-	});
-	auto id        = model->index_sets.standard_declaration(scope, decl);
+	match_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true);
 	
-	// NOTE: the reason we do it this way is to force the higher index set to have a smaller Entity_Id. This is very useful in processing code later.
-	if(decl->body) {
-		auto body = static_cast<Decl_Body_AST *>(decl->body);
-		for(auto child : body->child_decls) {
-			if(child->type != Decl_Type::index_set) {
-				child->source_loc.print_error_header();
-				fatal_error("Only 'index_set' declarations are allowed in the body of another index_set declaration.");
+	auto id  = model->index_sets.standard_declaration(scope, decl);
+	auto index_set = model->index_sets[id];
+	
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "sub") {
+			match_declaration_base(note, {{Decl_Type::index_set}}, 0);
+			auto subto_id = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
+			auto subto = model->index_sets[subto_id];
+			if(!subto->has_been_declared) {
+				note->decl.print_error_header();
+				fatal_error("For technical reasons, an index set must be declared after an index sets it is sub-indexed to.");
 			}
-			auto sub_id = process_declaration<Reg_Type::index_set>(model, scope, child);
-			model->index_sets[sub_id]->sub_indexed_to = id;
+			index_set->sub_indexed_to = subto_id;
+			if(std::find(subto->union_of.begin(), subto->union_of.end(), id) != subto->union_of.end()) {
+				decl->source_loc.print_error_header();
+				fatal_error("An index set can not be sub-indexed to something that is a union of it.");
+			}
+		} else if(str == "union") {
+			match_declaration_base(note, {{Decl_Type::index_set, {Decl_Type::index_set, true}}}, 0);
+			
+			for(int argidx = 0; argidx < note->args.size(); ++argidx) {
+				auto union_set = resolve_argument<Reg_Type::index_set>(model, scope, note, argidx);
+				if(union_set == id || std::find(index_set->union_of.begin(), index_set->union_of.end(), union_set) != index_set->union_of.end()) {
+					decl->args[argidx]->source_loc().print_error_header();
+					fatal_error("Any index set can only appear once in a union.");
+				}
+				index_set->union_of.push_back(union_set);
+			}
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note '", str, "' for 'index_set' declaration.");
 		}
 	}
+	
 	return id;
 }
 
@@ -1451,7 +1521,7 @@ process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		Var_Location loc;
-		process_location_argument(model, scope, decl, idx, &loc);
+		process_location_argument(model, scope, decl->args[idx], &loc);
 		
 		if(loc.is_dissolved()) {
 			decl->args[idx]->chain[0].source_loc.print_error_header(Mobius_Error::model_building);
@@ -1467,7 +1537,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	match_declaration(decl,
 	{
 		{Decl_Type::compartment, {Decl_Type::index_set, true}},
-		{Decl_Type::quantity, {Decl_Type::index_set, true}},
+		{Decl_Type::quantity,    {Decl_Type::index_set, true}},
 	}, false);
 	
 	auto comp_id   = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
@@ -1480,20 +1550,9 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		auto id = resolve_argument<Reg_Type::index_set>(model, scope, decl, idx);
-		auto index_set = model->index_sets[id];
-		
-		int list_idx = idx-1;
-		
-		if(is_valid(index_set->sub_indexed_to)) {
-			if(list_idx == 0 || component->index_sets[list_idx-1] != index_set->sub_indexed_to) {
-				decl->args[idx]->source_loc().print_error_header();
-				error_print("The index set \"", index_set->name, "\" is sub-indexed to another index set \"", model->index_sets[index_set->sub_indexed_to]->name, "\", but the parent index set does not immediately precede it the 'distribute' declaration. See the declaration of the index set here:");
-				index_set->source_loc.print_error();
-				mobius_error_exit();
-			}
-		}
 		component->index_sets.push_back(id);
 	}
+	check_valid_distribution(model, component->index_sets, decl->source_loc);
 }
 
 void
@@ -1519,8 +1578,8 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	Flux_Unit_Conversion_Data data = {};
 	
-	process_location_argument(model, scope, decl, 0, &data.source);
-	process_location_argument(model, scope, decl, 1, &data.target);
+	process_location_argument(model, scope, decl->args[0], &data.source);
+	process_location_argument(model, scope, decl->args[1], &data.target);
 	data.code = static_cast<Function_Body_AST *>(decl->body)->block;
 	data.scope_id = scope->parent_id;
 	
@@ -1652,7 +1711,12 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 			}
 			std::string handle = token.string_value;
 			auto reg = (*scope)[handle];
-			if(!reg) {
+			bool found = false;
+			if(reg) {
+				auto entity = model->find_entity(reg->id);
+				if(entity->has_been_declared) found = true;
+			}
+			if(!found) {
 				token.print_error_header();
 				fatal_error("The handle '", token.string_value, "' was not declared in this scope.");
 			}
@@ -1891,10 +1955,47 @@ add_dissolved(const Var_Location &loc, Entity_Id quantity) {
 	return result;
 }
 
+void
+check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets, Source_Location &err_loc) {
+	
+	// TODO: This overlaps with functionality in index_data.h. Do we need both?
+	
+	int idx = 0;
+	for(auto id : index_sets) {
+		auto set = model->index_sets[id];
+		if(is_valid(set->sub_indexed_to)) {
+			bool found = (std::find(index_sets.begin(), index_sets.begin()+idx, set->sub_indexed_to) != index_sets.begin()+idx);
+			auto parent_set = model->index_sets[set->sub_indexed_to];
+			if(!found && !parent_set->union_of.empty()) {
+				for(auto ui_id : parent_set->union_of) {
+					found = (std::find(index_sets.begin(), index_sets.begin()+idx, ui_id) != index_sets.begin()+idx);
+					if(found) break;
+				}
+			}
+			if(!found) {
+				err_loc.print_error_header();
+				error_print("The index set \"", set->name, "\" is sub-indexed to another index set \"", model->index_sets[set->sub_indexed_to]->name, "\", but the parent index set (or a union member of it) does not precede it in this distribution. See the declaration of the index sets here:");
+				set->source_loc.print_error();
+				mobius_error_exit();
+			}
+		}
+		if(!set->union_of.empty()) {
+			for(auto ui_id : set->union_of) {
+				if(std::find(index_sets.begin(), index_sets.end(), ui_id) != index_sets.end()) {
+					err_loc.print_error_header();
+					error_print("The index set \"", set->name, "\" is a union consisting among others of the index set \"", model->index_sets[ui_id]->name, "\", but both appear in the same distribution. See the declaration of the index sets here:");
+					set->source_loc.print_error();
+					mobius_error_exit();
+				}
+			}
+		}
+		++idx;
+	}
+}
+
 // NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the scope to get the names..
 void
 error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
-	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		error_print(model->get_symbol(loc.components[idx]), idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)
@@ -1902,7 +2003,6 @@ error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 
 void
 log_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
-	auto scope = model->get_scope(loc.orig_scope_id);
 	for(int idx = 0; idx < loc.n_components; ++idx)
 		log_print(model->get_symbol(loc.components[idx]), idx == loc.n_components-1 ? "" : ".");
 	// TODO: This should also print the bracket (restriction)

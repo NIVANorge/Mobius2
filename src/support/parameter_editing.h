@@ -2,18 +2,19 @@
 #ifndef MOBIUS_PARAMETER_EDITING_H
 #define MOBIUS_PARAMETER_EDITING_H
 
-#include "common_types.h"
-
-struct Model_Data;
+#include "../model_application.h"
 
 struct Indexed_Parameter {
 	bool virt  = false;
 	Entity_Id            id =   invalid_entity_id;
-	std::vector<Index_T> indexes;
-	Index_T              mat_col = invalid_index;   // For if there is a matrix indexing over one of the index sets.
+	Indexes              indexes;
 	std::vector<u8>      locks;     //NOTE: should be std::vector<bool>, but that has weird behavior.
 	std::string          symbol;
 	std::string          expr;
+	
+	Indexed_Parameter(Mobius_Model *model) : indexes(model) {
+		locks.resize(indexes.indexes.size(), false);
+	}
 };
 
 void

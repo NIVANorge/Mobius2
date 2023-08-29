@@ -7,8 +7,10 @@ Connection_Node_Data {
 	Entity_Id id = invalid_entity_id;
 	int receives_count = 0;
 	bool visited       = false;
-	std::vector<Index_T> indexes;     // TODO: Why does this cause a crash??
+	Indexes indexes;
 	std::vector<int> points_at;
+	
+	Connection_Node_Data() : indexes() {}
 };
 
 struct
@@ -117,7 +119,7 @@ build_tree_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, st
 	auto &node = nodes[idx];
 	if(node.visited) {
 		error_loc.print_error_header();
-		fatal_error("The graph data for this directed_tree has a cycle.\n");
+		fatal_error("The graph data for this directed_graph has a cycle, but that is specified to not be allowed in the model.\n");
 	}
 	if(node.points_at.empty()) {
 		return;
@@ -142,8 +144,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	auto connection = model->connections[conn_id];
 	Math_Expr_AST *regex = connection->regex;
 	
-	if(connection->type == Connection_Type::directed_graph) {
-		log_print("Note: Checking the connection regular expression is not yet supported for general directed_graph. It is thus skipped, and you have to verify yourself that the graph data is correct.\n");
+	if(!connection->no_cycles) {
+		log_print("Note: Checking the connection regular expression is not yet supported for a directed_graph that can have cycles. It is thus skipped, and you have to verify yourself that the graph data is correct.\n");
 		return;
 	}
 	
@@ -154,7 +156,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	
 	for(auto &comp : app->connection_components[conn_id].components) {
 		auto id = comp.id;
-		node_structure.for_each(id, [id, &nodes](std::vector<Index_T> &indexes, s64 offset) {
+		node_structure.for_each(id, [id, &nodes](Indexes &indexes, s64 offset) {
 			nodes[offset].id = id;
 			nodes[offset].indexes = indexes; // TODO: Could be a bit slow if we have hundreds of nodes..
 		});
@@ -163,12 +165,12 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	for(auto &arr : app->connection_components[conn_id].arrows) {
 		s64 target_idx = -1;
 		if(is_valid(arr.target_id)) {
-			target_idx = node_structure.get_offset_alternate(arr.target_id, arr.target_indexes);
+			target_idx = node_structure.get_offset(arr.target_id, arr.target_indexes);
 			++nodes[target_idx].receives_count;
 		}
 		
 		// TODO: Check for duplicate arrows? (Are they allowed?)
-		s64 source_idx = node_structure.get_offset_alternate(arr.source_id, arr.source_indexes);
+		s64 source_idx = node_structure.get_offset(arr.source_id, arr.source_indexes);
 		nodes[source_idx].points_at.push_back(target_idx);
 	}
 	
@@ -181,10 +183,12 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		if(!is_valid(node.id))
 			continue;
 		
+		/*
 		if(connection->type == Connection_Type::directed_tree && node.points_at.size() > 1) {
 			data_loc.print_error_header();
 			fatal_error("The graph for the directed tree has a node that has more than one outgoing edge.");
 		}
+		*/
 		
 		if(node.receives_count == 0) {
 			std::vector<int> path = {};
@@ -214,8 +218,12 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 				else {
 					auto &node = nodes[nodeidx];
 					error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
-					for(auto &index : node.indexes)
-						error_print(app->get_possibly_quoted_index_name(index), " ");
+					for(auto &index : node.indexes.indexes) {
+						bool quote;
+						auto index_name = app->index_data.get_index_name(node.indexes, index, &quote);
+						maybe_quote(index_name, quote);
+						error_print(index_name, " ");
+					}
 					error_print(']');
 				}
 				if(pathidx != path.size()-1)

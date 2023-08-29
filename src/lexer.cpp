@@ -59,17 +59,17 @@ Source_Location::print_log_header() const {
 }
 
 void
-Token::print_error_location() {
+Token::print_error_location() const {
 	source_loc.print_error();
 }
 
 void
-Token::print_error_header() {
+Token::print_error_header() const {
 	source_loc.print_error_header();
 }
 
 void
-Token::print_log_header() {
+Token::print_log_header() const {
 	source_loc.print_log_header();
 }
 
@@ -260,6 +260,7 @@ Token_Stream::read_token_base(Token *token) {
 				else if(c == '>' && n == '=') token->type = Token_Type::geq;
 				else if(c == '!' && n == '=') token->type = Token_Type::neq;
 				else if(c == ':' && n == '=') token->type = Token_Type::def;
+				else if(c == '<' && n == '-') token->type = Token_Type::arr_l;
 				else if(c == '-' && n == '>') token->type = Token_Type::arr_r;
 				else if(c == '=' && n == '>') token->type = Token_Type::d_arr_r;
 				

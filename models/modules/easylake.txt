@@ -10,6 +10,7 @@ module("EasyLake", version(0, 1, 0),
 	precip : property,
 	th     : property,
 	evap_mm : property,
+	freeze_temp : property,
 	A_surf : par_real,
 	epi_target : loc
 ) {
@@ -64,14 +65,14 @@ The water balance part of the model is conceptually similar to VEMALA
 		A_0*(z_e^2/z_0)*(theta*(T_b+T_e)/4 + (z_e/z_0)*(1-theta)*(5*T_e - 2*T_b)/15)
 	}
 	
+	var(epi.freeze_temp, [deg_c], "Ice formation temperature") { 0[deg_c] }
 	
 	var(epi.water, [m 3], "Epilimnion volume")  @initial {   shape_section_V(A_surf, z_outflow, z_outflow, z_outflow-th_epi, theta)  }
 	
 	var(hyp.water, [m 3], "Hypolimnion volume") @initial {   shape_tip_V(A_surf, z_outflow, z_outflow-th_epi, theta)   }
 
 	level : property("Water level")
-	flow : property("Flow")
-	
+
 	var(epi.th, [m], "Epilimnion thickness") {
 		last(th) + (dz_epi)*time.step_length_in_seconds->>  if !epi.ind & water.temp > t_bot,
 		th_epi                                              otherwise
@@ -84,12 +85,9 @@ The water balance part of the model is conceptually similar to VEMALA
 	
 	flux(out, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
 	
-	var(epi.level, [m], "Lake water level")                {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
+	var(epi.level, [m], "Lake water level")                               {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
 	
-	var(epi.water.flow, [m 3, s-1], "Lake outflow")  {   max(0, rate_l*(level - z_outflow))   }
-
-	lake_out :
-	flux(epi.water, epi_target, [m 3, day-1], "Lake outflow flux")                   {   flow ->>  }
+	flux(epi.water, epi_target, [m 3, s-1], "Lake outflow flux")          {   max(0, rate_l*(level - z_outflow))   }
 	
 	var(epi.water.heat, [J]) @initial {
 		water_temp_to_heat(water, t_epi)

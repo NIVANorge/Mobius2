@@ -21,12 +21,12 @@ model("Wave") {
 		var(layer.amp, [Pa]) @initial { in_amp }
 		var(layer.mom, [Pa, day-1])
 		
-		l : connection("Layer connection", grid1d) { layer[li] }
+		l : connection("Layer connection") @grid1d(layer, li)
 		
 		flux(layer.mom, l, [Pa, day-2], "Momentum propagation") {
 			cc := 0.5*(c + c[below]),
 			cc^2*(amp[below] - amp)
-		}
+		} @bidirectional
 		
 		flux(layer.amp, out, [Pa, day-1], "Wave propagation") { mom }
 		

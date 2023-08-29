@@ -6,25 +6,6 @@
 #include "function_tree.h"
 #include "state_variable.h"
 
-struct
-Index_Set_Dependency {
-	Entity_Id id;
-	int order;
-	
-	Index_Set_Dependency(Entity_Id id) : id(id), order(1) {}
-	Index_Set_Dependency(Entity_Id id, int order) : id(id), order(order) {}
-};
-
-inline bool operator<(const Index_Set_Dependency &a, const Index_Set_Dependency &b) {
-	if(a.id == b.id) return a.order < b.order;
-	return a.id < b.id;
-	//if(a.order == b.order) return a.id < b.id;
-	//return a.order < b.order;
-}
-
-inline bool operator==(const Index_Set_Dependency &a, const Index_Set_Dependency &b) {
-	return (a.order == b.order) && (a.id == b.id);
-}
 
 struct
 Model_Instruction {
@@ -37,7 +18,7 @@ Model_Instruction {
 		add_discrete_flux_to_target,
 		add_to_aggregate,
 		add_to_connection_aggregate,
-		special_computation,
+		external_computation,
 	}                   type;
 	
 	Var_Id              var_id;
@@ -48,7 +29,7 @@ Model_Instruction {
 	
 	Entity_Id           solver;
 	
-	std::set<Index_Set_Dependency> index_sets;
+	std::set<Entity_Id> index_sets;
 	
 	std::set<int> depends_on_instruction; // Instructions that must be executed before this one.
 	std::set<int> instruction_is_blocking; // Instructions that can not go in the same for loop as this one.
@@ -59,14 +40,13 @@ Model_Instruction {
 	std::set<Identifier_Data> inherits_index_sets_from_state_var;
 	
 	Math_Expr_FT *code;
-	Math_Expr_FT *specific_target;
 	
 	bool visited;
 	bool temp_visited;
 	
 	std::string debug_string(Model_Application *app);
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), restriction(), solver(invalid_entity_id), type(Type::invalid), code(nullptr), specific_target(nullptr) {};
+	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), restriction(), solver(invalid_entity_id), type(Type::invalid), code(nullptr) {};
 	
 	// Having trouble getting this to work. Seems like the destructor is called too early when the Instructions vector resizes, and setting up move constructors etc. to work around that is irksome.
 	/*
@@ -82,7 +62,7 @@ Model_Instruction {
 struct
 Batch_Array {
 	std::vector<int>               instr_ids;
-	std::set<Index_Set_Dependency> index_sets;
+	std::set<Entity_Id>            index_sets;
 };
 
 struct Batch {

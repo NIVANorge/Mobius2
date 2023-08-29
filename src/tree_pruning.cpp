@@ -127,6 +127,7 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 	//auto loc = find_local_var(scope, ident->local_var);
 	
 	if(!loc) return expr;
+	if(loc->is_reassignable) return expr; // We would have to do more work if it were to be safe to prune these.
 	
 	// NOTE: the reason we can say confidently that loc->is_used = false in the cases below is that any other references to this local will undergo exactly the same optimizations.
 		
@@ -143,7 +144,6 @@ potentially_prune_local(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Loca
 			loc->is_used = false;
 			auto identcopy = copy(ident2);
 			auto result = potentially_prune_local(identcopy, res.scope);
-			//auto result = potentially_prune_local(identcopy, scope);
 			if(result != identcopy)
 				delete identcopy;
 			return result;
@@ -650,7 +650,7 @@ remove_unused_locals(Math_Expr_FT *expr) {
 		expr->exprs.erase(std::remove_if(expr->exprs.begin(), expr->exprs.end(), [block](Math_Expr_FT *arg) {
 			if(arg->expr_type == Math_Expr_Type::local_var) {
 				auto local = static_cast<Local_Var_FT *>(arg);
-				if(!local->is_used) {
+				if(!local->is_used && !local->is_reassignable) {   // Could maybe just mark it as used if it is assigned to..
 					delete local;
 					block->n_locals--;
 					return true;
@@ -668,12 +668,10 @@ remove_unused_locals(Math_Expr_FT *expr) {
 		
 		bool merged = false;
 		
-		// Hmm, this doesn't work. Why?
-		
-		// If a block doesn't have local variables, merge it into the parent block
+		// If a block doesn't have local variables and does not have an iterator tag, merge it into the parent block
 		if(isblock && arg->expr_type == Math_Expr_Type::block) {
 			auto block = static_cast<Math_Block_FT *>(arg);
-			if(block->n_locals == 0) {
+			if(block->n_locals == 0 && block->iter_tag.empty()) {
 				expr->exprs.erase(expr->exprs.begin() + idx); // remove the block itself
 				if(!arg->exprs.empty()) {
 					expr->exprs.insert(expr->exprs.begin() + idx, arg->exprs.begin(), arg->exprs.end()); // Insert the exprs of the sub block.
@@ -698,6 +696,9 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 	
 	if(expr->expr_type == Math_Expr_Type::block) {
 		auto block = static_cast<Math_Block_FT *>(expr);
+		
+		if(!block->iter_tag.empty()) return expr;
+		if(block->exprs.empty()) return expr; // TODO: Happened if the only code at all is a external_computation. Should it happen?
 		
 		// If the final value of a block is just a local var reference and that local var is declared on the line above, just replace the two last lines with the value of that local var.
 		//			We could maybe do something more sophisticated where we keep track of the number of references to a local var and substitute it if there is just one.

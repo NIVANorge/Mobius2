@@ -34,6 +34,8 @@
 			This contains just a sequence of other declarations. It can also contain one quoted string, called the docstring of the body.
 		Function body:
 			This contains a mathematical expression. This should be given separate documentation.
+		Regex body:
+			This contains a regex expression used for connection path matching. Should eventually be documented separately.
 			
 	Declarations can have 0 or more notes. A note is another declaration that can some times have arguments and a body, but not its own notes or identifier.
 	
@@ -67,6 +69,7 @@
 Argument_AST::~Argument_AST() { delete decl; }
 Function_Body_AST::~Function_Body_AST() { delete block; }
 Regex_Body_AST::~Regex_Body_AST() { delete expr; }
+Unit_Convert_AST::~Unit_Convert_AST() { delete unit; }
 
 Source_Location &
 Argument_AST::source_loc() {
@@ -160,7 +163,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 }
 
 void
-parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit = true) {
+parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit) {
 	Token next = stream->peek_token();
 	if(next.type == Token_Type::identifier) {
 		decl->decl = stream->read_token();
@@ -400,8 +403,8 @@ operator_precedence(Token_Type t) {
 	else if(c == '&') return 2000;
 	else if((c == '<') || (c == '>') || (t == Token_Type::leq) || (t == Token_Type::geq) || (c == '=') || (t == Token_Type::neq)) return 3000;
 	else if((c == '+') || (c == '-')) return 4000;
-	else if(c == '/') return 5000;
-	else if(c == '*' || c == '%') return 6000;   //not sure if * should be higher than /
+	else if(c == '*') return 5000;
+	else if(c == '/' || c == '%') return 6000;
 	else if(c == '^') return 7000;
 	
 	return 0;
@@ -493,14 +496,13 @@ potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool
 		stream->fold_minus = false;
 	}
 	
-	return unit_conv;// potentially_parse_binary_operation_rhs(stream, 0, unit_conv);
+	return unit_conv;
 }
 
 Math_Expr_AST *
 parse_math_expr(Token_Stream *stream) {
 	auto lhs = parse_primary_expr(stream);
 	return potentially_parse_binary_operation_rhs(stream, 0, lhs);
-	//return potentially_parse_unit_conversion(stream, expr);
 }
 	
 Math_Expr_AST *
@@ -520,8 +522,17 @@ parse_primary_expr(Token_Stream *stream) {
 		result = parse_math_block(stream);
 	} else if (token.type == Token_Type::identifier) {
 		Token peek = stream->peek_token(1);
-		if((char)peek.type == '(') {
+		if(token.string_value == "iterate") {
+			auto iter = new Iterate_AST();
+			result = iter;
+			iter->source_loc = token.source_loc;
+			iter->iter_tag   = peek;
+			stream->read_token();
+			stream->expect_identifier(); // This is peek
+		} else if((char)peek.type == '(') {
 			result = parse_function_call(stream);
+		} else if ((char)peek.type == ':') {
+			result = parse_math_block(stream);
 		} else {
 			auto val = new Identifier_Chain_AST();
 			result = val;
@@ -601,11 +612,17 @@ parse_potential_if_expr(Token_Stream *stream) {
 Math_Block_AST *
 parse_math_block(Token_Stream *stream) {
 	
+	auto block = new Math_Block_AST();
+	
 	Token open = stream->read_token();
+	if(open.type == Token_Type::identifier) {
+		block->iter_tag = open;
+		stream->expect_token(':');
+		open = stream->read_token();
+	}
 	if((char)open.type != '{')
 		fatal_error(Mobius_Error::internal, "Tried to parse a math block that did not open with '{'.");
 	
-	auto block = new Math_Block_AST();
 	block->source_loc = open.source_loc;
 	
 	while(true) {
@@ -626,10 +643,12 @@ parse_math_block(Token_Stream *stream) {
 		
 		token = stream->peek_token();
 		Token token2 = stream->peek_token(1);
-		if(token.type == Token_Type::identifier && token2.type == Token_Type::def) {
+		if(token.type == Token_Type::identifier && (token2.type == Token_Type::def || token2.type == Token_Type::arr_l)) {
 			auto local_var = new Local_Var_AST();
 			local_var->name = token;
 			local_var->source_loc = token.source_loc;
+			if(token2.type == Token_Type::arr_l)
+				local_var->is_reassignment = true;
 			stream->read_token(); stream->read_token();
 			auto expr = parse_math_expr(stream);
 			stream->expect_token(',');
@@ -671,7 +690,7 @@ potentially_parse_regex_quantifier(Token_Stream *stream, Math_Expr_AST *arg) {
 						quant->max_matches = stream->expect_int();
 				} else {
 					next.print_error_header();
-					fatal_error("Expected a '}' or ','.");	
+					fatal_error("Expected a '}' or a ','.");
 				}
 			} else if ((char)next.type == ',') {
 				quant->max_matches = (int)stream->expect_int();
@@ -696,20 +715,9 @@ parse_regex_identifier(Token_Stream *stream) {
 	auto ident = new Regex_Identifier_AST();
 	ident->ident = stream->read_token();
 	ident->source_loc = ident->ident.source_loc;
-	if((char)ident->ident.type == '.') {
+	if((char)ident->ident.type == '.')
 		ident->wildcard = true;
-	} else {
-		auto token = stream->peek_token();
-		if((char)token.type != '[') return ident;
-		
-		stream->read_token();
-		ident->index_set = stream->read_token();
-		if(ident->index_set.type != Token_Type::identifier) {
-			ident->index_set.print_error_header();
-			fatal_error("Expected an index set identifier.");
-		}
-		stream->expect_token(']');
-	}
+	
 	return ident;
 }
 

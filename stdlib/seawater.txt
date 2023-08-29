@@ -44,6 +44,13 @@ library("Air-sea") {
 library("Seawater") {
 
 	# TODO: Put in the references!
+	
+	fr_t_s : constant("Ice formation temperature salinity dependence", [deg_c], 0.056)
+	
+	ice_formation_temperature   : function(S : []) {
+		# Ice formation temperature as a function of salinity
+		-S*fr_t_s
+	}
 
 	seawater_dens_standard_mean : function(T : [deg_c]) {
 		a0 := 999.842594,
@@ -116,25 +123,42 @@ library("Seawater") {
 		# P      := P -> [bar]
 		# densP0/(1.0 - p/K)
 	# }
-}
+
 
 
 
 #TODO: Fix the units of this one!
-# dynamic_viscosity_water : function(T : [deg_c], S : []) {
+	dynamic_viscosity_water : function(T : [deg_c], S : []) {
 	# # Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
-	# # Returns viscosity in centipose [k Pa, s]
+	# # Returns viscosity in centipose [k Pa, s]    # TODO: Looks like it is [Pa, s] ?
 	# # It is also possible to add pressure corrections. Pressure is here assumed to be at 1atm.
-	# eta20 := 1.0020[k Pa, s]              # Dynamic viscosity at t=20, s=0
-	# tm20  := 20[deg_c]-T
-	# lograt := (1.1709*tm20 - 0.001827[deg_c-1]*tm20^2) / (T + 89.93[deg_c])
-	# eta_t := eta20*10^lograt      #Dynamic viscosity of distilled water, corrected for temperature
-	# a := lerp(T, 5[deg_c], 25[deg_c], 0.000366, 0.001403)
-	# b := lerp(T, 5[deg_c], 25[deg_c], 0.002756, 0.003416)
-	# cl := max(0, (S-0.03)/1.805)
-	# clv := water_density(T) * cl =>[]  # Volume chlorinity
-	# eta_t * (1 + a*sqrt(clv) + b*clv)
-# }
+		eta20 := 1.0020e-3[Pa, s],             # Dynamic viscosity at t=20, s=0
+		tm20  := 20[deg_c]-T,
+		lograt := (1.1709*tm20 - 0.001827[deg_c-1]*tm20^2) / (T + 89.93[deg_c]),
+		eta_t := eta20*10^lograt,   #Dynamic viscosity of distilled water, corrected for temperature
+		eta_t
+		
+		#TODO: Salinity dependence should be put back in.
+		# a := lerp(T, 5[deg_c], 25[deg_c], 0.000366, 0.001403)
+		# b := lerp(T, 5[deg_c], 25[deg_c], 0.002756, 0.003416)
+		# cl := max(0, (S-0.03)/1.805)
+		# clv := water_density(T) * cl =>[]  # Volume chlorinity
+		# eta_t * (1 + a*sqrt(clv) + b*clv)
+	}
+	
+	o2_saturation : function (T : [deg_c], S : []) {
+	# Formula from Weiss 1970 (also in Selma).
+		T_k := (T -> [K]) => [], # 
+		exp(
+			-135.90205 + (1.575701e5 / T_k) 
+			- (6.642308e7/(T_k^2))
+			+ (1.243800e10/ (T_k^3))
+			- (8.621949e11 / (T_k^4))
+			- S*(0.017674 - (10.754 / T_k) + (2140.7/(T_k^2)))
+		) => [m mol, m-3]
+	}
+	
+}
 
 # diffusivity_in_water : function(ref_diff, ref_T : [deg_c], ref_S : [], T : [deg_c], S : []) {
 	# # Diffusivity of some substance in water.

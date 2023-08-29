@@ -46,7 +46,6 @@ Argument_AST : Expr_AST {
 	~Argument_AST();
 };
 
-#if 1
 struct
 Decl_Base_AST : Expr_AST {
 	Token                        decl;
@@ -66,21 +65,6 @@ Decl_AST : Decl_Base_AST {
 	
 	virtual ~Decl_AST() { for(auto note : notes) delete note; }
 };
-#else
-
-struct
-Decl_AST : Expr_AST {
-	Token                        handle_name;
-	Source_Location              source_loc;
-	Decl_Type                    type;
-	
-	std::vector<Argument_AST *>  args;
-	std::vector<Body_AST *>      bodies;
-	
-	~Decl_AST() { for(auto arg : args) delete arg; for(auto body : bodies) delete body; }
-};
-
-#endif
 
 struct
 Decl_Body_AST : Body_AST {
@@ -125,7 +109,7 @@ Math_Expr_AST : Expr_AST {
 	Source_Location              source_loc;
 	
 	Math_Expr_AST(Math_Expr_Type type) : type(type) {};
-	~Math_Expr_AST() { for(auto expr : exprs) delete expr; }
+	virtual ~Math_Expr_AST() { for(auto expr : exprs) delete expr; }
 };
 
 // TODO: A lot of these structs are superfluous... Could have one called   Single_Token_AST, Chain_AST and Operator_AST, but just with different Math_Expr_Types
@@ -134,6 +118,8 @@ Math_Expr_AST : Expr_AST {
 
 struct
 Math_Block_AST : Math_Expr_AST {
+	Token                        iter_tag = {};
+	
 	Math_Block_AST() : Math_Expr_AST(Math_Expr_Type::block) {};
 };
 
@@ -181,16 +167,24 @@ If_Expr_AST : Math_Expr_AST {
 struct
 Local_Var_AST : Math_Expr_AST {
 	Token                        name;
+	bool                         is_reassignment = false;
 	
 	Local_Var_AST() : Math_Expr_AST(Math_Expr_Type::local_var) {};
 };
 
 struct
 Unit_Convert_AST : Math_Expr_AST {
-	Decl_AST *unit;             // TODO: free in destructor.
+	Decl_AST *unit;
 	bool auto_convert, force;
 	
 	Unit_Convert_AST() : Math_Expr_AST(Math_Expr_Type::unit_convert) {};
+	~Unit_Convert_AST();
+};
+
+struct
+Iterate_AST : Math_Expr_AST {
+	Token iter_tag;
+	Iterate_AST() : Math_Expr_AST(Math_Expr_Type::iterate) {};
 };
 
 struct
@@ -209,7 +203,6 @@ Regex_Or_Chain_AST : Math_Expr_AST {
 struct
 Regex_Identifier_AST : Math_Expr_AST {
 	Token                        ident;
-	Token                        index_set;
 	bool                         wildcard;
 	
 	Regex_Identifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_identifier), wildcard(false) {};
@@ -224,6 +217,8 @@ Regex_Quantifier_AST : Math_Expr_AST {
 
 
 
+void
+parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit = true);
 
 Decl_AST *
 parse_decl_header(Token_Stream *stream);
@@ -248,7 +243,7 @@ parse_regex_list(Token_Stream *stream, bool outer);
 
 
 inline Token *
-single_arg(Decl_AST *decl, int which) {
+single_arg(Decl_Base_AST *decl, int which) {
 	if(decl->args[which]->chain.size() != 1) {
 		decl->args[which]->chain[1].source_loc.print_error_header(Mobius_Error::internal);
 		fatal_error(Mobius_Error::internal, "Expected a single value or identifier, not a chain.");
@@ -293,7 +288,7 @@ match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::ini
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = true, int allow_body = true, bool allow_notes = false);
+	bool allow_handle = true, int allow_body = 1, bool allow_notes = false);
 	
 // TODO: Allow a version of match_declaration that operates on notes.
 

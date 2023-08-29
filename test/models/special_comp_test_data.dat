@@ -1,0 +1,17 @@
+index_set("I") [ 5 ]
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1970-01-01 ]
+
+	par_datetime("End date")
+	[ 1970-01-16 ]
+}
+
+module("Special test", version(0, 0, 1)) {
+	par_group("Pars") [ "I" ] {
+		par_real("A par")
+		[ 0 1 2 3 4 ]
+	}
+}
+

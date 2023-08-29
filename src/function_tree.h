@@ -28,6 +28,7 @@ Math_Block_FT : Math_Expr_FT {
 	s32 unique_block_id;
 	int n_locals;
 	bool is_for_loop;
+	std::string iter_tag;
 	
 	void set_id();
 	Math_Block_FT() : Math_Expr_FT(Math_Expr_Type::block), n_locals(0), is_for_loop(false) { set_id(); };
@@ -43,6 +44,7 @@ Identifier_Data {
 		in_flux     = 0x2,
 		aggregate   = 0x4,
 		conc        = 0x8,
+		result      = 0x16,
 	}                            flags;
 	Var_Loc_Restriction          restriction;
 	Entity_Id                    other_connection;
@@ -51,6 +53,10 @@ Identifier_Data {
 		Var_Id                   var_id;
 	};
 	
+	void set_flag(Flags flag)   { flags = (Flags)(flags | flag); }
+	void remove_flag(Flags flag) { flags = (Flags)(flags & ~flag); }
+	bool has_flag(Flags flag)   { return flags & flag; }
+	
 	Identifier_Data() : flags(Flags::none), other_connection(invalid_entity_id) { };
 };
 
@@ -58,6 +64,8 @@ inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 	// NOTE: The current use case for this is such that they have the same variable type
 	// NOTE: We should not have to care about other_connection here, since it is just a
 	// placeholder used until the identifier is fully resolved.
+	if(a.variable_type != b.variable_type)
+		return a.variable_type < b.variable_type;
 	if(a.variable_type == Variable_Type::parameter) {
 		if(a.par_id == b.par_id) return a.flags < b.flags;
 		return a.par_id.id < b.par_id.id;
@@ -112,35 +120,38 @@ Operator_FT : Math_Expr_FT {
 
 struct
 Local_Var_FT : Math_Expr_FT {
+	// This is the declaration of a local var
 	std::string   name;
 	s32           id;
-	bool          is_used;
+	bool          is_used          = false;
+	bool          is_reassignable  = false;
 	
-	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var), is_used(false) { }
+	Local_Var_FT() : Math_Expr_FT(Math_Expr_Type::local_var) { }
 };
 
 struct
-Special_Computation_FT : Math_Expr_FT {
+External_Computation_FT : Math_Expr_FT {
 	std::string                  function_name;
 	
-	Var_Id                       target;
 	std::vector<Identifier_Data> arguments;
 	
-	Special_Computation_FT() : Math_Expr_FT(Math_Expr_Type::special_computation) { }
+	External_Computation_FT() : Math_Expr_FT(Math_Expr_Type::external_computation) { }
 };
 
 struct
 Assignment_FT : Math_Expr_FT {
-	Var_Id var_id;
+	Var_Id        var_id;   // Used if the type is state_var_assignment or derivative_assignment
+	Local_Var_Id  local_var; // Used if the type is local_var_assignment
 	
+	Assignment_FT() : Math_Expr_FT(Math_Expr_Type::local_var_assignment) {}  // NOTE this one is only for use in copy(), should not really be used otherwise.
 	Assignment_FT(Math_Expr_Type type, Var_Id var_id) : Math_Expr_FT(type), var_id(var_id) {}
+	Assignment_FT(Local_Var_Id local_var) : Math_Expr_FT(Math_Expr_Type::local_var_assignment), local_var(local_var) {}
 };
 
 struct
-Dependency_Set {
-	std::set<Identifier_Data>  on_parameter;
-	std::set<Identifier_Data>  on_series;
-	std::set<Identifier_Data>  on_state_var;
+Iterate_FT : Math_Expr_FT {
+	s32 scope_id = -1;
+	Iterate_FT() : Math_Expr_FT(Math_Expr_Type::iterate) {}
 };
 
 
@@ -161,10 +172,11 @@ Function_Resolve_Data {
 	bool                         restrictive_lookups = false;
 	bool                         allow_in_flux       = true;
 	bool                         allow_no_override   = false;
+	bool                         allow_result        = false;
 	
 	// For unit_conversion and aggregation_weight :
-	Entity_Id                    source_compartment = invalid_entity_id;
-	Entity_Id                    target_compartment = invalid_entity_id;
+	//Entity_Id                    source_compartment = invalid_entity_id;
+	//Entity_Id                    target_compartment = invalid_entity_id;
 	
 	// The simplified option is if we are resolving a simple expression of provided symbols, not for main code, but e.g. for parameter exprs in an optimizer run.
 	bool                         simplified = false;
@@ -192,7 +204,7 @@ Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope = nullptr);
 
 void
-register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends);
+register_dependencies(Math_Expr_FT *expr, std::set<Identifier_Data> *depends);
 
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to);
@@ -257,27 +269,48 @@ is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found);
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os);
 
-template<typename T> struct
+template<typename T, typename R=int> struct
 Scope_Local_Vars {
-	s32 scope_id;
-	Scope_Local_Vars<T> *scope_up;
-	std::map<s32, T> values;
+	s32                     scope_id;
+	Scope_Local_Vars<T, R> *scope_up;
+	R                       scope_value;
+	std::map<s32, T>        values;
 };
 
-template<typename T> T
-find_local_var(Scope_Local_Vars<T> *scope, Local_Var_Id id) {
-	if(!scope)
-		fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Initial scope nullptr. Scope id: ", id.scope_id, " id: ", id.id, ".");
-	while(scope->scope_id != id.scope_id) {
-		scope = scope->scope_up;
+template<typename T, typename R> Scope_Local_Vars<T, R> *
+find_scope(Scope_Local_Vars<T, R> *scope, s32 scope_id) {
+	while(true) {
 		if(!scope)
-			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up a local variable. Scope id: ", id.scope_id, " id: ", id.id, ".");
+			fatal_error(Mobius_Error::internal, "Misordering of scopes when looking up scope id: ", scope_id, ".");
+		if(scope->scope_id == scope_id)
+			return scope;
+		scope = scope->scope_up;
 	}
-	auto find = scope->values.find(id.id);
-	if(find == scope->values.end())
+	return nullptr; // Unreachable.
+}
+
+template<typename T, typename R> T
+find_local_var(Scope_Local_Vars<T, R> *scope, Local_Var_Id id) {
+	
+	auto scope2 = find_scope(scope, id.scope_id);
+	
+	auto find = scope2->values.find(id.id);
+	if(find == scope2->values.end())
 		fatal_error(Mobius_Error::internal, "A local variable is missing from a scope.");
 	
 	return find->second;
+}
+
+template<typename T, typename R> void
+replace_local_var(Scope_Local_Vars<T, R> *scope, Local_Var_Id id, T entry) {
+	
+	auto scope2 = find_scope(scope, id.scope_id);
+	
+	auto find = scope2->values.find(id.id);
+	if(find == scope2->values.end())
+		fatal_error(Mobius_Error::internal, "A local variable is missing from a scope.");
+	
+	scope2->values[id.id] = entry;
 }
 
 

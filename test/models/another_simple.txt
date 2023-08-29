@@ -4,41 +4,33 @@ model("Another simple") {
 
 	a : compartment("A")
 	b : compartment("B")
-	q : quantity("Q")
-	r : quantity("R")
 	
-	c : compartment("C")
-	distribute(c, j)
-	j : index_set("J")
-	par_group("Ploff", c) {
-		k : par_real("K", [], 0)
-	}
+	qf : property("Q!")
 	
-	i : index_set("I")
-	distribute(b, i)
-	d : connection("Grid", grid1d) { b* }
+	i  : index_set("I")
+	j  : index_set("J")
+	k  : index_set("K") @union(i, j)
 	
+	distribute(a, k)
+	distribute(b, j)
 	
-	
-	sol : solver("Solver", "INCADascru", 0.1)
-	solve(sol, a.q, b.q)
+	module("So simple", version(2, 0, 0)) {
 
-	module("So simple", version(1, 0, 0)) {
-	
-		test : property("Target")
-		
-		var(a.q, [])   @initial { 100000 }
-		var(a.q.r, []) @initial_conc { 0.1 }
-		
-		var(a.test, []) { floor(10*0.5*(1 + sin((time.step=>[])*2*pi/150))) }
-	
-		var(b.q, []) @initial { 0 }
-		var(b.q.r, [])
-		
-		
-		flux(a.q, b.q[d.specific], [day-1], "Flixflux")
-			{ 1[day-1] }
-			@specific { test }
-	
+		par_group("The Q", a) {
+			q : par_int("Q", [], 4)
+		}
+
+		var(a.qf, [], "Q!") {
+			q
+			/*
+			i := 0,
+			r := 1,
+			p:{
+				i <- i+1,
+				{ r <- r*i, iterate p }  if i <= q,
+				r                        otherwise
+			}
+			*/
+		}
 	}
 }

@@ -25,7 +25,9 @@ model("SimplyQ") {
 	
 	# TODO: For now we have to do this since we don't have a way to override the connection regex later in easylake_simplyq_model.txt
 	epi        : compartment("Epilimnion")
-	downstream : connection("Downstream", directed_tree) { (river|epi)+ out }
+	downstream : connection("Downstream")  @directed_graph { 
+		(river|epi)+ out
+	} @no_cycles
 	
 	###### Import modules
 	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))

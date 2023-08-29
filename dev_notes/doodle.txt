@@ -1,6 +1,175 @@
 
 
 
+# In data set:
+
+# B is sub-indexed to A
+index_set("A", "B") [
+
+]
+# How to denote union (?)
+
+index_set("A") [
+	index_set("B")
+	index_set("C")
+]
+
+# Now the syntax is almost opposite to what is in the model code, which is counter-intuitive
+
+# New maybe:
+
+# Sub-indexing:
+
+index_set("A") {
+	index_set("B") [
+	]
+}
+index_set("B") @sub("A") [
+	...
+]
+# Unions:
+index_set("A") @union("B", "C") # no data.
+
+# Should we also match that in the model declaration?
+
+index_set("A") @union(b, c) #?
+
+# For sub-indexing it is not that easy, unless we make another way of forcing dependency.
+
+index_set("A") @sub(b)   # Would have to enforce that b is declared before a, but we could actually check that.
+
+
+
+
+
+
+
+
+	a : union(b, c)     # Prefer this one (?) -- oops, that clashes with a C++ reserved identifier, so that is a bit tricky.
+	a : index_set(b, c)
+	a : index_set_union(b, c) # This one then
+	
+	z : 
+
+
+	# Two-way graph edges.
+	
+connection("Fjord horizontal") [
+	r : compartment("River") [ "Subcatchment" ]
+	l : compartment("Fjord layer") [ "Basin index" ]
+	bl : compartment("Boundary layer") [ "Boundary basin index" ]
+
+	r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] <-> l["Something else"] <- bl["Ytre Oslofjord"]
+]
+
+	horz : connection("Fjord horizontal", directed_graph) { 
+		(river[ol_idx] | bnd_layer[e_idx])? layer[e_idx]+ bnd_layer?
+		# Ideally we would like to be able to specify that the river can only go to one place and that any layer<->bnd_layer connection must be bidirectional...
+	}
+
+	# How does that work? need unions..
+	basin_idx : index_set("Basin index")
+	bnd_basin_idx : index_set("Boundary basin index")
+	
+	basin_idx_union : union(basin_idx, bnd_basin_idx) {     # Figure out exact notation later
+		
+		layer_idx : index_set("Layer index")
+		e_idx     : index_set("Fjord connection index")
+	}
+	
+
+	# We want unions any way, e.g for atmosphere.
+	
+	# Allow separate meteorological data per subcatchment and/or fjord basin.
+	atm_idx : union(sc, basin_idx)
+	distribute(air, atm_idx)
+
+	# Need a few concepts:
+		# a union member index set can 'alias' as that union index set, but then may need to remap the index value.
+			# e.g. if    a : union(b, c)  and    x is an index of c, the corresponding index of a is count(b)+c
+		# Something that is sub-indexed to a union counts as being sub-indexed to each union member.
+		
+	# Need a separate type of remap for bidirectional edge indexes.
+		
+		# E.g. if    x <-> y,  and   e is a compartment of that edge, the order it 'appeared' for y may be different than for x.
+		
+		# Probably need to go into the implementation details to understand how that would work. Although it *should* not be that difficult.
+		
+		# A primary direction must still be implicit (e.g. the one given in the data set) for lookups like [below] from the point of view of the edge to make sense.
+		
+		# Maybe with the primary direction given, the index remap is not necessary. Any edge is only resolved for the edge index set of the primary (?)
+
+
+
+
+
+	
+	is_top(vert)
+	is(vert.top) # Better in a way, but doesn't parse right now.
+	is[vert.top]  # Maybe?
+	
+	# For specific, would be nice to be able to pass the specific index inline?
+	something[vert.specific{vert_target}]
+	# Would also make it possible to use .specific inside code blocks (though dependency is tricky for that).
+	
+	# Could then have
+	is[vert.specific{5}]
+	# Could also have things like
+	count(vert)
+	current(vert)
+	# [vert.top] is then [vert.specific[0]] and [vert.bottom] is [vert.specific{count(vert)-1}]
+	#etc.
+	# But not necessary yet probably.
+	
+
+
+
+
+
+	# Reverse iteration
+	
+	# Requires iterating that index set in reverse direction.
+		# Also requires the dependencies on [below] and [above] accesses in that loop to be accordingly.
+	# I.e. Index_Set_Dependency needs a 'reverse' flag, and we need that on the for loop math_expr along with codegen for it.
+	
+	
+	# This would have to be reverse-iterated
+	var(level.vertical_align, [k g, day-1], "Vertical realignment") {
+		bal := in_flux(horz, water) - out_flux(horz, water)
+		bal - vertical_align[below]
+	}
+	
+	#Maybe just do it with special_computation for now
+	special_computation("Vertical alignment", "nivafjord_compute_vertical_alignment", basin) {
+		result(level.vertical_align)
+		in_flux(horz, water)
+		out_flux(horz, water)  # Just need this one. Easier
+		# Also need in_flux and out_flux to work in special_computation
+	}
+	
+	#Need to allow this one, but it would not require reverse iteration on its own since it doesn't depend on itself.
+	flux(level.water, level.water[above], [k g, day-1], "Vertical alignment flux") {
+		-vertical_align
+	}
+	#We need to make sure that the top layer never depletes, but should be ok as long as 
+	
+
+
+
+
+	# Handling invalidation of [below] accesses for grid1d. If it just 0s the individual access, not the whole equation. Need a separate way to invalidate the entire equation when needed
+	
+	{
+		{
+			cc := 0.5*(c + c[below]),
+			cc^2*(amp[below] - amp)
+			
+		}     if exists(amp[below]),
+		0     otherwise
+	}
+	# It is actually not a problem for a flux, because it should be 0ed out any way.
+	
+
 
 	# How do we do this:
 

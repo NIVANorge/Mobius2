@@ -7,12 +7,15 @@ model("Graph test") {
 	
 	water : quantity("Water")
 	
-	ni : index_set("Node index") {
-		e : index_set("Node edges")
-	}
-	n2i : index_set("Node2 index") {
-		e2 : index_set("Node2 edges")
-	}
+	ni : index_set("Node index")
+	#e : index_set("Node edges") @sub(ni)
+	
+	n2i : index_set("Node2 index")
+	#e2 : index_set("Node2 edges") @sub(n2i)
+	
+	n : index_set("All nodes") @union(ni, n2i)
+	e : index_set("Edge index") @sub(n)
+	
 	distribute(node, ni)
 	distribute(node2, n2i)
 	
@@ -22,9 +25,8 @@ model("Graph test") {
 	sol : solver("Simply solver", "INCADascru", 0.1, 1e-3)
 	solve(sol, node.water, node2.water)
 	
-	g : connection("The graph", directed_graph) {
-		(node[e]|node2[e2])* out?
-		#node[e]*
+	g : connection("The graph") @directed_graph(e) {
+		(node|node2)* out?
 	}
 
 	module("Graph test", version(0, 0, 1)) {

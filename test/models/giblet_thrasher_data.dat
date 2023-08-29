@@ -2,6 +2,22 @@ time_step([day])
 
 index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
 
+index_set("Migration route index") @sub("Habitat index")
+
+connection("Migration route connection") {
+
+	h : compartment("Habitat") [ "Habitat index" ]
+	
+	directed_graph("Migration route index") [
+		h["Plateau"] -> h["Forest"]
+		h["Plateau"] -> h["Bogs"]
+		h["Forest"] -> h["Plateau"]
+		h["Forest"] -> h["Bogs"]
+		h["Bogs"] -> h["Forest"]
+	]
+
+}
+
 module("Giblet-Thrasher", 1, 0, 0) {
 
 	par_group("General parameters") {
@@ -18,11 +34,11 @@ module("Giblet-Thrasher", 1, 0, 0) {
 		par_real("Giblet birth rate") [ 0.2 0.1 0.3 ]
 	}
 	
-	par_group("Migration weights") [ "Habitat index" "Habitat index" ] {
+	par_group("Migration weights") [ "Habitat index" "Migration route index" ] {
 		par_real("Migration weight") [
-			0   0.5 0.5
-			0.8 0   0.2
-			0   1   0
+			0.5 0.5
+			0.8 0.2
+			1
 		]
 	}
 }

@@ -22,8 +22,8 @@ library("Thermodynamics") {
 
 library("Water utils") {
 
-	load(library("Thermodynamics"))
-	load("basic_math.txt", library("Response"))
+	#load(library("Thermodynamics"))
+	#load("basic_math.txt", library("Response"))
 	
 	rho_water  : constant("Water density",                   [k g, m-3],     999.98)
 	C_water    : constant("Specific heat capacity of water", [J, k g-1, K-1], 4186)
@@ -36,6 +36,7 @@ library("Water utils") {
 		heat / (V*rho_water*C_water) -> [deg_c]
 	}
 	
+	# This is a very simplified density function. For one that also depends on salinity see the SeaWater module.
 	water_density : function(T : [deg_c]) {
 		dtemp := (T->[K] - 277.13[K]),  # Difference between temp and reference temp.
 		rho_water*(1 - 0.5*1.6509e-5[K-2]*dtemp^2)
@@ -43,6 +44,8 @@ library("Water utils") {
 }
 
 library("Chemistry") {
+
+	# TODO etc.
 
 	avogadro         : constant("Avogadro constant", [mol -1], 6.02214076e23)
 	
@@ -53,7 +56,7 @@ library("Ions") {
 	ca_mol_wt        : constant("Ca molecular weight", [g, mol-1], 40.078)
 	ca_valency       : constant("Ca valency", [eq, mol-1], 2)
 	
-	# etc.
+	# TODO etc.
 	
 	
 	mass_to_eq : function(mass, mol_wt, valency) {

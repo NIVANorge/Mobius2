@@ -14,8 +14,8 @@ model("Wave2D") {
 	
 	solve(solver("Solver", "INCADascru", 0.1), cell.amp, cell.mom)
 	
-	v : connection("Vert", grid1d) { cell[vi] }
-	h : connection("Horz", grid1d) { cell[hi] }
+	v : connection("Vert") @grid1d(cell, vi)
+	h : connection("Horz") @grid1d(cell, hi)
 	
 	module("Wave2D", version(1, 0, 0)) {
 		
@@ -28,9 +28,9 @@ model("Wave2D") {
 		
 		c : constant("Wave speed", [day-1], 0.08)
 		
-		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {  c^2*(amp[below] - amp)  }
+		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {  c^2*(amp[below] - amp)  } @bidirectional
 		
-		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {  c^2*(amp[below] - amp)  }
+		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {  c^2*(amp[below] - amp)  } @bidirectional
 		
 		flux(cell.amp, out, [m, day-1], "Wave propagation") { mom }
 	}

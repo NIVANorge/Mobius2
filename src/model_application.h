@@ -10,7 +10,10 @@
 #include <functional>
 
 
-#define INDEX_PACKING_ALTERNATIVE 0
+typedef Index_Type<Entity_Id> Index_T;
+constexpr Index_T invalid_index = Index_T::no_index(); // TODO: Maybe we don't need the invalid_index alias..
+
+typedef Index_Tuple<Entity_Id> Indexes;
 
 
 struct Math_Expr_FT;
@@ -94,6 +97,8 @@ struct Var_Registry {
 		return id;
 	}
 	
+	Var_Id find_conc(Var_Id mass_id);
+	
 	size_t count(Var_Id::Type type) { return get_vec(type).size(); }
 	
 	struct Var_Range {
@@ -176,6 +181,14 @@ template<> struct Hash_Fun<Connection_T> {
 struct Index_Exprs;
 struct Model_Application;
 
+
+struct
+Offset_Stride_Code {
+	Math_Expr_FT *offset;
+	Math_Expr_FT *stride;
+	Math_Expr_FT *count;
+};
+
 template<typename Handle_T>
 struct Multi_Array_Structure {
 	std::vector<Entity_Id> index_sets;
@@ -184,23 +197,24 @@ struct Multi_Array_Structure {
 	std::unordered_map<Handle_T, s32, Hash_Fun<Handle_T>> handle_location;
 	s64 begin_offset;
 	
-#if INDEX_PACKING_ALTERNATIVE
-	s64 get_offset_base(Handle_T handle, Model_Application *app) {
-		return begin_offset + handle_location[handle];
-	}
-#else
 	s64 get_offset_base(Handle_T handle, Model_Application *app) {
 		return begin_offset + handle_location[handle]*instance_count(app);
 	}
-#endif
 	
 	s64 get_stride(Handle_T handle);
-	
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app);
-	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app);
-	Math_Expr_FT *get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out);
 	s64 instance_count(Model_Application *app);
+	
+	// Hmm, we could just store an app pointer here too to avoid passing it all the time.
+	
+	void check_index_bounds(Model_Application *app, Handle_T, Entity_Id index_set, Index_T index);
+	s64 get_offset(Handle_T, Indexes &indexes, Model_Application *app);
+	Math_Expr_FT *get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out);
+	
+	static const std::string &
+	get_handle_name(Model_Application *app, Handle_T handle);
+	
+	Offset_Stride_Code
+	get_special_offset_stride_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app);
 	
 	s64 total_count(Model_Application *app) {
 		return (s64)handles.size() * instance_count(app);
@@ -232,9 +246,7 @@ struct Storage_Structure {
 	s64 get_offset_base(Handle_T handle);
 	s64 get_stride(Handle_T handle);
 	s64 instance_count(Handle_T handle);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes);
-	s64 get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col);
-	s64 get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes);
+	s64 get_offset(Handle_T handle, Indexes &indexes);
 	
 	const std::vector<Entity_Id> &
 	get_index_sets(Handle_T handle);
@@ -242,11 +254,11 @@ struct Storage_Structure {
 	Math_Expr_FT *
 	get_offset_code(Handle_T handle, Index_Exprs &indexes);
 	
-	void
-	for_each(Handle_T, const std::function<void(std::vector<Index_T> &, s64)>&);
+	Offset_Stride_Code
+	get_special_offset_stride_code(Handle_T handle, Index_Exprs &index_exprs);
 	
-	const std::string &
-	get_handle_name(Handle_T handle);
+	void
+	for_each(Handle_T, const std::function<void(Indexes &, s64)>&);
 	
 	Storage_Structure(Model_Application *parent) : parent(parent), has_been_set_up(false), total_count(0) {}
 };
@@ -319,9 +331,6 @@ struct Model_Data {
 
 struct
 Run_Batch {
-	//Solver_Function *solver_fun;
-	//double           h;
-	//double           hmin;
 	Entity_Id        solver_id;
 	s64              first_ode_offset;
 	int              n_ode;
@@ -344,26 +353,29 @@ Series_Metadata {
 
 struct
 Sub_Indexed_Component {
-	Entity_Id id;
+	Entity_Id id = invalid_entity_id;
 	std::vector<Entity_Id> index_sets;
-	Entity_Id edge_index_set;
 	
-	bool can_be_located_source;           // if this can be a source of the connection to a located target (not 'out').
-	int total_as_source;                  // How many of this type of component appears as a source (both to a located or 'out').
-	std::set<Entity_Id> possible_sources; // what sources can have this as a target.
-	std::set<Entity_Id> possible_targets; // what targets can have this as a source. (both to a located or 'out').
-	int max_target_indexes;               // max indexes of a target that has this as the source
+	bool can_be_located_source = false;       // if this can be a source of the connection to a located target (not 'out').
+	int total_as_source = 0;                  // How many instances of this type of node appears as a source (both to a located or 'out').
+	int max_outgoing_per_node = 0;            // How many outgoing arrows there could be per node.
+	std::set<Entity_Id> possible_sources;     // what sources can have this as a target.
+	std::set<Entity_Id> possible_targets;     // what targets can have this as a source. (both to a located or 'out' - the latter are recorded as invalid_entity_id).
+	int max_target_indexes = 0;               // max node indexes of a target that has this as the source
+	bool is_edge_indexed = false;
 	
-	Sub_Indexed_Component() : id(invalid_entity_id), edge_index_set(invalid_entity_id), can_be_located_source(false), max_target_indexes(0), total_as_source(0) {}
+	Sub_Indexed_Component() {}
 };
 
 struct
 Connection_Arrow {
 	Entity_Id source_id                    = invalid_entity_id;
 	Entity_Id target_id                    = invalid_entity_id;
-	std::vector<Index_T> source_indexes;
-	std::vector<Index_T> target_indexes;
+	Indexes   source_indexes;
+	Indexes   target_indexes;
 	Index_T   edge_index                   = invalid_index;
+	
+	Connection_Arrow() : source_indexes(), target_indexes() {}
 };
 
 struct
@@ -399,20 +411,10 @@ Model_Application {
 	
 	Mobius_Model                                            *model;
 	Model_Data                                               data;
-	
-private :
-	//std::vector<Index_T>                                     index_counts;
-	std::vector<std::vector<Index_T>>                        index_counts;        // TODO: could we find a way of getting rid of this and just using the index_counts structure in the Model_Data ?
-	std::vector<std::unordered_map<std::string, Index_T>>    index_names_map;
-	std::vector<std::vector<std::string>>                    index_names;
-public :
-	
+
 	Unit_Data                                                time_step_unit;
 	Time_Step_Size                                           time_step_size;
 	
-	//Var_Registry                                             state_vars;
-	//Var_Registry                                             series;
-	//Var_Registry                                             additional_series;
 	Var_Registry                                             vars;
 	
 	Storage_Structure<Entity_Id>                             parameter_structure;
@@ -429,6 +431,8 @@ public :
 		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
 	}
 	
+	Index_Data<Entity_Id>                                    index_data;
+	
 	Data_Set                                                *data_set;
 	
 	All_Connection_Components                                connection_components;
@@ -441,20 +445,14 @@ public :
 	bool                                                     is_compiled = false;
 	std::vector<Entity_Id>                                   baked_parameters;
 	
-	void        set_indexes(Entity_Id index_set, std::vector<std::string> &indexes, Index_T parent_idx = invalid_index);
-	void        set_index_count(Entity_Id index_set, int count, Index_T parent_idx = invalid_index);
-	Index_T     get_max_index_count(Entity_Id index_set);
-	Index_T     get_index_count(Entity_Id index_set, std::vector<Index_T> &indexes);
-	Index_T     get_index_count_alternate(Entity_Id index_set, std::vector<Index_T> &indexes);
-	Index_T     get_index(Entity_Id index_set, const std::string &name);
-	std::string get_index_name(Index_T index);
-	std::string get_possibly_quoted_index_name(Index_T index);
+	
 	bool        all_indexes_are_set();
-	s64         active_instance_count(const std::vector<Entity_Id> &index_sets); // TODO: consider putting this on the Storage_Structure instead.
-	bool        is_in_bounds(std::vector<Index_T> &indexes); // same?
+	
+	Math_Expr_FT *
+	get_index_count_code(Entity_Id index_set, Index_Exprs &indexes);
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
-	Entity_Id              get_single_connection_index_set(Entity_Id conn_id);
+	//Entity_Id              get_single_connection_index_set(Entity_Id conn_id);
 	
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set();
@@ -493,242 +491,41 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location source_lo
 
 struct
 Index_Exprs {
-	std::vector<Math_Expr_FT *> indexes;
-	Math_Expr_FT               *mat_col;
-	Entity_Id                   mat_index_set;
-	
-	Index_Exprs(Mobius_Model *model) : mat_col(nullptr), indexes(model->index_sets.count(), nullptr), mat_index_set(invalid_entity_id) { }
+	Index_Exprs(Mobius_Model *model) : indexes(model->index_sets.count(), nullptr) { }
 	~Index_Exprs() { clean(); }
 	
-	void clean() {
-		for(int idx = 0; idx < indexes.size(); ++idx) {
-			delete indexes[idx];
-			indexes[idx] = nullptr;
-		}
-		delete mat_col;
-		mat_col = nullptr;
-		mat_index_set = invalid_entity_id;
-	}
+	void clean();
+	void copy(Index_Exprs &other);
+	Math_Expr_FT *get_index(Model_Application *app, Entity_Id index_set);
+	void set_index(Entity_Id index_set, Math_Expr_FT *index);
 	
-	void copy(Index_Exprs &other) {
-		clean();
-		indexes = other.indexes;
-		for(auto &idx : indexes) {
-			if(idx) idx = ::copy(idx);
-		}
-		if(other.mat_col)
-			mat_col = ::copy(other.mat_col);
-		mat_index_set = other.mat_index_set;
-	}
+private :
+	std::vector<Math_Expr_FT *> indexes;
 };
 
-inline void
-check_index_bounds(Model_Application *app, Entity_Id index_set, Index_T index) {
-	//TODO: This makes sure we are not out of bounds of the data, but it could still be
-	//incorrect for sub-indexed things.
-	if(index_set != index.index_set ||
-		index.index < 0 || index.index >= app->get_max_index_count(index_set).index)
-			fatal_error(Mobius_Error::internal, "Mis-indexing in one of the get_offset functions.");
-}
-
-#if INDEX_PACKING_ALTERNATIVE
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
-	return (s64)handles.size();
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
-	s64 offset = 0;
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		offset += (s64)indexes[index_set.id].index;
-	}
-	return (s64)offset*handles.size() + get_offset_base(handle, app);
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app) {
-	// For if one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
-	s64 offset = 0;
-	bool once = false;
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		s64 index = (s64)indexes[index_set.id].index;
-		if(index_set == mat_col.index_set) {
-			if(once)
-				index = (s64)mat_col.index;
-			once = true;
-		}
-		offset += index;
-	}
-	return (s64)offset*handles.size() + get_offset_base(handle, app);
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
-	if(indexes.size() != index_sets.size())
-		fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
-	s64 offset = 0;
-	int idx = 0;
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[idx]);
-		auto &index = indexes[idx];
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		offset += (s64)index.index;
-		++idx;
-	}
-	return (s64)offset*handles.size() + get_offset_base(handle, app);
-}
-
-template<typename Handle_T> Math_Expr_FT *
-Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {
-	
-	auto &indexes = index_exprs.indexes;
-	Math_Expr_FT *result;
-	if(index_sets.empty()) result = make_literal((s64)0);
-	int sz = index_sets.size();
-	for(int idx = 0; idx < sz; ++idx) {
-		auto &index_set = index_sets[idx];
-		Math_Expr_FT *index = indexes[index_set.id];
-		if(!index) {
-			err_idx_set_out = index_set;
-			return nullptr;
-		}
-		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
-		if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
-			index = index_exprs.mat_col;
-		
-		index = copy(index);
-		
-		if(idx == 0)
-			result = index;
-		else {
-			result = make_binop('*', result, make_literal((s64)app->get_max_index_count(index_set).index));
-			result = make_binop('+', result, index);
-		}
-	}
-	result = make_binop('*', result, make_literal((s64)handles.size()));
-	result = make_binop('+', result, make_literal((s64)(begin_offset + handle_location[handle])));
-	return result;
-}
-
-#else // INDEX_PACKING_ALTERNATIVE
-	
-// Theoretically this version of the code is more vectorizable, but we should probably also align the memory and explicitly add vectorization passes in llvm
-//  (not seeing much of a difference in run speed at the moment)
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
-	return 1;
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
-	s64 offset = handle_location[handle];
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		offset += (s64)indexes[index_set.id].index;
-	}
-	return offset + begin_offset;
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col, Model_Application *app) {
-	// If one of the index sets appears doubly, the 'mat_col' is the index of the second occurrence of that index set
-	s64 offset = handle_location[handle];
-	bool once = false;
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[index_set.id]);
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		s64 index = (s64)indexes[index_set.id].index;
-		if(index_set == mat_col.index_set) {
-			if(once)
-				index = (s64)mat_col.index;
-			once = true;
-		}
-		offset += index;
-	}
-	return offset + begin_offset;
-}
-
-template<typename Handle_T> s64
-Multi_Array_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes, Model_Application *app) {
-	if(indexes.size() != index_sets.size())
-		fatal_error(Mobius_Error::internal, "Got wrong amount of indexes to get_offset_alternate().");
-	s64 offset = handle_location[handle];
-	int idx = 0;
-	for(auto &index_set : index_sets) {
-		check_index_bounds(app, index_set, indexes[idx]);
-		auto &index = indexes[idx];
-		offset *= (s64)app->get_max_index_count(index_set).index;
-		offset += (s64)index.index;
-		++idx;
-	}
-	return offset + begin_offset;
-}
-
-template<typename Handle_T> Math_Expr_FT *
-Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index_exprs, Model_Application *app, Entity_Id &err_idx_set_out) {
-	
-	auto &indexes = index_exprs.indexes;
-	Math_Expr_FT *result = make_literal((s64)handle_location[handle]);
-	int sz = index_sets.size();
-	for(int idx = 0; idx < index_sets.size(); ++idx) {
-		auto &index_set = index_sets[idx];
-		Math_Expr_FT *index = indexes[index_set.id];
-		if(!index) {
-			err_idx_set_out = index_set;
-			return nullptr;
-		}
-		// If the two last index sets are the same, and a matrix column was provided, use that for indexing the second instance.
-		if(index_exprs.mat_col && idx == sz-1 && sz >= 2 && index_sets[sz-2]==index_sets[sz-1])
-			index = index_exprs.mat_col;
-		
-		index = copy(index);
-		
-		result = make_binop('*', result, make_literal((s64)app->get_max_index_count(index_set).index));
-		result = make_binop('+', result, index);
-	}
-	result = make_binop('+', result, make_literal((s64)begin_offset));
-	return result;
-}
-
-#endif
+#include "indexing.h"
 
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::instance_count(Model_Application *app) {
 	s64 count = 1;
 	for(auto &index_set : index_sets)
-		count *= (s64)app->get_max_index_count(index_set).index;
+		count *= (s64)app->index_data.get_max_count(index_set).index;
 	return count;
 }
 
 template<> inline const std::string&
-Storage_Structure<Entity_Id>::get_handle_name(Entity_Id id) {
-	return (*parent->model->registry(id.reg_type))[id]->name;
+Multi_Array_Structure<Entity_Id>::get_handle_name(Model_Application *app, Entity_Id id) {
+	return app->model->find_entity(id)->name;
 }
 
 template<> inline const std::string&
-Storage_Structure<Var_Id>::get_handle_name(Var_Id var_id) {
-	return parent->vars[var_id]->name;
-	/*
-	if(var_id.type == Var_Id::Type::state_var)
-		return parent->state_vars[var_id]->name;
-	else if(var_id.type == Var_Id::Type::series)
-		return parent->series[var_id]->name;
-	else
-		return parent->additional_series[var_id]->name;
-	*/
+Multi_Array_Structure<Var_Id>::get_handle_name(Model_Application *app, Var_Id var_id) {
+	return app->vars[var_id]->name;
 }
 
 template<> inline const std::string &
-Storage_Structure<Connection_T>::get_handle_name(Connection_T nb) {
-	return parent->model->connections[nb.connection]->name;
+Multi_Array_Structure<Connection_T>::get_handle_name(Model_Application *app, Connection_T nb) {
+	return app->model->connections[nb.connection]->name;
 }
 
 template<typename Handle_T> const std::vector<Entity_Id> &
@@ -756,21 +553,9 @@ Storage_Structure<Handle_T>::instance_count(Handle_T handle) {
 }
 
 template<typename Handle_T> s64
-Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes) {
+Storage_Structure<Handle_T>::get_offset(Handle_T handle, Indexes &indexes) {
 	auto array_idx = handle_is_in_array.at(handle);
 	return structure[array_idx].get_offset(handle, indexes, parent);
-}
-
-template<typename Handle_T> s64
-Storage_Structure<Handle_T>::get_offset(Handle_T handle, std::vector<Index_T> &indexes, Index_T mat_col) {
-	auto array_idx = handle_is_in_array.at(handle);
-	return structure[array_idx].get_offset(handle, indexes, mat_col, parent);
-}
-
-template<typename Handle_T> s64
-Storage_Structure<Handle_T>::get_offset_alternate(Handle_T handle, std::vector<Index_T> &indexes) {
-	auto array_idx = handle_is_in_array.at(handle);
-	return structure[array_idx].get_offset_alternate(handle, indexes, parent);
 }
 	
 template<typename Handle_T> Math_Expr_FT *
@@ -779,9 +564,16 @@ Storage_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &index
 	Entity_Id err_idx_set;
 	auto code = structure[array_idx].get_offset_code(handle, indexes, parent, err_idx_set);
 	if(!code) {
-		fatal_error(Mobius_Error::internal, "A call to get_offset_code() somehow referenced an index that was not properly initialized. The name of the referenced variable was \"", get_handle_name(handle), "\". The index set was \"", parent->model->index_sets[err_idx_set]->name, "\".");
+		auto handle_name = Multi_Array_Structure<Handle_T>::get_handle_name(parent, handle);
+		fatal_error(Mobius_Error::internal, "A call to get_offset_code() somehow referenced an index that was not properly initialized. The name of the referenced variable was \"", handle_name , "\". The index set was \"", parent->model->index_sets[err_idx_set]->name, "\".");
 	}
 	return code;
+}
+
+template<typename Handle_T> Offset_Stride_Code
+Storage_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle, Index_Exprs &indexes) {
+	auto array_idx = handle_is_in_array.at(handle);
+	return structure[array_idx].get_special_offset_stride_code(handle, indexes, parent);
 }
 
 template<typename Handle_T> void
@@ -808,50 +600,16 @@ Storage_Structure<Handle_T>::set_up(std::vector<Multi_Array_Structure<Handle_T>>
 }
 
 template<typename Handle_T> void
-for_each_helper(Storage_Structure<Handle_T> *self, Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff, std::vector<Index_T> &indexes, int level) {
-	Entity_Id index_set = indexes[level].index_set;
-	
-	if(level == indexes.size()-1) {
-		for(int idx = 0; idx < self->parent->get_index_count_alternate(index_set, indexes).index; ++idx) {
-			indexes[level].index = idx;
-			s64 offset = self->get_offset_alternate(handle, indexes);
-			do_stuff(indexes, offset);
-		}
-	} else {
-		for(int idx = 0; idx < self->parent->get_index_count_alternate(index_set, indexes).index; ++idx) {
-			indexes[level].index = idx;
-			for_each_helper(self, handle, do_stuff, indexes, level+1);
-		}
-	}
-}
-
-template<typename Handle_T> void
-Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(std::vector<Index_T> &, s64)> &do_stuff) {
+Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(Indexes &, s64)> &do_stuff) {
 	auto array_idx   = handle_is_in_array.at(handle);
 	auto &index_sets = structure[array_idx].index_sets;
-	std::vector<Index_T> indexes;
-	if(index_sets.empty()) {
-		s64 offset = get_offset_alternate(handle, indexes);
+	
+	parent->index_data.for_each(index_sets, [&](auto &indexes) {
+		s64 offset = get_offset(handle, indexes);
 		do_stuff(indexes, offset);
-		return;
-	}
-	indexes.resize(index_sets.size());
-	for(int level = 0; level < index_sets.size(); ++level) indexes[level] = Index_T { index_sets[level], 0 };
-	for_each_helper(this, handle, do_stuff, indexes, 0);
+	});
 }
 
-/*
-inline Entity_Id
-get_flux_decl_id(Model_Application *app, State_Var *var) {
-	if(!var->is_valid() || !var->is_flux()) return invalid_entity_id;
-	if(var->type == State_Var::Type::declared)
-		return as<State_Var::Type::declared>(var)->decl_id;
-	else if(var->type == State_Var::Type::dissolved_flux)
-		return get_flux_decl_id(app, app->state_vars[as<State_Var::Type::dissolved_flux>(var)->flux_of_medium]);
-	else if(var->type == State_Var::Type::regular_aggregate)
-		return get_flux_decl_id(app, app->state_vars[as<State_Var::Type::regular_aggregate>(var)->agg_of]);
-	return invalid_entity_id;
-}
-*/
+
 
 #endif // MOBIUS_MODEL_APPLICATION_H

@@ -6,18 +6,22 @@ index_set("Landscape units") [ "Forest" "Bog" ]
 
 index_set("Subcatchment") [ "Inlet" ]
 
-connection("Downhill") [
+connection("Downhill") {
 	s : compartment("Soil") [ "Landscape units" ]
 	r : compartment("River") [ ]
+	
+	directed_graph [
+		s[ "Forest" ] -> s[ "Bog" ] -> r[ ]
+	]
+}
 
-	s[ "Forest" ] -> s[ "Bog" ] -> r[ ]
-]
-
-connection("Downstream") [
+connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
 	
-	r["Inlet"] -> out
-]
+	directed_graph [
+		r[ "Inlet" ] -> out
+	]
+}
 
 series("langtjern.xlsx")
 
@@ -40,7 +44,7 @@ par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
 	]
 }
 
-module("HBVSnow", 1, 0, 0) {
+module("HBVSnow", version(1, 0, 0)) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
 		[ 2.91657187378336 ]
@@ -62,7 +66,7 @@ module("HBVSnow", 1, 0, 0) {
 	}
 }
 
-module("SimplyQ land", 0, 5, 0) {
+module("SimplyQ land", version(0, 5, 0)) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
 		[ 0.05 ]
@@ -73,7 +77,7 @@ module("SimplyQ land", 0, 5, 0) {
 
 	par_group("Hydrology land") [ "Landscape units" ] {
 		par_real("Field capacity")
-		[ 30 50 ]
+		[ 30 200 ]
 
 		par_real("Soil water time constant")
 		[ 1 2 ]
@@ -85,7 +89,7 @@ module("SimplyQ land", 0, 5, 0) {
 	}
 }
 
-module("SimplyQ river", 0, 0, 1) {
+module("SimplyQ river", version(0, 0, 1)) {
 	par_group("Reach parameters") {
 		par_real("Reach slope")
 		[ 0.014 ]
@@ -101,7 +105,7 @@ module("SimplyQ river", 0, 0, 1) {
 	}
 }
 
-module("Degree-day PET", 1, 0, 0) {
+module("Degree-day PET", version(1, 0, 0)) {
 	par_group("Potential evapotranspiration") {
 		par_real("Deegree-day factor for evapotranspiration")
 		[ 0.12 ]
@@ -111,10 +115,10 @@ module("Degree-day PET", 1, 0, 0) {
 	}
 }
 
-module("Priestley-Taylor PET", 0, 0, 16) {
+module("Priestley-Taylor PET", version(0, 0, 16)) {
 }
 
-module("Simply soil temperature", 0, 1, 0) {
+module("Simply soil temperature", version(0, 1, 0)) {
 	par_group("Soil temperature general") {
 		par_real("Snow depth / soil temperature factor")
 		[ -0.2 ]
@@ -129,7 +133,7 @@ module("Simply soil temperature", 0, 1, 0) {
 	}
 }
 
-module("SimplyC", 1, 0, 1) {
+module("SimplyC", version(1, 0, 1)) {
 	par_group("DOC general") {
 		par_real("Baseline soil DOC dissolution rate")
 		[ 10 ]
@@ -152,7 +156,7 @@ module("SimplyC", 1, 0, 1) {
 
 	par_group("DOC land") [ "Landscape units" ] {
 		par_real("Baseline soil DOC concentration")
-		[ 8 14 ]
+		[ 8 16 ]
 	}
 
 	par_group("DOC deep soil") {
@@ -161,7 +165,6 @@ module("SimplyC", 1, 0, 1) {
 
 		par_real("Groundwater DOC concentration")
 		[ 3 ]
-
 	}
 }
 

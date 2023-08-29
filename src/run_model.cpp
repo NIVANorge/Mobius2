@@ -27,16 +27,19 @@ check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 	for(auto &array : structure.structure) {
 		for(Var_Id var_id : array.handles) {
 			bool error = false;
-			structure.for_each(var_id, [var_id, data, run_state, &error](std::vector<Index_T> &idxs, s64 offset) {
+			structure.for_each(var_id, [var_id, data, run_state, &error](Indexes &idxs, s64 offset) {
 				double val = run_state->state_vars[offset];
 				if(!std::isfinite(val)) {
 					// TODO: Also print indexes.
 					begin_error(Mobius_Error::numerical);
 					error_print("Got a non-finite value for \"", data->app->vars[var_id]->name, "\" at time step ", run_state->date_time.step, ". Indexes: [");
 					int i = 0;
-					for(auto idx : idxs) {
-						error_print(data->app->get_possibly_quoted_index_name(idx));
-						if(i < idxs.size()-1) error_print(" ");
+					for(auto idx : idxs.indexes) {
+						bool quote;
+						auto index_name = data->app->index_data.get_index_name(idxs, idx, &quote);
+						maybe_quote(index_name, quote);
+						error_print(index_name);
+						if(i < idxs.indexes.size()-1) error_print(" ");
 						++i;
 					}
 					error_print("]\n");
