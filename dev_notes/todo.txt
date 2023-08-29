@@ -4,10 +4,8 @@
 	
 	
 		Fix index set selection in MobiView.
-		Better tests for bidirectional fluxes before codegen.
-		Disallow duplicate appearances of same index set in distributions.
-		Remove the entire system of indexing over higher-ordered index sets.
-
+		
+		
 		Finish the new formulation of special_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
 			
@@ -43,9 +41,10 @@
 				Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
 				This is not solvable without remapping the indexes (or asking the user to reorder them).
 				Could detect if this happens and give an error, but that alone is a bit of work.
-					But that is needed if it happens in a graph with cycles.
+					We should only allow it if no_cycles is specified.
+					If no_cycles is specified, we should demand that the indexes in the data set are in the order of appearance.
 		
-			Component index sets should probably be declared in the connection declaration in the model. It is too integral to how to model works to leave it to data set.
+			Component index sets should probably be declared in the connection declaration in the model (also for directed_graph). It is too integral to how to model works to leave it to data set.
 			
 			Have to figure out what something like
 					flux(blabla, something[vert.below], ...)				
@@ -55,23 +54,16 @@
 					flux(blabla, any[vert.below]
 			and disallow having specific location there. And this is what we do for all 'below' connection targets.
 				Could later extend it to have different code depending on the target (for graph and directed_tree).
-			
-			Make 'pair' connection (?).
-				Allows avoiding things like having an outlet index set for river->fjord   or e.g.  sewage->river.
-					Could just use a directed tree for this though..
-			
-			graph and tree
-				One should need to explicitly allow isolated nodes using something like    a | (....)
-			
+		
 			graph connections
+				
+				One should need to explicitly allow isolated nodes using something like    a | (....)
 				
 				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc. and that "indexing below" is correct.
 					Alternatively do unit conversions, but how?
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
-
-			all_to_all:
-				
-				Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
+					
+				Finish regex check in the general case
 
 			grid1d:	
 				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
@@ -88,30 +80,21 @@
 			Dissolved fluxes -
 				make dissolvedes of negatives work for other types (graph (maybe) regular fluxes (maybe), but probably not directed tree).
 			
+			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
+	
 	
 	*** Intermediate-pri ***
 		
 		Union index sets
 			say     a : index_set("A") @union(b, c)
 			We probably have to disallow dependency on a if you have dependency on both b and c, or it is ambiguous.
+				Already fixed for direct dependencies (parameters, index sets)
 				On what level do we check this? Must be during the resolution loop?
-			A Var_Location or a par_group should not be able to both depend on a union and a member of that union
+			A Var_Location hould not be able to both depend on a union and a member of that union
 				This is currently checked per component basis, but not combined. Should be done in model_composition
-			Edge index sets should not be union index sets.
-				Right now implicit because of sub-indexing restriction of union index sets.
 			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
 	
 		Ignore certain log_print if not in "developer mode" (should be configured in config.txt)
-	
-		In NIVAFjord we get too many index sets for MobiView2 to handle.
-			Either organize edge index sets differently.
-			Or rethink the entire system
-				Hide index sets that are not active, for instance (and place the other selectors nicely).
-			Or make a few more, but will not solve problem long term (?)
-			Or select edge by selecting what it is pointing at (?) - doesn't work if it is pointing at something indexed the same way (in that case would need something like the all_to_all).
-			Do the same as all_to_all. - Just plot all of them. (Doesn't solve for parameter selection).
-			Make a different way to organize sub-indexed index sets (could also solve other problems).
-	
 	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.

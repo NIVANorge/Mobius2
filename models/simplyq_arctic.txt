@@ -21,10 +21,10 @@ model("SimplyArctic") {
 	ddf    : property("Degree-day factor")
     thaw_depth : property("Soil thaw depth")
 	
-	downhill   : connection("Downhill throughflow") @directed_graph { soil+ river }
-    #downglacier : connection("Down glacier flow", directed_tree) { glacier+ river}
-    #downslope  : connection("Downslope quickflow", directed_tree)  { quick+ river }
-	downstream : connection("Downstream") @directed_graph { river+ out }
+	downhill   : connection("Downhill throughflow") @directed_graph { soil+ river } @no_cycles
+    #downglacier : connection("Down glacier flow") @directed_graph { glacier+ river} @no_cycles
+    #downslope  : connection("Downslope quickflow") @directed_graph { quick+ river } @no_cycles
+	downstream : connection("Downstream") @directed_graph { river+ out } @no_cycles
 	
 	load("modules/pet.txt", module("Degree-day PET", air, soil, pet, temp))
 	

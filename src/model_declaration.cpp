@@ -1105,13 +1105,14 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 	auto id         = model->connections.standard_declaration(scope, decl);
 	auto connection = model->connections[id];
 	
-	if(decl->notes.size() != 1) {
-		decl->source_loc.print_error_header();
-		fatal_error("Expected exactly one note for 'connection' declaration");
-	}
 	
 	for(auto note : decl->notes) {
 		if(note->decl.string_value == "grid1d") {
+			
+			if(connection->type != Connection_Type::unrecognized) {
+				note->decl.print_error_header();
+				fatal_error("This connection received a type twice.");
+			}
 			
 			match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::index_set}}, 0);
 			
@@ -1120,6 +1121,11 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 			connection->components.push_back(resolve_argument<Reg_Type::component>(model, scope, note, 0));
 			
 		} else if(note->decl.string_value == "directed_graph") {
+			
+			if(connection->type != Connection_Type::unrecognized) {
+				note->decl.print_error_header();
+				fatal_error("This connection received a type twice.");
+			}
 			
 			int which = match_declaration_base(note, {{}, {Decl_Type::index_set}}, -1);
 			
@@ -1137,10 +1143,21 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 				fatal_error("At least one component must be involved in a connection.");
 			}
 			
+		} else if(note->decl.string_value == "no_cycles") {
+			
+			match_declaration_base(note, {{}}, 0);
+			
+			connection->no_cycles = true;
+			
 		} else {
 			note->decl.print_error_header();
 			fatal_error("Unrecognized connection structure type '", note->decl.string_value, "'.");
 		}
+	}
+	
+	if(connection->no_cycles && connection->type != Connection_Type::directed_graph) {
+		connection->source_loc.print_error_header();
+		fatal_error("A 'no_cycles' note only makes sense for a 'directed_graph'.");
 	}
 	
 	if(connection->type == Connection_Type::unrecognized) {

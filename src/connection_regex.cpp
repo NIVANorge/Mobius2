@@ -119,7 +119,7 @@ build_tree_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, st
 	auto &node = nodes[idx];
 	if(node.visited) {
 		error_loc.print_error_header();
-		fatal_error("The graph data for this directed_tree has a cycle.\n");
+		fatal_error("The graph data for this directed_graph has a cycle, but that is specified to not be allowed in the model.\n");
 	}
 	if(node.points_at.empty()) {
 		return;
@@ -144,8 +144,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	auto connection = model->connections[conn_id];
 	Math_Expr_AST *regex = connection->regex;
 	
-	if(connection->type == Connection_Type::directed_graph) {
-		log_print("Note: Checking the connection regular expression is not yet supported for general directed_graph. It is thus skipped, and you have to verify yourself that the graph data is correct.\n");
+	if(!connection->no_cycles) {
+		log_print("Note: Checking the connection regular expression is not yet supported for a directed_graph that can have cycles. It is thus skipped, and you have to verify yourself that the graph data is correct.\n");
 		return;
 	}
 	

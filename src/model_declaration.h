@@ -285,6 +285,8 @@ Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
 	Entity_Id node_index_set = invalid_entity_id;  // Only for grid1d. For directed graph, the nodes could be indexed variously
 	Entity_Id edge_index_set = invalid_entity_id;  // Only for directed graph for now.
 	
+	bool no_cycles = false;
+	
 	std::vector<Entity_Id> components;
 	Math_Expr_AST *regex = nullptr;
 	

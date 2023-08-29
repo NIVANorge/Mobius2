@@ -58,11 +58,12 @@ model("NIVAFjord-SimplyQ") {
 	downstream : connection("Downstream") @directed_graph { 
 		river+
 		#(river|epi)+
-	}
+	} @no_cycles
 	
 	rho_water : constant("Water density", [k g, m-3], 1000) #TODO: allow loading library into model scope.
 	unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
 	
+	# Could maybe have @no_cycles on this one too since you could always order the edges in that direction.
 	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
 		river? layer+
 		#river? layer+ bnd_layer
