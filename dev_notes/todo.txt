@@ -125,8 +125,6 @@
 			
 			Make it easier to load a sub-model of a larger model with a data set that was declared for the larger model.
 				Needs for instance to handle additional input series that are indexed over index sets that don't appear in the sub-model.
-		
-			Check for conflicting declarations of variables (unit, name).
 			
 			To fix some issues, we should probably scan a decl body for declarations, *then* process them. E.g. to make sure inline decls are also processed out of order.
 			This could also allow us to have static if expressions. Would just have to resolve outer consts and parameters first, but that should be ok.
@@ -151,6 +149,7 @@
 			Sub-indexed series data.
 			
 			Make MobiView2 display if a selected series was not computed.
+				Not needed anymore? they should not be selectable.
 			
 		Go over and improve diagnostics in error messages (all over the place).
 		
@@ -175,9 +174,8 @@
 	
 		Iterate in function scope.
 			Make the iter_tag be referencable as an iterator.
-			Do reassignable local vars with phi nodes later. For now, just use alloca.
+			Do reassignable local vars with phi nodes instead of alloca.
 			
-	
 		Maybe implement reverse iteration for grid1d
 			if you have a property depending on the [below] of itself.
 	
@@ -198,8 +196,14 @@
 			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
 	
 		Make the data_set declarations match the model declarations better
+			
+			data_set { } declaration.
+		
+			And maybe reuse the entire registry and scope structure so that we can serialize in the data set, then deserialize in the model to transfer the entity automatically.
+		
 			Just let the data_set use the same AST, where a [] block parses as "data", which is just a token list.
-			Should be able to make registries match up better to simplify some things when loading into the Model_Application.
+				However this is problematic for large data such as "series". Could also just put the source_loc there and restart the stream.
+				Maybe better: don't allow inline series in the main data file, and always require that they are included! (yes! then we also don't have to support printing them)
 			
 			Could have a serialization name for entities in the data set and use that to map them over to the model? Then use Entity_Id inside the data_set, but just map these to the model entity_ids.
 		

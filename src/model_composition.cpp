@@ -886,8 +886,6 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		Standardized_Unit expected_unit = {};  // Expect dimensionless aggregation weights (unit conversion is something separate)
 		Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit, connection };
 		res_data.restrictive_lookups = true;
-		//res_data.source_compartment = loc1.first();
-		//res_data.target_compartment = to_compartment;
 		
 		auto fun = resolve_function_tree(agg.code, &res_data);
 		
