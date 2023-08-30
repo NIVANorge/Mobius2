@@ -203,16 +203,17 @@ Regex_Or_Chain_AST : Math_Expr_AST {
 struct
 Regex_Identifier_AST : Math_Expr_AST {
 	Token                        ident;
-	bool                         wildcard;
+	bool                         wildcard = false;
 	
-	Regex_Identifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_identifier), wildcard(false) {};
+	Regex_Identifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_identifier) {};
 };
 
 struct
 Regex_Quantifier_AST : Math_Expr_AST {
-	int min_matches, max_matches;
+	int min_matches = 0;
+	int max_matches = -1;
 	
-	Regex_Quantifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_quantifier), min_matches(0), max_matches(-1) {}
+	Regex_Quantifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_quantifier) {}
 };
 
 

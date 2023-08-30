@@ -23,8 +23,6 @@ model("NIVAFjord-SimplyQ") {
 		a_catch  : par_real("Catchment area", [k m 2], 51.7, 1e-6, 7e6)
 	}
 	
-	
-	
 	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
 	
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
@@ -35,6 +33,8 @@ model("NIVAFjord-SimplyQ") {
 		
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
+	
+	load("stdlib/physiochemistry.txt", library("Water utils"))
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 	aggregation_weight(soil, river) { lu_prop }
@@ -55,19 +55,16 @@ model("NIVAFjord-SimplyQ") {
 	
 	
 	#epi        : compartment("Epilimnion")
-	downstream : connection("Downstream") @directed_graph { 
+	downstream : connection("Downstream") @directed_graph {
 		river+
 		#(river|epi)+
 	} @no_cycles
 	
-	rho_water : constant("Water density", [k g, m-3], 1000) #TODO: allow loading library into model scope.
 	unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
 	
-	# Could maybe have @no_cycles on this one too since you could always order the edges in that direction.
 	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
-		river? layer+
-		#river? layer+ bnd_layer
-	}
+		river? layer+ bnd_layer?
+	} @no_cycles                    # Not sure if we should have no_cycles, but it should always be acheivable since the direction doesn't matter.
 	
 	edge       : compartment("Basin edge")
 	edge_layer : compartment("Basin edge layer")

@@ -241,8 +241,8 @@ module("RiverTemperature", version(0, 1, 0)) {
 }
 
 module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
-	par_group("Horizontal coefficients") {
-		par_real("Pressure difference mixing coefficient")
+	par_group("Horizontal exchange") {
+		par_real("Pressure difference flow coefficient")
 		[ 0.5 ]
 	}
 }

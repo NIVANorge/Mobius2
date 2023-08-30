@@ -22,9 +22,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	load("stdlib/seawater.txt", library("Seawater"))
 	load("stdlib/physiochemistry.txt", library("Water utils"))
 	
-	# Should we index this one over basin?
-	par_group("Horizontal coefficients") {
-		alpha_u : par_real("Pressure difference mixing coefficient", [], 0.5, 0.1, 1)
+	# Should we index this one over basin or connection?
+	par_group("Horizontal exchange") {
+		alpha_u : par_real("Pressure difference flow coefficient", [], 0.5, 0.1, 1)
 	}
 
 	vert_target : property("Vertical exchange target")
@@ -75,7 +75,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	horz_flow : property("Horizontal flow")
 	var(edge_layer.horz_flow, [k g, day-1], "Layer horizontal outflow") {
 		#NOTE: This could go in both directions
-		
 		dP := layer.water.pressure - layer.water.pressure[vert.below],
 		#u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
 		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP),
@@ -86,10 +85,11 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		edge_layer.horz_flow
 	} @specific {
 		edge_layer.vert_target
-	}
+	} @bidirectional
 	
 	horz_bal : property("Horizontal water balance")
 	var(layer.water.horz_bal, [k g, day-1]) {
+		#TODO: If we implement out_flux, we don't need the separate horz_flow variable.
 		aggregate(edge_layer.horz_flow) - in_flux(horz, water)
 	}
 	
@@ -107,73 +107,4 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		align
 	}
 	*/
-	
-	################
-		#TODO: No, it is probably even simpler than what we have thought of. We only need outgoing edges from layer, and the fluxes just need to be bidirectional.
-		#    We just need to fix the codegen for that for dissolved stuff (get the right concentration).
-		#    Maybe make a 'biflux' declaration for that to be explicit
-		#    Although we have to be careful with the vertical target in that case. It has to go 'up'
-		
-	################
-	
-	/*
-	# TODO: It should be possible to make it so that this is a module on its own:
-	
-	var(bnd_edge_layer.vert_target, [], "Fjord boundary layer horizontal exchange vertical target")
-	
-	external_computation("Place boundary horizontal fluxes", "nivafjord_place_horizontal_fluxes", bnd_edge) {
-		result(bnd_edge_layer.vert_target)
-		bnd_layer.water.rho
-		bnd_layer.water.rho[horz.below]
-		w_bnd_bnd # TODO: This one is a bit awkward before we figure out bidirectional stuff
-	}
-	
-	var(bnd_edge_layer.horz_flow, [k g, day-1], "Boundary layer horizontal outflow") {
-		dP := bnd_layer.water.pressure - layer.water.pressure[vert.below],   # TODO: Not sure how the second one should be addressed
-		
-		u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
-		u * w_bnd_bnd * bnd_layer.dz * rho_water->>       # See note about w_bnd_bnd above
-	}
-	
-	flux(bnd_layer.water, layer.water[horz.below, vert.specific], [k g, day-1], "Boundary layer horizontal outflow flux") {
-		bnd_edge_layer.horz_flow
-	} @specific {
-		bnd_edge_layer.vert_target
-	}
-	
-	*/
 }
-
-
-
-/*
-	#TODO: This is now just sketching, it has to be reworked.
-
-	#w_bnd_ : property("Width to boundary")
-	A_bnd : property("Total area to boundary")
-	tot_barotropic_u : property("Total barotropic boundary flux")
-	barotropic_bnd_u : property("Barotropic boundary flux")
-	horz_target : property("Target of horizontal flux")
-	
-	var(oair.A_bnd, [m 2]) { aggregate(layer.w_bnd_)*dz }
-	
-	var(oair.h, [m]) @override { bnd.h }
-	
-	var(oair.tot_barotropic_u, [m 3, s-1]) {
-		-(h - last(h))*A[vert.top]/time.step_length_in_seconds
-	}
-	
-	var(layer.water.barotropic_bnd_u, [k g, s-1]) {
-		#0[m 3, s-1] #TODO.
-		oair.tot_barotropic_u * w_bnd * dz * rho_water / oair.A_bnd
-	}
-	
-	flux(bnd_layer.water, layer.water[vert2.specific], [k g, day-1], "Horizontal flow") {
-		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
-		bcl    if bcl > 0,
-		0      otherwise
-	} @specific {
-		layer.water.horz_target
-	}
-
-*/

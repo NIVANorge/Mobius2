@@ -474,6 +474,9 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 			batch_out.erase(batch_out.begin() + batch_idx);  // NOTE: ok since we are iterating batch_idx backwards.
 		--batch_idx;
 	}
+	
+	// TODO: We should be able to merge neighboring batches with the same dependencies unless there is a blocking instruction.
+	//    Although, shouldn't that have happened just by the instructions moving down?
 #endif
 	
 #if 0

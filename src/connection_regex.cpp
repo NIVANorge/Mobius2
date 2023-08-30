@@ -24,10 +24,6 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 	// NOTE: Currently this does greedy matching.
 	
 	Match_State result = {false, path_idx};
-	if(path_idx >= path.size()) {
-		//log_print("* ", path_idx, "\n");
-		return result;
-	}
 	
 	switch(regex->type) {
 		case Math_Expr_Type::block : {
@@ -55,13 +51,15 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 				if(match.match)
 					++n_matches;
 				else break;
-				if(quant->max_matches >= 0 && n_matches > quant->max_matches) {
+				if((quant->max_matches >= 0 && n_matches > quant->max_matches) || result.path_idx >= path.size()) {
 					result.path_idx--; // This is to make the error cursor point at the right position if this results in a full failure.
 					break;
 				}
 			}
 			
 			result.match = (n_matches >= quant->min_matches) && (quant->max_matches < 0 || n_matches <= quant->max_matches);
+			
+			//log_print("n_matches for ", static_cast<Regex_Identifier_AST *>(quant->exprs[0])->ident.string_value, " was ", n_matches, " (", quant->min_matches, ", ", quant->max_matches, ") match: ", result.match, "\n");
 			
 		} break;
 		
@@ -90,11 +88,13 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 				}
 				
 				Entity_Id path_id = invalid_entity_id;
-				auto node_idx = path[path_idx];
+				int node_idx = -2;
+				if(path_idx < path.size())
+					node_idx = path[path_idx];
 				if(node_idx >= 0)
 					path_id = nodes[node_idx].id;
 				
-				result.match = (path_id == regex_id);
+				result.match = (path_id == regex_id) && (node_idx >= -1);
 			}
 			if(result.match)
 				result.path_idx = path_idx+1;
@@ -108,24 +108,31 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 	return result;
 }
 
-
-
-
 void
-build_tree_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, std::vector<int> &current, Source_Location error_loc) {
-	current.push_back(idx);
+build_graph_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, std::vector<std::vector<int>> &paths, int path_idx, Source_Location error_loc) {
+	paths[path_idx].push_back(idx);
 	if(idx < 0) // Means we hit an 'out'
 		return;
 	auto &node = nodes[idx];
 	if(node.visited) {
 		error_loc.print_error_header();
-		fatal_error("The graph data for this directed_graph has a cycle, but that is specified to not be allowed in the model.\n");
+		fatal_error("The graph data for this 'directed_graph' has a cycle, but that is specified to not be allowed in the model.\n");
 	}
 	if(node.points_at.empty()) {
 		return;
 	} else {
 		node.visited = true;
-		build_tree_paths_recursive(node.points_at[0], nodes, current, error_loc);
+		int edge = 0;
+		for(int points_at : node.points_at) {
+			int next_path_idx = path_idx;
+			// If there is more than one outgoing edge we need a copy of the initial path for each edge (for the first edge we can just keep the one we are currently on).
+			if(edge != 0) {
+				next_path_idx = paths.size();
+				paths.emplace_back(paths[path_idx]);
+			}
+			build_graph_paths_recursive(points_at, nodes, paths, path_idx, error_loc);
+			++edge;
+		}
 		node.visited = false;
 	}
 }
@@ -182,18 +189,15 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	for(auto &node : nodes) {
 		if(!is_valid(node.id))
 			continue;
-		
-		/*
-		if(connection->type == Connection_Type::directed_tree && node.points_at.size() > 1) {
-			data_loc.print_error_header();
-			fatal_error("The graph for the directed tree has a node that has more than one outgoing edge.");
-		}
-		*/
-		
+
 		if(node.receives_count == 0) {
-			std::vector<int> path = {};
-			build_tree_paths_recursive(idx, nodes, path, data_loc);
-			paths.push_back(std::move(path));
+			int path_idx = paths.size();
+			paths.emplace_back();
+			if(connection->no_cycles)
+				build_graph_paths_recursive(idx, nodes, paths, path_idx, data_loc);
+			else
+				fatal_error(Mobius_Error::internal, "Connection path checking for cycles unimplemented.");
+			
 		}
 		++idx;
 	}
@@ -202,7 +206,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		
 		auto match = match_path_recursive(scope, nodes, path, 0, regex);
 		
-		if(!match.match || match.path_idx != path.size()) {
+		if(!match.match || (match.path_idx < path.size()-1)) {
 			data_loc.print_error_header();
 			error_print("The regular expression for the connection \"", connection->name, "\" failed to match the provided graph. See the declaration of the regex here:\n");
 			regex->source_loc.print_error();

@@ -1787,6 +1787,17 @@ load_model(String_View file_name, Mobius_Config *config) {
 		for(Decl_AST *child : body->child_decls) {
 			if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
 				process_declaration<Reg_Type::index_set>(model, scope, child);
+			else if (child->type == Decl_Type::load) {
+				// Load from another file using a "load" declaration
+				int which = match_declaration(child, 
+					{
+						{Token_Type::quoted_string, {Decl_Type::module, true}},
+						{Token_Type::quoted_string, {Decl_Type::library, true}},
+					}, false);
+				if(which == 0) continue; // Module loads are processed later.
+				
+				process_load_library_declaration(model, child, invalid_entity_id, file_name);
+			}
 		}
 	}
 	
@@ -1842,7 +1853,13 @@ load_model(String_View file_name, Mobius_Config *config) {
 			switch (child->type) {
 				case Decl_Type::load : {
 					// Load from another file using a "load" declaration
-					match_declaration(child, {{Token_Type::quoted_string, {Decl_Type::module, true}}}, false);
+					int which = match_declaration(child, 
+						{
+							{Token_Type::quoted_string, {Decl_Type::module, true}},
+							{Token_Type::quoted_string, {Decl_Type::library, true}},
+						}, false);
+					if(which == 1) continue; // Module loads are processed earlier.
+					
 					String_View file_name = single_arg(child, 0)->string_value;
 					for(int idx = 1; idx < child->args.size(); ++idx) {
 						Decl_AST *module_spec = child->args[idx]->decl;
