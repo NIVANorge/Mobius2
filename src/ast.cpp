@@ -957,15 +957,7 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 					return is_numeric(arg->chain[0].type);
 				return arg->chain[0].type == check_type;
 				
-			} /*else if(arg->chain.size() > 1 && check_type == Token_Type::identifier) {
-				if(pattern_type == Type::decl)
-					return false; // Only a single token can refer to a decl.
-				for(Token &token : arg->chain) {  //TODO: Not sure if we could ever get a chain of non-identifiers from the ast generation any way? So this check may be superfluous.
-					if(token.type != Token_Type::identifier)
-						return false;
-				}
-				return true;
-			}*/
+			}
 		}
 	}
 	return false;

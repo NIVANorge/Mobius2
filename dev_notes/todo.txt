@@ -120,8 +120,6 @@
 		More on module loading and the declaration format:
 				
 			Dynamic module choice (based on data set)
-				
-			Whether or not something is formatted as a var_location could be checked already in the match_declaration stage (e.g. Not just pass it as Token_Type::identifier).
 			
 			For properties, maybe always just put the unit on the property (but not on quantities obviously).
 			

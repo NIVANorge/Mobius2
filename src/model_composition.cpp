@@ -549,6 +549,38 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 	}
 }
 
+inline bool
+unit_match(Mobius_Model *model, Entity_Id unit1, Entity_Id unit2) {
+	if(is_valid(unit1) != is_valid(unit2)) return false;
+	if(!is_valid(unit1) && !is_valid(unit2)) return true;
+	
+	auto &u1 = model->units[unit1]->data.standard_form;
+	auto &u2 = model->units[unit2]->data.standard_form;
+	return match_exact(&u1, &u2);
+}
+
+void
+check_variable_declaration_match(Mobius_Model *model, Entity_Id var_id, Entity_Id var_id2) {
+
+	auto var  = model->vars[var_id];
+	auto var2 = model->vars[var_id2];	
+	
+	bool mismatch = false;
+	if(var->name != var2->name)
+		mismatch = true;
+	
+	// TODO: If we allow default units, we also have to check against that.
+	if(!unit_match(model, var->unit, var2->unit)) mismatch = true;
+	if(!unit_match(model, var->conc_unit, var2->conc_unit)) mismatch = true;
+	
+	if(mismatch) {
+		var->source_loc.print_error_header(Mobius_Error::model_building);
+		error_print("There is a mismatch between the name or unit of the declaration of this variable with another declaration here: ");
+		var2->source_loc.print_error();
+		mobius_error_exit();
+	}
+}
+
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
@@ -613,8 +645,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> external_targets;
 	register_external_computations(app, external_targets);
 	
-	// NOTE: determine if a given var_location has code to compute it (otherwise it will be an input series)
-	// also make sure there are no conflicting var declarations of the same var_location (across modules)
+	// NOTE: There can be multiple var() declarations of the same state variable, so we have to decide on a canonical one.
 	std::unordered_map<Var_Location, Entity_Id, Var_Location_Hash> has_location;
 	
 	for(Entity_Id id : model->vars) {
@@ -622,10 +653,11 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		
 		bool found_code = has_code(var);
 		
-		// TODO: check for mismatching units and names between declarations.
+		bool found_earlier = false;
 		Entity_Registration<Reg_Type::var> *var2 = nullptr;
 		auto find = has_location.find(var->var_location);
 		if(find != has_location.end()) {
+			found_earlier = true;
 			var2 = model->vars[find->second];
 			
 			if(found_code && has_code(var2)) {
@@ -634,30 +666,29 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				var2->source_loc.print_error();
 				mobius_error_exit();
 			}
+			
+			check_variable_declaration_match(model, id, find->second);
 		}
 		
 		auto comp = model->components[var->var_location.last()];
-		// Check if it has default code.
-		if(!found_code)
-			if(comp->default_code) found_code = true;
 		
-		// Note: for properties we only want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
-		if(comp->decl_type == Decl_Type::property && found_code)
-			has_location[var->var_location] = id;
-		
-		// Note: for quantities, we can have some that don't have code associated with them at all, and we still need to choose one canonical one to use for the state variable registration below.
-		//     (thus quantities can also not be input series)
-		if(comp->decl_type == Decl_Type::quantity && (!var2 || !has_code(var2)))
+		// Note: For properties we want to put the one that has code as the canonical one. If there isn't any with code, they will be considered input series
+		if((comp->decl_type == Decl_Type::property && found_code) || comp->decl_type == Decl_Type::quantity || !found_earlier)
 			has_location[var->var_location] = id;
 	}
 	
 	std::vector<Var_Id> dissolvedes;
 	
-	// TODO: we could move some of the checks in this loop to the above loop.
-
-	for(int n_components = 2; n_components <= max_var_loc_components; ++n_components) { // NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
+	// NOTE: We have to process these in order so that e.g. soil.water exists when we process soil.water.oc
+	for(int n_components = 2; n_components <= max_var_loc_components; ++n_components) {
 		for(Entity_Id id : model->vars) {
 			auto var = model->vars[id];
+			
+			auto find = has_location.find(var->var_location);
+			if(find == has_location.end())
+				fatal_error(Mobius_Error::internal, "Something went wrong with setting up canonical var() declarations.");
+			if(find->second != id) continue;  // This is not the var() declaration we decided should be used as the canonical one for this var location.
+			
 			if(var->var_location.n_components != n_components) continue;
 			
 			if(var->var_location.is_dissolved()) {
@@ -669,43 +700,46 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				}
 			}
 			
+			auto comp = model->components[var->var_location.last()];
+			bool with_code = has_code(var) || comp->default_code;
+			
 			auto name = var->var_name;
 			if(name.empty())
 				name = model->find_entity(var->var_location.last())->name;  //TODO: should this use the serial name instead?
 			
 			Decl_Type type = model->find_entity(var->var_location.last())->decl_type;
-			auto find = has_location.find(var->var_location);
 			
 			bool is_series = false;
-			if(find == has_location.end()) is_series = true; // No declaration provided code for this series, so it is an input series.
-			else if(type == Decl_Type::property) {
-				// For properties, they can be overridden with input series.
+			if(type == Decl_Type::property) {
+				if(!with_code)
+					is_series = true;
+				
+				// Properties can also be overridden with input series.
 				// TODO: It should probably be declared explicitly on the property if this is OK.
-				// TODO: This warning is printed for every .var() declaration of it instead of just once. This problem may go away with the new module declaration system.
 				if(std::find(input_names.begin(), input_names.end(), name) != input_names.end()) {
 					is_series = true;
 					log_print("Overriding property \"", name, "\" with an input series.\n");
 				}
 			}
-			
-			// TODO: Chech that external_id and has_code are be mutually exclusive
-			
+
 			auto external_id = invalid_var;
 			auto find_external = external_targets.find(var->var_location);
 			if(find_external != external_targets.end()) {
 				external_id = find_external->second;
 				is_series = false;
+				if(with_code) {
+					var->source_loc.print_error_header(Mobius_Error::model_building);
+					error_print("This property is defined with code, but it is also assigned as a target of an 'external_computation' here: ");
+					auto ext_id = as<State_Var::Type::external_computation>(app->vars[external_id])->decl_id;
+					model->external_computations[ext_id]->source_loc.print_error();
+					mobius_error_exit();
+				}
 			}
-			
-			// If was already registered by another module, we don't need to re-register it.
-			// TODO: still need to check for conflicts (unit, name) (ideally bake this check into the check where we build the has_location data (which is not implemented yet))
-			if(is_valid(app->vars.id_of(var->var_location))) continue;
 			
 			Var_Id var_id;
 			if(is_series) {
 				var_id = register_state_variable<State_Var::Type::declared>(app, id, true, name);
-			} else if (is_valid(external_id) || id == find->second) {
-				// This is the particular var declaration that provided the code, so we register a state variable using this one.
+			} else {
 				var_id = register_state_variable<State_Var::Type::declared>(app, id, false, name);
 				if(var->var_location.is_dissolved() && type == Decl_Type::quantity && !is_valid(external_id))
 					dissolvedes.push_back(var_id);
