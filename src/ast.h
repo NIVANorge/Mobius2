@@ -258,7 +258,7 @@ single_arg(Decl_Base_AST *decl, int which) {
 
 //TODO: Make a general-purpose tagged union?
 struct Arg_Pattern {
-	enum class Type { any, value, decl };
+	enum Type { any, value, decl, loc };
 	Type pattern_type;
 	bool is_vararg;
 	
@@ -270,6 +270,10 @@ struct Arg_Pattern {
 	Arg_Pattern(bool is_vararg = false) : pattern_type(Type::any), is_vararg(is_vararg) {}
 	Arg_Pattern(Token_Type token_type, bool is_vararg = false) : token_type(token_type), pattern_type(Type::value), is_vararg(is_vararg) {}
 	Arg_Pattern(Decl_Type decl_type, bool is_vararg = false)   : decl_type(decl_type), pattern_type(Type::decl), is_vararg(is_vararg) {}
+	Arg_Pattern(Type pattern_type, bool is_vararg = false) : pattern_type(pattern_type), is_vararg(is_vararg) {
+		if(pattern_type != any && pattern_type != loc)
+			fatal_error(Mobius_Error::internal, "Value type and Decl type patterns should be constructed with an explicit type.");
+	}
 	
 	bool matches(Argument_AST *arg) const;
 	

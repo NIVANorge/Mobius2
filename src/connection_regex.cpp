@@ -140,7 +140,7 @@ build_graph_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, s
 void
 match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc) {
 	
-	// TODO: Handle branching graphs and cycles!
+	// TODO: Handle cycles!
 		// Cycles:  Need to have the cycle itself match (something)*
 		// Isolated cycles (no source entry) are a bit more challenging because they would have to match from any starting point...
 			// Does that mean that they have to match something of the form (a|b|c...)*  ?

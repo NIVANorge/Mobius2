@@ -1,27 +1,7 @@
 
 
 	*** High pri ***
-	
-	
-		Debug why the updated external_computation broke.
-		
-	
-		Finish the new formulation of external_computation
-			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
-			
-			Make in_flux (and out_flux) be allowed as inputs to it.
-				At least in_flux(connection, ..)
-			
-			See the note in
-				nivafjord/horizontal_fluxes.txt "Place river horizontal fluxes"
-				
-				Problem with how one should identify what the source compartment of the lookup layer.water.rho[horz.below] is
-				Right now we default it to the compartment of the result(), but that is very error prone.
-			
 
-		Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
-			(in terms of how it is computed, not in terms of user-facing functionality)
-			Ideally the entire system should be re-thought or restructured.
 
 		Specific models
 			Finish NIVAFjord!!
@@ -31,11 +11,12 @@
 			Finish the simple hydraulics model.
 			
 			EasyLake-CNP
-
-		Load modules from modules (?)
-			How to scope them in that case? Should probably just be scoped under the model, but a bit tricky wrt. name conflicts.
 		
 		Finish connection system
+			
+			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
+				(in terms of how it is computed, not in terms of user-facing functionality)
+				Ideally the entire system should be re-thought or restructured.
 		
 			in_flux(connection, something) will some times depend on the indexes being ordered in the same way as in the connection graph.
 				Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
@@ -47,12 +28,12 @@
 			Component index sets should probably be declared in the connection declaration in the model (also for directed_graph). It is too integral to how to model works to leave it to data set.
 			
 			Have to figure out what something like
-					flux(blabla, something[vert.below], ...)				
-			means. Right now the location 'something' is not used.
+				flux(blabla, something[vert.below], ...)				
+			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc.
 				Need this for NIVAFjord
 			Maybe just make the syntax
-					flux(blabla, any[vert.below]
-			and disallow having specific location there. And this is what we do for all 'below' connection targets.
+					flux(blabla, target[vert.below])
+			and disallow having specific location there (except for grid1d). And this is what we do for all 'below' connection targets.
 				Could later extend it to have different code depending on the target (for graph and directed_tree).
 		
 			graph connections
@@ -67,20 +48,32 @@
 
 			grid1d:	
 				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
-				
+					need to get rid of get_restriction_of_flux and process each location separately.
+				And have things like flux(bla[vert.top], other_bla[horz])
+				Or flux(bling[vert.specific], plong[vert.top]) etc.
+				Maybe the specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
+					Could then also allow .specific inside main code.
 					
 			Specific target:
 				Properly process the @specific function tree, incl. flags
 				Check valid dependencies for the tree.
 					Have to think about what types of variables it is allowed to reference.
-				Tridiagonal distribution.
 				Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
-					This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
+					This is actually the only feature (except external_computation) currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
+					
+				Tridiagonal distribution.
 			
-			Dissolved fluxes -
-				make dissolvedes of negatives work for other types (graph (maybe) regular fluxes (maybe), but probably not directed tree).
+		Bidirectional
+			Should check that target unit is the same a source unit always.
+		
+			Have an optional test to see if non-bidirectional fluxes were negative after or during a run.
+		
+			Make bidirectional work for regular fluxes (maybe).
+				Though probably not for aggregates.
 			
 			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
+			
+			
 	
 	
 	*** Intermediate-pri ***
@@ -94,8 +87,6 @@
 				This is currently checked per component basis, but not combined. Should be done in model_composition
 			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
 	
-		Ignore certain log_print if not in "developer mode" (should be configured in config.txt)
-	
 		Some system for specifying state variables that should not be stored (properties only).
 			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
 			First iteration could be to just not display them, but still have them stored in the same place as everything else
@@ -105,14 +96,8 @@
 			This would be a major change, but could create some speedup.
 			Alternatively, have them be non-stored as a default. (Requires less drastic changes, but has almost the same benefits of less memory usage).
 		
-		Make an (optional) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
+		Make an (optional - developer mode) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
 			Useful for catching errors, which we some times have but are slow to detect.
-		
-		override {}  declaration.
-			E.g. to change the connection regex of a connection in an extending model.
-			How to do it for no_carry?
-				The way we now do no_carry is in general maybe not that good after all.
-				May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
 
 		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.
 	
@@ -130,8 +115,6 @@
 			This has to do with module reusability, could apply the module to quantities with different units.
 				
 		error_print_location
-			We could pass a scope to it, and only let it fall back on get_symbol when necessary.
-				(it can be necessary if the location was passed as a loc() to the scope where it is being used).
 			Make it print the bracket if needed.
 
 		More on module loading and the declaration format:
@@ -177,24 +160,18 @@
 			- There are problems when you want to override something in the earlier model,
 			- There is a problem if two extended models declare the same symbol.
 			
-			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
-			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
-			
-			Maybe we could have an
-				if_main {
-				}
-			block. Things there are only processed if that model is loaded as the main one.
-				This rids us of the necessity to override model extensions.
-					Downside is that the extended model needs to know what things other models want to override....... Hmmm...
-					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
-			
-			Could have an named_block("Name") { } block, and turn off blocks when extending
-				extend("simplyq_model.txt", "Name") turns off "Name".
-				
-				What about nested extensions in this system, and two models extend the same thing but disagree.
-					...nightmare...
-		Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
+			Maybe do a extend("...") @ignore(solver, solve, connection, quantity("Heat"))  ...
+				These would have to be passed on recursively.
+					And merge-added to the single record if there are multiple extensions of the same model that disagree.
+				.
+			Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
 		
+		external_computation : 
+			Just do whatever is needed when it is needed.
+			
+		Load modules from modules (?)
+			Probably difficult wrt. multiple loads of the same base module. Unless we also scope the module names recursively.
+			Doesn't seem to be that necessary.
 		
 	*** Low-pri ****
 	

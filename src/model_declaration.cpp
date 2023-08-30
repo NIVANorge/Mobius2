@@ -872,10 +872,10 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 
 	int which = match_declaration(decl,
 		{
-			{Token_Type::identifier, Decl_Type::unit},
-			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit},
-			{Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
-			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
+			{Arg_Pattern::loc, Decl_Type::unit},
+			{Arg_Pattern::loc, Decl_Type::unit, Decl_Type::unit},
+			{Arg_Pattern::loc, Decl_Type::unit, Token_Type::quoted_string},
+			{Arg_Pattern::loc, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
 		},
 		false, true, true);
 	
@@ -945,7 +945,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	match_declaration(decl,
 		{
-			{Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
+			{Arg_Pattern::loc, Arg_Pattern::loc, Decl_Type::unit, Token_Type::quoted_string},
 		}, true, -1, true);
 	
 	Token *name = single_arg(decl, 3);
@@ -1180,7 +1180,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 
 template<> Entity_Id
 process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::identifier}});
+	match_declaration(decl, {{Arg_Pattern::loc}});
 	
 	auto id  = model->locs.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto loc = model->locs[id];
@@ -1524,7 +1524,7 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 void
 process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 
-	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, false);
+	match_declaration(decl, {{Decl_Type::solver, {Arg_Pattern::loc, true}}}, false);
 	
 	auto solver_id = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
 	auto solver    = model->solvers[solver_id];
@@ -1584,7 +1584,7 @@ process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, D
 
 void
 process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::identifier, Token_Type::identifier}}, false, -1);
+	match_declaration(decl, {{Arg_Pattern::loc, Arg_Pattern::loc}}, false, -1);
 	
 	Flux_Unit_Conversion_Data data = {};
 	
@@ -1663,6 +1663,8 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 	return true;
 }
 
+bool mobius_developer_mode = false;   // NOTE: This is a global that is accessible in the entire mobius project, see mobius_common.h
+
 Mobius_Config
 load_config(String_View file_name) {
 	Mobius_Config config;
@@ -1679,15 +1681,23 @@ load_config(String_View file_name) {
 			decl->source_loc.print_error_header();
 			fatal_error("Unexpected declaration type '", name(decl->type), "' in a config file.");
 		}
-		match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, false);
+		match_declaration(decl, {{Token_Type::quoted_string, {false}}}, false);
 		auto item = single_arg(decl, 0)->string_value;
 		if(item == "Mobius2 base path") {
+			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, false);
+			
 			config.mobius_base_path = single_arg(decl, 1)->string_value;
 			struct stat info;
 			if(stat(config.mobius_base_path.data(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
 				single_arg(decl, 0)->print_error_header();
 				fatal_error("The path \"", config.mobius_base_path, "\" is not a valid directory path.");
 			}
+		} else if(item == "Developer mode") {
+			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::boolean}}, false);
+			
+			mobius_developer_mode = single_arg(decl, 1)->val_bool;
+			
+			log_print(Log_Mode::dev, "Running in development mode.\n");
 		} else {
 			decl->source_loc.print_error_header();
 			fatal_error("Unknown config option \"", item, "\".");
@@ -1737,7 +1747,7 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 
 void
 apply_config(Mobius_Model *model, Mobius_Config *config) {
-	// TODO: Maybe check validity of the path here instead of in load_config (Need to save the source_loc in that case).
+	// TODO: Maybe check validity of the path here instead of in load_config (Need to pass the source_loc in that case).
 	model->mobius_base_path = config->mobius_base_path;
 }
 
