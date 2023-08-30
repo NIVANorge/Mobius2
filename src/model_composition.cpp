@@ -570,8 +570,8 @@ check_variable_declaration_match(Mobius_Model *model, Entity_Id var_id, Entity_I
 		mismatch = true;
 	
 	// TODO: If we allow default units, we also have to check against that.
-	if(!unit_match(model, var->unit, var2->unit)) mismatch = true;
-	if(!unit_match(model, var->conc_unit, var2->conc_unit)) mismatch = true;
+	if(!mismatch && !unit_match(model, var->unit, var2->unit)) mismatch = true;
+	if(!mismatch && !unit_match(model, var->conc_unit, var2->conc_unit)) mismatch = true;
 	
 	if(mismatch) {
 		var->source_loc.print_error_header(Mobius_Error::model_building);
@@ -718,7 +718,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 				// TODO: It should probably be declared explicitly on the property if this is OK.
 				if(std::find(input_names.begin(), input_names.end(), name) != input_names.end()) {
 					is_series = true;
-					log_print("Overriding property \"", name, "\" with an input series.\n");
+					if(with_code)
+						log_print("Overriding property \"", name, "\" with an input series.\n");
 				}
 			}
 
@@ -966,8 +967,6 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	
 	Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
 	res_data.restrictive_lookups = true;
-	//res_data.source_compartment = loc1.first();
-	//res_data.target_compartment = loc2.first();
 	
 	auto fun = resolve_function_tree(ast, &res_data);
 	unit_conv = make_cast(fun.fun, Value_Type::real);
@@ -1135,7 +1134,6 @@ compose_and_resolve(Model_Application *app) {
 			bool target_is_located = is_located(var->loc2);
 			if(is_located(var->loc1)) {
 				from_compartment = var->loc1.first();
-				//if(!target_is_located || var->loc1 == var->loc2)    // Hmm, it seems to make more sense to always let the source be the context if it is located.
 				in_loc = var->loc1;
 			} else if(target_is_located)
 				in_loc = var->loc2;
@@ -1179,7 +1177,6 @@ compose_and_resolve(Model_Application *app) {
 		}
 		
 		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
-		//res_data.source_compartment = in_loc.first();
 		
 		if(ast) {
 			auto res = resolve_function_tree(ast, &res_data);
@@ -1500,7 +1497,6 @@ compose_and_resolve(Model_Application *app) {
 			var->set_flag(State_Var::has_aggregate);
 			
 			//TODO: We also have to handle the case where the agg. variable was a series!
-			// note: can't reference "var" below this (without looking it up again). The vector it resides in may have reallocated.
 			
 			sprintf(varname, "aggregate(%s, %s)", var->name.data(), model->components[to_compartment]->name.data());
 			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, invalid_entity_id, false, varname);

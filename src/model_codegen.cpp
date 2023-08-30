@@ -617,6 +617,10 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 				auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
 				if_expr->value_type = expr->value_type;
 				
+				// TODO: Should maybe move the unit match check to model_composition.
+				// There is something tricky wrt. conc() lookups for bidirectional fluxes also, esp. if there is a unit_conversion or an aggregation_weight.
+				auto unit = &app->vars[ident->var_id]->unit.standard_form;
+				
 				for(auto target_comp : component->possible_targets) {
 					
 					if(!is_valid(target_comp)) continue; // This happens if it is an 'out'. In that case it will be caught by the "otherwise" clause below (the value is 0).
@@ -628,6 +632,15 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 						ident->source_loc.print_error_header();
 						fatal_error("The variable \"", app->vars[ident->var_id]->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
 					}
+					
+					auto target_var = app->vars[target_id];
+					auto unit2 = &target_var->unit.standard_form;
+					if(!match_exact(unit, unit2)) {
+						ident->source_loc.print_error_header();
+						fatal_error("The unit of this identifier does not match the unit of the variable \"", target_var->name, "\" which this 'below' lookup could point at over the 'directed_graph'.");
+					}
+						
+					// TODO: Is there any reason to copy it instead of just modifying it?
 					auto ident2 = static_cast<Identifier_FT *>(copy(ident));
 					ident2->var_id = target_id;
 					
@@ -654,7 +667,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 				
 				delete ident;
 				
-				if_expr->exprs.push_back(make_literal((double)0.0));  // This is if the given target is not on the list.
+				if_expr->exprs.push_back(make_literal((double)0.0));  // This is if the graph points at 'out' or doesn't point anywhere.
 				
 				return if_expr;
 			}

@@ -87,14 +87,25 @@
 				This is currently checked per component basis, but not combined. Should be done in model_composition
 			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
 	
-		Some system for specifying state variables that should not be stored (properties only).
-			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
-			First iteration could be to just not display them, but still have them stored in the same place as everything else
-		Also a system for specifying different display variants (along with the code in MobiView2 to make use of that, which is the hard part).
+		Some system for specifying state variables that should not be stored (except temporarily).
+			Need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
+				
+			MobiView2:
+				First iteration could be to just not display them.
+				If it is constant, could then display in the stat window, just not in the plot, or even make a constant plot for it.
+			
+			Could determine if a variable is going to be constant and then just compute it on the initial step constant @override
+				Can use the same storage as for variables that are not stored temporally.
+				
+			Make this the default for many aggregation variables (but maybe need to allow configuring them to be stored).
+			
+		Also a system for specifying different display variants (along with the code in MobiView2 to make use of that, which is the work intensive part).
+			E.g. say if a variable should not be displayed in MobiView2 (but have a display all checkbox button that re-enable them)
 		
 		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
 			This would be a major change, but could create some speedup.
-			Alternatively, have them be non-stored as a default. (Requires less drastic changes, but has almost the same benefits of less memory usage).
+			Alternatively, have them be non-stored as a default. (Requires less drastic changes, but has almost the same benefits of less memory usage - though still more computations).
+		
 		
 		Make an (optional - developer mode) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
 			Useful for catching errors, which we some times have but are slow to detect.
@@ -213,37 +224,21 @@
 			Index sets refereced inside unused modules have still to be declared in the data set.
 				Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.
 		
-		
-		More correctness checks and convenience etc. for uses of Indexes.
-			count()
-			Maybe just have an iterator on Indexes that includes mat_col if necessary.
-				Use that in check_for_nans and maybe other places. get_index_names_with_edge_naming, etc.
-		
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
 		
 		Maybe the decl_type of module template should just be module_template (in the module files).
 		
-		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
+		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this doesn't give an error for dependency reasons.
 		
 		Capping of discrete fluxes from override variables not necessary?
 			I.e. don't have to check if a flux with the source in a variable that is 'override' overtaxes its source.
 		
 		
-		Separate var storage that is not temporal
-			Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
+		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
 			Similarly also want to allow inputs to override parameters.
 		
-			Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
-			Must also handle if there is a constant .override
-				Can use the same storage as for variables that are not stored temporally.
-		
-		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
-		
-		
 		MobiView:
-		
-			Parameter search & select crashes on 'Start date'
 		
 			Plot
 				stacked_share has a slow implementation.
@@ -256,8 +251,18 @@
 				
 				"Network" plot for connections. Draw the network along with amount (of some quantity(ies)) as bar plot per node. Animate over time.
 					Maybe not just for connection, but for any graph of that quantity?
+					Allow multiple bars for several quantities or instances of.
+					
+				How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
+				Could have both aggregation none and days, and in the later case it also aggregates m3/s -> m3/day .
+					A bit annoying do it from a coding perspective though because you have to work with declared units, not standardized units.
+					
+				Trend line doesn't make sense for some aggregations.
+				Make the residual trend one of the available residual statistics (in terms of optim. it should be minimized in absolute value).
 			
 			Sensitivity & optimization - new features
+				Fix serialization again.
+				Make the code better so that it is not so easy to have bugs when adding/removing/moving parameters.
 				Combine simple sensitivity into the advanced sensitivity setup.
 					Compute statistics of the target stat like variance etc.
 					Allow for 2 parameters, with a surf plot eventually.
@@ -268,70 +273,54 @@
 				
 				Optimizer callback doesn't update additional plot view.
 				
-				Matrix parameters don't serialize/deserialize correctly.
-					Probably same with optimization target.
-				
+				Selection of matrix column parameters is incorrect.
 				
 				
 			Something where you can plot individual functions / state vars as functions of their inputs.
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
+				
+				Maybe need a reshape() function on the Data_Set or something like that.
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
 				Allow order by flux? By module?
-				
-			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
-				Could have both aggregation none and days, and in the later case it also aggregates m3/s -> m3/day .
-					A bit annoying do it from a coding perspective though because you have to work with declared units, not standardized units.
 			
 			More aggregation intervals
 				minute, hour, day. (esp. day).
-				
-			Trend line doesn't make sense for some aggregations.
-			Make the residual trend one of the available residual statistics (in terms of optim. it should be minimized in absolute value).
+			
 		
 		More mobipy functionality.
+			And fix it again... 
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
-		
-		boundary conditions for other types of connections (not grid1d)
-			For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
-			similar for graph when that exists.
-		In grid1d, could have wrap-around boundary (?), or could have special values for the boundary (maybe even dynamic)
+			Some parameter bounds are absolute.
 	
 	
 		Make it possible to free file memory before a model is deleted.
 			Requires ASTs to copy some string data, which is a bit annoying since right now they store Tokens directly.
 		
-		
 		Set units of regular aggregation state variables so that they display correctly if viewed.
 			note that it is a bit tricky for fluxes.
-			
 			
 		aggregate() of series and parameters, or even of arbitrary expressions.
 			Would need a separate instruction type for it.
 			For parameters, ideally it should just be computed once using the constant system described above.
 			For arbitrary expressions, it could be tricky to figure out what compartment it actually aggregates from.
 		
-		
-		Aggregation variables are not always necessary if we could just add things to derivatives directly, but this is not the case always.
-			Would require a big systemic change to model_compilation and model_codegen to implement this.
-		
 		Make discrete fluxes work like other fluxes for aggregation stuff so that everything works the same way for them (including some connection stuff).
 			Reimplement discrete fluxes for connections in some situations.
+				Should always be possible for grid1d.
+				Also for graph if it is no_cycles and we force those to be ordered correctly.
 			This may not go well with the above suggested change though.
-		
 		
 		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
 			https://github.com/llvm/llvm-project/blob/main/llvm/examples/OrcV2Examples/LLJITWithObjectCache/LLJITWithObjectCache.cpp
 			One could then manually disassemble it.
 		
 		Other solver algorithms.
-		
-		Different Var_Restrictions resulting in the same condition on the index, and causing multiple checks of the same condition (in model_codegen).
 		
 		Declaring units with a handle and reusing that handle does not quite work, at least not for parameters.
 		
@@ -342,10 +331,6 @@
 		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
 			
-		The "loose depends" system is kind of iffy.
-			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
-				This in particular may have been fixed now.
-
 	Probably not ?:
 	
 		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
@@ -358,7 +343,9 @@
 		Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
 			Maybe not desirable
 	
-	
+		The "loose depends" system is kind of iffy.
+			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
+				This in particular may have been fixed now.
 	
 	NOTES
 		
