@@ -1060,7 +1060,7 @@ process_declaration<Reg_Type::external_computation>(Mobius_Model *model, Decl_Sc
 		{
 			{ Token_Type::quoted_string, Token_Type::quoted_string },
 			{ Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::compartment },
-		}, false, -1);
+		}, false, -1, true);
 	
 	auto id = model->external_computations.standard_declaration(scope, decl);
 	auto comp = model->external_computations[id];
@@ -1072,6 +1072,16 @@ process_declaration<Reg_Type::external_computation>(Mobius_Model *model, Decl_Sc
 	auto body = static_cast<Function_Body_AST *>(decl->body);
 	
 	comp->code = body->block;
+	
+	for(auto note : decl->notes) {
+		if(note->decl.string_value != "allow_connection") {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note type '", note->decl.string_value, "' for 'external_computation'.");
+		}
+		match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::connection}}, 0);
+		comp->connection_component = resolve_argument<Reg_Type::component>(model, scope, note, 0);
+		comp->connection           = resolve_argument<Reg_Type::connection>(model, scope, note, 1);
+	}
 	
 	return id;
 }

@@ -232,6 +232,48 @@ Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_i
 	return &*find;
 }
 
+Var_Location
+Model_Application::get_primary_location(Var_Id source, bool &is_conc) {
+	Var_Location loc0;
+	is_conc = false;
+	auto var = vars[source];
+	if(var->type == State_Var::Type::declared) {
+		loc0 = var->loc1;
+	} else if (var->type == State_Var::Type::dissolved_conc) {
+		is_conc = true;
+		auto var2 = vars[as<State_Var::Type::dissolved_conc>(var)->conc_of];
+		loc0 = var2->loc1;
+	} else
+		fatal_error(Mobius_Error::internal, "Access of unhandled variable type in get_primary_location.");
+	return loc0;
+}
+
+Var_Id
+Model_Application::get_connection_target_variable(Var_Location &loc0, Entity_Id target_component, bool is_conc) {
+	// TODO: May have to make this work with quantity connection components eventually, that is a bit more tricky.
+	if(model->components[target_component]->decl_type != Decl_Type::compartment)
+		fatal_error(Mobius_Error::internal, "For now, graph lookups are only supported over compartments.");
+	
+	auto loc = loc0;
+	loc.components[0] = target_component;
+	auto target = vars.id_of(loc);
+	if(!is_valid(target)) return target;
+	if(is_conc)
+		target = vars.find_conc(target);
+	return target;
+}
+
+Var_Id
+Model_Application::get_connection_target_variable(Var_Id source, Entity_Id connection_id, Entity_Id target_component) {
+	if(model->connections[connection_id]->type != Connection_Type::directed_graph)
+		fatal_error(Mobius_Error::internal, "get_connection_target_variable should only be used for graph connections.");
+	// TODO: Could also check that the target is valid for the given source and given the connection components?
+	//  Could also check that the var is something that is valid to look up this way
+	bool is_conc;
+	auto loc0 = get_primary_location(source, is_conc);
+	return get_connection_target_variable(loc0, target_component, is_conc);
+}
+
 Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction) {
 	

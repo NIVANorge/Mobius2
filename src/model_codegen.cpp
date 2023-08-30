@@ -29,6 +29,23 @@ make_possibly_weighted_var_ident(Model_Application *app, Var_Id var_id, Math_Exp
 	return var_ident;
 }
 
+Math_Expr_FT *
+make_connection_target_identifier(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_comp) {
+	// the 0 is because the compartment id is stored at info id 0
+	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_comp, 0}, indexes);
+	auto compartment_id = new Identifier_FT();
+	compartment_id->variable_type = Variable_Type::connection_info;
+	compartment_id->value_type = Value_Type::integer;
+	compartment_id->exprs.push_back(idx_offset);
+	return compartment_id;
+}
+
+Math_Expr_FT *
+make_connection_target_check(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_comp, Entity_Id target_comp) {
+	auto compartment_id = make_connection_target_identifier(app, indexes, connection_id, source_comp);
+	return make_binop('=', compartment_id, make_literal((s64)target_comp.id));
+}
+
 void
 instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
@@ -458,13 +475,7 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 			if(comp->total_as_source < max_instances) {
 				// If the component some times appears as a source, but not always, we have to check for each instance whether or not to evaluate the flux.
 				
-				// Code for looking up the id of the target compartment of the current source.
-				auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_compartment, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
-				auto compartment_id = new Identifier_FT();
-				compartment_id->variable_type = Variable_Type::connection_info;
-				compartment_id->value_type = Value_Type::integer;
-				compartment_id->exprs.push_back(idx_offset);
-				
+				auto compartment_id = make_connection_target_identifier(app, index_expr, connection_id, source_compartment);
 				// I.e. it is -1 (out) or it is a positive id (located).
 				new_condition = make_binop('>', compartment_id, make_literal((s64)-2));
 			}
@@ -504,7 +515,11 @@ process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes
 	
 	delete ident;
 	
-	return make_binop('=', indexes.get_index(app, index_set), check_against);
+	auto index = indexes.get_index(app, index_set);
+	if(!index)
+		fatal_error(Mobius_Error::internal, "Missing index set ", app->model->index_sets[index_set]->name, " for is_at instruction.");
+	
+	return make_binop('=', index, check_against);
 }
 
 Math_Expr_FT *
@@ -583,18 +598,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					fatal_error("On a directed_graph connection, 'below' can only be used on a state variable, series or parameter.");
 				}
 				
-				Var_Location loc0;
-				
-				bool is_conc = false;
-				auto var = app->vars[ident->var_id];
-				if(var->type == State_Var::Type::declared) {
-					loc0 = var->loc1;
-				} else if (var->type == State_Var::Type::dissolved_conc) {
-					is_conc = true;
-					auto var2 = app->vars[as<State_Var::Type::dissolved_conc>(var)->conc_of];
-					loc0 = var2->loc1;
-				} else
-					fatal_error(Mobius_Error::internal, "Access of unhandled variable type along graph edge.");
+				bool is_conc;
+				auto loc0 = app->get_primary_location(ident->var_id, is_conc);
 				
 				auto source_comp = loc0.first();
 				
@@ -616,20 +621,15 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					
 					if(!is_valid(target_comp)) continue; // This happens if it is an 'out'. In that case it will be caught by the "otherwise" clause below (the value is 0).
 					
-					auto loc = loc0;
-					loc.components[0] = target_comp;
-					auto target_id = app->vars.id_of(loc);
+					auto target_id = app->get_connection_target_variable(loc0, target_comp, is_conc);
 					if(!is_valid(target_id)) {
 						 // TODO: Maybe we should do this validity check in model_composition already, before we do the codegen.
 						 //   Or the value should just default to 0 in this case? That could cause silent errors though.
 						ident->source_loc.print_error_header();
-						fatal_error("The variable \"", var->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
+						fatal_error("The variable \"", app->vars[ident->var_id]->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
 					}
 					auto ident2 = static_cast<Identifier_FT *>(copy(ident));
-					if(is_conc) {
-						ident2->var_id = app->vars.find_conc(target_id);
-					} else
-						ident2->var_id = target_id;
+					ident2->var_id = target_id;
 					
 					Index_Exprs new_indexes(app->model);
 					new_indexes.copy(index_expr);
@@ -645,16 +645,11 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					
 					if_expr->exprs.push_back(ident2);
 					
+					// The condition that the expression resolves to the ident2 value.
 					// Note here we use the index_expr belonging to the source compartment, not the
 					// one belonging to the target compartment
-					auto idx_offset = app->connection_structure.get_offset_code(Connection_T {res.r1.connection_id, source_comp, 0}, index_expr);	// the 0 is because the compartment id is stored at info id 0
-					auto compartment_id = new Identifier_FT();
-					compartment_id->variable_type = Variable_Type::connection_info;
-					compartment_id->value_type = Value_Type::integer;
-					compartment_id->exprs.push_back(idx_offset);
-					
-					// The condition that the expression resolves to the ident2 value.
-					if_expr->exprs.push_back(make_binop('=', compartment_id, make_literal((s64)target_comp.id)));
+					auto condition = make_connection_target_check(app, index_expr, res.r1.connection_id, source_comp, target_comp);
+					if_expr->exprs.push_back(condition);
 				}
 				
 				delete ident;
@@ -706,18 +701,7 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 	
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
 	
-	//warning_print("*** *** Codegen for connection ", app->vars[source_id]->name, " to ", app->vars[target_agg->connection_agg]->name, " using agg var ", app->vars[agg_id]->name, "\n");
-	
-	// Code for looking up the id of the target compartment of the current source.
-	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {restriction.connection_id, source_compartment, 0}, indexes);	// the 0 is because the compartment id is stored at info id 0
-	auto compartment_id = new Identifier_FT();
-	compartment_id->variable_type = Variable_Type::connection_info;
-	compartment_id->value_type = Value_Type::integer;
-	compartment_id->exprs.push_back(idx_offset);
-	
-	// There can be multiple valid target components for the connection, so we have to make code to see if the value should indeed be added to this aggregation variable.
-	// (even if there could only be one valid target compartment, this makes sure that the set target is not -2 or -1 (i.e. nonexistent or 'out')).
-	Math_Expr_FT *condition = make_binop('=', compartment_id, make_literal((s64)target_compartment.id));
+	auto condition = make_connection_target_check(app, indexes, restriction.connection_id, source_compartment, target_compartment);
 	
 	auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
 	if_chain->value_type = Value_Type::none;
@@ -822,6 +806,62 @@ create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::s
 	return scope;
 }
 
+Math_Expr_FT*
+generate_external_computation_code(Model_Application *app, External_Computation_FT *ext, Index_Exprs &indexes, bool copy = false,
+	Entity_Id connection_id = invalid_entity_id, Entity_Id source_compartment = invalid_entity_id, Entity_Id target_compartment = invalid_entity_id) {
+	
+	auto model = app->model;
+	auto external = ext;
+	if(copy)
+		external = static_cast<External_Computation_FT *>(::copy(ext));
+	
+	for(auto &arg : external->arguments) {
+		
+		// TODO: Again, copy is only necessary if we have a restriction... Make a system to avoid it when not necessary.
+		Index_Exprs new_indexes(model);
+		new_indexes.copy(indexes);
+		
+		Var_Id target_id = arg.var_id;
+		
+		if(arg.restriction.r1.type != Restriction::none) {
+			if(
+				!is_valid(source_compartment) || 
+				!is_valid(target_compartment) ||
+				arg.restriction.r1.type != Restriction::below || 
+				arg.restriction.r1.connection_id != connection_id ||
+				arg.variable_type != Variable_Type::state_var
+			)
+				fatal_error(Mobius_Error::internal, "Something went wrong with configuring an external_computation over a connection.");
+			
+			auto conn = model->connections[connection_id];
+			if(conn->type == Connection_Type::directed_graph)
+				set_graph_target_indexes(app, new_indexes, connection_id, source_compartment, target_compartment);
+			else
+				fatal_error(Mobius_Error::internal, "Unimplemented external computation codegen for var loc restriction that is not directed_graph.");
+			
+			target_id = app->get_connection_target_variable(target_id, connection_id, target_compartment);
+			if(!is_valid(target_id)) {
+				ext->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Unable to access the variable \"", app->vars[arg.var_id]->name, "\" through the connection \"", model->connections[connection_id]->name, "\".");
+			}
+		}
+		
+		Offset_Stride_Code res;
+		if(arg.variable_type == Variable_Type::state_var) {
+			res = app->result_structure.get_special_offset_stride_code(target_id, new_indexes);
+		} else if(arg.variable_type == Variable_Type::parameter)
+			res = app->parameter_structure.get_special_offset_stride_code(arg.par_id, new_indexes);
+		else
+			fatal_error(Mobius_Error::internal, "Unrecognized variable type in external computation codegen.");
+		external->exprs.push_back(res.offset);
+		external->exprs.push_back(res.stride);
+		external->exprs.push_back(res.count);
+	}
+	
+	return external;
+}
+
+
 
 Math_Expr_FT *
 generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instruction> &instructions, bool initial) {
@@ -895,61 +935,38 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::external_computation) {
 				
-				auto external = static_cast<External_Computation_FT *>(instr->code);
-				
-				bool disable = false;
-				Entity_Id source_compartment = invalid_entity_id;
-				for(auto &arg : external->arguments) {
+				auto external = static_cast<External_Computation_FT *>(fun);
+
+				if(is_valid(external->connection)) {
+					auto source_comp = app->find_connection_component(external->connection, external->connection_component, false);
 					
-					// TODO: Again, copy is only necessary if we have a restriction... Make a system to avoid it when not necessary.
-					Index_Exprs new_indexes(model);
-					new_indexes.copy(indexes);
-					
-					// TODO: The source_compartment setup is very error prone.
-					//      What happens if there are many different or none?
-					//      Also, the way it is done now presupposes that the results are declared first.
-					Entity_Id compartment = invalid_entity_id;
-					if(arg.variable_type == Variable_Type::state_var) {
-						compartment = app->vars[arg.var_id]->loc1.components[0];
-					} else if(arg.variable_type == Variable_Type::parameter) {
-						//TODO
+					if(!source_comp || !source_comp->can_be_located_source) {
+						log_print("Disabling external computation \"", external->function_name, "\" due to a connection lookup over a non-existing edge.\n");
+						log_print("The source compartmet was ", model->components[external->connection_component]->name, "\n");
+						delete fun;
+						result_code = make_no_op();
+					} else {
+						
+						auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
+						if_expr->value_type = Value_Type::none;
+						
+						for(auto target : source_comp->possible_targets) {
+							if(!is_valid(target)) continue;
+							
+							auto target_case = generate_external_computation_code(app, external, indexes, true, external->connection, external->connection_component, target);
+							auto target_condition = make_connection_target_check(app, indexes, external->connection, external->connection_component, target);
+							if_expr->exprs.push_back(target_case);
+							if_expr->exprs.push_back(target_condition);
+						}
+						if_expr->exprs.push_back(make_no_op());
+						
+						delete fun; // We copied it above.
+						result_code = if_expr;
 					}
-					if(arg.has_flag(Identifier_Data::result))
-						source_compartment = compartment;
-					
-					if(arg.restriction.r1.type != Restriction::none) {
-						auto conn_id = arg.restriction.r1.connection_id;
-						auto conn = model->connections[conn_id];
-						if(conn->type == Connection_Type::directed_graph) {
-							auto comp = app->find_connection_component(conn_id, source_compartment, false);
-							if(!comp || comp->possible_targets.empty()) {
-								disable = true;
-								break;
-							}
-							set_graph_target_indexes(app, new_indexes, conn_id, source_compartment, compartment);
-						} else
-							fatal_error(Mobius_Error::internal, "Unimplemented external computation codegen for var loc restriction.");
-					}
-					
-					Offset_Stride_Code res;
-					if(arg.variable_type == Variable_Type::state_var)
-						res = app->result_structure.get_special_offset_stride_code(arg.var_id, new_indexes);
-					else if(arg.variable_type == Variable_Type::parameter)
-						res = app->parameter_structure.get_special_offset_stride_code(arg.par_id, new_indexes);
-					else
-						fatal_error(Mobius_Error::internal, "Unrecognized variable type in external computation codegen.");
-					external->exprs.push_back(res.offset);
-					external->exprs.push_back(res.stride);
-					external->exprs.push_back(res.count);
-				}
-				if(disable) {
-					log_print("Disabling external computation \"", external->function_name, "\" due to a connection lookup over a non-existing edge.\n");
-					log_print("The source compartmet was ", model->components[source_compartment]->name, "\n");
-					delete instr->code;
-					instr->code = nullptr; // Have to do this since we deleted it, otherwise we will re-delete it later.
-					result_code = make_no_op();
-				} else
+				} else {
+					generate_external_computation_code(app, external, indexes);
 					result_code = external;
+				}
 				
 			} else {
 				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");

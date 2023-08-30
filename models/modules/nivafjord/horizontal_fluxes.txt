@@ -35,14 +35,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
 		result(river.vert_target)
 		river.water.rho
-		
-		#NOTE: the 'source' of the horz.below is now assumed to be river since that is what is in the result(), but that is a bad way of specifying it.
-		# This is also why we are forced to put the vert_target on the river even though it is only necessary to have it on the outlet.
-		layer.water.rho[horz.below]
-		# Could maybe do an operator
-		# layer.water.rho[horz.below]/river.water.rho
-		# We just have to parse it.
-	}
+		river.water.rho[horz.below]
+	} @allow_connection(river, horz)
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
 		flow->>
@@ -76,7 +70,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		layer.water.pressure
 		layer.water.pressure[horz.below]
 		w_bnd
-	}
+	} @allow_connection(layer, horz)
 	
 	horz_flow : property("Horizontal flow")
 	var(edge_layer.horz_flow, [k g, day-1], "Layer horizontal outflow") {

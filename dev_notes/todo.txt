@@ -3,6 +3,9 @@
 	*** High pri ***
 	
 	
+		Debug why the updated external_computation broke.
+		
+	
 		Finish the new formulation of external_computation
 			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
 			

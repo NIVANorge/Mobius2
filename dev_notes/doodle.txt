@@ -1,6 +1,53 @@
 
 
 
+# Specifying source and target compartments of 'below' accesses on external_computations
+
+external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
+	result(river.vert_target)
+	river.water.rho
+	layer.water.rho[horz.below]    # Here it is fine to say layer is the target, and source is river (same as the indexing argument)
+}
+
+external_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge) {
+	result(edge_layer.vert_target)
+	layer.water.rho
+	layer.water.rho[horz.below]
+	layer.water.pressure
+	layer.water.pressure[horz.below]   # Here the target could be layer or bnd_layer, and the source is layer, not edge.
+	w_bnd
+}
+
+
+
+# Need to somehow specify what connection is allowed
+external_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge) {
+	result(edge_layer.vert_target)
+	layer.water.rho
+	layer.water.rho[horz.below]      # Say the source is what is given.  The target has to be detected based on the edge index.
+	layer.water.pressure
+	layer.water.pressure[horz.below]
+	w_bnd
+} @over_connection(layer, horz)
+
+external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
+	result(river.vert_target)
+	river.water.rho
+	# Here the target could also be detected based on the index.
+	# Since there is only one possible (valid) target from this source, we can auto-insert that, but we have to also make an enclosing condition in case there is no arrow.
+	river.water.rho[horz.below]
+} @over_connection(river, horz)
+
+
+
+
+
+
+
+
+
+
+
 # In data set:
 
 # B is sub-indexed to A

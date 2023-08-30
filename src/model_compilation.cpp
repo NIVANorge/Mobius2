@@ -182,9 +182,9 @@ insert_dependency(Model_Application *app, Model_Instruction *instr, Entity_Id to
 	auto sub_indexed_to = app->model->index_sets[to_insert]->sub_indexed_to;
 	if(is_valid(sub_indexed_to))
 		changed = insert_dependency_base(app, instr, sub_indexed_to);
-	changed = changed || insert_dependency_base(app, instr, to_insert);
+	bool changed2 = insert_dependency_base(app, instr, to_insert);
 	
-	return changed;
+	return changed || changed2;
 }
 
 void
@@ -220,13 +220,14 @@ insert_dependencies(Model_Application *app, Model_Instruction *instr, std::set<E
 	for(auto index_set : to_insert) {
 		if(index_set == avoid) continue;
 		
-		changed = changed || insert_dependency(app, instr, index_set);
+		bool changed2 = insert_dependency(app, instr, index_set);
+		changed = changed || changed2;
 	}
 	return changed;
 }
 
 void
-resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
+resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions) {
 	
 	auto model = app->model;
 	
@@ -306,7 +307,7 @@ resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction
 }
 
 bool
-resolve_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
+propagate_index_set_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions) {
 	
 	Mobius_Model *model = app->model;
 	
@@ -631,12 +632,15 @@ set_up_connection_aggregation(Model_Application *app, std::vector<Model_Instruct
 		if(restriction.r1.type == Restriction::top || restriction.r1.type == Restriction::specific)
 			flux_loc = var_flux->loc2;
 		
+		// TODO: Some of this must be updated if we allow graphs to be over quantity components, not just compartment components.
+		
 		Sub_Indexed_Component *find_source = nullptr;
 		Entity_Id              source_comp_id = invalid_entity_id;
 		if(conn->type == Connection_Type::directed_graph) {
 			source_comp_id = var_flux->loc1.components[0];
 			find_source = app->find_connection_component(var2->connection, source_comp_id, false);
 			if(!find_source) continue; // Can happen if it is not given in the graph data (if this is a graph connection).  .. although isn't the flux already disabled then?
+			if(!find_source->can_be_located_source) continue;
 		}
 		
 		if(var2->is_source) {
@@ -654,11 +658,6 @@ set_up_connection_aggregation(Model_Application *app, std::vector<Model_Instruct
 			
 			// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
 			if(conn->type == Connection_Type::directed_graph) {
-				// Can this source compartment be a source of an arrow at all?
-				// TODO: This test is maybe redundant given the next test?
-				
-				if(!find_source->can_be_located_source) continue;
-				
 				// Can this source compartment target this target compartment with an arrow?
 				auto *find_target = app->find_connection_component(var2->connection, app->vars[var2->agg_for]->loc1.components[0]);
 				auto find = find_target->possible_sources.find(source_comp_id);
@@ -1440,10 +1439,10 @@ Model_Application::compile(bool store_code_strings) {
 
 
 
-	resolve_basic_dependencies(this, initial_instructions, true);
-	resolve_basic_dependencies(this, instructions, false);
+	resolve_basic_dependencies(this, initial_instructions);
+	resolve_basic_dependencies(this, instructions);
 
-	resolve_index_set_dependencies(this, initial_instructions, true);
+	propagate_index_set_dependencies(this, initial_instructions);
 	
 	// NOTE: A state var inherits all index set dependencies from the code that computes its initial value.
 	for(auto var_id : vars.all_state_vars()) {
@@ -1453,7 +1452,7 @@ Model_Application::compile(bool store_code_strings) {
 			insert_dependency(this, &instructions[var_id.id], index_set);
 	}
 	
-	resolve_index_set_dependencies(this, instructions, false);
+	propagate_index_set_dependencies(this, instructions);
 	
 	bool changed = false;
 	for(int it = 0; it < 10; ++it) {
@@ -1471,7 +1470,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 		if(!changed) break;
 		// We have to do it again because we may need to propagate more internal dependencies now that we got more dependencies here.
-		if(resolve_index_set_dependencies(this, initial_instructions, true))
+		if(propagate_index_set_dependencies(this, initial_instructions))
 			changed = true;
 		if(!changed) break;
 		
@@ -1483,7 +1482,7 @@ Model_Application::compile(bool store_code_strings) {
 		}
 		if(!changed) break;
 		
-		if(resolve_index_set_dependencies(this, instructions, false))
+		if(propagate_index_set_dependencies(this, instructions))
 			changed = true;
 		if(!changed) break;
 	}

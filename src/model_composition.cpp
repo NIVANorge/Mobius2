@@ -1250,7 +1250,10 @@ compose_and_resolve(Model_Application *app) {
 		
 		// TODO: This could be separated out in its own function
 		auto external_comp = new External_Computation_FT();
+		external_comp->source_loc = external->code->source_loc;
 		external_comp->function_name = external->function_name;
+		external_comp->connection_component = external->connection_component;
+		external_comp->connection = external->connection;
 		
 		for(auto arg : res.fun->exprs) {
 			if(arg->expr_type != Math_Expr_Type::identifier)
@@ -1267,7 +1270,7 @@ compose_and_resolve(Model_Application *app) {
 			if(ident->has_flag(Identifier_FT::result)) {
 				if(ident->variable_type != Variable_Type::state_var) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only state variables can be a 'result' of a 'sexternal_computation'.");
+					fatal_error("Only state variables can be a 'result' of a 'external_computation'.");
 				}
 				auto result_var = as<State_Var::Type::declared>(app->vars[ident->var_id]);
 				if(result_var->decl_type != Decl_Type::property) {
@@ -1276,6 +1279,21 @@ compose_and_resolve(Model_Application *app) {
 				}
 					
 				var2->targets.push_back(ident->var_id);
+			}
+			if(ident->restriction.r1.type != Restriction::none) {
+				if(ident->has_flag(Identifier_FT::result)) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("A result of an 'external_computation' can't have a connection restriction.");
+				}
+				if(ident->variable_type != Variable_Type::state_var) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("Connection restrictions are not supported for parameters in 'external_computation'.");
+				}
+				auto ident_var = app->vars[ident->var_id];
+				if(external->connection_component != ident_var->loc1.first() || external->connection != ident->restriction.r1.connection_id) {
+					ident->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("To allow looking up a variable with a connection restriction, that connection and source compartment must be specified with an 'allow_connection' note.");
+				}
 			}
 		}
 		delete res.fun;

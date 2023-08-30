@@ -227,6 +227,9 @@ Entity_Registration<Reg_Type::external_computation> : Entity_Registration_Base {
 	// TODO: May need a vector of components
 	Entity_Id        component = invalid_entity_id;
 	
+	Entity_Id        connection_component = invalid_entity_id;
+	Entity_Id        connection           = invalid_entity_id;
+	
 	Math_Block_AST  *code;
 };
 

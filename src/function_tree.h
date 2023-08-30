@@ -134,6 +134,8 @@ External_Computation_FT : Math_Expr_FT {
 	std::string                  function_name;
 	
 	std::vector<Identifier_Data> arguments;
+	Entity_Id                    connection_component = invalid_entity_id;
+	Entity_Id                    connection           = invalid_entity_id;
 	
 	External_Computation_FT() : Math_Expr_FT(Math_Expr_Type::external_computation) { }
 };
