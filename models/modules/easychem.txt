@@ -78,8 +78,8 @@ This is a simple biogeochemical model for O₂
 		beta       : par_real("Temp adjustment of Phyto growth", [K], 2, 1, 4)
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
-		phyt_nc    : par_real("N to C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
-		phyt_pc    : par_real("P to C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
+		phyt_nc    : par_real("N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
+		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
 	}
 	
 	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { (o2_saturation(top_water_temp, 0)*init_O2*o2_mol_mass) }
@@ -173,19 +173,19 @@ This is a simple biogeochemical model for O₂
 	
 	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", 10, [])
 	
-	phyt_death : property("Phytoplankton death") {
+	death : property("Phytoplankton death") {
 		phyt_death*phyt*{
 			1                 if conc(o2) >= 2[m g, l-1],
 			phyt_death_anox   otherwise
 		}
 	}
-	var(epi.water.phyt.phyt_death, [k g, day-1], "Phytoplankton death rate (epi)")
-	var(hyp.water.phyt.phyt_death, [k g, day-1], "Phytoplankton death rate (epi)")
+	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
+	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	
-	flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phyto death DOC release (epi)")  { phyt_death }
-	flux(out, epi.water.oc.o2, [k g, day-1], "Phyto death O₂ release (epi)")           { phyt_death*(4 + COS_autoch)/4	}
-	flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phyto death DOC release (hypo)") { phyt_death	}
-	flux(out, hyp.water.oc.o2, [k g, day-1], "Phyto death O₂ release (hypo)")          { phyt_death*(4 + COS_autoch)/4	}
+	flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phyto death DOC release (epi)")  { phyt.death }
+	flux(out, epi.water.oc.o2, [k g, day-1], "Phyto death O₂ release (epi)")           { phyt.death*(4 + COS_autoch)/4	}
+	flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phyto death DOC release (hypo)") { phyt.death	}
+	flux(out, hyp.water.oc.o2, [k g, day-1], "Phyto death O₂ release (hypo)")          { phyt.death*(4 + COS_autoch)/4	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   fix*o2_mol_mass/c_mol_mass   }
 	
