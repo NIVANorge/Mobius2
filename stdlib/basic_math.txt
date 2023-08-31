@@ -1,6 +1,6 @@
 
 
-#TODO: maybe make an intrinsic operator for safe_divide. Like "//".  Could also have an operator for enforced floating point division to avoid accidental integer divisions? "/."
+#TODO: maybe make an intrinsic operator for safe_divide. Like "//".
 
 library("Basic") {
 
@@ -21,6 +21,14 @@ library("Basic") {
 
 
 library("Response") {
+	
+	hl_to_rate : function(hl)   {   ln(2) / hl   }
+	
+	rate_to_hl : function(rate) {   ln(2) / rate   }
+	
+	q10_adjust : function(ref_rate, ref_temp : [deg_c], temp : [deg_c], q10 : []) {
+		ref_rate*q10^((temp - ref_temp)/10[deg_c])
+	}
 	
 	lerp            : function(x, x0, x1, y0, y1) {
 		t := (x - x0) / (x1 - x0),
@@ -57,18 +65,5 @@ library("Response") {
 		y2                         if x >= x2,
 		s_curve(x, x0, x1, y0, y1) if x <= x1,
 		s_curve(x, x1, x2, y1, y2) otherwise
-	}
-	
-}
-
-library("Rates") {
-	
-	hl_to_rate : function(hl)   {   ln(2) / hl   }
-	
-	rate_to_hl : function(rate) {   ln(2) / rate   }
-	
-	q10_adjust : function(ref_rate, ref_temp : [deg_c], temp : [deg_c], q10 : []) {
-		ref_rate*q10^((temp - ref_temp)/10[deg_c])
-	}
-	
+	}	
 }

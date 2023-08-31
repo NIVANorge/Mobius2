@@ -20,7 +20,7 @@ module("SimplyTox", version(0, 0, 1),
 Testing functionality for now.
 """
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"))
-	load("stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/basic_math.txt", library("Response"))
 
 	par_group("Physiochemistry", tox) {
 		molmass     : par_real("Contaminant molar mass", [g, mol-1], 50, 0, 1000)

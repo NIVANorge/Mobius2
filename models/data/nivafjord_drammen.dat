@@ -1,14 +1,20 @@
+
+"""
+Breiangen is set to be this shallow because for the boundary we only need values down to the threshold.
+"""
+
+
 time_step([day])
 
 index_set("Basin index") [ "Drammensfjorden" ]
 
-index_set("Boundary basin index") [ "Yttre Oslofjord" ]
+index_set("Boundary basin index") [ "Breiangen" ]
 
 index_set("All basins") @union("Basin index", "Boundary basin index")
 
 index_set("Layer index") @sub("All basins") [
 	"Drammensfjorden" : [ 124 ]
-	"Yttre Oslofjord" : [ 20 ] #TODO: Set the correct amount of layers
+	"Breiangen"       : [ 12 ]
 ]
 
 index_set("Subcatchment") [ "Drammenselva" ]
@@ -24,9 +30,10 @@ connection("Downstream") {
 connection("Fjord horizontal") {
 	r : compartment("River") [ "Subcatchment" ] 
 	l : compartment("Fjord layer") [ "Basin index" ]
+	b : compartment("Boundary layer") [ "Boundary basin index" ]
 
 	directed_graph("Fjord connection index") [
-		r[ "Drammenselva" ] -> l[ "Drammensfjorden" ]
+		r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] -> b[ "Breiangen" ]
 	]
 }
 
@@ -64,7 +71,7 @@ par_group("Catchment data") [ "Subcatchment" ] {
 
 par_group("Fjord horizontal boundary") [ "Basin index" "Fjord connection index" "Layer index" ] {
 	par_real("Boundary width") [
-
+		250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 	]
 }
 

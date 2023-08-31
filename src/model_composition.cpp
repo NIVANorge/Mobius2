@@ -560,22 +560,22 @@ unit_match(Mobius_Model *model, Entity_Id unit1, Entity_Id unit2) {
 }
 
 void
-check_variable_declaration_match(Mobius_Model *model, Entity_Id var_id, Entity_Id var_id2) {
+check_variable_declaration_match(Mobius_Model *model, Entity_Id id1, Entity_Id id2) {
 
-	auto var  = model->vars[var_id];
-	auto var2 = model->vars[var_id2];	
+	auto var1  = model->vars[id1];
+	auto var2 = model->vars[id2];	
 	
 	bool mismatch = false;
-	if(var->name != var2->name)
+	if(var1->name != var2->name)
 		mismatch = true;
 	
 	// TODO: If we allow default units, we also have to check against that.
-	if(!mismatch && !unit_match(model, var->unit, var2->unit)) mismatch = true;
-	if(!mismatch && !unit_match(model, var->conc_unit, var2->conc_unit)) mismatch = true;
+	if(!mismatch && !unit_match(model, var1->unit, var2->unit))           mismatch = true;
+	if(!mismatch && !unit_match(model, var1->conc_unit, var2->conc_unit)) mismatch = true;
 	
 	if(mismatch) {
-		var->source_loc.print_error_header(Mobius_Error::model_building);
-		error_print("There is a mismatch between the name or unit of the declaration of this variable with another declaration here: ");
+		var1->source_loc.print_error_header(Mobius_Error::model_building);
+		error_print("There is a mismatch of the name or unit between this declaration and another declaration here: ");
 		var2->source_loc.print_error();
 		mobius_error_exit();
 	}

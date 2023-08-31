@@ -13,7 +13,7 @@ module("SimplyC", version(1, 0, 1),
 A simple DOC model.
 """
 
-	load("stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/basic_math.txt", library("Response"))
 	
 	so4   : property("SO4 deposition")
 	

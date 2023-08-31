@@ -35,7 +35,7 @@ This is a simple biogeochemical model for O2
 ... similar to SelmaProtBas https://github.com/jorritmesman/selmaprotbas/tree/main
 """
 
-	load("stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/basic_math.txt", library("Response"))
 	load("stdlib/seawater.txt", library("Air-sea"), library("Seawater"))
 	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
