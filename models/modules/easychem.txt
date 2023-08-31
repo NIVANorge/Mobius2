@@ -174,10 +174,8 @@ This is a simple biogeochemical model for O₂
 	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", 10, [])
 	
 	death : property("Phytoplankton death") {
-		phyt_death*phyt*{
-			1                 if conc(o2) >= 2[m g, l-1],
-			phyt_death_anox   otherwise
-		}
+		#NOTE: I put in a bit smoother response function since numerical systems work better with that. Feel free to adjust the thresholds (MNO)
+		phyt_death*phyt*s_response(conc(o2), 1.8[m g, l-1], 2.2[m g, l-1], phyt_death_anox, 1)
 	}
 	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
