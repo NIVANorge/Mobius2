@@ -564,6 +564,8 @@ make_clear_instr(std::vector<Model_Instruction> &instructions, Var_Id var_id, En
 	clear_instr.var_id = var_id;     // The var_id of the clear_instr indicates which variable we want to clear.
 	clear_instr.inherits_index_sets_from_instruction.insert(var_id.id);
 	
+	instructions[var_id.id].clear_instr = clear_idx;
+	
 	return clear_idx;
 }
 
@@ -723,7 +725,7 @@ set_up_connection_aggregation(Model_Application *app, std::vector<Model_Instruct
 				if(flux_loc.components[idx] == source_comp) found = true;
 			if(components.size() != 1 || !found)
 				// NOTE: This should already have been checked in model_compilation, this is just a safeguard.
-				fatal_error(Mobius_Error::internal, "Got an all_to_all or grid1d connection for a state var that the connection is not supported for.");
+				fatal_error(Mobius_Error::internal, "Got an grid1d connection for a state var that the connection is not supported for.");
 			
 			auto index_set = conn->node_index_set;
 			
@@ -908,8 +910,6 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		bool is_aggregate  = var->type == State_Var::Type::regular_aggregate;
 		bool has_aggregate = var->has_flag(State_Var::has_aggregate);
 		
-		auto var_solver = instr->solver;
-		
 		if(var->type == State_Var::Type::external_computation) {
 			
 			instr->type = Model_Instruction::Type::external_computation;
@@ -966,11 +966,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			//    although TODO: Couldn't we though?
 			auto var2 = as<State_Var::Type::regular_aggregate>(var);
 			auto agg_of = var2->agg_of;
-			var_solver = instructions[agg_of.id].solver;
+			auto var_solver = instructions[agg_of.id].solver;
 			
 			int clear_id = make_clear_instr(instructions, var_id, var_solver);
 			make_add_to_aggregate_instr(app, instructions, var_solver, var_id, agg_of, clear_id);
-			
 			
 			// The instruction for the var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
@@ -986,7 +985,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			if(initial)
 				fatal_error(Mobius_Error::internal, "Got a connection flux in the initial step.");
-			if(!is_valid(var_solver))
+			if(!is_valid(instr->solver))
 				fatal_error(Mobius_Error::internal, "Got aggregation variable for connection fluxes without a solver.");
 			
 			set_up_connection_aggregation(app, instructions, var_id);
@@ -1101,7 +1100,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 
 // give all properties the solver if it is "between" quantities or fluxes with that solver in the dependency tree.
-bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
+bool
+propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
 	auto instr = &instructions[instr_id];
 
 	if(instr->solver == solver)
@@ -1130,6 +1130,8 @@ bool propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, s
 		auto var = app->vars[instr->var_id];
 		if(var->type != State_Var::Type::declared || as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity)
 			instr->solver = solver;
+		if(instr->clear_instr >= 0)  // The clear instruction would otherwise not be visited since it doesn't depend on anything (only the other way around).
+			instructions[instr->clear_instr].solver = solver;
 	}
 	instr->visited = false;
 	

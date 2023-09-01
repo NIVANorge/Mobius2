@@ -37,7 +37,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 	std::sort(order.begin(), order.end(), [&x_vals](int row_a, int row_b) -> bool { return x_vals[row_a] < x_vals[row_b]; });
 	
 	if(flags & series_data_interp_step) {
-		for(int row = 0; row < x_vals.size()-1; ++row) {
+		for(int row = 0; row < (int)x_vals.size()-1; ++row) {
 			int at   = order[row];
 			int atp1 = order[row + 1];
 			fill_constant_range(app, dates[at], dates[atp1], y_vals[at], write_offsets, data);

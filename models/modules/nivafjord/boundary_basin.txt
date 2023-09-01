@@ -18,7 +18,7 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	load("stdlib/seawater.txt", library("Seawater"))
 	
 	# It doesn't matter what we set as the surface area here since we are only interested in concs and not mass balance.
-	var(bnd_layer.water, [k g], "Boundary layer water") @override { bnd_layer.dz * rho_water * 1[m 2] }
+	var(bnd_layer.water, [m 3], "Boundary layer water") @override { dz * 1[m 2] }
 
 	 # Input series:
 	var(bnd_layer.water.temp,     [deg_c], "Boundary layer temperature")
@@ -30,8 +30,8 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	}
 	
 	# These are needed for automatic transport with fluxes going from the boundary into a basin.
-	var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) } #See note in basin.txt about maybe having salinity dependence of C_water
-	var(bnd_layer.water.salt, [k g], [g, k g-1], "Boundary layer salt") @override_conc { salinity =>> }
+	var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) * rho_water } #See note in basin.txt about maybe having salinity dependence of C_water
+	var(bnd_layer.water.salt, [k g], [k g, m-3], "Boundary layer salt") @override_conc { 1e-3*salinity*rho_water }
 	
 	h : property("Sea level")
 	

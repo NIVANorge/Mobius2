@@ -1,10 +1,7 @@
-
-"""
-Breiangen is set to be this shallow because for the boundary we only need values down to the threshold.
+"""NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we only need to know their condition down to the threshold.
 """
 
-
-time_step([day])
+time_step([8, hr])
 
 index_set("Basin index") [ "Drammensfjorden" ]
 
@@ -12,23 +9,23 @@ index_set("Boundary basin index") [ "Breiangen" ]
 
 index_set("All basins") @union("Basin index", "Boundary basin index")
 
-index_set("Layer index") @sub("All basins") [
-	"Drammensfjorden" : [ 124 ]
-	"Breiangen"       : [ 12 ]
+index_set("Layer index") @sub("All basins")  [
+	"Drammensfjorden"  : [ 124 ]
+	"Breiangen"  : [ 12 ]
 ]
 
 index_set("Subcatchment") [ "Drammenselva" ]
 
 index_set("Landscape units") [ "Just one" ]
 
-index_set("Fjord connection index") @sub("Basin index")
+index_set("Fjord connection index") @sub("Basin index") 
 
 connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
 }
 
 connection("Fjord horizontal") {
-	r : compartment("River") [ "Subcatchment" ] 
+	r : compartment("River") [ "Subcatchment" ]
 	l : compartment("Fjord layer") [ "Basin index" ]
 	b : compartment("Boundary layer") [ "Boundary basin index" ]
 
@@ -41,10 +38,10 @@ series("nivafjord_drammen.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
-	[ 1980-01-01 ]
+	[ 2018-01-01 ]
 
 	par_datetime("End date")
-	[ 1987-01-01 ]
+	[ 2021-01-01 ]
 }
 
 par_group("Fjord global parameters") {
@@ -71,7 +68,8 @@ par_group("Catchment data") [ "Subcatchment" ] {
 
 par_group("Fjord horizontal boundary") [ "Basin index" "Fjord connection index" "Layer index" ] {
 	par_real("Boundary width") [
-		250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+		250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 	]
 }
 
@@ -81,7 +79,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		[ 0.008 ]
 
 		par_real("Mixing factor reference")
-		[ 5e-05 ]
+		[ 9e-05 ]
 
 		par_real("Mixing non-linear coefficient")
 		[ 1.4 ]
@@ -152,7 +150,7 @@ module("NIVAFjord tracer test", version(0, 0, 1)) {
 module("Degree-day PET", version(1, 0, 0)) {
 	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
 		par_real("Deegree-day factor for evapotranspiration") [
-			0.12 
+			0.09 
 		]
 
 		par_real("Minimal temperature for evapotranspiration") [
@@ -186,10 +184,10 @@ module("HBVSnow", version(1, 0, 0)) {
 module("SimplyQ land", version(0, 5, 0)) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
-		[ 0.6 ]
+		[ 0.8 ]
 
 		par_real("Quick flow inflection point")
-		[ 160 ]
+		[ 1000 ]
 	}
 
 	par_group("Hydrology land") [ "Subcatchment" "Landscape units" ] {
@@ -198,13 +196,13 @@ module("SimplyQ land", version(0, 5, 0)) {
 		]
 
 		par_real("Soil water time constant") [
-			2 
+			6 
 		]
 	}
 
 	par_group("Groundwater") [ "Subcatchment" ] {
 		par_real("Groundwater time constant")
-		[ 30 ]
+		[ 70 ]
 	}
 }
 
@@ -214,10 +212,10 @@ module("SimplyQ river", version(0, 5, 0)) {
 		[ 0.014 ]
 
 		par_real("Reach length")
-		[ 47300 ]
+		[ 120000 ]
 
 		par_real("Manning's roughness coefficient")
-		[ 0.04 ]
+		[ 0.14 ]
 
 		par_real("Initial reach flow")
 		[ 250 ]
@@ -252,5 +250,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
 		par_real("Pressure difference flow coefficient")
 		[ 0.5 ]
 	}
+}
+
+module("NIVAFjord boundary", version(0, 0, 1)) {
 }
 

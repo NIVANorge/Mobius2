@@ -86,7 +86,7 @@ This is a simple biogeochemical model for O₂
 	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { (o2_saturation(top_water_temp, 0)*init_O2*o2_mol_mass) }  
 	
 	var(epi.p_vel, [c m, hr-1]) {
-		#TODO: Maybe factor out to library, and write the reference to where the formula comes from.
+		#TODO: Factor this function out to library, and write the reference to where the formula comes from.
 		wnd     := air.wind => [],
 		T       := temp => [],
 		k_600   := 2.07 + 0.215*(wnd^1.7),
@@ -102,6 +102,7 @@ This is a simple biogeochemical model for O₂
 		epi.p_vel*pvel_scaler*(o2_saturation(temp, 0)*o2_mol_mass - conc(o2))*area ->>
 	}
 
+	#TODO: factor out 0.05[m g, l-1] as a constant.
 	flux(epi.water.o2, nowhere, [k g, day-1], "O₂ sediment consumption (epi)") {
 		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*sed_area ->>
 	}
@@ -180,10 +181,10 @@ This is a simple biogeochemical model for O₂
 	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	
-	flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phyto death DOC release (epi)")  { phyt.death }
-	flux(out, epi.water.oc.o2, [k g, day-1], "Phyto death O₂ release (epi)")           { phyt.death*(4 + COS_autoch)/4	}
-	flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phyto death DOC release (hypo)") { phyt.death	}
-	flux(out, hyp.water.oc.o2, [k g, day-1], "Phyto death O₂ release (hypo)")          { phyt.death*(4 + COS_autoch)/4	}
+	flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phytoplankton death DOC release (epi)")  { phyt.death }
+	flux(out, epi.water.oc.o2, [k g, day-1], "Phytoplankton death O₂ release (epi)")           { phyt.death*(4 + COS_autoch)/4	}
+	flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phytoplankton death DOC release (hypo)") { phyt.death	}
+	flux(out, hyp.water.oc.o2, [k g, day-1], "Phytoplankton death O₂ release (hypo)")          { phyt.death*(4 + COS_autoch)/4	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   fix*o2_mol_mass/c_mol_mass   }
 	

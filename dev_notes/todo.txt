@@ -1,16 +1,21 @@
 
 
 	*** High pri ***
-
+	
+		Solver step size should have a unit so that it is not dependent on changes in model time step.
+	
+		When selecting the boundary basin temperature in MobiView2, it doesn't properly restrict the size of the layer index to the boundary size.
+		
+		Why do file saving errors crash the program instead of getting caught now?
 
 		Specific models
 			Finish NIVAFjord!!
-				
+				Fix Breiangen salinity (it dips too low at one of the points)
 				Move to m 3 of water instead of k g?			
 				
 			Finish the simple hydraulics model.
 			
-			EasyLake-CNP
+			EasyChem
 		
 		Finish connection system
 			
@@ -45,6 +50,9 @@
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
 					
 				Finish regex check in the general case
+				
+				Make it work with quantities.
+					And allow aggregation weight for them (can for instance be used for degradation chains where some of the mass goes away).
 
 			grid1d:	
 				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
@@ -65,6 +73,7 @@
 			
 		Bidirectional
 			Should check that target unit is the same a source unit always.
+				And maybe not with aggregation weights.
 		
 			Have an optional test to see if non-bidirectional fluxes were negative after or during a run.
 		
@@ -77,6 +86,9 @@
 	
 	
 	*** Intermediate-pri ***
+		Saving data_set docstring newline increase.
+		
+		Warning on HUGE allocations.
 		
 		Union index sets
 			say     a : index_set("A") @union(b, c)
@@ -241,9 +253,11 @@
 		MobiView:
 		
 			Plot
+			
+				Make a date range for the 2D plot (when the date is the x axis) that defaults to no more than say 1000 steps.
+				
 				stacked_share has a slow implementation.
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
-				Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
 				Normalized axis needs to be more robust.
 				Flickering axis labels when scrolling.
 				

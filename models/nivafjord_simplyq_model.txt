@@ -54,6 +54,7 @@ model("NIVAFjord-SimplyQ") {
 	unit_conversion(gw.water, river.water)   { a_catch }
 	
 	solve(sol, soil.water, gw.water, river.water)
+	#solve(sol, bnd_layer.water) #TODO: Fix the bug and remove this.
 	
 	
 	downstream : connection("Downstream") @directed_graph {
@@ -61,7 +62,7 @@ model("NIVAFjord-SimplyQ") {
 		#(river|epi)+
 	} @no_cycles
 	
-	unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
+	#unit_conversion(river.water, layer.water) { rho_water }  #NOTE: don't use river.water.rho here, because then we get the weird thing where it changes total mass depending on temperature.
 	
 	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
 		river? layer+ bnd_layer?
@@ -79,6 +80,6 @@ model("NIVAFjord-SimplyQ") {
 	load("modules/nivafjord/horizontal_fluxes.txt", module("NIVAFjord horizontal fluxes", basin, layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
 	
 	tracer : quantity("Tracer")
-	load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, river, water, tracer, horz))
+	load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, bnd_layer, river, water, tracer))
 }
 

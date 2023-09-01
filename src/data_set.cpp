@@ -295,7 +295,7 @@ Data_Set::write_to_file(String_View file_name) {
 	bool error = false;
 	try {
 		if(!doc_string.empty()) {
-			fprintf(file, "\"\"\"\n%s\n\"\"\"\n\n", doc_string.data());
+			fprintf(file, "\"\"\"%s\n\"\"\"\n\n", doc_string.data());
 		}
 		
 		if(time_step_was_provided) {

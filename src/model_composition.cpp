@@ -999,6 +999,10 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	
 	auto var = as<State_Var::Type::declared>(app->vars[target_var_id]);
 	
+	// Should not have connection aggregates for overridden variables.
+	if(var->override_tree)
+		return;
+	
 	// See if we have a connection aggregate for this variable and connection already.
 	auto &aggs = is_source ? var->conn_source_aggs : var->conn_target_aggs;
 	for(auto existing_agg : aggs) {

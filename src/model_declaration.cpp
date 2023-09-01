@@ -126,13 +126,18 @@ Decl_Scope::check_for_unreferenced_things(Mobius_Model *model) {
 			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
 			// TODO:  we could put that in the Scope_Entity source_loc (?)
 			std::string scope_type;
-			if(parent_id.reg_type == Reg_Type::module)
+			std::string scope_name;
+			if(parent_id.reg_type == Reg_Type::module) {
 				scope_type = "module";
-			else if(parent_id.reg_type == Reg_Type::library)
+				scope_name = model->find_entity(parent_id)->name;
+			} else if(parent_id.reg_type == Reg_Type::library) {
 				scope_type = "library";
-			else
+				scope_name = model->find_entity(parent_id)->name;
+			} else {
 				scope_type = "model";
-			log_print("Warning: The ", scope_type, " \"", model->find_entity(parent_id)->name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but does not use any of it.\n");
+				scope_name = model->model_name;
+			}
+			log_print("Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but does not use any of it.\n");
 		}
 	}
 	// TODO: Could also check for unreferenced parameters, and maybe some other types of entities (solver, connection..) (but not all entities in general).

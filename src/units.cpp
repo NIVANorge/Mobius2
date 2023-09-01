@@ -79,6 +79,8 @@ parse_unit(std::vector<Token> *tokens) {
 			result.unit = parse_compound_unit(&(*tokens)[0]);
 			pow_idx = 1;
 		}
+		//if(result.unit == Compound_Unit::min)
+		//	log_print("Parsed a 'min'\n");
 		
 		if(size >= pow_idx + 1) {
 			if((*tokens)[pow_idx].type == Token_Type::integer)
@@ -114,7 +116,7 @@ Unit_Data::set_standard_form() {
 	standard_form.reduce();
 
 	for(auto &part : declared_form) {
-		if((int)part.unit <= (int)Base_Unit::max)
+		if((int)part.unit < (int)Base_Unit::max)
 			standard_form.powers[(int)part.unit] += part.power;
 		else if(part.unit == Compound_Unit::N) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
@@ -169,7 +171,7 @@ Unit_Data::set_standard_form() {
 				standard_form.powers[(int)Base_Unit::s] += part.power;
 				standard_form.magnitude += 2*part.power;
 				standard_form.multiplier *= pow_i<s64>(6048, part.power.nom);
-			}else
+			} else
 				fatal_error(Mobius_Error::internal, "Unhandled compound unit in set_standard_form().");
 		}
 		standard_form.magnitude += ((int)part.magnitude)*part.power;

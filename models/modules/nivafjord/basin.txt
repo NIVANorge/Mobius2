@@ -60,35 +60,34 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(basin.freeze_temp, [deg_c]) { ice_formation_temperature(layer.water.salinity[vert.top])	}
 	
 	var(layer.dz, [m], "Layer thickness") {
-		water / (A*rho_water)
+		water / A
 	} @initial {    dz0   }
 	
 	var(layer.z, [m], "Depth (to bottom of layer)") {
 		z[vert.above] + dz[vert.above]
 	}
 	
-	var(layer.water, [k g], "Layer water") @initial { A*dz0*rho_water }
+	var(layer.water, [m 3], "Layer water") @initial { A*dz0 }
 	
-	var(layer.water.salt, [k g], [g, k g-1], "Layer salt")
-		#TODO: Initial conc
-		@initial_conc { salinity=>> }
+	var(layer.water.salt, [k g], [k g, m-3], "Layer salt")
+		@initial_conc { salinity*1e-3*rho_water }
 	
 	var(layer.water.heat, [J], "Layer thermal energy") 
 		#TODO: C_water should at least be salinity dependent
-		@initial_conc { C_water * (temp -> [K]) }
+		@initial_conc { C_water * (temp -> [K]) * rho_water }
 
 	var(layer.water.temp, [deg_c], "Layer temperature") {
-		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
+		heat / (water*C_water*rho_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
 	} @initial {
 		#TODO: Initial temp
-		5=>>
+		2.5=>>
 	}
 	
 	var(layer.water.salinity, [], "Layer salinity") {
-		conc(salt)=>>
+		1e3*(conc(salt)/rho_water)
 	} @initial {
 		# TODO: Initial salinity setup
-		25
+		20
 	}
 	
 	var(layer.water.rho, [k g, m-3], "Potential density") {
@@ -126,9 +125,9 @@ module("NIVAFjord basin", version(0, 0, 1),
 		Es / Nfreq^2
 	}
 	
-	var(layer.water.wmix, [k g, day-1]) {
+	var(layer.water.wmix, [m 3, day-1]) {
 		K := Kt + Ks + Kw,#+Kd,              # Maybe make the sum of the mixing coefficients a separate state variable.
-		rho * A * K / dz ->>
+		A * K / dz ->>
 	}
 	
 	stress         : property("Wind stress")
@@ -177,8 +176,8 @@ module("NIVAFjord basin", version(0, 0, 1),
 		#mixspeed*dz->>                                                    otherwise
 	}
 	
-	flux(layer.water, vert, [k g, day-1], "Water mixing down") { wmix }
-	flux(layer.water, vert, [k g, day-1], "Water mixing up")   { -wmix } @bidirectional #It is negative, but in effect working in the opposite direction.
+	flux(layer.water, vert, [m 3, day-1], "Water mixing down") { wmix }
+	flux(layer.water, vert, [m 3, day-1], "Water mixing up")   { -wmix } @bidirectional #It is negative, but in effect working in the opposite direction.
 	
 	var(layer.water.attn, []) {
 		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.

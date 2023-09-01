@@ -69,7 +69,7 @@ model("NIVAFjord") {
 	
 	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, rho, pressure, dz0, vert))
 	
-	sol : solver("Simply solver", "INCADascru", 0.1)
+	sol : solver("Simply solver", "INCADascru", 0.5, 1e-2)
 	
 	solve(sol, layer.water, sed.heat, basin.ice)
 }

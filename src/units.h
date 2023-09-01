@@ -15,7 +15,16 @@
 // TODO: Why didn't we just decide that year = 12*month??
 enum class
 Base_Unit {
-	m = 0, s = 1, g = 2, mol = 3, deg_c = 4, deg = 5, month = 6, year = 7, K = 8, max = 9
+	m = 0,
+	s = 1,
+	g = 2,
+	mol = 3,
+	deg_c = 4,
+	deg = 5,
+	month = 6,
+	year = 7,
+	K = 8,
+	max = 9
 };
 
 inline bool is_time(Base_Unit bu) {

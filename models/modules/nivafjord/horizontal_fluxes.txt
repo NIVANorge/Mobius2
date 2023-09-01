@@ -42,13 +42,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		flow->>
 	} @specific { river.vert_target }
 	
-	#TODO: Only until we make realignment work.
-	flux(layer.water, out, [k g, day-1], "Horizontal flux equivalent removal") {
-		in_flux(horz, water)
-	}
-	
+
 	# TODO: Could have a SimplyCl module
-	var(river.water.salt, [k g], [g, l-1]) @override_conc { 0[g, l-1] }
+	var(river.water.salt, [k g], [k g, m-3]) @override_conc { 0[k g, m-3] }
 	
 	var(river.water.salin, []) {
 		(conc(salt)/rho_water)->>
@@ -72,29 +68,34 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		w_bnd
 	} @allow_connection(layer, horz)
 	
-	horz_flow : property("Horizontal flow")
-	var(edge_layer.horz_flow, [k g, day-1], "Layer horizontal outflow") {
-		#NOTE: This could go in both directions
-		dP := layer.water.pressure - layer.water.pressure[vert.below],
-		#u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
-		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP),
-		u * w_bnd * layer.dz * rho_water->>
+	dP : property("Pressure differential")
+	var(edge_layer.dP, [Pa]) {
+		layer.water.pressure - layer.water.pressure[horz.below]
 	}
 	
-	flux(layer.water, layer.water[horz.below, vert.specific], [k g, day-1], "Layer horizontal outflow flux") {
+	horz_flow : property("Horizontal flow")
+	var(edge_layer.horz_flow, [m 3, day-1], "Layer horizontal outflow") {
+		#NOTE: This could go in both directions
+		#dP := layer.water.pressure - layer.water.pressure[vert.below],
+	
+		copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * layer.dz ->>
+	}
+	
+	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
 		edge_layer.horz_flow
 	} @specific {
 		edge_layer.vert_target
 	} @bidirectional
 	
 	horz_bal : property("Horizontal water balance")
-	var(layer.water.horz_bal, [k g, day-1]) {
+	var(layer.water.horz_bal, [m 3, day-1]) {
 		#TODO: If we implement out_flux, we don't need the separate horz_flow variable.
-		aggregate(edge_layer.horz_flow) - in_flux(horz, water)
+		
+		aggregate(edge_layer.horz_flow) - in_flux(horz, water)->>
 	}
 	
 	align : property("Vertical realignment")
-	var(layer.water.align, [k g, day-1])
+	var(layer.water.align, [m 3, day-1])
 	
 	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
 	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
@@ -102,9 +103,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		layer.water.horz_bal
 	}
 	
-	/* # We can only get this one to work once we have some exchange with an outer boundary.
-	flux(layer.water, vert, [k g, day-1], "Vertical realignment flux") {
+	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
 		align
 	}
-	*/
 }

@@ -39,6 +39,8 @@ Model_Instruction {
 	std::set<int> inherits_index_sets_from_instruction;
 	std::set<Identifier_Data> inherits_index_sets_from_state_var;
 	
+	int clear_instr = -1;  // This is the clear instruction of this instruction if this instruction is an aggregation variable.
+	
 	Math_Expr_FT *code;
 	
 	bool visited;
