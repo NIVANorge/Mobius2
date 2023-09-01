@@ -57,6 +57,11 @@ module("NIVAFjord basin", version(0, 0, 1),
 		#TODO: porosity
 	}
 	
+	par_group("Initial layer physical", layer) {
+		init_t : par_real("Initial layer temperature", [deg_c], 2.5)
+		init_s : par_real("Initial layer salinity", [], 20)
+	}
+	
 	var(basin.freeze_temp, [deg_c]) { ice_formation_temperature(layer.water.salinity[vert.top])	}
 	
 	var(layer.dz, [m], "Layer thickness") {
@@ -79,15 +84,13 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(layer.water.temp, [deg_c], "Layer temperature") {
 		heat / (water*C_water*rho_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
 	} @initial {
-		#TODO: Initial temp
-		2.5=>>
+		init_t
 	}
 	
 	var(layer.water.salinity, [], "Layer salinity") {
 		1e3*(conc(salt)/rho_water)
 	} @initial {
-		# TODO: Initial salinity setup
-		20
+		init_s
 	}
 	
 	var(layer.water.rho, [k g, m-3], "Potential density") {
@@ -181,11 +184,11 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.attn, []) {
 		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.
-		1-exp(-coeff*dz)
+		1 - exp(-coeff*dz)
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		(in_flux(sw_vert, layer.water.heat)->[J, day-1]) * (1-attn) * A[vert.below] / A
+		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn)
 	}
 	
 	var(sed.heat, [J], "Sediment heat") @initial {

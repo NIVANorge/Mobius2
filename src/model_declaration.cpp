@@ -1572,10 +1572,17 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 
 void
 process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Decl_Type::compartment, Decl_Type::compartment}}, false, -1);
+	int which = match_declaration(decl,
+		{
+			{Decl_Type::compartment, Decl_Type::compartment},
+			{Decl_Type::compartment, Decl_Type::compartment, Decl_Type::connection}
+		}, false, -1);
 	
 	auto from_comp = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
 	auto to_comp   = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
+	Entity_Id connection = invalid_entity_id;
+	if(which == 1)
+		connection = resolve_argument<Reg_Type::connection>(model, scope, decl, 2);
 	
 	if(model->components[from_comp]->decl_type != Decl_Type::compartment || model->components[to_comp]->decl_type != Decl_Type::compartment) {
 		decl->source_loc.print_error_header(Mobius_Error::model_building);
@@ -1584,7 +1591,7 @@ process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, D
 	
 	//TODO: some guard against overlapping / contradictory declarations.
 	auto function = static_cast<Function_Body_AST *>(decl->body);
-	model->components[from_comp]->aggregations.push_back({to_comp, function->block, scope->parent_id});
+	model->components[from_comp]->aggregations.push_back({to_comp, connection, function->block, scope->parent_id});
 }
 
 void

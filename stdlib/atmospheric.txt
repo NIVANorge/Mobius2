@@ -70,8 +70,9 @@ library("Radiation") {
 	solar_constant : constant("Solar constant", [W, m-2], 1361)
 	
 	daily_average_extraterrestrial_radiation : function(latitude : [deg], day_of_year : [day], days_this_year : [day]) {
-		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(2*pi*day_of_year/days_this_year),
-		solar_declination      := 0.409*sin(2*pi*day_of_year/days_this_year - 1.39),
+		orbit_rad              := (2*pi*day_of_year)/days_this_year,  # NOTE: Have to bracket the first part to avoid integer division.
+		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(orbit_rad),
+		solar_declination      := 0.409*sin(orbit_rad - 1.39),
 		lat_rad                := latitude * pi / 180.0[deg],
 		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination)),
 		

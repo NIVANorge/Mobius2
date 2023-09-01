@@ -2,6 +2,8 @@
 
 	*** High pri ***
 	
+		Error when a locked index set is on, but not in use. (parameter editing)
+	
 		Solver step size should have a unit so that it is not dependent on changes in model time step.
 	
 		When selecting the boundary basin temperature in MobiView2, it doesn't properly restrict the size of the layer index to the boundary size.

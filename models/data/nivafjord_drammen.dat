@@ -79,7 +79,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		[ 0.008 ]
 
 		par_real("Mixing factor reference")
-		[ 9e-05 ]
+		[ 0.0001 ]
 
 		par_real("Mixing non-linear coefficient")
 		[ 1.4 ]
@@ -88,13 +88,13 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		[ 0.007 ]
 
 		par_real("Diffuse attenuation coefficent (clear water)")
-		[ 0.2 ]
+		[ 0.5 ]
 
 		par_real("Surface additional mixing energy")
-		[ 1e-10 ]
+		[ 1e-09 ]
 
 		par_real("Halving depth of additional mixing energy")
-		[ 3 ]
+		[ 6 ]
 
 		par_real("Diminishing rate of additional mixing energy")
 		[ 4 ]
@@ -102,7 +102,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 
 	par_group("Sediment parameters") {
 		par_real("Deep sediment temperature")
-		[ 3 ]
+		[ 6 ]
 
 		par_real("Depth of thermally active sediment layer")
 		[ 10 ]
@@ -115,6 +115,16 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 
 		par_real("Sediment density")
 		[ 2600 ]
+	}
+
+	par_group("Initial layer physical") [ "Basin index" "Layer index" ] {
+		par_real("Initial layer temperature") [
+			8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 
+		]
+
+		par_real("Initial layer salinity") [
+			33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 
+		]
 	}
 }
 
@@ -248,7 +258,7 @@ module("RiverTemperature", version(0, 1, 0)) {
 module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
 	par_group("Horizontal exchange") {
 		par_real("Pressure difference flow coefficient")
-		[ 0.5 ]
+		[ 0.7 ]
 	}
 }
 

@@ -44,11 +44,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 
 	# TODO: Could have a SimplyCl module
-	var(river.water.salt, [k g], [k g, m-3]) @override_conc { 0[k g, m-3] }
+	var(river.water.salin, []) {  0  }
 	
-	var(river.water.salin, []) {
-		(conc(salt)/rho_water)->>
-	}
+	var(river.water.salt, [k g], [k g, m-3]) @override_conc {   1e-3*salin*rho_water   }
 	
 	var(river.water.rho, [k g, m-3]) {
 		seawater_pot_dens(temp, salin)

@@ -135,9 +135,10 @@ Entity_Registration<Reg_Type::loc> : Entity_Registration_Base {
 
 struct
 Aggregation_Data {
-	Entity_Id to_compartment;
-	Math_Block_AST *code;
-	Entity_Id       scope_id;
+	Entity_Id       to_compartment      = invalid_entity_id;
+	Entity_Id       only_for_connection = invalid_entity_id;
+	Math_Block_AST *code                = nullptr;
+	Entity_Id       scope_id            = invalid_entity_id;
 };
 
 struct
