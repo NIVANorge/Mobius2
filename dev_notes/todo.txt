@@ -12,8 +12,8 @@
 
 		Specific models
 			Finish NIVAFjord!!
-				Fix Breiangen salinity (it dips too low at one of the points)
-				Move to m 3 of water instead of k g?			
+				Fix the processed input series
+				Fix mass balanced of dissolved (negative tracer! - is something missing a @bidirectional, or is it wrong for the horizontal exchange?)
 				
 			Finish the simple hydraulics model.
 			

@@ -182,6 +182,12 @@ module("NIVAFjord basin", version(0, 0, 1),
 	flux(layer.water, vert, [m 3, day-1], "Water mixing down") { wmix }
 	flux(layer.water, vert, [m 3, day-1], "Water mixing up")   { -wmix } @bidirectional #It is negative, but in effect working in the opposite direction.
 	
+	# The heat conduction is trivial compared to the mixing, so it doesn't seem necessary.
+	#flux(layer.water.heat, vert, [J, day-1], "Water layer heat conduction") {
+	#	mdz := 0.5*(dz + dz[below]),
+	#	k_water*(temp->[K] - temp[below]->[K])*A/mdz ->>
+	#}
+	
 	var(layer.water.attn, []) {
 		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.
 		1 - exp(-coeff*dz)

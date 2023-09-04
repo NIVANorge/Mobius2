@@ -103,5 +103,5 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
 		align
-	}
+	} @bidirectional
 }

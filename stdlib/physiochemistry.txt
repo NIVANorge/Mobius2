@@ -27,6 +27,7 @@ library("Water utils") {
 	
 	rho_water  : constant("Water density",                   [k g, m-3],     999.98)
 	C_water    : constant("Specific heat capacity of water", [J, k g-1, K-1], 4186)
+	k_water    : constant("Thermal conductivity of water",   [W, m-1, K-1], 0.6)
 	
 	water_temp_to_heat : function(V : [m 3], T : [deg_c]) {  # We don't want to use dynamic water density here because of the use case.
 		V*(T->[K])*rho_water*C_water

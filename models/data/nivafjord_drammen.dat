@@ -1,7 +1,7 @@
 """NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we only need to know their condition down to the threshold.
 """
 
-time_step([8, hr])
+time_step([3, hr])
 
 index_set("Basin index") [ "Drammensfjorden" ]
 
@@ -155,6 +155,13 @@ module("AirSea Fjord", version(0, 1, 1)) {
 }
 
 module("NIVAFjord tracer test", version(0, 0, 1)) {
+	par_group("Tracer") {
+		par_real("River tracer concentration")
+		[ 1 ]
+
+		par_real("Boundary tracer concentration")
+		[ 0 ]
+	}
 }
 
 module("Degree-day PET", version(1, 0, 0)) {
