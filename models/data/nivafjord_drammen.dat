@@ -91,7 +91,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		[ 0.5 ]
 
 		par_real("Surface additional mixing energy")
-		[ 1e-09 ]
+		[ 1e-10 ]
 
 		par_real("Halving depth of additional mixing energy")
 		[ 6 ]

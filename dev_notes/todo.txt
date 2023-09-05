@@ -2,6 +2,9 @@
 
 	*** High pri ***
 	
+		Properly test the flux restriction refactoring.
+			Probably broken if we have grid1d of the same connection in both source and target.
+	
 		Error when a locked index set is on, but not in use. (parameter editing)
 	
 		Solver step size should have a unit so that it is not dependent on changes in model time step.
@@ -57,11 +60,7 @@
 					And allow aggregation weight for them (can for instance be used for degradation chains where some of the mass goes away).
 
 			grid1d:	
-				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
-					need to get rid of get_restriction_of_flux and process each location separately.
-				And have things like flux(bla[vert.top], other_bla[horz])
-				Or flux(bling[vert.specific], plong[vert.top]) etc.
-				Maybe the specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
+				Maybe the .specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
 					Could then also allow .specific inside main code.
 					
 			Specific target:

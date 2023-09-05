@@ -9,7 +9,6 @@ module("NIVAFjord basin", version(0, 0, 1),
 	heat      : quantity,
 	temp      : property,
 	salinity  : property,
-	precip    : property,
 	pressure  : property,
 	wind      : property,
 	g_rad     : property,
@@ -29,7 +28,6 @@ module("NIVAFjord basin", version(0, 0, 1),
 	load("stdlib/seawater.txt", library("Seawater"))
 
 	var(air.temp,  [deg_c], "Air temperature")
-	var(air.precip, [m m, day-1])      # TODO: Use this for something.
 	var(air.wind,  [m, s-1])
 	var(air.g_rad, [W, m-2])
 

@@ -31,7 +31,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	var(river.vert_target, [], "Outlet vertical target")
 	
-	#TODO: We have to conditionalize the computation of this one in codegen based on the existence of horz.below.
 	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
 		result(river.vert_target)
 		river.water.rho
@@ -54,9 +53,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	var(edge_layer.vert_target, [], "Fjord layer horizontal exchange vertical target")
 	
-	# How would the framework know that this one is only for the edge layers, not below that (?)
-	# Or maybe it doesn't need to, and it just does a 'break' when w_bnd becomes 0.
-	# That is simpler, but wastes some time series storage space.
 	external_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge) {
 		result(edge_layer.vert_target)
 		layer.water.rho

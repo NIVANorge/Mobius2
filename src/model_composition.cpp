@@ -128,17 +128,9 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 	if(is_valid(loc.r1.connection_id)) {
 		auto conn = app->model->connections[loc.r1.connection_id];
 		if(conn->type == Connection_Type::grid1d) {
-			if(is_source && loc.r1.type == Restriction::top) {
-				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("'top' can't be in the source of a flux.");
-			}
-			if(!is_source && loc.r1.type == Restriction::bottom) {
-				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("'bottom' can't be in the target of a flux.");
-			}
 			if(is_source && loc.r1.type == Restriction::specific) {
 				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("'specific' can't be in the source of a flux.");
+				fatal_error("'specific' can't be in the source of a flux for now.");
 			}
 		} else {
 			if(is_source) {
@@ -1049,6 +1041,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	}
 }
 
+
 void
 compose_and_resolve(Model_Application *app) {
 	
@@ -1339,8 +1332,12 @@ compose_and_resolve(Model_Application *app) {
 		// We have to copy "specific target" to all dissolved child fluxes. We could not have done that before since the code was only just resolved above.
 		auto flux = app->vars[flux_id];
 		if(flux->type != State_Var::Type::dissolved_flux) continue;
-		auto &res = restriction_of_flux(flux);
-		if(res.r1.type != Restriction::specific && res.r2.type != Restriction::specific) continue;
+		
+		if(	   flux->loc1.r1.type != Restriction::specific 
+			&& flux->loc1.r2.type != Restriction::specific
+			&& flux->loc2.r1.type != Restriction::specific
+			&& flux->loc2.r2.type != Restriction::specific) continue;
+			
 		auto orig_flux = flux;
 		while(orig_flux->type == State_Var::Type::dissolved_flux)
 			orig_flux = app->vars[as<State_Var::Type::dissolved_flux>(orig_flux)->flux_of_medium];
@@ -1396,9 +1393,9 @@ compose_and_resolve(Model_Application *app) {
 		for(auto var_id : app->vars.all_fluxes()) {
 			auto var = app->vars[var_id];
 			
-			auto &res = restriction_of_flux(var).r1;
+			auto &res = var->loc2.r1;
 			
-			if(is_valid(res.connection_id) && res.type == Restriction::below) {
+			if(res.type == Restriction::below) {
 				auto type = model->connections[res.connection_id]->type;
 				if(type == Connection_Type::directed_graph) {
 					auto comp = app->find_connection_component(res.connection_id, var->loc1.first(), false);
@@ -1418,31 +1415,37 @@ compose_and_resolve(Model_Application *app) {
 	for(auto var_id : app->vars.all_fluxes()) {
 		auto var = app->vars[var_id];
 		
-		auto &res = restriction_of_flux(var).r1;
-		if(is_valid(res.connection_id)) {
+		if(var->loc1.r1.type != Restriction::none) {
+			auto connection_id = var->loc1.r1.connection_id;
+			auto type = model->connections[connection_id]->type;
+			if(type != Connection_Type::grid1d)
+				fatal_error(Mobius_Error::internal, "Expected only grid1d connection as a source");
+			if(!is_located(var->loc1))
+				fatal_error(Mobius_Error::internal, "Did not expect non-located grid1d source.");
 			
-			Var_Location loc = var->loc1;
-			if(res.type == Restriction::top || res.type == Restriction::specific)
-				loc = var->loc2; // NOTE: For top and specific the relevant location is the target.
-
-			if(is_located(loc)) {
+			Var_Id source_id = app->vars.id_of(var->loc1);
+			may_need_connection_target.insert({connection_id, source_id});
+		}
+		
+		if(var->loc2.r1.type != Restriction::none) {
+			auto connection_id = var->loc2.r1.connection_id;
+			auto type = model->connections[connection_id]->type;
+			Var_Id source_id = invalid_var;
+			if(type == Connection_Type::grid1d) {
+				if(is_located(var->loc2))
+					source_id = app->vars.id_of(var->loc2);
+				else if(is_located(var->loc1))
+					source_id = app->vars.id_of(var->loc1);  // TODO: Does this give an error if the source is not on the connection?
+				else
+					fatal_error(Mobius_Error::internal, "Unable to locate grid1d connection aggregate variable.");
 				
-				auto type = model->connections[res.connection_id]->type;
-				if(type == Connection_Type::directed_graph) {
-					// For graph-like connections, we can completely disable fluxes if they don't have any arrows to go along.
-					auto comp = app->find_connection_component(res.connection_id, loc.first(), false);
-					bool found_target = false;
-					if(comp)
-						found_target = !comp->possible_targets.empty();
-					if(!found_target) {
-						var->set_flag(State_Var::invalid);
-						continue;
-					}
-				}
-				
-				Var_Id source_id = app->vars.id_of(loc);
-				may_need_connection_target.insert({res.connection_id, source_id});
+			} else if(type == Connection_Type::directed_graph) {
+				if(!is_located(var->loc1))
+					fatal_error(Mobius_Error::internal, "Did not expect a directed_graph connection starting from a non-located source.");
+				source_id = app->vars.id_of(var->loc1);
 			}
+			if(is_valid(source_id))
+				may_need_connection_target.insert({connection_id, source_id});
 		}
 	}
 	
@@ -1586,6 +1589,7 @@ compose_and_resolve(Model_Application *app) {
 			// Note: A grid1d connection can only go over one node type.
 			auto target_comp = connection->components[0];
 			
+			// TODO: Find a way to get rid of connection aggregates for grid1d.
 			register_connection_agg(app, false, source_id, target_comp, conn_id, &varname[0]);
 			
 		} else {

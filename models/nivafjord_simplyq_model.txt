@@ -45,7 +45,7 @@ model("NIVAFjord-SimplyQ") {
 	load("modules/rivertemp.txt",
 		module("RiverTemperature", air, soil, river, water, heat, temp))
 	
-	load("stdlib/physiochemistry.txt", library("Water utils"))
+	#load("stdlib/physiochemistry.txt", library("Water utils"))
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 	aggregation_weight(soil, river) { lu_prop }

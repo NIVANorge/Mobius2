@@ -192,8 +192,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : app->vars.all_fluxes()) {
 					auto flux_var = app->vars[flux_id];
 					
-					if(is_valid(restriction_of_flux(flux_var).r1.connection_id)) continue;
-					if(!is_located(flux_var->loc2) || app->vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
+					if(flux_var->loc2.r1.type != Restriction::none || !is_located(flux_var->loc2) || app->vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
 					
 					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 					if(flux_var->unit_conversion_tree)
@@ -220,34 +219,30 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					for(Var_Id flux_id : app->vars.all_fluxes()) {
 						auto flux = app->vars[flux_id];
 						
-						// NOTE: In the case of an all-to-all or directed_graph connection case we have set up an aggregation variable also for the source, so we already subtract using that.
-						// TODO: We could consider always having an aggregation variable for the source even when the source is always just one instace just to get rid of all the special cases (?).
-						
-						auto &restriction = restriction_of_flux(flux);
-						bool is_bottom      = (restriction.r1.type == Restriction::bottom);
-						bool has_source_agg = false;
-						
-						if(is_valid(restriction.r1.connection_id)) {
-							// TODO: This is very hacky. Should this info be better organized?
-							auto type = model->connections[restriction.r1.connection_id]->type;
-							if(type == Connection_Type::directed_graph) {
-								auto find_source = app->find_connection_component(restriction.r1.connection_id, flux->loc1.first(), false);
-								has_source_agg = find_source && find_source->is_edge_indexed; // NOTE: Could instead be find_source->max_outgoing_per_node > 1, but it is tricky wrt index set dependencies for the flux.
+						if(is_located(flux->loc1) && app->vars.id_of(flux->loc1) == instr.var_id) {
+							
+							// Subtract the flux from the source unless it was separately subtracted via a source aggregate.
+							bool omit = false;
+							if(flux->loc2.r1.type != Restriction::none) {
+								auto conn_id = flux->loc2.r1.connection_id;
+								auto type = model->connections[conn_id]->type;
+								if(type == Connection_Type::directed_graph) {
+									auto find_source = app->find_connection_component(conn_id, flux->loc1.first(), false);
+									// NOTE: Could instead be find_source->max_outgoing_per_node > 1, but it is tricky wrt index set dependencies for the flux.
+									omit = find_source && find_source->is_edge_indexed;
+								}
+							}
+							if(flux->loc1.r1.type != Restriction::none) {
+								// This is only the case where the source is e.g. .top of a grid1d connection. In that case there is a hack where it is subtracted from the target aggregate of that variable.
+								omit = true;
+							}
+							if(!omit) {
+								auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
+								fun = make_binop('-', fun, flux_ref);
 							}
 						}
 						
-						// NOTE: For bottom fluxes there is a special hack where they are subtracted from the target agg variable. Hopefully we get a better solution.
-						
-						if(is_located(flux->loc1) && app->vars.id_of(flux->loc1) == instr.var_id
-							&& !has_source_agg && !is_bottom) {
-
-							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
-							fun = make_binop('-', fun, flux_ref);
-						}
-						
-						if(is_located(flux->loc2) && app->vars.id_of(flux->loc2) == instr.var_id
-							&& (!is_valid(restriction.r1.connection_id) || is_bottom)) {
-							
+						if(is_located(flux->loc2) && app->vars.id_of(flux->loc2) == instr.var_id && flux->loc2.r1.type == Restriction::none) {
 							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 							// NOTE: the unit conversion applies to what reaches the target.
 							if(flux->unit_conversion_tree)
@@ -730,13 +725,12 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 }
 
 Math_Expr_FT *
-add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, Index_Exprs &indexes, Restriction restriction) {
+add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id flux_id, bool subtract, Index_Exprs &indexes, Restriction restriction) {
 	
 	auto model = app->model;
 
 	// NOTE: This is a bit of a hack. We should maybe have a source aggregate here instead, but that can cause a lot of unnecessary work and memory use for the model.
-	if(restriction.type == Restriction::bottom)
-		value = make_unary('-', value);
+	char oper = subtract ? '-' : '+';
 	
 	Index_Exprs new_indexes(model);
 	new_indexes.copy(indexes);
@@ -745,7 +739,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	
 	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
 
-	auto result = add_value_to_state_var(agg_id, agg_offset, value, '+');
+	auto result = add_value_to_state_var(agg_id, agg_offset, value, oper);
 	
 	return result;
 }
@@ -784,7 +778,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 		
 	} else if (type == Connection_Type::grid1d) {
 		
-		return add_value_to_grid1d_agg(app, value, agg_id, instr->var_id, new_indexes, restriction.r1);
+		return add_value_to_grid1d_agg(app, value, agg_id, instr->var_id, instr->subtract, new_indexes, restriction.r1);
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled connection type in add_value_to_connection_agg_var()");

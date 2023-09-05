@@ -25,6 +25,8 @@ Model_Instruction {
 	Var_Id              source_id;
 	Var_Id              target_id;
 	
+	bool                subtract = false; // For certain connection aggregations, we want to subtract from the aggregate instead of adding to it.
+	
 	Var_Loc_Restriction restriction; // May eventually need 2?
 	
 	Entity_Id           solver;
