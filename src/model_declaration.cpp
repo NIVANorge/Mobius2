@@ -1620,6 +1620,7 @@ Model_Extension {
 	Decl_AST *decl;
 	int load_order;
 	int depth;
+	//std::set<Decl_Type> excludes; //TODO!     -- eventually could also declare specific names or handles that are to be excluded, but that is much more work to get to work.
 };
 
 bool
@@ -1634,10 +1635,40 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 		match_declaration(child, {{Token_Type::quoted_string}}, false);
 		String_View extend_file_name = single_arg(child, 0)->string_value;
 		
-		// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
-		//  but right now normalizing the path and loading the ast happens inside the same call in read_model_ast_from_file
 		std::string normalized_path;
 		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+#if 0
+		match_declaration(child, {{Token_Type::quoted_string}}, false, 0, true);
+		String_View extend_file_name = single_arg(child, 0)->string_value;
+		
+		std::string normalized_path;
+		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+		
+		// TODO: Since we will pass one of these as an argument, I guess it is not necessary to pass depth separately.
+		Model_Extension new_extension;//{ normalized_path, extend_model, *load_order, depth}
+		new_extension.normalized_path = normalized_path;
+		new_extension.extend_model = extend_model;
+		new_extension.load_order = *load_order;
+		new_extension.depth = from_extension->depth + 1;
+		new_extension.excludes = from_extension->excludes; // Include recursively excluded loads from above.
+		
+		for(auto note : child->notes) {
+			if(note->decl.string_value != "exclude") {
+				note->decl.print_error_header();
+				fatal_error("Unrecognized note type '", note->decl.string_value, "' for 'extend' declaration.");
+			}
+			match_declaration_base(note, {{true}}), 0);
+			for(auto arg : note->args) {
+				if(!arg->decl) {
+					arg->source_loc().print_error_header();
+					fatal_error("Expected only arguments of declaration type to an 'exclude' note.");
+				}
+				match_declaration(arg->decl, {{}}, false, 0);
+				new_extension.excludes.insert(arg->decl->type);
+			}
+		}
+#endif		
+		
 		
 		if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
 			begin_error(Mobius_Error::parsing);
@@ -1807,6 +1838,9 @@ load_model(String_View file_name, Mobius_Config *config) {
 		auto body = static_cast<Decl_Body_AST *>(ast->body);
 		
 		for(Decl_AST *child : body->child_decls) {
+			// if(extend.excludes.find(child->type) != extend.excludes.end()) continue;   //TODO: Same for all below.   Hmm, this will not work for inlined decls. Another reason to rework those.
+			
+			
 			if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
 				process_declaration<Reg_Type::index_set>(model, scope, child);
 			else if (child->type == Decl_Type::load) {

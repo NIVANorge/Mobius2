@@ -29,6 +29,7 @@ set_parameter_value(const Indexed_Parameter &par_data, Model_Data *data, Paramet
 	if(!is_valid(par_data.id))
 		fatal_error(Mobius_Error::internal, "Tried to write an invalid parameter to the data set.");
 	
+	//TODO: Should we have a shortcut in the case when no index locks are on?
 	Indexes current_indexes(data->app->model);
 	
 	recursive_update_parameter(0, current_indexes, par_data, data, val);

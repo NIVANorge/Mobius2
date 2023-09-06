@@ -15,6 +15,10 @@
 		Entities used by function bodies of overridden properties are not accounted for.
 			We should really process the function trees of variables that are overridden also to avoid this (and detect other errors that may be hidden by this.).
 		
+		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
+			The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
+			Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
+		
 
 		Specific models
 			NIVAFjord!!
@@ -90,6 +94,16 @@
 	
 	
 	*** Intermediate-pri ***
+		
+		Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
+		
+		What to do with discrete fluxes with varying step sizes.
+			They are currently not step size independent. Should they be re-scaled somehow if the step size is different from the one that is declared in the flux?
+			
+			What to do about things like (computed) global radiation that should really have an hourly variation with low step sizes but should be averaged with higher?
+			
+			
+	
 		Saving data_set docstring newline increase.
 		
 		Warning on HUGE allocations.
@@ -179,16 +193,6 @@
 				Not needed anymore? they should not be selectable.
 			
 		Go over and improve diagnostics in error messages (all over the place).
-		
-		The 'extend' system is just not that good.
-			- There are problems when you want to override something in the earlier model,
-			- There is a problem if two extended models declare the same symbol.
-			
-			Maybe do a extend("...") @ignore(solver, solve, connection, quantity("Heat"))  ...
-				These would have to be passed on recursively.
-					And merge-added to the single record if there are multiple extensions of the same model that disagree.
-				.
-			Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
 		
 		external_computation : 
 			Just do whatever is needed when it is needed.
