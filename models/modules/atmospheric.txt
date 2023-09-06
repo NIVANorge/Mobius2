@@ -6,11 +6,12 @@ module("Atmospheric", version(0, 1, 0),
 	g_rad    : property,
 	pressure : property,
 	a_hum    : property,
-	rho      : property,
+	dens     : property,
 	lwd      : property
 ) {
 """
-Simple module for some common atmospheric attributes
+Simple module for some common atmospheric attributes.
+The user must provide either "Global radiation" or "Cloud cover" as an input series, but one of these can be computed from the other.
 """
 	
 	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
@@ -25,6 +26,7 @@ Simple module for some common atmospheric attributes
 	r_hum            : property("Relative humidity")
 	g_rad_cloud_free : property("Solar radiation on a clear sky day")
 	cloud            : property("Cloud cover")
+	#TODO: These two should instead be exported, for potential use with PET model.
 	s_vap            : property("Saturation vapour pressure")
 	a_vap            : property("Actual vapour pressure")
 	
@@ -39,14 +41,12 @@ Simple module for some common atmospheric attributes
 		clear_sky_shortwave(ext, elev)
 	}
 	
-	#TODO: Should maybe parametrize the cloud cover - radiation thing
+	#TODO: Should maybe parametrize the cloud cover - radiation relationship
 	var(air.g_rad,  [W, m-2]) {
 		(1 - 0.75*cloud^3.4) * g_rad_cloud_free
 	}
 	
 	var(air.cloud,  []) {
-		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day]),
-		g_rad_cloud_free := clear_sky_shortwave(ext, elev),
 		#cc := ((1 - g_rad/g_rad_cloud_free)/0.75)^(1/3.4),     #Hmm, this just didn't work that well. Find something better?
 		#cc := (1 - (1.1*g_rad/g_rad_cloud_free - 0.6)),
 		cc := 1 - g_rad/g_rad_cloud_free,                 # Works much better for EasyLake on Vansjø... May be other complicating factors though.
@@ -66,14 +66,14 @@ Simple module for some common atmospheric attributes
 	}
 	
 	var(air.a_hum, []) {
-		specific_humidity_from_pressure(air.pressure, air.a_vap)
+		specific_humidity_from_pressure(pressure, a_vap)
 	}
 	
-	var(air.rho, [k g, m-3], "Air density") {
+	var(air.dens, [k g, m-3], "Air density") {
 		air_density(temp, pressure, a_vap)
 	}
 	
 	var(air.lwd, [W, m-2]) {
-		downwelling_longwave(air.temp, a_vap, cloud)
+		downwelling_longwave(temp, a_vap, cloud)
 	}
 }

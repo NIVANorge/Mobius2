@@ -80,8 +80,6 @@ The water balance part of the model is conceptually similar to VEMALA
 	#	
 	#}
 	
-	
-	
 	var(epi.level, [m], "Lake water level")                               {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
 	
 	flux(epi.water, epi_target, [m 3, s-1], "Lake outflow flux")          {   max(0, rate_l*(level - z_outflow))   }
@@ -114,7 +112,6 @@ The water balance part of the model is conceptually similar to VEMALA
 		water_heat_to_temp(water, water.heat)
 	}
 	
-	# TODO: How does mixing interact with ice (?).
 	ind : property("Mixing indicator")
 	var(epi.ind, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
 	

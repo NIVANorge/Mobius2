@@ -9,15 +9,16 @@ recursive_update_parameter(int level, Indexes &current_indexes, const Indexed_Pa
 		s64	offset = data->parameters.structure->get_offset(par_data.id, current_indexes);
 		*data->parameters.get_value(offset) = val;
 	} else {
-		if(par_data.locks[level]) {
+		auto index = par_data.indexes.indexes[level];
+		if(is_valid(index) && par_data.locks[level]) {
 			auto index_set = Entity_Id {Reg_Type::index_set, (s16)level};
 			auto index_count = data->app->index_data.get_index_count(current_indexes, index_set);
-			for(Index_T index = {index_set, 0}; index < index_count; ++index) {
-				current_indexes.indexes[level] = index;
+			for(Index_T index2 = {index_set, 0}; index2 < index_count; ++index2) {
+				current_indexes.indexes[level] = index2;
 				recursive_update_parameter(level+1, current_indexes, par_data, data, val);
 			}
 		} else {
-			current_indexes.indexes[level] = par_data.indexes.indexes[level];
+			current_indexes.indexes[level] = index;
 			recursive_update_parameter(level+1, current_indexes, par_data, data, val);
 		}
 	}

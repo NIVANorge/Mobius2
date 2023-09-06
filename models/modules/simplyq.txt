@@ -37,7 +37,7 @@ New to version 0.5 :
 	
 	var(soil.water, [m m], "Soil water volume")  @initial { fc }
 	var(gw.water,   [m m], "Groundwater volume") @initial {
-		tc_g * river.water.flow / a_catch -> [m m]					# TODO: Should it know to use a unit_conversion in reverse here?
+		tc_g * river.water.flow / a_catch -> [m m]  #TODO: Alternatively, access the init_flow parameter and cut the river.water.flow property entirely
 	}
 	
 	flux(soil.water, river.water, [m m, day-1], "Quick flow") {

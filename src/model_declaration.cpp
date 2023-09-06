@@ -137,7 +137,7 @@ Decl_Scope::check_for_unreferenced_things(Mobius_Model *model) {
 				scope_type = "model";
 				scope_name = model->model_name;
 			}
-			log_print("Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but does not use any of it.\n");
+			log_print("Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but doesn't use any of it.\n");
 		}
 	}
 	// TODO: Could also check for unreferenced parameters, and maybe some other types of entities (solver, connection..) (but not all entities in general).
@@ -1492,8 +1492,8 @@ process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope,
 template<> Entity_Id
 process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	int which = match_declaration(decl, {
-		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real},
-		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Token_Type::real},
+		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Decl_Type::unit},
+		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Decl_Type::unit, Token_Type::real},
 		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real},
 		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real, Decl_Type::par_real},
 	});
@@ -1510,17 +1510,18 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 		single_arg(decl, 1)->print_error_header();
 		fatal_error("The name \"", solver_name, "\" is not recognized as the name of an ODE solver.");
 	}
-	//TODO: allow parametrization of the solver h and hmin like in Mobius1.
 	
 	solver->hmin = 0.01;
 	if(which == 0 || which == 1) {
 		solver->h = single_arg(decl, 2)->double_value();
+		solver->h_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 3);
 		if(which == 1)
-			solver->hmin = single_arg(decl, 3)->double_value();
+			solver->hmin = single_arg(decl, 4)->double_value();
 	} else {
 		solver->h_par = resolve_argument<Reg_Type::parameter>(model, scope, decl, 2);
 		if(which == 3)
 			solver->hmin_par = resolve_argument<Reg_Type::parameter>(model, scope, decl, 3);
+		//TODO: check that the unit of hmin_par is fully dimensionless (the unit of h_par is checked in run_model)
 	}
 	
 	return id;

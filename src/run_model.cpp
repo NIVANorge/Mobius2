@@ -119,17 +119,33 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 			b_data.solver_fun       = solver->solver_fun;
 			b_data.first_ode_offset = batch.first_ode_offset;
 			b_data.n_ode            = batch.n_ode;
+			
+			Standardized_Unit *h_unit = nullptr;
+			
 			if(is_valid(solver->h_par)) {
 				// TODO: Should probably check somewhere that this parameter is not indexed, but we could do that in the model_composition stage.
 				s64 offset   = data->parameters.structure->get_offset_base(solver->h_par);
 				b_data.h     = data->parameters.get_value(offset)->val_real;
-			} else
+				h_unit       = &model->units[model->parameters[solver->h_par]->unit]->data.standard_form;
+			} else {
 				b_data.h     = solver->h;
+				h_unit       = &model->units[solver->h_unit]->data.standard_form;
+			}
 			if(is_valid(solver->hmin_par)) {
 				s64 offset   = data->parameters.structure->get_offset_base(solver->hmin_par);
 				b_data.hmin  = data->parameters.get_value(offset)->val_real;
 			} else
 				b_data.hmin  = solver->hmin;
+			
+			double conv;
+			bool success = match(h_unit, &app->time_step_unit.standard_form, &conv);
+			if(!success) {
+				solver->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("It is not possible to convert between the model time step unit and the solver step unit.");
+			}
+			b_data.h *= conv;
+			b_data.h = std::max(std::min(b_data.h, 1.0), 0.0);
+			b_data.hmin = std::max(std::min(b_data.hmin, 1.0), 1e-10);
 			b_data.hmin = b_data.hmin*b_data.h; //NOTE: The given one was relative, but we need to store it as absolute since h can change in the run.
 		}
 		++idx;

@@ -302,6 +302,7 @@ template<> struct
 Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
 	Solver_Function *solver_fun;
 	double h;
+	Entity_Id h_unit = invalid_entity_id;
 	double hmin;
 	Entity_Id h_par = invalid_entity_id;
 	Entity_Id hmin_par = invalid_entity_id;

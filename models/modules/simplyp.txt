@@ -1,5 +1,5 @@
 
-module("SimplyP", version(0, 5, 0),
+module("SimplyP", version(0, 6, 0),
 	soil    : compartment,
 	gw      : compartment,
 	river   : compartment,
@@ -18,7 +18,7 @@ SimplyP is a parsimonious phosphorus model. It was originally implemented in Pyt
 
 For news, updates and references, see [the model's github home page](https://github.com/NIVANorge/Mobius/tree/master/Applications/SimplyP)
 
-New to version 0.5:
+New to version 0.6:
 * The model has been ported to Mobius2. Everything is solved as one large coupled ODE system.
 
 New to version 0.4:

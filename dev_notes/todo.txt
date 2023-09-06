@@ -5,23 +5,26 @@
 		Properly test the flux restriction refactoring.
 			Probably broken if we have grid1d of the same connection in both source and target.
 	
-		Error when a locked index set is on, but not in use. (parameter editing)
-	
 		Solver step size should have a unit so that it is not dependent on changes in model time step.
 	
-		When selecting the boundary basin temperature in MobiView2, it doesn't properly restrict the size of the layer index to the boundary size.
+		MobiView2: When selecting the boundary basin temperature, it doesn't properly restrict the size of the layer index to the boundary size.
+			Also, indexes that appear to be selected are not.
 		
 		Why do file saving errors crash the program instead of getting caught now?
+		
+		Entities used by function bodies of overridden properties are not accounted for.
+			We should really process the function trees of variables that are overridden also to avoid this (and detect other errors that may be hidden by this.).
+		
 
 		Specific models
-			Finish NIVAFjord!!
+			NIVAFjord!!
 				Fix the processed input series
 				Fix mass balanced of dissolved (negative tracer! - is something missing a @bidirectional, or is it wrong for the horizontal exchange?)
-				
+			
+			EasyChem!!
+			
 			Finish the simple hydraulics model.
 			
-			EasyChem
-		
 		Finish connection system
 			
 			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
