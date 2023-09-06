@@ -1492,8 +1492,8 @@ process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope,
 template<> Entity_Id
 process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	int which = match_declaration(decl, {
-		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Decl_Type::unit},
-		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Decl_Type::unit, Token_Type::real},
+		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::unit},
+		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::unit, Token_Type::real},
 		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real},
 		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real, Decl_Type::par_real},
 	});
@@ -1513,10 +1513,9 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 	
 	solver->hmin = 0.01;
 	if(which == 0 || which == 1) {
-		solver->h = single_arg(decl, 2)->double_value();
-		solver->h_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 3);
+		solver->h_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 		if(which == 1)
-			solver->hmin = single_arg(decl, 4)->double_value();
+			solver->hmin = single_arg(decl, 3)->double_value();
 	} else {
 		solver->h_par = resolve_argument<Reg_Type::parameter>(model, scope, decl, 2);
 		if(which == 3)

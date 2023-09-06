@@ -128,7 +128,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 				b_data.h     = data->parameters.get_value(offset)->val_real;
 				h_unit       = &model->units[model->parameters[solver->h_par]->unit]->data.standard_form;
 			} else {
-				b_data.h     = solver->h;
+				b_data.h     = 1.0;
 				h_unit       = &model->units[solver->h_unit]->data.standard_form;
 			}
 			if(is_valid(solver->hmin_par)) {
