@@ -2,11 +2,6 @@
 
 	*** High pri ***
 	
-		Properly test the flux restriction refactoring.
-			Probably broken if we have grid1d of the same connection in both source and target.
-	
-		Solver step size should have a unit so that it is not dependent on changes in model time step.
-	
 		MobiView2: When selecting the boundary basin temperature, it doesn't properly restrict the size of the layer index to the boundary size.
 			Also, indexes that appear to be selected are not.
 		
@@ -30,6 +25,9 @@
 			Finish the simple hydraulics model.
 			
 		Finish connection system
+		
+			Properly test the flux restriction refactoring.
+				Probably broken if we have grid1d of the same connection in both source and target.
 			
 			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
 				(in terms of how it is computed, not in terms of user-facing functionality)
@@ -148,11 +146,12 @@
 			Easy to have leaks when moving and deleting nodes the way it is done now.
 
 		Normalized file paths can be different depending on how they were loaded using relative paths. This causes it some times to try to load the same library twice, which causes a name clash.
-			Need a fully standardized normalized path (?)
+			Need a fully standardized normalized path.
 
 		It could probably be better if you *only* declare the time unit for the flux
 			Alternatively need some way to construct units, like
 				combine_unit(soil.water.oc.tox, [day-1])
+				[day-1]@mul(soil.water.oc.tox)
 			This has to do with module reusability, could apply the module to quantities with different units.
 				
 		error_print_location

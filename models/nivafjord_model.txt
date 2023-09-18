@@ -35,7 +35,7 @@ model("NIVAFjord") {
 	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 	
 	par_group("Fjord global parameters") {
-		dz0     : par_real("Stable layer thickness", [m], 1, 0.1, 5)
+		dz0    : par_real("Stable layer thickness", [m], 1, 0.1, 5)
 	}
 	
 	par_group("Layer parameters", layer) {
@@ -67,7 +67,7 @@ model("NIVAFjord") {
 	
 	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, rho, pressure, dz0, vert))
 	
-	sol : solver("Simply solver", "INCADascru", [hr], 1e-2)
+	sol : solver("Simply solver", inca_dascru, [hr], 1e-2)
 	
 	solve(sol, layer.water, sed.heat, basin.ice)
 }

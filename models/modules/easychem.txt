@@ -50,7 +50,7 @@ This is a simple biogeochemical model for O₂
 	par_group("Oxygen", epi) {
 		init_O2      : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		pvel_scaler  : par_real("Piston velocity scaler for O₂", [], 1, 0.5, 1.5)
-		sod          : par_real("Background sediment O₂ demand", [g, m-2, day-1], 0.5,0.1,4)
+		sod          : par_real("Background sediment O₂ demand", [g, m-2, day-1], 0.5, 0.1, 4)
 	}
 	
 	par_group("Lake C", epi) {
@@ -103,11 +103,11 @@ This is a simple biogeochemical model for O₂
 	}
 
 	#TODO: factor out 0.05[m g, l-1] as a constant.
-	flux(epi.water.o2, nowhere, [k g, day-1], "O₂ sediment consumption (epi)") {
+	flux(epi.water.o2, out, [k g, day-1], "O₂ sediment consumption (epi)") {
 		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*sed_area ->>
 	}
 
-	flux(hyp.water.o2, nowhere, [k g, day-1], "O₂ sediment consumption (hypo)") {
+	flux(hyp.water.o2, out, [k g, day-1], "O₂ sediment consumption (hypo)") {
 		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*sed_area ->>
 	}	
 	
@@ -133,13 +133,13 @@ This is a simple biogeochemical model for O₂
 	var(epi.water.resp, [day-1], "Bacterial mineralization (epi)")
 	var(hyp.water.resp, [day-1], "Bacterial mineralization (hypo)")
 	
-	flux(hyp.water.oc, nowhere, [k g, day-1], "DOC bacterial mineralization (hypo)") { resp * oc }
-	flux(epi.water.oc, nowhere, [k g, day-1], "DOC bacterial mineralization (epi)")  { resp * oc }
+	flux(hyp.water.oc, out, [k g, day-1], "DOC bacterial mineralization (hypo)") { resp * oc }
+	flux(epi.water.oc, out, [k g, day-1], "DOC bacterial mineralization (epi)")  { resp * oc }
 	
 	# note also that DOC to O2 ratio changes with COS of DOC, this is why we have "(2-(4+nosc)/4)"
 	# TODO: Where do the numbers 2 and 4 come from?
-	flux(hyp.water.o2, nowhere, [k g, day-1], "O₂ bacterial consumption (hypo)") { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) }
-	flux(epi.water.o2, nowhere, [k g, day-1], "O₂ bacterial consumption (epi)")  { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) } 
+	flux(hyp.water.o2, out, [k g, day-1], "O₂ bacterial consumption (hypo)") { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) }
+	flux(epi.water.o2, out, [k g, day-1], "O₂ bacterial consumption (epi)")  { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) } 
 	
 	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")   @initial_conc { init_phyt }
 	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton")  @initial_conc { init_phyt }
@@ -191,12 +191,12 @@ This is a simple biogeochemical model for O₂
 	var(epi.water.nitro, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_nitro }
 	var(hyp.water.nitro, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_nitro }
 	
-	flux(epi.water.nitro, nowhere, [k g, day-1], "Phytoplankton N uptake") {   fix * phyt_nc   }
+	flux(epi.water.nitro, out, [k g, day-1], "Phytoplankton N uptake") {   fix * phyt_nc   }
 	
 	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_phos }
 	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_phos }
 	
-	flux(epi.water.phos, nowhere, [k g, day-1], "Phytoplankton P uptake") {   fix * phyt_pc   }
+	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   fix * phyt_pc   }
 	
 	# TODO: SS, PP
 }

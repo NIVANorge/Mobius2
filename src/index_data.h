@@ -115,8 +115,6 @@ Index_Data {
 	void initialize_edge_index_set(Id_Type index_set_id, Source_Location source_loc);
 	void add_edge_index(Id_Type index_set_id, const std::string &index_name, Source_Location source_loc, Idx_T parent_idx);
 	
-	//std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable = nullptr); //TODO: Make private when we fix MobiView2
-	
 	bool are_all_indexes_set(Id_Type index_set);
 	
 	void write_index_to_file(FILE *file, Idx_T index, Idx_T parent_idx = Idx_T::no_index());

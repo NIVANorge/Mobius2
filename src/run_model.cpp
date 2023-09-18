@@ -123,7 +123,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 			Standardized_Unit *h_unit = nullptr;
 			
 			if(is_valid(solver->h_par)) {
-				// TODO: Should probably check somewhere that this parameter is not indexed, but we could do that in the model_composition stage.
+				// TODO: Should probably check somewhere that this parameter is not distributed over index sets, but we could do that in the model_composition stage.
 				s64 offset   = data->parameters.structure->get_offset_base(solver->h_par);
 				b_data.h     = data->parameters.get_value(offset)->val_real;
 				h_unit       = &model->units[model->parameters[solver->h_par]->unit]->data.standard_form;
@@ -150,8 +150,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 		}
 		++idx;
 	}
-	if(solver_workspace_size > 0)
-		run_state.solver_workspace = (double *)malloc(sizeof(double)*solver_workspace_size);
+	run_state.set_solver_workspace_size(solver_workspace_size);
 
 #if MOBIUS_EMULATE
 	#define BATCH_FUNCTION(batch) reinterpret_cast<batch_function *>(batch.run_code)
@@ -192,8 +191,6 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 				return false;
 		}
 	}
-	
-	if(run_state.solver_workspace) free(run_state.solver_workspace); // Ooops, leak if we return early. Put in run state destructor?
 	
 	return true;
 }

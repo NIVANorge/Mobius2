@@ -19,13 +19,18 @@ Model_Run_State {
 	Parameter_Value    *parameters;
 	double             *state_vars;
 	double             *series;
-	double             *solver_workspace;
+	double             *solver_workspace = nullptr;
 	s32                *connection_info;    //NOTE: this is only used if we are in MOBIUS_EMULATE mode... For llvm we bake these in as constants
 	s32                *index_counts;       //NOTE: same as above.
 	Expanded_Date_Time  date_time;
 	double              solver_t;
 	
-	Model_Run_State() : solver_workspace(nullptr) {}
+	void set_solver_workspace_size(int size) {
+		if(size <= 0) return;
+		solver_workspace = (double *)malloc(sizeof(double)*size);
+	}
+	
+	~Model_Run_State() { if(solver_workspace) { free(solver_workspace); solver_workspace = nullptr; } }
 };
 
 typedef void batch_function(double *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time, double fractional_step);
