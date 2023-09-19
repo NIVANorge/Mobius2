@@ -130,6 +130,39 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 	}
 
 	var(river.water.flow, [m 3, s -1], "Reach flow")    {  (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann  } @initial { init_flow }
-	
 	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")     {  flow  }
+}
+
+
+module("SimplyQ river manual", version(0, 0, 1),
+	river : compartment,
+	water : quantity,
+	flow  : property,
+    tc_reach : property,
+	river_target : loc
+) {
+"""
+Alternative version of the SimplyQ river module using a user-supplied mean velocity
+"""
+
+	par_group("Reach parameters", river) {
+    	length   : par_real("Reach length", [m], 10000, 50, 10000000)
+		velocity : par_real("Mean velocity", [m, s-1], 0.3, 0.0001, 8, "Mean water velocity in the reach")
+	}
+    
+    init_flow : constant("Initial reach flow", [m 3, s-1], 0)
+	
+	var(river.water, [m 3], "Reach water volume") @initial {
+        q := init_flow => [],   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
+		depth := 0.349[m] * q^0.34,
+		width := 2.71[m] * q^0.557,
+		width * depth * length
+	}
+
+    var(river.water.tc_reach, [s], "Reach travel time") { length / velocity }
+    
+	var(river.water.flow, [m 3, s-1], "Reach flow") {
+        water / tc_reach } @initial { init_flow }
+	
+	flux(river.water, river_target, [m 3, s-1], "Daily mean reach flow")  {  flow ->>  }
 }
