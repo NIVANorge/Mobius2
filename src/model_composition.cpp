@@ -80,14 +80,17 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		if(decl_id.reg_type == Reg_Type::var) {
 			auto var_decl = model->vars[decl_id];
 			var->loc1 = loc;
+			var->store_series = var_decl->store_series;
 			var2->decl_type = model->components[loc.last()]->decl_type;
 			if(is_valid(var_decl->unit))
 				var->unit = model->units[var_decl->unit]->data;
+			
 		} else if (decl_id.reg_type == Reg_Type::flux) {
 			auto flux = model->fluxes[decl_id];
 			var->loc1 = flux->source;
 			var->loc2 = flux->target;
 			var->bidirectional = flux->bidirectional;
+			var->store_series = flux->store_series;
 			var2->decl_type = Decl_Type::flux;
 			var2->set_flag(State_Var::flux);
 			
@@ -160,21 +163,6 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 	}
 }
 
-void
-remove_lasts(Math_Expr_FT *expr, bool make_error) {
-	for(auto arg : expr->exprs) remove_lasts(arg, make_error);
-	if(expr->expr_type == Math_Expr_Type::identifier) {
-		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var && (ident->has_flag(Identifier_FT::last_result))) {
-			if(make_error) {
-				expr->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Did not expect a last() in an initial value function.");
-			}
-			ident->remove_flag(Identifier_FT::last_result);
-		}
-	}
-}
-
 struct
 Code_Special_Lookups {
 	std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>>         in_fluxes;
@@ -182,12 +170,25 @@ Code_Special_Lookups {
 };
 
 void
-find_identifier_flags(Math_Expr_FT *expr, Code_Special_Lookups *specials, Var_Id looked_up_by, Entity_Id lookup_compartment) {
-	for(auto arg : expr->exprs) find_identifier_flags(arg, specials, looked_up_by, lookup_compartment);
+find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_Lookups *specials, Var_Id looked_up_by, Entity_Id lookup_compartment, bool allow_last = true, bool remove_last = false) {
+	for(auto arg : expr->exprs) find_identifier_flags(app, arg, specials, looked_up_by, lookup_compartment, allow_last, remove_last);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		
 		auto ident = static_cast<Identifier_FT *>(expr);
+		
+		if(ident->variable_type == Variable_Type::state_var && ident->has_flag(Identifier_FT::last_result)) {   // Could this instead be baked into the function tree resolution?
+			if(!allow_last) {
+				expr->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Can't use a last() in an @initial block.");
+			}
+			if(!app->vars[ident->var_id]->store_series) {
+				expr->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Can not use a last() on a variable that is @no_store.");
+			}
+			if(remove_last)
+				ident->remove_flag(Identifier_FT::last_result);
+		}
 		
 		if(specials && ident->has_flag(Identifier_FT::in_flux))
 			specials->in_fluxes[{ident->var_id, ident->other_connection}].push_back(looked_up_by);
@@ -1167,7 +1168,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 	if(ast) {
 		auto res = resolve_function_tree(ast, &res_data);
 		auto fun = make_cast(res.fun, Value_Type::real);
-		find_identifier_flags(fun, specials, var_id, from_compartment);
+		find_identifier_flags(app, fun, specials, var_id, from_compartment);
 		
 		if(!match_exact(&res.unit, &res_data.expected_unit)) {
 			ast->source_loc.print_error_header();
@@ -1189,8 +1190,8 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 		auto res = resolve_function_tree(init_ast, &res_data);
 		auto fun = make_cast(res.fun, Value_Type::real);
 		
-		remove_lasts(fun, !init_is_override); // Only make an error for occurrences of 'last' if the block came from an @initial not an @override
-		find_identifier_flags(fun, specials, var_id, from_compartment);
+		// NOTE: Only make an error for occurrences of 'last' if the block came from an @initial not an @override
+		find_identifier_flags(app, fun, specials, var_id, from_compartment, !init_is_override, false);
 		var2->initial_is_conc = initial_is_conc;
 		
 		if(!match_exact(&res.unit, &res_data.expected_unit)) {
@@ -1233,7 +1234,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 			
 			fun = make_cast(fun, Value_Type::real);
 			
-			find_identifier_flags(fun, specials, var_id, from_compartment);
+			find_identifier_flags(app, fun, specials, var_id, from_compartment);
 			var2->override_is_conc = override_is_conc;
 			
 			if(!match_exact(&res.unit, &res_data.expected_unit)) {
@@ -1256,11 +1257,12 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 		auto res = resolve_function_tree(specific_ast, &res_data);
 		auto fun = make_cast(res.fun, Value_Type::integer);
 		
+		find_identifier_flags(app, fun, specials, var_id, from_compartment);
+		
 		if(!match_exact(&res.unit, &res_data.expected_unit)) {
 			init_ast->source_loc.print_error_header();
 			fatal_error("Expected the unit of this expression to resolve to dimensionless, but got, ", res.unit.to_utf8(), ".");
 		}
-		// TODO: We have to do more of the flag checking business here!
 		
 		if(keep_code)
 			var2->specific_target = owns_code(fun);

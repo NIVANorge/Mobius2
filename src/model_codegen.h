@@ -27,7 +27,7 @@ Model_Instruction {
 	
 	bool                subtract = false; // For certain connection aggregations, we want to subtract from the aggregate instead of adding to it.
 	
-	Var_Loc_Restriction restriction; // May eventually need 2?
+	Var_Loc_Restriction restriction; // May eventually need 2?   Is this one used correctly?
 	
 	Entity_Id           solver;
 	
@@ -53,13 +53,11 @@ Model_Instruction {
 	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), restriction(), solver(invalid_entity_id), type(Type::invalid), code(nullptr) {};
 	
 	// Having trouble getting this to work. Seems like the destructor is called too early when the Instructions vector resizes, and setting up move constructors etc. to work around that is irksome.
+	// If we instead store instructions in a vector of unique_ptr, (like for state_var), this problem should go away.
 	/*
 	~Model_Instruction() {
 		if(code) delete code;
 	}
-	
-	Model_Instruction(const Model_Instruction &other) = delete;
-	Model_Instruction(Model_Instruction &&other) = default;
 	*/
 };
 

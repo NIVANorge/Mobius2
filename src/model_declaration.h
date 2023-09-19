@@ -190,6 +190,8 @@ Entity_Registration<Reg_Type::var> : Entity_Registration_Base {
 	
 	std::string     var_name;
 	
+	bool           store_series = true;
+	
 	Math_Block_AST *code;
 	bool initial_is_conc;
 	Math_Block_AST *initial_code;
@@ -205,6 +207,8 @@ Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
 	
 	Entity_Id      unit           = invalid_entity_id;
 	Entity_Id      discrete_order = invalid_entity_id; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
+	
+	bool           store_series = true;
 	
 	Math_Block_AST  *code                = nullptr;
 	Math_Block_AST  *no_carry_ast        = nullptr;

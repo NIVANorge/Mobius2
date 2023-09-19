@@ -942,6 +942,12 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 			}
 			var->override_code = static_cast<Function_Body_AST *>(note->body)->block;
 			var->override_is_conc = (str == "override_conc");
+		} else if(str == "no_store") {
+			
+			match_declaration_base(note, {{}}, 0);
+			
+			var->store_series = false;
+			
 		} else {
 			note->decl.print_error_header();
 			fatal_error("Expected either no notes, 'initial' or 'override_conc'.");
@@ -997,6 +1003,10 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 				flux->no_carry_ast = static_cast<Function_Body_AST *>(note->body)->block;
 			else
 				flux->no_carry_by_default = true;
+		} else if(str == "no_store") {
+			match_declaration_base(note, {{}}, 0);
+			
+			flux->store_series = false;
 			
 		} else if(str == "specific") {
 			match_declaration_base(note, {{}}, -1);

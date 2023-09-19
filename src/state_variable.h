@@ -41,6 +41,8 @@ State_Var {
 	Specific_Var_Location   loc1 = invalid_var_location;
 	Specific_Var_Location   loc2 = invalid_var_location;
 	
+	bool store_series = true;   //TODO: This is not used yet.
+	
 	owns_code unit_conversion_tree;
 	owns_code specific_target;
 	
