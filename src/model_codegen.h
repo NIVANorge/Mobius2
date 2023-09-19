@@ -25,6 +25,8 @@ Model_Instruction {
 	Var_Id              source_id;
 	Var_Id              target_id;
 	
+	bool                subtract = false; // For certain connection aggregations, we want to subtract from the aggregate instead of adding to it.
+	
 	Var_Loc_Restriction restriction; // May eventually need 2?
 	
 	Entity_Id           solver;
@@ -38,6 +40,8 @@ Model_Instruction {
 	// NOTE: We need both since the first can be dependencies on non-state-vars that are generated during instruction generation, while the other are dependencies on specific state vars that comes from code lookups, and there we need to take into account more data.
 	std::set<int> inherits_index_sets_from_instruction;
 	std::set<Identifier_Data> inherits_index_sets_from_state_var;
+	
+	int clear_instr = -1;  // This is the clear instruction of this instruction if this instruction is an aggregation variable.
 	
 	Math_Expr_FT *code;
 	
@@ -65,7 +69,8 @@ Batch_Array {
 	std::set<Entity_Id>            index_sets;
 };
 
-struct Batch {
+struct
+Batch {
 	Entity_Id solver;
 	std::vector<int> instrs;
 	std::vector<Batch_Array> arrays;

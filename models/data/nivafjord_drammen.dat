@@ -1,32 +1,36 @@
-time_step([day])
+"""NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we only need to know their condition down to the threshold.
+"""
+
+time_step([3, hr])
 
 index_set("Basin index") [ "Drammensfjorden" ]
 
-index_set("Boundary basin index") [ "Yttre Oslofjord" ]
+index_set("Boundary basin index") [ "Breiangen" ]
 
 index_set("All basins") @union("Basin index", "Boundary basin index")
 
-index_set("Layer index") @sub("All basins") [
-	"Drammensfjorden" : [ 124 ]
-	"Yttre Oslofjord" : [ 20 ] #TODO: Set the correct amount of layers
+index_set("Layer index") @sub("All basins")  [
+	"Drammensfjorden"  : [ 124 ]
+	"Breiangen"  : [ 12 ]
 ]
 
 index_set("Subcatchment") [ "Drammenselva" ]
 
 index_set("Landscape units") [ "Just one" ]
 
-index_set("Fjord connection index") @sub("Basin index")
+index_set("Fjord connection index") @sub("Basin index") 
 
 connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
 }
 
 connection("Fjord horizontal") {
-	r : compartment("River") [ "Subcatchment" ] 
+	r : compartment("River") [ "Subcatchment" ]
 	l : compartment("Fjord layer") [ "Basin index" ]
+	b : compartment("Boundary layer") [ "Boundary basin index" ]
 
 	directed_graph("Fjord connection index") [
-		r[ "Drammenselva" ] -> l[ "Drammensfjorden" ]
+		r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] -> b[ "Breiangen" ]
 	]
 }
 
@@ -34,10 +38,10 @@ series("nivafjord_drammen.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
-	[ 1980-01-01 ]
+	[ 2018-01-01 ]
 
 	par_datetime("End date")
-	[ 1987-01-01 ]
+	[ 2021-01-01 ]
 }
 
 par_group("Fjord global parameters") {
@@ -65,6 +69,7 @@ par_group("Catchment data") [ "Subcatchment" ] {
 par_group("Fjord horizontal boundary") [ "Basin index" "Fjord connection index" "Layer index" ] {
 	par_real("Boundary width") [
 
+		250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 	]
 }
 
@@ -74,7 +79,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		[ 0.008 ]
 
 		par_real("Mixing factor reference")
-		[ 5e-05 ]
+		[ 0.0001 ]
 
 		par_real("Mixing non-linear coefficient")
 		[ 1.4 ]
@@ -83,13 +88,13 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 		[ 0.007 ]
 
 		par_real("Diffuse attenuation coefficent (clear water)")
-		[ 0.2 ]
+		[ 0.5 ]
 
 		par_real("Surface additional mixing energy")
 		[ 1e-10 ]
 
 		par_real("Halving depth of additional mixing energy")
-		[ 3 ]
+		[ 6 ]
 
 		par_real("Diminishing rate of additional mixing energy")
 		[ 4 ]
@@ -97,7 +102,7 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 
 	par_group("Sediment parameters") {
 		par_real("Deep sediment temperature")
-		[ 3 ]
+		[ 6 ]
 
 		par_real("Depth of thermally active sediment layer")
 		[ 10 ]
@@ -110,6 +115,16 @@ module("NIVAFjord basin", version(0, 0, 1)) {
 
 		par_real("Sediment density")
 		[ 2600 ]
+	}
+
+	par_group("Initial layer physical") [ "Basin index" "Layer index" ] {
+		par_real("Initial layer temperature") [
+			8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 
+		]
+
+		par_real("Initial layer salinity") [
+			33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 
+		]
 	}
 }
 
@@ -140,12 +155,19 @@ module("AirSea Fjord", version(0, 1, 1)) {
 }
 
 module("NIVAFjord tracer test", version(0, 0, 1)) {
+	par_group("Tracer") {
+		par_real("River tracer concentration")
+		[ 1 ]
+
+		par_real("Boundary tracer concentration")
+		[ 0 ]
+	}
 }
 
 module("Degree-day PET", version(1, 0, 0)) {
 	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
 		par_real("Deegree-day factor for evapotranspiration") [
-			0.12 
+			0.09 
 		]
 
 		par_real("Minimal temperature for evapotranspiration") [
@@ -179,10 +201,10 @@ module("HBVSnow", version(1, 0, 0)) {
 module("SimplyQ land", version(0, 5, 0)) {
 	par_group("Hydrology general") {
 		par_real("Baseflow index")
-		[ 0.6 ]
+		[ 0.8 ]
 
 		par_real("Quick flow inflection point")
-		[ 160 ]
+		[ 1000 ]
 	}
 
 	par_group("Hydrology land") [ "Subcatchment" "Landscape units" ] {
@@ -191,13 +213,13 @@ module("SimplyQ land", version(0, 5, 0)) {
 		]
 
 		par_real("Soil water time constant") [
-			2 
+			6 
 		]
 	}
 
 	par_group("Groundwater") [ "Subcatchment" ] {
 		par_real("Groundwater time constant")
-		[ 30 ]
+		[ 70 ]
 	}
 }
 
@@ -207,10 +229,10 @@ module("SimplyQ river", version(0, 5, 0)) {
 		[ 0.014 ]
 
 		par_real("Reach length")
-		[ 47300 ]
+		[ 120000 ]
 
 		par_real("Manning's roughness coefficient")
-		[ 0.04 ]
+		[ 0.14 ]
 
 		par_real("Initial reach flow")
 		[ 250 ]
@@ -235,15 +257,18 @@ module("Simply soil temperature", version(0, 1, 0)) {
 
 module("RiverTemperature", version(0, 1, 0)) {
 	par_group("River temperature") [ "Subcatchment" ] {
-		par_real("Air-river heat conductivity coefficient")
+		par_real("Air-river heat exchange coefficient")
 		[ 1 ]
 	}
 }
 
 module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
-	par_group("Horizontal coefficients") {
-		par_real("Pressure difference mixing coefficient")
-		[ 0.5 ]
+	par_group("Horizontal exchange") {
+		par_real("Pressure difference flow coefficient")
+		[ 0.7 ]
 	}
+}
+
+module("NIVAFjord boundary", version(0, 0, 1)) {
 }
 

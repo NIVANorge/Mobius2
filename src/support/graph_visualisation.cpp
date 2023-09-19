@@ -293,9 +293,10 @@ add_index_sets(Agraph_t *g, Agraph_t *sub, Model_Application *app, std::vector<s
 			if(count > 5)
 				ss << "<tr><td>" << count << " instances</td></tr>";
 			else {
+				Indexes indexes;
 				for(int idx = 0; idx < count; ++idx) {
 					Index_T index = {index_set, idx};
-					ss << "<tr><td>" << app->index_data.get_index_name_base(index, invalid_index) << "</td></tr>"; //TODO: Don't use get_index_name_base
+					ss << "<tr><td>" << app->index_data.get_index_name(indexes, index) << "</td></tr>"; //TODO: Don't use get_index_name_base
 				}
 			}
 		}

@@ -81,7 +81,7 @@ Argument_AST::source_loc() {
 
 inline bool
 is_accepted_for_chain(Token_Type type, bool identifier_only, bool allow_slash) {
-	return (identifier_only && type == Token_Type::identifier) || (!identifier_only && (can_be_value_token(type) || (char)type == '/'));
+	return (identifier_only && type == Token_Type::identifier) || (!identifier_only && (can_be_value_token(type) || (allow_slash && (char)type == '/')));
 }
 
 void
@@ -139,7 +139,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 		auto peek = stream->peek_token();
 		if(peek.type == Token_Type::eof) {
 			peek.print_error_header();
-			fatal_error("End of file before closing unit declaration");
+			fatal_error("End of file before closing unit declaration.");
 		} else if((char)peek.type == ']') {
 			stream->read_token();
 			break;
@@ -153,7 +153,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 				stream->read_token();
 			else if((char)next.type != ']') {
 				next.print_error_header();
-				fatal_error("Expected a ] or a ,");
+				fatal_error("Expected a ']' or a ','.");
 			}
 		} else {
 			peek.print_error_header();
@@ -926,12 +926,24 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 bool
 Arg_Pattern::matches(Argument_AST *arg) const {
 	Token_Type check_type = token_type;
+	Decl_Type check_decl_type = decl_type;
 	
 	switch(pattern_type) {
 		
 		case Type::any : {
 			return true;
 		} break;
+		
+		case Type::loc : {
+			if(!arg->chain.empty()) {
+				for(auto &token : arg->chain) {
+					if(token.type != Token_Type::identifier)
+						return false;
+				}
+				return true;
+			}
+			check_decl_type = Decl_Type::loc;
+		} // fall through to the next case to see if we have a loc decl.
 		
 		case Type::decl : {
 			if(arg->decl && (get_reg_type(arg->decl->type) == get_reg_type(decl_type))) return true;
@@ -945,14 +957,6 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 					return is_numeric(arg->chain[0].type);
 				return arg->chain[0].type == check_type;
 				
-			} else if(arg->chain.size() > 1 && check_type == Token_Type::identifier) {
-				if(pattern_type == Type::decl)
-					return false; // Only a single token can refer to a decl.
-				for(Token &token : arg->chain) {  //TODO: Not sure if we could ever get a chain of non-identifiers from the ast generation any way? So this check may be superfluous.
-					if(token.type != Token_Type::identifier)
-						return false;
-				}
-				return true;
 			}
 		}
 	}

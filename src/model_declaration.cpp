@@ -108,6 +108,12 @@ Decl_Scope::check_for_unreferenced_things(Mobius_Model *model) {
 			log_print("The module argument '", reg.handle, "' was never referenced.\n");
 		}
 		
+		if (!reg.is_load_arg && !reg.external && !reg.was_referenced && reg.id.reg_type == Reg_Type::parameter) {
+			log_print("Warning: In ");
+			reg.source_loc.print_log_header();
+			log_print("The parameter '", reg.handle, "' was never referenced.\n");
+		}
+		
 		if(reg.external) {
 			auto entity = model->find_entity(reg.id);
 			if(entity->scope_id.reg_type == Reg_Type::library) {
@@ -126,19 +132,22 @@ Decl_Scope::check_for_unreferenced_things(Mobius_Model *model) {
 			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
 			// TODO:  we could put that in the Scope_Entity source_loc (?)
 			std::string scope_type;
-			if(parent_id.reg_type == Reg_Type::module)
+			std::string scope_name;
+			if(parent_id.reg_type == Reg_Type::module) {
 				scope_type = "module";
-			else if(parent_id.reg_type == Reg_Type::library)
+				scope_name = model->find_entity(parent_id)->name;
+			} else if(parent_id.reg_type == Reg_Type::library) {
 				scope_type = "library";
-			else
+				scope_name = model->find_entity(parent_id)->name;
+			} else {
 				scope_type = "model";
-			log_print("Warning: The ", scope_type, " \"", model->find_entity(parent_id)->name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but does not use any of it.\n");
+				scope_name = model->model_name;
+			}
+			log_print("Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", model->libraries[pair.first]->name, "\", but doesn't use any of it.\n");
 		}
 	}
-	// TODO: Could also check for unreferenced parameters, and maybe some other types of entities (solver, connection..) (but not all entities in general).
 }
 
-// TODO: Should change scope to the first argument.
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *serial_name, Decl_AST *decl) {
 	
@@ -233,8 +242,6 @@ Registry<reg_type>::create_internal(const std::string &handle, Decl_Scope *scope
 	registration.has_been_declared = true;
 	registration.decl_type = decl_type;
 	
-	//name_to_id[name] = result_id;
-	
 	if(scope) {
 		scope->add_local(handle, internal, result_id);
 		scope->set_serial_name(name, internal, result_id);
@@ -262,7 +269,7 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::function :                 return &functions;
 		case Reg_Type::index_set :                return &index_sets;
 		case Reg_Type::solver :                   return &solvers;
-		//case Reg_Type::solve :                    return &solves;
+		case Reg_Type::solver_function :          return &solver_functions;
 		case Reg_Type::constant :                 return &constants;
 		case Reg_Type::connection :               return &connections;
 		case Reg_Type::module :                   return &modules;
@@ -397,6 +404,9 @@ register_intrinsics(Mobius_Model *model) {
 	auto start_id  = model->parameters.create_internal("start_date", group_scope, "Start date", Decl_Type::par_datetime);
 	auto end_id    = model->parameters.create_internal("end_date", group_scope, "End date", Decl_Type::par_datetime);
 	mod_scope->import(*group_scope);
+	// Just so that they are registered as being referenced and we don't get the warning about unreferenced parameters.
+	(*group_scope)["start_date"];
+	(*group_scope)["end_date"];
 	
 	auto system = model->par_groups[system_id];
 	auto start  = model->parameters[start_id];
@@ -419,7 +429,11 @@ register_intrinsics(Mobius_Model *model) {
 	end->min_val.val_datetime = min_date;
 	end->max_val.val_datetime = max_date;
 	
-	//model->solvers.create("discrete", mod_scope, "Discrete", Decl_Type::solver);
+	auto euler_id = model->solver_functions.create_internal("euler", mod_scope, "Euler", Decl_Type::solver_function);
+	auto dascru_id = model->solver_functions.create_internal("inca_dascru", mod_scope, "INCADascru", Decl_Type::solver_function);
+	
+	model->solver_functions[euler_id]->solver_fun = &euler_solver;
+	model->solver_functions[dascru_id]->solver_fun = &inca_dascru;
 }
 
 Entity_Id
@@ -489,9 +503,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			} else if (decl->type == Decl_Type::module) {
 				id = model->module_templates.find_or_create(&model->model_decl_scope, nullptr, nullptr, decl);
 				auto mod = model->module_templates[id];
-				//mod->has_been_processed = false;
 				mod->decl = decl;
-				//mod->scope.parent_id = id;
 				mod->normalized_path = normalized_path;
 			}
 			model->parsed_decls[normalized_path][found_name] = id;
@@ -771,7 +783,7 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	int which = match_declaration(decl,
 	{
 		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, {Decl_Type::compartment, true}},   // Could eventually make the last a vararg?
+		{Token_Type::quoted_string, {Decl_Type::compartment, true}},
 	}, false, -1);
 	
 	auto id        = model->par_groups.standard_declaration(scope, decl);
@@ -789,7 +801,6 @@ process_declaration<Reg_Type::par_group>(Mobius_Model *model, Decl_Scope *scope,
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::par_real || child->type == Decl_Type::par_int || child->type == Decl_Type::par_bool || child->type == Decl_Type::par_enum) {
 			auto par_id = process_declaration<Reg_Type::parameter>(model, &par_group->scope, child);
-			//par_group->parameters.push_back(par_id);
 			model->parameters[par_id]->par_group = id;
 		} else {
 			child->source_loc.print_error_header();
@@ -872,17 +883,17 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 
 	int which = match_declaration(decl,
 		{
-			{Token_Type::identifier, Decl_Type::unit},
-			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit},
-			{Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
-			{Token_Type::identifier, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
+			{Arg_Pattern::loc, Decl_Type::unit},
+			{Arg_Pattern::loc, Decl_Type::unit, Decl_Type::unit},
+			{Arg_Pattern::loc, Decl_Type::unit, Token_Type::quoted_string},
+			{Arg_Pattern::loc, Decl_Type::unit, Decl_Type::unit, Token_Type::quoted_string},
 		},
 		false, true, true);
 	
 	auto id  = model->vars.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto var = model->vars[id];
 	
-	// NOTE: We don't register it with the name in find_or_create because it doesn't matter if this name clashes with other entities
+	// NOTE: We don't register it with the name in find_or_create because this name is allowed to clash with other names, and serialization works differently for vars.
 	int name_idx = which;
 	Token *var_name = nullptr;
 	if(which == 2 || which == 3)
@@ -945,7 +956,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	match_declaration(decl,
 		{
-			{Token_Type::identifier, Token_Type::identifier, Decl_Type::unit, Token_Type::quoted_string},
+			{Arg_Pattern::loc, Arg_Pattern::loc, Decl_Type::unit, Token_Type::quoted_string},
 		}, true, -1, true);
 	
 	Token *name = single_arg(decl, 3);
@@ -980,7 +991,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 		
 			if(!is_located(flux->source)) {
 				note->decl.print_error_header();
-				fatal_error("A 'no_carry' block only makes sense if the source of the flux is specific (not 'out').");
+				fatal_error("A 'no_carry' block only makes sense if the source of the flux is not 'out'.");
 			}
 			if(note->body)
 				flux->no_carry_ast = static_cast<Function_Body_AST *>(note->body)->block;
@@ -1008,7 +1019,7 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 	
 	if(has_specific_target != has_specific_code) {
 		decl->source_loc.print_error_header();
-		fatal_error("A flux must either have both a 'specific' in its target and a '@specific' code block, or have none of these.");
+		fatal_error("A flux must either have both a 'specific' restriction in its target and a '@specific' code block, or have none of these.");
 	}
 
 	return id;
@@ -1060,7 +1071,7 @@ process_declaration<Reg_Type::external_computation>(Mobius_Model *model, Decl_Sc
 		{
 			{ Token_Type::quoted_string, Token_Type::quoted_string },
 			{ Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::compartment },
-		}, false, -1);
+		}, false, -1, true);
 	
 	auto id = model->external_computations.standard_declaration(scope, decl);
 	auto comp = model->external_computations[id];
@@ -1072,6 +1083,16 @@ process_declaration<Reg_Type::external_computation>(Mobius_Model *model, Decl_Sc
 	auto body = static_cast<Function_Body_AST *>(decl->body);
 	
 	comp->code = body->block;
+	
+	for(auto note : decl->notes) {
+		if(note->decl.string_value != "allow_connection") {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note type '", note->decl.string_value, "' for 'external_computation'.");
+		}
+		match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::connection}}, 0);
+		comp->connection_component = resolve_argument<Reg_Type::component>(model, scope, note, 0);
+		comp->connection           = resolve_argument<Reg_Type::connection>(model, scope, note, 1);
+	}
 	
 	return id;
 }
@@ -1170,7 +1191,7 @@ process_declaration<Reg_Type::connection>(Mobius_Model *model, Decl_Scope *scope
 
 template<> Entity_Id
 process_declaration<Reg_Type::loc>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::identifier}});
+	match_declaration(decl, {{Arg_Pattern::loc}});
 	
 	auto id  = model->locs.find_or_create(scope, &decl->handle_name, nullptr, decl);
 	auto loc = model->locs[id];
@@ -1191,8 +1212,9 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
 	auto lib = model->libraries[lib_id];
 	
 	if(!lib->has_been_processed && !lib->is_being_processed) {
-  
-		lib->is_being_processed = true; // To not go into an infinite loop if we have a recursive load.
+		
+		// To not go into an infinite loop if we have a recursive load, we have to mark this and then skip future loads of it in the same recursive call.
+		lib->is_being_processed = true;
 		
 		match_declaration(lib->decl, {{Token_Type::quoted_string}}, false, -1); // REFACTOR. matching is already done in the load_top_decl_from_file
 		
@@ -1217,7 +1239,7 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
 			}
 		}
 		
-		// Check for recursive library loads into other libraries.
+		// Check recursively for library loads into the current library.
 		for(Decl_AST *child : body->child_decls) {
 			if(child->type == Decl_Type::load)
 				process_load_library_declaration(model, child, lib_id, lib->normalized_path);
@@ -1248,7 +1270,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 		relative_to = "";
 	}
 	
-	int offset = which == 0 ? 1 : 0;  // If the library names start at argument 0 or 1 of the load decl.
+	int offset = (which == 0 ? 1 : 0);  // If the library names start at argument 0 or 1 of the load decl.
 	
 	for(int idx = offset; idx < decl->args.size(); ++idx) {
 		auto lib_load_decl = decl->args[idx]->decl;
@@ -1264,7 +1286,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	auto mod_temp = model->module_templates[template_id];
 	
-	// TODO: It is a bit superfluous to process the name and version of the template every time it is specialized.
+	// TODO: It is a bit superfluous to process the name and version of the module template every time it is specialized.
 	
 	auto decl = mod_temp->decl;
 	match_declaration(decl,
@@ -1475,37 +1497,46 @@ process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope,
 }
 
 template<> Entity_Id
+process_declaration<Reg_Type::solver_function>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
+	// TODO: Make it possible to load solver functions dynamically from dlls.
+	
+	fatal_error(Mobius_Error::internal, "Unimplemented: process_declaration<Reg_Type::solver_function");
+	return invalid_entity_id;
+}
+
+template<> Entity_Id
 process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	int which = match_declaration(decl, {
-		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real},
-		{Token_Type::quoted_string, Token_Type::quoted_string, Token_Type::real, Token_Type::real},
-		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real},
-		{Token_Type::quoted_string, Token_Type::quoted_string, Decl_Type::par_real, Decl_Type::par_real},
+		{Token_Type::quoted_string, Decl_Type::solver_function, Decl_Type::unit},
+		{Token_Type::quoted_string, Decl_Type::solver_function, Decl_Type::unit, Token_Type::real},
+		{Token_Type::quoted_string, Decl_Type::solver_function, Decl_Type::par_real},
+		{Token_Type::quoted_string, Decl_Type::solver_function, Decl_Type::par_real, Decl_Type::par_real},
 	});
 	auto id = model->solvers.standard_declaration(scope, decl);
 	auto solver = model->solvers[id];
 	
-	// TODO: this should be more dynamic so that it easy for users to link in other solver functions (e.g. from a .dll).
-	String_View solver_name = single_arg(decl, 1)->string_value;
-	if(solver_name == "Euler")
-		solver->solver_fun = &euler_solver;
-	else if(solver_name == "INCADascru")
-		solver->solver_fun = &inca_dascru;
-	else {
-		single_arg(decl, 1)->print_error_header();
-		fatal_error("The name \"", solver_name, "\" is not recognized as the name of an ODE solver.");
-	}
-	//TODO: allow parametrization of the solver h and hmin like in Mobius1.
+	auto solver_fun = resolve_argument<Reg_Type::solver_function>(model, scope, decl, 1);
+	solver->solver_fun = model->solver_functions[solver_fun]->solver_fun;
 	
 	solver->hmin = 0.01;
 	if(which == 0 || which == 1) {
-		solver->h = single_arg(decl, 2)->double_value();
+		solver->h_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 		if(which == 1)
 			solver->hmin = single_arg(decl, 3)->double_value();
 	} else {
 		solver->h_par = resolve_argument<Reg_Type::parameter>(model, scope, decl, 2);
-		if(which == 3)
+		if(which == 3) {
 			solver->hmin_par = resolve_argument<Reg_Type::parameter>(model, scope, decl, 3);
+			auto unit = model->parameters[solver->hmin_par]->unit;
+			if(is_valid(unit) && !model->units[unit]->data.standard_form.is_fully_dimensionless()) {
+				decl->args[3]->source_loc().print_error_header();
+				fatal_error("The unit of a parameter giving the relative minimal step size of a solver must be dimensionless.");
+			}
+		}
+		if(model->parameters[solver->h_par]->decl_type != Decl_Type::par_real || (is_valid(solver->hmin_par) && model->parameters[solver->hmin_par]->decl_type != Decl_Type::par_real)) {
+			decl->source_loc.print_error_header();
+			fatal_error("Solvers can only be parametrized with parameters of type 'par_real'.");
+		}
 	}
 	
 	return id;
@@ -1514,7 +1545,7 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 void
 process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 
-	match_declaration(decl, {{Decl_Type::solver, {Token_Type::identifier, true}}}, false);
+	match_declaration(decl, {{Decl_Type::solver, {Arg_Pattern::loc, true}}}, false);
 	
 	auto solver_id = resolve_argument<Reg_Type::solver>(model, scope, decl, 0);
 	auto solver    = model->solvers[solver_id];
@@ -1545,7 +1576,7 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 	
 	if(component->decl_type == Decl_Type::property) {
 		decl->source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("Only compartments and quantities can be distributed, not properties");
+		fatal_error("Only compartments and quantities can be distributed over index sets, not properties");
 	}
 	
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
@@ -1557,10 +1588,17 @@ process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST 
 
 void
 process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Decl_Type::compartment, Decl_Type::compartment}}, false, -1);
+	int which = match_declaration(decl,
+		{
+			{Decl_Type::compartment, Decl_Type::compartment},
+			{Decl_Type::compartment, Decl_Type::compartment, Decl_Type::connection}
+		}, false, -1);
 	
 	auto from_comp = resolve_argument<Reg_Type::component>(model, scope, decl, 0);
 	auto to_comp   = resolve_argument<Reg_Type::component>(model, scope, decl, 1);
+	Entity_Id connection = invalid_entity_id;
+	if(which == 1)
+		connection = resolve_argument<Reg_Type::connection>(model, scope, decl, 2);
 	
 	if(model->components[from_comp]->decl_type != Decl_Type::compartment || model->components[to_comp]->decl_type != Decl_Type::compartment) {
 		decl->source_loc.print_error_header(Mobius_Error::model_building);
@@ -1569,12 +1607,12 @@ process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, D
 	
 	//TODO: some guard against overlapping / contradictory declarations.
 	auto function = static_cast<Function_Body_AST *>(decl->body);
-	model->components[from_comp]->aggregations.push_back({to_comp, function->block, scope->parent_id});
+	model->components[from_comp]->aggregations.push_back({to_comp, connection, function->block, scope->parent_id});
 }
 
 void
 process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::identifier, Token_Type::identifier}}, false, -1);
+	match_declaration(decl, {{Arg_Pattern::loc, Arg_Pattern::loc}}, false, -1);
 	
 	Flux_Unit_Conversion_Data data = {};
 	
@@ -1598,6 +1636,7 @@ Model_Extension {
 	Decl_AST *decl;
 	int load_order;
 	int depth;
+	//std::set<Decl_Type> excludes; //TODO!     -- eventually could also declare specific names or handles that are to be excluded, but that is much more work to get to work.
 };
 
 bool
@@ -1612,10 +1651,40 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 		match_declaration(child, {{Token_Type::quoted_string}}, false);
 		String_View extend_file_name = single_arg(child, 0)->string_value;
 		
-		// TODO: It is a bit unnecessary to read the AST from the file before we check that the normalized path is not already in the dictionary.
-		//  but right now normalizing the path and loading the ast happens inside the same call in read_model_ast_from_file
 		std::string normalized_path;
 		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+#if 0
+		match_declaration(child, {{Token_Type::quoted_string}}, false, 0, true);
+		String_View extend_file_name = single_arg(child, 0)->string_value;
+		
+		std::string normalized_path;
+		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+		
+		// TODO: Since we will pass one of these as an argument, I guess it is not necessary to pass depth separately.
+		Model_Extension new_extension;//{ normalized_path, extend_model, *load_order, depth}
+		new_extension.normalized_path = normalized_path;
+		new_extension.extend_model = extend_model;
+		new_extension.load_order = *load_order;
+		new_extension.depth = from_extension->depth + 1;
+		new_extension.excludes = from_extension->excludes; // Include recursively excluded loads from above.
+		
+		for(auto note : child->notes) {
+			if(note->decl.string_value != "exclude") {
+				note->decl.print_error_header();
+				fatal_error("Unrecognized note type '", note->decl.string_value, "' for 'extend' declaration.");
+			}
+			match_declaration_base(note, {{true}}), 0);
+			for(auto arg : note->args) {
+				if(!arg->decl) {
+					arg->source_loc().print_error_header();
+					fatal_error("Expected only arguments of declaration type to an 'exclude' note.");
+				}
+				match_declaration(arg->decl, {{}}, false, 0);
+				new_extension.excludes.insert(arg->decl->type);
+			}
+		}
+#endif		
+		
 		
 		if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
 			begin_error(Mobius_Error::parsing);
@@ -1653,6 +1722,8 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 	return true;
 }
 
+bool mobius_developer_mode = false;   // NOTE: This is a global that is accessible in the entire mobius project, see mobius_common.h
+
 Mobius_Config
 load_config(String_View file_name) {
 	Mobius_Config config;
@@ -1669,15 +1740,23 @@ load_config(String_View file_name) {
 			decl->source_loc.print_error_header();
 			fatal_error("Unexpected declaration type '", name(decl->type), "' in a config file.");
 		}
-		match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, false);
+		match_declaration(decl, {{Token_Type::quoted_string, {false}}}, false);
 		auto item = single_arg(decl, 0)->string_value;
 		if(item == "Mobius2 base path") {
+			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, false);
+			
 			config.mobius_base_path = single_arg(decl, 1)->string_value;
 			struct stat info;
 			if(stat(config.mobius_base_path.data(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
 				single_arg(decl, 0)->print_error_header();
 				fatal_error("The path \"", config.mobius_base_path, "\" is not a valid directory path.");
 			}
+		} else if(item == "Developer mode") {
+			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::boolean}}, false);
+			
+			mobius_developer_mode = single_arg(decl, 1)->val_bool;
+			
+			log_print(Log_Mode::dev, file_name, ": Configured to developer mode.\n");
 		} else {
 			decl->source_loc.print_error_header();
 			fatal_error("Unknown config option \"", item, "\".");
@@ -1695,7 +1774,7 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 		auto arg = decl->args[idx];
 		
 		if(arg->decl) {
-			// TODO: Make all relevant arguments inlinable:
+			// TODO: Make all relevant arguments inlineable:
 			if(arg->decl->type != Decl_Type::loc) {
 				arg->decl->source_loc.print_error_header();
 				fatal_error("For now, we don't support direct declarations in the arguments passed to a module load unless they are of type 'loc'.");
@@ -1727,7 +1806,7 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 
 void
 apply_config(Mobius_Model *model, Mobius_Config *config) {
-	// TODO: Maybe check validity of the path here instead of in load_config (Need to save the source_loc in that case).
+	// TODO: Maybe check validity of the path here instead of in load_config (Need to pass the source_loc in that case).
 	model->mobius_base_path = config->mobius_base_path;
 }
 
@@ -1775,8 +1854,22 @@ load_model(String_View file_name, Mobius_Config *config) {
 		auto body = static_cast<Decl_Body_AST *>(ast->body);
 		
 		for(Decl_AST *child : body->child_decls) {
+			// if(extend.excludes.find(child->type) != extend.excludes.end()) continue;   //TODO: Same for all below.   Hmm, this will not work for inlined decls. Another reason to rework those.
+			
+			
 			if(child->type == Decl_Type::index_set) // Process index sets before distribute() because we need info about what we distribute over.
 				process_declaration<Reg_Type::index_set>(model, scope, child);
+			else if (child->type == Decl_Type::load) {
+				// Load from another file using a "load" declaration
+				int which = match_declaration(child, 
+					{
+						{Token_Type::quoted_string, {Decl_Type::module, true}},
+						{Token_Type::quoted_string, {Decl_Type::library, true}},
+					}, false);
+				if(which == 0) continue; // Module loads are processed later.
+				
+				process_load_library_declaration(model, child, invalid_entity_id, file_name);
+			}
 		}
 	}
 	
@@ -1827,12 +1920,17 @@ load_model(String_View file_name, Mobius_Config *config) {
 		auto ast = extend.decl;
 		auto body = static_cast<Decl_Body_AST *>(ast->body);
 		for(Decl_AST *child : body->child_decls) {
-			//TODO: do libraries also.
 			
 			switch (child->type) {
 				case Decl_Type::load : {
 					// Load from another file using a "load" declaration
-					match_declaration(child, {{Token_Type::quoted_string, {Decl_Type::module, true}}}, false);
+					int which = match_declaration(child, 
+						{
+							{Token_Type::quoted_string, {Decl_Type::module, true}},
+							{Token_Type::quoted_string, {Decl_Type::library, true}},
+						}, false);
+					if(which == 1) continue; // Library loads are processed above.
+					
 					String_View file_name = single_arg(child, 0)->string_value;
 					for(int idx = 1; idx < child->args.size(); ++idx) {
 						Decl_AST *module_spec = child->args[idx]->decl;
@@ -1873,7 +1971,6 @@ load_model(String_View file_name, Mobius_Config *config) {
 					auto template_id = model->module_templates.find_or_create(scope, nullptr, nullptr, child);
 					auto mod_temp = model->module_templates[template_id];
 					mod_temp->decl = child;
-					//module->scope.parent_id = module_id;
 					mod_temp->normalized_path = model_path;
 					auto load_loc = single_arg(child, 0)->source_loc;
 					

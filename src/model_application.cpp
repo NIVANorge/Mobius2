@@ -232,6 +232,48 @@ Model_Application::find_connection_component(Entity_Id conn_id, Entity_Id comp_i
 	return &*find;
 }
 
+Var_Location
+Model_Application::get_primary_location(Var_Id source, bool &is_conc) {
+	Var_Location loc0;
+	is_conc = false;
+	auto var = vars[source];
+	if(var->type == State_Var::Type::declared) {
+		loc0 = var->loc1;
+	} else if (var->type == State_Var::Type::dissolved_conc) {
+		is_conc = true;
+		auto var2 = vars[as<State_Var::Type::dissolved_conc>(var)->conc_of];
+		loc0 = var2->loc1;
+	} else
+		fatal_error(Mobius_Error::internal, "Access of unhandled variable type in get_primary_location.");
+	return loc0;
+}
+
+Var_Id
+Model_Application::get_connection_target_variable(Var_Location &loc0, Entity_Id target_component, bool is_conc) {
+	// TODO: May have to make this work with quantity connection components eventually, that is a bit more tricky.
+	if(model->components[target_component]->decl_type != Decl_Type::compartment)
+		fatal_error(Mobius_Error::internal, "For now, graph lookups are only supported over compartments.");
+	
+	auto loc = loc0;
+	loc.components[0] = target_component;
+	auto target = vars.id_of(loc);
+	if(!is_valid(target)) return target;
+	if(is_conc)
+		target = vars.find_conc(target);
+	return target;
+}
+
+Var_Id
+Model_Application::get_connection_target_variable(Var_Id source, Entity_Id connection_id, Entity_Id target_component) {
+	if(model->connections[connection_id]->type != Connection_Type::directed_graph)
+		fatal_error(Mobius_Error::internal, "get_connection_target_variable should only be used for graph connections.");
+	// TODO: Could also check that the target is valid for the given source and given the connection components?
+	//  Could also check that the var is something that is valid to look up this way
+	bool is_conc;
+	auto loc0 = get_primary_location(source, is_conc);
+	return get_connection_target_variable(loc0, target_component, is_conc);
+}
+
 Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction) {
 	
@@ -304,7 +346,7 @@ Model_Application::set_up_index_count_structure() {
 	for(auto index_set : model->index_sets) {
 		int idx = 0;
 		index_counts_structure.for_each(index_set, [this, index_set, &idx](Indexes &indexes, s64 offset) {
-			data.index_counts.data[offset] = index_data.get_index_count(index_set, indexes).index;
+			data.index_counts.data[offset] = index_data.get_index_count(indexes, index_set).index;
 		});
 	}
 }
@@ -981,42 +1023,6 @@ Model_Application::save_to_data_set() {
 	if(!data_set)
 		fatal_error(Mobius_Error::api_usage, "Tried to save model application to data set, but no data set was attached to the model application.");
 	
-	
-	// The commented-out part should be possible to be removed when
-	// Data_Set::generate_index_set is implemented.
-	
-	// NOTE : This should only write parameter values. All other editing should go directly to the data set, and one should then reload the model with the data set.
-	// 		The exeption is if we generated an index for a data set that was not in the model.
-	/*
-	for(Entity_Id index_set_id : model->index_sets) {
-		auto index_set = model->index_sets[index_set_id];
-		auto index_set_info = data_set->index_sets.find(index_set->name);
-		// TODO: Maybe do a sanity check that the data set contains the same indexes as the model application?
-		
-		if(index_set_info) continue;  // We are only interested in creating new index sets that were missing in the data set.
-		
-		// TODO: Hmm, this should only be skipped if it is a directed_graph?
-		if(is_valid(index_set->is_edge_of_connection)) continue; // These are handled differently.
-		
-		// TODO: We should have some api on the data set for this.
-		index_set_info = data_set->index_sets.create(index_set->name, {});
-		if(!is_valid(index_set->sub_indexed_to)) {
-			index_set_info->indexes.resize(1);
-			index_set_info->indexes[0].type = Sub_Indexing_Info::Type::numeric1;
-			index_set_info->indexes[0].n_dim1 = get_max_index_count(index_set_id).index; // Should be 1 unless we change the code somewhere else.
-		} else {
-			index_set_info->sub_indexed_to = data_set->index_sets.find_idx(model->index_sets[index_set->sub_indexed_to]->name);
-			auto parent_count = get_max_index_count(index_set->sub_indexed_to);
-			index_set_info->indexes.resize(parent_count.index);
-			for(Index_T parent_idx = {index_set->sub_indexed_to, 0}; parent_idx < parent_count; ++parent_idx) {
-				Indexes indexes(parent_idx);
-				index_set_info->indexes[parent_idx.index].type = Sub_Indexing_Info::Type::numeric1;
-				index_set_info->indexes[parent_idx.index].n_dim1 = get_index_count(index_set_id, indexes).index;
-			}
-		}
-	}
-	*/
-	
 	// Hmm, this is a bit cumbersome
 	for(int idx = -1; idx < model->modules.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
@@ -1216,6 +1222,8 @@ Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
 		data = (Val_T *) malloc(sz);
 		//auto sz2 = round_up(data_alignment, sz);
 		//data = (Val_T *) _aligned_malloc(sz2, data_alignment);  // should be replaced with std::aligned_alloc(data_alignment, sz2) when that is available.
+		if(!data)
+			fatal_error(Mobius_Error::internal, "Failed to allocated data (size ", sz, ") bytes.");
 		is_owning = true;
 	}
 	size_t sz = alloc_size();

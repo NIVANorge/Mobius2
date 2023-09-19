@@ -274,17 +274,15 @@ write_module_to_file(FILE *file, Data_Set *data_set, Module_Info &module) {
 
 void
 write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series, std::set<std::string> &already_processed) {
-	if(series.file_name == main_file) {
-		fatal_error(Mobius_Error::internal, "Inlining series data in main data file is not yet supported!");
-	}
-	
+		
 	// NOTE: If we read from an excel file, it will produce one Series_Set_Info record per page, but we only want to write out one import of the file.
+	// TODO: 
 	if(already_processed.find(series.file_name) != already_processed.end())
 		return;
 	
 	already_processed.insert(series.file_name);
 	
-	//TODO: What do we do if the file we save to is in a different folder than the original. Should we update all the relative paths of the included files?
+	//TODO: What do we do if the main file we save to is in a different folder than the original. Should we update all the relative paths of the included files?
 	
 	fprintf(file, "series(\"%s\")\n\n", series.file_name.data());
 }
@@ -297,7 +295,7 @@ Data_Set::write_to_file(String_View file_name) {
 	bool error = false;
 	try {
 		if(!doc_string.empty()) {
-			fprintf(file, "\"\"\"\n%s\n\"\"\"\n\n", doc_string.data());
+			fprintf(file, "\"\"\"%s\n\"\"\"\n\n", doc_string.data());
 		}
 		
 		if(time_step_was_provided) {
@@ -970,44 +968,38 @@ Data_Set::read_from_file(String_View file_name) {
 				} break;
 				
 				case Decl_Type::series : {
-					int which = match_declaration(decl, {{Token_Type::quoted_string}, {}}, false, false);
-					if(which == 0) {
-						String_View other_file_name = single_arg(decl, 0)->string_value;
-						
-						if(file_handler.is_loaded(other_file_name, file_name)) {
-							token.print_error_header();
-							fatal_error("The file ", other_file_name, " has already been loaded.");
-						}
-						
-						bool success;
-						String_View extension = get_extension(other_file_name, &success);
-						if(success && (extension == ".xlsx" || extension == ".xls")) {
-							#if OLE_AVAILABLE
-							String_View relative = make_path_relative_to(other_file_name, file_name);
-							ole_open_spreadsheet(relative, &handles);
-							read_series_data_from_spreadsheet(this, &handles, other_file_name);
-							#else
-							single_arg(decl, 0)->print_error_header();
-							fatal_error("Spreadsheet reading is only available on Windows.");
-							#endif
-						} else {
-							String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
-							Token_Stream other_stream(other_file_name, other_data);
-							other_stream.allow_date_time_tokens = true;
-							
-							series.push_back({});
-							Series_Set_Info &data = series.back();
-							data.file_name = std::string(other_file_name);
-							read_series_data_block(this, &other_stream, &data);
-						}
+					
+					match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
+					
+					String_View other_file_name = single_arg(decl, 0)->string_value;
+					
+					if(file_handler.is_loaded(other_file_name, file_name)) {
+						token.print_error_header();
+						fatal_error("The file ", other_file_name, " has already been loaded.");
+					}
+					
+					bool success;
+					String_View extension = get_extension(other_file_name, &success);
+					if(success && (extension == ".xlsx" || extension == ".xls")) {
+						#if OLE_AVAILABLE
+						String_View relative = make_path_relative_to(other_file_name, file_name);
+						ole_open_spreadsheet(relative, &handles);
+						read_series_data_from_spreadsheet(this, &handles, other_file_name);
+						#else
+						single_arg(decl, 0)->print_error_header();
+						fatal_error("Spreadsheet reading is only available on Windows.");
+						#endif
 					} else {
-						stream.expect_token('[');
+						String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
+						Token_Stream other_stream(other_file_name, other_data);
+						other_stream.allow_date_time_tokens = true;
+						
 						series.push_back({});
 						Series_Set_Info &data = series.back();
-						data.file_name = std::string(file_name);
-						read_series_data_block(this, &stream, &data);
-						stream.expect_token(']');
+						data.file_name = std::string(other_file_name);
+						read_series_data_block(this, &other_stream, &data);
 					}
+					
 				} break;
 				
 				case Decl_Type::par_group : {

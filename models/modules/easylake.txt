@@ -1,15 +1,12 @@
 
 
 module("EasyLake", version(0, 1, 0),
-	air    : compartment,
 	epi    : compartment,
 	hyp    : compartment,
 	water  : quantity,
 	heat   : quantity,
 	temp   : property,
-	precip : property,
 	th     : property,
-	evap_mm : property,
 	freeze_temp : property,
 	A_surf : par_real,
 	epi_target : loc
@@ -83,8 +80,6 @@ The water balance part of the model is conceptually similar to VEMALA
 	#	
 	#}
 	
-	flux(out, epi.water, [m 3, day-1], "Precipitation to lake")           {   air.precip * A_surf ->>   }
-	
 	var(epi.level, [m], "Lake water level")                               {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
 	
 	flux(epi.water, epi_target, [m 3, s-1], "Lake outflow flux")          {   max(0, rate_l*(level - z_outflow))   }
@@ -98,11 +93,6 @@ The water balance part of the model is conceptually similar to VEMALA
 		t_hyp := hypo_temperature_integral(A_surf, t_epi, t_bot, z_outflow-th_epi, z_outflow, theta)/water,
 		water_temp_to_heat(water, t_hyp)
 	}
-	
-	evap :
-	flux(epi.water, out, [m 3, day-1], "Evaporation") {
-		evap_mm*A_surf ->>
-	} @no_carry # Don't carry any dissolved substances in the evaporation
 	
 	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
 		V := water + hyp.water,
@@ -122,7 +112,6 @@ The water balance part of the model is conceptually similar to VEMALA
 		water_heat_to_temp(water, water.heat)
 	}
 	
-	# TODO: How does mixing interact with ice (?).
 	ind : property("Mixing indicator")
 	var(epi.ind, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < 0.4[deg_c] }
 	

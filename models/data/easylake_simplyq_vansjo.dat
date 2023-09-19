@@ -173,7 +173,7 @@ module("Simply soil temperature", version(0, 1, 0)) {
 
 module("RiverTemperature", version(0, 1, 0)) {
 	par_group("River temperature") [ "Subcatchment" ] {
-		par_real("Air-river heat conductivity coefficient")
+		par_real("Air-river heat exchange coefficient")
 		[ 1 1 1 1 ]
 	}
 }

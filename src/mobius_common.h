@@ -17,7 +17,7 @@ typedef int32_t s32;
 typedef int16_t s16;
 typedef int8_t  s8;
 
-
+extern bool mobius_developer_mode;
 
 enum class
 Mobius_Error {
@@ -41,6 +41,17 @@ error_print() {}
 
 inline void
 log_print() {}
+
+enum class Log_Mode {
+	regular,
+	dev
+};
+
+template<typename... V> inline void
+log_print(Log_Mode mode, V... tail) {
+	if(mobius_developer_mode)
+		log_print(tail...);
+}
 
 #if defined(MOBIUS_ERROR_STREAMS)
 #include <sstream>

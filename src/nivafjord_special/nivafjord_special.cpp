@@ -96,11 +96,9 @@ nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densit
 
 extern "C" DLLEXPORT void
 nivafjord_vertical_realignment(Value_Access *align_out, Value_Access *horz_balance) {
-	for(int layer = align_out->count-1; layer >= 0; --layer) {
-		double align = horz_balance->at(layer);
-		if(layer != align_out->count-1)
-			align += align_out->at(layer+1);
-		align_out->at(layer) = align;
-	}
+	align_out->at(align_out->count-1) = 0;
+	double align_below = 0;
+	for(int layer = align_out->count-2; layer >= 0; --layer)
+		align_below = (align_out->at(layer) = horz_balance->at(layer + 1) + align_below);
 }
 

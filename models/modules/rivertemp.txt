@@ -1,6 +1,6 @@
 
 
-module("RiverTemperature", version(0, 1, 0),
+module("RiverTemperature", version(0, 1, 1),
 	air   : compartment,
 	soil  : compartment,
 	river : compartment,
@@ -14,10 +14,10 @@ module("RiverTemperature", version(0, 1, 0),
 	min_t : constant("Minimum river temperature", [deg_c], 0.4)
 	
 	par_group("River temperature", river) {
-		coeff : par_real("Air-river heat conductivity coefficient", [day-1], 1, 0.1, 10)
+		coeff : par_real("Air-river heat exchange coefficient", [day-1], 1, 0.1, 10)
 	}
 	
-	var(river.water.heat, [J], "River thermal energy") @initial { water_temp_to_heat(water, air.temp) }
+	var(river.water.heat, [J], "River thermal energy") @initial { water_temp_to_heat(water, max(air.temp, min_t)) }
 	
 	flux(out, river.water.heat, [J, day-1], "River heat from land") {
 		#TODO: maybe modify if melt water    
@@ -30,8 +30,7 @@ module("RiverTemperature", version(0, 1, 0),
 		(water_temp_to_heat(water, air.temp) - heat)*coeff * (air.temp >= min_t)
 	}
 	
-	#TODO: Should be river.water.temp ?
-	var(river.temp, [deg_c], "River temperature") {
+	var(river.water.temp, [deg_c], "River temperature") {
 		water_heat_to_temp(water, water.heat)
 	}
 	

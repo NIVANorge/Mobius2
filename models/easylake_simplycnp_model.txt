@@ -7,7 +7,7 @@ model("EasyLake-SimplyCNP") {
 	
 	module("EasyLake-CNP", version(0, 0, 1)) {
 		
-		load("stdlib/basic_math.txt", library("Rates"))
+		load("stdlib/basic_math.txt", library("Response"))
 		
 		par_group("Lake C", epi) {
 			init_c : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)

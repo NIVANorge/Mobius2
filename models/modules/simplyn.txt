@@ -13,7 +13,7 @@ A simple dissolved inorganic nitrogen (DIN) model.
 This module is not finished.
 """
 
-	load("stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/basic_math.txt", library("Response"))
 
 	#----------------------------------------------------------------
 	# Define parameter groups and parameters

@@ -321,14 +321,13 @@ Token_Stream::read_string(Token *token) {
 		read_char(); read_char();
 		token->string_value.data += 2;
 		c = peek_char();
-		if(c == '\r') { //Skip initial carriage return
-			read_char();
-			++token->string_value.data;
-			c = peek_char();
-		}
-		if(c == '\n') { //Skip initial newline.
-			read_char();
-			++token->string_value.data;
+		
+		for(int i = 0; i < 2; ++i) {
+			if(c == '\n' || c == '\r') { //Skip initial newline
+				read_char();
+				++token->string_value.data;
+				c = peek_char();
+			}
 		}
 	}
 	
@@ -339,16 +338,16 @@ Token_Stream::read_string(Token *token) {
 		++token->string_value.count;
 		
 		if(c == '"') {
-			bool close = true;
 			if(docstring) {
 				// determine if this is actually closing the string.
 				if(peek_char(0) == '"' && peek_char(1) == '"') {
 					read_char(); read_char();
 					--token->string_value.count;
-					if(token->string_value[token->string_value.count-1] == '\n')
-						--token->string_value.count;  // Trim away closing newline right before """ if it exists.
-					if(token->string_value[token->string_value.count-1] == '\r')
-						--token->string_value.count; // Trim away carriage return if it exists.
+					for(int i = 0; i < 2; ++i) {
+						auto c = token->string_value[token->string_value.count-1];
+						if(c == '\n' || c == '\r')
+							--token->string_value.count;  // Trim away closing newline right before """ if it exists.						
+					}
 					break;
 				}
 			} else {

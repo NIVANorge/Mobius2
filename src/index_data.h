@@ -102,7 +102,7 @@ Index_Data {
 	bool are_in_bounds(Index_Tuple<Id_Type> &indexes);
 	
 	Idx_T get_max_count(Id_Type index_set);
-	Idx_T get_index_count(Id_Type index_set, Index_Tuple<Id_Type> &indexes);
+	Idx_T get_index_count(Index_Tuple<Id_Type> &indexes, Id_Type index_set);
 	
 	void check_valid_distribution(std::vector<Id_Type> &index_sets, Source_Location source_loc);
 	s64 get_instance_count(const std::vector<Id_Type> &index_sets);
@@ -115,13 +115,10 @@ Index_Data {
 	void initialize_edge_index_set(Id_Type index_set_id, Source_Location source_loc);
 	void add_edge_index(Id_Type index_set_id, const std::string &index_name, Source_Location source_loc, Idx_T parent_idx);
 	
-	std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable = nullptr); //TODO: Make private when we fix MobiView2
-	
 	bool are_all_indexes_set(Id_Type index_set);
 	
 	void write_index_to_file(FILE *file, Idx_T index, Idx_T parent_idx = Idx_T::no_index());
 	void write_indexes_to_file(FILE *file, Id_Type index_set, Idx_T parent_idx = Idx_T::no_index());
-	// TODO: Some method to copy to another Index_Data.
 	
 	bool can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set, s32* offset = nullptr);
 	
@@ -142,10 +139,12 @@ private :
 	
 	Idx_T find_index_base(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index());
 	s32   get_count_base(Id_Type index_set, Idx_T index_of_super = Idx_T::no_index());
-	//std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable);
+	std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable);
 	
 	void initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc);
-
+	
+	Idx_T lower(Idx_T union_index, Idx_T parent_idx);
+	
 	void for_each_helper(
 		const std::function<void(Index_Tuple<Id_Type> &indexes)> &do_stuff,
 		const std::function<void(int)> &new_level,
@@ -260,7 +259,7 @@ Index_Tuple<Id_Type>::get_index(Index_Data<Id_Type> &index_data, Id_Type index_s
 			result.index += idx.index;
 			break;
 		} else
-			result.index += index_data.get_index_count(ui_id, *this).index;
+			result.index += index_data.get_index_count(*this, ui_id).index;
 	}
 	if(!found)
 		return Idx_T::no_index();
@@ -614,7 +613,7 @@ Index_Data<Id_Type>::get_max_count(Id_Type index_set_id) {
 
 template<typename Id_Type>
 Index_Type<Id_Type>
-Index_Data<Id_Type>::get_index_count(Id_Type index_set_id, Index_Tuple<Id_Type> &indexes) {
+Index_Data<Id_Type>::get_index_count(Index_Tuple<Id_Type> &indexes, Id_Type index_set_id) {
 	
 	auto index_set = record->index_sets[index_set_id];
 	
@@ -786,23 +785,11 @@ Index_Data<Id_Type>::get_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, 
 	if(!is_valid(index) || index.index >= get_count_base(index.index_set, index_of_super))
 		fatal_error(Mobius_Error::internal, "Index out of bounds in get_index_name");
 	
-	if(!index_set->union_of.empty()) {
-		
-		// NOTE: For numeric indexes, we just return the number. For a union, we have to lower the number to the right union member to be able to look up the name value.
-		auto &data = index_data[index.index_set.id];
-		if(data.type == Index_Record::Type::numeric1)
-			return get_index_name_base(index, index_of_super, is_quotable);
-		
-		Idx_T lower = index;
-		for(auto ui_id : index_set->union_of) {
-			s32 count = get_count_base(ui_id, index_of_super);
-			if(lower.index < count) {
-				lower.index_set = ui_id;
-				return get_index_name_base(lower, index_of_super, is_quotable);
-			}
-			lower.index -= count;
-		}
-		fatal_error(Mobius_Error::internal, "Something went wrong with setting up union index sets.");
+	auto &data = index_data[index.index_set.id];
+	
+	if(!index_set->union_of.empty() && data.type == Index_Record::Type::named) {
+		Idx_T below = lower(index, index_of_super);
+		return get_index_name_base(below, index_of_super, is_quotable);
 	}
 	
 	return get_index_name_base(index, index_of_super, is_quotable);
@@ -866,16 +853,28 @@ Index_Data<Id_Type>::are_all_indexes_set(Id_Type index_set_id) {
 template<typename Id_Type>
 void
 Index_Data<Id_Type>::write_index_to_file(FILE *file, Idx_T index, Idx_T parent_idx) {
-	if(is_valid(record->index_sets[index.index_set]->sub_indexed_to) && !is_valid(parent_idx))
-		fatal_error(Mobius_Error::internal, "Misuse of write_indexes_to_file");
+	
+	auto index_set = record->index_sets[index.index_set];
+	
+	if(is_valid(index_set->sub_indexed_to) && !is_valid(parent_idx))
+		fatal_error(Mobius_Error::internal, "Missing super index in write_index_to_file");
 	
 	auto &data = index_data[index.index_set.id];
 	
+	// TODO: could we reuse code between this and get_index_name ?
+	if(!index_set->union_of.empty() && data.type == Index_Record::Type::named) {
+		Idx_T below = lower(index, parent_idx);
+		write_index_to_file(file, below, parent_idx);
+		return;
+	}
+	
 	int super = is_valid(parent_idx) ? parent_idx.index : 0;
 	
-	if(data.type == Index_Record::Type::named)
+	if(data.type == Index_Record::Type::named) {
+		if(super >= data.index_names.size() || index.index >= data.index_names[super].size())
+			fatal_error(Mobius_Error::internal, "Looked up non-existing name for index set ", index_set->name.data(), ", index: ", index.index, ", super: ", super, ".");
 		fprintf(file, "\"%s\" ", data.index_names[super][index.index].data());
-	else if (data.type == Index_Record::Type::numeric1)
+	} else if (data.type == Index_Record::Type::numeric1)
 		fprintf(file, "%d ", index.index);
 	else
 		fatal_error(Mobius_Error::internal, "Unhandled index type in write_index_to_file().");
@@ -914,7 +913,7 @@ Index_Data<Id_Type>::for_each_helper(
 	auto index_set = indexes.indexes[pos].index_set;
 	
 	new_level(pos);
-	for(int idx = 0; idx < get_index_count(index_set, indexes).index; ++idx) {
+	for(int idx = 0; idx < get_index_count(indexes, index_set).index; ++idx) {
 		indexes.indexes[pos].index = idx;
 		if(pos == indexes.indexes.size()-1)
 			do_stuff(indexes);
@@ -945,5 +944,29 @@ Index_Data<Id_Type>::get_index_type(Id_Type index_set_id) {
 	return index_data[index_set_id.id].type;
 }
 
+template<typename Id_Type>
+Index_Type<Id_Type>
+Index_Data<Id_Type>::lower(Idx_T union_index, Idx_T parent_idx) {
+	// Lower an index from a union index set to a union member.
+	auto set = record->index_sets[union_index.index_set];
+	if(set->union_of.empty())
+		fatal_error(Mobius_Error::internal, "Misuse of lower() for non-union index set.");
+	
+	Idx_T below = union_index;
+	for(auto ui_id : set->union_of) {
+		s32 count = get_count_base(ui_id, parent_idx);
+		if(below.index < count) {
+			below.index_set = ui_id;
+			return below;
+		}
+		below.index -= count;
+	}
+	fatal_error(Mobius_Error::internal, "Union index set was incorrectly set up.");
+	return Idx_T::no_index();
+}
 
 #endif // MOBIUS_INDEX_DATA_H
+
+
+
+

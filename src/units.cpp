@@ -114,7 +114,7 @@ Unit_Data::set_standard_form() {
 	standard_form.reduce();
 
 	for(auto &part : declared_form) {
-		if((int)part.unit <= (int)Base_Unit::max)
+		if((int)part.unit < (int)Base_Unit::max)
 			standard_form.powers[(int)part.unit] += part.power;
 		else if(part.unit == Compound_Unit::N) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
@@ -169,7 +169,7 @@ Unit_Data::set_standard_form() {
 				standard_form.powers[(int)Base_Unit::s] += part.power;
 				standard_form.magnitude += 2*part.power;
 				standard_form.multiplier *= pow_i<s64>(6048, part.power.nom);
-			}else
+			} else
 				fatal_error(Mobius_Error::internal, "Unhandled compound unit in set_standard_form().");
 		}
 		standard_form.magnitude += ((int)part.magnitude)*part.power;
@@ -473,11 +473,18 @@ Unit_Data::set_data(Decl_AST *decl) {
 	declared_form.clear();
 	declared_multiplier = 1;
 	int idx = 0;
-	for(auto arg : decl->args) {
+	for(int idx = 0; idx < decl->args.size(); ++idx) {
+		auto arg = decl->args[idx];
 		bool skip = false;
-		if(idx == 0 && arg->chain.size() == 1 && arg->chain[0].type == Token_Type::integer) {
-			skip = true;
-			declared_multiplier = arg->chain[0].val_int;
+		if(idx == 0) {
+			if(arg->chain.size() == 1 && arg->chain[0].type == Token_Type::integer) {
+				skip = true;
+				declared_multiplier = arg->chain[0].val_int;
+			} else if (arg->chain.size() == 3 && arg->chain[0].type == Token_Type::integer 
+				&& (char)arg->chain[1].type == '/' && arg->chain[2].type == Token_Type::integer) {
+				skip = true;
+				declared_multiplier = Rational<s64>(arg->chain[0].val_int, arg->chain[2].val_int);
+			}
 			if(declared_multiplier.nom < 0) {
 				arg->chain[0].print_error_header();
 				fatal_error("A unit can not have a negative size.");
@@ -485,7 +492,6 @@ Unit_Data::set_data(Decl_AST *decl) {
 		}
 		if(!skip)
 			declared_form.push_back(parse_unit(&arg->chain));
-		++idx;
 	}
 	set_standard_form();
 }
