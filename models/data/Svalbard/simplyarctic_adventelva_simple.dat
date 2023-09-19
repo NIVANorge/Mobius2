@@ -2,11 +2,9 @@
 Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
 """
 
-index_set("Subcatchment") [ "DeGeerdalen" ]
+index_set("Subcatchment") [ "Adventelva" ]
 
 index_set("Patch") [ "Glaciers" "Hill5_900" "Hill4_700" "Hill3_500" "Hill2_300" "Hill1_100" "Valleys" ]
-
-index_set("Aspect") [ "N" "S" "E/W" ]
 
 connection("Downhill throughflow") {
 	s : compartment("Soil") [ "Patch" ]
@@ -22,17 +20,19 @@ connection("Downstream") {
 	r : compartment("River") [ "Subcatchment" ]
 
 	directed_graph [
-		r[ "DeGeerdalen" ] -> out
+		r[ "Adventelva" ] -> out
 	]
 }
 
-series("DeGeerelva_met_carra_shift_pptn-1.xlsx")
+series("Adventelva_met_carra_shift_pptn-1.xlsx")
 
-series("q_degeerdalen_daily_cleaned_6am-mean_shift-1D.xlsx")
+series("q_advent_scaled_degeerdalen_obs_daily_6am-mean_shift-1D.xlsx")
+series("HBV_Adventelva_runoff_2015_and_2016.xlsx")
+series("adventelva_sensor_data_niva_2017-2022_6am_mean.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
-	[ 1991-01-02 ]
+	[ 1991-01-01 ]
 
 	par_datetime("End date")
 	[ 2022-08-31 ]
@@ -40,53 +40,29 @@ par_group("System") {
 
 par_group("Catchment data") {
 	par_real("Catchment area")
-	[ 80 ]
+	[ 429 ]
 
 	par_real("Elevation of input met data")
-	[ 412 ]
+	[ 439 ]
 }
 
 par_group("Patch data") [ "Patch" ] {
 	par_real("Relative area")
-	[ 0.1 0.04 0.12 0.25 0.28 0.09 0.12 ]
+	[ 0.20 0.05 0.12 0.20 0.20 0.09 0.14 ]
 }
 
-par_group("Aspect data") [ "Aspect" ] {
-	par_real("Aspect relative area")
-	[ 0.33 0.33 0.33 ]
-}
-
-module("Degree-day PET", version(1, 0, 0)) {
-	par_group("Potential evapotranspiration") [ "Subcatchment" ] {
-		par_real("Deegree-day factor for evapotranspiration")
-		[ 0 ]
-
-		par_real("Minimal temperature for evapotranspiration")
-		[ 0 ]
-	}
-}
-
-module("SimplyQ river", version(0, 5, 0)) {
+module("SimplyQ river manual", version(0, 0, 1)) {
 	par_group("Reach parameters") [ "Subcatchment" ] {
-		par_real("Reach slope")
-		[ 0.8 ]
-
 		par_real("Reach length")
-		[ 10000 ]
+		[ 30000 ]
 
-		par_real("Manning's roughness coefficient")
-		[ 0.05 ]
-
-		par_real("Initial reach flow")
-		[ 0 ]
+		par_real("Mean velocity")
+		[ 3 ]
 	}
 }
 
 module("SimplyGlacier", version(0, 0, 1)) {
 	par_group("Glacier global") {
-		par_real("Glacier percolation fraction")
-		[ 0 ]
-
 		par_real("Degree-day factor for ice melt")
 		[ 8 ]
 
@@ -104,82 +80,35 @@ module("SimplyGlacier", version(0, 0, 1)) {
 module("ArcticAtmosphere", version(0, 0, 1)) {
 	par_group("Elevation data") [ "Subcatchment" "Patch" ] {
 		par_real("Average elevation") [
-			625 843 678 481 305 151 94 
+			644 868 685 496 294 144 73 
 		]
 	}
 
 	par_group("Temperature correction") {
 		par_real("Temp lapse rate")
-		[ -0.005 ]
+		[ -0.0062 ]
 	}
 }
 
 module("ArcticSnow", version(0, 0, 1)) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
-		[ 3.2 ]
-
-		par_real("Refreeze efficiency")
-		[ 0 ]
-
-		par_real("Liquid water fraction")
-		[ 0 ]
+		[ 3.3 ]
 
 		par_real("Initial snow depth (water equivalents)")
 		[ 0 ]
-
-		par_real("Snow fall correction factor")
-		[ 1 ]
-	}
-
-	par_group("Snow aspect") [ "Aspect" ] {
-		par_real("Aspect melt factor")
-		[ 1 1 1 ]
-	}
-}
-
-module("SimplyQuickflow", version(0, 0, 1)) {
-	par_group("Global quick flow") {
-		par_real("Max infiltration proportion")
-		[ 1 ]
-
-		par_real("Quickflow time constant")
-		[ 1.5 ]
 	}
 }
 
 module("SimplyPermafrost", version(0, 0, 1)) {
 	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
 		par_real("Soil water time constant") [
-			1.5 1.2 1.2 1.2 1.2 1.2 1.2 
+			0.6 0.6 0.6 0.6 0.6 0.6 0.6 
 		]
 
 		par_real("Field capacity") [
-			1 1 1 1 1 1 1 
-		]
-
-		par_real("Baseflow index") [
 			0 0 0 0 0 0 0 
 		]
-	}
-
-	par_group("Soil temperature") {
-		par_real("Deep soil temperature")
-		[ -4 ]
-
-		par_real("Soil temp lag factor")
-		[ 0.01 ]
-
-		par_real("Thawing depth coefficient")
-		[ 4000 ]
-
-		par_real("Snow insulation depth")
-		[ 3000 ]
-	}
-
-	par_group("Groundwater") [ "Subcatchment" ] {
-		par_real("Groundwater time constant")
-		[ 5 ]
 	}
 }
 
