@@ -6,8 +6,6 @@ index_set("Subcatchment") [ "DeGeerdalen" ]
 
 index_set("Patch") [ "Glaciers" "Hill5_900" "Hill4_700" "Hill3_500" "Hill2_300" "Hill1_100" "Valleys" ]
 
-index_set("Aspect") [ "N" "S" "E/W" ]
-
 connection("Downhill throughflow") {
 	s : compartment("Soil") [ "Patch" ]
 	river : compartment("River") [ ]
@@ -32,7 +30,7 @@ series("q_degeerdalen_daily_cleaned_6am-mean_shift-1D.xlsx")
 
 par_group("System") {
 	par_datetime("Start date")
-	[ 1991-01-02 ]
+	[ 1991-01-01 ]
 
 	par_datetime("End date")
 	[ 2022-08-31 ]
@@ -51,42 +49,18 @@ par_group("Patch data") [ "Patch" ] {
 	[ 0.1 0.04 0.12 0.25 0.28 0.09 0.12 ]
 }
 
-par_group("Aspect data") [ "Aspect" ] {
-	par_real("Aspect relative area")
-	[ 0.33 0.33 0.33 ]
-}
-
-module("Degree-day PET", version(1, 0, 0)) {
-	par_group("Potential evapotranspiration") [ "Subcatchment" ] {
-		par_real("Deegree-day factor for evapotranspiration")
-		[ 0 ]
-
-		par_real("Minimal temperature for evapotranspiration")
-		[ 0 ]
-	}
-}
-
-module("SimplyQ river", version(0, 5, 0)) {
+module("SimplyQ river manual", version(0, 0, 1)) {
 	par_group("Reach parameters") [ "Subcatchment" ] {
-		par_real("Reach slope")
-		[ 0.8 ]
-
 		par_real("Reach length")
 		[ 10000 ]
 
-		par_real("Manning's roughness coefficient")
-		[ 0.05 ]
-
-		par_real("Initial reach flow")
-		[ 0 ]
+		par_real("Mean velocity")
+		[ 3 ]
 	}
 }
 
 module("SimplyGlacier", version(0, 0, 1)) {
 	par_group("Glacier global") {
-		par_real("Glacier percolation fraction")
-		[ 0 ]
-
 		par_real("Degree-day factor for ice melt")
 		[ 8 ]
 
@@ -110,76 +84,29 @@ module("ArcticAtmosphere", version(0, 0, 1)) {
 
 	par_group("Temperature correction") {
 		par_real("Temp lapse rate")
-		[ -0.005 ]
+		[ -0.0062 ]
 	}
 }
 
 module("ArcticSnow", version(0, 0, 1)) {
 	par_group("Snow") {
 		par_real("Degree-day factor for snowmelt")
-		[ 3.2 ]
-
-		par_real("Refreeze efficiency")
-		[ 0 ]
-
-		par_real("Liquid water fraction")
-		[ 0 ]
+		[ 3.3 ]
 
 		par_real("Initial snow depth (water equivalents)")
 		[ 0 ]
-
-		par_real("Snow fall correction factor")
-		[ 1 ]
-	}
-
-	par_group("Snow aspect") [ "Aspect" ] {
-		par_real("Aspect melt factor")
-		[ 1 1 1 ]
-	}
-}
-
-module("SimplyQuickflow", version(0, 0, 1)) {
-	par_group("Global quick flow") {
-		par_real("Max infiltration proportion")
-		[ 1 ]
-
-		par_real("Quickflow time constant")
-		[ 1.5 ]
 	}
 }
 
 module("SimplyPermafrost", version(0, 0, 1)) {
 	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
 		par_real("Soil water time constant") [
-			1.5 1.2 1.2 1.2 1.2 1.2 1.2 
+			0.6 0.6 0.6 0.6 0.6 0.6 0.6 
 		]
 
 		par_real("Field capacity") [
-			1 1 1 1 1 1 1 
-		]
-
-		par_real("Baseflow index") [
 			0 0 0 0 0 0 0 
 		]
-	}
-
-	par_group("Soil temperature") {
-		par_real("Deep soil temperature")
-		[ -4 ]
-
-		par_real("Soil temp lag factor")
-		[ 0.01 ]
-
-		par_real("Thawing depth coefficient")
-		[ 4000 ]
-
-		par_real("Snow insulation depth")
-		[ 3000 ]
-	}
-
-	par_group("Groundwater") [ "Subcatchment" ] {
-		par_real("Groundwater time constant")
-		[ 5 ]
 	}
 }
 
