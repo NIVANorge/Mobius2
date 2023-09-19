@@ -9,7 +9,7 @@ library("Meteorology") {
 	
 	mean_barometric_pressure : function(elevation : [m])    {   # Doorenbos, Pruitt 1977
 		elev := elevation => [],
-		101.3 - (0.01152 - 0.544e-6*elev)*elev => [k Pa]
+		(101.3 - (0.01152 - 0.544e-6*elev)*elev) => [k Pa]
 	}
 	
 	# NOTE: some of these were revised using Ventura & al 1998 An evaluation of common evapotranspiration equations.

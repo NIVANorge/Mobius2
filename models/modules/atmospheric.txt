@@ -54,7 +54,7 @@ The user must provide either "Global radiation" or "Cloud cover" as an input ser
 	}
 	
 	var(air.pressure, [h Pa], "Air pressure") {
-		mean_barometric_pressure(elev)
+		mean_barometric_pressure(elev) ->>
 	}
 	
 	var(air.s_vap, [h Pa]) {

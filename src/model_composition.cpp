@@ -175,27 +175,35 @@ remove_lasts(Math_Expr_FT *expr, bool make_error) {
 	}
 }
 
-typedef std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>> Var_Map;
-typedef std::map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> Var_Map2;
+struct
+Code_Special_Lookups {
+	std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>>         in_fluxes;
+	std::map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
+};
 
 void
-find_identifier_flags(Math_Expr_FT *expr, Var_Map &in_fluxes, Var_Map2 &aggregates, Var_Id looked_up_by, Entity_Id lookup_compartment) {
-	for(auto arg : expr->exprs) find_identifier_flags(arg, in_fluxes, aggregates, looked_up_by, lookup_compartment);
+find_identifier_flags(Math_Expr_FT *expr, Code_Special_Lookups *specials, Var_Id looked_up_by, Entity_Id lookup_compartment) {
+	for(auto arg : expr->exprs) find_identifier_flags(arg, specials, looked_up_by, lookup_compartment);
+	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
+		
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->has_flag(Identifier_FT::in_flux))
-			in_fluxes[{ident->var_id, ident->other_connection}].push_back(looked_up_by);
+		
+		if(specials && ident->has_flag(Identifier_FT::in_flux))
+			specials->in_fluxes[{ident->var_id, ident->other_connection}].push_back(looked_up_by);
 		
 		if(ident->has_flag(Identifier_FT::aggregate)) {
 			if(!is_valid(lookup_compartment)) {
 				expr->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Can't use aggregate() in this function body because it does not belong to a compartment.");
 			}
-				
-			aggregates[ident->var_id.id].first.insert(lookup_compartment);         //OOOps!!!! This is not correct if this was applied to an input series!
 			
-			if(is_valid(looked_up_by))
-				aggregates[ident->var_id.id].second.push_back(looked_up_by);
+			if(specials) {
+				//TODO: This is not correct if this was applied to an input series! If we want to allow that (which we eventually will), we may need another system.
+				specials->aggregates[ident->var_id.id].first.insert(lookup_compartment);
+				if(is_valid(looked_up_by))
+					specials->aggregates[ident->var_id.id].second.push_back(looked_up_by);
+			}	
 		}
 	}
 }
@@ -1041,6 +1049,225 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	}
 }
 
+void
+process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Lookups *specials, bool keep_code = true) {
+	
+	auto model = app->model;
+	auto var = app->vars[var_id];
+		
+	if(var->is_flux()) {
+		// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
+		var->unit_conversion_tree = owns_code(get_unit_conversion(app, var->loc1, var->loc2, var_id));
+		auto transported_id = invalid_var;
+		if(is_located(var->loc1)) transported_id = app->vars.id_of(var->loc1);
+		else if(is_located(var->loc2)) transported_id = app->vars.id_of(var->loc2);
+		if(is_valid(transported_id)) {
+			auto transported = app->vars[transported_id];
+			auto unit = divide(transported->unit, app->time_step_unit);  // This is the unit we need the value to be in for use in state variable updates
+			
+			if(var->type == State_Var::Type::declared) {
+				// Hmm, this actually allows not just for time scaling, but also other scaling. For instance, it allows [g, ha-1, day-1] to be converted to [n g, k m-2, day-1]
+				auto var2 = as<State_Var::Type::declared>(var);
+				bool success = match(&var->unit.standard_form, &unit.standard_form, &var2->flux_time_unit_conv);
+				
+				if(!success) {
+					model->fluxes[var2->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("The flux \"", var2->name, "\" has been given a unit that is not compatible with the unit of the transported quantity, which is ", transported->unit.to_utf8(), ", or with the time step unit of the model, which is ", app->time_step_unit.to_utf8(), ".");
+				}
+			} else {
+				// NOTE: we could also make it have the same time part as the parent flux, but it is tricky.
+				var->unit = unit;
+			}
+		}
+	}
+	
+	if(var->type != State_Var::Type::declared) return;
+	auto var2 = as<State_Var::Type::declared>(var);
+	
+	Math_Expr_AST *ast = nullptr;
+	Math_Expr_AST *init_ast = nullptr;
+	Math_Expr_AST *override_ast = nullptr;
+	Math_Expr_AST *specific_ast = nullptr;
+	bool override_is_conc = false;
+	bool initial_is_conc = false;
+	bool init_is_override = false;
+	
+	Specific_Var_Location in_loc;
+	in_loc.type = Var_Location::Type::out;
+	Entity_Id from_compartment = invalid_entity_id;
+	Entity_Id connection = invalid_entity_id;
+	
+	Decl_Scope *code_scope       = nullptr;
+	Decl_Scope *other_code_scope = nullptr;
+	
+	if(var2->decl_id.reg_type == Reg_Type::flux) {
+		 
+		auto flux_decl = model->fluxes[var2->decl_id];
+		ast = flux_decl->code;
+		if(flux_decl->specific_target_ast)
+			specific_ast = flux_decl->specific_target_ast;
+		
+		code_scope = model->get_scope(flux_decl->scope_id);
+		other_code_scope = code_scope;
+		
+		// Not sure if it would be better to pack both locations to the function resolve data and look up the connections from it that way.
+		// Or we could just get rid of the implicit connection.
+		// Or we could just make it implicit for in_loc.
+		connection = flux_decl->source.r1.connection_id;
+		if(!is_valid(connection))
+			connection = flux_decl->target.r1.connection_id;
+		
+		bool target_is_located = is_located(var->loc2);
+		if(is_located(var->loc1)) {
+			from_compartment = var->loc1.first();
+			in_loc = var->loc1;
+		} else if(target_is_located)
+			in_loc = var->loc2;
+		
+		if(!is_valid(from_compartment)) from_compartment = in_loc.first();
+		
+	} else if(var2->decl_id.reg_type == Reg_Type::var) {
+		auto var_decl = model->vars[var2->decl_id];
+		ast      = var_decl->code;
+		init_ast = var_decl->initial_code;
+		override_ast = var_decl->override_code;
+		override_is_conc = var_decl->override_is_conc;
+		initial_is_conc  = var_decl->initial_is_conc;
+		code_scope = model->get_scope(var_decl->scope_id);
+		other_code_scope = code_scope;
+		
+		if(override_ast && !init_ast) {
+			init_is_override = true;
+			init_ast = override_ast;
+			initial_is_conc = override_is_conc;
+		}
+		
+		if(var2->decl_type == Decl_Type::quantity && ast) {
+			var_decl->source_loc.print_error_header();
+			fatal_error("A quantity should not have an un-tagged code block.");
+		}
+		
+		if(!ast) {
+			auto comp = model->components[var_decl->var_location.last()];
+			ast = comp->default_code;
+			if(ast)
+				code_scope = model->get_scope(comp->scope_id);
+		}
+		
+		if(override_ast && (var2->decl_type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
+			override_ast->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("Either got an 'override' block on a property or a 'override_conc' block on a non-dissolved variable.");
+		}
+		in_loc = var_decl->var_location;
+		from_compartment = in_loc.first();
+	}
+	
+	Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
+		
+	if(ast) {
+		auto res = resolve_function_tree(ast, &res_data);
+		auto fun = make_cast(res.fun, Value_Type::real);
+		find_identifier_flags(fun, specials, var_id, from_compartment);
+		
+		if(!match_exact(&res.unit, &res_data.expected_unit)) {
+			ast->source_loc.print_error_header();
+			fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
+		}
+		
+		if(keep_code)
+			var2->function_tree = owns_code(fun);
+		else
+			delete fun;
+	}
+	
+	res_data.scope = other_code_scope;
+	if(init_ast) {
+		if(initial_is_conc)
+			res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
+		
+		res_data.allow_in_flux = false;
+		auto res = resolve_function_tree(init_ast, &res_data);
+		auto fun = make_cast(res.fun, Value_Type::real);
+		
+		remove_lasts(fun, !init_is_override); // Only make an error for occurrences of 'last' if the block came from an @initial not an @override
+		find_identifier_flags(fun, specials, var_id, from_compartment);
+		var2->initial_is_conc = initial_is_conc;
+		
+		if(!match_exact(&res.unit, &res_data.expected_unit)) {
+			init_ast->source_loc.print_error_header();
+			fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
+		}
+		
+		if(initial_is_conc && (var2->decl_type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
+			init_ast->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
+		}
+		
+		if(keep_code)
+			var2->initial_function_tree = owns_code(fun);
+		else
+			delete fun;
+	}
+	
+	if(override_ast) {
+		if(override_is_conc)
+			res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
+		else
+			res_data.expected_unit = var2->unit.standard_form; //In case it was overwritten above..
+		
+		res_data.allow_no_override = true;
+		res_data.allow_in_flux = true;
+		auto res = resolve_function_tree(override_ast, &res_data);
+		auto fun = res.fun;
+		
+		// NOTE: It is not that clean to do this copy and prune, but we need to know if the expression resolves to 'no_override'. TODO: Make a separate function to check for that?
+		auto override_check = prune_tree(copy(fun));
+		bool no_override = false;
+		if(override_check->expr_type == Math_Expr_Type::identifier) {
+			auto ident = static_cast<Identifier_FT *>(override_check);
+			no_override = (ident->variable_type == Variable_Type::no_override);
+		}
+		delete override_check;
+		
+		if(!no_override) {
+			
+			fun = make_cast(fun, Value_Type::real);
+			
+			find_identifier_flags(fun, specials, var_id, from_compartment);
+			var2->override_is_conc = override_is_conc;
+			
+			if(!match_exact(&res.unit, &res_data.expected_unit)) {
+				init_ast->source_loc.print_error_header();
+				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
+			}
+			
+			if(keep_code)
+				var2->override_tree = owns_code(fun);
+			else
+				delete fun;
+		}
+	}
+	
+	if(specific_ast) {
+		res_data.allow_no_override = false;
+		res_data.allow_in_flux = false; // Do we??
+		res_data.expected_unit = {};
+		res_data.allow_no_override = false;
+		auto res = resolve_function_tree(specific_ast, &res_data);
+		auto fun = make_cast(res.fun, Value_Type::integer);
+		
+		if(!match_exact(&res.unit, &res_data.expected_unit)) {
+			init_ast->source_loc.print_error_header();
+			fatal_error("Expected the unit of this expression to resolve to dimensionless, but got, ", res.unit.to_utf8(), ".");
+		}
+		// TODO: We have to do more of the flag checking business here!
+		
+		if(keep_code)
+			var2->specific_target = owns_code(fun);
+		else
+			delete fun;
+	}
+}
 
 void
 compose_and_resolve(Model_Application *app) {
@@ -1063,203 +1290,14 @@ compose_and_resolve(Model_Application *app) {
 	
 	// TODO: check if there are unused aggregation data or unit conversion data!
 	
-	Var_Map in_flux_map;
-	Var_Map2 needs_aggregate;
+	Code_Special_Lookups specials;
 	
-	for(auto var_id : app->vars.all_state_vars()) {
-		auto var = app->vars[var_id];
-		
-		if(var->is_flux()) {
-			// NOTE: This part must also be done for generated (dissolved) fluxes, not just declared ones, which is why we don't skip non-declared ones yet.
-			var->unit_conversion_tree = owns_code(get_unit_conversion(app, var->loc1, var->loc2, var_id));
-			auto transported_id = invalid_var;
-			if(is_located(var->loc1)) transported_id = app->vars.id_of(var->loc1);
-			else if(is_located(var->loc2)) transported_id = app->vars.id_of(var->loc2);
-			if(is_valid(transported_id)) {
-				auto transported = app->vars[transported_id];
-				auto unit = divide(transported->unit, app->time_step_unit);  // This is the unit we need the value to be in for use in state variable updates
-				
-				if(var->type == State_Var::Type::declared) {
-					// Hmm, this actually allows not just for time scaling, but also other scaling. For instance, it allows [g, ha-1, day-1] to be converted to [n g, k m-2, day-1]
-					auto var2 = as<State_Var::Type::declared>(var);
-					bool success = match(&var->unit.standard_form, &unit.standard_form, &var2->flux_time_unit_conv);
-					
-					if(!success) {
-						model->fluxes[var2->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
-						fatal_error("The flux \"", var2->name, "\" has been given a unit that is not compatible with the unit of the transported quantity, which is ", transported->unit.to_utf8(), ", or with the time step unit of the model, which is ", app->time_step_unit.to_utf8(), ".");
-					}
-				} else {
-					// NOTE: we could also make it have the same time part as the parent flux, but it is tricky.
-					var->unit = unit;
-				}
-			}
-		}
-		
-		if(var->type != State_Var::Type::declared) continue;
-		auto var2 = as<State_Var::Type::declared>(var);
-		
-		Math_Expr_AST *ast = nullptr;
-		Math_Expr_AST *init_ast = nullptr;
-		Math_Expr_AST *override_ast = nullptr;
-		Math_Expr_AST *specific_ast = nullptr;
-		bool override_is_conc = false;
-		bool initial_is_conc = false;
-		bool init_is_override = false;
-		
-		//TODO: it would probably be better to default in_loc to be loc1 regardless (except when loc1 is not located).
-		Specific_Var_Location in_loc;
-		in_loc.type = Var_Location::Type::out;
-		Entity_Id from_compartment = invalid_entity_id;
-		Entity_Id connection = invalid_entity_id;
-		
-		Decl_Scope *code_scope       = nullptr;
-		Decl_Scope *other_code_scope = nullptr;
-		
-		if(var2->decl_id.reg_type == Reg_Type::flux) {
-			 
-			auto flux_decl = model->fluxes[var2->decl_id];
-			ast = flux_decl->code;
-			if(flux_decl->specific_target_ast)
-				specific_ast = flux_decl->specific_target_ast;
-			
-			code_scope = model->get_scope(flux_decl->scope_id);
-			other_code_scope = code_scope;
-			
-			// Not sure if it would be better to pack both locations to the function resolve data and look up the connections from it that way. 
-			connection = flux_decl->source.r1.connection_id;
-			if(!is_valid(connection))
-				connection = flux_decl->target.r1.connection_id;
-			
-			bool target_is_located = is_located(var->loc2);
-			if(is_located(var->loc1)) {
-				from_compartment = var->loc1.first();
-				in_loc = var->loc1;
-			} else if(target_is_located)
-				in_loc = var->loc2;
-			
-			if(!is_valid(from_compartment)) from_compartment = in_loc.first();
-			
-		} else if(var2->decl_id.reg_type == Reg_Type::var) {
-			auto var_decl = model->vars[var2->decl_id];
-			ast      = var_decl->code;
-			init_ast = var_decl->initial_code;
-			override_ast = var_decl->override_code;
-			override_is_conc = var_decl->override_is_conc;
-			initial_is_conc  = var_decl->initial_is_conc;
-			code_scope = model->get_scope(var_decl->scope_id);
-			other_code_scope = code_scope;
-			
-			if(override_ast && !init_ast) {
-				init_is_override = true;
-				init_ast = override_ast;
-				initial_is_conc = override_is_conc;
-			}
-			
-			if(var2->decl_type == Decl_Type::quantity && ast) {
-				var_decl->source_loc.print_error_header();
-				fatal_error("A quantity should not have an un-tagged code block.");
-			}
-			
-			if(!ast) {
-				auto comp = model->components[var_decl->var_location.last()];
-				ast = comp->default_code;
-				if(ast)
-					code_scope = model->get_scope(comp->scope_id);
-			}
-			
-			if(override_ast && (var2->decl_type != Decl_Type::quantity || (override_is_conc && !var->loc1.is_dissolved()))) {
-				override_ast->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Either got an 'override' block on a property or a 'override_conc' block on a non-dissolved variable.");
-			}
-			in_loc = var_decl->var_location;
-			from_compartment = in_loc.first();
-		}
-		
-		Function_Resolve_Data res_data = { app, code_scope, in_loc, &app->baked_parameters, var->unit.standard_form, connection };
-		
-		if(ast) {
-			auto res = resolve_function_tree(ast, &res_data);
-			auto fun = res.fun;
-			fun = make_cast(fun, Value_Type::real);
-			find_identifier_flags(fun, in_flux_map, needs_aggregate, var_id, from_compartment);
-			
-			if(!match_exact(&res.unit, &res_data.expected_unit)) {
-				ast->source_loc.print_error_header();
-				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
-			}
-			
-			var2->function_tree = owns_code(fun);
-		}
-		
-		res_data.scope = other_code_scope;
-		if(init_ast) {
-			if(initial_is_conc)
-				res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
-			
-			res_data.allow_in_flux = false;
-			auto fun = resolve_function_tree(init_ast, &res_data);
-			var2->initial_function_tree = owns_code(make_cast(fun.fun, Value_Type::real));
-			remove_lasts(var2->initial_function_tree.get(), !init_is_override); // Only make an error for occurrences of 'last' if the block came from an @initial not an @override
-			find_identifier_flags(var2->initial_function_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment);
-			var2->initial_is_conc = initial_is_conc;
-			
-			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
-				init_ast->source_loc.print_error_header();
-				fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
-			}
-			
-			if(initial_is_conc && (var2->decl_type != Decl_Type::quantity || !var->loc1.is_dissolved())) {
-				init_ast->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Got an \"initial_conc\" block for a non-dissolved variable");
-			}
-		} else
-			var2->initial_function_tree = nullptr;
-		
-		if(override_ast) {
-			if(override_is_conc)
-				res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
-			else
-				res_data.expected_unit = var2->unit.standard_form; //In case it was overwritten above..
-			
-			res_data.allow_no_override = true;
-			res_data.allow_in_flux = true;
-			auto fun = resolve_function_tree(override_ast, &res_data);
-			// NOTE: It is not that clean to do this here, but we need to know if the expression resolves to 'no_override'
-			auto override_tree = prune_tree(fun.fun);
-			bool no_override = false;
-			if(override_tree->expr_type == Math_Expr_Type::identifier) {
-				auto ident = static_cast<Identifier_FT *>(override_tree);
-				no_override = (ident->variable_type == Variable_Type::no_override);
-			}
-			if(no_override)
-				var2->override_tree = nullptr;
-			else {
-				if(!match_exact(&fun.unit, &res_data.expected_unit)) {
-					init_ast->source_loc.print_error_header();
-					fatal_error("Expected the unit of this expression to resolve to ", res_data.expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
-				}
-				var2->override_tree = owns_code(make_cast(override_tree, Value_Type::real));
-				var2->override_is_conc = override_is_conc;
-				find_identifier_flags(var2->override_tree.get(), in_flux_map, needs_aggregate, var_id, from_compartment);
-			}
-		} else
-			var2->override_tree = nullptr;
-		
-		if(specific_ast) {
-			res_data.allow_no_override = false;
-			res_data.allow_in_flux = false; // Do we??
-			res_data.expected_unit = {};
-			res_data.allow_no_override = false;
-			auto fun = resolve_function_tree(specific_ast, &res_data);
-			var2->specific_target = owns_code(make_cast(fun.fun, Value_Type::integer));
-			if(!match_exact(&fun.unit, &res_data.expected_unit)) {
-				init_ast->source_loc.print_error_header();
-				fatal_error("Expected the unit of this expression to resolve to dimensionless, but got, ", fun.unit.to_utf8(), ".");
-			}
-			// TODO: We have to do more of the flag checking business here!
-		} else
-			var2->specific_target = nullptr;
-	}
+	for(auto var_id : app->vars.all_state_vars())
+		process_state_var_code(app, var_id, &specials);
+	
+	// NOTE: properties that are overridden as series should still have the function trees processed for correctness.
+	for(auto var_id : app->vars.all_series())
+		process_state_var_code(app, var_id, nullptr, false);
 	
 	for(auto var_id : app->vars.all_state_vars()) {
 		auto var = app->vars[var_id];
@@ -1482,12 +1520,12 @@ compose_and_resolve(Model_Application *app) {
 				fatal_error("This flux would need a regular aggregate, but that is not currently supported for fluxes with a connection target.");
 			}
 			
-			needs_aggregate[var_id.id].first.insert(var->loc2.first());
+			specials.aggregates[var_id.id].first.insert(var->loc2.first());
 		}
 	}
 	
 		
-	for(auto &need_agg : needs_aggregate) {
+	for(auto &need_agg : specials.aggregates) {
 		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};
 		auto var = app->vars[var_id];
 		if(!var->is_valid()) continue;
@@ -1542,7 +1580,7 @@ compose_and_resolve(Model_Application *app) {
 						fatal_error(Mobius_Error::internal, "We somehow allowed a non-located state variable to look up an aggregate.");
 				}
 
-				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the Var_Map2
+				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the structure?
 				
 				if(lu->function_tree)
 					replace_flagged(lu->function_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
@@ -1597,7 +1635,7 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
-	for(auto &in_flux : in_flux_map) {
+	for(auto &in_flux : specials.in_fluxes) {
 		
 		auto &key = in_flux.first;
 		Var_Id target_id = key.first;

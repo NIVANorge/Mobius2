@@ -2,9 +2,6 @@
 
 	*** High pri ***
 	
-		MobiView2: When selecting the boundary basin temperature, it doesn't properly restrict the size of the layer index to the boundary size.
-			Also, indexes that appear to be selected are not.
-		
 		Why do file saving errors crash the program instead of getting caught now?
 		
 		Entities used by function bodies of overridden properties are not accounted for.
@@ -47,9 +44,10 @@
 			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc.
 				Need this for NIVAFjord
 			Maybe just make the syntax
-					flux(blabla, target[vert.below])
-			and disallow having specific location there (except for grid1d). And this is what we do for all 'below' connection targets.
-				Could later extend it to have different code depending on the target (for graph and directed_tree).
+					flux(blabla, next[vert.below])
+			And this is what we do for all 'below' connection targets.
+				Maybe still allow the shorthand though.
+				Could later extend it to have different code depending on the target (for graph).
 		
 			graph connections
 				
