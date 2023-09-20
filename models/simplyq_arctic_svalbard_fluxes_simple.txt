@@ -59,7 +59,7 @@ model("SimplyArcticFluxes") {
     aggregation_weight(snow_box, river) { rel_area }
     
     # Setup solver
-	simply_solver : solver("Simply solver", "INCADascru", 0.1, 1e-3)
+	simply_solver : solver("Simply solver", inca_dascru, [2, hr], 1e-3)
 	solve(simply_solver, soil.water, river.water, glacier.water)
     # (Note snow stuff isn't on the solver, that's done discretely)
     
