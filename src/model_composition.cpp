@@ -183,8 +183,8 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 
 struct
 Code_Special_Lookups {
-	std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>>         in_fluxes;
-	std::map<int, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
+	std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>>            in_fluxes;
+	std::map<Var_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
 };
 
 void
@@ -219,9 +219,9 @@ find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_L
 			
 			if(specials) {
 				//TODO: This is not correct if this was applied to an input series! If we want to allow that (which we eventually will), we may need another system.
-				specials->aggregates[ident->var_id.id].first.insert(lookup_compartment);
+				specials->aggregates[ident->var_id].first.insert(lookup_compartment);
 				if(is_valid(looked_up_by))
-					specials->aggregates[ident->var_id.id].second.push_back(looked_up_by);
+					specials->aggregates[ident->var_id].second.push_back(looked_up_by);
 			}	
 		}
 	}
@@ -1540,13 +1540,13 @@ compose_and_resolve(Model_Application *app) {
 				fatal_error("This flux would need a regular aggregate, but that is not currently supported for fluxes with a connection target.");
 			}
 			
-			specials.aggregates[var_id.id].first.insert(var->loc2.first());
+			specials.aggregates[var_id].first.insert(var->loc2.first());
 		}
 	}
 	
 		
 	for(auto &need_agg : specials.aggregates) {
-		auto var_id = Var_Id {Var_Id::Type::state_var, need_agg.first};
+		auto var_id = need_agg.first;
 		auto var = app->vars[var_id];
 		if(!var->is_valid()) continue;
 		

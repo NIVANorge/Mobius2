@@ -2,6 +2,8 @@
 
 	*** High pri ***
 	
+		Check that graph lookups [.below] where the target is a different var_id is correct if the source and target have different storage type (state_var vs temp_var).
+	
 		Why do file saving errors crash the program instead of getting caught now?
 		
 		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
@@ -357,7 +359,11 @@
 
 		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
-			
+		
+		Implement the MCMC sampler from
+			https://www.econstor.eu/bitstream/10419/268226/1/1830478958.pdf
+		
+		
 	Probably not ?:
 	
 		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)

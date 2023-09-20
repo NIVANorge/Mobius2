@@ -854,6 +854,8 @@ generate_external_computation_code(Model_Application *app, External_Computation_
 				ext->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("Unable to access the variable \"", app->vars[arg.var_id]->name, "\" through the connection \"", model->connections[connection_id]->name, "\".");
 			}
+			//TODO: Not sure if this is safe or if we should store it separately: This is to make a check in llvm_jit correct.
+			arg.var_id = target_id;
 		}
 		
 		Offset_Stride_Code res;

@@ -23,6 +23,7 @@ Batch_Data {
 bool
 check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 	// TODO: This is awfully inefficient. Could we just scan the results vector for NaN first, and then do this if a NaN occurs at all?
+	// TODO: Only works for stored results, not temp_results.
 	auto &structure = *data->results.structure;
 	for(auto &array : structure.structure) {
 		for(Var_Id var_id : array.handles) {
