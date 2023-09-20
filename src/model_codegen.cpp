@@ -391,8 +391,11 @@ put_var_lookup_indexes_basic(Identifier_FT *ident, Model_Application *app, Index
 		if(!var->is_valid())
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
-		offset_code = app->result_structure.get_offset_code(ident->var_id, index_expr);
-		back_step = app->result_structure.total_count;
+		if(ident->var_id.type == Var_Id::Type::state_var) {
+			offset_code = app->result_structure.get_offset_code(ident->var_id, index_expr);
+			back_step = app->result_structure.total_count;
+		} else
+			offset_code = app->temp_result_structure.get_offset_code(ident->var_id, index_expr);
 	}
 
 	if(ident->has_flag(Identifier_FT::last_result)) {
@@ -695,7 +698,7 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	
 	if(target_agg->is_source) {
-		auto agg_offset = app->result_structure.get_offset_code(agg_id, indexes);
+		auto agg_offset = app->get_storage_structure(agg_id.type).get_offset_code(agg_id, indexes);
 		return add_value_to_state_var(agg_id, agg_offset, value, '+');
 	}
 	
@@ -707,7 +710,7 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 	new_indexes.copy(indexes);
 	set_graph_target_indexes(app, new_indexes, restriction.connection_id, source_compartment, target_compartment);
 	
-	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
+	auto agg_offset = app->get_storage_structure(agg_id.type).get_offset_code(agg_id, new_indexes);
 	
 	auto condition = make_connection_target_check(app, indexes, restriction.connection_id, source_compartment, target_compartment);
 	
@@ -737,7 +740,7 @@ add_value_to_grid1d_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_
 	
 	set_grid1d_target_indexes_with_possible_specific(app, new_indexes, restriction, flux_id);
 	
-	auto agg_offset = app->result_structure.get_offset_code(agg_id, new_indexes);
+	auto agg_offset = app->get_storage_structure(agg_id.type).get_offset_code(agg_id, new_indexes);
 
 	auto result = add_value_to_state_var(agg_id, agg_offset, value, oper);
 	
@@ -855,7 +858,7 @@ generate_external_computation_code(Model_Application *app, External_Computation_
 		
 		Offset_Stride_Code res;
 		if(arg.variable_type == Variable_Type::state_var) {
-			res = app->result_structure.get_special_offset_stride_code(target_id, new_indexes);
+			res = app->get_storage_structure(target_id.type).get_special_offset_stride_code(target_id, new_indexes);
 		} else if(arg.variable_type == Variable_Type::parameter)
 			res = app->parameter_structure.get_special_offset_stride_code(arg.par_id, new_indexes);
 		else
@@ -906,7 +909,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			
 			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				
-				auto offset_code = app->result_structure.get_offset_code(instr->var_id, indexes);
+				auto offset_code = app->get_storage_structure(instr->var_id.type).get_offset_code(instr->var_id, indexes);
 				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr->var_id);
 				assignment->exprs.push_back(offset_code);
 				assignment->exprs.push_back(fun);
@@ -915,17 +918,18 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source) {
 				
-				auto agg_offset = app->result_structure.get_offset_code(instr->source_id, indexes);
+				// TODO: Just make an app->get_offset_code(Var_Id, Index_Exprs &)
+				auto agg_offset = app->get_storage_structure(instr->source_id.type).get_offset_code(instr->source_id, indexes);
 				result_code = add_value_to_state_var(instr->source_id, agg_offset, fun, '-');
 				
 			} else if (instr->type == Model_Instruction::Type::add_discrete_flux_to_target) {
 				
-				auto agg_offset = app->result_structure.get_offset_code(instr->target_id, indexes);
+				auto agg_offset = app->get_storage_structure(instr->target_id.type).get_offset_code(instr->target_id, indexes);
 				result_code = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
 				
-				auto agg_offset = app->result_structure.get_offset_code(instr->target_id, indexes);
+				auto agg_offset = app->get_storage_structure(instr->target_id.type).get_offset_code(instr->target_id, indexes);
 				result_code = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
 				
 			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
@@ -934,7 +938,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
 				
-				auto offset = app->result_structure.get_offset_code(instr->var_id, indexes);
+				auto offset = app->get_storage_structure(instr->var_id.type).get_offset_code(instr->var_id, indexes);
 				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr->var_id);
 				assignment->exprs.push_back(offset);
 				assignment->exprs.push_back(make_literal((double)0.0));

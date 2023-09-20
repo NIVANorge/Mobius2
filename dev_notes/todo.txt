@@ -4,9 +4,6 @@
 	
 		Why do file saving errors crash the program instead of getting caught now?
 		
-		
-		Finish system for store_series = false.
-		
 		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
 			The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
 			Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
@@ -91,6 +88,8 @@
 	
 	
 	*** Intermediate-pri ***
+		
+		May need a more granular system for specifying what series to store.
 		
 		Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
 		

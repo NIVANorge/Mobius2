@@ -26,6 +26,8 @@ State_Var {
 		invalid             = 0x1000,
 	} flags = Flags::none;
 	
+	Var_Id var_id;
+	
 	void set_flag(Flags flag) { flags = (Flags)(flags | flag); }
 	bool has_flag(Flags flag) { return flags & flag; }
 	// Because these are very common queries

@@ -394,7 +394,7 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 			error_print("The location can not be inferred from the context.");
 		fatal_error_trace(scope);
 	}
-	ident->variable_type = (var_id.type == Var_Id::Type::state_var ? Variable_Type::state_var : Variable_Type::series);
+	ident->variable_type = ((var_id.type == Var_Id::Type::state_var || var_id.type == Var_Id::Type::temp_var) ? Variable_Type::state_var : Variable_Type::series);
 	ident->var_id        = var_id;
 	unit                 = data->app->vars[var_id]->unit.standard_form;
 	ident->value_type = Value_Type::real;

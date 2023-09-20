@@ -52,26 +52,46 @@ check_if_var_loc_is_well_formed(Mobius_Model *model, Var_Location &loc, Source_L
 }
 
 template<State_Var::Type type> Var_Id
-register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_series, const std::string &name) {
+register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_series, const std::string &name, bool no_store_override = false) {
 	
 	auto model = app->model;
 	
 	if(type == State_Var::Type::declared && !is_valid(decl_id))
 		fatal_error(Mobius_Error::internal, "Didn't get a decl_id for a declared variable.");
 	
+	bool store_series = true;
+	
 	Var_Location loc = invalid_var_location;
-	if(is_valid(decl_id) && decl_id.reg_type == Reg_Type::var) {
-		auto var = model->vars[decl_id];
-		loc = var->var_location;
-		check_if_var_loc_is_well_formed(model, loc, var->source_loc);
+	if(is_valid(decl_id)) {
+		if(decl_id.reg_type == Reg_Type::var) {
+			auto var = model->vars[decl_id];
+			loc = var->var_location;
+			check_if_var_loc_is_well_formed(model, loc, var->source_loc);
+			store_series = var->store_series;
+		} else if (decl_id.reg_type == Reg_Type::flux) {
+			auto flux = model->fluxes[decl_id];
+			store_series = flux->store_series;
+		}
 	}
 	
-	Var_Id var_id = app->vars.register_var<type>(loc, name, is_series ? Var_Id::Type::series : Var_Id::Type::state_var);
+	if(no_store_override)
+		store_series = false;
+	if(model->config.store_all_series)
+		store_series = true;
+	
+	Var_Id::Type id_type = Var_Id::Type::state_var;
+	if(is_series)
+		id_type = Var_Id::Type::series;
+	else if(!store_series)
+		id_type = Var_Id::Type::temp_var;
+	
+	Var_Id var_id = app->vars.register_var<type>(loc, name, id_type);
 	auto var = app->vars[var_id];
 	
 	if(var->name.empty())
 		fatal_error(Mobius_Error::internal, "Variable was somehow registered without a name.");
 	var->type          = type;
+	var->store_series  = store_series;
 
 	if(is_valid(decl_id)) {
 		auto var2 = as<State_Var::Type::declared>(var);
@@ -80,7 +100,6 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		if(decl_id.reg_type == Reg_Type::var) {
 			auto var_decl = model->vars[decl_id];
 			var->loc1 = loc;
-			var->store_series = var_decl->store_series;
 			var2->decl_type = model->components[loc.last()]->decl_type;
 			if(is_valid(var_decl->unit))
 				var->unit = model->units[var_decl->unit]->data;
@@ -90,7 +109,6 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			var->loc1 = flux->source;
 			var->loc2 = flux->target;
 			var->bidirectional = flux->bidirectional;
-			var->store_series = flux->store_series;
 			var2->decl_type = Decl_Type::flux;
 			var2->set_flag(State_Var::flux);
 			
@@ -764,7 +782,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		auto solver = model->solvers[solve_id];
 		
 		for(auto &loc : solver->locs)
-			check_location(app, solver->source_loc, loc, true);
+			check_location(app, loc.second, loc.first, true);
 	}
 	
 	//TODO: make better name generation system!
@@ -1018,7 +1036,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	else
 		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->vars[target_var_id]->name.data());
 	
-	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, invalid_entity_id, false, varname);
+	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, invalid_entity_id, false, varname, true);
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	agg_var->agg_for = target_var_id;
 	agg_var->is_source = is_source;
@@ -1548,7 +1566,7 @@ compose_and_resolve(Model_Application *app) {
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			
 			sprintf(varname, "aggregate(%s, %s)", var->name.data(), model->components[to_compartment]->name.data());
-			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, invalid_entity_id, false, varname);
+			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, invalid_entity_id, false, varname, true);
 			
 			auto agg_var = as<State_Var::Type::regular_aggregate>(app->vars[agg_id]);
 			agg_var->agg_of = var_id;
@@ -1647,7 +1665,7 @@ compose_and_resolve(Model_Application *app) {
 		Var_Id in_flux_id = invalid_var;
 		if(!is_valid(connection)) {
 			sprintf(varname, "in_flux(%s)", target->name.data());
-			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, varname);
+			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, varname, true);
 			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->vars[in_flux_id]);
 			in_flux_var->in_flux_to = target_id;
 			

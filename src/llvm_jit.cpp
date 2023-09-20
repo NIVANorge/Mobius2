@@ -146,9 +146,12 @@ create_llvm_module() {
 	data->dt_struct_type = llvm::StructType::get(*data->context, dt_member_types);
 	llvm::Type       *dt_ptr_ty = llvm::PointerType::getUnqual(data->dt_struct_type);
 	
+	#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) llvm_ty,
 	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty, double_ty
+		//double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty, double_ty
+		#include "batch_fun_args.incl"
 		};
+	#undef BATCH_FUN_ARG
 		
 	data->batch_fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
 	
@@ -224,14 +227,6 @@ get_jitted_batch_function(const std::string &fun_name) {
 	return nullptr;
 }
 
-/*
-	Batch function is of the form
-	
-	void evaluate_batch(Parameter_Value *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time);
-	
-	since there are no union types in llvm, we treat Parameter_Value as a double and use bitcast when we want it as other types.
-*/
-
 typedef Scope_Local_Vars<llvm::Value *, llvm::BasicBlock *> Scope_Data;
 
 llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Data *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
@@ -264,14 +259,18 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	
 	llvm::Function *fun = llvm::Function::Create(data->batch_fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	
-	// Hmm, is it important to set the argument names, or could we skip it?
-	const char *argnames[6] = {"parameters", "series", "state_vars", "solver_workspace", "date_time", "fractional_step"};
+	#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) #name,
+	const char *argnames[] = {
+		#include "batch_fun_args.incl"
+	};
+	#undef BATCH_FUN_ARG
+	//"parameters", "series", "state_vars", "temp_vars", "solver_workspace", "date_time", "fractional_step"};
 	std::vector<llvm::Value *> args;
 	int idx = 0;
 	for(auto &arg : fun->args()) {
-		if(idx <= 4)
+		if(idx <= 5)
 			fun->addParamAttr(idx, llvm::Attribute::NoAlias);
-		//if(idx <= 3)
+		//if(idx <= 5)
 		//	fun->addParamAttr(idx, llvm::Attribute::get(*data->context, llvm::Attribute::Alignment, data_alignment));
 		
 		arg.setName(argnames[idx++]);
@@ -295,6 +294,12 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 		fatal_error(Mobius_Error::internal, "LLVM function verification failed for function \"", fun_name, "\" : ", errstream.str(), " .");
 	}
 }
+
+#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) name##_idx,
+enum argindex {
+	#include "batch_fun_args.incl"
+};
+#undef BATCH_FUN_ARG
 
 llvm::Value *get_zero_value(LLVM_Module_Data *data, Value_Type type) {
 	if(type == Value_Type::real)
@@ -625,10 +630,12 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 		auto stride = build_expression_ir(external->exprs[3*idx + 1], locals, args, data);
 		auto count  = build_expression_ir(external->exprs[3*idx + 2], locals, args, data);
 		llvm::Value *valptr;
-		if(external->arguments[idx].variable_type == Variable_Type::state_var)
-			valptr = data->builder->CreateGEP(double_ty, args[2], offset, "state_var_ptr");
-		else if(external->arguments[idx].variable_type == Variable_Type::parameter)
-			valptr = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
+		auto &ident = external->arguments[idx];
+		if(ident.variable_type == Variable_Type::state_var) {
+			int argidx = ident.var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+			valptr = data->builder->CreateGEP(double_ty, args[argidx], offset, "state_var_ptr");
+		} else if(ident.variable_type == Variable_Type::parameter)
+			valptr = data->builder->CreateGEP(double_ty, args[parameters_idx], offset, "par_ptr");
 		else
 			fatal_error(Mobius_Error::internal, "Unimplemented variable type for external computation LLVM IR generation.");
 		valptrs.push_back(valptr);
@@ -745,7 +752,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			
 			int struct_pos = -1;
 			if(ident->variable_type == Variable_Type::parameter) {
-				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
+				result = data->builder->CreateGEP(double_ty, args[parameters_idx], offset, "par_ptr");
 				
 				//auto par = model->parameters[ident->par_id];   //Hmm, we don't have that here. Could maybe store a debug symbol in the identifier? Useful in several instances.
 				result = data->builder->CreateLoad(double_ty, result, "par");//std::string("par_")+par->symbol);
@@ -755,10 +762,11 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 						result = data->builder->CreateTrunc(result, llvm::Type::getInt1Ty(*data->context));
 				}
 			} else if(ident->variable_type == Variable_Type::state_var) {
-				result = data->builder->CreateGEP(double_ty, args[2], offset, "var_ptr");
+				int argidx = ident->var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+				result = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "var");
 			} else if(ident->variable_type == Variable_Type::series) {
-				result = data->builder->CreateGEP(double_ty, args[1], offset, "series_ptr");
+				result = data->builder->CreateGEP(double_ty, args[series_idx], offset, "series_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "series");
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = find_local_var(locals, ident->local_var);
@@ -779,7 +787,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			}
 			#define TIME_VALUE(name, bits) \
 			else if(++struct_pos, ident->variable_type == Variable_Type::time_##name) { \
-				result = data->builder->CreateStructGEP(data->dt_struct_type, args[4], struct_pos, #name); \
+				result = data->builder->CreateStructGEP(data->dt_struct_type, args[date_time_idx], struct_pos, #name); \
 				result = data->builder->CreateLoad(int_##bits##_ty, result); \
 				if(bits != 64) \
 					result = data->builder->CreateSExt(result, int_64_ty, "cast"); \
@@ -787,7 +795,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			#include "time_values.incl"
 			#undef TIME_VALUE
 			else if(ident->variable_type == Variable_Type::time_fractional_step) {
-				result = args[5];
+				result = args[fractional_step_idx];
 			} else if(ident->variable_type == Variable_Type::no_override) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'no_override' is not in a branch that could be resolved at compile time."); // TODO: should probably check for that before this.
@@ -875,10 +883,13 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {
+			auto assign = static_cast<Assignment_FT *>(expr);
+			int argidx = assign->var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+			
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
 			llvm::Value *offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *value  = build_expression_ir(expr->exprs[1], locals, args, data);
-			auto ptr = data->builder->CreateGEP(double_ty, args[2], offset, "var_ptr");
+			auto ptr = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
 			data->builder->CreateStore(value, ptr);
 			return nullptr;
 		} break;
@@ -887,7 +898,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
 			llvm::Value *offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *value  = build_expression_ir(expr->exprs[1], locals, args, data);
-			auto ptr = data->builder->CreateGEP(double_ty, args[3], offset, "deriv_ptr");
+			auto ptr = data->builder->CreateGEP(double_ty, args[solver_workspace_idx], offset, "deriv_ptr");
 			data->builder->CreateStore(value, ptr);
 			return nullptr;
 		} break;

@@ -798,11 +798,27 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 	for(auto solver_id : model->solvers) {
 		auto solver = model->solvers[solver_id];
 		
-		for(auto &loc : solver->locs) {
+		for(auto &pair : solver->locs) {
+			auto &loc = pair.first;
+			auto &source_loc = pair.second;
+			
 			Var_Id var_id = app->vars.id_of(loc);
+			auto comp = model->components[loc.last()];
+			if(comp->decl_type != Decl_Type::quantity) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("The variable \"", app->vars[var_id], "\" is not a quantity, and so it can not be put on a solver directly.");
+			}
+			if(loc.is_dissolved()) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("A solver was specified for \"", app->vars[var_id], "\". For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
+			}
 			if(is_valid(instructions[var_id.id].solver)) {
-				solver->source_loc.print_error_header(Mobius_Error::model_building); // TODO: It would be better to print the loc of the 'solve' decl, but we don't have that available here at the moment.
+				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("The quantity \"", app->vars[var_id]->name, "\" was put on a solver more than one time.");
+			}
+			if(!app->vars[var_id]->store_series) {
+				source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("The quantity \"", app->vars[var_id]->name, "\" was specified as @no_store, and so can not be put on a solver.");
 			}
 			instructions[var_id.id].solver = solver_id;
 		}
@@ -1408,19 +1424,36 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 
 
 void
-add_array(std::vector<Multi_Array_Structure<Var_Id>> &structure, Batch_Array &array, std::vector<Model_Instruction> &instructions) {
+add_array(
+	std::vector<Multi_Array_Structure<Var_Id>> &result_structure, 
+	std::vector<Multi_Array_Structure<Var_Id>> &temp_result_structure, 
+	Batch_Array &array, 
+	std::vector<Model_Instruction> &instructions
+) {
 	std::vector<Entity_Id> index_sets;
 	for(auto &index_set : array.index_sets)
 		index_sets.push_back(index_set);
+	std::vector<Entity_Id> index_sets2 = index_sets;
 	
-	std::vector<Var_Id>    handles;
+	std::vector<Var_Id>    result_handles;
+	std::vector<Var_Id>    temp_result_handles;
 	for(int instr_id : array.instr_ids) {
 		auto instr = &instructions[instr_id];
-		if(instr->type == Model_Instruction::Type::compute_state_var)
-			handles.push_back(instr->var_id);
+		if(instr->type == Model_Instruction::Type::compute_state_var) {
+			if(instr->var_id.type == Var_Id::Type::state_var)
+				result_handles.push_back(instr->var_id);
+			else
+				temp_result_handles.push_back(instr->var_id);
+		}
 	}
-	Multi_Array_Structure<Var_Id> arr(std::move(index_sets), std::move(handles));
-	structure.push_back(std::move(arr));
+	if(!result_handles.empty()) {
+		Multi_Array_Structure<Var_Id> arr(std::move(index_sets), std::move(result_handles));
+		result_structure.push_back(std::move(arr));
+	}
+	if(!temp_result_handles.empty()) {
+		Multi_Array_Structure<Var_Id> arr(std::move(index_sets2), std::move(temp_result_handles));
+		temp_result_structure.push_back(std::move(arr));
+	}
 }
 
 void
@@ -1432,13 +1465,15 @@ set_up_result_structure(Model_Application *app, std::vector<Batch> &batches, std
 	
 	// NOTE: we just copy the batch structure so that it is easier to optimize the run code for cache locality.
 	// NOTE: It is crucial that all ode variables from the same batch are stored contiguously, so that part of the setup must be kept no matter what!
-	std::vector<Multi_Array_Structure<Var_Id>> structure;
+	std::vector<Multi_Array_Structure<Var_Id>> result_structure;
+	std::vector<Multi_Array_Structure<Var_Id>> temp_result_structure;
 	for(auto &batch : batches) {
-		for(auto &array : batch.arrays)      add_array(structure, array, instructions);
-		for(auto &array : batch.arrays_ode)  add_array(structure, array, instructions);
+		for(auto &array : batch.arrays)      add_array(result_structure, temp_result_structure, array, instructions);
+		for(auto &array : batch.arrays_ode)  add_array(result_structure, temp_result_structure, array, instructions); // The ODEs will never be added to temp results in reality.
 	}
 	
-	app->result_structure.set_up(std::move(structure));
+	app->result_structure.set_up(std::move(result_structure));
+	app->temp_result_structure.set_up(std::move(temp_result_structure));
 }
 
 void

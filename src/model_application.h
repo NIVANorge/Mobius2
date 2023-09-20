@@ -42,7 +42,7 @@ struct Var_Registry {
 	std::vector<std::unique_ptr<State_Var>>                     additional_series;
 	
 	std::vector<std::unique_ptr<State_Var>> &get_vec(Var_Id::Type type) {
-		if(type == Var_Id::Type::state_var)         return state_vars;
+		if(type == Var_Id::Type::state_var || type == Var_Id::Type::temp_var) return state_vars;
 		if(type == Var_Id::Type::series)            return series;
 		if(type == Var_Id::Type::additional_series) return additional_series;
 		fatal_error(Mobius_Error::internal, "Unhandled Var_Id::Type.");
@@ -88,10 +88,12 @@ struct Var_Registry {
 		vars.push_back(std::unique_ptr<State_Var>(var));
 		Var_Id id = {id_type, (s32)vars.size()-1};
 		
+		var->var_id = id;
+		
 		if(is_located(loc))
 			location_to_id[loc] = id;
 		
-		if(id_type != Var_Id::Type::state_var)
+		if(id_type != Var_Id::Type::state_var && id_type != Var_Id::Type::temp_var)
 			name_to_id[name].insert(id);
 		
 		return id;
@@ -102,55 +104,54 @@ struct Var_Registry {
 	size_t count(Var_Id::Type type) { return get_vec(type).size(); }
 	
 	struct Var_Range {
-		Var_Id::Type type;
 		bool flux_only;
 		std::vector<std::unique_ptr<State_Var>> *vars;
-		Var_Range(Var_Id::Type type, std::vector<std::unique_ptr<State_Var>> *vars, bool flux_only=false)
-			: flux_only(flux_only), vars(vars), type(type) {}
+		Var_Range(std::vector<std::unique_ptr<State_Var>> *vars, bool flux_only=false)
+			: flux_only(flux_only), vars(vars) {}
 		
 		struct Var_Iter {
-			Var_Id at;
+			s32 at;
 			bool flux_only;
 			std::vector<std::unique_ptr<State_Var>> *vars;
 			
-			Var_Iter(Var_Id::Type type, std::vector<std::unique_ptr<State_Var>> *vars, bool flux_only) : flux_only(flux_only), vars(vars) {
-				at = {type, 0};
+			Var_Iter(std::vector<std::unique_ptr<State_Var>> *vars, bool flux_only) : flux_only(flux_only), vars(vars) {
+				at = 0;
 				find_next_valid();
 			}
-			Var_Iter(Var_Id::Type type, std::vector<std::unique_ptr<State_Var>> *vars) {
-				at = Var_Id {type, (s32)vars->size()};
+			Var_Iter(std::vector<std::unique_ptr<State_Var>> *vars) {
+				at = (s32)vars->size();
 				vars = nullptr;
 			}
 			
 			bool operator==(const Var_Iter &other) { return at == other.at;	}
 			bool operator!=(const Var_Iter &other) { return at != other.at;	}
 			Var_Iter &operator++() {
-				++at.id;
+				++at;
 				find_next_valid();
 				return *this;
 			}
-			Var_Id operator*() { return at; }
+			Var_Id operator*() { return (*vars)[at]->var_id; }
 			
 			void find_next_valid() {
-				if(at.id >= vars->size()) return;
-				auto var = (*vars)[at.id].get();
+				if(at >= vars->size()) return;
+				auto var = (*vars)[at].get();
 				while(!var->is_valid() || (flux_only && !var->is_flux())) {
-					at.id++;
-					if(at.id >= vars->size()) break;
-					var = (*vars)[at.id].get();
+					at++;
+					if(at >= vars->size()) break;
+					var = (*vars)[at].get();
 				}
 			}
 		};
 		
-		Var_Iter begin() { return Var_Iter(type, vars, flux_only); }
-		Var_Iter end()   { return Var_Iter(type, vars); }
+		Var_Iter begin() { return Var_Iter(vars, flux_only); }
+		Var_Iter end()   { return Var_Iter(vars); }
 	};
 	
-	Var_Range all(Var_Id::Type type)  { return Var_Range(type,                            &get_vec(type)); }
-	Var_Range all_state_vars()        { return Var_Range(Var_Id::Type::state_var,         &state_vars); }
-	Var_Range all_fluxes()            { return Var_Range(Var_Id::Type::state_var,         &state_vars, true); }
-	Var_Range all_series()            { return Var_Range(Var_Id::Type::series,            &series); }
-	Var_Range all_additional_series() { return Var_Range(Var_Id::Type::additional_series, &additional_series); }
+	Var_Range all(Var_Id::Type type)  { return Var_Range(&get_vec(type)); }
+	Var_Range all_state_vars()        { return Var_Range(&state_vars); }
+	Var_Range all_fluxes()            { return Var_Range(&state_vars, true); }
+	Var_Range all_series()            { return Var_Range(&series); }
+	Var_Range all_additional_series() { return Var_Range(&additional_series); }
 };
 
 struct Connection_T {
@@ -230,7 +231,7 @@ struct Multi_Array_Structure {
 	}
 };
 
-// TODO: remove Val_T template parameter (it is unused)
+
 template<typename Handle_T>
 struct Storage_Structure {
 	s64       total_count;
@@ -274,13 +275,7 @@ struct Data_Storage {
 	Date_Time     start_date = {};
 	bool is_owning;
 	
-	void free_data() {
-		//if(data && is_owning) _aligned_free(data);
-		if(data && is_owning) free(data); 
-		data = nullptr;
-		time_steps = 0;
-		is_owning = false;
-	}
+	void free_data();
 	
 	//TODO: there should be a version of this one that checks for out of bounds indexing (or non-allocated data). But we also want the fast one that doesn't
 	Val_T  *
@@ -313,12 +308,14 @@ struct Model_Data {
 	Data_Storage<Parameter_Value, Entity_Id>  parameters;
 	Data_Storage<double, Var_Id>              series;
 	Data_Storage<double, Var_Id>              results;
-	Data_Storage<s32, Connection_T>           connections;
+	Data_Storage<double, Var_Id>              temp_results;
 	Data_Storage<double, Var_Id>              additional_series;
+	Data_Storage<s32, Connection_T>           connections;
 	Data_Storage<s32, Entity_Id>              index_counts;
 	
 	Data_Storage<double, Var_Id> &get_storage(Var_Id::Type type) {
 		if(type == Var_Id::Type::state_var)         return results;
+		if(type == Var_Id::Type::temp_var)          return temp_results;
 		if(type == Var_Id::Type::series)            return series;
 		if(type == Var_Id::Type::additional_series) return additional_series;
 		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
@@ -420,12 +417,14 @@ Model_Application {
 	Storage_Structure<Entity_Id>                             parameter_structure;
 	Storage_Structure<Connection_T>                          connection_structure;
 	Storage_Structure<Var_Id>                                result_structure;
+	Storage_Structure<Var_Id>                                temp_result_structure;
 	Storage_Structure<Var_Id>                                series_structure;
 	Storage_Structure<Var_Id>                                additional_series_structure;
 	Storage_Structure<Entity_Id>                             index_counts_structure;
 	
 	Storage_Structure<Var_Id> &get_storage_structure(Var_Id::Type type) {
 		if(type == Var_Id::Type::state_var)         return result_structure;
+		if(type == Var_Id::Type::temp_var)          return temp_result_structure;
 		if(type == Var_Id::Type::series)            return series_structure;
 		if(type == Var_Id::Type::additional_series) return additional_series_structure;
 		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");

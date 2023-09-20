@@ -1,0 +1,14 @@
+
+#ifndef BATCH_FUN_ARG_LAST
+#define BATCH_FUN_ARG_LAST(name, llvm_ty, cpp_ty) BATCH_FUN_ARG(name, llvm_ty, cpp_ty)
+#endif
+
+BATCH_FUN_ARG(parameters, double_ptr_ty, double *)   // Since there is no union types in llvm, we must pass parameters as a double* and bitcast it inside the generated code.
+BATCH_FUN_ARG(series, double_ptr_ty, double *)
+BATCH_FUN_ARG(state_vars, double_ptr_ty, double *)
+BATCH_FUN_ARG(temp_vars, double_ptr_ty, double *)
+BATCH_FUN_ARG(solver_workspace, double_ptr_ty, double *)
+BATCH_FUN_ARG(date_time, dt_ptr_ty, Expanded_Date_Time *)
+BATCH_FUN_ARG_LAST(fractional_step, double_ty, double)
+
+#undef BATCH_FUN_ARG_LAST

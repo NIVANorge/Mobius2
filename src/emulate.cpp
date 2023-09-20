@@ -224,7 +224,10 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 				} break;
 				
 				case Variable_Type::state_var : {
-					result.val_real = state->state_vars[offset];
+					if(ident->var_id.type == Var_Id::Type::state_var)
+						result.val_real = state->state_vars[offset];
+					else
+						result.val_real = state->temp_vars[offset];
 				} break;
 				
 				case Variable_Type::series : {
@@ -252,7 +255,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 				#undef TIME_VALUE
 				
 				case Variable_Type::time_fractional_step : {
-					result.val_real = state->solver_t;
+					result.val_real = state->fractional_step;
 				} break;
 				
 				default : {
@@ -313,9 +316,13 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {
+			auto assign = static_cast<Assignment_FT *>(expr);
 			Typed_Value index = emulate_expression(expr->exprs[0], state, locals);
 			Typed_Value value = emulate_expression(expr->exprs[1], state, locals);
-			state->state_vars[index.val_integer] = value.val_real;
+			if(assign->var_id.type == Var_Id::Type::state_var)
+				state->state_vars[index.val_integer] = value.val_real;
+			else
+				state->temp_vars[index.val_integer] = value.val_real;
 			return {Parameter_Value(), Value_Type::none};
 		} break;
 		

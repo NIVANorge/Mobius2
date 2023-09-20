@@ -68,7 +68,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.z, [m], "Depth (to bottom of layer)") {
 		z[vert.above] + dz[vert.above]
-	}
+	} @no_store
 	
 	var(layer.water, [m 3], "Layer water") @initial { A*dz0 }
 	
@@ -93,7 +93,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.rho, [k g, m-3], "Potential density") {
 		seawater_pot_dens(temp, salinity)
-	}
+	} #@no_store
 	
 	ddens          : property("d(dens)")
 	Nfreq          : property("Brunt-Väisälä frequency")
@@ -108,7 +108,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.ddens, [k g, m-3]) {
 		(rho[vert.below]-rho)
-	}
+	} @no_store
 	
 	var(layer.water.Nfreq, [s-1]) {
 		mdz := 0.5*(dz + dz[vert.below]),
@@ -151,20 +151,20 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.sumV, [m 3]) {
 		sumV[vert.above] + A[vert.above]*dz[vert.above]
-	}
+	} #@no_store
 	
 	var(layer.water.potmix, [J]) {
 		max(0, grav*ddens*(sumV*A*dz/(sumV + A*dz))*((z+0.5*dz)/2))
-	}
+	} #@no_store
 	
 	var(layer.water.emix, [J]) {
 		rem := max(0, basin.emix - summix),
 		min(rem, potmix)
-	}
+	} #@no_store
 	
 	var(layer.water.summix, [J]) {
 		emix[vert.above] + summix[vert.above]
-	}
+	} #@no_store
 	
 	var(layer.water.Kw, [m 2, s-1]) {
 		

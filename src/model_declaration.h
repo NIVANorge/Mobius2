@@ -304,12 +304,12 @@ Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
-	Solver_Function *solver_fun = nullptr;
+	Entity_Id solver_fun = invalid_entity_id;
 	Entity_Id h_unit = invalid_entity_id;
 	double hmin;
 	Entity_Id h_par = invalid_entity_id;
 	Entity_Id hmin_par = invalid_entity_id;
-	std::vector<Specific_Var_Location> locs; // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
+	std::vector<std::pair<Specific_Var_Location, Source_Location>> locs; // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
 };
 
 template<> struct
@@ -344,16 +344,22 @@ Registry : Registry_Base {
 	Entity_Id end() { return { reg_type, (s16)registrations.size() }; }
 };
 
+struct
+Mobius_Config {
+	std::string mobius_base_path;
+	bool store_all_series = false;
+};
+
 template<>
 struct
-Record_Type<Entity_Id> {
+Record_Type<Entity_Id> {        // NOTE: This is typedefed as Mobius_Model below
 	
 	std::string model_name;
 	std::string doc_string;
 	
 	std::string  path;
 	
-	std::string  mobius_base_path;
+	Mobius_Config config;
 	
 	Registry<Reg_Type::module_template> module_templates;
 	Registry<Reg_Type::module>      modules;
@@ -451,11 +457,6 @@ Record_Type<Entity_Id> {
 		auto decl = (*registry(id.reg_type))[id];
 		return (*get_scope(decl->scope_id))[id];
 	}
-};
-
-struct
-Mobius_Config {
-	std::string mobius_base_path;
 };
 
 Mobius_Config

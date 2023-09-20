@@ -18,12 +18,13 @@ struct
 Model_Run_State {
 	Parameter_Value    *parameters;
 	double             *state_vars;
+	double             *temp_vars;
 	double             *series;
 	double             *solver_workspace = nullptr;
 	s32                *connection_info;    //NOTE: this is only used if we are in MOBIUS_EMULATE mode... For llvm we bake these in as constants
 	s32                *index_counts;       //NOTE: same as above.
 	Expanded_Date_Time  date_time;
-	double              solver_t;
+	double              fractional_step;
 	
 	void set_solver_workspace_size(int size) {
 		if(size <= 0) return;
@@ -33,15 +34,30 @@ Model_Run_State {
 	~Model_Run_State() { if(solver_workspace) { free(solver_workspace); solver_workspace = nullptr; } }
 };
 
-typedef void batch_function(double *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time, double fractional_step);
+#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) cpp_ty name,
+#define BATCH_FUN_ARG_LAST(name, llvm_ty, cpp_ty) cpp_ty name
+typedef void batch_function(
+	#include "batch_fun_args.incl"
+);
+#undef BATCH_FUN_ARG
+//double *parameters, double *series, double *state_vars, double *temp_vars, double *solver_workspace, Expanded_Date_Time *date_time, double fractional_step);
 
 inline void
 call_fun(batch_function *fun, Model_Run_State *run_state, double t = 0.0) {
-	run_state->solver_t = t;
+	run_state->fractional_step = t;
 #if MOBIUS_EMULATE
 	emulate_expression(reinterpret_cast<Math_Expr_FT *>(fun), run_state, nullptr);
 #else
-	fun(reinterpret_cast<double *>(run_state->parameters), run_state->series, run_state->state_vars, run_state->solver_workspace, &run_state->date_time, run_state->solver_t);
+	// Would be nice to use BATCH_FUN_ARG here too, but it is a bit tricky
+	fun(
+		reinterpret_cast<double *>(run_state->parameters), 
+		run_state->series, 
+		run_state->state_vars, 
+		run_state->temp_vars, 
+		run_state->solver_workspace, 
+		&run_state->date_time, 
+		run_state->fractional_step
+	);
 #endif
 }
 

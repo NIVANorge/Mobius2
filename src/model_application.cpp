@@ -83,7 +83,7 @@ void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
 Model_Application::Model_Application(Mobius_Model *model) :
-	model(model), parameter_structure(this), series_structure(this), result_structure(this), connection_structure(this),
+	model(model), parameter_structure(this), series_structure(this), result_structure(this), temp_result_structure(this), connection_structure(this),
 	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr), index_data(model) {
 	
 	time_step_size.unit       = Time_Step_Size::second;
@@ -1219,15 +1219,27 @@ Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
 		free_data();
 		this->time_steps = time_steps;
 		size_t sz = alloc_size();
-		data = (Val_T *) malloc(sz);
-		//auto sz2 = round_up(data_alignment, sz);
-		//data = (Val_T *) _aligned_malloc(sz2, data_alignment);  // should be replaced with std::aligned_alloc(data_alignment, sz2) when that is available.
-		if(!data)
-			fatal_error(Mobius_Error::internal, "Failed to allocated data (size ", sz, ") bytes.");
+		if(sz > 0) {
+			data = (Val_T *) malloc(sz);
+			//auto sz2 = round_up(data_alignment, sz);
+			//data = (Val_T *) _aligned_malloc(sz2, data_alignment);  // should be replaced with std::aligned_alloc(data_alignment, sz2) when that is available.
+			if(!data)
+				fatal_error(Mobius_Error::internal, "Failed to allocated data (size ", sz, ") bytes.");
+		} else
+			data = nullptr;
 		is_owning = true;
 	}
 	size_t sz = alloc_size();
 	memset(data, 0, sz);
+}
+
+template<typename Val_T, typename Handle_T> void 
+Data_Storage<Val_T, Handle_T>::free_data() {
+	//if(data && is_owning) _aligned_free(data);
+	if(data && is_owning) free(data); 
+	data = nullptr;
+	time_steps = 0;
+	is_owning = false;
 }
 
 template<typename Val_T, typename Handle_T> void
@@ -1271,7 +1283,7 @@ Model_Data::get_end_date_parameter() {
 
 Model_Data::Model_Data(Model_Application *app) :
 	app(app), parameters(&app->parameter_structure), series(&app->series_structure),
-	results(&app->result_structure, 1), connections(&app->connection_structure),
+	results(&app->result_structure, 1), temp_results(&app->temp_result_structure), connections(&app->connection_structure),
 	additional_series(&app->additional_series_structure), index_counts(&app->index_counts_structure) {
 }
 

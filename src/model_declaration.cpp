@@ -440,15 +440,15 @@ Entity_Id
 load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View path, String_View relative_to, const std::string &decl_name, Decl_Type type) {
 	
 	// TODO: Should really check if the model-relative path exists before changing the relative path.
-	std::string models_path = model->mobius_base_path + "models/"; // Note: since relative_to is a string view, this one must exist in the outer scope.
-	if(!model->mobius_base_path.empty()) {
+	std::string models_path = model->config.mobius_base_path + "models/"; // Note: since relative_to is a string view, this one must exist in the outer scope.
+	if(!model->config.mobius_base_path.empty()) {
 		//warning_print("*** Base path is ", model->mobius_base_path, "\n");
 		//warning_print("Bottom directory of \"", path, "\" is stdlib: ", bottom_directory_is(path, "stdlib"), "\n");
 		
 		if(type == Decl_Type::module && bottom_directory_is(path, "modules"))
 			relative_to = models_path;
 		else if(type == Decl_Type::library && bottom_directory_is(path, "stdlib"))
-			relative_to = model->mobius_base_path;
+			relative_to = model->config.mobius_base_path;
 	}
 	
 	std::string normalized_path;
@@ -1525,8 +1525,7 @@ process_declaration<Reg_Type::solver>(Mobius_Model *model, Decl_Scope *scope, De
 	auto id = model->solvers.standard_declaration(scope, decl);
 	auto solver = model->solvers[id];
 	
-	auto solver_fun = resolve_argument<Reg_Type::solver_function>(model, scope, decl, 1);
-	solver->solver_fun = model->solver_functions[solver_fun]->solver_fun;
+	solver->solver_fun = resolve_argument<Reg_Type::solver_function>(model, scope, decl, 1);
 	
 	solver->hmin = 0.01;
 	if(which == 0 || which == 1) {
@@ -1563,13 +1562,8 @@ process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		Var_Location loc;
 		process_location_argument(model, scope, decl->args[idx], &loc);
-		
-		if(loc.is_dissolved()) {
-			decl->args[idx]->chain[0].source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
-		}
-		
-		solver->locs.push_back(loc);
+	
+		solver->locs.push_back({loc, decl->args[idx]->source_loc()});
 	}
 }
 
@@ -1767,6 +1761,10 @@ load_config(String_View file_name) {
 			mobius_developer_mode = single_arg(decl, 1)->val_bool;
 			
 			log_print(Log_Mode::dev, file_name, ": Configured to developer mode.\n");
+		} else if(item == "Just store all the series") {
+			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::boolean}}, false);
+			
+			config.store_all_series = single_arg(decl, 1)->val_bool;
 		} else {
 			decl->source_loc.print_error_header();
 			fatal_error("Unknown config option \"", item, "\".");
@@ -1814,22 +1812,16 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 	}
 }
 
-void
-apply_config(Mobius_Model *model, Mobius_Config *config) {
-	// TODO: Maybe check validity of the path here instead of in load_config (Need to pass the source_loc in that case).
-	model->mobius_base_path = config->mobius_base_path;
-}
-
 Mobius_Model *
 load_model(String_View file_name, Mobius_Config *config) {
 	
 	Mobius_Model *model = new Mobius_Model();
 	
 	if(config)
-		apply_config(model, config);
+		model->config = *config;
 	else {
 		Mobius_Config new_config = load_config();
-		apply_config(model, &new_config);
+		model->config = std::move(new_config);
 	}
 	
 	auto decl = read_model_ast_from_file(&model->file_handler, file_name);

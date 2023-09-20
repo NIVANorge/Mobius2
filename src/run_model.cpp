@@ -84,6 +84,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 	}
 	
 	data->results.allocate(time_steps, start_date);
+	data->temp_results.allocate();
 	
 	int var_count    = app->result_structure.total_count;
 	int series_count = app->series_structure.total_count;
@@ -92,12 +93,13 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 	
 	run_state.parameters       = data->parameters.data;
 	run_state.state_vars       = data->results.data;
+	run_state.temp_vars        = data->temp_results.data;
 	run_state.series           = data->series.data + series_count*input_offset;
 	run_state.connection_info  = data->connections.data;
 	run_state.index_counts     = data->index_counts.data;
 	run_state.solver_workspace = nullptr;
 	run_state.date_time        = Expanded_Date_Time(start_date, app->time_step_size);
-	run_state.solver_t         = 0.0;
+	run_state.fractional_step  = 0.0;
 	
 	std::vector<Batch_Data>   batch_data(app->batches.size());
 	
@@ -116,7 +118,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 			solver_workspace_size = std::max(solver_workspace_size, 4*batch.n_ode); // TODO:    the 4*  is INCA-Dascru specific. Make it general somehow.
 			
 			auto solver             = model->solvers[batch.solver_id];
-			b_data.solver_fun       = solver->solver_fun;
+			b_data.solver_fun       = model->solver_functions[solver->solver_fun]->solver_fun;
 			b_data.first_ode_offset = batch.first_ode_offset;
 			b_data.n_ode            = batch.n_ode;
 			
