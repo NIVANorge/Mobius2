@@ -4,8 +4,8 @@
 	
 		Why do file saving errors crash the program instead of getting caught now?
 		
-		Entities used by function bodies of overridden properties are not accounted for.
-			We should really process the function trees of variables that are overridden also to avoid this (and detect other errors that may be hidden by this.).
+		
+		Finish system for store_series = false.
 		
 		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
 			The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
@@ -30,13 +30,6 @@
 				(in terms of how it is computed, not in terms of user-facing functionality)
 				Ideally the entire system should be re-thought or restructured.
 		
-			in_flux(connection, something) will some times depend on the indexes being ordered in the same way as in the connection graph.
-				Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
-				This is not solvable without remapping the indexes (or asking the user to reorder them).
-				Could detect if this happens and give an error, but that alone is a bit of work.
-					We should only allow it if no_cycles is specified.
-					If no_cycles is specified, we should demand that the indexes in the data set are in the order of appearance.
-		
 			Component index sets should probably be declared in the connection declaration in the model (also for directed_graph). It is too integral to how to model works to leave it to data set.
 			
 			Have to figure out what something like
@@ -50,23 +43,30 @@
 				Could later extend it to have different code depending on the target (for graph).
 		
 			graph connections
+			
+				in_flux(connection, something) will some times depend on the indexes being ordered in the same way as in the connection graph.
+					Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
+					This is not solvable without remapping the indexes (or asking the user to reorder them).
+					Could detect if this happens and give an error, but that alone is a bit of work.
+						We should only allow it if no_cycles is specified.
+						If no_cycles is specified, we should demand that the indexes in the data set are in the order of appearance.
 				
-				One should need to explicitly allow isolated nodes using something like    a | (....)
+				Regex
+					One should need to explicitly allow isolated nodes using something like    a | (....)
+					Finish regex check in the general case (cycles case)
 				
 				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc. and that "indexing below" is correct.
+					Right now we do check units during final codegen, but would maybe be good to have a system for checking correctness of everything first.
 					Alternatively do unit conversions, but how?
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
-					
-				Finish regex check in the general case
 				
 				Make it work with quantities.
-					And allow aggregation weight for them (can for instance be used for degradation chains where some of the mass goes away).
+					And allow aggregation weight for quantities (can for instance be used for degradation chains where some of the mass goes away).
 
-			grid1d:	
-				Maybe the .specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
+			
+			.specific target:
+				Maybe the @specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
 					Could then also allow .specific inside main code.
-					
-			Specific target:
 				Properly process the @specific function tree, incl. flags
 				Check valid dependencies for the tree.
 					Have to think about what types of variables it is allowed to reference.
@@ -76,12 +76,13 @@
 				Tridiagonal distribution.
 			
 		Bidirectional
-			Should check that target unit is the same a source unit always.
-				And maybe not with aggregation weights.
+			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
+				And maybe not allow aggregation weights.
+				We do a unit check in codegen, but may be better to do it earlier.
 		
 			Have an optional test to see if non-bidirectional fluxes were negative after or during a run.
 		
-			Make bidirectional work for regular fluxes (maybe).
+			Make bidirectional work for regular (non-connection) fluxes (maybe).
 				Though probably not for aggregates.
 			
 			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
@@ -93,13 +94,13 @@
 		
 		Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
 		
-		What to do with discrete fluxes with varying step sizes.
-			They are currently not step size independent. Should they be re-scaled somehow if the step size is different from the one that is declared in the flux?
+		What to do with discrete fluxes when varying step size.
+			They are currently not step size independent.
+			Should they be re-scaled somehow if the step size is different from the one that is declared in the flux?
+				That is only correct if the flux is of the form da/dt = -b*a
 			
-			What to do about things like (computed) global radiation that should really have an hourly variation with low step sizes but should be averaged with higher?
+		What to do about things like (computed) global radiation that should really have an hourly variation with low step sizes but should be averaged with higher?
 			
-			
-	
 		Saving data_set docstring newline increase.
 		
 		Warning on HUGE allocations.
@@ -115,12 +116,19 @@
 	
 		Some system for specifying state variables that should not be stored (except temporarily).
 			Need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
+			
+			Logistical annoyance is that it can't have a different Var_Id::Type, or it complicates a lot of code.
+				But then the storage structure is not differentiated on Var_Id::Type, which is also annoying.
 				
 			MobiView2:
 				First iteration could be to just not display them.
 				If it is constant, could then display in the stat window, just not in the plot, or even make a constant plot for it.
 			
-			Could determine if a variable is going to be constant and then just compute it on the initial step constant @override
+			Could determine if a variable is going to be constant and then just compute it on the initial step
+				Not allowed for 'quantity' unless it is @override.
+					Due to difficulty of determining what it will look like before the code generation step (the way it is set up now).
+				A bit annoying if the @initial code for it is different from the main code..
+				
 				Can use the same storage as for variables that are not stored temporally.
 				
 			Make this the default for many aggregation variables (but maybe need to allow configuring them to be stored).
@@ -191,8 +199,10 @@
 			
 		Go over and improve diagnostics in error messages (all over the place).
 		
-		external_computation : 
-			Just do whatever is needed when it is needed.
+		external_computation :
+			Lots of things to fix, but...
+			Just do whatever is needed when it is needed
+			It is only used for NIVAFjord for now.
 			
 		Load modules from modules (?)
 			Probably difficult wrt. multiple loads of the same base module. Unless we also scope the module names recursively.
@@ -200,7 +210,7 @@
 		
 	*** Low-pri ****
 	
-		Iterate in function scope.
+		'iterate' in function scope.
 			Make the iter_tag be referencable as an iterator.
 			Do reassignable local vars with phi nodes instead of alloca.
 			
@@ -244,22 +254,21 @@
 	
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
 		
-		Maybe the decl_type of module template should just be module_template (in the module files).
-		
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this doesn't give an error for dependency reasons.
 		
 		Capping of discrete fluxes from override variables not necessary?
 			I.e. don't have to check if a flux with the source in a variable that is 'override' overtaxes its source.
 		
-		
 		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
 			Similarly also want to allow inputs to override parameters.
+				This is tricky to do implicitly due to how parameter names are scoped. May need a if_input_else_parameter() or something.
 		
 		MobiView:
 		
 			Plot
 			
 				Make a date range for the 2D plot (when the date is the x axis) that defaults to no more than say 1000 steps.
+					Plot is just generated for this range (not just zooming).
 				
 				stacked_share has a slow implementation.
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
@@ -300,7 +309,7 @@
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
 				
-				Maybe need a reshape() function on the Data_Set or something like that.
+				Maybe need a reshape() function on the Data_Set or something like that, which updates all data based on new indexes for the index sets.
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
