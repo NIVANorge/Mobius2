@@ -5,33 +5,28 @@
 #include <random>
 //#include <execution>
 
-typedef void (*sampler_move)(double *, double *, int, int, int, int*, int, MC_Data &, Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *);
+typedef double (*sampler_move)(double *, double *, int, int, int, int*, int, MC_Data &, Random_State *rand_state);
 
-void
-affine_stretch_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
-	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state) {
+double
+affine_stretch_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data, Random_State *rand_state) {
 	/*
 	This is a simple C++ implementation of the Affine-invariant ensemble sampler from https://github.com/dfm/emcee
 	
 	( Foreman-Mackey, Hogg, Lang & Goodman (2012) Emcee: the MCMC Hammer )
-
 	*/
 	
+	double a = sampler_params[0]; // Stretch factor
+	
 	// Draw needed random values
-	double u, r;
+	double u;
 	int ensemble_walker;
 	{
 		std::uniform_real_distribution<double> distu(0.0, 1.0);
 		std::uniform_int_distribution<>        disti(0, n_ensemble-1);
 		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
 		u = distu(rand_state->gen); //uniform between 0,1
-		r = distu(rand_state->gen);
 		ensemble_walker = ensemble[disti(rand_state->gen)];
 	}
-	
-	double a = sampler_params[0];
-	bool accepted = true;
-	double prev_ll = data.score_value(walker, step-1);
 	
 	double zz = (a - 1.0)*u + 1.0;
 	zz = zz*zz/a;
@@ -42,44 +37,23 @@ affine_stretch_move(double *sampler_params, double *scale, int step, int walker,
 		data(walker, par, step) = x_j + zz*(x_k - x_j);
 	}
 	
-	double ll = log_likelihood(ll_state, walker, step);
-	double q = std::pow(zz, (double)data.n_pars-1.0)*std::exp(ll-prev_ll);
-	
-	if(!std::isfinite(ll) || r > q) { // Reject the proposed step
-		// reset parameter values
-		for(int par = 0; par < data.n_pars; ++par)
-			data(walker, par, step) = data(walker, par, step-1);
-		ll = prev_ll;
-		accepted = false;
-	}
-	
-	data.score_value(walker, step) = ll;
-	
-	if(accepted) {
-		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
-		data.n_accepted++;
-	}
+	return ((double)data.n_pars - 1.0)*std::log(zz);
 }
 
-void
-affine_walk_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
-	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state) {
+double
+affine_walk_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data, Random_State *rand_state) {
 		
-	int s0 = (int)sampler_params[0];
-	bool accepted = true;
-	double prev_ll = data.score_value(walker, step-1);
+	// Walk move from sampe paper as stretch move above.
+		
+	int s0 = (int)sampler_params[0];  // Size of sub-ensemble
 	
-	double r;
-	// Could this be rewritten without the vectors?
 	std::vector<double> z(s0);
 	std::vector<int> ens(s0);
 	{
-		std::uniform_real_distribution<double> distu;
 		std::normal_distribution<double>       distn;
 		std::uniform_int_distribution<>        disti(0, n_ensemble-1);
 		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
 		
-		r = distu(rand_state->gen);
 		for(int s = 0; s < s0; ++s) {
 			// NOTE: Unlike in Differential Evolution, the members of the sub-ensemble could be repeating (or at least it is not otherwise mentioned in the paper).
 			ens[s] = ensemble[disti(rand_state->gen)];
@@ -101,28 +75,12 @@ affine_walk_move(double *sampler_params, double *scale, int step, int walker, in
 		w /= std::sqrt((double)s0); // NOTE: This is not specified in the paper, but without it the algorithm gives very poor results, and it seems to be more mathematically sound.
 		data(walker, par, step) = x_k + w;
 	}
-
-	double ll = log_likelihood(ll_state, walker, step);
-	double q = ll - prev_ll;
 	
-	if(!std::isfinite(ll) || std::log(r) > q) { // Reject the proposal
-		for(int par = 0; par < data.n_pars; ++par)
-			data(walker, par, step) = data(walker, par, step-1);
-		ll = prev_ll;
-		accepted = false;
-	}
-	
-	data.score_value(walker, step) = ll;
-	
-	if(accepted) {
-		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
-		data.n_accepted++;
-	}
+	return 0.0;
 }
 
-void
-differential_evolution_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
-	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state)
+double
+differential_evolution_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data, Random_State *rand_state)
 {
 	//Based on
 	
@@ -131,22 +89,16 @@ differential_evolution_move(double *sampler_params, double *scale, int step, int
 	//Stat Comput 16, 239–249 (2006). https://doi.org/10.1007/s11222-006-8769-1
 
 	
-	double c  = sampler_params[0];
-	double b  = sampler_params[1];
-	double cr = sampler_params[2];
+	double c  = sampler_params[0];  // Stretch factor
+	double b  = sampler_params[1];  // Max random step (relative)
+	double cr = sampler_params[2];  // Crossover probability
 	
-	if(c < 0.0) c = 2.38 / std::sqrt(2.0 * (double)data.n_pars); // Default.
+	if(c < 0.0) c = 2.38 / std::sqrt(2.0 * (double)data.n_pars); // Default (see paper).
 	
-	bool accepted = true;
-	double prev_ll = data.score_value(walker, step-1);
-	
-	double r;
 	{
 		std::uniform_real_distribution<double> distu(0.0, 1.0);
 		std::uniform_int_distribution<>        disti(0, n_ensemble-1);
 		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
-		
-		r = distu(rand_state->gen);
 		
 		int ens_w1 = ensemble[disti(rand_state->gen)];
 		int ens_w2;
@@ -172,41 +124,20 @@ differential_evolution_move(double *sampler_params, double *scale, int step, int
 		}
 	}
 	
-	double ll = log_likelihood(ll_state, walker, step);
-	double q = ll - prev_ll;
-	
-	if(q < std::log(r)) {  // Reject
-		for(int par = 0; par < data.n_pars; ++par)
-			data(walker, par, step) = data(walker, par, step-1);
-		ll = prev_ll;
-		accepted = false;
-	}
-	data.score_value(walker, step) = ll;
-	
-	if(accepted) {
-		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
-		data.n_accepted++;
-	}
+	return 0.0;
 }
 
-void
-metropolis_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
-	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state)
+double
+metropolis_move(double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data, Random_State *rand_state)
 {
 	// Metropolis-Hastings (parallel chains with no crossover).
 	
-	double b = sampler_params[0];   // Scale of normal perturbation.
+	double b = sampler_params[0];   // Std.dev of normal perturbation.
 	
-	bool accepted = true;
-	double prev_ll = data.score_value(walker, step-1);
-	
-	double r;
 	{
-		std::uniform_real_distribution<double> distu(0.0, 1.0);
 		std::normal_distribution<> distn(0.0, 1.0);
 		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
 		
-		r = distu(rand_state->gen);
 		for(int par = 0; par < data.n_pars; ++par) {
 			double x_k = data(walker, par, step-1);
 			double sigma = b*scale[par]; // scale[par] is a scaling relative to the par |max - min|
@@ -214,21 +145,40 @@ metropolis_move(double *sampler_params, double *scale, int step, int walker, int
 		}
 	}
 	
-	double ll = log_likelihood(ll_state, walker, step);
-	double q = ll - prev_ll;
-	if(q < std::log(r)) { // Reject
-		for(int par = 0; par < data.n_pars; ++par)
-			data(walker, par, step) = data(walker, par, step-1);
-			
-		ll = prev_ll;
-		accepted = false;
-	}
-	data.score_value(walker, step) = ll;
+	return 0.0;
+}
+
+inline void
+move_or_reject(sampler_move move, double *sampler_params, double *scale, int step, int walker, int ensemble_step, int *ensemble, int n_ensemble, MC_Data &data,
+	Random_State *rand_state, double (*log_likelihood)(void *, int, int), void *ll_state) {
 	
-	if(accepted) {
+	// Make a move proposal.
+	double q0 = move(sampler_params, scale, step, walker, ensemble_step, ensemble, n_ensemble, data, rand_state);
+	
+	double prev_ll = data.score_value(walker, step-1);
+	double ll      = log_likelihood(ll_state, walker, step); // This is the expensive model evaluation call.
+	
+	double q = (ll - prev_ll) + q0;
+	
+	{
 		std::lock_guard<std::mutex> lock(rand_state->gen_mutex);
-		data.n_accepted++;
+		
+		std::uniform_real_distribution<double> distu(0.0, 1.0);
+		double r = distu(rand_state->gen);
+		
+		if(!std::isfinite(ll) || q < std::log(r)) {
+			// Didn't pass the test, so reject the move and reset the sample to be equal to the previous one
+			
+			for(int par = 0; par < data.n_pars; ++par)
+				data(walker, par, step) = data(walker, par, step-1);
+			ll = prev_ll;
+		} else {
+			data.n_accepted++;
+		}
+		
+		data.score_value(walker, step) = ll;
 	}
+	
 }
 
 bool
@@ -266,13 +216,14 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 	// thread ( threads can't delete stuff that was allocated in other threads ).
 	// This is a bit messy though. Could alternatively allocate the needed result data
 	// explicitly first and then do step 0.
-	if(initial_step == 0) //NOTE: If the initial step is not 0, this is a continuation of an earlier run, and so the LL value of the initial step will already have been computed.
+	// NOTE: If the initial step is not 0, this is a continuation of an earlier run, and so the LL value of the initial step 
+	// (which is the last step of the previous run) will already have been computed.
+	if(initial_step == 0)
 		for(int walker = 0; walker < data.n_walkers; ++walker)
 			data.score_value(walker, 0) = log_likelihood(ll_state, walker, 0);
 	
 	Random_State rand_state; // TODO: maybe seed the state randomly.
 
-	// TODO: We should instead have some kind of thread pool here.
 	std::vector<std::thread> workers;
 	workers.reserve(data.n_walkers);
 	
@@ -293,17 +244,17 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 		for(int wk = 0; wk < n_ens1; ++wk) {
 			int walker = walkers[wk];
 			workers.push_back(std::thread([&, walker]() {
-				move(sampler_params, scales, step, walker, ensemble_step, walkers.data()+n_ens1, n_ens2, data, &rand_state, log_likelihood, ll_state);
+				move_or_reject(move, sampler_params, scales, step, walker, ensemble_step, walkers.data()+n_ens1, n_ens2, data, &rand_state, log_likelihood, ll_state);
 			}));
 		}
 		for(auto &worker : workers)
 			if(worker.joinable()) worker.join();
 		workers.clear();
 		
-		// NOTE: Can't use any of the parallel for_each stuff before upp supports C++20
+		// NOTE: Can't use any of the parallel for_each stuff before upp supports C++20 (or we compile this separately)
 		/*
 		std::for_each(std::execution::par, walkers.begin(), walkers.begin()+n_ens1, [&](int walker) {
-			move(sampler_params, scales, step, walker, ensemble_step, walkers.data()+n_ens1, n_ens2, data, &rand_state, log_likelihood, ll_state);
+			move_or_reject(move, sampler_params, scales, step, walker, ensemble_step, walkers.data()+n_ens1, n_ens2, data, &rand_state, log_likelihood, ll_state);
 		});
 		*/
 		
@@ -312,7 +263,7 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 		for(int wk = n_ens1; wk < data.n_walkers; ++wk) {
 			int walker = walkers[wk];
 			workers.push_back(std::thread([&, walker]() {
-				move(sampler_params, scales, step, walker, ensemble_step, walkers.data(), n_ens1, data, &rand_state, log_likelihood, ll_state);
+				move_or_reject(move, sampler_params, scales, step, walker, ensemble_step, walkers.data(), n_ens1, data, &rand_state, log_likelihood, ll_state);
 			}));
 		}
 		for(auto &worker : workers)
@@ -321,7 +272,7 @@ run_mcmc(MCMC_Sampler method, double *sampler_params, double *scales, double (*l
 		
 		/*
 		std::for_each(std::execution::par, walkers.begin()+n_ens1, walkers.end(), [&](int walker) {
-			move(sampler_params, scales, step, walker, ensemble_step, walkers.data(), n_ens1, data, &rand_state, log_likelihood, ll_state);
+			move_or_reject(move, sampler_params, scales, step, walker, ensemble_step, walkers.data(), n_ens1, data, &rand_state, log_likelihood, ll_state);
 		});
 		*/
 		

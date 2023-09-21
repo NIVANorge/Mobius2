@@ -115,27 +115,20 @@
 				This is currently checked per component basis, but not combined. Should be done in model_composition
 			When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency)
 	
-		Some system for specifying state variables that should not be stored (except temporarily).
-			Need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
+		Could determine if a variable is going to be constant and then only compute it on the initial step
+			Not allowed for 'quantity' unless it is @override.
+				Due to difficulty of determining what it will look like before the code generation step (the way it is set up now).
+			A bit annoying if the @initial code for it is different from the main code..
 			
-			Logistical annoyance is that it can't have a different Var_Id::Type, or it complicates a lot of code.
-				But then the storage structure is not differentiated on Var_Id::Type, which is also annoying.
-				
+			Can use the same storage as for variables that are not stored temporally.
+	
+		Temporary stored variables :
+			Make it available for @override quantities even on solvers.
+			May need to make it more granular which ones are stored.
+		
 			MobiView2:
-				First iteration could be to just not display them.
 				If it is constant, could then display in the stat window, just not in the plot, or even make a constant plot for it.
 			
-			Could determine if a variable is going to be constant and then just compute it on the initial step
-				Not allowed for 'quantity' unless it is @override.
-					Due to difficulty of determining what it will look like before the code generation step (the way it is set up now).
-				A bit annoying if the @initial code for it is different from the main code..
-				
-				Can use the same storage as for variables that are not stored temporally.
-				
-			Make this the default for many aggregation variables (but maybe need to allow configuring them to be stored).
-			
-		Also a system for specifying different display variants (along with the code in MobiView2 to make use of that, which is the work intensive part).
-			E.g. say if a variable should not be displayed in MobiView2 (but have a display all checkbox button that re-enable them)
 		
 		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
 			This would be a major change, but could create some speedup.
@@ -201,7 +194,7 @@
 		Go over and improve diagnostics in error messages (all over the place).
 		
 		external_computation :
-			Lots of things to fix, but...
+			Lots of things to make less error prone, but...
 			Just do whatever is needed when it is needed
 			It is only used for NIVAFjord for now.
 			
@@ -295,7 +288,6 @@
 				Combine simple sensitivity into the advanced sensitivity setup.
 					Compute statistics of the target stat like variance etc.
 					Allow for 2 parameters, with a surf plot eventually.
-				GLUE-like sampling?
 				Serialize sensitivity setups using a Mobius format instead of json so that we can load the same setups in mobipy eventually.
 				More customizable target functions.
 				Targets computed from aggregate series (stats of aggregate series).
@@ -304,6 +296,13 @@
 				
 				Selection of matrix column parameters is incorrect.
 				
+				
+				Implement the MCMC sampler from
+					https://www.econstor.eu/bitstream/10419/268226/1/1830478958.pdf
+				Also maybe other samplers.
+				GLUE-like sampling?
+					Issue then is that parameter distribution is not determined by frequency alone, but by weight. Need to update much of the code for that.
+				GLUE-like likelihood functions?
 				
 			Something where you can plot individual functions / state vars as functions of their inputs.
 			
@@ -320,8 +319,10 @@
 				minute, hour, day. (esp. day).
 			
 		
+		Fix mobipy again...
+			Need to make it possible to provide indexes either as strings or integers.
 		More mobipy functionality.
-			And fix it again... 
+			Extract blocks of data based on index ranges, e.g. 0:50
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
@@ -329,13 +330,14 @@
 	
 	
 		Make it possible to free file memory before a model is deleted.
-			Requires ASTs to copy some string data, which is a bit annoying since right now they store Tokens directly.
+			Requires ASTs to copy some string data, which is a bit annoying since right now they store Tokens directly (which contain String_Views to file memory).
+			May need a way to copy String_View values over to a separate buffer for all tokens in ASTs.
+			Or the ASTs just store a new struct that contains much the same as Token, but has std::strings instead.
 		
 		Set units of regular aggregation state variables so that they display correctly if viewed.
 			note that it is a bit tricky for fluxes.
 			
 		aggregate() of series and parameters, or even of arbitrary expressions.
-			Would need a separate instruction type for it.
 			For parameters, ideally it should just be computed once using the constant system described above.
 			For arbitrary expressions, it could be tricky to figure out what compartment it actually aggregates from.
 		
@@ -360,11 +362,12 @@
 		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
 		
-		Implement the MCMC sampler from
-			https://www.econstor.eu/bitstream/10419/268226/1/1830478958.pdf
-		
 		
 	Probably not ?:
+	
+		System for specifying different display variants (along with the code in MobiView2 to make use of that).
+			E.g. say if a variable should not be displayed in MobiView2 (but have a display all checkbox button that re-enable them)
+			Maybe not really needed, @no_store is probably sufficient.
 	
 		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
 			Maybe only if you specify it to disperse.

@@ -24,7 +24,8 @@ Base_Unit {
 	month = 6,
 	year = 7,
 	K = 8,
-	max = 9
+	A = 9,
+	max = 10
 };
 
 inline bool is_time(Base_Unit bu) {
