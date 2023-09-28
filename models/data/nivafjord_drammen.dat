@@ -41,7 +41,7 @@ par_group("System") {
 	[ 2018-01-01 ]
 
 	par_datetime("End date")
-	[ 2021-01-01 ]
+	[ 2021-11-11 ]
 }
 
 par_group("Fjord global parameters") {
@@ -255,7 +255,7 @@ module("Simply soil temperature", version(0, 1, 0)) {
 	}
 }
 
-module("RiverTemperature", version(0, 1, 0)) {
+module("RiverTemperature", version(0, 1, 1)) {
 	par_group("River temperature") [ "Subcatchment" ] {
 		par_real("Air-river heat exchange coefficient")
 		[ 1 ]
@@ -265,7 +265,7 @@ module("RiverTemperature", version(0, 1, 0)) {
 module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
 	par_group("Horizontal exchange") {
 		par_real("Pressure difference flow coefficient")
-		[ 0.7 ]
+		[ 0.1 ]
 	}
 }
 

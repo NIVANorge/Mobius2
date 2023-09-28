@@ -138,7 +138,7 @@ Unit_Data::set_standard_form() {
 			standard_form.magnitude -= 3*part.power;   // liter = 10^-3 m^3
 		} else if(part.unit == Compound_Unit::ha) {
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
-			standard_form.magnitude += 4*part.power;
+			standard_form.magnitude += 4*part.power;   // hectare = (10^2 m)^2
 		} else if(part.unit == Compound_Unit::Pa) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] -= part.power;

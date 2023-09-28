@@ -142,7 +142,7 @@ compute_standard_residuals(double *obs, double *sim, s64 time_steps, double *err
 				if(!std::isfinite(prev_eta))
 					resid = eta;
 				else
-					resid = eta - err_param[2]*prev_eta;   //NOTE: The standardized residual is then Y, which is supposed to be normaly (independently) distributed.
+					resid = eta - err_param[2]*prev_eta;   //NOTE: The standardized residual is then Y, which is supposed to be normally (independently) distributed.
 				prev_eta = eta;
 			} break;
 			

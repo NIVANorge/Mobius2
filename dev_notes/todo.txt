@@ -2,6 +2,10 @@
 
 	*** High pri ***
 	
+		Make the error report to ScatterCtrl about the Data view.
+			Also about the all-empty series bug.
+	
+	
 		Check that graph lookups [.below] where the target is a different var_id is correct if the source and target have different storage type (state_var vs temp_var).
 	
 		Why do file saving errors crash the program instead of getting caught now?
@@ -15,7 +19,10 @@
 			NIVAFjord!!
 				Fix the processed input series
 				Fix mass balanced of dissolved (negative tracer! - is something missing a @bidirectional, or is it wrong for the horizontal exchange?)
-			
+				
+				Go over wind mixing again, it seems a bit broken.
+					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
+				
 			EasyChem!!
 			
 			Finish the simple hydraulics model.

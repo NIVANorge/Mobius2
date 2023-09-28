@@ -113,22 +113,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(layer.water.Nfreq, [s-1]) {
 		mdz := 0.5*(dz + dz[vert.below]),
 		N2 := grav * ddens / (mdz*rho),
-		sqrt(max(Nmin^2, N2))
-	}
-	
-	var(layer.water.Kt, [m 2, s-1]) {
-		safe_divide(K0, (Nfreq/N0)^alpha)
-	}
-	
-	var(layer.water.Ks, [m 2, s-1]) {
-		eta := exp(-(z - zshalf)/hsfact),
-		Es  := Es0*eta/(1+eta),
-		Es / Nfreq^2
-	}
-	
-	var(layer.water.wmix, [m 3, day-1]) {
-		K := Kt + Ks + Kw,#+Kd,              # Maybe make the sum of the mixing coefficients a separate state variable.
-		A * K / dz ->>
+		sqrt(max(Nmin^2, N2))   # This one is correct because ddens could be < 0
 	}
 	
 	stress         : property("Wind stress")
@@ -137,14 +122,15 @@ module("NIVAFjord basin", version(0, 0, 1),
 	potmix         : property("Potential energy needed for wind mixing")
 	summix         : property("Sum used wind mixing energy")
 	
-	# TODO: wind stress could be moved to airsea module.
+	# TODO: wind stress could be moved to airsea module and maybe use GOTM version.
+	# TODO: Should be stability corrected.
 	var(basin.stress, [N, m-2]) {
 		u := air.wind,
 		c_stress := 1e-3*(0.8 + 0.9*u^8/(u^8 + 1e8[m 8, s-8])),
 		air.rho*c_stress*u^2
 	}
 	
-	#TODO: need to take into account of B_s in the fjord model document (?)
+	#TODO: Make wind mixing instead dependent on the B-V frequency also? One issue is to determine how much energy gets "used" in each layer.
 	var(basin.emix, [J], "Total wind mixing energy") {
 		A[vert.top]*sqrt(stress^3/layer.water.rho[vert.top])*time.step_length_in_seconds
 	}
@@ -168,13 +154,26 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.Kw, [m 2, s-1]) {
 		
-		rem := max(0, basin.emix - summix),
-		# This one is a bit iffy..
+		rem := max(0, basin.emix[vert.below] - summix[vert.below]),
 		mixspeed := 1[m, day-1],
 		
 		mixspeed*dz->>                                                    if rem > 0 & potmix < 1e-20[J],
 		mixspeed*dz*safe_divide(emix[vert.below], potmix[vert.below])->>  otherwise
-		#mixspeed*dz->>                                                    otherwise
+	}
+	
+	var(layer.water.Kt, [m 2, s-1]) {
+		safe_divide(K0, (Nfreq/N0)^alpha)
+	}
+	
+	var(layer.water.Ks, [m 2, s-1]) {
+		eta := exp(-(z - zshalf)/hsfact),
+		Es  := Es0*eta/(1+eta),
+		Es / Nfreq^2
+	}
+	
+	var(layer.water.wmix, [m 3, day-1]) {
+		K := Kt + Ks + Kw,
+		A * K / dz ->>
 	}
 	
 	flux(layer.water, vert, [m 3, day-1], "Water mixing down") { wmix }

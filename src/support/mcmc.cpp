@@ -72,7 +72,7 @@ affine_walk_move(double *sampler_params, double *scale, int step, int walker, in
 			double x_j = data(ens[s], par, ensemble_step);
 			w += z[s]*(x_j - x_s_mean);
 		}
-		w /= std::sqrt((double)s0); // NOTE: This is not specified in the paper, but without it the algorithm gives very poor results, and it seems to be more mathematically sound.
+		w /= (double)s0;//std::sqrt((double)s0); // NOTE: This is not specified in the paper, but without it the algorithm gives very poor results, and it seems to be more mathematically sound.
 		data(walker, par, step) = x_k + w;
 	}
 	
