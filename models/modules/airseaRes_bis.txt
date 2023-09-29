@@ -191,11 +191,11 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	}
 	
 	var(surf.FPV.visco, [m 2, s-1]) {
-		dynamic_viscosity_water(top_water_temp, 0 []) / rho_water
+		dynamic_viscosity_fresh_water(top_water_temp) / rho_water
 	}
 	
 	var(surf.FPV.h_water, [W, m-2, K-1]) {
-			Nu := 0.664* sqrt(0.1 [m, s-1] * length_FPV / surf.FPV.visco )* ((dynamic_viscosity_water(top_water_temp, 0 [])*C_water / k_water) =>[]^(0.333)),
+			Nu := 0.664* sqrt(0.1 [m, s-1] * length_FPV / surf.FPV.visco )* ((dynamic_viscosity_fresh_water(top_water_temp, 0)*C_water / k_water) =>[]^(0.333)),
 			Nu =>[] * k_water / length_FPV 
 	}
 	

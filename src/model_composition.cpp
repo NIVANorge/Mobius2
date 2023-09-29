@@ -940,9 +940,26 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	
 	auto model = app->model;
 	auto source = model->components[loc1.first()];
+	//error_print_location(Mobius_Model *model, const Specific_Var_Location &loc)
+	auto first_id = app->vars.id_of(loc1);
+	auto second_id = app->vars.id_of(loc2);
 	
-	auto first = app->vars[app->vars.id_of(loc1)];
-	auto second = app->vars[app->vars.id_of(loc2)];
+	if(!is_valid(first_id) || !is_valid(second_id)) return unit_conv;
+	/*
+	if(!is_valid(first_id)) {
+		begin_error(Mobius_Error::internal);
+		error_print_location(model, loc1);
+		fatal_error("This was set as the first loc of a unit conversion, but it does not exist as a state variable.");
+	}
+	if(!is_valid(second_id)) {
+		begin_error(Mobius_Error::internal);
+		error_print_location(model, loc2);
+		fatal_error("This was set as the second loc of a unit conversion, but it does not exist as a state variable.");
+	}
+	*/
+	
+	auto first = app->vars[first_id];
+	auto second = app->vars[second_id];
 	auto expected_unit = divide(second->unit, first->unit);
 	
 	bool need_conv = !expected_unit.standard_form.is_fully_dimensionless();

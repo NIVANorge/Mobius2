@@ -52,9 +52,11 @@ struct Var_Registry {
 	std::unordered_map<std::string, std::set<Var_Id>>           name_to_id;
 	
 	State_Var *operator[](Var_Id id) {
-		auto &vars = get_vec(id.type);
-		if(!is_valid(id) || id.id >= vars.size())
+		if(!is_valid(id))
 			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an invalid id.");
+		auto &vars = get_vec(id.type);
+		if(id.id >= vars.size())
+			fatal_error(Mobius_Error::internal, "Tried to look up a variable using an out of bounds id.");
 		return vars[id.id].get();
 	}
 	

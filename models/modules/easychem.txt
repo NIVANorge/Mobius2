@@ -11,15 +11,14 @@ module("EasyChem", version(0, 0, 1),
 	phos   : quantity,
 	
 	temp   : property,
-	z_e    : property,
 	sw     : property,
-	wind   : property
-	sed_area : property,
-
-	area   : loc,
+	wind   : property,
+	
+	sed_area : loc,
+	area   : loc
 ) {
 """
-This is a simple biogeochemical model for O₂
+This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake
 
 ... similar to SelmaProtBas https://github.com/jorritmesman/selmaprotbas/tree/main
 """
@@ -64,11 +63,11 @@ This is a simple biogeochemical model for O₂
 	}
 	
 	par_group("Lake N", epi) {
-		init_nitro   : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
+		init_n   : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
 	}
 	
 	par_group("Lake P", epi) {
-		init_phos    : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
+		init_p    : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
 	}
 	
 	par_group("Phytoplankton", epi) {
@@ -82,10 +81,10 @@ This is a simple biogeochemical model for O₂
 		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
 	}
 	
-	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { (o2_saturation(top_water_temp, 0)*init_O2*o2_mol_mass) }
-	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { (o2_saturation(top_water_temp, 0)*init_O2*o2_mol_mass) }  
+	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { (o2_saturation(temp, 0)*init_O2*o2_mol_mass) }
+	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { (o2_saturation(temp, 0)*init_O2*o2_mol_mass) }  
 	
-	var(epi.p_vel, [c m, hr-1]) {
+	var(epi.water.p_vel, [c m, hr-1]) {
 		#TODO: Factor this function out to library, and write the reference to where the formula comes from.
 		wnd     := air.wind => [],
 		T       := temp => [],
@@ -99,7 +98,7 @@ This is a simple biogeochemical model for O₂
 	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
-		epi.p_vel*pvel_scaler*(o2_saturation(temp, 0)*o2_mol_mass - conc(o2))*area ->>
+		p_vel*pvel_scaler*(o2_saturation(temp, 0)*o2_mol_mass - conc(o2))*area ->>
 	}
 
 	#TODO: factor out 0.05[m g, l-1] as a constant.
@@ -164,18 +163,17 @@ This is a simple biogeochemical model for O₂
 		phos2 / ((alpha*phyt_pc)^2 + phos2)
 	}
 	
-	# TODO: Should phyt be set on a solver instead, and replace last(phyt) with phyt?
 	fix : property("Photosynthetic C fixation")
 	var(epi.water.phyt.fix, [k g, day-1]) {
-		min(light_lim, min(N_lim, P_lim))*Mgrowth*last(phyt)
+		min(light_lim, min(N_lim, P_lim))*Mgrowth*phyt
 	}
 	
 	flux(out, epi.water.phyt, [k g, day-1], "Epilimnion photosynthetic C fixation") {   fix   }
 	
-	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", 10, [])
+	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10)
 	
 	death : property("Phytoplankton death") {
-		#NOTE: I put in a bit smoother response function since numerical systems work better with that. Feel free to adjust the thresholds (MNO)
+		#NOTE (MNO): I put in a bit smoother response function since numerical systems work better with that. Feel free to adjust the thresholds (MNO)
 		phyt_death*phyt*s_response(conc(o2), 1.8[m g, l-1], 2.2[m g, l-1], phyt_death_anox, 1)
 	}
 	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
@@ -186,17 +184,17 @@ This is a simple biogeochemical model for O₂
 	flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phytoplankton death DOC release (hypo)") { phyt.death	}
 	flux(out, hyp.water.oc.o2, [k g, day-1], "Phytoplankton death O₂ release (hypo)")          { phyt.death*(4 + COS_autoch)/4	}
 	
-	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   fix*o2_mol_mass/c_mol_mass   }
+	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
-	var(epi.water.nitro, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_nitro }
-	var(hyp.water.nitro, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_nitro }
+	var(epi.water.nitro, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_n }
+	var(hyp.water.nitro, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_n }
 	
-	flux(epi.water.nitro, out, [k g, day-1], "Phytoplankton N uptake") {   fix * phyt_nc   }
+	flux(epi.water.nitro, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * phyt_nc   }
 	
-	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_phos }
-	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_phos }
+	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_p }
+	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
 	
-	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   fix * phyt_pc   }
+	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * phyt_pc   }
 	
 	# TODO: SS, PP
 }

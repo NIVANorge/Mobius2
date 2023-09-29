@@ -2,19 +2,15 @@
 
 	*** High pri ***
 	
-		Make the error report to ScatterCtrl about the Data view.
-			Also about the all-empty series bug.
-	
-	
-		Check that graph lookups [.below] where the target is a different var_id is correct if the source and target have different storage type (state_var vs temp_var).
+		MobiView
+			conc sorted after other properties.
 	
 		Why do file saving errors crash the program instead of getting caught now?
 		
-		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
+		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)   #Should maybe change parsing so that the () on solver is unnecessary. Or is it already?
 			The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
 			Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
 		
-
 		Specific models
 			NIVAFjord!!
 				Fix the processed input series
@@ -22,6 +18,10 @@
 				
 				Go over wind mixing again, it seems a bit broken.
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
+					
+				(general, but for use here)
+					Make it possible to interpolate parameter values, and set parameter values based on depth.
+						E.g. there is some system for assigning a value to a value, and saying what other parameter governs the ranges of the second value.
 				
 			EasyChem!!
 			
@@ -29,8 +29,8 @@
 			
 		Finish connection system
 		
-			Properly test the flux restriction refactoring.
-				Probably broken if we have grid1d of the same connection in both source and target.
+			Properly test the flux restriction refactoring.  (e.g. having [.below] in source etc. )
+				Maybe broken if we have grid1d of the same connection in both source and target (?)
 			
 			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
 				(in terms of how it is computed, not in terms of user-facing functionality)
@@ -67,7 +67,7 @@
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
 				
 				Make it work with quantities.
-					And allow aggregation weight for quantities (can for instance be used for degradation chains where some of the mass goes away).
+					And allow aggregation weight for quantities (can for instance be used for degradation chains of isotopes or POPs where some of the mass goes away).
 
 			
 			.specific target:
@@ -83,7 +83,7 @@
 			
 		Bidirectional
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
-				And maybe not allow aggregation weights.
+				And maybe not allow aggregation weights (or otherwise multiply by the inverse when necessary).
 				We do a unit check in codegen, but may be better to do it earlier.
 		
 			Have an optional test to see if non-bidirectional fluxes were negative after or during a run.
@@ -97,8 +97,13 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		Can get error if you load a library that loads another library, but you don't use all the functions of that library.
+			Maybe just don't give intra-library errors, or instead process all the functions somehow, but that is tricky.
+	
+	
 		
-		May need a more granular system for specifying what series to store.
+		May need a more granular system for specifying what series to store (for non-declared series).
 		
 		Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
 		

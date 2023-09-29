@@ -5,6 +5,18 @@ model("EasyLake-SimplyCNP") {
 	extend("simplyn_model.txt")
 	extend("simplyp_model.txt")
 	
+	
+	phyt : quantity("Phytoplankton")
+	o2   : quantity("O₂")
+	
+	
+	#TODO: Maybe also organic N, P later, and particles etc.
+	# sed_area should be different for epi and hyp.
+	load("modules/easychem.txt", 
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, tdp, temp, sw, wind, loc(A_surf), loc(A_surf))
+	)
+	
+	/*
 	module("EasyLake-CNP", version(0, 0, 1)) {
 		
 		load("stdlib/basic_math.txt", library("Response"))
@@ -85,4 +97,5 @@ model("EasyLake-SimplyCNP") {
 		
 		# TODO: SS, PP
 	}
+	*/
 }

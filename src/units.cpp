@@ -5,7 +5,6 @@
 #include <cmath>
 #include <sstream>
 
-// TODO: complete this and make sure it is correct
 s16
 parse_si_prefix(Token *token) {
 	String_View m = token->string_value;
@@ -35,7 +34,7 @@ parse_si_prefix(Token *token) {
 	return 0;
 }
 
-// TODO: Complete this
+// TODO: Fill in with all possible ones.
 const char *
 get_si_prefix(int pow10, bool declared=false) {
 	static const char *prefixes[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100µ", "10µ", "µ", "100n", "10n", "n"};
@@ -55,8 +54,7 @@ parse_compound_unit(Token *token) {
 	
 	token->print_error_header();
 	fatal_error("Unrecognized unit ", u, " .");
-	//warning_print("Unrecognized unit ", u, " .\n");
-	
+
 	return Compound_Unit::m;
 }
 
@@ -347,7 +345,7 @@ void
 write_utf8_superscript_char(std::ostream &ss, char c, int number = 0) {
 	if(c == '-')
 		ss << u8"\u207b";
-	else if(c == '/')      // None of these raised slashes are perfect..
+	else if(c == '/')      // Trying to find a unicode symbol that looks like a forward slash in raised position, but none of them are perfect.
 		ss << u8"\u2032";
 		//ss << u8"\u141f";
 		//ss << "´";
