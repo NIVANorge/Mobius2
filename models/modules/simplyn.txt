@@ -109,6 +109,6 @@ This module is not finished.
 	
 	flux(river.water.din, out, [k g, day-1], "River DIN denitrification loss") {
 		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10),
-		river.water.din * rate
+		din * rate
 	}
 }

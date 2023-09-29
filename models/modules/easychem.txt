@@ -58,7 +58,7 @@ This is a simple lake biogeochemical model for CNP and O₂ made to fit with Eas
 		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10)
-		COS_alloch   : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
+		#COS_alloch   : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)  # Only appears to be used in easyreservoir inflow part?
 		COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
 	}
 	
@@ -70,6 +70,7 @@ This is a simple lake biogeochemical model for CNP and O₂ made to fit with Eas
 		init_p    : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
 	}
 	
+	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
 	par_group("Phytoplankton", epi) {
 		init_phyt  : par_real("Initial Phyto concentration", [m g, l-1], 0.5, 0.01, 1)
 		phyt_rate  : par_real("Max Phyto growth at 20°C", [day-1], 1, 0.5, 2)
