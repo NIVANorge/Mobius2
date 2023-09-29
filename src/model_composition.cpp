@@ -945,18 +945,6 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	auto second_id = app->vars.id_of(loc2);
 	
 	if(!is_valid(first_id) || !is_valid(second_id)) return unit_conv;
-	/*
-	if(!is_valid(first_id)) {
-		begin_error(Mobius_Error::internal);
-		error_print_location(model, loc1);
-		fatal_error("This was set as the first loc of a unit conversion, but it does not exist as a state variable.");
-	}
-	if(!is_valid(second_id)) {
-		begin_error(Mobius_Error::internal);
-		error_print_location(model, loc2);
-		fatal_error("This was set as the second loc of a unit conversion, but it does not exist as a state variable.");
-	}
-	*/
 	
 	auto first = app->vars[first_id];
 	auto second = app->vars[second_id];

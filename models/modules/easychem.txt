@@ -20,7 +20,7 @@ module("EasyChem", version(0, 0, 1),
 """
 This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake
 
-... similar to SelmaProtBas https://github.com/jorritmesman/selmaprotbas/tree/main
+Many of the equations are taken from SelmaProtBas, but with simplifications https://github.com/jorritmesman/selmaprotbas/tree/main
 """
 
 	load("stdlib/basic_math.txt", library("Response"))
@@ -36,7 +36,7 @@ This is a simple lake biogeochemical model for CNP and O₂ made to fit with Eas
 	Mgrowth   : property("Maximum phytoplankton growth")
 	growth    : property("Actual phytoplankton growth")
 	
-	f_par     : constant("Fraction of PAR in SW radiation", [],           0.45)
+	f_par     : constant("Fraction of PAR in SW radiation", [],           0.45)  # Photosynthetically available radiation
 	
 	# TODO: Put these constants in a library
 	#   and make them in g/mol  (just make the rest of this code work with that)
@@ -149,19 +149,20 @@ This is a simple lake biogeochemical model for CNP and O₂ made to fit with Eas
 	}
 	
 	var(epi.water.phyt.light_lim, []) {
+		# TODO: In Selma what we call iopt here is called imin, and the max(...) term is called iopt. Mislabeling here?
 		par_sw := sw*(1 - f_par),
 		f := par_sw/max(0.5*par_sw, iopt),
 		f*exp(1 - f)
 	}
 	
 	var(epi.water.phyt.N_lim, []) {
-		nit2 := (conc(water.nitro)/no3_mol_mass)^2,
-		nit2 / ((alpha*phyt_nc)^2 + nit2)
+		ntemp := (conc(water.nitro)/no3_mol_mass)^2,
+		ntemp / ((alpha*phyt_nc)^2 + ntemp)
 	}
 	
 	var(epi.water.phyt.P_lim, []) {
-		phos2 := (conc(water.phos)/po4_mol_mass)^2,
-		phos2 / ((alpha*phyt_pc)^2 + phos2)
+		ptemp := (conc(water.phos)/po4_mol_mass)^2,
+		ptemp / ((alpha*phyt_pc)^2 + ptemp)
 	}
 	
 	fix : property("Photosynthetic C fixation")
@@ -197,5 +198,5 @@ This is a simple lake biogeochemical model for CNP and O₂ made to fit with Eas
 	
 	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * phyt_pc   }
 	
-	# TODO: SS, PP
+	# TODO: Particles and sediment nutrient stuff.
 }
