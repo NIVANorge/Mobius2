@@ -405,7 +405,7 @@ module("EasyChem", version(0, 0, 1)) {
 		[ 0 0.5 ]
 	}
 
-	par_group("Lake C") [ "Lake" ] {
+	par_group("Nutrients") [ "Lake" ] {
 		par_real("Initial lake DOC concentration")
 		[ 10 10 ]
 
@@ -421,21 +421,17 @@ module("EasyChem", version(0, 0, 1)) {
 		par_real("Respiration rate")
 		[ 0.8 0.8 ]
 
-		par_real("Carbon Oxidation State alloch DOC")
-		[ -0.5 -0.5 ]
+		par_real("Initial lake DIN concentration")
+		[ 1 1 ]
+
+		par_real("Initial lake TDP concentration")
+		[ 0.01 0.01 ]
 
 		par_real("Carbon Oxidation State autoch DOC")
 		[ 0.5 0.5 ]
-	}
 
-	par_group("Lake N") [ "Lake" ] {
-		par_real("Initial lake DIN concentration")
-		[ 1 1 ]
-	}
-
-	par_group("Lake P") [ "Lake" ] {
-		par_real("Initial lake TDP concentration")
-		[ 0.01 0.01 ]
+		par_real("Sediment settling velocity")
+		[ 100 100 ]
 	}
 
 	par_group("Phytoplankton") [ "Lake" ] {
@@ -462,6 +458,13 @@ module("EasyChem", version(0, 0, 1)) {
 
 		par_real("P/C ratio in Phytoplankton")
 		[ 0.009434 0.009434 ]
+	}
+}
+
+module("Simple River O₂", version(0, 1, 0)) {
+	par_group("River oxygen") {
+		par_real("Carbon Oxidation State alloch DOC")
+		[ -0.5 ]
 	}
 }
 

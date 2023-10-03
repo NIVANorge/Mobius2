@@ -2,9 +2,8 @@ model("SimplyP") {
 
 	extend("simplysed_model.txt")
 	
-	tdp   : quantity("Total dissolved phosphorous")
+	phos  : quantity("Phosphorous")
 	plab  : quantity("Labile phosphorous")
-	pp    : quantity("Particulate phosphorous")
 	
-	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, tdp, plab, pp, flow, e_fact, a_catch))
+	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, phos, plab, sed, flow, e_fact, a_catch))
 }

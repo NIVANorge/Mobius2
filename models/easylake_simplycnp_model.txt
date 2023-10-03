@@ -13,89 +13,30 @@ model("EasyLake-SimplyCNP") {
 	#TODO: Maybe also organic N, P later, and particles etc.
 	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 
-		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, tdp, temp, sw, wind, loc(A_surf), loc(A_surf))
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, sed, temp, sw, wind, loc(A_surf), loc(A_surf))
 	)
 	
-	/*
-	module("EasyLake-CNP", version(0, 0, 1)) {
+	module("Simple River O₂", version(0, 1, 0)) {
+		"The purpose of this module is only to provide oxygen inputs to EasyChem."
 		
-		load("stdlib/basic_math.txt", library("Response"))
+		#TODO: Not sure if we should do anything else for this module. Could also have mass balance and instead set concs in flow from land.
 		
-		par_group("Lake C", epi) {
-			init_c : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
-			#TODO: Maybe calibrate photomin differently than using the oc_doc as this should be fairly constant.
-			oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
+		load("stdlib/seawater.txt", library("Seawater"))
+		
+		par_group("River oxygen") {
+			COS_alloch : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
 		}
 		
-		var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
-		var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
+		#TODO: Should be in library (see easychem comment)
+		o2_mol_mass  : constant("O₂ molar mass",    [g, m mol-1], 0.031998)
 		
-		var(epi.attn, []) {
-			coeff := 5[m-1],#0.2[m-1],   # TODO: Maybe parametrize, and add effect from DOC,SS
-			1 - exp(-coeff*epi.z_e)
+		
+		var(river.water.o2, [k g], [m g, l-1], "River oxygen") @override_conc {
+			o2_saturation(temp, 0) * o2_mol_mass ->>
 		}
 		
-		var(hyp.sw, [W, m-2]) {
-			epi.sw * (1 - epi.attn)
+		var(river.water.oc.o2, [k g], [], "River DOC oxidation state") @override_conc {
+			(4+COS_alloch)/4
 		}
-		
-		photodeg : function(sw, oc_doc) {
-			oc_doc * qy_doc * (f_par / e_par) * sw
-		}
-		
-		qy_doc : constant("DOC quantum yield",               [m g, mol-1], 0.1)
-		f_par  : constant("Fraction of PAR in SW radiation", [],           0.45)
-		e_par  : constant("Average energy of PAR photons",   [J, mol-1],  240800.0)
-		
-		flux(epi.water.oc, out, [k g, day-1], "Photo-mineralization (epilimnion)") {
-			photodeg(sw*attn, oc_doc) * oc ->>
-		}
-		
-		flux(hyp.water.oc, out, [k g, day-1], "Photo-mineralization (hypolimnion)") {
-			# Just assume all remaining shortwave is attenuated in the hypolimnion
-			photodeg(sw, oc_doc) * oc ->>
-		}
-		
-		# TODO: Some other sinks of DOC (?)
-
-		par_group("Lake N", epi) {
-			init_din     : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
-			lake_din_ret : par_real("Lake DIN retention at 20°C", [day-1], 0, 0, 5)
-			lake_din_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
-			hyp_din_ret  : par_real("Hypolimnion N retention factor", [], 1, 0, 2)
-		}
-		
-		var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
-		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
-		
-		flux(epi.water.din, out, [k g, day-1], "Epilimnion N retention") {
-			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
-			din * ret
-		}
-		
-		flux(hyp.water.din, out, [k g, day-1], "Hypolimnion N retention") {
-			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
-			din * ret * hyp_din_ret
-		}
-
-		par_group("Lake P", epi) {
-			init_tdp : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
-			tdp_ret : par_real("Lake TDP retention", [day-1], 0, 0, 5)
-			hyp_tdp_ret : par_real("Hyplimnion TDP retention factor", [], 0, 0, 1)
-		}
-		
-		var(epi.water.tdp, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
-		var(hyp.water.tdp, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
-		
-		flux(epi.water.tdp, out, [k g, day-1], "Epilimnion TDP retention") {
-			tdp * tdp_ret
-		}
-		
-		flux(hyp.water.tdp, out, [k g, day-1], "Hypolimnion TDP retention") {
-			tdp * tdp_ret * hyp_tdp_ret
-		}
-		
-		# TODO: SS, PP
 	}
-	*/
 }
