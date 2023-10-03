@@ -6,6 +6,8 @@
 			conc sorted after other properties.
 			
 			If we have   water.sed.phos,  one should be able to view the conc of phos in water, not just in sed.
+				Finish this.
+				Allow accessing conc(water.sed.phos, water) in code? Probably unnecessary.
 	
 		Why do file saving errors crash the program instead of getting caught now?
 		

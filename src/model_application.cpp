@@ -1326,8 +1326,11 @@ Model_Application::serialize(Var_Id id) {
 		} else if(var->type == State_Var::Type::dissolved_conc) {
 			auto var2 = as<State_Var::Type::dissolved_conc>(var);
 			auto var_mass = vars[var2->conc_of];
+			auto var_medium = vars[var2->conc_in];
 			ss << "dissolved_conc@";
 			serialize_loc(model, ss, var_mass->loc1);
+			ss << '@';
+			serialize_loc(model, ss, var_medium->loc1);
 		} else if(var->type == State_Var::Type::dissolved_flux) {
 			auto var2 = as<State_Var::Type::dissolved_flux>(var);
 			auto var_conc = as<State_Var::Type::dissolved_conc>(vars[var2->conc]);

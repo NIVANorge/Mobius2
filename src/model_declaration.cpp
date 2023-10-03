@@ -908,15 +908,9 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 	
 	var->unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 1);
 	
-	if(which == 1 || which == 3) {
-		if(!var->var_location.is_dissolved()) {
-			var->source_loc.print_error_header();
-			fatal_error("Concentration units should only be provided for dissolved quantities.");
-		}
+	if(which == 1 || which == 3)
 		var->conc_unit = resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
-	} else
-		var->conc_unit = invalid_entity_id;
-	
+
 	if(decl->body)
 		var->code = static_cast<Function_Body_AST *>(decl->body)->block;
 	
@@ -942,16 +936,30 @@ process_declaration<Reg_Type::var>(Mobius_Model *model, Decl_Scope *scope, Decl_
 			}
 			var->override_code = static_cast<Function_Body_AST *>(note->body)->block;
 			var->override_is_conc = (str == "override_conc");
+			
 		} else if(str == "no_store") {
 			
 			match_declaration_base(note, {{}}, 0);
 			
 			var->store_series = false;
 			
+		} else if(str == "show_conc") {
+			
+			match_declaration_base(note, {{Arg_Pattern::loc, Decl_Type::unit}}, 0);
+			
+			process_location_argument(model, scope, note->args[0], &var->additional_conc_medium);
+			var->additional_conc_unit = resolve_argument<Reg_Type::unit>(model, scope, note, 1);
+			
 		} else {
 			note->decl.print_error_header();
 			fatal_error("Expected either no notes, 'initial' or 'override_conc'.");
 		}
+	}
+	
+	if((is_valid(var->conc_unit) || var->initial_is_conc || var->override_is_conc || is_located(var->additional_conc_medium)) && !var->var_location.is_dissolved()) {
+		var->source_loc.print_error_header();
+		fatal_error("Concentration variables can only be created for dissolved quantities.");
+		// TODO: This doesn't check that it is a quantity, not a property, which we can't yet. Do we actually do that check in model composition?
 	}
 	
 	return id;

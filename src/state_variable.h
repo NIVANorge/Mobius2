@@ -111,6 +111,7 @@ State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 	Var_Id         conc_of            = invalid_var;
+	Var_Id         conc_in            = invalid_var;
 	double         unit_conversion    = 1.0;   // NOTE: The unit conversion to convert the value from (unit_of_mass / unit_of_dissolution_volume) to conc_unit, where conc_unit is the declared desired unit of the concentration.
 	
 	State_Var_Sub() {}
@@ -118,7 +119,7 @@ State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	Var_Id         conc            = invalid_var;          // The concentration variable for the source of whatever this flux transports.
+	Var_Id         conc            = invalid_var;         // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium  = invalid_var;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
 	std::set<Entity_Id> maximal_allowed_index_sets;

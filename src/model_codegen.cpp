@@ -65,7 +65,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
 			auto conc = as<State_Var::Type::dissolved_conc>(app->vars[conc_id]);
 			auto &conc_instr = instructions[conc_id.id];
-			auto dissolved_in = app->vars.id_of(remove_dissolved(var->loc1));
+			auto dissolved_in = conc->conc_in;//app->vars.id_of(remove_dissolved(var->loc1));
 				
 			if(var2->initial_is_conc) {
 				// conc is given. compute mass
@@ -106,7 +106,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto conc = as<State_Var::Type::dissolved_conc>(var);
 				auto mass_id = conc->conc_of;
 				auto mass_var = as<State_Var::Type::declared>(app->vars[mass_id]);
-				auto dissolved_in = app->vars.id_of(remove_dissolved(mass_var->loc1));
+				auto dissolved_in = conc->conc_in; //app->vars.id_of(remove_dissolved(mass_var->loc1));
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
 					instr.code = copy(mass_var->override_tree.get());

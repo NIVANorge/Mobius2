@@ -184,20 +184,22 @@ Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
 
 template<> struct
 Entity_Registration<Reg_Type::var> : Entity_Registration_Base {
-	Var_Location   var_location;
-	Entity_Id      unit;
-	Entity_Id      conc_unit;
+	Var_Location   var_location          = invalid_var_location;
+	Entity_Id      unit                  = invalid_entity_id;
+	Entity_Id      conc_unit             = invalid_entity_id;
 	
-	std::string     var_name;
+	Var_Location   additional_conc_medium = invalid_var_location;
+	Entity_Id      additional_conc_unit   = invalid_entity_id;
+	
+	std::string    var_name;
 	
 	bool           store_series = true;
 	
-	Math_Block_AST *code;
+	Math_Block_AST *code = nullptr;
 	bool initial_is_conc;
-	Math_Block_AST *initial_code;
-	bool override_is_conc;
-	Math_Block_AST *override_code;
-	//Entity_Id       code_scope;
+	Math_Block_AST *initial_code = nullptr;
+	bool override_is_conc = false;
+	Math_Block_AST *override_code = nullptr;
 };
 
 template<> struct

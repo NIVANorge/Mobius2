@@ -600,6 +600,37 @@ check_variable_declaration_match(Mobius_Model *model, Entity_Id id1, Entity_Id i
 	}
 }
 
+Var_Id
+create_conc_var(Model_Application *app, Var_Id var_id, Var_Id dissolved_in_id, Entity_Id conc_unit, const std::string &var_name, char *varname) {
+	
+	auto model = app->model;
+	
+	auto dissolved_in = app->vars[dissolved_in_id];
+	
+	sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
+	Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, invalid_entity_id, false, varname);
+	auto conc_var = as<State_Var::Type::dissolved_conc>(app->vars[gen_conc_id]);
+	conc_var->conc_of = var_id;
+	conc_var->conc_in = dissolved_in_id;
+	auto var_d = as<State_Var::Type::declared>(app->vars[var_id]);
+	
+	auto computed_conc_unit = divide(var_d->unit, dissolved_in->unit);
+	
+	if(is_valid(conc_unit)) {
+		conc_var->unit = model->units[conc_unit]->data;
+		bool success = match(&computed_conc_unit.standard_form, &conc_var->unit.standard_form, &conc_var->unit_conversion);
+		if(!success) {
+			auto var_decl = model->vars[var_d->decl_id];
+			var_decl->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("We can't find a way to convert between the declared concentration unit ", conc_var->unit.to_utf8(), " and the computed concentration unit ", computed_conc_unit.to_utf8(), ".");
+		}
+	} else {
+		conc_var->unit = computed_conc_unit;
+		conc_var->unit_conversion = 1.0;
+	}
+	return gen_conc_id;
+}
+
 void
 prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
@@ -840,33 +871,17 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		Var_Location source  = var->loc1;
 		std::string var_name = var->name;
 		auto dissolved_in_id = app->vars.id_of(above_loc);
-		auto dissolved_in = app->vars[dissolved_in_id];
 		
-		sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
-		Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, invalid_entity_id, false, varname);
-		auto conc_var = as<State_Var::Type::dissolved_conc>(app->vars[gen_conc_id]);
-		conc_var->conc_of = var_id;
 		auto var_d = as<State_Var::Type::declared>(app->vars[var_id]);
+		auto var_decl = model->vars[var_d->decl_id];
+		auto decl_conc_unit = var_decl->conc_unit;
+		
+		auto gen_conc_id = create_conc_var(app, var_id, dissolved_in_id, decl_conc_unit, var_name, &varname[0]);
 		var_d->conc = gen_conc_id;
-		{
-			auto computed_conc_unit = divide(var_d->unit, dissolved_in->unit);
-			auto var_decl = model->vars[var_d->decl_id];
-			if(is_valid(var_decl->conc_unit)) {
-				conc_var->unit = model->units[var_decl->conc_unit]->data;
-				bool success = match(&computed_conc_unit.standard_form, &conc_var->unit.standard_form, &conc_var->unit_conversion);
-				if(!success) {
-					var_decl->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("We can't find a way to convert between the declared concentration unit ", conc_var->unit.to_utf8(), " and the computed concentration unit ", computed_conc_unit.to_utf8(), ".");
-				}
-			} else {
-				conc_var->unit = computed_conc_unit;
-				conc_var->unit_conversion = 1.0;
-			}
-		}
 		
 		for(auto flux_id : generate) {
 			std::string &flux_name = app->vars[flux_id]->name;
-			sprintf(varname, "dissolved_flux(%s, %s)", var_name.data(), flux_name.data());
+			sprintf(varname, "carried_flux(%s, %s)", var_name.data(), flux_name.data());
 			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, invalid_entity_id, false, varname);
 			auto gen_flux = as<State_Var::Type::dissolved_flux>(app->vars[gen_flux_id]);
 			auto flux = app->vars[flux_id];
@@ -889,6 +904,33 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->loc2.r2 = flux->loc2.r2;
 			
 			get_maximal_index_sets(app, gen_flux->maximal_allowed_index_sets, gen_flux->loc1, gen_flux->loc2);
+		}
+	
+		// Check if we shoudl generate an additional concentration variable for this in a 'higher' medium.
+		
+		if(is_located(var_decl->additional_conc_medium)) {
+			
+			bool found = false;
+			Var_Location loc = var_decl->var_location;
+			// TODO: make a 'can_be_dissolved_in' function?
+			while(loc.is_dissolved()) {
+				loc = remove_dissolved(loc);
+				if(loc == var_decl->additional_conc_medium) {
+					found = true;
+					break;
+				}
+			}
+			if(!found) {
+				var_decl->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("The 'show_conc' note refers to a variable that this variable is not dissolved in.");
+			}
+			
+			auto dissolved_in_id = app->vars.id_of(var_decl->additional_conc_medium);
+			
+			create_conc_var(app, var_id, dissolved_in_id, var_decl->additional_conc_unit, var_name, &varname[0]);
+			
+			// TODO: Not sure if we should do this:
+			app->vars[gen_conc_id]->store_series = false;
 		}
 	}
 }

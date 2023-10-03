@@ -108,7 +108,8 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	
 	flux(out, river.water.phos, [k g, day-1], "River effluent TDP") { eff_tdp }
 	
-	var(river.water.sed.phos, [k g], [], "River PP")   #NOTE: This concentration unit is for the conc of P in the sediment particle, not for the conc in water.
+	var(river.water.sed.phos, [k g], "River PP")
+	@show_conc(river.water, [m g, l-1])      # The default concentration displayed is the conc of phos in sed. We want conc of phos in water.
 	
 	pp_fact : property("PP mobilization factor")
 
@@ -123,7 +124,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	tp : property("Total phosphorous")
 	
 	var(river.water.tp, [m g, l-1]) {
-		conc(phos) + conc(sed)*conc(sed.phos)
+		conc(phos) + conc(sed)*conc(sed.phos)   # NOTE: conc(sed.phos) still refers to the default concentration of phos in sed, not in water, hence we must multiply.
 	}
 }
 

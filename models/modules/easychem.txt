@@ -63,7 +63,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		#COS_alloch   : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)  # Only appears to be used in easyreservoir inflow part?
 		COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
 		
-		sett_vel     : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100)
+		sett_vel     : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100, "This is the net settling velocity after taking into account upwards mixing inside each compartment")
 	}
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
@@ -198,8 +198,10 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
 	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")
-	var(epi.water.sed.phos, [k g], [], "Epilimnion PP")
-	var(hyp.water.sed.phos, [k g], [], "Hypolimnion PP")
+	var(epi.water.sed.phos, [k g], "Epilimnion PP")
+	@show_conc(epi.water, [m g, l-1])
+	var(hyp.water.sed.phos, [k g], "Hypolimnion PP")
+	@show_conc(hyp.water, [m g, l-1])
 	
 	flux(epi.water.sed, hyp.water.sed, [k g, day-1], "Epilimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
@@ -299,8 +301,10 @@ Simplified version of EasyChem where retention rates are given by empirical numb
 	# TODO: Maybe have this in a separate module since it is the same as in EasyChem
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
 	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")
-	var(epi.water.sed.phos, [k g], [], "Epilimnion PP")
-	var(hyp.water.sed.phos, [k g], [], "Hypolimnion PP")
+	var(epi.water.sed.phos, [k g], "Epilimnion PP")
+	@show_conc(epi.water, [m g, l-1])
+	var(hyp.water.sed.phos, [k g], "Hypolimnion PP")
+	@show_conc(hyp.water, [m g, l-1])
 	
 	flux(epi.water.sed, hyp.water.sed, [k g, day-1], "Epilimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
