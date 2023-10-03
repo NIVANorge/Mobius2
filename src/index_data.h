@@ -96,7 +96,7 @@ Index_Data {
 	void set_indexes(Id_Type index_set, const std::vector<Token> &names, Idx_T parent_idx = Idx_T::no_index());
 	void initialize_union(Id_Type index_set_id, Source_Location source_loc);
 	
-	void find_indexes(std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out);
+	void find_indexes(const std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out);
 	Idx_T find_index(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index());
 	
 	bool are_in_bounds(Index_Tuple<Id_Type> &indexes);
@@ -546,7 +546,7 @@ Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Idx_T ind
 
 template<typename Id_Type>
 void 
-Index_Data<Id_Type>::find_indexes(std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out) {
+Index_Data<Id_Type>::find_indexes(const std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out) {
 	
 	indexes_out.clear();
 	

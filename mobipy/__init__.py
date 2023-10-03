@@ -32,6 +32,9 @@ class Mobius_Series_Metadata(ctypes.Structure) :
 class Parameter_Value(ctypes.Union) :
 	_fields_ = [("val_real", ctypes.c_double), ("val_int", ctypes.c_int64)]
 
+class Mobius_Index_Value(ctypes.Structure) :
+	_fields_ = [("name", ctypes.c_char_p), ("value", ctypes.c_int64)]
+
 class Mobius_Entity_Metadata(ctypes.Structure) :
 	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", Parameter_Value), ("max", Parameter_Value)]
 
@@ -73,7 +76,7 @@ dll.mobius_get_var_id_from_list.restype = Var_Id
 dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Var_Id, ctypes.c_int16]
 dll.mobius_get_special_var.restype = Var_Id
 
-dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
+dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
 dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
 dll.mobius_get_series_metadata.restype = Mobius_Series_Metadata
@@ -86,14 +89,14 @@ dll.mobius_get_index_set_count.restype = ctypes.c_int64
 dll.mobius_get_value_type.argtypes = [ctypes.c_void_p, Entity_Id]
 dll.mobius_get_value_type.restype = ctypes.c_int64
 
-dll.mobius_set_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, Parameter_Value]
+dll.mobius_set_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, Parameter_Value]
 
-dll.mobius_get_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
+dll.mobius_get_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64]
 dll.mobius_get_parameter_numeric.restype  = Parameter_Value
 
-dll.mobius_set_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64, ctypes.c_char_p]
+dll.mobius_set_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.c_char_p]
 
-dll.mobius_get_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(ctypes.c_char_p), ctypes.c_int64]
+dll.mobius_get_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64]
 dll.mobius_get_parameter_string.restype  = ctypes.c_char_p
 
 dll.mobius_get_entity_metadata.argtypes = [ctypes.c_void_p, Entity_Id]
@@ -109,21 +112,26 @@ PARAMETER_TYPE = 3
 def _c_str(string) :
 	return string.encode('utf-8')
 
+def _pack_index(index) :
+	if isinstance(index, str) :
+		return Mobius_Index_Value(_c_str(index), -1)
+	elif isinstance(index, int) :    #TODO: This may not be sufficient, there are several integer types-
+		return Mobius_Index_Value(_c_str(''), index)
+	else :
+		raise ValueError('Unexpected index type')
+	
 def _pack_indexes(indexes) :
-	#TODO: Allow integer indexes somehow
-	#print("Type is %s" % type(indexes))
 	
 	if isinstance(indexes, list) or isinstance(indexes, tuple):
-		cindexes = [index.encode('utf-8') for index in indexes]
-	elif isinstance(indexes, str) :
-		cindexes = [indexes.encode('utf-8')]
+		cindexes = [_pack_index(index) for index in indexes]
 	else :
-		raise ValueError('Expected a single string or list of strings for the index(es)')
-	return (ctypes.c_char_p * len(cindexes))(*cindexes)
+		cindexes = [_pack_index(indexes)]    # Just a single index was passed instead of a list/tuple
+	
+	return (Mobius_Index_Value * len(cindexes))(*cindexes)
 	
 def _len(indexes) :
-	if isinstance(indexes, str) : return 1
-	return len(indexes)
+	if isinstance(indexes, list) or isinstance(indexes, tuple) : return len(indexes)
+	return 1
 	
 def _check_for_errors() :
 	buflen = 1024

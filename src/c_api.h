@@ -55,9 +55,15 @@ mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, S
 DLLEXPORT s64
 mobius_get_index_set_count(Model_Application *app, Entity_Id id);
 
+struct
+Mobius_Index_Value {
+	char *name;
+	s64  value;
+};
+
 
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, char **index_names, s64 indexes_count, double *series_out, s64 time_steps_out);
+mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps_out);
 
 struct
 Mobius_Series_Metadata {
@@ -73,16 +79,16 @@ DLLEXPORT s64
 mobius_get_value_type(Model_Application *app, Entity_Id id);
 
 DLLEXPORT void
-mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, Parameter_Value value);
+mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value value);
 
 DLLEXPORT Parameter_Value
-mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
+mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
 
 DLLEXPORT void
-mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count, char *value);
+mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, char *value);
 
 DLLEXPORT char *
-mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, char **index_names, s64 indexes_count);
+mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
 
 struct
 Mobius_Entity_Metadata {
