@@ -109,30 +109,6 @@ COMPONENT_TYPE = 2
 PARAMETER_TYPE = 3
 
 
-def _c_str(string) :
-	return string.encode('utf-8')
-
-def _pack_index(index) :
-	if isinstance(index, str) :
-		return Mobius_Index_Value(_c_str(index), -1)
-	elif isinstance(index, int) :    #TODO: This may not be sufficient, there are several integer types-
-		return Mobius_Index_Value(_c_str(''), index)
-	else :
-		raise ValueError('Unexpected index type')
-	
-def _pack_indexes(indexes) :
-	
-	if isinstance(indexes, list) or isinstance(indexes, tuple):
-		cindexes = [_pack_index(index) for index in indexes]
-	else :
-		cindexes = [_pack_index(indexes)]    # Just a single index was passed instead of a list/tuple
-	
-	return (Mobius_Index_Value * len(cindexes))(*cindexes)
-	
-def _len(indexes) :
-	if isinstance(indexes, list) or isinstance(indexes, tuple) : return len(indexes)
-	return 1
-	
 def _check_for_errors() :
 	buflen = 1024
 	msgbuf = ctypes.create_string_buffer(buflen)
@@ -157,6 +133,37 @@ def _check_for_errors() :
 		errlen = dll.mobius_encountered_error(msgbuf, buflen)
 	
 	if error : raise RuntimeError(errmsg)
+
+def _c_str(string) :
+	return string.encode('utf-8')
+
+def _pack_index(index) :
+	if isinstance(index, str) :
+		return Mobius_Index_Value(_c_str(index), -1)
+	elif isinstance(index, int) :    #TODO: This may not be sufficient, there are several integer types-
+		return Mobius_Index_Value(_c_str(''), index)
+	else :
+		raise ValueError('Unexpected index type')
+	
+def _pack_indexes(indexes) :
+	
+	if isinstance(indexes, list) or isinstance(indexes, tuple):
+		cindexes = [_pack_index(index) for index in indexes]
+	else :
+		cindexes = [_pack_index(indexes)]    # Just a single index was passed instead of a list/tuple
+	
+	return (Mobius_Index_Value * len(cindexes))(*cindexes)
+	
+def _len(indexes) :
+	if isinstance(indexes, list) or isinstance(indexes, tuple) : return len(indexes)
+	return 1
+	
+def _decode_date(val) :
+	#TODO: Not sure what types to support here.
+	if isinstance(val, str) : return val
+	elif isinstance(val, pd.Timestamp) :
+		return val.strftime('%Y-%m-%d %H:%M:%S')
+	raise ValueError('Unsupported date format')
 
 def _get_par_value(app_ptr, entity_id, indexes) :
 	
@@ -190,7 +197,10 @@ def _set_par_value(app_ptr, entity_id, indexes, value) :
 		dll.mobius_set_parameter_numeric(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), val)
 	elif type <= 4 :
 		# TODO: If argument is of datetime type, decode it first
-		str_val = _c_str(value)
+		if type == 4 :
+			str_val = _c_str(_decode_date(value))
+		else :
+			str_val = _c_str(value)
 		dll.mobius_set_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes), str_val)
 	else :
 		raise ValueError("Unimplemented parameter type")

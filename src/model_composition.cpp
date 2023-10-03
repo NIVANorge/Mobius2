@@ -1489,7 +1489,7 @@ compose_and_resolve(Model_Application *app) {
 			if(!pair.second) continue;
 			auto var = app->vars[pair.first];
 			var->set_flag(State_Var::invalid);
-			log_print("Invalidating \"", var->name, "\" due to both source or target being 'out' or overridden.\n");
+			log_print("Invalidating \"", var->name, "\" due to both source and target being 'out' or overridden.\n");
 		}
 	}
 	
