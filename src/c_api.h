@@ -14,6 +14,45 @@
 
 struct Model_Application;
 
+// Hmm, do we really need both Mobius_Index_Value and Mobius_Index_Slice?
+struct
+Mobius_Index_Value {
+	char *name;
+	s64  value;
+};
+
+struct
+Mobius_Index_Slice {
+	char *name;
+	bool is_slice;
+	s64 first;
+	s64 last;
+	// Maybe not support stride to begin with (although that would be easy I guess).
+	//  Have to support all python versions of this, where some arguments can be negative or None etc. How to pack that in C++ ints?
+};
+
+struct
+Mobius_Index_Range {   // This represents a resolved slice where e.g. -1 is replaced with count-1 and so on.
+	s64 first;
+	s64 last;
+};
+
+struct
+Mobius_Series_Metadata {
+	char *name;
+	char *unit;
+};
+
+struct
+Mobius_Entity_Metadata {
+	char *name;
+	char *unit;
+	char *description;
+	Parameter_Value min;
+	Parameter_Value max;
+};
+
+
 DLLEXPORT s64
 mobius_encountered_error(char *msg_out, s64 buf_len);
 
@@ -51,25 +90,17 @@ mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count
 DLLEXPORT Var_Id
 mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, State_Var::Type type);
 
-
 DLLEXPORT s64
 mobius_get_index_set_count(Model_Application *app, Entity_Id id);
 
-struct
-Mobius_Index_Value {
-	char *name;
-	s64  value;
-};
-
+DLLEXPORT void
+mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps);
 
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps_out);
+mobius_resolve_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Slice *indexes, s64 indexes_count, Mobius_Index_Range *ranges_out);
 
-struct
-Mobius_Series_Metadata {
-	char *name;
-	char *unit;
-};
+DLLEXPORT void
+mobius_get_series_data_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Range *indexes, s64 indexes_count, double *data_out, s64 time_steps);
 
 DLLEXPORT Mobius_Series_Metadata
 mobius_get_series_metadata(Model_Application *app, Var_Id var_id);
@@ -89,15 +120,6 @@ mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Ind
 
 DLLEXPORT char *
 mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
-
-struct
-Mobius_Entity_Metadata {
-	char *name;
-	char *unit;
-	char *description;
-	Parameter_Value min;
-	Parameter_Value max;
-};
 
 DLLEXPORT Mobius_Entity_Metadata
 mobius_get_entity_metadata(Model_Application *app, Entity_Id id);

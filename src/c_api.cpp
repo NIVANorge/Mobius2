@@ -13,6 +13,52 @@
 std::stringstream global_error_stream;
 std::stringstream global_log_stream;
 
+void
+check_index_set_amount(Model_Application *app, const std::vector<Entity_Id> &index_sets, s64 indexes_count) {
+	if(index_sets.size() == indexes_count) return;
+	
+	begin_error(Mobius_Error::api_usage);
+	error_print("The object requires ", index_sets.size(), " index", index_sets.size()>1?"es":"", ", got ", indexes_count, ". The following index sets need to be addressed (in that order):\n");
+	for(auto index_set : index_sets)
+		error_print("\"", app->model->index_sets[index_set]->name, "\" ");
+	mobius_error_exit();
+}
+
+template<typename Handle_T>
+s64
+get_offset_by_index_values(Model_Application *app, Storage_Structure<Handle_T> *storage, Handle_T handle, Mobius_Index_Value *index_values, s64 indexes_count) {
+	
+	const auto &index_sets = storage->get_index_sets(handle);
+	
+	check_index_set_amount(app, index_sets, indexes_count);
+	
+	//TODO: It is a bit annoying to use the Token api for this, moreover errors will not be reported correctly
+	
+	std::vector<Token> idx_names(indexes_count);
+	
+	for(s64 idxidx = 0; idxidx < indexes_count; ++idxidx) {
+		Token &token = idx_names[idxidx];
+		auto &idx_val = index_values[idxidx];
+		if(strlen(idx_val.name) > 0) {
+			token.type = Token_Type::quoted_string;
+			token.string_value = idx_val.name;
+		} else {
+			token.type = Token_Type::integer;
+			token.val_int = idx_val.value;
+		}
+	}
+	
+	Indexes indexes;
+	app->index_data.find_indexes(index_sets, idx_names, indexes);
+	
+	// TODO: This is maybe unnecessary if it is also done in get_offset.
+	if(!app->index_data.are_in_bounds(indexes)) {
+		fatal_error(Mobius_Error::api_usage, "One or more of the indexes are out of bounds.");
+	}
+	
+	return storage->get_offset(handle, indexes);
+}
+
 DLLEXPORT s64
 mobius_encountered_error(char *msg_out, s64 buf_len) {
 	global_error_stream.getline(msg_out, buf_len, 0);
@@ -73,46 +119,6 @@ DLLEXPORT char *
 mobius_get_start_date(Model_Application *app, Var_Id::Type type) {
 	// NOTE: The data for this one gets overwritten when you call it again. Not thread safe
 	return app->data.get_storage(type).start_date.to_string().data;
-}
-
-
-template<typename Handle_T> s64
-get_offset_by_index_values(Model_Application *app, Storage_Structure<Handle_T> *storage, Handle_T handle, Mobius_Index_Value *index_values, s64 indexes_count) {
-	
-	const std::vector<Entity_Id> &index_sets = storage->get_index_sets(handle);
-	if(index_sets.size() != indexes_count) {
-		begin_error(Mobius_Error::api_usage);
-		error_print("The object requires ", index_sets.size(), " index", index_sets.size()>1?"es":"", ", got ", indexes_count, ". The following index sets need to be addressed (in that order):\n");
-		for(auto index_set : index_sets)
-			error_print("\"", app->model->index_sets[index_set]->name, "\" ");
-		mobius_error_exit();
-	}
-	
-	//TODO: It is a bit annoying to use the Token api for this, moreover errors will not be reported correctly
-	
-	std::vector<Token> idx_names(indexes_count);
-	
-	for(s64 idxidx = 0; idxidx < indexes_count; ++idxidx) {
-		Token &token = idx_names[idxidx];
-		auto &idx_val = index_values[idxidx];
-		if(idx_val.value >= 0) {
-			token.type = Token_Type::integer;
-			token.val_int = idx_val.value;
-		} else {
-			token.type = Token_Type::quoted_string;
-			token.string_value = idx_val.name;
-		}
-	}
-	
-	Indexes indexes;
-	app->index_data.find_indexes(index_sets, idx_names, indexes);
-	
-	// TODO: This is maybe unnecessary if it is also done in get_offset.
-	if(!app->index_data.are_in_bounds(indexes)) {
-		fatal_error(Mobius_Error::api_usage, "One or more of the indexes are out of bounds.");
-	}
-	
-	return storage->get_offset(handle, indexes);
 }
 
 DLLEXPORT Entity_Id
@@ -191,17 +197,124 @@ mobius_get_index_set_count(Model_Application *app, Entity_Id id) {
 }
 
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps_out) {
-	if(!time_steps_out) return;
+mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps) {
+	if(!time_steps) return;
 	
 	try {
 		auto &storage = app->data.get_storage(var_id.type);
 		s64 offset = get_offset_by_index_values(app, storage.structure, var_id, indexes, indexes_count);
 
-		for(s64 step = 0; step < time_steps_out; ++step)
+		for(s64 step = 0; step < time_steps; ++step)
 			series_out[step] = *storage.get_value(offset, step);
 		
 	} catch(int) {}
+}
+
+inline bool
+is_none_dim(s64 slice_dim) {
+	return slice_dim == std::numeric_limits<s64>::min();
+}
+
+DLLEXPORT void
+mobius_resolve_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Slice *indexes_in, s64 indexes_count, Mobius_Index_Range *ranges_out) {
+	
+	// TODO: Maybe generalize so that it can also be used for parameters for instance.
+	
+	Indexes indexes;
+	auto &storage = app->data.get_storage(var_id.type);
+	const auto &index_sets = storage.structure->get_index_sets(var_id);
+	
+	check_index_set_amount(app, index_sets, indexes_count);
+	
+	// TODO: We should maybe have a guard against slicing something that is sub-indexed to something else that was sliced.
+	//  Although we could just deal with that when extracting by setting non-existent parts of the data to NaN.
+	
+	for(int idxidx = 0; idxidx < indexes_count; ++idxidx) {
+		
+		auto index_set = index_sets[idxidx];
+		auto &slice = indexes_in[idxidx];
+		
+		s64 count = app->index_data.get_index_count(indexes, index_set).index;
+		s64 first = 0;
+		s64 last  = count;
+		
+		bool was_string = false;
+		if(strlen(slice.name) > 0) {
+			Token idx_name;
+			idx_name.type = Token_Type::quoted_string;
+			idx_name.string_value = slice.name;
+			app->index_data.find_index(index_set, &idx_name, indexes);
+			first = indexes.indexes.back().index;
+			last = first+1;
+			was_string = true;
+		} else if(slice.is_slice) {
+			if(!is_none_dim(slice.first)) {
+				if(slice.first >= 0)
+					first = slice.first;
+				else
+					first = count + slice.first;
+			}
+			if(!is_none_dim(slice.last)) {
+				if(slice.last >= 0)
+					last = slice.last;
+				else
+					last = count + slice.last;
+			}
+		} else {
+			first = slice.first;
+			last  = first + 1;
+		}
+		if(!was_string) {   // Hmm, this is maybe only necessary if !is_slice, because otherwise we should not allow sub-slicing it (?)
+			Token idx_name;
+			idx_name.type = Token_Type::integer;
+			idx_name.val_int = first;
+			app->index_data.find_index(index_set, &idx_name, indexes);
+		}
+		
+		if(last <= first)
+			fatal_error(Mobius_Error::api_usage, "The slice in position ", idxidx, " has an end that is smaller than or equal to the begin.");
+		if(first >= count || last > count)
+			fatal_error(Mobius_Error::api_usage, "The index or slice in position ", idxidx, " is out of bounds.");
+		
+		ranges_out[idxidx] = Mobius_Index_Range { first, last };
+	}
+}
+
+DLLEXPORT void
+mobius_get_series_data_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Range *indexes_in, s64 indexes_count, double *series_out, s64 time_steps) {
+	
+	if(!time_steps) return;
+	
+	Indexes indexes;
+	auto &storage = app->data.get_storage(var_id.type);
+	const auto &index_sets = storage.structure->get_index_sets(var_id);
+
+	s64 first = 0;
+	s64 last = 0;
+	s64 dim = 1;
+	int dim_pos = -1;
+	for(int idxidx = 0; idxidx < indexes_count; ++idxidx) {
+		auto &idx = indexes_in[idxidx];
+		s64 dim0 = idx.last - idx.first;
+		if(dim > 1 && dim0 > 1) // TODO: make it work for more than one (have to do recursive)
+			fatal_error(Mobius_Error::api_usage, "For now we only support slicing one index set at a time");
+		if(dim0 > 1) {
+			dim = dim0;
+			dim_pos = idxidx;
+			first = idx.first;
+			last = idx.last;
+		}
+		indexes.add_index(index_sets[idxidx], idx.first);
+	}
+	
+	for(int idx = first; idx < last; ++idx) {
+		indexes.indexes[dim_pos].index = idx;
+		s64 offset = storage.structure->get_offset(var_id, indexes);
+		
+		for(s64 step = 0; step < time_steps; ++step)
+			//series_out[idx*time_steps + step] = *storage.get_value(offset, step);
+			series_out[step*dim + idx] = *storage.get_value(offset, step);
+	}
 }
 
 // TODO: We could just have a get_decl_type eventually

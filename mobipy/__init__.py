@@ -4,10 +4,6 @@ import numpy as np
 import pandas as pd
 import os
 
-#NOTE: Just sketching out for now. It is not implemented fully yet.
-
-dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_api.dll"))
-
 # Volatile! These structure must match the corresponding in the c++ code
 # TODO: we should have a way to auto-generate some of this.
 class Entity_Id(ctypes.Structure) :
@@ -34,9 +30,19 @@ class Parameter_Value(ctypes.Union) :
 
 class Mobius_Index_Value(ctypes.Structure) :
 	_fields_ = [("name", ctypes.c_char_p), ("value", ctypes.c_int64)]
+	
+class Mobius_Index_Slice(ctypes.Structure) :
+	_fields_ = [("name", ctypes.c_char_p), ("is_slice", ctypes.c_bool), ("first", ctypes.c_int64), ("last", ctypes.c_int64)]
+	
+class Mobius_Index_Range(ctypes.Structure) :
+	_fields_ = [("first", ctypes.c_int64), ("last", ctypes.c_int64)]
 
 class Mobius_Entity_Metadata(ctypes.Structure) :
 	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", Parameter_Value), ("max", Parameter_Value)]
+
+
+dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_api.dll"))
+#dll = ctypes.CDLL("c_api.dll")
 
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_error.restype = ctypes.c_int64
@@ -77,6 +83,10 @@ dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Var_Id, ctypes.c
 dll.mobius_get_special_var.restype = Var_Id
 
 dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
+
+dll.mobius_resolve_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Slice), ctypes.c_int64, ctypes.POINTER(Mobius_Index_Range)]
+
+dll.mobius_get_series_data_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Range), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
 dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
 dll.mobius_get_series_metadata.restype = Mobius_Series_Metadata
@@ -153,7 +163,42 @@ def _pack_indexes(indexes) :
 		cindexes = [_pack_index(indexes)]    # Just a single index was passed instead of a list/tuple
 	
 	return (Mobius_Index_Value * len(cindexes))(*cindexes)
+
+def _has_slice(indexes) :
+	if isinstance(indexes, list) or isinstance(indexes, tuple) :
+		return any(isinstance(index, slice) for index in indexes)
+	return isinstance(indexes, slice)
 	
+def _pack_slice(index) :
+	if isinstance(index, str) :
+		return Mobius_Index_Slice(_c_str(index), False, 0, 0)
+	elif isinstance(index, int) :
+		return Mobius_Index_Slice(_c_str(''), False, index, 0)
+	elif isinstance(index, slice) :
+		if index.start is None : 
+			first = ctypes.c_int64(-9223372036854775808)
+		else :
+			first = ctypes.c_int64(index.start)
+		if index.stop is None :
+			last  = ctypes.c_int64(-9223372036854775808)
+		else :
+			last  = ctypes.c_int64(index.stop)
+		if not index.step is None :
+			raise ValueError('Strides in slices are not yet supported')
+		return Mobius_Index_Slice(_c_str(''), True, first, last)
+	else :
+		raise ValueError('Unexpected index type')
+
+def _pack_slices(indexes) :
+
+	if isinstance(indexes, list) or isinstance(indexes, tuple):
+		cindexes = [_pack_slice(index) for index in indexes]
+	else :
+		cindexes = [_pack_slice(indexes)]    # Just a single index was passed instead of a list/tuple
+	
+	return (Mobius_Index_Slice * len(cindexes))(*cindexes)
+	
+
 def _len(indexes) :
 	if isinstance(indexes, list) or isinstance(indexes, tuple) : return len(indexes)
 	return 1
@@ -367,10 +412,6 @@ class State_Var :
 		
 	def __getitem__(self, indexes) :
 		time_steps = dll.mobius_get_steps(self.app_ptr, self.var_id.type)
-		series = (ctypes.c_double * time_steps)()
-		
-		dll.mobius_get_series_data(self.app_ptr, self.var_id, _pack_indexes(indexes), _len(indexes), series, time_steps)
-		_check_for_errors()
 		
 		start_date = dll.mobius_get_start_date(self.app_ptr, self.var_id.type).decode('utf-8')
 		start_date = pd.to_datetime(start_date)
@@ -381,9 +422,43 @@ class State_Var :
 		freq='%d%s' % (step_size.magnitude, step_type)
 		
 		dates = pd.date_range(start=start_date, periods=time_steps, freq=freq)
-		# We have to do this, otherwise some operations on it crashes:
-		dates = pd.Series(data = dates, name = 'Date')
-		return pd.Series(data=np.array(series, copy=False), index=dates, name=self.name())
+		
+		if _has_slice(indexes) :
+			ilen = _len(indexes)
+			ranges = (Mobius_Index_Range * ilen)()
+			dll.mobius_resolve_slice(self.app_ptr, self.var_id, _pack_slices(indexes), ilen, ranges)
+			_check_for_errors()
+			
+			dim = time_steps
+			for rn in ranges :
+				dim *= (rn.last - rn.first)
+		
+			series = (ctypes.c_double * dim)()
+			dll.mobius_get_series_data_slice(self.app_ptr, self.var_id, ranges, ilen, series, time_steps)
+			_check_for_errors()
+			
+			data = np.array(series, copy=False)
+			dims = (time_steps,)
+			for rn in ranges :
+				dm = int(rn.last - rn.first)
+				if dm > 1 :
+					dims += (dm,)
+			return np.reshape(data, dims), dates
+			
+		else :
+		
+			series = (ctypes.c_double * time_steps)()
+			dll.mobius_get_series_data(self.app_ptr, self.var_id, _pack_indexes(indexes), _len(indexes), series, time_steps)
+			_check_for_errors()
+			
+			# We have to do this, otherwise some operations on it crashes:
+			date_idx = pd.Series(data = dates, name = 'Date')
+			
+			return pd.Series(data=np.array(series, copy=False), index=date_idx, name=self.name())
+		
+		# Would also be nice to eventually allow list slices or masks like
+		#    data, dates = app.layer.water.temp[["Drammensfjorden", "Breiangen"], 0]
+		# Although that should maybe return a pd.DataFrame with those two as different columns instead.
 	
 	def __setitem__(self, indexes, values) :
 		# TODO:

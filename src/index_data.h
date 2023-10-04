@@ -96,8 +96,9 @@ Index_Data {
 	void set_indexes(Id_Type index_set, const std::vector<Token> &names, Idx_T parent_idx = Idx_T::no_index());
 	void initialize_union(Id_Type index_set_id, Source_Location source_loc);
 	
+	void find_index(Id_Type index_set, Token *idx_name, Index_Tuple<Id_Type> &indexes_out);
 	void find_indexes(const std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out);
-	Idx_T find_index(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index());
+	Idx_T find_index(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index()); // Ideally we shouldn't expose this one, but it is needed once in the Data_Set
 	
 	bool are_in_bounds(Index_Tuple<Id_Type> &indexes);
 	
@@ -543,29 +544,36 @@ Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Idx_T ind
 	return result;
 }
 
+template<typename Id_Type>
+void
+Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Index_Tuple<Id_Type> &indexes_out) {
+	
+	auto index_set = record->index_sets[index_set_id];
+	
+	Idx_T index_of_super = Idx_T::no_index();
+	if(is_valid(index_set->sub_indexed_to)) {
+		index_of_super = indexes_out.get_index(*this, index_set->sub_indexed_to);
+
+		if(!is_valid(index_of_super)) {
+			idx_name->print_error_header();
+			fatal_error("(find_indexes) This index belongs to an index set ", index_set->name, " that is sub-indexed to another index set ",
+			record->index_sets[index_set->sub_indexed_to]->name, ", but this index does not appear after an index of the parent index set.");
+		}
+	}
+	auto index = find_index(index_set_id, idx_name, index_of_super);
+	indexes_out.add_index(index);
+}
 
 template<typename Id_Type>
 void 
 Index_Data<Id_Type>::find_indexes(const std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out) {
 	
+	// TODO: Assert index_sets and idx_names are the same size?
+	
 	indexes_out.clear();
 	
-	for(int pos = 0; pos < idx_names.size(); ++pos) {
-		auto index_set = record->index_sets[index_sets[pos]];
-		
-		Idx_T index_of_super = Idx_T::no_index();
-		if(is_valid(index_set->sub_indexed_to)) {
-			index_of_super = indexes_out.get_index(*this, index_set->sub_indexed_to);
-
-			if(!is_valid(index_of_super)) {
-				idx_names[pos].print_error_header();
-				fatal_error("(find_indexes) This index (position ", pos, ") belongs to an index set ", index_set->name, " that is sub-indexed to another index set ",
-				record->index_sets[index_set->sub_indexed_to]->name, ", but this index does not appear after an index of the parent index set.");
-			}
-		}
-		auto index = find_index(index_sets[pos], &idx_names[pos], index_of_super);
-		indexes_out.add_index(index);
-	}
+	for(int pos = 0; pos < idx_names.size(); ++pos)
+		find_index(index_sets[pos], &idx_names[pos], indexes_out);
 }
 
 template<typename Id_Type>

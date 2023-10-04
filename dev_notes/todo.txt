@@ -27,6 +27,8 @@
 					Make it possible to interpolate parameter values, and set parameter values based on depth.
 						E.g. there is some system for assigning a value to a value, and saying what other parameter governs the ranges of the second value.
 				
+				mobipy 3D plot example of NIVAFjord?
+				
 			EasyChem!!
 			
 			Finish the simple hydraulics model.
