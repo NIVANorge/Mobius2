@@ -337,10 +337,12 @@
 				minute, hour, day. (esp. day).
 			
 		
-		Fix mobipy again...
-			Need to make it possible to provide indexes either as strings or integers.
 		More mobipy functionality.
-			Extract blocks of data based on index ranges, e.g. 0:50
+			Multidimensional slices and strides
+			Slices for parameters (setting and getting)
+			Setting series data.
+			Saving to file (incl saving inputs, but that should be a core Mobius2 feature).
+			More python wrapper stuff from Mobius1.
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.

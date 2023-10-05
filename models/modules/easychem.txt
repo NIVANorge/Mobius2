@@ -25,7 +25,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 """
 
 	load("stdlib/basic_math.txt", library("Response"))
-	load("stdlib/seawater.txt",  library("Seawater"))
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
 
 	par_attn  : property("PAR attenuation")
 	p_vel     : property("O₂ piston velocity")
@@ -36,13 +37,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	growth    : property("Actual phytoplankton growth")
 	
 	f_par     : constant("Fraction of PAR in SW radiation", [],           0.45)  # Photosynthetically available radiation
-	
-	# TODO: Put these constants in a library
-	#   and make them in g/mol  (just make the rest of this code work with that)
-	o2_mol_mass  : constant("O₂ molar mass",    [g, m mol-1], 0.031998)
-	c_mol_mass   : constant("C molar mass",     [g, m mol-1], 0.012)
-	no3_mol_mass : constant("NO₃ molar mass",   [g, m mol-1], 0.062)
-	po4_mol_mass : constant("PO₄ molar mass",   [g, m mol-1], 0.0949714)
 	
 	
 	par_group("Oxygen", epi) {
@@ -60,7 +54,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10)
-		#COS_alloch   : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)  # Only appears to be used in easyreservoir inflow part?
 		COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
 		
 		sett_vel     : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100, "This is the net settling velocity after taking into account upwards mixing inside each compartment")
@@ -78,24 +71,15 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
 	}
 	
-	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { (o2_saturation(temp, 0)*init_O2*o2_mol_mass) }
-	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { (o2_saturation(temp, 0)*init_O2*o2_mol_mass) }  
+	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }
+	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }  
 	
 	var(epi.water.p_vel, [c m, hr-1]) {
-		#TODO: Factor this function out to library, and write the reference to where the formula comes from.
-		wnd     := air.wind => [],
-		T       := temp => [],
-		k_600   := 2.07 + 0.215*(wnd^1.7),
-		schmidt := 1800.6 - 120.10*T + 3.7818*T^2 - 0.047608*T^3,
-		#sc := (1450 + (1.1*T - 71)*T),
-		#max(0.05, 5.9*(5.9*wnd - 49.3)/sqrt(sc))     if air.wind >= 13[m, s-1],
-		#max(0.05, 1.003*wnd / ((sc)^0.66))           if air.wind <= 3.6[m, s-1],
-		#max(0.05, 5.9*(2.85*wnd - 9.65) / sqrt(sc)   otherwise
-		k_600*(schmidt/600)^(-0.666) => [c m, hr-1]
+		o2_piston_velocity(air.wind, temp)
 	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
-		p_vel*pvel_scaler*(o2_saturation(temp, 0)*o2_mol_mass - conc(o2))*area ->>
+		p_vel*pvel_scaler*(o2_saturation(temp, 0)*o2_mol_mass->[m g, l-1] - conc(o2))*area ->>
 	}
 
 	#TODO: factor out 0.05[m g, l-1] as a constant.
@@ -109,20 +93,23 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
 	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
+	
+	#TODO (MNO): We should probably have a correct unit for these: At least document what they mean since they are not a real mass variable.
 	var(epi.water.oc.o2, [k g], [], "Epilimnion DOC-O₂ content")  @initial_conc { 1 }
-	var(hyp.water.oc.o2, [k g], [], "Hypolimnion DOC-O₂ content")  @initial_conc { 1 }
+	var(hyp.water.oc.o2, [k g], [], "Hypolimnion DOC-O₂ content") @initial_conc { 1 }
 	
 	nosc : property("Carbon Oxidation State") {
 		(conc(oc.o2) - 1)*4    # TODO: Where does the number come from?
 	}
 	
-	var(epi.water.oc.nosc, [], "Epilimnion NOSC") @initial { 0 }
-	var(hyp.water.oc.nosc, [], "Hypolimnion NOSC") @initial { 0 }
+	var(epi.water.oc.nosc, [], "Epilimnion NOSC")
+	var(hyp.water.oc.nosc, [], "Hypolimnion NOSC")
 	
 	resp : property("Bacterial respiration") {
 		# Bacterial respiration is adjusted for Temp, O2 concentration and COS of the DOC
 		rate := (K_OM / 365.25[day, year-1]) * COS_resp^oc.nosc,
-		o2_adj := conc(o2) / (Km_o2*o2_mol_mass + conc(o2)),
+		halfsat := Km_o2*o2_mol_mass->[m g, l-1],
+		o2_adj := conc(o2) / (halfsat + conc(o2)),
 		q10_adjust(rate*o2_adj, 20[deg_c], temp, respQ10)
 	}
 	
@@ -133,15 +120,17 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	flux(epi.water.oc, out, [k g, day-1], "DOC bacterial mineralization (epi)")  { resp * oc }
 	
 	# note also that DOC to O2 ratio changes with COS of DOC, this is why we have "(2-(4+nosc)/4)"
-	# TODO: Where do the numbers 2 and 4 come from?
+	
+	# TODO (MNO): from the formula for nosc, we have (2 - (4 + nosc)/4) = 2 - conc(oc.o2)  . Is there a reason not just to use that directly? Then you would not need nosc as a separate variable, it could just be computed for the use inside resp.
 	flux(hyp.water.o2, out, [k g, day-1], "O₂ bacterial consumption (hypo)") { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) }
 	flux(epi.water.o2, out, [k g, day-1], "O₂ bacterial consumption (epi)")  { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) } 
 	
-	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")   @initial_conc { init_phyt }
-	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton")  @initial_conc { init_phyt }
+	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")  @initial_conc { init_phyt }
+	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton") @initial_conc { init_phyt }
 	
 	var(epi.water.phyt.Mgrowth, [day-1]) {
-		phyt_rate*10^(1000*beta*(1/293.15[K] - 1/(temp->[K])))          # Why is the 1000 there? should that be absorbed into beta instead?
+		ref_t := 25[deg_c],
+		phyt_rate*10^(1000*beta*(1/(ref_t->[K]) - 1/(temp->[K])))          #TODO Why is the 1000 there? should that be absorbed into beta or one of the units instead?
 	}
 	
 	var(epi.water.phyt.light_lim, []) {
@@ -152,12 +141,14 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	var(epi.water.phyt.N_lim, []) {
-		ntemp := (conc(water.nitro)/no3_mol_mass)^2,
+		cmol := conc(water.nitro)/no3_mol_mass->[m mol, m-3],
+		ntemp := cmol^2,
 		ntemp / ((alpha*phyt_nc)^2 + ntemp)
 	}
 	
 	var(epi.water.phyt.P_lim, []) {
-		ptemp := (conc(water.phos)/po4_mol_mass)^2,
+		cmol := conc(water.phos)/po4_mol_mass->[m mol, m-3],
+		ptemp := cmol^2,
 		ptemp / ((alpha*phyt_pc)^2 + ptemp)
 	}
 	
@@ -169,18 +160,21 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	flux(out, epi.water.phyt, [k g, day-1], "Epilimnion photosynthetic C fixation") {   fix   }
 	
 	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10)
+	anox_threshold  : constant("Anoxicity threshold", [m g, l-1], 2)
 	
 	death : property("Phytoplankton death") {
 		#NOTE (MNO): I put in a bit smoother response function since numerical systems work better with that. Feel free to adjust the thresholds (MNO)
-		phyt_death*phyt*s_response(conc(o2), 1.8[m g, l-1], 2.2[m g, l-1], phyt_death_anox, 1)
+		b := anox_threshold*0.9,
+		e := anox_threshold*1.1,
+		phyt_death*phyt*s_response(conc(o2), b, e, phyt_death_anox, 1)
 	}
 	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	
 	flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phytoplankton death DOC release (epi)")  { phyt.death }
-	flux(out, epi.water.oc.o2, [k g, day-1], "Phytoplankton death O₂ release (epi)")           { phyt.death*(4 + COS_autoch)/4	}
+	flux(out, epi.water.oc.o2,         [k g, day-1], "Phytoplankton death O₂ release (epi)")   { phyt.death*(4 + COS_autoch)/4	}
 	flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phytoplankton death DOC release (hypo)") { phyt.death	}
-	flux(out, hyp.water.oc.o2, [k g, day-1], "Phytoplankton death O₂ release (hypo)")          { phyt.death*(4 + COS_autoch)/4	}
+	flux(out, hyp.water.oc.o2,         [k g, day-1], "Phytoplankton death O₂ release (hypo)")  { phyt.death*(4 + COS_autoch)/4	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
@@ -196,6 +190,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	
 	
+	# TODO: The particular stuff could be a separate module since we reuse it in the empirical model.
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
 	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")
 	var(epi.water.sed.phos, [k g], "Epilimnion PP")
@@ -216,7 +211,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 
 
 
-module("EasyChem-Empirical", version(0, 0, 1)) {
+module("SuperEasyChem", version(0, 0, 1)) {
 	
 """
 Simplified version of EasyChem where retention rates are given by empirical numbers instead of simulating phytoplankton or bacteria.

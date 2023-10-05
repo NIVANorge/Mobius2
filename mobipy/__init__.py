@@ -458,7 +458,7 @@ class State_Var :
 		
 		# Would also be nice to eventually allow list slices or masks like
 		#    data, dates = app.layer.water.temp[["Drammensfjorden", "Breiangen"], 0]
-		# Although that should maybe return a pd.DataFrame with those two as different columns instead.
+		# Although that should maybe return a pd.DataFrame with those two as different columns instead (?). In that case it could not be combined with slices.
 	
 	def __setitem__(self, indexes, values) :
 		# TODO:

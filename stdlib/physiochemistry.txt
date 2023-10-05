@@ -46,21 +46,19 @@ library("Water utils") {
 
 library("Chemistry") {
 
-	# TODO etc.
+	#avogadro         : constant("Avogadro constant", [mol -1], 6.02214076e23)
+	
+	
+	o2_mol_mass  : constant("O₂ molar mass",    [g, mol-1], 31.998)
+	c_mol_mass   : constant("C molar mass",     [g, mol-1], 12)
+	no3_mol_mass : constant("NO₃ molar mass",   [g, mol-1], 62)
+	po4_mol_mass : constant("PO₄ molar mass",   [g, mol-1], 94.9714)
+	
+	ca_mol_mass  : constant("Ca molar mass", [g, mol-1], 40.078)
+	#ca_valency   : constant("Ca valency", [eq, mol-1], 2)
+	
 
-	avogadro         : constant("Avogadro constant", [mol -1], 6.02214076e23)
-	
-}
-
-library("Ions") {
-	
-	ca_mol_wt        : constant("Ca molecular weight", [g, mol-1], 40.078)
-	ca_valency       : constant("Ca valency", [eq, mol-1], 2)
-	
-	# TODO etc.
-	
-	
-	mass_to_eq : function(mass, mol_wt, valency) {
-		mass * valency / mol_wt
-	}
+	#mass_to_eq : function(mass, mol_mass, valency) {
+	#	mass * valency / mol_mass
+	#}
 }
