@@ -353,6 +353,7 @@ Instruction_Array_Grouping_Predicate {
 		return (blk.find(other_node) != blk.end());
 	}
 	inline u64 label(int node) {  return pack_index_sets((*instructions)[node].index_sets);  }
+	inline bool allow_move(u64 label) { return true; }  //NOTE: There is no a priori reason we can't move an instruction out of a group in this application.
 };
 
 
@@ -691,7 +692,6 @@ set_up_connection_aggregation(Model_Application *app, std::vector<Model_Instruct
 		
 	}
 }
-
 
 void
 basic_instruction_solver_configuration(Model_Application *app, std::vector<Model_Instruction> &instructions) {
@@ -1095,15 +1095,14 @@ Pre_Batch {
 struct
 Pre_Batch_Sort_Predicate {
 	std::vector<Pre_Batch> *pre_batches;
-	bool is_valid(int idx) { return true; }
-	const std::set<int> &edges(int idx) { return (*pre_batches)[idx].depends_on; }
+	bool participates(int node) { return true; }
+	const std::set<int> &edges(int node) { return (*pre_batches)[node].depends_on; }
 };
 
 struct
 Instruction_Sort_Predicate {
 	std::vector<Model_Instruction> *instructions;
-	
-	bool is_valid(int node) {  return (*instructions)[node].is_valid(); }
+	bool participates(int node) {  return (*instructions)[node].is_valid(); }
 	const std::set<int>& edges(int node) { return (*instructions)[node].depends_on_instruction; }
 };
 
@@ -1120,6 +1119,7 @@ Instruction_Solver_Grouping_Predicate {
 	}
 	inline bool blocks(int node, int other_node) { return false; }  // NOTE: Not needed for solver grouping.
 	inline Entity_Id label(int node) {  return (*instructions)[node].solver;  }
+	inline bool allow_move(Entity_Id label) { return !is_valid(label); } // NOTE: In this specific application, we can't move an instruction out of its solver batch if it has a solver.
 };
 
 void
@@ -1129,12 +1129,12 @@ report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> 
 		error_print("There is a circular dependency among the initial value model instructions:\n");
 	else
 		error_print("There is a circular dependency among the model instructions:\n");
-	int starts_at = cycle.back(); // If there was a cycle, it starts at what it ended at
-	bool found = false;
+	bool first = true;
 	for(int instr_id : cycle) {
-		if(found) error_print("\n--> ");
-		if(instr_id == starts_at) found = true;
-		if(found) error_print(instructions[instr_id].debug_string(app));
+		if(first) error_print("    ");
+		else      error_print("--> ");
+		error_print(instructions[instr_id].debug_string(app), '\n');
+		first = false;
 	}
 	fatal_error("\n");
 }

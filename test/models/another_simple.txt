@@ -9,7 +9,9 @@ model("Another simple") {
 		r : property("R")
 		s : property("S")
 		t : property("T")
+		u : property("U")
 		
+		var(a.u, []) { r } # To show that it doesn't report this as a part of the cycle.
 		var(a.r, []) { t }
 		var(a.s, []) { r }
 		var(a.t, []) { s }

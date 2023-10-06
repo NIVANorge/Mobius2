@@ -1,6 +1,7 @@
 
 #include "optimization.h"
 #include "emulate.h"
+#include "../grouped_topological_sort.h"
 
 double
 evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param) {
@@ -112,9 +113,8 @@ Optimization_Model::evaluate(const std::vector<double> &values) {//double *value
 			for(int idx = 0; idx < err_param.size(); ++idx)
 				err_param[idx] = values[target.err_par_idx[idx]];
 			val = evaluate_target(data, &target, err_param.data());
-		} else {
+		} else
 			val = evaluate_target(data, &target);
-		}
 		agg += target.weight * val;
 	}
 	
@@ -128,31 +128,16 @@ Optimization_Model::evaluate(const std::vector<double> &values) {//double *value
 }
 
 void
-get_dependencies(Math_Expr_FT *expr, std::vector<int> &dependencies_out) {
+gather_dependencies(Math_Expr_FT *expr, std::set<int> &dependencies_out) {
 	if(!expr) return;
 	
 	for(auto sub : expr->exprs)
-		get_dependencies(sub, dependencies_out);
+		gather_dependencies(sub, dependencies_out);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto lit = static_cast<Literal_FT *>(expr->exprs[0]);
-		dependencies_out.push_back(lit->value.val_integer);
+		dependencies_out.insert(lit->value.val_integer);
 	}
-}
-
-void
-topological_sort_exprs_visit(int idx, std::vector<std::unique_ptr<Math_Expr_FT>> &exprs, std::vector<std::pair<bool, bool>> &visited, std::vector<int> &sorted_out) {
-	if(!exprs[idx].get()) return;
-	if(visited[idx].second) return;
-	if(visited[idx].first)
-		fatal_error(Mobius_Error::api_usage, "There is a circular reference between the expressions involving row ", idx, ".");
-	visited[idx].first = true;
-	std::vector<int> dependencies;
-	get_dependencies(exprs[idx].get(), dependencies);
-	for(auto dep : dependencies)
-		topological_sort_exprs_visit(dep, exprs, visited, sorted_out);
-	visited[idx].second = true;
-	sorted_out.push_back(idx);
 }
 
 void
@@ -187,9 +172,20 @@ Expr_Parameters::set(Model_Application *app, const std::vector<Indexed_Parameter
 	}
 	
 	order.clear();
-	std::vector<std::pair<bool, bool>> visited(parameters.size(), { false, false });
-	for(int idx = 0; idx < parameters.size(); ++idx) {
-		topological_sort_exprs_visit(idx, exprs, visited, order);
+	
+	Graph_Sorting_Predicate predicate;
+	auto &graph = predicate.graph;
+	graph.resize(exprs.size());
+	for(int idx = 0; idx < (int)exprs.size(); ++idx) {
+		graph[idx].first = exprs[idx].get();
+		gather_dependencies(exprs[idx].get(), graph[idx].second);
+	}
+	
+	std::vector<int> maybe_cycle;
+	bool success = topological_sort(predicate, order, exprs.size(), maybe_cycle);
+	if(!success) {
+		// TODO: We could print the cycle since it is stored in maybe_cycle.
+		fatal_error(Mobius_Error::api_usage, "There is a circular reference between the parameter expressions.");
 	}
 }
 

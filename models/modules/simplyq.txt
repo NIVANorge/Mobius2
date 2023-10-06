@@ -91,8 +91,9 @@ The river part of the SimplyQ module.
 	
 	# TODO: ideally we should here be able to cut the property "Flow", but unfortunately it is being used by the gw module...
 
-	# NOTE: Empirical formula, so the units don't make sense, hence force conversion.
+	# NOTE: Empirical formula, so the units don't make sense, hence forced unit conversion.
 	var(river.water.flow, [m 3, s-1], "Reach flow")        {  0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5   } @initial { init_flow }
+	@no_store # It is identical to the Reach flow flux. We only have it as a separate variable for use by the gw module
 	
 	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
 }
