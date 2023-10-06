@@ -18,15 +18,15 @@ The user must provide either "Global radiation" or "Cloud cover" as an input ser
 	load("stdlib/basic_math.txt", library("Basic"))
 
 	par_group("Location", air) {
-		 #TODO: maybe reused across modules, should instead be in model scope.
-		latitude : par_real("Latitude", [deg], 60, -90, 90)
-		elev     : par_real("Elevation", [m], 0, 0, 8887)
+		 #TODO: Elevation could be used in other modules, and should maybe be declared in model scope.
+		latitude : par_real("Latitude", [deg], 60, -90, 90, "Only used if Global radiation is not provided as a series")
+		elev     : par_real("Elevation", [m], 0, 0, 8887,   "Only used if Global radiation is not provided as a series")
 	}
 	
 	r_hum            : property("Relative humidity")
 	g_rad_cloud_free : property("Solar radiation on a clear sky day")
 	cloud            : property("Cloud cover")
-	#TODO: These two should instead be exported, for potential use with PET model.
+	#TODO: These two should instead be declared in model scope, for potential use with PET model.
 	s_vap            : property("Saturation vapour pressure")
 	a_vap            : property("Actual vapour pressure")
 	

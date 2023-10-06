@@ -22,21 +22,18 @@ model("EasyLake-SimplyCNP") {
 		#TODO: Not sure if we should do anything else for this module. Could also have mass balance and instead set concs in flow from land.
 		
 		load("stdlib/seawater.txt", library("Sea oxygen"))
+		load("stdlib/physiochemistry.txt", library("Chemistry"))
 		
 		par_group("River oxygen") {
 			COS_alloch : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
 		}
-		
-		#TODO: Should be in library (see easychem comment)
-		o2_mol_mass  : constant("O₂ molar mass",    [g, m mol-1], 0.031998)
-		
-		
+
 		var(river.water.o2, [k g], [m g, l-1], "River oxygen") @override_conc {
 			o2_saturation(temp, 0) * o2_mol_mass ->>
 		}
 		
 		var(river.water.oc.o2, [k g], [], "River DOC oxidation state") @override_conc {
-			(4+COS_alloch)/4
+			1 + COS_alloch/4
 		}
 	}
 }

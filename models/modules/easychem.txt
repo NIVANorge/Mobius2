@@ -79,7 +79,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
-		p_vel*pvel_scaler*(o2_saturation(temp, 0)*o2_mol_mass->[m g, l-1] - conc(o2))*area ->>
+		sat_conc := o2_saturation(temp, 0)*o2_mol_mass -> [m g, l-1],
+		p_vel*pvel_scaler*(sat_conc - conc(o2))*area ->>
 	}
 
 	#TODO: factor out 0.05[m g, l-1] as a constant.
