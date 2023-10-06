@@ -4,9 +4,10 @@
 
 #include <stdint.h>
 
+template<typename Label>
 struct
 Node_Group {
-	int64_t label;
+	Label label;
 	std::vector<int> nodes;
 };
 
@@ -92,10 +93,10 @@ label_grouped_sort_first_pass(Grouping_Predicate &predicate, std::vector<Node_Gr
 	return true;
 }
 */
-/*
-template <typename Grouping_Predicate>
+
+template <typename Grouping_Predicate, typename Label>
 bool
-optimize_label_groups(Grouping_Predicate &predicate, std::vector<Node_Group> &groups, int max_passes = 10) {
+optimize_label_groups(Grouping_Predicate &predicate, std::vector<Node_Group<Label>> &groups, int max_passes = 10) {
 	
 	// TODO: Thoroughly document the algorithm.
 	
@@ -104,8 +105,8 @@ optimize_label_groups(Grouping_Predicate &predicate, std::vector<Node_Group> &gr
 	for(int pass = 0; pass < max_passes; ++pass) {
 		changed = false;
 		
-		for(int group_idx = 0; group_idx < groups_out.size(); ++group_idx) {
-			auto &group = groups_out[group_idx];
+		for(int group_idx = 0; group_idx < groups.size(); ++group_idx) {
+			auto &group = groups[group_idx];
 			
 			for(int idx = group.nodes.size()-1; idx > 0; --idx) {
 				int node = group.nodes[idx];
@@ -122,10 +123,10 @@ optimize_label_groups(Grouping_Predicate &predicate, std::vector<Node_Group> &gr
 				}
 				if(cont) continue;
 				
-				int last_suitable_group = group_idx;
-				for(group_behind_idx = group_idx + 1; group_behind_idx < groups_out.size(); ++ group_behind_idx) {
+				int last_suitable_group = -1;
+				for(int group_behind_idx = group_idx + 1; group_behind_idx < groups.size(); ++ group_behind_idx) {
 					
-					auto &group_behind = groups_out[group_behind_idx];
+					auto &group_behind = groups[group_behind_idx];
 					bool group_depends_on_node = false;
 					bool group_is_blocked      = false;
 					for(int behind : group_behind.nodes) {
@@ -134,16 +135,15 @@ optimize_label_groups(Grouping_Predicate &predicate, std::vector<Node_Group> &gr
 					}
 					if(!group_is_blocked && (group.label == group_behind.label))
 						last_suitable_group = group_behind_idx;
-					if(group_depends_on_node || group_behind_idx = groups_out.size() - 1) {
-						if(group_behind_idx != group_idx) {
-							// We are allowed to move to a later group. Move to the beginning of the last other group that is suitable.
-							auto &move_to_group = groups_out[last_suitable_group];
-							move_to_group.nodes.insert(move_to_group.nodes.begin(), node);
-							group.nodes.erase(group.nodes.begin() + idx);
-							changed = true;
-						}
+					if(group_depends_on_node)
 						break;
-					}
+				}
+				if(last_suitable_group > 0) {
+					// We are allowed to move to a later group. Move to the beginning of the last other group that is suitable.
+					auto &move_to_group = groups[last_suitable_group];
+					move_to_group.nodes.insert(move_to_group.nodes.begin(), node);
+					group.nodes.erase(group.nodes.begin() + idx);
+					changed = true;
 				}
 			}
 		}
@@ -152,17 +152,17 @@ optimize_label_groups(Grouping_Predicate &predicate, std::vector<Node_Group> &gr
 	}
 	
 	// Remove groups that were left empty after moving out all their nodes.
-	for(int group_idx = (int)groups_out.size()-1; group_idx >= 0; --group_idx) {
-		auto &group = groups_out[group_idx];
+	for(int group_idx = (int)groups.size()-1; group_idx >= 0; --group_idx) {
+		auto &group = groups[group_idx];
 		if(group.nodes.empty())
-			groups_out.erase(groups_out.begin() + group_idx); // NOTE: OK since we are iterating group_idx backwards.
+			groups.erase(groups.begin() + group_idx); // NOTE: OK since we are iterating group_idx backwards.
 	}
 	
 	if(changed)    // If something changed during the last pass, we may not have reached an optimal "steady state"
 		return false;
 	return true;
 }
-*/
+
 
 /*
 template <typename Element, typename Label>

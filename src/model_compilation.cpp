@@ -1161,7 +1161,6 @@ Pre_Batch {
 	Entity_Id solver = invalid_entity_id;
 	std::vector<int> instructions;
 	std::set<int>    depends_on;
-	std::set<int>    consists_of;
 };
 
 struct
@@ -1177,6 +1176,21 @@ Instruction_Sort_Predicate {
 	
 	bool is_valid(int node) {  return (*instructions)[node].is_valid(); }
 	const std::set<int>& edges(int node) { return (*instructions)[node].depends_on_instruction; }
+};
+
+struct
+Instruction_Solver_Grouping_Predicate {
+	std::vector<Model_Instruction> *instructions;
+	
+	bool depends(int node, int on_node) {
+		auto &dep = (*instructions)[node].depends_on_instruction;
+		if(dep.find(on_node) != dep.end()) return true;
+		auto &dep2 = (*instructions)[node].loose_depends_on_instruction;
+		if(dep2.find(on_node) != dep2.end()) return true;
+		return false;
+	}
+	inline bool blocks(int node, int other_node) { return false; }  // NOTE: Not needed for solver grouping.
+	inline Entity_Id label(int node) {  return (*instructions)[node].solver;  }
 };
 
 void
@@ -1301,24 +1315,23 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	log_print("\n\n");
 #endif
 	
-	// Now group discrete equations into single pre_batches.
-	std::vector<Pre_Batch> grouped_pre_batches;
+	// Make preliminary instruction groups by merging discrete equations into single groups.
+	std::vector<Node_Group<Entity_Id>> grouped_batches;
+	std::vector<std::vector<int>>      group_consists_of;
 	
-	for(int order : sorted_pre_batches) {
-		auto &pre_batch = pre_batches[order];
-		int insertion_point = -1;
+	// TODO: This is a lot like label_grouped_sort_first_pass . Could we reuse that somehow (maybe need an insertion predicate).
+	for(int pre_batch_idx : sorted_pre_batches) {
+		auto &pre_batch = pre_batches[pre_batch_idx];
+		int insertion_idx = -1;
 		if(!is_valid(pre_batch.solver)) {
 			// If it is not on a solver, try to group it with the previous non-solver instruction *if possible* (e.g. this instruction doesn't depend on another instruction in between.)
-			for(int compare_idx = (int)grouped_pre_batches.size()-1; compare_idx >= 0; --compare_idx) {
-				auto &compare = grouped_pre_batches[compare_idx];
-				if(!is_valid(compare.solver))
-					insertion_point = compare_idx;
-	
+			for(int compare_idx = (int)grouped_batches.size()-1; compare_idx >= 0; --compare_idx) {
+				auto &compare = grouped_batches[compare_idx];
+				if(!is_valid(compare.label)) insertion_idx = compare_idx;
 				bool found_dependency = false;
-				for(int other : compare.consists_of) {
+				for(int other : group_consists_of[compare_idx]) {
 					if(pre_batch.depends_on.find(other) != pre_batch.depends_on.end()) {
-						if(!is_valid(compare.solver))
-							insertion_point = compare_idx;
+						if(!is_valid(compare.label)) insertion_idx = compare_idx; // Must to this again since we exit the loop.
 						found_dependency = true;
 						break;
 					}
@@ -1326,76 +1339,30 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 				if(found_dependency) break;
 			}
 		}
-		if(insertion_point < 0) {
-			grouped_pre_batches.resize(grouped_pre_batches.size()+1);
-			insertion_point = grouped_pre_batches.size()-1;
+		if(insertion_idx < 0) {
+			insertion_idx = grouped_batches.size();
+			grouped_batches.resize(insertion_idx+1);
+			group_consists_of.resize(insertion_idx+1);
 		}
-		auto &insertion_batch = grouped_pre_batches[insertion_point];
-		insertion_batch.solver = pre_batch.solver;
-		insertion_batch.instructions.insert(insertion_batch.instructions.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
-		// This set doesn't seem to be used after this.
-		//insertion_batch.depends_on.insert(pre_batch.depends_on.begin(), pre_batch.depends_on.end());
-		insertion_batch.consists_of.insert(order);
+		auto &insertion_group = grouped_batches[insertion_idx];
+		insertion_group.nodes.insert(insertion_group.nodes.end(), pre_batch.instructions.begin(), pre_batch.instructions.end());
+		insertion_group.label = pre_batch.solver;
+		group_consists_of[insertion_idx].push_back(pre_batch_idx);
 	}
 	
-	//log_print("Number of grouped batches before re-moving: ", grouped_pre_batches.size(), "\n");
+	constexpr int max_iter = 10;
+	Instruction_Solver_Grouping_Predicate predicate3 { &instructions };
+	// TODO: This is actually a bit unoptimal right now because we are never allowed to move from solver groups (there is one per solver).
+	//    Maybe include an allow_move in the predicate.
+	success = optimize_label_groups(predicate3, grouped_batches, max_iter);
+	if(!success)
+		fatal_error(Mobius_Error::internal, "Unable to optimize instruction solver batch grouping in the allotted amount of iterations (", max_iter, ").");
 	
-	// Try to move instructions to as late a batch as possible. Can some times improve the structure by eliminating unnecessary discrete batches.
-	bool changed = false;
-	for(int it = 0; it < 10; ++it) {
-		changed = false;
-	
-		for(int batch_idx = 0; batch_idx < grouped_pre_batches.size(); ++batch_idx) {
-			auto &pre_batch = grouped_pre_batches[batch_idx];
-			if(is_valid(pre_batch.solver)) continue;
-			for(int instr_idx = pre_batch.instructions.size()-1; instr_idx > 0; --instr_idx) {
-				int instr_id = pre_batch.instructions[instr_idx];
-				
-				int last_suitable = -1;
-				for(int batch_ahead_idx = batch_idx; batch_ahead_idx < grouped_pre_batches.size(); ++batch_ahead_idx) {
-					int start_at = 0;
-					//if(batch_ahead_idx == batch_idx) start_at = instr_idx+1;
-					auto &batch_ahead = grouped_pre_batches[batch_ahead_idx];
-					
-					bool someone_ahead_in_this_batch_depends_on_us = false;
-					for(int ahead_idx = start_at; ahead_idx < batch_ahead.instructions.size(); ++ahead_idx) {
-						int ahead_id = batch_ahead.instructions[ahead_idx];
-						auto &ahead = instructions[ahead_id];
-						if(std::find(ahead.depends_on_instruction.begin(), ahead.depends_on_instruction.end(), instr_id) != ahead.depends_on_instruction.end()) {
-							someone_ahead_in_this_batch_depends_on_us = true;
-							break;
-						}
-						if(std::find(ahead.loose_depends_on_instruction.begin(), ahead.loose_depends_on_instruction.end(), instr_id) != ahead.loose_depends_on_instruction.end()) {
-							someone_ahead_in_this_batch_depends_on_us = true;
-							break;
-						}
-					}
-					if(batch_ahead_idx != batch_idx && !is_valid(batch_ahead.solver))
-						last_suitable = batch_ahead_idx;
-					if(someone_ahead_in_this_batch_depends_on_us) break;
-				}
-				if(last_suitable > 0) {
-					// We are allowed to move. Move to the beginning of the first other batch that is suitable.
-					auto &insert_to = grouped_pre_batches[last_suitable];
-					insert_to.instructions.insert(insert_to.instructions.begin(), instr_id);
-					pre_batch.instructions.erase(pre_batch.instructions.begin()+instr_idx); // NOTE: it is safe to do this since we are iterating instr_idx from the end to the beginning
-					changed = true;
-				}
-			}
-		}
-		if(!changed) break; // If we can't move anything, there is no point to continue trying.
-	}
-	if(changed)
-		fatal_error(Mobius_Error::internal, "Unable to optimize instruction batch grouping in the allotted amount of iterations.");
-	
-	batches_out.clear();
-	
-	for(auto &pre_batch : grouped_pre_batches) {
-		if(pre_batch.instructions.empty()) continue; // Can happen as a result of the previous step where we move them around.
-		
+	// Unpack to different structure needed for further processing.
+	for(auto &group : grouped_batches) {
 		Batch batch;
-		batch.instrs = pre_batch.instructions;
-		batch.solver = pre_batch.solver;
+		batch.instrs = group.nodes;
+		batch.solver = group.label;
 		batches_out.push_back(std::move(batch));
 	}
 	
