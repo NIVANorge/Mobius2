@@ -1637,8 +1637,16 @@ print_var_symbol(Print_Tree_Context *context, Var_Id var_id) {
 		os << "aggregate(";
 		print_var_symbol(context, var2->agg_of);
 		os << ")";
+	} else if(var->type == State_Var::Type::dissolved_conc) {
+		auto var2 = as<State_Var::Type::dissolved_conc>(var);
+		os << "conc(";
+		print_var_symbol(context, var2->conc_of);
+		os << ", ";
+		print_var_symbol(context, var2->conc_in);
+		os << ")";
 	} else {
-		// TODO
+		// TODO: Could do symbol-like printing for some of these too!
+		os << var->name;
 	}
 }
 

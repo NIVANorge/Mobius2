@@ -18,7 +18,7 @@ MAKE_INTRINSIC1(cos, cos, cos, real, real)
 MAKE_INTRINSIC1(sin, sin, sin, real, real)
 MAKE_INTRINSIC1(floor, floor, floor, real, real)
 MAKE_INTRINSIC1(ceil, ceil, ceil, real, real)
-// TODO: maybe have all the real->int rounding functions also.
+// TODO: maybe have all the other rounding functions also.
 // Note fshr is just a stand-in since these don't exist as llvm intrinsics.. We instead replace it with function calls or our own code in llvm_jit.cpp (we are not going to use fshr for anything, so it is ok to have it as a stand-in)
 MAKE_INTRINSIC1(is_finite, isfinite, fshr, boolean, real)
 MAKE_INTRINSIC1(tan, tan, fshr, real, real)

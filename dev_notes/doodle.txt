@@ -4,19 +4,21 @@
 
 # Something like:
 # Dataset:
-par_real("Initial temperature") @index_by_cumulative("Layer index", "Layer thickness") @linear_interpolate {
+par_real("Initial temperature") @index_by_cumulative("Layer index", "Stable layer thickness") @linear_interpolate {
 	0 : 15
 	10 : 4
 }
 # And then the (cumulative) layer thickness is used to determine the ranges of what depth to assign to what index, and interp. in between.
 
 # Also works for
-par_real("Layer area") @index_by_cumulative("Layer index", "Layer thickness") @linear_interpolate {
+par_real("Layer area") @index_by_cumulative("Layer index", "Stable layer thickness") @linear_interpolate {
 	0 : 8921400
 	#etc..
 }
 
-# (could also have index_by for direct ranges or spline_interpolate etc.)
+#Could also make it work for regular integer indexing actually.
+
+# (could also have index_by for direct ranges or  step_interpolate, spline_interpolate etc.)
 
 # Only problem then is how is that exposed for editing in MobiView ?
 #	Ideally there is a separate interface for that, but it could be a bit too much to do right now.
@@ -24,6 +26,8 @@ par_real("Layer area") @index_by_cumulative("Layer index", "Layer thickness") @l
 
 
 # Would also be nice to have interpolate-by-index for input series in addition to interpolate-by-time.
+
+par_real(
 
 
 
