@@ -318,140 +318,69 @@ propagate_index_set_dependencies(Model_Application *app, std::vector<Model_Instr
 	return changed_at_all;
 }
 
+// TODO: We should probably just always store index set dependencies packed like this.
+//   Will optimize a lot of the dependency checking code.
+
+inline u64
+pack_index_sets(std::set<Entity_Id> &index_sets) {
+	u64 result = 0;
+	for(auto id : index_sets)
+		result |= ((u64)1 << (id.id));
+	return result;
+}
+
+inline void
+unpack_index_sets(u64 pack, std::set<Entity_Id> &index_sets) {
+	for(s16 id = 0; id < 64; ++id) {
+		if(pack & ((u64)1 << id))
+			index_sets.insert(Entity_Id {Reg_Type::index_set, id});
+	}
+}
+
+struct
+Instruction_Array_Grouping_Predicate {
+	std::vector<Model_Instruction> *instructions;
+	
+	bool depends(int node, int on_node) {
+		auto &dep = (*instructions)[node].depends_on_instruction;
+		if(dep.find(on_node) != dep.end()) return true;
+		auto &dep2 = (*instructions)[node].loose_depends_on_instruction;
+		if(dep2.find(on_node) != dep2.end()) return true;
+		return false;
+	}
+	inline bool blocks(int node, int other_node) {
+		auto &blk = (*instructions)[node].instruction_is_blocking;
+		return (blk.find(other_node) != blk.end());
+	}
+	inline u64 label(int node) {  return pack_index_sets((*instructions)[node].index_sets);  }
+};
+
+
 void
-build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &batch_out, bool initial) {
+build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &arrays_out, bool initial) {
 	Mobius_Model *model = app->model;
 	
-	batch_out.clear();
+	if(model->index_sets.count() > 64)
+		fatal_error(Mobius_Error::internal, "There is an implementation restriction so that you can't currently have more than 64 index_sets in the same model.");
 	
-	for(int instr_id : instrs) {
-		Model_Instruction *instr = &instructions[instr_id];
-		
-		int earliest_possible_batch = batch_out.size();
-		int earliest_suitable_pos   = batch_out.size();
-		
-		for(int sub_batch_idx = batch_out.size()-1; sub_batch_idx >= 0 ; --sub_batch_idx) {
-			auto sub_batch = &batch_out[sub_batch_idx];
-			
-			bool blocked = false;
-			bool found_dependency = false;
-			
-			for(auto other_id : sub_batch->instr_ids) {
-				if(instr->depends_on_instruction.find(other_id) != instr->depends_on_instruction.end())
-					found_dependency = true;
-				if(instr->loose_depends_on_instruction.find(other_id) != instr->loose_depends_on_instruction.end())
-					found_dependency = true;
-				if(instr->instruction_is_blocking.find(other_id) != instr->instruction_is_blocking.end())
-					blocked = true;
-			}
-			
-			if(sub_batch->index_sets == instr->index_sets && !blocked)
-				earliest_possible_batch = sub_batch_idx;
-			
-			if(found_dependency || blocked) break;
-			earliest_suitable_pos   = sub_batch_idx;
-		}
-		if(earliest_possible_batch != batch_out.size()) {
-			batch_out[earliest_possible_batch].instr_ids.push_back(instr_id);
-		} else {
-			Batch_Array sub_batch;
-			sub_batch.index_sets = instr->index_sets;
-			sub_batch.instr_ids.push_back(instr_id);
-			if(earliest_suitable_pos == batch_out.size())
-				batch_out.push_back(std::move(sub_batch));
-			else
-				batch_out.insert(batch_out.begin()+earliest_suitable_pos, std::move(sub_batch));
-		}
+	std::vector<Node_Group<u64>> groups;
+	
+	Instruction_Array_Grouping_Predicate predicate { &instructions };
+	label_grouped_sort_first_pass(predicate, groups, instrs);
+	
+	constexpr int max_iter = 10;
+	bool success = optimize_label_group_packing(predicate, groups, max_iter);
+	if(!success)
+		fatal_error(Mobius_Error::internal, "Unable to optimize instruction array grouping in the allotted amount of iterations (", max_iter, ").");
+	
+	arrays_out.clear();
+	
+	for(auto &group : groups) {
+		Batch_Array array;
+		array.instr_ids = std::move(group.nodes);
+		unpack_index_sets(group.label, array.index_sets);
+		arrays_out.push_back(std::move(array));
 	}
-	
-	
-	// NOTE: Do more passes to try and group instructions in an optimal way:
-#if 1
-	bool changed = false;
-	for(int it = 0; it < 10; ++it) {
-		changed = false;
-		
-		int batch_idx = 0;
-		for(auto &sub_batch : batch_out) {
-			int instr_idx = sub_batch.instr_ids.size() - 1;
-			while(instr_idx > 0) {
-				int instr_id = sub_batch.instr_ids[instr_idx];
-				bool cont = false;
-				// If another instruction behind us in the same batch depends on us, we are not allowed to move!
-				for(int instr_behind_idx = instr_idx+1; instr_behind_idx < sub_batch.instr_ids.size(); ++instr_behind_idx) {
-					int behind_id = sub_batch.instr_ids[instr_behind_idx];
-					auto behind = &instructions[behind_id];
-					if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
-						cont = true;
-						break;
-					}
-				}
-				// If another instruction in the same batch loose depends on us, we are not allowed to movve.
-				for(int instr_behind_idx = 0; instr_behind_idx < sub_batch.instr_ids.size(); ++instr_behind_idx) {
-					// It is not necessarily "behind" in this case.
-					int behind_id = sub_batch.instr_ids[instr_behind_idx];
-					auto behind = &instructions[behind_id];
-					if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end()) {
-						cont = true;
-						break;
-					}
-				}
-				if(cont) {
-					--instr_idx;
-					continue;
-				}
-				
-				// We attempt to move instructions to a later batch if we are allowed to move past all the instructions in between.
-				int last_suitable_batch_idx = batch_idx;
-				for(int batch_behind_idx = batch_idx + 1; batch_behind_idx < batch_out.size(); ++batch_behind_idx) {
-					auto &batch_behind = batch_out[batch_behind_idx];
-					bool batch_depends_on_us = false;
-					bool batch_is_blocked    = false;
-					for(int instr_behind_idx = 0; instr_behind_idx < batch_behind.instr_ids.size(); ++instr_behind_idx) {
-						auto behind_id = batch_behind.instr_ids[instr_behind_idx];
-						auto behind = &instructions[behind_id];
-						if(behind->depends_on_instruction.find(instr_id) != behind->depends_on_instruction.end())
-							batch_depends_on_us = true;
-						if(behind->loose_depends_on_instruction.find(instr_id) != behind->loose_depends_on_instruction.end())
-							batch_depends_on_us = true;
-						if(behind->instruction_is_blocking.find(instr_id) != behind->instruction_is_blocking.end())
-							batch_is_blocked = true;
-					}
-					if(!batch_is_blocked && (batch_behind.index_sets == sub_batch.index_sets))
-						last_suitable_batch_idx = batch_behind_idx;
-					if(batch_depends_on_us || batch_behind_idx == batch_out.size()-1) {
-						if(last_suitable_batch_idx != batch_idx) {
-							// We are allowed to move. Move to the beginning of the first other batch that is suitable.
-							auto &insert_to = batch_out[last_suitable_batch_idx];
-							insert_to.instr_ids.insert(insert_to.instr_ids.begin(), instr_id);
-							sub_batch.instr_ids.erase(sub_batch.instr_ids.begin() + instr_idx);
-							changed = true;
-						}
-						break;
-					}
-				}
-				--instr_idx;
-			}
-			++batch_idx;
-		}
-		
-		if(!changed) break;
-	}
-	if(changed)
-		fatal_error(Mobius_Error::internal, "Unable to optimize instruction sub batch grouping in the allotted amount of iterations.");
-	
-	// Remove batches that were emptied as a result of the step above.
-	int batch_idx = batch_out.size()-1;
-	while(batch_idx >= 0) {
-		auto &sub_batch = batch_out[batch_idx];
-		if(sub_batch.instr_ids.empty())
-			batch_out.erase(batch_out.begin() + batch_idx);  // NOTE: ok since we are iterating batch_idx backwards.
-		--batch_idx;
-	}
-	
-	// TODO: We should be able to merge neighboring batches with the same dependencies unless there is a blocking instruction.
-	//    Although, shouldn't that have happened just by the instructions moving down?
-#endif
 	
 #if 0
 	warning_print("\n****", initial ? " initial" : "", " batch structure ****\n");
@@ -1354,7 +1283,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	Instruction_Solver_Grouping_Predicate predicate3 { &instructions };
 	// TODO: This is actually a bit unoptimal right now because we are never allowed to move from solver groups (there is one per solver).
 	//    Maybe include an allow_move in the predicate.
-	success = optimize_label_groups(predicate3, grouped_batches, max_iter);
+	success = optimize_label_group_packing(predicate3, grouped_batches, max_iter);
 	if(!success)
 		fatal_error(Mobius_Error::internal, "Unable to optimize instruction solver batch grouping in the allotted amount of iterations (", max_iter, ").");
 	

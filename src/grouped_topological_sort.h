@@ -51,10 +51,9 @@ topological_sort(Sort_Predicate &predicate, std::vector<int> &sorted, int n_elem
 	return true;
 }
 
-/*
-template <typename Grouping_Predicate>
-bool
-label_grouped_sort_first_pass(Grouping_Predicate &predicate, std::vector<Node_Group> &groups, std::vector<int> &sorted) {
+template <typename Grouping_Predicate, typename Label>
+void
+label_grouped_sort_first_pass(Grouping_Predicate &predicate, std::vector<Node_Group<Label>> &groups, std::vector<int> &sorted) {
 	
 	// TODO: Thoroughly document the algorithm
 	
@@ -80,23 +79,25 @@ label_grouped_sort_first_pass(Grouping_Predicate &predicate, std::vector<Node_Gr
 			}
 			
 			if((group.label == label) && !blocked)
-				earliest_possible_group = group_idx;
+				earliest_suitable_group = group_idx;
 			
 			if(found_dependency || blocked) break;
 			earliest_suitable_pos = group_idx;
 		}
-		if(earliest_possible_group < groups.size())
-			groups[earliest_possible_group].nodes.push_back(node);
-		else
-			groups.emplace(groups.begin() + earliest_suitable_pos, {label, {node}});
+		if(earliest_suitable_group < groups.size())
+			groups[earliest_suitable_group].nodes.push_back(node);
+		else {
+			Node_Group<Label> group;
+			group.label = label;
+			group.nodes.push_back(node);
+			groups.insert(groups.begin() + earliest_suitable_pos, group);
+		}
 	}
-	return true;
 }
-*/
 
 template <typename Grouping_Predicate, typename Label>
 bool
-optimize_label_groups(Grouping_Predicate &predicate, std::vector<Node_Group<Label>> &groups, int max_passes = 10) {
+optimize_label_group_packing(Grouping_Predicate &predicate, std::vector<Node_Group<Label>> &groups, int max_passes = 10) {
 	
 	// TODO: Thoroughly document the algorithm.
 	
