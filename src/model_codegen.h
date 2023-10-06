@@ -19,17 +19,17 @@ Model_Instruction {
 		add_to_aggregate,
 		add_to_connection_aggregate,
 		external_computation,
-	}                   type;
+	}                   type = Type::invalid;
 	
-	Var_Id              var_id;
-	Var_Id              source_id;
-	Var_Id              target_id;
+	Var_Id              var_id     = invalid_var;
+	Var_Id              source_id  = invalid_var;
+	Var_Id              target_id  = invalid_var;
 	
-	bool                subtract = false; // For certain connection aggregations, we want to subtract from the aggregate instead of adding to it.
+	bool                subtract   = false; // For certain connection aggregations, we want to subtract from the aggregate instead of adding to it.
 	
 	Var_Loc_Restriction restriction; // May eventually need 2?   Is this one used correctly?
 	
-	Entity_Id           solver;
+	Entity_Id           solver     = invalid_entity_id;
 	
 	std::set<Entity_Id> index_sets;
 	
@@ -43,14 +43,15 @@ Model_Instruction {
 	
 	int clear_instr = -1;  // This is the clear instruction of this instruction if this instruction is an aggregation variable.
 	
-	Math_Expr_FT *code;
+	Math_Expr_FT *code = nullptr;
 	
-	bool visited;
-	bool temp_visited;
+	bool visited = false;
 	
 	std::string debug_string(Model_Application *app);
 	
-	Model_Instruction() : visited(false), temp_visited(false), var_id(invalid_var), source_id(invalid_var), target_id(invalid_var), restriction(), solver(invalid_entity_id), type(Type::invalid), code(nullptr) {};
+	Model_Instruction() {};
+	
+	inline bool is_valid() { return type != Type::invalid;	}
 	
 	// Having trouble getting this to work. Seems like the destructor is called too early when the Instructions vector resizes, and setting up move constructors etc. to work around that is irksome.
 	// If we instead store instructions in a vector of unique_ptr, (like for state_var), this problem should go away.

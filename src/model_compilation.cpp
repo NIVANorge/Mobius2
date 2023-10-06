@@ -9,6 +9,7 @@
 #include "model_application.h"
 #include "function_tree.h"
 #include "model_codegen.h"
+#include "grouped_topological_sort.h"
 
 #include <string>
 #include <sstream>
@@ -76,33 +77,6 @@ debug_print_batch_structure(Model_Application *app, std::vector<Batch> &batches,
 		}
 	}
 	os << "\n\n";
-}
-
-bool
-topological_sort_instructions_visit(Model_Application *app, int instr_idx, std::vector<int> &push_to, std::vector<Model_Instruction> &instructions, bool initial) {
-	Model_Instruction *instr = &instructions[instr_idx];
-	
-	if(instr->type == Model_Instruction::Type::invalid) return true;
-	
-	if(instr->visited) return true;
-	if(instr->temp_visited) {
-		begin_error(Mobius_Error::model_building);
-		error_print("There is a circular dependency between the");
-		if(initial) error_print(" initial value of the");
-		error_print(" state variables:\n");
-		return false;
-	}
-	instr->temp_visited = true;
-	for(int dep : instr->depends_on_instruction) {
-		bool success = topological_sort_instructions_visit(app, dep, push_to, instructions, initial);
-		if(!success) {
-			error_print(instructions[dep].debug_string(app), " <-- ", instr->debug_string(app), "\n");
-			return false;
-		}
-	}
-	instr->visited = true;
-	push_to.push_back(instr_idx);
-	return true;
 }
 
 bool
@@ -495,7 +469,7 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	
 	auto instr = &instructions[var_id.id];
 			
-	if(instr->type != Model_Instruction::Type::invalid) return; // If it already exists, fine!
+	if(instr->is_valid()) return; // If it already exists, fine!
 	
 	// Some other variable wants to look up the value of this one in the initial step, but it doesn't have initial code. If it has regular code, we can substitute that!
 	
@@ -520,7 +494,7 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 		auto var2 = as<State_Var::Type::regular_aggregate>(var);
 		
 		auto instr_agg_of = &instructions[var2->agg_of.id];
-		if(instr_agg_of->type != Model_Instruction::Type::invalid) return; // If it is already valid, fine!
+		if(instr_agg_of->is_valid()) return; // If it is already valid, fine!
 		
 		auto var_agg_of = app->vars[var2->agg_of];
 		
@@ -933,7 +907,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	if(initial) {
 		for(auto var_id : app->vars.all_state_vars()) {
 			auto instr = &instructions[var_id.id];
-			if(instr->type == Model_Instruction::Type::invalid) continue;
+			if(!instr->is_valid()) continue;
 			if(!instr->code) continue;
 			
 			create_initial_vars_for_lookups(app, instr->code, instructions);
@@ -947,7 +921,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	for(auto var_id : app->vars.all_state_vars()) {
 		auto instr = &instructions[var_id.id];
 		
-		if(instr->type == Model_Instruction::Type::invalid) continue;
+		if(!instr->is_valid()) continue;
 	
 		auto var = app->vars[var_id];
 		
@@ -1182,46 +1156,56 @@ propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::v
 	return found;
 }
 
-struct Pre_Batch {
+struct
+Pre_Batch {
 	Entity_Id solver = invalid_entity_id;
 	std::vector<int> instructions;
 	std::set<int>    depends_on;
 	std::set<int>    consists_of;
-	bool visited = false;
-	bool temp_visited = false;
+};
+
+struct
+Pre_Batch_Sort_Predicate {
+	std::vector<Pre_Batch> *pre_batches;
+	bool is_valid(int idx) { return true; }
+	const std::set<int> &edges(int idx) { return (*pre_batches)[idx].depends_on; }
+};
+
+struct
+Instruction_Sort_Predicate {
+	std::vector<Model_Instruction> *instructions;
+	
+	bool is_valid(int node) {  return (*instructions)[node].is_valid(); }
+	const std::set<int>& edges(int node) { return (*instructions)[node].depends_on_instruction; }
 };
 
 void
-topological_sort_pre_batch_visit(int idx, std::vector<int> &push_to, std::vector<Pre_Batch> &pre_batches) {
-	Pre_Batch *pre_batch = &pre_batches[idx];
-	if(pre_batch->visited) return;
-	if(pre_batch->temp_visited)
-		fatal_error(Mobius_Error::internal, "Unable to sort pre batches. Should not be possible if solvers are correctly propagated.");
-	pre_batch->temp_visited = true;
-	for(int dep : pre_batch->depends_on)
-		topological_sort_pre_batch_visit(dep, push_to, pre_batches);
-	pre_batch->visited = true;
-	push_to.push_back(idx);
+report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<int> &cycle, bool initial = false) {
+	begin_error(Mobius_Error::model_building);
+	if(initial)
+		error_print("There is a circular dependency among the initial value model instructions:\n");
+	else
+		error_print("There is a circular dependency among the model instructions:\n");
+	int starts_at = cycle.back(); // If there was a cycle, it starts at what it ended at
+	bool found = false;
+	for(int instr_id : cycle) {
+		if(found) error_print("\n--> ");
+		if(instr_id == starts_at) found = true;
+		if(found) error_print(instructions[instr_id].debug_string(app));
+	}
+	fatal_error("\n");
 }
 
 void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
-	// create one batch per solver
-	// if a quantity has a solver, it goes in that batch.
-	// a flux goes in the batch of its source always, (same with the subtraction of that flux).
-	// addition of flux goes in the batch of its target.
-	// batches are ordered by dependence
-	// properties:
-	//	- if it is "between" other vars from the same batch, it goes in that batch.
-	// discrete batches:
-	// 	- can be multiple of these. 
+	 
 	
+	// Propagate solvers in a way so that instructions that are (dependency-) sandwiched between other instructions that are on the same ODE solver are also put in that ODE function.
 	// TODO: We need to make some guard to check that this is a sufficient amount of iterations!
 	for(int idx = 0; idx < 10; ++idx) {
-		for(auto &instr : instructions) instr.visited = false;
 		for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 			auto instr = &instructions[instr_id];
 			
-			if(instr->type == Model_Instruction::Type::invalid) continue;
+			if(!instr->is_valid()) continue;
 			
 			if(is_valid(instr->solver)) {
 				for(int dep : instr->depends_on_instruction)
@@ -1232,13 +1216,15 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		}
 	}
 	
+	// Some auto-gathered dependencies are not relevant for (and detrimental to) the instruction sorting. We remove them.
 	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 		auto &instr = instructions[instr_id];
 		
-		if(instr.type == Model_Instruction::Type::invalid) continue;
+		if(!instr.is_valid()) continue;
 		
 		if(is_valid(instr.solver)) {
-			// Remove dependency of any instruction on an ode variable if they are on the same solver.
+			// Remove dependency of any instruction on an ODE variable if they are on the same solver.
+			// This is because ODE instructions don't need to (and should not) participate in the sorting of instructions.
 			std::vector<int> remove;
 			for(int other_id : instr.depends_on_instruction) {
 				auto &other_instr = instructions[other_id];
@@ -1252,25 +1238,28 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 			for(int rem : remove)
 				instr.depends_on_instruction.erase(rem);
 		} else if (app->vars[instr.var_id]->is_flux()) {
-			// Remove dependency of discrete fluxes on their sources. Discrete fluxes are ordered in a specific way, and the final value of the source comes after the flux is subtracted.
+			// Remove dependency of discrete fluxes on their sources. Discrete fluxes are ordered in a specific way, and the final value of the source is "ready" after the flux is subtracted. If the flux references its source, that will be a temporary value by design.
 			auto var = app->vars[instr.var_id];
 			if(is_located(var->loc1))
 				instr.depends_on_instruction.erase(app->vars.id_of(var->loc1).id);
 		}
 	}
 	
+	// Make a 'naive' sorting of instructions by dependencies. This makes it easier to work with them later.
 	std::vector<int> sorted_instructions;
-	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
-		if(instructions[instr_id].type == Model_Instruction::Type::invalid) continue;
-		
-		bool success = topological_sort_instructions_visit(app, instr_id, sorted_instructions, instructions, false);
-		if(!success) mobius_error_exit();
-	}
+	std::vector<int> maybe_cycle;
+	
+	Instruction_Sort_Predicate predicate { &instructions };
+	bool success = topological_sort(predicate, sorted_instructions, instructions.size(), maybe_cycle);
+	
+	if(!success)
+		report_instruction_cycle(app, instructions, maybe_cycle);
 	
 	std::vector<Pre_Batch> pre_batches;
 	std::vector<int> pre_batch_of_solver(app->model->solvers.count(), -1);
 	std::vector<int> pre_batch_of_instr(instructions.size(), -1);
 	
+	// Put all solver equations in the same pre batch, then put every non-solver equation into its own pre_batch.
 	for(int instr_id : sorted_instructions) {
 		auto &instr = instructions[instr_id];
 		int batch_id = -1;
@@ -1294,8 +1283,11 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	}
 	
 	std::vector<int> sorted_pre_batches;
-	for(int idx = 0; idx < pre_batches.size(); ++idx)
-		topological_sort_pre_batch_visit(idx, sorted_pre_batches, pre_batches);
+	Pre_Batch_Sort_Predicate predicate2 { &pre_batches };
+	success = topological_sort(predicate2, sorted_pre_batches, pre_batches.size(), maybe_cycle);
+	if(!success)
+		fatal_error(Mobius_Error::internal, "Unable to sort pre batches. This should not be possible if solvers are correctly propagated.");
+	
 	
 #if 0
 	log_print("**** Pre batches before grouping.");
@@ -1566,10 +1558,11 @@ Model_Application::compile(bool store_code_strings) {
 	initial_batch.solver = invalid_entity_id;
 	
 	// Sort the initial instructions too.
-	for(int instr_id = 0; instr_id < initial_instructions.size(); ++instr_id) {
-		bool success = topological_sort_instructions_visit(this, instr_id, initial_batch.instrs, initial_instructions, true);
-		if(!success) mobius_error_exit();
-	}
+	std::vector<int> maybe_cycle;
+	Instruction_Sort_Predicate predicate { &initial_instructions };
+	bool success = topological_sort(predicate, initial_batch.instrs, initial_instructions.size(), maybe_cycle);
+	if(!success)
+		report_instruction_cycle(this, initial_instructions, maybe_cycle, true);
 	
 	build_batch_arrays(this, initial_batch.instrs, initial_instructions, initial_batch.arrays, true);
 	
@@ -1598,7 +1591,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, true);
-	debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
 	
 	set_up_result_structure(this, batches, instructions);
 	
