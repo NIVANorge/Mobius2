@@ -3,6 +3,8 @@
 	*** High pri ***
 	
 	
+		Why errors during data set saving crash the program instead of getting caught now?
+	
 		Instruction sorting, batch creation (rare bug, but is very important to fix):
 			There is a problem when we topological sort, we can't take the loose_depends into account. But then if the things get added in the wrong order there is a problem.
 			May have to factor out loose_depends groups first and bundle them in the sorting.
@@ -29,20 +31,13 @@
 				Although it is possible I guess, could then just check the final structure to see if a solver was split among batches or not.
 				Also, we don't technically need a second topological sort when we re-group within the batches.
 			
-			
-			
-	
-		MobiView
-			conc sorted after other properties.
-	
-		Why do file saving errors crash the program instead of getting caught now?
 		
 		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)   #Should maybe change parsing so that the () on solver is unnecessary. Or is it already?
 			The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
 			Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
 		
 		Specific models
-			NIVAFjord!!				
+			NIVAFjord!!
 				Go over wind mixing again, it seems a bit broken.
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
 					
@@ -229,9 +224,6 @@
 			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 			Sub-indexed series data.
 			
-			Make MobiView2 display if a selected series was not computed.
-				Not needed anymore? they should not be selectable.
-			
 		Go over and improve diagnostics in error messages (all over the place).
 		
 		external_computation :
@@ -244,6 +236,9 @@
 			Doesn't seem to be that necessary.
 		
 	*** Low-pri ****
+	
+		Datetime algorithms are slow for large dates
+			Low priority since it really only comes into play if the user makes a mistake and zooms the plot in MobiView2 to much. We are normally not working with such large dates.
 	
 		In the tree pruning, try to merge local variables that are identical.
 	
@@ -266,6 +261,7 @@
 			
 	
 		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
+			Or just switch to e.g. https://github.com/troldal/OpenXLSX/tree/master (but then we may lose formula evaluation?)
 	
 		Give proper error when externally linked function is not found.
 			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
@@ -304,19 +300,24 @@
 		
 			Plot
 			
-				Make a date range for the 2D plot (when the date is the x axis) that defaults to no more than say 1000 steps.
-					Plot is just generated for this range (not just zooming).
+				Figure out a way to make 2D plot faster
+					Make it not need to update the data source if plot setup was not changed.
+					Improve the drawing algorithm in ScatterDraw.
+						Looks like the problem is the way TableData finds the index of a point. (For each pixel lookup, it has to iterate through a large portion of the table).
+							Could make binary search, or something else.
+						Also make it allow custom color gradient functions.
+					Maybe:
+						Make a date range for the 2D plot (when the date is the x axis) that defaults to no more than say 1000 steps (?)
+							Plot is just generated for this range.
 				
 				stacked_share has a slow implementation.
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
 				Normalized axis needs to be more robust.
 				Flickering axis labels when scrolling.
 				
-				All-NaN line is broken (ScatterDraw bug - report to them!)
-				
 				"Network" plot for connections. Draw the network along with amount (of some quantity(ies)) as bar plot per node. Animate over time.
-					Maybe not just for connection, but for any graph of that quantity?
-					Allow multiple bars for several quantities or instances of.
+					Maybe not just for connection, but for any graph of that quantity (including regular fluxes)?
+					Allow multiple bars for several quantities or instances of quantities.
 					
 				How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
 				Could have both aggregation none and days, and in the later case it also aggregates m3/s -> m3/day .

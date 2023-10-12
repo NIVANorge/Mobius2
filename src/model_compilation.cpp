@@ -1125,10 +1125,7 @@ Instruction_Solver_Grouping_Predicate {
 void
 report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<int> &cycle, bool initial = false) {
 	begin_error(Mobius_Error::model_building);
-	if(initial)
-		error_print("There is a circular dependency among the initial value model instructions:\n");
-	else
-		error_print("There is a circular dependency among the model instructions:\n");
+	error_print("There is a circular dependency among the ", initial ? "initial-value " : "", "model instructions:\n");
 	bool first = true;
 	for(int instr_id : cycle) {
 		if(first) error_print("    ");
