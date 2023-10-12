@@ -3,6 +3,7 @@
 #define MOBIUS_GROUPED_TOPOLOGICAL_SORT_H
 
 #include <stdint.h>
+#include <algorithm>
 
 template<typename Label>
 struct
@@ -294,7 +295,7 @@ find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<L
 		}
 		if(found_in.empty()) {
 			// It was not found in a previous cycle, so we create a new one.
-			Constraint_Cycle new_cycle;
+			Constraint_Cycle<Label> new_cycle;
 			new_cycle.nodes.insert(circuit.begin(), circuit.end());
 			new_cycle.label = label;
 			max_cycles.push_back(std::move(new_cycle));
@@ -305,7 +306,7 @@ find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<L
 			c.nodes.insert(circuit.begin(), circuit.end());
 			if(c.label != label) singly_labeled_cycles = false;
 			for(int idxidx = (int)found_in.size()-1; idxidx > 0; --idxidx) { // NOTE: > 0 to omit the first one, which we already set.
-				int cycle_idx = found_id[idxidx];
+				int cycle_idx = found_in[idxidx];
 				auto &c2 = max_cycles[cycle_idx];
 				c.nodes.insert(c2.nodes.begin(), c2.nodes.end());
 				max_cycles.erase(max_cycles.begin()+cycle_idx);
@@ -329,7 +330,7 @@ find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<L
 		}
 		if(node_is_in_cycle[node] == -1) {
 			//Make "cycles" for the singletons too.
-			Constraint_Cycle new_cycle;
+			Constraint_Cycle<Label> new_cycle;
 			new_cycle.nodes.insert(node);
 			new_cycle.label = predicate.label(node);
 			max_cycles.push_back(std::move(new_cycle));
@@ -337,26 +338,28 @@ find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<L
 		}
 	}
 	
-	// TODO: We need to check that a cycle doesn't block itself!
-	for(auto &cycle : max_cycles) {
+	for(int cycle_idx = 0; cycle_idx < max_cycles.size(); ++cycle_idx) {
+		auto &cycle = max_cycles[cycle_idx];
 		for(int node : cycle.nodes) {
-			for(int other : predicate.edges(node))
-				cycle.edges_to_cycle.insert(node_is_in_cycle[other]);
-			for(int other : predicate.blocks(node))
-				cycle.blocks_cycle.insert(node_is_in_cycles[other]);
+			for(int other : predicate.edges(node)) {
+				int other_cycle = node_is_in_cycle[other];
+				if(other_cycle >= 0 && (other_cycle != cycle_idx))
+					cycle.edges_to_cycle.insert(other_cycle);
+			}
+			for(int other : predicate.blocks(node)) {
+				// TODO: We need to check that a cycle doesn't block itself!
+				if(node_is_in_cycle[other] >= 0)
+					cycle.blocks_cycle.insert(node_is_in_cycle[other]);
+			}
 		}
 	}
 	
 	return singly_labeled_cycles;
 }
 
-// TODO: The predicate passed to this one should also rule out things that are on the wrong solver (even though the "Label" is the index set dependencies)
-//   i.e. we don't care about things that are in another batch entirely.
-
-// TODO: We should also pass out the cycles since we want to know that for one of the applications (checking some circular in_flux(connection) stuff.)
 template <typename Predicate, typename Label>
-void
-label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, std::vector<Node_Group<Label>> &groups, int n_elements, int max_passes = 10) {
+bool
+label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, std::vector<Node_Group<Label>> &groups, std::vector<Constraint_Cycle<Label>> &max_cycles, int n_elements, int max_passes = 10) {
 	
 	struct
 	Cycle_Finding_Predicate {
@@ -364,7 +367,8 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 		Predicate                  *base_predicate;
 		inline bool participates(int node) { return base_predicate->participates(node); }
 		inline std::set<int> &edges(int node) { return (*all_edges)[node]; }
-		inline std::set<int> &blocks(int node) { return base_predicate->blocks(node); }
+		inline const std::set<int> &blocks(int node) { return base_predicate->blocks(node); }
+		inline Label label(int node) { return base_predicate->label(node); }
 	};
 	
 	struct
@@ -379,7 +383,7 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 			auto &blk = (*collapsed_graph)[node].blocks_cycle;
 			return blk.find(on) != blk.end();
 		}
-		inline std::set<int> &edges { return (*collapsed_graph)[node].edges_to_cycle; }
+		inline std::set<int> &edges(int node) { return (*collapsed_graph)[node].edges_to_cycle; }
 		inline Label label(int node) { return (*collapsed_graph)[node].label; }
 		inline bool allow_move(Label label) { return true; } // It doesn't seem necessary to freeze any for this pass.
 		inline bool participates(int node) { return true; }
@@ -389,29 +393,50 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 	Cycle_Finding_Predicate cycle_predicate { &all_edges, &predicate };
 	
 	for(int node = 0; node < n_elements; ++node) {
-		all_edges[node].insert(predicate.edges.begin(), predicate.edges.end());
-		all_edges[node].insert(predicate.weak_edges.begin(), predicate.weak_edges.end());
+		auto &edg = predicate.edges(node);
+		auto &wedg = predicate.weak_edges(node);
+		all_edges[node].insert(edg.begin(), edg.end());
+		all_edges[node].insert(wedg.begin(), wedg.end());
 	}
 	
 	// Collapse cycles consisting of weak+strong edges into single nodes.
-	std::vector<Constraint_Cycle<Label>> max_cycles;
 	bool singly_labeled_cycles = find_maximal_labeled_cycles(cycle_predicate, max_cycles, n_elements);
 	// TODO: Error if !singly_labeled_cycles ( This is not possible if the algorithm is used correctly though ).
+	if(!singly_labeled_cycles)
+		fatal_error(Mobius_Error::internal, "The cycles were not singly labeled.");
 	
 	// TODO: We could simplify (speed up) the algorithm if we only get singleton cycles.
 	
 	// Note: There should be no cycles among the cycles (or the cycle grouping algorithm is wrong), so we should not have to check for that in this case.
-	Cycle_Sorting_Predicate sort_predicate { &max_cycles; };
+	Cycle_Sorting_Predicate sort_predicate { &max_cycles };
 	std::vector<int> sorted_cycles, potential_cycle;
 	bool success = topological_sort(sort_predicate, sorted_cycles, max_cycles.size(), potential_cycle);
-	// If success is not always true here, there was an error in the algorithm itself...
+	if(!success) {
+		begin_error(Mobius_Error::internal);
+		error_print("Got a cycle among the cycles!!!\n");
+		
+		for(int cycle_idx : potential_cycle) {
+			error_print(cycle_idx, ": ");
+			for(int node : max_cycles[cycle_idx].nodes)
+				error_print(node, " ");
+			error_print("\n");
+		}
+		// TODO: Print this out.
+		
+		mobius_error_exit();
+	}
+	
+	//log_print("Cycles length: ", max_cycles.size(), "\n");
+	//log_print("Sorted cycles length: ", sorted_cycles.size(), "\n");
 	
 	std::vector<Node_Group<Label>> cycle_groups;
 	label_grouped_sort_first_pass(sort_predicate, cycle_groups, sorted_cycles);
 	
 	//TODO: Maybe make different error codes for this function.
 	success = optimize_label_group_packing(sort_predicate, cycle_groups, max_passes);
-	if(!success) return false;
+	if(!success)
+		fatal_error(Mobius_Error::internal, "Unable to pack cycle groups optimally.");
+	//if(!success) return false;
 	
 	
 	struct
@@ -420,15 +445,15 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 		
 		inline bool participates(int node) { return true; }
 		inline std::set<int> &edges(int node) { return edges_[node]; }
-		Cycle_Internal_Sort_Predicate(int size) : partcipates_(size), edges_(size) {}
+		Cycle_Internal_Sort_Predicate(int size) : edges_(size) {}
 	};
 	
 	// Then unpack the nodes from the cycles into the resulting groups.
 	for(auto &group : cycle_groups) {
-		Node_Group<Label> &unpacked;
+		Node_Group<Label> unpacked;
 		unpacked.label = group.label;
 		std::vector<int> new_nodes;
-		for(int cycle_id : group.nodes) {
+		for(int cycle_idx : group.nodes) {
 			auto &cycle = max_cycles[cycle_idx];
 			new_nodes.insert(new_nodes.end(), cycle.nodes.begin(), cycle.nodes.end());
 		}
@@ -437,7 +462,10 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 		for(int idx = 0; idx < new_nodes.size(); ++idx)
 			idx_of_node[new_nodes[idx]] = idx;
 		
-		// Have to reindex the edges for the internal topological sort.
+		// Topological-sort new_nodes on the strong edges and put them into unpacked.nodes.
+		// TODO: Skip it if the lenght is 1.
+		
+		// We have to reindex the edges for the internal topological sort.
 		// TODO: If we made an iterator for it we would not need to allocate the new edges as sets.
 		Cycle_Internal_Sort_Predicate sort_predicate2(new_nodes.size());
 		for(int idx = 0; idx < new_nodes.size(); ++idx) {
@@ -447,20 +475,22 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 					sort_predicate2.edges_[idx].insert(edg_idx);
 			}
 		}
-		// Topological-sort new_nodes on the strong edges and put them into unpacked.nodes.
 		
 		std::vector<int> sorted;
 		potential_cycle.clear();
 		bool success = topological_sort(sort_predicate2, sorted, new_nodes.size(), potential_cycle);
 		// TODO Here it should also not be possible to not have success if this function is used correctly, but we should maybe have an error code for it any way.
-		if(!success) return false;
+		//if(!success) return false;
+		if(!success)
+			fatal_error(Mobius_Error::internal, "Unable to unpack sort a cycle.");
 		
 		for(int idx : sorted)
 			unpacked.nodes.push_back(new_nodes[idx]);
 		
-		
 		groups.push_back(std::move(unpacked));
 	}
+	
+	return true;
 }
 
 

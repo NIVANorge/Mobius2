@@ -9,7 +9,7 @@ model("Wave") {
 	
 	li : index_set("Layer index")
 	distribute(layer, li)
-	solve(solver("Solver", "INCADascru", 0.1), layer.amp, layer.mom)
+	solve(solver("Solver", inca_dascru, [hr]), layer.amp, layer.mom)
 	
 	module("Wave", version(1, 0, 0)) {
 		

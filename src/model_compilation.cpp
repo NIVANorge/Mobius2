@@ -337,6 +337,7 @@ unpack_index_sets(u64 pack, std::set<Entity_Id> &index_sets) {
 	}
 }
 
+/*
 struct
 Instruction_Array_Grouping_Predicate {
 	std::vector<Model_Instruction> *instructions;
@@ -355,7 +356,7 @@ Instruction_Array_Grouping_Predicate {
 	inline u64 label(int node) {  return pack_index_sets((*instructions)[node].index_sets);  }
 	inline bool allow_move(u64 label) { return true; }  //NOTE: There is no a priori reason we can't move an instruction out of a group in this application.
 };
-
+*/
 
 void
 build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &arrays_out, bool initial) {
@@ -364,15 +365,48 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 	if(model->index_sets.count() > 64)
 		fatal_error(Mobius_Error::internal, "There is an implementation restriction so that you can't currently have more than 64 index_sets in the same model.");
 	
-	std::vector<Node_Group<u64>> groups;
+	struct Instruction_Array_Grouping_Predicate {
+		std::vector<Model_Instruction> *instructions;
+		std::vector<u8>                *participates_;
+		
+		inline bool participates(int node) { return (*participates_)[node]; }
+		inline const std::set<int> &edges(int node) { return (*instructions)[node].depends_on_instruction; }
+		inline const std::set<int> &weak_edges(int node) { return (*instructions)[node].loose_depends_on_instruction; }
+		inline const std::set<int> &blocks(int node) { return (*instructions)[node].instruction_is_blocking; }
+		
+		inline u64 label(int node) {  return pack_index_sets((*instructions)[node].index_sets);  }
+	};
 	
-	Instruction_Array_Grouping_Predicate predicate { &instructions };
-	label_grouped_sort_first_pass(predicate, groups, instrs);
+	std::vector<u8> participates(instructions.size());
+	for(int instr : instrs)
+		participates[instr] = true;
+	
+	Instruction_Array_Grouping_Predicate predicate { &instructions, &participates };
 	
 	constexpr int max_iter = 10;
-	bool success = optimize_label_group_packing(predicate, groups, max_iter);
+	std::vector<Node_Group<u64>> groups;
+	std::vector<Constraint_Cycle<u64>> max_cycles;
+	bool success = label_grouped_topological_sort_additional_weak_constraint(predicate, groups, max_cycles, instructions.size(), max_iter);
+	/*
+	if(!initial) {
+		log_print("\n*** Cycle structure:\n");
+		for(auto &cycle : max_cycles) {
+			if(cycle.nodes.size() == 1) continue;
+			log_print("Cycle:\n");
+			for(int node : cycle.nodes) {
+				log_print("\t", instructions[node].debug_string(app), "\n");
+			}
+		}
+		log_print("\n\n");
+	}
+	*/
+	//label_grouped_sort_first_pass(predicate, groups, instrs);
+	
+	//bool success = optimize_label_group_packing(predicate, groups, max_iter);
+	
+	// TODO: Have better error reporting from the above function.
 	if(!success)
-		fatal_error(Mobius_Error::internal, "Unable to optimize instruction array grouping in the allotted amount of iterations (", max_iter, ").");
+		fatal_error(Mobius_Error::internal, "Something went wrong with the instruction grouping (", max_iter, ").");
 	
 	arrays_out.clear();
 	
@@ -1442,8 +1476,6 @@ Model_Application::compile(bool store_code_strings) {
 	if(changed)
 		fatal_error(Mobius_Error::internal, "Failed to resolve all dependencies in the alotted amount of iterations.");
 	
-	
-	
 	std::vector<Batch> batches;
 	create_batches(this, batches, instructions);
 	
@@ -1483,8 +1515,8 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
-	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, true);
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
+	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, false);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
 	

@@ -887,66 +887,76 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 		Math_Expr_FT *scope = create_nested_for_loops(top_scope, app, array.index_sets, indexes);
 		
 		for(int instr_id : array.instr_ids) {
-			auto instr = &instructions[instr_id];
+			
+			auto &instr = instructions[instr_id];
 			
 			Math_Expr_FT *fun = nullptr;
 			
 			try {
-				if(instr->code) {
-					fun = copy(instr->code);
-					fun = put_var_lookup_indexes(fun, app, indexes, &instr->restriction, instr);
-				} else if (instr->type != Model_Instruction::Type::clear_state_var) {
+				if(instr.code) {
+					fun = copy(instr.code);
+					fun = put_var_lookup_indexes(fun, app, indexes, &instr.restriction, &instr);
+				} else if (instr.type != Model_Instruction::Type::clear_state_var) {
 					//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
 					
 					// TODO: Should we try to infer if it is ok that there is no code for this compute_state_var (?). Or maybe have a separate type for it when we expect there to be no actual computation and it is only a placeholder for a value (?). Or maybe have a flag for it on the State_Variable.
-					if(instr->type == Model_Instruction::Type::compute_state_var)
+					if(instr.type == Model_Instruction::Type::compute_state_var)
 						continue;
-					fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr->type, ".");
+					fatal_error(Mobius_Error::internal, "Unexpectedly missing code for a model instruction. Type: ", (int)instr.type, ".");
 				}
 			} catch(int) {
-				fatal_error("The error happened when trying to put lookup indexes for the instruction ", instr->debug_string(app), initial ? " during the initial value step." : ".");
+				fatal_error("The error happened when trying to put lookup indexes for the instruction ", instr.debug_string(app), initial ? " during the initial value step." : ".");
 			}
 				
 			Math_Expr_FT *result_code = nullptr;
 			
-			if(instr->type == Model_Instruction::Type::compute_state_var) {
+			if(instr.type == Model_Instruction::Type::compute_state_var) {
+				/*auto structure = app->get_storage_structure(instr.var_id.type);
+				if(structure.handle_is_in_array.find(instr.var_id) == structure.handle_is_in_array.end()) {
+					begin_error(Mobius_Error::internal);
+					error_print(instr.debug_string(app), " was not registered in the storage structure. initial: ", initial, ". The following are in the structure: \n");
+					for(auto &pair : structure.handle_is_in_array) {
+						error_print(app->vars[pair.first]->name, "\n");
+					}
+					mobius_error_exit();
+				}*/
 				
-				auto offset_code = app->get_storage_structure(instr->var_id.type).get_offset_code(instr->var_id, indexes);
-				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr->var_id);
+				auto offset_code = app->get_storage_structure(instr.var_id.type).get_offset_code(instr.var_id, indexes);
+				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr.var_id);
 				assignment->exprs.push_back(offset_code);
 				assignment->exprs.push_back(fun);
 				assignment->value_type = Value_Type::none;
 				result_code = assignment;
 				
-			} else if (instr->type == Model_Instruction::Type::subtract_discrete_flux_from_source) {
+			} else if (instr.type == Model_Instruction::Type::subtract_discrete_flux_from_source) {
 				
 				// TODO: Just make an app->get_offset_code(Var_Id, Index_Exprs &)
-				auto agg_offset = app->get_storage_structure(instr->source_id.type).get_offset_code(instr->source_id, indexes);
-				result_code = add_value_to_state_var(instr->source_id, agg_offset, fun, '-');
+				auto agg_offset = app->get_storage_structure(instr.source_id.type).get_offset_code(instr.source_id, indexes);
+				result_code = add_value_to_state_var(instr.source_id, agg_offset, fun, '-');
 				
-			} else if (instr->type == Model_Instruction::Type::add_discrete_flux_to_target) {
+			} else if (instr.type == Model_Instruction::Type::add_discrete_flux_to_target) {
 				
-				auto agg_offset = app->get_storage_structure(instr->target_id.type).get_offset_code(instr->target_id, indexes);
-				result_code = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
+				auto agg_offset = app->get_storage_structure(instr.target_id.type).get_offset_code(instr.target_id, indexes);
+				result_code = add_value_to_state_var(instr.target_id, agg_offset, fun, '+');
 				
-			} else if (instr->type == Model_Instruction::Type::add_to_aggregate) {
+			} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
 				
-				auto agg_offset = app->get_storage_structure(instr->target_id.type).get_offset_code(instr->target_id, indexes);
-				result_code = add_value_to_state_var(instr->target_id, agg_offset, fun, '+');
+				auto agg_offset = app->get_storage_structure(instr.target_id.type).get_offset_code(instr.target_id, indexes);
+				result_code = add_value_to_state_var(instr.target_id, agg_offset, fun, '+');
 				
-			} else if (instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
+			} else if (instr.type == Model_Instruction::Type::add_to_connection_aggregate) {
 				
-				result_code = add_value_to_connection_agg_var(app, fun, instr, indexes);
+				result_code = add_value_to_connection_agg_var(app, fun, &instr, indexes);
 				
-			} else if (instr->type == Model_Instruction::Type::clear_state_var) {
+			} else if (instr.type == Model_Instruction::Type::clear_state_var) {
 				
-				auto offset = app->get_storage_structure(instr->var_id.type).get_offset_code(instr->var_id, indexes);
-				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr->var_id);
+				auto offset = app->get_storage_structure(instr.var_id.type).get_offset_code(instr.var_id, indexes);
+				auto assignment = new Assignment_FT(Math_Expr_Type::state_var_assignment, instr.var_id);
 				assignment->exprs.push_back(offset);
 				assignment->exprs.push_back(make_literal((double)0.0));
 				result_code = assignment;
 				
-			} else if (instr->type == Model_Instruction::Type::external_computation) {
+			} else if (instr.type == Model_Instruction::Type::external_computation) {
 				
 				auto external = static_cast<External_Computation_FT *>(fun);
 
@@ -985,14 +995,14 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");
 			}
 			
-			if(is_valid(instr->restriction.r1.connection_id)) {
+			if(is_valid(instr.restriction.r1.connection_id)) {
 				
 				Entity_Id source_comp = invalid_entity_id;
 				//TODO: Could this be organized in a better way so that we don't need this lookup?
-				if(model->connections[instr->restriction.r1.connection_id]->type == Connection_Type::directed_graph)
-					source_comp = app->vars[instr->var_id]->loc1.first();
+				if(model->connections[instr.restriction.r1.connection_id]->type == Connection_Type::directed_graph)
+					source_comp = app->vars[instr.var_id]->loc1.first();
 				
-				result_code = make_restriction_condition(app, result_code, make_no_op(), instr->restriction, indexes, source_comp);
+				result_code = make_restriction_condition(app, result_code, make_no_op(), instr.restriction, indexes, source_comp);
 			}
 			
 			scope->exprs.push_back(result_code);
@@ -1021,13 +1031,13 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			Math_Expr_FT *scope = create_nested_for_loops(top_scope, app, array.index_sets, indexes);
 					
 			for(int instr_id : array.instr_ids) {
-				auto instr = &instructions[instr_id];
+				auto &instr = instructions[instr_id];
 				
-				if(instr->type != Model_Instruction::Type::compute_state_var)
+				if(instr.type != Model_Instruction::Type::compute_state_var)
 					fatal_error(Mobius_Error::internal, "Somehow we got an instruction that is not a state var computation inside an ODE batch.\n");
 				
 				// NOTE: the code for an ode variable computes the derivative of the state variable, which is all ingoing fluxes minus all outgoing fluxes
-				auto fun = instr->code;
+				auto fun = instr.code;
 				
 				if(!fun)
 					fatal_error(Mobius_Error::internal, "ODE variables should always be provided with generated code in instruction_codegen, but we got one without.");
@@ -1036,9 +1046,9 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 				put_var_lookup_indexes(fun, app, indexes);
 				
-				auto offset_var = app->result_structure.get_offset_code(instr->var_id, indexes);
+				auto offset_var = app->result_structure.get_offset_code(instr.var_id, indexes);
 				auto offset_deriv = make_binop('-', offset_var, make_literal(init_pos));
-				auto assignment = new Assignment_FT(Math_Expr_Type::derivative_assignment, instr->var_id);
+				auto assignment = new Assignment_FT(Math_Expr_Type::derivative_assignment, instr.var_id);
 				assignment->exprs.push_back(offset_deriv);
 				assignment->exprs.push_back(fun);
 				scope->exprs.push_back(assignment);

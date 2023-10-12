@@ -4,32 +4,6 @@
 	
 	
 		Why errors during data set saving crash the program instead of getting caught now?
-	
-		Instruction sorting, batch creation (rare bug, but is very important to fix):
-			There is a problem when we topological sort, we can't take the loose_depends into account. But then if the things get added in the wrong order there is a problem.
-			May have to factor out loose_depends groups first and bundle them in the sorting.
-				That is not quite right either, because a loose depend is less restrictive than a full depend, and they could get a full depend wedged between them, in which case they should not be grouped. They could only be grouped if there is a circular loose_depends between them.
-					So we should factor out such circles then?
-			Or is it sufficient to check for such conflicts when placing the instructions in the first pass after the topological sort?
-				Maybe not, because if
-					a -> b => c    (  -> = loose,  => = strong  )
-				and a is added in first, then c, we should also have forced c after a.
-			Plan
-				group circular loose depends. (groups can also be single elements if that element doesn't participate in a circular dependency)
-					actually circular loose+full depends. (but have to check that the full depends don't form a cycle on their own - can do in unpacking below).
-				upgrade all others to full depends between groups, or rather just store dependencies between groups.
-				Then do the topological sort on the groups.
-				Then unpack groups to the same destination batch.
-					Will have to be sorted internally by full depends.
-				We should generalize the code for the sorting algorithm since it is used in two places (for discrete + solver, then within solver).
-					
-			Other benefits:
-				Makes it easy to record circular in_flux(connection) dependencies, which is something we wanted for another reason also.
-				Yaay, we get to write a cycles grouping algorithm ( :/ ???? )
-				
-			Hmm, it is still problematic that grouping by solvers is very different.
-				Although it is possible I guess, could then just check the final structure to see if a solver was split among batches or not.
-				Also, we don't technically need a second topological sort when we re-group within the batches.
 			
 		
 		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)   #Should maybe change parsing so that the () on solver is unnecessary. Or is it already?

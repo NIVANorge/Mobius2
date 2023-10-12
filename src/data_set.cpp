@@ -1,5 +1,6 @@
 
 #include <set>
+#include <sstream>
 
 #include "data_set.h"
 #include "ole_wrapper.h"

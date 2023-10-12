@@ -12,7 +12,7 @@ model("Wave2D") {
 	
 	distribute(cell, vi, hi)
 	
-	solve(solver("Solver", "INCADascru", 0.1), cell.amp, cell.mom)
+	solve(solver("Solver", inca_dascru, [hr]), cell.amp, cell.mom)
 	
 	v : connection("Vert") @grid1d(cell, vi)
 	h : connection("Horz") @grid1d(cell, hi)
