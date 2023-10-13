@@ -198,6 +198,10 @@ mobius_get_index_set_count(Model_Application *app, Entity_Id id) {
 
 DLLEXPORT void
 mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps) {
+	
+	if(var_id.type == Var_Id::Type::temp_var)
+		fatal_error(Mobius_Error::api_usage, "The time series for the variable \"", app->vars[var_id]->name, "\" is not stored.");
+	
 	if(!time_steps) return;
 	
 	try {
@@ -282,7 +286,10 @@ mobius_resolve_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Slice *
 
 DLLEXPORT void
 mobius_get_series_data_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Range *indexes_in, s64 indexes_count, double *series_out, s64 time_steps) {
-	
+
+	if(var_id.type == Var_Id::Type::temp_var)
+		fatal_error(Mobius_Error::api_usage, "The time series for the variable \"", app->vars[var_id]->name, "\" is not stored.");
+		
 	if(!time_steps) return;
 	
 	Indexes indexes;

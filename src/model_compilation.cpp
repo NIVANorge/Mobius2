@@ -338,11 +338,11 @@ unpack_index_sets(u64 pack, std::set<Entity_Id> &index_sets) {
 }
 
 void
-check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<Constraint_Cycle<u64>> &cycles) {
+check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<Strongly_Connected_Component<u64>> &max_components) {
 	
 	auto model = app->model;
 	
-	for(auto &cycle : cycles) {
+	for(auto &cycle : max_components) {
 		if(cycle.nodes.size() == 1) continue;
 		
 		for(int node : cycle.nodes) {
@@ -407,7 +407,7 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 	
 	constexpr int max_iter = 10;
 	std::vector<Node_Group<u64>> groups;
-	std::vector<Constraint_Cycle<u64>> max_cycles;
+	std::vector<Strongly_Connected_Component<u64>> max_cycles;
 	bool success = label_grouped_topological_sort_additional_weak_constraint(predicate, groups, max_cycles, instructions.size(), max_iter);
 	
 	// TODO: Have better error reporting from the above function.

@@ -82,6 +82,7 @@ topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements,
 //https://www.cs.tufts.edu/comp/150GA/homeworks/hw1/Johnson%2075.PDF
 // See also
 // https://arxiv.org/pdf/2105.10094.pdf
+// Note: We didn't end up using this in Mobius after all, but we keep it here in case somebody else want to use it.
 
 template<typename Predicate>
 void
@@ -145,6 +146,69 @@ find_all_circuits(Predicate &predicate, int n_elements, const std::function<void
 		}
 		tracker.visit(predicate, node, node, output_circuit);
 	}
+}
+
+// Path-based strongly connected component algorithm
+// https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
+template <typename Predicate>
+void
+find_strongly_connected_components(Predicate &predicate, int n_elements, const std::function<void(const std::vector<int> &)> &output_component) {
+	
+	struct
+	Component_Search_Helper {
+		int counter = 0;
+		std::vector<int> preorder;
+		std::vector<uint8_t> is_assigned;
+		std::vector<int> unassigned_stack;
+		std::vector<int> ambiguous_stack;
+		Predicate *predicate;
+		
+		Component_Search_Helper(int size, Predicate *predicate) : 
+			preorder(size, -1), is_assigned(size, false), predicate(predicate) {}
+		
+		void
+		visit(int node, const std::function<void(const std::vector<int> &)> &output_component) {
+			if(!predicate->participates(node)) return;
+			
+			preorder[node] = counter++;
+			unassigned_stack.push_back(node);
+			ambiguous_stack.push_back(node);
+			for(int other : predicate->edges(node)) {
+				if(!predicate->participates(other)) continue;
+				if(preorder[other] == -1)
+					visit(other, output_component);
+				else if(!is_assigned[other]) {
+					while(true) {
+						if(ambiguous_stack.empty()) break;
+						int top = ambiguous_stack.back();
+						if(preorder[top] <= preorder[other]) break;
+						ambiguous_stack.resize(ambiguous_stack.size() - 1);
+					}
+				}
+			}
+			if(!ambiguous_stack.empty() && node == ambiguous_stack.back()) {
+				std::vector<int> new_component;
+				while(true) {
+					if(unassigned_stack.empty()) break; // Should not happen though. Maybe give an error?
+					int top = unassigned_stack.back();
+					unassigned_stack.resize(unassigned_stack.size() - 1);
+					new_component.push_back(top);
+					is_assigned[top] = true;
+					if(top == node) break;
+				}
+				output_component(new_component);
+				ambiguous_stack.resize(ambiguous_stack.size() - 1);
+			}
+		}
+	};
+	
+	Component_Search_Helper component_finder(n_elements, &predicate);
+	
+	for(int node = 0; node < n_elements; ++node) {
+		if(component_finder.preorder[node] == -1)
+			component_finder.visit(node, output_component);
+	}
+	
 }
 
 
@@ -274,7 +338,7 @@ optimize_label_group_packing(Predicate &predicate, std::vector<Node_Group<Label>
 
 template<typename Label>
 struct
-Constraint_Cycle {
+Strongly_Connected_Component {
 	std::set<int> nodes;
 	Label label;
 	std::set<int> edges_to_cycle;
@@ -283,61 +347,31 @@ Constraint_Cycle {
 
 template<typename Predicate, typename Label>
 bool
-find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<Label>> &max_cycles, int n_elements) {
-	
-	// TODO: Properly document this algorithm
-	
-	// Find maximal cycles by finding simple circuits, then merging those that overlap (hopefully this is the fastest way to do it ?).
+find_labeled_strongly_connected_components(Predicate &predicate, std::vector<Strongly_Connected_Component<Label>> &components, int n_elements) {
 	
 	bool singly_labeled_cycles = true;
 	
-	find_all_circuits(predicate, n_elements, [&](const std::vector<int> &circuit) {
-		
-		Label label = predicate.label(circuit[0]);
-		for(int idx = 1; idx < circuit.size(); ++idx) {
-			if(predicate.label(circuit[idx]) != label)
+	find_strongly_connected_components(predicate, n_elements, [&](const std::vector<int> &component) {
+		// Figure out the label of the component.
+		Label label = predicate.label(component[0]);
+		for(int idx = 1; idx < component.size(); ++idx) {
+			if(predicate.label(component[idx]) != label)
 				singly_labeled_cycles = false;
 		}
-		
-		// See if any of the nodes in the new circuit are in another cycle (in that case merge the circuit into ).
-		std::vector<int> found_in;
-		for(int cycle_idx = 0; cycle_idx < max_cycles.size(); ++cycle_idx) {
-			auto &existing_cycle = max_cycles[cycle_idx];
-			if(std::any_of(circuit.begin(), circuit.end(), [&](int node) {
-				return existing_cycle.nodes.find(node) != existing_cycle.nodes.end();
-			}))
-				found_in.push_back(cycle_idx);
-		}
-		if(found_in.empty()) {
-			// It was not found in a previous cycle, so we create a new one.
-			Constraint_Cycle<Label> new_cycle;
-			new_cycle.nodes.insert(circuit.begin(), circuit.end());
-			new_cycle.label = label;
-			max_cycles.push_back(std::move(new_cycle));
-		} else {
-			// Merge other cycles together including the new circuit that overlaps them.
-			// TODO: Check the labels (return false if mismatch)
-			auto &c = max_cycles[found_in[0]];
-			c.nodes.insert(circuit.begin(), circuit.end());
-			if(c.label != label) singly_labeled_cycles = false;
-			for(int idxidx = (int)found_in.size()-1; idxidx > 0; --idxidx) { // NOTE: > 0 to omit the first one, which we already set.
-				int cycle_idx = found_in[idxidx];
-				auto &c2 = max_cycles[cycle_idx];
-				c.nodes.insert(c2.nodes.begin(), c2.nodes.end());
-				max_cycles.erase(max_cycles.begin()+cycle_idx);
-				if(c2.label != label) singly_labeled_cycles = false;
-			}
-		}
+		Strongly_Connected_Component<Label> new_component;
+		new_component.nodes.insert(component.begin(), component.end());
+		new_component.label = label;
+		components.push_back(std::move(new_component));
 	});
 	
 	std::vector<int> node_is_in_cycle(n_elements, -1);
 	
-	int max_proper_cycles = max_cycles.size();
+	int max_proper_cycles = components.size();
 	
 	for(int node = 0; node < n_elements; ++node) {
 		if(!predicate.participates(node)) continue;
 		for(int cycle_idx = 0; cycle_idx < max_proper_cycles; ++cycle_idx) {
-			auto &c = max_cycles[cycle_idx];
+			auto &c = components[cycle_idx];
 			if(c.nodes.find(node) != c.nodes.end()) {
 				node_is_in_cycle[node] = cycle_idx;
 				break;
@@ -345,16 +379,16 @@ find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<L
 		}
 		if(node_is_in_cycle[node] == -1) {
 			//Make "cycles" for the singletons too.
-			Constraint_Cycle<Label> new_cycle;
+			Strongly_Connected_Component<Label> new_cycle;
 			new_cycle.nodes.insert(node);
 			new_cycle.label = predicate.label(node);
-			max_cycles.push_back(std::move(new_cycle));
-			node_is_in_cycle[node] = max_cycles.size()-1;
+			components.push_back(std::move(new_cycle));
+			node_is_in_cycle[node] = components.size()-1;
 		}
 	}
 	
-	for(int cycle_idx = 0; cycle_idx < max_cycles.size(); ++cycle_idx) {
-		auto &cycle = max_cycles[cycle_idx];
+	for(int cycle_idx = 0; cycle_idx < components.size(); ++cycle_idx) {
+		auto &cycle = components[cycle_idx];
 		for(int node : cycle.nodes) {
 			for(int other : predicate.edges(node)) {
 				int other_cycle = node_is_in_cycle[other];
@@ -374,7 +408,11 @@ find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<L
 
 template <typename Predicate, typename Label>
 bool
-label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, std::vector<Node_Group<Label>> &groups, std::vector<Constraint_Cycle<Label>> &max_cycles, int n_elements, int max_passes = 10) {
+label_grouped_topological_sort_additional_weak_constraint(
+	Predicate &predicate, std::vector<Node_Group<Label>> &groups, 
+	std::vector<Strongly_Connected_Component<Label>> &max_components, 
+	int n_elements, int max_passes = 10
+) {
 	
 	// TODO: Properly document this algorithm
 	
@@ -390,7 +428,7 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 	
 	struct
 	Cycle_Sorting_Predicate {
-		std::vector<Constraint_Cycle<Label>> *collapsed_graph;
+		std::vector<Strongly_Connected_Component<Label>> *collapsed_graph;
 		
 		inline bool depends(int node, int on) {
 			auto &edg = (*collapsed_graph)[node].edges_to_cycle;
@@ -417,7 +455,7 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 	}
 	
 	// Collapse cycles consisting of weak+strong edges into single nodes.
-	bool singly_labeled_cycles = find_maximal_labeled_cycles(cycle_predicate, max_cycles, n_elements);
+	bool singly_labeled_cycles = find_labeled_strongly_connected_components(cycle_predicate, max_components, n_elements);
 	// TODO: Error if !singly_labeled_cycles ( This is not possible if the algorithm is used correctly though ).
 	if(!singly_labeled_cycles)
 		fatal_error(Mobius_Error::internal, "The cycles were not singly labeled.");
@@ -425,26 +463,22 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 	// TODO: We could simplify (speed up) the algorithm if we only get singleton cycles.
 	
 	// Note: There should be no cycles among the cycles (or the cycle grouping algorithm is wrong), so we should not have to check for that in this case.
-	Cycle_Sorting_Predicate sort_predicate { &max_cycles };
+	Cycle_Sorting_Predicate sort_predicate { &max_components };
 	std::vector<int> sorted_cycles, potential_cycle;
-	bool success = topological_sort(sort_predicate, sorted_cycles, max_cycles.size(), potential_cycle);
+	bool success = topological_sort(sort_predicate, sorted_cycles, max_components.size(), potential_cycle);
 	if(!success) {
 		begin_error(Mobius_Error::internal);
 		error_print("Got a cycle among the cycles!!!\n");
 		
 		for(int cycle_idx : potential_cycle) {
 			error_print(cycle_idx, ": ");
-			for(int node : max_cycles[cycle_idx].nodes)
+			for(int node : max_components[cycle_idx].nodes)
 				error_print(node, " ");
 			error_print("\n");
 		}
-		// TODO: Print this out.
 		
 		mobius_error_exit();
 	}
-	
-	//log_print("Cycles length: ", max_cycles.size(), "\n");
-	//log_print("Sorted cycles length: ", sorted_cycles.size(), "\n");
 	
 	std::vector<Node_Group<Label>> cycle_groups;
 	label_grouped_sort_first_pass(sort_predicate, cycle_groups, sorted_cycles);
@@ -470,7 +504,7 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 		Node_Group<Label> unpacked;
 		unpacked.label = group.label;
 		for(int cycle_idx : group.nodes) {
-			auto &cycle = max_cycles[cycle_idx];
+			auto &cycle = max_components[cycle_idx];
 			if(cycle.nodes.size() == 1) {
 				unpacked.nodes.push_back(*cycle.nodes.begin());
 			} else {

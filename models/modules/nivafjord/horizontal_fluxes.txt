@@ -43,7 +43,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 
 	# TODO: Could have a SimplyCl module
-	var(river.water.salin, []) {  0  }
+	var(river.water.salin, [], "River salinity") {  0  } @no_store
 	
 	var(river.water.salt, [k g], [k g, m-3]) @override_conc {   1e-3*salin*rho_water   }
 	
@@ -84,7 +84,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	horz_bal : property("Horizontal water balance")
 	var(layer.water.horz_bal, [m 3, day-1]) {
 		#TODO: If we implement out_flux, we don't need the separate horz_flow variable.
-		
 		aggregate(edge_layer.horz_flow) - in_flux(horz, water)->>
 	}
 	
