@@ -377,10 +377,10 @@ check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruct
 			if(conn->type != Connection_Type::directed_graph) continue;
 			if(conn->no_cycles) continue;
 			/*
-				Note: The reasoning for this is as follows. If in_flux(connection, something) is weakly dependent on itself, it is dependent on values of itself from within the same 'for loop'.
+				Note: The reasoning for this is as follows. If in_flux(connection, something) is weakly/loosely dependent on itself, it is dependent on (differently indexed) values of itself from within the same 'for loop'.
 				This means that the for loop has to be ordered so that indexes that are 'earlier' in the connection graph come before later ones, but then there can be no cycle within the graph. We force the user to declare @no_cycles so that its validity can be checked at another stage without making the compiler check it here (that would complicate the code).
 				
-				Note: Don't confuse the term 'cycle' within the weak+strong model instruction dependencies with a 'cycle' within the connection graph itself.
+				Note: Don't confuse the term 'cycle' within the model instruction dependencies with a 'cycle' within the connection graph itself.
 				If there is a *cycle* among the connection aggregate instructions, it means that the indexes must be ordered along the graph arrows, and so there can be *no cycle* in the connection graph.
 			*/
 			conn->source_loc.print_error_header(Mobius_Error::model_building);
@@ -393,8 +393,7 @@ check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruct
 				if(other_instr.type != Model_Instruction::Type::compute_state_var) continue;
 				auto other_var = app->vars[other_instr.var_id];
 				if(other_var->type != State_Var::Type::declared) continue;
-				error_print_location(model, other_var->loc1);
-				error_print("\n");
+				error_print(other_var->name, "\n");
 			}
 			mobius_error_exit();
 			// ( Note: It is probably safe to assume that it includes declared state variables at all (?). There should be no other way such a cycle could happen.)

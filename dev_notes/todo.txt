@@ -3,11 +3,7 @@
 	*** High pri ***
 	
 	
-		Clean up the sorting algorithm
-			Make it independent of the Mobius framework code (no direct error exits, instead have error codes).
-			
-		Use the max_cycles info to fix the in_flux(graph_connection) bug (or at least report error if it occurs).
-	
+		
 	
 		Why errors during data set saving crash the program instead of getting caught now?
 			
@@ -53,13 +49,6 @@
 				Could later extend it to have different code depending on the target (for graph).
 		
 			graph connections
-			
-				in_flux(connection, something) will some times depend on the indexes being ordered in the same way as in the connection graph.
-					Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
-					This is not solvable without remapping the indexes (or asking the user to reorder them).
-					Could detect if this happens and give an error, but that alone is a bit of work.
-						We should only allow it if no_cycles is specified.
-						If no_cycles is specified, we should demand that the indexes in the data set are in the order of appearance.
 				
 				Regex
 					One should need to explicitly allow isolated nodes using something like    a | (....)
@@ -70,7 +59,7 @@
 					Alternatively do unit conversions, but how?
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
 				
-				Make it work with quantities.
+				Make it work with quantities as the node component.
 					And allow aggregation weight for quantities (can for instance be used for degradation chains of isotopes or POPs where some of the mass goes away).
 
 			
@@ -101,6 +90,9 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		Clean up the sorting algorithm
+			Make it independent of the Mobius framework code (no direct error exits, instead have error codes).
 	
 		Can get error if you load a library that loads another library, but you don't use all the functions of that library.
 			Maybe just don't give intra-library errors, or instead process all the functions somehow, but that is tricky.
