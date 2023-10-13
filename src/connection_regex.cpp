@@ -198,16 +198,28 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		
 		// TODO: Check for duplicate arrows? (Are they allowed?)
 		s64 source_idx = node_structure.get_offset(arr.source_id, arr.source_indexes);
-		nodes[source_idx].points_at.push_back(target_idx);
+		auto &source = nodes[source_idx];
+		if(std::find(source.points_at.begin(), source.points_at.end(), target_idx) != source.points_at.end()) {
+			data_loc.print_error_header(Mobius_Error::model_building);
+			error_print("The following connection arrow is duplicate within the same connection:\n");
+			error_print_node(app, scope, nodes, source_idx);
+			error_print(" -> ");
+			error_print_node(app, scope, nodes, target_idx);
+			mobius_error_exit();
+		}
+		source.points_at.push_back(target_idx);
 		
 		// NOTE: We can do this check like this because the flattened indexes are ordered the same way as the index tuples, but we should maybe make the check more robust.
-		if(connection->no_cycles && (target_idx != -1) && (source_idx >= target_idx) ) {
+		//   TODO: how does it work if it is between different components? Could we get unintended behaviour in the model solver if that is ordered wrong?
+		if(connection->no_cycles && (target_idx != -1) && (source_idx >= target_idx) && (nodes[source_idx].id == nodes[target_idx].id)) {
 			data_loc.print_error_header(Mobius_Error::model_building);
 			error_print("The directed_graph connection \"", connection->name, "\" is marked as @no_cycles. Because of this, for technical reasons, we require every arrow in the graph to go from a lower index to a higher index. The following arrow violates this:\n");
 			error_print_node(app, scope, nodes, source_idx);
 			error_print(" -> ");
 			error_print_node(app, scope, nodes, target_idx);
-			fatal_error(" .");
+			error_print("\nSee the declaration of the connection here:\n");
+			connection->source_loc.print_error();
+			mobius_error_exit();
 		}
 	}
 	

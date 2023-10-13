@@ -2,7 +2,8 @@
 
 	*** High pri ***
 	
-	
+		mobipy:
+			Make it easier to extract fluxes.
 		
 	
 		Why errors during data set saving crash the program instead of getting caught now?

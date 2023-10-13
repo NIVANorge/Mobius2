@@ -337,27 +337,6 @@ unpack_index_sets(u64 pack, std::set<Entity_Id> &index_sets) {
 	}
 }
 
-/*
-struct
-Instruction_Array_Grouping_Predicate {
-	std::vector<Model_Instruction> *instructions;
-	
-	bool depends(int node, int on_node) {
-		auto &dep = (*instructions)[node].depends_on_instruction;
-		if(dep.find(on_node) != dep.end()) return true;
-		auto &dep2 = (*instructions)[node].loose_depends_on_instruction;
-		if(dep2.find(on_node) != dep2.end()) return true;
-		return false;
-	}
-	inline bool blocks(int node, int other_node) {
-		auto &blk = (*instructions)[node].instruction_is_blocking;
-		return (blk.find(other_node) != blk.end());
-	}
-	inline u64 label(int node) {  return pack_index_sets((*instructions)[node].index_sets);  }
-	inline bool allow_move(u64 label) { return true; }  //NOTE: There is no a priori reason we can't move an instruction out of a group in this application.
-};
-*/
-
 void
 check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<Constraint_Cycle<u64>> &cycles) {
 	
