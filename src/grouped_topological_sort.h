@@ -39,7 +39,7 @@ void
 topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements, const std::function<void(const std::vector<int> &)> &report_circuit) {
 	
 	struct
-	Visitation_Record {
+	Visit_Helper {
 		std::vector<uint8_t> temp_visited;
 		std::vector<uint8_t> visited;
 		
@@ -47,7 +47,7 @@ topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements,
 		std::vector<int> *sorted;
 		Predicate *predicate;
 		
-		Visitation_Record(int size, Predicate *predicate, std::vector<int> *sorted) : temp_visited(size, false), visited(size, false), predicate(predicate), sorted(sorted) {}
+		Visit_Helper(int size, Predicate *predicate, std::vector<int> *sorted) : temp_visited(size, false), visited(size, false), predicate(predicate), sorted(sorted) {}
 		
 		bool
 		visit(int node) {
@@ -69,7 +69,7 @@ topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements,
 	};
 	
 	sorted.clear();
-	Visitation_Record visits(n_elements, &predicate, &sorted);
+	Visit_Helper visits(n_elements, &predicate, &sorted);
 	for(int node = 0; node < n_elements; ++node) {
 		visits.potential_cycle.clear();
 		bool is_cycle = visits.visit(node);
@@ -97,14 +97,14 @@ void
 find_all_circuits(Predicate &predicate, int n_elements, const std::function<void(const std::vector<int> &)> &output_circuit) {
 	
 	struct
-	Blocking_Tracker {
+	Visit_Helper {
 		std::vector<uint8_t>       blocked;
 		std::vector<std::set<int>> Blist;
 		
 		std::vector<int> visit_stack;
 		Predicate *predicate;
 		
-		Blocking_Tracker(int size, Predicate *predicate) : blocked(size, false), Blist(size), predicate(predicate) {}
+		Visit_Helper(int size, Predicate *predicate) : blocked(size, false), Blist(size), predicate(predicate) {}
 		
 		inline void
 		unblock(int node) {
@@ -145,14 +145,14 @@ find_all_circuits(Predicate &predicate, int n_elements, const std::function<void
 		}
 	};
 	
-	Blocking_Tracker tracker(n_elements, &predicate);
+	Visit_Helper visits(n_elements, &predicate);
 	
 	for(int node = 0; node < n_elements; ++node) {
 		for(int other = node; other < n_elements; ++other) {
-			tracker.blocked[other] = false;
-			tracker.Blist[other].clear();
+			visits.blocked[other] = false;
+			visits.Blist[other].clear();
 		}
-		tracker.visit(node, node, output_circuit);
+		visits.visit(node, node, output_circuit);
 	}
 }
 
@@ -166,7 +166,7 @@ void
 find_strongly_connected_components(Predicate &predicate, int n_elements, const std::function<void(const std::vector<int> &)> &output_component) {
 	
 	struct
-	Component_Search_Helper {
+	Visit_Helper {
 		int counter = 0;
 		std::vector<int> preorder;
 		std::vector<uint8_t> is_assigned;
@@ -174,7 +174,7 @@ find_strongly_connected_components(Predicate &predicate, int n_elements, const s
 		std::vector<int> ambiguous_stack;
 		Predicate *predicate;
 		
-		Component_Search_Helper(int size, Predicate *predicate) : 
+		Visit_Helper(int size, Predicate *predicate) : 
 			preorder(size, -1), is_assigned(size, false), predicate(predicate) {}
 		
 		void
@@ -213,13 +213,12 @@ find_strongly_connected_components(Predicate &predicate, int n_elements, const s
 		}
 	};
 	
-	Component_Search_Helper component_finder(n_elements, &predicate);
+	Visit_Helper visits(n_elements, &predicate);
 	
 	for(int node = 0; node < n_elements; ++node) {
-		if(component_finder.preorder[node] == -1)
-			component_finder.visit(node, output_component);
+		if(visits.preorder[node] == -1)
+			visits.visit(node, output_component);
 	}
-	
 }
 
 

@@ -1229,13 +1229,11 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	
 	// Make a 'naive' sorting of instructions by dependencies. This makes it easier to work with them later.
 	std::vector<int> sorted_instructions;
-	std::vector<int> maybe_cycle;
 	
 	Instruction_Sort_Predicate predicate { &instructions };
 	topological_sort(predicate, sorted_instructions, instructions.size(), [&](const std::vector<int> &cycle) {
 		report_instruction_cycle(app, instructions, cycle);
 	});
-		
 	
 	std::vector<Pre_Batch> pre_batches;
 	std::vector<int> pre_batch_of_solver(app->model->solvers.count(), -1);
