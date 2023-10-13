@@ -181,12 +181,13 @@ Expr_Parameters::set(Model_Application *app, const std::vector<Indexed_Parameter
 		gather_dependencies(exprs[idx].get(), graph[idx].second);
 	}
 	
-	std::vector<int> maybe_cycle;
-	bool success = topological_sort(predicate, order, exprs.size(), maybe_cycle);
-	if(!success) {
-		// TODO: We could print the cycle since it is stored in maybe_cycle.
-		fatal_error(Mobius_Error::api_usage, "There is a circular reference between the parameter expressions.");
-	}
+	topological_sort(predicate, order, exprs.size(), [&](const std::vector<int> &cycle) {
+		begin_error(Mobius_Error::api_usage);
+		error_print("There is a circular reference between the expressions for the following parameters:\n");
+		for(int par_idx : cycle)
+			error_print(parameters[par_idx].symbol, " ");
+		mobius_error_exit();
+	});
 }
 
 void

@@ -8,14 +8,18 @@
 #include <set>
 
 /*
-Example of how one could make a sorting predicate for topological_sort.
-The graph vector has the same length as the number of nodes.
+Example of how one could make a sorting predicate for the functions
+	topological_sort
+	find_all_circuits
+	find_strongly_connected_components
+	
+The 'Graph_Sorting_Predicate::graph' vector has the same length as the number of nodes in the graph it models.
 For each node_index (int), graph[node_index] contains
 	1. bool - if the node should participate in the sorting nor not.
-	2. A set of other nodes pointed at by this node (or which point at this node - depending on what order you want to sort in).
-The result is a vector<int> of sorted node indexes.
+	2. A set of other nodes pointed at by this node (the adjacency set).
+
 There are also many other ways to do it. The predicate doesn't need to own the data it refers to it could hold for instance a pointer.
-Moreover 'edges' does not need to return a std::set, only something iterable over int.
+Moreover 'edges' does not need to return a std::set reference, only something that is iterable over 'int'.
 */
 struct
 Graph_Sorting_Predicate {
@@ -25,65 +29,69 @@ Graph_Sorting_Predicate {
 };
 
 /*
-This is the Tarjan (76) topological sort algorithm.
-https://en.wikipedia.org/wiki/Topological_sorting     (TODO: Proper reference)
-The primary use case is to actually do the sorting, but it will also report a cycle if it finds one (in which case the sorting is impossible).
+This is the depth-first search topological sort algorithm.
+https://en.wikipedia.org/wiki/Topological_sorting
+Tarjan (1976), "Edge-disjoint spanning trees and depth-first search", Acta Informatica, 6 (2)
+The primary use case is to actually do the sorting, but it will also report a circuit if it finds one (in which case the sorting is impossible).
 */
 template <typename Predicate>
-bool
-topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements, std::vector<int> &potential_cycle) {
+void
+topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements, const std::function<void(const std::vector<int> &)> &report_circuit) {
 	
 	struct
 	Visitation_Record {
 		std::vector<uint8_t> temp_visited;
 		std::vector<uint8_t> visited;
 		
-		Visitation_Record(int size) : temp_visited(size, false), visited(size, false) {}
+		std::vector<int> potential_cycle;
+		std::vector<int> *sorted;
+		Predicate *predicate;
 		
-		// TODO: Could maybe just store a pointer to predicate, sorted and potential_cycle in the struct so that we don't pass them in each call.
+		Visitation_Record(int size, Predicate *predicate, std::vector<int> *sorted) : temp_visited(size, false), visited(size, false), predicate(predicate), sorted(sorted) {}
+		
 		bool
-		visit(Predicate &predicate, int node, std::vector<int> &sorted, std::vector<int> &potential_cycle) {
-
-			if(!predicate.participates(node)) return false;
+		visit(int node) {
+			if(!predicate->participates(node)) return false;
 			if(visited[node])                 return false;
 			potential_cycle.push_back(node);
 			if(temp_visited[node])            return true;
 
 			temp_visited[node] = true;
-			for(int other_node : predicate.edges(node)) {
-				bool cycle = visit(predicate, other_node, sorted, potential_cycle);
+			for(int other_node : predicate->edges(node)) {
+				bool cycle = visit(other_node);
 				if(cycle) return true;
 			}
 			potential_cycle.resize(potential_cycle.size() - 1);
 			visited[node]      = true;
-			sorted.push_back(node);
+			sorted->push_back(node);
 			return false;
 		}
 	};
 	
 	sorted.clear();
-	Visitation_Record visits(n_elements);
+	Visitation_Record visits(n_elements, &predicate, &sorted);
 	for(int node = 0; node < n_elements; ++node) {
-		potential_cycle.clear();
-		bool cycle = visits.visit(predicate, node, sorted, potential_cycle);
-		if(cycle) {
+		visits.potential_cycle.clear();
+		bool is_cycle = visits.visit(node);
+		if(is_cycle) {
+			auto &cycle = visits.potential_cycle;
 			// Remove the first part that was not part of the cycle.
-			int starts_at = potential_cycle.back(); // If there was a cycle, it starts at what it ended at
-			auto start = std::find(potential_cycle.begin(), potential_cycle.end(), starts_at);
-			potential_cycle.erase(potential_cycle.begin(), start+1);
-			return false;
+			int starts_at = cycle.back(); // If there was a cycle, it starts at what it ended at
+			auto start = std::find(cycle.begin(), cycle.end(), starts_at);
+			cycle.erase(cycle.begin(), start+1);
+			report_circuit(cycle);
+			return; // It is not possible to sort this graph.
 		}
 	}
-	return true;
 }
 
-// Johnson's algorithm for finding all simple ciruits in a graph.
-// TODO: Put proper reference.
-//https://www.cs.tufts.edu/comp/150GA/homeworks/hw1/Johnson%2075.PDF
-// See also
-// https://arxiv.org/pdf/2105.10094.pdf
-// Note: We didn't end up using this in Mobius after all, but we keep it here in case somebody else want to use it.
-
+/*
+Johnson's algorithm for finding all simple circuits in a graph.
+Johson (1975), "Finding all the elementary circuits of a directed graph.", SIAM J. Comput. 4(1)
+See also
+https://arxiv.org/pdf/2105.10094.pdf
+Note: We didn't end up using this in Mobius after all, but we keep it here in case somebody else want to use it.
+*/
 template<typename Predicate>
 void
 find_all_circuits(Predicate &predicate, int n_elements, const std::function<void(const std::vector<int> &)> &output_circuit) {
@@ -94,8 +102,9 @@ find_all_circuits(Predicate &predicate, int n_elements, const std::function<void
 		std::vector<std::set<int>> Blist;
 		
 		std::vector<int> visit_stack;
+		Predicate *predicate;
 		
-		Blocking_Tracker(int size) : blocked(size, false), Blist(size) {}
+		Blocking_Tracker(int size, Predicate *predicate) : blocked(size, false), Blist(size), predicate(predicate) {}
 		
 		inline void
 		unblock(int node) {
@@ -107,27 +116,26 @@ find_all_circuits(Predicate &predicate, int n_elements, const std::function<void
 			Blist[node].clear();
 		}
 		
-		// TODO: Could probably store pointers/references to predicate, and output_circuit so that we don't have to pass them in every function call.
 		bool
-		visit(Predicate &predicate, int node, int start_node, const std::function<void(const std::vector<int> &)> &output_circuit) {
-			if(!predicate.participates(node)) return false;
+		visit(int node, int start_node, const std::function<void(const std::vector<int> &)> &output_circuit) {
+			if(!predicate->participates(node)) return false;
 			bool circuit = false;
 			visit_stack.push_back(node);
 			blocked[node] = true;
-			for(int other : predicate.edges(node)) {
+			for(int other : predicate->edges(node)) {
 				if(other < start_node) continue;
 				if(other == start_node) {
 					output_circuit(visit_stack);
 					circuit = true;
 				} else if (!blocked[other]) {
-					if(visit(predicate, other, start_node, output_circuit));
+					if(visit(other, start_node, output_circuit));
 						circuit = true;
 				}
 			}
 			if(circuit)
 				unblock(node);
 			else {
-				for(int other : predicate.edges(node)) {
+				for(int other : predicate->edges(node)) {
 					if(other < start_node) continue;
 					Blist[other].insert(node);
 				}
@@ -137,19 +145,22 @@ find_all_circuits(Predicate &predicate, int n_elements, const std::function<void
 		}
 	};
 	
-	Blocking_Tracker tracker(n_elements);
+	Blocking_Tracker tracker(n_elements, &predicate);
 	
 	for(int node = 0; node < n_elements; ++node) {
 		for(int other = node; other < n_elements; ++other) {
 			tracker.blocked[other] = false;
 			tracker.Blist[other].clear();
 		}
-		tracker.visit(predicate, node, node, output_circuit);
+		tracker.visit(node, node, output_circuit);
 	}
 }
 
-// Path-based strongly connected component algorithm
-// https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
+/*
+Path-based strongly connected component algorithm
+https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
+Dijkstra, Edsger (1976), A Discipline of Programming, NJ: Prentice Hall, Ch. 25.
+*/
 template <typename Predicate>
 void
 find_strongly_connected_components(Predicate &predicate, int n_elements, const std::function<void(const std::vector<int> &)> &output_component) {
@@ -464,27 +475,27 @@ label_grouped_topological_sort_additional_weak_constraint(
 	
 	// Note: There should be no cycles among the cycles (or the cycle grouping algorithm is wrong), so we should not have to check for that in this case.
 	Cycle_Sorting_Predicate sort_predicate { &max_components };
-	std::vector<int> sorted_cycles, potential_cycle;
-	bool success = topological_sort(sort_predicate, sorted_cycles, max_components.size(), potential_cycle);
-	if(!success) {
+	std::vector<int> sorted_cycles;
+
+	topological_sort(sort_predicate, sorted_cycles, max_components.size(), [&](const std::vector<int> &cycle){
 		begin_error(Mobius_Error::internal);
 		error_print("Got a cycle among the cycles!!!\n");
 		
-		for(int cycle_idx : potential_cycle) {
-			error_print(cycle_idx, ": ");
-			for(int node : max_components[cycle_idx].nodes)
+		for(int component_idx : cycle) {
+			error_print(component_idx, ": ");
+			for(int node : max_components[component_idx].nodes)
 				error_print(node, " ");
 			error_print("\n");
 		}
 		
 		mobius_error_exit();
-	}
+	});
 	
 	std::vector<Node_Group<Label>> cycle_groups;
 	label_grouped_sort_first_pass(sort_predicate, cycle_groups, sorted_cycles);
 	
 	//TODO: Maybe make different error codes for this function.
-	success = optimize_label_group_packing(sort_predicate, cycle_groups, max_passes);
+	bool success = optimize_label_group_packing(sort_predicate, cycle_groups, max_passes);
 	if(!success)
 		fatal_error(Mobius_Error::internal, "Unable to pack cycle groups optimally.");
 	//if(!success) return false;
@@ -528,11 +539,9 @@ label_grouped_topological_sort_additional_weak_constraint(
 				}
 				
 				std::vector<int> sorted;
-				potential_cycle.clear();
-				bool success = topological_sort(sort_predicate2, sorted, cycle_nodes.size(), potential_cycle);
-				//if(!success) return false;
-				if(!success)
+				topological_sort(sort_predicate2, sorted, cycle_nodes.size(), [&](const std::vector<int> &cycle){
 					fatal_error(Mobius_Error::internal, "Unable to unpack-sort a cycle.");
+				});
 				
 				for(int idx : sorted)
 					unpacked.nodes.push_back(cycle_nodes[idx]);

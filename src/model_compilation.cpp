@@ -1143,7 +1143,7 @@ Instruction_Sort_Predicate {
 };
 
 void
-report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<int> &cycle, bool initial = false) {
+report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> &instructions, const std::vector<int> &cycle, bool initial = false) {
 	begin_error(Mobius_Error::model_building);
 	error_print("There is a circular dependency among the ", initial ? "initial-value " : "", "model instructions:\n");
 	bool first = true;
@@ -1232,10 +1232,10 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	std::vector<int> maybe_cycle;
 	
 	Instruction_Sort_Predicate predicate { &instructions };
-	bool success = topological_sort(predicate, sorted_instructions, instructions.size(), maybe_cycle);
-	
-	if(!success)
-		report_instruction_cycle(app, instructions, maybe_cycle);
+	topological_sort(predicate, sorted_instructions, instructions.size(), [&](const std::vector<int> &cycle) {
+		report_instruction_cycle(app, instructions, cycle);
+	});
+		
 	
 	std::vector<Pre_Batch> pre_batches;
 	std::vector<int> pre_batch_of_solver(app->model->solvers.count(), -1);
@@ -1266,9 +1266,9 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	
 	std::vector<int> sorted_pre_batches;
 	Pre_Batch_Sort_Predicate predicate2 { &pre_batches };
-	success = topological_sort(predicate2, sorted_pre_batches, pre_batches.size(), maybe_cycle);
-	if(!success)
+	topological_sort(predicate2, sorted_pre_batches, pre_batches.size(), [&](const std::vector<int> &cycle) {
 		fatal_error(Mobius_Error::internal, "Unable to sort pre batches. This should not be possible if solvers are correctly propagated.");
+	});
 	
 	
 #if 0
@@ -1322,7 +1322,7 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 	Instruction_Solver_Grouping_Predicate predicate3 { &instructions };
 	// TODO: This is actually a bit unoptimal right now because we are never allowed to move from solver groups (there is one per solver).
 	//    Maybe include an allow_move in the predicate.
-	success = optimize_label_group_packing(predicate3, grouped_batches, max_iter);
+	bool success = optimize_label_group_packing(predicate3, grouped_batches, max_iter);
 	if(!success)
 		fatal_error(Mobius_Error::internal, "Unable to optimize instruction solver batch grouping in the allotted amount of iterations (", max_iter, ").");
 	
@@ -1491,11 +1491,11 @@ Model_Application::compile(bool store_code_strings) {
 	initial_batch.solver = invalid_entity_id;
 	
 	// Sort the initial instructions too.
-	std::vector<int> maybe_cycle;
 	Instruction_Sort_Predicate predicate { &initial_instructions };
-	bool success = topological_sort(predicate, initial_batch.instrs, initial_instructions.size(), maybe_cycle);
-	if(!success)
-		report_instruction_cycle(this, initial_instructions, maybe_cycle, true);
+	topological_sort(predicate, initial_batch.instrs, initial_instructions.size(), [&](const std::vector<int> &cycle) {
+		report_instruction_cycle(this, initial_instructions, cycle, true);
+	});
+
 	
 	build_batch_arrays(this, initial_batch.instrs, initial_instructions, initial_batch.arrays, true);
 	
