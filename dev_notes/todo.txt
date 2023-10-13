@@ -3,6 +3,12 @@
 	*** High pri ***
 	
 	
+		Clean up the sorting algorithm
+			Make it independent of the Mobius framework code (no direct error exits, instead have error codes).
+			
+		Use the max_cycles info to fix the in_flux(graph_connection) bug (or at least report error if it occurs).
+	
+	
 		Why errors during data set saving crash the program instead of getting caught now?
 			
 		

@@ -138,6 +138,24 @@ build_graph_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, s
 }
 
 void
+error_print_node(Model_Application *app, Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes, int nodeidx) {
+	if(nodeidx < 0) {
+		error_print("out");
+		return;
+	}
+	
+	auto node = nodes[nodeidx];
+	error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
+	for(auto &index : node.indexes.indexes) {
+		bool quote;
+		auto index_name = app->index_data.get_index_name(node.indexes, index, &quote);
+		maybe_quote(index_name, quote);
+		error_print(index_name, " ");
+	}
+	error_print(']');
+}
+
+void
 match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc) {
 	
 	// TODO: Handle cycles!
@@ -169,6 +187,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		});
 	}
 	
+	auto scope = model->get_scope(connection->scope_id);
+	
 	for(auto &arr : app->connection_components[conn_id].arrows) {
 		s64 target_idx = -1;
 		if(is_valid(arr.target_id)) {
@@ -179,9 +199,17 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		// TODO: Check for duplicate arrows? (Are they allowed?)
 		s64 source_idx = node_structure.get_offset(arr.source_id, arr.source_indexes);
 		nodes[source_idx].points_at.push_back(target_idx);
+		
+		// NOTE: We can do this check like this because the flattened indexes are ordered the same way as the index tuples, but we should maybe make the check more robust.
+		if(connection->no_cycles && (target_idx != -1) && (source_idx >= target_idx) ) {
+			data_loc.print_error_header(Mobius_Error::model_building);
+			error_print("The directed_graph connection \"", connection->name, "\" is marked as @no_cycles. Because of this, for technical reasons, we require every arrow in the graph to go from a lower index to a higher index. The following arrow violates this:\n");
+			error_print_node(app, scope, nodes, source_idx);
+			error_print(" -> ");
+			error_print_node(app, scope, nodes, target_idx);
+			fatal_error(" .");
+		}
 	}
-	
-	auto scope = model->get_scope(connection->scope_id);
 	
 	std::vector<std::vector<int>> paths;
 	
@@ -207,7 +235,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		auto match = match_path_recursive(scope, nodes, path, 0, regex);
 		
 		if(!match.match || (match.path_idx < path.size()-1)) {
-			data_loc.print_error_header();
+			data_loc.print_error_header(Mobius_Error::model_building);
 			error_print("The regular expression for the connection \"", connection->name, "\" failed to match the provided graph. See the declaration of the regex here:\n");
 			regex->source_loc.print_error();
 			error_print("The matching succeeded up to the marked '(***)' in the following sequence:\n");
@@ -217,19 +245,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 				if(pathidx == match.path_idx) {
 					error_print("(***) ");
 					found_mark = true;
-				} if(nodeidx < 0)
-					error_print("out");
-				else {
-					auto &node = nodes[nodeidx];
-					error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
-					for(auto &index : node.indexes.indexes) {
-						bool quote;
-						auto index_name = app->index_data.get_index_name(node.indexes, index, &quote);
-						maybe_quote(index_name, quote);
-						error_print(index_name, " ");
-					}
-					error_print(']');
 				}
+				error_print_node(app, scope, nodes, nodeidx);
 				if(pathidx != path.size()-1)
 					error_print(" ");
 				

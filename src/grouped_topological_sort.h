@@ -4,19 +4,8 @@
 
 #include <stdint.h>
 #include <algorithm>
-
-template<typename Label>
-struct
-Node_Group {
-	Label label;
-	std::vector<int> nodes;
-};
-
-struct
-Visitation_Record {
-	bool temp_visited = false;
-	bool visited      = false;
-};
+#include <vector>
+#include <set>
 
 /*
 Example of how one could make a sorting predicate for topological_sort.
@@ -31,39 +20,52 @@ Moreover 'edges' does not need to return a std::set, only something iterable ove
 struct
 Graph_Sorting_Predicate {
 	std::vector<std::pair<bool, std::set<int>>> graph;
-	bool participates(int node) {  return graph[node].first; }
-	const std::set<int> &edges(int node) { return graph[node].second; }
+	inline bool participates(int node) {  return graph[node].first; }
+	inline const std::set<int> &edges(int node) { return graph[node].second; }
 };
 
-template <typename Predicate>
-bool
-topological_sort_visit(Predicate &predicate, std::vector<Visitation_Record> &visits, int node, std::vector<int> &sorted, std::vector<int> &potential_cycle) {
-
-	if(!predicate.participates(node)) return false;
-	if(visits[node].visited)          return false;
-	potential_cycle.push_back(node);
-	if(visits[node].temp_visited)     return true;
-
-	visits[node].temp_visited = true;
-	for(int other_node : predicate.edges(node)) {
-		bool cycle = topological_sort_visit(predicate, visits, other_node, sorted, potential_cycle);
-		if(cycle) return true;
-	}
-	potential_cycle.resize(potential_cycle.size() - 1);
-	visits[node].visited = true;
-	sorted.push_back(node);
-	return false;
-}
-
+/*
+This is the Tarjan (76) topological sort algorithm.
+https://en.wikipedia.org/wiki/Topological_sorting     (TODO: Proper reference)
+The primary use case is to actually do the sorting, but it will also report a cycle if it finds one (in which case the sorting is impossible).
+*/
 template <typename Predicate>
 bool
 topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements, std::vector<int> &potential_cycle) {
 	
+	struct
+	Visitation_Record {
+		std::vector<uint8_t> temp_visited;
+		std::vector<uint8_t> visited;
+		
+		Visitation_Record(int size) : temp_visited(size, false), visited(size, false) {}
+		
+		// TODO: Could maybe just store a pointer to predicate, sorted and potential_cycle in the struct so that we don't pass them in each call.
+		bool
+		visit(Predicate &predicate, int node, std::vector<int> &sorted, std::vector<int> &potential_cycle) {
+
+			if(!predicate.participates(node)) return false;
+			if(visited[node])                 return false;
+			potential_cycle.push_back(node);
+			if(temp_visited[node])            return true;
+
+			temp_visited[node] = true;
+			for(int other_node : predicate.edges(node)) {
+				bool cycle = visit(predicate, other_node, sorted, potential_cycle);
+				if(cycle) return true;
+			}
+			potential_cycle.resize(potential_cycle.size() - 1);
+			visited[node]      = true;
+			sorted.push_back(node);
+			return false;
+		}
+	};
+	
 	sorted.clear();
-	std::vector<Visitation_Record> visits(n_elements);
+	Visitation_Record visits(n_elements);
 	for(int node = 0; node < n_elements; ++node) {
 		potential_cycle.clear();
-		bool cycle = topological_sort_visit(predicate, visits, node, sorted, potential_cycle);
+		bool cycle = visits.visit(predicate, node, sorted, potential_cycle);
 		if(cycle) {
 			// Remove the first part that was not part of the cycle.
 			int starts_at = potential_cycle.back(); // If there was a cycle, it starts at what it ended at
@@ -74,6 +76,84 @@ topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements,
 	}
 	return true;
 }
+
+// Johnson's algorithm for finding all simple ciruits in a graph.
+// TODO: Put proper reference.
+//https://www.cs.tufts.edu/comp/150GA/homeworks/hw1/Johnson%2075.PDF
+// See also
+// https://arxiv.org/pdf/2105.10094.pdf
+
+template<typename Predicate>
+void
+find_all_circuits(Predicate &predicate, int n_elements, const std::function<void(const std::vector<int> &)> &output_circuit) {
+	
+	struct
+	Blocking_Tracker {
+		std::vector<uint8_t>       blocked;
+		std::vector<std::set<int>> Blist;
+		
+		std::vector<int> visit_stack;
+		
+		Blocking_Tracker(int size) : blocked(size, false), Blist(size) {}
+		
+		inline void
+		unblock(int node) {
+			blocked[node] = false;
+			for(int other : Blist[node]) {
+				if(blocked[other])
+					unblock(other);
+			}
+			Blist[node].clear();
+		}
+		
+		// TODO: Could probably store pointers/references to predicate, and output_circuit so that we don't have to pass them in every function call.
+		bool
+		visit(Predicate &predicate, int node, int start_node, const std::function<void(const std::vector<int> &)> &output_circuit) {
+			if(!predicate.participates(node)) return false;
+			bool circuit = false;
+			visit_stack.push_back(node);
+			blocked[node] = true;
+			for(int other : predicate.edges(node)) {
+				if(other < start_node) continue;
+				if(other == start_node) {
+					output_circuit(visit_stack);
+					circuit = true;
+				} else if (!blocked[other]) {
+					if(visit(predicate, other, start_node, output_circuit));
+						circuit = true;
+				}
+			}
+			if(circuit)
+				unblock(node);
+			else {
+				for(int other : predicate.edges(node)) {
+					if(other < start_node) continue;
+					Blist[other].insert(node);
+				}
+			}
+			visit_stack.resize(visit_stack.size()-1);
+			return circuit;
+		}
+	};
+	
+	Blocking_Tracker tracker(n_elements);
+	
+	for(int node = 0; node < n_elements; ++node) {
+		for(int other = node; other < n_elements; ++other) {
+			tracker.blocked[other] = false;
+			tracker.Blist[other].clear();
+		}
+		tracker.visit(predicate, node, node, output_circuit);
+	}
+}
+
+
+template<typename Label>
+struct
+Node_Group {
+	Label label;
+	std::vector<int> nodes;
+};
 
 template <typename Predicate, typename Label>
 void
@@ -190,6 +270,8 @@ optimize_label_group_packing(Predicate &predicate, std::vector<Node_Group<Label>
 	return true;
 }
 
+
+
 template<typename Label>
 struct
 Constraint_Cycle {
@@ -199,78 +281,11 @@ Constraint_Cycle {
 	std::set<int> blocks_cycle;
 };
 
-struct
-Blocking_Tracker {
-	std::vector<uint8_t>       blocked;
-	std::vector<std::set<int>> Blist;
-	
-	Blocking_Tracker(int size) : blocked(size), Blist(size) {}
-};
-
-inline void
-find_circuits_unblock(int node, Blocking_Tracker &tracker) {
-	tracker.blocked[node] = false;
-	for(int other : tracker.Blist[node]) {
-		if(tracker.blocked[other])
-			find_circuits_unblock(other, tracker);
-	}
-	tracker.Blist[node].clear();
-}
-
-template<typename Predicate>
-bool
-find_circuits_visit(Predicate &predicate, int node, int start_node, Blocking_Tracker &tracker, std::vector<int> &visit_stack, const std::function<void(const std::vector<int> &)> &output_circuit) {
-	if(!predicate.participates(node)) return false;
-	bool circuit = false;
-	visit_stack.push_back(node);
-	tracker.blocked[node] = true;
-	for(int other : predicate.edges(node)) {
-		if(other < start_node) continue;
-		if(other == start_node) {
-			output_circuit(visit_stack);
-			circuit = true;
-		} else if (!tracker.blocked[other]) {
-			if(find_circuits_visit(predicate, other, start_node, tracker, visit_stack, output_circuit));
-				circuit = true;
-		}
-	}
-	if(circuit)
-		find_circuits_unblock(node, tracker);
-	else {
-		for(int other : predicate.edges(node)) {
-			if(other < start_node) continue;
-			tracker.Blist[other].insert(node);
-		}
-	}
-	visit_stack.resize(visit_stack.size()-1);
-	return circuit;
-}
-
-// Johnson algorithm
-// TODO: Put proper reference.
-//https://www.cs.tufts.edu/comp/150GA/homeworks/hw1/Johnson%2075.PDF
-// See also
-// https://arxiv.org/pdf/2105.10094.pdf
-
-template<typename Predicate>
-void
-find_all_circuits(Predicate &predicate, int n_elements, const std::function<void(const std::vector<int> &)> &output_circuit) {
-	
-	std::vector<int> visit_stack;
-	Blocking_Tracker tracker(n_elements);
-	
-	for(int node = 0; node < n_elements; ++node) {
-		for(int other = node; other < n_elements; ++other) {
-			tracker.blocked[other] = false;
-			tracker.Blist[other].clear();
-		}
-		find_circuits_visit(predicate, node, node, tracker, visit_stack, output_circuit);
-	}
-}
-
 template<typename Predicate, typename Label>
 bool
 find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<Label>> &max_cycles, int n_elements) {
+	
+	// TODO: Properly document this algorithm
 	
 	// Find maximal cycles by finding simple circuits, then merging those that overlap (hopefully this is the fastest way to do it ?).
 	
@@ -360,6 +375,8 @@ find_maximal_labeled_cycles(Predicate &predicate, std::vector<Constraint_Cycle<L
 template <typename Predicate, typename Label>
 bool
 label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, std::vector<Node_Group<Label>> &groups, std::vector<Constraint_Cycle<Label>> &max_cycles, int n_elements, int max_passes = 10) {
+	
+	// TODO: Properly document this algorithm
 	
 	struct
 	Cycle_Finding_Predicate {
@@ -452,40 +469,41 @@ label_grouped_topological_sort_additional_weak_constraint(Predicate &predicate, 
 	for(auto &group : cycle_groups) {
 		Node_Group<Label> unpacked;
 		unpacked.label = group.label;
-		std::vector<int> new_nodes;
 		for(int cycle_idx : group.nodes) {
 			auto &cycle = max_cycles[cycle_idx];
-			new_nodes.insert(new_nodes.end(), cycle.nodes.begin(), cycle.nodes.end());
-		}
-		
-		std::vector<int> idx_of_node(n_elements, -1);
-		for(int idx = 0; idx < new_nodes.size(); ++idx)
-			idx_of_node[new_nodes[idx]] = idx;
-		
-		// Topological-sort new_nodes on the strong edges and put them into unpacked.nodes.
-		// TODO: Skip it if the lenght is 1.
-		
-		// We have to reindex the edges for the internal topological sort.
-		// TODO: If we made an iterator for it we would not need to allocate the new edges as sets.
-		Cycle_Internal_Sort_Predicate sort_predicate2(new_nodes.size());
-		for(int idx = 0; idx < new_nodes.size(); ++idx) {
-			for(int edg : predicate.edges(new_nodes[idx])) {
-				int edg_idx = idx_of_node[edg];
-				if(edg_idx >= 0)
-					sort_predicate2.edges_[idx].insert(edg_idx);
+			if(cycle.nodes.size() == 1) {
+				unpacked.nodes.push_back(*cycle.nodes.begin());
+			} else {
+				// Topological-sort cycle_nodes on the strong edges and put them into unpacked.nodes.
+				// TODO: Could maybe have optimizations of this for small cycles e.g size 2, 3.
+				
+				std::vector<int> cycle_nodes(cycle.nodes.begin(), cycle.nodes.end());
+				std::vector<int> idx_of_node(n_elements, -1);
+				for(int idx = 0; idx < cycle_nodes.size(); ++idx)
+					idx_of_node[cycle_nodes[idx]] = idx;
+				
+				// We have to reindex the edges for the internal topological sort.
+				// TODO: If we made an iterator for it we would not need to allocate the new edges as sets.
+				Cycle_Internal_Sort_Predicate sort_predicate2(cycle_nodes.size());
+				for(int idx = 0; idx < cycle_nodes.size(); ++idx) {
+					for(int edg : predicate.edges(cycle_nodes[idx])) {
+						int edg_idx = idx_of_node[edg];
+						if(edg_idx >= 0)
+							sort_predicate2.edges_[idx].insert(edg_idx);
+					}
+				}
+				
+				std::vector<int> sorted;
+				potential_cycle.clear();
+				bool success = topological_sort(sort_predicate2, sorted, cycle_nodes.size(), potential_cycle);
+				//if(!success) return false;
+				if(!success)
+					fatal_error(Mobius_Error::internal, "Unable to unpack-sort a cycle.");
+				
+				for(int idx : sorted)
+					unpacked.nodes.push_back(cycle_nodes[idx]);
 			}
 		}
-		
-		std::vector<int> sorted;
-		potential_cycle.clear();
-		bool success = topological_sort(sort_predicate2, sorted, new_nodes.size(), potential_cycle);
-		// TODO Here it should also not be possible to not have success if this function is used correctly, but we should maybe have an error code for it any way.
-		//if(!success) return false;
-		if(!success)
-			fatal_error(Mobius_Error::internal, "Unable to unpack sort a cycle.");
-		
-		for(int idx : sorted)
-			unpacked.nodes.push_back(new_nodes[idx]);
 		
 		groups.push_back(std::move(unpacked));
 	}

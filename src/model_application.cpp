@@ -1311,7 +1311,7 @@ serialize_loc(Mobius_Model *model, std::stringstream &ss, const Var_Location &lo
 }
 
 std::string
-Model_Application::serialize(Var_Id id) { 
+Model_Application::serialize(Var_Id id) {
 	
 	auto var = vars[id];
 	if(id.type != Var_Id::Type::additional_series) {

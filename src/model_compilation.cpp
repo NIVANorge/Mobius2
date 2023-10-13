@@ -359,6 +359,50 @@ Instruction_Array_Grouping_Predicate {
 */
 
 void
+check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<Constraint_Cycle<u64>> &cycles) {
+	
+	auto model = app->model;
+	
+	for(auto &cycle : cycles) {
+		if(cycle.nodes.size() == 1) continue;
+		
+		for(int node : cycle.nodes) {
+			auto &instr = instructions[node];
+			if(instr.type != Model_Instruction::Type::compute_state_var) continue;
+			auto var = app->vars[instr.var_id];
+			if(var->type != State_Var::Type::connection_aggregate) continue;
+			auto var2 = as<State_Var::Type::connection_aggregate>(var);
+			if(var2->is_source) continue; // Not sure if this could even happen.
+			auto conn = model->connections[var2->connection];
+			if(conn->type != Connection_Type::directed_graph) continue;
+			if(conn->no_cycles) continue;
+			/*
+				Note: The reasoning for this is as follows. If in_flux(connection, something) is weakly dependent on itself, it is dependent on values of itself from within the same 'for loop'.
+				This means that the for loop has to be ordered so that indexes that are 'earlier' in the connection graph come before later ones, but then there can be no cycle within the graph. We force the user to declare @no_cycles so that its validity can be checked at another stage without making the compiler check it here (that would complicate the code).
+				
+				Note: Don't confuse the term 'cycle' within the weak+strong model instruction dependencies with a 'cycle' within the connection graph itself.
+				If there is a *cycle* among the connection aggregate instructions, it means that the indexes must be ordered along the graph arrows, and so there can be *no cycle* in the connection graph.
+			*/
+			conn->source_loc.print_error_header(Mobius_Error::model_building);
+			error_print("Regarding the connection \"", conn->name, "\": there is a circular dependency of the aggregation variable in_flux(", model->get_symbol(var2->connection), ", ");
+			error_print_location(model, app->vars[var2->agg_for]->loc1);
+			error_print(") with itself. This is only allowed if the connection is marked as @no_cycles, but it is not.\nThe circular dependency also involves the following declared state variables:\n");
+			for(int other_node : cycle.nodes) {
+				if(other_node == node) continue;
+				auto &other_instr = instructions[other_node];
+				if(other_instr.type != Model_Instruction::Type::compute_state_var) continue;
+				auto other_var = app->vars[other_instr.var_id];
+				if(other_var->type != State_Var::Type::declared) continue;
+				error_print_location(model, other_var->loc1);
+				error_print("\n");
+			}
+			mobius_error_exit();
+			// ( Note: It is probably safe to assume that it includes declared state variables at all (?). There should be no other way such a cycle could happen.)
+		}
+	}
+}
+
+void
 build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &arrays_out, bool initial) {
 	Mobius_Model *model = app->model;
 	
@@ -387,26 +431,13 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 	std::vector<Node_Group<u64>> groups;
 	std::vector<Constraint_Cycle<u64>> max_cycles;
 	bool success = label_grouped_topological_sort_additional_weak_constraint(predicate, groups, max_cycles, instructions.size(), max_iter);
-	/*
-	if(!initial) {
-		log_print("\n*** Cycle structure:\n");
-		for(auto &cycle : max_cycles) {
-			if(cycle.nodes.size() == 1) continue;
-			log_print("Cycle:\n");
-			for(int node : cycle.nodes) {
-				log_print("\t", instructions[node].debug_string(app), "\n");
-			}
-		}
-		log_print("\n\n");
-	}
-	*/
-	//label_grouped_sort_first_pass(predicate, groups, instrs);
-	
-	//bool success = optimize_label_group_packing(predicate, groups, max_iter);
 	
 	// TODO: Have better error reporting from the above function.
 	if(!success)
 		fatal_error(Mobius_Error::internal, "Something went wrong with the instruction grouping (", max_iter, ").");
+	
+	if(!initial)
+		check_for_special_weak_cycles(app, instructions, max_cycles);
 	
 	arrays_out.clear();
 	
@@ -1127,33 +1158,10 @@ Pre_Batch {
 };
 
 struct
-Pre_Batch_Sort_Predicate {
-	std::vector<Pre_Batch> *pre_batches;
-	bool participates(int node) { return true; }
-	const std::set<int> &edges(int node) { return (*pre_batches)[node].depends_on; }
-};
-
-struct
 Instruction_Sort_Predicate {
 	std::vector<Model_Instruction> *instructions;
-	bool participates(int node) {  return (*instructions)[node].is_valid(); }
-	const std::set<int>& edges(int node) { return (*instructions)[node].depends_on_instruction; }
-};
-
-struct
-Instruction_Solver_Grouping_Predicate {
-	std::vector<Model_Instruction> *instructions;
-	
-	bool depends(int node, int on_node) {
-		auto &dep = (*instructions)[node].depends_on_instruction;
-		if(dep.find(on_node) != dep.end()) return true;
-		auto &dep2 = (*instructions)[node].loose_depends_on_instruction;
-		if(dep2.find(on_node) != dep2.end()) return true;
-		return false;
-	}
-	inline bool blocks(int node, int other_node) { return false; }  // NOTE: Not needed for solver grouping.
-	inline Entity_Id label(int node) {  return (*instructions)[node].solver;  }
-	inline bool allow_move(Entity_Id label) { return !is_valid(label); } // NOTE: In this specific application, we can't move an instruction out of its solver batch if it has a solver.
+	inline bool participates(int node) {  return (*instructions)[node].is_valid(); }
+	inline const std::set<int>& edges(int node) { return (*instructions)[node].depends_on_instruction; }
 };
 
 void
@@ -1171,7 +1179,29 @@ report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> 
 }
 
 void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
-	 
+
+	struct
+	Pre_Batch_Sort_Predicate {
+		std::vector<Pre_Batch> *pre_batches;
+		inline bool participates(int node) { return true; }
+		inline const std::set<int> &edges(int node) { return (*pre_batches)[node].depends_on; }
+	};
+
+	struct
+	Instruction_Solver_Grouping_Predicate {
+		std::vector<Model_Instruction> *instructions;
+		
+		bool depends(int node, int on_node) {
+			auto &dep = (*instructions)[node].depends_on_instruction;
+			if(dep.find(on_node) != dep.end()) return true;
+			auto &dep2 = (*instructions)[node].loose_depends_on_instruction;
+			if(dep2.find(on_node) != dep2.end()) return true;
+			return false;
+		}
+		inline bool blocks(int node, int other_node) { return false; }  // NOTE: Not needed for solver grouping.
+		inline Entity_Id label(int node) {  return (*instructions)[node].solver;  }
+		inline bool allow_move(Entity_Id label) { return !is_valid(label); } // NOTE: In this specific application, we can't move an instruction out of its solver batch if it has a solver.
+	};
 	
 	// Propagate solvers in a way so that instructions that are (dependency-) sandwiched between other instructions that are on the same ODE solver are also put in that ODE function.
 	// TODO: We need to make some guard to check that this is a sufficient amount of iterations!
