@@ -41,7 +41,7 @@ class Mobius_Entity_Metadata(ctypes.Structure) :
 	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", Parameter_Value), ("max", Parameter_Value)]
 
 
-dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_api.dll"))
+dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_abi.dll"))
 #dll = ctypes.CDLL("c_api.dll")
 
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]

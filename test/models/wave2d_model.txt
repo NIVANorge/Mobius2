@@ -24,14 +24,14 @@ model("Wave2D") {
 		}
 		
 		var(cell.amp, [m]) @initial { in_amp }
-		var(cell.mom, [m, day-1])	
+		var(cell.mom, [m, day-1])
 		
 		c : constant("Wave speed", [day-1], 0.08)
 		
-		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {  c^2*(amp[below] - amp)  } @bidirectional
+		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {  c^2*(amp[below] - amp)  } @bidirectional @no_store
 		
-		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {  c^2*(amp[below] - amp)  } @bidirectional
+		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {  c^2*(amp[below] - amp)  } @bidirectional @no_store
 		
-		flux(cell.amp, out, [m, day-1], "Wave propagation") { mom }
+		flux(cell.amp, out, [m, day-1], "Wave propagation") { mom } @no_store
 	}
 }

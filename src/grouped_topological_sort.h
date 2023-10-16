@@ -357,7 +357,7 @@ Strongly_Connected_Component {
 
 template<typename Predicate, typename Label>
 bool
-find_labeled_strongly_connected_components(Predicate &predicate, std::vector<Strongly_Connected_Component<Label>> &components, int n_elements) {
+condense_labeled_strongly_connected_components(Predicate &predicate, std::vector<Strongly_Connected_Component<Label>> &components, int n_elements) {
 	
 	bool singly_labeled_cycles = true;
 	
@@ -464,41 +464,27 @@ label_grouped_topological_sort_additional_weak_constraint(
 		all_edges[node].insert(wedg.begin(), wedg.end());
 	}
 	
-	// Collapse cycles consisting of weak+strong edges into single nodes.
-	bool singly_labeled_cycles = find_labeled_strongly_connected_components(cycle_predicate, max_components, n_elements);
-	// TODO: Error if !singly_labeled_cycles ( This is not possible if the algorithm is used correctly though ).
+	// Condense strongly connected components (graph with weak+strong edges) into single nodes.
+	bool singly_labeled_cycles = condense_labeled_strongly_connected_components(cycle_predicate, max_components, n_elements);
 	if(!singly_labeled_cycles)
-		fatal_error(Mobius_Error::internal, "The cycles were not singly labeled.");
+		fatal_error(Mobius_Error::internal, "The cycles were not singly labeled."); // This is a user error, it is not possible if the algorithm is used correctly.
 	
-	// TODO: We could simplify (speed up) the algorithm if we only get singleton cycles.
+	// TODO: We could simplify the algorithm in the case where we only get singleton components by grouping those directly instead of working with the condensed graph (No need to construct a new graph predicate and then expanding the result after).
 	
-	// Note: There should be no cycles among the cycles (or the cycle grouping algorithm is wrong), so we should not have to check for that in this case.
 	Cycle_Sorting_Predicate sort_predicate { &max_components };
-	std::vector<int> sorted_cycles;
+	std::vector<int> sorted_components;
 
-	topological_sort(sort_predicate, sorted_cycles, max_components.size(), [&](const std::vector<int> &cycle){
-		begin_error(Mobius_Error::internal);
-		error_print("Got a cycle among the cycles!!!\n");
-		
-		for(int component_idx : cycle) {
-			error_print(component_idx, ": ");
-			for(int node : max_components[component_idx].nodes)
-				error_print(node, " ");
-			error_print("\n");
-		}
-		
-		mobius_error_exit();
+	topological_sort(sort_predicate, sorted_components, max_components.size(), [&](const std::vector<int> &cycle){
+		// Note: There should be no cycles in the condensed graph (or the component finding algorithm is wrong)
+		fatal_error(Mobius_Error::internal, "Got a cycle among the cycles!!!\n");
 	});
 	
 	std::vector<Node_Group<Label>> cycle_groups;
-	label_grouped_sort_first_pass(sort_predicate, cycle_groups, sorted_cycles);
+	label_grouped_sort_first_pass(sort_predicate, cycle_groups, sorted_components);
 	
-	//TODO: Maybe make different error codes for this function.
 	bool success = optimize_label_group_packing(sort_predicate, cycle_groups, max_passes);
 	if(!success)
 		fatal_error(Mobius_Error::internal, "Unable to pack cycle groups optimally.");
-	//if(!success) return false;
-	
 	
 	struct
 	Cycle_Internal_Sort_Predicate {
@@ -509,7 +495,7 @@ label_grouped_topological_sort_additional_weak_constraint(
 		Cycle_Internal_Sort_Predicate(int size) : edges_(size) {}
 	};
 	
-	// Then unpack the nodes from the cycles into the resulting groups.
+	// Unpack the nodes from the condensed groups into the groups for the original graph.
 	for(auto &group : cycle_groups) {
 		Node_Group<Label> unpacked;
 		unpacked.label = group.label;
@@ -528,6 +514,7 @@ label_grouped_topological_sort_additional_weak_constraint(
 				
 				// We have to reindex the edges for the internal topological sort.
 				// TODO: If we made an iterator for it we would not need to allocate the new edges as sets.
+				// Alternatively, we could reuse the graph sorting predicate declared at the top of the file.
 				Cycle_Internal_Sort_Predicate sort_predicate2(cycle_nodes.size());
 				for(int idx = 0; idx < cycle_nodes.size(); ++idx) {
 					for(int edg : predicate.edges(cycle_nodes[idx])) {
