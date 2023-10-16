@@ -95,7 +95,7 @@ struct Var_Registry {
 		if(is_located(loc))
 			location_to_id[loc] = id;
 		
-		if(id_type != Var_Id::Type::state_var && id_type != Var_Id::Type::temp_var)
+		//if(id_type != Var_Id::Type::state_var && id_type != Var_Id::Type::temp_var)
 			name_to_id[name].insert(id);
 		
 		return id;

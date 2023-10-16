@@ -88,7 +88,7 @@ Unit_Data {
 	
 	std::string to_utf8();
 	std::string to_decl_str();
-	// TODO: also to_latex(), and maybe to_mathml().
+	// TODO: also to_tex(), and maybe to_mathml().
 	
 	//bool operator==(const Unit_Data &other);
 	Time_Step_Size  to_time_step(bool &success);

@@ -37,7 +37,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		river.water.rho[horz.below]
 	} @allow_connection(river, horz)
 	
-	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
+	flux(river.water, layer.water[horz.below, vert.specific], [m 3, s-1], "River discharge to fjord") {
 		flow->>
 	} @specific { river.vert_target }
 	

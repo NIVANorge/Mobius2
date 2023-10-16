@@ -1371,15 +1371,21 @@ Model_Application::serialize(Var_Id id) {
 	
 Var_Id
 Model_Application::deserialize(const std::string &name) {
-
+	
+	Var_Id result = invalid_var;
+	if(name.empty()) return result;
 	if(name.data()[0] == ':') {
 		auto find = serial_to_id.find(name);
 		if(find == serial_to_id.end()) return invalid_var;
-		return find->second;
-	} 
-	const auto &ids = vars.find_by_name(name);
-	if(!ids.empty())
-		return *ids.begin();
-		
-	return invalid_var;
+		result = find->second;
+	} else {
+		const auto &ids = vars.find_by_name(name);
+		if(!ids.empty())
+			result = *ids.begin();
+	}
+	if(is_valid(result)) {
+		if(!vars[result]->is_valid())
+			result = invalid_var;
+	}
+	return result;
 }

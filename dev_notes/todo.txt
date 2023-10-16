@@ -4,7 +4,7 @@
 	
 		mobipy:
 			Make it easier to extract fluxes.
-			Rename c_api to c_abi.
+				Why is it not possible to look them up by name?
 	
 		Why errors during data set saving crash the program instead of getting caught now?
 		

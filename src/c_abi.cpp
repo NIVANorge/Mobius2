@@ -1,11 +1,11 @@
 
-#include "c_api.h"
+#include "c_abi.h"
 #include "model_application.h"
 
 
 
 #ifndef MOBIUS_ERROR_STREAMS
-	static_assert(false, "The C API must be compiled with MOBIUS_ERROR_STREAMS defined in the compile script using -DMOBIUS_ERROR_STREAMS.");
+	static_assert(false, "The C ABI must be compiled with MOBIUS_ERROR_STREAMS defined in the compile script using -DMOBIUS_ERROR_STREAMS.");
 #endif
 
 // NOTE: This is just some preliminary testing of the C api. Will build it out properly later.
@@ -177,11 +177,16 @@ mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, S
 
 DLLEXPORT Mobius_Series_Metadata
 mobius_get_series_metadata(Model_Application *app, Var_Id var_id) {
+	static char unit_buffer[128];
+	
 	Mobius_Series_Metadata result = {};
 	try {
 		auto var = app->vars[var_id];
 		result.name = (char *)var->name.data();
-		//result.unit = var->unit.to_utf8()    //TODO: Won't work, have to store it in some buffer.
+		auto unit = var->unit.to_utf8();
+		strcpy(unit_buffer, unit.data());
+		result.unit = unit_buffer;   // TODO: Not thread safe.
+		//result.unit = var->unit.to_utf8()
 	} catch(int) {}
 	return result;
 }
