@@ -2,18 +2,14 @@
 
 	*** High pri ***
 	
-		mobipy:
-			Make it easier to extract fluxes.
-				Why is it not possible to look them up by name?
-	
 		Why errors during data set saving crash the program instead of getting caught now?
 		
 		MobiView:
-			Should display @no_store items, just not make them clickable.
-				Implemented, but maybe better to display a message saying it is not being stored.
-				It should maybe be a checkbox saying whether they should be displayed or not. Because sometimes we don't want them cluttering the ui.
+			There should maybe be a checkbox saying whether @no_store items should be displayed or not. Because sometimes we don't want them cluttering the ui, and it is confusing that they are not clickable if it was default to display them.
 		
-		Finish @exclude system for extend().     extend("simplyq_model.txt") @exclude(solver(), heat : quantity)   #Should maybe change parsing so that the () on solver is unnecessary. Or is it already?
+		Finish @exclude system for extend().
+			extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
+			#Should maybe change parsing so that the () on solver is unnecessary. Or is it already working like that?
 			The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
 			Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
 		

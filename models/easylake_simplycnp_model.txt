@@ -10,10 +10,11 @@ model("EasyLake-SimplyCNP") {
 	o2   : quantity("O₂")
 	
 	
-	#TODO: Maybe also organic N, P later, and particles etc.
+	#TODO: Maybe also organic N, P later.
 	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 
-		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, sed, temp, sw, wind, loc(A_surf), loc(A_surf))
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, sed, ice, temp, sw, wind, indicator, loc(A_surf), loc(A_surf)),
+		module("EasyChem-Particulate", epi, hyp, water, sed, phos, loc(A_surf))
 	)
 	
 	module("Simple River O₂", version(0, 1, 0)) {

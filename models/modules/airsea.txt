@@ -16,6 +16,7 @@ module("AirSea", version(0, 1, 1),
 	sw        : property,
 	attn      : property,
 	freeze_temp : property,
+	indicator : property,
 	
 	A_surf            : loc,
 	top_water         : loc,
@@ -56,7 +57,6 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	evap_mm : property("Evaporation (mm)")
 	
 	energy    : property("Freeze energy")
-	indicator : property("Ice indicator")
 	
 	var(air.wind, [m, s-1], "Wind speed")
 	

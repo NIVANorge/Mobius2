@@ -10,10 +10,12 @@ module("EasyChem", version(0, 0, 1),
 	nitro  : quantity,
 	phos   : quantity,
 	sed    : quantity,
+	ice    : quantity,
 	
 	temp   : property,
 	sw     : property,
 	wind   : property,
+	indicator : property,
 	
 	sed_area : loc,
 	area   : loc
@@ -55,8 +57,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10)
 		COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
-		
-		sett_vel     : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100, "This is the net settling velocity after taking into account upwards mixing inside each compartment")
 	}
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
@@ -80,7 +80,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
 		sat_conc := o2_saturation(temp, 0)*o2_mol_mass -> [m g, l-1],
-		p_vel*pvel_scaler*(sat_conc - conc(o2))*area ->>
+		(!ice.indicator) * p_vel*pvel_scaler*(sat_conc - conc(o2))*area ->>
 	}
 
 	#TODO: factor out 0.05[m g, l-1] as a constant.
@@ -188,10 +188,25 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
 	
 	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * phyt_pc   }
+}
+
+
+module("EasyChem-Particulate", version(0, 0, 1),
+	epi : compartment,
+	hyp : compartment,
+	water : quantity,
+	sed   : quantity,
+	phos  : quantity,
+	area  : loc
+) {
+"""
+Particle transport and settling for EasyChem.
+"""
 	
-	
-	
-	# TODO: The particular stuff could be a separate module since we reuse it in the empirical model.
+	par_group("Particles") {
+		sett_vel : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100, "This is the net settling velocity after taking into account upwards mixing whithin (but not between) each compartment.")
+	}
+
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
 	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")
 	var(epi.water.sed.phos, [k g], "Epilimnion PP")
@@ -208,27 +223,32 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	#TODO: There should be some interaction with the sediments where the nutrients that go there could leech out.
+	# Maybe exchange between suspended particles and dissolved, but that may not be significant enough.
 }
 
 
-
-module("SuperEasyChem", version(0, 0, 1)) {
-	
+module("SuperEasyChem", version(0, 0, 1),
+	epi : compartment,
+	hyp : compartment,
+	water : quantity,
+	oc : quantity,
+	din : quantity,
+	phos : quantity,
+	temp : property
+) {	
 """
 Simplified version of EasyChem where retention rates are given by empirical numbers instead of simulating phytoplankton or bacteria.
 """
 	
 	load("stdlib/basic_math.txt", library("Response"))
 	
-	#TODO: The DOC part should be completely rewritten
-	
 	par_group("Lake CNP", epi) {
-		init_c : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
-		init_din     : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
+		init_doc : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
+		init_din : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
 		init_tdp : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
-		
-		#TODO: Redo DOC retention
-		oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
+
+		lake_doc_ret : par_real("Lake DOC retention at 20°C", [day-1], 0, 0, 5)
+		lake_doc_q10 : par_real("Lake DOC retention Q10", [], 1, 1, 5)
 		lake_din_ret : par_real("Lake DIN retention at 20°C", [day-1], 0, 0, 5)
 		lake_din_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
 		lake_tdp_ret : par_real("Lake TDP retention at 20°C", [day-1], 0, 0, 5)
@@ -239,33 +259,17 @@ Simplified version of EasyChem where retention rates are given by empirical numb
 		sett_vel : par_real("Settling velocity", [m, day-1], 100, 50, 100)
 	}
 	
-	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
-	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
+	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_doc }
+	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_doc }
 	
-	var(epi.attn, []) {
-		coeff := 5[m-1],#0.2[m-1],   # TODO: Maybe parametrize, and add effect from DOC,SS
-		1 - exp(-coeff*epi.z_e)
+	flux(epi.water.oc, out, [k g, day-1], "Epilimnion DOC retention") {
+		ret := q10_adjust(lake_doc_ret, 20.0[deg_c], temp, lake_doc_q10),
+		din * ret
 	}
 	
-	var(hyp.sw, [W, m-2]) {  # TODO: If we end up still using this one, it should be computed by EasyLake.
-		epi.sw * (1 - epi.attn)
-	}
-	
-	photodeg : function(sw, oc_doc) {
-		oc_doc * qy_doc * (f_par / e_par) * sw
-	}
-	
-	qy_doc : constant("DOC quantum yield",               [m g, mol-1], 0.1)
-	f_par  : constant("Fraction of PAR in SW radiation", [],           0.45)
-	e_par  : constant("Average energy of PAR photons",   [J, mol-1],  240800.0)
-	
-	flux(epi.water.oc, out, [k g, day-1], "Epilimnion DOC mineralization") {
-		photodeg(sw*attn, oc_doc) * oc ->>
-	}
-	
-	flux(hyp.water.oc, out, [k g, day-1], "Hypolimnion DOC mineralization") {
-		# Just assume all remaining shortwave is attenuated in the hypolimnion
-		photodeg(sw, oc_doc) * oc ->>
+	flux(hyp.water.oc, out, [k g, day-1], "Hypolimnion DOC retention") {
+		ret := q10_adjust(lake_doc_ret, 20.0[deg_c], temp, lake_doc_q10),
+		din * ret * hyp_ret
 	}
 	
 	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
@@ -281,34 +285,16 @@ Simplified version of EasyChem where retention rates are given by empirical numb
 		din * ret * hyp_ret
 	}
 	
-	var(epi.water.tdp, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
-	var(hyp.water.tdp, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
+	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
+	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
 	
-	flux(epi.water.tdp, out, [k g, day-1], "Epilimnion TDP retention") {
+	flux(epi.water.phos, out, [k g, day-1], "Epilimnion TDP retention") {
 		ret := q10_adjust(lake_tdp_ret, 20.0[deg_c], temp, lake_tdp_q10),
-		tdp * ret
+		phos * ret
 	}
 	
-	flux(hyp.water.tdp, out, [k g, day-1], "Hypolimnion TDP retention") {
+	flux(hyp.water.phos, out, [k g, day-1], "Hypolimnion TDP retention") {
 		ret := q10_adjust(lake_tdp_ret, 20.0[deg_c], temp, lake_tdp_q10),
-		tdp * ret * hyp_ret
+		phos * ret * hyp_ret
 	}
-	
-	# TODO: Maybe have this in a separate module since it is the same as in EasyChem
-	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
-	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")
-	var(epi.water.sed.phos, [k g], "Epilimnion PP")
-	@show_conc(epi.water, [m g, l-1])
-	var(hyp.water.sed.phos, [k g], "Hypolimnion PP")
-	@show_conc(hyp.water, [m g, l-1])
-	
-	flux(epi.water.sed, hyp.water.sed, [k g, day-1], "Epilimnion sediment settling") {
-		sett_vel * conc(sed) * area ->>
-	}
-	
-	flux(hyp.water.sed, out, [k g, day-1], "Hypolimnion sediment settling") {
-		sett_vel * conc(sed) * area ->>
-	}
-	
-	# TODO: SS, PP
 }

@@ -402,12 +402,12 @@ module("EasyChem", version(0, 0, 1)) {
 		[ 1 1 ]
 
 		par_real("Background sediment O₂ demand")
-		[ 0 0.5 ]
+		[ 0.5 0.5 ]
 	}
 
 	par_group("Nutrients") [ "Lake" ] {
 		par_real("Initial lake DOC concentration")
-		[ 10 10 ]
+		[ 2 10 ]
 
 		par_real("Respiration Q10")
 		[ 1.58 1.58 ]
@@ -429,9 +429,6 @@ module("EasyChem", version(0, 0, 1)) {
 
 		par_real("Carbon Oxidation State autoch DOC")
 		[ 0.5 0.5 ]
-
-		par_real("Sediment settling velocity")
-		[ 0.2 100 ]
 	}
 
 	par_group("Phytoplankton") [ "Lake" ] {
@@ -461,10 +458,54 @@ module("EasyChem", version(0, 0, 1)) {
 	}
 }
 
+module("EasyChem-Particulate", version(0, 0, 1)) {
+	par_group("Particles") {
+		par_real("Sediment settling velocity")
+		[ 0.2 ]
+	}
+}
+
 module("Simple River O₂", version(0, 1, 0)) {
 	par_group("River oxygen") {
 		par_real("Carbon Oxidation State alloch DOC")
 		[ -0.5 ]
+	}
+}
+
+module("SuperEasyChem", version(0, 0, 1)) {
+	par_group("Lake CNP") [ "Lake" ] {
+		par_real("Initial lake DOC concentration")
+		[ 2 8 ]
+
+		par_real("Initial lake DIN concentration")
+		[ 0 0 ]
+
+		par_real("Initial lake TDP concentration")
+		[ 0 0 ]
+
+		par_real("Lake DOC retention at 20°C")
+		[ 0.02 0 ]
+
+		par_real("Lake DOC retention Q10")
+		[ 2 1 ]
+
+		par_real("Lake DIN retention at 20°C")
+		[ 0.015 0.04 ]
+
+		par_real("Lake DIN retention Q10")
+		[ 1.5 1.5 ]
+
+		par_real("Lake TDP retention at 20°C")
+		[ 0.009 0 ]
+
+		par_real("Lake TDP retention Q10")
+		[ 1 1 ]
+
+		par_real("Hyplimnion relative retention")
+		[ 0 0.01 ]
+
+		par_real("Settling velocity")
+		[ 100 100 ]
 	}
 }
 
