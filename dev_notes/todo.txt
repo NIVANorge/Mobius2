@@ -2,6 +2,9 @@
 
 	*** High pri ***
 	
+	
+		Matrix formatting of parameter writing is broken.
+	
 		Why errors during data set saving crash the program instead of getting caught now?
 		
 		MobiView:
@@ -92,6 +95,11 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		MobiView
+			plot indexing
+				If both a union set and a member is present, only display the member (unless multiple members..)
+				Have to make it substitute the member for the union when looking up indexes also.
 	
 		Clean up the sorting algorithm
 			Make it independent of the Mobius framework code (no direct error exits, instead have error codes).
@@ -210,6 +218,9 @@
 			Doesn't seem to be that necessary.
 		
 	*** Low-pri ****
+	
+		Have a special state variable type that can record solver step resolution.
+			Would only record what it ended at in that step though
 	
 		Datetime algorithms are slow for large dates
 			Low priority since it really only comes into play if the user makes a mistake and zooms the plot in MobiView2 to much. We are normally not working with such large dates.

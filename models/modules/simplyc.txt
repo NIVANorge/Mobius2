@@ -74,5 +74,5 @@ A simple DOC model.
 	flux(river.water.oc, out, [k g, day-1], "River DOC loss") {
 		rate := q10_adjust(r_loss, 20.0[deg_c], temp, r_q10),
 		oc * rate
-	}
+	} @no_carry
 }

@@ -37,6 +37,8 @@ model("EasyLake-SimplyQ") {
 	
 	lake_index : index_set("Lake")
 	
+	wb_index : index_set("Water body") @union(sc, lake_index)
+	
 	distribute(epi, lake_index)
 	distribute(hyp, lake_index)
 	

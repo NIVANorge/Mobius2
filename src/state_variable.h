@@ -16,6 +16,7 @@ State_Var {
 		dissolved_flux        = 4,
 		dissolved_conc        = 5,
 		external_computation  = 6,
+		step_resolution       = 7,
 	} type = Type::declared;
 	
 	enum Flags {
@@ -154,6 +155,13 @@ State_Var_Sub<State_Var::Type::external_computation> : State_Var {
 	std::vector<Var_Id>          targets;
 	
 	State_Var_Sub() : code(nullptr) {}
+};
+
+template<> struct
+State_Var_Sub<State_Var::Type::step_resolution> : State_Var {
+	Entity_Id      solver_id = invalid_entity_id;
+	
+	State_Var_Sub() {}
 };
 
 template<State_Var::Type type>

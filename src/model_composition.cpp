@@ -1725,16 +1725,25 @@ compose_and_resolve(Model_Application *app) {
 			}
 		}
 		
-		// NOTE: If in_flux_id is invalid at this point (since the referenced connection aggregate did not exist), replace_flagged will put a 0.0 in place of this value.
+		// NOTE: If in_flux_id is invalid at this point (since the referenced connection aggregate did not exist), replace_flagged will put a literal 0.0 in place of this value.
 		//   TODO: Maybe print a warning?
 		
 		// TODO: What happens if we use in_flux in initial code or override code??
+		//     Should probably not be available in initial code, but is that checked for?
 		for(auto rep_id : in_flux.second) {
 			auto var = as<State_Var::Type::declared>(app->vars[rep_id]);
 			replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
 		}
 	}
 	
+	/*  // TODO: Finish the logic for this, including making storage space for it and saving the value each step.
+	for(auto solver_id : model->solvers) {
+		auto solver = model->solvers[solver_id];
+		sprintf(varname, "solver_step(%s)", solver->name);
+		auto var_id = register_state_variable<State_Var::Type::step_resolution>(app, invalid_entity_id, false, varname, true);
+		as<State_Var::Type::step_resolution>(app->vars[var_id])->solver_id = solver_id;
+	}
+	*/
 	
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	// NOTE: This must be done after all calls to replace_flagged, otherwise the references are not correctly in place.
