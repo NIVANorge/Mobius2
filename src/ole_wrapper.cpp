@@ -173,7 +173,7 @@ void
 ole_get_string(VARIANT *var, char *buf_out, size_t buf_len) {
 	buf_out[0] = 0;
 	if(var->vt == VT_BSTR) {
-		WideCharToMultiByte(CP_ACP, 0, var->bstrVal, -1, buf_out, buf_len, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, var->bstrVal, -1, buf_out, buf_len, NULL, NULL);
 		ole_destroy_string(var); //Hmm, do we want to do this here?
 	}
 }

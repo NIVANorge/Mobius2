@@ -538,7 +538,12 @@ Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Idx_T ind
 	
 	if(!is_valid(result)) {
 		idx_name->print_error_header();
-		fatal_error("This is not a valid index for the index set \"", index_set->name, "\".");
+		if(idx_name->type == Token_Type::integer)
+			fatal_error("The value ", idx_name->val_int, " is out of bounds for the index set \"", index_set->name, "\".");
+		else if(idx_name->type == Token_Type::quoted_string)
+			fatal_error("The name \"", idx_name->string_value, "\" is not a valid index for the index set \"", index_set->name, "\".");
+		else
+			fatal_error("This is not a valid index for the index set \"", index_set->name, "\".");
 	}
 	
 	return result;

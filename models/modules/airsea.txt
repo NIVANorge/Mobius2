@@ -87,27 +87,23 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	
 	flux(out, top_water_heat,    [J, day-1], "Net longwave") {
 		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
-		0                              if surf.ice.indicator,
-		A_surf * net_rad ->>           otherwise
+		(!surf.ice.indicator) *	A_surf * net_rad ->>
 	}
 	
 	flux(out, top_water_heat, [J, day-1], "Freeze heating") {  A_surf * surf.ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)
 	
 	flux(out, top_water_heat, [J, day-1], "Latent heat flux") {
 		l_vap := latent_heat_of_vaporization(top_water_temp),
-		0                                                                               if surf.ice.indicator,
-		A_surf * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_hum)) ->> otherwise
+		(!surf.ice.indicator) * A_surf * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_hum)) ->>
 	}
 	
 	flux(out, top_water_heat, [J, day-1], "Sensible heat flux") {
-		0                                                                                            if surf.ice.indicator,
-		A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) ->> otherwise
+		(!surf.ice.indicator) * A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) ->>
 	}
 	
 	var(surf.evap_mm, [m m, day-1]) {
 		rho_ref := 1025 [k g, m-3],
-		0                                                                          if surf.ice.indicator,
-		-(air.rho / rho_ref) * chd * air.wind * (air.a_hum - s_hum) ->>            otherwise
+		(!surf.ice.indicator) * (air.rho / rho_ref) * chd * air.wind * (s_hum - air.a_hum) ->>
 	}
 	
 	flux(top_water, out, [m 3, day-1], "Evaporation") {  surf.evap_mm * A_surf ->>  } @no_carry

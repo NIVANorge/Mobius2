@@ -70,7 +70,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
 		phyt_nc    : par_real("N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
 		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
-		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7)
+		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
 	
 	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }
