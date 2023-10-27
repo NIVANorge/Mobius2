@@ -202,6 +202,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 module("EasyChem-Particulate", version(0, 0, 1),
 	epi : compartment,
 	hyp : compartment,
+	bot : compartment,
 	water : quantity,
 	sed   : quantity,
 	phos  : quantity,
@@ -213,6 +214,8 @@ Particle transport and settling for EasyChem.
 	
 	par_group("Particles") {
 		sett_vel : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100, "This is the net settling velocity after taking into account upwards mixing whithin (but not between) each compartment.")
+		leech_r  : par_real("Sediment phosphorous internal loading rate", [k m-2, day-1], 0.001, 0, 1)
+		sed_z    : par_real("Bottom sediment thickness", [m], 0.2, 0, 5, "Thickness of sediment layer participating in P exchange")
 	}
 
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
@@ -226,9 +229,24 @@ Particle transport and settling for EasyChem.
 		sett_vel * conc(sed) * area ->>
 	}
 	
-	flux(hyp.water.sed, out, [k g, day-1], "Hypolimnion sediment settling") {
+	flux(hyp.water.sed, bot.sed, [k g, day-1], "Hypolimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
 	}
+	
+	sed_dens : constant("Sediment density", [k g, m-3], 2600)
+	
+	var(bot.sed, [k g], "Bottom sediments") @initial { area*sed_z*sed_dens }
+	var(bot.sed.phos, [k g])
+	
+	# Not sure about this one, and if it should carry the P down:
+	flux(bot.sed, out, [k g, day-1], "Sediment burial") {
+		sett_vel * conc(hyp.water.sed) * area ->>
+	}
+	
+	flux(bot.sed.phos, hyp.water.phos, [k g, day-1], "Sediment P internal loading") {
+		phos * area * leech_r ->>
+	}
+	
 	
 	#TODO: There should be some interaction with the sediments where the nutrients that go there could leech out.
 	# Maybe exchange between suspended particles and dissolved, but that may not be significant enough.

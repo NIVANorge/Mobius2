@@ -41,6 +41,11 @@ class Mobius_Entity_Metadata(ctypes.Structure) :
 	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", Parameter_Value), ("max", Parameter_Value)]
 
 
+# NOTE: Must match Reg_Types: We should find a way to auto-generate this instead!
+MODULE_TYPE = 1
+COMPONENT_TYPE = 2
+PARAMETER_TYPE = 3
+
 dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_abi.dll"))
 #dll = ctypes.CDLL("c_api.dll")
 
@@ -111,12 +116,6 @@ dll.mobius_get_parameter_string.restype  = ctypes.c_char_p
 
 dll.mobius_get_entity_metadata.argtypes = [ctypes.c_void_p, Entity_Id]
 dll.mobius_get_entity_metadata.restype = Mobius_Entity_Metadata
-
-
-# NOTE: Must match Reg_Types: We should find a way to auto-generate this instead!
-MODULE_TYPE = 1
-COMPONENT_TYPE = 2
-PARAMETER_TYPE = 3
 
 
 def _check_for_errors() :

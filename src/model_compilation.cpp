@@ -874,6 +874,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			instr.code = copy(fun);
 		else if(initial)
 			instr.type = Model_Instruction::Type::invalid;
+		
+		if(var->type == State_Var::Type::step_resolution)    // These are treated separately, should not be a part of the instruction generation.
+			instr.type = Model_Instruction::Type::invalid;
 	}
 	
 	if(initial) {
@@ -1397,6 +1400,17 @@ set_up_result_structure(Model_Application *app, std::vector<Batch> &batches, std
 		for(auto &array : batch.arrays_ode)  add_array(result_structure, temp_result_structure, array, instructions); // The ODEs will never be added to temp results in reality.
 	}
 	
+	{
+		std::vector<Var_Id> resolution_vars;
+		for(auto var_id : app->vars.all_state_vars()) {
+			auto var = app->vars[var_id];
+			if(var->type == State_Var::Type::step_resolution)
+				resolution_vars.push_back(var_id);
+		}
+		Multi_Array_Structure<Var_Id> arr({}, std::move(resolution_vars));
+		result_structure.push_back(std::move(arr));
+	}
+	
 	app->result_structure.set_up(std::move(result_structure));
 	app->temp_result_structure.set_up(std::move(temp_result_structure));
 }
@@ -1561,6 +1575,15 @@ Model_Application::compile(bool store_code_strings) {
 			for(auto &array : batch.arrays_ode) {         // Hmm, this is a bit inefficient, but oh well.
 				for(int instr_id : array.instr_ids)
 					new_batch.n_ode += result_structure.instance_count(instructions[instr_id].var_id);
+			}
+			
+			for(auto var_id : vars.all_state_vars()) {
+				auto var = vars[var_id];
+				if(var->type != State_Var::Type::step_resolution) continue;
+				auto var2 = as<State_Var::Type::step_resolution>(var);
+				if(var2->solver_id != new_batch.solver_id) continue;
+				new_batch.h_address = result_structure.get_offset_base(var_id);
+				break;
 			}
 		}
 		

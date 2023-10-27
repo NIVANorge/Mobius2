@@ -281,6 +281,7 @@ struct Arg_Pattern {
 		switch(pattern_type) {
 			case Type::decl :         { error_print(name(decl_type));  } break;
 			case Type::value :        { error_print(name(token_type)); } break;
+			case Type::loc :          { error_print("location"); } break;
 			case Type::any :          { error_print("any"); } break;
 		}
 		if(is_vararg) error_print("...");

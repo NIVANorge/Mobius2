@@ -9,12 +9,15 @@ model("EasyLake-SimplyCNP") {
 	phyt : quantity("Phytoplankton")
 	o2   : quantity("O₂")
 	
+	bot  : compartment("Lake bottom sediments")
+	distribute(bot, lake_index)
+	solve(simply_solver, bot.sed)
 	
 	#TODO: Maybe also organic N, P later.
 	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 
 		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, ice, temp, sw, wind, indicator, loc(A_surf), loc(A_surf)),
-		module("EasyChem-Particulate", epi, hyp, water, sed, phos, loc(A_surf))
+		module("EasyChem-Particulate", epi, hyp, bot, water, sed, phos, loc(A_surf))
 	)
 	
 	module("Simple River O₂", version(0, 1, 0)) {

@@ -13,7 +13,8 @@ Batch_Data {
 	batch_function  *compiled_code;
 #endif
 	Solver_Function *solver_fun = nullptr;
-	double           h;
+	//double           h;
+	s64              h_address;
 	double           hmin;
 	s64              first_ode_offset;
 	int              n_ode;
@@ -125,13 +126,13 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 			
 			Standardized_Unit *h_unit = nullptr;
 			
+			double h = 1.0;
 			if(is_valid(solver->h_par)) {
 				// TODO: Should probably check somewhere that this parameter is not distributed over index sets, but we could do that in the model_composition stage.
 				s64 offset   = data->parameters.structure->get_offset_base(solver->h_par);
-				b_data.h     = data->parameters.get_value(offset)->val_real;
+				h            = data->parameters.get_value(offset)->val_real;
 				h_unit       = &model->units[model->parameters[solver->h_par]->unit]->data.standard_form;
 			} else {
-				b_data.h     = 1.0;
 				h_unit       = &model->units[solver->h_unit]->data.standard_form;
 			}
 			if(is_valid(solver->hmin_par)) {
@@ -146,10 +147,13 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 				solver->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("It is not possible to convert between the model time step unit and the solver step unit.");
 			}
-			b_data.h *= conv;
-			b_data.h = std::max(std::min(b_data.h, 1.0), 0.0);
+			h *= conv;
+			h = std::max(std::min(h, 1.0), 0.0);
 			b_data.hmin = std::max(std::min(b_data.hmin, 1.0), 1e-10);
-			b_data.hmin = b_data.hmin*b_data.h; //NOTE: The given one was relative, but we need to store it as absolute since h can change in the run.
+			b_data.hmin = b_data.hmin*h; //NOTE: The given one was relative, but we need to store it as absolute since h can change in the run.
+			
+			b_data.h_address = batch.h_address;
+			run_state.state_vars[b_data.h_address] = h;
 		}
 		++idx;
 	}
@@ -180,7 +184,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 			else {
 				double *x0 = run_state.state_vars + batch.first_ode_offset;
 				//NOTE: h is kept around for the next time step (trying an initial h that we ended up with from the previous step)
-				batch.solver_fun(&batch.h, batch.hmin, batch.n_ode, x0, &run_state, BATCH_FUNCTION(batch));
+				batch.solver_fun(run_state.state_vars + batch.h_address, batch.hmin, batch.n_ode, x0, &run_state, BATCH_FUNCTION(batch));
 			}
 		}
 		

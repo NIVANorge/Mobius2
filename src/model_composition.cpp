@@ -1736,14 +1736,14 @@ compose_and_resolve(Model_Application *app) {
 		}
 	}
 	
-	/*  // TODO: Finish the logic for this, including making storage space for it and saving the value each step.
 	for(auto solver_id : model->solvers) {
 		auto solver = model->solvers[solver_id];
-		sprintf(varname, "solver_step(%s)", solver->name);
-		auto var_id = register_state_variable<State_Var::Type::step_resolution>(app, invalid_entity_id, false, varname, true);
-		as<State_Var::Type::step_resolution>(app->vars[var_id])->solver_id = solver_id;
+		sprintf(varname, "solver_step_resolution(%s)", solver->name.data());
+		auto var_id = register_state_variable<State_Var::Type::step_resolution>(app, invalid_entity_id, false, varname);
+		auto var = as<State_Var::Type::step_resolution>(app->vars[var_id]);
+		var->solver_id = solver_id;
+		var->unit = app->time_step_unit;
 	}
-	*/
 	
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	// NOTE: This must be done after all calls to replace_flagged, otherwise the references are not correctly in place.

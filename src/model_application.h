@@ -332,6 +332,7 @@ struct
 Run_Batch {
 	Entity_Id        solver_id;
 	s64              first_ode_offset;
+	s64              h_address;
 	int              n_ode;
 	
 	Math_Expr_FT    *run_code;
