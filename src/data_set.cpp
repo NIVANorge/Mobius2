@@ -177,14 +177,12 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 		fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par.name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
 	
 	print_tabs(file, tabs);
-	fprintf(file, "%s(\"%s\")", name(par.type), par.name.data());
+	fprintf(file, "%s(\"%s\") ", name(par.type), par.name.data());
 	if(n_dims == 1) {
 		fprintf(file, "\n");
 		print_tabs(file, tabs);
-		fprintf(file, "[ ");
-	} else {
-		fprintf(file, " [\n");
 	}
+	fprintf(file, "[ ");
 	
 	int offset = 0;
 	data_set->index_data.for_each(par_group.index_sets,
@@ -217,13 +215,13 @@ write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_grou
 			}
 		},
 		[&](int pos) {
-			int dist = (n_dims-1) - pos;
-			if(dist == 1 && n_dims != 1)
+			if(n_dims != 1)
+				if(offset > 0 || pos == n_dims-1) {
+					fprintf(file, "\n");
 				print_tabs(file, tabs+1);
-			if(dist > 1)
-				fprintf(file, "\n");
+			}
 		}
-		);
+	);
 
 	if(n_dims != 1) {
 		fprintf(file, "\n");

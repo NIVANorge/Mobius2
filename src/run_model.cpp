@@ -55,7 +55,7 @@ check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 }
 
 bool
-run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
+run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_type callback, void *callback_data) {
 	
 	Model_Application *app = data->app;
 	Mobius_Model *model    = app->model;
@@ -166,7 +166,9 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 
 	// Initial values:
 	call_fun(BATCH_FUNCTION(app->initial_batch), &run_state);
-
+	
+	s64 callback_interval = time_steps / 10; // TODO: Make this customizable.
+	s64 prev_callback_iter = 0;
 	for(run_state.date_time.step = 0; run_state.date_time.step < time_steps; run_state.date_time.advance()) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
 		run_state.state_vars += var_count;
@@ -193,12 +195,27 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 			if(ms > ms_timeout)
 				return false;
 		}
+		
+		if(callback) {
+			s64 callback_iter = (run_state.date_time.step*10) / time_steps;
+			if(callback_iter > prev_callback_iter) {
+				s64 ms = run_timer.get_milliseconds();
+				if(ms > 500) {
+					double percent = 100.0 * ((double)run_state.date_time.step) / ((double)time_steps);
+					callback(callback_data, percent);
+					prev_callback_iter = callback_iter;
+				}
+			}
+		}
 	}
+	
+	if(callback)
+		callback(callback_data, 100.0);
 	
 	return true;
 }
 
 bool
-run_model(Model_Application *app, s64 ms_timeout, bool check_for_nan) {
-	return run_model(&app->data, ms_timeout, check_for_nan);
+run_model(Model_Application *app, s64 ms_timeout, bool check_for_nan, run_callback_type callback, void *callback_data) {
+	return run_model(&app->data, ms_timeout, check_for_nan, callback, callback_data);
 }

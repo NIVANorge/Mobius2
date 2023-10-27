@@ -64,10 +64,12 @@ call_fun(batch_function *fun, Model_Run_State *run_state, double t = 0.0) {
 struct Model_Application;
 struct Model_Data;
 
-bool
-run_model(Model_Data *model_data, s64 ms_timeout = -1, bool check_for_nan = false);
+typedef void (run_callback_type)(void *, double);
 
 bool
-run_model(Model_Application *app, s64 ms_timeout = -1, bool check_for_nan = false);
+run_model(Model_Data *model_data, s64 ms_timeout = -1, bool check_for_nan = false, run_callback_type callback = nullptr, void *callback_data = nullptr);
+
+bool
+run_model(Model_Application *app, s64 ms_timeout = -1, bool check_for_nan = false, run_callback_type callback = nullptr, void *callback_data = nullptr);
 
 #endif // MOBIUS_RUN_MODEL_H

@@ -36,5 +36,7 @@ model("EasyLake-SimplyCNP") {
 		var(river.water.oc.o2, [k g], [], "River DOC oxidation state") @override_conc {
 			1 + COS_alloch/4
 		}
+		
+		var(river.water.phyt, [k g], [m g, l-1]) # Just to allow transport of it.
 	}
 }

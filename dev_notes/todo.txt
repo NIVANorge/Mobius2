@@ -2,9 +2,6 @@
 
 	*** High pri ***
 	
-	
-		Matrix formatting of parameter writing is broken.
-	
 		Why errors during data set saving crash the program instead of getting caught now?
 		
 		MobiView:
@@ -90,11 +87,27 @@
 				Though probably not for aggregates.
 			
 			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
-			
-			
-	
+
 	
 	*** Intermediate-pri ***
+		
+		Data_Set
+			Need a reshape() function on the Data_Set or something like that, which updates all data based on new indexes for the index sets.
+				Must go through everything that is indexed and delete items that are attached to removed indexes.
+					parameters, connections, input series.
+						anything else?
+			
+			Make it possible to make a data file that is referring to another one, but with a subset of the indexes.
+				Just uses reshape after loading the Data_Set in the one referred to.
+			e.g.
+				data_subset("other file name.dat") {
+					index_set() ....
+				}
+				Have to decide what to do with broken connection arrows.
+				
+		Allow index sets to be empty
+			Invalidate state variables that are dependent on empty index sets.
+			e.g. allows you to run EasyLake-SimplyCNP without lakes, which can be useful if you are working with a data set subset.
 	
 		MobiView
 			plot indexing
@@ -284,7 +297,10 @@
 		MobiView:
 		
 			Plot
-			
+				
+				More aggregation intervals
+					minute, hour, day. (esp. day).
+				
 				Figure out a way to make 2D plot faster
 					Make it not need to update the data source if plot setup was not changed.
 					Improve the drawing algorithm in ScatterDraw.
@@ -337,15 +353,15 @@
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
-				
-				Maybe need a reshape() function on the Data_Set or something like that, which updates all data based on new indexes for the index sets.
+					Use Data_Set reshape functionality when that is included
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
 				Allow order by flux? By module?
 			
-			More aggregation intervals
-				minute, hour, day. (esp. day).
+			Search bar in the SeriesSelecter
+				
+			
 			
 		
 		More mobipy functionality.
