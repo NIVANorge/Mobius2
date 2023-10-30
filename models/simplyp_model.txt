@@ -4,6 +4,7 @@ model("SimplyP") {
 	
 	phos  : quantity("Phosphorous")
 	plab  : quantity("Labile phosphorous")
+	tp : property("Total phosphorous")
 	
-	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, phos, plab, sed, flow, e_fact, a_catch))
+	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, phos, plab, sed, flow, e_fact, tp, a_catch))
 }

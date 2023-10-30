@@ -10,11 +10,13 @@ module("EasyChem", version(0, 0, 1),
 	nitro  : quantity,
 	phos   : quantity,
 	ice    : quantity,
+	sed    : quantity,
 	
 	temp   : property,
 	sw     : property,
 	wind   : property,
 	indicator : property,
+	tp     : property,
 	
 	sed_area : loc,
 	area   : loc
@@ -29,13 +31,10 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 
-	par_attn  : property("PAR attenuation")
 	p_vel     : property("O₂ piston velocity")
 	light_lim : property("Light limitation")
 	N_lim     : property("Nitrogen limitation")
 	P_lim     : property("Phosphorus limitation")
-	Mgrowth   : property("Maximum phytoplankton growth")
-	growth    : property("Actual phytoplankton growth")
 	
 	f_par     : constant("Fraction of PAR in SW radiation", [],           0.45)  # Photosynthetically available radiation
 	
@@ -63,9 +62,9 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
 	par_group("Phytoplankton", epi) {
-		phyt_rate  : par_real("Max Phyto growth at 20°C", [day-1], 1, 0.5, 2)
+		phyt_rate  : par_real("Max Phyto growth at 20°C", [m g, l-1, day-1], 1, 0.5, 2)
 		phyt_death : par_real("Phytoplankton death rate", [day-1], 0.2, 0.05, 0.4)
-		beta       : par_real("Temp adjustment of Phyto growth", [K], 2, 1, 4)
+		phyt_q10   : par_real("Temp adjustment of Phyto growth", [], 2, 1, 4)
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
 		phyt_nc    : par_real("N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
@@ -137,11 +136,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		conc(phyt)*chl_a_f->>
 	}
 	
-	var(epi.water.phyt.Mgrowth, [day-1]) {
-		ref_t := 25[deg_c],
-		phyt_rate*10^(1000*beta*(1/(ref_t->[K]) - 1/(temp->[K])))          #TODO Why is the 1000 there? should that be absorbed into beta or one of the units instead?
-	}
-	
 	var(epi.water.phyt.light_lim, []) {
 		# TODO: In Selma what we call iopt here is called imin, and the max(...) term is called iopt. Mislabeling here?
 		par_sw := sw*(1 - f_par),
@@ -163,7 +157,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	fix : property("Photosynthetic C fixation")
 	var(epi.water.phyt.fix, [k g, day-1]) {
-		min(light_lim, min(N_lim, P_lim))*Mgrowth*phyt
+		Mgrowth := q10_adjust(phyt_rate, 20[deg_c], temp, phyt_q10),
+		min(light_lim, min(N_lim, P_lim))*Mgrowth*water->>
 	}
 	
 	flux(out, epi.water.phyt, [k g, day-1], "Epilimnion photosynthetic C fixation") {   fix   }
@@ -196,13 +191,19 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
 	
 	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * phyt_pc   }
+	flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * phyt_pc }
+	flux(out, hyp.water.sed.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * phyt_pc }
+	
+	var(epi.water.tp, [m g, l-1], "Epilimnion total phosphorous") {
+		conc(phos) + conc(sed)*conc(sed.phos) + conc(phyt)*phyt_pc
+	}
 }
 
 
-module("EasyChem-Particulate", version(0, 0, 1),
+module("EasyChem-Particulate", version(0, 0, 2),
 	epi : compartment,
 	hyp : compartment,
-	bot : compartment,
+	#bot : compartment,
 	water : quantity,
 	sed   : quantity,
 	phos  : quantity,
@@ -214,7 +215,7 @@ Particle transport and settling for EasyChem.
 	
 	par_group("Particles") {
 		sett_vel : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100, "This is the net settling velocity after taking into account upwards mixing whithin (but not between) each compartment.")
-		leech_r  : par_real("Sediment phosphorous internal loading rate", [k m-2, day-1], 0.001, 0, 1)
+		#leech_r  : par_real("Sediment phosphorous internal loading rate", [k m-2, day-1], 0.001, 0, 1)
 		sed_z    : par_real("Bottom sediment thickness", [m], 0.2, 0, 5, "Thickness of sediment layer participating in P exchange")
 	}
 
@@ -229,23 +230,24 @@ Particle transport and settling for EasyChem.
 		sett_vel * conc(sed) * area ->>
 	}
 	
-	flux(hyp.water.sed, bot.sed, [k g, day-1], "Hypolimnion sediment settling") {
+	#flux(hyp.water.sed, bot.sed, [k g, day-1], "Hypolimnion sediment settling") {
+	flux(hyp.water.sed, out, [k g, day-1], "Hypolimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
 	}
 	
-	sed_dens : constant("Sediment density", [k g, m-3], 2600)
+	#sed_dens : constant("Sediment density", [k g, m-3], 2600)
 	
-	var(bot.sed, [k g], "Bottom sediments") @initial { area*sed_z*sed_dens }
-	var(bot.sed.phos, [k g])
+	#var(bot.sed, [k g], "Bottom sediments") @initial { area*sed_z*sed_dens }
+	#var(bot.sed.phos, [k g])
 	
 	# Not sure about this one, and if it should carry the P down:
-	flux(bot.sed, out, [k g, day-1], "Sediment burial") {
-		sett_vel * conc(hyp.water.sed) * area ->>
-	}
+	#flux(bot.sed, out, [k g, day-1], "Sediment burial") {
+	#	sett_vel * conc(hyp.water.sed) * area ->>
+	#}
 	
-	flux(bot.sed.phos, hyp.water.phos, [k g, day-1], "Sediment P internal loading") {
-		phos * area * leech_r ->>
-	}
+	#flux(bot.sed.phos, hyp.water.phos, [k g, day-1], "Sediment P internal loading") {
+	#	phos * area * leech_r ->>
+	#}
 	
 	
 	#TODO: There should be some interaction with the sediments where the nutrients that go there could leech out.

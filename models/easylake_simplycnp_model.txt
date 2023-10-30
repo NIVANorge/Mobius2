@@ -9,15 +9,15 @@ model("EasyLake-SimplyCNP") {
 	phyt : quantity("Phytoplankton")
 	o2   : quantity("O₂")
 	
-	bot  : compartment("Lake bottom sediments")
-	distribute(bot, lake_index)
-	solve(simply_solver, bot.sed)
+	#bot  : compartment("Lake bottom sediments")
+	#distribute(bot, lake_index)
+	#solve(simply_solver, bot.sed)
 	
 	#TODO: Maybe also organic N, P later.
 	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 
-		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, ice, temp, sw, wind, indicator, loc(A_surf), loc(A_surf)),
-		module("EasyChem-Particulate", epi, hyp, bot, water, sed, phos, loc(A_surf))
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, ice, sed, temp, sw, wind, indicator, tp, loc(A_surf), loc(A_surf)),
+		module("EasyChem-Particulate", epi, hyp, water, sed, phos, loc(A_surf))
 	)
 	
 	module("Simple River O₂", version(0, 1, 0)) {
@@ -40,6 +40,13 @@ model("EasyLake-SimplyCNP") {
 			1 + COS_alloch/4
 		}
 		
+		# Hmm: This doesn't work properly unless you also count it under PP(TDP?) and TP in the river.
 		var(river.water.phyt, [k g], [m g, l-1]) # Just to allow transport of it.
+		#flux(river.water.phyt, river.water.oc, [k g, day-1], "River phyto DOC release") {
+		#	phyt*0.1[day-1]
+		#}
+		#flux(out, river.water.sed.phos, [k g, day-1], "River phyto P release") {
+		#	0=>>#phyt*0.009*0.1[day-1]
+		#}
 	}
 }
