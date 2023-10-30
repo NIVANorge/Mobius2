@@ -191,8 +191,12 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
 	
 	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * phyt_pc   }
-	flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * phyt_pc }
-	flux(out, hyp.water.sed.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * phyt_pc }
+	#flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * phyt_pc }
+	#flux(out, hyp.water.sed.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * phyt_pc }
+	
+	flux(out, epi.water.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * phyt_pc }
+	flux(out, hyp.water.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * phyt_pc }
+	
 	
 	var(epi.water.tp, [m g, l-1], "Epilimnion total phosphorous") {
 		conc(phos) + conc(sed)*conc(sed.phos) + conc(phyt)*phyt_pc
