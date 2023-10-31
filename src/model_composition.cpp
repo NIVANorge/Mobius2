@@ -1489,7 +1489,7 @@ compose_and_resolve(Model_Application *app) {
 			if(!pair.second) continue;
 			auto var = app->vars[pair.first];
 			var->set_flag(State_Var::invalid);
-			log_print("Invalidating \"", var->name, "\" due to both source and target being 'out' or overridden.\n");
+			log_print(Log_Mode::dev, "Invalidating \"", var->name, "\" due to both source and target being 'out' or overridden.\n");
 		}
 	}
 	
@@ -1506,7 +1506,7 @@ compose_and_resolve(Model_Application *app) {
 					auto comp = app->find_connection_component(res.connection_id, var->loc1.first(), false);
 					if(!comp || comp->possible_targets.empty()) {
 						var->set_flag(State_Var::invalid);
-						log_print("Invalidating \"", var->name, "\" due to it not having any possible targets.\n");
+						log_print(Log_Mode::dev, "Invalidating \"", var->name, "\" due to it not having any possible targets.\n");
 					}
 				}
 			}

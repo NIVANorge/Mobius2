@@ -809,7 +809,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 		}
 	}
 	
-	if(chain_size == 1) {
+	if(!found && chain_size == 1) {
 		
 		if(n1 == "no_override") {
 			if(!data->allow_no_override || isfun || data->simplified) {

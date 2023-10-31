@@ -7,8 +7,9 @@ module("EasyChem", version(0, 0, 1),
 	oc     : quantity,
 	phyt   : quantity,
 	o2     : quantity,
-	nitro  : quantity,
+	din    : quantity,
 	phos   : quantity,
+	on     : quantity,
 	ice    : quantity,
 	sed    : quantity,
 	
@@ -144,13 +145,13 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	var(epi.water.phyt.N_lim, []) {
-		cmol := conc(water.nitro)/no3_mol_mass->[m mol, m-3],
+		cmol := conc(water.din)/no3_mol_mass->[m mol, m-3],   #TODO: This is not correct, because we are using NO3-N and NH4-N for DIN
 		ntemp := cmol^2,
 		ntemp / ((alpha*phyt_nc)^2 + ntemp)
 	}
 	
 	var(epi.water.phyt.P_lim, []) {
-		cmol := conc(water.phos)/po4_mol_mass->[m mol, m-3],
+		cmol := conc(water.phos)/po4_mol_mass->[m mol, m-3],  #TODO: Not necessarily correct to assume all TDP is PO4.
 		ptemp := cmol^2,
 		ptemp / ((alpha*phyt_pc)^2 + ptemp)
 	}
@@ -182,10 +183,10 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
-	var(epi.water.nitro, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_n }
-	var(hyp.water.nitro, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_n }
+	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_n }
+	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_n }
 	
-	flux(epi.water.nitro, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * phyt_nc   }
+	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * phyt_nc   }
 	
 	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_p }
 	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
@@ -201,6 +202,12 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(epi.water.tp, [m g, l-1], "Epilimnion total phosphorous") {
 		conc(phos) + conc(sed)*conc(sed.phos) + conc(phyt)*phyt_pc
 	}
+	
+	var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")
+	var(hyp.water.on, [k g], [m g, l-1], "Hypolimnion DON")
+	
+	flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * phyt_nc }
+	flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * phyt_nc }
 }
 
 

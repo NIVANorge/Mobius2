@@ -22,6 +22,8 @@ model("EasyLake-SimplyQ") {
 	
 	evap_mm  : property("Evaporation per area")
 	
+	heat : quantity("Heat energy")
+	
 	par_group("Lake data", epi) {
 		A_surf : par_real("Lake surface area", [m 2], 107183, 0, 371e9)
 	}
@@ -38,6 +40,9 @@ model("EasyLake-SimplyQ") {
 	lake_index : index_set("Lake")
 	
 	wb_index : index_set("Water body") @union(sc, lake_index)
+	
+	distribute(air, wb_index)
+	distribute(snow_box, sc)
 	
 	distribute(epi, lake_index)
 	distribute(hyp, lake_index)
