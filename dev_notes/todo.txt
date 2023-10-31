@@ -1,17 +1,12 @@
 
 
 	*** High pri ***
-	
-	
-		Expression referencing Symbols in mobiview calibrator is broken.
-			Input idxs. don't display correctly (though they appear to be applied correctly).
-	
-		Figure out why the solver step is above 1 in one instance for SimplyQ.
-	
+
 		Why errors during data set saving crash the program instead of getting caught now?
-		
-		Saving vanslo_simplycnp just from the easylake_simplyq model:
+		Saving vansjo_simplycnp as a new file just from the easylake_simplyq model:
 			Got "data file saving may have been unsuccessful", but it appears to have been successful, and no other error was printed.
+			
+			
 			
 		Finish @exclude system for extend().
 			extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
