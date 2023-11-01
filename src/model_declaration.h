@@ -456,7 +456,7 @@ Record_Type<Entity_Id> {        // NOTE: This is typedefed as Mobius_Model below
 	by_scope(Entity_Id scope_id) { return By_Scope<reg_type>(get_scope(scope_id)); }
 	
 	const std::string &get_symbol(Entity_Id id) {
-		auto decl = (*registry(id.reg_type))[id];
+		auto decl = find_entity(id);
 		return (*get_scope(decl->scope_id))[id];
 	}
 };

@@ -2,6 +2,31 @@
 
 
 
+
+
+# Should have the concept of a data_block in the AST parsing.
+# Do we need it to separate between types (e.g. list, graph)? These are all there are now.
+	# Probably sufficient to store the token list, and we can re-parse it (?).
+	# Currently have
+	#	list  (par values, indexes)
+	#   graph ( directed_graph in connections )
+	#   index data (not a list when it is sub-indexed).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Something like:
 # Dataset:
 par_real("Initial temperature") @index_by_cumulative("Layer index", "Stable layer thickness") @linear_interpolate {

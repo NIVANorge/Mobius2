@@ -328,7 +328,7 @@ Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type
 }
 
 template<Reg_Type expected_type> Entity_Id
-resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_Base_AST *decl, int which, int max_sub_chain_size=1) {
+resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_Base_AST *decl, int which) {
 	// We could do more error checking here, but it should really only be called after calling match_declaration...
 	
 	Argument_AST *arg = decl->args[which];
@@ -338,7 +338,7 @@ resolve_argument(Mobius_Model *model, Decl_Scope *scope, Decl_Base_AST *decl, in
 		
 		return process_declaration<expected_type>(model, scope, arg->decl);
 	} else {
-		if(max_sub_chain_size > 0 && arg->chain.size() > max_sub_chain_size) {
+		if(arg->chain.size() > 1) {
 			arg->chain[0].print_error_header();
 			fatal_error("Misformatted argument.");
 		}

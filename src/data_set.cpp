@@ -693,142 +693,6 @@ void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream
 }
 
 void
-read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info *data) {
-	
-	data->has_date_vector = true;
-	Token token = stream->peek_token();
-	
-	if(token.type == Token_Type::date) {
-		// If there is a date as the first token, that gives the start date, and there is no separate date for each row.
-		data->start_date = stream->expect_datetime();
-		data->has_date_vector = false;
-	} else if(token.type != Token_Type::quoted_string) {
-		token.print_error_header();
-		fatal_error("Expected either a start date or the name of an input series.");
-	}
-	
-	while(true) {
-		Series_Header_Info header;
-		header.source_loc = token.source_loc;
-		header.name = std::string(stream->expect_quoted_string());
-		while(true) {
-			token = stream->peek_token();
-			if((char)token.type != '[')
-				break;
-			stream->read_token();
-			token = stream->peek_token();
-			if(token.type == Token_Type::quoted_string) {
-				std::vector<Data_Id> index_sets;
-				std::vector<Token>   index_names;
-				
-				while(true) {
-					stream->read_token();
-					auto index_set_idx = data_set->index_sets.expect_exists_idx(&token, "index_set");
-					
-					stream->expect_token(':');
-					auto next = stream->read_token();
-					index_sets.push_back(index_set_idx);
-					index_names.push_back(next);
-				
-					next = stream->peek_token();
-					if((char)next.type == ']') {
-						stream->read_token();
-						break;
-					}
-					if(next.type != Token_Type::quoted_string) {
-						next.print_error_header();
-						fatal_error("Expected a ] or a new index set name.");
-					}
-				}
-				
-				data_set->index_data.check_valid_distribution(index_sets, token.source_loc);
-				
-				Indexes_D indexes;
-				data_set->index_data.find_indexes(index_sets, index_names, indexes);
-				
-				header.indexes.push_back(std::move(indexes));
-			} else if(token.type == Token_Type::identifier || (char)token.type == '[') {
-				while(true) {
-					if((char)token.type == '[') {
-						auto unit_decl = parse_decl_header(stream);
-						header.unit.set_data(unit_decl);
-						delete unit_decl;
-					} else {
-						bool success = set_flag(&header.flags, token.string_value);
-						if(!success) {
-							token.print_error_header();
-							fatal_error("Unrecognized input flag \"", token.string_value, "\".");
-						}
-					}
-					token = stream->read_token();
-					if((char)token.type == ']')
-						break;
-					else if(token.type != Token_Type::identifier && (char)token.type != '[') {
-						token.print_error_header();
-						fatal_error("Expected a ], another flag identifier or a unit declaration.");
-					}
-				}
-				//TODO: Check for conflicting flags.
-			} else {
-				token.print_error_header();
-				fatal_error("Expected the name of an index set or a flag");
-			}
-		}
-		data->header_data.push_back(std::move(header));
-		
-		Token token = stream->peek_token();
-		if(token.type != Token_Type::quoted_string)
-			break;
-	}
-	
-	if(data->header_data.empty())
-		fatal_error(Mobius_Error::internal, "Empty input data header not properly detected.");
-	
-	int rowlen = data->header_data.size();
-	
-	data->raw_values.resize(rowlen);
-	for(auto &vec : data->raw_values)
-		vec.reserve(1024);
-	
-	if(data->has_date_vector) {
-		Date_Time start_date;
-		start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
-		Date_Time end_date;
-		end_date.seconds_since_epoch = std::numeric_limits<s64>::min();
-		
-		while(true) {
-			Date_Time date = stream->expect_datetime();
-			if(date < start_date) start_date = date;
-			if(date > end_date)   end_date   = date;
-			data->dates.push_back(date);
-			for(int col = 0; col < rowlen; ++col) {
-				double val = stream->expect_real();
-				data->raw_values[col].push_back(val);
-			}
-			Token token = stream->peek_token();
-			if(token.type != Token_Type::date)
-				break;
-		}
-		data->start_date = start_date;
-		data->end_date = end_date;
-		
-	} else {
-		data->time_steps = 0;
-		
-		while(true) {
-			for(int col = 0; col < rowlen; ++col) {
-				double val = stream->expect_real();
-				data->raw_values[col].push_back(val);
-			}
-			++data->time_steps;
-			Token token = stream->peek_token();
-			if(!is_numeric(token.type))
-				break;
-		}
-	}
-}
-
-void
 parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect_count) {
 	auto decl = parse_decl_header(stream);
 	match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
@@ -923,6 +787,9 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 #endif
 
 void
+read_series_data_from_csv(Data_Set *data_set, String_View file_name, String_View text_data);
+
+void
 Data_Set::read_from_file(String_View file_name) {
 	if(main_file != "")
 		fatal_error(Mobius_Error::api_usage, "Tried make a data set read from a file ", file_name, ", but it already contains data from the file ", main_file, ".");
@@ -989,14 +856,9 @@ Data_Set::read_from_file(String_View file_name) {
 						fatal_error("Spreadsheet reading is only available on Windows.");
 						#endif
 					} else {
-						String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
-						Token_Stream other_stream(other_file_name, other_data);
-						other_stream.allow_date_time_tokens = true;
-						
-						series.push_back({});
-						Series_Set_Info &data = series.back();
-						data.file_name = std::string(other_file_name);
-						read_series_data_block(this, &other_stream, &data);
+						String_View text_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
+						//String_View text_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
+						read_series_data_from_csv(this, other_file_name, text_data);
 					}
 					
 				} break;
@@ -1129,6 +991,150 @@ Data_Set::generate_index_data(const std::string &name, const std::string &sub_in
 	for(int par_idx = 0; par_idx < instance_count; ++par_idx) {
 		Index_D parent_idx = Index_D { sub_to, par_idx };
 		index_data.set_indexes(id, { count }, parent_idx);
+	}
+}
+
+
+void
+read_series_data_from_csv(Data_Set *data_set, String_View file_name, String_View text_data) {
+	
+	Token_Stream stream(file_name, text_data);
+	stream.allow_date_time_tokens = true;
+	
+	data_set->series.push_back({});
+	Series_Set_Info &data = data_set->series.back();
+	data.file_name = std::string(file_name);
+	
+	data.has_date_vector = true;
+	Token token = stream.peek_token();
+	
+	if(token.type == Token_Type::date) {
+		// If there is a date as the first token, that gives the start date, and there is no separate date for each row.
+		data.start_date = stream.expect_datetime();
+		data.has_date_vector = false;
+	} else if(token.type != Token_Type::quoted_string) {
+		token.print_error_header();
+		fatal_error("Expected either a start date or the name of an input series.");
+	}
+	
+	while(true) {
+		Series_Header_Info header;
+		header.source_loc = token.source_loc;
+		header.name = std::string(stream.expect_quoted_string());
+		while(true) {
+			token = stream.peek_token();
+			if((char)token.type != '[')
+				break;
+			stream.read_token();
+			token = stream.peek_token();
+			if(token.type == Token_Type::quoted_string) {
+				std::vector<Data_Id> index_sets;
+				std::vector<Token>   index_names;
+				
+				while(true) {
+					stream.read_token();
+					auto index_set_idx = data_set->index_sets.expect_exists_idx(&token, "index_set");
+					
+					stream.expect_token(':');
+					auto next = stream.read_token();
+					index_sets.push_back(index_set_idx);
+					index_names.push_back(next);
+				
+					next = stream.peek_token();
+					if((char)next.type == ']') {
+						stream.read_token();
+						break;
+					}
+					if(next.type != Token_Type::quoted_string) {
+						next.print_error_header();
+						fatal_error("Expected a ] or a new index set name.");
+					}
+				}
+				
+				data_set->index_data.check_valid_distribution(index_sets, token.source_loc);
+				
+				Indexes_D indexes;
+				data_set->index_data.find_indexes(index_sets, index_names, indexes);
+				
+				header.indexes.push_back(std::move(indexes));
+			} else if(token.type == Token_Type::identifier || (char)token.type == '[') {
+				while(true) {
+					if((char)token.type == '[') {
+						auto unit_decl = parse_decl_header(&stream);
+						header.unit.set_data(unit_decl);
+						delete unit_decl;
+					} else {
+						bool success = set_flag(&header.flags, token.string_value);
+						if(!success) {
+							token.print_error_header();
+							fatal_error("Unrecognized input flag \"", token.string_value, "\".");
+						}
+					}
+					token = stream.read_token();
+					if((char)token.type == ']')
+						break;
+					else if(token.type != Token_Type::identifier && (char)token.type != '[') {
+						token.print_error_header();
+						fatal_error("Expected a ], another flag identifier or a unit declaration.");
+					}
+				}
+				//TODO: Check for conflicting flags.
+			} else {
+				token.print_error_header();
+				fatal_error("Expected the name of an index set or a flag");
+			}
+		}
+		data.header_data.push_back(std::move(header));
+		
+		Token token = stream.peek_token();
+		if(token.type != Token_Type::quoted_string)
+			break;
+	}
+	
+	if(data.header_data.empty())
+		fatal_error(Mobius_Error::internal, "Empty input data header not properly detected.");
+	
+	int rowlen = data.header_data.size();
+	
+	data.raw_values.resize(rowlen);
+	for(auto &vec : data.raw_values)
+		vec.reserve(1024);
+	
+	if(data.has_date_vector) {
+		Date_Time start_date;
+		start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
+		Date_Time end_date;
+		end_date.seconds_since_epoch = std::numeric_limits<s64>::min();
+		
+		while(true) {
+			Date_Time date = stream.expect_datetime();
+			if(date < start_date) start_date = date;
+			if(date > end_date)   end_date   = date;
+			data.dates.push_back(date);
+			for(int col = 0; col < rowlen; ++col) {
+				double val = stream.expect_real();
+				data.raw_values[col].push_back(val);
+			}
+			Token token = stream.peek_token();
+			if(token.type != Token_Type::date)
+				break;
+		}
+		data.start_date = start_date;
+		data.end_date = end_date;
+		
+	} else {
+		data.time_steps = 0;
+		
+		while(true) {
+			for(int col = 0; col < rowlen; ++col) {
+				double val = stream.expect_real();
+				data.raw_values[col].push_back(val);
+			}
+			++data.time_steps;
+			Token token = stream.peek_token();
+			if(!is_numeric(token.type))
+				break;
+		}
 	}
 }
 

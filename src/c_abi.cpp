@@ -401,7 +401,7 @@ DLLEXPORT Mobius_Entity_Metadata
 mobius_get_entity_metadata(Model_Application *app, Entity_Id id) {
 	Mobius_Entity_Metadata result = {};
 	try {
-		auto *reg = (*app->model->registry(id.reg_type))[id];
+		auto reg = find_entity(id);
 		result.name = (char *)reg->name.data();
 		if(id.reg_type == Reg_Type::parameter) {
 			// TODO: Unit;
