@@ -5,7 +5,14 @@
 		Why do errors during data set saving crash the program instead of getting caught now?
 		Saving vansjo_simplycnp as a new file just from the easylake_simplyq model:
 			Got "data file saving may have been unsuccessful", but it appears to have been successful, and no other error was printed.
+		
+		
+		Move over to having Mobius_Model as a Catalog. Then Data_Set.
+			Remove templatization of index_data on Entity_Id (and put a lot of the code in a .cpp).
+			Instead just have separate Reg_Types for Data_Set and Mobius_Model things.
 			
+			Standardize AST-parsing of Data_Sets to match Mobius_Model.
+			Just have a "data" vector for [] -type data (which can be re-parsed later).
 			
 			
 		Finish @exclude system for extend().

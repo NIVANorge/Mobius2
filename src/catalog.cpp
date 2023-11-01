@@ -31,7 +31,6 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 }
 
 Scope_Entity *
-//Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id) {
 Decl_Scope::register_decl(Decl_AST *ast, Entity_Id id) {
 	
 	std::string handle;
@@ -115,7 +114,7 @@ Decl_Scope::resolve_argument(Reg_Type expected_type, Argument_AST *arg) {
 		auto reg = (*this)[token.string_value];
 		if(!reg) {
 			token.print_error_header();
-			fatal_error("The handle '", token.string_value, "' doesn not refer to an entity that was declared in this scope.");
+			fatal_error("The handle '", token.string_value, "' does not refer to an entity that was declared in this scope.");
 		}
 		return reg->id;
 	}

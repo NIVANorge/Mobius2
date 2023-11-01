@@ -121,6 +121,7 @@ Catalog {
 	Registration_Base *
 	find_entity(Entity_Id id) { return (*registry(id.reg_type))[id]; }
 	
+	// TODO: This one probably has to be virtual too?
 	Decl_Scope *
 	get_scope(Entity_Id id);
 	
