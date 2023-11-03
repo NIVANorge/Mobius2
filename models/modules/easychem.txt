@@ -208,6 +208,18 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * phyt_nc }
 	flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * phyt_nc }
+	
+	
+	#TODO: The below is just experimenting. Clean it up.
+	
+	par_group("Suspended carbon") {
+		ssoc : par_real("Suspended sediments OC fraction", [], 0.01, 0, 1)
+	}
+	
+	toc : property("Total organic carbon")
+	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {
+		conc(oc) + conc(phyt) + conc(sed)*ssoc
+	}
 }
 
 

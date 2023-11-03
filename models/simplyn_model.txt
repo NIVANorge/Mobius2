@@ -6,7 +6,7 @@ model("SimplyN") {
 	
 	din  : quantity("Dissolved inorganic nitrogen")
 	sn   : quantity("Solid fertilizer nitrogen")
-	heat : quantity("Heat energy")
+	#heat : quantity("Heat energy")
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
