@@ -7,6 +7,10 @@
 			Got "data file saving may have been unsuccessful", but it appears to have been successful, and no other error was printed.
 		
 		
+		
+		MobiView
+			Visible warning in the plot when axis is normalized
+		
 		Move over to having Mobius_Model as a Catalog. Then Data_Set.
 			Remove templatization of index_data on Entity_Id (and put a lot of the code in a .cpp).
 			Instead just have separate Reg_Types for Data_Set and Mobius_Model things.
@@ -39,6 +43,8 @@
 		
 			Properly test the flux restriction refactoring.  (e.g. having [.below] in source etc. )
 				Maybe broken if we have grid1d of the same connection in both source and target (?)
+				
+				Also it seems like Model_Instruction::restriction should either be removed or there should be two of them (?) - one for source another for target.
 			
 			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
 				(in terms of how it is computed, not in terms of user-facing functionality)
@@ -90,9 +96,6 @@
 				We do a unit check in codegen, but may be better to do it earlier.
 		
 			Have an optional test to see if non-bidirectional fluxes were negative after or during a run.
-		
-			Make bidirectional work for regular (non-connection) fluxes (maybe).
-				Though probably not for aggregates.
 			
 			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
 

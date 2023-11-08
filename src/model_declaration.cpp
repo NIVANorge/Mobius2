@@ -1025,9 +1025,13 @@ process_declaration<Reg_Type::flux>(Mobius_Model *model, Decl_Scope *scope, Decl
 			match_declaration_base(note, {{}}, 0);
 			flux->bidirectional = true;
 			
-			if(!is_valid(flux->target.r1.connection_id) || flux->target.r1.type != Restriction::below) {
+			if(is_valid(flux->target.r1.connection_id) && flux->target.r1.type != Restriction::below) {
 				note->decl.print_error_header();
-				fatal_error("Bidirectionality is for now only supported for connection fluxes.");
+				fatal_error("Bidirectionality is for now only supported for connection fluxes that go to 'below'.");
+			}
+			if(!is_valid(flux->target.r1.connection_id) && !is_located(flux->target)) {
+				note->decl.print_error_header();
+				fatal_error("A flux going to 'out' can't be bidirectional");
 			}
 		} else {
 			note->decl.print_error_header();

@@ -135,22 +135,27 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
 				
 				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
-				
-				// TODO: Allow for other types of fluxes to be bidirectional also
-				// The way it is currently set up will probably only work if the flux is
-				// along a connection. Otherwise the concentration is another
-				// state variable altogether. If we fix that however, this should also
-				// work for more general fluxes.
 				auto &restriction = instr.restriction;
 				if(var->bidirectional) {
 					
-					if(!is_valid(restriction.r1.connection_id) || restriction.r1.type != Restriction::below)
-						fatal_error(Mobius_Error::internal, "Unsupported bidirectional flux.");
-					
 					auto condition = make_binop(Token_Type::geq, make_state_var_identifier(var2->flux_of_medium), make_literal(0.0));
-					auto conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
 					
-					conc2->restriction = restriction;
+					// Find the concentration of the variable in the target of the flux.
+					Identifier_FT *conc2 = nullptr;
+					if(is_valid(restriction.r1.connection_id)) {
+						// TODO: Should allow this in all cases, but I don't think instr->restriction is correctly set up if the source is along a connection (???)
+						// TODO: What happens if a connection flux goes to 'out' and is bidirectional? Probably it then gives conc 0. Is that ok?
+						if(restriction.r1.type != Restriction::below)
+							fatal_error(Mobius_Error::internal, "Unsupported bidirectional flux.");
+						conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
+						conc2->restriction = restriction;
+					} else {
+						// TODO: This could happen if it was split of to an aggregation in model codegen. Should not allow bidirectional in that case, but the error message should be more clear.
+						if(!is_located(var2->loc2))
+							fatal_error(Mobius_Error::internal, "Unsupported bidirectional flux.");
+						auto mass = as<State_Var::Type::declared>(app->vars[app->vars.id_of(var2->loc2)]);
+						conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(mass->conc));
+					}
 					
 					auto altval = make_binop('*', conc2, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
 					if(conc->unit_conversion != 1.0)

@@ -26,7 +26,7 @@ The water balance part of the model is conceptually similar to VEMALA
 		z_outflow : par_real("Water level at which outflow is 0", [m], 10, 0.1, 1642.0)
 		th_epi    : par_real("Initial epilimnion thickness", [m], 2, 0.1, 10)
 		theta     : par_real("Lake bathymetry factor", [], 0, 0, 1, "Interpolates the approximate shape between a wedge and a pyramid (hypsograph between quadratic or cubic function)")
-		dz_epi    : par_real("Epilimnion thickening rate", [m, day-1], 0.01)
+		dz_epi    : par_real("Epilimnion thickening rate", [m, day-1], 0.01, "How fast the thickness of the epilimnion changes during summer")
 		rate_l    : par_real("Rating function linear component", [m 2, s-1], 10, 0, 1000)
 		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
 		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
@@ -75,15 +75,25 @@ The water balance part of the model is conceptually similar to VEMALA
 	
 	level : property("Water level")
 
-	var(epi.th, [m], "Epilimnion thickness") {
-		last(th) + (dz_epi)*time.step_length_in_seconds->>  if !epi.ind & water.temp > t_bot,
+	# The thickness is relative to 0 outflow level,
+	var(epi.th, [m], "Epilimnion thickness (relative to zero outflow)") {
+		last(th) + (dz_epi)*time.step_length_in_seconds->>  if !last(ind) & last(water.temp) > t_bot, # Have to use last(ind) and last(water.temp) here so that it is not put on the solver.
 		th_epi                                              otherwise
 	} @initial { th_epi }
 	
-	# TODO: Fix this!
-	#flux(epi.water, hyp.water, "Metalimnion movement") {
-	#	
-	#}
+	# TODO: make @bidirectional work for these
+	flux(epi.water, hyp.water, [m 3, day-1], "Metalimnion movement down") {
+		hyp_vol_last := shape_tip_V(A_surf, z_outflow, z_outflow-last(th), theta),
+		hyp_vol_now  := shape_tip_V(A_surf, z_outflow, z_outflow-th, theta),
+		#max(0[m 3, day-1], (hyp_vol_now - hyp_vol_last)/time.step_length_in_seconds->>)
+		(hyp_vol_now - hyp_vol_last)/time.step_length_in_seconds->>
+	} @bidirectional
+	
+	#flux(hyp.water, epi.water, [m 3, day-1], "Metalimnion movement up") {
+	#	hyp_vol_last := shape_tip_V(A_surf, z_outflow, z_outflow-last(epi.th), theta),
+	#	hyp_vol_now  := shape_tip_V(A_surf, z_outflow, z_outflow-epi.th, theta),
+	#	max(0[m 3, day-1], (hyp_vol_last - hyp_vol_now)/time.step_length_in_seconds->>)
+	#} 
 	
 	var(epi.level, [m], "Lake water level")                               {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
 	

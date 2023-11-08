@@ -4,8 +4,8 @@ model("SimplyN") {
 
 	extend("simplyq_model.txt")  # Load everything from the SimplyQ model into this scope.
 	
-	din  : quantity("Dissolved inorganic nitrogen")
-	sn   : quantity("Solid fertilizer nitrogen")
+	din  : quantity("Inorganic nitrogen")
+	sn   : quantity("Bound fertilizer nitrogen")
 	#heat : quantity("Heat energy")
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
