@@ -176,11 +176,13 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// Restrict discrete fluxes to not overtax their source.
 			if(var->is_flux() && !is_valid(instr.solver) && instr.code && is_located(var->loc1)) {
 			
-				// note: create something like
+				// TODO It is a design decision by the framework to not allow negative discrete
+				// fluxes, but this is currently not enforced or checked for.
+				
+				// Note: create something like
 				//      flux = min(flux, source)
-				// NOTE: it is a design decision by the framework to not allow negative discrete fluxes, otherwise the flux would get a much more
-				//      complicated relationship with its target. Should maybe just apply a    max(0, ...) to it as well by default?
-
+				// so that a discrete flux can never overtax its target.
+				
 				Var_Id source_id = app->vars.id_of(var->loc1);
 				auto source_ref = make_state_var_identifier(source_id);
 				instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);

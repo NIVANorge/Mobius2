@@ -94,10 +94,13 @@
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
 				And maybe not allow aggregation weights (or otherwise multiply by the inverse when necessary).
 				We do a unit check in codegen, but may be better to do it earlier.
+					Do we? Where??
 		
 			Have an optional test to see if non-bidirectional fluxes were negative after or during a run.
 			
 			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
+			
+			Need to check that a bidirectional flux wasn't discrete.
 
 	
 	*** Intermediate-pri ***
