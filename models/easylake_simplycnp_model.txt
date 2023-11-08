@@ -10,6 +10,7 @@ model("EasyLake-SimplyCNP") {
 	o2   : quantity("O₂")
 	
 	on   : quantity("Organic nitrogen")
+	toc  : property("Total organic carbon")
 	
 	#bot  : compartment("Lake bottom sediments")
 	#distribute(bot, lake_index)
@@ -18,9 +19,17 @@ model("EasyLake-SimplyCNP") {
 	#TODO: Maybe also organic N, P later.
 	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 
-		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, ice, sed, temp, sw, wind, indicator, tp, loc(A_surf), loc(A_surf)),
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, ice, sed, temp, sw, wind, indicator, tp, toc, sed_oc, area),
 		module("EasyChem-Particulate", epi, hyp, water, sed, phos, loc(A_surf))
 	)
+	
+	par_group("Suspended carbon") {
+		sed_oc : par_real("Suspended sediments OC fraction", [], 0.02, 0, 1)
+	}
+	
+	module("Simple river TOC", version(0, 1, 0)) {
+		var(river.water.toc, [m g, l-1], "River TOC concentration") {   conc(oc) + conc(sed)*sed_oc   }
+	}
 	
 	module("Simple River O₂", version(0, 1, 0)) {
 		"The purpose of this module is only to provide oxygen inputs to EasyChem."

@@ -8,6 +8,7 @@ module("EasyLake", version(0, 1, 0),
 	temp   : property,
 	th     : property,
 	freeze_temp : property,
+	area   : property,
 	A_surf : par_real,
 	epi_target : loc
 ) {
@@ -34,11 +35,15 @@ The water balance part of the model is conceptually similar to VEMALA
 	# This is the volume of a basin with water level z if the surface area is A_top when the water level is z_top. theta is a shape factor
 	# The volume is a wedge where the side length along the bottom is theta* the side length along the top.
 	# The horizontal cross-section at a given level z is
-	# 	A(z) = (z/z0)*(theta + (1-theta)(z/z0))
+	# 	A(z) = A0*(z/z0)*(theta + (1-theta)(z/z0))
 	# The volume up to level z is as given in the formula below, and is equal to
 	# 	V(z) = integral(A(z)dz, 0, z)
 	shape_tip_V     : function(A_0 : [m 2], z_0 : [m], z : [m], theta : []) {
 		A_0 * (z^2/z_0) * (0.5*theta + (1-theta)*z/(3*z_0))
+	}
+	
+	shape_base_A : function(A_0 : [m 2], z_0 : [m], z : [m], theta : []) {
+		A_0*(z/z_0)*(theta + (1 - theta)*(z / z_0))
 	}
 	
 	# This is the volume of a vertical section of the basin between levels z1 and z2
@@ -67,7 +72,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	var(epi.water, [m 3], "Epilimnion volume")  @initial {   shape_section_V(A_surf, z_outflow, z_outflow, z_outflow-th_epi, theta)  }
 	
 	var(hyp.water, [m 3], "Hypolimnion volume") @initial {   shape_tip_V(A_surf, z_outflow, z_outflow-th_epi, theta)   }
-
+	
 	level : property("Water level")
 
 	var(epi.th, [m], "Epilimnion thickness") {
@@ -84,9 +89,12 @@ The water balance part of the model is conceptually similar to VEMALA
 	
 	flux(epi.water, epi_target, [m 3, s-1], "Lake outflow flux")          {   max(0, rate_l*(level - z_outflow))   }
 	
-	var(epi.water.heat, [J]) @initial {
-		water_temp_to_heat(water, t_epi)
-	}
+	var(epi.area, [m 2], "Epilimnion surface area")                       {   shape_base_A(A_surf, z_outflow, level, theta)   }
+	
+	#TODO: Fix this one when epilimnion thickness works better:
+	var(hyp.area, [m 2], "Hypolimnion surface area")                      {	  shape_base_A(A_surf, z_outflow, z_outflow-th_epi, theta)   }
+	
+	var(epi.water.heat, [J]) @initial                                     {   water_temp_to_heat(water, t_epi)   }
 	
 	var(hyp.water.heat, [J]) @initial {
 		#TODO: This leads to it multiplying and dividing by water. That is unnecessary. Similar thing in transfer formula below.

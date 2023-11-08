@@ -19,8 +19,10 @@ module("EasyChem", version(0, 0, 1),
 	indicator : property,
 	tp     : property,
 	
-	sed_area : loc,
-	area   : loc
+	toc    : property,
+	sed_oc : par_real,
+	
+	area   : property
 ) {
 """
 This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake
@@ -49,13 +51,13 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	par_group("Oxygen", epi) {
-		pvel_scaler  : par_real("Piston velocity scaler for O₂", [], 1, 0.5, 1.5)
+		pvel_scaler  : par_real("Piston velocity scaler for O₂", [], 1, 0.5, 1.5) #TODO: Remove this.
 		sod          : par_real("Background sediment O₂ demand", [g, m-2, day-1], 0.5, 0.1, 4)
 	}
 	
 	par_group("Nutrients", epi) {
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
-		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
+		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10) # TODO: Remove this.
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10)
 		COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
@@ -63,7 +65,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
 	par_group("Phytoplankton", epi) {
-		phyt_rate  : par_real("Max Phyto growth at 20°C", [m g, l-1, day-1], 1, 0.5, 2)
+		phyt_rate  : par_real("Max Phyto growth at 20°C", [m g, l-1, day-1], 1, 0.05, 2)
 		phyt_death : par_real("Phytoplankton death rate", [day-1], 0.2, 0.05, 0.4)
 		phyt_q10   : par_real("Temp adjustment of Phyto growth", [], 2, 1, 4)
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
@@ -77,21 +79,26 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }  
 	
 	var(epi.water.p_vel, [c m, hr-1]) {
-		o2_piston_velocity(air.wind, temp)
+		pvel_scaler * o2_piston_velocity(air.wind, temp)
+	}
+	
+	o2sat : property("O₂ saturation concentration")
+	var(epi.water.o2sat, [m g, l-1]) {
+		o2_saturation(temp, 0)*o2_mol_mass -> [m g, l-1]
 	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
-		sat_conc := o2_saturation(temp, 0)*o2_mol_mass -> [m g, l-1],
-		(!ice.indicator) * p_vel*pvel_scaler*(sat_conc - conc(o2))*area ->>
+		(!ice.indicator) * p_vel*(o2sat - conc(o2))*area ->>
 	}
 
 	#TODO: factor out 0.05[m g, l-1] as a constant.
 	flux(epi.water.o2, out, [k g, day-1], "O₂ sediment consumption (epi)") {
-		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*sed_area ->>
+		# The interface area between sediment and epilimnion is the epi surface area minus the hyp surface area.
+		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*(area - hyp.area) ->>
 	}
 
 	flux(hyp.water.o2, out, [k g, day-1], "O₂ sediment consumption (hypo)") {
-		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*sed_area ->>
+		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*area ->>
 	}	
 	
 	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
@@ -139,19 +146,22 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	var(epi.water.phyt.light_lim, []) {
 		# TODO: In Selma what we call iopt here is called imin, and the max(...) term is called iopt. Mislabeling here?
+		# TODO: There should be some kind of self-shading where TOC and phyto remove shortwave.
 		par_sw := sw*(1 - f_par),
 		f := par_sw/max(0.5*par_sw, iopt),
 		f*exp(1 - f)
 	}
 	
 	var(epi.water.phyt.N_lim, []) {
-		cmol := conc(water.din)/no3_mol_mass->[m mol, m-3],   #TODO: This is not correct, because we are using NO3-N and NH4-N for DIN
+		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
+		cmol := conc(water.din)/n_mol_mass->[m mol, m-3],
 		ntemp := cmol^2,
 		ntemp / ((alpha*phyt_nc)^2 + ntemp)
 	}
 	
 	var(epi.water.phyt.P_lim, []) {
-		cmol := conc(water.phos)/po4_mol_mass->[m mol, m-3],  #TODO: Not necessarily correct to assume all TDP is PO4.
+		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
+		cmol := conc(water.phos)/p_mol_mass->[m mol, m-3],
 		ptemp := cmol^2,
 		ptemp / ((alpha*phyt_pc)^2 + ptemp)
 	}
@@ -183,43 +193,48 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
+	
+	nc_molar_to_mass_ratio : function(nc_molar : []) {   nc_molar * n_mol_mass / c_mol_mass   }
+	pc_molar_to_mass_ratio : function(pc_molar : []) {   pc_molar * p_mol_mass / c_mol_mass   }
+	
+	
 	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_n }
 	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_n }
 	
-	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * phyt_nc   }
+	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * nc_molar_to_mass_ratio(phyt_nc)   }
 	
 	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_p }
 	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
 	
-	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * phyt_pc   }
-	#flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * phyt_pc }
-	#flux(out, hyp.water.sed.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * phyt_pc }
+	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * pc_molar_to_mass_ratio(phyt_pc)   }
+	#flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
+	#flux(out, hyp.water.sed.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
 	
-	flux(out, epi.water.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * phyt_pc }
-	flux(out, hyp.water.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * phyt_pc }
+	flux(out, epi.water.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
+	flux(out, hyp.water.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
 	
+	
+	tdpphyt : property("TDP + phyto P")
+	
+	var(epi.water.tdpphyt, [m g, l-1]) {
+		conc(phos) + conc(phyt)*pc_molar_to_mass_ratio(phyt_pc)
+	}
 	
 	var(epi.water.tp, [m g, l-1], "Epilimnion total phosphorous") {
-		conc(phos) + conc(sed)*conc(sed.phos) + conc(phyt)*phyt_pc
+		 conc(sed)*conc(sed.phos) + conc(phos) + conc(phyt)*pc_molar_to_mass_ratio(phyt_pc)
 	}
 	
 	var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")
 	var(hyp.water.on, [k g], [m g, l-1], "Hypolimnion DON")
 	
-	flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * phyt_nc }
-	flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * phyt_nc }
+	flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
+	flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	
 	
-	#TODO: The below is just experimenting. Clean it up.
+	#TODO: The below is just experimentation. Clean it up.
 	
-	par_group("Suspended carbon") {
-		ssoc : par_real("Suspended sediments OC fraction", [], 0.01, 0, 1)
-	}
 	
-	toc : property("Total organic carbon")
-	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {
-		conc(oc) + conc(phyt) + conc(sed)*ssoc
-	}
+	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc) + conc(phyt) + conc(sed)*sed_oc   }
 }
 
 

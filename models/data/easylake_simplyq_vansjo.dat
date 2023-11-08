@@ -2,7 +2,7 @@ index_set("Lake") [ "Store" "Vanem" ]
 
 index_set("Landscape units") [ "Arable" "Semi-natural" ]
 
-index_set("Subcatchment") [ "Kure" "Vaaler" "Store" "Vanem" ]
+index_set("Subcatchment") [ "Kure" "Vaaler" "Store sc" "Vanem sc" ]
 
 connection("Downstream") {
 	e : compartment("Epilimnion") [ "Lake" ]
@@ -10,8 +10,8 @@ connection("Downstream") {
 
 	directed_graph [
 		r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> out
-		r[ "Store" ] -> e[ "Store" ]
-		r[ "Vanem" ] -> e[ "Vanem" ]
+		r[ "Store sc" ] -> e[ "Store" ]
+		r[ "Vanem sc" ] -> e[ "Vanem" ]
 	]
 }
 

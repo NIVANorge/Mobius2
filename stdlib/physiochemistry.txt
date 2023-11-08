@@ -51,6 +51,8 @@ library("Chemistry") {
 	
 	o2_mol_mass  : constant("O₂ molar mass",    [g, mol-1], 31.998)
 	c_mol_mass   : constant("C molar mass",     [g, mol-1], 12)
+	n_mol_mass   : constant("N molar mass",     [g, mol-1], 14.01)
+	p_mol_mass   : constant("P molar mass",     [g, mol-1], 30.97)
 	no3_mol_mass : constant("NO₃ molar mass",   [g, mol-1], 62)
 	po4_mol_mass : constant("PO₄ molar mass",   [g, mol-1], 94.9714)
 	
