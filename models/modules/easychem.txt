@@ -1,4 +1,4 @@
-module("EasyChem", version(0, 0, 1),
+module("EasyChem", version(0, 0, 2),
 	air    : compartment,
 	epi    : compartment,
 	hyp    : compartment,
@@ -65,9 +65,10 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
 	par_group("Phytoplankton", epi) {
-		phyt_rate  : par_real("Max Phyto growth at 20°C", [m g, l-1, day-1], 1, 0.05, 2)
-		phyt_death : par_real("Phytoplankton death rate", [day-1], 0.2, 0.05, 0.4)
-		phyt_q10   : par_real("Temp adjustment of Phyto growth", [], 2, 1, 4)
+		phyt_eq_20    : par_real("Phyto equilibrium at 20°C and no limitations", [m g, l-1], 0.01, 0, 5)
+		phyt_q10      : par_real("Temp adjustment of Phyto equilibrium", [], 2, 1, 4)
+		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
+		
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
 		phyt_nc    : par_real("N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
@@ -166,10 +167,17 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		ptemp / ((alpha*phyt_pc)^2 + ptemp)
 	}
 	
+	equi : property("Equilibrium concentration")
+	
+	var(epi.water.phyt.equi, [m g, l-1], "Phytoplankton equilibrium concentration") {
+		q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10)*min(light_lim, min(N_lim, P_lim))
+	}
+	
 	fix : property("Photosynthetic C fixation")
 	var(epi.water.phyt.fix, [k g, day-1]) {
-		Mgrowth := q10_adjust(phyt_rate, 20[deg_c], temp, phyt_q10),
-		min(light_lim, min(N_lim, P_lim))*Mgrowth*water->>
+		#Mgrowth := q10_adjust(phyt_rate, 20[deg_c], temp, phyt_q10),
+		#min(light_lim, min(N_lim, P_lim))*Mgrowth*water->>
+		phyt_turnover*(epi.water.phyt.equi*water->[k g] - phyt)
 	}
 	
 	flux(out, epi.water.phyt, [k g, day-1], "Epilimnion photosynthetic C fixation") {   fix   }
@@ -178,10 +186,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	anox_threshold  : constant("Anoxicity threshold", [m g, l-1], 2)
 	
 	death : property("Phytoplankton death") {
-		#NOTE (MNO): I put in a bit smoother response function since numerical systems work better with that. Feel free to adjust the thresholds (MNO)
-		b := anox_threshold*0.9,
-		e := anox_threshold*1.1,
-		phyt_death*phyt*s_response(conc(o2), b, e, phyt_death_anox, 1)
+		o2_factor := s_response(conc(o2), anox_threshold*0.9, anox_threshold*1.1, phyt_death_anox, 1),
+		phyt_turnover*phyt*o2_factor
 	}
 	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
@@ -273,7 +279,11 @@ Particle transport and settling for EasyChem.
 		sett_vel * conc(sed) * area ->>
 	}
 	
-	#sed_dens : constant("Sediment density", [k g, m-3], 2600)
+	flux(hyp.water.sed.phos, out, [k g, day-1], "Hypolimnion PP settling") {
+		sett_vel * conc(sed) * conc(sed.phos) * area ->>
+	}
+	
+	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 	
 	#var(bot.sed, [k g], "Bottom sediments") @initial { area*sed_z*sed_dens }
 	#var(bot.sed.phos, [k g])

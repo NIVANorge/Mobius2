@@ -75,26 +75,26 @@ The water balance part of the model is conceptually similar to VEMALA
 	
 	level : property("Water level")
 
-	# The thickness is relative to 0 outflow level,
+	# The thickness is relative to z_outflow, excess water above that is not counted in this variable,
 	var(epi.th, [m], "Epilimnion thickness (relative to zero outflow)") {
 		last(th) + (dz_epi)*time.step_length_in_seconds->>  if !last(ind) & last(water.temp) > t_bot, # Have to use last(ind) and last(water.temp) here so that it is not put on the solver.
 		th_epi                                              otherwise
 	} @initial { th_epi }
 	
-	flux(epi.water, hyp.water, [m 3, day-1], "Metalimnion movement down") {
+	flux(epi.water, hyp.water, [m 3, day-1], "Metalimnion movement") {
 		hyp_vol_last := shape_tip_V(A_surf, z_outflow, z_outflow-last(th), theta),
 		hyp_vol_now  := shape_tip_V(A_surf, z_outflow, z_outflow-th, theta),
 		(hyp_vol_now - hyp_vol_last)/time.step_length_in_seconds->>
 	} @bidirectional
 
-	var(epi.level, [m], "Lake water level")                               {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta)   }
+	var(epi.level, [m], "Lake water level")                               {   shape_tip_z(A_surf, z_outflow, epi.water + hyp.water, theta) - z_outflow  }
 	
-	flux(epi.water, epi_target, [m 3, s-1], "Lake outflow flux")          {   max(0, rate_l*(level - z_outflow))   }
+	flux(epi.water, epi_target, [m 3, s-1], "Lake outflow flux")          {   max(0, rate_l*level)   }
 	
-	var(epi.area, [m 2], "Epilimnion surface area")                       {   shape_base_A(A_surf, z_outflow, level, theta)   }
+	var(epi.area, [m 2], "Epilimnion surface area")                       {   shape_base_A(A_surf, z_outflow, level+z_outflow, theta)   }
 	
 	#TODO: Fix this one when epilimnion thickness works better:
-	var(hyp.area, [m 2], "Hypolimnion surface area")                      {	  shape_base_A(A_surf, z_outflow, z_outflow-th_epi, theta)   }
+	var(hyp.area, [m 2], "Hypolimnion surface area")                      {	  shape_base_A(A_surf, z_outflow, z_outflow-epi.th, theta)   }
 	
 	var(epi.water.heat, [J]) @initial                                     {   water_temp_to_heat(water, t_epi)   }
 	

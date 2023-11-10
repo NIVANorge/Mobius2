@@ -6,6 +6,10 @@ model("EasyLake-SimplyCNP simple chem") {
 	extend("simplyp_model.txt")
 	
 	
+	par_group("Suspended carbon") {
+		sed_oc : par_real("Suspended sediments OC fraction", [], 0.02, 0, 1)
+	}
+	
 	#TODO: Maybe also organic N, P later.
 	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 

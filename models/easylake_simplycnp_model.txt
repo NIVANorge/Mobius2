@@ -43,8 +43,14 @@ model("EasyLake-SimplyCNP") {
 			COS_alloch : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
 		}
 
-		var(river.water.o2, [k g], [m g, l-1], "River oxygen") @override_conc {
-			o2_saturation(temp, 0) * o2_mol_mass ->>
+		var(river.water.o2, [k g], [m g, l-1], "River oxygen") 
+		#@override_conc {
+		#	o2_saturation(temp, 0) * o2_mol_mass ->>
+		#}
+		flux(out, river.water.o2, [k g, day-1], "River oxygen from catchment") {
+			#catch_conc := 8[m g, l-1],#
+			catch_conc := o2_saturation(temp, 0) * o2_mol_mass,
+			in_flux(water)*catch_conc->>
 		}
 		
 		var(river.water.oc.o2, [k g], [], "River DOC oxidation state") @override_conc {

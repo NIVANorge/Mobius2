@@ -906,8 +906,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			get_maximal_index_sets(app, gen_flux->maximal_allowed_index_sets, gen_flux->loc1, gen_flux->loc2);
 		}
 	
-		// Check if we shoudl generate an additional concentration variable for this in a 'higher' medium.
-		
+		// Check if we should generate an additional concentration variable for this in a 'higher' medium.
 		if(is_located(var_decl->additional_conc_medium)) {
 			
 			bool found = false;
