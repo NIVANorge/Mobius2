@@ -45,7 +45,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	par_group("Lake specific chemistry", epi) {
 		init_O2      : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		init_c       : par_real("Initial lake DOC concentration", [m g, l-1], 10, 0, 1000)
-		init_n       : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
+		init_in      : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
+		init_on      : par_real("Initial lake DON concentration", [m g, l-1], 0, 0, 1000)
 		init_p       : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
 		init_phyt    : par_real("Initial phytoplankton concentration", [m g, l-1], 0.5, 0.01, 1)
 	}
@@ -56,17 +57,17 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	par_group("Nutrients", epi) {
+		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Calli it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10) # TODO: Remove this.
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
-		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10)
 		COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
 	}
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
 	par_group("Phytoplankton", epi) {
 		phyt_eq_20    : par_real("Phyto equilibrium at 20°C and no limitations", [m g, l-1], 0.01, 0, 5)
-		phyt_q10      : par_real("Temp adjustment of Phyto equilibrium", [], 2, 1, 4)
+		phyt_q10      : par_real("Temp adjustment of Phyto equilibrium", [], 2, 1, 4) #TODO: Call it Q10
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
 		
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
@@ -200,12 +201,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
 	
-	nc_molar_to_mass_ratio : function(nc_molar : []) {   nc_molar * n_mol_mass / c_mol_mass   }
-	pc_molar_to_mass_ratio : function(pc_molar : []) {   pc_molar * p_mol_mass / c_mol_mass   }
-	
-	
-	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_n }
-	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_n }
+	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_in }
+	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_in }
 	
 	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * nc_molar_to_mass_ratio(phyt_nc)   }
 	
@@ -230,14 +227,13 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		 conc(sed)*conc(sed.phos) + conc(phos) + conc(phyt)*pc_molar_to_mass_ratio(phyt_pc)
 	}
 	
-	var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")
-	var(hyp.water.on, [k g], [m g, l-1], "Hypolimnion DON")
+	var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")  @initial_conc { init_on }
+	var(hyp.water.on, [k g], [m g, l-1], "Hypolimnion DON") @initial_conc { init_on }
 	
 	flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	
-	
-	#TODO: The below is just experimentation. Clean it up.
+	# TODO: DON mineralization (?). Difficult to parametrize maybe.
 	
 	
 	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc) + conc(phyt) + conc(sed)*sed_oc   }

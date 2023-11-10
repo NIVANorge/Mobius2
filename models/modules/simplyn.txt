@@ -112,3 +112,23 @@ This module is not finished.
 		din * rate
 	}
 }
+
+module("Simply organic C-N", version(0, 0, 1),
+	river : compartment,
+	water : quantity,
+	on    : quantity,
+	oc    : quantity
+) {
+
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+
+	par_group("Organic N") {
+		dom_nc : par_real("DOM N/C ratio", [], 0.01, 0, 0.2)
+	}
+		
+	var(river.water.on, [k g], [m g, l-1], "River DON")
+		
+	flux(out, river.water.on, [k g, day-1], "Catchment DON production") {
+		in_flux(oc)*nc_molar_to_mass_ratio(dom_nc)
+	}
+}

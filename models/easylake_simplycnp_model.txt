@@ -23,6 +23,10 @@ model("EasyLake-SimplyCNP") {
 		module("EasyChem-Particulate", epi, hyp, water, sed, phos, loc(A_surf))
 	)
 	
+	load("modules/simplyn.txt",
+		module("Simply organic C-N", river, water, on, oc)
+	)
+	
 	par_group("Suspended carbon") {
 		sed_oc : par_real("Suspended sediments OC fraction", [], 0.02, 0, 1)
 	}
@@ -40,6 +44,7 @@ model("EasyLake-SimplyCNP") {
 		load("stdlib/physiochemistry.txt", library("Chemistry"))
 		
 		par_group("River oxygen") {
+			f_o2sat    : par_real("Catchment O₂ saturation fraction", [], 0.9, 0, 1)
 			COS_alloch : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
 		}
 
@@ -49,7 +54,7 @@ model("EasyLake-SimplyCNP") {
 		#}
 		flux(out, river.water.o2, [k g, day-1], "River oxygen from catchment") {
 			#catch_conc := 8[m g, l-1],#
-			catch_conc := o2_saturation(temp, 0) * o2_mol_mass,
+			catch_conc := f_o2sat*o2_saturation(temp, 0) * o2_mol_mass,
 			in_flux(water)*catch_conc->>
 		}
 		
@@ -65,7 +70,5 @@ model("EasyLake-SimplyCNP") {
 		#flux(out, river.water.sed.phos, [k g, day-1], "River phyto P release") {
 		#	0=>>#phyt*0.009*0.1[day-1]
 		#}
-		
-		var(river.water.on, [k g], [m g, l-1], "River DON") #TODO: Put this into one of the modules. And make a land input of it.
 	}
 }
