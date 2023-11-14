@@ -40,6 +40,8 @@ get_si_prefix(int pow10, bool declared=false) {
 	static const char *prefixes[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100µ", "10µ", "µ", "100n", "10n", "n"};
 	static const char *prefixes2[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100u", "10u", "u", "100n", "10n", "n"};
 	int idx = 9-pow10;
+	if(idx < 0 || idx > 18)
+		fatal_error(Mobius_Error::internal, "Unimplemented SI prefix.");
 	return declared ? prefixes2[idx] : prefixes[idx];
 }
 

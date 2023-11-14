@@ -254,7 +254,7 @@
 		
 	*** Low-pri ****
 	
-		Solution of the solver step resolution issue is not ideal. Not that good to cap try_h to 1 since it changes the dynamics of the solver in subsequent steps.
+		Solution of the solver step resolution output issue is not ideal. Not that good to cap try_h to 1 since it changes the dynamics of the solver in subsequent steps.
 	
 		Have a special state variable type that can record solver step resolution.
 			Would only record what it ended at in that step though

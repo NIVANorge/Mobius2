@@ -134,6 +134,8 @@ Index_Data {
 		const std::function<void(Index_Tuple<Id_Type> &indexes)> &do_stuff,
 		const std::function<void(int)> &new_level = [](int){}
 		);
+		
+	Idx_T raise(Idx_T member_idx, Id_Type union_set);
 private :
 	
 	std::vector<Index_Record> index_data;
@@ -202,7 +204,7 @@ Index_Tuple<Id_Type>::set_index(Idx_T index, bool overwrite) {
 		fatal_error(Mobius_Error::internal, "Tried to set an invalid index set on an Indexes");
 	if(!lookup_ordered) {
 		if(!overwrite && is_valid(indexes[index.index_set.id])) {
-			fatal_error(Mobius_Error::internal, "Got duplicate matrix column index for an Indexes.");
+			fatal_error(Mobius_Error::internal, "Got duplicate index for an Indexes.");
 		} else
 			indexes[index.index_set.id] = index;
 	} else
@@ -975,6 +977,20 @@ Index_Data<Id_Type>::lower(Idx_T union_index, Idx_T parent_idx) {
 		below.index -= count;
 	}
 	fatal_error(Mobius_Error::internal, "Union index set was incorrectly set up.");
+	return Idx_T::no_index();
+}
+
+template<typename Id_Type>
+Index_Type<Id_Type>
+Index_Data<Id_Type>::raise(Idx_T member_idx, Id_Type union_set) {
+	auto set = record->index_sets[union_set];
+	Idx_T above = Idx_T { union_set, member_idx.index };
+	for(auto ui_id : set->union_of) {
+		if(ui_id == member_idx.index_set) return above;
+		s32 count = get_count_base(ui_id, Idx_T::no_index()); // TODO: Would break if we allowed sub-indexing union index sets.
+		above.index += count;
+	}
+	fatal_error(Mobius_Error::internal, "Union index set was incorrectly passed to raise().");
 	return Idx_T::no_index();
 }
 
