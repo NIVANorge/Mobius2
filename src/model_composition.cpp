@@ -474,6 +474,7 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 	
 	auto code_scope = model->get_scope(flux->scope_id);
 	Function_Resolve_Data res_data = { app, code_scope, var->loc1 };
+	res_data.value_last_only = false;
 	auto res = resolve_function_tree(flux->no_carry_ast, &res_data);
 	
 	for(auto expr : res.fun->exprs) {
@@ -1377,6 +1378,7 @@ compose_and_resolve(Model_Application *app) {
 		res_data.scope = model->get_scope(external->scope_id);
 		res_data.baked_parameters = &app->baked_parameters;
 		res_data.allow_result = true;
+		res_data.value_last_only = false; // This is a list of expressions, not a function evaluating to a single value.
 		
 		auto res = resolve_function_tree(external->code, &res_data);
 		

@@ -105,6 +105,8 @@
 	
 	*** Intermediate-pri ***
 	
+		Make it possible to declare quick_select lists of most interesting series in the dataset declaration, that then get displayed in MobiView in a separate tab. Maybe even pairs series, obs.
+	
 		Change it so that Mobius_Model and Data_Set both use Entity_Id. Could just use different Reg_Types for the Data_Set.
 			Remove all the extraneous templating.
 	

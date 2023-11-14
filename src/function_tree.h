@@ -174,7 +174,8 @@ Function_Resolve_Data {
 	bool                         restrictive_lookups = false;
 	bool                         allow_in_flux       = true;
 	bool                         allow_no_override   = false;
-	bool                         allow_result        = false;
+	bool                         allow_result        = false; // Allow result() . Used for external_computation
+	bool                         value_last_only     = true; // Only last statement in a block can be a value.
 	
 	// For unit_conversion and aggregation_weight :
 	//Entity_Id                    source_compartment = invalid_entity_id;

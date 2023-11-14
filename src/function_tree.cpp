@@ -1074,6 +1074,17 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			}
 			new_block->value_type = last->value_type;
 			
+			if(data->value_last_only) {
+				for(int idx = 0; idx < (int)new_block->exprs.size()-1; ++idx) {
+					auto expr = new_block->exprs[idx];
+					if(expr->value_type != Value_Type::none) {
+						expr->source_loc.print_error_header();
+						error_print("This statement is not the last in its block, but it still resolves to a value. This is meaningless since that value would be discarded.");
+						fatal_error_trace(scope);
+					}
+				}
+			}
+			
 			// TODO: Better message. This also applies if the 'iterate' value type passes up through several blocks.
 			for(int idx = 0; idx < new_block->exprs.size()-1; ++idx) {
 				if(new_block->exprs[idx]->value_type == Value_Type::iterate) {

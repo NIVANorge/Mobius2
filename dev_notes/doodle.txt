@@ -1,5 +1,20 @@
 
 
+# This is maybe better to have in the dataset than in the model declaration
+quick_select [
+	"Nutrients" : [
+		"River" : [
+			"DIN" : ("concentration(River water DIN, River water volume)" "Obs DIN")
+		]
+		"Lake" : [
+			#..etc.
+		]
+	]
+	"Lake physics" : [
+		"Epilimnion thickness"
+	]
+]
+
 
 
 
@@ -11,19 +26,6 @@
 	#	list  (par values, indexes)
 	#   graph ( directed_graph in connections )
 	#   index data (not a list when it is sub-indexed).
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
