@@ -241,22 +241,29 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 
 
 module("EasyChem-Particulate", version(0, 0, 2),
+	air : compartment,
 	epi : compartment,
 	hyp : compartment,
-	#bot : compartment,
+	bot : compartment,
 	water : quantity,
 	sed   : quantity,
 	phos  : quantity,
-	area  : loc
+	wind  : property,
+	area  : property
 ) {
 """
 Particle transport and settling for EasyChem.
 """
 	
 	par_group("Particles") {
-		sett_vel : par_real("Sediment settling velocity", [m, day-1], 100, 50, 100, "This is the net settling velocity after taking into account upwards mixing whithin (but not between) each compartment.")
-		#leech_r  : par_real("Sediment phosphorous internal loading rate", [k m-2, day-1], 0.001, 0, 1)
+		sett_vel : par_real("Sediment settling velocity", [m, day-1], 1, 0, 100, "The net settling velocity after taking into account mixing whithin (but not between) each compartment.")
+		resusp_f  : par_real("Resuspension factor", [], 0, 0, 1e-7, "Wind-proportional resuspension in epilimnion-sediment interface.")
 		sed_z    : par_real("Bottom sediment thickness", [m], 0.2, 0, 5, "Thickness of sediment layer participating in P exchange")
+	}
+	
+	par_group("Particles lake-specific", epi) {
+		init_sed_p : par_real("Initial bottom sediment P concentration", [m g, g-1], 0)
+		sed_p_release : par_real("Sediments P release", [m-2, day-1], 0)
 	}
 
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
@@ -266,36 +273,36 @@ Particle transport and settling for EasyChem.
 	var(hyp.water.sed.phos, [k g], "Hypolimnion PP")
 	@show_conc(hyp.water, [m g, l-1])
 	
-	flux(epi.water.sed, hyp.water.sed, [k g, day-1], "Epilimnion sediment settling") {
-		sett_vel * conc(sed) * area ->>
-	}
+	# TODO: It is a bit strange to use the variable epi area in all of these...
 	
-	#flux(hyp.water.sed, bot.sed, [k g, day-1], "Hypolimnion sediment settling") {
+	flux(epi.water.sed, out, [k g, day-1], "Epilimnion sediment settling") {
+		(max(0[m, day-1], sett_vel - air.wind*resusp_f->[m, day-1])) * conc(sed) * (area - hyp.area) ->>
+	}
+	flux(epi.water.sed, hyp.water.sed, [k g, day-1], "Epilimnion-hypolimnion settling") {
+		sett_vel * conc(sed) * hyp.area ->>
+	}
 	flux(hyp.water.sed, out, [k g, day-1], "Hypolimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
 	}
 	
-	flux(hyp.water.sed.phos, out, [k g, day-1], "Hypolimnion PP settling") {
-		sett_vel * conc(sed) * conc(sed.phos) * area ->>
-	}
+	#TODO: The below seems to not work that well.
 	
 	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 	
-	#var(bot.sed, [k g], "Bottom sediments") @initial { area*sed_z*sed_dens }
-	#var(bot.sed.phos, [k g])
+	var(bot.phos, [k g], "Lake bottom sediment phosphorous") @initial { epi.area * sed_z * sed_dens * init_sed_p ->> }
 	
-	# Not sure about this one, and if it should carry the P down:
-	#flux(bot.sed, out, [k g, day-1], "Sediment burial") {
-	#	sett_vel * conc(hyp.water.sed) * area ->>
-	#}
+	flux(epi.water.sed.phos, bot.phos, [k g, day-1], "Epilimnion-sediment P exchange") {
+		(epi.area - hyp.area)*(sett_vel*conc(sed)*conc(sed.phos)->[k g, m-2, day-1] - bot.phos*sed_p_release)
+	}
+	flux(hyp.water.sed.phos, bot.phos, [k g, day-1], "Hypolimnion-sediment P exchange") {
+		hyp.area*(sett_vel*conc(sed)*conc(sed.phos)->[k g, m-2, day-1])
+	}
 	
-	#flux(bot.sed.phos, hyp.water.phos, [k g, day-1], "Sediment P internal loading") {
-	#	phos * area * leech_r ->>
-	#}
-	
-	
-	#TODO: There should be some interaction with the sediments where the nutrients that go there could leech out.
-	# Maybe exchange between suspended particles and dissolved, but that may not be significant enough.
+	p_dens : property("P density")
+	var(bot.p_dens, [m g, g-1], "Sediment P density") {
+		#Shouldn't use epi area since it fluctuates. A_surf maybe.
+		bot.phos / (sed_dens * sed_z * epi.area) ->>
+	}
 }
 
 

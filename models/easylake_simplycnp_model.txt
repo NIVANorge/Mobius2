@@ -12,15 +12,15 @@ model("EasyLake-SimplyCNP") {
 	on   : quantity("Organic nitrogen")
 	toc  : property("Total organic carbon")
 	
-	#bot  : compartment("Lake bottom sediments")
-	#distribute(bot, lake_index)
-	#solve(simply_solver, bot.sed)
+	bot  : compartment("Lake bottom sediments")
+	distribute(bot, lake_index)
+	solve(simply_solver, bot.phos)
 	
 	#TODO: Maybe also organic N, P later.
 	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 
 		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, ice, sed, temp, sw, wind, indicator, tp, toc, sed_oc, area),
-		module("EasyChem-Particulate", epi, hyp, water, sed, phos, loc(A_surf))
+		module("EasyChem-Particulate", air, epi, hyp, bot, water, sed, phos, wind, area)
 	)
 	
 	load("modules/simplyn.txt",

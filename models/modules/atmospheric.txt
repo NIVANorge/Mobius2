@@ -47,9 +47,10 @@ The user must provide either "Global radiation" or "Cloud cover" as an input ser
 	}
 	
 	var(air.cloud,  []) {
-		#cc := ((1 - g_rad/g_rad_cloud_free)/0.75)^(1/3.4),     #Hmm, this just didn't work that well. Find something better?
-		#cc := (1 - (1.1*g_rad/g_rad_cloud_free - 0.6)),
-		cc := 1 - g_rad/g_rad_cloud_free,                 # Works much better for EasyLake on Vansjø... May be other complicating factors though.
+		sw_ratio := g_rad/g_rad_cloud_free,
+		#cc := ((1 - sw_ratio)/0.75)^(1/3.4),     #Hmm, this just didn't work that well. Find something better?
+		#cc := (1 - (1.1*sw_ratio - 0.6)),
+		cc := 1 - sw_ratio,                 # Works much better for EasyLake on Vansjø... May be other complicating factors though.
 		clamp(cc, 0, 1)
 	}
 	
