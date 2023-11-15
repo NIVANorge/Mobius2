@@ -33,6 +33,7 @@ Model_Instruction {
 	
 	std::set<Entity_Id> index_sets;
 	
+	// TODO: Rename to depends_on, loose_depends_on and is_blocking
 	std::set<int> depends_on_instruction; // Instructions that must be executed before this one.
 	std::set<int> loose_depends_on_instruction; // Instructions that could go after this one only if they are in the same for loop.
 	std::set<int> instruction_is_blocking; // Instructions that can not go in the same for loop as this one.
@@ -47,7 +48,7 @@ Model_Instruction {
 	
 	bool visited = false;
 	
-	std::string debug_string(Model_Application *app);
+	std::string debug_string(Model_Application *app) const;
 	
 	Model_Instruction() {};
 	

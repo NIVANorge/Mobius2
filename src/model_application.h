@@ -472,6 +472,7 @@ Model_Application {
 	void allocate_series_data(s64 time_steps, Date_Time start_date);
 	
 	void compile(bool store_code_strings = false);
+	void compose_and_resolve();
 	
 	std::string serialize  (Var_Id id);
 	Var_Id      deserialize(const std::string &name);
@@ -482,6 +483,7 @@ Model_Application {
 	std::string batch_code;
 	std::string llvm_ir;
 };
+
 
 Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction);

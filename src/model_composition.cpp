@@ -1337,16 +1337,14 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 }
 
 void
-compose_and_resolve(Model_Application *app) {
-	
-	auto model = app->model;
+Model_Application::compose_and_resolve() {
 	
 	for(auto par_id : model->parameters) {
 		auto par = model->parameters[par_id];
 		if(par->decl_type == Decl_Type::par_bool || par->decl_type == Decl_Type::par_enum) {
-			s64 count = app->parameter_structure.instance_count(par_id);
+			s64 count = parameter_structure.instance_count(par_id);
 			if(count == 1) {// TODO: Would like to get rid of this requirement, but without it we may end up needing a separate code tree per index tuple for a given state variable :(
-				app->baked_parameters.push_back(par_id);
+				baked_parameters.push_back(par_id);
 				//warning_print("Baking parameter \"", par->name, "\".\n");
 			}
 		}
@@ -1359,24 +1357,24 @@ compose_and_resolve(Model_Application *app) {
 	
 	Code_Special_Lookups specials;
 	
-	for(auto var_id : app->vars.all_state_vars())
-		process_state_var_code(app, var_id, &specials);
+	for(auto var_id : vars.all_state_vars())
+		process_state_var_code(this, var_id, &specials);
 	
 	// NOTE: properties that are overridden as series should still have the function trees processed for correctness.
-	for(auto var_id : app->vars.all_series())
-		process_state_var_code(app, var_id, nullptr, false);
+	for(auto var_id : vars.all_series())
+		process_state_var_code(this, var_id, nullptr, false);
 	
-	for(auto var_id : app->vars.all_state_vars()) {
-		auto var = app->vars[var_id];
+	for(auto var_id : vars.all_state_vars()) {
+		auto var = vars[var_id];
 		if(var->type != State_Var::Type::external_computation) continue;
 		
 		auto var2 = as<State_Var::Type::external_computation>(var);
 		auto external = model->external_computations[var2->decl_id];
 		
 		Function_Resolve_Data res_data;
-		res_data.app = { app };
+		res_data.app = this;
 		res_data.scope = model->get_scope(external->scope_id);
-		res_data.baked_parameters = &app->baked_parameters;
+		res_data.baked_parameters = &baked_parameters;
 		res_data.allow_result = true;
 		res_data.value_last_only = false; // This is a list of expressions, not a function evaluating to a single value.
 		
@@ -1406,7 +1404,7 @@ compose_and_resolve(Model_Application *app) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Only state variables can be a 'result' of a 'external_computation'.");
 				}
-				auto result_var = as<State_Var::Type::declared>(app->vars[ident->var_id]);
+				auto result_var = as<State_Var::Type::declared>(vars[ident->var_id]);
 				if(result_var->decl_type != Decl_Type::property) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Only a 'property' can be a 'result' of a 'external_computation'.");
@@ -1423,7 +1421,7 @@ compose_and_resolve(Model_Application *app) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Connection restrictions are not supported for parameters in 'external_computation'.");
 				}
-				auto ident_var = app->vars[ident->var_id];
+				auto ident_var = vars[ident->var_id];
 				if(external->connection_component != ident_var->loc1.first() || external->connection != ident->restriction.r1.connection_id) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("To allow looking up a variable with a connection restriction, that connection and source compartment must be specified with an 'allow_connection' note.");
@@ -1434,9 +1432,9 @@ compose_and_resolve(Model_Application *app) {
 		var2->code = owns_code(external_comp);
 	}
 	
-	for(auto flux_id : app->vars.all_fluxes()) {
+	for(auto flux_id : vars.all_fluxes()) {
 		// We have to copy "specific target" to all dissolved child fluxes. We could not have done that before since the code was only just resolved above.
-		auto flux = app->vars[flux_id];
+		auto flux = vars[flux_id];
 		if(flux->type != State_Var::Type::dissolved_flux) continue;
 		
 		if(	   flux->loc1.r1.type != Restriction::specific 
@@ -1446,7 +1444,7 @@ compose_and_resolve(Model_Application *app) {
 			
 		auto orig_flux = flux;
 		while(orig_flux->type == State_Var::Type::dissolved_flux)
-			orig_flux = app->vars[as<State_Var::Type::dissolved_flux>(orig_flux)->flux_of_medium];
+			orig_flux = vars[as<State_Var::Type::dissolved_flux>(orig_flux)->flux_of_medium];
 		if(!orig_flux->specific_target)
 			fatal_error(Mobius_Error::internal, "Somehow we got a specific restriction on a flux without specific target code.");
 		//log_print("Setting specific target for ", flux->name, "\n");
@@ -1456,18 +1454,18 @@ compose_and_resolve(Model_Application *app) {
 	// Invalidate fluxes if both source and target is 'out' or overridden.
 	{
 		std::map<Var_Id, bool> could_be_invalidated;
-		for(auto var_id : app->vars.all_fluxes()) {
-			auto var = app->vars[var_id];
+		for(auto var_id : vars.all_fluxes()) {
+			auto var = vars[var_id];
 			
 			bool valid_source = false;
 			if(is_located(var->loc1)) {
-				auto source = as<State_Var::Type::declared>(app->vars[app->vars.id_of(var->loc1)]);
+				auto source = as<State_Var::Type::declared>(vars[vars.id_of(var->loc1)]);
 				if(!source->override_tree)
 					valid_source = true;
 			}
 			bool valid_target = false;
 			if(is_located(var->loc2)) {
-				auto target = as<State_Var::Type::declared>(app->vars[app->vars.id_of(var->loc2)]);
+				auto target = as<State_Var::Type::declared>(vars[vars.id_of(var->loc2)]);
 				if(!target->override_tree)
 					valid_target = true;
 			}
@@ -1483,12 +1481,12 @@ compose_and_resolve(Model_Application *app) {
 			while(above_var->type == State_Var::Type::dissolved_flux) {
 				above_id = as<State_Var::Type::dissolved_flux>(above_var)->flux_of_medium;
 				could_be_invalidated[above_id] = false;
-				above_var = app->vars[above_id];
+				above_var = vars[above_id];
 			}
 		}
 		for(auto &pair : could_be_invalidated) {
 			if(!pair.second) continue;
-			auto var = app->vars[pair.first];
+			auto var = vars[pair.first];
 			var->set_flag(State_Var::invalid);
 			log_print(Log_Mode::dev, "Invalidating \"", var->name, "\" due to both source and target being 'out' or overridden.\n");
 		}
@@ -1496,15 +1494,15 @@ compose_and_resolve(Model_Application *app) {
 	
 	// Invalidate connection fluxes if they have no possible targets
 	{
-		for(auto var_id : app->vars.all_fluxes()) {
-			auto var = app->vars[var_id];
+		for(auto var_id : vars.all_fluxes()) {
+			auto var = vars[var_id];
 			
 			auto &res = var->loc2.r1;
 			
 			if(res.type == Restriction::below) {
 				auto type = model->connections[res.connection_id]->type;
 				if(type == Connection_Type::directed_graph) {
-					auto comp = app->find_connection_component(res.connection_id, var->loc1.first(), false);
+					auto comp = find_connection_component(res.connection_id, var->loc1.first(), false);
 					if(!comp || comp->possible_targets.empty()) {
 						var->set_flag(State_Var::invalid);
 						log_print(Log_Mode::dev, "Invalidating \"", var->name, "\" due to it not having any possible targets.\n");
@@ -1518,8 +1516,8 @@ compose_and_resolve(Model_Application *app) {
 	// TODO: Is this necessary, or could we just do this directly when we build the connections below ??
 	// 	May have to do with aggregates of fluxes having that decl_type, and that is confusing? But they should not have connections any way.
 	std::set<std::pair<Entity_Id, Var_Id>> may_need_connection_target;
-	for(auto var_id : app->vars.all_fluxes()) {
-		auto var = app->vars[var_id];
+	for(auto var_id : vars.all_fluxes()) {
+		auto var = vars[var_id];
 		
 		if(var->loc1.r1.type != Restriction::none) {
 			auto connection_id = var->loc1.r1.connection_id;
@@ -1529,7 +1527,7 @@ compose_and_resolve(Model_Application *app) {
 			if(!is_located(var->loc1))
 				fatal_error(Mobius_Error::internal, "Did not expect non-located grid1d source.");
 			
-			Var_Id source_id = app->vars.id_of(var->loc1);
+			Var_Id source_id = vars.id_of(var->loc1);
 			may_need_connection_target.insert({connection_id, source_id});
 		}
 		
@@ -1539,16 +1537,16 @@ compose_and_resolve(Model_Application *app) {
 			Var_Id source_id = invalid_var;
 			if(type == Connection_Type::grid1d) {
 				if(is_located(var->loc2))
-					source_id = app->vars.id_of(var->loc2);
+					source_id = vars.id_of(var->loc2);
 				else if(is_located(var->loc1))
-					source_id = app->vars.id_of(var->loc1);  // TODO: Does this give an error if the source is not on the connection?
+					source_id = vars.id_of(var->loc1);  // TODO: Does this give an error if the source is not on the connection?
 				else
 					fatal_error(Mobius_Error::internal, "Unable to locate grid1d connection aggregate variable.");
 				
 			} else if(type == Connection_Type::directed_graph) {
 				if(!is_located(var->loc1))
 					fatal_error(Mobius_Error::internal, "Did not expect a directed_graph connection starting from a non-located source.");
-				source_id = app->vars.id_of(var->loc1);
+				source_id = vars.id_of(var->loc1);
 			}
 			if(is_valid(source_id))
 				may_need_connection_target.insert({connection_id, source_id});
@@ -1561,13 +1559,13 @@ compose_and_resolve(Model_Application *app) {
 	
 	// Note: We always generate an aggregate if the source compartment of a flux has more indexes than the target compartment.
 	//    TODO: We could have an optimization in the model app that removes it again in the case where the source variable is actually indexed with fewer and the weight is trivial
-	for(auto var_id : app->vars.all_fluxes()) {
-		auto var = app->vars[var_id];
+	for(auto var_id : vars.all_fluxes()) {
+		auto var = vars[var_id];
 
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
 		std::set<Entity_Id> max_target_indexes;
-		get_maximal_index_sets(app, max_target_indexes, var->loc2);
+		get_maximal_index_sets(this, max_target_indexes, var->loc2);
 		
 		bool is_below;
 		if(var->type == State_Var::Type::declared) {
@@ -1575,7 +1573,7 @@ compose_and_resolve(Model_Application *app) {
 			is_below = index_sets_are_contained_in(model, as<State_Var::Type::declared>(var)->maximal_allowed_index_sets, max_target_indexes);
 		} else {
 			std::set<Entity_Id> max_source_index_sets;
-			get_maximal_index_sets(app, max_source_index_sets, var->loc1, var->loc2);
+			get_maximal_index_sets(this, max_source_index_sets, var->loc1, var->loc2);
 			is_below = index_sets_are_contained_in(model, max_source_index_sets, max_target_indexes);
 		}
 		
@@ -1595,28 +1593,28 @@ compose_and_resolve(Model_Application *app) {
 		
 	for(auto &need_agg : specials.aggregates) {
 		auto var_id = need_agg.first;
-		auto var = app->vars[var_id];
+		auto var = vars[var_id];
 		if(!var->is_valid()) continue;
 		
 		auto loc1 = var->loc1;
 		if(var->type == State_Var::Type::dissolved_conc) {
 			auto var2 = as<State_Var::Type::dissolved_conc>(var);
-			loc1 = app->vars[var2->conc_of]->loc1;
+			loc1 = vars[var2->conc_of]->loc1;
 		}
 		
 		auto source = model->components[loc1.first()];
 		
 		for(auto to_compartment : need_agg.second.first) {
 			
-			Math_Expr_FT *agg_weight = get_aggregation_weight(app, loc1, to_compartment);
+			Math_Expr_FT *agg_weight = get_aggregation_weight(this, loc1, to_compartment);
 			var->set_flag(State_Var::has_aggregate);
 			
 			//TODO: We also have to handle the case where the agg. variable was a series!
 			
 			sprintf(varname, "aggregate(%s, %s)", var->name.data(), model->components[to_compartment]->name.data());
-			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(app, invalid_entity_id, false, varname, true);
+			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(this, invalid_entity_id, false, varname, true);
 			
-			auto agg_var = as<State_Var::Type::regular_aggregate>(app->vars[agg_id]);
+			auto agg_var = as<State_Var::Type::regular_aggregate>(vars[agg_id]);
 			agg_var->agg_of = var_id;
 			agg_var->aggregation_weight_tree = owns_code(agg_weight);
 			if(var->is_flux())
@@ -1625,7 +1623,7 @@ compose_and_resolve(Model_Application *app) {
 			// TODO: Set the unit of the agg_var (only relevant if it is displayed somewhere, it is not function critical).
 			//   It is a bit tricky because of potential unit conversions and the fact that the unit of aggregated fluxes could be re-scaled to the time step.
 			
-			var = app->vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
+			var = vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
 
 			// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:
 			agg_var->loc1.type = Var_Location::Type::out;
@@ -1639,7 +1637,7 @@ compose_and_resolve(Model_Application *app) {
 			agg_var->agg_to_compartment = to_compartment;
 			
 			for(auto looked_up_by : need_agg.second.second) {
-				auto lu = as<State_Var::Type::declared>(app->vars[looked_up_by]);
+				auto lu = as<State_Var::Type::declared>(vars[looked_up_by]);
 				
 				Entity_Id lu_compartment = lu->loc1.first();
 				if(!is_located(lu->loc1)) {
@@ -1671,22 +1669,22 @@ compose_and_resolve(Model_Application *app) {
 		
 		if(connection->type == Connection_Type::directed_graph) {
 			
-			auto find_source = app->find_connection_component(conn_id, app->vars[source_id]->loc1.components[0], false);
+			auto find_source = find_connection_component(conn_id, vars[source_id]->loc1.components[0], false);
 			if(find_source && find_source->is_edge_indexed) // NOTE: Could instead be find_source->max_outgoing_edges, but it is tricky wrt index set dependencies for the flux.
-				register_connection_agg(app, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes.
+				register_connection_agg(this, true, source_id, invalid_entity_id, conn_id, &varname[0]); // Aggregation variable for outgoing fluxes.
 			
-			for(auto &target_comp : app->connection_components[conn_id].components) {
+			for(auto &target_comp : connection_components[conn_id].components) {
 				
 				// If it wasn't actually put as a possible target in the data set, don't bother with it.
 				if(target_comp.possible_sources.empty()) continue;
 
-				auto target_loc = app->vars[source_id]->loc1;
+				auto target_loc = vars[source_id]->loc1;
 				target_loc.components[0] = target_comp.id;
-				auto target_id = app->vars.id_of(target_loc);
+				auto target_id = vars.id_of(target_loc);
 				if(!is_valid(target_id))   // NOTE: the target may not have that state variable. This can especially happen for dissolvedes.
 					continue;
 				
-				register_connection_agg(app, false, target_id, target_comp.id, conn_id, &varname[0]); // Aggregation variable for incoming fluxes.
+				register_connection_agg(this, false, target_id, target_comp.id, conn_id, &varname[0]); // Aggregation variable for incoming fluxes.
 			}
 		} else if (connection->type == Connection_Type::grid1d) {
 			if(connection->components.size() != 1)
@@ -1696,7 +1694,7 @@ compose_and_resolve(Model_Application *app) {
 			auto target_comp = connection->components[0];
 			
 			// TODO: Find a way to get rid of connection aggregates for grid1d.
-			register_connection_agg(app, false, source_id, target_comp, conn_id, &varname[0]);
+			register_connection_agg(this, false, source_id, target_comp, conn_id, &varname[0]);
 			
 		} else {
 			fatal_error(Mobius_Error::internal, "Unsupported connection type in compose_and_resolve()");
@@ -1707,21 +1705,21 @@ compose_and_resolve(Model_Application *app) {
 		
 		auto &key = in_flux.first;
 		Var_Id target_id = key.first;
-		auto target = as<State_Var::Type::declared>(app->vars[target_id]);
+		auto target = as<State_Var::Type::declared>(vars[target_id]);
 		Entity_Id connection = key.second;
 		
 		Var_Id in_flux_id = invalid_var;
 		if(!is_valid(connection)) {
 			sprintf(varname, "in_flux(%s)", target->name.data());
-			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(app, invalid_entity_id, false, varname, true);
-			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(app->vars[in_flux_id]);
+			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(this, invalid_entity_id, false, varname, true);
+			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(vars[in_flux_id]);
 			in_flux_var->in_flux_to = target_id;
 			
-			app->vars[in_flux_id]->unit = divide(target->unit, app->time_step_unit); //NOTE: In codegen, the components in the sum are rescaled to this unit.
+			vars[in_flux_id]->unit = divide(target->unit, time_step_unit); //NOTE: In codegen, the components in the sum are rescaled to this unit.
 		} else {
 			//We don't have to register an aggregate for the connection since that will always have been done for a variable on a connection if it is at all relevant.
 			for(auto conn_agg_id : target->conn_target_aggs) {
-				if( as<State_Var::Type::connection_aggregate>(app->vars[conn_agg_id])->connection == connection)
+				if( as<State_Var::Type::connection_aggregate>(vars[conn_agg_id])->connection == connection)
 					in_flux_id = conn_agg_id;
 			}
 		}
@@ -1732,7 +1730,7 @@ compose_and_resolve(Model_Application *app) {
 		// TODO: What happens if we use in_flux in initial code or override code??
 		//     Should probably not be available in initial code, but is that checked for?
 		for(auto rep_id : in_flux.second) {
-			auto var = as<State_Var::Type::declared>(app->vars[rep_id]);
+			auto var = as<State_Var::Type::declared>(vars[rep_id]);
 			replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
 		}
 	}
@@ -1740,35 +1738,35 @@ compose_and_resolve(Model_Application *app) {
 	for(auto solver_id : model->solvers) {
 		auto solver = model->solvers[solver_id];
 		sprintf(varname, "solver_step_resolution(%s)", solver->name.data());
-		auto var_id = register_state_variable<State_Var::Type::step_resolution>(app, invalid_entity_id, false, varname);
-		auto var = as<State_Var::Type::step_resolution>(app->vars[var_id]);
+		auto var_id = register_state_variable<State_Var::Type::step_resolution>(this, invalid_entity_id, false, varname);
+		auto var = as<State_Var::Type::step_resolution>(vars[var_id]);
 		var->solver_id = solver_id;
-		var->unit = app->time_step_unit;
+		var->unit = time_step_unit;
 	}
 	
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
 	// NOTE: This must be done after all calls to replace_flagged, otherwise the references are not correctly in place.
-	for(auto var_id : app->vars.all_state_vars()) {
-		auto var = app->vars[var_id];
+	for(auto var_id : vars.all_state_vars()) {
+		auto var = vars[var_id];
 		
 		if(var->type != State_Var::Type::declared) continue;
 		auto var2 = as<State_Var::Type::declared>(var);
 
 		if(var2->function_tree)
-			check_valid_distribution_of_dependencies(app, var2->function_tree.get(), var2->maximal_allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->function_tree.get(), var2->maximal_allowed_index_sets);
 		if(var2->initial_function_tree)
-			check_valid_distribution_of_dependencies(app, var2->initial_function_tree.get(), var2->maximal_allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->initial_function_tree.get(), var2->maximal_allowed_index_sets);
 		if(var2->override_tree)
-			check_valid_distribution_of_dependencies(app, var2->override_tree.get(), var2->maximal_allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->override_tree.get(), var2->maximal_allowed_index_sets);
 	}
 	
-	for(auto var_id : app->vars.all_state_vars()) {
-		auto var = app->vars[var_id];
-		app->serial_to_id[app->serialize(var_id)] = var_id;
+	for(auto var_id : vars.all_state_vars()) {
+		auto var = vars[var_id];
+		serial_to_id[serialize(var_id)] = var_id;
 	}
-	for(auto var_id : app->vars.all_series()) {
-		auto var = app->vars[var_id];
-		app->serial_to_id[app->serialize(var_id)] = var_id;
+	for(auto var_id : vars.all_series()) {
+		auto var = vars[var_id];
+		serial_to_id[serialize(var_id)] = var_id;
 	}
 	
 	

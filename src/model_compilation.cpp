@@ -15,7 +15,7 @@
 #include <sstream>
 
 std::string
-Model_Instruction::debug_string(Model_Application *app) {
+Model_Instruction::debug_string(Model_Application *app) const {
 	std::stringstream ss;
 	
 	if(type == Model_Instruction::Type::compute_state_var)
@@ -1416,7 +1416,67 @@ set_up_result_structure(Model_Application *app, std::vector<Batch> &batches, std
 }
 
 void
-compose_and_resolve(Model_Application *app);
+validate_batch_structure(Model_Application *app, const std::vector<Batch> &batches, const std::vector<Model_Instruction> &instructions) {
+	
+	// TODO: This is not entirely finished. See comments below.
+	
+	// TODO: Say in error messages if this was the initial batch or not
+	
+	for(int batch_idx = 0; batch_idx < batches.size(); ++batch_idx) {
+		const auto &batch = batches[batch_idx];
+		
+		// TODO: Also arrays_ode.
+		for(int array_idx = 0; array_idx < batch.arrays.size(); ++array_idx) {
+			const auto &array = batch.arrays[array_idx];
+			
+			for(int instr_idx = 0; instr_idx < array.instr_ids.size(); ++instr_idx) {
+				int instr_id = array.instr_ids[instr_idx];
+				
+				const auto &instr = instructions[instr_id];
+				if(instr.solver != batch.solver)
+					fatal_error(Mobius_Error::internal, "Mismatch between solver of instruction \"", instr.debug_string(app), "\" and its batch. ");
+				
+				if(instr.index_sets != array.index_sets)
+					fatal_error(Mobius_Error::internal, "Mismatch between index sets of instruction \"", instr.debug_string(app), "\" and its batch. ");
+				
+				if(instr.depends_on_instruction.empty() && instr.loose_depends_on_instruction.empty() && instr.instruction_is_blocking.empty())
+					continue;
+				
+				for(int other_batch_idx = batch_idx; other_batch_idx < batches.size(); ++other_batch_idx) {
+					const auto &other_batch = batches[other_batch_idx];
+					
+					int begin_array = 0;
+					if(other_batch_idx == batch_idx) begin_array = array_idx;
+					
+					// TODO: also arrays_ode
+					for(int other_array_idx = begin_array; other_array_idx < other_batch.arrays.size(); ++other_array_idx) {
+						const auto &other_array = other_batch.arrays[other_array_idx];
+						
+						int begin_instr = 0;
+						if(batch_idx == other_batch_idx && array_idx == other_array_idx)
+							begin_instr = instr_idx + 1;
+							
+						for(int other_instr_idx = begin_instr; other_instr_idx < other_array.instr_ids.size(); ++other_instr_idx) {
+							int other_instr_id = other_array.instr_ids[other_instr_idx];
+							
+							if(instr.depends_on_instruction.find(other_instr_id) != instr.depends_on_instruction.end())
+								fatal_error(Mobius_Error::internal, "The instruction \"", instr.debug_string(app), "\" appears before its dependency \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
+							
+							if(batch_idx == other_batch_idx && array_idx == other_array_idx) {
+								if(instr.instruction_is_blocking.find(other_instr_id) != instr.instruction_is_blocking.end())
+									fatal_error(Mobius_Error::internal, "The instruction \"", instr.debug_string(app), "\" appears in the same array as the instruction it is blocking \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
+							} else {
+								if(instr.loose_depends_on_instruction.find(other_instr_id) != instr.loose_depends_on_instruction.end())
+									fatal_error(Mobius_Error::internal, "The instruction \"", instr.debug_string(app), "\" appears strictly before its loose dependency \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+}
 
 void
 Model_Application::compile(bool store_code_strings) {
@@ -1434,7 +1494,7 @@ Model_Application::compile(bool store_code_strings) {
 	if(!connection_structure.has_been_set_up)
 		fatal_error(Mobius_Error::api_usage, "Tried to compile model application before connection data was set up.");
 	
-	compose_and_resolve(this);
+	compose_and_resolve();
 
 	std::vector<Model_Instruction> initial_instructions;
 	std::vector<Model_Instruction> instructions;
@@ -1533,6 +1593,11 @@ Model_Application::compile(bool store_code_strings) {
 			build_batch_arrays(this, vars,     instructions, batch.arrays,     false);
 			build_batch_arrays(this, vars_ode, instructions, batch.arrays_ode, false);
 		}
+	}
+	
+	if(mobius_developer_mode) {
+		validate_batch_structure(this, { initial_batch }, initial_instructions); // This creates a copy of the initial_batch? :(
+		validate_batch_structure(this, batches, instructions);
 	}
 	
 	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, false);
