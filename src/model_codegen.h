@@ -76,6 +76,12 @@ Batch {
 	std::vector<Batch_Array> arrays;
 	std::vector<Batch_Array> arrays_ode;
 	
+	const Batch_Array &operator[](int idx) const {
+		if(idx < arrays.size()) return arrays[idx];
+		return arrays_ode[idx - arrays.size()];
+	}
+	int array_count() const { return arrays.size() + arrays_ode.size(); }
+	
 	Batch() : solver(invalid_entity_id) {}
 };
 

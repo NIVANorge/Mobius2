@@ -37,6 +37,7 @@
 		
 		Make an (optional - developer mode) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
 			Useful for catching errors, which we some times have but are slow to detect.
+			-- halfway done now.
 		
 		Specific models
 			NIVAFjord!!
