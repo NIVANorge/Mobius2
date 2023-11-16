@@ -6,45 +6,6 @@
 #include "units.h"
 
 struct
-Index_Set_Tuple {
-	
-	inline bool add_bits(u64 to_add) {
-		bool change = (to_add & bits) != to_add;
-		bits |= to_add;
-		return change;
-	}
-	inline bool remove_bits(u64 to_remove) {
-		bool change = (to_remove & bits);
-		bits &= ~to_remove;
-		return change;
-	}
-	bool insert(Entity_Id index_set_id) { return add_bits((u64(1) << index_set_id.id));	}
-	bool insert(Index_Set_Tuple &other) { return add_bits(other.bits); }
-	bool remove(Entity_Id index_set_id) { return remove_bits((u64(1) << index_set_id.id)); }
-	bool remove(Index_Set_Tuple &other) { return remove_bits(other.bits); }
-	bool has(Entity_Id index_set_id) { return bits & (u64(1) << index_set_id.id); }
-	bool has_some(Index_Set_Tuple &other) { return bits & other.bits; }
-	bool has_all(Index_Set_Tuple &other) { return (bits & other.bits) == other.bits; }
-	
-	bool operator!=(const Index_Set_Tuple &other) const { return bits != other.bits; }
-	
-	struct Iterator {
-		int at = 0;
-		u64 bits;
-		Iterator(u64 bits, int at) : bits(bits), at(at) { advance_to_next(); }
-		Iterator &operator++(){ ++at; advance_to_next(); return *this; }
-		Entity_Id operator*() { return Entity_Id { Reg_Type::index_set, s16(at) }; }
-		bool operator!=(Iterator &other) { return at != other.at; }
-		void advance_to_next() { while( !(bits & (u64(1) << at)) && at < 64 ) ++at; }
-	};
-	
-	Iterator begin() { return Iterator(bits, 0); }
-	Iterator end() { return Iterator(0, 64); }
-
-	u64 bits = 0;
-};
-
-struct
 State_Var {
 	
 	// TODO: This contains a lot of data that is irrelevant for input series. But annoying to have to factor it out. Could be put in yet another intermediate struct??
@@ -73,9 +34,11 @@ State_Var {
 	
 	void set_flag(Flags flag) { flags = (Flags)(flags | flag); }
 	bool has_flag(Flags flag) { return flags & flag; }
-	// Because these are very common queries
+	// Some very common queries:
 	bool is_flux() { return has_flag(flux);	}
 	bool is_valid() { return !has_flag(invalid); }
+	// If this is a quantity and it is not override.
+	inline bool is_mass_balance_quantity();
 	
 	std::string name;
 
@@ -207,7 +170,8 @@ State_Var_Sub<State_Var::Type::step_resolution> : State_Var {
 };
 
 template<State_Var::Type type>
-State_Var_Sub<type> *as(State_Var *var) {
+State_Var_Sub<type> *
+as(State_Var *var) {
 	if(var->type != type)
 		fatal_error(Mobius_Error::internal, "Tried to convert a state variable to the wrong type.");
 	if(var->flags & State_Var::Flags::invalid)
@@ -215,5 +179,11 @@ State_Var_Sub<type> *as(State_Var *var) {
 	return static_cast<State_Var_Sub<type> *>(var);
 }
 
+inline bool
+State_Var::is_mass_balance_quantity() {
+	if(type != Type::declared) return false;
+	auto var2 = as<State_Var::Type::declared>(this);
+	return var2->decl_type == Decl_Type::quantity && !var2->override_tree;
+}
 
 #endif // MOBIUS_STATE_VARIABLE_H

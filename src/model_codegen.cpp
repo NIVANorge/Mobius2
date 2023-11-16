@@ -210,55 +210,53 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			}
 			
 			// Codegen for the derivative of ODE state variables:
-			if(var->type == State_Var::Type::declared) {
+			if(var->is_mass_balance_quantity() && is_valid(instr.solver)) {
 				auto var2 = as<State_Var::Type::declared>(var);
-				if(var2->decl_type == Decl_Type::quantity
-					&& is_valid(instr.solver) && !var2->override_tree) {
-					Math_Expr_FT *fun = make_literal((double)0.0);
 					
-					// aggregation variable for values coming from connection fluxes.
-					for(auto target_agg : var2->conn_target_aggs)
-						fun = make_binop('+', fun, make_state_var_identifier(target_agg));
+				Math_Expr_FT *fun = make_literal((double)0.0);
+				
+				// aggregation variable for values coming from connection fluxes.
+				for(auto target_agg : var2->conn_target_aggs)
+					fun = make_binop('+', fun, make_state_var_identifier(target_agg));
+				
+				for(auto source_agg : var2->conn_source_aggs)
+					fun = make_binop('-', fun, make_state_var_identifier(source_agg));
+				
+				for(Var_Id flux_id : app->vars.all_fluxes()) {
+					auto flux = app->vars[flux_id];
 					
-					for(auto source_agg : var2->conn_source_aggs)
-						fun = make_binop('-', fun, make_state_var_identifier(source_agg));
-					
-					for(Var_Id flux_id : app->vars.all_fluxes()) {
-						auto flux = app->vars[flux_id];
+					if(is_located(flux->loc1) && app->vars.id_of(flux->loc1) == instr.var_id) {
 						
-						if(is_located(flux->loc1) && app->vars.id_of(flux->loc1) == instr.var_id) {
-							
-							// Subtract the flux from the source unless it was separately subtracted via a source aggregate.
-							bool omit = false;
-							if(flux->loc2.r1.type != Restriction::none) {
-								auto conn_id = flux->loc2.r1.connection_id;
-								auto type = model->connections[conn_id]->type;
-								if(type == Connection_Type::directed_graph) {
-									auto find_source = app->find_connection_component(conn_id, flux->loc1.first(), false);
-									// NOTE: Could instead be find_source->max_outgoing_per_node > 1, but it is tricky wrt index set dependencies for the flux.
-									omit = find_source && find_source->is_edge_indexed;
-								}
-							}
-							if(flux->loc1.r1.type != Restriction::none) {
-								// This is only the case where the source is e.g. .top of a grid1d connection. In that case there is a hack where it is subtracted from the target aggregate of that variable.
-								omit = true;
-							}
-							if(!omit) {
-								auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
-								fun = make_binop('-', fun, flux_ref);
+						// Subtract the flux from the source unless it was separately subtracted via a source aggregate.
+						bool omit = false;
+						if(flux->loc2.r1.type != Restriction::none) {
+							auto conn_id = flux->loc2.r1.connection_id;
+							auto type = model->connections[conn_id]->type;
+							if(type == Connection_Type::directed_graph) {
+								auto find_source = app->find_connection_component(conn_id, flux->loc1.first(), false);
+								// NOTE: Could instead be find_source->max_outgoing_per_node > 1, but it is tricky wrt index set dependencies for the flux.
+								omit = find_source && find_source->is_edge_indexed;
 							}
 						}
-						
-						if(is_located(flux->loc2) && app->vars.id_of(flux->loc2) == instr.var_id && flux->loc2.r1.type == Restriction::none) {
+						if(flux->loc1.r1.type != Restriction::none) {
+							// This is only the case where the source is e.g. .top of a grid1d connection. In that case there is a hack where it is subtracted from the target aggregate of that variable.
+							omit = true;
+						}
+						if(!omit) {
 							auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
-							// NOTE: the unit conversion applies to what reaches the target.
-							if(flux->unit_conversion_tree)
-								flux_ref = make_binop('*', flux_ref, copy(flux->unit_conversion_tree.get()));
-							fun = make_binop('+', fun, flux_ref);
+							fun = make_binop('-', fun, flux_ref);
 						}
 					}
-					instr.code = fun;
+					
+					if(is_located(flux->loc2) && app->vars.id_of(flux->loc2) == instr.var_id && flux->loc2.r1.type == Restriction::none) {
+						auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
+						// NOTE: the unit conversion applies to what reaches the target.
+						if(flux->unit_conversion_tree)
+							flux_ref = make_binop('*', flux_ref, copy(flux->unit_conversion_tree.get()));
+						fun = make_binop('+', fun, flux_ref);
+					}
 				}
+				instr.code = fun;
 			}
 			
 		} else if (instr.type == Model_Instruction::Type::subtract_discrete_flux_from_source) {

@@ -329,8 +329,8 @@ check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruct
 			if(conn->type != Connection_Type::directed_graph) continue;
 			if(conn->no_cycles) continue;
 			/*
-				Note: The reasoning for this is as follows. If in_flux(connection, something) is weakly/loosely dependent on itself, it is dependent on (differently indexed) values of itself from within the same 'for loop'.
-				This means that the for loop has to be ordered so that indexes that are 'earlier' in the connection graph come before later ones, but then there can be no cycle within the graph. We force the user to declare @no_cycles so that its validity can be checked at another stage without making the compiler check it here (that would complicate the code).
+				Note: The reasoning for this is as follows. If in_flux(connection, something) is (possibly indirectly) weakly/loosely dependent on itself, it is dependent on (differently indexed) values of itself from within the same 'for loop'.
+				This means that the for loop has to be ordered so that indexes that are 'earlier' in the connection graph come before later ones, but then there can be no cycle within the graph. We force the user to declare @no_cycles so that its validity can be checked at another stage without making the compiler check for no cycles (that would complicate the code).
 				
 				Note: Don't confuse the term 'cycle' within the model instruction dependencies with a 'cycle' within the connection graph itself.
 				If there is a *cycle* among the connection aggregate instructions, it means that the indexes must be ordered along the graph arrows, and so there can be *no cycle* in the connection graph.
@@ -831,10 +831,10 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			fun = var2->function_tree.get();
 			if(initial) fun = var2->initial_function_tree.get();
-			if(!initial && !fun && !is_valid(var2->external_computation)) {
-				if(var2->decl_type != Decl_Type::quantity) // NOTE: quantities typically don't have code associated with them directly (except for the initial value)
-					fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
-			}
+			
+			// NOTE: quantities typically don't have code associated with them directly (except for the initial value)
+			if(!initial && !fun && !is_valid(var2->external_computation) && !var2->is_mass_balance_quantity() && !var2->override_tree)
+				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 		}
 		
 		instr.var_id = var_id;
@@ -1091,7 +1091,7 @@ propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::v
 		}
 		
 		auto var = app->vars[instr->var_id];
-		if(var->type != State_Var::Type::declared || as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity)
+		if(var->type != State_Var::Type::declared || as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity) // TODO: Should the check be var->is_mass_balance_quantity() ?
 			instr->solver = solver;
 		if(instr->clear_instr >= 0)  // The clear instruction would otherwise not be visited since it doesn't depend on anything (only the other way around).
 			instructions[instr->clear_instr].solver = solver;
@@ -1185,9 +1185,9 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 				auto &other_instr = instructions[other_id];
 				if(other_instr.type != Model_Instruction::Type::compute_state_var || !is_valid(other_instr.var_id)) continue;
 				auto other_var = app->vars[other_instr.var_id];
-				bool is_quantity = other_var->type == State_Var::Type::declared &&
-					as<State_Var::Type::declared>(other_var)->decl_type == Decl_Type::quantity;
-				if(other_instr.solver == instr.solver && is_quantity)
+				//bool is_quantity = other_var->type == State_Var::Type::declared &&
+				//	as<State_Var::Type::declared>(other_var)->decl_type == Decl_Type::quantity;
+				if(other_instr.solver == instr.solver && other_var->is_mass_balance_quantity())
 					remove.push_back(other_id);
 			}
 			for(int rem : remove)
@@ -1549,11 +1549,7 @@ Model_Application::compile(bool store_code_strings) {
 				auto var_ref = this->vars[instructions[var].var_id];
 				// NOTE: if we override the conc or value of var, it is not treated as an ODE variable, it is just computed directly
 				bool is_ode = false;
-				if(instructions[var].type == Model_Instruction::Type::compute_state_var && var_ref->type == State_Var::Type::declared) {
-					auto var2 = as<State_Var::Type::declared>(var_ref);
-					is_ode = (var2->decl_type == Decl_Type::quantity) && !var2->override_tree;
-				}
-				if(is_ode)
+				if(instructions[var].type == Model_Instruction::Type::compute_state_var && var_ref->is_mass_balance_quantity())
 					vars_ode.push_back(var);
 				else
 					vars.push_back(var);

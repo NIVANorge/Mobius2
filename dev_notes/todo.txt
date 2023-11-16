@@ -2,55 +2,29 @@
 
 	*** High pri ***
 
-		Why wasn't it able to move saturation vapor pressure here: (?)
-		Looks like the merging algorithm is a bit broken?
-			["Water body" ]
-				"Saturation vapour pressure"
-			[]
-				"Solar radiation on a clear sky day"
-				"Cloud cover"
-				"Ice formation temperature"
-			["Water body" ]
-				"Actual vapour pressure"
-				"Actual specific humidity"
-				"Air density"
-				"Downwelling longwave radiation"
-
-
-
-
 		Why do errors during data set saving crash the program instead of getting caught now?
 		
 		Move over to having Mobius_Model as a Catalog. Then Data_Set.
+		
+			Reuse the entire registry and scope structure so that we can serialize in the data set, then deserialize in the model to transfer the entity automatically.
+			
 			Remove templatization of index_data on Entity_Id (and put a lot of the code in index_data in a .cpp for faster recompilation).
 			Instead just have separate Reg_Types for Data_Set and Mobius_Model things.
+				After this is done, move to Index_Set_Tuple for union_of also.
+				It would be nicer if index set is always the same Reg_Type, but it could cause errors where a Data_Set entity id is used for the model or opposite.
 			
-			Standardize AST-parsing of Data_Sets to match Mobius_Model.
-			Just have a "data" vector for [] -type data (which can be re-parsed later).
-			
-			Change it so that Mobius_Model and Data_Set both use Entity_Id. Could just use different Reg_Types for the Data_Set.
-				Remove all the extraneous templating.
+			data_set { } declaration.
+			Just let the data_set use the same AST parsing as Mobius_Model, where a [] block parses as "data", which is just a token list.
 			
 			Finish @exclude system for extend().
 				e.g. extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
 				Should maybe change parsing so that the () on solver is unnecessary. Or is it already working like that?
 				The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
 				Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
+	
+			Index sets refereced inside unused modules (in the data set) must still be declared in the data set.
+				This could possibly be solved using data_subset (see below).
 			
-			Also :
-				data_set { } declaration.
-			
-				And maybe reuse the entire registry and scope structure so that we can serialize in the data set, then deserialize in the model to transfer the entity automatically.
-			
-				Just let the data_set use the same AST, where a [] block parses as "data", which is just a token list.
-					However this is problematic for large data such as "series". Could also just put the source_loc there and restart the stream.
-					Maybe better: don't allow inline series in the main data file, and always require that they are included! (yes! then we also don't have to support printing them)
-				
-				Could have a serialization name for entities in the data set and use that to map them over to the model? Then use Entity_Id inside the data_set, but just map these to the model entity_ids.
-				
-				Index sets refereced inside unused modules have still to be declared in the data set.
-					Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.
-		
 		
 		Specific models
 			NIVAFjord!!
@@ -155,6 +129,7 @@
 			May need a more granular system for specifying what series to store (for non-declared series).
 			
 			Make @no_store available for @override quantities even on solvers.
+				I.e. for all declared variables that are not is_mass_balance_quantity().
 			
 			Determine variables that are going to be run-time constant and just compute them in the initial step, not the rest. (Also goes for stored variables).
 				Not allowed for 'quantity' unless it is @override.
@@ -212,8 +187,6 @@
 			A Var_Location hould not be able to both depend on a union and a member of that union
 				This is currently checked per component basis, but not combined. Should be done in model_composition
 		
-		When doing checks with std::set<Entity_Id> for index sets, we could instead use a bitfield over the id... (Efficiency).
-	
 		Clean up the prune_tree system.
 			Could get rid of using Function_Scope in prune_helper?
 				Tried it, but it has a bug.
