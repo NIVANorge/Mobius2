@@ -2,6 +2,23 @@
 
 	*** High pri ***
 
+		Why wasn't it able to move saturation vapor pressure here: (?)
+		Looks like the merging algorithm is a bit broken?
+			["Water body" ]
+				"Saturation vapour pressure"
+			[]
+				"Solar radiation on a clear sky day"
+				"Cloud cover"
+				"Ice formation temperature"
+			["Water body" ]
+				"Actual vapour pressure"
+				"Actual specific humidity"
+				"Air density"
+				"Downwelling longwave radiation"
+
+
+
+
 		Why do errors during data set saving crash the program instead of getting caught now?
 		
 		Move over to having Mobius_Model as a Catalog. Then Data_Set.
@@ -34,10 +51,6 @@
 				Index sets refereced inside unused modules have still to be declared in the data set.
 					Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.
 		
-		
-		Make an (optional - developer mode) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
-			Useful for catching errors, which we some times have but are slow to detect.
-			-- halfway done now.
 		
 		Specific models
 			NIVAFjord!!

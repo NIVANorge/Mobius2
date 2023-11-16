@@ -797,7 +797,7 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 }
 
 Math_Expr_FT *
-create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, std::set<Entity_Id> &index_sets, Index_Exprs &indexes) {
+create_nested_for_loops(Math_Block_FT *top_scope, Model_Application *app, Index_Set_Tuple &index_sets, Index_Exprs &indexes) {
 	
 	Math_Block_FT *scope = top_scope;
 

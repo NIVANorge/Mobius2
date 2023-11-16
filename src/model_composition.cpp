@@ -259,13 +259,13 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 }
 
 void
-insert_dependency_helper(Mobius_Model *model, std::set<Entity_Id> &index_sets, Entity_Id index_set) {
+insert_dependency_helper(Mobius_Model *model, Index_Set_Tuple &index_sets, Entity_Id index_set) {
 	
-	if(index_sets.find(index_set) != index_sets.end()) return;
+	if(index_sets.has(index_set)) return;
 	
 	// Replace an existing index set with a union member if applicable
 	// TODO: Is there a more efficient way to do this: ? It should be very rare also.
-	std::set<Entity_Id> remove;
+	Index_Set_Tuple remove;
 	for(auto existing : index_sets) {
 		auto set = model->index_sets[existing];
 		if(!set->union_of.empty()) {
@@ -276,13 +276,12 @@ insert_dependency_helper(Mobius_Model *model, std::set<Entity_Id> &index_sets, E
 			}
 		}
 	}
-	for(auto rem : remove) index_sets.erase(rem);
-	
+	index_sets.remove(remove);
 	index_sets.insert(index_set);
 }
 
 void
-get_maximal_index_sets(Model_Application *app, std::set<Entity_Id> &index_sets, Specific_Var_Location &loc1, Specific_Var_Location &loc2 = Specific_Var_Location() ) {
+get_allowed_index_sets(Model_Application *app, Index_Set_Tuple &index_sets, Specific_Var_Location &loc1, Specific_Var_Location &loc2 = Specific_Var_Location() ) {
 	
 	auto model = app->model;
 	
@@ -316,15 +315,15 @@ get_maximal_index_sets(Model_Application *app, std::set<Entity_Id> &index_sets, 
 
 
 bool
-index_set_is_contained_in(Mobius_Model *model, Entity_Id first, std::set<Entity_Id> &second) {
+index_set_is_contained_in(Mobius_Model *model, Entity_Id first, Index_Set_Tuple &second) {
 	
-	if(second.find(first) != second.end()) return true;
+	if(second.has(first)) return true;
 	
 	// A union member *can* be used to address the union.
 	auto set = model->index_sets[first];
 	if(!set->union_of.empty()) {
 		for(auto ui_id : set->union_of) {
-			if(second.find(ui_id) != second.end())
+			if(second.has(ui_id))
 				return true;
 		}
 	}
@@ -334,7 +333,7 @@ index_set_is_contained_in(Mobius_Model *model, Entity_Id first, std::set<Entity_
 
 
 bool
-index_sets_are_contained_in(Mobius_Model *model, std::set<Entity_Id> &first, std::set<Entity_Id> &second) {
+index_sets_are_contained_in(Mobius_Model *model, Index_Set_Tuple &first, Index_Set_Tuple &second) {
 	bool success = true;
 	for(auto set : first) {
 		if(!index_set_is_contained_in(model, set, second)) {
@@ -346,7 +345,7 @@ index_sets_are_contained_in(Mobius_Model *model, std::set<Entity_Id> &first, std
 }
 
 bool
-parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, std::set<Entity_Id> &allowed_index_sets) {
+parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, Index_Set_Tuple &allowed_index_sets) {
 		
 	auto model = app->model;
 	auto par = model->parameters[dep.par_id];
@@ -354,7 +353,7 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 	
 	Entity_Id exclude = avoid_index_set_dependency(app, dep.restriction);
 	
-	std::set<Entity_Id> maximal_group_sets;
+	Index_Set_Tuple maximal_group_sets;
 	for(auto comp_id : group->components) {
 		for(auto index_set : model->components[comp_id]->index_sets) {
 			if(index_set != exclude)
@@ -366,7 +365,7 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 }
 
 void
-check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, std::set<Entity_Id> &allowed_index_sets) {
+check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Index_Set_Tuple &allowed_index_sets) {
 	
 	// TODO: The loc in this function is really the below_loc. Maybe rename it to avoid confusion.
 	
@@ -388,9 +387,9 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			}
 		} else if (dep.variable_type == Variable_Type::series) {
 			
-			std::set<Entity_Id> maximal_series_sets;
+			Index_Set_Tuple maximal_series_sets;
 			Specific_Var_Location ident_loc(app->vars[dep.var_id]->loc1, dep.restriction);
-			get_maximal_index_sets(app, maximal_series_sets, ident_loc);
+			get_allowed_index_sets(app, maximal_series_sets, ident_loc);
 			
 			if(!index_sets_are_contained_in(model, maximal_series_sets, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
@@ -420,9 +419,9 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			if(dep_var->is_flux() || !is_located(dep_var->loc1))
 				fatal_error(Mobius_Error::internal, "Somehow a direct lookup of a flux or unlocated variable \"", dep_var->name, "\" in code tested with check_valid_distribution_of_dependencies().");
 			
-			std::set<Entity_Id> maximal_var_sets;
+			Index_Set_Tuple maximal_var_sets;
 			Specific_Var_Location var_loc(dep_var->loc1, dep.restriction);
-			get_maximal_index_sets(app, maximal_var_sets, var_loc);
+			get_allowed_index_sets(app, maximal_var_sets, var_loc);
 			
 			if(!index_sets_are_contained_in(model, maximal_var_sets, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
@@ -800,7 +799,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			}
 			
 			auto state_var = as<State_Var::Type::declared>(app->vars[var_id]);
-			get_maximal_index_sets(app, state_var->maximal_allowed_index_sets, state_var->loc1);
+			get_allowed_index_sets(app, state_var->allowed_index_sets, state_var->loc1);
 		}
 	}
 	
@@ -836,7 +835,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		
 		resolve_no_carry(app, var);
 		
-		get_maximal_index_sets(app, var->maximal_allowed_index_sets, var->loc1, var->loc2);
+		get_allowed_index_sets(app, var->allowed_index_sets, var->loc1, var->loc2);
 	}
 	
 	//NOTE: not that clean to have this part here, but it is just much easier if it is done before function resolution.
@@ -904,7 +903,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->loc2.r1 = flux->loc2.r1;
 			gen_flux->loc2.r2 = flux->loc2.r2;
 			
-			get_maximal_index_sets(app, gen_flux->maximal_allowed_index_sets, gen_flux->loc1, gen_flux->loc2);
+			get_allowed_index_sets(app, gen_flux->allowed_index_sets, gen_flux->loc1, gen_flux->loc2);
 		}
 	
 		// Check if we should generate an additional concentration variable for this in a 'higher' medium.
@@ -963,8 +962,8 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		// TODO: It may be a bit inefficient that we build the maximal dependency set every time this aggregation
 		// weight is resolved.
 		Specific_Var_Location loc = loc1; // sigh
-		std::set<Entity_Id> allowed_index_sets;
-		get_maximal_index_sets(app, allowed_index_sets, loc);
+		Index_Set_Tuple allowed_index_sets;
+		get_allowed_index_sets(app, allowed_index_sets, loc);
 		
 		check_valid_distribution_of_dependencies(app, agg_weight, allowed_index_sets);
 		
@@ -1051,8 +1050,8 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	// TODO: It may be a bit inefficient that we build the maximal dependency set every time
 	// this unit conversion is resolved.
 	Specific_Var_Location loc = loc1;
-	std::set<Entity_Id> allowed_index_sets;
-	get_maximal_index_sets(app, allowed_index_sets, loc);
+	Index_Set_Tuple allowed_index_sets;
+	get_allowed_index_sets(app, allowed_index_sets, loc);
 	
 	check_valid_distribution_of_dependencies(app, unit_conv, allowed_index_sets);
 	
@@ -1564,16 +1563,16 @@ Model_Application::compose_and_resolve() {
 
 		if(!is_located(var->loc1) || !is_located(var->loc2)) continue;
 		
-		std::set<Entity_Id> max_target_indexes;
-		get_maximal_index_sets(this, max_target_indexes, var->loc2);
+		Index_Set_Tuple max_target_indexes;
+		get_allowed_index_sets(this, max_target_indexes, var->loc2);
 		
 		bool is_below;
 		if(var->type == State_Var::Type::declared) {
 			// We have computed the index sets of loc1 already.
-			is_below = index_sets_are_contained_in(model, as<State_Var::Type::declared>(var)->maximal_allowed_index_sets, max_target_indexes);
+			is_below = index_sets_are_contained_in(model, as<State_Var::Type::declared>(var)->allowed_index_sets, max_target_indexes);
 		} else {
-			std::set<Entity_Id> max_source_index_sets;
-			get_maximal_index_sets(this, max_source_index_sets, var->loc1, var->loc2);
+			Index_Set_Tuple max_source_index_sets;
+			get_allowed_index_sets(this, max_source_index_sets, var->loc1, var->loc2);
 			is_below = index_sets_are_contained_in(model, max_source_index_sets, max_target_indexes);
 		}
 		
@@ -1745,7 +1744,8 @@ Model_Application::compose_and_resolve() {
 	}
 	
 	// See if the code for computing a variable looks up other values that are distributed over index sets that the var is not distributed over.
-	// NOTE: This must be done after all calls to replace_flagged, otherwise the references are not correctly in place.
+	// NOTE: This must be done after all calls to replace_flagged or manipulation of Identifier_FT's in the function trees, 
+	//  otherwise identifier references may not be in their final state.
 	for(auto var_id : vars.all_state_vars()) {
 		auto var = vars[var_id];
 		
@@ -1753,11 +1753,11 @@ Model_Application::compose_and_resolve() {
 		auto var2 = as<State_Var::Type::declared>(var);
 
 		if(var2->function_tree)
-			check_valid_distribution_of_dependencies(this, var2->function_tree.get(), var2->maximal_allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->function_tree.get(), var2->allowed_index_sets);
 		if(var2->initial_function_tree)
-			check_valid_distribution_of_dependencies(this, var2->initial_function_tree.get(), var2->maximal_allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->initial_function_tree.get(), var2->allowed_index_sets);
 		if(var2->override_tree)
-			check_valid_distribution_of_dependencies(this, var2->override_tree.get(), var2->maximal_allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->override_tree.get(), var2->allowed_index_sets);
 	}
 	
 	for(auto var_id : vars.all_state_vars()) {

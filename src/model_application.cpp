@@ -86,6 +86,11 @@ Model_Application::Model_Application(Mobius_Model *model) :
 	model(model), parameter_structure(this), series_structure(this), result_structure(this), temp_result_structure(this), connection_structure(this),
 	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr), index_data(model) {
 	
+	
+	// NOTE: This is only because of how we implement Index_Set_Tuple. That could easily be amended if necessary.
+	if(model->index_sets.count() > 64)
+		fatal_error(Mobius_Error::internal, "There is an implementation restriction so that you can't currently have more than 64 index_sets in the same model.");
+	
 	time_step_size.unit       = Time_Step_Size::second;
 	time_step_size.multiplier = 86400;
 	time_step_unit.declared_form.push_back({0, 1, Compound_Unit::day});
@@ -575,7 +580,7 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 					
 					auto var = as<State_Var::Type::declared>(app->vars[id]);
 					
-					if(var->maximal_allowed_index_sets.find(index_set) == var->maximal_allowed_index_sets.end()) {
+					if(!var->allowed_index_sets.has(index_set)) {
 						header.source_loc.print_error_header();
 						fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the relevant components are not distributed over that index set.");
 					}

@@ -86,16 +86,16 @@ insert_dependency_base(Model_Application *app, Model_Instruction *instr, Entity_
 	
 	auto model = app->model;
 	
-	std::set<Entity_Id> *maximal_index_sets = nullptr;
+	Index_Set_Tuple *allowed_index_sets = nullptr;
 
 	if(instr->type == Model_Instruction::Type::compute_state_var || instr->type == Model_Instruction::Type::add_to_connection_aggregate) {
 		auto var = app->vars[instr->var_id];
 		if(var->type == State_Var::Type::declared)
-			maximal_index_sets = &as<State_Var::Type::declared>(var)->maximal_allowed_index_sets;
+			allowed_index_sets = &as<State_Var::Type::declared>(var)->allowed_index_sets;
 		else if(var->type == State_Var::Type::dissolved_flux) {
 			// could happen if it gets a dependency inserted from a connection aggregation.
 			// Other dependencies should be fine automatically.
-			maximal_index_sets = &as<State_Var::Type::dissolved_flux>(var)->maximal_allowed_index_sets;
+			allowed_index_sets = &as<State_Var::Type::dissolved_flux>(var)->allowed_index_sets;
 		}
 	}
 	
@@ -104,9 +104,7 @@ insert_dependency_base(Model_Application *app, Model_Instruction *instr, Entity_
 	if(!is_valid(to_insert))
 		fatal_error(Mobius_Error::internal, "Tried to insert an invalid id as an index set dependency.");
 
-	auto find = std::find(dependencies.begin(), dependencies.end(), to_insert);
-	
-	if(find != dependencies.end())
+	if(dependencies.has(to_insert))
 		return false;
 	
 	auto set = model->index_sets[to_insert];
@@ -118,27 +116,21 @@ insert_dependency_base(Model_Application *app, Model_Instruction *instr, Entity_
 		
 		Entity_Id union_member_allowed = invalid_entity_id;
 		for(auto ui_id : set->union_of) {
-			auto find2 = std::find(dependencies.begin(), dependencies.end(), ui_id);
-			if(find2 != dependencies.end())
+			if(dependencies.has(ui_id))
 				return false;
-			if(maximal_index_sets) {
-				if(maximal_index_sets->find(ui_id) != maximal_index_sets->end())
-					union_member_allowed = ui_id;
-			}
+			if(allowed_index_sets && allowed_index_sets->has(ui_id))
+				union_member_allowed = ui_id;
 		}
 		// If the reference var location could only depend on a union member, we should insert the union member rather than the union.
 		// (note that if the union member was already a dependency, we have exited already, so this insertion is indeed new).
 		if(is_valid(union_member_allowed)) {
-			
 			dependencies.insert(union_member_allowed);
 			return true;
 		}
 	}
 	
-	if(maximal_index_sets) {
-		if(maximal_index_sets->find(to_insert) == maximal_index_sets->end())
-			fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency ", model->index_sets[to_insert]->name, " for ", instr->debug_string(app), "\n");
-	}
+	if(allowed_index_sets && !allowed_index_sets->has(to_insert))
+		fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency ", model->index_sets[to_insert]->name, " for ", instr->debug_string(app), "\n");
 
 	// TODO: If any of the existing index sets in dependencies is a union and we try to insert a union member, that should overwrite the union?
 	//   Hmm, however, this should not really happen as a Var_Location should not be able to have such a double dependency in the first place.
@@ -187,7 +179,7 @@ insert_dependencies(Model_Application *app, Model_Instruction *instr, const Iden
 }
 
 bool
-insert_dependencies(Model_Application *app, Model_Instruction *instr, std::set<Entity_Id> &to_insert, const Identifier_Data &dep) {
+insert_dependencies(Model_Application *app, Model_Instruction *instr, Index_Set_Tuple &to_insert, const Identifier_Data &dep) {
 	auto avoid = avoid_index_set_dependency(app, dep.restriction);
 	
 	bool changed = false;
@@ -318,25 +310,6 @@ propagate_index_set_dependencies(Model_Application *app, std::vector<Model_Instr
 	return changed_at_all;
 }
 
-// TODO: We should probably just always store index set dependencies packed like this.
-//   Will optimize a lot of the dependency checking code.
-
-inline u64
-pack_index_sets(std::set<Entity_Id> &index_sets) {
-	u64 result = 0;
-	for(auto id : index_sets)
-		result |= ((u64)1 << (id.id));
-	return result;
-}
-
-inline void
-unpack_index_sets(u64 pack, std::set<Entity_Id> &index_sets) {
-	for(s16 id = 0; id < 64; ++id) {
-		if(pack & ((u64)1 << id))
-			index_sets.insert(Entity_Id {Reg_Type::index_set, id});
-	}
-}
-
 void
 check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruction> &instructions, std::vector<Strongly_Connected_Component<u64>> &max_components) {
 	
@@ -384,9 +357,6 @@ void
 build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector<Model_Instruction> &instructions, std::vector<Batch_Array> &arrays_out, bool initial) {
 	Mobius_Model *model = app->model;
 	
-	if(model->index_sets.count() > 64)
-		fatal_error(Mobius_Error::internal, "There is an implementation restriction so that you can't currently have more than 64 index_sets in the same model.");
-	
 	struct Instruction_Array_Grouping_Predicate {
 		std::vector<Model_Instruction> *instructions;
 		std::vector<u8>                *participates_;
@@ -396,7 +366,7 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 		inline const std::set<int> &weak_edges(int node) { return (*instructions)[node].loose_depends_on_instruction; }
 		inline const std::set<int> &blocks(int node) { return (*instructions)[node].instruction_is_blocking; }
 		
-		inline u64 label(int node) {  return pack_index_sets((*instructions)[node].index_sets);  }
+		inline u64 label(int node) {  return (*instructions)[node].index_sets.bits;  }
 	};
 	
 	std::vector<u8> participates(instructions.size());
@@ -422,7 +392,7 @@ build_batch_arrays(Model_Application *app, std::vector<int> &instrs, std::vector
 	for(auto &group : groups) {
 		Batch_Array array;
 		array.instr_ids = std::move(group.nodes);
-		unpack_index_sets(group.label, array.index_sets);
+		array.index_sets = Index_Set_Tuple { group.label }; // TODO: Maybe the label should be the tuple instead of just the bits.
 		arrays_out.push_back(std::move(array));
 	}
 	
@@ -1435,6 +1405,8 @@ validate_batch_structure(Model_Application *app, const std::vector<Batch> &batch
 				
 				if(instr.index_sets != array.index_sets)
 					fatal_error(Mobius_Error::internal, init, "Mismatch between index sets of instruction \"", instr.debug_string(app), "\" and its batch. ");
+				
+				// TODO: Check that the tuple itself is valid. (wrt unions, sub-indexing etc.)
 				
 				if(instr.depends_on_instruction.empty() && instr.loose_depends_on_instruction.empty() && instr.instruction_is_blocking.empty())
 					continue;

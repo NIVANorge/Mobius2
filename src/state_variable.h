@@ -2,6 +2,48 @@
 #ifndef MOBIUS_STATE_VARIABLE_H
 #define MOBIUS_STATE_VARIABLE_H
 
+#include "common_types.h"
+#include "units.h"
+
+struct
+Index_Set_Tuple {
+	
+	inline bool add_bits(u64 to_add) {
+		bool change = (to_add & bits) != to_add;
+		bits |= to_add;
+		return change;
+	}
+	inline bool remove_bits(u64 to_remove) {
+		bool change = (to_remove & bits);
+		bits &= ~to_remove;
+		return change;
+	}
+	bool insert(Entity_Id index_set_id) { return add_bits((u64(1) << index_set_id.id));	}
+	bool insert(Index_Set_Tuple &other) { return add_bits(other.bits); }
+	bool remove(Entity_Id index_set_id) { return remove_bits((u64(1) << index_set_id.id)); }
+	bool remove(Index_Set_Tuple &other) { return remove_bits(other.bits); }
+	bool has(Entity_Id index_set_id) { return bits & (u64(1) << index_set_id.id); }
+	bool has_some(Index_Set_Tuple &other) { return bits & other.bits; }
+	bool has_all(Index_Set_Tuple &other) { return (bits & other.bits) == other.bits; }
+	
+	bool operator!=(const Index_Set_Tuple &other) const { return bits != other.bits; }
+	
+	struct Iterator {
+		int at = 0;
+		u64 bits;
+		Iterator(u64 bits, int at) : bits(bits), at(at) { advance_to_next(); }
+		Iterator &operator++(){ ++at; advance_to_next(); return *this; }
+		Entity_Id operator*() { return Entity_Id { Reg_Type::index_set, s16(at) }; }
+		bool operator!=(Iterator &other) { return at != other.at; }
+		void advance_to_next() { while( !(bits & (u64(1) << at)) && at < 64 ) ++at; }
+	};
+	
+	Iterator begin() { return Iterator(bits, 0); }
+	Iterator end() { return Iterator(0, 64); }
+
+	u64 bits = 0;
+};
+
 struct
 State_Var {
 	
@@ -88,7 +130,7 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	std::vector<Var_Id> no_carry;
 	bool no_carry_by_default = false;
 	
-	std::set<Entity_Id> maximal_allowed_index_sets;
+	Index_Set_Tuple allowed_index_sets;
 	
 	State_Var_Sub() : function_tree(nullptr), initial_function_tree(nullptr), override_tree(nullptr) {}
 };
@@ -123,7 +165,7 @@ State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
 	Var_Id         conc            = invalid_var;         // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium  = invalid_var;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
-	std::set<Entity_Id> maximal_allowed_index_sets;
+	Index_Set_Tuple allowed_index_sets;
 	
 	State_Var_Sub() {}
 };

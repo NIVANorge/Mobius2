@@ -31,7 +31,7 @@ Model_Instruction {
 	
 	Entity_Id           solver     = invalid_entity_id;
 	
-	std::set<Entity_Id> index_sets;
+	Index_Set_Tuple index_sets;
 	
 	// TODO: Rename to depends_on, loose_depends_on and is_blocking
 	std::set<int> depends_on_instruction; // Instructions that must be executed before this one.
@@ -66,7 +66,7 @@ Model_Instruction {
 struct
 Batch_Array {
 	std::vector<int>               instr_ids;
-	std::set<Entity_Id>            index_sets;
+	Index_Set_Tuple                index_sets;
 };
 
 struct

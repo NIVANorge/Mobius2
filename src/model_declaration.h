@@ -273,7 +273,7 @@ Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
 template<> struct
 Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
 	
-	std::vector<Entity_Id>  union_of;
+	std::vector<Entity_Id>  union_of;  // TODO: Make this an Index_Set_Tuple too!
 	
 	Entity_Id sub_indexed_to;
 	
