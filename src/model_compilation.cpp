@@ -417,7 +417,6 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	// Some other variable wants to look up the value of this one in the initial step, but it doesn't have initial code. If it has regular code, we can substitute that!
 	
 	auto var = app->vars[var_id];
-	//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
 		
 	instr->type = Model_Instruction::Type::compute_state_var;
 	instr->var_id = var_id;
@@ -425,11 +424,22 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	
 	if(var->type == State_Var::Type::declared) {
 		auto var2 = as<State_Var::Type::declared>(var);
-		if(var2->function_tree) {
-			instr->code = copy(var2->function_tree.get());
+		auto fun = var2->function_tree.get();
+		if(!fun && !var2->override_is_conc)
+			fun = var2->override_tree.get();
+		if(fun) {
+			//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
+			// For instance if we borrow the initial code from the main code, we have to remove last() clauses from it.
+			
+			instr->code = copy(fun);
 			// Have to do this recursively, since we may already have passed it in the outer loop.
 			create_initial_vars_for_lookups(app, instr->code, instructions);
 		}
+		// NOTE: To fix this we would have to codegen mass = conc*mass_of_medium and remember to also call ensure_has_intial_value for those.
+		if(var2->override_tree && var2->override_is_conc)
+			fatal_error(Mobius_Error::internal, "Wanted to generate initial code for variable \"", var->name, "\", but it only has @override_conc code. This is not yet handled. (for now, you have to manually put @initial_conc on it.");
+		
+		// NOTE: If it doesn't have code it does have initial value 0, and that will be correct. 
 	}
 	
 	// If it is an aggregation variable, whatever it aggregates also must be computed.
@@ -461,10 +471,8 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var) {
-			
+		if(ident->variable_type == Variable_Type::state_var)
 			ensure_has_intial_value(app, ident->var_id, instructions);
-		}
 	}
 }
 
@@ -806,7 +814,7 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 			// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
 				// TODO: This is not all that robust.
 			model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc.print_error_header();
-			//TODO: this is not really enough info to tell the user where the error happened.
+			//TODO: this is not really enough info to let the user know the combined causes of the problem.
 			fatal_error("This flux was put on a connection, but the source is a discrete variable. This is currently not supported.");
 		}
 	}
@@ -829,8 +837,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(var->type == State_Var::Type::declared) {
 			auto var2 = as<State_Var::Type::declared>(var);
 			
-			fun = var2->function_tree.get();
 			if(initial) fun = var2->initial_function_tree.get();
+			else        fun = var2->function_tree.get();
 			
 			// NOTE: quantities typically don't have code associated with them directly (except for the initial value)
 			if(!initial && !fun && !is_valid(var2->external_computation) && !var2->is_mass_balance_quantity() && !var2->override_tree)
