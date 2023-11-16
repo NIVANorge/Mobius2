@@ -289,7 +289,7 @@ optimize_label_group_packing(Predicate &predicate, std::vector<Node_Group<Label>
 			
 			if(!predicate.allow_move(group.label)) continue;
 			
-			for(int idx = group.nodes.size()-1; idx > 0; --idx) {
+			for(int idx = (int)group.nodes.size()-1; idx >= 0; --idx) {
 				int node = group.nodes[idx];
 				
 				// If another instruction behind us in the same batch depends on us, we are not allowed to move.
