@@ -5,18 +5,20 @@
 		Why do errors during data set saving crash the program instead of getting caught now?
 		
 		Move over to having Mobius_Model as a Catalog. Then Data_Set.
-		
-			Reuse the entire registry and scope structure so that we can serialize in the data set, then deserialize in the model to automatically map ids.
 			
-			Remove templatization of index_data on Entity_Id (and put a lot of the code in index_data in a .cpp for faster recompilation).
+			Remove templatization of index_data on Record_Type (and put a lot of the code in index_data in a .cpp for faster recompilation).
 			Instead just have separate Reg_Types for Data_Set and Mobius_Model things. (?)
 				After this is done, move to Index_Set_Tuple for union_of also.
 				It would be nicer if index set is always the same Reg_Type, but it could cause errors where a Data_Set entity id is used for the model or opposite.
 					Then the Catalog base class could also always have a Registry<Reg_Type::index_set>, and that would simplify index_data code.
-					The wrong use of the entity id is only a problem on the side of the framework implementer, not on any other user. So should easily be detected. Any other way to make that better?.
+					The wrong use of the entity id is only a problem on the side of the framework implementer, and only in model_application.cpp, not on any other user. So should easily be detected. Any other way to make that better?.
 			
 			data_set { } declaration.
 			Just let the data_set use the same AST parsing as Mobius_Model, where a [] block parses as "data", which is just a token list.
+			
+			Re-use the entire registry and scope structure so that we can serialize in the data set, then deserialize in the model to automatically map ids.
+			
+			Rename 'handle' to 'identifier'.
 			
 			Finish @exclude system for extend().
 				e.g. extend("simplyq_model.txt") @exclude(solver(), heat : quantity)

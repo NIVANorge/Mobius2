@@ -121,6 +121,21 @@ private:
 	const Token * peek_token_base(s64 peek_at = 0);
 };
 
+inline Parameter_Value
+get_parameter_value(Token *token, Token_Type type) {
+	if((type == Token_Type::integer || type == Token_Type::boolean) && token->type == Token_Type::real)
+		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
+	Parameter_Value result;
+	if(type == Token_Type::real)
+		result.val_real = token->double_value();
+	else if(type == Token_Type::integer)
+		result.val_integer = token->val_int;
+	else if(type == Token_Type::boolean)
+		result.val_boolean = token->val_bool;
+	else
+		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
+	return result;
+}
 
 
 #endif

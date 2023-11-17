@@ -81,7 +81,7 @@ add_component_node(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_
 
 void
 put_name(std::stringstream &ss, Mobius_Model *model, Entity_Id id, bool show_short_names) {
-	Entity_Registration_Base *reg;
+	Registration_Base *reg;
 	if(id.reg_type == Reg_Type::component)
 		reg = model->components[id];
 	else

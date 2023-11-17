@@ -373,7 +373,7 @@ mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Ind
 			stream.allow_date_time_tokens = true;
 			val.val_datetime = stream.expect_datetime();
 		} else if (par->decl_type == Decl_Type::par_enum) {
-			s64 intval = enum_int_value(par, value);
+			s64 intval = par->enum_int_value(value);
 			val.val_integer = intval;
 		} else
 			fatal_error(Mobius_Error::api_usage, "mobius_set_parameter_string can not be called on parameters of this type.");

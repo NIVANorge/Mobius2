@@ -370,7 +370,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 
 	Entity_Id module_id = invalid_entity_id;
 	if(!module_name.empty()) {
-		module_id = model->model_decl_scope.deserialize(module_name, Reg_Type::module);
+		module_id = model->top_scope.deserialize(module_name, Reg_Type::module);
 		if(!is_valid(module_id)) //NOTE: we do error handling on missing modules on the second pass when we load the actual data.
 			return;
 	}
@@ -398,7 +398,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_
 			auto index_set_data_id = par_group->index_sets[idx];
 			
 			auto &name = data_set->index_sets[index_set_data_id]->name;
-			auto index_set_id = model->model_decl_scope.deserialize(name, Reg_Type::index_set);
+			auto index_set_id = model->top_scope.deserialize(name, Reg_Type::index_set);
 			if(!is_valid(index_set_id)) {
 				par_group->source_loc.print_error_header();
 				fatal_error("The index set \"", name, "\" does not exist in the model.");
@@ -571,7 +571,7 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_I
 		for(auto &index : header.indexes[0].indexes) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
 			// NOTE: this should be valid since we already tested it internally in the data set.
 			auto idx_set = data_set->index_sets[index.index_set];
-			Entity_Id index_set = model->model_decl_scope.deserialize(idx_set->name, Reg_Type::index_set);
+			Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
 			if(!is_valid(index_set))
 				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 			for(auto id : ids) {
@@ -639,7 +639,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	std::vector<Entity_Id> index_sets;
 	for(auto set_id : comp->index_sets) {
 		auto idx_set_info = data_set->index_sets[set_id];
-		auto index_set = model->model_decl_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
+		auto index_set = model->top_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
 		if(!is_valid(index_set)) {
 			idx_set_info->source_loc.print_error_header();
 			fatal_error("The index set \"", idx_set_info->name, " does not exist in the model.");  // Actually, this has probably been checked somewhere else already.
@@ -730,7 +730,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	}
 	
 	for(auto &comp : connection.components) {
-		Entity_Id comp_id = model->model_decl_scope.deserialize(comp.name, Reg_Type::component);
+		Entity_Id comp_id = model->top_scope.deserialize(comp.name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
 			comp.source_loc.print_error_header();
 			fatal_error("The component \"", comp.name, "\" has not been declared in the model.");
@@ -752,11 +752,11 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		Connection_Arrow arrow;
 		
 		auto comp_source = connection.components[arr.first.id];
-		arrow.source_id = model->model_decl_scope.deserialize(comp_source->name, Reg_Type::component);
+		arrow.source_id = model->top_scope.deserialize(comp_source->name, Reg_Type::component);
 	
 		if(is_valid(arr.second.id)) {
 			auto comp_target = connection.components[arr.second.id];
-			arrow.target_id = model->model_decl_scope.deserialize(comp_target->name, Reg_Type::component);
+			arrow.target_id = model->top_scope.deserialize(comp_target->name, Reg_Type::component);
 		}
 		
 		// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
@@ -978,7 +978,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto &par_group : data_set->global_module.par_groups)
 		process_parameters(this, &par_group);
 	for(auto &module : data_set->modules) {
-		Entity_Id module_id = model->model_decl_scope.deserialize(module.name, Reg_Type::module);
+		Entity_Id module_id = model->top_scope.deserialize(module.name, Reg_Type::module);
 		if(!is_valid(module_id)) {
 			log_print("In ");
 			module.source_loc.print_log_header();
@@ -1135,7 +1135,7 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 	
 	auto model = other.record;
 	auto set_data = record->index_sets[data_id];
-	auto model_set_id = model->model_decl_scope.deserialize(set_data->name, Reg_Type::index_set);
+	auto model_set_id = model->top_scope.deserialize(set_data->name, Reg_Type::index_set);
 	if(!is_valid(model_set_id)) {
 		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
 		set_data->source_loc.print_error_header();
@@ -1143,8 +1143,6 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 		//return;
 	}
 	auto set = model->index_sets[model_set_id];
-	
-	//TODO: Finish!
 	
 	if(!set->union_of.empty()) {
 		// Check that the unions match
@@ -1155,7 +1153,7 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 			int idx = 0;
 			for(auto ui_id : set_data->union_of) {
 				auto ui_data = record->index_sets[ui_id];
-				auto ui_id_model = model->model_decl_scope.deserialize(ui_data->name, Reg_Type::index_set);
+				auto ui_id_model = model->top_scope.deserialize(ui_data->name, Reg_Type::index_set);
 				if(!is_valid(ui_id_model) || ui_id_model != set->union_of[idx]) {
 					error = true;
 					break;
@@ -1179,7 +1177,7 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 	
 	Entity_Id sub_indexed_to = invalid_entity_id;
 	if(is_valid(set_data->sub_indexed_to))
-		sub_indexed_to = model->model_decl_scope.deserialize(record->index_sets[set_data->sub_indexed_to]->name, Reg_Type::index_set);
+		sub_indexed_to = model->top_scope.deserialize(record->index_sets[set_data->sub_indexed_to]->name, Reg_Type::index_set);
 	if(set->sub_indexed_to != sub_indexed_to) {
 		set_data->source_loc.print_error_header();
 		fatal_error("The parent index set of the index set \"", set_data->name, "\" does not match between the model and the data set.");
@@ -1274,14 +1272,14 @@ Data_Storage<Val_T, Handle_T>::copy_from(Data_Storage<Val_T, Handle_T> *source, 
 
 Date_Time
 Model_Data::get_start_date_parameter() {
-	auto id = app->model->model_decl_scope["start_date"]->id;
+	auto id = app->model->top_scope["start_date"]->id;
 	auto offset = parameters.structure->get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
 	return parameters.get_value(offset)->val_datetime;
 }
 
 Date_Time
 Model_Data::get_end_date_parameter() {
-	auto id = app->model->model_decl_scope["end_date"]->id;
+	auto id = app->model->top_scope["end_date"]->id;
 	auto offset = parameters.structure->get_offset_base(id);                    // NOTE: it should not be possible to index this over an index set any way.
 	return parameters.get_value(offset)->val_datetime;
 }

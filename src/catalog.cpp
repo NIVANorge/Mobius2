@@ -28,6 +28,8 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 	}
 	handles[id] = handle;
 	all_ids.insert(id);
+	
+	return result;
 }
 
 Scope_Entity *
@@ -35,11 +37,11 @@ Decl_Scope::register_decl(Decl_AST *ast, Entity_Id id) {
 	
 	std::string handle;
 	if(ast->handle_name.string_value.count)
-		handle = ast->handle_name;
+		handle = ast->handle_name.string_value;
 	
-	add_local(handle, ast->source_loc, id);
-	
+	auto result = add_local(handle, ast->source_loc, id);
 	by_decl[ast] = id;
+	
 	return result;
 }
 
@@ -122,7 +124,7 @@ Decl_Scope::resolve_argument(Reg_Type expected_type, Argument_AST *arg) {
 }
 
 void
-Catalog::register_single_decl(Decl_Scope *scope, Decl_AST *decl, std::vector<Decl_Type> &allowed_types) {
+Catalog::register_single_decl(Decl_Scope *scope, Decl_AST *decl, const std::vector<Decl_Type> &allowed_types) {
 	
 	if(std::find(allowed_types.begin(), allowed_types.end(), decl->type) == allowed_types.end()) {
 		decl->source_loc.print_error_header();
@@ -135,7 +137,7 @@ Catalog::register_single_decl(Decl_Scope *scope, Decl_AST *decl, std::vector<Dec
 }
 
 void
-Catalog::register_decls_recursive(Decl_Scope *scope, Decl_AST *decl, std::vector<Decl_Type> &allowed_types) {
+Catalog::register_decls_recursive(Decl_Scope *scope, Decl_AST *decl, const std::vector<Decl_Type> &allowed_types) {
 	
 	register_single_decl(scope, decl, allowed_types);
 	
@@ -151,6 +153,50 @@ Catalog::register_decls_recursive(Decl_Scope *scope, Decl_AST *decl, std::vector
 	}
 }
 
+Decl_Scope *
+Catalog::get_scope(Entity_Id id) {
+	if(!is_valid(id))
+		return &top_scope;
+	else if(id.reg_type == Reg_Type::library)
+		return &libraries[id]->scope;
+	else if(id.reg_type == Reg_Type::module)
+		return &modules[id]->scope;
+	else if(id.reg_type == Reg_Type::par_group)
+		return &par_groups[id]->scope;
+	fatal_error(Mobius_Error::internal, "Tried to look up the scope belonging to an id that is not a library or module.");
+	return nullptr;
+}
 
+std::string
+Catalog::serialize(Entity_Id id) {
+	if(!is_valid(id))
+		fatal_error(Mobius_Error::api_usage, "An invalid entity id was passed to serialize().");
+	auto entity = find_entity(id);
+	if(is_valid(entity->scope_id)) {
+		std::stringstream ss;
+		auto scope = find_entity(entity->scope_id);
+		if(is_valid(scope->scope_id)) {
+			auto superscope = find_entity(scope->scope_id);
+			ss << superscope->name << '\\';
+		}
+		ss << scope->name << '\\' << entity->name;
+		return ss.str();
+	}
+	return entity->name;
+}
+
+Entity_Id
+Catalog::deserialize(const std::string &serial_name, Reg_Type expected_type) {
+
+	auto vec = split(serial_name, '\\');  // Hmm, this is maybe a bit inefficient, but probably not a problem.
+	
+	Decl_Scope *scope = &top_scope;
+	for(int idx = 0; idx < vec.size()-1; ++idx) {
+		auto scope_id = scope->deserialize(vec[idx], Reg_Type::unrecognized);
+		if(!is_valid(scope_id)) return invalid_entity_id;
+		scope = get_scope(scope_id);
+	}
+	return scope->deserialize(vec.back(), expected_type);
+}
 
 

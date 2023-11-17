@@ -221,7 +221,7 @@ process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *seri
 				
 				for(auto &index : indexes.indexes) {
 					auto idx_set = data_set->index_sets[index.index_set];
-					Entity_Id index_set = model->model_decl_scope.deserialize(idx_set->name, Reg_Type::index_set);
+					Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
 					Entity_Id expected = expected_index_sets[index_idx];
 					if(index_set != expected) {
 						header.source_loc.print_error_header();

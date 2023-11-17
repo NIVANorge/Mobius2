@@ -968,7 +968,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 						error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
 						fatal_error_trace(scope);
 					}
-					s64 val = enum_int_value(parameter, n2);
+					s64 val = parameter->enum_int_value(n2);
 					if(val < 0) {
 						ident->chain[1].print_error_header();
 						error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");

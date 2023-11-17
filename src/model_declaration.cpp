@@ -4,6 +4,7 @@
 #include <sstream>
 #include "model_declaration.h"
 
+/*
 Scope_Entity *
 Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id) {
 	
@@ -82,7 +83,10 @@ Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc, bool al
 		}
 	}
 }
+*/
 
+// @CATALOG_REFACTOR
+/*
 void
 Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 	for(auto &ent : visible_entities) {
@@ -95,6 +99,7 @@ Decl_Scope::check_for_missing_decls(Mobius_Model *model) {
 		}
 	}
 }
+*/
 
 void
 Decl_Scope::check_for_unreferenced_things(Mobius_Model *model) {
@@ -172,12 +177,15 @@ Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *seri
 				entity->source_loc.print_error();
 				fatal_error("as a ", name(result_id.reg_type), ".");
 			}
+			// @CATALOG_REFACTOR
+			/*
 			if(decl && registrations[result_id.id].has_been_declared) {
 				decl->source_loc.print_error_header();
 				error_print("Re-declaration of symbol '", handle->string_value, "'. It was already declared here: ");
 				entity->source_loc.print_error();
 				fatal_error();
 			}
+			*/
 		}
 	}
 	
@@ -185,9 +193,9 @@ Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *seri
 	if(!is_valid(result_id)) {
 		result_id.reg_type  = reg_type;
 		result_id.id        = (s16)registrations.size();     // TODO: Detect overflow?
-		registrations.push_back(Entity_Registration<reg_type>());
+		registrations.push_back(Registration<reg_type>());
 		auto &registration = registrations[result_id.id];
-		registration.has_been_declared = false;
+		//registration.has_been_declared = false;
 		if(is_valid(handle))
 			registration.source_loc = handle->source_loc;
 	}
@@ -201,7 +209,7 @@ Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *seri
 		}
 		
 		registration.source_loc        = decl->source_loc;
-		registration.has_been_declared = true;
+		//registration.has_been_declared = true;
 		registration.decl_type         = decl->type;
 		registration.scope_id          = scope->parent_id;
 	}
@@ -226,8 +234,9 @@ Registry<reg_type>::find_or_create(Decl_Scope *scope, Token *handle, Token *seri
 	return result_id;
 }
 
+/*
 template<Reg_Type reg_type> Entity_Id
-Registry<reg_type>::create_internal(const std::string &handle, Decl_Scope *scope, const std::string &name, Decl_Type decl_type) {
+Registry<reg_type>::create_internal(Decl_Scope *scope, const std::string &handle, const std::string &name, Decl_Type decl_type) {
 	Source_Location internal = {};
 	internal.type      = Source_Location::Type::internal;
 	
@@ -248,6 +257,7 @@ Registry<reg_type>::create_internal(const std::string &handle, Decl_Scope *scope
 	}
 	return result_id;
 }
+*/
 
 template<Reg_Type reg_type> Entity_Id
 Registry<reg_type>::standard_declaration(Decl_Scope *scope, Decl_AST *decl) {
@@ -255,6 +265,7 @@ Registry<reg_type>::standard_declaration(Decl_Scope *scope, Decl_AST *decl) {
 	return find_or_create(scope, &decl->handle_name, name, decl);
 }
 
+// @CATALOG REFACTOR
 Registry_Base *
 Mobius_Model::registry(Reg_Type reg_type) {
 	switch(reg_type) {
@@ -279,52 +290,6 @@ Mobius_Model::registry(Reg_Type reg_type) {
 	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
 	
 	return nullptr;
-}
-
-Decl_Scope *
-Mobius_Model::get_scope(Entity_Id id) {
-	if(!is_valid(id))
-		return &model_decl_scope;
-	else if(id.reg_type == Reg_Type::library)
-		return &libraries[id]->scope;
-	else if(id.reg_type == Reg_Type::module)
-		return &modules[id]->scope;
-	else if(id.reg_type == Reg_Type::par_group)
-		return &par_groups[id]->scope;
-	fatal_error(Mobius_Error::internal, "Tried to look up the scope belonging to an id that is not a library or module.");
-	return nullptr;
-}
-
-std::string
-Mobius_Model::serialize(Entity_Id id) {
-	if(!is_valid(id))
-		fatal_error(Mobius_Error::api_usage, "An invalid entity id was passed to serialize().");
-	auto entity = find_entity(id);
-	if(is_valid(entity->scope_id)) {
-		std::stringstream ss;
-		auto scope = find_entity(entity->scope_id);
-		if(is_valid(scope->scope_id)) {
-			auto superscope = find_entity(scope->scope_id);
-			ss << superscope->name << '\\';
-		}
-		ss << scope->name << '\\' << entity->name;
-		return ss.str();
-	}
-	return entity->name;
-}
-
-Entity_Id
-Mobius_Model::deserialize(const std::string &serial_name, Reg_Type expected_type) {
-
-	auto vec = split(serial_name, '\\');  // Hmm, this is maybe a bit inefficient, but probably not a problem.
-	
-	Decl_Scope *scope = &model_decl_scope;
-	for(int idx = 0; idx < vec.size()-1; ++idx) {
-		auto scope_id = scope->deserialize(vec[idx], Reg_Type::unrecognized);
-		if(!is_valid(scope_id)) return invalid_entity_id;
-		scope = get_scope(scope_id);
-	}
-	return scope->deserialize(vec.back(), expected_type);
 }
 
 template<Reg_Type expected_type> Entity_Id
@@ -374,13 +339,13 @@ register_intrinsics(Mobius_Model *model) {
 	
 	#define MAKE_INTRINSIC1(name, emul, llvm, ret_type, type1) \
 		{ \
-			auto fun = model->functions.create_internal(#name, global, #name, Decl_Type::function); \
+			auto fun = model->functions.create_internal(global, #name, #name, Decl_Type::function); \
 			model->functions[fun]->fun_type = Function_Type::intrinsic; \
 			model->functions[fun]->args = {"a"}; \
 		}
 	#define MAKE_INTRINSIC2(name, emul, ret_type, type1, type2) \
 		{ \
-			auto fun = model->functions.create_internal(#name, global, #name, Decl_Type::function); \
+			auto fun = model->functions.create_internal(global, #name, #name, Decl_Type::function); \
 			model->functions[fun]->fun_type = Function_Type::intrinsic; \
 			model->functions[fun]->args = {"a", "b"}; \
 		}
@@ -388,21 +353,21 @@ register_intrinsics(Mobius_Model *model) {
 	#undef MAKE_INTRINSIC1
 	#undef MAKE_INTRINSIC2
 	
-	auto test_fun = model->functions.create_internal("_test_fun_", global, "_test_fun_", Decl_Type::function);
+	auto test_fun = model->functions.create_internal(global, "_test_fun_", "_test_fun_", Decl_Type::function);
 	model->functions[test_fun]->fun_type = Function_Type::linked;
 	model->functions[test_fun]->args = {"a"};
 	
-	auto dimless_id = model->units.create_internal("na", nullptr, "dimensionless", Decl_Type::unit); // NOTE: this is not exported to the scope. Just have it as a unit for pi.
-	auto pi_id = model->constants.create_internal("pi", global, "π", Decl_Type::constant);
+	auto dimless_id = model->units.create_internal(nullptr, "na", "dimensionless", Decl_Type::unit); // NOTE: this is not exported to the scope. Just have it as a unit for pi.
+	auto pi_id = model->constants.create_internal(global, "pi", "π", Decl_Type::constant);
 	model->constants[pi_id]->value = 3.14159265358979323846;
 	model->constants[pi_id]->unit = dimless_id;
 	
-	auto mod_scope = &model->model_decl_scope;
+	auto mod_scope = &model->top_scope;
 	
-	auto system_id = model->par_groups.create_internal("system", mod_scope, "System", Decl_Type::par_group);
+	auto system_id = model->par_groups.create_internal(mod_scope, "system", "System", Decl_Type::par_group);
 	auto group_scope = model->get_scope(system_id);
-	auto start_id  = model->parameters.create_internal("start_date", group_scope, "Start date", Decl_Type::par_datetime);
-	auto end_id    = model->parameters.create_internal("end_date", group_scope, "End date", Decl_Type::par_datetime);
+	auto start_id  = model->parameters.create_internal(group_scope, "start_date", "Start date", Decl_Type::par_datetime);
+	auto end_id    = model->parameters.create_internal(group_scope, "end_date", "End date", Decl_Type::par_datetime);
 	mod_scope->import(*group_scope);
 	// Just so that they are registered as being referenced and we don't get the warning about unreferenced parameters.
 	(*group_scope)["start_date"];
@@ -429,8 +394,8 @@ register_intrinsics(Mobius_Model *model) {
 	end->min_val.val_datetime = min_date;
 	end->max_val.val_datetime = max_date;
 	
-	auto euler_id = model->solver_functions.create_internal("euler", mod_scope, "Euler", Decl_Type::solver_function);
-	auto dascru_id = model->solver_functions.create_internal("inca_dascru", mod_scope, "INCADascru", Decl_Type::solver_function);
+	auto euler_id = model->solver_functions.create_internal(mod_scope, "euler", "Euler", Decl_Type::solver_function);
+	auto dascru_id = model->solver_functions.create_internal(mod_scope, "inca_dascru", "INCADascru", Decl_Type::solver_function);
 	
 	model->solver_functions[euler_id]->solver_fun = &euler_solver;
 	model->solver_functions[dascru_id]->solver_fun = &inca_dascru;
@@ -493,7 +458,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			Entity_Id id = invalid_entity_id;
 			
 			if(decl->type == Decl_Type::library) {
-				id = model->libraries.find_or_create(&model->model_decl_scope, nullptr, nullptr, decl);
+				id = model->libraries.find_or_create(&model->top_scope, nullptr, nullptr, decl);
 				auto lib = model->libraries[id];
 				lib->has_been_processed = false;
 				lib->decl = decl;
@@ -501,7 +466,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 				lib->normalized_path = normalized_path;
 				lib->name = found_name;
 			} else if (decl->type == Decl_Type::module) {
-				id = model->module_templates.find_or_create(&model->model_decl_scope, nullptr, nullptr, decl);
+				id = model->module_templates.find_or_create(&model->top_scope, nullptr, nullptr, decl);
 				auto mod = model->module_templates[id];
 				mod->decl = decl;
 				mod->normalized_path = normalized_path;
@@ -765,7 +730,7 @@ process_declaration<Reg_Type::parameter>(Mobius_Model *model, Decl_Scope *scope,
 			parameter->enum_values.push_back(ident->chain[0].string_value);
 		}
 		std::string default_val_name = single_arg(decl, 1)->string_value;
-		s64 default_val = enum_int_value(parameter, default_val_name);
+		s64 default_val = parameter->enum_int_value(default_val_name);
 		if(default_val < 0) {
 			single_arg(decl, 1)->print_error_header();
 			fatal_error("The given default value '", default_val_name, "' does not appear on the list of possible values for this enum parameter.");
@@ -1269,7 +1234,9 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
 		
 		lib = model->libraries[lib_id]; // NOTE: Have to re-fetch it because the pointer may have been invalidated by registering more libraries.
 		lib->has_been_processed = true;
-		lib->scope.check_for_missing_decls(model);
+		
+		// @CATALOG_REFACTOR
+		//lib->scope.check_for_missing_decls(model);
 	}
 	
 	model->get_scope(to_scope)->import(lib->scope, &load_loc);
@@ -1339,7 +1306,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	std::string spec_name = spec_name_token->string_value;
 	
-	auto model_scope = &model->model_decl_scope;
+	auto model_scope = &model->top_scope;
 	
 	// TODO: Potentially a different name:
 	auto module_id = model_scope->deserialize(spec_name, Reg_Type::module);
@@ -1357,7 +1324,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	// Ouch, this is a bit hacky, but it is to avoid the problem that Decl_Type::module is tied to Reg_Type::module_template .
 	// Maybe we should instead have another flag on it?
-	module->has_been_declared = true;
+	//@CATALOG_REFACTOR
+	//module->has_been_declared = true;
 	
 	module->scope.parent_id = module_id;
 	module->template_id = template_id;
@@ -1470,7 +1438,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		}
 	}
 
-	module->scope.check_for_missing_decls(model);
+	//@CATALOG_REFACTOR
+	//module->scope.check_for_missing_decls(model);
 	
 	return module_id;
 }
@@ -1489,10 +1458,13 @@ process_declaration<Reg_Type::index_set>(Mobius_Model *model, Decl_Scope *scope,
 			match_declaration_base(note, {{Decl_Type::index_set}}, 0);
 			auto subto_id = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
 			auto subto = model->index_sets[subto_id];
-			if(!subto->has_been_declared) {
+			
+			// TODO: A bit hacky..
+			if(subto_id.id < id.id) {
 				note->decl.print_error_header();
 				fatal_error("For technical reasons, an index set must be declared after an index sets it is sub-indexed to.");
 			}
+			
 			index_set->sub_indexed_to = subto_id;
 			if(std::find(subto->union_of.begin(), subto->union_of.end(), id) != subto->union_of.end()) {
 				decl->source_loc.print_error_header();
@@ -1810,11 +1782,18 @@ process_module_arguments(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl,
 			}
 			std::string handle = token.string_value;
 			auto reg = (*scope)[handle];
+			
+			bool found = true;
+			
+			// @CATALOG_REFACTOR
+			/*
 			bool found = false;
 			if(reg) {
 				auto entity = model->find_entity(reg->id);
+				
 				if(entity->has_been_declared) found = true;
 			}
+			*/
 			if(!found) {
 				token.print_error_header();
 				fatal_error("The handle '", token.string_value, "' was not declared in this scope.");
@@ -1831,10 +1810,8 @@ load_model(String_View file_name, Mobius_Config *config) {
 	
 	if(config)
 		model->config = *config;
-	else {
-		Mobius_Config new_config = load_config();
-		model->config = std::move(new_config);
-	}
+	else 
+		model->config = load_config();
 	
 	auto decl = read_model_ast_from_file(&model->file_handler, file_name);
 	model->main_decl  = decl;
@@ -1860,7 +1837,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 		return extend1.depth > extend2.depth;
 	});
 
-	auto scope = &model->model_decl_scope;
+	auto scope = &model->top_scope;
 	
 	// This is a bit tricky, but we have to register index sets first so that they get in the right order, otherwise resolution of connection regexes could trip the order, and this is very important for sub-indexed index sets. TODO: we could improve the sorting of index set dependencies in codegen instead.
 	for(auto &extend : extend_models) {
@@ -2042,7 +2019,8 @@ load_model(String_View file_name, Mobius_Config *config) {
 		}
 	}
 	
-	scope->check_for_missing_decls(model);
+	// @CATALOG REFACTOR
+	//scope->check_for_missing_decls(model);
 	
 	return model;
 }
