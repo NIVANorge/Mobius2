@@ -28,7 +28,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 		data.has_date_vector = true;
 		data.file_name = std::string(file_name);
 		
-		std::vector<Data_Id> index_sets;
+		std::vector<Entity_Id> index_sets;
 		
 		int search_len = 128; //NOTE: We only search for index sets among the first 128 rows since anything more than that would be ridiculous.
 		auto matrix = ole_get_range_matrix(2, search_len + 1, 1, 1, handles);
@@ -102,7 +102,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 			
 			std::vector<std::string> index_names_str(index_sets.size()); // This is needed to have temporary storage for the data...
 			std::vector<Token> index_names;
-			std::vector<Data_Id> active_index_sets;
+			std::vector<Entity_Id> active_index_sets;
 			
 			Token token = {};
 			token.source_loc.filename = file_name;

@@ -10,10 +10,9 @@
 #include <functional>
 
 
-typedef Index_Type<Entity_Id> Index_T;
 constexpr Index_T invalid_index = Index_T::no_index(); // TODO: Maybe we don't need the invalid_index alias..
 
-typedef Index_Tuple<Entity_Id> Indexes;
+typedef Index_Tuple<Mobius_Model> Indexes;
 
 
 struct Math_Expr_FT;
@@ -433,7 +432,7 @@ Model_Application {
 		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
 	}
 	
-	Index_Data<Entity_Id>                                    index_data;
+	Index_Data<Mobius_Model>                                 index_data;
 	
 	Data_Set                                                *data_set;
 	

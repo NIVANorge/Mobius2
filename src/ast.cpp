@@ -323,6 +323,27 @@ parse_body(Token_Stream *stream, Decl_Type decl_type, Body_Type body_type) {
 	return body;
 }
 
+void
+parse_data(Token_Stream *stream, std::vector<Token> &data) {
+	// This is not really parsing since there is no universal format for the data blocks. Just store them for later.
+	auto open = stream->expect_token('[');
+	int open_bracket = 1;
+	while(true) {
+		auto token = stream->read_token();
+		if(token.type == Token_Type::eof) {
+			open.print_error_header();
+			fatal_error("End of file before this '[' bracket was closed.");
+			break;
+		} else if((char)token.type == '[') {
+			++open_bracket;
+		} else if((char)token.type == ']') {
+			--open_bracket;
+			if(open_bracket == 0) break;
+		}
+		data.push_back(token);
+	}
+}
+
 Decl_AST *
 parse_decl(Token_Stream *stream) {
 	
@@ -340,6 +361,12 @@ parse_decl(Token_Stream *stream) {
 				fatal_error("Multiple main bodies for declaration.");
 			}
 			decl->body = parse_body(stream, decl->type, body_type);
+		} else if(ch == '[') {
+			if(!decl->data.empty()) {
+				next.print_error_header();
+				fatal_error("Multiple data blocks for declaration.");
+			}
+			parse_data(stream, decl->data);
 		} else if (ch == '@') {
 			stream->read_token();
 			
@@ -663,7 +690,6 @@ parse_math_block(Token_Stream *stream) {
 	return block;
 }
 
-
 Math_Expr_AST *
 potentially_parse_regex_quantifier(Token_Stream *stream, Math_Expr_AST *arg) {
 	Math_Expr_AST *result = arg;
@@ -886,7 +912,7 @@ match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::ini
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
-	bool allow_handle, int allow_body, bool allow_notes) {
+	bool allow_handle, int allow_body, bool allow_notes, bool allow_data) {
 	
 	// allow_body:
 	//    0 - not allowed
@@ -896,6 +922,11 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 	if(!allow_handle && decl->handle_name.string_value.count > 0) {
 		decl->handle_name.print_error_header();
 		fatal_error("A '", name(decl->type), "' declaration can not be assigned to an identifier.");
+	}
+	
+	if(!allow_data && !decl->data.empty()) {
+		decl->data[0].print_error_header();
+		fatal_error("A []-enclosed data block is not allowed in this context.");
 	}
 	
 	if(get_body_type(decl->type) == Body_Type::none)

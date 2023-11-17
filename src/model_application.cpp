@@ -1129,9 +1129,9 @@ make_connection_component_indexing_structure(Model_Application *app, Storage_Str
 	components_structure->set_up(std::move(structure));
 }
 
-template<>
+template<typename Data_Set_Type> template<typename Model_Type>
 void
-Index_Data<Data_Id>::transfer_data(Index_Data<Entity_Id> &other, Data_Id data_id) {
+Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_Id data_id) {
 	
 	auto model = other.record;
 	auto set_data = record->index_sets[data_id];

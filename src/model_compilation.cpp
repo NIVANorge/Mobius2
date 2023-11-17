@@ -435,7 +435,8 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 			// Have to do this recursively, since we may already have passed it in the outer loop.
 			create_initial_vars_for_lookups(app, instr->code, instructions);
 		}
-		// NOTE: To fix this we would have to codegen mass = conc*mass_of_medium and remember to also call ensure_has_intial_value for those.
+		// NOTE: To fix this should only have to set initial_is_conc, but we don't really want to modify the State_Var at this point.
+		// There is actually also a problem if we for initial_is_conc variables don't ensure that the medium mass variable has an initial value (only relevant if it is @override, and the combination of that is probably unlikely. This is because all of this happens before codegen, but it has to).
 		if(var2->override_tree && var2->override_is_conc)
 			fatal_error(Mobius_Error::internal, "Wanted to generate initial code for variable \"", var->name, "\", but it only has @override_conc code. This is not yet handled. (for now, you have to manually put @initial_conc on it.");
 		

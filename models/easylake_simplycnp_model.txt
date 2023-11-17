@@ -31,6 +31,7 @@ model("EasyLake-SimplyCNP") {
 		sed_oc : par_real("Suspended sediments OC fraction", [], 0.02, 0, 1)
 	}
 	
+	# TODO: Probably move to simplyc.txt
 	module("Simple river TOC", version(0, 1, 0)) {
 		var(river.water.toc, [m g, l-1], "River TOC concentration") {   conc(oc) + conc(sed)*sed_oc   }
 	}

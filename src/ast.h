@@ -61,7 +61,7 @@ Decl_AST : Decl_Base_AST {
 	Decl_Type                    type;
 	std::vector<Decl_Base_AST *> notes;
 	
-	//std::vector<Token>           data;  //TODO: Do something like this for Data_Set so that we can simplify parsing it.
+	std::vector<Token>           data;
 	
 	virtual ~Decl_AST() { for(auto note : notes) delete note; }
 };
@@ -292,11 +292,21 @@ struct Arg_Pattern {
 int
 match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body);
 
+//int
+//match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
+//	bool allow_handle = true, int allow_body = 1, bool allow_notes = false);
+	
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = true, int allow_body = 1, bool allow_notes = false);
+	bool allow_handle = true, int allow_body = 1, bool allow_notes = false, bool allow_data = false);
+
+// Convenient shorthand for use in Data_Set parsing:
+inline int
+match_data_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
+	bool allow_handle = false, int allow_body = 0, bool allow_notes = false, bool allow_data = true) {
+		return match_declaration(decl, patterns, allow_handle, allow_body, allow_notes, allow_data);
+}
 	
-// TODO: Allow a version of match_declaration that operates on notes.
 
 int
 operator_precedence(Token_Type t);

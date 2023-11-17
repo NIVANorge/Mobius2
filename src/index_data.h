@@ -6,68 +6,61 @@
 
 #include <functional>
 
-template<typename Id_Type>
 struct
-Index_Type {
-	Id_Type index_set;
-	s32     index;
+Index_T {
+	Entity_Id index_set;
+	s32       index;
 	
-	static constexpr Index_Type no_index() { return Index_Type { Id_Type::invalid(), -1 };  }
+	static constexpr Index_T no_index() { return Index_T { Entity_Id::invalid(), -1 };  }
 	
-	Index_Type& operator++() { index++; return *this; }
+	Index_T& operator++() { index++; return *this; }
 };
 
 //TODO: should we do sanity check on the index_set in the order comparison operators?
-template<typename Id_Type>
-inline bool operator<(const Index_Type<Id_Type> &a, const Index_Type<Id_Type> &b) {	return a.index < b.index; }
-template<typename Id_Type>
-inline bool operator>=(const Index_Type<Id_Type> &a, const Index_Type<Id_Type> &b) { return a.index >= b.index; }
-template<typename Id_Type>
-inline bool operator==(const Index_Type<Id_Type> &a, const Index_Type<Id_Type> &b) { return a.index_set == b.index_set && a.index == b.index; }
-template<typename Id_Type>
-inline bool operator!=(const Index_Type<Id_Type> &a, const Index_Type<Id_Type> &b) { return a.index_set != b.index_set || a.index != b.index; }
+inline bool operator<(const Index_T &a, const Index_T &b) {	return a.index < b.index; }
+inline bool operator>=(const Index_T &a, const Index_T &b) { return a.index >= b.index; }
+inline bool operator==(const Index_T &a, const Index_T &b) { return a.index_set == b.index_set && a.index == b.index; }
+inline bool operator!=(const Index_T &a, const Index_T &b) { return a.index_set != b.index_set || a.index != b.index; }
 
-template<typename Id_Type>
-inline bool is_valid(const Index_Type<Id_Type> &index) { return is_valid(index.index_set) && index.index >= 0; }
+inline bool is_valid(const Index_T &index) { return is_valid(index.index_set) && index.index >= 0; }
 
-template<typename Id_Type>
+template<typename Record_Type>
 struct
 Index_Data;
 
+// TODO: Remove template when both Data_Set and Model are Catalog
 
-template<typename Id_Type>
+template <typename Record_Type>
 struct
 Index_Tuple {
 	
-	typedef Index_Type<Id_Type> Idx_T;
-	
 	Index_Tuple();
-	Index_Tuple(Record_Type<Id_Type> *record);
-	Index_Tuple(Idx_T index);
+	Index_Tuple(Record_Type *record);
+	Index_Tuple(Index_T index);
 	
 	void clear();
 	s64  count();
-	void set_index(Idx_T index, bool overwrite = false);
-	void add_index(Idx_T index);
-	void add_index(Id_Type index_set, s32 idx);
-	Idx_T get_index(Index_Data<Id_Type> &index_data, Id_Type index_set);
+	void set_index(Index_T index, bool overwrite = false);
+	void add_index(Index_T index);
+	void add_index(Entity_Id index_set, s32 idx);
 	
-	std::vector<Idx_T> indexes; // Should probably have this as private, but it is very inconvenient.
+	Index_T get_index(Index_Data<Record_Type> &index_data, Entity_Id index_set);
+	
+	std::vector<Index_T> indexes; // Should probably have this as private, but it is very inconvenient.
 	bool lookup_ordered = false;
 	
 private :
-	Idx_T get_index_base(Id_Type index_set);
+	Index_T get_index_base(Entity_Id index_set);
 };
 
-template<typename Id_Type>
+
+template <typename Record_Type>
 inline bool
-operator==(const Index_Tuple<Id_Type> &a, const Index_Tuple<Id_Type> &b) {
+operator==(const Index_Tuple<Record_Type> &a, const Index_Tuple<Record_Type> &b) {
 	if(a.lookup_ordered != b.lookup_ordered) return false;   // TODO: We could maybe make them comparable, but there doesn't seem to be a use case
 	if(a.indexes != b.indexes) return false;
 	return true;
 }
-
-struct Model_Application;
 
 struct
 Index_Record {
@@ -83,111 +76,110 @@ Index_Record {
 };
 
 
-template<typename Id_Type>
+template <typename Record_Type>
 struct
 Index_Data { 
 	
-	Record_Type<Id_Type> *record;
+	Record_Type *record;
 	
-	Index_Data(Record_Type<Id_Type> *record) : record(record) {}
+	Index_Data(Record_Type *record) : record(record) {}
 	
-	typedef Index_Type<Id_Type> Idx_T;
+	void set_indexes(Entity_Id index_set, const std::vector<Token> &names, Index_T parent_idx = Index_T::no_index());
+	void initialize_union(Entity_Id index_set_id, Source_Location source_loc);
 	
-	void set_indexes(Id_Type index_set, const std::vector<Token> &names, Idx_T parent_idx = Idx_T::no_index());
-	void initialize_union(Id_Type index_set_id, Source_Location source_loc);
+	void find_index(Entity_Id index_set, Token *idx_name, Index_Tuple<Record_Type> &indexes_out);
+	void find_indexes(const std::vector<Entity_Id> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Record_Type> &indexes_out);
+	Index_T find_index(Entity_Id index_set, Token *idx_name, Index_T index_of_super = Index_T::no_index()); // Ideally we shouldn't expose this one, but it is needed once in the Data_Set
 	
-	void find_index(Id_Type index_set, Token *idx_name, Index_Tuple<Id_Type> &indexes_out);
-	void find_indexes(const std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out);
-	Idx_T find_index(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index()); // Ideally we shouldn't expose this one, but it is needed once in the Data_Set
+	bool are_in_bounds(Index_Tuple<Record_Type> &indexes);
 	
-	bool are_in_bounds(Index_Tuple<Id_Type> &indexes);
+	Index_T get_max_count(Entity_Id index_set);
+	Index_T get_index_count(Index_Tuple<Record_Type> &indexes, Entity_Id index_set);
 	
-	Idx_T get_max_count(Id_Type index_set);
-	Idx_T get_index_count(Index_Tuple<Id_Type> &indexes, Id_Type index_set);
+	void check_valid_distribution(std::vector<Entity_Id> &index_sets, Source_Location source_loc);
+	s64 get_instance_count(const std::vector<Entity_Id> &index_sets);
 	
-	void check_valid_distribution(std::vector<Id_Type> &index_sets, Source_Location source_loc);
-	s64 get_instance_count(const std::vector<Id_Type> &index_sets);
-	
-	std::string get_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, bool *is_quotable = nullptr);
-	std::string get_possibly_quoted_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, bool quote = true);
-	void get_index_names(Index_Tuple<Id_Type> &indexes, std::vector<std::string> &names_out, bool quote = false);
+	std::string get_index_name(Index_Tuple<Record_Type> &indexes, Index_T index, bool *is_quotable = nullptr);
+	std::string get_possibly_quoted_index_name(Index_Tuple<Record_Type> &indexes, Index_T index, bool quote = true);
+	void get_index_names(Index_Tuple<Record_Type> &indexes, std::vector<std::string> &names_out, bool quote = false);
 
 
-	void initialize_edge_index_set(Id_Type index_set_id, Source_Location source_loc);
-	void add_edge_index(Id_Type index_set_id, const std::string &index_name, Source_Location source_loc, Idx_T parent_idx);
+	void initialize_edge_index_set(Entity_Id index_set_id, Source_Location source_loc);
+	void add_edge_index(Entity_Id index_set_id, const std::string &index_name, Source_Location source_loc, Index_T parent_idx);
 	
-	bool are_all_indexes_set(Id_Type index_set);
+	bool are_all_indexes_set(Entity_Id index_set);
 	
-	void write_index_to_file(FILE *file, Idx_T index, Idx_T parent_idx = Idx_T::no_index());
-	void write_indexes_to_file(FILE *file, Id_Type index_set, Idx_T parent_idx = Idx_T::no_index());
+	void write_index_to_file(FILE *file, Index_T index, Index_T parent_idx = Index_T::no_index());
+	void write_indexes_to_file(FILE *file, Entity_Id index_set, Index_T parent_idx = Index_T::no_index());
 	
-	bool can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set, s32* offset = nullptr);
+	bool can_be_sub_indexed_to(Entity_Id parent_set, Entity_Id other_set, s32* offset = nullptr);
 	
-	Index_Record::Type get_index_type(Id_Type index_set_id);
+	Index_Record::Type get_index_type(Entity_Id index_set_id);
 	
-	void transfer_data(Index_Data<Entity_Id> &other, Id_Type index_set_id);
+	template <typename Other_Record>
+	void transfer_data(Index_Data<Other_Record> &other, Entity_Id index_set_id);
 	
-	template <typename Id_Type2> friend class Index_Data;
+	template <typename Other_Record> friend class Index_Data;
 	
 	void for_each(
-		std::vector<Id_Type> &index_sets, 
-		const std::function<void(Index_Tuple<Id_Type> &indexes)> &do_stuff,
+		std::vector<Entity_Id> &index_sets, 
+		const std::function<void(Index_Tuple<Record_Type> &indexes)> &do_stuff,
 		const std::function<void(int)> &new_level = [](int){}
 		);
 		
-	Idx_T raise(Idx_T member_idx, Id_Type union_set);
+	Index_T raise(Index_T member_idx, Entity_Id union_set);
 private :
 	
 	std::vector<Index_Record> index_data;
 	
-	Idx_T find_index_base(Id_Type index_set, Token *idx_name, Idx_T index_of_super = Idx_T::no_index());
-	s32   get_count_base(Id_Type index_set, Idx_T index_of_super = Idx_T::no_index());
-	std::string get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable);
+	Index_T find_index_base(Entity_Id index_set, Token *idx_name, Index_T index_of_super = Index_T::no_index());
+	s32   get_count_base(Entity_Id index_set, Index_T index_of_super = Index_T::no_index());
+	std::string get_index_name_base(Index_T index, Index_T index_of_super, bool *is_quotable);
 	
-	void initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc);
+	void initialize(Entity_Id index_set_id, Index_T parent_idx, Index_Record::Type type, Source_Location source_loc);
 	
-	Idx_T lower(Idx_T union_index, Idx_T parent_idx);
+	Index_T lower(Index_T union_index, Index_T parent_idx);
 	
 	void for_each_helper(
-		const std::function<void(Index_Tuple<Id_Type> &indexes)> &do_stuff,
+		const std::function<void(Index_Tuple<Record_Type> &indexes)> &do_stuff,
 		const std::function<void(int)> &new_level,
-		Index_Tuple<Id_Type> &indexes,
+		Index_Tuple<Record_Type> &indexes,
 		int pos);
 };
 
 
-template<typename Id_Type>
-Index_Tuple<Id_Type>::Index_Tuple(Record_Type<Id_Type> *record) {
+template<typename Record_Type>
+Index_Tuple<Record_Type>::Index_Tuple(Record_Type *record) {
 	lookup_ordered = false;
-	if(record)  // NOTE: We need the check model!=0 since some places we need to construct an Indexed_Par before the model is created. TODO: Could we avoid that somehow?
-		indexes.resize(record->index_sets.count(), Idx_T::no_index());
+	if(record)  // NOTE: We need the check record!=0 since some places we need to construct an Indexed_Par before the model is created. TODO: Could we avoid that somehow?
+		indexes.resize(record->index_sets.count(), Index_T::no_index());
 }
 
-template<typename Id_Type>
-Index_Tuple<Id_Type>::Index_Tuple() {
+template<typename Record_Type>
+Index_Tuple<Record_Type>::Index_Tuple() {
 	lookup_ordered = true;
 }
 
-template<typename Id_Type>
-Index_Tuple<Id_Type>::Index_Tuple(Idx_T index) {
+template<typename Record_Type>
+Index_Tuple<Record_Type>::Index_Tuple(Index_T index) {
 	lookup_ordered = true;
 	add_index(index);
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Tuple<Id_Type>::clear() {
+Index_Tuple<Record_Type>::clear() {
 	if(lookup_ordered)
 		indexes.clear();
 	else {
 		for(auto &index : indexes)
-			index = Idx_T::no_index();
+			index = Index_T::no_index();
 	}
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 s64
-Index_Tuple<Id_Type>::count() {
+Index_Tuple<Record_Type>::count() {
 	if(lookup_ordered)
 		return indexes.size();
 	else {
@@ -197,9 +189,9 @@ Index_Tuple<Id_Type>::count() {
 	}
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Tuple<Id_Type>::set_index(Idx_T index, bool overwrite) {
+Index_Tuple<Record_Type>::set_index(Index_T index, bool overwrite) {
 	if(!is_valid(index.index_set))
 		fatal_error(Mobius_Error::internal, "Tried to set an invalid index set on an Indexes");
 	if(!lookup_ordered) {
@@ -211,9 +203,9 @@ Index_Tuple<Id_Type>::set_index(Idx_T index, bool overwrite) {
 		fatal_error(Mobius_Error::internal, "Using set_index on an Indexes that is lookup_ordered");
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Tuple<Id_Type>::add_index(Idx_T index) {
+Index_Tuple<Record_Type>::add_index(Index_T index) {
 	if(!is_valid(index))
 		fatal_error(Mobius_Error::internal, "Tried to set an invalid index on an Indexes");
 	if(lookup_ordered)
@@ -222,29 +214,29 @@ Index_Tuple<Id_Type>::add_index(Idx_T index) {
 		fatal_error(Mobius_Error::internal, "Using add_index on an Indexes that is not lookup_ordered");
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Tuple<Id_Type>::add_index(Id_Type index_set, s32 idx) {
-	add_index(Idx_T { index_set, idx } );
+Index_Tuple<Record_Type>::add_index(Entity_Id index_set, s32 idx) {
+	add_index(Index_T { index_set, idx } );
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Tuple<Id_Type>::get_index_base(Id_Type index_set_id) {
+template<typename Record_Type>
+Index_T
+Index_Tuple<Record_Type>::get_index_base(Entity_Id index_set_id) {
 	// TODO: if we are lookup_ordered and we want a matrix_column, should we check for the second instance of the index set?
 	if(lookup_ordered) {
 		for(auto index : indexes) {
 			if(index.index_set == index_set_id)
 				return index;
 		}
-		return Idx_T::no_index();
+		return Index_T::no_index();
 	} else
 		return indexes[index_set_id.id];
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Tuple<Id_Type>::get_index(Index_Data<Id_Type> &index_data, Id_Type index_set_id) {
+template<typename Record_Type>
+Index_T
+Index_Tuple<Record_Type>::get_index(Index_Data<Record_Type> &index_data, Entity_Id index_set_id) {
 		
 	auto result = get_index_base(index_set_id);
 	if(is_valid(result))
@@ -265,13 +257,13 @@ Index_Tuple<Id_Type>::get_index(Index_Data<Id_Type> &index_data, Id_Type index_s
 			result.index += index_data.get_index_count(*this, ui_id).index;
 	}
 	if(!found)
-		return Idx_T::no_index();
+		return Index_T::no_index();
 	return result;
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Record::Type type, Source_Location source_loc) {
+Index_Data<Record_Type>::initialize(Entity_Id index_set_id, Index_T parent_idx, Index_Record::Type type, Source_Location source_loc) {
 	s64 id = index_set_id.id;
 	if(id >= index_data.size())
 		index_data.resize(id+1);
@@ -319,25 +311,25 @@ Index_Data<Id_Type>::initialize(Id_Type index_set_id, Idx_T parent_idx, Index_Re
 	}
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::initialize_edge_index_set(Id_Type index_set_id, Source_Location source_loc) {
+Index_Data<Record_Type>::initialize_edge_index_set(Entity_Id index_set_id, Source_Location source_loc) {
 	
 	auto parent_id = record->index_sets[index_set_id]->sub_indexed_to;
 	if(!is_valid(parent_id))
 		fatal_error(Mobius_Error::internal, "Got an edge index set that is not sub-indexed to a component index set.");
 	
-	s32 count = get_count_base(parent_id, Idx_T::no_index());
+	s32 count = get_count_base(parent_id, Index_T::no_index());
 	for(s32 par_idx = 0; par_idx < count; ++par_idx) {
-		Idx_T parent_idx = Idx_T { parent_id, par_idx };
+		Index_T parent_idx = Index_T { parent_id, par_idx };
 		initialize(index_set_id, parent_idx, Index_Record::Type::named, source_loc);
 	}
 	
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::add_edge_index(Id_Type index_set_id, const std::string &index_name, Source_Location source_loc, Idx_T parent_idx) {
+Index_Data<Record_Type>::add_edge_index(Entity_Id index_set_id, const std::string &index_name, Source_Location source_loc, Index_T parent_idx) {
 	
 	// NOTE: This is only safe while the index set is being constructed, not later.
 	
@@ -353,9 +345,9 @@ Index_Data<Id_Type>::add_edge_index(Id_Type index_set_id, const std::string &ind
 	data.name_to_index[super][index_name] = val;
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void 
-Index_Data<Id_Type>::set_indexes(Id_Type index_set_id, const std::vector<Token> &names, Idx_T parent_idx) {
+Index_Data<Record_Type>::set_indexes(Entity_Id index_set_id, const std::vector<Token> &names, Index_T parent_idx) {
 	
 	Index_Record::Type type;
 	if(names[0].type == Token_Type::integer)
@@ -391,7 +383,7 @@ Index_Data<Id_Type>::set_indexes(Id_Type index_set_id, const std::vector<Token> 
 		auto &inames = data.index_names[super];
 		auto &nmap   = data.name_to_index[super];
 		
-		auto index = Idx_T {index_set_id, 0};
+		auto index = Index_T {index_set_id, 0};
 		for(auto &name : names) {
 			if(name.type != Token_Type::quoted_string) {
 				name.print_error_header();
@@ -410,9 +402,9 @@ Index_Data<Id_Type>::set_indexes(Id_Type index_set_id, const std::vector<Token> 
 		fatal_error(Mobius_Error::internal, "Unhandled index type in set_indexes.");
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::initialize_union(Id_Type index_set_id, Source_Location source_loc) {
+Index_Data<Record_Type>::initialize_union(Entity_Id index_set_id, Source_Location source_loc) {
 	
 	s64 id = index_set_id.id;
 	if(id >= index_data.size())
@@ -461,9 +453,9 @@ Index_Data<Id_Type>::initialize_union(Id_Type index_set_id, Source_Location sour
 	
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 s32
-Index_Data<Id_Type>::get_count_base(Id_Type index_set_id, Idx_T index_of_super) {
+Index_Data<Record_Type>::get_count_base(Entity_Id index_set_id, Index_T index_of_super) {
 	auto index_set = record->index_sets[index_set_id];
 	if(is_valid(index_set->sub_indexed_to) && !is_valid(index_of_super))
 		fatal_error(Mobius_Error::internal, "Wrong use of get_count_base.");
@@ -482,37 +474,37 @@ Index_Data<Id_Type>::get_count_base(Id_Type index_set_id, Idx_T index_of_super) 
 	return index_data[index_set_id.id].index_counts[super];
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Data<Id_Type>::find_index_base(Id_Type index_set_id, Token *idx_name, Idx_T index_of_super) {
+template<typename Record_Type>
+Index_T
+Index_Data<Record_Type>::find_index_base(Entity_Id index_set_id, Token *idx_name, Index_T index_of_super) {
 	
 	auto &data = index_data[index_set_id.id];
 	int super = is_valid(index_of_super) ? index_of_super.index : 0;
 	
 	if(idx_name->type == Token_Type::quoted_string) {
 		if(data.type != Index_Record::Type::named)
-			return Idx_T::no_index();
+			return Index_T::no_index();
 		auto &nmap = data.name_to_index[super];
 		auto find = nmap.find(idx_name->string_value);
 		if(find == nmap.end())
-			return Idx_T::no_index();
-		return Idx_T { index_set_id, find->second };
+			return Index_T::no_index();
+		return Index_T { index_set_id, find->second };
 	} else if (idx_name->type == Token_Type::integer) {
-		Idx_T result = Idx_T { index_set_id, (s32)idx_name->val_int };
+		Index_T result = Index_T { index_set_id, (s32)idx_name->val_int };
 		if(result.index < 0 || result.index >= get_count_base(index_set_id, index_of_super))
-			return Idx_T::no_index();
+			return Index_T::no_index();
 		return result;
 	}
 	
-	return Idx_T::no_index();
+	return Index_T::no_index();
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Idx_T index_of_super) {
+template<typename Record_Type>
+Index_T
+Index_Data<Record_Type>::find_index(Entity_Id index_set_id, Token *idx_name, Index_T index_of_super) {
 	auto &data = index_data[index_set_id.id];
 	
-	Idx_T result = Idx_T::no_index();
+	Index_T result = Index_T::no_index();
 	auto index_set = record->index_sets[index_set_id];
 	
 	if(is_valid(index_set->sub_indexed_to) && !is_valid(index_of_super))
@@ -525,7 +517,7 @@ Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Idx_T ind
 		s32 sum = 0;
 		bool found = false;
 		for(auto ui_id : index_set->union_of) {
-			Idx_T find = find_index_base(ui_id, idx_name);
+			Index_T find = find_index_base(ui_id, idx_name);
 			if(is_valid(find)) {
 				sum += find.index;
 				found = true;
@@ -534,7 +526,7 @@ Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Idx_T ind
 				sum += get_max_count(ui_id).index;
 		}
 		if(found)
-			result = Idx_T { index_set_id, sum };
+			result = Index_T { index_set_id, sum };
 	} else
 		result = find_index_base(index_set_id, idx_name, index_of_super);
 	
@@ -551,13 +543,13 @@ Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Idx_T ind
 	return result;
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Index_Tuple<Id_Type> &indexes_out) {
+Index_Data<Record_Type>::find_index(Entity_Id index_set_id, Token *idx_name, Index_Tuple<Record_Type> &indexes_out) {
 	
 	auto index_set = record->index_sets[index_set_id];
 	
-	Idx_T index_of_super = Idx_T::no_index();
+	Index_T index_of_super = Index_T::no_index();
 	if(is_valid(index_set->sub_indexed_to)) {
 		index_of_super = indexes_out.get_index(*this, index_set->sub_indexed_to);
 
@@ -571,9 +563,9 @@ Index_Data<Id_Type>::find_index(Id_Type index_set_id, Token *idx_name, Index_Tup
 	indexes_out.add_index(index);
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void 
-Index_Data<Id_Type>::find_indexes(const std::vector<Id_Type> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Id_Type> &indexes_out) {
+Index_Data<Record_Type>::find_indexes(const std::vector<Entity_Id> &index_sets, std::vector<Token> &idx_names, Index_Tuple<Record_Type> &indexes_out) {
 	
 	// TODO: Assert index_sets and idx_names are the same size?
 	
@@ -583,9 +575,9 @@ Index_Data<Id_Type>::find_indexes(const std::vector<Id_Type> &index_sets, std::v
 		find_index(index_sets[pos], &idx_names[pos], indexes_out);
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 bool
-Index_Data<Id_Type>::are_in_bounds(Index_Tuple<Id_Type> &indexes) {
+Index_Data<Record_Type>::are_in_bounds(Index_Tuple<Record_Type> &indexes) {
 	
 	for(int pos = 0; pos < indexes.indexes.size(); ++pos) {
 		auto index = indexes.indexes[pos];
@@ -595,7 +587,7 @@ Index_Data<Id_Type>::are_in_bounds(Index_Tuple<Id_Type> &indexes) {
 		
 		auto index_set = record->index_sets[index.index_set];
 		
-		Idx_T index_of_super = Idx_T::no_index();
+		Index_T index_of_super = Index_T::no_index();
 		if(is_valid(index_set->sub_indexed_to)) {
 			index_of_super = indexes.get_index(*this, index_set->sub_indexed_to);
 			
@@ -612,27 +604,27 @@ Index_Data<Id_Type>::are_in_bounds(Index_Tuple<Id_Type> &indexes) {
 	return true;
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Data<Id_Type>::get_max_count(Id_Type index_set_id) {
+template<typename Record_Type>
+Index_T
+Index_Data<Record_Type>::get_max_count(Entity_Id index_set_id) {
 	auto index_set = record->index_sets[index_set_id];
 	if(is_valid(index_set->sub_indexed_to)) {
-		Idx_T result = {index_set_id, 0};
+		Index_T result = {index_set_id, 0};
 		s32 parent_count = get_count_base(index_set->sub_indexed_to);
-		for(Idx_T parent_idx = { index_set->sub_indexed_to, 0 }; parent_idx.index < parent_count; ++parent_idx.index)
+		for(Index_T parent_idx = { index_set->sub_indexed_to, 0 }; parent_idx.index < parent_count; ++parent_idx.index)
 			result.index = std::max(result.index, get_count_base(index_set_id, parent_idx));
 		return result;
 	}
-	return Idx_T {index_set_id, get_count_base(index_set_id)};
+	return Index_T {index_set_id, get_count_base(index_set_id)};
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Data<Id_Type>::get_index_count(Index_Tuple<Id_Type> &indexes, Id_Type index_set_id) {
+template<typename Record_Type>
+Index_T
+Index_Data<Record_Type>::get_index_count(Index_Tuple<Record_Type> &indexes, Entity_Id index_set_id) {
 	
 	auto index_set = record->index_sets[index_set_id];
 	
-	Idx_T index_of_super = Idx_T::no_index();
+	Index_T index_of_super = Index_T::no_index();
 	if(is_valid(index_set->sub_indexed_to)) {
 		index_of_super = indexes.get_index(*this, index_set->sub_indexed_to);
 		
@@ -647,12 +639,12 @@ Index_Data<Id_Type>::get_index_count(Index_Tuple<Id_Type> &indexes, Id_Type inde
 			mobius_error_exit();
 		}
 	}
-	return Idx_T {index_set_id, get_count_base(index_set_id, index_of_super)};
+	return Index_T {index_set_id, get_count_base(index_set_id, index_of_super)};
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 bool
-Index_Data<Id_Type>::can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set, s32* offset) {
+Index_Data<Record_Type>::can_be_sub_indexed_to(Entity_Id parent_set, Entity_Id other_set, s32* offset) {
 	if(offset) *offset = 0;
 	auto index_set = record->index_sets[other_set];
 	if(!is_valid(index_set->sub_indexed_to))
@@ -666,16 +658,16 @@ Index_Data<Id_Type>::can_be_sub_indexed_to(Id_Type parent_set, Id_Type other_set
 		if(parent_set == ui_id)
 			return true;
 		else if(offset)
-			*offset += get_count_base(ui_id, Idx_T::no_index());
+			*offset += get_count_base(ui_id, Index_T::no_index());
 		// NOTE: It is ok to use an invalid parent index in get_count_base here for the following reason: 
 		// Even if we allowed union index sets to be sub-indexed, the supposition here is that it is a parent index set, and we don't allow double sub-indexing.
 	}
 	return false;
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::check_valid_distribution(std::vector<Id_Type> &index_sets, Source_Location source_loc) {
+Index_Data<Record_Type>::check_valid_distribution(std::vector<Entity_Id> &index_sets, Source_Location source_loc) {
 	
 	int idx = 0;
 	for(auto id : index_sets) {
@@ -711,9 +703,9 @@ Index_Data<Id_Type>::check_valid_distribution(std::vector<Id_Type> &index_sets, 
 	
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 s64
-Index_Data<Id_Type>::get_instance_count(const std::vector<Id_Type> &index_sets) {
+Index_Data<Record_Type>::get_instance_count(const std::vector<Entity_Id> &index_sets) {
 	
 	s64 count = 1;
 	if(index_sets.empty()) return count;
@@ -733,7 +725,7 @@ Index_Data<Id_Type>::get_instance_count(const std::vector<Id_Type> &index_sets) 
 				record->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter or a union member of the latter.");
 		}
 		
-		std::vector<std::pair<Id_Type, s32>> subs;
+		std::vector<std::pair<Entity_Id, s32>> subs;
 		for(int pos2 = pos+1; pos2 < index_sets.size(); ++pos2) {
 			s32 offset = 0;
 			if(can_be_sub_indexed_to(index_set_id, index_sets[pos2], &offset)) {
@@ -749,7 +741,7 @@ Index_Data<Id_Type>::get_instance_count(const std::vector<Id_Type> &index_sets) 
 			for(int idx = 0; idx < count0; ++idx) {
 				int subcount = 1;
 				for(auto &sub : subs)
-					subcount *= get_count_base(sub.first, Idx_T {index_set_id, sub.second + idx});
+					subcount *= get_count_base(sub.first, Index_T {index_set_id, sub.second + idx});
 				sum += subcount;
 			}
 			count *= sum;
@@ -758,9 +750,9 @@ Index_Data<Id_Type>::get_instance_count(const std::vector<Id_Type> &index_sets) 
 	return count;
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 std::string
-Index_Data<Id_Type>::get_index_name_base(Idx_T index, Idx_T index_of_super, bool *is_quotable) {
+Index_Data<Record_Type>::get_index_name_base(Index_T index, Index_T index_of_super, bool *is_quotable) {
 	auto &data = index_data[index.index_set.id];
 	
 	// TODO: Remove this once we fix MobiView2
@@ -783,12 +775,12 @@ Index_Data<Id_Type>::get_index_name_base(Idx_T index, Idx_T index_of_super, bool
 		fatal_error(Mobius_Error::internal, "Unhandled index type in get_index_name_base.");
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 std::string
-Index_Data<Id_Type>::get_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, bool *is_quotable) {
+Index_Data<Record_Type>::get_index_name(Index_Tuple<Record_Type> &indexes, Index_T index, bool *is_quotable) {
 	
 	auto index_set = record->index_sets[index.index_set];
-	Idx_T index_of_super = Idx_T::no_index();
+	Index_T index_of_super = Index_T::no_index();
 	
 	if(is_valid(index_set->sub_indexed_to)) {
 		index_of_super = indexes.get_index(*this, index_set->sub_indexed_to);
@@ -803,7 +795,7 @@ Index_Data<Id_Type>::get_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, 
 	auto &data = index_data[index.index_set.id];
 	
 	if(!index_set->union_of.empty() && data.type == Index_Record::Type::named) {
-		Idx_T below = lower(index, index_of_super);
+		Index_T below = lower(index, index_of_super);
 		return get_index_name_base(below, index_of_super, is_quotable);
 	}
 	
@@ -816,18 +808,18 @@ maybe_quote(std::string &str, bool quote) {
 		str = "\"" + str + "\"";
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 std::string
-Index_Data<Id_Type>::get_possibly_quoted_index_name(Index_Tuple<Id_Type> &indexes, Idx_T index, bool quote) {
+Index_Data<Record_Type>::get_possibly_quoted_index_name(Index_Tuple<Record_Type> &indexes, Index_T index, bool quote) {
 	bool is_quotable;
 	std::string result = get_index_name(indexes, index, &is_quotable);
 	maybe_quote(result, quote && is_quotable);
 	return result;
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::get_index_names(Index_Tuple<Id_Type> &indexes, std::vector<std::string> &names_out, bool quote) {
+Index_Data<Record_Type>::get_index_names(Index_Tuple<Record_Type> &indexes, std::vector<std::string> &names_out, bool quote) {
 	
 	// TODO: Should probably change this to only put the valid ones in the vector
 	
@@ -842,9 +834,9 @@ Index_Data<Id_Type>::get_index_names(Index_Tuple<Id_Type> &indexes, std::vector<
 	}
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 bool
-Index_Data<Id_Type>::are_all_indexes_set(Id_Type index_set_id) {
+Index_Data<Record_Type>::are_all_indexes_set(Entity_Id index_set_id) {
 	
 	auto index_set = record->index_sets[index_set_id];
 	if(!index_set->union_of.empty()) {
@@ -865,9 +857,9 @@ Index_Data<Id_Type>::are_all_indexes_set(Id_Type index_set_id) {
 	return true;
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::write_index_to_file(FILE *file, Idx_T index, Idx_T parent_idx) {
+Index_Data<Record_Type>::write_index_to_file(FILE *file, Index_T index, Index_T parent_idx) {
 	
 	auto index_set = record->index_sets[index.index_set];
 	
@@ -878,7 +870,7 @@ Index_Data<Id_Type>::write_index_to_file(FILE *file, Idx_T index, Idx_T parent_i
 	
 	// TODO: could we reuse code between this and get_index_name ?
 	if(!index_set->union_of.empty() && data.type == Index_Record::Type::named) {
-		Idx_T below = lower(index, parent_idx);
+		Index_T below = lower(index, parent_idx);
 		write_index_to_file(file, below, parent_idx);
 		return;
 	}
@@ -895,9 +887,9 @@ Index_Data<Id_Type>::write_index_to_file(FILE *file, Idx_T index, Idx_T parent_i
 		fatal_error(Mobius_Error::internal, "Unhandled index type in write_index_to_file().");
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::write_indexes_to_file(FILE *file, Id_Type index_set, Idx_T parent_idx) {
+Index_Data<Record_Type>::write_indexes_to_file(FILE *file, Entity_Id index_set, Index_T parent_idx) {
 	
 	auto set = record->index_sets[index_set];
 	if((is_valid(set->sub_indexed_to) && !is_valid(parent_idx))
@@ -917,12 +909,12 @@ Index_Data<Id_Type>::write_indexes_to_file(FILE *file, Id_Type index_set, Idx_T 
 		fatal_error(Mobius_Error::internal, "Unhandled index type in write_indexes_to_file().");
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::for_each_helper(
-	const std::function<void(Index_Tuple<Id_Type> &indexes)> &do_stuff,
+Index_Data<Record_Type>::for_each_helper(
+	const std::function<void(Index_Tuple<Record_Type> &indexes)> &do_stuff,
 	const std::function<void(int)> &new_level,
-	Index_Tuple<Id_Type> &indexes,
+	Index_Tuple<Record_Type> &indexes,
 	int pos
 ) {
 	auto index_set = indexes.indexes[pos].index_set;
@@ -937,37 +929,37 @@ Index_Data<Id_Type>::for_each_helper(
 	}
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 void
-Index_Data<Id_Type>::for_each(
-	std::vector<Id_Type> &index_sets, 
-	const std::function<void(Index_Tuple<Id_Type> &indexes)> &do_stuff,
+Index_Data<Record_Type>::for_each(
+	std::vector<Entity_Id> &index_sets, 
+	const std::function<void(Index_Tuple<Record_Type> &indexes)> &do_stuff,
 	const std::function<void(int)> &new_level
 ) {
-	Index_Tuple<Id_Type> indexes;
+	Index_Tuple<Record_Type> indexes;
 	if(index_sets.empty()) {
 		do_stuff(indexes);
 		return;
 	}
-	for(int pos = 0; pos < index_sets.size(); ++pos) indexes.add_index( Idx_T { index_sets[pos], 0 } );
+	for(int pos = 0; pos < index_sets.size(); ++pos) indexes.add_index( Index_T { index_sets[pos], 0 } );
 	for_each_helper(do_stuff, new_level, indexes, 0);
 }
 
-template<typename Id_Type>
+template<typename Record_Type>
 Index_Record::Type
-Index_Data<Id_Type>::get_index_type(Id_Type index_set_id) {
+Index_Data<Record_Type>::get_index_type(Entity_Id index_set_id) {
 	return index_data[index_set_id.id].type;
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Data<Id_Type>::lower(Idx_T union_index, Idx_T parent_idx) {
+template<typename Record_Type>
+Index_T
+Index_Data<Record_Type>::lower(Index_T union_index, Index_T parent_idx) {
 	// Lower an index from a union index set to a union member.
 	auto set = record->index_sets[union_index.index_set];
 	if(set->union_of.empty())
 		fatal_error(Mobius_Error::internal, "Misuse of lower() for non-union index set.");
 	
-	Idx_T below = union_index;
+	Index_T below = union_index;
 	for(auto ui_id : set->union_of) {
 		s32 count = get_count_base(ui_id, parent_idx);
 		if(below.index < count) {
@@ -977,21 +969,21 @@ Index_Data<Id_Type>::lower(Idx_T union_index, Idx_T parent_idx) {
 		below.index -= count;
 	}
 	fatal_error(Mobius_Error::internal, "Union index set was incorrectly set up.");
-	return Idx_T::no_index();
+	return Index_T::no_index();
 }
 
-template<typename Id_Type>
-Index_Type<Id_Type>
-Index_Data<Id_Type>::raise(Idx_T member_idx, Id_Type union_set) {
+template<typename Record_Type>
+Index_T
+Index_Data<Record_Type>::raise(Index_T member_idx, Entity_Id union_set) {
 	auto set = record->index_sets[union_set];
-	Idx_T above = Idx_T { union_set, member_idx.index };
+	Index_T above = Index_T { union_set, member_idx.index };
 	for(auto ui_id : set->union_of) {
 		if(ui_id == member_idx.index_set) return above;
-		s32 count = get_count_base(ui_id, Idx_T::no_index()); // TODO: Would break if we allowed sub-indexing union index sets.
+		s32 count = get_count_base(ui_id, Index_T::no_index()); // TODO: Would break if we allowed sub-indexing union index sets.
 		above.index += count;
 	}
 	fatal_error(Mobius_Error::internal, "Union index set was incorrectly passed to raise().");
-	return Idx_T::no_index();
+	return Index_T::no_index();
 }
 
 #endif // MOBIUS_INDEX_DATA_H

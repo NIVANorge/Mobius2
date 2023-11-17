@@ -239,6 +239,9 @@ Entity_Id {
 	Entity_Id &operator++() { id++; return *this; }
 };
 
+constexpr Entity_Id invalid_entity_id = Entity_Id::invalid();
+inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
+
 inline bool
 operator==(const Entity_Id &a, const Entity_Id &b) {
 	return a.reg_type == b.reg_type && a.id == b.id;
@@ -255,16 +258,6 @@ operator<(const Entity_Id &a, const Entity_Id &b) {
 		return a.id < b.id;
 	return a.reg_type < b.reg_type;
 }
-
-constexpr Entity_Id invalid_entity_id = Entity_Id::invalid();
-
-inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
-
-template<typename Id_Type>
-struct Record_Type {
-};
-
-
 
 constexpr int max_var_loc_components = 6;
 

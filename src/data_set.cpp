@@ -40,7 +40,7 @@ write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_se
 			fprintf(file, " [\n");
 			s32 count = data_set->index_data.get_max_count(index_set.sub_indexed_to).index;
 			for(int idx = 0; idx < count; ++idx) {
-				Index_D parent_idx = Index_D  { index_set.sub_indexed_to, idx };
+				Index_T parent_idx = Index_T  { index_set.sub_indexed_to, idx };
 				fprintf(file, "\t");
 				data_set->index_data.write_index_to_file(file, parent_idx);
 				fprintf(file, " : [ ");
@@ -350,7 +350,7 @@ read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident =
 	}
 }
 
-Data_Id
+Entity_Id
 make_sub_indexed_to(Data_Set *data_set, Index_Set_Info *data, Token *parent) {
 	Index_Set_Info *sub_indexed_to = nullptr;
 	
@@ -364,7 +364,7 @@ make_sub_indexed_to(Data_Set *data_set, Index_Set_Info *data, Token *parent) {
 	return data->sub_indexed_to;
 }
 
-Data_Id
+Entity_Id
 parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 	
 	match_declaration(decl,	{{Token_Type::quoted_string}}, false, false);
@@ -373,7 +373,7 @@ parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
 	auto index_set_id = data_set->index_sets.create(name->string_value, name->source_loc);
 	auto data = data_set->index_sets[index_set_id];
 	
-	Data_Id sub_indexed_to = invalid_data;
+	Entity_Id sub_indexed_to = invalid_entity_id;
 	
 	while(true) {
 		auto peek = stream->peek_token();
@@ -483,7 +483,7 @@ read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartmen
 	stream->expect_identifier();
 	
 	if(token.string_value == "out") {
-		read_to->id = invalid_data;
+		read_to->id = invalid_entity_id;
 		return;
 	}
 	auto find = info->component_handle_to_id.find(token.string_value);
@@ -528,7 +528,7 @@ read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_St
 	
 		if(is_valid(info->edge_index_set) && first_comp->can_have_edge_index) {
 			
-			Index_D parent_idx = Index_D::no_index();
+			Index_T parent_idx = Index_T::no_index();
 			auto parent_set = data_set->index_sets[info->edge_index_set]->sub_indexed_to;
 			if(!is_valid(parent_set))
 				fatal_error(Mobius_Error::internal, "Got an edge index set that was not sub-indexed to the connection component index.");
@@ -959,7 +959,7 @@ Data_Set::generate_index_data(const std::string &name, const std::string &sub_in
 	auto id = index_sets.create(name, loc);
 	auto set = index_sets[id];
 	
-	auto sub_to = invalid_data;
+	auto sub_to = invalid_entity_id;
 	if(!sub_indexed_to.empty()) {
 		sub_to = index_sets.find_idx(sub_indexed_to);
 		if(!is_valid(sub_to))
@@ -989,7 +989,7 @@ Data_Set::generate_index_data(const std::string &name, const std::string &sub_in
 	count.val_int = 1;
 	
 	for(int par_idx = 0; par_idx < instance_count; ++par_idx) {
-		Index_D parent_idx = Index_D { sub_to, par_idx };
+		Index_T parent_idx = Index_T { sub_to, (s16)par_idx };
 		index_data.set_indexes(id, { count }, parent_idx);
 	}
 }
@@ -1028,7 +1028,7 @@ read_series_data_from_csv(Data_Set *data_set, String_View file_name, String_View
 			stream.read_token();
 			token = stream.peek_token();
 			if(token.type == Token_Type::quoted_string) {
-				std::vector<Data_Id> index_sets;
+				std::vector<Entity_Id> index_sets;
 				std::vector<Token>   index_names;
 				
 				while(true) {
