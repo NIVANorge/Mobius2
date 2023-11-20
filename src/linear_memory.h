@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unordered_map>
-
+#include <vector>
 #include "mobius_common.h"
 
 template<typename T> T*

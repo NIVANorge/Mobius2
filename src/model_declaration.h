@@ -19,12 +19,16 @@ Registration<Reg_Type::module_template> : Registration_Base {
 	Decl_AST      *decl = nullptr;
 	std::string    doc_string;
 	std::string    normalized_path;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
 Registration<Reg_Type::loc> : Registration_Base {
 	Specific_Var_Location loc;
 	Entity_Id             par_id = invalid_entity_id;    // One could also pass a parameter as a loc.
+	
+	void process_declaration(Catalog *catalog);
 };
 
 struct
@@ -56,11 +60,13 @@ Registration<Reg_Type::component> : Registration_Base {
 	
 	// For properties:
 	Math_Block_AST *default_code = nullptr;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
 Registration<Reg_Type::parameter> : Registration_Base {
-	Entity_Id       par_group = invalid_entity_id;
+	//Entity_Id       par_group = invalid_entity_id;  // Note: is same as scope_id
 	Entity_Id       unit = invalid_entity_id;
 	
 	Parameter_Value default_val;
@@ -77,6 +83,8 @@ Registration<Reg_Type::parameter> : Registration_Base {
 	}
 	
 	std::string     description;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
@@ -97,6 +105,8 @@ Registration<Reg_Type::var> : Registration_Base {
 	Math_Block_AST *initial_code = nullptr;
 	bool override_is_conc = false;
 	Math_Block_AST *override_code = nullptr;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
@@ -114,12 +124,16 @@ Registration<Reg_Type::flux> : Registration_Base {
 	Math_Block_AST  *specific_target_ast = nullptr;
 	bool             no_carry_by_default = false;
 	bool             bidirectional       = false;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
 Registration<Reg_Type::discrete_order> : Registration_Base {
 	// TODO: eventually this one could be more complex to take into account order of when things are added or subtracted, or recomputation of values etc.
 	std::vector<Entity_Id> fluxes;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
@@ -133,6 +147,8 @@ Registration<Reg_Type::external_computation> : Registration_Base {
 	Entity_Id        connection           = invalid_entity_id;
 	
 	Math_Block_AST  *code;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 enum class
@@ -149,17 +165,23 @@ Registration<Reg_Type::function> : Registration_Base {
 	Math_Block_AST  *code = nullptr;
 	
 	// TODO: may need some info on expected argument types (especially for externals)
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
 Registration<Reg_Type::constant> : Registration_Base {
 	double    value;   //Hmm, should we allow integer constants too? But that would require two declaration types.
 	Entity_Id unit;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
 Registration<Reg_Type::unit> : Registration_Base {
 	Unit_Data data;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 enum class
@@ -178,6 +200,8 @@ Registration<Reg_Type::connection> : Registration_Base {
 	
 	std::vector<Entity_Id> components;
 	Math_Expr_AST *regex = nullptr;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
@@ -188,11 +212,15 @@ Registration<Reg_Type::solver> : Registration_Base {
 	Entity_Id h_par = invalid_entity_id;
 	Entity_Id hmin_par = invalid_entity_id;
 	std::vector<std::pair<Specific_Var_Location, Source_Location>> locs; // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
+	
+	void process_declaration(Catalog *catalog);
 };
 
 template<> struct
 Registration<Reg_Type::solver_function> : Registration_Base {
 	Solver_Function *solver_fun = nullptr;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 struct
@@ -204,7 +232,6 @@ Mobius_Config {
 struct
 Mobius_Model : Catalog {
 	
-	std::string model_name;	
 	Mobius_Config config;
 	
 	Registry<Reg_Type::module_template> module_templates;

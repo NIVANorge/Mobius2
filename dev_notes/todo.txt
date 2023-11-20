@@ -6,12 +6,18 @@
 		
 		Move over to having Mobius_Model as a Catalog. Then Data_Set.
 			
+			
+			Need to figure out what to do with has_been_processed (is it necessary for anything other than libraries and modules?)
+			
+			
 			Remove templatization of index_data on Record_Type (and put a lot of the code in index_data in a .cpp for faster recompilation).
 			Instead just have separate Reg_Types for Data_Set and Mobius_Model things. (?)
 				After this is done, move to Index_Set_Tuple for union_of also.
 				It would be nicer if index set is always the same Reg_Type, but it could cause errors where a Data_Set entity id is used for the model or opposite.
 					Then the Catalog base class could also always have a Registry<Reg_Type::index_set>, and that would simplify index_data code.
 					The wrong use of the entity id is only a problem on the side of the framework implementer, and only in model_application.cpp, not on any other user. So should easily be detected. Any other way to make that better?.
+					
+			Have to remember to use set_serial_name during processing if we don't process the serial name during registration
 			
 			data_set { } declaration.
 			Just let the data_set use the same AST parsing as Mobius_Model, where a [] block parses as "data", which is just a token list.

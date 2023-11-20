@@ -349,7 +349,8 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 		
 	auto model = app->model;
 	auto par = model->parameters[dep.par_id];
-	auto group = model->par_groups[par->par_group];
+	//auto group = model->par_groups[par->par_group];
+	auto group = model->par_groups[par->scope_id];
 	
 	Entity_Id exclude = avoid_index_set_dependency(app, dep.restriction);
 	

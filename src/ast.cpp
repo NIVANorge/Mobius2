@@ -996,6 +996,10 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 
 void
 check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
+	if(serial_name.count == 0) {
+		loc.print_error_header();
+		fatal_error("A name can't be empty.");
+	}
 	for(int idx = 0; idx < serial_name.count; ++idx) {
 		char c = serial_name[idx];
 		if(c == ':' || c == '\\') {

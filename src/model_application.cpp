@@ -129,8 +129,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 			}
 		}
 	
-		//for(auto par : model->par_groups[group_id]->parameters)
-		for(auto par_id : model->by_scope<Reg_Type::parameter>(group_id))
+		for(auto par_id : model->get_scope(group_id)->by_type<Reg_Type::parameter>())
 			par_by_index_sets[index_sets].push_back(par_id);
 	}
 	
@@ -1049,7 +1048,7 @@ Model_Application::save_to_data_set() {
 			module_info->version = model->module_templates[module->template_id]->version;
 		}
 		
-		for(auto group_id : model->by_scope<Reg_Type::par_group>(module_id)) {
+		for(auto group_id : model->get_scope(module_id)->by_type<Reg_Type::par_group>()) {
 			auto par_group = model->par_groups[group_id];
 			
 			Par_Group_Info *par_group_info = module_info->par_groups.find(par_group->name);
@@ -1063,7 +1062,7 @@ Model_Application::save_to_data_set() {
 			// TODO: not sure if we should have an error for an empty par group.
 			bool index_sets_resolved = false;
 			
-			for(auto par_id : model->by_scope<Reg_Type::parameter>(group_id)) {
+			for(auto par_id : model->get_scope(group_id)->by_type<Reg_Type::parameter>()) {
 				
 				if(!index_sets_resolved) {
 					auto &index_sets = parameter_structure.get_index_sets(par_id);
