@@ -18,7 +18,6 @@ quick_select [
 
 
 
-
 # Should have the concept of a data_block in the AST parsing.
 # Do we need it to separate between types (e.g. list, graph)? These are all there are now.
 	# Probably sufficient to store the token list, and we can re-parse it (?).
