@@ -84,7 +84,7 @@ module("Simple river TOC", version(0, 1, 0),
 	oc    : quantity,
 	sed   : quantity,
 	toc   : property,
-	sed_oc : par_real,
+	sed_oc : par_real
 ) {
 	var(river.water.toc, [m g, l-1], "River TOC concentration") {   conc(oc) + conc(sed)*sed_oc   }
 }

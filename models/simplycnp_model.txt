@@ -13,7 +13,7 @@ model("SimplyCNP") {
 	)
 	
 	load("modules/simplyc.txt",
-		module("Simple river TOC", river, water, oc, toc, sed_oc)
+		module("Simple river TOC", river, water, oc, sed, toc, sed_oc)
 	)
 	
 	par_group("Suspended carbon") {
