@@ -449,7 +449,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 }
 
 inline bool 
-has_code(Registration<Reg_Type::var> *var) {
+has_code(Var_Registration *var) {
 	return var->code || var->initial_code || var->override_code;
 }
 
@@ -705,7 +705,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		bool found_code = has_code(var);
 		
 		bool found_earlier = false;
-		Registration<Reg_Type::var> *var2 = nullptr;
+		Var_Registration *var2 = nullptr;
 		auto find = has_location.find(var->var_location);
 		if(find != has_location.end()) {
 			found_earlier = true;

@@ -13,8 +13,8 @@
 #include "units.h"
 #include "catalog.h"
 
-template<> struct
-Registration<Reg_Type::module_template> : Registration_Base {
+struct
+Module_Template_Registration : Registration_Base {
 	Module_Version version;
 	Decl_AST      *decl = nullptr;
 	std::string    doc_string;
@@ -23,8 +23,8 @@ Registration<Reg_Type::module_template> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::loc> : Registration_Base {
+struct
+Loc_Registration : Registration_Base {
 	Specific_Var_Location loc;
 	Entity_Id             par_id = invalid_entity_id;    // One could also pass a parameter as a loc.
 	
@@ -47,8 +47,8 @@ Flux_Unit_Conversion_Data {
 	Entity_Id       scope_id;
 };
 
-template<> struct
-Registration<Reg_Type::component> : Registration_Base {
+struct
+Component_Registration : Registration_Base {
 	//Entity_Id    unit;            //NOTE: tricky. could clash between different vars. Better just to have it on the "var" ?
 	
 	// For compartments:
@@ -64,8 +64,8 @@ Registration<Reg_Type::component> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::parameter> : Registration_Base {
+struct
+Parameter_Registration : Registration_Base {
 	//Entity_Id       par_group = invalid_entity_id;  // Note: is same as scope_id
 	Entity_Id       unit = invalid_entity_id;
 	
@@ -87,8 +87,8 @@ Registration<Reg_Type::parameter> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::var> : Registration_Base {
+struct
+Var_Registration : Registration_Base {
 	Var_Location   var_location          = invalid_var_location;
 	Entity_Id      unit                  = invalid_entity_id;
 	Entity_Id      conc_unit             = invalid_entity_id;
@@ -109,8 +109,8 @@ Registration<Reg_Type::var> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::flux> : Registration_Base {
+struct
+Flux_Registration : Registration_Base {
 	Specific_Var_Location   source;
 	Specific_Var_Location   target;
 	
@@ -128,16 +128,16 @@ Registration<Reg_Type::flux> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::discrete_order> : Registration_Base {
+struct
+Discrete_Order_Registration : Registration_Base {
 	// TODO: eventually this one could be more complex to take into account order of when things are added or subtracted, or recomputation of values etc.
 	std::vector<Entity_Id> fluxes;
 	
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::external_computation> : Registration_Base {
+struct
+External_Computation_Registration : Registration_Base {
 	std::string      function_name;
 	
 	// TODO: May need a vector of components
@@ -156,8 +156,8 @@ Function_Type {
 	decl, intrinsic, linked,
 };
 
-template<> struct
-Registration<Reg_Type::function> : Registration_Base {
+struct
+Function_Registration : Registration_Base {
 	std::vector<std::string> args;
 	std::vector<Entity_Id> expected_units;
 	
@@ -169,16 +169,16 @@ Registration<Reg_Type::function> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::constant> : Registration_Base {
+struct
+Constant_Registration : Registration_Base {
 	double    value;   //Hmm, should we allow integer constants too? But that would require two declaration types.
 	Entity_Id unit;
 	
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::unit> : Registration_Base {
+struct
+Unit_Registration : Registration_Base {
 	Unit_Data data;
 	
 	void process_declaration(Catalog *catalog);
@@ -189,8 +189,8 @@ Connection_Type {
 	unrecognized = 0, directed_graph, grid1d,
 };
 
-template<> struct
-Registration<Reg_Type::connection> : Registration_Base {
+struct
+Connection_Registration : Registration_Base {
 	Connection_Type type = Connection_Type::unrecognized;
 	
 	Entity_Id node_index_set = invalid_entity_id;  // Only for grid1d. For directed graph, the nodes could be indexed variously
@@ -204,8 +204,8 @@ Registration<Reg_Type::connection> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::solver> : Registration_Base {
+struct
+Solver_Registration : Registration_Base {
 	Entity_Id solver_fun = invalid_entity_id;
 	Entity_Id h_unit = invalid_entity_id;
 	double hmin;
@@ -216,8 +216,8 @@ Registration<Reg_Type::solver> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::solver_function> : Registration_Base {
+struct
+Solver_Function_Registration : Registration_Base {
 	Solver_Function *solver_fun = nullptr;
 	
 	void process_declaration(Catalog *catalog);
@@ -234,20 +234,20 @@ Mobius_Model : Catalog {
 	
 	Mobius_Config config;
 	
-	Registry<Reg_Type::module_template> module_templates;
-	Registry<Reg_Type::unit>        units;
-	Registry<Reg_Type::parameter>   parameters;  // par_real, par_int, par_bool, par_enum, par_datetime
-	Registry<Reg_Type::function>    functions;
-	Registry<Reg_Type::constant>    constants;
-	Registry<Reg_Type::component>   components;  // compartment, quantity, property
-	Registry<Reg_Type::var>         vars;
-	Registry<Reg_Type::flux>        fluxes;
-	Registry<Reg_Type::discrete_order> discrete_orders;
-	Registry<Reg_Type::external_computation> external_computations;
-	Registry<Reg_Type::solver>      solvers;
-	Registry<Reg_Type::solver_function> solver_functions;
-	Registry<Reg_Type::connection>  connections;
-	Registry<Reg_Type::loc>         locs;
+	Registry<Module_Template_Registration,      Reg_Type::module_template>      module_templates;
+	Registry<Unit_Registration,                 Reg_Type::unit>                 units;
+	Registry<Parameter_Registration,            Reg_Type::parameter>            parameters;  // par_real, par_int, par_bool, par_enum, par_datetime
+	Registry<Function_Registration,             Reg_Type::function>             functions;
+	Registry<Constant_Registration,             Reg_Type::constant>             constants;
+	Registry<Component_Registration,            Reg_Type::component>            components;  // compartment, quantity, property
+	Registry<Var_Registration,                  Reg_Type::var>                  vars;
+	Registry<Flux_Registration,                 Reg_Type::flux>                 fluxes;
+	Registry<Discrete_Order_Registration,       Reg_Type::discrete_order>       discrete_orders;
+	Registry<External_Computation_Registration, Reg_Type::external_computation> external_computations;
+	Registry<Solver_Registration,               Reg_Type::solver>               solvers;
+	Registry<Solver_Function_Registration,      Reg_Type::solver_function>      solver_functions;
+	Registry<Connection_Registration,           Reg_Type::connection>           connections;
+	Registry<Loc_Registration,                  Reg_Type::loc>                  locs;
 	
 	Decl_Scope global_scope;
 	

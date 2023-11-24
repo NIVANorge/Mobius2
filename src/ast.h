@@ -54,16 +54,17 @@ Decl_Base_AST : Expr_AST {
 	virtual ~Decl_Base_AST() { for(auto arg : args) delete arg; delete body; }
 };
 
+struct Data_AST;
+
 struct
 Decl_AST : Decl_Base_AST {
 	Token                        handle_name;
 	Source_Location              source_loc;    // Will be the same as decl.source_loc . Should we delete it? It is a handy short-hand in usage code though.
 	Decl_Type                    type;
 	std::vector<Decl_Base_AST *> notes;
+	Data_AST                    *data = nullptr;
 	
-	std::vector<Token>           data;
-	
-	virtual ~Decl_AST() { for(auto note : notes) delete note; }
+	virtual ~Decl_AST() { for(auto note : notes) delete note; if(data) delete data; }
 };
 
 struct
@@ -216,6 +217,44 @@ Regex_Quantifier_AST : Math_Expr_AST {
 	Regex_Quantifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_quantifier) {}
 };
 
+enum class Data_Type {
+	none,
+	map,
+	list,
+	directed_graph,
+};
+
+struct
+Data_AST : Expr_AST {
+	Data_Type data_type;
+	Source_Location source_loc;
+	virtual ~Data_AST() {};
+};
+
+struct
+Data_Map_AST : Data_AST {
+	struct Entry {
+		Token key;
+		Data_AST *data = nullptr;
+	};
+	std::vector<Entry> entries;
+	~Data_Map_AST() { for(auto &entry : entries) delete entry.data; }
+};
+
+struct
+Data_List_AST : Data_AST {
+	std::vector<Token> list;
+};
+
+struct
+Directed_Graph_AST : Data_AST {
+	struct Node {
+		Token identifier;
+		std::vector<Token> indexes;
+	};
+	std::vector<Node> nodes;
+	std::vector<std::pair<int, int>> arrows;
+};
 
 
 void
@@ -291,19 +330,15 @@ struct Arg_Pattern {
 
 int
 match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body);
-
-//int
-//match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-//	bool allow_handle = true, int allow_body = 1, bool allow_notes = false);
 	
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = true, int allow_body = 1, bool allow_notes = false, bool allow_data = false);
+	bool allow_handle = true, int allow_body = 1, bool allow_notes = false, int allow_data = 0);
 
 // Convenient shorthand for use in Data_Set parsing:
 inline int
 match_data_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = false, int allow_body = 0, bool allow_notes = false, bool allow_data = true) {
+	bool allow_handle = false, int allow_body = 0, bool allow_notes = false, int allow_data = -1) {
 		return match_declaration(decl, patterns, allow_handle, allow_body, allow_notes, allow_data);
 }
 	

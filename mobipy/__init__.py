@@ -496,4 +496,5 @@ class State_Var :
 		return data.unit.decode('utf-8')
 
 
-
+#TODO: Can use setattr any way if we call super.__setattr__() etc to not override on certain symbols. Then we don't need the unnecessary [()] syntax on non-indexed items.
+#   So we can e.g. have app.start_date = '2023-01-01'

@@ -129,20 +129,13 @@ Registration_Base {
 	virtual void process_declaration(Catalog *catalog) = 0;
 };
 
-template<Reg_Type reg_type> struct
-Registration : Registration_Base {
-	Registration() = delete;  // NOTE: prevent instantiation of the completely generic version.
-	
-	//void process_declaration(Catalog *catalog);
-};
-
 struct
 Registry_Base {
 	virtual Entity_Id register_decl(Decl_Scope *scope, Decl_AST *decl) = 0;
 	virtual Registration_Base *operator[](Entity_Id id) = 0;
 };
 
-template<Reg_Type reg_type> struct
+template<typename Registration_Type, Reg_Type reg_type> struct
 Registry : Registry_Base {
 
 	Entity_Id
@@ -155,14 +148,14 @@ Registry : Registry_Base {
 	Entity_Id begin() { return { reg_type, 0 }; }
 	Entity_Id end() { return { reg_type, (s16)registrations.size() }; }
 	
-	Registration<reg_type> *operator[](Entity_Id id);
+	Registration_Type *operator[](Entity_Id id);
 	
 private :
-	std::vector<Registration<reg_type>>  registrations;
+	std::vector<Registration_Type>  registrations;
 };
 
-template<Reg_Type reg_type> Registration<reg_type> *
-Registry<reg_type>::operator[](Entity_Id id) {
+template<typename Registration_Type, Reg_Type reg_type> Registration_Type *
+Registry<Registration_Type, reg_type>::operator[](Entity_Id id) {
 	if(!is_valid(id))
 		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid id.");
 	else if(id.reg_type != reg_type)
@@ -173,9 +166,8 @@ Registry<reg_type>::operator[](Entity_Id id) {
 }
 
 // Common registration types that are easier to have in Catalog
-
-template<> struct
-Registration<Reg_Type::module> : Registration_Base {
+struct
+Module_Registration : Registration_Base {
 	Entity_Id      template_id = invalid_entity_id;
 	
 	Decl_Scope     scope;
@@ -185,8 +177,8 @@ Registration<Reg_Type::module> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::par_group> : Registration_Base {
+struct
+Par_Group_Registration : Registration_Base {
 	std::vector<Entity_Id> components;
 	
 	Decl_Scope             scope;
@@ -194,11 +186,10 @@ Registration<Reg_Type::par_group> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::library> : Registration_Base {
+struct
+Library_Registration : Registration_Base {
+	
 	Decl_Scope     scope;
-	//Decl_AST      *decl = nullptr;
-	//bool           has_been_processed = false;
 	bool           is_being_processed = false;
 	std::string    doc_string;
 	std::string    normalized_path;
@@ -206,8 +197,8 @@ Registration<Reg_Type::library> : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Registration<Reg_Type::index_set> : Registration_Base {
+struct
+Index_Set_Registration : Registration_Base {
 	
 	std::vector<Entity_Id>  union_of;  // TODO: Make this an Index_Set_Tuple too!
 	
@@ -228,10 +219,10 @@ Catalog {
 	
 	Decl_AST *main_decl = nullptr;
 	
-	Registry<Reg_Type::module>      modules;
-	Registry<Reg_Type::library>     libraries;
-	Registry<Reg_Type::par_group>   par_groups;
-	Registry<Reg_Type::index_set>   index_sets;
+	Registry<Module_Registration,    Reg_Type::module>      modules;
+	Registry<Library_Registration,   Reg_Type::library>     libraries;
+	Registry<Par_Group_Registration, Reg_Type::par_group>   par_groups;
+	Registry<Index_Set_Registration, Reg_Type::index_set>   index_sets;
 	
 	Decl_Scope top_scope;
 	
@@ -266,8 +257,11 @@ private :
 	void register_single_decl(Decl_Scope *scope, Decl_AST *decl, const std::set<Decl_Type> &allowed_types);
 };
 
-template<Reg_Type reg_type> Entity_Id
-Registry<reg_type>::register_decl(Decl_Scope *scope, Decl_AST *decl) {
+Decl_AST *
+read_catalog_ast_from_file(Decl_Type expected_type, File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, std::string *normalized_path_out = nullptr);
+
+template<typename Registration_Type, Reg_Type reg_type> Entity_Id
+Registry<Registration_Type, reg_type>::register_decl(Decl_Scope *scope, Decl_AST *decl) {
 	
 	Entity_Id result_id = invalid_entity_id;
 	
@@ -281,7 +275,7 @@ Registry<reg_type>::register_decl(Decl_Scope *scope, Decl_AST *decl) {
 	
 	result_id.reg_type  = reg_type;
 	result_id.id        = (s16)registrations.size();     // TODO: Detect overflow?
-	registrations.push_back(Registration<reg_type>());
+	registrations.emplace_back();
 	auto &registration = registrations[result_id.id];
 	
 	registration.decl        = decl;
@@ -295,8 +289,8 @@ Registry<reg_type>::register_decl(Decl_Scope *scope, Decl_AST *decl) {
 	return result_id;
 }
 
-template<Reg_Type reg_type> Entity_Id
-Registry<reg_type>::create_internal(Decl_Scope *scope, const std::string &handle, const std::string &name, Decl_Type decl_type) {
+template<typename Registration_Type, Reg_Type reg_type> Entity_Id
+Registry<Registration_Type, reg_type>::create_internal(Decl_Scope *scope, const std::string &handle, const std::string &name, Decl_Type decl_type) {
 	Source_Location internal = {};
 	internal.type      = Source_Location::Type::internal;
 	
@@ -310,6 +304,7 @@ Registry<reg_type>::create_internal(Decl_Scope *scope, const std::string &handle
 	registration.source_loc = internal;
 	registration.decl_type  = decl_type;
 	registration.id         = result_id;
+	registration.has_been_processed = true; // Just so that it doesn't create any errors. We trust internally created ones are correctly processed.
 	
 	if(scope) {
 		scope->add_local(handle, internal, result_id);

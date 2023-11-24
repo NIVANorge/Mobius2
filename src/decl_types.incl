@@ -1,6 +1,7 @@
 // The arguments are Decl_Type, Body_Type, Reg_Type
 
 ENUM_VALUE(model, decl, unrecognized)
+ENUM_VALUE(data_set, decl, unrecognized)
 ENUM_VALUE(module, decl, module_template)
 ENUM_VALUE(version, none, unrecognized)
 ENUM_VALUE(library, decl, library)

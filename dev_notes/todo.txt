@@ -6,6 +6,18 @@
 		
 		Move over to having Mobius_Model as a Catalog. Then Data_Set.
 			
+			Is it worth it to introduce a concept of data_type (which is map_list, graph) already at the ast parsing stage?
+				Yes, doing it.
+				TODO: finish.
+			
+			Standardize so that model and data_set loading are both in a read_from_file function on the class itself.
+			
+			Make a separate .cpp file for data set writing. Standardize it somewhat (i.e. just walk the ast tree).
+			
+			Have to do something with Index_Set_Declaration::process_declaration() that allows it both to parse Data_Set and Model.
+				Unless we manually remember to do that when registering index sets during the Data_Set processing.
+			
+			
 			
 			Need to figure out what to do with has_been_processed (is it necessary for anything other than libraries and modules?)
 			

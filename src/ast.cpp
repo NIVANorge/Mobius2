@@ -71,6 +71,7 @@ Function_Body_AST::~Function_Body_AST() { delete block; }
 Regex_Body_AST::~Regex_Body_AST() { delete expr; }
 Unit_Convert_AST::~Unit_Convert_AST() { delete unit; }
 
+
 Source_Location &
 Argument_AST::source_loc() {
 	if(decl)
@@ -323,25 +324,19 @@ parse_body(Token_Stream *stream, Decl_Type decl_type, Body_Type body_type) {
 	return body;
 }
 
-void
-parse_data(Token_Stream *stream, std::vector<Token> &data) {
-	// This is not really parsing since there is no universal format for the data blocks. Just store them for later.
-	auto open = stream->expect_token('[');
-	int open_bracket = 1;
-	while(true) {
-		auto token = stream->read_token();
-		if(token.type == Token_Type::eof) {
-			open.print_error_header();
-			fatal_error("End of file before this '[' bracket was closed.");
-			break;
-		} else if((char)token.type == '[') {
-			++open_bracket;
-		} else if((char)token.type == ']') {
-			--open_bracket;
-			if(open_bracket == 0) break;
-		}
-		data.push_back(token);
-	}
+Data_AST *
+parse_data(Token_Stream *stream, Data_Type type);
+
+Data_Type
+get_data_type(Decl_Type decl_type) {
+	// TODO: Maybe put this info into decl_types.incl same as body types
+	if(decl_type == Decl_Type::par_group) return Data_Type::list;  // This is the index set list
+	if(decl_type == Decl_Type::index_set) return Data_Type::map;   // can be both map and list, but that is accounted for.
+	if(decl_type == Decl_Type::directed_graph) return Data_Type::directed_graph;
+	if(get_reg_type(decl_type) == Reg_Type::component) return Data_Type::list;  // Index set list.
+	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::list; // list of parameter values.
+	
+	return Data_Type::none;
 }
 
 Decl_AST *
@@ -362,11 +357,16 @@ parse_decl(Token_Stream *stream) {
 			}
 			decl->body = parse_body(stream, decl->type, body_type);
 		} else if(ch == '[') {
-			if(!decl->data.empty()) {
+			if(decl->data) {
 				next.print_error_header();
 				fatal_error("Multiple data blocks for declaration.");
 			}
-			parse_data(stream, decl->data);
+			auto data_type = get_data_type(decl->type);
+			if(data_type == Data_Type::none) {
+				next.print_error_header();
+				fatal_error("Did not expect a data block for this declaration.");
+			}
+			decl->data = parse_data(stream, data_type);
 		} else if (ch == '@') {
 			stream->read_token();
 			
@@ -833,6 +833,157 @@ parse_regex_list(Token_Stream *stream, bool outer) {
 	return result;
 }
 
+inline bool
+allow_list_or_map_item(Token_Type t) {
+	// We filter on these now. Then the declaration processing later will presumably figure out exactly which ones are allowed
+	return (t == Token_Type::real || t == Token_Type::integer || t == Token_Type::boolean || t == Token_Type::date || t == Token_Type::time 
+			|| t == Token_Type::quoted_string || t == Token_Type::identifier);
+}
+
+Data_AST *
+parse_list_or_map(Token_Stream *stream, Data_Type expected_type);
+
+void
+parse_list_data(Token_Stream *stream, std::vector<Token> &list) {
+	auto open = stream->expect_token('[');
+	
+	while(true) {
+		auto token = stream->read_token();
+		auto t = token.type;
+		if(t == Token_Type::eof) {
+			open.print_error_header();
+			fatal_error("Reached end of file while parsing a data list starting at this location.");
+		} else if ((char)t == ']')
+			break;
+		else if (allow_list_or_map_item(t))
+			list.push_back(token);
+		else {
+			token.print_error_header();
+			fatal_error("A token of type ", name(t), " is not allowed in a list.");
+		}
+	}
+}
+
+Data_AST *
+parse_list(Token_Stream *stream) {
+	auto list = new Data_List_AST();
+	
+	parse_list_data(stream, list->list);
+		
+	return list;
+}
+
+Data_AST *
+parse_map(Token_Stream *stream) {
+	auto map = new Data_Map_AST();
+	
+	auto open = stream->expect_token('[');
+	while(true) {
+		auto token = stream->read_token();
+		auto t = token.type;
+		if(t == Token_Type::eof) {
+			open.print_error_header();
+			fatal_error("Reached end of file while parsing a data map starting at this location.");
+		} else if ((char)t == ']')
+			break;
+		else if (allow_list_or_map_item(t)) {
+			Data_Map_AST::Entry entry;
+			entry.key = token;
+			stream->expect_token(':');
+			entry.data = parse_list_or_map(stream, Data_Type::map); // Allow recursive maps in general. Limitation to be done when processing later.
+			map->entries.push_back(entry);
+		} else {
+			token.print_error_header();
+			fatal_error("A token of type ", name(t), " is not allowed as the key in a map.");
+		}
+	}
+	
+	return map;
+}
+
+Data_AST *
+parse_list_or_map(Token_Stream *stream, Data_Type expected_type) {
+	
+	auto peek2 = stream->peek_token(2);
+	Data_Type found_type = Data_Type::list;
+	if((char)peek2.type == ':')
+		found_type = Data_Type::map;
+	if(expected_type == Data_Type::list && found_type == Data_Type::map) {
+		peek2.print_error_header();
+		fatal_error("Expected a simple list, not a map");
+	}
+	// NOTE: If the expected type is a map, a list is still allowed.
+	if(found_type == Data_Type::list)
+		return parse_list(stream);
+	else if(found_type == Data_Type::map)
+		return parse_map(stream);
+	
+	return nullptr;
+}
+
+Data_AST *
+parse_directed_graph(Token_Stream *stream) {
+	auto graph = new Directed_Graph_AST();
+	
+	auto open = stream->expect_token('[');
+	
+	int last_node = -1;
+	
+	while(true) {
+		auto token = stream->read_token();
+		// Note: we don't de-duplicate nodes here yet. That is taken care of later.
+		if(token.type == Token_Type::identifier) {
+			Directed_Graph_AST::Node node;
+			node.identifier = token;
+			parse_list_data(stream, node.indexes);
+			int nodeidx = graph->nodes.size();
+			graph->nodes.push_back(node);
+			if(last_node >= 0)
+				graph->arrows.emplace_back(last_node, nodeidx);
+			auto peek = stream->peek_token();
+			if(peek.type == Token_Type::arr_r) {
+				stream->read_token();
+				last_node = nodeidx;
+			} else
+				last_node = -1;
+			
+		} else if((char)token.type == ']') {
+			if(last_node >= 0) {
+				token.print_error_header();
+				fatal_error("Ending the graph data before finishing the last arrow '->'.");
+			}
+			break;
+		} else if(token.type == Token_Type::eof) {
+			open.print_error_header();
+			fatal_error("Reached the end of file while parsing directed_graph data starting at this location.");
+		}
+	}
+	
+	return graph;
+}
+
+Data_AST *
+parse_data(Token_Stream *stream, Data_Type type) {
+	
+	Data_AST *result = nullptr;
+	
+	auto source_loc = stream->peek_token().source_loc;
+	
+	if(type == Data_Type::list || type == Data_Type::map)
+		result = parse_list_or_map(stream, type);
+	else if(type == Data_Type::directed_graph)
+		result = parse_directed_graph(stream);
+	else
+		fatal_error(Mobius_Error::internal, "Unimplemented data type parsing.");
+	
+	result->source_loc = source_loc;
+	
+	return result;
+}
+
+
+
+
 int
 match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body) {
 	
@@ -912,7 +1063,7 @@ match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::ini
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
-	bool allow_handle, int allow_body, bool allow_notes, bool allow_data) {
+	bool allow_handle, int allow_body, bool allow_notes, int allow_data) {
 	
 	// allow_body:
 	//    0 - not allowed
@@ -924,9 +1075,14 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 		fatal_error("A '", name(decl->type), "' declaration can not be assigned to an identifier.");
 	}
 	
-	if(!allow_data && !decl->data.empty()) {
-		decl->data[0].print_error_header();
+	if(allow_data == 0 && decl->data) {
+		decl->data->source_loc.print_error_header();
 		fatal_error("A []-enclosed data block is not allowed in this context.");
+	}
+	
+	if(allow_data == -1 && !decl->data) {
+		decl->source_loc.print_error_header();
+		fatal_error("A []-enclosed data block is required in this context.");
 	}
 	
 	if(get_body_type(decl->type) == Body_Type::none)

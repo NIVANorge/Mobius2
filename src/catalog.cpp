@@ -277,4 +277,23 @@ Catalog::deserialize(const std::string &serial_name, Reg_Type expected_type) {
 	return scope->deserialize(vec.back(), expected_type);
 }
 
+Decl_AST *
+read_catalog_ast_from_file(Decl_Type expected_type, File_Data_Handler *handler, String_View file_name, String_View rel_path, std::string *normalized_path_out) {
+	String_View model_data = handler->load_file(file_name, {}, rel_path, normalized_path_out);
+	
+	Token_Stream stream(file_name, model_data);
+	
+	// Hmm, not that nice to hard code this at this level maybe.
+	if(expected_type == Decl_Type::data_set)
+		stream.allow_date_time_tokens = true;
+	
+	Decl_AST *decl = parse_decl(&stream);
+	if(decl->type != expected_type || stream.peek_token().type != Token_Type::eof) {
+		decl->source_loc.print_error_header();
+		fatal_error("Main '", name(expected_type), "' files should only have a single declaration in the top scope.");
+	}
+	
+	return decl;
+}
+
 

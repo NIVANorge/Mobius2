@@ -4,7 +4,7 @@
 quick_select [
 	"Nutrients" : [
 		"River" : [
-			"DIN" : ("concentration(River water DIN, River water volume)" "Obs DIN")
+			"DIN" : ["concentration(River water DIN, River water volume)" "Obs DIN" flow_weighted_mean]
 		]
 		"Lake" : [
 			#..etc.

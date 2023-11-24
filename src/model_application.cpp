@@ -444,13 +444,16 @@ process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Modul
 	
 	// TODO: Error messages should reference the name of the module template rather than the module maybe.
 	
+	// TODO: We should rethink what is an error and what is a warning here.
 	if(!is_valid(group_id)) {
-		par_group_info->source_loc.print_error_header();
+		log_print("In ");
+		par_group_info->source_loc.print_log_header();
 		if(is_valid(module_id))
-			fatal_error("The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_info->name, "\".");
+			log_print("WARNING: The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_info->name, "\".\n\n");
 			//TODO: say what file the module was declared in?
 		else
-			fatal_error("The model does not contain the parameter group \"", par_group_info->name, "\".");
+			log_print("WARNING: The model does not contain the parameter group \"", par_group_info->name, "\".\n\n");
+		return;
 	}
 	
 	bool module_is_outdated = false;

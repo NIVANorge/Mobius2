@@ -33,47 +33,33 @@ Mobius_Model::registry(Reg_Type reg_type) {
 	return nullptr;
 }
 
-
-// @CATALOG_REFACTOR. Could reuse for Data_Set (almost).
-Decl_AST *
-read_model_ast_from_file(File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, std::string *normalized_path_out = nullptr) {
-	String_View model_data = handler->load_file(file_name, {}, rel_path, normalized_path_out);
-	
-	Token_Stream stream(file_name, model_data);
-	Decl_AST *decl = parse_decl(&stream);
-	if(decl->type != Decl_Type::model || stream.peek_token().type != Token_Type::eof) {
-		decl->source_loc.print_error_header();
-		fatal_error("Model files should only have a single model declaration in the top scope.");
-	}
-	
-	match_declaration(decl, {{Token_Type::quoted_string}}, false);
-	
-	return decl;
-}
-
 void
 register_intrinsics(Mobius_Model *model) {
 	auto global = &model->global_scope;
 	
 	#define MAKE_INTRINSIC1(name, emul, llvm, ret_type, type1) \
 		{ \
-			auto fun = model->functions.create_internal(global, #name, #name, Decl_Type::function); \
-			model->functions[fun]->fun_type = Function_Type::intrinsic; \
-			model->functions[fun]->args = {"a"}; \
+			auto fun_id = model->functions.create_internal(global, #name, #name, Decl_Type::function); \
+			auto fun = model->functions[fun_id]; \
+			fun->fun_type = Function_Type::intrinsic; \
+			fun->args = {"a"}; \
+			fun->has_been_processed = true; \
 		}
 	#define MAKE_INTRINSIC2(name, emul, ret_type, type1, type2) \
 		{ \
-			auto fun = model->functions.create_internal(global, #name, #name, Decl_Type::function); \
-			model->functions[fun]->fun_type = Function_Type::intrinsic; \
-			model->functions[fun]->args = {"a", "b"}; \
+			auto fun_id = model->functions.create_internal(global, #name, #name, Decl_Type::function); \
+			auto fun = model->functions[fun_id]; \
+			fun->fun_type = Function_Type::intrinsic; \
+			fun->args = {"a", "b"}; \
+			fun->has_been_processed = true; \
 		}
 	#include "intrinsics.incl"
 	#undef MAKE_INTRINSIC1
 	#undef MAKE_INTRINSIC2
 	
-	auto test_fun = model->functions.create_internal(global, "_test_fun_", "_test_fun_", Decl_Type::function);
-	model->functions[test_fun]->fun_type = Function_Type::linked;
-	model->functions[test_fun]->args = {"a"};
+	//auto test_fun = model->functions.create_internal(global, "_test_fun_", "_test_fun_", Decl_Type::function);
+	//model->functions[test_fun]->fun_type = Function_Type::linked;
+	//model->functions[test_fun]->args = {"a"};
 	
 	auto dimless_id = model->units.create_internal(nullptr, "na", "dimensionless", Decl_Type::unit); // NOTE: this is not exported to the scope. Just have it as a unit for pi.
 	auto pi_id = model->constants.create_internal(global, "pi", "π", Decl_Type::constant);
@@ -92,6 +78,7 @@ register_intrinsics(Mobius_Model *model) {
 	(*group_scope)["end_date"];
 	
 	auto system = model->par_groups[system_id];
+	
 	auto start  = model->parameters[start_id];
 	auto end    = model->parameters[end_id];
 	
@@ -119,6 +106,8 @@ register_intrinsics(Mobius_Model *model) {
 
 Entity_Id
 load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View path, String_View relative_to, const std::string &decl_name, Decl_Type type) {
+	
+	// NOTE: This one is only for modules and libraries.
 	
 	// TODO: Should really check if the model-relative path exists before changing the relative path.
 	std::string models_path = model->config.mobius_base_path + "models/"; // Note: since relative_to is a string view, this one must exist in the outer scope.
@@ -324,21 +313,20 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 
 // TODO: We could acutally move some functionality into these, but it is not crucial..
 void
-Registration<Reg_Type::library>::process_declaration(Catalog *catalog) {
+Library_Registration::process_declaration(Catalog *catalog) {
 	fatal_error(Mobius_Error::internal, "Registration<Reg_Type::library>::process_declaration should not be called.");
 }
 void
-Registration<Reg_Type::module_template>::process_declaration(Catalog *catalog) {
+Module_Template_Registration::process_declaration(Catalog *catalog) {
 	fatal_error(Mobius_Error::internal, "Registration<Reg_Type::module_template>::process_declaration should not be called.");
 }
 void
-Registration<Reg_Type::module>::process_declaration(Catalog *catalog) {
+Module_Registration::process_declaration(Catalog *catalog) {
 	fatal_error(Mobius_Error::internal, "Registration<Reg_Type::module>::process_declaration should not be called.");
 }
 
-
 void
-Registration<Reg_Type::unit>::process_declaration(Catalog *catalog) {
+Unit_Registration::process_declaration(Catalog *catalog) {
 
 	data.set_data(decl);
 	
@@ -354,7 +342,7 @@ set_serial_name(Catalog *catalog, Registration_Base *reg, int arg_idx = 0) {
 }
 
 void
-Registration<Reg_Type::component>::process_declaration(Catalog *catalog) {
+Component_Registration::process_declaration(Catalog *catalog) {
 	// NOTE: the Decl_Type is either compartment, property or quantity.
 	
 	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
@@ -386,7 +374,7 @@ Registration<Reg_Type::component>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::parameter>::process_declaration(Catalog *catalog) {
+Parameter_Registration::process_declaration(Catalog *catalog) {
 
 	Token_Type token_type = get_token_type(decl->type);
 	
@@ -475,7 +463,7 @@ Registration<Reg_Type::parameter>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::par_group>::process_declaration(Catalog *catalog) {
+Par_Group_Registration::process_declaration(Catalog *catalog) {
 	int which = match_declaration(decl,
 	{
 		{Token_Type::quoted_string},
@@ -513,7 +501,7 @@ Registration<Reg_Type::par_group>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::function>::process_declaration(Catalog *catalog) {
+Function_Registration::process_declaration(Catalog *catalog) {
 	
 	match_declaration(decl,
 		{
@@ -539,6 +527,7 @@ Registration<Reg_Type::function>::process_declaration(Catalog *catalog) {
 			auto unit = model->units[unit_id];
 			unit->source_loc = arg->source_loc();
 			unit->data.set_data(arg->decl);
+			unit->has_been_processed = true;
 			if(!arg->decl->handle_name.string_value.count) {
 				arg->decl->source_loc.print_error_header();
 				fatal_error("All arguments to a function must be named.");
@@ -568,7 +557,7 @@ Registration<Reg_Type::function>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::constant>::process_declaration(Catalog *catalog) {
+Constant_Registration::process_declaration(Catalog *catalog) {
 	
 	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::unit, Token_Type::real}});
 	
@@ -582,7 +571,7 @@ Registration<Reg_Type::constant>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::var>::process_declaration(Catalog *catalog) {
+Var_Registration::process_declaration(Catalog *catalog) {
 
 	int which = match_declaration(decl,
 		{
@@ -669,7 +658,7 @@ Registration<Reg_Type::var>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::flux>::process_declaration(Catalog *catalog) {
+Flux_Registration::process_declaration(Catalog *catalog) {
 	
 	match_declaration(decl,
 		{
@@ -754,7 +743,7 @@ Registration<Reg_Type::flux>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::discrete_order>::process_declaration(Catalog *catalog) {
+Discrete_Order_Registration::process_declaration(Catalog *catalog) {
 	match_declaration(decl, {{ }}, false, -1);
 	
 	auto model = static_cast<Mobius_Model *>(catalog);
@@ -793,7 +782,7 @@ Registration<Reg_Type::discrete_order>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::external_computation>::process_declaration(Catalog *catalog) {
+External_Computation_Registration::process_declaration(Catalog *catalog) {
 	// NOTE: Since we disambiguate entities on their name right now, we can't let the name and function_name be the same in case you want to reuse the same function many times in the same scope.
 	int which = match_declaration(decl,
 		{
@@ -845,7 +834,7 @@ recursive_gather_connection_component_options(Mobius_Model *model, Decl_Scope *s
 }
 
 void
-Registration<Reg_Type::connection>::process_declaration(Catalog *catalog) {
+Connection_Registration::process_declaration(Catalog *catalog) {
 
 	match_declaration(decl,
 	{
@@ -918,7 +907,7 @@ Registration<Reg_Type::connection>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::loc>::process_declaration(Catalog *catalog) {
+Loc_Registration::process_declaration(Catalog *catalog) {
 
 	match_declaration(decl, {{Arg_Pattern::loc}});
 	
@@ -1164,7 +1153,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 }
 
 void
-Registration<Reg_Type::index_set>::process_declaration(Catalog *catalog) {
+Index_Set_Registration::process_declaration(Catalog *catalog) {
 	
 	match_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true);
 	
@@ -1176,11 +1165,13 @@ Registration<Reg_Type::index_set>::process_declaration(Catalog *catalog) {
 		auto str = note->decl.string_value;
 		if(str == "sub") {
 			match_declaration_base(note, {{Decl_Type::index_set}}, 0);
-			//auto subto_id = resolve_argument<Reg_Type::index_set>(model, scope, note, 0);
+		
 			auto subto_id = scope->resolve_argument(Reg_Type::index_set, note->args[0]);
 			auto subto = model->index_sets[subto_id];
 			
 			// TODO: A bit hacky, but hard to resolve otherwise.
+			//   we *could* scan all the index sets first, then figure out which ones are going to be parents, and register those first, but it is tricky because we would have
+			//   to factor that into the recursive registration and make that code ugly.
 			if(subto_id.id > id.id) {
 				note->decl.print_error_header();
 				fatal_error("For technical reasons, an index set must be declared after an index sets it is sub-indexed to.");
@@ -1195,7 +1186,7 @@ Registration<Reg_Type::index_set>::process_declaration(Catalog *catalog) {
 			match_declaration_base(note, {{Decl_Type::index_set, {Decl_Type::index_set, true}}}, 0);
 			
 			for(int argidx = 0; argidx < note->args.size(); ++argidx) {
-				//auto union_set = resolve_argument<Reg_Type::index_set>(model, scope, note, argidx);
+				
 				auto union_set = scope->resolve_argument(Reg_Type::index_set, note->args[argidx]);
 				if(union_set == id || std::find(union_of.begin(), union_of.end(), union_set) != union_of.end()) {
 					decl->args[argidx]->source_loc().print_error_header();
@@ -1213,14 +1204,14 @@ Registration<Reg_Type::index_set>::process_declaration(Catalog *catalog) {
 }
 
 void
-Registration<Reg_Type::solver_function>::process_declaration(Catalog *catalog) {
+Solver_Function_Registration::process_declaration(Catalog *catalog) {
 
 	// TODO: Make it possible to load solver functions dynamically from dlls.
-	fatal_error(Mobius_Error::internal, "Unimplemented: Registration<Reg_Type::solver_function>::process_declaration");
+	fatal_error(Mobius_Error::internal, "Unimplemented: Solver_Function_Registration::process_declaration");
 }
 
 void
-Registration<Reg_Type::solver>::process_declaration(Catalog *catalog) {
+Solver_Registration::process_declaration(Catalog *catalog) {
 	
 	int which = match_declaration(decl, {
 		{Token_Type::quoted_string, Decl_Type::solver_function, Decl_Type::unit},
@@ -1364,13 +1355,15 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 		String_View extend_file_name = single_arg(child, 0)->string_value;
 		
 		std::string normalized_path;
-		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+		auto extend_model = read_catalog_ast_from_file(Decl_Type::model, handler, extend_file_name, rel_path, &normalized_path);
+		match_declaration(extend_model, {{Token_Type::quoted_string}}, false, -1);
 #if 0
 		match_declaration(child, {{Token_Type::quoted_string}}, false, 0, true);
 		String_View extend_file_name = single_arg(child, 0)->string_value;
 		
 		std::string normalized_path;
-		auto extend_model = read_model_ast_from_file(handler, extend_file_name, rel_path, &normalized_path);
+		auto extend_model = read_catalog_ast_from_file(Decl_Type::model, handler, extend_file_name, rel_path, &normalized_path);
+		match_declaration(extend_model, {{Token_Type::quoted_string}}, false, -1)
 		
 		// TODO: Since we will pass one of these as an argument, I guess it is not necessary to pass depth separately.
 		Model_Extension new_extension;//{ normalized_path, extend_model, *load_order, depth}
@@ -1527,7 +1520,8 @@ load_model(String_View file_name, Mobius_Config *config) {
 	else 
 		model->config = load_config();
 	
-	auto decl = read_model_ast_from_file(&model->file_handler, file_name);
+	auto decl = read_catalog_ast_from_file(Decl_Type::model, &model->file_handler, file_name);
+	match_declaration(decl, {{Token_Type::quoted_string}}, false, -1);
 	model->main_decl  = decl;
 	model->model_name = single_arg(decl, 0)->string_value;
 	model->path       = file_name;
@@ -1699,6 +1693,13 @@ load_model(String_View file_name, Mobius_Config *config) {
 				load_args.push_back(scope->resolve_argument(Reg_Type::unrecognized, module_spec->args[argidx]));
 			
 			auto module_id = process_module_load(model, load_name, template_id, load_loc, load_args);
+		}
+	}
+	
+	for(auto unit_id : model->units) {
+		if(!model->units[unit_id]->has_been_processed) {
+			model->units[unit_id]->source_loc.print_error_header(Mobius_Error::internal);
+			fatal_error("Unprocessed declaration");
 		}
 	}
 	
