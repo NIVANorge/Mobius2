@@ -12,13 +12,16 @@ model("SimplyArcticFluxes") {
 	snow  : quantity("Snow (water equivalents)")
 	ice   : quantity("Ice (water equivalents)")
 	
-	temp   : property("Temperature")
-	precip : property("Precipitation")
-	flow   : property("Flow")
-	#pet    : property("Potential evapotranspiration")
-	ddf    : property("Degree-day factor")
-    thaw_depth : property("Soil thaw depth")
-    tc_reach : property("Reach travel time")
+	temp   :    property("Temperature")
+	precip :    property("Precipitation")
+	flow   :    property("Flow")
+	#pet    :   property("Potential evapotranspiration")
+	ddf    :    property("Degree-day factor")
+    thaw_depth:    property("Soil thaw depth")
+    tc_reach :  property("Reach travel time")
+    stage :     property("Stage")
+    conductivity :  property("Conductivity")
+    conductivity2 :  property("Conductivity2")
     
     downhill   : connection("Downhill throughflow") @directed_graph { soil+ river } @no_cycles
 	downstream : connection("Downstream") @directed_graph { river+ out } @no_cycles
@@ -99,6 +102,9 @@ model("SimplyArcticFluxes") {
 	
 		par_group("Snow") {
 			ddf0_melt : par_real("Degree-day factor for snowmelt", [m m, deg_c-1, day-1], 2.74, 0, 6, "Linear correlation between rate of snow melt and air temperature")
+		}
+
+		par_group("Initial snow", soil) {
 			init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
 		}
 
@@ -253,12 +259,24 @@ model("SimplyArcticFluxes") {
 	}
     
     #-------------------------------------------------------------
-    # module("SimplyStage", version(0, 0, 1)) {
-        # par_group("Stage-discharge", reach) {
-            
-        # }
+    module("SensorVariables", version(0, 0, 1)) {
+        par_group("Sensor coefficients", river) {
+            S_a : par_real("Stage_a", [m 2, s-1], 0.5, 0, 3)
+            S_b : par_real("Stage_b", [], 0.5, 0, 3)
+            C_a : par_real("Conductivity_a", [], -120, -2000, -0.001)
+            C_b : par_real("Conductivity_b", [], 641, 0, 2000)        
+        }
     
-    # }
-	
-	
+        var(river.stage, [m], "Reach stage") {
+            (river.water.flow / S_a )=>[] ^ (1/S_b) =>[m]
+        }
+        
+        var(river.conductivity, [], "River conductivity") {
+        # I investigated exp and log functions, and log is a little better
+        # visually in terms of getting peaks. R2 about the same. But winter
+        # cond with exp function is high. But doesn't matter (no flow).
+            #C_a1 * exp(-C_b1 * river.water.flow=>[])         # Exponential
+            C_a * ln(river.water.flow=>[] + 0.00001[]) + C_b  # Logarithmic
+        }
+    }
 }
