@@ -1,0 +1,124 @@
+"""Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
+"""
+
+index_set("Subcatchment") [ "DeGeerdalen" ]
+
+index_set("Patch") [ "Glaciers" "Hill10_950" "Hill9_850" "Hill8_750" "Hill7_650" "Hill6_550" "Hill5_450" "Hill4_350" "Hill3_250" "Hill2_150" "Hill1_50" "Valleys" ]
+
+connection("Downhill throughflow") {
+	s : compartment("Soil") [ "Patch" ]
+	river : compartment("River") [ ]
+
+	directed_graph [
+		s[ "Hill10_950" ] -> s[ "Hill9_850" ] -> s[ "Hill8_750" ] -> s[ "Hill7_650" ] -> s[ "Hill6_550" ] -> s[ "Hill5_450" ] -> s[ "Hill4_350" ] -> s[ "Hill3_250" ] -> s[ "Hill2_150" ] -> s[ "Hill1_50" ] -> s[ "Valleys" ] -> river[ ]
+		s[ "Glaciers" ] -> river[ ]
+	]
+}
+
+connection("Downstream") {
+	r : compartment("River") [ "Subcatchment" ]
+
+	directed_graph [
+		r[ "DeGeerdalen" ] -> out
+	]
+}
+
+series("../DeGeerelva_met_carra_shift_pptn-1.xlsx")
+
+series("../q_degeerdalen_daily_cleaned_6am-mean_shift-1D.xlsx")
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 1991-01-01 ]
+
+	par_datetime("End date")
+	[ 2022-08-31 ]
+}
+
+par_group("Catchment data") {
+	par_real("Catchment area")
+	[ 80 ]
+
+	par_real("Elevation of input met data")
+	[ 412 ]
+}
+
+par_group("Patch data") [ "Patch" ] {
+	par_real("Relative area")
+	[ 0.103 0.005 0.034 0.045 0.072 0.094 0.158 0.148 0.134 0.079 0.013 0.115 ]
+}
+
+module("SimplyQ river manual", version(0, 0, 1)) {
+	par_group("Reach parameters") [ "Subcatchment" ] {
+		par_real("Reach length")
+		[ 10000 ]
+
+		par_real("Mean velocity")
+		[ 3 ]
+	}
+}
+
+module("SimplyGlacier", version(0, 0, 1)) {
+	par_group("Glacier global") {
+		par_real("Degree-day factor for ice melt")
+		[ 7.6 ]
+
+		par_real("Glacier accumulation coefficient")
+		[ 0 ]
+	}
+
+	par_group("Glacier") [ "Subcatchment" "Patch" ] {
+		par_real("Initial ice thickness") [
+			100000 0 0 0 0 0 0 0 0 0 0 0
+		]
+	}
+}
+
+module("ArcticAtmosphere", version(0, 0, 1)) {
+	par_group("Elevation data") [ "Subcatchment" "Patch" ] {
+		par_real("Average elevation") [
+			625 917 838 741 647 546 454 350 252 160 84 94 
+		]
+	}
+
+	par_group("Temperature correction") {
+		par_real("Temp lapse rate")
+		[ -0.00588 ]
+	}
+}
+
+module("ArcticSnow", version(0, 0, 1)) {
+	par_group("Snow") {
+		par_real("Degree-day factor for snowmelt")
+		[ 2.5 ]
+	}
+}
+
+module("SimplyPermafrost", version(0, 0, 1)) {
+	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
+		par_real("Soil water time constant") [
+			0.17 0.17 0.17 0.17 0.17 0.17 0.17 0.17 0.17 0.17 0.17 0.17 
+		]
+
+		par_real("Field capacity") [
+			0 0 0 0 0 0 0 0 0 0 0 0
+		]
+	}
+}
+
+module("SensorVariables", version(0, 0, 1)) {
+	par_group("Sensor coefficients") [ "Subcatchment" ] {
+		par_real("Stage_a")
+		[ 0.5 ]
+
+		par_real("Stage_b")
+		[ 0.5 ]
+
+		par_real("Conductivity_a")
+		[ -120 ]
+
+		par_real("Conductivity_b")
+		[ 641 ]
+	}
+}
+

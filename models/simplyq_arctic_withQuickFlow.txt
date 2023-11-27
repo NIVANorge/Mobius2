@@ -78,7 +78,7 @@ Master model including all different things I've tried out and maximum complexit
     aggregation_weight(quick, river)   { rel_area }
     
     # Setup solver
-	simply_solver : solver("Simply solver", inca_dascru, 0.1, 1e-3)
+	simply_solver : solver("Simply solver", inca_dascru, [2, hr], 1e-3)
 	solve(simply_solver, soil.water, deepgw.water, river.water, glacier.water, quick.water)
     # (Note snow stuff isn't on the solver, that's done discretely)
     
