@@ -116,8 +116,8 @@ get_decl_type(Token *string_name) {
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
 	
-	string_name->print_error_header();
-	fatal_error("Unrecognized declaration type '", string_name->string_value, "'.");
+	//string_name->print_error_header();
+	//fatal_error("Unrecognized declaration type '", string_name->string_value, "'.");
 	
 	return Decl_Type::unrecognized;
 }
@@ -256,11 +256,15 @@ parse_decl_header(Token_Stream *stream) {
 	}
 	
 	parse_decl_header_base(decl, stream);
-	
 	decl->source_loc = decl->decl.source_loc;
 	
-	if(is_valid(&decl->decl))
+	if(is_valid(&decl->decl)) {
 		decl->type = get_decl_type(&decl->decl);
+		if(decl->type == Decl_Type::unrecognized) {
+			decl->decl.print_error_header();
+			fatal_error("Unrecognized declaration type '", decl->decl.string_value, "'.");
+		}
+	}
 
 	return decl;
 }
@@ -375,8 +379,17 @@ parse_decl(Token_Stream *stream) {
 			
 			next = stream->peek_token();
 			if((char)next.type == '{') {
-				// TODO: We should maybe allow different body types per note type eventually.
-				note->body = parse_body(stream, decl->type, body_type);
+				// NOTE: This is a bit of a hacky way to allow different body types per note type. We should formalize it a bit more.
+				//  (so that note types don't have to have a Decl_Type for this to work.).
+				auto note_body_type = body_type;
+				auto decl_type_note = get_decl_type(&note->decl);
+				if(decl_type_note != Decl_Type::unrecognized) {
+					auto new_body_type = get_body_type(decl_type_note);
+					if(new_body_type != Body_Type::none)
+						note_body_type = new_body_type;
+				}
+				
+				note->body = parse_body(stream, decl->type, note_body_type);
 			}
 			
 			decl->notes.push_back(note);
@@ -935,7 +948,8 @@ parse_directed_graph(Token_Stream *stream) {
 		if(token.type == Token_Type::identifier) {
 			Directed_Graph_AST::Node node;
 			node.identifier = token;
-			parse_list_data(stream, node.indexes);
+			if((char)stream->peek_token().type == '[')
+				parse_list_data(stream, node.indexes);
 			int nodeidx = graph->nodes.size();
 			graph->nodes.push_back(node);
 			if(last_node >= 0)

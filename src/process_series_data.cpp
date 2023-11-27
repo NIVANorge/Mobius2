@@ -170,146 +170,151 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 }
 
 void
-process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *series, Date_Time end_date) {
-	std::vector<std::vector<s64>> offsets;
-	offsets.resize(series->header_data.size());
+process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data_id, Date_Time end_date) {
 	
-	std::vector<Var_Id::Type> series_type;
-	series_type.resize(series->header_data.size());
+	auto series_data = data_set->series[series_data_id];
 	
-	auto model = app->model;
+	for(auto &series : series_data->series) {
 	
-	// TODO: Maybe make an overwrite guard. I.e. record what input series have already been provided (which we have to do any way),
-	//		then check against that if there is an overwrite.
-	
-	int header_idx = 0;
-	for(auto header : series->header_data) {
-		std::set<Var_Id> ids = app->vars.find_by_name(header.name);
+		std::vector<std::vector<s64>> offsets;
+		offsets.resize(series.header_data.size());
 		
-		// NOTE: Due to preprocessing steps, we should be guaranteed that at this point, for any given name all ids attached to it are of the same type, and at least one id is attached to each name.
+		std::vector<Var_Id::Type> series_type;
+		series_type.resize(series.header_data.size());
 		
-		auto type = ids.begin()->type;
-		series_type[header_idx] = type;
-		auto *data = &app->data.get_storage(type);
+		auto model = app->model;
 		
-		for(Var_Id id : ids) {
+		// TODO: Maybe make an overwrite guard. I.e. record what input series have already been provided (which we have to do any way),
+		//		then check against that if there is an overwrite.
+		
+		int header_idx = 0;
+		for(auto &header : series.header_data) {
+			std::set<Var_Id> ids = app->vars.find_by_name(header.name);
 			
-			const std::vector<Entity_Id> &expected_index_sets = data->structure->get_index_sets(id);
+			// NOTE: Due to preprocessing steps, we should be guaranteed that at this point, for any given name all ids attached to it are of the same type, and at least one id is attached to each name.
 			
-			if(header.indexes.empty()) {
-				if(!expected_index_sets.empty()) {
-					header.source_loc.print_error_header();
-					//TODO: need better error diagnostics here, because the number of index sets expected could have come from another data block or file.
-					fatal_error("Expected ", expected_index_sets.size(), " indexes for series \"", header.name, "\".");
-				}
-			}
+			auto type = ids.begin()->type;
+			series_type[header_idx] = type;
+			auto *data = &app->data.get_storage(type);
 			
-			Indexes indexes_int;
-			if(header.indexes.empty()) {
-				s64 offset = data->structure->get_offset(id, indexes_int);
-				offsets[header_idx].push_back(offset);
-				continue;
-			}
-			
-			for(auto &indexes : header.indexes) {
-				int index_idx = 0;
+			for(Var_Id id : ids) {
 				
-				if(indexes.indexes.size() != expected_index_sets.size()) {
-					header.source_loc.print_error_header();
-					fatal_error("Got wrong number of index sets for input series. Expected ", expected_index_sets.size(), ", got ", indexes.indexes.size(), ".");
-				}
+				const std::vector<Entity_Id> &expected_index_sets = data->structure->get_index_sets(id);
 				
-				for(auto &index : indexes.indexes) {
-					auto idx_set = data_set->index_sets[index.index_set];
-					Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
-					Entity_Id expected = expected_index_sets[index_idx];
-					if(index_set != expected) {
+				if(header.indexes.empty()) {
+					if(!expected_index_sets.empty()) {
 						header.source_loc.print_error_header();
-						//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
-						fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
+						//TODO: need better error diagnostics here, because the number of index sets expected could have come from another data block or file.
+						fatal_error("Expected ", expected_index_sets.size(), " indexes for series \"", header.name, "\".");
 					}
-					indexes_int.add_index(index_set, index.index);
-					++index_idx;
 				}
 				
-				s64 offset = data->structure->get_offset(id, indexes_int);
-				offsets[header_idx].push_back(offset);
-			}
-		}
-		++header_idx;
-	}
-	
-	// NOTE: Start date is set up to be the same for series and additional series.
-	s64 first_step = steps_between(app->data.series.start_date, series->start_date, app->time_step_size);
-	
-	int nrows = series->time_steps;
-	if(series->has_date_vector)
-		nrows = series->dates.size();
-	
-	int ncols = offsets.size();
-	
-	if(ncols != series->raw_values.size())
-		fatal_error(Mobius_Error::internal, "Wrong number of rows for series data block.");
-	for(auto &col : series->raw_values)
-		if(nrows != col.size())
-			fatal_error(Mobius_Error::internal, "Wrong number of values for series data block.");
-	
-	for(int col = 0; col < ncols; ++col) {
-		auto &header = series->header_data[col];
-		
-		Data_Storage<double, Var_Id> *data = series_type[col]==Var_Id::Type::series ? &app->data.series : &app->data.additional_series;
-		
-		if(    (header.flags & series_data_interp_step)
-			|| (header.flags & series_data_interp_linear)
-			|| (header.flags & series_data_interp_spline)) {
-			
-			if(!series->has_date_vector) {
-				header.source_loc.print_error_header();
-				fatal_error("Interpolation is only available when a date is provided per row of data.");
-			}
-			interpolate(app, series->dates, series->raw_values[col], offsets[col], header.flags, end_date, data);
-		} else {
-			for(s64 row = 0; row < nrows; ++row) {
-				s64 ts = first_step + row;
-				if(series->has_date_vector)
-					ts = steps_between(data->start_date, series->dates[row], app->time_step_size);
-				
-				double val = series->raw_values[col][row];
-				for(s64 offset : offsets[col])
-					*data->get_value(offset, ts) = val;
-			}
-		}
-		
-		// TODO: This processing should somehow happen before the interpolation, otherwise it
-		// is not nice in the year boundary. But then it must operate on the provided data rather than the processed data,
-		// and that is a bit tricky...
-		if(header.flags & series_data_repeat_yearly) {
-			s32 y, m, d, h, mt, s;
-			
-			Date_Time behind = series->start_date;
-			
-			behind.year_month_day(&y, &m, &d);
-			behind.hour_minute_second(&h, &mt, &s);
-			
-			Date_Time ahead(y+1, m, d);
-			ahead.add_timestamp(h, mt, s);
-			s64 first_new = steps_between(data->start_date, ahead, app->time_step_size);
-			s64 nrows     = steps_between(ahead, end_date, app->time_step_size);
-			
-			Expanded_Date_Time iter(behind, app->time_step_size);
-			for(s64 row = 0; row < nrows; ++row) {
-				s64 lookup_ts = first_step + iter.step;
-				s64 ts = first_new + row;
-				
-				for(s64 offset : offsets[col]) {
-					double val = *data->get_value(offset, lookup_ts);
-					*data->get_value(offset, ts) = val;
+				Indexes indexes_int;
+				if(header.indexes.empty()) {
+					s64 offset = data->structure->get_offset(id, indexes_int);
+					offsets[header_idx].push_back(offset);
+					continue;
 				}
-				iter.advance();
-				if(iter.year != y)
-					iter = Expanded_Date_Time(behind, app->time_step_size);
+				
+				for(auto &indexes : header.indexes) {
+					int index_idx = 0;
+					
+					if(indexes.indexes.size() != expected_index_sets.size()) {
+						header.source_loc.print_error_header();
+						fatal_error("Got wrong number of index sets for input series. Expected ", expected_index_sets.size(), ", got ", indexes.indexes.size(), ".");
+					}
+					
+					for(auto &index : indexes.indexes) {
+						auto idx_set = data_set->index_sets[index.index_set];
+						Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
+						Entity_Id expected = expected_index_sets[index_idx];
+						if(index_set != expected) {
+							header.source_loc.print_error_header();
+							//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
+							fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
+						}
+						indexes_int.add_index(index_set, index.index);
+						++index_idx;
+					}
+					
+					s64 offset = data->structure->get_offset(id, indexes_int);
+					offsets[header_idx].push_back(offset);
+				}
+			}
+			++header_idx;
+		}
+		
+		// NOTE: Start date is set up to be the same for series and additional series.
+		s64 first_step = steps_between(app->data.series.start_date, series.start_date, app->time_step_size);
+		
+		int nrows = series.time_steps;
+		if(series.has_date_vector)
+			nrows = series.dates.size();
+		
+		int ncols = offsets.size();
+		
+		if(ncols != series.raw_values.size())
+			fatal_error(Mobius_Error::internal, "Wrong number of rows for series data block.");
+		for(auto &col : series.raw_values)
+			if(nrows != col.size())
+				fatal_error(Mobius_Error::internal, "Wrong number of values for series data block.");
+		
+		for(int col = 0; col < ncols; ++col) {
+			auto &header = series.header_data[col];
+			
+			Data_Storage<double, Var_Id> *data = series_type[col]==Var_Id::Type::series ? &app->data.series : &app->data.additional_series;
+			
+			if(    (header.flags & series_data_interp_step)
+				|| (header.flags & series_data_interp_linear)
+				|| (header.flags & series_data_interp_spline)) {
+				
+				if(!series.has_date_vector) {
+					header.source_loc.print_error_header();
+					fatal_error("Interpolation is only available when a date is provided per row of data.");
+				}
+				interpolate(app, series.dates, series.raw_values[col], offsets[col], header.flags, end_date, data);
+			} else {
+				for(s64 row = 0; row < nrows; ++row) {
+					s64 ts = first_step + row;
+					if(series.has_date_vector)
+						ts = steps_between(data->start_date, series.dates[row], app->time_step_size);
+					
+					double val = series.raw_values[col][row];
+					for(s64 offset : offsets[col])
+						*data->get_value(offset, ts) = val;
+				}
+			}
+			
+			// TODO: This processing should somehow happen before the interpolation, otherwise it
+			// is not nice in the year boundary. But then it must operate on the provided data rather than the processed data,
+			// and that is a bit tricky...
+			if(header.flags & series_data_repeat_yearly) {
+				s32 y, m, d, h, mt, s;
+				
+				Date_Time behind = series.start_date;
+				
+				behind.year_month_day(&y, &m, &d);
+				behind.hour_minute_second(&h, &mt, &s);
+				
+				Date_Time ahead(y+1, m, d);
+				ahead.add_timestamp(h, mt, s);
+				s64 first_new = steps_between(data->start_date, ahead, app->time_step_size);
+				s64 nrows     = steps_between(ahead, end_date, app->time_step_size);
+				
+				Expanded_Date_Time iter(behind, app->time_step_size);
+				for(s64 row = 0; row < nrows; ++row) {
+					s64 lookup_ts = first_step + iter.step;
+					s64 ts = first_new + row;
+					
+					for(s64 offset : offsets[col]) {
+						double val = *data->get_value(offset, lookup_ts);
+						*data->get_value(offset, ts) = val;
+					}
+					iter.advance();
+					if(iter.year != y)
+						iter = Expanded_Date_Time(behind, app->time_step_size);
+				}
 			}
 		}
 	}
-	
 }

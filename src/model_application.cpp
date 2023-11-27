@@ -31,8 +31,6 @@ add_exprs(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 Math_Expr_FT *
 Index_Exprs::get_index(Model_Application *app, Entity_Id index_set) {
 	
-	// TODO: How to handle matrix column for union index sets? Probably disallow it? (See also Index_Tuple)
-	
 	Math_Expr_FT *result = nullptr;
 	
 	if(indexes[index_set.id]) {
@@ -364,241 +362,6 @@ Model_Application::all_indexes_are_set() {
 	return true;
 }
 
-void
-process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Par_Group_Info *par_group, std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets, const std::string &module_name = "") {
-
-	Entity_Id module_id = invalid_entity_id;
-	if(!module_name.empty()) {
-		module_id = model->top_scope.deserialize(module_name, Reg_Type::module);
-		if(!is_valid(module_id)) //NOTE: we do error handling on missing modules on the second pass when we load the actual data.
-			return;
-	}
-	
-	auto module_scope = model->get_scope(module_id);
-	
-	Entity_Id group_id = module_scope->deserialize(par_group->name, Reg_Type::par_group);
-	if(!is_valid(group_id)) return;  // NOTE: we do error handling on this on the second pass.
-	
-	if(par_group->index_sets.empty()) { // We have to signal it so that it is not filled with default index sets later
-		par_group_index_sets[group_id] = {};
-		return;
-	}
-	
-	auto pgd = model->par_groups[group_id];
-	if(pgd->components.empty()) {
-		if(!par_group->index_sets.empty()) {
-			par_group->source_loc.print_error_header();
-			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets since it is not tied to a component.");
-		}
-	} else {
-		auto &index_sets = par_group_index_sets[group_id];
-		
-		for(int idx = 0; idx < par_group->index_sets.size(); ++idx) {
-			auto index_set_data_id = par_group->index_sets[idx];
-			
-			auto &name = data_set->index_sets[index_set_data_id]->name;
-			auto index_set_id = model->top_scope.deserialize(name, Reg_Type::index_set);
-			if(!is_valid(index_set_id)) {
-				par_group->source_loc.print_error_header();
-				fatal_error("The index set \"", name, "\" does not exist in the model.");
-			}
-			
-			bool found = false;
-			for(auto comp_id : pgd->components) {
-				auto comp = model->components[comp_id];
-				if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) != comp->index_sets.end()) {
-					found = true;
-					break;
-				}
-			}
-			if(!found) {
-				par_group->source_loc.print_error_header();
-				fatal_error("The par_group \"", par_group->name, "\" can not be indexed with the index set \"", name, "\" since none of its attached components are distributed over that index set in the model \"", model->model_name, "\".");
-			}
-			
-			// The last two index sets are allowed to be the same, but no other duplicates are allowed.
-			auto find = std::find(index_sets.begin(), index_sets.end(), index_set_id);
-			if(find != index_sets.end()) {
-				// If we are not currently processing the last index set or the duplicate is not the last one we inserted, there is an error
-				if(idx != par_group->index_sets.size()-1 || (++find) != index_sets.end()) {
-					par_group->source_loc.print_error_header();
-					fatal_error("Only the two last index sets of a parameter group are allowed to be duplicate.");
-				}
-			}
-			index_sets.push_back(index_set_id);
-		}
-	}
-}
-
-void
-process_parameters(Model_Application *app, Par_Group_Info *par_group_info, Module_Info *module_info = nullptr, Entity_Id module_id = invalid_entity_id) {
-	
-	if(!app->parameter_structure.has_been_set_up)
-		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
-	
-	Mobius_Model *model = app->model;
-	
-	auto module_scope = model->get_scope(module_id);
-	
-	auto group_id = module_scope->deserialize(par_group_info->name, Reg_Type::par_group);
-	
-	// TODO: Error messages should reference the name of the module template rather than the module maybe.
-	
-	// TODO: We should rethink what is an error and what is a warning here.
-	if(!is_valid(group_id)) {
-		log_print("In ");
-		par_group_info->source_loc.print_log_header();
-		if(is_valid(module_id))
-			log_print("WARNING: The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_info->name, "\".\n\n");
-			//TODO: say what file the module was declared in?
-		else
-			log_print("WARNING: The model does not contain the parameter group \"", par_group_info->name, "\".\n\n");
-		return;
-	}
-	
-	bool module_is_outdated = false;
-	if(module_info && is_valid(module_id)) {
-		auto mod  = model->modules[module_id];
-		auto temp = model->module_templates[mod->template_id];
-		module_is_outdated = (module_info->version < temp->version);
-	}
-	
-	auto group_scope = model->get_scope(group_id);
-	for(auto &par : par_group_info->pars) {
-		
-		if(par.mark_for_deletion) continue;
-		
-		auto par_id = group_scope->deserialize(par.name, Reg_Type::parameter);
-		
-		if(!is_valid(par_id)) {
-			if(module_is_outdated) {
-				par.source_loc.print_log_header();
-				log_print("The parameter group \"", par_group_info->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par.name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
-				par.mark_for_deletion = true;
-			} else {
-				par.source_loc.print_error_header();
-				fatal_error("The parameter group \"", par_group_info->name, "\" does not contain a parameter named \"", par.name, "\".");
-			}
-			continue;
-		}
-		
-		auto param = model->parameters[par_id];
-		
-		if(param->decl_type != par.type) {
-			par.source_loc.print_error_header();
-			fatal_error("The parameter \"", par.name, "\" should be of type ", name(param->decl_type), ", not of type ", name(par.type), ".");
-		}
-		
-		// NOTE: This should be tested for somewhere else already, so this is just a safety
-		// tripwire.
-		s64 expect_count = app->index_data.get_instance_count(app->parameter_structure.get_index_sets(par_id));
-		if(expect_count != par.get_count())
-			fatal_error(Mobius_Error::internal, "We got the wrong number of parameter values from the data set (or did not set up indexes for parameters correctly). Got ", par.get_count(), " expected ", expect_count, ".");
-		
-		int idx = 0;
-		app->parameter_structure.for_each(par_id, [&idx, &app, &param, &par](auto idxs, s64 offset) {
-			Parameter_Value value;
-			if(par.type == Decl_Type::par_enum) {
-				s64 idx2 = 0;
-				bool found = false;
-				for(; idx2 < param->enum_values.size(); ++idx2) {
-					if(param->enum_values[idx2] == par.values_enum[idx].data()) {
-						found = true;
-						break;
-					}
-				}
-				if(!found) {
-					par.source_loc.print_error_header();
-					fatal_error("\"", par.values_enum[idx], "\" is not a valid value for the enum parameter \"", par.name, "\".");
-				}
-				value.val_integer = idx2;
-			} else
-				value = par.values[idx];
-			++idx;
-			*app->data.parameters.get_value(offset) = value;
-		});
-	}
-}
-
-void
-process_series_metadata(Model_Application *app, Data_Set *data_set, Series_Set_Info *series, Series_Metadata *metadata) {
-	
-	auto model = app->model;
-	
-	if( (series->has_date_vector && series->dates.empty())   ||
-		(!series->has_date_vector && series->time_steps==0) )   // Ignore empty data block.
-		return;
-	
-	if(series->start_date < metadata->start_date) metadata->start_date = series->start_date;
-	
-	Date_Time end_date = series->end_date;
-	if(!series->has_date_vector)
-		end_date = advance(series->start_date, app->time_step_size, series->time_steps-1);
-	
-	if(end_date > metadata->end_date) metadata->end_date = end_date;
-	
-	metadata->any_data_at_all = true;
-
-	for(auto &header : series->header_data) {
-		
-		check_allowed_serial_name(header.name, header.source_loc);
-		
-		// NOTE: several time series could have been given the same name.
-		std::set<Var_Id> ids = app->vars.find_by_name(header.name);
-		
-		if(ids.size() > 1) {
-			header.source_loc.print_log_header();
-			log_print("The name \"", header.name, "\" is not unique, and identifies multiple series.\n");
-		} else if(ids.empty()) {
-			//This series is not recognized as a model input, so it is an "additional series"
-			// See if it was already registered.
-			
-			auto var_id = app->vars.register_var<State_Var::Type::declared>(invalid_var_location, header.name, Var_Id::Type::additional_series);
-			ids.insert(var_id);
-			auto var = app->vars[var_id];
-			var->set_flag(State_Var::clear_series_to_nan);
-			var->unit = header.unit;
-			
-			//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions?
-		}
-		
-		if(header.indexes.empty()) continue;
-		
-		if(ids.begin()->type == Var_Id::Type::series) {
-			if(metadata->index_sets.find(*ids.begin()) != metadata->index_sets.end()) continue; // NOTE: already set by another series data block.
-		} else {
-			if(metadata->index_sets_additional.find(*ids.begin()) != metadata->index_sets_additional.end()) continue;
-		}
-		
-		for(auto &index : header.indexes[0].indexes) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
-			// NOTE: this should be valid since we already tested it internally in the data set.
-			auto idx_set = data_set->index_sets[index.index_set];
-			Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
-			if(!is_valid(index_set))
-				fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
-			for(auto id : ids) {
-				
-				if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
-					
-					auto var = as<State_Var::Type::declared>(app->vars[id]);
-					
-					if(!var->allowed_index_sets.has(index_set)) {
-						header.source_loc.print_error_header();
-						fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the relevant components are not distributed over that index set.");
-					}
-					
-					metadata->index_sets[id].push_back(index_set);
-				} else
-					metadata->index_sets_additional[id].push_back(index_set);
-			}
-		}
-	}
-}
-
-void
-process_series(Model_Application *app, Data_Set *data_set, Series_Set_Info *series_info, Date_Time end_date);
-
-
 Math_Expr_FT *
 Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexes) {
 	
@@ -615,8 +378,273 @@ Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexe
 	return make_literal((s64)index_data.get_max_count(index_set).index);
 }
 
+
+inline Entity_Id
+map_id(Catalog *from, Catalog *to, Entity_Id id) {
+	return to->deserialize(from->serialize(id), id.reg_type);
+}
+
+
 void
-add_connection_component(Model_Application *app, Data_Set *data_set, Component_Info *comp, Entity_Id connection_id, Entity_Id component_id) {
+process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id par_group_data_id, 
+	std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets) {
+	
+	auto par_group_data = data_set->par_groups[par_group_data_id];
+	
+	/*
+	Entity_Id module_id = invalid_entity_id;
+	if(is_valid(par_group_data->scope_id)) {
+		module_id = map_id(data_set, model, par_group_data->scope_id);
+		if(!is_valid(module_id)) //NOTE: we do error handling on missing modules on the second pass when we load the actual data.
+			return;
+	}
+	
+	auto module_scope = model->get_scope(module_id);
+	*/
+	auto group_id = map_id(data_set, model, par_group_data_id);
+	if(!is_valid(group_id)) return;  // NOTE: we do error handling on this on the second pass.
+	
+	if(par_group_data->index_sets.empty()) { // We have to signal it so that it is not filled with default index sets later
+		par_group_index_sets[group_id] = {};
+		return;
+	}
+	
+	auto par_group = model->par_groups[group_id];
+	if(par_group->components.empty()) {
+		if(!par_group_data->index_sets.empty()) {
+			par_group_data->source_loc.print_error_header();
+			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets since it is not tied to a component.");
+		}
+	} else {
+		auto &index_sets = par_group_index_sets[group_id];
+		
+		for(int idx = 0; idx < par_group_data->index_sets.size(); ++idx) {
+			auto index_set_data_id = par_group_data->index_sets[idx];
+			
+			auto &name = data_set->index_sets[index_set_data_id]->name;
+			
+			auto index_set_id = map_id(data_set, model, index_set_data_id);
+			
+			if(!is_valid(index_set_id)) {
+				par_group->source_loc.print_error_header();
+				fatal_error("The index set \"", name, "\" does not exist in the model.");
+			}
+			
+			// TODO: Is this entirely correct now? I think we are not allowed to index with a union if also a union member is given??
+			bool found = false;
+			for(auto comp_id : par_group->components) {
+				auto comp = model->components[comp_id];
+				if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) != comp->index_sets.end()) {
+					found = true;
+					break;
+				}
+			}
+			if(!found) {
+				par_group_data->source_loc.print_error_header();
+				fatal_error("The par_group \"", par_group_data->name, "\" can not be indexed with the index set \"", name, "\" since none of its attached components are distributed over that index set in the model \"", model->model_name, "\".");
+			}
+			
+			// TODO: Should probably check this in the data_set already.
+			auto find = std::find(index_sets.begin(), index_sets.end(), index_set_id);
+			if(find != index_sets.end()) {
+				par_group_data->source_loc.print_error_header();
+				fatal_error("Parameter groups are not allowed to index over duplicate index sets.");
+			}
+			index_sets.push_back(index_set_id);
+		}
+	}
+}
+
+
+void
+process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id) {
+	
+	if(!app->parameter_structure.has_been_set_up)
+		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
+	
+	Mobius_Model *model = app->model;
+	
+	auto par_group_data = data_set->par_groups[par_group_data_id];
+	auto module_id = invalid_entity_id;
+	if(is_valid(par_group_data->scope_id)) {
+		module_id = map_id(data_set, model, par_group_data->scope_id);
+		
+		if(!is_valid(module_id)) {
+			auto module_data = data_set->modules[par_group_data->scope_id];
+			log_print("In ");
+			module_data->source_loc.print_log_header();
+			log_print("The model \"", model->model_name, "\" does not contain a module named \"", module_data->name, "\". This data block will be ignored.\n\n");
+			return;
+		}
+	}
+	
+	bool module_is_outdated = false;
+	if(is_valid(module_id)) {
+		auto mod  = model->modules[module_id];
+		auto temp = model->module_templates[mod->template_id];
+		auto mod_data = data_set->modules[par_group_data->scope_id];
+		module_is_outdated = (mod_data->version < temp->version);
+	}
+	
+	auto group_id = map_id(data_set, model, par_group_data_id);
+	
+	// TODO: Error messages should reference the name of the module template rather than the module maybe.
+	// TODO: We should rethink what is an error and what is a warning here.
+	if(!is_valid(group_id)) {
+		log_print("In ");
+		par_group_data->source_loc.print_log_header();
+		if(is_valid(module_id))
+			log_print("WARNING: The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_data->name, "\".\n\n");
+			//TODO: say what file the module was declared in?
+		else
+			log_print("WARNING: The model does not contain the parameter group \"", par_group_data->name, "\".\n\n");
+		return;
+	}
+	
+	for(auto par_data_id : par_group_data->scope.by_type<Reg_Type::parameter>()) {
+		
+		auto par_data = data_set->parameters[par_data_id];
+		if(par_data->mark_for_deletion) continue;
+		
+		auto par_id = map_id(data_set, model, par_data_id);
+		
+		if(!is_valid(par_id)) {
+			if(module_is_outdated) {
+				par_data->source_loc.print_log_header();
+				log_print("The parameter group \"", par_group_data->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par_data->name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
+				par_data->mark_for_deletion = true;
+			} else {
+				par_data->source_loc.print_error_header();
+				fatal_error("The parameter group \"", par_group_data->name, "\" does not contain a parameter named \"", par_data->name, "\".");
+			}
+			continue;
+		}
+		
+		auto par = model->parameters[par_id];
+		
+		if(par->decl_type != par_data->decl_type) {
+			par_data->source_loc.print_error_header();
+			fatal_error("The parameter \"", par_data->name, "\" should be of type ", name(par->decl_type), ", not of type ", name(par_data->decl_type), ".");
+		}
+		
+		// NOTE: This should be tested for in the data set already, so this is just a safety tripwire.
+		s64 expect_count = app->index_data.get_instance_count(app->parameter_structure.get_index_sets(par_id));
+		if(expect_count != par_data->get_count()) {
+			par_data->source_loc.print_error_header();
+			fatal_error("Got ", par_data->get_count(), " values for this parameter, expected ", expect_count, ".");
+		}
+		
+		int idx = 0;
+		app->parameter_structure.for_each(par_id, [&idx, &app, &par, &par_data](auto idxs, s64 offset) {
+			Parameter_Value value;
+			if(par_data->decl_type == Decl_Type::par_enum) {
+				s64 idx2 = 0;
+				bool found = false;
+				for(; idx2 < par->enum_values.size(); ++idx2) {
+					if(par->enum_values[idx2] == par_data->values_enum[idx].data()) {
+						found = true;
+						break;
+					}
+				}
+				if(!found) {
+					par_data->source_loc.print_error_header();
+					fatal_error("\"", par_data->values_enum[idx], "\" is not a valid value for the enum parameter \"", par_data->name, "\".");
+				}
+				value.val_integer = idx2;
+			} else
+				value = par_data->values[idx];
+			++idx;
+			*app->data.parameters.get_value(offset) = value;
+		});
+	}
+}
+
+void
+process_series_metadata(Model_Application *app, Data_Set *data_set, Entity_Id series_data_id, Series_Metadata *metadata) {
+	
+	auto model = app->model;
+	
+	auto series_data = data_set->series[series_data_id];
+	
+	for(auto &series : series_data->series) {
+		if( (series.has_date_vector && series.dates.empty())   ||
+			(!series.has_date_vector && series.time_steps==0) )   // Ignore empty data block.
+			return;
+		
+		if(series.start_date < metadata->start_date)
+			metadata->start_date = series.start_date;
+		
+		Date_Time end_date = series.end_date;
+		if(!series.has_date_vector)
+			end_date = advance(series.start_date, app->time_step_size, series.time_steps-1);
+		
+		if(end_date > metadata->end_date) metadata->end_date = end_date;
+		
+		metadata->any_data_at_all = true;
+
+		for(auto &header : series.header_data) {
+			
+			check_allowed_serial_name(header.name, header.source_loc);
+			
+			// NOTE: several time series could have been given the same name.
+			std::set<Var_Id> ids = app->vars.find_by_name(header.name);
+			
+			if(ids.size() > 1) {
+				header.source_loc.print_log_header();
+				log_print("The name \"", header.name, "\" is not unique, and identifies multiple series.\n");
+			} else if(ids.empty()) {
+				//This series is not recognized as a model input, so it is an "additional series"
+				// See if it was already registered.
+				
+				auto var_id = app->vars.register_var<State_Var::Type::declared>(invalid_var_location, header.name, Var_Id::Type::additional_series);
+				ids.insert(var_id);
+				auto var = app->vars[var_id];
+				var->set_flag(State_Var::clear_series_to_nan);
+				var->unit = header.unit;
+				
+				//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions?
+			}
+			
+			if(header.indexes.empty()) continue;
+			
+			if(ids.begin()->type == Var_Id::Type::series) {
+				if(metadata->index_sets.find(*ids.begin()) != metadata->index_sets.end()) continue; // NOTE: already set by another series data block.
+			} else {
+				if(metadata->index_sets_additional.find(*ids.begin()) != metadata->index_sets_additional.end()) continue;
+			}
+			
+			for(auto &index : header.indexes[0].indexes) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
+				// NOTE: this should be valid since we already tested it internally in the data set.
+				auto idx_set = data_set->index_sets[index.index_set];
+				Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
+				if(!is_valid(index_set))
+					fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
+				for(auto id : ids) {
+					
+					if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
+						
+						auto var = as<State_Var::Type::declared>(app->vars[id]);
+						
+						if(!var->allowed_index_sets.has(index_set)) {
+							header.source_loc.print_error_header();
+							fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the relevant components are not distributed over that index set.");
+						}
+						
+						metadata->index_sets[id].push_back(index_set);
+					} else
+						metadata->index_sets_additional[id].push_back(index_set);
+				}
+			}
+		}
+	}
+}
+
+void
+process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data_id, Date_Time end_date);
+
+
+void
+add_connection_component(Model_Application *app, Data_Set *data_set, Component_Data *component_data, Entity_Id connection_id, Entity_Id component_id) {
 	
 	// TODO: In general we should be more nuanced with what source location we print for errors in this procedure.
 	
@@ -624,22 +652,22 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	auto component = model->components[component_id];
 	
 	if(component->decl_type != Decl_Type::compartment) {
-		comp->source_loc.print_error_header();
-		fatal_error("The name \"", comp->name, "\" does not refer to a compartment. This connection type only supports compartments, not quantities.");
+		component_data->source_loc.print_error_header();
+		fatal_error("The name \"", component_data->name, "\" does not refer to a compartment. This connection type only supports compartments, not quantities.");
 	}
 	
-	auto cnd = model->connections[connection_id];
+	auto connection = model->connections[connection_id];
 	
-	auto find = std::find(cnd->components.begin(), cnd->components.end(), component_id);
-	if(find == cnd->components.end()) {
-		comp->source_loc.print_error_header();
-		error_print("The connection \"", cnd->name,"\" is not allowed for the component \"", component->name, "\". See declaration of the connection:\n");
-		cnd->source_loc.print_error();
+	auto find = std::find(connection->components.begin(), connection->components.end(), component_id);
+	if(find == connection->components.end()) {
+		component_data->source_loc.print_error_header();
+		error_print("The connection \"", connection->name,"\" is not allowed for the component \"", component->name, "\". See declaration of the connection:\n");
+		connection->source_loc.print_error();
 		mobius_error_exit();
 	}
 	
 	std::vector<Entity_Id> index_sets;
-	for(auto set_id : comp->index_sets) {
+	for(auto set_id : component_data->index_sets) {
 		auto idx_set_info = data_set->index_sets[set_id];
 		auto index_set = model->top_scope.deserialize(idx_set_info->name, Reg_Type::index_set);
 		if(!is_valid(index_set)) {
@@ -647,7 +675,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 			fatal_error("The index set \"", idx_set_info->name, " does not exist in the model.");  // Actually, this has probably been checked somewhere else already.
 		}
 		if(std::find(component->index_sets.begin(), component->index_sets.end(), index_set) == component->index_sets.end()) {
-			comp->source_loc.print_error_header();
+			component_data->source_loc.print_error_header();
 			fatal_error("The index sets indexing a component in a connection relation must also index that component in the model. The index set \"", idx_set_info->name, "\" does not index the component \"", component->name, "\" in the model");
 		}
 		index_sets.push_back(index_set);
@@ -657,7 +685,7 @@ add_connection_component(Model_Application *app, Data_Set *data_set, Component_I
 	auto find2 = std::find_if(components.begin(), components.end(), [component_id](const Sub_Indexed_Component &comp) -> bool { return comp.id == component_id; });
 	if(find2 != components.end()) {
 		if(index_sets != find2->index_sets) { // This should no longer be necessary when we make component declarations local to the connection data in the data set.
-			comp->source_loc.print_error_header();
+			component_data->source_loc.print_error_header();
 			fatal_error("The component \"", app->model->components[component_id]->name, "\" appears twice in the same connection relation, but with different index set dependencies.");
 		}
 	} else {
@@ -695,73 +723,78 @@ set_up_simple_connection_components(Model_Application *app, Entity_Id conn_id) {
 }
 
 void
-pre_process_connection_data(Model_Application *app, Connection_Info &connection, Data_Set *data_set, const std::string &module_name = "") {
+pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_Id conn_data_id) {
 	
 	auto model = app->model;
 	
+	auto connection_data = data_set->connections[conn_data_id];
+	
 	Entity_Id module_id = invalid_entity_id;
-	if(!module_name.empty())
-		module_id = model->deserialize(module_name, Reg_Type::module);
+	if(is_valid(connection_data->scope_id))
+		module_id = map_id(data_set, model, connection_data->scope_id);
 	
 	auto scope = model->get_scope(module_id);
 	
-	auto conn_id = scope->deserialize(connection.name, Reg_Type::connection);
+	auto conn_id = map_id(data_set, model, conn_data_id);
 	
 	if(!is_valid(conn_id)) {
-		connection.source_loc.print_error_header();
-		fatal_error("The connection structure \"", connection.name, "\" has not been declared in the model.");
+		connection_data->source_loc.print_error_header();
+		fatal_error("The connection structure \"", connection_data->name, "\" has not been declared in the model.");
 	}
 
-	auto cnd = model->connections[conn_id];
+	auto connection = model->connections[conn_id];
 	
-	if(cnd->type != Connection_Type::directed_graph) {
-		connection.source_loc.print_error_header();
-		fatal_error("Connection data should only be provided for connections of type 'directed_graph'.");
+	if(connection->type != Connection_Type::directed_graph) {
+		connection_data->source_loc.print_error_header();
+		error_print("Connection data should only be provided for connections of type 'directed_graph'. In the model it is declared as another type. See declaration here:");
+		connection->source_loc.print_error();
+		mobius_error_exit();
 	}
 	
 	bool error = false;
-	if(is_valid(connection.edge_index_set)) {
-		auto edge_id = scope->deserialize(data_set->index_sets[connection.edge_index_set]->name, Reg_Type::index_set); // TODO: This is not the best.. The name may not exist in module scope..
-		if(!is_valid(edge_id) || edge_id != cnd->edge_index_set) {
-			cnd->source_loc.print_error_header();
+	if(is_valid(connection_data->edge_index_set)) {
+		
+		auto edge_id = map_id(data_set, model, connection_data->edge_index_set);
+		if(!is_valid(edge_id) || edge_id != connection->edge_index_set) {
+			connection_data->source_loc.print_error_header();
 			fatal_error("The edge index set of this connection don't match between the model and the data set.");
 		}
-	} else if (is_valid(cnd->edge_index_set)) {
-		cnd->source_loc.print_error_header();
+	} else if (is_valid(connection->edge_index_set)) {
+		connection_data->source_loc.print_error_header();
 		fatal_error("This connection was given an edge index set in the model, but not in the data set."); 
 	}
 	
-	for(auto &comp : connection.components) {
-		Entity_Id comp_id = model->top_scope.deserialize(comp.name, Reg_Type::component);
+	for(auto &comp_data_id : connection_data->scope.by_type<Reg_Type::component>()) {
+		
+		auto comp_data = data_set->components[comp_data_id];
+		// Can't do this since they are scoped differently in the model and the data_set
+		//auto comp_id = map_id(data_set, model, comp_data_id);
+		auto comp_id = model->top_scope.deserialize(comp_data->name, Reg_Type::component);
 		if(!is_valid(comp_id)) {
-			comp.source_loc.print_error_header();
-			fatal_error("The component \"", comp.name, "\" has not been declared in the model.");
-			//comp.source_loc.print_log_header();
-			//log_print("The component \"", comp.name, "\" has not been declared in the model.\n");
-			//continue;
+			comp_data->source_loc.print_error_header();
+			fatal_error("The component \"", comp_data->name, "\" has not been declared in the model.");
 		}
-		add_connection_component(app, data_set, &comp, conn_id, comp_id);
+		
+		add_connection_component(app, data_set, comp_data, conn_id, comp_id);
 	}
 	
 	// NOTE: We allow empty info for this connection type, in which case the data type is 'none'.
-	if(connection.type != Connection_Info::Type::directed_graph && connection.type != Connection_Info::Type::none) {
-		connection.source_loc.print_error_header();
+	if(connection_data->type != Connection_Data::Type::directed_graph && connection_data->type != Connection_Data::Type::none) {
+		connection_data->source_loc.print_error_header();
 		fatal_error("Connection structures of type directed_tree or directed_graph can only be set up using graph data.");
 	}
 	
-	for(auto &arr : connection.arrows) {
+	for(auto &arr : connection_data->arrows) {
 		
 		Connection_Arrow arrow;
 		
-		auto comp_source = connection.components[arr.first.id];
-		arrow.source_id = model->top_scope.deserialize(comp_source->name, Reg_Type::component);
-	
-		if(is_valid(arr.second.id)) {
-			auto comp_target = connection.components[arr.second.id];
-			arrow.target_id = model->top_scope.deserialize(comp_target->name, Reg_Type::component);
-		}
+		//arrow.source_id = map_id(data_set, model, arr.first.id);
+		arrow.source_id = model->top_scope.deserialize(data_set->components[arr.first.id]->name, Reg_Type::component);
+		if(is_valid(arr.second.id))
+			arrow.target_id = model->top_scope.deserialize(data_set->components[arr.second.id]->name, Reg_Type::component);
+			//arrow.target_id = map_id(data_set, model, arr.second.id);
 		
-		// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these compoents.
+		// Note: can happen if we are running with a subset of the larger model the dataset is set up for, and the subset doesn't have these components.
 		if( !is_valid(arrow.source_id) || (!is_valid(arrow.target_id) && is_valid(arr.second.id)) ) continue;
 		
 		// Store useful information that allows us to prune away un-needed operations later.
@@ -786,8 +819,6 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 			target->possible_sources.insert(arrow.source_id);
 			source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
 		
-			
-		
 			// TODO: Maybe assert the two vectors are the same size.
 			
 			// TODO: See same comment as above.
@@ -806,8 +837,8 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 	
 	
 	for(auto &comp : comps.components) {
-		if(comp.index_sets.size() == 1 && is_valid(cnd->edge_index_set))  // TODO: Also make it work for 0 (non-indexed nodes) eventually
-			comp.is_edge_indexed = app->index_data.can_be_sub_indexed_to(comp.index_sets[0], cnd->edge_index_set);
+		if(comp.index_sets.size() == 1 && is_valid(connection->edge_index_set))  // TODO: Also make it work for 0 (non-indexed nodes) eventually
+			comp.is_edge_indexed = app->index_data.can_be_sub_indexed_to(comp.index_sets[0], connection->edge_index_set);
 	}
 	
 	Storage_Structure<Entity_Id> components_structure(app);
@@ -821,7 +852,7 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		auto find_source = app->find_connection_component(conn_id, arrow.source_id);
 		
 		if(find_source->is_edge_indexed)
-			arrow.edge_index = Index_T { cnd->edge_index_set, edge_idx };
+			arrow.edge_index = Index_T { connection->edge_index_set, edge_idx };
 	}
 	
 	for(auto &comp : comps.components) {
@@ -833,27 +864,26 @@ pre_process_connection_data(Model_Application *app, Connection_Info &connection,
 		});
 
 		if(!comp.is_edge_indexed && comp.max_outgoing_per_node > 1) {
-			cnd->source_loc.print_error_header(Mobius_Error::model_building);
+			connection->source_loc.print_error_header(Mobius_Error::model_building);
 			fatal_error("A component of type \"", model->components[comp.id]->name, "\" can have more than one outgoing edge in this connection, but its edges can't be indexed by the edge index set (or an edge index set was not given).");
 		}
 		// NOTE: We still have to allow it to be edge indexed even if max outgoing <= 1 since that is dependent on the data, not on the model.
 	}
 	
-	match_regex(app, conn_id, connection.source_loc);
+	match_regex(app, conn_id, connection_data->source_loc);
 }
-
 
 void
 process_connection_data(Model_Application *app, Entity_Id conn_id) {
 	
 	auto model = app->model;
 	
-	auto cnd = model->connections[conn_id];
+	auto connection = model->connections[conn_id];
 		
-	if(cnd->type == Connection_Type::grid1d)
+	if(connection->type == Connection_Type::grid1d)
 		return;  // Nothing else to do for these.
 		
-	if(cnd->type != Connection_Type::directed_graph)
+	if(connection->type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "Unsupported connection structure type in process_connection_data().");
 
 	auto &comps = app->connection_components[conn_id];
@@ -892,31 +922,31 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	
 	std::vector<std::string> input_names;
-	for(auto &series : data_set->series) {
-		for(auto &header : series.header_data)
-			input_names.push_back(header.name);
-	}
-	
-	// Generate at least one index for index sets that were not provided in the data set.
-	for(auto index_set : model->index_sets) {
-		auto set = model->index_sets[index_set];
-		
-		if(!is_valid(data_set->index_sets.find_idx(set->name))) {
-		
-			std::string sub_indexed_to = is_valid(set->sub_indexed_to) ? model->index_sets[set->sub_indexed_to]->name : "";
-			std::vector<std::string> union_of;
-			for(auto ui_id : set->union_of)
-				union_of.push_back(model->index_sets[ui_id]->name);
-			
-			// TODO: Also do something if it is an edge index set!
-			data_set->generate_index_data(set->name, sub_indexed_to, union_of);
+	for(auto series_id : data_set->series) {
+		auto series_data = data_set->series[series_id];
+		for(auto &series_set : series_data->series) {
+			for(auto &header : series_set.header_data)
+				input_names.push_back(header.name);
 		}
 	}
 	
-	for(auto &index_set : data_set->index_sets) {
-		//process_index_set_data(this, data_set, index_set);
-		data_set->index_data.transfer_data(this->index_data, index_set.id);
+	// Generate at least one index for index sets that were not provided in the data set.
+	for(auto index_set_id : model->index_sets) {
+		auto index_set = model->index_sets[index_set_id];
+		auto data_id = map_id(model, data_set, index_set_id);
+		if(!is_valid(data_id)) {
+			std::string sub_indexed_to = is_valid(index_set->sub_indexed_to) ? model->serialize(index_set->sub_indexed_to) : "";
+			std::vector<std::string> union_of;
+			for(auto ui_id : index_set->union_of)
+				union_of.push_back(model->serialize(ui_id));
+			
+			// TODO: Also do something if it is an edge index set!
+			data_set->generate_index_data(index_set->name, sub_indexed_to, union_of);
+		}
 	}
+	
+	for(auto index_set_data_id : data_set->index_sets)
+		data_set->index_data.transfer_data(this->index_data, index_set_data_id);
 	
 	connection_components.initialize(model);
 	
@@ -927,12 +957,8 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			set_up_simple_connection_components(this, conn_id);
 	}
 	
-	for(auto &connection : data_set->global_module.connections)
-		pre_process_connection_data(this, connection, data_set);
-	for(auto &module : data_set->modules) {
-		for(auto &connection : module.connections)
-			pre_process_connection_data(this, connection, data_set, module.name);
-	}
+	for(auto &conn_id : data_set->connections)
+		pre_process_connection_data(this, data_set, conn_id);
 	
 	for(auto conn_id : model->connections) {
 		if(model->connections[conn_id]->type != Connection_Type::directed_graph)
@@ -957,7 +983,6 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		}
 	}
 
-	
 	if(!index_counts_structure.has_been_set_up)
 		set_up_index_count_structure();
 	
@@ -967,37 +992,23 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	for(auto &conn_id : model->connections)
 		process_connection_data(this, conn_id);
 	
+	
 	std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> par_group_index_sets;
-	for(auto &par_group : data_set->global_module.par_groups)
-		process_par_group_index_sets(model, data_set, &par_group, par_group_index_sets);
-	for(auto &module : data_set->modules) {
-		for(auto &par_group : module.par_groups)
-			process_par_group_index_sets(model, data_set, &par_group, par_group_index_sets, module.name);
-	}
+	for(auto par_group_data_id : data_set->par_groups)
+		process_par_group_index_sets(model, data_set, par_group_data_id, par_group_index_sets);
 	
 	set_up_parameter_structure(&par_group_index_sets);
 	
-	for(auto &par_group : data_set->global_module.par_groups)
-		process_parameters(this, &par_group);
-	for(auto &module : data_set->modules) {
-		Entity_Id module_id = model->top_scope.deserialize(module.name, Reg_Type::module);
-		if(!is_valid(module_id)) {
-			log_print("In ");
-			module.source_loc.print_log_header();
-			log_print("The model \"", model->model_name, "\" does not contain a module named \"", module.name, "\". This data block will be ignored.\n\n");
-			continue;
-		}
-		for(auto &par_group : module.par_groups)
-			process_parameters(this, &par_group, &module, module_id);
-	}
+	for(auto par_group_data_id : data_set->par_groups)
+		process_parameters(this, data_set, par_group_data_id);
 	
-	if(!data_set->series.empty()) {
+	if(data_set->series.count() > 0) {
 		Series_Metadata metadata;
 		metadata.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
 		metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
 		
-		for(auto &series : data_set->series)
-			process_series_metadata(this, data_set, &series, &metadata);
+		for(auto series_id : data_set->series)
+			process_series_metadata(this, data_set, series_id, &metadata);
 		
 		set_up_series_structure(Var_Id::Type::series,            &metadata);
 		set_up_series_structure(Var_Id::Type::additional_series, &metadata);
@@ -1009,24 +1020,24 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 			//TODO: use the model run start and end date.
 			// Or better yet, we could just bake in series default values as literals in the code. in this case.
 		}
-		//warning_print("Input dates: ", metadata.start_date.to_string());
-		//warning_print(" ", metadata.end_date.to_string(), " ", time_steps, "\n");
 	
 		allocate_series_data(time_steps, metadata.start_date);
 		
-		for(auto &series : data_set->series)
-			process_series(this, data_set, &series, metadata.end_date);
+		for(auto series_id : data_set->series)
+			process_series(this, data_set, series_id, metadata.end_date);
 	} else {
 		set_up_series_structure(Var_Id::Type::series,            nullptr);
 		set_up_series_structure(Var_Id::Type::additional_series, nullptr);
 	}
-	
-	//warning_print("Model application set up with data.\n");
+
 }
 
 void
 Model_Application::save_to_data_set() {
 	//TODO: We should probably just generate a data set in this case.
+	
+	//@CATALOG_REFACTOR
+	/*
 	if(!data_set)
 		fatal_error(Mobius_Error::api_usage, "Tried to save model application to data set, but no data set was attached to the model application.");
 	
@@ -1114,6 +1125,7 @@ Model_Application::save_to_data_set() {
 		
 		++module_id;
 	}
+	*/
 }
 
 void
@@ -1131,20 +1143,18 @@ make_connection_component_indexing_structure(Model_Application *app, Storage_Str
 	components_structure->set_up(std::move(structure));
 }
 
-template<typename Data_Set_Type> template<typename Model_Type>
 void
-Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_Id data_id) {
+Index_Data::transfer_data(Index_Data &other, Entity_Id data_id) {
 	
-	auto model = other.record;
-	auto set_data = record->index_sets[data_id];
-	auto model_set_id = model->top_scope.deserialize(set_data->name, Reg_Type::index_set);
-	if(!is_valid(model_set_id)) {
+	auto target_id = map_id(catalog, other.catalog, data_id);
+	
+	auto set_data = catalog->index_sets[data_id];
+	if(!is_valid(target_id)) {
 		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
 		set_data->source_loc.print_error_header();
-		fatal_error("\"", set_data->name, "\" has not been declared as an index set in the model \"", model->model_name, "\".");
-		//return;
+		fatal_error("\"", set_data->name, "\" has not been declared as an index set in the model \"", other.catalog->model_name, "\".");
 	}
-	auto set = model->index_sets[model_set_id];
+	auto set = other.catalog->index_sets[target_id];
 	
 	if(!set->union_of.empty()) {
 		// Check that the unions match
@@ -1154,8 +1164,8 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 		else {
 			int idx = 0;
 			for(auto ui_id : set_data->union_of) {
-				auto ui_data = record->index_sets[ui_id];
-				auto ui_id_model = model->top_scope.deserialize(ui_data->name, Reg_Type::index_set);
+				auto ui_id_model = map_id(catalog, other.catalog, ui_id);
+				
 				if(!is_valid(ui_id_model) || ui_id_model != set->union_of[idx]) {
 					error = true;
 					break;
@@ -1169,7 +1179,7 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 			fatal_error("The index set \"", set_data->name, "\" is declared as a union in the model, but is not the same union in the data set.");
 		}
 		
-		other.initialize_union(model_set_id, set_data->source_loc);
+		other.initialize_union(target_id, set_data->source_loc);
 		return; // NOTE: There is no separate index data to copy for a union.
 		
 	} else if (!set_data->union_of.empty()) {
@@ -1179,10 +1189,10 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 	
 	Entity_Id sub_indexed_to = invalid_entity_id;
 	if(is_valid(set_data->sub_indexed_to))
-		sub_indexed_to = model->top_scope.deserialize(record->index_sets[set_data->sub_indexed_to]->name, Reg_Type::index_set);
+		sub_indexed_to = map_id(catalog, other.catalog, set_data->sub_indexed_to);
 	if(set->sub_indexed_to != sub_indexed_to) {
 		set_data->source_loc.print_error_header();
-		fatal_error("The parent index set of the index set \"", set_data->name, "\" does not match between the model and the data set.");
+		fatal_error("The sub-indexing of the index set \"", set_data->name, "\" does not match between the model and the data set.");
 	}
 	
 	auto &data = index_data[data_id.id];
@@ -1192,9 +1202,9 @@ Index_Data<Data_Set_Type>::transfer_data(Index_Data<Model_Type> &other, Entity_I
 		if(!is_valid(sub_indexed_to))
 			parent_idx = invalid_index;
 		
-		other.initialize(model_set_id, parent_idx, data.type, set_data->source_loc);
+		other.initialize(target_id, parent_idx, data.type, set_data->source_loc);
 		
-		auto &new_data = other.index_data[model_set_id.id];
+		auto &new_data = other.index_data[target_id.id];
 		
 		new_data.index_counts[super] = data.index_counts[super];
 		if(data.type == Index_Record::Type::numeric1) {

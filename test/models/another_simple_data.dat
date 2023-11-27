@@ -1,21 +1,22 @@
-/*
-index_set("I") [ "A" "B" "C" ]
 
-index_set("J") [ "D" "E" "F" "G" ]
+data_set {
+"""
+The doc string
+"""
+	k : index_set("K") [ 7 ]
 
-index_set("K") @union("I", "J")
+	par_group("System") {
+		par_datetime("Start date")
+		[ 1990-01-01 ]
 
-par_group("System") {
-	par_datetime("Start date")
-	[ 1990-01-01 ]
-
-	par_datetime("End date")
-	[ 1990-12-31 ]
-}
-*/
-module("So simple", version(2, 0, 0)) {
-	#par_group("The Q") [ "K" ] {
-	#	par_int("Q") [ 1 2 3 4 5 6 7 ]
-	#}
+		par_datetime("End date")
+		[ 1990-12-31 ]
+	}
+	
+	module("So simple", version(2, 0, 0)) {
+		par_group("The Q", k) {
+			par_real("Q") [ 1 2 3 4 5 6 7 ]
+		}
+	}
 }
 

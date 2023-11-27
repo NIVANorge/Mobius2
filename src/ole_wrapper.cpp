@@ -265,7 +265,8 @@ ole_open_spreadsheet(String_View file_path, OLE_Handles *handles) {
 	handles->book = ole_get_object(handles->books, L"Open", &file_var);
 	if(!handles->book) {
 		ole_close_due_to_error(handles);
-		fatal_error("Failed to open file \"", file_path, "\".");
+		//fatal_error("Failed to open file \"", file_path, "\".");
+		fatal_error("Failed to open file \"", full_path, "\".");
 	}
 	
 	// TODO: this one should be unnecessary since we explicitly open other sheets later?

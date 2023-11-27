@@ -218,7 +218,7 @@ Regex_Quantifier_AST : Math_Expr_AST {
 };
 
 enum class Data_Type {
-	none,
+	none = 0,
 	map,
 	list,
 	directed_graph,
@@ -226,9 +226,10 @@ enum class Data_Type {
 
 struct
 Data_AST : Expr_AST {
-	Data_Type data_type;
+	Data_Type data_type = Data_Type::none;
 	Source_Location source_loc;
 	virtual ~Data_AST() {};
+	Data_AST(Data_Type data_type) : data_type(data_type) {}
 };
 
 struct
@@ -238,12 +239,14 @@ Data_Map_AST : Data_AST {
 		Data_AST *data = nullptr;
 	};
 	std::vector<Entry> entries;
+	Data_Map_AST() : Data_AST(Data_Type::map) {}
 	~Data_Map_AST() { for(auto &entry : entries) delete entry.data; }
 };
 
 struct
 Data_List_AST : Data_AST {
 	std::vector<Token> list;
+	Data_List_AST() : Data_AST(Data_Type::list) {}
 };
 
 struct
@@ -254,6 +257,7 @@ Directed_Graph_AST : Data_AST {
 	};
 	std::vector<Node> nodes;
 	std::vector<std::pair<int, int>> arrows;
+	Directed_Graph_AST() : Data_AST(Data_Type::directed_graph) {}
 };
 
 

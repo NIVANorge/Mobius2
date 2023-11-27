@@ -29,7 +29,20 @@ Mobius_Model::registry(Reg_Type reg_type) {
 	}
 	
 	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
-	
+	return nullptr;
+}
+
+Decl_Scope *
+Mobius_Model::get_scope(Entity_Id id) {
+	if(!is_valid(id))
+		return &top_scope;
+	else if(id.reg_type == Reg_Type::library)
+		return &libraries[id]->scope;
+	else if(id.reg_type == Reg_Type::module)
+		return &modules[id]->scope;
+	else if(id.reg_type == Reg_Type::par_group)
+		return &par_groups[id]->scope;
+	fatal_error(Mobius_Error::internal, "Tried to look up the scope belonging to an id that is not a library, module or par_group.");
 	return nullptr;
 }
 
@@ -74,6 +87,7 @@ register_intrinsics(Mobius_Model *model) {
 	auto end_id    = model->parameters.create_internal(group_scope, "end_date", "End date", Decl_Type::par_datetime);
 	mod_scope->import(*group_scope);
 	// Just so that they are registered as being referenced and we don't get the warning about unreferenced parameters.
+	//  TODO: We could instead have a flag on internally created things and just not give warnings for them.
 	(*group_scope)["start_date"];
 	(*group_scope)["end_date"];
 	
@@ -331,14 +345,6 @@ Unit_Registration::process_declaration(Catalog *catalog) {
 	data.set_data(decl);
 	
 	has_been_processed = true;
-}
-
-void
-set_serial_name(Catalog *catalog, Registration_Base *reg, int arg_idx = 0) {
-	auto scope = catalog->get_scope(reg->scope_id);
-	auto name = single_arg(reg->decl, arg_idx);
-	reg->name = name->string_value;
-	scope->set_serial_name(name->string_value, name->source_loc, reg->id);
 }
 
 void
@@ -1153,13 +1159,12 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 }
 
 void
-Index_Set_Registration::process_declaration(Catalog *catalog) {
+Index_Set_Registration::process_main_decl(Catalog *catalog) {
 	
-	match_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true);
+	// Factored out to be reused in Data_Set
 	
 	set_serial_name(catalog, this);
 	auto scope = catalog->get_scope(scope_id);
-	auto model = static_cast<Mobius_Model *>(catalog);
 	
 	for(auto note : decl->notes) {
 		auto str = note->decl.string_value;
@@ -1167,7 +1172,7 @@ Index_Set_Registration::process_declaration(Catalog *catalog) {
 			match_declaration_base(note, {{Decl_Type::index_set}}, 0);
 		
 			auto subto_id = scope->resolve_argument(Reg_Type::index_set, note->args[0]);
-			auto subto = model->index_sets[subto_id];
+			auto subto = catalog->index_sets[subto_id];
 			
 			// TODO: A bit hacky, but hard to resolve otherwise.
 			//   we *could* scan all the index sets first, then figure out which ones are going to be parents, and register those first, but it is tricky because we would have
@@ -1201,6 +1206,14 @@ Index_Set_Registration::process_declaration(Catalog *catalog) {
 	}
 	
 	has_been_processed = true;
+}
+
+void
+Index_Set_Registration::process_declaration(Catalog *catalog) {
+	
+	match_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true);
+	
+	process_main_decl(catalog);
 }
 
 void
@@ -1339,7 +1352,7 @@ Model_Extension {
 	Decl_AST *decl;
 	int load_order;
 	int depth;
-	//std::set<Decl_Type> excludes; //TODO!     -- eventually could also declare specific names or handles that are to be excluded, but that is much more work to get to work.
+	//std::set<Decl_Type> excludes; //TODO!     -- eventually could also declare specific identifiers that are to be excluded.
 };
 
 bool
@@ -1763,6 +1776,59 @@ check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets
 	}
 }
 
+// TODO: Could probably get this to work with Catalog again.
+void
+Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
+	std::unordered_map<Entity_Id, bool, Entity_Id_Hash> lib_was_used;
+	for(auto &pair : visible_entities) {
+		auto &reg = pair.second;
+		
+		if(reg.is_load_arg && !reg.was_referenced) {
+			log_print("Warning: In ");
+			reg.source_loc.print_log_header();
+			log_print("The module argument '", reg.handle, "' was never referenced.\n");
+		}
+		
+		if (!reg.is_load_arg && !reg.external && !reg.was_referenced && reg.id.reg_type == Reg_Type::parameter) {
+			log_print("Warning: In ");
+			reg.source_loc.print_log_header();
+			log_print("The parameter '", reg.handle, "' was never referenced.\n");
+		}
+		
+		if(reg.external) {
+			auto entity = catalog->find_entity(reg.id);
+			if(entity->scope_id.reg_type == Reg_Type::library) {
+				if(reg.was_referenced)
+					lib_was_used[entity->scope_id] = true;
+				else {
+					auto find = lib_was_used.find(entity->scope_id);
+					if(find == lib_was_used.end())
+						lib_was_used[entity->scope_id] = false;
+				}
+			}
+		}
+	}
+	for(auto &pair : lib_was_used) {
+		if(!pair.second) {
+			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
+			// TODO:  we could put that in the Scope_Entity source_loc (?)
+			std::string scope_type;
+			std::string scope_name;
+			if(parent_id.reg_type == Reg_Type::module) {
+				scope_type = "module";
+				scope_name = catalog->find_entity(parent_id)->name;
+			} else if(parent_id.reg_type == Reg_Type::library) {
+				scope_type = "library";
+				scope_name = catalog->find_entity(parent_id)->name;
+			} else {
+				scope_type = "model";
+				scope_name = catalog->model_name;
+			}
+			log_print("Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", catalog->find_entity(pair.first)->name, "\", but doesn't use any of it.\n");
+		}
+	}
+}
+
 // NOTE: would like to just have an ostream& operator<< on the Var_Location, but it needs to reference the scope to get the names..
 void
 error_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
@@ -1780,12 +1846,12 @@ log_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 
 void
 Mobius_Model::free_asts() {
-	// NOTE: All other ASTs that are stored are sub-trees of one of these, so we don't need to delete them separately (though we could maybe null them).
+	// NOTE: All other ASTs, eg. function code, are sub-trees of one of these, so we don't need to delete them separately (though we could maybe null them).
 	delete main_decl;
 	main_decl = nullptr;
-	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;
 	
-	// TODO: Not sure if this would be correct for inlined ones as their ast would be a part of the model ast and deleted from there.
+	// TODO: This is not correct for inlined modules as their AST is a part of the model AST and is deleted recursively from there.
+	//   Have to flag inlined module declarations.
 	for(auto id : module_templates) {
 		delete module_templates[id]->decl;
 		module_templates[id]->decl = nullptr;

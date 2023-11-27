@@ -1,6 +1,14 @@
 
 #include "catalog.h"
 
+void
+set_serial_name(Catalog *catalog, Registration_Base *reg, int arg_idx) {
+	auto scope = catalog->get_scope(reg->scope_id);
+	auto name = single_arg(reg->decl, arg_idx);
+	reg->name = name->string_value;
+	scope->set_serial_name(name->string_value, name->source_loc, reg->id);
+}
+
 Scope_Entity *
 Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id) {
 	
@@ -53,7 +61,7 @@ Decl_Scope::set_serial_name(const std::string &serial_name, Source_Location sour
 	auto find = serialized_entities.find(serial_name);
 	if(find != serialized_entities.end()) {
 		source_loc.print_error_header();
-		error_print("The name \"", serial_name, "\" has already been used for another entity in this scope of type '", name(find->second.id.reg_type), "'. See the declaration here:");
+		error_print("The name \"", serial_name, "\" has already been used for another entity of type '", name(find->second.id.reg_type), "' in this scope. See the declaration here:");
 		find->second.source_loc.print_error();
 		mobius_error_exit();
 	}
@@ -75,7 +83,7 @@ Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc, bool al
 	for(const auto &ent : other.visible_entities) {
 		const auto &handle = ent.first;
 		const auto &entity = ent.second;
-		// NOTE: In a model, the parameters are in the scope of parameter groups, and would not otherwise be imported into inlined modules. This fix is a bit unelegant though.
+		// NOTE: In a model, parameters are in the scope of parameter groups, and would not otherwise be imported into inlined modules. This fix is a bit unelegant though.
 		if(!entity.external || (allow_recursive_import_params && entity.id.reg_type == Reg_Type::parameter)) { // NOTE: no recursive importing
 			auto find = visible_entities.find(handle);
 			if(find != visible_entities.end()) {
@@ -133,6 +141,10 @@ Decl_Scope::resolve_argument(Reg_Type expected_type, Argument_AST *arg) {
 
 Entity_Id
 Decl_Scope::expect(Reg_Type expected_type, Token *identifier) {
+	if(identifier->type != Token_Type::identifier) {
+		identifier->print_error_header();
+		fatal_error("Expected an identifier.");
+	}
 	auto reg = (*this)[identifier->string_value];
 	if(!reg) {
 		identifier->print_error_header();
@@ -143,58 +155,6 @@ Decl_Scope::expect(Reg_Type expected_type, Token *identifier) {
 		fatal_error("Expected '", identifier->string_value, "' to be a '", name(expected_type), "', but it was declared as a '", name(reg->id.reg_type), "'.");
 	}
 	return reg->id;
-}
-
-void
-Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
-	std::unordered_map<Entity_Id, bool, Entity_Id_Hash> lib_was_used;
-	for(auto &pair : visible_entities) {
-		auto &reg = pair.second;
-		
-		if(reg.is_load_arg && !reg.was_referenced) {
-			log_print("Warning: In ");
-			reg.source_loc.print_log_header();
-			log_print("The module argument '", reg.handle, "' was never referenced.\n");
-		}
-		
-		if (!reg.is_load_arg && !reg.external && !reg.was_referenced && reg.id.reg_type == Reg_Type::parameter) {
-			log_print("Warning: In ");
-			reg.source_loc.print_log_header();
-			log_print("The parameter '", reg.handle, "' was never referenced.\n");
-		}
-		
-		if(reg.external) {
-			auto entity = catalog->find_entity(reg.id);
-			if(entity->scope_id.reg_type == Reg_Type::library) {
-				if(reg.was_referenced)
-					lib_was_used[entity->scope_id] = true;
-				else {
-					auto find = lib_was_used.find(entity->scope_id);
-					if(find == lib_was_used.end())
-						lib_was_used[entity->scope_id] = false;
-				}
-			}
-		}
-	}
-	for(auto &pair : lib_was_used) {
-		if(!pair.second) {
-			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
-			// TODO:  we could put that in the Scope_Entity source_loc (?)
-			std::string scope_type;
-			std::string scope_name;
-			if(parent_id.reg_type == Reg_Type::module) {
-				scope_type = "module";
-				scope_name = catalog->find_entity(parent_id)->name;
-			} else if(parent_id.reg_type == Reg_Type::library) {
-				scope_type = "library";
-				scope_name = catalog->find_entity(parent_id)->name;
-			} else {
-				scope_type = "model";
-				scope_name = catalog->model_name;
-			}
-			log_print("Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", catalog->libraries[pair.first]->name, "\", but doesn't use any of it.\n");
-		}
-	}
 }
 
 void
@@ -229,20 +189,6 @@ Catalog::register_decls_recursive(Decl_Scope *scope, Decl_AST *decl, const std::
 				register_decls_recursive(scope, arg->decl, allowed_types);
 		}
 	}
-}
-
-Decl_Scope *
-Catalog::get_scope(Entity_Id id) {
-	if(!is_valid(id))
-		return &top_scope;
-	else if(id.reg_type == Reg_Type::library)
-		return &libraries[id]->scope;
-	else if(id.reg_type == Reg_Type::module)
-		return &modules[id]->scope;
-	else if(id.reg_type == Reg_Type::par_group)
-		return &par_groups[id]->scope;
-	fatal_error(Mobius_Error::internal, "Tried to look up the scope belonging to an id that is not a library or module.");
-	return nullptr;
 }
 
 std::string

@@ -8,7 +8,7 @@
 #include <limits>
 
 void
-read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, String_View file_name) {
+read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_Handles *handles, String_View file_name) {
 	
 	int n_tabs = ole_get_num_tabs(handles);
 	
@@ -23,10 +23,11 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 		bool skip_tab = (strcmp(buf, "NOREAD") == 0);
 		if(skip_tab) continue;
 		
-		data_set->series.push_back({});
-		Series_Set_Info &data = data_set->series.back();
+		//series->file_name = std::string(file_name);
+		series->series.push_back({});
+		auto &data = series->series.back();
 		data.has_date_vector = true;
-		data.file_name = std::string(file_name);
+		
 		
 		std::vector<Entity_Id> index_sets;
 		
@@ -57,7 +58,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 				}
 				
 				// Otherwise, if it is some non-date string we assume it to be the name of an index set.
-				auto index_set_id = data_set->index_sets.find_idx(buf);
+				auto index_set_id = data_set->deserialize(buf, Reg_Type::index_set);
 				if(!is_valid(index_set_id)) {
 					ole_close_due_to_error(handles, tab, 1, row+2);
 					fatal_error("The index set ", buf, " was not previously declared in the data set.");
@@ -156,7 +157,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, Stri
 			
 			data_set->index_data.check_valid_distribution(active_index_sets, token.source_loc);
 			
-			Indexes_D indexes;
+			Indexes indexes;
 			data_set->index_data.find_indexes(active_index_sets, index_names, indexes); 
 			
 			data.header_data.push_back({});

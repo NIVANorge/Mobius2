@@ -4,48 +4,51 @@
 
 		Why do errors during data set saving crash the program instead of getting caught now?
 		
-		Move over to having Mobius_Model as a Catalog. Then Data_Set.
+		Finish moving over to having Data_Set as a Catalog.
 			
-			Is it worth it to introduce a concept of data_type (which is map_list, graph) already at the ast parsing stage?
-				Yes, doing it.
-				TODO: finish.
+			May need a concept of an entity that has a scope that is shared between Data_Set and Model (module, par_group ..) even though these have different registration types. Then scope navigating would be easier.
+			
+			Data_Set:
+				Move over to having index set lists as argument lists (don't really need 'data' blocks for them)?
+					par_group("Bla", sc, lu) {              par_group("Bla") [sc lu] {
+					
+					}                                       }
+					r : compartment("River") [ sc ]         r : compartment("River", sc)
+					
 			
 			Standardize so that model and data_set loading are both in a read_from_file function on the class itself.
 			
-			Make a separate .cpp file for data set writing. Standardize it somewhat (i.e. just walk the ast tree).
-			
-			Have to do something with Index_Set_Declaration::process_declaration() that allows it both to parse Data_Set and Model.
-				Unless we manually remember to do that when registering index sets during the Data_Set processing.
-			
-			
-			
-			Need to figure out what to do with has_been_processed (is it necessary for anything other than libraries and modules?)
+			Make a separate .cpp file for data set writing. Standardize it somewhat.
+				However, can't walk the AST since that should be deleted after loading. Instead just have to loop over the scope or something like that.
+				On purpose re-serialize the processed data since we eventually want to allow editing of the processed data (hence the original ASTs would be wrong).
 			
 			
 			Remove templatization of index_data on Record_Type (and put a lot of the code in index_data in a .cpp for faster recompilation).
-			Instead just have separate Reg_Types for Data_Set and Mobius_Model things. (?)
-				After this is done, move to Index_Set_Tuple for union_of also.
-				It would be nicer if index set is always the same Reg_Type, but it could cause errors where a Data_Set entity id is used for the model or opposite.
-					Then the Catalog base class could also always have a Registry<Reg_Type::index_set>, and that would simplify index_data code.
-					The wrong use of the entity id is only a problem on the side of the framework implementer, and only in model_application.cpp, not on any other user. So should easily be detected. Any other way to make that better?.
+				
+			Some issue with both Model and Data_Set using Entity_Id : ?
+				The wrong use of the entity id is only a problem on the side of the framework implementer, and only in model_application.cpp, not on any other user. So should easily be detected. Any other way to make that better?.
 					
-			Have to remember to use set_serial_name during processing if we don't process the serial name during registration
+			Have to remember to use set_serial_name during processing for everything relevant.
 			
 			data_set { } declaration.
 			Just let the data_set use the same AST parsing as Mobius_Model, where a [] block parses as "data", which is just a token list.
 			
 			Re-use the entire registry and scope structure so that we can serialize in the data set, then deserialize in the model to automatically map ids.
 			
-			Rename 'handle' to 'identifier'.
+			Rename 'handle' to 'identifier' (everywhere, including in messages!).
+			
+			Some model/module level declarations could now have a data list also instead of using a math expr for it, e.g.
+				par_enum
+				discrete_order.
 			
 			Finish @exclude system for extend().
 				e.g. extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
 				Should maybe change parsing so that the () on solver is unnecessary. Or is it already working like that?
 				The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
 				Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
+
 	
-			Index sets refereced inside unused modules (in the data set) must still be declared in the data set.
-				This could possibly be solved using data_subset (see below).
+			Then maybe start working on data_subset (see below).
 			
 		
 		Specific models

@@ -3,12 +3,9 @@
 #ifndef MOBIUS_FILE_UTILS_H
 #define MOBIUS_FILE_UTILS_H
 
-#include <stdio.h>
-#include <locale>
-#include <codecvt>
+#include <string>
+#include <unordered_map>
 
-#include "mobius_common.h"
-#include "linear_memory.h"
 #include "common_types.h"
 
 FILE *
@@ -65,4 +62,4 @@ File_Data_Handler {
 };
 
 
-#endif
+#endif // MOBIUS_FILE_UTILS_H

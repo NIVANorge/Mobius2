@@ -60,15 +60,11 @@ Decl_Scope {
 	
 	Entity_Id deserialize(const std::string &serial_name, Reg_Type expected_type) const;
 	
-
 	std::unordered_map<std::string, Scope_Entity>                  visible_entities;
 	std::unordered_map<std::string, Serial_Entity>                 serialized_entities;
 	std::unordered_map<Entity_Id, std::string, Entity_Id_Hash>     handles;
 	std::unordered_map<Decl_AST *, Entity_Id>                      by_decl;  // Used to look up the id we put for a decl when we go back and process it.
-	
 	std::set<Entity_Id>                                            all_ids;
-	
-	
 	
 	template<Reg_Type reg_type> struct
 	By_Type {
@@ -165,37 +161,7 @@ Registry<Registration_Type, reg_type>::operator[](Entity_Id id) {
 	return &registrations[id.id];
 }
 
-// Common registration types that are easier to have in Catalog
-struct
-Module_Registration : Registration_Base {
-	Entity_Id      template_id = invalid_entity_id;
-	
-	Decl_Scope     scope;
-	
-	std::string    full_name;
-	
-	void process_declaration(Catalog *catalog);
-};
-
-struct
-Par_Group_Registration : Registration_Base {
-	std::vector<Entity_Id> components;
-	
-	Decl_Scope             scope;
-	
-	void process_declaration(Catalog *catalog);
-};
-
-struct
-Library_Registration : Registration_Base {
-	
-	Decl_Scope     scope;
-	bool           is_being_processed = false;
-	std::string    doc_string;
-	std::string    normalized_path;
-	
-	void process_declaration(Catalog *catalog);
-};
+// It is easier to have index sets directly in the catalog, not a separate type per Data_Set and Mobius_Model. This is because it needs to be accessed by Index_Data for both types.
 
 struct
 Index_Set_Registration : Registration_Base {
@@ -208,6 +174,7 @@ Index_Set_Registration : Registration_Base {
 	Entity_Id is_edge_of_node = invalid_entity_id;
 	
 	void process_declaration(Catalog *catalog);
+	void process_main_decl(Catalog *catalog);
 };
 
 struct
@@ -219,12 +186,11 @@ Catalog {
 	
 	Decl_AST *main_decl = nullptr;
 	
-	Registry<Module_Registration,    Reg_Type::module>      modules;
-	Registry<Library_Registration,   Reg_Type::library>     libraries;
-	Registry<Par_Group_Registration, Reg_Type::par_group>   par_groups;
 	Registry<Index_Set_Registration, Reg_Type::index_set>   index_sets;
 	
 	Decl_Scope top_scope;
+	
+	File_Data_Handler file_handler;
 	
 	virtual ~Catalog() {}
 	
@@ -233,9 +199,6 @@ Catalog {
 	
 	Registration_Base *
 	find_entity(Entity_Id id) { return (*registry(id.reg_type))[id]; }
-	
-	Decl_Scope *
-	get_scope(Entity_Id id);
 	
 	std::string
 	serialize(Entity_Id id);
@@ -249,16 +212,18 @@ Catalog {
 		return (*get_scope(decl->scope_id))[id];
 	}
 	
-protected :
-	//Decl_Scope base_scope;
 	virtual Registry_Base *registry(Reg_Type reg_type) = 0;
+	virtual Decl_Scope    *get_scope(Entity_Id id)     = 0;
 	
-private :
+protected :
 	void register_single_decl(Decl_Scope *scope, Decl_AST *decl, const std::set<Decl_Type> &allowed_types);
 };
 
 Decl_AST *
 read_catalog_ast_from_file(Decl_Type expected_type, File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, std::string *normalized_path_out = nullptr);
+
+void
+set_serial_name(Catalog *catalog, Registration_Base *reg, int arg_idx = 0);
 
 template<typename Registration_Type, Reg_Type reg_type> Entity_Id
 Registry<Registration_Type, reg_type>::register_decl(Decl_Scope *scope, Decl_AST *decl) {
@@ -268,7 +233,9 @@ Registry<Registration_Type, reg_type>::register_decl(Decl_Scope *scope, Decl_AST
 	if(!scope)
 		fatal_error(Mobius_Error::internal, "find_or_create always requires a scope.");
 	
-	if(get_reg_type(decl->type) != reg_type) {
+	// TODO: It is very annoying to have the module vs module_template thing work differently in Data_Set and Mobius_Model.
+	//   Is there a way to resolve this? Probably easiest to have get_reg_type(Decl_Type::module) == module, and just do something specific for inline module registrations in model_declaration.cpp ?
+	if(get_reg_type(decl->type) != reg_type && decl->type != Decl_Type::module) {
 		decl->source_loc.print_error_header(Mobius_Error::internal);
 		fatal_error("Registering declaration with a mismatching type.");
 	}

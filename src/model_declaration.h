@@ -15,6 +15,7 @@
 
 struct
 Module_Template_Registration : Registration_Base {
+	
 	Module_Version version;
 	Decl_AST      *decl = nullptr;
 	std::string    doc_string;
@@ -24,7 +25,38 @@ Module_Template_Registration : Registration_Base {
 };
 
 struct
+Module_Registration : Registration_Base {
+	
+	Entity_Id      template_id = invalid_entity_id;
+	Decl_Scope     scope;
+	std::string    full_name;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
+Par_Group_Registration : Registration_Base {
+	
+	std::vector<Entity_Id> components;
+	Decl_Scope             scope;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
+Library_Registration : Registration_Base {
+	
+	Decl_Scope     scope;
+	bool           is_being_processed = false;
+	std::string    doc_string;
+	std::string    normalized_path;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
 Loc_Registration : Registration_Base {
+	
 	Specific_Var_Location loc;
 	Entity_Id             par_id = invalid_entity_id;    // One could also pass a parameter as a loc.
 	
@@ -66,12 +98,12 @@ Component_Registration : Registration_Base {
 
 struct
 Parameter_Registration : Registration_Base {
-	//Entity_Id       par_group = invalid_entity_id;  // Note: is same as scope_id
-	Entity_Id       unit = invalid_entity_id;
 	
+	Entity_Id       unit = invalid_entity_id;
 	Parameter_Value default_val;
 	Parameter_Value min_val;
 	Parameter_Value max_val;
+	std::string     description;
 	
 	std::vector<std::string> enum_values;
 	
@@ -81,8 +113,6 @@ Parameter_Registration : Registration_Base {
 			return (s64)(find - enum_values.begin());
 		return -1;
 	}
-	
-	std::string     description;
 	
 	void process_declaration(Catalog *catalog);
 };
@@ -235,6 +265,9 @@ Mobius_Model : Catalog {
 	Mobius_Config config;
 	
 	Registry<Module_Template_Registration,      Reg_Type::module_template>      module_templates;
+	Registry<Module_Registration,               Reg_Type::module>               modules;
+	Registry<Library_Registration,              Reg_Type::library>              libraries;
+	Registry<Par_Group_Registration,            Reg_Type::par_group>            par_groups;
 	Registry<Unit_Registration,                 Reg_Type::unit>                 units;
 	Registry<Parameter_Registration,            Reg_Type::parameter>            parameters;  // par_real, par_int, par_bool, par_enum, par_datetime
 	Registry<Function_Registration,             Reg_Type::function>             functions;
@@ -249,11 +282,12 @@ Mobius_Model : Catalog {
 	Registry<Connection_Registration,           Reg_Type::connection>           connections;
 	Registry<Loc_Registration,                  Reg_Type::loc>                  locs;
 	
+	// This is the global scope that is visible everywhere, as opposed to the top_scope of the model, which is not visible inside externally declared modules or libraries.
 	Decl_Scope global_scope;
 	
 	Registry_Base *registry(Reg_Type reg_type);
+	Decl_Scope    *get_scope(Entity_Id id);
 	
-	File_Data_Handler file_handler;
 	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;
 	
 	// NOTE: The ASTs are reused every time you create a Model_Application from the model, so you should only free them if you know you are not going to create more Model_Applications from them.
