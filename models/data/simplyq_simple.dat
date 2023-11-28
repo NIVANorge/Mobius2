@@ -1,110 +1,139 @@
-
 data_set {
-	"""
-	Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
-	"""
-
+	
+"""
+Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
+"""
+	
+	
 	lu : index_set("Landscape units") [ "One" ]
-
+	
 	sc : index_set("Subcatchment") [ "Coull" ]
-
+	
 	connection("Downstream") {
+		
 		r : compartment("River", sc)
 		
-		directed_graph [
+		directed_graph [ 
 			r[ "Coull" ] -> out
 		]
 	}
-
+	
 	series("tarland_series.xlsx")
-
+	
 	par_group("System") {
-		par_datetime("Start date")
+		
+		par_datetime("Start date") 
 		[ 2004-01-01 ]
-
-		par_datetime("End date")
+		
+		par_datetime("End date") 
 		[ 2010-12-31 ]
+	
 	}
-
+	
 	par_group("Land cover", sc, lu) {
+		
 		par_real("Land use proportions") [
 			1 
 		]
+	
 	}
-
+	
 	par_group("Catchment data", sc) {
-		par_real("Catchment area")
+		
+		par_real("Catchment area") 
 		[ 51.7 ]
+	
 	}
-
+	
 	module("HBVSnow", version(1, 0, 0)) {
+		
 		par_group("Snow") {
-			par_real("Degree-day factor for snowmelt")
+			
+			par_real("Degree-day factor for snowmelt") 
 			[ 4.99633964178389 ]
-
-			par_real("Temperature at which precip falls as snow")
+			
+			par_real("Temperature at which precip falls as snow") 
 			[ 0 ]
-
-			par_real("Temperature at which snow melts")
+			
+			par_real("Temperature at which snow melts") 
 			[ 0 ]
-
-			par_real("Refreeze efficiency")
+			
+			par_real("Refreeze efficiency") 
 			[ 0 ]
-
-			par_real("Liquid water fraction")
+			
+			par_real("Liquid water fraction") 
 			[ 0 ]
-
-			par_real("Initial snow depth (water equivalents)")
+			
+			par_real("Initial snow depth (water equivalents)") 
 			[ 0 ]
+		
 		}
+	
 	}
-
+	
 	module("Degree-day PET", version(1, 0, 0)) {
+		
 		par_group("Potential evapotranspiration") {
-			par_real("Deegree-day factor for evapotranspiration")
+			
+			par_real("Deegree-day factor for evapotranspiration") 
 			[ 0.17377349447682 ]
-
-			par_real("Minimal temperature for evapotranspiration")
+			
+			par_real("Minimal temperature for evapotranspiration") 
 			[ -0.42473658880892 ]
+		
 		}
+	
 	}
-
+	
 	module("SimplyQ land", version(0, 5, 0)) {
+		
 		par_group("Hydrology general") {
-			par_real("Baseflow index")
+			
+			par_real("Baseflow index") 
 			[ 0.553624736510714 ]
-
-			par_real("Quick flow inflection point")
+			
+			par_real("Quick flow inflection point") 
 			[ 473.944320636482 ]
+		
 		}
-
+		
 		par_group("Hydrology land", lu) {
-			par_real("Field capacity")
+			
+			par_real("Field capacity") 
 			[ 290 ]
-
-			par_real("Soil water time constant")
+			
+			par_real("Soil water time constant") 
 			[ 9.91156654445349 ]
+		
 		}
-
+		
 		par_group("Groundwater") {
-			par_real("Groundwater time constant")
+			
+			par_real("Groundwater time constant") 
 			[ 220.551776820459 ]
+		
 		}
+	
 	}
-
-	module("SimplyQ river", version(0, 0, 1)) {
+	
+	module("SimplyQ river", version(0, 5, 0)) {
+		
 		par_group("Reach parameters", sc) {
-			par_real("Reach slope")
+			
+			par_real("Reach slope") 
 			[ 0.014 ]
-
-			par_real("Reach length")
+			
+			par_real("Reach length") 
 			[ 10000 ]
-
-			par_real("Manning's roughness coefficient")
+			
+			par_real("Manning's roughness coefficient") 
 			[ 0.04 ]
-
-			par_real("Initial reach flow")
+			
+			par_real("Initial reach flow") 
 			[ 0.5 ]
+		
 		}
+	
 	}
+
 }

@@ -5,6 +5,9 @@
 void
 read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_View file_name, String_View text_data);
 
+void
+read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series_data, OLE_Handles *handles, String_View file_name);
+
 Registry_Base *
 Data_Set::registry(Reg_Type reg_type) {
 	switch(reg_type) {
@@ -397,8 +400,10 @@ Connection_Data::process_declaration(Catalog *catalog) {
 		catalog->find_entity(pair.second)->process_declaration(catalog);
 	
 	if(!graph_decl) {
-		source_loc.print_error_header();
-		fatal_error("This connection is missing data, e.g. 'directed_graph'.");
+		//source_loc.print_error_header();
+		//fatal_error("This connection is missing data, e.g. 'directed_graph'.");
+		has_been_processed = true;
+		return;
 	}
 	
 	auto data_set = static_cast<Data_Set *>(catalog);
@@ -408,11 +413,11 @@ Connection_Data::process_declaration(Catalog *catalog) {
 	int which = match_data_declaration(graph_decl, {{}, {Decl_Type::index_set}});
 	
 	if(which == 1) {
-		edge_index_set = scope.resolve_argument(Reg_Type::index_set, graph_decl->args[1]);
+		edge_index_set = scope.resolve_argument(Reg_Type::index_set, graph_decl->args[0]);
 		auto edge_set = catalog->index_sets[edge_index_set];
 		
 		if(is_valid(edge_set->is_edge_of_connection)) {
-			graph_decl->args[1]->source_loc().print_error_header();
+			graph_decl->args[0]->source_loc().print_error_header();
 			fatal_error("This index set is already the edge of another connection.");
 		}
 		edge_set->is_edge_of_connection = id;
@@ -594,7 +599,7 @@ read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_V
 	
 	series_data->series.push_back({});
 	Series_Set &data = series_data->series.back();
-	//series_data->file_name = std::string(file_name);
+	series_data->file_name = std::string(file_name);
 	
 	data.has_date_vector = true;
 	Token token = stream.peek_token();
@@ -729,8 +734,383 @@ read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_V
 	}
 }
 
+struct
+Scope_Writer {
+	FILE *file = nullptr;
+	std::vector<char> scope_stack;
+	bool same_line = false;
+	
+	int wanted_newlines = 0;
+	bool do_ident = true;
+	
+	void newline(int amount = 1, bool tabs = true) {
+		if(tabs != do_ident) process_newlines();
+		do_ident = tabs;
+		wanted_newlines += amount;
+	}
+	
+	void process_newlines() {
+		while(wanted_newlines > 0) {
+			fprintf(file, "\n");
+			if(do_ident) {
+				for(int idx = 0; idx < scope_stack.size(); ++idx)
+					fprintf(file, "\t");
+			}
+			wanted_newlines--;
+		}
+	}
+	
+	void open_scope(char type, bool new_line = true) {
+		process_newlines();
+		if(same_line)
+			fatal_error(Mobius_Error::internal, "Tried to open a new scope after a same_line scope.");
+		if(type != '{' && type != '[')
+			fatal_error(Mobius_Error::internal, "Invalid scope type ", type, ".");
+		fprintf(file, "%c", type);
+		scope_stack.push_back(type);
+		if(new_line) {
+			same_line = false;
+			newline();
+		} else {
+			same_line = true;
+			fprintf(file, " ");
+		}
+	}
+	
+	void close_scope(bool extra_new_line_after = true) {
+		
+		if(scope_stack.empty())
+			fatal_error(Mobius_Error::internal, "Closed too many scopes.");
+		char type = scope_stack.back() == '{' ? '}' : ']';
+		scope_stack.resize(scope_stack.size()-1);
+		if(wanted_newlines > 2)
+			wanted_newlines--;
+		process_newlines();
+		same_line = false;
+		fprintf(file, "%c", type);
+		newline(1 + (int)extra_new_line_after);
+	}
+	
+	void write(const char *fmt, ...) {
+		process_newlines();
+		va_list args;
+		va_start(args, fmt);
+		vfprintf(file, fmt, args);
+		va_end(args);
+	}
+	
+	void open_decl(Data_Set *data_set, Entity_Id id) {
+		process_newlines();
+		auto entity = data_set->find_entity(id);
+		auto sym = data_set->get_symbol(id);
+		if(!sym.empty())
+			write("%s : ", sym.c_str());
+		write("%s(", name(entity->decl_type));
+		if(!entity->name.empty())
+			write("\"%s\"", entity->name.c_str());
+	}
+	
+	void write_identifier_list(Data_Set *data_set, const std::vector<Entity_Id> &idents, bool leading_comma=false) {
+		process_newlines();
+		for(int idx = 0; idx < idents.size(); ++idx) {
+			if(idx != 0 || leading_comma)
+				write(", ");
+			auto sym = data_set->get_symbol(idents[idx]);
+			write("%s", sym.c_str());
+		}
+	}
+};
+
+void
+write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer);
+
+void
+write_index_set_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id index_set_id) {
+	
+	auto index_set = data_set->index_sets[index_set_id];
+	
+	writer->open_decl(data_set, index_set_id);
+	writer->write(") ");
+	
+	if(is_valid(index_set->sub_indexed_to))
+		writer->write("@sub(%s) ", data_set->get_symbol(index_set->sub_indexed_to).data());
+	if(!index_set->union_of.empty()) {
+		writer->write("@union(");
+		writer->write_identifier_list(data_set, index_set->union_of);
+		writer->write(") ");
+	}
+	
+	if(!index_set->union_of.empty() || is_valid(index_set->is_edge_of_connection)) {
+		// These should not have any data.
+		writer->newline(2);
+		return;
+	}
+	
+	if(is_valid(index_set->sub_indexed_to)) {
+		writer->open_scope('[');
+		s32 count = data_set->index_data.get_max_count(index_set->sub_indexed_to).index;
+		for(int idx = 0; idx < count; ++idx) {
+			Index_T parent_idx = Index_T  { index_set->sub_indexed_to, idx };
+			writer->process_newlines(); // Ouch. A bit hacky that we have to do this.
+			data_set->index_data.write_index_to_file(writer->file, parent_idx);
+			writer->write(" : ");
+			writer->open_scope('[', false);
+			data_set->index_data.write_indexes_to_file(writer->file, index_set_id, parent_idx);
+			writer->close_scope(false);
+		}
+		writer->close_scope();
+	} else {
+		writer->open_scope('[', false);
+		data_set->index_data.write_indexes_to_file(writer->file, index_set_id);
+		writer->close_scope();
+	}
+}
+
+void
+write_component_ref(Data_Set *data_set, Scope_Writer *writer, Compartment_Ref &ref) {
+	
+	if(is_valid(ref.id)) {
+		auto component = data_set->components[ref.id];
+		writer->write("%s[", data_set->get_symbol(ref.id).data());
+		int idx = 0;
+		for(auto index_set_id : component->index_sets) {
+			auto index_set = data_set->index_sets[index_set_id];
+			
+			bool quote;
+			std::string index_name = data_set->index_data.get_index_name(ref.indexes, ref.indexes.indexes[idx], &quote);
+			maybe_quote(index_name, quote);
+			
+			writer->write(" %s", index_name.data());
+			++idx;
+		}
+		writer->write(" ]");
+	} else
+		writer->write("out");
+}
+
+void
+write_component_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id component_id) {
+	
+	auto component = data_set->components[component_id];
+	writer->open_decl(data_set, component_id);
+	writer->write_identifier_list(data_set, component->index_sets, true);
+	writer->write(")");
+	writer->newline();
+}
+
+void
+write_connection_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id connection_id) {
+	
+	auto connection = data_set->connections[connection_id];
+	
+	writer->open_decl(data_set, connection_id);
+	writer->write(") ");
+	writer->open_scope('{');
+	
+	write_scope_to_file(data_set, &connection->scope, writer); // Writes the component declarations.
+	
+	writer->newline();
+	
+	if(connection->type == Connection_Data::Type::none) {
+		writer->close_scope();
+		return;
+	}
+	if(connection->type != Connection_Data::Type::directed_graph)
+		fatal_error(Mobius_Error::internal, "Unimplemented writing of connection type.");
+	
+	writer->write("directed_graph");
+	if(is_valid(connection->edge_index_set))
+		writer->write("(%s)", data_set->get_symbol(connection->edge_index_set).data());
+	writer->write(" ");
+	writer->open_scope('[', false);
+	Compartment_Ref *last_node = nullptr;
+	for(auto &arr : connection->arrows) {
+		if(!last_node || !(*last_node == arr.first)) {
+			writer->newline();
+			write_component_ref(data_set, writer, arr.first);
+		}
+		writer->write(" -> ");
+		write_component_ref(data_set, writer, arr.second);
+		last_node = &arr.second;
+	}
+	writer->newline();
+	writer->close_scope(false);
+	
+	writer->close_scope();
+}
+
+void
+write_series_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id series_id) {
+	
+	// NOTE: This only rewrites the load declaration, it doesn't write the data back to the csv or xlsx files (yet?).
+	auto series_data = data_set->series[series_id];
+	writer->open_decl(data_set, series_id);
+	writer->write("\"%s\")", series_data->file_name.data());
+	writer->newline(2);
+}
+
+void
+write_module_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id module_id) {
+	
+	auto module = data_set->modules[module_id];
+	writer->open_decl(data_set, module_id);
+	writer->write(", version(%d, %d, %d)) ", module->version.major, module->version.minor, module->version.revision);
+	writer->open_scope('{');
+	
+	write_scope_to_file(data_set, &module->scope, writer);
+	
+	writer->close_scope();
+}
+
+void
+write_par_group_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id par_group_id) {
+	
+	auto par_group = data_set->par_groups[par_group_id];
+	if(par_group->error) return;
+	writer->open_decl(data_set, par_group_id);
+	writer->write_identifier_list(data_set, par_group->index_sets, true);
+	writer->write(") ");
+	writer->open_scope('{');
+	
+	write_scope_to_file(data_set, &par_group->scope, writer);
+	
+	writer->close_scope();
+}
+
+void
+write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id parameter_id) {
+	
+	auto par = data_set->parameters[parameter_id];
+	if(par->mark_for_deletion) return;
+	
+	writer->open_decl(data_set, parameter_id);
+	writer->write(") ");
+	auto par_group = data_set->par_groups[par->scope_id];
+	
+	int n_dims = std::max(1, (int)par_group->index_sets.size());
+	bool multiline = n_dims > 1;
+	if(!multiline) writer->newline();
+	writer->open_scope('[', multiline);
+	
+	int expect_count = data_set->index_data.get_instance_count(par_group->index_sets);
+	if(expect_count != par->get_count())
+		fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par->name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
+	
+	int offset = 0;
+	data_set->index_data.for_each(par_group->index_sets,
+		[&](Indexes &indexes) {
+			
+			int val_idx = offset++;
+			if(par->decl_type == Decl_Type::par_enum) {
+				writer->write("%s ", par->values_enum[val_idx].data());
+			} else {
+				Parameter_Value val = par->values[val_idx];
+				char buf[64];
+				switch(par->decl_type) {
+					case Decl_Type::par_real :
+						writer->write("%.15g ", val.val_real);
+						break;
+					
+					case Decl_Type::par_bool :
+						writer->write("%s ", val.val_boolean ? "true" : "false");
+						break;
+					
+					case Decl_Type::par_int :
+						writer->write("%lld ", (long long)val.val_integer);
+						break;
+					
+					case Decl_Type::par_datetime :
+						val.val_datetime.to_string(buf);
+						writer->write("%s ", buf);
+						break;
+				}
+			}
+		},
+		[&](int pos) {
+			if(multiline && (offset > 0) && (pos == n_dims-1))
+				writer->newline();
+		}
+	);
+	if(multiline)
+		writer->newline();
+	writer->close_scope();
+}
+
+void
+write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer) {
+	
+	writer->newline();
+	
+	for(auto id : scope->by_type<Reg_Type::index_set>())
+		write_index_set_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::connection>())
+		write_connection_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::component>())
+		write_component_to_file(data_set, writer, id);
+		
+	for(auto id : scope->by_type<Reg_Type::series>())
+		write_series_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::par_group>())
+		write_par_group_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::module>())
+		write_module_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::parameter>())
+		write_parameter_to_file(data_set, writer, id);
+}
+
 void
 Data_Set::write_to_file(String_View file_name) {
-	// @CATALOG_REFACTOR
-	fatal_error(Mobius_Error::internal, "Data set saving not yet reimplemented.");
+	
+	//FILE *file = nullptr;
+	
+	bool error = false;
+	//try {
+		FILE *file = open_file(file_name, "w");
+		Scope_Writer writer;
+		writer.file = file;
+		
+		writer.write("data_set ");
+		writer.open_scope('{');
+	
+		if(!doc_string.empty()) {
+			writer.newline(1, false);
+			writer.write("\"\"\"");
+			writer.newline(1, false);
+			writer.write("%s", doc_string.c_str());
+			writer.newline(1, false);
+			writer.write("\"\"\"");
+			writer.newline(2);
+		}
+		
+		if(time_step_was_provided) {
+			std::string unit_str = time_step_unit.to_decl_str();
+			writer.write("time_step(%s)", unit_str.data());
+			writer.newline();
+		}
+		
+		write_scope_to_file(this, &top_scope, &writer);
+		
+		writer.close_scope();
+		
+	//} catch(int) {
+	//	error = true;
+	//}
+	
+	if(file)
+		fclose(file);
+	
+	//if(error)
+	//	fatal_error("Error occured during data set saving.");
+	
 }
+
+
+
+
+
+

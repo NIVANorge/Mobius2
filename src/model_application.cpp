@@ -1034,98 +1034,81 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 
 void
 Model_Application::save_to_data_set() {
-	//TODO: We should probably just generate a data set in this case.
 	
-	//@CATALOG_REFACTOR
-	/*
+	//TODO: We should probably just generate a data set in the case of a missing one.
 	if(!data_set)
 		fatal_error(Mobius_Error::api_usage, "Tried to save model application to data set, but no data set was attached to the model application.");
 	
-	// Hmm, this is a bit cumbersome
-	for(int idx = -1; idx < model->modules.count(); ++idx) {
-		Entity_Id module_id = invalid_entity_id;
-		if(idx >= 0) module_id = { Reg_Type::module, (s16)idx };
-		
-		Module_Info *module_info = nullptr;
-		if(idx < 0)
-			module_info = &data_set->global_module;
-		else {
-			auto module = model->modules[module_id];
-			std::string &name = module->name;
-			module_info = data_set->modules.find(name);
-		
-			if(!module_info) {
-				auto module_id_data = data_set->modules.create(name, {});
-				module_info = data_set->modules[module_id_data];
-			}
-			
-			module_info->version = model->module_templates[module->template_id]->version;
-		}
-		
-		for(auto group_id : model->get_scope(module_id)->by_type<Reg_Type::par_group>()) {
-			auto par_group = model->par_groups[group_id];
-			
-			Par_Group_Info *par_group_info = module_info->par_groups.find(par_group->name);
-			if(!par_group_info) {
-				auto group_id_data = module_info->par_groups.create(par_group->name, {});
-				par_group_info = module_info->par_groups[group_id_data];
-			}
-			
-			par_group_info->index_sets.clear();
-			
-			// TODO: not sure if we should have an error for an empty par group.
-			bool index_sets_resolved = false;
-			
-			for(auto par_id : model->get_scope(group_id)->by_type<Reg_Type::parameter>()) {
-				
-				if(!index_sets_resolved) {
-					auto &index_sets = parameter_structure.get_index_sets(par_id);
-				
-					for(auto index_set_id : index_sets) {
-						auto index_set = model->index_sets[index_set_id];
-						
-						auto index_set_id = data_set->index_sets.find_idx(index_set->name);
-						
-						if(!is_valid(index_set_id)) {
-							par_group_info->error = true;
-							log_print("WARNING: Tried to set an index set dependency \"", index_set->name, "\" for the parameter group \"", par_group->name, "\" in the data set, but the index set was not in the data set. This will cause this parameter group to not be saved.\n");
-							break;
-						}
-						
-						par_group_info->index_sets.push_back(index_set_id);
-					}
-					if(par_group_info->error) break;
-					
-					index_sets_resolved = true;
-				}
-				
-				auto par = model->parameters[par_id];
-				
-				auto par_info = par_group_info->pars.find(par->name);
-				if(!par_info) {
-					auto par_id_data = par_group_info->pars.create(par->name, {});
-					par_info = par_group_info->pars[par_id_data];
-				}
-				
-				par_info->type = par->decl_type;
-				par_info->values.clear();
-				par_info->values_enum.clear();
-				par_info->mark_for_deletion = false;
-				
-				parameter_structure.for_each(par_id, [&,this](Indexes &idxs, s64 offset) {
-					if(par_info->type == Decl_Type::par_enum) {
-						s64 ival = data.parameters.get_value(offset)->val_integer;
-						par_info->values_enum.push_back(par->enum_values[ival]);
-					} else {
-						par_info->values.push_back(*data.parameters.get_value(offset));
-					}
-				});
-			}
-		}
-		
-		++module_id;
+	// NOTE: This only saves parameter data. Other structural data should be edited in the data_set, not in the model_application
+	//   (not implemented yet).
+	
+	for(auto module_id : model->modules) {
+		auto module = model->modules[module_id];
+		auto module_data_id = map_id(model, data_set, module_id);
+		if(!is_valid(module_data_id))
+			module_data_id = data_set->modules.create_internal(&data_set->top_scope, "", module->name, Decl_Type::module);
+		auto module_data = data_set->modules[module_data_id];
+		module_data->version = model->module_templates[module->template_id]->version;
 	}
-	*/
+	
+	for(auto par_group_id : model->par_groups) {
+		auto par_group = model->par_groups[par_group_id];
+		
+		auto par_group_data_id = map_id(model, data_set, par_group_id);
+		if(!is_valid(par_group_data_id)) {
+			Decl_Scope *scope = &data_set->top_scope;
+			if(is_valid(par_group->scope_id)) {
+				// Note: this one can only be a module, so it must exist since we created nonexisting modules earlier.
+				auto scope_id_data = map_id(model, data_set, par_group->scope_id);
+				scope = data_set->get_scope(scope_id_data);
+			}
+			par_group_data_id = data_set->par_groups.create_internal(scope, "", par_group->name, Decl_Type::par_group);
+		}
+		auto par_group_data = data_set->par_groups[par_group_data_id];
+		par_group_data->index_sets.clear();
+		
+		bool index_sets_resolved = false;
+		par_group_data->error = false;
+		for(auto par_id : par_group->scope.by_type<Reg_Type::parameter>()) {
+			if(!index_sets_resolved) {
+				auto &index_sets = parameter_structure.get_index_sets(par_id);
+				
+				for(auto index_set_id : index_sets) {
+					auto index_set_id_data = map_id(model, data_set, index_set_id);
+					if(!is_valid(index_set_id_data)) {
+						par_group_data->error = true;
+						log_print("WARNING: Tried to set an index set dependency \"", model->index_sets[index_set_id]->name, "\" for the parameter group \"", par_group->name, "\" in the data set, but the index set was not in the data set. This will cause this parameter group to not be saved.\n");
+						break;
+					}
+					par_group_data->index_sets.push_back(index_set_id_data);
+				}
+				if(par_group_data->error) break;
+				index_sets_resolved = true;
+			}
+			
+			auto par = model->parameters[par_id];
+			
+			auto par_id_data = map_id(model, data_set, par_id);
+			if(!is_valid(par_id_data)) {
+				log_print("Failed to deserialize ", model->serialize(par_id), ".\n");
+				auto par_id_data = data_set->parameters.create_internal(&par_group_data->scope, "", par->name, par->decl_type);
+			}
+			
+			auto par_data = data_set->parameters[par_id_data];
+			
+			par_data->values.clear();
+			par_data->values_enum.clear();
+			par_data->mark_for_deletion = false;
+			
+			parameter_structure.for_each(par_id, [&,this](Indexes &idxs, s64 offset) {
+				if(par_data->decl_type == Decl_Type::par_enum) {
+					s64 ival = data.parameters.get_value(offset)->val_integer;
+					par_data->values_enum.push_back(par->enum_values[ival]);
+				} else
+					par_data->values.push_back(*data.parameters.get_value(offset));
+			});
+		}
+	}
 }
 
 void

@@ -208,6 +208,13 @@ Catalog {
 	
 	const std::string &
 	get_symbol(Entity_Id id) {
+		/*
+		auto decl = find_entity(id);
+		auto scope = get_scope(decl->scope_id);
+		auto find = scope->handles.find(id);
+		if(find != scope->handles.end())
+			return find->second;
+		return "";*/
 		auto decl = find_entity(id);
 		return (*get_scope(decl->scope_id))[id];
 	}
@@ -274,6 +281,7 @@ Registry<Registration_Type, reg_type>::create_internal(Decl_Scope *scope, const 
 	registration.has_been_processed = true; // Just so that it doesn't create any errors. We trust internally created ones are correctly processed.
 	
 	if(scope) {
+		registration.scope_id   = scope->parent_id;
 		scope->add_local(handle, internal, result_id);
 		if(!name.empty())
 			scope->set_serial_name(name, internal, result_id);

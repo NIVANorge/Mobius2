@@ -15,6 +15,8 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_H
 	constexpr size_t buf_size = 512;
 	char buf[buf_size];
 	
+	series->file_name = std::string(file_name);
+	
 	for(int tab = 0; tab < n_tabs; ++tab) {
 		ole_select_tab(handles, tab);
 		
@@ -23,11 +25,9 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_H
 		bool skip_tab = (strcmp(buf, "NOREAD") == 0);
 		if(skip_tab) continue;
 		
-		//series->file_name = std::string(file_name);
 		series->series.push_back({});
 		auto &data = series->series.back();
 		data.has_date_vector = true;
-		
 		
 		std::vector<Entity_Id> index_sets;
 		

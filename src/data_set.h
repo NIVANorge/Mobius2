@@ -18,6 +18,7 @@ struct
 Par_Group_Data : Registration_Base {
 	std::vector<Entity_Id> index_sets;
 	Decl_Scope scope;
+	bool error = false;
 	
 	void process_declaration(Catalog *catalog);
 };
@@ -72,6 +73,7 @@ Series_Set {
 struct
 Series_Data : Registration_Base {
 	
+	std::string file_name;
 	std::vector<Series_Set> series; // Need multiple since there could be multiple tabs in an xlsx.
 	
 	void process_declaration(Catalog *catalog);
@@ -156,10 +158,6 @@ Data_Set : Catalog {
 	Registry_Base *registry(Reg_Type reg_type);
 	Decl_Scope    *get_scope(Entity_Id scope_id);
 };
-
-struct OLE_Handles;
-void
-read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series_data, OLE_Handles *handles, String_View file_name);
 
 
 #endif // MOBIUS_DATASET_H

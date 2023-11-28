@@ -82,16 +82,16 @@ register_intrinsics(Mobius_Model *model) {
 	auto mod_scope = &model->top_scope;
 	
 	auto system_id = model->par_groups.create_internal(mod_scope, "system", "System", Decl_Type::par_group);
-	auto group_scope = model->get_scope(system_id);
-	auto start_id  = model->parameters.create_internal(group_scope, "start_date", "Start date", Decl_Type::par_datetime);
-	auto end_id    = model->parameters.create_internal(group_scope, "end_date", "End date", Decl_Type::par_datetime);
-	mod_scope->import(*group_scope);
+	auto system = model->par_groups[system_id];
+	system->scope.parent_id = system_id;
+	
+	auto start_id  = model->parameters.create_internal(&system->scope, "start_date", "Start date", Decl_Type::par_datetime);
+	auto end_id    = model->parameters.create_internal(&system->scope, "end_date", "End date", Decl_Type::par_datetime);
+	mod_scope->import(system->scope);
 	// Just so that they are registered as being referenced and we don't get the warning about unreferenced parameters.
 	//  TODO: We could instead have a flag on internally created things and just not give warnings for them.
-	(*group_scope)["start_date"];
-	(*group_scope)["end_date"];
-	
-	auto system = model->par_groups[system_id];
+	system->scope["start_date"];
+	system->scope["end_date"];
 	
 	auto start  = model->parameters[start_id];
 	auto end    = model->parameters[end_id];
