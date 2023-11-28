@@ -33,7 +33,7 @@ Decl_Scope {
 	
 	Entity_Id parent_id = invalid_entity_id; // Id of module or library this is the scope of. Invalid if it is the global or model scope.
 	
-	Scope_Entity *add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
+	Scope_Entity *add_local(const std::string &handle, Source_Location source_loc, Entity_Id id, bool is_locally_declared = true);
 	Scope_Entity *register_decl(Decl_AST *ast, Entity_Id id);
 	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr, bool allow_recursive_import_params = false);

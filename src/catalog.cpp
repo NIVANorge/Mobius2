@@ -10,7 +10,7 @@ set_serial_name(Catalog *catalog, Registration_Base *reg, int arg_idx) {
 }
 
 Scope_Entity *
-Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id) {
+Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id, bool is_locally_declared) {
 	
 	if(!handle.empty()) {
 		if(is_reserved(handle))
@@ -27,7 +27,7 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 	Scope_Entity entity;
 	entity.handle = handle;
 	entity.id = id;
-	entity.external = false;
+	entity.external = !is_locally_declared;
 	entity.source_loc = source_loc;
 	Scope_Entity *result = nullptr;
 	if(!handle.empty()) {
@@ -35,7 +35,8 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 		result = &visible_entities[handle];
 	}
 	handles[id] = handle;
-	all_ids.insert(id);
+	if(is_locally_declared)
+		all_ids.insert(id);
 	
 	return result;
 }

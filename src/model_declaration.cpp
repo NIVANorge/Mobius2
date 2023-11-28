@@ -1101,7 +1101,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 			decl->source_loc.print_error();
 			mobius_error_exit();
 		}
-		auto reg = module->scope.add_local(handle, arg->decl->source_loc, load_id);
+		
+		auto reg = module->scope.add_local(handle, arg->decl->source_loc, load_id, false);
 		reg->is_load_arg = true;
 	}
 	
@@ -1133,14 +1134,14 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	for(auto id : module->scope.all_ids) {
 		if(id.reg_type == Reg_Type::component || id.reg_type == Reg_Type::connection || id.reg_type == Reg_Type::unit || id.reg_type == Reg_Type::par_group) {
 			auto entity = model->find_entity(id);
-			if(entity->has_been_processed) continue; // 
+			//if(entity->has_been_processed) continue; // 
 			entity->process_declaration(model);
 		}
 	}
 	
 	for(auto id : module->scope.by_type<Reg_Type::loc>()) {
 		auto entity = model->find_entity(id);
-		if(entity->has_been_processed) continue;
+		//if(entity->has_been_processed) continue;
 		entity->process_declaration(model);
 	}
 	
