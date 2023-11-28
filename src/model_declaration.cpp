@@ -1352,63 +1352,74 @@ Model_Extension {
 	Decl_AST *decl;
 	int load_order;
 	int depth;
-	//std::set<Decl_Type> excludes; //TODO!     -- eventually could also declare specific identifiers that are to be excluded.
+	std::set<std::pair<Decl_Type, std::string>> excludes;
 };
 
 bool
+should_exclude_decl(Model_Extension &extend, Decl_AST *decl) {
+	
+	for(auto &exclude : extend.excludes) {
+		if(
+			(exclude.first == decl->type) &&
+			(exclude.second.empty() || (decl->handle_name.string_value == exclude.second.c_str()) ) 
+		)
+			return true;
+	}
+	
+	return false;
+}
+
+bool
 load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
-	std::unordered_set<std::string> &loaded_paths, std::vector<Model_Extension> &loaded_decls, String_View rel_path, int *load_order, int depth) {
+	std::unordered_set<std::string> &loaded_paths, std::vector<Model_Extension> &loaded_decls, String_View rel_path, int *load_order, Model_Extension *from_extension) {
 	
 	auto body = static_cast<Decl_Body_AST *>(from_decl->body);
 	
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type != Decl_Type::extend) continue;
-			
-		match_declaration(child, {{Token_Type::quoted_string}}, false);
-		String_View extend_file_name = single_arg(child, 0)->string_value;
 		
-		std::string normalized_path;
-		auto extend_model = read_catalog_ast_from_file(Decl_Type::model, handler, extend_file_name, rel_path, &normalized_path);
-		match_declaration(extend_model, {{Token_Type::quoted_string}}, false, -1);
-#if 0
 		match_declaration(child, {{Token_Type::quoted_string}}, false, 0, true);
 		String_View extend_file_name = single_arg(child, 0)->string_value;
 		
+		// TODO: It is a bit unnecessary to load it if we are going to delete it. Could instead compute the normalized_path first.
 		std::string normalized_path;
 		auto extend_model = read_catalog_ast_from_file(Decl_Type::model, handler, extend_file_name, rel_path, &normalized_path);
-		match_declaration(extend_model, {{Token_Type::quoted_string}}, false, -1)
 		
-		// TODO: Since we will pass one of these as an argument, I guess it is not necessary to pass depth separately.
-		Model_Extension new_extension;//{ normalized_path, extend_model, *load_order, depth}
+		if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
+			begin_error(Mobius_Error::parsing);
+			error_print("There is circularity in the model extensions:\n", extend_file_name, "\n");
+			delete extend_model;
+			return false;
+		}
+		
+		match_declaration(extend_model, {{Token_Type::quoted_string}}, false, -1);
+		
+		Model_Extension new_extension = {};
 		new_extension.normalized_path = normalized_path;
-		new_extension.extend_model = extend_model;
+		new_extension.decl = extend_model;
 		new_extension.load_order = *load_order;
-		new_extension.depth = from_extension->depth + 1;
-		new_extension.excludes = from_extension->excludes; // Include recursively excluded loads from above.
+		if(from_extension) {
+			new_extension.depth = from_extension->depth + 1;
+			new_extension.excludes = from_extension->excludes; // Include recursively excluded loads from above.
+		}
 		
 		for(auto note : child->notes) {
 			if(note->decl.string_value != "exclude") {
 				note->decl.print_error_header();
 				fatal_error("Unrecognized note type '", note->decl.string_value, "' for 'extend' declaration.");
 			}
-			match_declaration_base(note, {{true}}), 0);
+			match_declaration_base(note, {{true}}, 0);
 			for(auto arg : note->args) {
 				if(!arg->decl) {
 					arg->source_loc().print_error_header();
 					fatal_error("Expected only arguments of declaration type to an 'exclude' note.");
 				}
-				match_declaration(arg->decl, {{}}, false, 0);
-				new_extension.excludes.insert(arg->decl->type);
+				match_declaration(arg->decl, {{}}, true, 0);
+				std::string identifier = "";
+				if(is_valid(&arg->decl->handle_name))
+					identifier = arg->decl->handle_name.string_value;
+				new_extension.excludes.emplace(arg->decl->type, identifier);
 			}
-		}
-#endif		
-		
-		
-		if(loaded_paths.find(normalized_path) != loaded_paths.end()) {
-			begin_error(Mobius_Error::parsing);
-			error_print("There is circularity in the model extensions:\n", extend_file_name, "\n");
-			delete extend_model; //TODO: see above
-			return false;
 		}
 		
 		// NOTE: this is for tracking circularity. We have to reset it for each branch we go down in the extension tree (but we allow multiple branches to extend the same model)
@@ -1424,12 +1435,13 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 			}
 		}
 		if(found)
-			delete extend_model; // TODO: see above
+			delete extend_model;
 		else {
-			loaded_decls.push_back( { normalized_path, extend_model, *load_order, depth} );
+			loaded_decls.push_back(new_extension);
+			
 			(*load_order)++;
 			// Load extensions of extensions.
-			bool success = load_model_extensions(handler, extend_model, loaded_paths_sub, loaded_decls, normalized_path, load_order, depth+1);
+			bool success = load_model_extensions(handler, extend_model, loaded_paths_sub, loaded_decls, normalized_path, load_order, &new_extension);
 			if(!success) {
 				error_print(extend_file_name, "\n");
 				return false;
@@ -1549,7 +1561,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 	std::unordered_set<std::string> loaded_files = { file_name };
 	std::vector<Model_Extension> extend_models = { { file_name, decl, 0, 0} };
 	int order = 1;
-	bool success = load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name, &order, 1);
+	bool success = load_model_extensions(&model->file_handler, decl, loaded_files, extend_models, file_name, &order, nullptr);
 	if(!success)
 		mobius_error_exit();
 	
@@ -1584,6 +1596,8 @@ load_model(String_View file_name, Mobius_Config *config) {
 		auto body = static_cast<Decl_Body_AST *>(ast->body);
 		
 		for(Decl_AST *child : body->child_decls) {
+			
+			if(should_exclude_decl(extend, child)) continue;
 			
 			if(child->type == Decl_Type::load) {
 				
@@ -1709,6 +1723,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 		}
 	}
 	
+	// TODO: Do this for all entities instead. Could be a function on Catalog.
 	for(auto unit_id : model->units) {
 		if(!model->units[unit_id]->has_been_processed) {
 			model->units[unit_id]->source_loc.print_error_header(Mobius_Error::internal);

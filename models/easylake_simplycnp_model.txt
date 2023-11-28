@@ -1,8 +1,8 @@
 
 model("EasyLake-SimplyCNP") {
 	extend("easylake_simplyq_model.txt")
-	extend("simplyc_model.txt")
-	extend("simplyn_model.txt")
+	extend("simplyc_model.txt") @exclude(heat : quantity)  # To not clash with easylake decls of this
+	extend("simplyn_model.txt") @exclude(heat : quantity)
 	extend("simplyp_model.txt")
 	
 	

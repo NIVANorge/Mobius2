@@ -4,7 +4,9 @@ model("SimplyC") {
 	extend("simplyq_model.txt")
 	
 	oc : quantity("Organic carbon")
+	heat : quantity("Heat energy")
 	
+	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/simplyc.txt",        module("SimplyC", air, soil, gw, river, water, oc, temp))
 }

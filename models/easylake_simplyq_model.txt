@@ -1,9 +1,9 @@
 
 model("EasyLake-SimplyQ") {
 	
-	extend("simplyq_model.txt")
+	extend("simplyq_model.txt") @exclude(connection()) #Exclude the downstream connection so that we can redeclare it with the epilimnion in it.
 	
-	#epi      : compartment("Epilimnion")
+	epi      : compartment("Epilimnion")
 	hyp      : compartment("Hypolimnion")
 	
 	ice      : quantity("Ice")
@@ -24,6 +24,10 @@ model("EasyLake-SimplyQ") {
 	evap_mm  : property("Evaporation per area")
 	
 	heat : quantity("Heat energy")
+	
+	downstream : connection("Downstream") @directed_graph {
+		(river|epi)+ out
+	} @no_cycles
 	
 	par_group("Lake data", epi) { # TODO: This could be local to EasyLake, and the rest of the modules could access it through epi.area
 		A_surf : par_real("Lake surface area", [m 2], 107183, 0, 371e9)
