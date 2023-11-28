@@ -67,8 +67,8 @@ Module_Data::process_declaration(Catalog *catalog) {
 	for(auto child : body->child_decls)
 		catalog->register_decls_recursive(&scope, child, allowed_decls);
 	
-	for(auto &pair : scope.by_decl)
-		catalog->find_entity(pair.second)->process_declaration(catalog);
+	for(auto id : scope.all_ids)
+		catalog->find_entity(id)->process_declaration(catalog);
 }
 
 void
@@ -107,8 +107,8 @@ Par_Group_Data::process_declaration(Catalog *catalog) {
 	for(auto child : body->child_decls)
 		catalog->register_decls_recursive(&scope, child, allowed_decls);
 	
-	for(auto &pair : scope.by_decl)
-		catalog->find_entity(pair.second)->process_declaration(catalog);
+	for(auto id : scope.all_ids)
+		catalog->find_entity(id)->process_declaration(catalog);
 }
 
 void
@@ -397,12 +397,10 @@ Connection_Data::process_declaration(Catalog *catalog) {
 		
 	}
 	
-	for(auto &pair : scope.by_decl)
-		catalog->find_entity(pair.second)->process_declaration(catalog);
+	for(auto id : scope.all_ids)
+		catalog->find_entity(id)->process_declaration(catalog);
 	
 	if(!graph_decl) {
-		//source_loc.print_error_header();
-		//fatal_error("This connection is missing data, e.g. 'directed_graph'.");
 		has_been_processed = true;
 		return;
 	}
@@ -554,21 +552,14 @@ Data_Set::read_from_file(String_View file_name) {
 	}
 	
 	// Almost everything depends on the index sets being correctly set up before the data is processed.
-	for(auto &pair : scope->by_decl) {
-		auto id = pair.second;
-		if(id.reg_type == Reg_Type::index_set) 
-			process_index_data(this, scope, id); // Can't call process_declaration on index_sets since we can't reuse the same function as in the model.
-	}
+	for(auto id : scope->by_type<Reg_Type::index_set>())
+		process_index_data(this, scope, id); // Can't call process_declaration on index_sets since we can't reuse the same function as in the model.
 	
 	// Also have to process connections in order to set indexes for edge index sets before anything else is done.
-	for(auto &pair : scope->by_decl) {
-		auto id = pair.second;
-		if(id.reg_type == Reg_Type::connection) 
-			find_entity(id)->process_declaration(this);
-	}
+	for(auto id : scope->by_type<Reg_Type::connection>())
+		find_entity(id)->process_declaration(this);
 	
-	for(auto &pair : scope->by_decl) {
-		auto id = pair.second;
+	for(auto id : scope->all_ids) {
 		auto entity = find_entity(id);
 		if(entity->has_been_processed) continue;
 		entity->process_declaration(this);

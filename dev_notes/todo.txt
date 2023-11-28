@@ -1,52 +1,17 @@
 
 
 	*** High pri ***
-
-		Why do errors during data set saving crash the program instead of getting caught now?
 		
-		Finish moving over to having Data_Set as a Catalog.
-			
-			May need a concept of an entity that has a scope that is shared between Data_Set and Model (module, par_group ..) even though these have different registration types. Then scope navigating would be easier.
-			
-			Data_Set:
-				Move over to having index set lists as argument lists (don't really need 'data' blocks for them)?
-					par_group("Bla", sc, lu) {              par_group("Bla") [sc lu] {
-					
-					}                                       }
-					r : compartment("River") [ sc ]         r : compartment("River", sc)
-					
+		The "this is not a valid index name" bug for xlsx.
+		
+		Finish moving over to having Data_Set as a Catalog, and related things.
 			
 			Standardize so that model and data_set loading are both in a read_from_file function on the class itself.
-			
-			Make a separate .cpp file for data set writing. Standardize it somewhat.
-				However, can't walk the AST since that should be deleted after loading. Instead just have to loop over the scope or something like that.
-				On purpose re-serialize the processed data since we eventually want to allow editing of the processed data (hence the original ASTs would be wrong).
-			
-			
-			Remove templatization of index_data on Record_Type (and put a lot of the code in index_data in a .cpp for faster recompilation).
-				
+
 			Some issue with both Model and Data_Set using Entity_Id : ?
 				The wrong use of the entity id is only a problem on the side of the framework implementer, and only in model_application.cpp, not on any other user. So should easily be detected. Any other way to make that better?.
 					
-			Have to remember to use set_serial_name during processing for everything relevant.
-			
-			data_set { } declaration.
-			Just let the data_set use the same AST parsing as Mobius_Model, where a [] block parses as "data", which is just a token list.
-			
-			Re-use the entire registry and scope structure so that we can serialize in the data set, then deserialize in the model to automatically map ids.
-			
 			Rename 'handle' to 'identifier' (everywhere, including in messages!).
-			
-			Some model/module level declarations could now have a data list also instead of using a math expr for it, e.g.
-				par_enum
-				discrete_order.
-			
-			Finish @exclude system for extend().
-				e.g. extend("simplyq_model.txt") @exclude(solver(), heat : quantity)
-				Should maybe change parsing so that the () on solver is unnecessary. Or is it already working like that?
-				The only thing that is a bit iffy is how to handle conflicting excludes of loads of the same model. Merge the excludes, I guess?
-				Also, doesn't work well with inlined declarations (which is another reason why we should rework those).
-
 	
 			Then maybe start working on data_subset (see below).
 			

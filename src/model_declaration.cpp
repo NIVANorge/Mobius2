@@ -968,11 +968,8 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
 		
 		lib = model->libraries[lib_id]; // NOTE: Have to re-fetch it because the pointer may have been invalidated by registering more libraries.
 		
-		for(auto &pair : lib->scope.by_decl) {
-			auto id = pair.second;
-			
+		for(auto id : lib->scope.all_ids)
 			model->find_entity(id)->process_declaration(model);
-		}
 		
 		lib->has_been_processed = true;
 	}
@@ -1133,21 +1130,21 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	// Note: The declarations are processed in a specific order so that later ones can access the data of earlier ones.
 	//   For instance, when processing a var, it is very convenient that all components that can go into a var location (property, connection...) are already processed.
 	
-	// TODO: Just make a process_all(catalog, { types.. }) function on the Decl_Scope? Reuse in par_group and library also.
-	for(auto &pair : module->scope.by_decl) {
-		auto id = pair.second;
-		if(id.reg_type == Reg_Type::component || id.reg_type == Reg_Type::connection || id.reg_type == Reg_Type::unit || id.reg_type == Reg_Type::par_group)
-			model->find_entity(id)->process_declaration(model);
+	for(auto id : module->scope.all_ids) {
+		if(id.reg_type == Reg_Type::component || id.reg_type == Reg_Type::connection || id.reg_type == Reg_Type::unit || id.reg_type == Reg_Type::par_group) {
+			auto entity = model->find_entity(id);
+			if(entity->has_been_processed) continue; // 
+			entity->process_declaration(model);
+		}
 	}
 	
-	for(auto &pair : module->scope.by_decl) {
-		auto id = pair.second;
-		if(id.reg_type == Reg_Type::loc)
-			model->find_entity(id)->process_declaration(model);
+	for(auto id : module->scope.by_type<Reg_Type::loc>()) {
+		auto entity = model->find_entity(id);
+		if(entity->has_been_processed) continue;
+		entity->process_declaration(model);
 	}
 	
-	for(auto &pair : module->scope.by_decl) {
-		auto id = pair.second;
+	for(auto id : module->scope.all_ids) {
 		auto entity = model->find_entity(id);
 		if(!entity->has_been_processed)
 			entity->process_declaration(model);
@@ -1633,30 +1630,26 @@ load_model(String_View file_name, Mobius_Config *config) {
 	}
 	
 	// NOTE: The declarations are processed in this order because the processing of some types can depend on the data of other ones.
-	for(auto &pair : scope->by_decl) {
-		auto id = pair.second;
-		if(id.reg_type == Reg_Type::index_set)
-			model->index_sets[id]->process_declaration(model);
-	}
+	for(auto id : scope->by_type<Reg_Type::index_set>())
+		model->index_sets[id]->process_declaration(model);
 	
-	for(auto &pair : scope->by_decl) {
-		auto id = pair.second;
+	for(auto id : scope->all_ids) {
 		if(id.reg_type == Reg_Type::component || id.reg_type == Reg_Type::connection || id.reg_type == Reg_Type::par_group || id.reg_type == Reg_Type::constant || id.reg_type == Reg_Type::unit || id.reg_type == Reg_Type::function) {
-			model->find_entity(id)->process_declaration(model);
+			auto entity = model->find_entity(id);
+			if(!entity->has_been_processed) // Note: happens if it was internally created.
+				entity->process_declaration(model);
 		}
 	}
 	
-	for(auto &pair : scope->by_decl) {
-		auto id = pair.second;
-		if(id.reg_type == Reg_Type::loc || id.reg_type == Reg_Type::solver) {
+	for(auto id : scope->all_ids) {
+		if(id.reg_type == Reg_Type::loc || id.reg_type == Reg_Type::solver)
 			model->find_entity(id)->process_declaration(model);
-		}
 	}
 	
-	// TODO: Instead do this for all the registries at the end. Then we will also catch missed processing inside modules and libraries.
-	for(auto &pair : scope->by_decl) {
-		if(!model->find_entity(pair.second)->has_been_processed)
-			fatal_error(Mobius_Error::internal, "Failed to process declaration of type ", name(pair.second.reg_type), ".");
+	// TODO: Instead do this for all the registries at the end (make a Catalog function for reuse in Data_Set). Then we will also catch missed processing inside modules and libraries.
+	for(auto id : scope->all_ids) {
+		if(!model->find_entity(id)->has_been_processed)
+			fatal_error(Mobius_Error::internal, "Failed to process declaration of type ", name(id.reg_type), ".");
 	}
 	
 	// Special decls that don't cause registrations but instead modify other ones.
@@ -1720,14 +1713,6 @@ load_model(String_View file_name, Mobius_Config *config) {
 				load_args.push_back(scope->resolve_argument(Reg_Type::unrecognized, module_spec->args[argidx]));
 			
 			auto module_id = process_module_load(model, load_name, template_id, load_loc, load_args);
-		}
-	}
-	
-	// TODO: Do this for all entities instead. Could be a function on Catalog.
-	for(auto unit_id : model->units) {
-		if(!model->units[unit_id]->has_been_processed) {
-			model->units[unit_id]->source_loc.print_error_header(Mobius_Error::internal);
-			fatal_error("Unprocessed declaration");
 		}
 	}
 	

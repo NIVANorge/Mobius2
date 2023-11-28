@@ -136,7 +136,8 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_H
 						token.type = Token_Type::quoted_string;
 					} else
 						empty = true;
-				}
+				} else
+					fatal_error(Mobius_Error::internal, "The type of the index set was not properly initialized.");
 				
 				if(empty) continue;
 				
