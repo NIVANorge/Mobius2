@@ -17,6 +17,7 @@ Data_Set::registry(Reg_Type reg_type) {
 		case Reg_Type::component :                return &components;
 		case Reg_Type::index_set :                return &index_sets;
 		case Reg_Type::connection :               return &connections;
+		case Reg_Type::quick_select :             return &quick_selects;
 		case Reg_Type::module :                   return &modules;
 		case Reg_Type::module_template :          return &modules; // NOTE: This is because module is associated to module_template in get_reg_type (for convenience in model_declaration)
 	}
@@ -476,6 +477,43 @@ Connection_Data::process_declaration(Catalog *catalog) {
 }
 
 void
+Quick_Select_Data::process_declaration(Catalog *catalog) {
+	
+	has_been_processed = true;
+	
+	match_data_declaration(decl, {{}});
+	
+	if(decl->data->data_type != Data_Type::map) {
+		decl->data->source_loc.print_error_header();
+		fatal_error("Expected data in a map format");
+	}
+	
+	auto map_data = static_cast<Data_Map_AST *>(decl->data);
+	
+	for(auto &entry : map_data->entries) {
+		Quick_Select select;
+		if(entry.key.type != Token_Type::quoted_string) {
+			entry.key.print_error_header();
+			fatal_error("Expected a quoted string name of the entry.");
+		}
+		select.name = entry.key.string_value;
+		if(entry.data->data_type != Data_Type::list) {
+			entry.data->source_loc.print_error_header();
+			fatal_error("Expected a list of series names.");
+		}
+		auto list_data = static_cast<Data_List_AST *>(entry.data);
+		for(auto &item : list_data->list) {
+			if(item.type != Token_Type::quoted_string) {
+				item.print_error_header();
+				fatal_error("Expected a quoted string name of a series.");
+			}
+			select.series_names.push_back(item.string_value);
+		}
+		selects.emplace_back(std::move(select));
+	}
+}
+
+void
 Data_Set::read_from_file(String_View file_name) {
 	
 	// NOTE: read_from_file is not thread safe since it is accessing global ole_handles.
@@ -499,6 +537,7 @@ Data_Set::read_from_file(String_View file_name) {
 		Decl_Type::par_group,
 		Decl_Type::series,
 		Decl_Type::time_step,
+		Decl_Type::quick_select,
 	};
 	
 	auto scope = &top_scope;
@@ -978,6 +1017,25 @@ write_par_group_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id par_
 }
 
 void
+write_quick_select_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id select_id) {
+	
+	auto quick_select = data_set->quick_selects[select_id];
+	
+	writer->write("quick_select ");
+	writer->open_scope('[');
+	
+	for(auto &select : quick_select->selects) {
+		writer->write("\"%s\" : ", select.name.c_str());
+		writer->open_scope('[', false);
+		for(auto &series_name : select.series_names)
+			writer->write("\"%s\" ", series_name.c_str());
+		writer->close_scope(false);
+	}
+	
+	writer->close_scope();
+}
+
+void
 write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id parameter_id) {
 	
 	auto par = data_set->parameters[parameter_id];
@@ -1046,6 +1104,9 @@ write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer)
 	
 	for(auto id : scope->by_type<Reg_Type::connection>())
 		write_connection_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::quick_select>())
+		write_quick_select_to_file(data_set, writer, id);
 	
 	for(auto id : scope->by_type<Reg_Type::component>())
 		write_component_to_file(data_set, writer, id);

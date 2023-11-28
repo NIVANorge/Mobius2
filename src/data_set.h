@@ -126,7 +126,18 @@ Connection_Data : Registration_Base {
 	void process_declaration(Catalog *catalog);
 };
 
-// Probably need to move par group out of general catalog since it is a bit different for the model and data set. But then need to virtualize get_scope.. Maybe also for module.
+struct
+Quick_Select {
+	std::string name;
+	std::vector<std::string> series_names;
+};
+
+struct
+Quick_Select_Data : Registration_Base {
+	std::vector<Quick_Select> selects;
+	
+	void process_declaration(Catalog *catalog);
+};
 
 struct
 Data_Set : Catalog {
@@ -137,12 +148,13 @@ Data_Set : Catalog {
 		time_step_unit.set_standard_form();
 	}
 	
-	Registry<Module_Data,     Reg_Type::module>     modules;
-	Registry<Par_Group_Data,  Reg_Type::par_group>  par_groups;
-	Registry<Parameter_Data,  Reg_Type::parameter>  parameters;
-	Registry<Series_Data,     Reg_Type::series>     series;
-	Registry<Component_Data,  Reg_Type::component>  components;
-	Registry<Connection_Data, Reg_Type::connection> connections;
+	Registry<Module_Data,       Reg_Type::module>     modules;
+	Registry<Par_Group_Data,    Reg_Type::par_group>  par_groups;
+	Registry<Parameter_Data,    Reg_Type::parameter>  parameters;
+	Registry<Series_Data,       Reg_Type::series>     series;
+	Registry<Component_Data,    Reg_Type::component>  components;
+	Registry<Connection_Data,   Reg_Type::connection> connections;
+	Registry<Quick_Select_Data, Reg_Type::quick_select> quick_selects;
 	
 	Index_Data                      index_data;
 	
