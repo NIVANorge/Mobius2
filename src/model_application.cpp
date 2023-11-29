@@ -457,7 +457,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 
 
 void
-process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id) {
+process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id, std::vector<u8> &warned_module_already) {
 	
 	if(!app->parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
@@ -465,15 +465,19 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 	Mobius_Model *model = app->model;
 	
 	auto par_group_data = data_set->par_groups[par_group_data_id];
+	auto module_data_id = par_group_data->scope_id;
 	auto module_id = invalid_entity_id;
-	if(is_valid(par_group_data->scope_id)) {
-		module_id = map_id(data_set, model, par_group_data->scope_id);
+	if(is_valid(module_data_id)) {
+		module_id = map_id(data_set, model, module_data_id);
 		
 		if(!is_valid(module_id)) {
-			auto module_data = data_set->modules[par_group_data->scope_id];
-			log_print("In ");
-			module_data->source_loc.print_log_header();
-			log_print("The model \"", model->model_name, "\" does not contain a module named \"", module_data->name, "\". This data block will be ignored.\n\n");
+			if(!warned_module_already[module_data_id.id]) {
+				auto module_data = data_set->modules[module_data_id];
+				log_print("In ");
+				module_data->source_loc.print_log_header();
+				log_print("The model \"", model->model_name, "\" does not contain a module named \"", module_data->name, "\". This data block will be ignored.\n\n");
+				warned_module_already[module_data_id.id] = true;
+			}
 			return;
 		}
 	}
@@ -999,8 +1003,9 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	
 	set_up_parameter_structure(&par_group_index_sets);
 	
+	std::vector<u8> warned_module_already(data_set->modules.count());
 	for(auto par_group_data_id : data_set->par_groups)
-		process_parameters(this, data_set, par_group_data_id);
+		process_parameters(this, data_set, par_group_data_id, warned_module_already);
 	
 	if(data_set->series.count() > 0) {
 		Series_Metadata metadata;

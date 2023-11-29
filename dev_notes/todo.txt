@@ -2,9 +2,6 @@
 
 	*** High pri ***
 		
-		Multiple warnings about unused data blocks for the same module.
-		
-		
 		Declaring a union index set before one of its members may break index processing.
 		
 		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Data_Set. Could instead just have the decl be
