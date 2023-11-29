@@ -78,12 +78,12 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 			if(ident->wildcard)
 				result.match = true;
 			else {
-				std::string handle = ident->ident.string_value;
+				std::string identifier = ident->ident.string_value;
 				Entity_Id regex_id = invalid_entity_id;
-				if(handle != "out") {
-					auto res = (*scope)[handle];
+				if(identifier != "out") {
+					auto res = (*scope)[identifier];
 					if(!res)
-						fatal_error(Mobius_Error::internal, "Somehow we have a handle in a regex that does not correspond to a component.");
+						fatal_error(Mobius_Error::internal, "Somehow we have a identifier in a regex that does not correspond to a component.");
 					regex_id = res->id;
 				}
 				
@@ -145,7 +145,7 @@ error_print_node(Model_Application *app, Decl_Scope *scope, std::vector<Connecti
 	}
 	
 	auto node = nodes[nodeidx];
-	error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
+	error_print((*scope)[node.id], "[ ");   // Note: This is the identifier name used in the regex, not in the data set. May be confusing?
 	for(auto &index : node.indexes.indexes) {
 		bool quote;
 		auto index_name = app->index_data.get_index_name(node.indexes, index, &quote);

@@ -524,7 +524,7 @@ Function_Registration::process_declaration(Catalog *catalog) {
 			fatal_error("The arguments to a function declaration should be just single identifiers with or without units.");
 		}
 		if(arg->decl) {
-			// TODO: It is a bit annoying to not use resolve_argument here, but we don't want it to be associated to the handle in the scope.
+			// TODO: It is a bit annoying to not use resolve_argument here, but we don't want it to be associated to the identifier in the scope.
 			// We could also just store the unit data in the vector instead of having separate
 			// unit entities...
 			// The issue here is that we reuse the same syntax as a decl, but it isn't actually
@@ -534,11 +534,11 @@ Function_Registration::process_declaration(Catalog *catalog) {
 			unit->source_loc = arg->source_loc();
 			unit->data.set_data(arg->decl);
 			unit->has_been_processed = true;
-			if(!arg->decl->handle_name.string_value.count) {
+			if(!arg->decl->identifier.string_value.count) {
 				arg->decl->source_loc.print_error_header();
 				fatal_error("All arguments to a function must be named.");
 			}
-			args.push_back(arg->decl->handle_name.string_value);
+			args.push_back(arg->decl->identifier.string_value);
 			expected_units.push_back(unit_id);
 		} else {
 			args.push_back(arg->chain[0].string_value);
@@ -1088,12 +1088,12 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Entity_Id load_id = load_args[idx];
 		
 		auto arg = decl->args[idx + 2];
-		if(!arg->decl || !is_valid(&arg->decl->handle_name)) {
+		if(!arg->decl || !is_valid(&arg->decl->identifier)) {
 			arg->chain[0].print_error_header();
-			fatal_error("Load arguments to a module must be of the form  handle : decl_type.");
+			fatal_error("Load arguments to a module must be of the form  identifier : decl_type.");
 		}
 		match_declaration(arg->decl, {{}}, true, false); // TODO: Not sure if we should allow passing a name to enforce name match.
-		std::string handle = arg->decl->handle_name.string_value;
+		std::string identifier = arg->decl->identifier.string_value;
 		auto *entity = model->find_entity(load_id);
 		if(arg->decl->type != entity->decl_type) {
 			load_loc.print_error_header();
@@ -1102,7 +1102,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 			mobius_error_exit();
 		}
 		
-		auto reg = module->scope.add_local(handle, arg->decl->source_loc, load_id, false);
+		auto reg = module->scope.add_local(identifier, arg->decl->source_loc, load_id, false);
 		reg->is_load_arg = true;
 	}
 	
@@ -1359,7 +1359,7 @@ should_exclude_decl(Model_Extension &extend, Decl_AST *decl) {
 	for(auto &exclude : extend.excludes) {
 		if(
 			(exclude.first == decl->type) &&
-			(exclude.second.empty() || (decl->handle_name.string_value == exclude.second.c_str()) ) 
+			(exclude.second.empty() || (decl->identifier.string_value == exclude.second.c_str()) ) 
 		)
 			return true;
 	}
@@ -1414,8 +1414,8 @@ load_model_extensions(File_Data_Handler *handler, Decl_AST *from_decl,
 				}
 				match_declaration(arg->decl, {{}}, true, 0);
 				std::string identifier = "";
-				if(is_valid(&arg->decl->handle_name))
-					identifier = arg->decl->handle_name.string_value;
+				if(is_valid(&arg->decl->identifier))
+					identifier = arg->decl->identifier.string_value;
 				new_extension.excludes.emplace(arg->decl->type, identifier);
 			}
 		}
@@ -1787,13 +1787,13 @@ Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
 		if(reg.is_load_arg && !reg.was_referenced) {
 			log_print("Warning: In ");
 			reg.source_loc.print_log_header();
-			log_print("The module argument '", reg.handle, "' was never referenced.\n");
+			log_print("The module argument '", reg.identifier, "' was never referenced.\n");
 		}
 		
 		if (!reg.is_load_arg && !reg.external && !reg.was_referenced && reg.id.reg_type == Reg_Type::parameter) {
 			log_print("Warning: In ");
 			reg.source_loc.print_log_header();
-			log_print("The parameter '", reg.handle, "' was never referenced.\n");
+			log_print("The parameter '", reg.identifier, "' was never referenced.\n");
 		}
 		
 		if(reg.external) {

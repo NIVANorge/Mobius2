@@ -991,12 +991,12 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 				auto reg = decl_scope[str];
 				if(!reg) {
 					ident->chain[idx].print_error_header();
-					error_print("The handle '", str, "' is not declared or loaded in this scope.");
+					error_print("The identifier '", str, "' is not declared or loaded in this scope.");
 					fatal_error_trace(scope);
 				}
 				if(reg->id.reg_type != Reg_Type::component) {
 					ident->chain[idx].print_error_header();
-					error_print("The handle '", str, "' does not refer to a variable location component (compartment, quantity or property)");
+					error_print("The identifier '", str, "' does not refer to a variable location component (compartment, quantity or property)");
 					fatal_error_trace(scope);
 				}
 				chain.push_back(reg->id);

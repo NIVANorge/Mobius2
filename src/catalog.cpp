@@ -10,31 +10,31 @@ set_serial_name(Catalog *catalog, Registration_Base *reg, int arg_idx) {
 }
 
 Scope_Entity *
-Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Entity_Id id, bool is_locally_declared) {
+Decl_Scope::add_local(const std::string &identifier, Source_Location source_loc, Entity_Id id, bool is_locally_declared) {
 	
-	if(!handle.empty()) {
-		if(is_reserved(handle))
-			fatal_error(Mobius_Error::internal, "Somehow we got a reserved keyword '", handle, "' at a stage after it should have been ruled out.");
+	if(!identifier.empty()) {
+		if(is_reserved(identifier))
+			fatal_error(Mobius_Error::internal, "Somehow we got a reserved identifier '", identifier, "' at a stage after it should have been ruled out.");
 		
-		auto find = visible_entities.find(handle);
+		auto find = visible_entities.find(identifier);
 		if(find != visible_entities.end()) {
 			source_loc.print_error_header();
-			error_print("The handle '", handle, "' was already declared in this scope. See declaration at: ");
+			error_print("The identifier '", identifier, "' was already declared in this scope. See declaration at: ");
 			find->second.source_loc.print_error();
 			fatal_error();
 		}
 	}
 	Scope_Entity entity;
-	entity.handle = handle;
+	entity.identifier = identifier;
 	entity.id = id;
 	entity.external = !is_locally_declared;
 	entity.source_loc = source_loc;
 	Scope_Entity *result = nullptr;
-	if(!handle.empty()) {
-		visible_entities[handle] = entity;
-		result = &visible_entities[handle];
+	if(!identifier.empty()) {
+		visible_entities[identifier] = entity;
+		result = &visible_entities[identifier];
 	}
-	handles[id] = handle;
+	identifiers[id] = identifier;
 	if(is_locally_declared)
 		all_ids.insert(id);
 	
@@ -44,11 +44,11 @@ Decl_Scope::add_local(const std::string &handle, Source_Location source_loc, Ent
 Scope_Entity *
 Decl_Scope::register_decl(Decl_AST *decl, Entity_Id id) {
 	
-	std::string handle;
-	if(decl->handle_name.string_value.count)
-		handle = decl->handle_name.string_value;
+	std::string identifier;
+	if(decl->identifier.string_value.count)
+		identifier = decl->identifier.string_value;
 	
-	auto result = add_local(handle, decl->source_loc, id);
+	auto result = add_local(identifier, decl->source_loc, id);
 	by_decl[decl] = id;
 	
 	return result;
@@ -82,25 +82,25 @@ Decl_Scope::deserialize(const std::string &serial_name, Reg_Type expected_type) 
 void
 Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc, bool allow_recursive_import_params) {
 	for(const auto &ent : other.visible_entities) {
-		const auto &handle = ent.first;
+		const auto &identifier = ent.first;
 		const auto &entity = ent.second;
 		// NOTE: In a model, parameters are in the scope of parameter groups, and would not otherwise be imported into inlined modules. This fix is a bit unelegant though.
 		if(!entity.external || (allow_recursive_import_params && entity.id.reg_type == Reg_Type::parameter)) { // NOTE: no recursive importing
-			auto find = visible_entities.find(handle);
+			auto find = visible_entities.find(identifier);
 			if(find != visible_entities.end()) {
 				if(import_loc)
 					import_loc->print_error_header();
 				else
 					begin_error(Mobius_Error::parsing);
-				error_print("There is a name conflict with the handle '", handle, "'. It was declared separately in the following two locations:\n");
+				error_print("There is a name conflict with the identifier '", identifier, "'. It was declared separately in the following two locations:\n");
 				entity.source_loc.print_error();
 				find->second.source_loc.print_error();
 				fatal_error();
 			}
 			Scope_Entity new_entity = entity;
 			new_entity.external = true;
-			visible_entities[handle] = new_entity;
-			handles[entity.id] = handle;
+			visible_entities[identifier] = new_entity;
+			identifiers[entity.id] = identifier;
 		}
 	}
 }

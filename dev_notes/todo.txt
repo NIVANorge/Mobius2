@@ -2,18 +2,8 @@
 
 	*** High pri ***
 		
-		The "this is not a valid index name" bug for xlsx.
 		
-		Finish moving over to having Data_Set as a Catalog, and related things.
-			
-			Standardize so that model and data_set loading are both in a read_from_file function on the class itself.
-
-			Some issue with both Model and Data_Set using Entity_Id : ?
-				The wrong use of the entity id is only a problem on the side of the framework implementer, and only in model_application.cpp, not on any other user. So should easily be detected. Any other way to make that better?.
-					
-			Rename 'handle' to 'identifier' (everywhere, including in messages!).
-	
-			Then maybe start working on data_subset (see below).
+		Declaring a union index set before one of its members may break index processing.
 			
 		
 		Specific models
@@ -106,6 +96,18 @@
 
 	
 	*** Intermediate-pri ***
+	
+		Finish moving over to having Data_Set as a Catalog, and related things.
+			
+			Standardize so that model and data_set loading are both in a read_from_file function on the class itself.
+
+			Some issue with both Model and Data_Set using Entity_Id : ?
+				The wrong use of the entity id is only a problem on the side of the framework implementer, and only in model_application.cpp, not on any other user. So should easily be detected. Any other way to make that better?.
+					
+			Rename 'handle' to 'identifier' (everywhere, including in messages!).
+	
+			Then maybe start working on data_subset (see below).
+	
 	
 		Make it possible to declare quick_select lists of most interesting series in the dataset declaration, that then get displayed in MobiView in a separate tab. Maybe even pairs series, obs.
 			Postponed to after large Data_Set refactor.

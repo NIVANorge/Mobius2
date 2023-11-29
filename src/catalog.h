@@ -9,7 +9,7 @@
 
 struct
 Scope_Entity {
-	std::string handle;
+	std::string identifier;
 	Entity_Id id  = invalid_entity_id;
 	bool external = false;
 	bool was_referenced = false;
@@ -33,7 +33,7 @@ Decl_Scope {
 	
 	Entity_Id parent_id = invalid_entity_id; // Id of module or library this is the scope of. Invalid if it is the global or model scope.
 	
-	Scope_Entity *add_local(const std::string &handle, Source_Location source_loc, Entity_Id id, bool is_locally_declared = true);
+	Scope_Entity *add_local(const std::string &identifier, Source_Location source_loc, Entity_Id id, bool is_locally_declared = true);
 	Scope_Entity *register_decl(Decl_AST *ast, Entity_Id id);
 	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
 	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr, bool allow_recursive_import_params = false);
@@ -42,8 +42,8 @@ Decl_Scope {
 	Entity_Id resolve_argument(Reg_Type expected_type, Argument_AST *arg);
 	Entity_Id expect(Reg_Type expected_type, Token *identifier);
 	
-	Scope_Entity *operator[](const std::string &handle) {
-		auto find = visible_entities.find(handle);
+	Scope_Entity *operator[](const std::string &identifier) {
+		auto find = visible_entities.find(identifier);
 		if(find != visible_entities.end()) {
 			find->second.was_referenced = true;
 			return &find->second;
@@ -52,9 +52,9 @@ Decl_Scope {
 	}
 	
 	const std::string& operator[](Entity_Id id) {
-		auto find = handles.find(id);
-		if(find == handles.end())
-			fatal_error(Mobius_Error::internal, "Attempt to look up handle name of an entity id in a scope where it was not declared.");
+		auto find = identifiers.find(id);
+		if(find == identifiers.end())
+			fatal_error(Mobius_Error::internal, "Attempt to look up identifier name of an entity id in a scope where it was not declared.");
 		return find->second;
 	}
 	
@@ -62,7 +62,7 @@ Decl_Scope {
 	
 	std::unordered_map<std::string, Scope_Entity>                  visible_entities;
 	std::unordered_map<std::string, Serial_Entity>                 serialized_entities;
-	std::unordered_map<Entity_Id, std::string, Entity_Id_Hash>     handles;
+	std::unordered_map<Entity_Id, std::string, Entity_Id_Hash>     identifiers;
 	std::unordered_map<Decl_AST *, Entity_Id>                      by_decl;  // Used to look up the id we put for a decl when we go back and process it.
 	std::set<Entity_Id>                                            all_ids;
 	
@@ -138,7 +138,7 @@ Registry : Registry_Base {
 	register_decl(Decl_Scope *scope, Decl_AST *decl);
 	
 	Entity_Id
-	create_internal(Decl_Scope *scope, const std::string &handle, const std::string &name, Decl_Type decl_type);
+	create_internal(Decl_Scope *scope, const std::string &identifier, const std::string &name, Decl_Type decl_type);
 	
 	s64 count() { return (s64)registrations.size(); }
 	Entity_Id begin() { return { reg_type, 0 }; }
@@ -211,8 +211,8 @@ Catalog {
 		/*
 		auto decl = find_entity(id);
 		auto scope = get_scope(decl->scope_id);
-		auto find = scope->handles.find(id);
-		if(find != scope->handles.end())
+		auto find = scope->identifiers.find(id);
+		if(find != scope->identifiers.end())
 			return find->second;
 		return "";*/
 		auto decl = find_entity(id);
@@ -264,7 +264,7 @@ Registry<Registration_Type, reg_type>::register_decl(Decl_Scope *scope, Decl_AST
 }
 
 template<typename Registration_Type, Reg_Type reg_type> Entity_Id
-Registry<Registration_Type, reg_type>::create_internal(Decl_Scope *scope, const std::string &handle, const std::string &name, Decl_Type decl_type) {
+Registry<Registration_Type, reg_type>::create_internal(Decl_Scope *scope, const std::string &identifier, const std::string &name, Decl_Type decl_type) {
 	Source_Location internal = {};
 	internal.type      = Source_Location::Type::internal;
 	
@@ -282,7 +282,7 @@ Registry<Registration_Type, reg_type>::create_internal(Decl_Scope *scope, const 
 	
 	if(scope) {
 		registration.scope_id   = scope->parent_id;
-		scope->add_local(handle, internal, result_id);
+		scope->add_local(identifier, internal, result_id);
 		if(!name.empty())
 			scope->set_serial_name(name, internal, result_id);
 	}

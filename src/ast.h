@@ -58,7 +58,7 @@ struct Data_AST;
 
 struct
 Decl_AST : Decl_Base_AST {
-	Token                        handle_name;
+	Token                        identifier;
 	Source_Location              source_loc;    // Will be the same as decl.source_loc . Should we delete it? It is a handy short-hand in usage code though.
 	Decl_Type                    type;
 	std::vector<Decl_Base_AST *> notes;
@@ -337,13 +337,13 @@ match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::ini
 	
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = true, int allow_body = 1, bool allow_notes = false, int allow_data = 0);
+	bool allow_identifier = true, int allow_body = 1, bool allow_notes = false, int allow_data = 0);
 
 // Convenient shorthand for use in Data_Set parsing:
 inline int
 match_data_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = false, int allow_body = 0, bool allow_notes = false, int allow_data = -1) {
-		return match_declaration(decl, patterns, allow_handle, allow_body, allow_notes, allow_data);
+	bool allow_identifier = false, int allow_body = 0, bool allow_notes = false, int allow_data = -1) {
+		return match_declaration(decl, patterns, allow_identifier, allow_body, allow_notes, allow_data);
 }
 	
 
@@ -354,6 +354,6 @@ void
 check_allowed_serial_name(String_View name, Source_Location &loc);
 
 bool
-is_reserved(const std::string &handle);
+is_reserved(const std::string &identifier);
 
 #endif // MOBIUS_AST_H

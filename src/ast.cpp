@@ -12,8 +12,8 @@
 	
 		identifier : decl_type(arg, ...) { main_body } @note_1(args_1..) { body_1 } ... @note_n(args_n..) { body_n }
 	
-	The first identifier is the "handle" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
-	In some cases you can make a declaration without a handle.
+	The first identifier is the "identifier" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
+	In some cases you can make a declaration without a identifier.
 	
 	The decl_type is an identifier, the full list of allowed decl types are in decl_types.incl .
 	
@@ -251,7 +251,7 @@ parse_decl_header(Token_Stream *stream) {
 	
 	Token next  = stream->peek_token(1);
 	if((char)next.type == ':') {
-		decl->handle_name = stream->expect_token(Token_Type::identifier);
+		decl->identifier = stream->expect_token(Token_Type::identifier);
 		stream->read_token(); // reads the ':'
 	}
 	
@@ -1078,15 +1078,15 @@ match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::ini
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
-	bool allow_handle, int allow_body, bool allow_notes, int allow_data) {
+	bool allow_identifier, int allow_body, bool allow_notes, int allow_data) {
 	
 	// allow_body:
 	//    0 - not allowed
 	//    1 - allowed if the body type of the expression is not none.
 	//   -1 - must have a body.
 	
-	if(!allow_handle && decl->handle_name.string_value.count > 0) {
-		decl->handle_name.print_error_header();
+	if(!allow_identifier && decl->identifier.string_value.count > 0) {
+		decl->identifier.print_error_header();
 		fatal_error("A '", name(decl->type), "' declaration can not be assigned to an identifier.");
 	}
 	
@@ -1181,7 +1181,7 @@ check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
 }
 
 bool
-is_reserved(const std::string &handle) {
+is_reserved(const std::string &identifier) {
 	static std::string reserved[] = {
 		#define ENUM_VALUE(name, _a, _b) #name,
 		#include "decl_types.incl"
@@ -1193,6 +1193,6 @@ is_reserved(const std::string &handle) {
 		
 		#include "other_reserved.incl"
 	};
-	return (std::find(std::begin(reserved), std::end(reserved), handle) != std::end(reserved));
+	return (std::find(std::begin(reserved), std::end(reserved), identifier) != std::end(reserved));
 }
 

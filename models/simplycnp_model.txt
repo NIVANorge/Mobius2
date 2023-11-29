@@ -2,7 +2,7 @@
 model("SimplyCNP") {
 
 	extend("simplyc_model.txt")
-	extend("simplyn_model.txt") @exclude(heat : quantity) # So to just have a single def
+	extend("simplyn_model.txt") @exclude(heat : quantity) # Exclude it to not clash with the one in SimplyC
 	extend("simplyp_model.txt")
 
 	on   : quantity("Organic nitrogen")

@@ -997,6 +997,7 @@ write_par_group_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id par_
 	
 	auto par_group = data_set->par_groups[par_group_id];
 	if(par_group->error) return;
+
 	writer->open_decl(data_set, par_group_id);
 	writer->write_identifier_list(data_set, par_group->index_sets, true);
 	writer->write(") ");
@@ -1118,11 +1119,11 @@ write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer)
 void
 Data_Set::write_to_file(String_View file_name) {
 	
-	//FILE *file = nullptr;
+	FILE *file = nullptr;
 	
 	bool error = false;
-	//try {
-		FILE *file = open_file(file_name, "w");
+	try {
+		file = open_file(file_name, "w");
 		Scope_Writer writer;
 		writer.file = file;
 		
@@ -1149,16 +1150,15 @@ Data_Set::write_to_file(String_View file_name) {
 		
 		writer.close_scope();
 		
-	//} catch(int) {
-	//	error = true;
-	//}
+	} catch(int) {
+		error = true;
+	}
 	
 	if(file)
 		fclose(file);
 	
-	//if(error)
-	//	fatal_error("Error occured during data set saving.");
-	
+	if(error)
+		fatal_error("Error occured during data set saving.");
 }
 
 

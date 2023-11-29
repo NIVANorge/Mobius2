@@ -1048,14 +1048,16 @@ Model_Application::save_to_data_set() {
 		if(!is_valid(module_data_id))
 			module_data_id = data_set->modules.create_internal(&data_set->top_scope, "", module->name, Decl_Type::module);
 		auto module_data = data_set->modules[module_data_id];
+		module_data->scope.parent_id = module_data_id; // TODO: Easy to forget and has created many bugs. Would be nice to somehow have this automatic.
 		module_data->version = model->module_templates[module->template_id]->version;
 	}
 	
 	for(auto par_group_id : model->par_groups) {
-		auto par_group = model->par_groups[par_group_id];
+		auto par_group = model->par_groups[par_group_id]; 
 		
 		auto par_group_data_id = map_id(model, data_set, par_group_id);
 		if(!is_valid(par_group_data_id)) {
+			
 			Decl_Scope *scope = &data_set->top_scope;
 			if(is_valid(par_group->scope_id)) {
 				// Note: this one can only be a module, so it must exist since we created nonexisting modules earlier.
@@ -1063,6 +1065,7 @@ Model_Application::save_to_data_set() {
 				scope = data_set->get_scope(scope_id_data);
 			}
 			par_group_data_id = data_set->par_groups.create_internal(scope, "", par_group->name, Decl_Type::par_group);
+			data_set->par_groups[par_group_data_id]->scope.parent_id = par_group_data_id;
 		}
 		auto par_group_data = data_set->par_groups[par_group_data_id];
 		par_group_data->index_sets.clear();
@@ -1090,8 +1093,8 @@ Model_Application::save_to_data_set() {
 			
 			auto par_id_data = map_id(model, data_set, par_id);
 			if(!is_valid(par_id_data)) {
-				log_print("Failed to deserialize ", model->serialize(par_id), ".\n");
-				auto par_id_data = data_set->parameters.create_internal(&par_group_data->scope, "", par->name, par->decl_type);
+				//log_print("Failed to deserialize ", model->serialize(par_id), ".\n");
+				par_id_data = data_set->parameters.create_internal(&par_group_data->scope, "", par->name, par->decl_type);
 			}
 			
 			auto par_data = data_set->parameters[par_id_data];
