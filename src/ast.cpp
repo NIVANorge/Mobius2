@@ -334,11 +334,9 @@ parse_data(Token_Stream *stream, Data_Type type);
 Data_Type
 get_data_type(Decl_Type decl_type) {
 	// TODO: Maybe put this info into decl_types.incl same as body types
-	if(decl_type == Decl_Type::par_group) return Data_Type::list;  // This is the index set list
 	if(decl_type == Decl_Type::index_set) return Data_Type::map;   // can be both map and list, but that is accounted for.
 	if(decl_type == Decl_Type::directed_graph) return Data_Type::directed_graph;
 	if(decl_type == Decl_Type::quick_select) return Data_Type::map;
-	if(get_reg_type(decl_type) == Reg_Type::component) return Data_Type::list;  // Index set list.
 	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::list; // list of parameter values.
 	
 	return Data_Type::none;

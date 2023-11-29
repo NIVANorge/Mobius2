@@ -1,13 +1,15 @@
+data_set {
+
 """Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
 """
 
-index_set("Subcatchment") [ "DeGeerdalen" ]
+sc : index_set("Subcatchment") [ "DeGeerdalen" ]
 
-index_set("Patch") [ "Glaciers" "Hillslopes" "Valleys" ]
+patch : index_set("Patch") [ "Glaciers" "Hillslopes" "Valleys" ]
 
 connection("Downhill throughflow") {
-	s : compartment("Soil") [ "Patch" ]
-	river : compartment("River") [ ]
+	s : compartment("Soil", patch)
+	river : compartment("River")
 
 	directed_graph [
 		s[ "Hillslopes" ] -> s[ "Valleys" ] -> river[ ]
@@ -16,7 +18,7 @@ connection("Downhill throughflow") {
 }
 
 connection("Downstream") {
-	r : compartment("River") [ "Subcatchment" ]
+	r : compartment("River", sc)
 
 	directed_graph [
 		r[ "DeGeerdalen" ] -> out
@@ -43,13 +45,13 @@ par_group("Catchment data") {
 	[ 412 ]
 }
 
-par_group("Patch data") [ "Patch" ] {
+par_group("Patch data", patch) {
 	par_real("Relative area")
 	[ 0.103 0.782 0.115 ]
 }
 
 module("SimplyQ river manual", version(0, 0, 1)) {
-	par_group("Reach parameters") [ "Subcatchment" ] {
+	par_group("Reach parameters", sc) {
 		par_real("Reach length")
 		[ 10000 ]
 
@@ -67,7 +69,7 @@ module("SimplyGlacier", version(0, 0, 1)) {
 		[ 0 ]
 	}
 
-	par_group("Glacier") [ "Subcatchment" "Patch" ] {
+	par_group("Glacier", sc, patch) {
 		par_real("Initial ice thickness") [
 			100000 0 0 
 		]
@@ -75,7 +77,7 @@ module("SimplyGlacier", version(0, 0, 1)) {
 }
 
 module("ArcticAtmosphere", version(0, 0, 1)) {
-	par_group("Elevation data") [ "Subcatchment" "Patch" ] {
+	par_group("Elevation data", sc, patch) {
 		par_real("Average elevation") [
 			625 412 94 
 		]
@@ -95,7 +97,7 @@ module("ArcticSnow", version(0, 0, 1)) {
 }
 
 module("SimplyPermafrost", version(0, 0, 1)) {
-	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
+	par_group("Hydrology land", sc, patch) {
 		par_real("Soil water time constant") [
 			2.8 2.8 2.8 
 		]
@@ -107,7 +109,7 @@ module("SimplyPermafrost", version(0, 0, 1)) {
 }
 
 module("SensorVariables", version(0, 0, 1)) {
-	par_group("Sensor coefficients") [ "Subcatchment" ] {
+	par_group("Sensor coefficients", sc) {
 		par_real("Stage_a")
 		[ 0.5 ]
 
@@ -122,3 +124,4 @@ module("SensorVariables", version(0, 0, 1)) {
 	}
 }
 
+}

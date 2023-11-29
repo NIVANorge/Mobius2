@@ -1,16 +1,18 @@
+
+data_set {
 """
 Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
 """
 
-index_set("Subcatchment") [ "DeGeerdalen" ]
+sc : index_set("Subcatchment") [ "DeGeerdalen" ]
 
-index_set("Patch") [ "Glaciers" "Hill5_900" "Hill4_700" "Hill3_500" "Hill2_300" "Hill1_100" "Valleys" ]
+patch : index_set("Patch") [ "Glaciers" "Hill5_900" "Hill4_700" "Hill3_500" "Hill2_300" "Hill1_100" "Valleys" ]
 
-index_set("Aspect") [ "N" "S" "E/W" ]
+aspect : index_set("Aspect") [ "N" "S" "E/W" ]
 
 connection("Downhill throughflow") {
-	s : compartment("Soil") [ "Patch" ]
-	river : compartment("River") [ ]
+	s : compartment("Soil", patch)
+	river : compartment("River")
 
 	directed_graph [
 		s[ "Hill5_900" ] -> s[ "Hill4_700" ] -> s[ "Hill3_500" ] -> s[ "Hill2_300" ] -> s[ "Hill1_100" ] -> s[ "Valleys" ] -> river[ ]
@@ -19,7 +21,7 @@ connection("Downhill throughflow") {
 }
 
 connection("Downstream") {
-	r : compartment("River") [ "Subcatchment" ]
+	r : compartment("River", sc)
 
 	directed_graph [
 		r[ "DeGeerdalen" ] -> out
@@ -46,18 +48,18 @@ par_group("Catchment data") {
 	[ 412 ]
 }
 
-par_group("Patch data") [ "Patch" ] {
+par_group("Patch data", patch) {
 	par_real("Relative area")
 	[ 0.1 0.04 0.12 0.25 0.28 0.09 0.12 ]
 }
 
-par_group("Aspect data") [ "Aspect" ] {
+par_group("Aspect data", aspect) {
 	par_real("Aspect relative area")
 	[ 0.33 0.33 0.33 ]
 }
 
 module("Degree-day PET", version(1, 0, 0)) {
-	par_group("Potential evapotranspiration") [ "Subcatchment" ] {
+	par_group("Potential evapotranspiration", sc) {
 		par_real("Deegree-day factor for evapotranspiration")
 		[ 0 ]
 
@@ -67,7 +69,7 @@ module("Degree-day PET", version(1, 0, 0)) {
 }
 
 module("SimplyQ river", version(0, 5, 0)) {
-	par_group("Reach parameters") [ "Subcatchment" ] {
+	par_group("Reach parameters", sc) {
 		par_real("Reach slope")
 		[ 0.8 ]
 
@@ -94,7 +96,7 @@ module("SimplyGlacier", version(0, 0, 1)) {
 		[ 0.001 ]
 	}
 
-	par_group("Glacier") [ "Subcatchment" "Patch" ] {
+	par_group("Glacier", sc, patch) {
 		par_real("Initial ice thickness") [
 			100000 0 0 0 0 0 0 
 		]
@@ -102,7 +104,7 @@ module("SimplyGlacier", version(0, 0, 1)) {
 }
 
 module("ArcticAtmosphere", version(0, 0, 1)) {
-	par_group("Elevation data") [ "Subcatchment" "Patch" ] {
+	par_group("Elevation data", sc, patch) {
 		par_real("Average elevation") [
 			625 843 678 481 305 151 94 
 		]
@@ -132,7 +134,7 @@ module("ArcticSnow", version(0, 0, 1)) {
 		[ 1 ]
 	}
 
-	par_group("Snow aspect") [ "Aspect" ] {
+	par_group("Snow aspect", aspect) {
 		par_real("Aspect melt factor")
 		[ 1 1 1 ]
 	}
@@ -149,7 +151,7 @@ module("SimplyQuickflow", version(0, 0, 1)) {
 }
 
 module("SimplyPermafrost", version(0, 0, 1)) {
-	par_group("Hydrology land") [ "Subcatchment" "Patch" ] {
+	par_group("Hydrology land", sc, patch) {
 		par_real("Soil water time constant") [
 			1.5 1.2 1.2 1.2 1.2 1.2 1.2 
 		]
@@ -177,9 +179,9 @@ module("SimplyPermafrost", version(0, 0, 1)) {
 		[ 3000 ]
 	}
 
-	par_group("Groundwater") [ "Subcatchment" ] {
+	par_group("Groundwater", sc) {
 		par_real("Groundwater time constant")
 		[ 5 ]
 	}
 }
-
+}
