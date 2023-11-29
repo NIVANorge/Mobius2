@@ -119,7 +119,7 @@ module("Simply organic C-N", version(0, 0, 1),
 	din   : quantity,
 	on    : quantity,
 	oc    : quantity,
-	tn    : property,
+	tn    : property
 ) {
 
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
@@ -135,6 +135,6 @@ module("Simply organic C-N", version(0, 0, 1),
 	}
 	
 	var(river.water.tn, [m g, l-1], "River TN") {
-		din + on
+		conc(din) + conc(on)
 	}
 }

@@ -10,6 +10,8 @@
 		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Data_Set. Could instead just have the decl be
 			compartment("Soil", sc, lu)
 		like in the data set connection components.
+			Maybe not, because we could want extending models to distribute differently.
+			Although... they could also just @exclude and re-declare.
 		
 		Specific models
 			NIVAFjord!!

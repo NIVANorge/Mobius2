@@ -286,7 +286,7 @@ Particle transport and settling for EasyChem.
 	}
 	
 	#TODO: The below seems to not work that well.
-	
+	/*
 	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 	
 	var(bot.phos, [k g], "Lake bottom sediment phosphorous") @initial { epi.area * sed_z * sed_dens * init_sed_p ->> }
@@ -303,6 +303,7 @@ Particle transport and settling for EasyChem.
 		#Shouldn't use epi area since it fluctuates. A_surf maybe.
 		bot.phos / (sed_dens * sed_z * epi.area) ->>
 	}
+	*/
 }
 
 

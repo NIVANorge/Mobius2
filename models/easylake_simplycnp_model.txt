@@ -15,7 +15,7 @@ model("EasyLake-SimplyCNP") {
 	
 	bot  : compartment("Lake bottom sediments")
 	distribute(bot, lake_index)
-	solve(simply_solver, bot.phos)
+	#solve(simply_solver, bot.phos)
 	
 	#TODO: Maybe also organic N, P later.
 	# sed_area should be different for epi and hyp.
