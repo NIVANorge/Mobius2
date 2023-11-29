@@ -8,7 +8,7 @@ model("SimplyCNP") {
 	on   : quantity("Organic nitrogen")
 	toc  : property("Total organic carbon")
 	
-	load("modules/simplyn.txt",    module("Simply organic C-N", river, water, on, oc))
+	load("modules/simplyn.txt",    module("Simply organic C-N", river, water, din, on, oc, tn))
 	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc, sed_oc))
 	
 	par_group("Suspended carbon") {

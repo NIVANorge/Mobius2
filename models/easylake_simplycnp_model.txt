@@ -11,6 +11,7 @@ model("EasyLake-SimplyCNP") {
 	
 	on   : quantity("Organic nitrogen")
 	toc  : property("Total organic carbon")
+	tn   : property("Total nitrogen")
 	
 	bot  : compartment("Lake bottom sediments")
 	distribute(bot, lake_index)
@@ -23,13 +24,9 @@ model("EasyLake-SimplyCNP") {
 		module("EasyChem-Particulate", air, epi, hyp, bot, water, sed, phos, wind, area)
 	)
 	
-	load("modules/simplyn.txt",
-		module("Simply organic C-N", river, water, on, oc)
-	)
+	load("modules/simplyn.txt",    module("Simply organic C-N", river, water, din, on, oc, tn))
 	
-	load("modules/simplyc.txt",
-		module("Simple river TOC", river, water, oc, sed, toc, sed_oc)
-	)
+	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc, sed_oc))
 	
 	par_group("Suspended carbon") {
 		sed_oc : par_real("Suspended sediments OC fraction", [], 0.02, 0, 1)

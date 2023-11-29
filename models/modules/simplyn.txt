@@ -116,8 +116,10 @@ This module is not finished.
 module("Simply organic C-N", version(0, 0, 1),
 	river : compartment,
 	water : quantity,
+	din   : quantity,
 	on    : quantity,
-	oc    : quantity
+	oc    : quantity,
+	tn    : property,
 ) {
 
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
@@ -130,5 +132,9 @@ module("Simply organic C-N", version(0, 0, 1),
 		
 	flux(out, river.water.on, [k g, day-1], "Catchment DON production") {
 		in_flux(oc)*nc_molar_to_mass_ratio(dom_nc)
+	}
+	
+	var(river.water.tn, [m g, l-1], "River TN") {
+		din + on
 	}
 }
