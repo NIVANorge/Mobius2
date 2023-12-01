@@ -14,38 +14,25 @@ This module is not finished.
 """
 
 	load("stdlib/basic_math.txt", library("Response"))
-
-	#----------------------------------------------------------------
-	# Define parameter groups and parameters
 	
 	par_group("DIN universal params") {
 		din_immob_rate   : par_real("Soilwater DIN uptake rate at 20°C",
 							[m, day-1], 0, 0, 0.05)
 		din_immob_q10    : par_real("Soilwater DIN uptake rate response to 10°C change (Q10)",
 						    [], 1.0, 1.0, 5.0)
-		#use_growth_curve:   par_bool("Use growth curve?", false)
-		#day_highest_growth: par_int("Day of highest soilwater DIN uptake", [day], 200, 1, 365)
-		#growth_95pc		:   par_int("Length of interval in which 95% of DIN uptake occurs",
-		#		                [day], 200, 0, 365)
-	
+		gw_conc_type     : par_enum("Groundwater DIN computation type", const) { const soil_avg }
 		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0)
-		#gw_din_constant:  par_bool("Constant groundwater DIN concentration?", true)
-		#gw_retention_vol: par_real("Groundwater retention volume", [m m], 0.0, 0.0, 2000.0)
 		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day -1], 0.0, 0.0, 10.0)
 		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}
 	
-	par_group("Soil DIN params varying by land use", soil)	{
+	par_group("Soil DIN params varying by land use", soil) {
 		sw_din_init        : par_real("Initial soilwater DIN concentration", [m g, l -1], 0.0, 0.0, 10.0)
 		net_annual_N_input : par_real("Net annual DIN input to soil", [k g, ha-1, year-1],
 							0.0, 0.0, 1000.0)
 		fert_day           : par_int("Fertilizer addition day", [day], 60)
 		fert_n             : par_real("Fertilizer N", [k g, ha-1], 0, 0, 100)
 		fert_rel           : par_real("Fertilizer DIN release", [day-1], 0, 0, 1)
-		#fert_startday:	 par_int("Fertilization start day", [day], 60, 1, 365)
-		#fert_endday:	 par_int("Fertilization end day", [day], 120, 1, 365)
-	    #daily_din_input: par_real("Daily DIN fertilizer, manure & deposition inputs",
-		#				 [k g, ha-1, day-1], 0.0, 0.0, 100.0)
 	}
 	
 	par_group("River DIN", river) {
@@ -66,41 +53,21 @@ This module is not finished.
 	var(soil.water.din, [k g, k m -2], [m g, l-1], "Soil water DIN") @initial_conc { sw_din_init }
 	
 	var(gw.water.din, [k g, k m -2], [m g, l-1], "Groundwater DIN") @initial_conc { gw_din_conc } @override_conc {
-		#gw_din_conc   if gw_din_constant,
-		#no_override   otherwise
-		gw_din_conc
+		gw_din_conc                       if gw_conc_type.const,
+		aggregate(conc(soil.water.din))   otherwise
 	}
 	
 	var(river.water.din, [k g], [m g, l-1], "River water DIN") @initial_conc { conc(gw.water.din) }
 	
-	# Not sure what to do with this growth curve. Put it into the SW DIN uptake flux calc?
-	# or have it separate? In which case, what is it a property of?
-	#growth_curve: property("Growth curve for biological N uptake")
-#	var(soil.growth_curve, []) {
-#		sigma := 0.25 * growth_95pc
-#		xpon  := (time.day_of_year - day_highest_growth)/sigma
-		# Normalized normal distribution which has integral ~= 1. Since the x axis is not -inf to inf, but 1 to 365, the actual integral will not be exactly 1, but the error should be small. There is also a small error in that we are only doing daily updates to the value, but that should also be insignificant.
-#		(0.3989422804 / sigma) * exp(-0.5 * xpon * xpon)	
-#	}
-	
-	#----------------------------------------------------------------
-	# Define DIN fluxes (water fluxes are already taken care of in SimplyQ, it is
-	# assumed that DIN is carried with these)
-	
 	# Soil water fluxes
 	
-	flux(out, soil.water.din, [k g, k m-2, day-1], "Net DIN soilwater addition") {
-		net_annual_N_input / time.days_this_year ->> 
-		# To do: Implement other possible N input options
+	flux(out, soil.water.din, [k g, k m-2, day-1], "Net soil water DIN addition") {
+		net_annual_N_input / time.days_this_year ->>
 	}
 	
 	flux(soil.water.din, out, [k g, k m-2, day-1], "Soil water DIN uptake") {
-#		growth_factor := {
-#			soil.growth_curve * 365	if use_growth_curve,
-#			1.0	                    otherwise
-#		},
 		rate := q10_adjust(din_immob_rate, 20.0[deg_c], temp, din_immob_q10),
-		conc(din) * rate ->># * growth_factor 
+		conc(din) * rate ->>
 	}
 	
 	# Reach fluxes

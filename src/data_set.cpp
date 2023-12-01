@@ -1119,10 +1119,15 @@ write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer)
 void
 Data_Set::write_to_file(String_View file_name) {
 	
+	String_View backup_data = {};
+	
 	FILE *file = nullptr;
 	
 	bool error = false;
 	try {
+		backup_data = read_entire_file(file_name);
+		
+		// read_entire_file has closed it. Open it again for writing.
 		file = open_file(file_name, "w");
 		Scope_Writer writer;
 		writer.file = file;
@@ -1154,11 +1159,25 @@ Data_Set::write_to_file(String_View file_name) {
 		error = true;
 	}
 	
-	if(file)
+	bool file_was_opened = file;
+	if(file_was_opened)
 		fclose(file);
 	
-	if(error)
-		fatal_error("Error occured during data set saving.");
+	if(error) {
+		error_print("Error occured during data set saving. ");
+		if(backup_data.count && file_was_opened) {
+			try {
+				error_print("Trying to back up the file to its original state.");
+				file = open_file(file_name, "w");
+				if(file) {
+					fwrite(backup_data.data, backup_data.count, 1, file);
+					fclose(file);
+				}
+			} catch(int) {
+			}
+		}
+		mobius_error_exit();
+	}
 }
 
 

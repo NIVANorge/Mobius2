@@ -53,7 +53,6 @@ par_real("Layer area") @index_by_cumulative("Layer index", "Stable layer thickne
 
 # Would also be nice to have interpolate-by-index for input series in addition to interpolate-by-time.
 
-par_real(
 
 
 
