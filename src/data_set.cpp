@@ -479,7 +479,9 @@ Quick_Select_Data::process_declaration(Catalog *catalog) {
 	
 	has_been_processed = true;
 	
-	match_data_declaration(decl, {{}});
+	match_data_declaration(decl, {{Token_Type::quoted_string}});
+	
+	set_serial_name(catalog, this);
 	
 	if(decl->data->data_type != Data_Type::map) {
 		decl->data->source_loc.print_error_header();
@@ -1013,7 +1015,9 @@ write_quick_select_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id s
 	
 	auto quick_select = data_set->quick_selects[select_id];
 	
-	writer->write("quick_select ");
+	writer->open_decl(data_set, select_id);
+	writer->write(") ");
+	//writer->write("quick_select ");
 	writer->open_scope('[');
 	
 	for(auto &select : quick_select->selects) {
@@ -1119,13 +1123,13 @@ write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer)
 void
 Data_Set::write_to_file(String_View file_name) {
 	
-	String_View backup_data = {};
+	//String_View backup_data = {};
 	
 	FILE *file = nullptr;
 	
 	bool error = false;
 	try {
-		backup_data = read_entire_file(file_name);
+		//backup_data = read_entire_file(file_name); // Oops, this obviously only works if it doesn't exist already.
 		
 		// read_entire_file has closed it. Open it again for writing.
 		file = open_file(file_name, "w");
@@ -1165,6 +1169,7 @@ Data_Set::write_to_file(String_View file_name) {
 	
 	if(error) {
 		error_print("Error occured during data set saving. ");
+		/*
 		if(backup_data.count && file_was_opened) {
 			try {
 				error_print("Trying to back up the file to its original state.");
@@ -1175,7 +1180,7 @@ Data_Set::write_to_file(String_View file_name) {
 				}
 			} catch(int) {
 			}
-		}
+		}*/
 		mobius_error_exit();
 	}
 }

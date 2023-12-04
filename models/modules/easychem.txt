@@ -18,7 +18,7 @@ module("EasyChem", version(0, 0, 2),
 	wind   : property,
 	indicator : property,
 	tp     : property,
-	
+	tn     : property,
 	toc    : property,
 	sed_oc : par_real,
 	
@@ -57,9 +57,10 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	par_group("Nutrients", epi) {
+		din_dep      : par_real("Direct lake N deposition", [k g, ha-1, year-1], 0, 0, 100)
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Calli it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
-		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10) # TODO: Remove this.
+		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
 		COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
 	}
@@ -176,8 +177,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	fix : property("Photosynthetic C fixation")
 	var(epi.water.phyt.fix, [k g, day-1]) {
-		#Mgrowth := q10_adjust(phyt_rate, 20[deg_c], temp, phyt_q10),
-		#min(light_lim, min(N_lim, P_lim))*Mgrowth*water->>
 		phyt_turnover*(epi.water.phyt.equi*water->[k g] - phyt)
 	}
 	
@@ -203,6 +202,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_in }
 	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_in }
+	
+	flux(out, epi.water.din, [k g, day-1], "Lake N deposition") { area*din_dep/365.25[day, year-1] ->> }
 	
 	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * nc_molar_to_mass_ratio(phyt_nc)   }
 	
@@ -235,6 +236,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	# TODO: DON mineralization (?). Difficult to parametrize maybe.
 	
+	var(epi.water.tn, [m g, l-1], "Epilimnion TN") {  conc(on) + conc(din)  }
 	
 	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc) + conc(phyt) + conc(sed)*sed_oc   }
 }

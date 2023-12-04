@@ -19,7 +19,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	sc : index_set("Subcatchment") [ "Drammenselva" ]
 	
-	lu : index_set("Landscape units") [ "Just one" ]
+	lu : index_set("Landscape units") [ "All" ]
 	
 	fjord_conn : index_set("Fjord connection index") @sub(basin) 
 	

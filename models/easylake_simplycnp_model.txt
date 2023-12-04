@@ -2,39 +2,19 @@
 model("EasyLake-SimplyCNP") {
 	extend("easylake_simplyq_model.txt")
 	
-	
-	#extend("simplyc_model.txt") @exclude(heat : quantity)  # To not clash with easylake decls of this
-	#extend("simplyn_model.txt") @exclude(heat : quantity)
-	#extend("simplyp_model.txt")
-	
 	extend("simplycnp_model.txt") @exclude(heat : quantity) # To not clash with easylake decls of this
 	
 	phyt : quantity("Phytoplankton")
 	o2   : quantity("O₂")
 	
-	#on   : quantity("Organic nitrogen")
-	#toc  : property("Total organic carbon")
-	#tn   : property("Total nitrogen")
-	
 	bot  : compartment("Lake bottom sediments")
 	distribute(bot, lake_index)
 	#solve(simply_solver, bot.phos)
 	
-	#TODO: Maybe also organic N, P later.
-	# sed_area should be different for epi and hyp.
 	load("modules/easychem.txt", 
-		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, ice, sed, temp, sw, wind, indicator, tp, toc, sed_oc, area),
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, ice, sed, temp, sw, wind, indicator, tp, tn, toc, sed_oc, area),
 		module("EasyChem-Particulate", air, epi, hyp, bot, water, sed, phos, wind, area)
 	)
-	
-	#load("modules/simplyn.txt",    module("Simply organic C-N", river, water, din, on, oc, tn))
-	
-	#load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc, sed_oc))
-	
-	#par_group("Suspended carbon") {
-	#	sed_oc : par_real("Suspended sediments OC fraction", [], 0.02, 0, 1)
-	#}
-	
 	
 	module("Simple River O₂", version(0, 1, 0)) {
 		"The purpose of this module is only to provide oxygen inputs to EasyChem."

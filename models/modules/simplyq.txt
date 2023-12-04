@@ -33,11 +33,12 @@ New to version 0.5 :
 		
 	par_group("Groundwater", gw) {
 		tc_g    : par_real("Groundwater time constant", [day],          30,  1,  400)
+		gw_ret  : par_real("Groundwater retention volume", [m m],        0,  1, 1e4)
 	}
 	
 	var(soil.water, [m m], "Soil water volume")  @initial { fc }
 	var(gw.water,   [m m], "Groundwater volume") @initial {
-		tc_g * river.water.flow / a_catch -> [m m]  #TODO: Alternatively, access the init_flow parameter and cut the river.water.flow property entirely
+		gw_ret + (tc_g * river.water.flow / a_catch) -> [m m]  #TODO: Alternatively, access the init_flow parameter and cut the river.water.flow property entirely
 	}
 	
 	flux(soil.water, river.water, [m m, day-1], "Quick flow") {
@@ -60,7 +61,7 @@ New to version 0.5 :
 	
 	flux(soil.water, gw.water, [m m, day-1], "Recharge")                    {   flow * bfi   }
 
-	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff")           {   water / tc_g   }
+	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff")           {   max(0, water-gw_ret) / tc_g   }
 }
 
 
