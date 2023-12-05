@@ -1,5 +1,5 @@
 
-module("SimplyN", version(0, 0, 3),
+module("SimplyN", version(0, 0, 4),
 	soil   : compartment,
 	gw     : compartment,
 	river  : compartment,
@@ -20,7 +20,7 @@ This module is not finished.
 		din_immob_q10    : par_real("Soilwater DIN uptake rate response to 10°C change (Q10)", [], 1.0, 1.0, 5.0)
 		gw_conc_type     : par_enum("Groundwater DIN computation type", const) { const soil_avg mass_bal }
 		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0, "Only used if type is const")
-		gw_din_hl        : par_real("Groundwater DIN half-life", [day], 100, 0, 10000, "Only used if type is mass_bal")
+		#gw_din_hl        : par_real("Groundwater DIN half-life", [day], 100, 0, 10000, "Only used if type is mass_bal")
 		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day -1], 0.0, 0.0, 0.1)
 		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}
@@ -69,9 +69,9 @@ This module is not finished.
 		conc(din) * rate ->>
 	}
 	
-	flux(gw.water.din, out, [k g, k m-2, day-1], "Groundwater DIN loss") {
-		hl_to_rate(gw_din_hl)*din
-	}
+	#flux(gw.water.din, out, [k g, k m-2, day-1], "Groundwater DIN loss") {
+	#	hl_to_rate(gw_din_hl)*din
+	#}
 	
 	# Reach fluxes
 	

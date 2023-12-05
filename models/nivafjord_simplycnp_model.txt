@@ -1,0 +1,52 @@
+
+
+model("NIVAFjord-SimplyQ") {
+
+	extend("nivafjord_model.txt")
+	extend("simplyq_model.txt") @exclude(
+		sol : solver, 
+		downstream : connection, 
+		air : compartment, 
+		water : quantity,
+		temp : property,
+		precip : property)
+	
+	
+	load("modules/simplysoiltemp.txt",
+		module("Simply soil temperature", air, soil, snow_box, snow, temp))
+	load("modules/rivertemp.txt",
+		module("RiverTemperature", air, soil, river, water, heat, temp))
+	
+	downstream : connection("Downstream") @directed_graph {
+		river+
+		#(river|epi)+
+	} @no_cycles
+	
+	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
+		river? layer+ bnd_layer?
+	} @no_cycles                    # Not sure if we should have no_cycles, but it should always be acheivable since the direction doesn't matter.
+	
+	edge       : compartment("Basin edge")
+	edge_layer : compartment("Basin edge layer")
+	distribute(edge,       basin_idx, e_idx)
+	distribute(edge_layer, basin_idx, e_idx, layer_idx)
+	
+	par_group("Fjord horizontal boundary", edge_layer) {
+		w_bnd  : par_real("Boundary width", [m], 0, 0, 10000)
+	}
+	
+	load("modules/nivafjord/horizontal_fluxes.txt",
+		module("NIVAFjord horizontal fluxes", basin, layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
+	
+	#tracer : quantity("Tracer")
+	#load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, bnd_layer, river, water, tracer))
+	
+	o2     : quantity("O₂")
+	
+	load("modules/nivafjord/fjordchem.txt",
+		module("NIVAFjord chemistry", air, basin, layer, water, o2, ice, temp, salinity, wind, indicator, A, vert))
+		
+	load("modules/nivafjord/boudary_chem.txt",
+		module("NIVAFjord boundary chemistry", bnd_layer, water, o2))
+}
+

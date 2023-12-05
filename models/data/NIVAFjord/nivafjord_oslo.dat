@@ -1,0 +1,288 @@
+"""NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we only need to know their condition down to the threshold.
+"""
+
+time_step([3, hr])
+
+index_set("Basin index") [ "Drammensfjorden" ]
+
+index_set("Boundary basin index") [ "Breiangen" ]
+
+index_set("All basins") @union("Basin index", "Boundary basin index")
+
+index_set("Layer index") @sub("All basins")  [
+	"Bunnefjorden" : [ 155 ]
+	"Lysakerfjorden" : [ 80 ]
+	"Vestfjorden" : [ 160 ]
+	"Bunnebotten" : [ 30 ]
+	"Bekkelagsbassenget" : [ 75 ]
+	"Oslohavn" : [ 30 ]
+	"Bærumsbassenget" : [ 30 ]
+	"Holmenfjorden" : [ 60 ]
+	"Steilene nord" : [ 85 ]
+	#..etc TODO!
+	#"Drammensfjorden"  : [ 124 ]
+	#"Breiangen"  : [ 12 ]
+]
+
+index_set("Subcatchment") [ "Drammenselva" ]
+
+index_set("Landscape units") [ "Just one" ]
+
+index_set("Fjord connection index") @sub("Basin index") 
+
+connection("Downstream") {
+	r : compartment("River") [ "Subcatchment" ]
+}
+
+connection("Fjord horizontal") {
+	r : compartment("River") [ "Subcatchment" ]
+	l : compartment("Fjord layer") [ "Basin index" ]
+	b : compartment("Boundary layer") [ "Boundary basin index" ]
+
+	directed_graph("Fjord connection index") [
+		r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] -> b[ "Breiangen" ]
+	]
+}
+
+series("nivafjord_drammen.xlsx")
+
+par_group("System") {
+	par_datetime("Start date")
+	[ 2018-01-01 ]
+
+	par_datetime("End date")
+	[ 2021-11-11 ]
+}
+
+par_group("Fjord global parameters") {
+	par_real("Stable layer thickness")
+	[ 1 ]
+}
+
+par_group("Layer parameters") [ "Basin index" "Layer index" ] {
+	par_real("Layer area") [
+		50734000 50232000 49730000 49228000 48726000 48224000 47722000 47220000 46718000 46216000 45714000 45196700 44679400 44162100 43644800 43127500 42610200 42092900 41575600 41058300 40541000 40024700 39508400 38992100 38475800 37959500 37443200 36926900 36410600 35894300 35378000 34973556 34569111 34164667 33760222 33355778 32951333 32546889 32142444 31738000 31356000 30924100 30492200 30060300 29628400 29196500 28764600 28332700 27900800 27468900 27037000 26441700 25846400 25251100 24655800 24060500 23465200 22869900 22274600 21679300 21084000 20679500 20275000 19870500 19466000 19061500 18657000 18252500 17848000 17443500 17039000 16662000 16285000 15908000 15531000 15154000 14862600 14571200 14279800 13988400 13697000 13485000 13273000 13061000 12849000 12637000 12425000 12213000 12001000 11789000 11577000 11350700 11124400 10898100 10671800 10445500 10219200 9992900 9766600 9540300 9314000 9004200 8694400 8384600 8074800 7765000 7455200 7145400 6835600 6525800 6216000 5972700 5729400 5486100 5242800 4999500 4756200 4512900 4269600 4026300 3783000 3637700 3492400 3347100 3201800 3056500 2911200 2765900 2620600 2475300 2330000 2236700 2143400 2050100 1956800 1863500 1770200 1676900 1583600 1490300 1397000 1298600 1200200 1101800 1003400 905000 806600 708200 609800 511400 413000 330400 247800 165200 82600 
+		
+		7536000 7394700 7253400 7112100 6970800 6829500 6688200 6546900 6405600 6264300 6123000 6036800 5950600 5864400 5778200 5692000 5605800 5519600 5433400 5347200 5261000 5139200 5017400 4895600 4773800 4652000 4530200 4408400 4286600 4164800 4043000 3964600 3886200 3807800 3729400 3651000 3572600 3494200 3415800 3337400 3259000 3179400 3099800 3020200 2940600 2861000 2781400 2701800 2622200 2542600 2463000 2342900 2222800 2102700 1982600 1862500 1742400 1622300 1502200 1382100 1262000 1188300 1114600 1040900 967200 893500 819800 746100 672400 598700 525000 474200 423400 372600 321800 271000 220200 169400 118600 67800 
+	
+		#49030000 48547000 48064000 47581000 47098000 46615000 46132000 45649000 45166000 44683000 44200000 43936000 43672000 43408000 43144000 42880000 42616000 42352000 42088000 41824000 41560000 41304000 41048000 40792000 40536000 40280000 40024000 39768000 39512000 39256000 39000000 38744000 38488000 38232000 37976000 37720000 37464000 37208000 36952000 36696000 36440000 36184000 35928000 35672000 35416000 35160000 34904000 34648000 34392000 34136000 33880000 33570000 33260000 32950000 32640000 32330000 32020000 31710000 31400000 31090000 30780000 30470000 30160000 29850000 29540000 29230000 28920000 28610000 28300000 27990000 27680000 27370000 27060000 26750000 26440000 26130000 25820000 25510000 25200000 24890000 24580000 24270000 23960000 23650000 23340000 23030000 22720000 22410000 22100000 21790000 21480000 21170000 20860000 20550000 20240000 19930000 19620000 19310000 19000000 18690000 18380000 17663300 16946700 16230000 15513300 14796700 14080000 13363300 12646700 11930000 11213300 10496700 9780000 9063330 8346670 7630000 6694000 5758000 4822000 3886000 2950000 2212500 1475000 737500 
+	]
+}
+
+par_group("Land cover") [ "Subcatchment" "Landscape units" ] {
+	par_real("Land use proportions") [
+		1 
+	]
+}
+
+par_group("Catchment data") [ "Subcatchment" ] {
+	par_real("Catchment area")
+	[ 17110.6 ]
+}
+
+par_group("Fjord horizontal boundary") [ "Basin index" "Fjord connection index" "Layer index" ] {
+	par_real("Boundary width") [
+
+		250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+	]
+}
+
+module("NIVAFjord basin", version(0, 0, 1)) {
+	par_group("Mixing parameters") {
+		par_real("Brunt-Väisälä frequency reference")
+		[ 0.008 ]
+
+		par_real("Mixing factor reference")
+		[ 0.0001 ]
+
+		par_real("Mixing non-linear coefficient")
+		[ 1.4 ]
+
+		par_real("Minimum B-V frequency")
+		[ 0.007 ]
+
+		par_real("Diffuse attenuation coefficent (clear water)")
+		[ 0.5 ]
+
+		par_real("Surface additional mixing energy")
+		[ 1e-10 ]
+
+		par_real("Halving depth of additional mixing energy")
+		[ 6 ]
+
+		par_real("Diminishing rate of additional mixing energy")
+		[ 4 ]
+	}
+
+	par_group("Sediment parameters") {
+		par_real("Deep sediment temperature")
+		[ 6 ]
+
+		par_real("Depth of thermally active sediment layer")
+		[ 10 ]
+
+		par_real("Sediment thermal conductivity")
+		[ 1.6 ]
+
+		par_real("Sediment specific heat capacity")
+		[ 4000 ]
+
+		par_real("Sediment density")
+		[ 2600 ]
+	}
+
+	par_group("Initial layer physical") [ "Basin index" "Layer index" ] {
+		par_real("Initial layer temperature") [
+			8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 
+		]
+
+		par_real("Initial layer salinity") [
+			33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 
+		]
+	}
+}
+
+module("Atmospheric", version(0, 1, 0)) {
+	par_group("Location") {
+		par_real("Latitude")
+		[ 60 ]
+
+		par_real("Elevation")
+		[ 0 ]
+	}
+}
+
+module("AirSea Fjord", version(0, 1, 1)) {
+	par_group("Ice") {
+		par_real("Initial ice thickness")
+		[ 0 ]
+
+		par_real("Ice albedo")
+		[ 0.4 ]
+
+		par_real("Ice attenuation coefficient")
+		[ 5 ]
+
+		par_real("Frazil threshold")
+		[ 0.05 ]
+	}
+}
+
+module("NIVAFjord tracer test", version(0, 0, 1)) {
+	par_group("Tracer") {
+		par_real("River tracer concentration")
+		[ 1 ]
+
+		par_real("Boundary tracer concentration")
+		[ 0 ]
+	}
+}
+
+module("Degree-day PET", version(1, 0, 0)) {
+	par_group("Potential evapotranspiration") [ "Subcatchment" "Landscape units" ] {
+		par_real("Deegree-day factor for evapotranspiration") [
+			0.09 
+		]
+
+		par_real("Minimal temperature for evapotranspiration") [
+			0 
+		]
+	}
+}
+
+module("HBVSnow", version(1, 0, 0)) {
+	par_group("Snow") {
+		par_real("Degree-day factor for snowmelt")
+		[ 2.74 ]
+
+		par_real("Temperature at which precip falls as snow")
+		[ 0 ]
+
+		par_real("Temperature at which snow melts")
+		[ 0 ]
+
+		par_real("Refreeze efficiency")
+		[ 0.5 ]
+
+		par_real("Liquid water fraction")
+		[ 0.1 ]
+
+		par_real("Initial snow depth (water equivalents)")
+		[ 0 ]
+	}
+}
+
+module("SimplyQ land", version(0, 5, 0)) {
+	par_group("Hydrology general") {
+		par_real("Baseflow index")
+		[ 0.8 ]
+
+		par_real("Quick flow inflection point")
+		[ 1000 ]
+	}
+
+	par_group("Hydrology land") [ "Subcatchment" "Landscape units" ] {
+		par_real("Field capacity") [
+			120 
+		]
+
+		par_real("Soil water time constant") [
+			6 
+		]
+	}
+
+	par_group("Groundwater") [ "Subcatchment" ] {
+		par_real("Groundwater time constant")
+		[ 70 ]
+	}
+}
+
+module("SimplyQ river", version(0, 5, 0)) {
+	par_group("Reach parameters") [ "Subcatchment" ] {
+		par_real("Reach slope")
+		[ 0.014 ]
+
+		par_real("Reach length")
+		[ 120000 ]
+
+		par_real("Manning's roughness coefficient")
+		[ 0.14 ]
+
+		par_real("Initial reach flow")
+		[ 250 ]
+	}
+}
+
+module("Simply soil temperature", version(0, 1, 0)) {
+	par_group("Soil temperature general") {
+		par_real("Snow depth / soil temperature factor")
+		[ -0.2 ]
+
+		par_real("Initial soil temperature")
+		[ 10 ]
+	}
+
+	par_group("Soil temperature land") [ "Subcatchment" "Landscape units" ] {
+		par_real("Soil thermal conductivity / specific heat capacity") [
+			0.4 
+		]
+	}
+}
+
+module("RiverTemperature", version(0, 1, 1)) {
+	par_group("River temperature") [ "Subcatchment" ] {
+		par_real("Air-river heat exchange coefficient")
+		[ 1 ]
+	}
+}
+
+module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
+	par_group("Horizontal exchange") {
+		par_real("Pressure difference flow coefficient")
+		[ 0.7 ]
+	}
+}
+
+module("NIVAFjord boundary", version(0, 0, 1)) {
+}
+

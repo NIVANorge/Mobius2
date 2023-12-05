@@ -33,14 +33,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	load("stdlib/basic_math.txt", library("Response"))
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
-
-	p_vel     : property("O₂ piston velocity")
-	light_lim : property("Light limitation")
-	N_lim     : property("Nitrogen limitation")
-	P_lim     : property("Phosphorus limitation")
-	
-	f_par     : constant("Fraction of PAR in SW radiation", [],           0.45)  # Photosynthetically available radiation
-	
 	
 	par_group("Lake specific chemistry", epi) {
 		init_O2      : par_real("Initial O₂ saturation", [], 1, 0, 1)
@@ -58,7 +50,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	par_group("Nutrients", epi) {
 		din_dep      : par_real("Direct lake N deposition", [k g, ha-1, year-1], 0, 0, 100)
-		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Calli it respiration rate at 20 deg_c
+		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
@@ -77,6 +69,13 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
+	
+	p_vel     : property("O₂ piston velocity")
+	light_lim : property("Light limitation")
+	N_lim     : property("Nitrogen limitation")
+	P_lim     : property("Phosphorus limitation")
+	
+	f_par     : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
 	
 	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }
 	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }  
@@ -177,7 +176,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	fix : property("Photosynthetic C fixation")
 	var(epi.water.phyt.fix, [k g, day-1]) {
-		phyt_turnover*(epi.water.phyt.equi*water->[k g] - phyt)
+		max(0, phyt_turnover*(epi.water.phyt.equi*water->[k g] - phyt))
 	}
 	
 	flux(out, epi.water.phyt, [k g, day-1], "Epilimnion photosynthetic C fixation") {   fix   }

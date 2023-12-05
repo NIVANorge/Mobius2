@@ -61,9 +61,9 @@ model("SimplyQ") {
 	#}
 	#simply_solver : solver("Simply solver", "INCADascru", solver_h, solver_hmin)
 	
-	simply_solver : solver("Simply solver", inca_dascru, [2, hr], 1e-3)   # NOTE: The small relative minimal step is needed by SimplyTox.
+	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-3)   # NOTE: The small relative minimal step is needed by SimplyTox.
 	
-	solve(simply_solver, soil.water, gw.water, river.water)
+	solve(sol, soil.water, gw.water, river.water)
 	
 }
 

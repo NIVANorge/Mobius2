@@ -1,0 +1,21 @@
+
+module("NIVAFjord boundary chemistry", version(0, 0, 0),
+	bnd_layer : compartment,
+	water : quantity,
+	o2 : quantity,
+	temp : property,
+	salin : property,
+) {
+
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	
+	o2sat : property("O₂ saturation")
+	
+	var(bnd_layer.water.o2sat, [], "Boundary layer O₂ saturation")  # Input series
+	
+	var(bnd_layer.water.o2, [k g], [m g, l-1], "Boundary layer O₂")
+		@override_conc { o2sat*o2_saturation(temp, salin)*init_O2*o2_mol_mass->> }
+		
+		
+}

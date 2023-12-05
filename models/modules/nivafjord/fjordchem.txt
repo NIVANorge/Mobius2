@@ -1,0 +1,43 @@
+
+
+module("NIVAFjord chemistry", version(0, 0, 0),
+	air   : compartment,
+	basin : compartment,
+	layer : compartment,
+	water : quantity,
+	o2    : quantity,
+	ice   : quantity,
+	temp  : property,
+	salin : property,
+	wind  : property,
+	indicator : property,
+	A     : par_real,
+	vert  : connection
+) {
+	#TODO: Would be nice to unify easychem and fjordchem a bit more, maybe some shared code.
+	
+	par_group("Initial chem", layer) {
+		init_O2 : par_real("Initial O₂ saturation", [], 1, 0, 1)
+	}
+	
+	load("stdlib/basic_math.txt", library("Response"))
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	
+	var(layer.water.o2, [k g], [m g, l-1], "Layer O₂") @initial_conc { o2_saturation(temp, salin)*init_O2*o2_mol_mass->> }
+	
+	p_vel     : property("O₂ piston velocity")
+	o2sat     : property("O₂ saturation concentration")
+	
+	var(basin.p_vel, [c m, hr-1]) {
+		o2_piston_velocity(air.wind, layer.water.temp[vert.top])
+	}
+	
+	var(basin.o2sat, [m g, l-1]) {
+		o2_saturation(layer.water.temp[vert.top], layer.water.salin[vert.top])*o2_mol_mass -> [m g, l-1]
+	}
+	
+	flux(out, layer.water.o2[vert.top], [k g, day-1], "O₂ gas exchange at surface") {
+		(!basin.ice.indicator) * basin.p_vel*(basin.o2sat - conc(o2[vert.top]))*A[vert.top] ->>
+	}
+}
