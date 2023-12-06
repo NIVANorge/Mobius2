@@ -44,6 +44,10 @@ New to version 0.5:
 		psed  : par_real("Erosion power factor", [], 2, 0.1, 5)
 	}
 	
+	loadred_var : property("Variable reduction of load in sediments")
+	
+	var(soil.loadred_var, []) #input series.
+	
 	c_cover : property("Time dependent vegetation cover factor")
 	
 	var(river.water.sed, [k g], [m g, l-1], "Suspended sediments")
@@ -65,7 +69,7 @@ New to version 0.5:
 	
 	#e_fact : property("Erosion factor")
 	
-	var(soil.e_fact, [k g, k m-2, day-1], "Erosion factor land")          {   land_slope * c_cover * (1 - loadred) =>>  }
+	var(soil.e_fact, [k g, k m-2, day-1], "Erosion factor land")          {   land_slope * c_cover * (1 - loadred) * (1 - loadred_var) =>>  }
 	
 	var(river.e_fact, [], "Erosion factor river")                         {   (1e-3*ksed * in_flux(water) / a_catch)^psed  }
 

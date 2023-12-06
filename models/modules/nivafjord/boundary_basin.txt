@@ -53,7 +53,7 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	var(bnd_basin.h, [m]) {
 		#TODO: Check that it is correct to use the hour of year rather than the hour of day. Maybe it needs to use absolute hour (relative to a start date)?
 		hour := (time.second_of_day + time.step_length_in_seconds * time.fractional_step)->[hr] + time.day_of_year->[hr],
-		sea_level(hour)->[m]              
+		sea_level(hour)->[m]
 	}
 	
 	var(bnd_layer.dz, [m], "Boundary layer thickness") {

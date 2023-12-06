@@ -1,23 +1,25 @@
 data_set {
 	
 """
-NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we only need to know their condition down to the threshold.
+TODO: Need to configure all the parameters correctly.
+TODO: Some part of the catchment that is not Mosselva (small).
+NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
-	time_step([3, hr])
+	time_step([day])
 	
-	basin : index_set("Basin index") [ "Drammensfjorden" ]
+	basin : index_set("Basin index") [ "Mossesundet" ]
 	
 	bound_basin : index_set("Boundary basin index") [ "Breiangen" ]
 	
 	all_basin : index_set("All basins") @union(basin, bound_basin) 
 	
 	layer : index_set("Layer index") @sub(all_basin) [
-		"Drammensfjorden"  : [ 124 ]
-		"Breiangen"  : [ 12 ]
+		"Mossesundet"  : [ 110 ]
+		"Breiangen"  : [ 60 ]
 	]
 	
-	sc : index_set("Subcatchment") [ "Drammenselva" ]
+	sc : index_set("Subcatchment") [ "Mosselva" ]
 	
 	lu : index_set("Landscape units") [ "All" ]
 	
@@ -36,11 +38,11 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		b : compartment("Boundary layer", bound_basin)
 		
 		directed_graph(fjord_conn) [ 
-			r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] -> b[ "Breiangen" ]
+			r[ "Mosselva" ] -> l[ "Mossesundet" ] -> b[ "Breiangen" ]
 		]
 	}
 	
-	series("nivafjord_drammen.xlsx")
+	series("nivafjord_moss.xlsx")
 	
 	par_group("System") {
 		
@@ -48,7 +50,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		[ 2018-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2021-11-11 ]
+		[ 2019-01-01 ]
 	
 	}
 	
@@ -62,7 +64,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	par_group("Layer parameters", basin, layer) {
 		
 		par_real("Layer area") [
-			49030000 48547000 48064000 47581000 47098000 46615000 46132000 45649000 45166000 44683000 44200000 43936000 43672000 43408000 43144000 42880000 42616000 42352000 42088000 41824000 41560000 41304000 41048000 40792000 40536000 40280000 40024000 39768000 39512000 39256000 39000000 38744000 38488000 38232000 37976000 37720000 37464000 37208000 36952000 36696000 36440000 36184000 35928000 35672000 35416000 35160000 34904000 34648000 34392000 34136000 33880000 33570000 33260000 32950000 32640000 32330000 32020000 31710000 31400000 31090000 30780000 30470000 30160000 29850000 29540000 29230000 28920000 28610000 28300000 27990000 27680000 27370000 27060000 26750000 26440000 26130000 25820000 25510000 25200000 24890000 24580000 24270000 23960000 23650000 23340000 23030000 22720000 22410000 22100000 21790000 21480000 21170000 20860000 20550000 20240000 19930000 19620000 19310000 19000000 18690000 18380000 17663300 16946700 16230000 15513300 14796700 14080000 13363300 12646700 11930000 11213300 10496700 9780000 9063330 8346670 7630000 6694000 5758000 4822000 3886000 2950000 2212500 1475000 737500 
+			5653000 5528500 5404000 5279500 5155000 5030500 4906000 4781500 4657000 4532500 4408000 4330700 4253400 4176100 4098800 4021500 3944200 3866900 3789600 3712300 3635000 3572100 3509200 3446300 3383400 3320500 3257600 3194700 3131800 3068900 3006000 2948700 2891400 2834100 2776800 2719500 2662200 2604900 2547600 2490300 2433000 2369900 2306800 2243700 2180600 2117500 2054400 1991300 1928200 1865100 1802000 1733600 1665200 1596800 1528400 1460000 1391600 1323200 1254800 1186400 1118000 1061900 1005800 949700 893600 837500 781400 725300 669200 613100 557000 530600 504200 477800 451400 425000 398600 372200 345800 319400 293000 271400 249800 228200 206600 185000 163400 141800 120200 98600 77000 71100 65200 59300 53400 47500 41600 35700 29800 23900 18000 16200 14400 12600 10800 9000 7200 5400 3600 1800 
 		]
 	
 	}
@@ -78,14 +80,14 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	par_group("Catchment data", sc) {
 		
 		par_real("Catchment area") 
-		[ 17110.6 ]
+		[ 654.364 ]
 	
 	}
 	
 	par_group("Fjord horizontal boundary", basin, fjord_conn, layer) {
 		
 		par_real("Boundary width") [
-			250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+			568 552 537 521 506 490 475 459 444 428 412 397 381 366 350 335 319 304 288 273 257 247 236 226 215 205 195 184 174 163 153 148 144 139 134 130 125 120 115 111 106 104 102 100 98 96 93 91 89 87 85 76 68 60 51 42 34 26 17 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 		]
 	
 	}
@@ -142,11 +144,11 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		par_group("Initial layer physical", basin, layer) {
 			
 			par_real("Initial layer temperature") [
-				8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 
+				8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 
 			]
 			
 			par_real("Initial layer salinity") [
-				33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 
+				33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 33 
 			]
 		
 		}
@@ -271,6 +273,9 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Groundwater time constant") 
 			[ 70 ]
+			
+			par_real("Groundwater retention volume") 
+			[ 0 ]
 		
 		}
 	
@@ -284,13 +289,13 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			[ 0.014 ]
 			
 			par_real("Reach length") 
-			[ 120000 ]
+			[ 12000 ]
 			
 			par_real("Manning's roughness coefficient") 
 			[ 0.14 ]
 			
 			par_real("Initial reach flow") 
-			[ 250 ]
+			[ 1 ]
 		
 		}
 	
@@ -333,13 +338,43 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		par_group("Horizontal exchange") {
 			
 			par_real("Pressure difference flow coefficient") 
-			[ 0.1 ]
+			[ 0.01 ]
 		
 		}
 	
 	}
 	
 	module("NIVAFjord boundary", version(0, 0, 1)) {
+	
+	}
+	
+	module("NIVAFjord chemistry", version(0, 0, 0)) {
+		
+		par_group("Initial chem", basin, layer) {
+			
+			par_real("Initial O₂ saturation") [
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord boundary chemistry", version(0, 0, 0)) {
+	
+	}
+	
+	module("Simple River O₂", version(0, 1, 0)) {
+		
+		par_group("River oxygen") {
+			
+			par_real("Catchment O₂ saturation fraction") 
+			[ 0.9 ]
+			
+			par_real("Carbon Oxidation State alloch DOC") 
+			[ -0.5 ]
+		
+		}
 	
 	}
 

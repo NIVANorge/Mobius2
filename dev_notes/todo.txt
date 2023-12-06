@@ -9,7 +9,12 @@
 			Although... they could also just @exclude and re-declare.
 		
 		Specific models
-			NIVAFjord!!
+			NIVAFjord!
+				
+				Find out if there is something wrong with horizontal flow. It is very high.
+					E.g. find measurements and compare.
+					Alternatively, boundary values must be much more carefully set up.
+			
 				Go over wind mixing again, it seems a bit broken.
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
 				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
@@ -101,7 +106,7 @@
 	
 	*** Intermediate-pri ***
 	
-		
+		Doubling newlines when saving loaded text data..
 	
 		Finish moving over to having Data_Set as a Catalog, and related things.
 			

@@ -1,4 +1,4 @@
-module("EasyChem", version(0, 0, 2),
+module("EasyChem", version(0, 0, 3),
 	air    : compartment,
 	epi    : compartment,
 	hyp    : compartment,
@@ -41,6 +41,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		init_on      : par_real("Initial lake DON concentration", [m g, l-1], 0, 0, 1000)
 		init_p       : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
 		init_phyt    : par_real("Initial phytoplankton concentration", [m g, l-1], 0.5, 0.01, 1)
+		din_dep      : par_real("Direct lake DIN deposition", [k g, ha-1, year-1], 0, 0, 100)
 	}
 	
 	par_group("Oxygen", epi) {
@@ -48,8 +49,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		sod          : par_real("Background sediment O₂ demand", [g, m-2, day-1], 0.5, 0.1, 4)
 	}
 	
-	par_group("Nutrients", epi) {
-		din_dep      : par_real("Direct lake N deposition", [k g, ha-1, year-1], 0, 0, 100)
+	par_group("Nutrients") {
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
@@ -58,8 +58,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
-	par_group("Phytoplankton", epi) {
-		phyt_eq_20    : par_real("Phyto equilibrium at 20°C and no limitations", [m g, l-1], 0.01, 0, 5)
+	par_group("Phytoplankton") {
+		phyt_eq_20    : par_real("Chl-a of phyto at equilibrium", [m g, l-1], 0.01, 0, 5, "Assuming 20°C and no nutrient or light limitations.")
 		phyt_q10      : par_real("Temp adjustment of Phyto equilibrium", [], 2, 1, 4) #TODO: Call it Q10
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
 		
@@ -69,6 +69,11 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
+	
+	#par_group("Lake specific phytoplankton", epi) {
+	#	n_fix_frac : par_real("N fixation fraction", [], 0, 0, 1, "How large of the phytoplankton N consumption is fixated rather than uptake from the lake.")
+		#acc_f : par_real("Nutrient accessibility factor", [], 1, 0, 1, "Some plankton can swim and make use of deeper nutrients in parts where there is less light.")
+	#}
 	
 	p_vel     : property("O₂ piston velocity")
 	light_lim : property("Light limitation")
@@ -171,12 +176,13 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	equi : property("Equilibrium concentration")
 	
 	var(epi.water.phyt.equi, [m g, l-1], "Phytoplankton equilibrium concentration") {
-		q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10)*min(light_lim, min(N_lim, P_lim))
+		phyt_eq := q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10) / (chl_a_f->[]),
+		phyt_eq*min(light_lim, min(N_lim, P_lim))
 	}
 	
 	fix : property("Photosynthetic C fixation")
 	var(epi.water.phyt.fix, [k g, day-1]) {
-		max(0, phyt_turnover*(epi.water.phyt.equi*water->[k g] - phyt))
+		phyt_turnover*epi.water.phyt.equi*water ->>
 	}
 	
 	flux(out, epi.water.phyt, [k g, day-1], "Epilimnion photosynthetic C fixation") {   fix   }
@@ -204,7 +210,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	flux(out, epi.water.din, [k g, day-1], "Lake N deposition") { area*din_dep/365.25[day, year-1] ->> }
 	
-	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix * nc_molar_to_mass_ratio(phyt_nc)   }
+	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix  * nc_molar_to_mass_ratio(phyt_nc)   } # *(1 - n_fix_frac)  }
 	
 	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_p }
 	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
@@ -230,8 +236,9 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")  @initial_conc { init_on }
 	var(hyp.water.on, [k g], [m g, l-1], "Hypolimnion DON") @initial_conc { init_on }
 	
-	flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
-	flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
+	# Releasing N just doesn't give the right N balance in the data in Vansjø
+	#flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
+	#flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	
 	# TODO: DON mineralization (?). Difficult to parametrize maybe.
 	

@@ -69,9 +69,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	horz_flow : property("Horizontal flow")
 	var(edge_layer.horz_flow, [m 3, day-1], "Layer horizontal outflow") {
-		#NOTE: This could go in both directions
-		#dP := layer.water.pressure - layer.water.pressure[vert.below],
-	
+		#NOTE: This can be both positive and negative depending on the flow direction.
 		copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * layer.dz ->>
 	}
 	

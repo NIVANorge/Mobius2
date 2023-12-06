@@ -40,7 +40,7 @@ model("EasyLake-SimplyQ") {
 											loc(A_surf), loc(epi.water), ht : loc(epi.water.heat), ht, loc(epi.water.temp)))
 	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z_e, freeze_temp, area, A_surf, loc(downstream)))
 	
-	solve(simply_solver, epi.water, hyp.water, epi.ice)
+	solve(sol, epi.water, hyp.water, epi.ice)
 	
 	lake_index : index_set("Lake")
 	
