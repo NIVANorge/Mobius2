@@ -21,12 +21,12 @@ This module is not finished.
 		gw_conc_type     : par_enum("Groundwater DIN computation type", const) { const soil_avg mass_bal }
 		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0, "Only used if type is const")
 		#gw_din_hl        : par_real("Groundwater DIN half-life", [day], 100, 0, 10000, "Only used if type is mass_bal")
-		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day -1], 0.0, 0.0, 0.1)
+		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day-1], 0.0, 0.0, 0.1)
 		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}
 	
 	par_group("Soil DIN params varying by land use", soil) {
-		sw_din_init        : par_real("Initial soilwater DIN concentration", [m g, l -1], 0.0, 0.0, 10.0)
+		sw_din_init        : par_real("Initial soilwater DIN concentration", [m g, l-1], 0.0, 0.0, 10.0)
 		net_annual_N_input : par_real("Net annual DIN input to soil", [k g, ha-1, year-1], 0.0, 0.0, 1000.0)
 		fert_day           : par_int("Fertilizer addition day", [day], 60, 1, 365)
 		fert_n             : par_real("Fertilizer N", [k g, ha-1], 0, 0, 100)
@@ -34,7 +34,7 @@ This module is not finished.
 	}
 	
 	par_group("River DIN", river) {
-		eff_din : par_real("Reach effluent DIN inputs", [k g, day -1], 0.0, 0.0, 100.0)		
+		eff_din            : par_real("Reach effluent DIN inputs", [k g, day-1], 0.0, 0.0, 100.0)		
 	}
 	
 	var(soil.sn, [k g, k m-2], "Soil solid fertilizer N")

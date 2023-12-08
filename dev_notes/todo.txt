@@ -14,6 +14,9 @@
 				Find out if there is something wrong with horizontal flow. It is very high.
 					E.g. find measurements and compare.
 					Alternatively, boundary values must be much more carefully set up.
+					
+					Or make it more numerically stable by e.g. running just the horizontal exchange (+ vertical realignment) on a separate solver.
+						Was actually done in a discrete update in old NIVA fjord model, but how?
 			
 				Go over wind mixing again, it seems a bit broken.
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
@@ -25,7 +28,10 @@
 					Make it possible to interpolate parameter values, and set parameter values based on depth.
 						E.g. there is some system for assigning a value to a value, and saying what other parameter governs the ranges of the second value.
 				
-			EasyChem!!
+			EasyChem
+				Include organic P.
+				Make phyto only use PO4, not all TDP.
+				Figure out how to do effluents.
 			
 			Finish the simple hydraulics model.
 			

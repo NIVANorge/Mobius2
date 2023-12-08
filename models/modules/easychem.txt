@@ -70,10 +70,9 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
 	
-	#par_group("Lake specific phytoplankton", epi) {
-	#	n_fix_frac : par_real("N fixation fraction", [], 0, 0, 1, "How large of the phytoplankton N consumption is fixated rather than uptake from the lake.")
-		#acc_f : par_real("Nutrient accessibility factor", [], 1, 0, 1, "Some plankton can swim and make use of deeper nutrients in parts where there is less light.")
-	#}
+	par_group("Lake specific phytoplankton", epi) {
+		phyt_a : par_real("Phytoplankton amenability", [], 1, 0.5, 1.5, "Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration")
+	}
 	
 	p_vel     : property("O₂ piston velocity")
 	light_lim : property("Light limitation")
@@ -177,7 +176,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	var(epi.water.phyt.equi, [m g, l-1], "Phytoplankton equilibrium concentration") {
 		phyt_eq := q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10) / (chl_a_f->[]),
-		phyt_eq*min(light_lim, min(N_lim, P_lim))
+		phyt_eq*phyt_a*min(light_lim, min(N_lim, P_lim))
 	}
 	
 	fix : property("Photosynthetic C fixation")
