@@ -439,6 +439,8 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 					break;
 				}
 			}
+			if(std::find(par_group->direct_index_sets.begin(), par_group->direct_index_sets.end(), index_set_id) != par_group->direct_index_sets.end())
+				found = true;
 			if(!found) {
 				par_group_data->source_loc.print_error_header();
 				fatal_error("The par_group \"", par_group_data->name, "\" can not be indexed with the index set \"", name, "\" since none of its attached components are distributed over that index set in the model \"", model->model_name, "\".");
@@ -1352,6 +1354,11 @@ Model_Application::serialize(Var_Id id) {
 			ss << "regular_aggregate@";
 			ss << model->serialize(var2->agg_to_compartment) << '@';
 			ss << serialize(var2->agg_of);
+		} else if(var->type == State_Var::Type::parameter_aggregate) {
+			auto var2 = as<State_Var::Type::parameter_aggregate>(var);
+			ss << "parameter_aggregate@";
+			ss << model->serialize(var2->agg_to_compartment) << '@';
+			ss << model->serialize(var2->agg_of);
 		} else if(var->type == State_Var::Type::in_flux_aggregate) {
 			auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 			auto var_to = vars[var2->in_flux_to];

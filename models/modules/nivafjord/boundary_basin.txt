@@ -8,6 +8,7 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	temp      : property,
 	salinity  : property,
 	dz        : property,
+	h         : property,
 	rho       : property,
 	pressure  : property,
 	dz0       : par_real,
@@ -33,8 +34,6 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) * rho_water } #See note in basin.txt about maybe having salinity dependence of C_water
 	var(bnd_layer.water.salt, [k g], [k g, m-3], "Boundary layer salt") @override_conc { 1e-3*salinity*rho_water }
 	
-	h : property("Sea level")
-	
 	sea_level_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
 		amp * cos( (pi/180[deg])*(t*360[deg]/per - phase) )
 	}
@@ -54,6 +53,7 @@ module("NIVAFjord boundary", version(0, 0, 1),
 		#TODO: Check that it is correct to use the hour of year rather than the hour of day. Maybe it needs to use absolute hour (relative to a start date)?
 		hour := (time.second_of_day + time.step_length_in_seconds * time.fractional_step)->[hr] + time.day_of_year->[hr],
 		sea_level(hour)->[m]
+		#0[m]
 	}
 	
 	var(bnd_layer.dz, [m], "Boundary layer thickness") {

@@ -14,7 +14,6 @@ model("NIVAFjord") {
 	salt  : quantity("Salt")
 	heat  : quantity("Heat energy")
 	
-	
 	temp     : property("Temperature")
 	salinity : property("Salinity")
 	precip   : property("Precipitation")
@@ -31,13 +30,15 @@ model("NIVAFjord") {
 	
 	z  : property("Depth")
 	dz : property("Thickness")
+	h : property("Sea level")
+	evap : property("Evaporation")
 	
 	vert    : connection("Fjord vertical") @grid1d(layer, layer_idx)
 	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 	
-	par_group("Fjord global parameters") {
+	par_group("Layer thickness") {
 		dz0    : par_real("Stable layer thickness", [m], 1, 0.1, 5)
-	}
+	} @index_with(all_basins, layer_idx)
 	
 	par_group("Layer parameters", layer) {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
@@ -45,10 +46,10 @@ model("NIVAFjord") {
 	
 	load("modules/atmospheric.txt", module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
 	
-	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,
+	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
 											loc(A[vert.top]), loc(layer.water[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
-	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sed, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, freeze_temp, vert, sw_vert, A, dz0))
+	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sed, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, vert, sw_vert, A, dz0))
 	
 	aggregation_weight(layer, layer, sw_vert) { A[sw_vert.below]/A }#A / A[sw_vert.below] }
 	
@@ -66,7 +67,7 @@ model("NIVAFjord") {
 	distribute(bnd_basin, bnd_basin_idx)
 	distribute(bnd_layer, bnd_basin_idx, layer_idx)
 	
-	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, rho, pressure, dz0, vert))
+	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, dz0, vert))
 	
 	sol : solver("Simply solver", inca_dascru, [hr], 1e-2)
 	

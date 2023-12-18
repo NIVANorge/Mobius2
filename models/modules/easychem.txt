@@ -72,6 +72,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	par_group("Lake specific phytoplankton", epi) {
 		phyt_a : par_real("Phytoplankton amenability", [], 1, 0.5, 1.5, "Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration")
+		#phyt_b : par_real("Phytoplankton amenability - depth factor", [], 0, 0, 10)
 	}
 	
 	p_vel     : property("O₂ piston velocity")
@@ -176,6 +177,9 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	var(epi.water.phyt.equi, [m g, l-1], "Phytoplankton equilibrium concentration") {
 		phyt_eq := q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10) / (chl_a_f->[]),
+		
+		#phyt_a := 1-phyt_b*ln(depth+1)
+		
 		phyt_eq*phyt_a*min(light_lim, min(N_lim, P_lim))
 	}
 	
@@ -256,7 +260,8 @@ module("EasyChem-Particulate", version(0, 0, 2),
 	sed   : quantity,
 	phos  : quantity,
 	wind  : property,
-	area  : property
+	area  : property,
+	downstream : connection
 ) {
 """
 Particle transport and settling for EasyChem.
@@ -291,6 +296,22 @@ Particle transport and settling for EasyChem.
 	flux(hyp.water.sed, out, [k g, day-1], "Hypolimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
 	}
+	
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	
+	/* # This is tricky without a 3d model...
+	# The idea is that heavier sediments that are prevalent during high flow settle more quickly once the water slows down near the inlet.
+	flux(epi.water.sed, out, [k g, day-1], "Epilimnion SS inlet settling") {
+		in_s := in_flux(downstream, epi.water.sed),
+		in_q := in_flux(downstream, epi.water),
+		in_conc := in_s/in_q -> [m g, l-1],
+		#in_s * s_response(in_conc, 5.[m g, l-1], 10.[m g, l-1], 0., 0.5)
+		#in_s * min(1, (max(in_conc/5[m g, l-1], 1)^2 - 1))
+		#0=>>
+		in_s * min(1, (max(conc(sed)/6[m g, l-1], 1)^2 - 1))
+	}
+	*/
 	
 	#TODO: The below seems to not work that well.
 	/*

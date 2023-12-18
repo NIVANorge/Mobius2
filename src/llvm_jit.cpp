@@ -193,9 +193,12 @@ jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	data->resource_tracker = global_jit->getMainJITDylib().createResourceTracker();
 	auto tsm = llvm::orc::ThreadSafeModule(std::move(data->module), std::move(data->context));
 	auto maybe_error = global_jit->addModule(std::move(tsm), data->resource_tracker);
-	if(maybe_error)
-		fatal_error(Mobius_Error::internal, "Failed to jit compile module.");
-	
+	if(maybe_error) {
+		std::string errstr;
+		llvm::raw_string_ostream errstream(errstr);
+		errstream << maybe_error;
+		fatal_error(Mobius_Error::internal, "Failed to jit compile module: ", errstream.str(), " .");
+	}
 	//TODO: Put a flag on the data to signify that it is now compiled (can't add more stuff to it), and properly error handle in other procs.
 }
 
@@ -283,7 +286,6 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	
 	build_expression_ir(batch_code, nullptr, args, data);
 	data->builder->CreateRetVoid();
-	
 	
 	std::string errmsg = "";
 	llvm::raw_string_ostream errstream(errmsg);

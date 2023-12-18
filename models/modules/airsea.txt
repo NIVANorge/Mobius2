@@ -17,6 +17,7 @@ module("AirSea", version(0, 1, 1),
 	attn      : property,
 	freeze_temp : property,
 	indicator : property,
+	evap      : property,
 	
 	A_surf            : loc,
 	top_water         : loc,
@@ -54,7 +55,6 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	s_hum  : property("Saturation specific humidity")
 	lwu    : property("Emitted longwave radiation")
 	albedo : property("Albedo")
-	evap_mm : property("Evaporation (mm)")
 	
 	energy    : property("Freeze energy")
 	
@@ -101,23 +101,19 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 		(!surf.ice.indicator) * A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) ->>
 	}
 	
-	var(surf.evap_mm, [m m, day-1]) {
+	var(surf.evap, [m m, day-1]) {
 		rho_ref := 1025 [k g, m-3],
 		(!surf.ice.indicator) * (air.rho / rho_ref) * chd * air.wind * (s_hum - air.a_hum) ->>
 	}
 	
-	flux(top_water, out, [m 3, day-1], "Evaporation") {  surf.evap_mm * A_surf ->>  } @no_carry
+	flux(top_water, out, [m 3, day-1], "Evaporation") {  surf.evap * A_surf ->>  } @no_carry
 	
 	flux(out, top_water, [m 3, day-1], "Precipitation to surface") {   air.precip * A_surf ->>   }
 	
 	flux(out, top_water_heat, [J, day-1], "Precipitation heat") {
 		precip_t := max(0[deg_c], air.temp),
-		#0 if surf.ice.indicator,
-		#{
-		#precip_t := air.temp,
 		V := A_surf*air.precip -> [m 3, day-1],   
-		water_temp_to_heat(V => [m 3], precip_t) => [J, day-1] # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function
-		#} otherwise
+		water_temp_to_heat(V => [m 3], precip_t) => [J, day-1] # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function.
 	}
 	
 	var(surf.ice, [m], "Ice thickness") @initial { init_ice }

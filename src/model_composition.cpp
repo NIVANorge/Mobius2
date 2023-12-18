@@ -185,6 +185,13 @@ struct
 Code_Special_Lookups {
 	std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>>            in_fluxes;
 	std::map<Var_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
+	// aggregates[agg_of] is a pair ( (to_compartment), (looked_up_by) )
+	/* where
+		agg_of is the variable that needs an aggregation variable
+		to_compartment is a set of compartments whose point of view we need an aggregate from
+		looked_up_by   is a list of other variables who need to veiw this aggregate from their function.
+	*/
+	std::map<Entity_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> par_aggregates;
 };
 
 void
@@ -218,10 +225,22 @@ find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_L
 			}
 			
 			if(specials) {
-				//TODO: This is not correct if this was applied to an input series! If we want to allow that (which we eventually will), we may need another system.
-				specials->aggregates[ident->var_id].first.insert(lookup_compartment);
-				if(is_valid(looked_up_by))
-					specials->aggregates[ident->var_id].second.push_back(looked_up_by);
+				if(ident->variable_type == Variable_Type::parameter) {
+					auto &agg_data = specials->par_aggregates[ident->par_id];
+					agg_data.first.insert(lookup_compartment);
+					if(is_valid(looked_up_by))
+						agg_data.second.push_back(looked_up_by);
+				} else if (ident->variable_type == Variable_Type::state_var) {
+					auto &agg_data = specials->aggregates[ident->var_id];
+					agg_data.first.insert(lookup_compartment);
+					if(is_valid(looked_up_by))
+						agg_data.second.push_back(looked_up_by);
+				} else if (ident->variable_type == Variable_Type::series) {
+					//TODO: Why did we determine that the state_var way of doing it doesn't work for input series?
+					// TODO: Make it use the above code and debug what happens (fix errors).
+					fatal_error(Mobius_Error::internal, "aggregate() is not implemented for input series.");
+				} else
+					fatal_error(Mobius_Error::internal, "Got an aggregate() for an unexpected variable type.");
 			}	
 		}
 	}
@@ -257,6 +276,29 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 
 	return expr;
 }
+
+Math_Expr_FT *
+replace_flagged_par(Math_Expr_FT *expr, Entity_Id replace_this, Var_Id with, Identifier_FT::Flags flag) {
+	for(int idx = 0; idx < expr->exprs.size(); ++idx)
+		expr->exprs[idx] = replace_flagged_par(expr->exprs[idx], replace_this, with, flag);
+	
+	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
+	
+	auto ident = static_cast<Identifier_FT *>(expr);
+	
+	if(ident->variable_type == Variable_Type::parameter
+		&& (ident->par_id == replace_this)
+		&& (ident->has_flag(flag))
+	) {
+		//ident->par_id = invalid_entity_id; // Ooops, since this is a union, this should not be set after ident->var_id
+		ident->var_id = with;
+		ident->variable_type = Variable_Type::state_var;
+		ident->remove_flag(flag);
+	}
+	
+	return expr;
+}
+
 
 void
 insert_dependency_helper(Mobius_Model *model, Index_Set_Tuple &index_sets, Entity_Id index_set) {
@@ -349,7 +391,6 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 		
 	auto model = app->model;
 	auto par = model->parameters[dep.par_id];
-	//auto group = model->par_groups[par->par_group];
 	auto group = model->par_groups[par->scope_id];
 	
 	Entity_Id exclude = avoid_index_set_dependency(app, dep.restriction);
@@ -361,6 +402,10 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 				insert_dependency_helper(model, maximal_group_sets, index_set);
 		}
 	}
+	for(auto index_set : group->direct_index_sets) {
+		if(index_set != exclude)
+			insert_dependency_helper(model, maximal_group_sets, index_set);
+	}	
 	
 	return index_sets_are_contained_in(model, maximal_group_sets, allowed_index_sets);
 }
@@ -382,6 +427,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	for(auto &dep : code_depends) {
 		
 		if(dep.variable_type == Variable_Type::parameter) {
+			
 			if(!parameter_indexes_below_location(app, dep, allowed_index_sets)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
@@ -405,7 +451,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 				dep_var = app->vars[as<State_Var::Type::in_flux_aggregate>(dep_var)->in_flux_to];
 			
 			// If it is an aggregate, index set dependencies will be generated to be correct.
-			if(dep_var->type == State_Var::Type::regular_aggregate)
+			if(dep_var->type == State_Var::Type::regular_aggregate || dep_var->type == State_Var::Type::parameter_aggregate)
 				continue;
 			
 			// If it is a conc, check vs the mass instead.
@@ -1602,8 +1648,6 @@ Model_Application::compose_and_resolve() {
 			loc1 = vars[var2->conc_of]->loc1;
 		}
 		
-		auto source = model->components[loc1.first()];
-		
 		for(auto to_compartment : need_agg.second.first) {
 			
 			Math_Expr_FT *agg_weight = get_aggregation_weight(this, loc1, to_compartment);
@@ -1617,22 +1661,23 @@ Model_Application::compose_and_resolve() {
 			auto agg_var = as<State_Var::Type::regular_aggregate>(vars[agg_id]);
 			agg_var->agg_of = var_id;
 			agg_var->aggregation_weight_tree = owns_code(agg_weight);
-			if(var->is_flux())
+			if(var->is_flux()) {
 				agg_var->set_flag(State_Var::flux);
 			
-			// TODO: Set the unit of the agg_var (only relevant if it is displayed somewhere, it is not function critical).
-			//   It is a bit tricky because of potential unit conversions and the fact that the unit of aggregated fluxes could be re-scaled to the time step.
-			
-			var = vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
-
-			// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:
-			agg_var->loc1.type = Var_Location::Type::out;
-			agg_var->loc2 = var->loc2;
-			var->loc2.type = Var_Location::Type::out;
-			
-			// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
-			//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
-			agg_var->unit_conversion_tree = std::move(var->unit_conversion_tree);
+				// TODO: Set the unit of the agg_var (only relevant if it is displayed somewhere, it is not function critical).
+				//   It is a bit tricky because of potential unit conversions and the fact that the unit of aggregated fluxes could be re-scaled to the time step.
+				
+				
+				var = vars[var_id];   //NOTE: had to look it up again since we may have resized the vector var pointed into
+				// NOTE: it makes a lot of the operations in model_compilation more natural if we decouple the fluxes like this:
+				agg_var->loc1.type = Var_Location::Type::out;
+				agg_var->loc2 = var->loc2;
+				var->loc2.type = Var_Location::Type::out;
+				
+				// NOTE: it is easier to keep track of who is supposed to use the unit conversion if we only keep a reference to it on the one that is going to use it.
+				//   we only multiply with the unit conversion at the point where we add the flux to the target, so it is only needed on the aggregate.
+				agg_var->unit_conversion_tree = std::move(var->unit_conversion_tree);
+			}
 			
 			agg_var->agg_to_compartment = to_compartment;
 			
@@ -1657,6 +1702,66 @@ Model_Application::compose_and_resolve() {
 			}
 		}
 	}
+	
+	for(auto &need_agg : specials.par_aggregates) {
+		auto par_id = need_agg.first;
+		auto par = model->parameters[par_id];
+		auto par_group = model->par_groups[par->scope_id];
+		
+		// TODO: This restriction may not be necessary.
+		if(par_group->components.size() > 1) {
+			// TODO; Would like to print a source location here.
+			fatal_error(Mobius_Error::model_building, "Trying to declare an aggregate() of the parameter \"", par->name, "\", but it does not belong to a group that is attached to exactly 0 or 1 components.");
+		}
+		
+		for(auto to_compartment : need_agg.second.first) {
+			
+			Math_Expr_FT *agg_weight = nullptr;
+			
+			if(par_group->components.size() > 0) {
+				// Hmm, a bit hacky in order to reuse other API
+				Specific_Var_Location loc1;
+				loc1.type = Var_Location::Type::located;
+				loc1.n_components = 1;
+				loc1.components[0] = par_group->components[0];
+				get_aggregation_weight(this, loc1, to_compartment);
+			}
+			
+			sprintf(varname, "aggregate(%s, %s)", par->name.data(), model->components[to_compartment]->name.data());
+			Var_Id agg_id = register_state_variable<State_Var::Type::parameter_aggregate>(this, invalid_entity_id, false, varname, true);
+			
+			auto agg_var = as<State_Var::Type::parameter_aggregate>(vars[agg_id]);
+			agg_var->agg_of = par_id;
+			agg_var->aggregation_weight_tree = owns_code(agg_weight);
+			
+			// TODO: Set the unit of the agg_var (only relevant if it is displayed somewhere, it is not function critical).
+			agg_var->agg_to_compartment = to_compartment;
+			
+			for(auto looked_up_by : need_agg.second.second) {
+				auto lu = as<State_Var::Type::declared>(vars[looked_up_by]);
+				
+				Entity_Id lu_compartment = lu->loc1.first();
+				if(!is_located(lu->loc1)) {
+					lu_compartment = lu->loc2.first();
+					if(!is_located(lu->loc2))
+						fatal_error(Mobius_Error::internal, "We somehow allowed a non-located state variable to look up an aggregate.");
+				}
+
+				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the structure?
+				
+				// TODO: Need a replace_flagged that works for parameters.
+				
+				if(lu->function_tree)
+					replace_flagged_par(lu->function_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
+				if(lu->override_tree)
+					replace_flagged_par(lu->override_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
+				if(lu->initial_function_tree)
+					replace_flagged_par(lu->initial_function_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
+				
+			}
+		}
+	}
+	
 	
 	// TODO: Should we give an error if there is a connection flux on an overridden variable?
 	

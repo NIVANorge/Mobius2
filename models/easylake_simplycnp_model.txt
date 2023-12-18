@@ -13,7 +13,7 @@ model("EasyLake-SimplyCNP") {
 	
 	load("modules/easychem.txt", 
 		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, ice, sed, temp, sw, wind, indicator, tp, tn, toc, sed_oc, area),
-		module("EasyChem-Particulate", air, epi, hyp, bot, water, sed, phos, wind, area)
+		module("EasyChem-Particulate", air, epi, hyp, bot, water, sed, phos, wind, area, downstream)
 	)
 	
 	module("Simple River O₂", version(0, 1, 0)) {

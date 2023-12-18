@@ -20,6 +20,7 @@ State_Var {
 		dissolved_conc        = 5,
 		external_computation  = 6,
 		step_resolution       = 7,
+		parameter_aggregate   = 8,
 	} type = Type::declared;
 	
 	enum Flags {
@@ -109,9 +110,18 @@ template<> struct
 State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
 	Var_Id         agg_of                    = invalid_var;    // The variable this is an aggregate of
 	Entity_Id      agg_to_compartment        = invalid_entity_id;    // From which point of view we are aggregating.
-	owns_code      aggregation_weight_tree;
+	owns_code      aggregation_weight_tree   = nullptr;
 	
-	State_Var_Sub() : aggregation_weight_tree(nullptr) {}
+	State_Var_Sub() {}
+};
+
+template<> struct
+State_Var_Sub<State_Var::Type::parameter_aggregate> : State_Var {
+	Entity_Id      agg_of                    = invalid_entity_id;
+	Entity_Id      agg_to_compartment        = invalid_entity_id;
+	owns_code      aggregation_weight_tree   = nullptr;
+	
+	State_Var_Sub() {}
 };
 
 template<> struct

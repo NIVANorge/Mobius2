@@ -36,7 +36,7 @@ model("NIVAFjord-SimplyQ") {
 	}
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
-		module("NIVAFjord horizontal fluxes", basin, layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, horz, vert, w_bnd))
+		module("NIVAFjord horizontal fluxes", air, basin, layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, precip, evap, horz, vert, w_bnd, A))
 	
 	#tracer : quantity("Tracer")
 	#load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, bnd_layer, river, water, tracer))

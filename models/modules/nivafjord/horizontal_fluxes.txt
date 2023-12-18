@@ -1,5 +1,6 @@
 
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
+	air    : compartment,
 	basin  : compartment,
 	layer  : compartment,
 	river  : compartment,
@@ -13,10 +14,13 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	rho    : property,
 	pressure : property,
 	dz     : property,
+	precip : property,
+	evap   : property,
 	
 	horz   : connection,
 	vert   : connection,
-	w_bnd  : par_real
+	w_bnd  : par_real,
+	A      : par_real
 ) {
 
 	load("stdlib/seawater.txt", library("Seawater"))
@@ -62,15 +66,50 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		w_bnd
 	} @allow_connection(layer, horz)
 	
-	dP : property("Pressure differential")
+	dP : property("Pressure difference")
 	var(edge_layer.dP, [Pa]) {
 		layer.water.pressure - layer.water.pressure[horz.below]
+	}
+	
+	/*
+	
+	# Note: The only reason we don't just pass the h-value directly to the external comp is that we can't get h[horz.below] since basin is not on the connection.
+	#    This is annoying and should be possible to do somehow.
+	# Maybe need sub-compartments, and then only put the parent compartment on the connection, which would also be good for EasyReservoir.
+	
+	align_z : property("Aligned depth")
+	
+	var(layer.align_z, [m], "Aligned depth of layer bottom") {
+		dz - basin.h                   if is_at[vert.top],
+		layer.h[vert.above] + dz       otherwise
+	} @no_store
+	
+	var(bnd_layer.align_z, [m], "Aligned depth of boundary layer bottom") {
+		dz - bnd_basin.h               if is_at[vert.top],
+		bnd_basin.h[vert.above] + dz   otherwise,
+	} @no_store
+	
+	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge) {
+		result(edge_layer.dP)
+		layer.align_z
+		layer.align_z[horz.below]
+		layer.dz
+		layer.dz[horz.below]
+		layer.water.pressure
+		layer.water.pressure[horz.below]
+	} @allow_connection(layer, horz)
+	*/
+	
+	horz_flow_vel : property("Horizontal flow velocity")
+	var(edge_layer.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
+		copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
 	}
 	
 	horz_flow : property("Horizontal flow")
 	var(edge_layer.horz_flow, [m 3, day-1], "Layer horizontal outflow") {
 		#NOTE: This can be both positive and negative depending on the flow direction.
-		copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * layer.dz ->>
+		#copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * layer.dz ->>
+		horz_flow_vel*w_bnd*layer.dz->>
 	}
 	
 	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
@@ -89,9 +128,20 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(layer.water.align, [m 3, day-1])
 	
 	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
+	/*
 	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
 		result(layer.water.align)
 		layer.water.horz_bal
+	}
+	*/
+	surf_bal : property("Surface water balance") # Could also be computed in airsea..
+	var(basin.surf_bal, [m 3, day-1]) {   (evap - air.precip)*A[vert.top] ->>   }
+	
+	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_even_distrib", basin) {
+		result(layer.water.align)
+		layer.water.horz_bal
+		A
+		basin.surf_bal
 	}
 	
 	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {

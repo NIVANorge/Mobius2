@@ -632,7 +632,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	}
 	auto ident = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
 	bool can_series = (directive != Directive::in_flux) && (directive != Directive::conc);
-	bool can_param  = false;
+	bool can_param  = (directive == Directive::aggregate);
 	if(!(ident->variable_type == Variable_Type::state_var || (can_series && ident->variable_type == Variable_Type::series) || (can_param && ident->variable_type == Variable_Type::parameter))) {
 		ident->source_loc.print_error_header();
 		error_print("A ", fun_name, "() declaration can only be applied to a state variable");

@@ -527,6 +527,28 @@ make_add_to_aggregate_instr(Model_Application *app, std::vector<Model_Instructio
 	return add_to_aggr_id;
 }
 
+int
+make_add_to_par_aggregate_instr(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id agg_var, Entity_Id agg_of) {
+	
+	int add_to_aggr_id = instructions.size();
+	instructions.emplace_back();
+	auto &add_to_aggr_instr = instructions[add_to_aggr_id];
+	
+	add_to_aggr_instr.type = Model_Instruction::Type::add_to_par_aggregate;    // TODO: Doesn't exist
+	
+	// Repurposing existing api, so it is a bit awkward.
+	Identifier_Data dep;
+	dep.variable_type = Variable_Type::parameter;
+	dep.par_id = agg_of;
+	insert_dependencies(app, &add_to_aggr_instr, dep);
+	
+	fatal_error(Mobius_Error::internal, "Not implemented generate add to agg for parameter");
+	
+	instructions[agg_var.id].depends_on_instruction.insert(add_to_aggr_id);
+	
+	return add_to_aggr_id;
+}
+
 void
 process_grid1d_connection_aggregation(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id agg_id, Var_Id flux_id, int clear_id, bool is_first) {
 	
@@ -940,6 +962,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			auto agg_of = var2->agg_of;
 			auto var_solver = instructions[agg_of.id].solver;
 			
+			// TODO: If we are in the initial step, we would not need to clear it.
 			int clear_id = make_clear_instr(instructions, var_id, var_solver);
 			make_add_to_aggregate_instr(app, instructions, var_solver, var_id, agg_of, clear_id);
 			
@@ -961,6 +984,19 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				fatal_error(Mobius_Error::internal, "Got aggregation variable for connection fluxes without a solver.");
 			
 			set_up_connection_aggregation(app, instructions, var_id);
+			
+		} else if(initial && var->type == State_Var::Type::parameter_aggregate) { // NOTE: These can be computed in the initial step, and don't need updating after that
+			
+			auto var2 = as<State_Var::Type::parameter_aggregate>(var);
+			auto agg_of = var2->agg_of;
+			// Don't need to clear it, it is only computed in the initial step.
+			
+			make_add_to_par_aggregate_instr(app, instructions, var_id, var2->agg_of);
+			
+			auto agg_instr = &instructions[var_id.id];
+			auto agg_to_comp = model->components[var2->agg_to_compartment];
+			for(auto index_set : agg_to_comp->index_sets)
+				insert_dependency(app, agg_instr, index_set);
 		}
 		
 		if(initial || !var->is_flux()) continue;

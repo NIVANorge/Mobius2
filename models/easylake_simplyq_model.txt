@@ -21,7 +21,7 @@ model("EasyLake-SimplyQ") {
 	freeze_temp : property("Ice formation temperature")
 	indicator : property("Ice indicator")
 	
-	evap_mm  : property("Evaporation per area")
+	evap  : property("Evaporation")
 	
 	heat : quantity("Heat energy")
 	
@@ -36,7 +36,7 @@ model("EasyLake-SimplyQ") {
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
-	load("modules/airsea.txt",         module("AirSea", "AirSea Lake", air, epi, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,
+	load("modules/airsea.txt",         module("AirSea", "AirSea Lake", air, epi, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
 											loc(A_surf), loc(epi.water), ht : loc(epi.water.heat), ht, loc(epi.water.temp)))
 	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z_e, freeze_temp, area, A_surf, loc(downstream)))
 	

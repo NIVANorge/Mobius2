@@ -1,12 +1,12 @@
 data_set {
 	
 """
-TODO: Need to configure all the parameters correctly.
-TODO: Some part of the catchment that is not Mosselva (small).
+TODO: Need to configure all the parameters correctly.
+TODO: Some part of the catchment that is not Mosselva (small).
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
-	time_step([day])
+	time_step([3, hr])
 	
 	basin : index_set("Basin index") [ "Mossesundet" ]
 	
@@ -51,13 +51,6 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		
 		par_datetime("End date") 
 		[ 2019-01-01 ]
-	
-	}
-	
-	par_group("Fjord global parameters") {
-		
-		par_real("Stable layer thickness") 
-		[ 1 ]
 	
 	}
 	
@@ -338,7 +331,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Horizontal exchange") {
 			
 			par_real("Pressure difference flow coefficient") 
-			[ 0.01 ]
+			[ 0.1 ]
 		
 		}
 	

@@ -16,6 +16,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	attn      : property,
 	z         : property,
 	dz        : property,
+	h         : property,
 	freeze_temp : property,
 	vert      : connection,
 	sw_vert   : connection,
@@ -69,6 +70,10 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(layer.z, [m], "Depth (to bottom of layer)") {
 		z[vert.above] + dz[vert.above]
 	} @no_store
+	
+	var(basin.h, [m], "Sea level") {
+		aggregate(layer.dz) - aggregate(dz0) # TODO: Can't aggregate parameter yet.
+	}
 	
 	var(layer.water, [m 3], "Layer water") @initial { A*dz0 }
 	

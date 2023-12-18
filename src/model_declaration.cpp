@@ -474,7 +474,7 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 	{
 		{Token_Type::quoted_string},
 		{Token_Type::quoted_string, {Decl_Type::compartment, true}},
-	}, false, -1);
+	}, false, -1, true);
 	
 	auto parent_scope = catalog->get_scope(scope_id);
 	
@@ -483,9 +483,26 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 	set_serial_name(catalog, this);
 	scope.parent_id = id;
 	
+	// TODO: Don't allow duplicate components or index sets.
+	
 	if(which >= 1) {
 		for(int idx = 1; idx < decl->args.size(); ++idx)
 			components.push_back(parent_scope->resolve_argument(Reg_Type::component, decl->args[idx]));
+	}
+	
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "index_with") {
+			
+			match_declaration_base(note, {{{Decl_Type::index_set, true}}}, 0);
+			
+			for(auto arg : note->args)
+				direct_index_sets.push_back(parent_scope->resolve_argument(Reg_Type::index_set, arg));
+			
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note type '", str, "' for par_group declaration.");
+		}
 	}
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->body);

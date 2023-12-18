@@ -2,14 +2,20 @@
 
 	*** High pri ***
 		
-		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Data_Set. Could instead just have the decl be
-			compartment("Soil", sc, lu)
-		like in the data set connection components.
-			Maybe not, because we could want extending models to distribute differently.
-			Although... they could also just @exclude and re-declare.
+		
+		Why is NIVAFjord run speed affected by adding a new property to edge_layer (that is not referenced).
+			Only when it ends up in a discrete batch. Causes itself *and* dP to be NaN, but in theory it should not affect dP or anything else..
+	
+		FINISH THIS: (!)
+			Need to be able to aggregate(parameter).
+				Make agg. var. for it (needs same var_id. in initial and model_run step), then only compute it in the initial step (value is then copied forward).
+					no_store by default.
 		
 		Specific models
 			NIVAFjord!
+			
+				Non-aligned layers -> have to take into account alignment when computing pressure difference.
+			
 				
 				Find out if there is something wrong with horizontal flow. It is very high.
 					E.g. find measurements and compare.
@@ -32,6 +38,8 @@
 				Include organic P.
 				Make phyto only use PO4, not all TDP.
 				Figure out how to do effluents.
+				
+				Less light availability due to lake browning.
 			
 			Finish the simple hydraulics model.
 			
@@ -111,8 +119,20 @@
 
 	
 	*** Intermediate-pri ***
+		
+		Is it really necessary to both have a function_tree and an override_tree ? Seems to cause extra work, and they are really just the same thing.
+		
+	
+		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Data_Set. Could instead just have the decl be
+			compartment("Soil", sc, lu)
+		like in the data set connection components.
+			Maybe not, because we could want extending models to distribute differently.
+			Although... they could also just @exclude and re-declare.
+	
+		mobipy slow to load easylake_simplycnp?
 	
 		Doubling newlines when saving loaded text data..
+			Should have better processing of docstrings in general.
 	
 		Finish moving over to having Data_Set as a Catalog, and related things.
 			

@@ -17,6 +17,7 @@ Model_Instruction {
 		subtract_discrete_flux_from_source,
 		add_discrete_flux_to_target,
 		add_to_aggregate,
+		add_to_parameter_aggregate,
 		add_to_connection_aggregate,
 		external_computation,
 	}                   type = Type::invalid;

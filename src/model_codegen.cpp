@@ -128,7 +128,11 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			if(var->type == State_Var::Type::dissolved_flux) {
 				auto var2 = as<State_Var::Type::dissolved_flux>(var);
 				auto conc = as<State_Var::Type::dissolved_conc>(app->vars[var2->conc]);
-				instr.code = make_binop('*', make_state_var_identifier(var2->conc), make_possibly_time_scaled_ident(app, var2->flux_of_medium));
+				
+				auto conc_code = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
+				conc_code->restriction = var2->loc1; // Need to put the same 'restriction' on concentration as the source of the flux.
+				
+				instr.code = make_binop('*', conc_code, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
 				// TODO: Here we could also just do the re-computation of the concentration so that we don't get the back-and-forth unit conversion...
 				
 				if(conc->unit_conversion != 1.0)
@@ -280,6 +284,10 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				weight = copy(weight);
 			
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, nullptr);
+		} else if (instr.type == Model_Instruction::Type::add_to_parameter_aggregate) {
+			
+			fatal_error(Mobius_Error::internal, "Unimplemented codegen for add to parameter aggregate.");
+			//auto agg_var = 
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_connection_aggregate) {
 			
