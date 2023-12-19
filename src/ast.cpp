@@ -891,6 +891,8 @@ parse_map(Token_Stream *stream) {
 	auto map = new Data_Map_AST();
 	
 	auto open = stream->expect_token('[');
+	stream->expect_token('!');
+	
 	while(true) {
 		auto token = stream->read_token();
 		auto t = token.type;
@@ -921,19 +923,26 @@ parse_map(Token_Stream *stream) {
 Data_AST *
 parse_list_or_map(Token_Stream *stream, Data_Type expected_type) {
 	
-	auto peek2 = stream->peek_token(2);
+	auto peek2 = stream->peek_token(1);
 	Data_Type found_type = Data_Type::list;
-	if((char)peek2.type == ':')
+	if((char)peek2.type == '!')
 		found_type = Data_Type::map;
 	if(expected_type == Data_Type::list && found_type == Data_Type::map) {
 		peek2.print_error_header();
 		fatal_error("Expected a simple list, not a map");
 	}
 	// NOTE: If the expected type is a map, a list is still allowed.
+	
 	if(found_type == Data_Type::list)
 		return parse_list(stream);
-	else if(found_type == Data_Type::map)
-		return parse_map(stream);
+	else if(found_type == Data_Type::map) {
+		// NOTE: The time format clashes with the map format so we can't allow those inside maps
+		bool allow_date_time_before = stream->allow_date_time_tokens;
+		stream->allow_date_time_tokens = false;
+		auto result = parse_map(stream);
+		stream->allow_date_time_tokens = allow_date_time_before;
+		return result;
+	}
 	
 	return nullptr;
 }

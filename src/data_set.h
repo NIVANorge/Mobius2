@@ -140,6 +140,22 @@ Quick_Select_Data : Registration_Base {
 };
 
 struct
+Position_Map_Data : Registration_Base {
+	
+	// NOTE: This is just in order to store sufficient info to save it out again.
+	// The processed data that will be used is stored in the index_data.
+	
+	Entity_Id           index_set_id = invalid_entity_id;
+	std::vector<s64>    index_vals_raw;
+	std::vector<double> y_vals_raw;
+	bool raw_is_widths = false;
+	bool linear_interp = false;
+	std::vector<double> expanded_ys;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
 Data_Set : Catalog {
 	
 	Data_Set() : index_data(this) {
@@ -155,6 +171,7 @@ Data_Set : Catalog {
 	Registry<Component_Data,    Reg_Type::component>  components;
 	Registry<Connection_Data,   Reg_Type::connection> connections;
 	Registry<Quick_Select_Data, Reg_Type::quick_select> quick_selects;
+	Registry<Position_Map_Data, Reg_Type::position_map> position_maps;
 	
 	Index_Data                      index_data;
 	

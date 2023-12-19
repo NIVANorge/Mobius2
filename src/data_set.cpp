@@ -20,7 +20,7 @@ Data_Set::registry(Reg_Type reg_type) {
 		case Reg_Type::index_set :                return &index_sets;
 		case Reg_Type::connection :               return &connections;
 		case Reg_Type::quick_select :             return &quick_selects;
-		//case Reg_Type::position_map :             return &position_maps;
+		case Reg_Type::position_map :             return &position_maps;
 		case Reg_Type::module :                   return &modules;
 		case Reg_Type::module_template :          return &modules; // NOTE: This is because module is associated to module_template in get_reg_type (for convenience in model_declaration)
 	}
@@ -518,7 +518,7 @@ Quick_Select_Data::process_declaration(Catalog *catalog) {
 
 
 void
-process_position_map(Data_Set *data_set, Decl_Scope *scope, Decl_AST *decl) {
+Position_Map_Data::process_declaration(Catalog *catalog) {
 	
 	
 	// TODO: Ouch, we need to store the raw data from the declaration in order to be able to save it out again, so we need to store it as a registration..
@@ -531,8 +531,9 @@ process_position_map(Data_Set *data_set, Decl_Scope *scope, Decl_AST *decl) {
 		fatal_error("Expected data in a map format.");
 	}
 	
-	//auto scope = catalog->get_scope(scope_id);
-	auto index_set_id = scope->resolve_argument(Reg_Type::index_set, decl->args[0]);
+	auto data_set = static_cast<Data_Set *>(catalog);
+	auto scope = catalog->get_scope(scope_id);
+	index_set_id = scope->resolve_argument(Reg_Type::index_set, decl->args[0]);
 	
 	if(!data_set->index_data.are_all_indexes_set(index_set_id)) {
 		decl->source_loc.print_error_header();
@@ -544,9 +545,6 @@ process_position_map(Data_Set *data_set, Decl_Scope *scope, Decl_AST *decl) {
 	}
 	
 	s64 max_count = data_set->index_data.get_max_count(index_set_id).index;
-	
-	std::vector<s64> index_vals_raw;
-	std::vector<double> y_vals_raw;
 	
 	auto map_data = static_cast<Data_Map_AST *>(decl->data);
 	
@@ -560,16 +558,18 @@ process_position_map(Data_Set *data_set, Decl_Scope *scope, Decl_AST *decl) {
 			fatal_error("All value entries in the map must be numeric.");
 		}
 		index_vals_raw.push_back(entry.key.val_int);
-		y_vals_raw.push_back(entry.single_value.double_value());
+		double value = entry.single_value.double_value();
+		if(value < 0.0) {
+			entry.single_value.print_error_header();
+			fatal_error("All values must be positive numbers.");
+		}
+		y_vals_raw.push_back(value);
 	}
 	
 	if(index_vals_raw.empty()) {
 		map_data->source_loc.print_error_header();
 		fatal_error("The position_map data can't be empty.");
 	}
-	
-	bool raw_is_widths = false;
-	bool linear_interp = false;
 	
 	for(auto note : decl->notes) {
 		auto str = note->decl.string_value;
@@ -586,14 +586,22 @@ process_position_map(Data_Set *data_set, Decl_Scope *scope, Decl_AST *decl) {
 	// TODO: This should be factored out, for reuse with parameter values.
 	
 	std::vector<int> order(index_vals_raw.size());
-	std::sort(order.begin(), order.end(), [&index_vals_raw](int row_a, int row_b) -> bool { return index_vals_raw[row_a] < index_vals_raw[row_b]; });
+	std::sort(order.begin(), order.end(), [this](int row_a, int row_b) -> bool { return index_vals_raw[row_a] < index_vals_raw[row_b]; });
 	
-	std::vector<double> expanded_ys(max_count);
+	expanded_ys.resize(max_count);
 	s64 prev_idx = -1;
 	double prev_val = 0.0;
 	for(int pos : order) {
 		s64 index_val = index_vals_raw[pos];
 		double y_val  = y_vals_raw[pos];
+		
+		if(!raw_is_widths) {
+			if(y_val <= prev_val) {
+				map_data->source_loc.print_error_header();
+				fatal_error("The position values must be in ascending order.");
+			}
+		}
+		
 		if(prev_idx == -1) {
 			for(int idx = 0; idx <= std::min(index_val, max_count-1); ++idx)
 				expanded_ys[idx] = y_val;
@@ -612,19 +620,15 @@ process_position_map(Data_Set *data_set, Decl_Scope *scope, Decl_AST *decl) {
 	for(int idx = prev_idx + 1; idx < max_count; ++idx)
 		expanded_ys[idx] = prev_val;
 	
-	// TODO: If they are not widths, we have to check that they are in ascending order!
-	
 	std::vector<double> final_ys = expanded_ys;
 	if(raw_is_widths) {
 		for(int idx = 1; idx < final_ys.size(); ++idx)
 			final_ys[idx] += final_ys[idx-1];
 	}
 	
-	// TODO: Have to check that this index set doesn't already have a position_map.
+	data_set->index_data.set_position_map(index_set_id, std::move(final_ys), decl->source_loc);
 	
-	fatal_error(Mobius_Error::internal, "Not yet implemented storing position_map data correctly.");
-	
-	//has_been_processed = true;
+	has_been_processed = true;
 }
 
 
@@ -653,11 +657,10 @@ Data_Set::read_from_file(String_View file_name) {
 		Decl_Type::series,
 		Decl_Type::time_step,
 		Decl_Type::quick_select,
+		Decl_Type::position_map
 	};
 	
 	auto scope = &top_scope;
-	
-	std::vector<Decl_AST *> special_decls;
 	
 	// TODO: This could be problematic since it would also register version() declarations.
 	//    Do we skip those here or handle it in another way.
@@ -666,8 +669,6 @@ Data_Set::read_from_file(String_View file_name) {
 			process_time_step_decl(this, child);
 		else if(child->type == Decl_Type::module)
 			register_single_decl(scope, child, allowed_data_decls); // Just so that it doesn't try to process the 'version' argument separately
-		else if(child->type == Decl_Type::position_map)
-			special_decls.push_back(child);
 		else
 			register_decls_recursive(scope, child, allowed_data_decls);
 	}
@@ -676,12 +677,8 @@ Data_Set::read_from_file(String_View file_name) {
 	for(auto id : scope->by_type<Reg_Type::index_set>())
 		process_index_data(this, scope, id); // Can't call process_declaration on index_sets since we can't reuse the same function as in the model.
 	
-	for(auto decl : special_decls) {
-		if(decl->type == Decl_Type::position_map)
-			process_position_map(this, scope, decl);
-		else
-			fatal_error(Mobius_Error::internal, "Unimplemented special declaration ", name(decl->type), ".");
-	}
+	for(auto id : scope->by_type<Reg_Type::position_map>())
+		find_entity(id)->process_declaration(this);
 	
 	// Also have to process connections in order to set indexes for edge index sets before anything else is done.
 	for(auto id : scope->by_type<Reg_Type::connection>())
@@ -922,8 +919,10 @@ Scope_Writer {
 		process_newlines();
 		if(same_line)
 			fatal_error(Mobius_Error::internal, "Tried to open a new scope after a same_line scope.");
-		if(type != '{' && type != '[')
+		if(type != '{' && type != '[' && type != '!')
 			fatal_error(Mobius_Error::internal, "Invalid scope type ", type, ".");
+		if(type == '!')
+			fprintf(file, '[');
 		fprintf(file, "%c", type);
 		scope_stack.push_back(type);
 		if(new_line) {
@@ -1005,7 +1004,7 @@ write_index_set_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id inde
 	}
 	
 	if(is_valid(index_set->sub_indexed_to)) {
-		writer->open_scope('[');
+		writer->open_scope('!');
 		s32 count = data_set->index_data.get_max_count(index_set->sub_indexed_to).index;
 		for(int idx = 0; idx < count; ++idx) {
 			Index_T parent_idx = Index_T  { index_set->sub_indexed_to, idx };
@@ -1144,7 +1143,7 @@ write_quick_select_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id s
 	writer->open_decl(data_set, select_id);
 	writer->write(") ");
 	//writer->write("quick_select ");
-	writer->open_scope('[');
+	writer->open_scope('!');
 	
 	for(auto &select : quick_select->selects) {
 		writer->write("\"%s\" : ", select.name.c_str());
@@ -1217,12 +1216,33 @@ write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id para
 }
 
 void
+write_position_map_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id map_id) {
+	auto map = data_set->position_maps[map_id];
+	
+	writer->open_decl(data_set, map_id);
+	writer->write("%s) ", data_set->get_symbol(map->index_set_id).c_str());
+	if(map->raw_is_widths)
+		writer->write("@widths ");
+	if(map->linear_interp)
+		writer->write("@linear_interpolate ");
+	writer->open_scope('!');
+	for(int idx = 0; idx < map->index_vals_raw.size(); ++idx) {
+		writer->write("%lld : %.15g", (long long)map->index_vals_raw[idx], map->y_vals_raw[idx]);
+		writer->newline();
+	}
+	writer->close_scope();
+}
+
+void
 write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer) {
 	
 	writer->newline();
 	
 	for(auto id : scope->by_type<Reg_Type::index_set>())
 		write_index_set_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::position_map>())
+		write_position_map_to_file(data_set, writer, id);
 	
 	for(auto id : scope->by_type<Reg_Type::connection>())
 		write_connection_to_file(data_set, writer, id);

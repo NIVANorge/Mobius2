@@ -3,6 +3,17 @@
 	*** High pri ***
 		
 		
+		Clash between time token format and map format (if the key is numeric)...
+		Need a different format for a map that quickly distinguishes it from a list. And then disallow datetime tokens inside a map.
+		Like this: ?
+		[!
+			a : b
+		]
+		Sort of works, but is annoying.
+			Only needed because index_set can have both list and map types...
+		Should really have a symbol for graph too then...
+		
+		
 		Position_Map
 			Must copied over to Model index_data also.
 			Must be used whenever translating a symbol (Token or string) to an index.

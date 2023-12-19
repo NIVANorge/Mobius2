@@ -796,11 +796,38 @@ Index_Data::raise(Index_T member_idx, Entity_Id union_set) {
 	return Index_T::no_index();
 }
 
+void
+Index_Data::set_position_map(Entity_Id index_set_id, std::vector<double> &&pos_vals, Source_Location &source_loc) {
+	if(!are_all_indexes_set(index_set_id))
+		fatal_error(Mobius_Error::internal, "Tried to set an index map for an uninitialized index set.");
+	
+	auto &data = index_data[index_set_id.id];
+	if(data.has_index_position_map) {
+		source_loc.print_error_header();
+		fatal_error("Tried to set a position map for the same index set twice.");
+	}
+	if(data.type != Index_Record::Type::numeric1)
+		fatal_error(Mobius_Error::internal, "Tried to set an index map for a non-numeric index set.");
+	data.has_index_position_map = true;
+	data.pos_vals = pos_vals;
+}
+
+
 s32
 Index_Record::map_index(double value) {
 	
+	if(!has_index_position_map)
+		fatal_error(Mobius_Error::internal, "Called map_index on an index set that doesn't have an index_map.");
+	
 	s32 size = (s32)pos_vals.size();
 	
+	double prev = 0.0;
+	for(s32 idx = 0; idx < (s32)pos_vals.size(); ++idx) {
+		if(prev <= value && value < pos_vals[idx]) return idx;
+	}
+	return -1;
+	
+	// Could finish implementing the smart search, but it is maybe not necessary for this use case.
 	// binary search with "smart" guessing
 	/*
 	s32 guess = s32(double(size)*value/(pos_vals[size-1]));
@@ -821,14 +848,5 @@ Index_Record::map_index(double value) {
 		}
 	}
 	return guess;
-	
 	*/
-	
-	// Assumes ascending, but that should be ok.
-	double prev = 0.0;
-	for(s32 idx = 0; idx < (s32)pos_vals.size(); ++idx) {
-		double pos_val = pos_vals[idx];
-		if(value >= pos_val) return idx;
-	}
-	return (s32)pos_vals.size()-1;
 }

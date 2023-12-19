@@ -12,7 +12,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	all_basin : index_set("All basins") @union(basin, bound_basin) 
 	
-	layer : index_set("Layer index") @sub(all_basin) [
+	layer : index_set("Layer index") @sub(all_basin) [!
 		"Drammensfjorden"  : [ 124 ]
 		"Breiangen"  : [ 12 ]
 	]
@@ -20,6 +20,13 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	sc : index_set("Subcatchment") [ "Drammenselva" ]
 	
 	lu : index_set("Landscape units") [ "All" ]
+	
+	position_map(layer) @widths [!
+		0:1
+		15:2
+		35:5
+		40:10
+	]
 	
 	fjord_conn : index_set("Fjord connection index") @sub(basin) 
 	
