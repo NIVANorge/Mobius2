@@ -236,6 +236,7 @@ struct
 Data_Map_AST : Data_AST {
 	struct Entry {
 		Token key;
+		Token single_value;
 		Data_AST *data = nullptr;
 	};
 	std::vector<Entry> entries;

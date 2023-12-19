@@ -1,4 +1,6 @@
 
+#include <algorithm>
+
 #include "data_set.h"
 #include "ole_wrapper.h"
 
@@ -18,6 +20,7 @@ Data_Set::registry(Reg_Type reg_type) {
 		case Reg_Type::index_set :                return &index_sets;
 		case Reg_Type::connection :               return &connections;
 		case Reg_Type::quick_select :             return &quick_selects;
+		//case Reg_Type::position_map :             return &position_maps;
 		case Reg_Type::module :                   return &modules;
 		case Reg_Type::module_template :          return &modules; // NOTE: This is because module is associated to module_template in get_reg_type (for convenience in model_declaration)
 	}
@@ -249,7 +252,7 @@ process_index_data(Data_Set *data_set, Decl_Scope *scope, Entity_Id index_set_id
 		for(auto &entry : data->entries) {
 			auto parent_idx = data_set->index_data.find_index(index_set->sub_indexed_to, &entry.key);
 			
-			if(entry.data->data_type != Data_Type::list) {
+			if(!entry.data || entry.data->data_type != Data_Type::list) {
 				entry.data->source_loc.print_error_header();
 				fatal_error("Expected a simple list of indexes or an integer size.");
 			}
@@ -485,7 +488,7 @@ Quick_Select_Data::process_declaration(Catalog *catalog) {
 	
 	if(decl->data->data_type != Data_Type::map) {
 		decl->data->source_loc.print_error_header();
-		fatal_error("Expected data in a map format");
+		fatal_error("Expected data in a map format.");
 	}
 	
 	auto map_data = static_cast<Data_Map_AST *>(decl->data);
@@ -497,7 +500,7 @@ Quick_Select_Data::process_declaration(Catalog *catalog) {
 			fatal_error("Expected a quoted string name of the entry.");
 		}
 		select.name = entry.key.string_value;
-		if(entry.data->data_type != Data_Type::list) {
+		if(!entry.data || entry.data->data_type != Data_Type::list) {
 			entry.data->source_loc.print_error_header();
 			fatal_error("Expected a list of series names.");
 		}
@@ -512,6 +515,118 @@ Quick_Select_Data::process_declaration(Catalog *catalog) {
 		selects.emplace_back(std::move(select));
 	}
 }
+
+
+void
+process_position_map(Data_Set *data_set, Decl_Scope *scope, Decl_AST *decl) {
+	
+	
+	// TODO: Ouch, we need to store the raw data from the declaration in order to be able to save it out again, so we need to store it as a registration..
+	//    including    index_vals_raw, y_vals_raw, raw_is_widths, linear_interp
+	
+	match_data_declaration(decl, {{Decl_Type::index_set}}, true, 0, true);
+	
+	if(decl->data->data_type != Data_Type::map) {
+		decl->data->source_loc.print_error_header();
+		fatal_error("Expected data in a map format.");
+	}
+	
+	//auto scope = catalog->get_scope(scope_id);
+	auto index_set_id = scope->resolve_argument(Reg_Type::index_set, decl->args[0]);
+	
+	if(!data_set->index_data.are_all_indexes_set(index_set_id)) {
+		decl->source_loc.print_error_header();
+		fatal_error("Can not provide a position_map for an index set that has not received dimensions.");
+	}
+	if(data_set->index_data.get_index_type(index_set_id) != Index_Record::Type::numeric1) {
+		decl->source_loc.print_error_header();
+		fatal_error("Can not provide a position_map for an index set that is not numeric.");
+	}
+	
+	s64 max_count = data_set->index_data.get_max_count(index_set_id).index;
+	
+	std::vector<s64> index_vals_raw;
+	std::vector<double> y_vals_raw;
+	
+	auto map_data = static_cast<Data_Map_AST *>(decl->data);
+	
+	for(auto &entry : map_data->entries) {
+		if(entry.key.type != Token_Type::integer) {
+			entry.key.print_error_header();
+			fatal_error("Expected an integer index value as the key.");
+		}
+		if(entry.data || !is_numeric(entry.single_value.type)) {
+			map_data->source_loc.print_error_header();
+			fatal_error("All value entries in the map must be numeric.");
+		}
+		index_vals_raw.push_back(entry.key.val_int);
+		y_vals_raw.push_back(entry.single_value.double_value());
+	}
+	
+	if(index_vals_raw.empty()) {
+		map_data->source_loc.print_error_header();
+		fatal_error("The position_map data can't be empty.");
+	}
+	
+	bool raw_is_widths = false;
+	bool linear_interp = false;
+	
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "widths")
+			raw_is_widths = true;
+		else if(str == "linear_interpolate")
+			linear_interp = true;
+		else {
+			note->decl.print_error_header();
+			fatal_error("Unexpected note '", str, "' for position_map declaration.");
+		}
+	}
+	
+	// TODO: This should be factored out, for reuse with parameter values.
+	
+	std::vector<int> order(index_vals_raw.size());
+	std::sort(order.begin(), order.end(), [&index_vals_raw](int row_a, int row_b) -> bool { return index_vals_raw[row_a] < index_vals_raw[row_b]; });
+	
+	std::vector<double> expanded_ys(max_count);
+	s64 prev_idx = -1;
+	double prev_val = 0.0;
+	for(int pos : order) {
+		s64 index_val = index_vals_raw[pos];
+		double y_val  = y_vals_raw[pos];
+		if(prev_idx == -1) {
+			for(int idx = 0; idx <= std::min(index_val, max_count-1); ++idx)
+				expanded_ys[idx] = y_val;
+		} else {
+			for(int idx = prev_idx; idx <= std::min(index_val, max_count-1); ++idx) {
+				if(linear_interp) {
+					double t = double(idx-prev_idx)/double(index_val - prev_idx);
+					expanded_ys[idx] = (1.0-t)*prev_val + t*y_val;
+				} else
+					expanded_ys[idx] = prev_val;
+			}
+		}
+		prev_idx = index_val;
+		prev_val = y_val;
+	}
+	for(int idx = prev_idx + 1; idx < max_count; ++idx)
+		expanded_ys[idx] = prev_val;
+	
+	// TODO: If they are not widths, we have to check that they are in ascending order!
+	
+	std::vector<double> final_ys = expanded_ys;
+	if(raw_is_widths) {
+		for(int idx = 1; idx < final_ys.size(); ++idx)
+			final_ys[idx] += final_ys[idx-1];
+	}
+	
+	// TODO: Have to check that this index set doesn't already have a position_map.
+	
+	fatal_error(Mobius_Error::internal, "Not yet implemented storing position_map data correctly.");
+	
+	//has_been_processed = true;
+}
+
 
 void
 Data_Set::read_from_file(String_View file_name) {
@@ -542,6 +657,8 @@ Data_Set::read_from_file(String_View file_name) {
 	
 	auto scope = &top_scope;
 	
+	std::vector<Decl_AST *> special_decls;
+	
 	// TODO: This could be problematic since it would also register version() declarations.
 	//    Do we skip those here or handle it in another way.
 	for(Decl_AST *child : body->child_decls) {
@@ -549,6 +666,8 @@ Data_Set::read_from_file(String_View file_name) {
 			process_time_step_decl(this, child);
 		else if(child->type == Decl_Type::module)
 			register_single_decl(scope, child, allowed_data_decls); // Just so that it doesn't try to process the 'version' argument separately
+		else if(child->type == Decl_Type::position_map)
+			special_decls.push_back(child);
 		else
 			register_decls_recursive(scope, child, allowed_data_decls);
 	}
@@ -556,6 +675,13 @@ Data_Set::read_from_file(String_View file_name) {
 	// Almost everything depends on the index sets being correctly set up before the data is processed.
 	for(auto id : scope->by_type<Reg_Type::index_set>())
 		process_index_data(this, scope, id); // Can't call process_declaration on index_sets since we can't reuse the same function as in the model.
+	
+	for(auto decl : special_decls) {
+		if(decl->type == Decl_Type::position_map)
+			process_position_map(this, scope, decl);
+		else
+			fatal_error(Mobius_Error::internal, "Unimplemented special declaration ", name(decl->type), ".");
+	}
 	
 	// Also have to process connections in order to set indexes for edge index sets before anything else is done.
 	for(auto id : scope->by_type<Reg_Type::connection>())

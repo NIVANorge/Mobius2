@@ -64,6 +64,15 @@ make_state_var_identifier(Var_Id state_var) {
 }
 
 Math_Expr_FT *
+make_parameter_identifier(Mobius_Model *model, Entity_Id par_id) {
+	auto ident = new Identifier_FT();
+	ident->value_type    = get_value_type(model->parameters[par_id]->decl_type);
+	ident->variable_type = Variable_Type::parameter;
+	ident->par_id        = par_id;
+	return ident;
+}
+
+Math_Expr_FT *
 make_local_var_reference(s32 id, s32 scope_id, Value_Type value_type) {
 	auto ident = new Identifier_FT();
 	ident->value_type    = value_type;

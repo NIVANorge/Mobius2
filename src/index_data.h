@@ -72,8 +72,12 @@ Index_Record {
 	std::vector<s32>                                    index_counts;
 	std::vector<std::vector<std::string>>               index_names;
 	std::vector<std::unordered_map<std::string, s32>>   name_to_index;
+	
+	
+	bool has_index_position_map = false;
+	std::vector<double> pos_vals;
+	s32 map_index(double value);
 };
-
 
 struct
 Index_Data { 

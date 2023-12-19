@@ -93,7 +93,7 @@ nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densit
 }
 
 extern "C" DLLEXPORT void
-nivafjord_compute_pressure_differece(Value_Access *dPout, Value_Access *z0, Value_Access *z1, Value_Access *dz0, Value_Access *dz1, Value_Access *P0, Value_Access *P1) {
+nivafjord_compute_pressure_difference(Value_Access *dPout, Value_Access *z0, Value_Access *z1, Value_Access *dz0, Value_Access *dz1, Value_Access *P0, Value_Access *P1) {
 	
 	// Compute the pressure difference between two horizontally neighbouring layers.
 
@@ -117,6 +117,7 @@ nivafjord_compute_pressure_differece(Value_Access *dPout, Value_Access *z0, Valu
 		}
 	
 		double t = (zbot_other - z) / dz1->at(other_layer);
+		t = std::min(std::max(t, 0.0), 1.0);
 		
 		double Ptop_other = 0.0;
 		if(other_layer > 0) Ptop_other = P1->at(other_layer-1);

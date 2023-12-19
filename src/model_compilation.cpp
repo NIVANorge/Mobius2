@@ -28,10 +28,14 @@ Model_Instruction::debug_string(Model_Application *app) const {
 		ss << "\"" << app->vars[var_id]->name << "\" = 0";
 	else if(type == Model_Instruction::Type::add_to_connection_aggregate)
 		ss << "\"" << app->vars[target_id]->name << "\" += \"" << app->vars[var_id]->name << "\"";
+	else if(type == Model_Instruction::Type::add_to_parameter_aggregate)
+		ss << "\"" << app->vars[target_id]->name << "\" += \"" << app->model->parameters[par_id]->name << "\" * weight";
 	else if(type == Model_Instruction::Type::add_to_aggregate)
 		ss << "\"" << app->vars[target_id]->name << "\" += \"" << app->vars[var_id]->name << "\" * weight";
 	else if(type == Model_Instruction::Type::external_computation)
 		ss << "external_computation(" << app->vars[var_id]->name << ")";
+	else
+		fatal_error(Mobius_Error::internal, "Unimplemented debug_string for model instruction type.");
 	
 	return ss.str();
 }
@@ -464,6 +468,10 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 			}
 		}
 	}
+	
+	if(var->type == State_Var::Type::parameter_aggregate) {
+		log_print("**** Found the par aggregate\n");
+	}
 }
 
 void
@@ -534,15 +542,21 @@ make_add_to_par_aggregate_instr(Model_Application *app, std::vector<Model_Instru
 	instructions.emplace_back();
 	auto &add_to_aggr_instr = instructions[add_to_aggr_id];
 	
-	add_to_aggr_instr.type = Model_Instruction::Type::add_to_par_aggregate;    // TODO: Doesn't exist
+	add_to_aggr_instr.type = Model_Instruction::Type::add_to_parameter_aggregate;
+	add_to_aggr_instr.target_id = agg_var;
+	add_to_aggr_instr.par_id = agg_of;
+	
+	//NOTE: The following one is needed in case there is a union index set that needs to be flattened:
+	//add_to_aggr_instr.inherits_index_sets_from_instruction.insert(agg_var.id); // Can't do this, because then the union member could be added after the union.
+	auto agg_to_comp = app->model->components[as<State_Var::Type::parameter_aggregate>(app->vars[agg_var])->agg_to_compartment];
+	for(auto index_set : agg_to_comp->index_sets)
+		insert_dependency(app, &add_to_aggr_instr, index_set);
 	
 	// Repurposing existing api, so it is a bit awkward.
 	Identifier_Data dep;
 	dep.variable_type = Variable_Type::parameter;
 	dep.par_id = agg_of;
-	insert_dependencies(app, &add_to_aggr_instr, dep);
-	
-	fatal_error(Mobius_Error::internal, "Not implemented generate add to agg for parameter");
+	insert_dependencies(app, &add_to_aggr_instr, dep); // TODO: Should instead insert max. index set dependencies ?
 	
 	instructions[agg_var.id].depends_on_instruction.insert(add_to_aggr_id);
 	
@@ -873,7 +887,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 		if(fun)
 			instr.code = copy(fun);
-		else if(initial)
+		else if(initial && var->type != State_Var::Type::parameter_aggregate)
 			instr.type = Model_Instruction::Type::invalid;
 		
 		if(var->type == State_Var::Type::step_resolution)    // These are treated separately, should not be a part of the instruction generation.
@@ -995,6 +1009,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			
 			auto agg_instr = &instructions[var_id.id];
 			auto agg_to_comp = model->components[var2->agg_to_compartment];
+			//log_print("*** Agg to compartment is ", agg_to_comp->name, " with ", agg_to_comp->index_sets.size(), " index sets. \n");
 			for(auto index_set : agg_to_comp->index_sets)
 				insert_dependency(app, agg_instr, index_set);
 		}

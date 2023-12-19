@@ -3,19 +3,22 @@
 	*** High pri ***
 		
 		
+		Position_Map
+			Must copied over to Model index_data also.
+			Must be used whenever translating a symbol (Token or string) to an index.
+		
+		
 		Why is NIVAFjord run speed affected by adding a new property to edge_layer (that is not referenced).
 			Only when it ends up in a discrete batch. Causes itself *and* dP to be NaN, but in theory it should not affect dP or anything else..
-	
-		FINISH THIS: (!)
-			Need to be able to aggregate(parameter).
-				Make agg. var. for it (needs same var_id. in initial and model_run step), then only compute it in the initial step (value is then copied forward).
-					no_store by default.
+			*** Seems like having any discrete batch at the end causes a problem..
+				But only for NIVAFjord, not other models..
+			
 		
 		Specific models
 			NIVAFjord!
 			
 				Non-aligned layers -> have to take into account alignment when computing pressure difference.
-			
+					Ok, but didn't make the model faster.
 				
 				Find out if there is something wrong with horizontal flow. It is very high.
 					E.g. find measurements and compare.

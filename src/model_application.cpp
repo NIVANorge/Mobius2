@@ -120,11 +120,13 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 			}
 		}
 		if(!found) {
+			// TODO: There should be a get_max_index_sets on the par_group registration.
 			auto group = model->par_groups[group_id];
 			for(auto comp_id : group->components) {
 				auto comp = model->components[comp_id];
 				index_sets.insert(index_sets.end(), comp->index_sets.begin(), comp->index_sets.end());
 			}
+			index_sets.insert(index_sets.end(), group->direct_index_sets.begin(), group->direct_index_sets.end());
 		}
 	
 		for(auto par_id : model->get_scope(group_id)->by_type<Reg_Type::parameter>())

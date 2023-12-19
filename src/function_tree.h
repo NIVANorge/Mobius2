@@ -225,6 +225,9 @@ Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var);
 
 Math_Expr_FT *
+make_parameter_identifier(Mobius_Model *model, Entity_Id par_id);
+
+Math_Expr_FT *
 add_local_var(Math_Block_FT *scope, Math_Expr_FT *val);
 
 Math_Expr_FT *

@@ -30,6 +30,17 @@ make_possibly_weighted_var_ident(Model_Application *app, Var_Id var_id, Math_Exp
 }
 
 Math_Expr_FT *
+make_possibly_weighted_par_ident(Model_Application *app, Entity_Id par_id, Math_Expr_FT *weight = nullptr) {
+	
+	Math_Expr_FT *par_ident = make_cast(make_parameter_identifier(app->model, par_id), Value_Type::real);
+	
+	if(weight)
+		par_ident = make_binop('*', par_ident, weight);
+	
+	return par_ident;
+}
+
+Math_Expr_FT *
 make_connection_target_identifier(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_comp) {
 	// the 0 is because the compartment id is stored at info id 0
 	auto idx_offset = app->connection_structure.get_offset_code(Connection_T {connection_id, source_comp, 0}, indexes);
@@ -286,8 +297,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, nullptr);
 		} else if (instr.type == Model_Instruction::Type::add_to_parameter_aggregate) {
 			
-			fatal_error(Mobius_Error::internal, "Unimplemented codegen for add to parameter aggregate.");
-			//auto agg_var = 
+			auto agg_var = as<State_Var::Type::parameter_aggregate>(app->vars[instr.target_id]);
+			auto weight = agg_var->aggregation_weight_tree.get();
+			if(weight)
+				weight = copy(weight);
+			
+			instr.code = make_possibly_weighted_par_ident(app, instr.par_id, weight);
 			
 		} else if (instr.type == Model_Instruction::Type::add_to_connection_aggregate) {
 			
@@ -952,7 +967,8 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				auto agg_offset = app->get_storage_structure(instr.target_id.type).get_offset_code(instr.target_id, indexes);
 				result_code = add_value_to_state_var(instr.target_id, agg_offset, fun, '+');
 				
-			} else if (instr.type == Model_Instruction::Type::add_to_aggregate) {
+			} else if (instr.type == Model_Instruction::Type::add_to_aggregate
+				|| instr.type == Model_Instruction::Type::add_to_parameter_aggregate) {
 				
 				auto agg_offset = app->get_storage_structure(instr.target_id.type).get_offset_code(instr.target_id, indexes);
 				result_code = add_value_to_state_var(instr.target_id, agg_offset, fun, '+');

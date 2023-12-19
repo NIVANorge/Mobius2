@@ -337,6 +337,7 @@ get_data_type(Decl_Type decl_type) {
 	if(decl_type == Decl_Type::index_set) return Data_Type::map;   // can be both map and list, but that is accounted for.
 	if(decl_type == Decl_Type::directed_graph) return Data_Type::directed_graph;
 	if(decl_type == Decl_Type::quick_select) return Data_Type::map;
+	if(decl_type == Decl_Type::position_map) return Data_Type::map;
 	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::list; // list of parameter values.
 	
 	return Data_Type::none;
@@ -902,7 +903,11 @@ parse_map(Token_Stream *stream) {
 			Data_Map_AST::Entry entry;
 			entry.key = token;
 			stream->expect_token(':');
-			entry.data = parse_list_or_map(stream, Data_Type::map); // Allow recursive maps in general. Limitation to be done when processing later.
+			auto peek = stream->peek_token();
+			if(peek.type == Token_Type::quoted_string || is_numeric_or_bool(peek.type)) {
+				entry.single_value = stream->read_token();
+			} else
+				entry.data = parse_list_or_map(stream, Data_Type::map); // Allow recursive maps in general. Limitation to be done when processing later.
 			map->entries.push_back(entry);
 		} else {
 			token.print_error_header();

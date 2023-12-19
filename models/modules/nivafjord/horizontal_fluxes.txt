@@ -2,7 +2,9 @@
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	air    : compartment,
 	basin  : compartment,
+	bnd_basin : compartment,
 	layer  : compartment,
+	bnd_layer : compartment,
 	river  : compartment,
 	edge   : compartment,
 	edge_layer : compartment,
@@ -14,6 +16,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	rho    : property,
 	pressure : property,
 	dz     : property,
+	h      : property,
 	precip : property,
 	evap   : property,
 	
@@ -67,26 +70,27 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	} @allow_connection(layer, horz)
 	
 	dP : property("Pressure difference")
-	var(edge_layer.dP, [Pa]) {
+	
+	
+	var(edge_layer.dP, [Pa])
+	{
 		layer.water.pressure - layer.water.pressure[horz.below]
 	}
-	
-	/*
 	
 	# Note: The only reason we don't just pass the h-value directly to the external comp is that we can't get h[horz.below] since basin is not on the connection.
 	#    This is annoying and should be possible to do somehow.
 	# Maybe need sub-compartments, and then only put the parent compartment on the connection, which would also be good for EasyReservoir.
-	
+	/*
 	align_z : property("Aligned depth")
 	
 	var(layer.align_z, [m], "Aligned depth of layer bottom") {
-		dz - basin.h                   if is_at[vert.top],
-		layer.h[vert.above] + dz       otherwise
+		dz - basin.h                        if is_at[vert.top],
+		layer.align_z[vert.above] + dz      otherwise
 	} @no_store
 	
 	var(bnd_layer.align_z, [m], "Aligned depth of boundary layer bottom") {
-		dz - bnd_basin.h               if is_at[vert.top],
-		bnd_basin.h[vert.above] + dz   otherwise,
+		dz - bnd_basin.h                    if is_at[vert.top],
+		bnd_layer.align_z[vert.above] + dz  otherwise
 	} @no_store
 	
 	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge) {
@@ -128,12 +132,13 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(layer.water.align, [m 3, day-1])
 	
 	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
-	/*
+	
 	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
 		result(layer.water.align)
 		layer.water.horz_bal
 	}
-	*/
+	
+	/*
 	surf_bal : property("Surface water balance") # Could also be computed in airsea..
 	var(basin.surf_bal, [m 3, day-1]) {   (evap - air.precip)*A[vert.top] ->>   }
 	
@@ -143,8 +148,14 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		A
 		basin.surf_bal
 	}
+	*/
 	
 	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
 		align
 	} @bidirectional
+	
+	#align_frac : property("Alignment fraction")    #TODO: Why does this break the program?? Seems to affect the value of water, but it shouldn't be able to.
+	#var(layer.align_frac, [day-1]) {
+	#	water.align/water
+	#}
 }

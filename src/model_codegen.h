@@ -25,6 +25,7 @@ Model_Instruction {
 	Var_Id              var_id     = invalid_var;
 	Var_Id              source_id  = invalid_var;
 	Var_Id              target_id  = invalid_var;
+	Entity_Id           par_id     = invalid_entity_id;
 	
 	bool                subtract   = false; // For certain connection aggregations, we want to subtract from the aggregate instead of adding to it.
 	

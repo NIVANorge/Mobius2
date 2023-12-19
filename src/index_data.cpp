@@ -796,3 +796,39 @@ Index_Data::raise(Index_T member_idx, Entity_Id union_set) {
 	return Index_T::no_index();
 }
 
+s32
+Index_Record::map_index(double value) {
+	
+	s32 size = (s32)pos_vals.size();
+	
+	// binary search with "smart" guessing
+	/*
+	s32 guess = s32(double(size)*value/(pos_vals[size-1]));
+	while(true) {
+		guess = std::max(std::min(guess, size-1), 0);
+		
+		if(pos_vals[guess] > value) {
+			if(guess == 0 || pos_vals[guess-1] <= value) break;
+			else {
+				guess -= 
+			}
+		} else {
+			if(guess == size-1 || pos_vals[guess+1] > value) break;
+			else {
+				//TODO!
+				guess +=
+			}
+		}
+	}
+	return guess;
+	
+	*/
+	
+	// Assumes ascending, but that should be ok.
+	double prev = 0.0;
+	for(s32 idx = 0; idx < (s32)pos_vals.size(); ++idx) {
+		double pos_val = pos_vals[idx];
+		if(value >= pos_val) return idx;
+	}
+	return (s32)pos_vals.size()-1;
+}
