@@ -130,12 +130,8 @@ Testing functionality for now.
 	flux(soil.oc.tox, out, [n g, m-2, day-1], "Fast-acessible SOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	flux(dsoil.oc.tox, out, [n g, m-2, day-1], "Slow-acessible SOC toxin decay") { degr(hlslow, degrq10, degrref, soil.temp)*tox }
 	
-	
-	var(gw.temp, [deg_c], "Groundwater temperature") {
-		# Could instead have a heat conduction model, but maybe not necessary
-		deeptemp
-	}
-	
+	# Could instead have a heat conduction model, but maybe not necessary
+	var(gw.temp, [deg_c], "Groundwater temperature") { deeptemp }
 	
 	var(gw.water.tox, [n g, m-2], [n g, l-1], "Groundwater dissolved contaminants")
 	var(gw.water.oc.tox, [n g, m-2], [n g, k g-1], "Groundwater DOC contaminants")
@@ -146,10 +142,10 @@ Testing functionality for now.
 		rwoc*((conc(water.tox)->[n g, m-3])*Kdoc - conc(water.oc.tox))
 	}
 	
-	
-	# Could maybe have a separate groundwater rate
 	flux(gw.water.tox, out, [n g, m-2, day-1], "Groundwater water dissolved toxin decay") { degr(hlgw, degrq10, degrref, temp)*tox }
 	flux(gw.water.oc.tox, out, [n g, m-2, day-1], "Groundwater DOC toxin decay") { degr(hlgw, degrq10, degrref, temp)*tox }
+	
+	# Should maybe be possible to have solid organic carbon in the gw layers also (?)
 }
 	
 	

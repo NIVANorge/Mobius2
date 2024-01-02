@@ -1106,6 +1106,15 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 }
 
 void
+add_connection_agg_weights(Model_Application *app, std::vector<Conversion_Data> &conv_data, Var_Location &loc1, Var_Location &loc2, Var_Id target_var_id, Entity_Id target_comp, Entity_Id conn_id) {
+	Conversion_Data data;
+	data.source_id = app->vars.id_of(loc1);
+	data.weight = owns_code(get_aggregation_weight(app, loc1, target_comp, conn_id));
+	data.unit_conv = owns_code(get_unit_conversion(app, loc1, loc2, target_var_id));
+	if(data.weight || data.unit_conv) conv_data.push_back(std::move(data));
+}
+
+void
 register_connection_agg(Model_Application *app, bool is_source, Var_Id target_var_id, Entity_Id target_comp, Entity_Id conn_id, char *varname) {
 	
 	auto model = app->model;
@@ -1152,11 +1161,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 			Var_Location loc2 = app->vars[target_var_id]->loc1;
 			Var_Location loc = loc2;
 			loc.components[0] = source_id;
-			Conversion_Data data;
-			data.source_id = app->vars.id_of(loc);
-			data.weight = owns_code(get_aggregation_weight(app, loc, target_comp, conn_id));
-			data.unit_conv = owns_code(get_unit_conversion(app, loc, loc2, target_var_id));
-			if(data.weight || data.unit_conv) agg_var->conversion_data.push_back(std::move(data));
+			add_connection_agg_weights(app, agg_var->conversion_data, loc, loc2, target_var_id, target_comp, conn_id);
 		}
 		
 		// For connections of type grid1d we could also have something like
@@ -1167,14 +1172,8 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 			Var_Location loc2 = app->vars[target_var_id]->loc1;
 			for(auto flux_id : app->vars.all_fluxes()) {
 				auto flux = app->vars[flux_id];
-				if(flux->loc2 != loc2) continue;
-				if(flux->loc2.r1.connection_id != conn_id) continue;
-				if(!is_located(flux->loc1)) continue;
-				Conversion_Data data;
-				data.source_id = app->vars.id_of(flux->loc1);
-				data.weight = owns_code(get_aggregation_weight(app, flux->loc1, target_comp, conn_id));
-				data.unit_conv = owns_code(get_unit_conversion(app, flux->loc1, loc2, target_var_id));
-				if(data.weight || data.unit_conv) agg_var->conversion_data.push_back(std::move(data));
+				if(flux->loc2 != loc2 || flux->loc2.r1.connection_id != conn_id || !is_located(flux->loc1)) continue;
+				add_connection_agg_weights(app, agg_var->conversion_data, flux->loc1, flux->loc2, target_var_id, target_comp, conn_id);
 			}
 		}
 	}

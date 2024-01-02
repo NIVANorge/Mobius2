@@ -3,24 +3,11 @@
 	*** High pri ***
 		
 		
-		Clash between time token format and map format (if the key is numeric)...
-		Need a different format for a map that quickly distinguishes it from a list. And then disallow datetime tokens inside a map.
-		Like this: ?
-		[!
-			a : b
-		]
-		Sort of works, but is annoying.
-			Only needed because index_set can have both list and map types...
+		New 'map' data format. See if it works out ok?
 			
 		Position_Map
 			Must copied over to Model index_data also.
 			Must be used whenever translating a symbol (Token or string) to an index.
-		
-		
-		Why is NIVAFjord run speed affected by adding a new property to edge_layer (that is not referenced).
-			Only when it ends up in a discrete batch. Causes itself *and* dP to be NaN, but in theory it should not affect dP or anything else..
-			*** Seems like having any discrete batch at the end causes a problem..
-				But only for NIVAFjord, not other models..
 		
 		
 		

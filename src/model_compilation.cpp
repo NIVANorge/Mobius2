@@ -231,6 +231,7 @@ resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction
 				auto &res = dep.restriction.r1;
 				
 				if(res.type == Restriction::above || res.type == Restriction::below) {
+					
 					if(dep.restriction.r1.type == Restriction::above) {
 						instr.loose_depends_on_instruction.insert(dep.var_id.id);
 					} else {
@@ -247,6 +248,17 @@ resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction
 							auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
 							if(comp && comp->is_edge_indexed)
 								insert_dependency(app, &instr, conn->edge_index_set);
+							
+							// If it is a 'below' lookup in a graph with multiple components, we have to add a dependency for this for every possible var_id it could actually access.
+							if(comp) {
+								for(auto pot_target : comp->possible_targets) {
+									Var_Location loc = app->vars[dep.var_id]->loc1;
+									loc.components[0] = pot_target;
+									auto target_id = app->vars.id_of(loc);
+									instr.instruction_is_blocking.insert(target_id.id);
+									instr.depends_on_instruction.insert(target_id.id);
+								}
+							}
 						} else if(conn->type == Connection_Type::grid1d) {
 							auto index_set = conn->node_index_set;
 							insert_dependency(app, &instr, index_set);

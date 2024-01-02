@@ -92,13 +92,13 @@ data_set {
 		par_group("Groundwater", gw) {
 			
 			par_real("Porosity") 
-			[ 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 ]
+			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
 			
 			par_real("Thickness") 
 			[ 1 1 1 1 1 1 1 1 1 1 ]
 			
 			par_real("Extraction (constant)") 
-			[ 0 0 0 0 0 0 0 0 0 0.2 ]
+			[ 0 0 0 0 0 0 0 0 0 0.4 ]
 			
 			par_real("Max flow rate") 
 			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
