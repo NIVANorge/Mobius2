@@ -5,6 +5,7 @@ module("SimplyTox soil", version(0, 0, 3),
 	air   : compartment,
 	soil  : compartment,
 	dsoil : compartment,
+	soilair : compartment,
 	gw    : compartment,
 	water : quantity,
 	oc    : quantity,
@@ -29,6 +30,9 @@ Testing functionality for now.
 		#rwoc        : par_real("Water-OC rate coefficient", [m, day-1],  0.5, 0, 3)
 		rwoc        : par_real("Water-OC rate coefficient", [k g, m-2, day-1],  0.5, 0, 3)
 		rfs         : par_real("Fast-Slow rate coefficient", [k g, m-2, day-1], 0.05, 0, 3)
+		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3)
+		raa         : par_real("Soil atmosphere exchange rate", [m, day-1], 0.05, 0, 10)
+		
 		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10)
 		hlslow      : par_real("Contaminant half life (slow accessible)", [day], 20000, 0.1, 2e10)
 		hlgw        : par_real("Contaminant half life (groundwater)", [day], 20000, 0.1, 2e10)
@@ -43,6 +47,7 @@ Testing functionality for now.
 	par_group("Soil carbon", soil) {
 		mocf        : par_real("Soil organic carbon, fast accessible", [k g, m-2], 30, 0, 300)
 		mocs        : par_real("Soil organic carbon, slow accessible", [k g, m-2], 3, 0, 300)
+		Vsa         : par_real("Soil air volume", [m m], 10, 0, 1000)
 	}
 	
 	var(soil.oc, [k g, m-2])  @initial { mocf }
@@ -53,10 +58,13 @@ Testing functionality for now.
 	var(dsoil.oc.tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC toxin")
 	var(soil.water.oc.tox, [n g, m-2], [n g, k g-1], "Soil DOC toxin")
 	
+	var(soilair.tox, [n g, m-2], "Soil air toxin")
+	
 	dep     : property("Contaminant deposition")
-	#atmconc : property("Atmospheric concentration")
+	atmconc : property("Atmospheric concentration")
 	
 	var(air.dep, [n g, m-2, day-1])
+	var(air.atmconc, [n g, m-3])
 	
 	flux(out, soil.water.tox, [n g, m-2, day-1], "Contaminant deposition to land") {   air.dep   }
 	
@@ -103,6 +111,15 @@ Testing functionality for now.
 	flux(soil.oc.tox, dsoil.oc.tox, [n g, m-2, day-1], "Fast-Slow contaminant exchange") {
 		rfs*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
 	}
+	
+	flux(soil.water.tox, soilair.tox, [n g, m-2, day-1], "Water-air contaminant exchange") {
+		raw*((conc(water.tox)->[n g, m-3]*Kaw - soilair.tox/Vsa->[n g, m-3]))
+	}
+	
+	flux(soilair.tox, out, [n g, m-2, day-1], "Soil atmosphere contaminant exchange") {
+		raa*(soilair.tox/Vsa->[n g, m-3] - air.atmconc)
+	}
+	
 	
 	degr : function(hl : [day], q10 : [], reftemp : [deg_c], temp : [deg_c]) {
 		q10_adjust(hl_to_rate(hl), reftemp, temp, q10)

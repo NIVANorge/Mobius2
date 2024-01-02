@@ -1,0 +1,244 @@
+data_set {
+	
+	lu : index_set("Landscape units") [ "All" ]
+	
+	gw : index_set("Groundwater layer") [ 10 ]
+	
+	tox : index_set("Toxin type") [ "PCB something" ]
+	
+	series("langtjern.xlsx")
+	
+	series("tox_test.xlsx")
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 1986-01-01 ]
+		
+		par_datetime("End date") 
+		[ 2015-12-31 ]
+	
+	}
+	
+	par_group("Land cover", lu) {
+		
+		par_real("Land use proportions") 
+		[ 1 ]
+	
+	}
+	
+	module("Degree-day PET", version(1, 0, 0)) {
+		
+		par_group("Potential evapotranspiration") {
+			
+			par_real("Deegree-day factor for evapotranspiration") 
+			[ 0.12 ]
+			
+			par_real("Minimal temperature for evapotranspiration") 
+			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("HBVSnow", version(1, 0, 0)) {
+		
+		par_group("Snow") {
+			
+			par_real("Degree-day factor for snowmelt") 
+			[ 2.74 ]
+			
+			par_real("Temperature at which precip falls as snow") 
+			[ 0 ]
+			
+			par_real("Temperature at which snow melts") 
+			[ 0 ]
+			
+			par_real("Refreeze efficiency") 
+			[ 0.5 ]
+			
+			par_real("Liquid water fraction") 
+			[ 0.1 ]
+			
+			par_real("Initial snow depth (water equivalents)") 
+			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("SimplyQ groundwater", version(0, 0, 1)) {
+		
+		par_group("Hydrology general") {
+			
+			par_real("Baseflow index") 
+			[ 0.6 ]
+			
+			par_real("Quick flow inflection point") 
+			[ 160 ]
+		
+		}
+		
+		par_group("Hydrology land", lu) {
+			
+			par_real("Field capacity") 
+			[ 120 ]
+			
+			par_real("Soil water time constant") 
+			[ 2 ]
+		
+		}
+		
+		par_group("Groundwater", gw) {
+			
+			par_real("Porosity") 
+			[ 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 ]
+			
+			par_real("Thickness") 
+			[ 1 1 1 1 1 1 1 1 1 1 ]
+			
+			par_real("Extraction (constant)") 
+			[ 0 0 0 0 0 0 0 0 0 0.2 ]
+			
+			par_real("Max flow rate") 
+			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
+			
+			par_real("Net horizontal loss fraction") 
+			[ 0.04 0 0 0 0 0 0 0 0 0 ]
+		
+		}
+	
+	}
+	
+	module("SimplyC soil", version(1, 0, 1)) {
+		
+		par_group("DOC general") {
+			
+			par_real("Soil temperature DOC creation linear coefficient") 
+			[ 0 ]
+			
+			par_real("Soil temperature DOC creation second-order coefficient") 
+			[ 0 ]
+			
+			par_real("Soil DOC linear SO4 dependence") 
+			[ 0 ]
+			
+			par_real("Baseline soil DOC dissolution rate") 
+			[ 1 ]
+			
+			par_enum("Soil DOC computation type") 
+			[ equilibrium ]
+			
+			par_enum("Groundwater DOC computation type") 
+			[ half_life ]
+		
+		}
+		
+		par_group("DOC land", lu) {
+			
+			par_real("Baseline soil DOC concentration") 
+			[ 10 ]
+		
+		}
+		
+		par_group("DOC deep soil", gw) {
+			
+			par_real("Groundwater DOC half-life") 
+			[ 8000 8000 8000 8000 8000 8000 8000 8000 8000 8000 ]
+			
+			par_real("Groundwater DOC concentration") 
+			[ 10 9 8 7 6 5 4 4 4 4 ]
+		
+		}
+	
+	}
+	
+	module("Simply soil temperature", version(0, 1, 0)) {
+		
+		par_group("Soil temperature general") {
+			
+			par_real("Snow depth / soil temperature factor") 
+			[ -0.2 ]
+			
+			par_real("Initial soil temperature") 
+			[ 10 ]
+		
+		}
+		
+		par_group("Soil temperature land") {
+			
+			par_real("Soil thermal conductivity / specific heat capacity") 
+			[ 0.4 ]
+		
+		}
+	
+	}
+	
+	module("SimplyTox soil", version(0, 0, 3)) {
+		
+		par_group("Physiochemistry", tox) {
+			
+			par_real("Enthalpy of phase transfer between air and water") 
+			[ 50 ]
+			
+			par_real("Enthalpy of phase transfer between octanol and water") 
+			[ 0 ]
+			
+			par_real("Henry's constant at 25°C") 
+			[ 0.081 ]
+			
+			par_real("log10 Octanol-water partitioning coefficient at 25°C") 
+			[ -0.9 ]
+			
+			par_real("Water-OC rate coefficient") 
+			[ 5e-05 ]
+			
+			par_real("Fast-Slow rate coefficient") 
+			[ 0.0005 ]
+			
+			par_real("Contaminant half life") 
+			[ 730 ]
+			
+			par_real("Contaminant half life (slow accessible)") 
+			[ 3650 ]
+			
+			par_real("Contaminant half life (groundwater)") 
+			[ 3650 ]
+			
+			par_real("Contaminant degradation Q10") 
+			[ 1.65 ]
+			
+			par_real("Temperature at which the half life is given.") 
+			[ 8 ]
+			
+			par_real("Water-air rate coefficient") 
+			[ 0.005 ]
+			
+			par_real("Soil atmosphere exchange rate") 
+			[ 0.01 ]
+		
+		}
+		
+		par_group("Soil carbon", lu) {
+			
+			par_real("Soil organic carbon, fast accessible") 
+			[ 30 ]
+			
+			par_real("Soil organic carbon, slow accessible") 
+			[ 3 ]
+			
+			par_real("Soil air volume") 
+			[ 10 ]
+		
+		}
+		
+		par_group("Groundwater temperature") {
+			
+			par_real("Deep soil temperature") 
+			[ 8 ]
+		
+		}
+	
+	}
+
+}
