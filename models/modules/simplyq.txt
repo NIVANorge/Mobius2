@@ -131,7 +131,7 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 		len*(flow*c_mann*cbrt(wb^2)/sqrt(slope))^(3/5.)
 	}
 
-	var(river.water.flow, [m 3, s -1], "Reach flow")    {  (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann  } @initial { init_flow }
+	var(river.water.flow, [m 3, s -1], "Reach flow")    {  (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann  } @initial { init_flow } @no_store
 	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")     {  flow  }
 }
 
@@ -164,7 +164,8 @@ Alternative version of the SimplyQ river module using a user-supplied mean veloc
     var(river.water.tc_reach, [s], "Reach travel time") { length / velocity }
     
 	var(river.water.flow, [m 3, s-1], "Reach flow") {
-        water / tc_reach } @initial { init_flow }
+        water / tc_reach
+	} @initial { init_flow } @no_store
 	
 	flux(river.water, river_target, [m 3, s-1], "Daily mean reach flow")  {  flow ->>  }
 }

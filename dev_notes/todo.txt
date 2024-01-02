@@ -11,9 +11,7 @@
 		]
 		Sort of works, but is annoying.
 			Only needed because index_set can have both list and map types...
-		Should really have a symbol for graph too then...
-		
-		
+			
 		Position_Map
 			Must copied over to Model index_data also.
 			Must be used whenever translating a symbol (Token or string) to an index.
@@ -23,7 +21,12 @@
 			Only when it ends up in a discrete batch. Causes itself *and* dP to be NaN, but in theory it should not affect dP or anything else..
 			*** Seems like having any discrete batch at the end causes a problem..
 				But only for NIVAFjord, not other models..
-			
+		
+		
+		
+		property default code:
+			Should be possible to set it within a module even if the property is globally declared
+		
 		
 		Specific models
 			NIVAFjord!
