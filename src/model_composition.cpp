@@ -1145,7 +1145,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 		
 		// NOTE: aggregation weights only supported for compartments for now..
 		if(model->components[target_comp]->decl_type != Decl_Type::compartment) return;
-		
+	
 		// Get aggregation weights if relevant
 		auto find = app->find_connection_component(conn_id, target_comp);
 		for(auto source_id : find->possible_sources) {
@@ -1157,6 +1157,25 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 			data.weight = owns_code(get_aggregation_weight(app, loc, target_comp, conn_id));
 			data.unit_conv = owns_code(get_unit_conversion(app, loc, loc2, target_var_id));
 			if(data.weight || data.unit_conv) agg_var->conversion_data.push_back(std::move(data));
+		}
+		
+		// For connections of type grid1d we could also have something like
+		//      flux(soil.water, gw.water[vert.top])
+		// where soil.water is not a connection component, but this still gets added to the connection aggregate for gw.water vert. So we have to look for aggregation weights for this case also.
+		// Is there a more efficient way to do it?
+		if(connection->type == Connection_Type::grid1d) {
+			Var_Location loc2 = app->vars[target_var_id]->loc1;
+			for(auto flux_id : app->vars.all_fluxes()) {
+				auto flux = app->vars[flux_id];
+				if(flux->loc2 != loc2) continue;
+				if(flux->loc2.r1.connection_id != conn_id) continue;
+				if(!is_located(flux->loc1)) continue;
+				Conversion_Data data;
+				data.source_id = app->vars.id_of(flux->loc1);
+				data.weight = owns_code(get_aggregation_weight(app, flux->loc1, target_comp, conn_id));
+				data.unit_conv = owns_code(get_unit_conversion(app, flux->loc1, loc2, target_var_id));
+				if(data.weight || data.unit_conv) agg_var->conversion_data.push_back(std::move(data));
+			}
 		}
 	}
 }
@@ -1623,14 +1642,16 @@ Model_Application::compose_and_resolve() {
 			is_below = index_sets_are_contained_in(model, max_source_index_sets, max_target_indexes);
 		}
 		
-		if(!is_below) {
+		if(!is_below && !is_valid(var->loc2.r1.connection_id)) {
 			
+			/*
 			if(is_valid(var->loc2.r1.connection_id)) {
 				// NOTE: This could happen if it is a located connection like "water[vert.top]". TODO: Make it possible to support this.
 				auto &loc = model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc;
 				loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This flux would need a regular aggregate, but that is not currently supported for fluxes with a connection target.");
 			}
+			*/
 			
 			specials.aggregates[var_id].first.insert(var->loc2.first());
 		}

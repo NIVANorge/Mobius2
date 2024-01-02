@@ -922,7 +922,7 @@ Scope_Writer {
 		if(type != '{' && type != '[' && type != '!')
 			fatal_error(Mobius_Error::internal, "Invalid scope type ", type, ".");
 		if(type == '!')
-			fprintf(file, '[');
+			fprintf(file, "[");
 		fprintf(file, "%c", type);
 		scope_stack.push_back(type);
 		if(new_line) {

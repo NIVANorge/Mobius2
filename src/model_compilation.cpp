@@ -1189,7 +1189,23 @@ report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> 
 	fatal_error("\n");
 }
 
-void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
+void
+remove_ode_dependencies(std::set<int> &remove_from, Entity_Id solver, Model_Application *app, std::vector<Model_Instruction> &instructions) {
+	std::vector<int> remove;
+	for(int other_id : remove_from) {
+		auto &other_instr = instructions[other_id];
+		if(other_instr.type != Model_Instruction::Type::compute_state_var || !is_valid(other_instr.var_id)) continue;
+		auto other_var = app->vars[other_instr.var_id];
+		if(other_instr.solver == solver && other_var->is_mass_balance_quantity())
+			remove.push_back(other_id);
+	}
+	for(int rem : remove)
+		remove_from.erase(rem);
+}
+
+
+void
+create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
 
 	struct
 	Pre_Batch_Sort_Predicate {
@@ -1240,18 +1256,8 @@ void create_batches(Model_Application *app, std::vector<Batch> &batches_out, std
 		if(is_valid(instr.solver)) {
 			// Remove dependency of any instruction on an ODE variable if they are on the same solver.
 			// This is because ODE instructions don't need to (and should not) participate in the sorting of instructions.
-			std::vector<int> remove;
-			for(int other_id : instr.depends_on_instruction) {
-				auto &other_instr = instructions[other_id];
-				if(other_instr.type != Model_Instruction::Type::compute_state_var || !is_valid(other_instr.var_id)) continue;
-				auto other_var = app->vars[other_instr.var_id];
-				//bool is_quantity = other_var->type == State_Var::Type::declared &&
-				//	as<State_Var::Type::declared>(other_var)->decl_type == Decl_Type::quantity;
-				if(other_instr.solver == instr.solver && other_var->is_mass_balance_quantity())
-					remove.push_back(other_id);
-			}
-			for(int rem : remove)
-				instr.depends_on_instruction.erase(rem);
+			remove_ode_dependencies(instr.depends_on_instruction, instr.solver, app, instructions);
+			remove_ode_dependencies(instr.loose_depends_on_instruction, instr.solver, app, instructions);
 		} else if (app->vars[instr.var_id]->is_flux()) {
 			// Remove dependency of discrete fluxes on their sources. Discrete fluxes are ordered in a specific way, and the final value of the source is "ready" after the flux is subtracted. If the flux references its source, that will be a temporary value by design.
 			auto var = app->vars[instr.var_id];
@@ -1494,8 +1500,9 @@ validate_batch_structure(Model_Application *app, const std::vector<Batch> &batch
 								if(instr.instruction_is_blocking.find(other_instr_id) != instr.instruction_is_blocking.end())
 									fatal_error(Mobius_Error::internal, init, "The instruction \"", instr.debug_string(app), "\" appears in the same array as the instruction it is blocking \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
 							} else {
-								if(instr.loose_depends_on_instruction.find(other_instr_id) != instr.loose_depends_on_instruction.end())
+								if(instr.loose_depends_on_instruction.find(other_instr_id) != instr.loose_depends_on_instruction.end()) {
 									fatal_error(Mobius_Error::internal, init, "The instruction \"", instr.debug_string(app), "\" appears strictly before its loose dependency \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
+								}
 							}
 						}
 					}

@@ -769,6 +769,11 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 		res = Restriction::top;
 	else if (type == "bottom")
 		res = Restriction::bottom;
+	else {
+		chain[idx].print_error_header();
+		error_print("Unrecognized location qualifier '", type, "'.");
+		fatal_error_trace(scope);
+	}
 	
 	if(ident->variable_type == Variable_Type::is_at && (res != Restriction::top && res != Restriction::below)) {
 		ident->source_loc.print_error_header();
