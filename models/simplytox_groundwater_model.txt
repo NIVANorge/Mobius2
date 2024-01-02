@@ -1,0 +1,69 @@
+
+
+model("SimplyToxGroundwater") {
+
+	#TODO: Probably factor out SimplyQ-groundwater model?
+	
+	air  : compartment("Atmosphere")
+	soil : compartment("Soil")
+	snow_box : compartment("Snow layer")
+	gw   : compartment("Groundwater")
+	
+	snow     : quantity("Snow")
+	water    : quantity("Water")
+	oc       : quantity("Organic carbon")
+	
+	temp     : property("Temperature")
+	precip   : property("Precipitation")
+	flow     : property("Flow")
+	pet      : property("Potential evapotranspiration")
+	
+	par_group("Land cover", soil) {
+		lu_prop  : par_real("Land use proportions", [], 1, 0, 1)
+	}
+
+	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
+	#load("modules/pet.txt",      module("Penman-Monteith PET"))
+	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
+	
+	
+	aggregation_weight(soil, gw)    { lu_prop }
+
+	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-4)
+	
+	solve(sol, soil.water, gw.water)
+	
+	
+	
+	lu  : index_set("Landscape units")
+	gw_layer : index_set("Groundwater layer")
+	
+	distribute(soil, lu)
+	distribute(gw, gw_layer)
+	
+	gw_vert : connection("Groundwater vertical") @grid1d(gw, gw_layer)
+	
+	load("modules/simplyq_layered_gw.txt", 
+		module("SimplyQ groundwater", soil, gw, water, flow, pet, gw_vert, loc(out), loc(out)),
+		module("SimplyC soil", air, soil, gw, water, oc, temp)
+	)
+	
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
+	
+	load("modules/simplytox.txt",      module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp))
+	
+	tox   : quantity("Toxin")
+
+	dsoil : compartment("Slow-accessible soil")
+	soilair : compartment("Soil air")
+	
+	tox_index : index_set("Toxin type")
+	
+	distribute(dsoil, lu)
+	distribute(tox, tox_index)
+	distribute(soilair, lu)
+	
+	solve(sol, soil.oc, dsoil.oc, soilair.tox)
+
+	
+}
