@@ -148,7 +148,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 				fatal_error("It is not possible to convert between the model time step unit and the solver step unit.");
 			}
 			h *= conv;
-			h = std::max(std::min(h, 1.0), 0.0);
+			h = std::max(std::min(h, 1.0), 1e-10);
 			b_data.hmin = std::max(std::min(b_data.hmin, 1.0), 1e-10);
 			b_data.hmin = b_data.hmin*h; //NOTE: The given one was relative, but we need to store it as absolute since h can change in the run.
 			

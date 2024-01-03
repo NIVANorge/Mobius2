@@ -72,7 +72,8 @@ TODO: We should factor out the soil part to a common module between this and reg
 	}
 	
 	flux(gw.water, gw_target, [m m, day-1], "Groundwater net horizontal loss") {
-		flow * h_loss
+		flow2 := max(max_rate*(h - porosity*th->[m m]), 0),
+		flow2 * h_loss
 	}
 	
 	ext : property("Extraction")

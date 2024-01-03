@@ -71,7 +71,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 		z[vert.above] + dz[vert.above]
 	} @no_store
 	
-	var(basin.h, [m], "Sea level") {
+	var(basin.h, [m], "Basin sea level") {
 		aggregate(layer.dz) - aggregate(dz0)
 	}
 	

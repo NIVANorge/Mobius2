@@ -498,7 +498,7 @@ Index_Exprs {
 	
 	void clean();
 	void copy(Index_Exprs &other);
-	Math_Expr_FT *get_index(Model_Application *app, Entity_Id index_set);
+	Math_Expr_FT *get_index(Model_Application *app, Entity_Id index_set, Entity_Id *index_set_out = nullptr);
 	void set_index(Entity_Id index_set, Math_Expr_FT *index);
 	
 private :

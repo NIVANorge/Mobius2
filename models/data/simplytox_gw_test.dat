@@ -2,7 +2,7 @@ data_set {
 	
 	lu : index_set("Landscape units") [ "All" ]
 	
-	gw : index_set("Groundwater layer") [ 10 ]
+	gw : index_set("Groundwater layer") [ 100 ]
 	
 	tox : index_set("Toxin type") [ "PCB something" ]
 	
@@ -89,6 +89,7 @@ data_set {
 		
 		}
 		
+		/*
 		par_group("Groundwater", gw) {
 			
 			par_real("Porosity") 
@@ -107,6 +108,7 @@ data_set {
 			[ 0.04 0 0 0 0 0 0 0 0 0 ]
 		
 		}
+		*/
 	
 	}
 	
@@ -141,6 +143,7 @@ data_set {
 		
 		}
 		
+		/*
 		par_group("DOC deep soil", gw) {
 			
 			par_real("Groundwater DOC half-life") 
@@ -150,6 +153,7 @@ data_set {
 			[ 10 9 8 7 6 5 4 4 4 4 ]
 		
 		}
+		*/
 	
 	}
 	

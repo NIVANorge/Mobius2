@@ -44,6 +44,11 @@ model("NIVAFjord") {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
 	}
 	
+	par_group("Solver step") {
+		solver_h    : par_real("Initial solver step", [hr], 1)
+		solver_hmin : par_real("Solver relative min step", [], 0.01)
+	}
+	
 	load("modules/atmospheric.txt", module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
 	
 	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
@@ -69,7 +74,7 @@ model("NIVAFjord") {
 	
 	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, dz0, vert))
 	
-	sol : solver("Simply solver", inca_dascru, [hr], 1e-2)
+	sol : solver("NIVAFjord solver", euler, solver_h, solver_hmin)
 	
 	solve(sol, layer.water, sed.heat, basin.ice)
 }

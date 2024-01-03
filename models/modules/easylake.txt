@@ -142,11 +142,11 @@ The water balance part of the model is conceptually similar to VEMALA
 	# The magnitude of the rate is pretty arbitrary as long as it is big enough to "quickly" mix the entire lake.
 	mix_down :
 	flux(epi.water, hyp.water, [m 3, day-1], "Mixing down") {
-		A_surf * epi.th * epi.ind * 1[day-1]
+		A_surf * epi.th * epi.ind * 0.1[day-1]
 	} @no_carry { heat }
 	
 	mix_up : 
 	flux(hyp.water, epi.water, [m 3, day-1], "Mixing up") {
-		A_surf * epi.th * epi.ind * 1[day-1]
+		A_surf * epi.th * epi.ind * 0.1[day-1]
 	} @no_carry { heat }
 }

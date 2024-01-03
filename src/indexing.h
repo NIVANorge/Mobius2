@@ -71,14 +71,15 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		auto &index_set = index_sets[idx];
 		
-		Math_Expr_FT *index = indexes.get_index(app, index_set);
+		Entity_Id actual_index_set;
+		Math_Expr_FT *index = indexes.get_index(app, index_set, &actual_index_set);
 		
 		if(!index) {
 			err_idx_set_out = index_set;
 			return nullptr;
 		}
 		
-		result = make_binop('*', result, make_literal((s64)app->index_data.get_max_count(index_set).index));
+		result = make_binop('*', result, make_literal((s64)app->index_data.get_max_count(actual_index_set).index));
 		result = make_binop('+', result, index);
 	}
 	result = make_binop('+', result, make_literal((s64)begin_offset));
@@ -99,13 +100,16 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 	for(int idx = 0; idx < sz; ++idx) {
 		auto &index_set = index_sets[idx];
 		
-		result.offset = make_binop('*', result.offset, make_literal((s64)app->index_data.get_max_count(index_set).index));
-		auto index = indexes.get_index(app, index_set);
+		Entity_Id actual_index_set;
+		auto index = indexes.get_index(app, index_set, &actual_index_set);
+		
+		result.offset = make_binop('*', result.offset, make_literal((s64)app->index_data.get_max_count(actual_index_set).index));
+		
 		if(index) {
 			result.offset = make_binop('+', result.offset, index);
 			
 			if(!undetermined_found)
-				stride *= app->index_data.get_max_count(index_set).index;
+				stride *= app->index_data.get_max_count(actual_index_set).index;
 			
 		} else {
 			// treat the index as 0.

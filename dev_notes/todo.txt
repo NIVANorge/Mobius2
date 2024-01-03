@@ -9,25 +9,34 @@
 			Must copied over to Model index_data also.
 			Must be used whenever translating a symbol (Token or string) to an index.
 		
-		
-		
 		property default code:
 			Should be possible to set it within a module even if the property is globally declared
+			May be useful for Simply-Tox. Unless you just want to declare the physiochemistry par group globally.
+		
+		Make a function that compiles the max index sets of a par_group and use it several places, esp. in model_application.
+		
+		Parameter aggregates:
+			Should maybe force the summation to happen at the maximal index set tuple to not have unexpected dependency of the sum on the user-set indexing of the parameter.
+			
+		Hang-up when selecting 'Aligned depth' when the indexing was wrong.
+			General crashes when changing indexes in layered model.
+		
+		May need to get having multiple solvers to work. (SimplyQ vs NIVAFjord don't seem that compatible in their requirements for step size).
+			Mostly problematic for fluxes between quantities that are on different solvers,
+			esp. if they are on connections.
+			
+			First quick fix is to rig it so that it always uses the last value of the flux from the previous solver.
+			Eventually may need to codegen smoothing or interpolation.
+		
+		
+		
 		
 		
 		Specific models
-			NIVAFjord!
+			NIVAFjord!		
 			
-				Non-aligned layers -> have to take into account alignment when computing pressure difference.
-					Ok, but didn't make the model faster.
-				
-				Find out if there is something wrong with horizontal flow. It is very high.
-					E.g. find measurements and compare.
-					Alternatively, boundary values must be much more carefully set up.
+				Mor careful setup of boundary values.
 					
-					Or make it more numerically stable by e.g. running just the horizontal exchange (+ vertical realignment) on a separate solver.
-						Was actually done in a discrete update in old NIVA fjord model, but how?
-			
 				Go over wind mixing again, it seems a bit broken.
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
 				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
@@ -45,7 +54,7 @@
 				
 				Less light availability due to lake browning.
 			
-			Finish the simple hydraulics model.
+			// Finish the simple hydraulics model.
 			
 		Finish connection system
 		

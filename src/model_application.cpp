@@ -29,10 +29,12 @@ add_exprs(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 }
 
 Math_Expr_FT *
-Index_Exprs::get_index(Model_Application *app, Entity_Id index_set) {
+Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, Entity_Id *index_set_out) {
 	
 	Math_Expr_FT *result = nullptr;
 	
+	if(index_set_out)
+		*index_set_out = index_set;
 	if(indexes[index_set.id]) {
 		result = ::copy(indexes[index_set.id]);
 	} else {
@@ -42,6 +44,8 @@ Index_Exprs::get_index(Model_Application *app, Entity_Id index_set) {
 		for(auto ui_id : set->union_of) {
 			if(indexes[ui_id.id]) {
 				result = add_exprs(result, ::copy(indexes[ui_id.id]));
+				if(index_set_out)
+					*index_set_out = ui_id;
 				found = true;
 				break;
 			} else
@@ -393,16 +397,6 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 	
 	auto par_group_data = data_set->par_groups[par_group_data_id];
 	
-	/*
-	Entity_Id module_id = invalid_entity_id;
-	if(is_valid(par_group_data->scope_id)) {
-		module_id = map_id(data_set, model, par_group_data->scope_id);
-		if(!is_valid(module_id)) //NOTE: we do error handling on missing modules on the second pass when we load the actual data.
-			return;
-	}
-	
-	auto module_scope = model->get_scope(module_id);
-	*/
 	auto group_id = map_id(data_set, model, par_group_data_id);
 	if(!is_valid(group_id)) return;  // NOTE: we do error handling on this on the second pass.
 	
@@ -412,7 +406,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 	}
 	
 	auto par_group = model->par_groups[group_id];
-	if(par_group->components.empty()) {
+	if(par_group->components.empty() && par_group->direct_index_sets.empty()) {
 		if(!par_group_data->index_sets.empty()) {
 			par_group_data->source_loc.print_error_header();
 			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets since it is not tied to a component.");
@@ -445,7 +439,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 				found = true;
 			if(!found) {
 				par_group_data->source_loc.print_error_header();
-				fatal_error("The par_group \"", par_group_data->name, "\" can not be indexed with the index set \"", name, "\" since none of its attached components are distributed over that index set in the model \"", model->model_name, "\".");
+				fatal_error("The par_group \"", par_group_data->name, "\" can not be indexed with the index set \"", name, "\" since none of its attached components are distributed over that index set in the model.");
 			}
 			
 			// TODO: Should probably check this in the data_set already.

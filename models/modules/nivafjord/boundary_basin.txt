@@ -49,7 +49,7 @@ module("NIVAFjord boundary", version(0, 0, 1),
 		+ sea_level_component( 2.1[c m], 299[deg], 15.82[hr], t)
 	}
 	
-	var(bnd_basin.h, [m]) {
+	var(bnd_basin.h, [m], "Boundary basin sea level") {
 		#TODO: Check that it is correct to use the hour of year rather than the hour of day. Maybe it needs to use absolute hour (relative to a start date)?
 		hour := (time.second_of_day + time.step_length_in_seconds * time.fractional_step)->[hr] + time.day_of_year->[hr],
 		sea_level(hour)->[m]

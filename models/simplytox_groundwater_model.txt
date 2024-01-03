@@ -29,7 +29,7 @@ model("SimplyToxGroundwater") {
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 
-	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-4)
+	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
 	
 	solve(sol, soil.water, gw.water)
 	

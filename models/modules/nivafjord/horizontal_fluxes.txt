@@ -23,7 +23,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	horz   : connection,
 	vert   : connection,
 	w_bnd  : par_real,
-	A      : par_real
+	A      : par_real,
+	dz0    : par_real
 ) {
 
 	load("stdlib/seawater.txt", library("Seawater"))
@@ -32,6 +33,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	# Should we index this one over basin or connection?
 	par_group("Horizontal exchange") {
 		alpha_u : par_real("Pressure difference flow coefficient", [], 0.5, 0.1, 1)
+		
+		align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
 	}
 
 	vert_target : property("Vertical exchange target")
@@ -71,8 +74,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	dP : property("Pressure difference")
 	
-	
-	var(edge_layer.dP, [Pa])
+	var(edge_layer.dP, [Pa]) 
 	{
 		layer.water.pressure - layer.water.pressure[horz.below]
 	}
@@ -80,6 +82,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	# Note: The only reason we don't just pass the h-value directly to the external comp is that we can't get h[horz.below] since basin is not on the connection.
 	#    This is annoying and should be possible to do somehow.
 	# Maybe need sub-compartments, and then only put the parent compartment on the connection, which would also be good for EasyReservoir.
+	
 	/*
 	align_z : property("Aligned depth")
 	
@@ -133,29 +136,38 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
 	
+	/*
 	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
 		result(layer.water.align)
 		layer.water.horz_bal
 	}
-	
-	/*
-	surf_bal : property("Surface water balance") # Could also be computed in airsea..
-	var(basin.surf_bal, [m 3, day-1]) {   (evap - air.precip)*A[vert.top] ->>   }
-	
-	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_even_distrib", basin) {
-		result(layer.water.align)
-		layer.water.horz_bal
-		A
-		basin.surf_bal
-	}
 	*/
+	
+	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_slow", basin) {
+		result(layer.water.align)
+		layer.dz
+		dz0
+		A
+		align_rate
+	}
+	
+	
+	#surf_bal : property("Surface water balance") # Could also be computed in airsea..
+	#var(basin.surf_bal, [m 3, day-1]) {   (evap - air.precip)*A[vert.top] ->>   }
+	
+	#external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_even_distrib", basin) {
+	#	result(layer.water.align)
+	#	layer.water.horz_bal
+	#	A
+	#	basin.surf_bal
+	#}
 	
 	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
 		align
 	} @bidirectional
 	
-	#align_frac : property("Alignment fraction")    #TODO: Why does this break the program?? Seems to affect the value of water, but it shouldn't be able to.
-	#var(layer.align_frac, [day-1]) {
-	#	water.align/water
-	#}
+	align_frac : property("Alignment fraction")
+	var(layer.align_frac, [day-1]) {
+		water.align/water
+	}
 }

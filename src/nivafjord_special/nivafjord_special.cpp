@@ -162,3 +162,26 @@ nivafjord_vertical_realignment_even_distrib(Value_Access *align_out, Value_Acces
 	}
 }
 
+extern "C" DLLEXPORT void
+nivafjord_vertical_realignment_slow(Value_Access *align_out, Value_Access *dz, Value_Access *dz0, Value_Access *area, Value_Access *rate) {
+	// Distribute so that the thickness tends towards dz0, but delayed to not cause too high realignment fluxes.
+	
+	double rate0 = rate->at(0);
+	
+	align_out->at(align_out->count-1) = 0.0;
+	double align_below = 0.0;
+	for(int layer = align_out->count-2; layer >= 0; --layer) {
+		
+		double want_bal = area->at(layer+1)*(dz->at(layer+1) - dz0->at(layer+1))*rate0;
+		align_out->at(layer) = align_below-want_bal;
+		align_below = align_out->at(layer);
+		
+		//if(layer == align_out->count-2)
+		//	log_print("dz and dz0 are ", dz->at(layer+1), " ", dz0->at(layer+1), "\n");
+	}
+	
+}
+
+
+
+

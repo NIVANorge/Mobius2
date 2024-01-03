@@ -35,8 +35,9 @@ model("SimplyQ") {
 	
 	load("modules/simplyq.txt",
 		module("SimplyQ land", soil, gw, river, water, flow, pet, a_catch, loc(river.water), loc(river.water) ),
-		module("SimplyQ river", river, water, flow, loc(downstream)))
-		#module("SimplyQ river trapezoid", river, water, flow, loc(downstream)))	
+		module("SimplyQ river", river, water, flow, loc(downstream))
+		#module("SimplyQ river trapezoid", river, water, flow, loc(downstream))
+	)	
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 	aggregation_weight(soil, river) { lu_prop }
@@ -56,12 +57,12 @@ model("SimplyQ") {
 	distribute(river, sc)
 	
 	#par_group("Solver configuration") {
-	#	solver_h : par_real("Solver fractional step", [], 0.1)
+	#	solver_h : par_real("Solver fractional step", [hr], 2)
 	#	solver_hmin : par_real("Solver relative minimal step", [], 0.01)
 	#}
-	#simply_solver : solver("Simply solver", "INCADascru", solver_h, solver_hmin)
-	
-	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-3)
+	#sol : solver("Simply solver", inca_dascru, solver_h, solver_hmin)
+	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
+	#sol : solver("Simply solver", euler, solver_h, solver_hmin)
 	
 	solve(sol, soil.water, gw.water, river.water)
 	

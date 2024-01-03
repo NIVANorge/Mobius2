@@ -38,7 +38,7 @@ struct
 Par_Group_Registration : Registration_Base {
 	
 	std::vector<Entity_Id> components;
-	std::vector<Entity_Id> direct_index_sets;   //TODO: Maybe need this.
+	std::vector<Entity_Id> direct_index_sets;
 	Decl_Scope             scope;
 	
 	void process_declaration(Catalog *catalog);
