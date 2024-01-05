@@ -41,6 +41,8 @@ Par_Group_Registration : Registration_Base {
 	std::vector<Entity_Id> direct_index_sets;
 	Decl_Scope             scope;
 	
+	Index_Set_Tuple        max_index_sets; // This one will not be correctly set until the model is fully loaded.
+	
 	void process_declaration(Catalog *catalog);
 };
 
@@ -299,6 +301,9 @@ Mobius_Model : Catalog {
 		//free_asts();   // TODO: Hmm, seems like it causes a problem some times??
 	}
 };
+
+void
+insert_dependency(Mobius_Model *model, Index_Set_Tuple &index_sets, Entity_Id index_set);
 
 Mobius_Config
 load_config(String_View config = "config.txt");

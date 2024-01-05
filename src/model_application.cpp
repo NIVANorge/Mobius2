@@ -109,6 +109,8 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 	if(!all_indexes_are_set())
 		fatal_error(Mobius_Error::internal, "Tried to set up parameter structure before all index sets received indexes.");
 	
+	// TODO: Could probably just make this code work with Index_Set_Tuple altogether?
+	
 	std::vector<Multi_Array_Structure<Entity_Id>> structure;
 	std::map<std::vector<Entity_Id>, std::vector<Entity_Id>> par_by_index_sets;
 	
@@ -124,13 +126,10 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 			}
 		}
 		if(!found) {
-			// TODO: There should be a get_max_index_sets on the par_group registration.
+			// Hmm, this takes away the ability for the user to change the order around. Do we want that?
 			auto group = model->par_groups[group_id];
-			for(auto comp_id : group->components) {
-				auto comp = model->components[comp_id];
-				index_sets.insert(index_sets.end(), comp->index_sets.begin(), comp->index_sets.end());
-			}
-			index_sets.insert(index_sets.end(), group->direct_index_sets.begin(), group->direct_index_sets.end());
+			for(auto id : group->max_index_sets)
+				index_sets.push_back(id);
 		}
 	
 		for(auto par_id : model->get_scope(group_id)->by_type<Reg_Type::parameter>())
@@ -406,10 +405,10 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 	}
 	
 	auto par_group = model->par_groups[group_id];
-	if(par_group->components.empty() && par_group->direct_index_sets.empty()) {
+	if(par_group->max_index_sets.empty()) {
 		if(!par_group_data->index_sets.empty()) {
 			par_group_data->source_loc.print_error_header();
-			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets since it is not tied to a component.");
+			fatal_error("The par_group \"", par_group->name, "\" can not be indexed with any index sets.");
 		}
 	} else {
 		auto &index_sets = par_group_index_sets[group_id];
@@ -427,16 +426,7 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 			}
 			
 			// TODO: Is this entirely correct now? I think we are not allowed to index with a union if also a union member is given??
-			bool found = false;
-			for(auto comp_id : par_group->components) {
-				auto comp = model->components[comp_id];
-				if(std::find(comp->index_sets.begin(), comp->index_sets.end(), index_set_id) != comp->index_sets.end()) {
-					found = true;
-					break;
-				}
-			}
-			if(std::find(par_group->direct_index_sets.begin(), par_group->direct_index_sets.end(), index_set_id) != par_group->direct_index_sets.end())
-				found = true;
+			bool found = par_group->max_index_sets.has(index_set_id);
 			if(!found) {
 				par_group_data->source_loc.print_error_header();
 				fatal_error("The par_group \"", par_group_data->name, "\" can not be indexed with the index set \"", name, "\" since none of its attached components are distributed over that index set in the model.");

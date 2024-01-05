@@ -3,6 +3,10 @@
 	*** High pri ***
 		
 		
+		MobiView:
+			Have to delete baseline if model is reloaded for any reason (including constant parameter change).
+		
+		
 		New 'map' data format. See if it works out ok?
 			
 		Position_Map
@@ -27,8 +31,6 @@
 			
 			First quick fix is to rig it so that it always uses the last value of the flux from the previous solver.
 			Eventually may need to codegen smoothing or interpolation.
-		
-		
 		
 		
 		
@@ -133,8 +135,21 @@
 	
 	*** Intermediate-pri ***
 		
-		Is it really necessary to both have a function_tree and an override_tree ? Seems to cause extra work, and they are really just the same thing.
+		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
+			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.
+		Clear model input series to NaN outside the individual interval.
+			What to do if an input is interpolated and not 'inside'?
 		
+		
+		Is it really necessary to both have a function_tree and an override_tree pointer for a State_Var? Seems to cause extra work, and they are really just the same thing.
+			They should also never both exist at the same time.
+		
+		
+		Codegen:
+			Instead of partially generating the code for the instructions, should generate full code for each instruction including assignments and index set lookups.
+				Need placeholders Math_Expr_FT for index lookups that are replaced when everything is glued together.
+				Now dependency resolution for special instructions should be much easier since we could just inspect the index lookups.
+				
 	
 		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Data_Set. Could instead just have the decl be
 			compartment("Soil", sc, lu)

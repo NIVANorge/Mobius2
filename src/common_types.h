@@ -369,6 +369,7 @@ Index_Set_Tuple {
 	bool has(Entity_Id index_set_id) { return bits & (u64(1) << index_set_id.id); }
 	bool has_some(Index_Set_Tuple &other) { return bits & other.bits; }
 	bool has_all(Index_Set_Tuple &other) { return (bits & other.bits) == other.bits; }
+	bool empty() { return bits == 0; }
 	
 	bool operator!=(const Index_Set_Tuple &other) const { return bits != other.bits; }
 	

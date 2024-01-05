@@ -480,10 +480,6 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 			}
 		}
 	}
-	
-	if(var->type == State_Var::Type::parameter_aggregate) {
-		log_print("**** Found the par aggregate\n");
-	}
 }
 
 void
@@ -558,9 +554,11 @@ make_add_to_par_aggregate_instr(Model_Application *app, std::vector<Model_Instru
 	add_to_aggr_instr.target_id = agg_var;
 	add_to_aggr_instr.par_id = agg_of;
 	
-	//NOTE: The following one is needed in case there is a union index set that needs to be flattened:
+	
+	
 	//add_to_aggr_instr.inherits_index_sets_from_instruction.insert(agg_var.id); // Can't do this, because then the union member could be added after the union.
 	auto agg_to_comp = app->model->components[as<State_Var::Type::parameter_aggregate>(app->vars[agg_var])->agg_to_compartment];
+	// NOTE: This is necessary in case some union index sets need to be reduced to union member index sets:
 	for(auto index_set : agg_to_comp->index_sets)
 		insert_dependency(app, &add_to_aggr_instr, index_set);
 	

@@ -1550,6 +1550,68 @@ pre_register_module_loads(Catalog *catalog, Decl_Scope *scope, Decl_AST *load_de
 	}
 }
 
+void
+basic_checks_and_finalization(Mobius_Model *model) {
+	for(auto conn_id : model->connections) {
+		auto conn = model->connections[conn_id];
+		if(conn->type == Connection_Type::grid1d) {
+			auto index_set = conn->node_index_set;
+			if(!model->index_sets[index_set]->union_of.empty()) {
+				conn->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("A 'grid1d' connection can not be placed over a union index set.");
+			}
+		}
+	}
+	
+	for(auto index_set_id : model->index_sets) {
+		auto index_set = model->index_sets[index_set_id];
+		if(is_valid(index_set->sub_indexed_to)) {
+			auto super = model->index_sets[index_set->sub_indexed_to];
+			if(is_valid(super->sub_indexed_to)) {
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("We currently don't support sub-indexing an index set to another index set that is again sub-indexed.");
+			}
+			if(!index_set->union_of.empty()) {
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("A union index set should not be sub-indexed to anything.");
+			}
+		}
+		for(auto ui_id : index_set->union_of) {
+						
+			auto ui = model->index_sets[ui_id];
+			if(is_valid(ui->sub_indexed_to)) {
+				// TODO: We could maybe support it if the union and all the union members are sub-indexed to the same thing.
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("We currently don't support union index sets of sub-indexed index sets.");
+			}
+			if(!ui->union_of.empty()) {
+				// Although we could maybe just 'flatten' the union. That would have to be done in model_declaration post-processing.
+				index_set->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("We currently don't support unions of unions.");
+			}
+		}
+	}
+	
+	for(auto group_id : model->par_groups) {
+		auto group = model->par_groups[group_id];
+		for(auto comp_id : group->components) {
+			if(model->components[comp_id]->decl_type == Decl_Type::property) {
+				group->source_loc.print_error_header();
+				fatal_error("A 'group' can not be attached to a 'property', only to a 'compartment' or 'quantity'.");
+			}
+		}
+		
+		// Compile the maximal tuple of index sets for the par group.
+		for(auto comp_id : group->components) {
+			for(auto index_set : model->components[comp_id]->index_sets)
+				insert_dependency(model, group->max_index_sets, index_set);
+		}
+		for(auto index_set : group->direct_index_sets)
+			insert_dependency(model, group->max_index_sets, index_set);
+	}
+}
+
+
 Mobius_Model *
 load_model(String_View file_name, Mobius_Config *config) {
 	
@@ -1733,6 +1795,8 @@ load_model(String_View file_name, Mobius_Config *config) {
 			auto module_id = process_module_load(model, load_name, template_id, load_loc, load_args);
 		}
 	}
+	
+	basic_checks_and_finalization(model);
 	
 	return model;
 }
