@@ -546,6 +546,8 @@ make_add_to_aggregate_instr(Model_Application *app, std::vector<Model_Instructio
 int
 make_add_to_par_aggregate_instr(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id agg_var, Entity_Id agg_of) {
 	
+	auto model = app->model;
+	
 	int add_to_aggr_id = instructions.size();
 	instructions.emplace_back();
 	auto &add_to_aggr_instr = instructions[add_to_aggr_id];
@@ -554,19 +556,18 @@ make_add_to_par_aggregate_instr(Model_Application *app, std::vector<Model_Instru
 	add_to_aggr_instr.target_id = agg_var;
 	add_to_aggr_instr.par_id = agg_of;
 	
-	
-	
 	//add_to_aggr_instr.inherits_index_sets_from_instruction.insert(agg_var.id); // Can't do this, because then the union member could be added after the union.
 	auto agg_to_comp = app->model->components[as<State_Var::Type::parameter_aggregate>(app->vars[agg_var])->agg_to_compartment];
-	// NOTE: This is necessary in case some union index sets need to be reduced to union member index sets:
+	// NOTE: This is necessary in case some union index sets in the par_group need to be reduced to union member index sets:
 	for(auto index_set : agg_to_comp->index_sets)
 		insert_dependency(app, &add_to_aggr_instr, index_set);
 	
-	// Repurposing existing api, so it is a bit awkward.
-	Identifier_Data dep;
-	dep.variable_type = Variable_Type::parameter;
-	dep.par_id = agg_of;
-	insert_dependencies(app, &add_to_aggr_instr, dep); // TODO: Should instead insert max. index set dependencies ?
+	auto par = model->parameters[agg_of];
+	auto group = model->par_groups[par->scope_id];
+	
+	// NOTE: We insert the maximal dependencies rather than the parameter as a dependency, otherwise if the parameter is given fewer index sets in the user data the outcome could be unexpected.
+	for(auto id : group->max_index_sets)
+		insert_dependency(app, &add_to_aggr_instr, id);
 	
 	instructions[agg_var.id].depends_on_instruction.insert(add_to_aggr_id);
 	

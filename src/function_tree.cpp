@@ -775,7 +775,7 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 		fatal_error_trace(scope);
 	}
 	
-	if(ident->variable_type == Variable_Type::is_at && (res != Restriction::top && res != Restriction::below)) {
+	if(ident->variable_type == Variable_Type::is_at && (res != Restriction::top && res != Restriction::bottom)) {
 		ident->source_loc.print_error_header();
 		error_print("Only 'top' and 'bottom' are supported quantifiers for an 'is_at'.");
 		fatal_error_trace(scope);
