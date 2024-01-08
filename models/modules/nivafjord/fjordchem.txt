@@ -5,20 +5,59 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 	basin : compartment,
 	layer : compartment,
 	water : quantity,
+	heat  : quantity,
 	o2    : quantity,
 	ice   : quantity,
+	oc    : quantity,
+	sed   : quantity,
+	phyt  : quantity,
 	temp  : property,
 	salin : property,
 	wind  : property,
+	z     : property,
+	dz    : property,
 	indicator : property,
+	shade : property,
 	A     : par_real,
-	vert  : connection
+	vert  : connection,
+	sw_vert : connection
 ) {
 	#TODO: Would be nice to unify easychem and fjordchem a bit more, maybe some shared code.
 	
 	par_group("Initial chem", layer) {
 		init_O2 : par_real("Initial O₂ saturation", [], 1, 0, 1)
+		init_DOC : par_real("Initial DOC concentration", [m g, l-1], 0, 0, 100)
 	}
+	
+	par_group("Oxygen") {
+		bubble : par_real("Bubble formation coefficient", [day-1], 0, 0, 1)
+	}
+	
+	par_group("Suspended sediments") {
+		sett_vel : par_real("Settling velocity", [m, day-1], 0, 0, 1)
+		attn0    : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1) #Should not be a mixing parameter..
+		shade_f  : par_real("Shading factor", [m-1, l, m g-1], 0.02, 0.01, 0.1)
+	}
+	
+	par_group("Phytoplankton") {
+		phyt_eq_20    : par_real("Chl-a of phyto at equilibrium", [m g, l-1], 0.01, 0, 5, "Assuming 20°C and no nutrient or light limitations.")
+		phyt_q10      : par_real("Temp adjustment of Phyto equilibrium", [], 2, 1, 4) #TODO: Call it Q10
+		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
+		
+		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
+		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
+		phyt_nc    : par_real("N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
+		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
+		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
+	}
+	
+	par_group("Nutrients") {
+		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
+		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
+		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
+	}
+	
+	
 	
 	load("stdlib/basic_math.txt", library("Response"))
 	load("stdlib/seawater.txt", library("Sea oxygen"))
@@ -33,11 +72,104 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		o2_piston_velocity(air.wind, layer.water.temp[vert.top])
 	}
 	
-	var(basin.o2sat, [m g, l-1]) {
-		o2_saturation(layer.water.temp[vert.top], layer.water.salin[vert.top])*o2_mol_mass -> [m g, l-1]
+	var(layer.water.o2sat, [m g, l-1]) {
+		pressure_corr := (1 + 0.476[m-1]*z[vert.above]),
+		pressure_corr*o2_saturation(temp, salin)*o2_mol_mass -> [m g, l-1]
+	}
+
+	flux(layer.water.o2[vert.top], out,  [k g, day-1], "O₂ gas exchange at surface") {
+		(!basin.ice.indicator) * basin.p_vel*(conc(o2[vert.top]) - layer.water.o2sat[vert.top])*A[vert.top] ->>
 	}
 	
-	flux(out, layer.water.o2[vert.top], [k g, day-1], "O₂ gas exchange at surface") {
-		(!basin.ice.indicator) * basin.p_vel*(basin.o2sat - conc(o2[vert.top]))*A[vert.top] ->>
+	flux(layer.water.o2, out, [k g, day-1], "O₂ bubble formation") {
+		max(0, bubble*(conc(o2) - o2sat)*A*dz) ->>
+	}
+	
+	var(layer.water.oc, [k g], [m g, l-1], "Layer DOC") @initial_conc { init_DOC }
+	
+	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments")
+	
+	flux(layer.water.sed, vert, [k g, day-1], "Layer particle settling") {
+		sett_vel * conc(sed) * A[vert.below] ->>
+	}
+	
+	flux(layer.water.sed, out, [k g, day-1], "Layer particle settling to bottom") {
+		sett_vel * conc(sed) * (A - A[vert.below]) ->>
+	}
+	# TODO: Resuspension. Also need proper interaction with nutrients in bottom sediments.
+	
+	var(layer.water.shade, [m-1], "Layer attenuation coefficient") {
+		# TODO: Maybe also a DOC effect.
+		attn0 + (conc(sed) + conc(phyt))*shade_f
+	}
+	
+	
+	f_par : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
+	
+	light_lim : property("Light limitation")
+	
+	#TODO: Ideally factor out from EasyChem:
+	
+	var(layer.water.phyt, [k g], [m g, l-1], "Layer phytoplankton")
+	
+	var(layer.water.phyt.light_lim, []) {
+		par_sw := in_flux(sw_vert, layer.water.heat)*(1 - f_par)/A -> [W, m-2],
+		f := par_sw/max(0.5*par_sw, iopt),
+		f*exp(1 - f)
+	}
+	
+	equi : property("Equilibrium concentration")
+	
+	var(layer.water.phyt.equi, [m g, l-1], "Phytoplankton equilibrium concentration") {
+		phyt_eq := q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10) / (chl_a_f->[]),
+		phyt_eq*light_lim#min(light_lim, min(N_lim, P_lim))   #TODO: Re-add.
+	}
+	
+	fix : property("Photosynthetic C fixation")
+	var(layer.water.phyt.fix, [k g, day-1]) {
+		phyt_turnover*equi*water ->>
+	}
+	
+	flux(out, layer.water.phyt, [k g, day-1], "Layer photosynthetic C fixation (phyto growth)") {   fix   }
+	
+	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10)
+	anox_threshold  : constant("Anoxicity threshold", [m g, l-1], 2)
+	
+	death : property("Phytoplankton death") {
+		o2_factor := s_response(conc(o2), anox_threshold*0.9, anox_threshold*1.1, phyt_death_anox, 1),
+		phyt_turnover*phyt*o2_factor
+	}
+	var(layer.water.phyt.death, [k g, day-1], "Phytoplankton death rate")
+	
+	flux(layer.water.phyt, layer.water.oc, [k g, day-1], "Phytoplankton death DOC release")  { phyt.death }
+	
+	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
+	
+	chl_a : property("Chlorophyll-a")
+	
+	var(layer.water.chl_a, [m g, l-1]) {
+		conc(phyt)*chl_a_f->>
+	}
+	
+	# Phyto settling as in original fjord model?
+	
+	
+	resp : property("Bacterial respiration") {
+		rate := (K_OM / 365.25[day, year-1]), #* COS_resp^oc.nosc,
+		halfsat := Km_o2*o2_mol_mass->[m g, l-1],
+		o2_adj := conc(o2) / (halfsat + conc(o2)),
+		q10_adjust(rate*o2_adj, 20[deg_c], temp, respQ10)
+	}
+	
+	var(layer.water.resp, [day-1], "Bacterial mineralization")
+	
+	flux(layer.water.oc, out, [k g, day-1], "DOC bacterial mineralization") { resp * oc }
+	
+	flux(layer.water.o2, out, [k g, day-1], "O₂ bacterial consumption") { 
+		# TODO: Do we want the NOSC?
+		resp*o2*(o2_mol_mass/c_mol_mass)#*(2 - (4 + oc.nosc)/4)
 	}
 }
+
+
+

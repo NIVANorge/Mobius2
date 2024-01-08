@@ -3,10 +3,6 @@
 	*** High pri ***
 		
 		
-		MobiView:
-			Have to delete baseline if model is reloaded for any reason (including constant parameter change).
-		
-		
 		New 'map' data format. See if it works out ok?
 			
 		Position_Map
@@ -15,23 +11,18 @@
 		
 		property default code:
 			Should be possible to set it within a module even if the property is globally declared
-			May be useful for Simply-Tox. Unless you just want to declare the physiochemistry par group globally.
+			May be useful for Simply-Tox. Unless you just want to declare the physiochemistry par group globally (bad for reusability?).
 		
 		Make a function that compiles the max index sets of a par_group and use it several places, esp. in model_application.
 		
-		Parameter aggregates:
-			Should maybe force the summation to happen at the maximal index set tuple to not have unexpected dependency of the sum on the user-set indexing of the parameter.
-			
-		Hang-up when selecting 'Aligned depth' when the indexing was wrong.
+		MobiView: Hang-up when selecting 'Aligned depth' when the indexing was wrong.
 			General crashes when changing indexes in layered model.
 		
-		May need to get having multiple solvers to work. (SimplyQ vs NIVAFjord don't seem that compatible in their requirements for step size).
-			Mostly problematic for fluxes between quantities that are on different solvers,
-			esp. if they are on connections.
+		Multiple solvers:
+			Seems to magically work already!
+			Eventually may want/need to codegen smoothing or means. That is if a solver looks up something from another solver, it should linearly interpolate between last() value and current value using the time.fractional_step
 			
-			First quick fix is to rig it so that it always uses the last value of the flux from the previous solver.
-			Eventually may need to codegen smoothing or interpolation.
-		
+			May also want to compute (volume-weighted) means.
 		
 		
 		Specific models
@@ -91,6 +82,9 @@
 					Right now we do check units during final codegen, but would maybe be good to have a system for checking correctness of everything first.
 					Alternatively do unit conversions, but how?
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
+					
+				When it accesses [below] across an index set that has a sub-index set, it has to check that the sub index set is not out of bounds (if the variable depends on it).
+					Probably put in make_restriction_condition().
 				
 				Make it work with quantities as the node component.
 					And allow aggregation weight for quantities (can for instance be used for degradation chains of isotopes or POPs where some of the mass goes away as side products).

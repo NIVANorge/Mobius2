@@ -1,5 +1,5 @@
 
-module("NIVAFjord basin", version(0, 0, 1),
+module("NIVAFjord basin", version(0, 0, 2),
 	air       : compartment,
 	basin     : compartment,
 	layer     : compartment,
@@ -18,6 +18,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	dz        : property,
 	h         : property,
 	freeze_temp : property,
+	shade     : property,
 	vert      : connection,
 	sw_vert   : connection,
 	A         : par_real,
@@ -32,9 +33,7 @@ module("NIVAFjord basin", version(0, 0, 1),
 	var(air.wind,  [m, s-1])
 	var(air.g_rad, [W, m-2])
 
-	par_group("Mixing parameters", basin) {
-		attn0  : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
-		
+	par_group("Mixing parameters", basin) {	
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
 		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the B-V frequency reference")
@@ -191,12 +190,15 @@ module("NIVAFjord basin", version(0, 0, 1),
 	#}
 	
 	var(layer.water.attn, []) {
-		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.
-		1 - exp(-coeff*dz)
+		1 - exp(-shade*dz)
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn)
+		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn) * A[vert.below]/A
+	}
+	
+	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") { #TODO: This should actually heat the sediments once we have a separate sediment compartment per layer.
+		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn) * (A - A[vert.below])/A
 	}
 	
 	var(sed.heat, [J], "Sediment heat") @initial {

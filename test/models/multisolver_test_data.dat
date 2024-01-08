@@ -1,0 +1,37 @@
+data_set {
+	
+	i : index_set("I") [ 4 ]
+	
+	connection("The French connection") {
+		
+		a : compartment("A", i)
+		b : compartment("B")
+		
+		directed_graph [ 
+			a[ 2 ] -> a[ 3 ]
+			a[ 0 ] -> a[ 1 ] -> a[ 3 ] -> b[ ] -> out
+		]
+	}
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 1970-01-01 ]
+		
+		par_datetime("End date") 
+		[ 1971-01-01 ]
+	
+	}
+	
+	module("Module", version(0, 0, 1)) {
+		
+		par_group("Init Q", i) {
+			
+			par_real("Initial A Q") 
+			[ 10 0 5 0 ]
+		
+		}
+	
+	}
+
+}

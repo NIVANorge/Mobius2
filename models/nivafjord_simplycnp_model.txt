@@ -3,13 +3,16 @@
 model("NIVAFjord-SimplyCNP") {
 
 	extend("nivafjord_model.txt")
-	extend("simplyq_model.txt") @exclude(
-		sol : solver, 
+	#extend("simplyq_model.txt") @exclude(
+		#sol : solver,
+	extend("simplycnp_model.txt") @exclude(
 		downstream : connection, 
 		air : compartment, 
 		water : quantity,
+		heat : quantity,
 		temp : property,
-		precip : property)
+		precip : property
+	)
 	
 	
 	load("modules/simplysoiltemp.txt",
@@ -42,12 +45,13 @@ model("NIVAFjord-SimplyCNP") {
 	#load("modules/nivafjord/tracer_test.txt", module("NIVAFjord tracer test", layer, bnd_layer, river, water, tracer))
 	
 	o2     : quantity("O₂")
+	fjord_phyt : quantity("Fjord phytoplankton") # To distinguish from freshwater once we add EasyLake.
 	
 	load("modules/nivafjord/fjordchem.txt",
-		module("NIVAFjord chemistry", air, basin, layer, water, o2, ice, temp, salinity, wind, indicator, A, vert))
+		module("NIVAFjord chemistry", air, basin, layer, water, heat, o2, ice, oc, sed, fjord_phyt, temp, salinity, wind, z, dz, indicator, shade, A, vert, sw_vert))
 		
 	load("modules/nivafjord/boudary_chem.txt",
-		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, temp, salinity))
+		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, sed, temp, salinity))
 	
 	module("Simple River O₂", version(0, 1, 0)) {
 		"The purpose of this module is only to provide oxygen inputs to EasyChem."

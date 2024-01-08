@@ -21,14 +21,14 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	lu : index_set("Landscape units") [ "All" ]
 	
-	position_map(layer) @widths [!
-		0:1
-		15:2
-		35:5
-		40:10
-	]
-	
 	fjord_conn : index_set("Fjord connection index") @sub(basin) 
+	
+	position_map(layer) @widths [!
+		0 : 1
+		15 : 2
+		35 : 5
+		40 : 10
+	]
 	
 	connection("Downstream") {
 		
@@ -87,6 +87,32 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		par_real("Boundary width") [
 			250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 		]
+	
+	}
+	
+	par_group("Layer thickness", all_basin, layer) {
+		
+		par_real("Stable layer thickness") [
+			1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			1 1 1 1 1 1 1 1 1 1 1 1 
+		]
+	
+	}
+	
+	par_group("Solver step") {
+		
+		par_real("Initial solver step") 
+		[ 0.5 ]
+		
+		par_real("Solver relative min step") 
+		[ 0.01 ]
+	
+	}
+	
+	par_group("Suspended carbon") {
+		
+		par_real("Suspended sediments OC fraction") 
+		[ 0.02 ]
 	
 	}
 	
@@ -271,6 +297,9 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Groundwater time constant") 
 			[ 70 ]
+			
+			par_real("Groundwater retention volume") 
+			[ 0 ]
 		
 		}
 	
@@ -334,12 +363,275 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Pressure difference flow coefficient") 
 			[ 0.1 ]
+			
+			par_real("Vertical realignment rate") 
+			[ 20 ]
 		
 		}
 	
 	}
 	
 	module("NIVAFjord boundary", version(0, 0, 1)) {
+	
+	}
+	
+	module("SimplySed", version(0, 6, 0)) {
+		
+		par_group("Soil erodibility", sc, lu) {
+			
+			par_real("Vegetation cover factor") [
+				0.2 
+			]
+			
+			par_int("Day of year when soil erodibility is max for spring-grown crops") [
+				60 
+			]
+			
+			par_int("Day of year when soil erodibility is max for autumn-grown crops") [
+				304 
+			]
+			
+			par_real("Proportion of spring-grown crops") [
+				0.65 
+			]
+			
+			par_real("Reduction of load in sediment") [
+				0 
+			]
+			
+			par_enum("Cover factor shape") [
+				flat 
+			]
+		
+		}
+		
+		par_group("Land slope", sc, lu) {
+			
+			par_real("Mean slope of land") [
+				4 
+			]
+		
+		}
+		
+		par_group("River erosion", sc) {
+			
+			par_real("Erosion scaling factor") 
+			[ 15 ]
+			
+			par_real("Erosion power factor") 
+			[ 2 ]
+		
+		}
+	
+	}
+	
+	module("SimplyC", version(1, 0, 1)) {
+		
+		par_group("DOC general") {
+			
+			par_real("Soil temperature DOC creation linear coefficient") 
+			[ 0.01 ]
+			
+			par_real("Soil temperature DOC creation second-order coefficient") 
+			[ 0 ]
+			
+			par_real("Soil DOC linear SO4 dependence") 
+			[ 0 ]
+			
+			par_real("Baseline soil DOC dissolution rate") 
+			[ 1 ]
+			
+			par_enum("Soil DOC computation type") 
+			[ equilibrium ]
+			
+			par_enum("Groundwater DOC computation type") 
+			[ half_life ]
+		
+		}
+		
+		par_group("DOC land", sc, lu) {
+			
+			par_real("Baseline soil DOC concentration") [
+				4 
+			]
+		
+		}
+		
+		par_group("DOC deep soil", sc) {
+			
+			par_real("Groundwater DOC half-life") 
+			[ 80 ]
+			
+			par_real("Groundwater DOC concentration") 
+			[ 3 ]
+		
+		}
+		
+		par_group("DOC river", sc) {
+			
+			par_real("River DOC loss rate at 20°C") 
+			[ 0 ]
+			
+			par_real("River DOC loss Q10") 
+			[ 1 ]
+		
+		}
+	
+	}
+	
+	module("SimplyN", version(0, 0, 4)) {
+		
+		par_group("DIN universal params") {
+			
+			par_real("Soilwater DIN uptake rate at 20°C") 
+			[ 0 ]
+			
+			par_real("Soilwater DIN uptake rate response to 10°C change (Q10)") 
+			[ 1 ]
+			
+			par_enum("Groundwater DIN computation type") 
+			[ const ]
+			
+			par_real("Groundwater DIN concentration") 
+			[ 0 ]
+			
+			par_real("Reach denitrification rate at 20°C") 
+			[ 0 ]
+			
+			par_real("(Q10) Reach denitrification rate response to 10°C change in temperature") 
+			[ 1 ]
+		
+		}
+		
+		par_group("Soil DIN params varying by land use", sc, lu) {
+			
+			par_real("Initial soilwater DIN concentration") [
+				0 
+			]
+			
+			par_real("Net annual DIN input to soil") [
+				0 
+			]
+			
+			par_int("Fertilizer addition day") [
+				60 
+			]
+			
+			par_real("Fertilizer N") [
+				0 
+			]
+			
+			par_real("Fertilizer DIN release") [
+				0 
+			]
+		
+		}
+		
+		par_group("River DIN", sc) {
+			
+			par_real("Reach effluent DIN inputs") 
+			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("SimplyP", version(0, 6, 0)) {
+		
+		par_group("P general") {
+			
+			par_bool("Dynamic EPC0, TDP and soil labile P") 
+			[ true ]
+			
+			par_real("Soil mass per m2") 
+			[ 95 ]
+			
+			par_real("Phosphorous sorption coefficient") 
+			[ 0.000113 ]
+			
+			par_real("Particulate P enrichment factor") 
+			[ 1.6 ]
+		
+		}
+		
+		par_group("Soil P", sc, lu) {
+			
+			par_real("Initial soil TDP concentration and EPC0") [
+				0.1 
+			]
+			
+			par_real("Initial total soil P content") [
+				1458 
+			]
+			
+			par_real("Inactive soil P content") [
+				873 
+			]
+			
+			par_real("Net annual P input to soil") [
+				0 
+			]
+		
+		}
+		
+		par_group("Groundwater P", sc) {
+			
+			par_real("Groundwater TDP concentration") 
+			[ 0 ]
+		
+		}
+		
+		par_group("River P", sc) {
+			
+			par_real("Effluent TDP inputs") 
+			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord chemistry", version(0, 0, 0)) {
+		
+		par_group("Initial chem", basin, layer) {
+			
+			par_real("Initial O₂ saturation") [
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord boundary chemistry", version(0, 0, 0)) {
+	
+	}
+	
+	module("Simple River O₂", version(0, 1, 0)) {
+		
+		par_group("River oxygen") {
+			
+			par_real("Catchment O₂ saturation fraction") 
+			[ 0.9 ]
+			
+			par_real("Carbon Oxidation State alloch DOC") 
+			[ -0.5 ]
+		
+		}
+	
+	}
+	
+	module("Simply organic C-N", version(0, 0, 1)) {
+		
+		par_group("Organic N") {
+			
+			par_real("DOM N/C ratio") 
+			[ 0.01 ]
+		
+		}
+	
+	}
+	
+	module("Simple river TOC", version(0, 1, 0)) {
 	
 	}
 

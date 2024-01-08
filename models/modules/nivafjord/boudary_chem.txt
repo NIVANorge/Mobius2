@@ -3,6 +3,8 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	bnd_layer : compartment,
 	water : quantity,
 	o2 : quantity,
+	oc : quantity,
+	sed : quantity,
 	temp : property,
 	salin : property
 ) {
@@ -16,6 +18,12 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	
 	var(bnd_layer.water.o2, [k g], [m g, l-1], "Boundary layer O₂")
 		@override_conc { o2sat*o2_saturation(temp, salin)*o2_mol_mass->> }
+	
+	# TODO: Input concs for the below
+	
+	var(bnd_layer.water.oc, [k g], [m g, l-1], "Boundary layer DOC")
+		@override_conc { 0[m g, l-1] }
 		
-		
+	var(bnd_layer.water.sed, [k g], [m g, l-1], "Boundary layer suspended sediments")
+		@override_conc { 0[m g, l-1] }
 }

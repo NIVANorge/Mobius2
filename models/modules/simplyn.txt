@@ -101,7 +101,7 @@ module("Simply organic C-N", version(0, 0, 1),
 	var(river.water.on, [k g], [m g, l-1], "River DON")
 		
 	flux(out, river.water.on, [k g, day-1], "Catchment DON production") {
-		in_flux(oc)*nc_molar_to_mass_ratio(dom_nc)
+		in_flux(oc)*nc_molar_to_mass_ratio(dom_nc)->>
 	}
 	
 	var(river.water.tn, [m g, l-1], "River TN") {

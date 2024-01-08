@@ -152,7 +152,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	var(epi.water.phyt.light_lim, []) {
-		# TODO: In Selma what we call iopt here is called imin, and the max(...) term is called iopt. Mislabeling here?
 		# TODO: There should be some kind of self-shading where TOC and phyto remove shortwave.
 		par_sw := sw*(1 - f_par),
 		f := par_sw/max(0.5*par_sw, iopt),

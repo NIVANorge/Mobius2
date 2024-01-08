@@ -5,7 +5,7 @@ model("NIVAFjord") {
 	air       : compartment("Atmosphere")
 	basin     : compartment("Basin")
 	layer     : compartment("Fjord layer")
-	sed       : compartment("Fjord sediment")
+	sediment  : compartment("Fjord sediment")
 	bnd_basin : compartment("Boundary ocean")
 	bnd_layer : compartment("Boundary layer")
 	
@@ -27,6 +27,7 @@ model("NIVAFjord") {
 	attn     : property("Attenuation coefficient")
 	freeze_temp : property("Ice formation temperature")
 	indicator : property("Ice indicator")
+	shade    : property("Shading")
 	
 	z  : property("Depth")
 	dz : property("Thickness")
@@ -54,7 +55,7 @@ model("NIVAFjord") {
 	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
 											loc(A[vert.top]), loc(layer.water[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
-	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sed, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, vert, sw_vert, A, dz0))
+	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sediment, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, shade, vert, sw_vert, A, dz0))
 	
 	aggregation_weight(layer, layer, sw_vert) { A[sw_vert.below]/A }#A / A[sw_vert.below] }
 	
@@ -67,14 +68,14 @@ model("NIVAFjord") {
 	
 	distribute(basin, basin_idx)
 	distribute(layer, basin_idx, layer_idx)
-	distribute(sed,   basin_idx)
+	distribute(sediment,   basin_idx)
 	
 	distribute(bnd_basin, bnd_basin_idx)
 	distribute(bnd_layer, bnd_basin_idx, layer_idx)
 	
 	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, dz0, vert))
 	
-	sol : solver("NIVAFjord solver", euler, solver_h, solver_hmin)
+	fjord_sol : solver("NIVAFjord solver", euler, solver_h, solver_hmin)
 	
-	solve(sol, layer.water, sed.heat, basin.ice)
+	solve(fjord_sol, layer.water, sediment.heat, basin.ice)
 }
