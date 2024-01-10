@@ -9,10 +9,29 @@
 		MobiView: Hang-up when selecting 'Aligned depth' when the indexing was wrong.
 			General crashes when changing indexes in layered model.
 		
-		
 		Specific models
-			NIVAFjord!		
+		
+			Have to make POC an explicit quantity.
+			Split TDP between organic P and PO4 in SimplyP and EasyChem (and NIVAFjord)
+				Make phyto only use PO4, not all TDP.
+				
 			
+			NIVAFjord!		
+				
+				Finish biochemistry.
+					Do we need separate NO3/NH4? Do we need Si?
+					Denitrification?
+					POC -> DOC (page 68 ++)
+						Along with remineralization of N and P that is (will be) bound to it.
+						Release/binding of dissolved P.
+						
+					Bottom sediment interaction (particles settle, resuspend) Carry CNP.
+						Remineralization in bottom sediments (only?). Release to water.
+					
+					Burial/covering of sediment layer.
+					
+					anoxic processes?
+					
 				More careful setup of boundary values.
 					
 				Go over wind mixing again, it seems a bit broken.
@@ -20,20 +39,19 @@
 				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
 				
 				Take into account angle of shortwave radiation as it goes down the depth (so that one gets the right attenuation).
-					
+				
 				(general, but for use here)
 					Make it possible to interpolate parameter values, and set parameter values based on depth.
 						E.g. there is some system for assigning a value to a value, and saying what other parameter governs the ranges of the second value.
 				Position_Map
-					Must copied over to Model index_data also.
+					Must be copied over to Model index_data also.
 					Must be used whenever translating a symbol (Token or string) to an index.
 					-- the way we started doing it is a bit problematic because it requires the index set dimension to be set first, but in actuality we want the number of layers to  be dependent on the layer thickness, and instead just have a max depth set by the user.
 						Maybe process the index set dimensions in a pass after all position maps are set, then co-process that information along with the position maps when relevant (in this instance interpret the dimension number as a depth).
 				
 			EasyChem
-				Split TDP between organic P and PO4.
-				Make phyto only use PO4, not all TDP.
 				Figure out how to do effluents.
+				Phyto sinking here also?
 				
 				Shading effect on phyto light availability.
 			
@@ -104,7 +122,7 @@
 			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
 			Sub-indexed series data.
 			
-		Bidirectional
+		Bidirectional (and mixing)
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
 				And maybe not allow aggregation weights (or otherwise multiply by the inverse when necessary).
 				We do a unit check in codegen, but may be better to do it earlier.
@@ -115,9 +133,6 @@
 			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
 			
 			Need to check that a bidirectional flux wasn't discrete.
-			
-			Mixing flux
-				Mixing dissolved of dissolved doesn't work correctly!
 
 	
 	*** Intermediate-pri ***
@@ -131,6 +146,8 @@
 		MobiView :
 			Make model reloads work better wrt 'quick select'.
 				If the quick select tab is on 
+			
+			In settings, remember the last used data file with each model and set that as the default when loading that model.
 		
 		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
 			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.

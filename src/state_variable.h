@@ -137,7 +137,6 @@ State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	//Var_Id         conc            = invalid_var;         // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium  = invalid_var;         // The flux of the parent substance that whatever this flux transports is dissolved in.
 	
 	bool           mixing          = false;

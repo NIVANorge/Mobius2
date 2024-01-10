@@ -611,7 +611,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		par_group("Suspended sediments") {
 			
 			par_real("Settling velocity") 
-			[ 0 ]
+			[ 2 ]
 			
 			par_real("Diffuse attenuation coefficent (clear water)") 
 			[ 0.2 ]

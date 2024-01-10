@@ -173,10 +173,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 		if(!initial && instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = app->vars[instr.var_id];
 			
-			//TODO: For overridden quantities they could just be removed from the solver. Also they shouldn't get any index set dependencies from fluxes connected to them.
-			//    not sure about the best way to do it (or where).
-			//      -hmm this comment may be outdated. Should be checked.
-			
 			// Directly override the mass of a quantity
 			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
@@ -190,7 +186,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto conc = as<State_Var::Type::dissolved_conc>(var);
 				auto mass_id = conc->conc_of;
 				auto mass_var = as<State_Var::Type::declared>(app->vars[mass_id]);
-				auto dissolved_in = conc->conc_in; //app->vars.id_of(remove_dissolved(mass_var->loc1));
+				auto dissolved_in = conc->conc_in;
 				
 				if(mass_var->override_tree && mass_var->override_is_conc) {
 					instr.code = copy(mass_var->override_tree.get());
@@ -231,7 +227,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
 			//   Make a lookup accelleration for this?
 			
-			// Codegen for in_fluxes (not connection in_flux):
+			// Codegen for regular in_flux (not connection in_flux):
 			if(var->type == State_Var::Type::in_flux_aggregate) {
 				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 				Math_Expr_FT *flux_sum = make_literal((double)0.0);
@@ -350,7 +346,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, unit_conv);
 			
 		}
-		// Other instry.types are handled differently.
+		// Other instr.types are handled differently.
 	}
 }
 
@@ -724,7 +720,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 				
 				delete ident;
 				
-				if_expr->exprs.push_back(make_literal((double)0.0));  // This is if the graph points at 'out' or doesn't point anywhere.
+				// This is the 'otherwise' case which happens if the graph points at 'out' or doesn't point anywhere, or if the variable doesn't exist in the target.
+				if_expr->exprs.push_back(make_literal((double)0.0));
 				
 				return if_expr;
 			}

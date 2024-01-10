@@ -172,7 +172,7 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		phyt_turnover*phyt*o2_factor
 	}
 	
-	# TODO: Production of surplus DOC when growth is nutrient limited?
+	# TODO: Production of surplus DOC when growth is nutrient limited? (Page 44 in 3113-94)
 	
 	flux(layer.water.phyt, layer.water.oc, [k g, day-1], "Phytoplankton death DOC release")  { phyt.death }
 	
@@ -193,7 +193,7 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		
 		min_sett := 0.2, #Parametrize
 		
-		#TODO: Ooops, what about the fraction that sinks to sediments?
+		#TODO: What about the fraction that sinks to sediments?
 		sett_vel*conc(phyt)*s_response(totlim, 1, 0, 0.2, 1)*A->>
 	}
 
