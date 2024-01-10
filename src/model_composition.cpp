@@ -109,6 +109,7 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			var->loc1 = flux->source;
 			var->loc2 = flux->target;
 			var->bidirectional = flux->bidirectional;
+			var->mixing_base   = flux->mixing;
 			var2->decl_type = Decl_Type::flux;
 			var2->set_flag(State_Var::flux);
 			
@@ -872,9 +873,14 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->type = State_Var::Type::dissolved_flux;
 			gen_flux->flux_of_medium = flux_id;
 			gen_flux->set_flag(State_Var::flux);
-			gen_flux->conc = gen_conc_id;
+			//gen_flux->conc = gen_conc_id;
 			
 			gen_flux->bidirectional = flux->bidirectional;
+			if(flux->mixing_base)
+				gen_flux->mixing = true;
+			// In case it is a dissolved of a dissolved
+			else if(flux->type == State_Var::Type::dissolved_flux)
+				gen_flux->mixing = as<State_Var::Type::dissolved_flux>(flux)->mixing;
 			
 			// TODO: This is annoying. There should be a Specific_Var_Location::add_dissolved that preserves the restrictions.
 			gen_flux->loc1 = source;

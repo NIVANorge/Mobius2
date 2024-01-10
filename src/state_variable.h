@@ -52,12 +52,14 @@ State_Var {
 	
 	bool store_series = true;
 	
-	owns_code unit_conversion_tree;
-	owns_code specific_target;
+	owns_code unit_conversion_tree = nullptr;
+	owns_code specific_target = nullptr;
 	
-	bool bidirectional = false; // For fluxes only
+	// For fluxes only:
+	bool bidirectional = false; 
+	bool mixing_base   = false; // If this is a base flux that causes mixing. All dissolved fluxes of this one should be mixing.
 	
-	State_Var() : unit_conversion_tree(nullptr) {};
+	State_Var() {};
 };
 
 
@@ -82,11 +84,11 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	
 	double flux_time_unit_conv = 1.0; // If it is a flux with a declared unit, what to multiply it with to get the number to use in the model solution (time step relative).
 	
-	owns_code function_tree;
+	owns_code function_tree = nullptr;
 	bool initial_is_conc = false;
-	owns_code initial_function_tree;
+	owns_code initial_function_tree = nullptr;
 	bool override_is_conc = false;
-	owns_code override_tree;
+	owns_code override_tree = nullptr;
 	
 	Var_Id external_computation = invalid_var; // If this variable is the result of an external computation.
 	
@@ -96,7 +98,7 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	
 	Index_Set_Tuple allowed_index_sets;
 	
-	State_Var_Sub() : function_tree(nullptr), initial_function_tree(nullptr), override_tree(nullptr) {}
+	State_Var_Sub() {}
 };
 
 template<> struct
@@ -135,8 +137,10 @@ State_Var_Sub<State_Var::Type::dissolved_conc> : State_Var {
 
 template<> struct
 State_Var_Sub<State_Var::Type::dissolved_flux> : State_Var {
-	Var_Id         conc            = invalid_var;         // The concentration variable for the source of whatever this flux transports.
+	//Var_Id         conc            = invalid_var;         // The concentration variable for the source of whatever this flux transports.
 	Var_Id         flux_of_medium  = invalid_var;         // The flux of the parent substance that whatever this flux transports is dissolved in.
+	
+	bool           mixing          = false;
 	
 	Index_Set_Tuple allowed_index_sets;
 	
@@ -165,11 +169,11 @@ State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 template<> struct
 State_Var_Sub<State_Var::Type::external_computation> : State_Var {
 	
-	Entity_Id       decl_id = invalid_entity_id;
-	owns_code       code;
-	std::vector<Var_Id>          targets;
+	Entity_Id           decl_id = invalid_entity_id;
+	owns_code           code    = nullptr;
+	std::vector<Var_Id> targets;
 	
-	State_Var_Sub() : code(nullptr) {}
+	State_Var_Sub() {}
 };
 
 template<> struct

@@ -56,6 +56,8 @@ make_literal(bool val_bool) {
 
 Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var) {
+	if(!is_valid(state_var))
+		fatal_error(Mobius_Error::internal, "Tried to make an identifier to an invalid Var_Id.");
 	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;
 	ident->variable_type = Variable_Type::state_var;

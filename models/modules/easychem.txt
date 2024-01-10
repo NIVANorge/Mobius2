@@ -49,7 +49,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		sod          : par_real("Background sediment O₂ demand", [g, m-2, day-1], 0.5, 0.1, 4)
 	}
 	
-	par_group("Nutrients") {
+	par_group("Nutrients") { # Should be called Microbial?
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)

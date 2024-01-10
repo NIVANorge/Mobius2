@@ -24,10 +24,9 @@ model("NIVAFjord") {
 	rho      : property("Density")
 	lwd      : property("Downwelling longwave radiation")
 	sw       : property("Shortwave radiation")
-	attn     : property("Attenuation coefficient")
+	attn     : property("Attenuation")
 	freeze_temp : property("Ice formation temperature")
 	indicator : property("Ice indicator")
-	shade    : property("Shading")
 	
 	z  : property("Depth")
 	dz : property("Thickness")
@@ -55,9 +54,10 @@ model("NIVAFjord") {
 	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
 											loc(A[vert.top]), loc(layer.water[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
-	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sediment, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, shade, vert, sw_vert, A, dz0))
+	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sediment, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, vert, sw_vert, A, dz0))
 	
-	aggregation_weight(layer, layer, sw_vert) { A[sw_vert.below]/A }#A / A[sw_vert.below] }
+	# Is done manually in the basin module instead.
+	#aggregation_weight(layer, layer, sw_vert) { A[sw_vert.below]/A }#A / A[sw_vert.below] }
 	
 	basin_idx     : index_set("Basin index")
 	bnd_basin_idx : index_set("Boundary basin index")
@@ -68,7 +68,7 @@ model("NIVAFjord") {
 	
 	distribute(basin, basin_idx)
 	distribute(layer, basin_idx, layer_idx)
-	distribute(sediment,   basin_idx)
+	distribute(sediment, basin_idx, layer_idx)
 	
 	distribute(bnd_basin, bnd_basin_idx)
 	distribute(bnd_layer, bnd_basin_idx, layer_idx)
@@ -77,5 +77,6 @@ model("NIVAFjord") {
 	
 	fjord_sol : solver("NIVAFjord solver", euler, solver_h, solver_hmin)
 	
-	solve(fjord_sol, layer.water, sediment.heat, basin.ice)
+	solve(fjord_sol, layer.water, basin.ice)
+	#solve(fjord_sol, sediment.heat)
 }

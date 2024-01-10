@@ -1304,6 +1304,18 @@ serialize_loc(Mobius_Model *model, std::stringstream &ss, const Var_Location &lo
 	}
 }
 
+Var_Id
+Model_Application::find_base_flux(Var_Id dissolved_flux_id) {
+	Var_Id result_id = dissolved_flux_id;
+	State_Var *var_flux = vars[dissolved_flux_id];
+	// NOTE: It could be a chain of dissolvedes.
+	do {
+		result_id = as<State_Var::Type::dissolved_flux>(var_flux)->flux_of_medium;
+		var_flux = vars[result_id];
+	} while(var_flux->type != State_Var::Type::declared);
+	return result_id;
+}
+
 std::string
 Model_Application::serialize(Var_Id id) {
 	
@@ -1327,14 +1339,11 @@ Model_Application::serialize(Var_Id id) {
 			serialize_loc(model, ss, var_medium->loc1);
 		} else if(var->type == State_Var::Type::dissolved_flux) {
 			auto var2 = as<State_Var::Type::dissolved_flux>(var);
-			auto var_conc = as<State_Var::Type::dissolved_conc>(vars[var2->conc]);
-			auto var_mass = vars[var_conc->conc_of];
-			State_Var *var_flux = var;
-			while(var_flux->type != State_Var::Type::declared)   // NOTE: It could be a chain of dissolvedes.
-				var_flux = vars[as<State_Var::Type::dissolved_flux>(var_flux)->flux_of_medium];
+			//auto var_conc = as<State_Var::Type::dissolved_conc>(vars[var2->conc])
+			State_Var *var_flux = vars[find_base_flux(id)];
 			ss << "dissolved_flux@";
 			ss << model->serialize(as<State_Var::Type::declared>(var_flux)->decl_id) << '@';
-			serialize_loc(model, ss, var_mass->loc1);
+			serialize_loc(model, ss, var2->loc1);
 		} else if(var->type == State_Var::Type::regular_aggregate) {
 			auto var2 = as<State_Var::Type::regular_aggregate>(var);
 			ss << "regular_aggregate@";

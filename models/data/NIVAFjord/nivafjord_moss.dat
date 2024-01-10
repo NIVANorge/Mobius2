@@ -1,8 +1,8 @@
 data_set {
 	
 """
-TODO: Need to configure all the parameters correctly.
-TODO: Some part of the catchment that is not Mosselva (small).
+TODO: Need to configure all the parameters correctly.
+TODO: Some part of the catchment that is not Mosselva (small).
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
@@ -47,10 +47,10 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	par_group("System") {
 		
 		par_datetime("Start date") 
-		[ 2018-01-01 ]
+		[ 2017-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2019-01-01 ]
+		[ 2021-01-01 ]
 	
 	}
 	
@@ -144,13 +144,13 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			[ 6 ]
 			
 			par_real("Depth of thermally active sediment layer") 
-			[ 10 ]
+			[ 1 ]
 			
 			par_real("Sediment thermal conductivity") 
-			[ 1.6 ]
+			[ 4 ]
 			
 			par_real("Sediment specific heat capacity") 
-			[ 4000 ]
+			[ 2000 ]
 			
 			par_real("Sediment density") 
 			[ 2600 ]
@@ -354,7 +354,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Horizontal exchange") {
 			
 			par_real("Pressure difference flow coefficient") 
-			[ 0.1 ]
+			[ 0.05 ]
 			
 			par_real("Vertical realignment rate") 
 			[ 5 ]
@@ -398,6 +398,47 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			
 			par_real("Shading factor") 
 			[ 0.02 ]
+		
+		}
+		
+		par_group("Phytoplankton") {
+			
+			par_real("Chl-a of phyto at equilibrium") 
+			[ 0.01 ]
+			
+			par_real("Temp adjustment of Phyto equilibrium") 
+			[ 2 ]
+			
+			par_real("Phytoplankton turnover rate") 
+			[ 0.2 ]
+			
+			par_real("Optimal PAR intensity") 
+			[ 100 ]
+			
+			par_real("Half-saturation for nutrient uptake") 
+			[ 1.65625 ]
+			
+			par_real("N/C ratio in Phytoplankton") 
+			[ 0.1509 ]
+			
+			par_real("P/C ratio in Phytoplankton") 
+			[ 0.009434 ]
+			
+			par_real("Chl-a fraction") 
+			[ 2 ]
+		
+		}
+		
+		par_group("Nutrients") {
+			
+			par_real("Respiration rate") 
+			[ 1 ]
+			
+			par_real("Respiration Q10") 
+			[ 1.58 ]
+			
+			par_real("Half-saturation concentration O₂") 
+			[ 0.0123 ]
 		
 		}
 	
@@ -530,13 +571,13 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("DIN universal params") {
 			
 			par_real("Soilwater DIN uptake rate at 20°C") 
-			[ 0 ]
+			[ 0.01 ]
 			
 			par_real("Soilwater DIN uptake rate response to 10°C change (Q10)") 
 			[ 1 ]
 			
 			par_enum("Groundwater DIN computation type") 
-			[ const ]
+			[ mass_bal ]
 			
 			par_real("Groundwater DIN concentration") 
 			[ 0 ]
@@ -556,7 +597,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			]
 			
 			par_real("Net annual DIN input to soil") [
-				0 
+				15 
 			]
 			
 			par_int("Fertilizer addition day") [
@@ -564,11 +605,11 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			]
 			
 			par_real("Fertilizer N") [
-				0 
+				120 
 			]
 			
 			par_real("Fertilizer DIN release") [
-				0 
+				0.01 
 			]
 		
 		}
@@ -587,7 +628,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("P general") {
 			
 			par_bool("Dynamic EPC0, TDP and soil labile P") 
-			[ true ]
+			[ false ]
 			
 			par_real("Soil mass per m2") 
 			[ 95 ]
@@ -603,7 +644,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Soil P", sc, lu) {
 			
 			par_real("Initial soil TDP concentration and EPC0") [
-				0.1 
+				0.01 
 			]
 			
 			par_real("Initial total soil P content") [
@@ -623,7 +664,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Groundwater P", sc) {
 			
 			par_real("Groundwater TDP concentration") 
-			[ 0 ]
+			[ 0.005 ]
 		
 		}
 		

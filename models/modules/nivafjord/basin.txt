@@ -18,7 +18,6 @@ module("NIVAFjord basin", version(0, 0, 2),
 	dz        : property,
 	h         : property,
 	freeze_temp : property,
-	shade     : property,
 	vert      : connection,
 	sw_vert   : connection,
 	A         : par_real,
@@ -36,7 +35,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 	par_group("Mixing parameters", basin) {	
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
-		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the B-V frequency reference")
+		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor when the B-V frequency is equal to the reference")
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
 		
 		# TODO: Find correct defaults:
@@ -117,7 +116,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 	var(layer.water.Nfreq, [s-1]) {
 		mdz := 0.5*(dz + dz[vert.below]),
 		N2 := grav * ddens / (mdz*rho),
-		sqrt(max(Nmin^2, N2))   # This one is correct because ddens could be < 0
+		sqrt(max(Nmin^2, N2))   # NOTE: ddens, hence N2, could be < 0, so we can't do max(Nmin, sqrt(N2))
 	}
 	
 	stress         : property("Wind stress")
@@ -175,13 +174,12 @@ module("NIVAFjord basin", version(0, 0, 2),
 		Es / Nfreq^2
 	}
 	
-	var(layer.water.wmix, [m 3, day-1]) {
+	var(layer.water.wmix, [m, day-1]) {
 		K := Kt + Ks + Kw,
-		A * K / dz ->>
+		K / dz ->>
 	}
 	
-	flux(layer.water, vert, [m 3, day-1], "Water mixing down") { wmix }
-	flux(layer.water, vert, [m 3, day-1], "Water mixing up")   { -wmix } @bidirectional #It is negative, but in effect working in the opposite direction.
+	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { wmix*A[vert.below] } @mixing
 	
 	# The heat conduction is trivial compared to the mixing, so it doesn't seem necessary.
 	#flux(layer.water.heat, vert, [J, day-1], "Water layer heat conduction") {
@@ -189,32 +187,33 @@ module("NIVAFjord basin", version(0, 0, 2),
 	#	k_water*(temp->[K] - temp[below]->[K])*A/mdz ->>
 	#}
 	
-	var(layer.water.attn, []) {
-		1 - exp(-shade*dz)
-	}
-	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
 		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn) * A[vert.below]/A
 	}
 	
-	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") { #TODO: This should actually heat the sediments once we have a separate sediment compartment per layer.
+	#flux(layer.water.heat, sed.heat, [J, day-1], "Shortwave to sediments") {
+	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
 		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn) * (A - A[vert.below])/A
 	}
 	
+
+	#Note: Sediment temperature seems to have minimal effect on water temperature, so if it is not needed in itself, it should be removed.
+	/*
 	var(sed.heat, [J], "Sediment heat") @initial {
-		mass := A[vert.bottom]*dz_sed*rho_sed,
+		mass := (A - A[vert.below])*dz_sed*rho_sed,
 		C_sed * mass * (T_sed->[K])
 	}
 	
+	# Assumption of triangular shape of sediment temperature function.. Doesn't work that well, should be improved.
 	var(sed.temp, [deg_c], "Sediment surface temperature") {
-		mass := A[vert.bottom]*dz_sed*rho_sed,
+		mass := (A - A[vert.below])*dz_sed*rho_sed,
 		1*(2*heat / (mass*C_sed) - T_sed->[K]) -> [deg_c]
 	}
 	
 	# Water-Sediment heat transfer
-	
-	flux(layer.water.heat[vert.bottom], sed.heat, [J, day-1], "Water-sediment heat transfer") {
+	flux(layer.water.heat, sed.heat, [J, day-1], "Water-sediment heat transfer") {
 		dz := dz_sed*0.2,  # Just the scaling factor for the transfer TODO: get a better estimate
-		A[bottom]*(temp[bottom]->[K] - sed.temp->[K])*k_sed/dz ->>
+		(A - A[vert.below])*(temp->[K] - sed.temp->[K])*k_sed/dz ->>
 	}
+	*/
 }

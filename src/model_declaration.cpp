@@ -739,17 +739,22 @@ Flux_Registration::process_declaration(Catalog *catalog) {
 			has_specific_code = true;
 			specific_target_ast = static_cast<Function_Body_AST *>(note->body)->block;
 			
-		} else if(str == "bidirectional") {
+		} else if(str == "bidirectional" || str == "mixing") {
 			match_declaration_base(note, {{}}, 0);
-			bidirectional = true;
 			
-			if(is_valid(target.r1.connection_id) && target.r1.type != Restriction::below) {
+			if(bidirectional || mixing) {
 				note->decl.print_error_header();
-				fatal_error("Bidirectionality is for now only supported for connection fluxes that go to 'below'.");
+				fatal_error("A flux can't both be 'bidirectional' and 'mixing'");
 			}
-			if(!is_valid(target.r1.connection_id) && !is_located(target)) {
+			
+			if(str == "bidirectional")
+				bidirectional = true;
+			else
+				mixing = true;
+			
+			if(!is_valid(target.r1.connection_id) && !is_located(target) || !is_located(source)) {
 				note->decl.print_error_header();
-				fatal_error("A flux going to 'out' can't be bidirectional");
+				fatal_error("A flux going to or from 'out' can't be '", str, "'.");
 			}
 		} else {
 			note->decl.print_error_header();

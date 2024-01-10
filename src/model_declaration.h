@@ -157,6 +157,7 @@ Flux_Registration : Registration_Base {
 	Math_Block_AST  *specific_target_ast = nullptr;
 	bool             no_carry_by_default = false;
 	bool             bidirectional       = false;
+	bool             mixing              = false;
 	
 	void process_declaration(Catalog *catalog);
 };

@@ -454,6 +454,8 @@ Model_Application {
 	Var_Id                 get_connection_target_variable(Var_Location &loc0, Entity_Id target_component, bool is_conc);
 	Var_Id                 get_connection_target_variable(Var_Id source, Entity_Id connection_id, Entity_Id target_component);
 	
+	Var_Id                 find_base_flux(Var_Id dissolved_flux_id);
+	
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set();
 	

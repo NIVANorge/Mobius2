@@ -57,6 +57,79 @@ make_connection_target_check(Model_Application *app, Index_Exprs &indexes, Entit
 	return make_binop('=', compartment_id, make_literal((s64)target_comp.id));
 }
 
+
+Math_Expr_FT *
+make_flux_conc(Model_Application *app, Specific_Var_Location &loc, int n_levels) {
+	// This function is only for use inside make_dissolved_flux_code
+	
+	auto id = app->vars.id_of(loc);
+	Identifier_FT *mass_ident = static_cast<Identifier_FT *>(make_state_var_identifier(id));
+	mass_ident->restriction = loc;
+	
+	Specific_Var_Location loc_above = loc;
+	loc_above.n_components -= n_levels;    // TODO: Would like to have a remove_dissolved() that works with Specific_Var_Location
+
+	auto above_id = app->vars.id_of(loc_above);
+	Identifier_FT *medium_ident = static_cast<Identifier_FT *>(make_state_var_identifier(above_id));
+	medium_ident->restriction = loc_above;
+	
+	return make_safe_divide(mass_ident, medium_ident);
+}
+
+Math_Expr_FT *
+make_dissolved_flux_code(Model_Application *app, Var_Id flux_id) {
+	
+	auto var2 = as<State_Var::Type::dissolved_flux>(app->vars[flux_id]);
+	
+	auto base_id = app->find_base_flux(flux_id);
+	auto base = app->vars[base_id];
+	int n_levels = var2->loc1.n_components - base->loc1.n_components;
+	if(n_levels < 1)
+		fatal_error(Mobius_Error::internal, "Something is strange with Var_Location of a dissolved flux");
+	
+	// NOTE: We re-compute the concentration instead of just referencing the concentration variable for a few reasons:
+	//   - We don't have to unwind the unit conversion of the concentration
+	//   - If there is a chain of dissolvedes it is cleaner if each of them just reference the base flux instead of one another.
+	//   - For 'mixing' fluxes to work correctly they have to reference the base flux.
+	
+	auto conc_code = make_flux_conc(app, var2->loc1, n_levels);
+	
+	if(var2->bidirectional || var2->mixing) {
+		// In this case we have to also look up the concentration in the target of the flux.
+		
+		Math_Expr_FT *conc2 = nullptr;
+		
+		// TODO: This is very annoying, should be streamlined somehow.. We probably redo the same work several places.
+		if(var2->loc2.type == Var_Location::Type::connection) {
+			Specific_Var_Location loc = var2->loc1;
+			static_cast<Var_Loc_Restriction &>(loc) = static_cast<Var_Loc_Restriction &>(var2->loc2);
+			conc2 = make_flux_conc(app, loc, n_levels);
+		} else if(!is_located(var2->loc2)) {
+			fatal_error(Mobius_Error::internal, "Unsupported bidirectional or mixing flux.");
+		} else {
+			conc2 = make_flux_conc(app, var2->loc2, n_levels);
+		}
+		
+		if(var2->bidirectional) {
+			// This says that if the flux is positive, use the concentration in the source, else use the concentration in the target.
+			auto condition = make_binop(Token_Type::geq, make_state_var_identifier(base_id), make_literal(0.0));
+			
+			auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
+			if_chain->value_type = Value_Type::real;
+			if_chain->exprs.push_back(conc_code);
+			if_chain->exprs.push_back(condition);
+			if_chain->exprs.push_back(conc2);
+			conc_code = if_chain;
+		} else if(var2->mixing) {
+			conc_code = make_binop('-', conc_code, conc2);
+		}
+	}
+	
+	auto *result_code = make_binop('*', conc_code, make_possibly_time_scaled_ident(app, base_id));
+	
+	return result_code;
+}
+
 void
 instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
@@ -137,55 +210,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Codegen for fluxes of dissolved variables
 			if(var->type == State_Var::Type::dissolved_flux) {
-				auto var2 = as<State_Var::Type::dissolved_flux>(var);
-				auto conc = as<State_Var::Type::dissolved_conc>(app->vars[var2->conc]);
-				
-				auto conc_code = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
-				conc_code->restriction = var2->loc1; // Need to put the same 'restriction' on concentration as the source of the flux.
-				
-				instr.code = make_binop('*', conc_code, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
-				// TODO: Here we could also just do the re-computation of the concentration so that we don't get the back-and-forth unit conversion...
-				
-				if(conc->unit_conversion != 1.0)
-					instr.code = make_binop('/', instr.code, make_literal(conc->unit_conversion));
-				
-				// Certain types of fluxes are allowed to be negative, in that case we need the concentration to be taken from the target.
-				auto &restriction = instr.restriction;
-				if(var->bidirectional) {
-					
-					auto condition = make_binop(Token_Type::geq, make_state_var_identifier(var2->flux_of_medium), make_literal(0.0));
-					
-					// Find the concentration of the variable in the target of the flux.
-					Identifier_FT *conc2 = nullptr;
-					if(is_valid(restriction.r1.connection_id)) {
-						// TODO: Should allow this in all cases, but I don't think instr->restriction is correctly set up if the source is along a connection (???)
-						// TODO: What happens if a connection flux goes to 'out' and is bidirectional? Probably it then gives conc 0. Is that ok?
-						if(restriction.r1.type != Restriction::below)
-							fatal_error(Mobius_Error::internal, "Unsupported bidirectional flux.");
-						conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(var2->conc));
-						conc2->restriction = restriction;
-					} else {
-						// TODO: This could happen if it was split of to an aggregation in model codegen. Should not allow bidirectional in that case, but the error message should be more clear.
-						if(!is_located(var2->loc2))
-							fatal_error(Mobius_Error::internal, "Unsupported bidirectional flux.");
-						auto mass = as<State_Var::Type::declared>(app->vars[app->vars.id_of(var2->loc2)]);
-						conc2 = static_cast<Identifier_FT *>(make_state_var_identifier(mass->conc));
-					}
-					
-					auto altval = make_binop('*', conc2, make_possibly_time_scaled_ident(app, var2->flux_of_medium));
-					if(conc->unit_conversion != 1.0)
-						altval = make_binop('/', altval, make_literal(conc->unit_conversion));
-					
-					// TODO: There is a problematic thing if there is a non-trivial unit conversion between the source and target..
-					//    Should we support handling that?
-					
-					auto if_chain = new Math_Expr_FT(Math_Expr_Type::if_chain);
-					if_chain->value_type = Value_Type::real;
-					if_chain->exprs.push_back(instr.code);
-					if_chain->exprs.push_back(condition);
-					if_chain->exprs.push_back(altval);
-					instr.code = if_chain;
-				}
+				instr.code = make_dissolved_flux_code(app, instr.var_id);
 			}
 			
 			// Restrict discrete fluxes to not overtax their source.
@@ -214,7 +239,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : app->vars.all_fluxes()) {
 					auto flux_var = app->vars[flux_id];
 					
-					if(flux_var->loc2.r1.type != Restriction::none || !is_located(flux_var->loc2) || app->vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
+					if(flux_var->mixing_base || flux_var->loc2.r1.type != Restriction::none || !is_located(flux_var->loc2) || app->vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
 					
 					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 					if(flux_var->unit_conversion_tree)
@@ -239,6 +264,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				
 				for(Var_Id flux_id : app->vars.all_fluxes()) {
 					auto flux = app->vars[flux_id];
+					
+					if(flux->mixing_base) continue; // Mixing fluxes are not subtracted or added to the base quantity, only the dissolved fluxes count.
 					
 					if(is_located(flux->loc1) && app->vars.id_of(flux->loc1) == instr.var_id) {
 						

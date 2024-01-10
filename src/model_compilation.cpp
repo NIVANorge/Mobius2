@@ -225,6 +225,10 @@ resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction
 				
 			} else if(dep.variable_type == Variable_Type::state_var) {
 				
+				if(!is_valid(dep.var_id)) {
+					fatal_error(Mobius_Error::internal, "Found a dependency on an invalid Var_Id for instruction ", instr.debug_string(app), ".");
+				}
+				
 				instr.inherits_index_sets_from_state_var.insert(dep);
 				
 				// TODO: Secondary restriction r2 also?
@@ -255,8 +259,10 @@ resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction
 									Var_Location loc = app->vars[dep.var_id]->loc1;
 									loc.components[0] = pot_target;
 									auto target_id = app->vars.id_of(loc);
-									instr.instruction_is_blocking.insert(target_id.id);
-									instr.depends_on_instruction.insert(target_id.id);
+									if(is_valid(target_id)) {
+										instr.instruction_is_blocking.insert(target_id.id);
+										instr.depends_on_instruction.insert(target_id.id);
+									}
 								}
 							}
 						} else if(conn->type == Connection_Type::grid1d) {
@@ -742,6 +748,8 @@ set_up_connection_aggregation(Model_Application *app, std::vector<Model_Instruct
 	for(auto flux_id : app->vars.all_fluxes()) {
 		
 		auto flux_var = app->vars[flux_id];
+		if(flux_var->mixing_base) continue;
+		
 		auto conn = model->connections[var2->connection];
 		
 		bool is_flux_source = false;
