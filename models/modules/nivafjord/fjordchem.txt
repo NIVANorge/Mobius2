@@ -1,6 +1,6 @@
 
 
-module("NIVAFjord chemistry", version(0, 0, 0),
+module("NIVAFjord chemistry", version(0, 0, 1),
 	air   : compartment,
 	basin : compartment,
 	layer : compartment,
@@ -20,6 +20,7 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 	dz    : property,
 	indicator : property,
 	attn  : property,
+	precip : property,
 	A     : par_real,
 	vert  : connection,
 	sw_vert : connection
@@ -53,7 +54,7 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
 	
-	par_group("Nutrients") { # Should be called Microbial?
+	par_group("Microbes") {
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
@@ -63,7 +64,24 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	
+	# TODO: Initial states for all these:
+	# Main variables:
 	var(layer.water.o2, [k g], [m g, l-1], "Layer O₂") @initial_conc { o2_saturation(temp, salin)*init_O2*o2_mol_mass->> }
+	
+	var(layer.water.oc, [k g], [m g, l-1], "Layer DOC") @initial_conc { init_DOC }
+	
+	var(layer.water.din, [k g], [m g, l-1], "Layer DIN")
+	
+	var(layer.water.dip, [k g], [m g, l-1], "Layer DIP")
+	
+	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments")
+	
+	var(layer.water.sed.oc, [k g], "Layer POC") @show_conc(layer.water, [m g, l-1])
+	
+	# TODO: Need a separate phosphorous quantity type, but have to fix SimplyP first.
+	#var(layer.water.sed.phos, [k g], "Layer PP") @show_conc(layer.water, [m g, l-1])
+	
+	
 	
 	p_vel     : property("O₂ piston velocity")
 	o2satconc : property("O₂ saturation concentration")
@@ -75,13 +93,16 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 	
 	var(layer.water.o2satconc, [m g, l-1]) {
 		o2_saturation(temp, salin)*o2_mol_mass -> [m g, l-1]
-	}
+	} @no_store
 
 	var(layer.water.o2sat, []) {
 		conc(layer.water.o2) / layer.water.o2satconc
 	}
 	
-	#TODO: Need to have o2 contribution from precipitation to avoid strange surface fluctuations.
+	flux(out, layer.water.o2[vert.top], [k g, day-1], "Precipitation O₂") {
+		conc := 0.9*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
+		air.precip*A[vert.top]*conc->>
+	}
 
 	flux(layer.water.o2[vert.top], out,  [k g, day-1], "O₂ gas exchange at surface") {
 		(!basin.ice.indicator) * basin.p_vel*(conc(o2[vert.top]) - layer.water.o2satconc[vert.top])*A[vert.top] ->>
@@ -92,10 +113,6 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		satconc := o2satconc*pressure_corr,
 		max(0, bubble*(conc(o2) - satconc)*A*dz) ->>
 	}
-	
-	var(layer.water.oc, [k g], [m g, l-1], "Layer DOC") @initial_conc { init_DOC }
-	
-	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments")
 	
 	flux(layer.water.sed, vert, [k g, day-1], "Layer particle settling") {
 		sett_vel * conc(sed) * A[vert.below] ->>
@@ -112,10 +129,6 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		1 - exp(-att_c*dz)
 	}
 	
-	var(layer.water.din, [k g], [m g, l-1], "Layer DIN")
-	
-	var(layer.water.dip, [k g], [m g, l-1], "Layer DIP")
-	
 	f_par : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
 	
 	light_lim : property("Light limitation")
@@ -130,28 +143,28 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		par_sw := in_flux(sw_vert, layer.water.heat)*(1 - f_par)/A -> [W, m-2],
 		f := par_sw/max(0.5*par_sw, iopt),
 		f*exp(1 - f)
-	}
+	} @no_store
 	
 	var(layer.water.phyt.N_lim, []) {
 		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
 		cmol := conc(water.din)/n_mol_mass->[m mol, m-3],
 		ntemp := cmol^2,
 		ntemp / ((alpha*phyt_nc)^2 + ntemp)
-	}
+	} @no_store
 	
 	var(layer.water.phyt.P_lim, []) {
 		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
 		cmol := conc(water.dip)/p_mol_mass->[m mol, m-3],
 		ptemp := cmol^2,
 		ptemp / ((alpha*phyt_pc)^2 + ptemp)
-	}
+	} @no_store
 	
 	equi : property("Equilibrium concentration")
 	
 	var(layer.water.phyt.equi, [m g, l-1], "Phytoplankton equilibrium concentration") {
 		phyt_eq := q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10) / (chl_a_f->[]),
 		phyt_eq*min(light_lim, min(N_lim, P_lim))   #TODO: Re-add.
-	}
+	} @no_store
 	
 	fix : property("Photosynthetic C fixation")
 	death : property("Phytoplankton death")
@@ -182,19 +195,27 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		conc(phyt)*chl_a_f->>
 	}
 	
-	flux(layer.water.phyt, vert, [k g, day-1], "Phytoplankton sinking") {
-		
+	sed_vel : property("Sedimentation velocity")
+	
+	var(layer.water.phyt.sed_vel, [m, day-1], "Phytoplankton sinking velocity") {
 		c_max := 0.4[m g, l-1], #TODO: parameter
 		
 		nut_lim := min(N_lim, P_lim),
 		conc_lim := max(0, (c_max - conc(phyt))/c_max),
 		
-		totlim := min(nut_lim, conc_lim),
+		totlim := 1-min(nut_lim, conc_lim),
 		
 		min_sett := 0.2, #Parametrize
 		
-		#TODO: What about the fraction that sinks to sediments?
-		sett_vel*conc(phyt)*s_response(totlim, 1, 0, 0.2, 1)*A->>
+		sett_vel*s_response(totlim, 0, 1, min_sett, 1)->>
+	}
+	
+	flux(layer.water.phyt, vert, [k g, day-1], "Phytoplankton sinking") {
+		conc(phyt)*sed_vel*A[vert.below]->>
+	}
+	
+	flux(layer.water.phyt, out, [k g, day-1], "Phytoplankton settling to sediments") {
+		conc(phyt)*sed_vel*(A - A[vert.below])->>
 	}
 
 	var(layer.water.resp, [day-1], "Bacterial mineralization") {
@@ -210,6 +231,7 @@ module("NIVAFjord chemistry", version(0, 0, 0),
 		# TODO: Do we want the NOSC?
 		resp*o2*(o2_mol_mass/c_mol_mass)#*(2 - (4 + oc.nosc)/4)
 	}
+	
 }
 
 

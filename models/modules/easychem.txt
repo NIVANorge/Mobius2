@@ -14,13 +14,13 @@ module("EasyChem", version(0, 0, 3),
 	sed    : quantity,
 	
 	temp   : property,
+	precip : property,
 	sw     : property,
 	wind   : property,
 	indicator : property,
 	tp     : property,
 	tn     : property,
 	toc    : property,
-	sed_oc : par_real,
 	
 	area   : property
 ) {
@@ -94,19 +94,32 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		o2_saturation(temp, 0)*o2_mol_mass -> [m g, l-1]
 	}
 	
+	flux(out, epi.water.o2, [k g, day-1], "Precipitation O₂") {
+		conc := 0.9*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
+		air.precip*area*conc->>
+	}
+	
 	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
 		(!ice.indicator) * p_vel*(o2sat - conc(o2))*area ->>
 	}
-
-	#TODO: factor out 0.05[m g, l-1] as a constant.
-	flux(epi.water.o2, out, [k g, day-1], "O₂ sediment consumption (epi)") {
-		# The interface area between sediment and epilimnion is the epi surface area minus the hyp surface area.
-		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*(area - hyp.area) ->>
+	
+	o2rate : property("Sediment O₂ consumption rate")
+	
+	var(epi.o2rate, [k g, m-2, day-1]) {
+		q10 := 2,  #Parametrize?
+		rate20 := sod*min(1, 1 - (0.05[m g, l-1] - conc(water.o2))/0.05[m g, l-1]) ->>,
+		q10_adjust(rate20, 20[deg_c], hyp.water.temp, q10) # hyp.water.temp proxy for sediment temperature ok (?)
 	}
 
-	flux(hyp.water.o2, out, [k g, day-1], "O₂ sediment consumption (hypo)") {
-		sod*min(1, 1 - (0.05[m g, l-1] - conc(o2))/0.05[m g, l-1])*area ->>
-	}	
+	flux(epi.water.o2, out, [k g, day-1], "O₂ sediment consumption (epi)") {
+		# The interface area between sediment and epilimnion is the epi surface area minus the hyp surface area.
+		epi.o2rate*(area - hyp.area) ->>
+	}
+	
+	#TODO: Seems to work better to assume that sediment O2 consumption is low in hyp, but why?
+	#flux(hyp.water.o2, out, [k g, day-1], "O₂ sediment consumption (hypo)") {
+	#	epi.o2rate*area ->>
+	#}	
 	
 	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
 	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
@@ -243,10 +256,17 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	#flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	
 	# TODO: DON mineralization (?). Difficult to parametrize maybe.
+	# Denitrification (?)
+	
+	# Mostly need phyt sinking/sedimentation (accounts for loss of TN)
 	
 	var(epi.water.tn, [m g, l-1], "Epilimnion TN") {  conc(on) + conc(din)  }
 	
-	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc) + conc(phyt) + conc(sed)*sed_oc   }
+	var(epi.water.sed.oc, [k g], "Epilimnion POC") @show_conc(epi.water, [m g, l-1])
+	
+	var(hyp.water.sed.oc, [k g], "Hypolimnion POC") @show_conc(hyp.water, [m g, l-1])
+	
+	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc)  + conc(phyt) + conc(sed.oc)*conc(sed)   }
 }
 
 

@@ -12,7 +12,8 @@ model("Wave2D") {
 	
 	distribute(cell, vi, hi)
 	
-	solve(solver("Solver", inca_dascru, [hr]), cell.amp, cell.mom)
+	sol : solver("Solver", inca_dascru, [hr]) #TODO: Why didn't it work to inline declare it?
+	solve(sol, cell.amp, cell.mom)
 	
 	v : connection("Vert") @grid1d(cell, vi)
 	h : connection("Horz") @grid1d(cell, hi)

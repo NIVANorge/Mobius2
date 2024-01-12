@@ -29,7 +29,11 @@ Model_Instruction {
 	
 	bool                subtract   = false; // For certain connection aggregations, we want to subtract from the aggregate instead of adding to it.
 	
-	Var_Loc_Restriction restriction; // May eventually need 2?   Is this one used correctly?
+	// This 'restriction' is used for two purposes.
+	//	For aggregation instructions it is about what the target aggregate is.
+	//  For fluxes it is a check whether or not the flux should be computed (or set to 0) depending on whether the target along the connection exists at all.
+	//  It should *not* be used to determine the source or target of a flux in itself, for that use the loc1 and loc2 of the attached State_Var.
+	Var_Loc_Restriction restriction;
 	
 	Entity_Id           solver     = invalid_entity_id;
 	

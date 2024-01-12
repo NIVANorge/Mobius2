@@ -10,9 +10,5 @@ model("SimplyCNP") {
 	tn   : property("Total nitrogen")
 	
 	load("modules/simplyn.txt",    module("Simply organic C-N", river, water, din, on, oc, tn))
-	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc, sed_oc))
-	
-	par_group("Suspended carbon") {
-		sed_oc : par_real("Suspended sediments OC fraction", [], 0.02, 0, 1)
-	}
+	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc))
 }

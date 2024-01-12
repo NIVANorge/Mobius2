@@ -83,10 +83,17 @@ module("Simple river TOC", version(0, 1, 0),
 	water : quantity,
 	oc    : quantity,
 	sed   : quantity,
-	toc   : property,
-	sed_oc : par_real
+	toc   : property
 ) {
-	var(river.water.toc, [m g, l-1], "River TOC concentration") {   conc(oc) + conc(sed)*sed_oc   }
+	par_group("Particulate carbon") {
+		sed_oc : par_real("Suspended sediments OC mass fraction", [], 0.02, 0, 1)
+	}
+
+	var(river.water.sed.oc, [k g], "River POC") @show_conc(river.water, [m g, l-1])
+	
+	flux(out, river.water.sed.oc, [k g, day-1], "River POC mobilization") {   sed_oc*in_flux(river.water.sed)->>   }
+	
+	var(river.water.toc, [m g, l-1], "River TOC concentration") {   conc(oc) + conc(sed.oc)*conc(sed)   }
 }
 
 

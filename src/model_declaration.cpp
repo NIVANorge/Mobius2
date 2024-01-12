@@ -667,7 +667,7 @@ Var_Registration::process_declaration(Catalog *catalog) {
 			
 		} else {
 			note->decl.print_error_header();
-			fatal_error("Expected either no notes, 'initial' or 'override_conc'.");
+			fatal_error("Urecognized note '", str, "' for var declaration.");
 		}
 	}
 	
