@@ -351,7 +351,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 }
 
 Math_Expr_FT *
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction = nullptr, Model_Instruction *context_instr = nullptr);
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Model_Instruction *context_instr = nullptr);
 
 void
 set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Restriction &res, Math_Expr_FT *specific_target = nullptr) {
@@ -572,10 +572,10 @@ process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes
 }
 
 Math_Expr_FT *
-put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Var_Loc_Restriction *existing_restriction, Model_Instruction *context_instr) {
+put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &index_expr, Model_Instruction *context_instr) {
 	
 	for(int idx = 0; idx < expr->exprs.size(); ++idx)
-		expr->exprs[idx] = put_var_lookup_indexes(expr->exprs[idx], app, index_expr, existing_restriction, context_instr);
+		expr->exprs[idx] = put_var_lookup_indexes(expr->exprs[idx], app, index_expr, context_instr);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
 	
@@ -605,8 +605,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 
 			put_var_lookup_indexes_basic(ident, app, new_indexes);
 			
-			// If there is an exisiting condition, it will enclose the entire expression, so we don't need to check for it again.
-			if(!existing_restriction || !give_the_same_condition(app, existing_restriction, &res)) {
+			// If there is an existing condition, it will enclose the entire expression, so we don't need to check for it again.	
+			if(!context_instr || !give_the_same_condition(app, &context_instr->restriction, &res)) {
 				return make_restriction_condition(app, ident, make_literal((double)0.0), res, index_expr); // Important not to use new_indexes here..						
 			}
 			
@@ -951,7 +951,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 			try {
 				if(instr.code) {
 					fun = copy(instr.code);
-					fun = put_var_lookup_indexes(fun, app, indexes, &instr.restriction, &instr);
+					fun = put_var_lookup_indexes(fun, app, indexes, &instr);
 				} else if (instr.type != Model_Instruction::Type::clear_state_var) {
 					//NOTE: Some instructions are placeholders that give the order of when a value is 'ready' for use by other instructions, but they are not themselves computing the value they are placeholding for. This for instance happens with aggregation variables that are computed by other add_to_aggregate instructions. So it is OK that their 'fun' is nullptr.
 					

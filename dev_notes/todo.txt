@@ -61,10 +61,6 @@
 		
 			Properly test the flux restriction refactoring.  (e.g. having [.below] in source etc. )
 				Maybe broken if we have grid1d of the same connection in both source and target (?)
-				
-				Also it seems like Model_Instruction::restriction should either be removed or there should be two of them (?) - one for source another for target.
-					It is maybe needed for aggregation instructions (?)
-						But should not be used for others - but that is a bit confusing maybe.
 			
 			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
 				(in terms of how it is handled internally, not in terms of user-facing functionality)
