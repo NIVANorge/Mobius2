@@ -1064,7 +1064,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	auto var = as<State_Var::Type::declared>(app->vars[target_var_id]);
 	
 	// Should not have connection aggregates for overridden variables.
-	if(var->override_tree)
+	if(var->function_tree)
 		return;
 	
 	// See if we have a connection aggregate for this variable and connection already.
@@ -1281,6 +1281,10 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 	}
 	
 	if(override_ast) {
+		
+		if(ast)
+			fatal_error(Mobius_Error::internal, "Somehow got both a main and @override block for a variable.");
+		
 		if(override_is_conc)
 			res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
 		else
@@ -1313,7 +1317,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 			}
 			
 			if(keep_code)
-				var2->override_tree = owns_code(fun);
+				var2->function_tree = owns_code(fun);
 			else
 				delete fun;
 		}
@@ -1465,13 +1469,13 @@ Model_Application::compose_and_resolve() {
 			bool valid_source = false;
 			if(is_located(var->loc1)) {
 				auto source = as<State_Var::Type::declared>(vars[vars.id_of(var->loc1)]);
-				if(!source->override_tree)
+				if(!source->function_tree)
 					valid_source = true;
 			}
 			bool valid_target = false;
 			if(is_located(var->loc2)) {
 				auto target = as<State_Var::Type::declared>(vars[vars.id_of(var->loc2)]);
-				if(!target->override_tree)
+				if(!target->function_tree)
 					valid_target = true;
 			}
 			if(is_valid(var->loc2.r1.connection_id))
@@ -1654,8 +1658,6 @@ Model_Application::compose_and_resolve() {
 				
 				if(lu->function_tree)
 					replace_flagged(lu->function_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
-				if(lu->override_tree)
-					replace_flagged(lu->override_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->initial_function_tree)
 					replace_flagged(lu->initial_function_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->specific_target)
@@ -1712,8 +1714,6 @@ Model_Application::compose_and_resolve() {
 				
 				if(lu->function_tree)
 					replace_flagged_par(lu->function_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
-				if(lu->override_tree)
-					replace_flagged_par(lu->override_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->initial_function_tree)
 					replace_flagged_par(lu->initial_function_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->specific_target)
@@ -1797,8 +1797,6 @@ Model_Application::compose_and_resolve() {
 			auto var = as<State_Var::Type::declared>(vars[rep_id]);
 			if(var->function_tree)
 				replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
-			if(var->override_tree)
-				replace_flagged(var->override_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
 		}
 	}
 	
@@ -1824,8 +1822,6 @@ Model_Application::compose_and_resolve() {
 			check_valid_distribution_of_dependencies(this, var2->function_tree.get(), var2->allowed_index_sets);
 		if(var2->initial_function_tree)
 			check_valid_distribution_of_dependencies(this, var2->initial_function_tree.get(), var2->allowed_index_sets);
-		if(var2->override_tree)
-			check_valid_distribution_of_dependencies(this, var2->override_tree.get(), var2->allowed_index_sets);
 		if(var2->specific_target)
 			check_valid_distribution_of_dependencies(this, var2->specific_target.get(), var2->allowed_index_sets);
 	}

@@ -671,6 +671,11 @@ Var_Registration::process_declaration(Catalog *catalog) {
 		}
 	}
 	
+	if(override_code && code) {
+		decl->body->opens_at.print_error_header();
+		fatal_error("A variable can't have both a main and an @override block.");
+	}
+	
 	if((is_valid(conc_unit) || initial_is_conc || override_is_conc || is_located(additional_conc_medium)) && !var_location.is_dissolved()) {
 		source_loc.print_error_header();
 		fatal_error("Concentration variables can only be created for dissolved quantities.");

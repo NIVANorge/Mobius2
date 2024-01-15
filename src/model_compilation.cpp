@@ -447,8 +447,9 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	if(var->type == State_Var::Type::declared) {
 		auto var2 = as<State_Var::Type::declared>(var);
 		auto fun = var2->function_tree.get();
-		if(!fun && !var2->override_is_conc)
-			fun = var2->override_tree.get();
+		if(var2->override_is_conc)
+			fun = nullptr;
+		
 		if(fun) {
 			//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
 			// For instance if we borrow the initial code from the main code, we have to remove last() clauses from it.
@@ -459,7 +460,7 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 		}
 		// NOTE: To fix this should only have to set initial_is_conc, but we don't really want to modify the State_Var at this point.
 		// There is actually also a problem if we for initial_is_conc variables don't ensure that the medium mass variable has an initial value (only relevant if it is @override, and the combination of that is probably unlikely. This is because all of this happens before codegen, but it has to).
-		if(var2->override_tree && var2->override_is_conc)
+		if(var2->function_tree && var2->override_is_conc)
 			fatal_error(Mobius_Error::internal, "Wanted to generate initial code for variable \"", var->name, "\", but it only has @override_conc code. This is not yet handled. (for now, you have to manually put @initial_conc on it.");
 		
 		// NOTE: If it doesn't have code it does have initial value 0, and that will be correct. 
@@ -896,8 +897,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(initial) fun = var2->initial_function_tree.get();
 			else        fun = var2->function_tree.get();
 			
+			if(!initial && var2->override_is_conc) // In this case the function tree is for the concentration variable, not for the main variable.
+				fun = nullptr;
+			
 			// NOTE: quantities typically don't have code associated with them directly (except for the initial value)
-			if(!initial && !fun && !is_valid(var2->external_computation) && !var2->is_mass_balance_quantity() && !var2->override_tree)
+			if(!initial && !fun && !is_valid(var2->external_computation) && (var2->decl_type != Decl_Type::quantity))
 				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 		}
 		
@@ -1050,9 +1054,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			source_solver = instructions[source_id.id].solver;
 			auto source_var = as<State_Var::Type::declared>(app->vars[source_id]);
 			
-			// If the source is not an ODE variable, generate an instruction to subtract the flux from the source.
+			// If the source is not an ODE variable, and is not overridden, generate an instruction to subtract the flux from the source.
 			
-			if(!is_valid(source_solver) && !source_var->override_tree) {
+			if(!is_valid(source_solver) && !source_var->function_tree) {
 				int sub_idx = (int)instructions.size();
 				instructions.emplace_back();
 				
@@ -1076,13 +1080,15 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		if(is_connection && has_aggregate)
 			fatal_error(Mobius_Error::internal, "Somehow a connection flux got a regular aggregate: ", var->name);
 		
+		// Similarly generate the instruction to add the flux to the target.
+		
 		if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
 			Var_Id target_id = app->vars.id_of(loc2);
 			
 			Entity_Id target_solver = instructions[target_id.id].solver;
 			auto target_var = as<State_Var::Type::declared>(app->vars[target_id]);
 			
-			if(!is_valid(target_solver) && !target_var->override_tree) {
+			if(!is_valid(target_solver) && !target_var->function_tree) {
 				int add_idx = (int)instructions.size();
 				instructions.emplace_back();
 				

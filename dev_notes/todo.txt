@@ -114,13 +114,9 @@
 			
 		Bidirectional (and mixing)
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
-				And maybe not allow aggregation weights (or otherwise multiply by the inverse when necessary).
-				We do a unit check in codegen, but may be better to do it earlier.
-					Do we? Where??
+				And maybe not allow unit_conversions and aggregation_weights (or otherwise multiply by the inverse when necessary).
 		
-			Have an optional test to see if non-bidirectional fluxes were negative after or during a run.
-			
-			Better tests for bidirectional fluxes before codegen. (That is, check that the concentration exists in the target). If it doesn't could maybe just have a warning, but then the conc in the target would have to be treated as 0.
+			Have an optional test to see if non-bidirectional non-mixing fluxes (with dissolvedes) were negative after or during a run.
 			
 			Need to check that a bidirectional flux wasn't discrete.
 
@@ -135,9 +131,7 @@
 	
 		MobiView :
 			Make model reloads work better wrt 'quick select'.
-				If the quick select tab is on 
-			
-			In settings, remember the last used data file with each model and set that as the default when selecting that model.
+				If the quick select tab is on
 		
 		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
 			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.

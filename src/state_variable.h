@@ -88,7 +88,6 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	bool initial_is_conc = false;
 	owns_code initial_function_tree = nullptr;
 	bool override_is_conc = false;
-	owns_code override_tree = nullptr;
 	
 	Var_Id external_computation = invalid_var; // If this variable is the result of an external computation.
 	
@@ -196,7 +195,7 @@ inline bool
 State_Var::is_mass_balance_quantity() {
 	if(type != Type::declared) return false;
 	auto var2 = as<State_Var::Type::declared>(this);
-	return var2->decl_type == Decl_Type::quantity && !var2->override_tree;
+	return (var2->decl_type == Decl_Type::quantity) && !var2->function_tree;
 }
 
 #endif // MOBIUS_STATE_VARIABLE_H
