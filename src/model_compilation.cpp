@@ -430,6 +430,28 @@ void
 create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std::vector<Model_Instruction> &instructions);
 
 void
+make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
+	// If this is initial code that was copied from main code, there could be some thing that are allowed in main code that is not allowed in initial code.
+	
+	for(auto child : expr->exprs)
+		make_safe_for_initial(app, child);
+	
+	if(expr->expr_type == Math_Expr_Type::identifier) {
+		auto ident = static_cast<Identifier_FT *>(expr);
+		if(ident->has_flag(Identifier_FT::last_result));
+			ident->remove_flag(Identifier_FT::last_result);
+		
+		if(ident->variable_type == Variable_Type::state_var) {
+			auto var = app->vars[ident->var_id];
+			if(var->type == State_Var::Type::connection_aggregate || var->type == State_Var::Type::in_flux_aggregate) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("This variable needs to be evaluated during the initial step, but 'in_flux' can't be accessed during the initial step. So a separate @initial block is needed for this variable.");
+			}
+		}
+	}
+}
+
+void
 ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions) {
 	
 	auto instr = &instructions[var_id.id];
@@ -450,11 +472,10 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 		if(var2->override_is_conc)
 			fun = nullptr;
 		
-		if(fun) {
-			//TODO: We have to be careful, because there are things that are allowed in regular code that is not allowed in initial code. We have to vet for it here!
-			// For instance if we borrow the initial code from the main code, we have to remove last() clauses from it.
-			
+		if(fun) {			
 			instr->code = copy(fun);
+			make_safe_for_initial(app, instr->code);
+			
 			// Have to do this recursively, since we may already have passed it in the outer loop.
 			create_initial_vars_for_lookups(app, instr->code, instructions);
 		}
@@ -470,22 +491,7 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	if(var->type == State_Var::Type::regular_aggregate) {
 		auto var2 = as<State_Var::Type::regular_aggregate>(var);
 		
-		auto instr_agg_of = &instructions[var2->agg_of.id];
-		if(instr_agg_of->is_valid()) return; // If it is already valid, fine!
-		
-		auto var_agg_of = app->vars[var2->agg_of];
-		
-		instr_agg_of->type = Model_Instruction::Type::compute_state_var;
-		instr_agg_of->var_id = var2->agg_of;
-		instr_agg_of->code = nullptr;
-		
-		if(var_agg_of->type == State_Var::Type::declared) {
-			auto var_agg_of2 = as<State_Var::Type::declared>(var_agg_of);
-			if(var_agg_of2->function_tree) {
-				instr_agg_of->code = copy(var_agg_of2->function_tree.get());
-				create_initial_vars_for_lookups(app, instr_agg_of->code, instructions);
-			}
-		}
+		ensure_has_intial_value(app, var2->agg_of, instructions);
 	}
 }
 
