@@ -469,8 +469,8 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	if(var->type == State_Var::Type::declared) {
 		auto var2 = as<State_Var::Type::declared>(var);
 		auto fun = var2->function_tree.get();
-		if(var2->override_is_conc)
-			fun = nullptr;
+		//if(var2->override_is_conc)
+		//	fun = nullptr;
 		
 		if(fun) {			
 			instr->code = copy(fun);
@@ -479,12 +479,18 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 			// Have to do this recursively, since we may already have passed it in the outer loop.
 			create_initial_vars_for_lookups(app, instr->code, instructions);
 		}
-		// NOTE: To fix this should only have to set initial_is_conc, but we don't really want to modify the State_Var at this point.
-		// There is actually also a problem if we for initial_is_conc variables don't ensure that the medium mass variable has an initial value (only relevant if it is @override, and the combination of that is probably unlikely. This is because all of this happens before codegen, but it has to).
+		
+		if(var2->initial_is_conc) {
+			// If the initial is given as a concentration, we have to multiply it with the value of what it is dissolved in, and so that must also be given an initial value.
+			auto loc = remove_dissolved(var->loc1);
+			ensure_has_intial_value(app, app->vars.id_of(loc), instructions);
+		}
+		
+		// This should no longer happen, since in model_composition, if a var lacks an initial tree but has an override tree, the override tree is set as the initial tree, with initial_is_conc = override_is_conc.
 		if(var2->function_tree && var2->override_is_conc)
 			fatal_error(Mobius_Error::internal, "Wanted to generate initial code for variable \"", var->name, "\", but it only has @override_conc code. This is not yet handled. (for now, you have to manually put @initial_conc on it.");
 		
-		// NOTE: If it doesn't have code it does have initial value 0, and that will be correct. 
+		// NOTE: If it doesn't have code it does have initial value 0, and that will be correct as by design.
 	}
 	
 	// If it is an aggregation variable, whatever it aggregates also must be computed.
