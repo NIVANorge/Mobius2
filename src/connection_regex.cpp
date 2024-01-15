@@ -170,7 +170,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	Math_Expr_AST *regex = connection->regex;
 	
 	if(!connection->no_cycles) {
-		log_print("Note: Checking the connection regular expression is not yet supported for a directed_graph that can have cycles. It is thus skipped, and you have to verify yourself that the graph data is correct.\n");
+		log_print("Note: Checking the connection regular expression is not yet supported for a directed_graph that can have cycles. It is thus skipped, and the user is responsible for checking that the graph is correct.\n");
 		return;
 	}
 	

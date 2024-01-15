@@ -387,9 +387,16 @@ set_grid1d_target_indexes_with_possible_specific(Model_Application *app, Index_E
 	// TODO: The specific_target should be stored on the Restriction instead so that we don't need this separate function.
 	Math_Expr_FT *specific_target = nullptr;
 	if(restriction.type == Restriction::specific) {
-		if(!is_valid(var_id) || !app->vars[var_id]->specific_target.get())
+		if(!is_valid(var_id) || !app->vars[var_id]->specific_target)
 			fatal_error(Mobius_Error::internal, "Did not find @specific code for ", app->vars[var_id]->name, " even though it was expected.");
+		
 		specific_target = copy(app->vars[var_id]->specific_target.get());
+		
+		auto index_set = app->model->connections[restriction.connection_id]->node_index_set;
+		auto high = make_binop('-', app->get_index_count_code(index_set, indexes), make_literal((s64)1));
+		specific_target = make_clamp(specific_target, make_literal((s64)0), high);
+		
+		
 		put_var_lookup_indexes(specific_target, app, indexes);
 	}
 
@@ -748,7 +755,7 @@ add_value_to_state_var(Var_Id target_id, Math_Expr_FT *target_offset, Math_Expr_
 }
 
 Math_Expr_FT *
-add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Restriction &restriction) {
+add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id var_id, Var_Id agg_id, Var_Id source_id, Index_Exprs &indexes, Restriction &restriction, Restriction &r2) {
 	
 	auto model = app->model;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
@@ -765,6 +772,18 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id agg_i
 	Index_Exprs new_indexes(model);
 	new_indexes.copy(indexes);
 	set_graph_target_indexes(app, new_indexes, restriction.connection_id, source_compartment, target_compartment);
+	
+	if(r2.type != Restriction::none && !target_agg->is_source) {
+			
+		// TODO: Should be checked at an earlier stage instead of here.
+		auto conn2 = model->connections[r2.connection_id];
+		if(conn2->type != Connection_Type::grid1d) {
+			model->fluxes[as<State_Var::Type::declared>(app->vars[var_id])->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("Currently we only support if the type of a connection in a secondary bracket is grid1d.");
+		}
+
+		set_grid1d_target_indexes_with_possible_specific(app, new_indexes, r2, var_id);
+	}
 	
 	auto agg_offset = app->get_storage_structure(agg_id.type).get_offset_code(agg_id, new_indexes);
 	
@@ -814,26 +833,11 @@ add_value_to_connection_agg_var(Model_Application *app, Math_Expr_FT *value, Mod
 	Index_Exprs new_indexes(model);
 	new_indexes.copy(indexes);
 	
-	if(!as<State_Var::Type::connection_aggregate>(app->vars[agg_id])->is_source 
-		&& restriction.r2.type != Restriction::none) {
-			
-		auto conn2 = model->connections[restriction.r2.connection_id];
-		if(conn2->type != Connection_Type::grid1d) {
-			model->fluxes[as<State_Var::Type::declared>(app->vars[instr->var_id])->decl_id]->source_loc.print_error_header(Mobius_Error::model_building);
-			fatal_error("Currently we only support if the type of a connection in a secondary bracket is grid1d.");
-		}
-		
-		//log_print("Got here! ", app->vars[agg_id]->name, " ", app->vars[instr->var_id]->name, "\n");
-		//log_print("Got here! ", instr->debug_string(app), "\n");
-		
-		set_grid1d_target_indexes_with_possible_specific(app, new_indexes, restriction.r2, instr->var_id);
-	}
-	
 	auto type = model->connections[restriction.r1.connection_id]->type;
 	
 	if(type == Connection_Type::directed_graph) {
 		
-		return add_value_to_graph_agg(app, value, agg_id, instr->source_id, new_indexes, restriction.r1);
+		return add_value_to_graph_agg(app, value, instr->var_id, agg_id, instr->source_id, new_indexes, restriction.r1, restriction.r2);
 		
 	} else if (type == Connection_Type::grid1d) {
 		

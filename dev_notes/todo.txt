@@ -86,6 +86,7 @@
 				
 				For [below] accesses in code, we probably need to pre-process them to check that the units are the same in all instances etc.
 					Right now we do check units during final codegen, but would maybe be good to have a system for checking correctness of everything first.
+						Where?
 					Alternatively do unit conversions, but how?
 					May have to be done inside resolve_function_tree, so we need to access the connection data there.
 					
@@ -106,19 +107,10 @@
 			.specific target:
 				Maybe the @specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
 					Could then also allow .specific inside main code.
-				Properly process the @specific function tree, incl. flags
-				Check valid dependencies for the tree.
-					Have to think about what types of variables it is allowed to reference.
-				Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
-					This is actually the only feature (except external_computation) currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
-					Only reason not to do it is that it slows down the computation minisculely. Probably not a problem though (?!)
-					
-				Tridiagonal distribution of target as in original NIVAFjord (?).
+				Tridiagonal distribution of flux target as in original NIVAFjord (?).
 				
-				Allow .specific access also on identifiers on code.
-				
-			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
-			Sub-indexed series data.
+			Should zero out fluxes / accesses across (as in connections) the super index set if they also index over the sub index set and the target sub index is out of bounds. (mostly relevant for all_to_all, grid1d (and graph)).
+				In make_restriction_condition
 			
 		Bidirectional (and mixing)
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))

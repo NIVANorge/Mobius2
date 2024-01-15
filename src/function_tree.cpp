@@ -192,6 +192,35 @@ make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 }
 
 Math_Expr_FT *
+make_clamp(Math_Expr_FT *var, Math_Expr_FT *low, Math_Expr_FT *high) {
+	/*
+	Equivalent to
+		v := var,
+		l := low,
+		h := high,
+		l if v < l,
+		h if v > h,
+		v otherwise
+	*/
+	auto block = new Math_Block_FT();
+	block->value_type = var->value_type;
+	auto var_ref = add_local_var(block, var);
+	auto low_ref = add_local_var(block, low);
+	auto high_ref = add_local_var(block, high);
+	auto cond1 = make_binop('<', var_ref, low_ref);
+	auto cond2 = make_binop('>', copy(var_ref), high_ref);
+	auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
+	if_expr->value_type = var->value_type;
+	if_expr->exprs.push_back(copy(low_ref));
+	if_expr->exprs.push_back(cond1);
+	if_expr->exprs.push_back(copy(high_ref));
+	if_expr->exprs.push_back(cond2);
+	if_expr->exprs.push_back(copy(var_ref));
+	block->exprs.push_back(if_expr);
+	return block;
+}
+
+Math_Expr_FT *
 make_no_op() {
 	auto no_op = new Math_Expr_FT(Math_Expr_Type::no_op);
 	no_op->value_type = Value_Type::none;

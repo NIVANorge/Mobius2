@@ -263,6 +263,9 @@ Math_Expr_FT *
 make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs);
 
 Math_Expr_FT *
+make_clamp(Math_Expr_FT *var, Math_Expr_FT *low, Math_Expr_FT *high);
+
+Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr);
 
 Math_Expr_FT *

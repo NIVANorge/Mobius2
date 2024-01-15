@@ -1658,6 +1658,8 @@ Model_Application::compose_and_resolve() {
 					replace_flagged(lu->override_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->initial_function_tree)
 					replace_flagged(lu->initial_function_tree.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
+				if(lu->specific_target)
+					replace_flagged(lu->specific_target.get(), var_id, agg_id, Identifier_FT::Flags::aggregate);
 			}
 		}
 	}
@@ -1708,15 +1710,14 @@ Model_Application::compose_and_resolve() {
 
 				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the structure?
 				
-				// TODO: Need a replace_flagged that works for parameters.
-				
 				if(lu->function_tree)
 					replace_flagged_par(lu->function_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->override_tree)
 					replace_flagged_par(lu->override_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
 				if(lu->initial_function_tree)
 					replace_flagged_par(lu->initial_function_tree.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
-				
+				if(lu->specific_target)
+					replace_flagged_par(lu->specific_target.get(), par_id, agg_id, Identifier_FT::Flags::aggregate);
 			}
 		}
 	}
@@ -1791,11 +1792,13 @@ Model_Application::compose_and_resolve() {
 		// NOTE: If in_flux_id is invalid at this point (since the referenced connection aggregate did not exist), replace_flagged will put a literal 0.0 in place of this value.
 		//   TODO: Maybe print a warning?
 		
-		// TODO: What happens if we use in_flux in initial code or override code??
-		//     Should probably not be available in initial code, but is that checked for?
+		// NOTE: We have disallowed in_flux lookups in initial code and specific_target code for now.
 		for(auto rep_id : in_flux.second) {
 			auto var = as<State_Var::Type::declared>(vars[rep_id]);
-			replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
+			if(var->function_tree)
+				replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
+			if(var->override_tree)
+				replace_flagged(var->override_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
 		}
 	}
 	
@@ -1823,6 +1826,8 @@ Model_Application::compose_and_resolve() {
 			check_valid_distribution_of_dependencies(this, var2->initial_function_tree.get(), var2->allowed_index_sets);
 		if(var2->override_tree)
 			check_valid_distribution_of_dependencies(this, var2->override_tree.get(), var2->allowed_index_sets);
+		if(var2->specific_target)
+			check_valid_distribution_of_dependencies(this, var2->specific_target.get(), var2->allowed_index_sets);
 	}
 	
 	for(auto var_id : vars.all_state_vars()) {

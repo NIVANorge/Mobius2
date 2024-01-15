@@ -50,7 +50,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, s-1], "River discharge to fjord") {
 		flow->>
 	} @specific { river.vert_target }
-	
 
 	# TODO: Could have a SimplyCl module
 	var(river.water.salin, [], "River salinity") {  0  } @no_store
