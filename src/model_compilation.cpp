@@ -486,10 +486,11 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 			ensure_has_intial_value(app, app->vars.id_of(loc), instructions);
 		}
 		
-		// This should no longer happen, since in model_composition, if a var lacks an initial tree but has an override tree, the override tree is set as the initial tree, with initial_is_conc = override_is_conc.
+		// This should no longer be an issue, since in model_composition, if a var lacks an initial tree but has an override tree, the override tree is set as the initial tree, with initial_is_conc = override_is_conc.
+		/*
 		if(var2->function_tree && var2->override_is_conc)
 			fatal_error(Mobius_Error::internal, "Wanted to generate initial code for variable \"", var->name, "\", but it only has @override_conc code. This is not yet handled. (for now, you have to manually put @initial_conc on it.");
-		
+		*/
 		// NOTE: If it doesn't have code it does have initial value 0, and that will be correct as by design.
 	}
 	
