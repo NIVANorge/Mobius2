@@ -1,6 +1,5 @@
 
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
-	air    : compartment,
 	basin  : compartment,
 	bnd_basin : compartment,
 	layer  : compartment,
@@ -17,8 +16,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	pressure : property,
 	dz     : property,
 	h      : property,
-	precip : property,
-	evap   : property,
 	
 	horz   : connection,
 	vert   : connection,
@@ -151,17 +148,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		A
 		align_rate
 	}
-	
-	
-	#surf_bal : property("Surface water balance") # Could also be computed in airsea..
-	#var(basin.surf_bal, [m 3, day-1]) {   (evap - air.precip)*A[vert.top] ->>   }
-	
-	#external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_even_distrib", basin) {
-	#	result(layer.water.align)
-	#	layer.water.horz_bal
-	#	A
-	#	basin.surf_bal
-	#}
 	
 	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
 		align

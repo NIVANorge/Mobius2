@@ -1,6 +1,27 @@
 
 
 	*** High pri ***
+	
+		Don't write contentless modules (in terms of data) to the data set.
+		
+		downstream regex is bugged for nivafjord_moss (gets a chain consisting of the single river section "Kråkstadelva" without any arrows).
+			But the connection data still seem to have been loaded correctly.
+			Fix, and remember to re-enable regex checks.
+		
+		Why is
+			"in_flux_connection_target(Fjord horizontal, Layer phytoplankton)"
+			"in_flux_connection_target(Fjord horizontal, Layer phytoplankton)" = 0
+			
+			generated in this case?
+				With multiple basins it should be generated though.
+		
+		propagate_solvers
+			We fixed it, but could the fix cause other problems?
+				Try to properly understand how it should work
+			Try to exit early if possible, and detect if not everything was resolved on the last iteration.
+			
+		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
+			In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
 		
 		property default code:
 			Should be possible to set it within a module even if the property is globally declared
@@ -8,6 +29,7 @@
 		
 		MobiView: Hang-up when selecting 'Aligned depth' when the indexing was wrong.
 			General crashes when changing indexes in layered model.
+				Have not happened lately..
 		
 		Specific models
 		

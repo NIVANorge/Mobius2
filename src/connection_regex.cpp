@@ -165,6 +165,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	
 	// TODO: Also print what part of the regex caused the the final failure.
 	
+	return; // TODO: Fix the bug so that we can do the matching again.
+	
 	auto model = app->model;
 	auto connection = model->connections[conn_id];
 	Math_Expr_AST *regex = connection->regex;

@@ -7,17 +7,6 @@ nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river
 	double dens0 = density_river->at(0);
 	int closest = 0;
 	
-	/*
-	double minabs = std::numeric_limits<double>::infinity();
-	for(int layer2 = 0; layer2 < densities_target->count; ++layer2) {
-		double abs = std::abs(dens0 - densities_target->at(layer2));
-		if(abs < minabs) {
-			closest = layer2;
-			minabs = abs;
-		} else break;
-	}
-	*/
-	
 	for(int layer = 0; layer < densities_target->count; ++layer) {
 		if(dens0 <= densities_target->at(layer)) break;
 		closest = layer;
@@ -25,33 +14,6 @@ nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river
 	
 	target_out->at(0) = (double)closest;
 }
-
-/*
-extern "C" DLLEXPORT void
-nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densities_source, Value_Access *densities_target, Value_Access *widths) {
-	
-	// In the end, for 2-way fluxes between separate simulated basins we would need something that could take the direction of the flux also.
-	
-	for(int layer = 0; layer < target_out->count; ++layer) {
-		
-		double dens = densities_source->at(layer);
-		int closest = layer;
-		
-		if(widths->at(layer) == 0.0) break;
-		
-		double minabs = std::numeric_limits<double>::infinity();
-		for(int layer2 = layer; layer2 < densities_target->count; ++layer2) {
-			double abs = std::abs(dens - densities_target->at(layer2));
-			if(abs < minabs) {
-				closest = layer2;
-				minabs = abs;
-			} else
-				break;
-		}
-		target_out->at(layer) = (double)closest;
-	}
-}
-*/
 
 extern "C" DLLEXPORT void
 nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densities1, Value_Access *densities2, Value_Access *pressure1, Value_Access *pressure2, Value_Access *widths) {
@@ -99,8 +61,6 @@ nivafjord_compute_pressure_difference(Value_Access *dPout, Value_Access *z0, Val
 
 	int other_layer = 0;
 	double zbot_other;
-	
-	//log_print("P0 P1 z00 z10: ", P0->at(0), ", ", P1->at(0), ", ", z0->at(0), ", ", z1->at(0), "\n");
 	
 	for(int layer = 0; layer < dPout->count; ++layer) {
 		double Ptop = 0.0;
@@ -177,9 +137,6 @@ nivafjord_vertical_realignment_slow(Value_Access *align_out, Value_Access *dz, V
 		double want_bal = area->at(layer+1)*(dz->at(layer+1) - dz0->at(layer+1))*rate0;
 		align_out->at(layer) = align_below-want_bal;
 		align_below = align_out->at(layer);
-		
-		//if(layer == align_out->count-2)
-		//	log_print("dz and dz0 are ", dz->at(layer+1), " ", dz0->at(layer+1), "\n");
 	}
 	
 }

@@ -6,7 +6,7 @@ model("NIVAFjord") {
 	basin     : compartment("Basin")
 	layer     : compartment("Fjord layer")
 	sediment  : compartment("Fjord sediment")
-	bnd_basin : compartment("Boundary ocean")
+	bnd_basin : compartment("Boundary basin")
 	bnd_layer : compartment("Boundary layer")
 	
 	water : quantity("Water")

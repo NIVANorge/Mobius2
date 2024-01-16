@@ -1163,22 +1163,27 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 
 // give all properties the solver if it is "between" quantities or fluxes with that solver in the dependency tree.
 bool
-propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions) {
+propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::vector<Model_Instruction> &instructions, int level = 0) {
 	auto instr = &instructions[instr_id];
-
-	if(instr->solver == solver)
+	
+	if(instr->solver == solver) {
+		instr->visited = true;
 		return true;
-	if(instr->visited)
+	} else if(instr->visited)
 		return false;
 	instr->visited = true;
-	
+	/*
+	auto model = app->model;
+	const auto &solverstr = is_valid(instr->solver) ? model->solvers[instr->solver]->name : "";
+	log_print(level, ": ", solverstr, " ", model->solvers[solver]->name, " ", instr->debug_string(app), "\n");
+	*/
 	bool found = false;
 	for(int dep : instr->depends_on_instruction) {
-		if(propagate_solvers(app, dep, solver, instructions))
+		if(propagate_solvers(app, dep, solver, instructions, level+1))
 			found = true;
 	}
 	for(int dep : instr->loose_depends_on_instruction) {
-		if(propagate_solvers(app, dep, solver, instructions))
+		if(propagate_solvers(app, dep, solver, instructions, level+1))
 			found = true;
 	}
 	if(found) {
@@ -1271,7 +1276,9 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 	
 	// Propagate solvers in a way so that instructions that are (dependency-) sandwiched between other instructions that are on the same ODE solver are also put in that ODE function.
 	// TODO: We need to make some guard to check that this is a sufficient amount of iterations!
+	// TODO: We should also be able to exit early if nothing changes like we do elsewhere.
 	for(int idx = 0; idx < 10; ++idx) {
+		
 		for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
 			auto instr = &instructions[instr_id];
 			
