@@ -126,8 +126,12 @@
 		Multiple solvers:
 			Seems to magically work already!
 			Eventually may want/need to codegen smoothing or means. That is if a solver looks up something from another solver, it should linearly interpolate between last() value and current value using the time.fractional_step
-			
 			May also want to compute (volume-weighted) means.
+			
+			BUG:
+				In NIVAFjord the horizontal target of a river does look up the value of the density of the fjord layer. When they are on different solvers, there is no way to make this 100% correct (which is mostly fine). However there can be a problem in the initial step, if the target variable doesn't have an initial value.
+				
+				Same with discrete variables used in external_computation over connection lookup. E.g. boundary conditions in NIVAFjord.
 	
 		MobiView :
 			Make model reloads work better wrt 'quick select'.

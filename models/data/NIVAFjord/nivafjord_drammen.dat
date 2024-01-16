@@ -55,7 +55,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		[ 2018-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2021-11-11 ]
+		[ 2021-12-31 ]
 	
 	}
 	
@@ -587,7 +587,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("NIVAFjord chemistry", version(0, 0, 0)) {
+	module("NIVAFjord chemistry", version(0, 0, 1)) {
 		
 		par_group("Initial chem", basin, layer) {
 			
@@ -661,6 +661,19 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			[ 0.0123 ]
 		
 		}
+		
+		par_group("Microbes") {
+			
+			par_real("Respiration rate") 
+			[ 1 ]
+			
+			par_real("Respiration Q10") 
+			[ 1.58 ]
+			
+			par_real("Half-saturation concentration O₂") 
+			[ 0.0123 ]
+		
+		}
 	
 	}
 	
@@ -694,6 +707,13 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	}
 	
 	module("Simple river TOC", version(0, 1, 0)) {
+		
+		par_group("Particulate carbon") {
+			
+			par_real("Suspended sediments OC mass fraction") 
+			[ 0.02 ]
+		
+		}
 	
 	}
 

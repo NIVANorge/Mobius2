@@ -100,6 +100,8 @@ nivafjord_compute_pressure_difference(Value_Access *dPout, Value_Access *z0, Val
 	int other_layer = 0;
 	double zbot_other;
 	
+	//log_print("P0 P1 z00 z10: ", P0->at(0), ", ", P1->at(0), ", ", z0->at(0), ", ", z1->at(0), "\n");
+	
 	for(int layer = 0; layer < dPout->count; ++layer) {
 		double Ptop = 0.0;
 		double Pbot = P0->at(layer);

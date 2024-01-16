@@ -432,6 +432,7 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 void
 make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
 	// If this is initial code that was copied from main code, there could be some thing that are allowed in main code that is not allowed in initial code.
+	// So we have to modify it to be safe in initial code (or give an error).
 	
 	for(auto child : expr->exprs)
 		make_safe_for_initial(app, child);
@@ -445,7 +446,7 @@ make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
 			auto var = app->vars[ident->var_id];
 			if(var->type == State_Var::Type::connection_aggregate || var->type == State_Var::Type::in_flux_aggregate) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This variable needs to be evaluated during the initial step, but 'in_flux' can't be accessed during the initial step. So a separate @initial block is needed for this variable.");
+				fatal_error("This code needs to be evaluated during the initial step, but 'in_flux' can't be accessed during the initial step. So a separate @initial block is needed for this variable.");
 			}
 		}
 	}
@@ -458,7 +459,10 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 			
 	if(instr->is_valid()) return; // If it already exists, fine!
 	
-	// Some other variable wants to look up the value of this one in the initial step, but it doesn't have initial code. If it has regular code, we can substitute that!
+	// Some other variable wants to look up the value of this one in the initial step, but it doesn't have @initial or @initial_conc code.
+	// If it has a main code block, we also substitute that for the initial step!
+	// NOTE: If it doesn't have code at all the data storage will have been cleared to 0, and
+	// that will then be the initial value (as by design) without us writing anything to it.
 	
 	auto var = app->vars[var_id];
 		
@@ -469,8 +473,6 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	if(var->type == State_Var::Type::declared) {
 		auto var2 = as<State_Var::Type::declared>(var);
 		auto fun = var2->function_tree.get();
-		//if(var2->override_is_conc)
-		//	fun = nullptr;
 		
 		if(fun) {			
 			instr->code = copy(fun);
@@ -491,10 +493,9 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 		if(var2->function_tree && var2->override_is_conc)
 			fatal_error(Mobius_Error::internal, "Wanted to generate initial code for variable \"", var->name, "\", but it only has @override_conc code. This is not yet handled. (for now, you have to manually put @initial_conc on it.");
 		*/
-		// NOTE: If it doesn't have code it does have initial value 0, and that will be correct as by design.
 	}
 	
-	// If it is an aggregation variable, whatever it aggregates also must be computed.
+	// If it is an aggregation variable, whatever it aggregates must also be computed.
 	if(var->type == State_Var::Type::regular_aggregate) {
 		auto var2 = as<State_Var::Type::regular_aggregate>(var);
 		
@@ -541,7 +542,7 @@ make_add_to_aggregate_instr(Model_Application *app, std::vector<Model_Instructio
 	auto &add_to_aggr_instr = instructions[add_to_aggr_id];
 	
 	add_to_aggr_instr.depends_on_instruction.insert(clear_id);  // We can only sum to the aggregation variable after the variable is cleared.
-	add_to_aggr_instr.instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction. Not strictly needed for non-connection aggregate, but probably doesn't hurt...
+	add_to_aggr_instr.instruction_is_blocking.insert(clear_id); // This says that the clear_id has to be in a separate for loop from this instruction. Not strictly needed for non-connection aggregates, but probably doesn't hurt...
 	
 	add_to_aggr_instr.solver = solver_id;
 	add_to_aggr_instr.target_id = agg_var;
@@ -1577,8 +1578,6 @@ Model_Application::compile(bool store_code_strings) {
 	instruction_codegen(this, initial_instructions, true);
 	instruction_codegen(this, instructions, false);
 
-
-
 	resolve_basic_dependencies(this, initial_instructions);
 	resolve_basic_dependencies(this, instructions);
 
@@ -1596,12 +1595,12 @@ Model_Application::compile(bool store_code_strings) {
 	
 	bool changed = false;
 	for(int it = 0; it < 10; ++it) {
-		// TODO: It would be a bit nicer if the two dependency sets were just stored as one, however
-		//   it is a bit tricky because this is only the case for the entities that are state variables.
+		// TODO: It would be a bit nicer if the two dependency sets were just stored as one because then we could just do the entire propagation once, however
+		//   it is a bit tricky because this is only the case for the instructions that are compute_state_var.
 		
 		changed = false;
 		
-		// similarly, the initial state of a varialble has to be indexed like the variable. (this is just for simplicity in the code generation, so that a value is assigned to every instance of the variable, but it can cause re-computation of the same value many times. Probably not an issue since it is just for a single time step.)
+		// similarly, the initial state of a variable has to be indexed like the variable. (this is just for simplicity in the code generation, so that a value is assigned to every instance of the variable, but it can cause re-computation of the same value many times. Probably not an issue since it is just for a single time step.)
 		for(auto var_id : vars.all_state_vars()) {
 			if(initial_instructions[var_id.id].index_sets != instructions[var_id.id].index_sets) {
 				changed = true;
@@ -1641,7 +1640,6 @@ Model_Application::compile(bool store_code_strings) {
 		report_instruction_cycle(this, initial_instructions, cycle, true);
 	});
 
-	
 	build_batch_arrays(this, initial_batch.instrs, initial_instructions, initial_batch.arrays, true);
 	
 	for(auto &batch : batches) {
@@ -1706,7 +1704,7 @@ Model_Application::compile(bool store_code_strings) {
 			// NOTE: same as noted above, all ODEs have to be stored contiguously.
 			new_batch.first_ode_offset = result_structure.get_offset_base(instructions[batch.arrays_ode[0].instr_ids[0]].var_id);
 			new_batch.n_ode = 0;
-			for(auto &array : batch.arrays_ode) {         // Hmm, this is a bit inefficient, but oh well.
+			for(auto &array : batch.arrays_ode) {
 				for(int instr_id : array.instr_ids)
 					new_batch.n_ode += result_structure.instance_count(instructions[instr_id].var_id);
 			}

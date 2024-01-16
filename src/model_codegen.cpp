@@ -368,7 +368,6 @@ set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Restrict
 		auto count = app->get_index_count_code(index_set, indexes);
 		indexes.set_index(index_set, make_binop('-', count, make_literal((s64)1)));
 	} else if(res.type == Restriction::specific) {
-		// TODO: Should clamp it betwen 0 and index_count
 		if(!specific_target)
 			fatal_error(Mobius_Error::internal, "Wanted to set indexes for a specific connection target, but the code was not provided.");
 		indexes.set_index(index_set, specific_target);

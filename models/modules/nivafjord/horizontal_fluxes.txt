@@ -74,15 +74,14 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	dP : property("Pressure difference")
 	
 	var(edge_layer.dP, [Pa]) 
-	{
-		layer.water.pressure - layer.water.pressure[horz.below]
-	}
+	#{
+	#	layer.water.pressure - layer.water.pressure[horz.below]
+	#}
 	
 	# Note: The only reason we don't just pass the h-value directly to the external comp is that we can't get h[horz.below] since basin is not on the connection.
 	#    This is annoying and should be possible to do somehow.
 	# Maybe need sub-compartments, and then only put the parent compartment on the connection, which would also be good for EasyReservoir.
 	
-	/*
 	align_z : property("Aligned depth")
 	
 	var(layer.align_z, [m], "Aligned depth of layer bottom") {
@@ -93,7 +92,11 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(bnd_layer.align_z, [m], "Aligned depth of boundary layer bottom") {
 		dz - bnd_basin.h                    if is_at[vert.top],
 		bnd_layer.align_z[vert.above] + dz  otherwise
-	} @no_store
+	} @no_store @initial {
+		# Have to force existence because of bug.
+		dz - bnd_basin.h                    if is_at[vert.top],
+		bnd_layer.align_z[vert.above] + dz  otherwise
+	}
 	
 	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge) {
 		result(edge_layer.dP)
@@ -104,7 +107,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		layer.water.pressure
 		layer.water.pressure[horz.below]
 	} @allow_connection(layer, horz)
-	*/
 	
 	horz_flow_vel : property("Horizontal flow velocity")
 	var(edge_layer.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
