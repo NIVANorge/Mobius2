@@ -1111,6 +1111,8 @@ void
 write_module_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id module_id) {
 	
 	auto module = data_set->modules[module_id];
+	if(module->scope.all_ids.empty()) return; // Don't bother to write out empty modules.
+	
 	writer->open_decl(data_set, module_id);
 	writer->write(", version(%d, %d, %d)) ", module->version.major, module->version.minor, module->version.revision);
 	writer->open_scope('{');

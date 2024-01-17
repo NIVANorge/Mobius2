@@ -1,10 +1,11 @@
 
 
 model("NIVAFjord-SimplyCNP") {
-
+	
+	# This one is deprecated in favor of NIVAFjord-EasyLake-SimplyCNP
+	
 	extend("nivafjord_model.txt")
-	#extend("simplyq_model.txt") @exclude(
-		#sol : solver,
+	
 	extend("simplycnp_model.txt") @exclude(
 		downstream : connection, 
 		air : compartment, 

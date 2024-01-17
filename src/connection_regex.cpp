@@ -165,8 +165,6 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	
 	// TODO: Also print what part of the regex caused the the final failure.
 	
-	return; // TODO: Fix the bug so that we can do the matching again.
-	
 	auto model = app->model;
 	auto connection = model->connections[conn_id];
 	Math_Expr_AST *regex = connection->regex;
@@ -198,7 +196,6 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 			++nodes[target_idx].receives_count;
 		}
 		
-		// TODO: Check for duplicate arrows? (Are they allowed?)
 		s64 source_idx = node_structure.get_offset(arr.source_id, arr.source_indexes);
 		auto &source = nodes[source_idx];
 		if(std::find(source.points_at.begin(), source.points_at.end(), target_idx) != source.points_at.end()) {
@@ -243,6 +240,23 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		}
 		++idx;
 	}
+	/*
+	log_print("**** ", connection->name, "\n");
+	for(auto &path : paths) {
+		log_print("Path: ");
+		for(int nodeidx : path) {
+			if(nodeidx < 0) log_print("out");
+			else {
+				auto &node = nodes[nodeidx];
+				auto index = node.indexes.indexes[0];
+				auto index_name = app->index_data.get_index_name(node.indexes, index);
+				log_print(index_name);
+			}
+			log_print(", ");
+		}
+		log_print("\n");
+	}
+	*/
 	
 	for(auto &path : paths) {
 		

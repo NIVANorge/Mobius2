@@ -52,8 +52,6 @@ Model_Instruction {
 	
 	Math_Expr_FT *code = nullptr;
 	
-	bool visited = false;
-	
 	std::string debug_string(Model_Application *app) const;
 	
 	Model_Instruction() {};

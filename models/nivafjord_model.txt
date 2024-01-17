@@ -1,7 +1,6 @@
 
 model("NIVAFjord") {
 	
-	
 	air       : compartment("Atmosphere")
 	basin     : compartment("Basin")
 	layer     : compartment("Fjord layer")
@@ -55,9 +54,6 @@ model("NIVAFjord") {
 											loc(A[vert.top]), loc(layer.water[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
 	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sediment, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, vert, sw_vert, A, dz0))
-	
-	# Is done manually in the basin module instead.
-	#aggregation_weight(layer, layer, sw_vert) { A[sw_vert.below]/A }#A / A[sw_vert.below] }
 	
 	basin_idx     : index_set("Basin index")
 	bnd_basin_idx : index_set("Boundary basin index")

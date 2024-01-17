@@ -3,8 +3,8 @@
 model("NIVAFjord-SimplyCNP") {
 
 	extend("nivafjord_model.txt")
-	#extend("simplyq_model.txt") @exclude(
-		#sol : solver,
+	
+	# Exclude overlapping definitions with nivafjord_model and things we want to redeclare here.
 	extend("easylake_simplycnp_model.txt") @exclude(
 		downstream : connection, 
 		air : compartment, 
@@ -27,22 +27,15 @@ model("NIVAFjord-SimplyCNP") {
 		z : property,
 		wb_index : index_set
 	)
-	/*
-	load("modules/simplysoiltemp.txt",
-		module("Simply soil temperature", air, soil, snow_box, snow, temp))
-	load("modules/rivertemp.txt",
-		module("RiverTemperature", air, soil, river, water, heat, temp))
-	*/
 	
 	wb_index : index_set("Water body") @union(sc, lake_index, basin_idx)
 	
 	downstream : connection("Downstream") @directed_graph {
-		#river+
 		(river|epi)+
 	} @no_cycles
 	
 	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
-		river? layer+ bnd_layer?
+		(river? layer+ bnd_layer?) | river
 	} @no_cycles                    # Not sure if we should have no_cycles, but it should always be acheivable since the direction doesn't matter.
 	
 	edge       : compartment("Basin edge")
@@ -57,7 +50,6 @@ model("NIVAFjord-SimplyCNP") {
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, w_bnd, A, dz0))
 	
-	#o2     : quantity("O₂")
 	fjord_phyt : quantity("Fjord phytoplankton") # To distinguish from freshwater once we add EasyLake.
 	
 	#TODO: Like in EasyLake, we need eventually to separate tdp (phos) into dip and dop.
@@ -66,28 +58,5 @@ model("NIVAFjord-SimplyCNP") {
 		
 	load("modules/nivafjord/boudary_chem.txt",
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, sed, temp, salinity))
-	
-	/*
-	module("Simple River O₂", version(0, 1, 0)) {
-		"The purpose of this module is only to provide oxygen inputs to EasyChem."
-		
-		#TODO: Reuse from easychem.
-		
-		load("stdlib/seawater.txt", library("Sea oxygen"))
-		load("stdlib/physiochemistry.txt", library("Chemistry"))
-		
-		par_group("River oxygen") {
-			f_o2sat    : par_real("Catchment O₂ saturation fraction", [], 0.9, 0, 1)
-			COS_alloch : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
-		}
-
-		var(river.water.o2, [k g], [m g, l-1], "River oxygen") 
-		
-		flux(out, river.water.o2, [k g, day-1], "River oxygen from catchment") {
-			#catch_conc := 8[m g, l-1],#
-			catch_conc := f_o2sat*o2_saturation(temp, 0) * o2_mol_mass,
-			in_flux(water)*catch_conc->>
-		}
-	}*/
 }
 

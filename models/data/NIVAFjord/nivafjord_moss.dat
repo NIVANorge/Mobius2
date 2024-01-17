@@ -6,7 +6,7 @@ TODO: Some part of the catchment that is not Mosselva (small).
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
-	#time_step([3, hr])
+	time_step([3, hr])
 	
 	basin : index_set("Basin index") [ "Mossesundet" ]
 	
@@ -27,23 +27,21 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	water_body : index_set("Water body") @union(sc, lake, basin) 
 	
+	fjord_conn : index_set("Fjord connection index") @sub(basin) 
+	
 	connection("Downstream") {
 		
 		e : compartment("Epilimnion", lake)
 		r : compartment("River", sc)
 		
 		directed_graph [ 
-			r[ "Våg+Langen sc" ] -> e[ "Våg+Langen" ] -> e[ "Mjær" ] -> r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> r[ "Mosselva" ] ->out
+			r[ "Våg+Langen sc" ] -> e[ "Våg+Langen" ] -> e[ "Mjær" ] -> r[ "Kure" ] -> r[ "Vaaler" ] -> e[ "Store" ] -> e[ "Vanem" ] -> r[ "Mosselva" ]
 			r[ "Kråkstadelva" ] -> r[ "Kure" ]
 			r[ "Mjær sc" ] -> e[ "Mjær" ]
 			r[ "Store sc" ] -> e[ "Store" ]
 			r[ "Vanem sc" ] -> e[ "Vanem" ]
 		]
 	}
-	
-	fjord_conn : index_set("Fjord connection index") @sub(basin) 
-	
-	
 	
 	connection("Fjord horizontal") {
 		
@@ -57,6 +55,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	}
 	
 	series("C:/Data/simplycnp_oslofjord/mobius2_files/vansjo/vansjo_mobius_one_meteo.xlsx")
+	
 	series("nivafjord_moss.xlsx")
 	
 	par_group("System") {
@@ -65,7 +64,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		[ 2017-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2021-01-01 ]
+		[ 2017-02-01 ]
 	
 	}
 	
@@ -193,7 +192,6 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	
 	module("AirSea Fjord", version(0, 1, 1)) {
 		
 		par_group("Ice") {
@@ -213,8 +211,6 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		}
 	
 	}
-
-
 	
 	module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
 		
@@ -230,11 +226,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	module("NIVAFjord boundary", version(0, 0, 1)) {
-	
-	}
-	
-	module("NIVAFjord chemistry", version(0, 0, 0)) {
+	module("NIVAFjord chemistry", version(0, 0, 1)) {
 		
 		par_group("Initial chem", basin, layer) {
 			
@@ -308,10 +300,19 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			[ 0.0123 ]
 		
 		}
-	
-	}
-	
-	module("NIVAFjord boundary chemistry", version(0, 0, 0)) {
+		
+		par_group("Microbes") {
+			
+			par_real("Respiration rate") 
+			[ 1 ]
+			
+			par_real("Respiration Q10") 
+			[ 1.58 ]
+			
+			par_real("Half-saturation concentration O₂") 
+			[ 0.0123 ]
+		
+		}
 	
 	}
 	
@@ -864,44 +865,6 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	module("SuperEasyChem", version(0, 0, 1)) {
-		
-		par_group("Lake CNP", lake) {
-			
-			par_real("Initial lake DOC concentration") 
-			[ 2 2 8 8 ]
-			
-			par_real("Initial lake DIN concentration") 
-			[ 0 0 0 0 ]
-			
-			par_real("Initial lake TDP concentration") 
-			[ 0 0 0 0 ]
-			
-			par_real("Lake DOC retention at 20°C") 
-			[ 0.02 0 0 0 ]
-			
-			par_real("Lake DOC retention Q10") 
-			[ 2 2 2 2 ]
-			
-			par_real("Lake DIN retention at 20°C") 
-			[ 0.015 0.015 0.015 0.04 ]
-			
-			par_real("Lake DIN retention Q10") 
-			[ 1.5 1.5 1.5 1.5 ]
-			
-			par_real("Lake TDP retention at 20°C") 
-			[ 0.009 0.009 0.009 0 ]
-			
-			par_real("Lake TDP retention Q10") 
-			[ 1 1 1 1 ]
-			
-			par_real("Hyplimnion relative retention") 
-			[ 0 0 0 0.01 ]
-		
-		}
-	
-	}
-	
 	module("Simple river TOC", version(0, 1, 0)) {
 		
 		par_group("Particulate carbon") {
@@ -919,32 +882,6 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			
 			par_real("DOM N/C ratio") 
 			[ 0.016 ]
-		
-		}
-	
-	}
-	
-	module("SimplyQ river trapezoid", version(0, 1, 0)) {
-		
-		par_group("Reach parameters", sc) {
-			
-			par_real("Reach bank slope") 
-			[ 1 1 1 1 1 1 1 1 ]
-			
-			par_real("Reach bottom width") 
-			[ 2 2 2 2 2 2 2 2 ]
-			
-			par_real("Reach slope") 
-			[ 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02 ]
-			
-			par_real("Reach length") 
-			[ 6000 4000 1000 20000 13000 15000 5000 4000 ]
-			
-			par_real("Manning's roughness coefficient") 
-			[ 0.04 0.04 0.04 0.04 0.04 0.04 0.04 0.04 ]
-			
-			par_real("Initial reach flow") 
-			[ 1 1 1 1 1 1 1 1 ]
 		
 		}
 	
