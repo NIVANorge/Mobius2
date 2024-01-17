@@ -250,6 +250,30 @@ insert_var_index_set_dependencies(Model_Application *app, Model_Instruction *ins
 	}
 }
 
+// TODO: This function should be reused in model_codegen probably.
+void
+get_possible_target_ids(Model_Application *app, const Identifier_Data &ident, std::vector<Var_Id> &ids_out) {
+	
+	auto model = app->model;
+	auto &res = ident.restriction.r1;
+	
+	if(ident.variable_type != Variable_Type::state_var || !is_valid(res.connection_id))
+		fatal_error(Mobius_Error::internal, "Misuse of get_possible_target_ids");
+	
+	auto conn = model->connections[res.connection_id];
+	if(conn->type != Connection_Type::directed_graph) return;
+	auto comp = app->find_connection_component(res.connection_id, app->vars[ident.var_id]->loc1.components[0], false);
+	if(!comp) return;
+	
+	for(auto pot_target : comp->possible_targets) {
+		Var_Location loc = app->vars[ident.var_id]->loc1;
+		loc.components[0] = pot_target;
+		auto target_id = app->vars.id_of(loc);
+		if(is_valid(target_id))
+			ids_out.push_back(target_id);
+	}
+}
+
 void
 insert_var_order_depencencies(Model_Application *app, Model_Instruction *instr, const Identifier_Data &dep) {
 	
@@ -275,22 +299,12 @@ insert_var_order_depencencies(Model_Application *app, Model_Instruction *instr, 
 		}
 	
 		if(instr->type == Model_Instruction::Type::compute_state_var || instr->type == Model_Instruction::Type::external_computation) {
-			auto conn = model->connections[res.connection_id];
-			if(conn->type == Connection_Type::directed_graph) {
-				auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
-				
-				// If it is a 'below' lookup in a graph with multiple components, we have to add a dependency for this for every possible var_id it could actually access.
-				if(comp) {
-					for(auto pot_target : comp->possible_targets) {
-						Var_Location loc = app->vars[dep.var_id]->loc1;
-						loc.components[0] = pot_target;
-						auto target_id = app->vars.id_of(loc);
-						if(is_valid(target_id)) {
-							instr->instruction_is_blocking.insert(target_id.id);
-							instr->depends_on_instruction.insert(target_id.id);
-						}
-					}
-				}
+			// If it is a 'below' lookup in a graph with multiple components, we have to add a dependency for this for every possible var_id it could actually access.
+			std::vector<Var_Id> potential_targets;
+			get_possible_target_ids(app, dep, potential_targets);
+			for(auto target_id : potential_targets) {
+				instr->instruction_is_blocking.insert(target_id.id);
+				instr->depends_on_instruction.insert(target_id.id);
 			}
 		}
 		
@@ -493,7 +507,7 @@ make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
 }
 
 void
-ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions) {
+ensure_has_initial_value(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions) {
 	
 	auto instr = &instructions[var_id.id];
 			
@@ -525,7 +539,7 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 		if(var2->initial_is_conc) {
 			// If the initial is given as a concentration, we have to multiply it with the value of what it is dissolved in, and so that must also be given an initial value.
 			auto loc = remove_dissolved(var->loc1);
-			ensure_has_intial_value(app, app->vars.id_of(loc), instructions);
+			ensure_has_initial_value(app, app->vars.id_of(loc), instructions);
 		}
 		
 		// This should no longer be an issue, since in model_composition, if a var lacks an initial tree but has an override tree, the override tree is set as the initial tree, with initial_is_conc = override_is_conc.
@@ -539,7 +553,7 @@ ensure_has_intial_value(Model_Application *app, Var_Id var_id, std::vector<Model
 	if(var->type == State_Var::Type::regular_aggregate) {
 		auto var2 = as<State_Var::Type::regular_aggregate>(var);
 		
-		ensure_has_intial_value(app, var2->agg_of, instructions);
+		ensure_has_initial_value(app, var2->agg_of, instructions);
 	}
 }
 
@@ -550,7 +564,7 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
 		if(ident->variable_type == Variable_Type::state_var)
-			ensure_has_intial_value(app, ident->var_id, instructions);
+			ensure_has_initial_value(app, ident->var_id, instructions);
 	}
 }
 
@@ -931,6 +945,32 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 	}
 }
 
+void
+maybe_ensure_initial_vars_for_external_computation_arguments(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions) {
+	
+	// TODO: It is debatable if we should do a similiar thing for all code?
+	auto model = app->model;
+	
+	auto var = app->vars[var_id];
+	if(var->type != State_Var::Type::external_computation) return;
+	
+	auto var2 = as<State_Var::Type::external_computation>(var);
+	auto code = static_cast<External_Computation_FT *>(var2->code.get());
+	
+	for(auto &arg : code->arguments) {
+		if(!arg.has_flag(Identifier_FT::last_result)) continue;
+		
+		auto &res = arg.restriction.r1;
+		
+		if(is_valid(res.connection_id)) {
+			std::vector<Var_Id> potential_targets;
+			get_possible_target_ids(app, arg, potential_targets);
+			for(auto target_id : potential_targets)
+				ensure_has_initial_value(app, target_id, instructions);
+		} else
+			ensure_has_initial_value(app, arg.var_id, instructions);
+	}
+}
 
 void
 build_instructions(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
@@ -973,6 +1013,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	
 	if(initial) {
 		for(auto var_id : app->vars.all_state_vars()) {
+			
+			maybe_ensure_initial_vars_for_external_computation_arguments(app, var_id, instructions);
+			
 			auto instr = &instructions[var_id.id];
 			if(!instr->is_valid()) continue;
 			if(!instr->code) continue;
@@ -1037,8 +1080,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 					//instr->depends_on_instruction.insert(arg.var_id.id);
 					
 					insert_var_order_depencencies(app, instr, arg);    // This doesn't work correctly yet.
-					
 					instr->instruction_is_blocking.insert(arg.var_id.id);
+					
 				} else if (arg.variable_type == Variable_Type::parameter) {
 					
 				} else

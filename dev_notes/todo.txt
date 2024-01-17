@@ -2,29 +2,14 @@
 
 	*** High pri ***
 	
-		Don't write contentless modules (in terms of data) to the data set.
-		
 		Regex checking of fjord_horizontal regex is bugged for nivafjord_moss
 			if the regex is switched to
 			river | (river? layer+ bnd_layer?)
 			it fails, so the | operator is not symmetrical somehow.
-		also it doesn't fail if there is an ->out on the downstream regex.
-		
-		Why is
-			"in_flux_connection_target(Fjord horizontal, Layer phytoplankton)"
-			"in_flux_connection_target(Fjord horizontal, Layer phytoplankton)" = 0
-			generated for nivafjord_moss?
-				With multiple basins it should be generated though.
-			
-		external_computation
-			Should ensure existence of initial values of things it look up.
-				At least when last() is applied.
-			Maybe that should be a rule for last() in all cases.
-			
+		also it doesn't fail if there is an ->out on the downstream data even though that should not be allowed by the regex.
 			
 		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
 			In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
-		
 		
 		MobiView: Hang-up when selecting 'Aligned depth' when the indexing was wrong.
 			General crashes when changing indexes in layered model.

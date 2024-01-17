@@ -97,10 +97,6 @@ module("NIVAFjord basin", version(0, 0, 2),
 	var(layer.water.rho, [k g, m-3], "Potential density") {
 		seawater_pot_dens(temp, salinity)
 	} @no_store
-	@initial {
-		#NOTE: We need to enforce the existence of this because of a bug in the framework (that will hopefully be fixed soon)
-		seawater_pot_dens(temp, salinity)
-	}
 	
 	ddens          : property("d(dens)")
 	Nfreq          : property("Brunt-Väisälä frequency")

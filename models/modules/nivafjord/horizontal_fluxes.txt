@@ -89,12 +89,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(bnd_layer.align_z, [m], "Aligned depth of boundary layer bottom") {
 		dz - bnd_basin.h                    if is_at[vert.top],
 		bnd_layer.align_z[vert.above] + dz  otherwise
-	} @no_store 
-	#@initial {
-		# Have to force existence because of bug.
-	#	dz - bnd_basin.h                    if is_at[vert.top],
-	#	bnd_layer.align_z[vert.above] + dz  otherwise
-	#}
+	} @no_store
 	
 	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge) {
 		result(edge_layer.dP)
