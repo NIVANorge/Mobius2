@@ -1,8 +1,8 @@
 data_set {
 	
 """
-TODO: Need to configure all the parameters correctly.
-TODO: Some part of the catchment that is not Mosselva (small).
+TODO: Need to configure all the parameters correctly.
+TODO: Some part of the catchment that is not Mosselva (small).
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
@@ -64,7 +64,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		[ 2017-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2017-02-01 ]
+		[ 2021-12-31 ]
 	
 	}
 	

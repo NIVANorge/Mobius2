@@ -562,14 +562,20 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 		for(auto expr : external->code->exprs) {
 			
 			bool is_result = false;
+			bool is_last   = false;
 			auto check_expr = expr;
 			if(expr->type == Math_Expr_Type::function_call) {
 				auto fun = static_cast<Function_Call_AST *>(expr);
-				if(fun->name.string_value != "result" || fun->exprs.size() != 1) {
+				
+				auto &name = fun->name.string_value;
+				is_result = (name == "result");
+				is_last   = (name == "last");
+				
+				if((!is_result && !is_last) || fun->exprs.size() != 1) {
 					success = false;
 					break;
 				}
-				is_result = true;
+				
 				check_expr = fun->exprs[0];
 			}
 			if(check_expr->type != Math_Expr_Type::identifier) {
@@ -604,7 +610,7 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 		
 		if(!success) {
 			external->code->source_loc.print_error_header();
-			fatal_error("A 'external_computation' body should just contain a list of identifiers of variables that go into the computation. Targets of the computation can be enclosed with a result(). Targets can not have a bracket restriction.");
+			fatal_error("A 'external_computation' body should just contain a list of identifiers of variables that go into the computation. Targets of the computation can be enclosed with a result(). Targets can not have a bracket restriction. Targets can not be last()");
 		}
 	}
 }

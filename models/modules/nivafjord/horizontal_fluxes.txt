@@ -41,7 +41,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
 		result(river.vert_target)
 		river.water.rho
-		river.water.rho[horz.below]
+		last(river.water.rho[horz.below]) # This must be 'last' because layer.water.rho must be solved after this instruction.
 	} @allow_connection(river, horz)
 	
 	flux(river.water, layer.water[horz.below, vert.specific], [m 3, s-1], "River discharge to fjord") {
@@ -89,11 +89,12 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(bnd_layer.align_z, [m], "Aligned depth of boundary layer bottom") {
 		dz - bnd_basin.h                    if is_at[vert.top],
 		bnd_layer.align_z[vert.above] + dz  otherwise
-	} @no_store @initial {
+	} @no_store 
+	#@initial {
 		# Have to force existence because of bug.
-		dz - bnd_basin.h                    if is_at[vert.top],
-		bnd_layer.align_z[vert.above] + dz  otherwise
-	}
+	#	dz - bnd_basin.h                    if is_at[vert.top],
+	#	bnd_layer.align_z[vert.above] + dz  otherwise
+	#}
 	
 	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge) {
 		result(edge_layer.dP)

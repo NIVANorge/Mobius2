@@ -196,9 +196,9 @@ insert_dependencies(Model_Application *app, Model_Instruction *instr, Index_Set_
 	return changed;
 }
 
+
 void
-insert_var_dependency(Model_Application *app, Model_Instruction *instr, const Identifier_Data &dep) {
-	
+insert_var_index_set_dependencies(Model_Application *app, Model_Instruction *instr, const Identifier_Data &dep) {
 	auto model = app->model;
 	
 	if(dep.variable_type == Variable_Type::parameter || dep.variable_type == Variable_Type::series) {
@@ -220,42 +220,18 @@ insert_var_dependency(Model_Application *app, Model_Instruction *instr, const Id
 		
 		auto &res = dep.restriction.r1;
 		
-		bool last = (dep.flags & Identifier_Data::Flags::last_result);
-		//if(last) return;
-		
 		if(res.type == Restriction::above || res.type == Restriction::below) {
 			
-			if(!last) {
-				if(dep.restriction.r1.type == Restriction::above) {
-					instr->loose_depends_on_instruction.insert(dep.var_id.id);
-				} else {
-					instr->instruction_is_blocking.insert(dep.var_id.id);
-					instr->depends_on_instruction.insert(dep.var_id.id);
-				}
-			}
 			// NOTE: The following is needed (e.g. NIVAFjord breaks without it), but I would like to figure out why and then document it here with a comment.
 				// It is probably that if it doesn't get this dependency at all, it tries to add or subtract from a nullptr index.
 			// TODO: However if we could determine that the reference is constant over that index set, we could allow that and just omit adding to that index in codegen.
 
-			if(instr->type == Model_Instruction::Type::compute_state_var) {//|| instr->type == Model_Instruction::Type::external_computation) {
+			if(instr->type == Model_Instruction::Type::compute_state_var) {
 				auto conn = model->connections[res.connection_id];
 				if(conn->type == Connection_Type::directed_graph) {
 					auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
 					if(comp && comp->is_edge_indexed)
 						insert_dependency(app, instr, conn->edge_index_set);
-					
-					// If it is a 'below' lookup in a graph with multiple components, we have to add a dependency for this for every possible var_id it could actually access.
-					if(comp && !last) {
-						for(auto pot_target : comp->possible_targets) {
-							Var_Location loc = app->vars[dep.var_id]->loc1;
-							loc.components[0] = pot_target;
-							auto target_id = app->vars.id_of(loc);
-							if(is_valid(target_id)) {
-								instr->instruction_is_blocking.insert(target_id.id);
-								instr->depends_on_instruction.insert(target_id.id);
-							}
-						}
-					}
 				} else if(conn->type == Connection_Type::grid1d) {
 					auto index_set = conn->node_index_set;
 					insert_dependency(app, instr, index_set);
@@ -264,25 +240,73 @@ insert_var_dependency(Model_Application *app, Model_Instruction *instr, const Id
 			}
 			
 		} else if(res.type == Restriction::top || res.type == Restriction::bottom) {
-			if(!last) {
-				instr->depends_on_instruction.insert(dep.var_id.id);
-				if(res.type == Restriction::bottom)
-					instr->instruction_is_blocking.insert(dep.var_id.id);
-			}
 			
 			auto index_set = app->model->connections[res.connection_id]->node_index_set;
 			auto parent = app->model->index_sets[index_set]->sub_indexed_to;
 			if(is_valid(parent))
 				insert_dependency(app, instr, parent);
 			
-		} else if (!last) {  
-		
-			auto var = app->vars[dep.var_id];
-			if(var->type == State_Var::Type::connection_aggregate)
-				instr->loose_depends_on_instruction.insert(dep.var_id.id);
-			else
-				instr->depends_on_instruction.insert(dep.var_id.id);
 		}
+	}
+}
+
+void
+insert_var_order_depencencies(Model_Application *app, Model_Instruction *instr, const Identifier_Data &dep) {
+	
+	if(dep.variable_type != Variable_Type::state_var) return;
+	
+	auto model = app->model;
+
+	if(!is_valid(dep.var_id)) {
+		fatal_error(Mobius_Error::internal, "Found a dependency on an invalid Var_Id for instruction ", instr->debug_string(app), ".");
+	}
+	
+	if(dep.has_flag(Identifier_Data::last_result)) return;
+	
+	auto &res = dep.restriction.r1;
+	
+	if(res.type == Restriction::above || res.type == Restriction::below) {
+		
+		if(dep.restriction.r1.type == Restriction::above) {
+			instr->loose_depends_on_instruction.insert(dep.var_id.id);
+		} else {
+			instr->instruction_is_blocking.insert(dep.var_id.id);
+			instr->depends_on_instruction.insert(dep.var_id.id);
+		}
+	
+		if(instr->type == Model_Instruction::Type::compute_state_var || instr->type == Model_Instruction::Type::external_computation) {
+			auto conn = model->connections[res.connection_id];
+			if(conn->type == Connection_Type::directed_graph) {
+				auto comp = app->find_connection_component(res.connection_id, app->vars[dep.var_id]->loc1.components[0], false);
+				
+				// If it is a 'below' lookup in a graph with multiple components, we have to add a dependency for this for every possible var_id it could actually access.
+				if(comp) {
+					for(auto pot_target : comp->possible_targets) {
+						Var_Location loc = app->vars[dep.var_id]->loc1;
+						loc.components[0] = pot_target;
+						auto target_id = app->vars.id_of(loc);
+						if(is_valid(target_id)) {
+							instr->instruction_is_blocking.insert(target_id.id);
+							instr->depends_on_instruction.insert(target_id.id);
+						}
+					}
+				}
+			}
+		}
+		
+	} else if(res.type == Restriction::top || res.type == Restriction::bottom) {
+		
+		instr->depends_on_instruction.insert(dep.var_id.id);
+		if(res.type == Restriction::bottom)
+			instr->instruction_is_blocking.insert(dep.var_id.id);
+		
+	} else {  
+
+		auto var = app->vars[dep.var_id];
+		if(var->type == State_Var::Type::connection_aggregate)
+			instr->loose_depends_on_instruction.insert(dep.var_id.id);
+		else
+			instr->depends_on_instruction.insert(dep.var_id.id);
 	}
 }
 
@@ -303,8 +327,10 @@ resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction
 				register_dependencies(var->specific_target.get(), &code_depends);
 		}
 		
-		for(auto &dep : code_depends)
-			insert_var_dependency(app, &instr, dep);
+		for(auto &dep : code_depends) {
+			insert_var_index_set_dependencies(app, &instr, dep);
+			insert_var_order_depencencies(app, &instr, dep);
+		}
 	}
 }
 
@@ -1008,9 +1034,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				if(arg.has_flag(Identifier_Data::result)) continue;
 				
 				if(arg.variable_type == Variable_Type::state_var) {
-					instr->depends_on_instruction.insert(arg.var_id.id);
+					//instr->depends_on_instruction.insert(arg.var_id.id);
 					
-					//insert_var_dependency(app, instr, arg);    // This doesn't work correctly yet.
+					insert_var_order_depencencies(app, instr, arg);    // This doesn't work correctly yet.
 					
 					instr->instruction_is_blocking.insert(arg.var_id.id);
 				} else if (arg.variable_type == Variable_Type::parameter) {
@@ -1208,13 +1234,17 @@ propagate_solvers(Model_Application *app, int instr_id, Entity_Id solver, std::v
 		}
 		
 		auto var = app->vars[instr->var_id];
-		// TODO: Should the check be var->is_mass_balance_quantity() ?
-		if(var->type != State_Var::Type::declared || as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity) {
+		
+		if(!var->is_mass_balance_quantity()
+		//var->type != State_Var::Type::declared || as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity
+		) {
 			instr->solver = solver;
 			*changed = true;
 		}
+		// TODO: Shouldn't we give an error here if we found a mass balance quantity??
+		
+		// Note: It may look like we set the solver of the clear instr at construction, but some times the solver is not yet available at that point and must be set here instead.
 		// The clear instruction would otherwise not be visited since it doesn't depend on anything (only the other way around).
-		// TODO: Why can't we just set the solver for the clear instr when we construct it?
 		if(instr->clear_instr >= 0) {
 			auto &clear_instr = instructions[instr->clear_instr];
 			if(!is_valid(clear_instr.solver)) {

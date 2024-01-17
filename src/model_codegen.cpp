@@ -434,34 +434,47 @@ set_graph_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id
 	}
 }
 
+Math_Expr_FT *
+maybe_apply_back_step(Model_Application *app, Identifier_Data *ident, Math_Expr_FT *offset_code) {
+	if(!ident->has_flag(Identifier_FT::last_result)) return offset_code;
+	s64 back_step = -1;
+	if(ident->variable_type == Variable_Type::series)
+		back_step = app->series_structure.total_count;
+	else if(ident->variable_type == Variable_Type::state_var && ident->var_id.type == Var_Id::Type::state_var)
+		back_step = app->result_structure.total_count;
+	
+	ident->remove_flag(Identifier_FT::last_result);
+	
+	if(back_step > 0)
+		return make_binop('-', offset_code, make_literal(back_step));
+	
+	return offset_code;
+	// Actually, no, because if this was a state var with @no_store (it is a temp_var) we should still allow it.
+	//else
+	//	fatal_error(Mobius_Error::internal, "Received a 'last_result' flag on an identifier that should not have one.");
+	
+}
+
 void
 put_var_lookup_indexes_basic(Identifier_FT *ident, Model_Application *app, Index_Exprs &index_expr) {
 	Math_Expr_FT *offset_code = nullptr;
-	s64 back_step = -1;
+	
 	if(ident->variable_type == Variable_Type::parameter) {
 		offset_code = app->parameter_structure.get_offset_code(ident->par_id, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
 		offset_code = app->series_structure.get_offset_code(ident->var_id, index_expr);
-		back_step = app->series_structure.total_count;
 	} else if(ident->variable_type == Variable_Type::state_var) {
 		auto var = app->vars[ident->var_id];
 		if(!var->is_valid())
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
-		if(ident->var_id.type == Var_Id::Type::state_var) {
+		if(ident->var_id.type == Var_Id::Type::state_var)
 			offset_code = app->result_structure.get_offset_code(ident->var_id, index_expr);
-			back_step = app->result_structure.total_count;
-		} else
+		else
 			offset_code = app->temp_result_structure.get_offset_code(ident->var_id, index_expr);
 	}
-
-	if(ident->has_flag(Identifier_FT::last_result)) {
-		if(back_step > 0)
-			offset_code = make_binop('-', offset_code, make_literal(back_step));
-		else
-			fatal_error(Mobius_Error::internal, "Received a 'last_result' flag on an identifier that should not have one.");
-		ident->remove_flag(Identifier_FT::last_result);
-	} 
+	
+	offset_code = maybe_apply_back_step(app, ident, offset_code);
 	
 	if(ident->flags) { // NOTE: all flags should have been resolved and removed at this point.
 		ident->source_loc.print_error_header(Mobius_Error::internal);
@@ -924,6 +937,17 @@ generate_external_computation_code(Model_Application *app, External_Computation_
 			res = app->parameter_structure.get_special_offset_stride_code(arg.par_id, new_indexes);
 		else
 			fatal_error(Mobius_Error::internal, "Unrecognized variable type in external computation codegen.");
+		
+		res.offset = maybe_apply_back_step(app, &arg, res.offset);
+		
+		// Ooops, can't do this since we don't remove 'result' (I think ?)
+		/*
+		if(arg.flags) { // NOTE: all flags should have been resolved and removed at this point.
+			ext->source_loc.print_error_header(Mobius_Error::internal);
+			fatal_error("Forgot to resolve one or more flags on an identifier.");
+		}
+		*/
+		
 		external->exprs.push_back(res.offset);
 		external->exprs.push_back(res.stride);
 		external->exprs.push_back(res.count);

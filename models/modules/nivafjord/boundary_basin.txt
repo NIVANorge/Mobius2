@@ -28,9 +28,7 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	#TODO: The code for this one could be put on the property directly
 	var(bnd_layer.water.rho, [k g, m-3], "Potential density") {
 		seawater_pot_dens(temp, salinity)
-	} @no_store @initial {
-		seawater_pot_dens(temp, salinity)
-	}
+	} @no_store
 	
 	# These are needed for automatic transport with fluxes going from the boundary into a basin.
 	var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) * rho_water } #See note in basin.txt about maybe having salinity dependence of C_water
@@ -64,9 +62,6 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	} @no_store
 	
 	var(bnd_layer.water.pressure, [Pa]) {
-		pressure[vert.above] + rho*grav*dz
-	} @initial {
-		#NOTE: Have to enforce existence because of bug.
 		pressure[vert.above] + rho*grav*dz
 	}
 }

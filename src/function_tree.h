@@ -55,7 +55,7 @@ Identifier_Data {
 	
 	void set_flag(Flags flag)   { flags = (Flags)(flags | flag); }
 	void remove_flag(Flags flag) { flags = (Flags)(flags & ~flag); }
-	bool has_flag(Flags flag)   { return flags & flag; }
+	bool has_flag(Flags flag) const { return flags & flag; }
 	
 	Identifier_Data() : flags(Flags::none), other_connection(invalid_entity_id) { };
 };

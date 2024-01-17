@@ -16,9 +16,10 @@
 			generated for nivafjord_moss?
 				With multiple basins it should be generated though.
 			
-		external_computation doesn't properly get all dependencies from [below] accesses.
-			If we fix this, we also have to
-				allow last() on arguments to external_computation, because otherwise a lookup from the river to the fjord is impossible for NIVAFjord.
+		external_computation
+			Should ensure existence of initial values of things it look up.
+				At least when last() is applied.
+			Maybe that should be a rule for last() in all cases.
 			
 			
 		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
