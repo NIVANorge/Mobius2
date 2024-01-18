@@ -1,41 +1,10 @@
 data_set {
 	
 """
-TODO: Need to configure all the parameters correctly.
-TODO: Some part of the catchment that is not Mosselva (small).
+TODO: Need to configure all the parameters correctly.
+TODO: Some part of the catchment that is not Mosselva (small).
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
-
-	quick_select("River vars") [!
-		"Q" : [ "Reach flow flux" "Obs Q" ]
-		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
-		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
-		"TN" : [ "River TN" "Obs TN" ]
-		"TOC" : [ "River TOC concentration" "Obs TOC" ]
-		"TP" : [ "Total phosphorous" "Obs TP" ]
-		"PP" : [ "concentration(River PP, Reach water volume)" "Obs PP" ]
-		"TDP" : [ "concentration(River TDP, Reach water volume)" "Obs TDP" ]
-		"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
-	]
-	
-	quick_select("Lake vars") [!
-		"Temperature" : [ "Epilimnion temperature" "Obs Temperature" ]
-		"Ice ind" : [ "Ice indicator" "Observed ice indicator Vanem" ]
-		"DIN" : [ "concentration(Epilimnion DIN, Epilimnion volume)" "Obs DIN" ]
-		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
-		"TN" : [ "Epilimnion TN" "Obs TN" ]
-		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
-		"TP" : [ "Epilimnion total phosphorous" "Obs TP" ]
-		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
-		"SS" : [ "concentration(Epilimnion suspended sediments, Epilimnion volume)" "Obs SS" ]
-		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
-	]
-	
-	quick_select("Fjord vars") [!
-		"Temperature" : [ "Layer temperature" ]
-		"Salinity" : [ "Layer salinity" ]
-		"chl-a" : [ "Layer chl-a" ]
-	]
 	
 	time_step([3, hr])
 	
@@ -84,6 +53,37 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			r[ "Mosselva" ] -> l[ "Mossesundet" ] -> b[ "Breiangen" ]
 		]
 	}
+	
+	quick_select("River vars") [!
+		"Q" : [ "Reach flow flux" "Obs Q" ]
+		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
+		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
+		"TN" : [ "River TN" "Obs TN" ]
+		"TOC" : [ "River TOC concentration" "Obs TOC" ]
+		"TP" : [ "Total phosphorous" "Obs TP" ]
+		"PP" : [ "concentration(River PP, Reach water volume)" "Obs PP" ]
+		"TDP" : [ "concentration(River TDP, Reach water volume)" "Obs TDP" ]
+		"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
+	]
+	
+	quick_select("Lake vars") [!
+		"Temperature" : [ "Epilimnion temperature" "Obs Temperature" ]
+		"Ice ind" : [ "Ice indicator" "Observed ice indicator Vanem" ]
+		"DIN" : [ "concentration(Epilimnion DIN, Epilimnion volume)" "Obs DIN" ]
+		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
+		"TN" : [ "Epilimnion TN" "Obs TN" ]
+		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
+		"TP" : [ "Epilimnion total phosphorous" "Obs TP" ]
+		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
+		"SS" : [ "concentration(Epilimnion suspended sediments, Epilimnion volume)" "Obs SS" ]
+		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
+	]
+	
+	quick_select("Fjord vars") [!
+		"Temperature" : [ "Layer temperature" ]
+		"Salinity" : [ "Layer salinity" ]
+		"chl-a" : [ "Layer chl-a" ]
+	]
 	
 	series("C:/Data/simplycnp_oslofjord/mobius2_files/vansjo/vansjo_mobius_one_meteo.xlsx")
 	
@@ -156,7 +156,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	par_group("Solver step") {
 		
 		par_real("Initial solver step") 
-		[ 0.05 ]
+		[ 0.1 ]
 		
 		par_real("Solver relative min step") 
 		[ 0.01 ]

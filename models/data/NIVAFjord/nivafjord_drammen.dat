@@ -4,7 +4,8 @@ data_set {
 NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we only need to know their condition down to the threshold.
 """
 	
-	time_step([3, hr])
+	#time_step([3, hr])
+	time_step([day])
 	
 	basin : index_set("Basin index") [ "Drammensfjorden" ]
 	

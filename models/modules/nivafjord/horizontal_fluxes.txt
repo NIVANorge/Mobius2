@@ -57,7 +57,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		seawater_pot_dens(temp, salin)
 	}
 	
-	var(edge_layer.vert_target, [], "Fjord layer horizontal exchange vertical target")
+	var(edge_layer.vert_target, [], "Fjord layer horizontal exchange vertical target") @no_store
 	
 	external_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge) {
 		result(edge_layer.vert_target)
@@ -70,7 +70,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	dP : property("Pressure difference")
 	
-	var(edge_layer.dP, [Pa]) 
+	var(edge_layer.dP, [Pa]) @no_store
 	#{
 	#	layer.water.pressure - layer.water.pressure[horz.below]
 	#}
@@ -111,7 +111,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		#NOTE: This can be both positive and negative depending on the flow direction.
 		#copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * layer.dz ->>
 		horz_flow_vel*w_bnd*layer.dz->>
-	}
+	} @no_store
 	
 	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
 		edge_layer.horz_flow

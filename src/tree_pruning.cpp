@@ -182,6 +182,8 @@ are_the_same(Math_Expr_FT *a, Math_Expr_FT *b) {
 				return id_a->local_var == id_b->local_var;
 			if(id_a->variable_type == Variable_Type::connection_info)
 				return true;  // NOTE: This is only supposed to be called once the offsets are put on it (in the exprs), and then it is sufficient to check those.
+			if(id_a->variable_type == Variable_Type::index_count)
+				return true;  // Same as for connection_info
 		} break;
 		
 		case Math_Expr_Type::binary_operator :

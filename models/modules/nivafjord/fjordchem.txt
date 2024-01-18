@@ -41,8 +41,8 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 	
 	par_group("Suspended sediments") {
 		sett_vel : par_real("Settling velocity", [m, day-1], 0, 0, 1)
-		attn0    : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1) #Should not be a mixing parameter..
-		shade_f  : par_real("Shading factor", [m-1, l, m g-1], 0.02, 0.01, 0.1)
+		attn0    : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
+		shade_f  : par_real("Shading factor", [m-1, l, m g-1], 0.02, 0.01, 0.1, "Shading provided by suspended particles and DOC")
 	}
 	
 	par_group("Phytoplankton") {
@@ -123,11 +123,11 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 		max(0, bubble*(conc(o2) - satconc)*A*dz) ->>
 	}
 	
-	flux(layer.water.sed, sediment.sed, [k g, day-1], "Layer particle settling") {
+	flux(layer.water.sed, vert, [k g, day-1], "Layer particle settling") {
 		sett_vel * conc(sed) * A[vert.below] ->>
 	}
 	
-	flux(layer.water.sed, out, [k g, day-1], "Layer particle settling to bottom") {
+	flux(layer.water.sed, sediment.sed, [k g, day-1], "Layer particle settling to bottom") {
 		sett_vel * conc(sed) * sediment.area ->>
 	}
 
@@ -147,6 +147,9 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 	#TODO: Ideally factor out from EasyChem:
 	
 	var(layer.water.phyt, [k g], [m g, l-1], "Layer phytoplankton")
+	var(layer.water.phyt.oc, [k g], "Phytoplankton C") @override_conc { 1 }
+	var(layer.water.phyt.on, [k g], "Phytoplankton N") @override_conc { nc_molar_to_mass_ratio(phyt_nc) }
+	
 	
 	var(layer.water.phyt.light_lim, []) {
 		par_sw := in_flux(sw_vert, layer.water.heat)*(1 - f_par)/A -> [W, m-2],
@@ -176,7 +179,6 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 	} @no_store
 	
 	fix : property("Photosynthetic C fixation")
-	death : property("Phytoplankton death")
 	chl_a : property("Chlorophyll-a")
 	resp : property("Bacterial respiration")
 	
@@ -184,22 +186,19 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 		phyt_turnover*equi*water ->>
 	}
 	
-	flux(out, layer.water.phyt, [k g, day-1], "Layer photosynthetic C fixation (phyto growth)") {   fix   }
+	flux(out, layer.water.phyt, [k g, day-1], "Phytoplankton growth") {   fix   }
+	
+	flux(layer.water.din, layer.water.phyt.on, [k g, day-1], "Phytoplankton growth N uptake") {   phyt.fix*nc_molar_to_mass_ratio(phyt_nc)   }
+	
+	# TODO: Production of surplus DOC when growth is nutrient limited? (Page 44 in 3113-94)
 	
 	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10)
 	anox_threshold  : constant("Anoxicity threshold", [m g, l-1], 2)
 	
-	var(layer.water.phyt.death, [k g, day-1], "Phytoplankton death rate") {
+	flux(layer.water.phyt, layer.water.sed, [k g, day-1], "Phytoplankton death")  {
 		o2_factor := s_response(conc(o2), anox_threshold*0.9, anox_threshold*1.1, phyt_death_anox, 1),
 		phyt_turnover*phyt*o2_factor
 	}
-	
-	# TODO: Production of surplus DOC when growth is nutrient limited? (Page 44 in 3113-94)
-	
-	flux(layer.water.phyt, layer.water.sed.oc, [k g, day-1], "Phytoplankton death POC release")  { phyt.death }
-	
-	flux(out, layer.water.sed.on, [k g, day-1], "Phytoplankton death N release") {   phyt.death * nc_molar_to_mass_ratio(phyt_nc)   }
-	
 	
 	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
@@ -222,17 +221,9 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 		conc(phyt)*sed_vel*A[vert.below]->>
 	}
 	
-	flux(layer.water.phyt, sediment.sed.oc, [k g, day-1], "Phytoplankton settling to sediments") {
+	flux(layer.water.phyt, sediment.sed, [k g, day-1], "Phytoplankton settling to sediments") {
 		conc(phyt)*sed_vel*sediment.area ->>
 	}
-	
-	# TODO: This is a bit cumbersome, could we instead do something like  phyt.oc and phyt.on and move layer.water.phyt to sediment.sed?
-	#    Would also work for death, moving from layer.water.phyt to layer.water.sed.
-	# Alternatively just add the part that would go to sediments to death instead.
-	flux(out, sediment.sed.on, [k g, day-1], "Phytoplankton N to sediments") {
-		conc(layer.water.phyt)*layer.water.phyt.sed_vel*sediment.area*nc_molar_to_mass_ratio(phyt_nc)->>
-	}
-	#TODO: Also move the P contents of the phyto to the sediments.
 	
 
 	var(layer.water.resp, [day-1], "Microbial mineralization rate") {
