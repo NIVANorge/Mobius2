@@ -114,7 +114,7 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 	}
 
 	flux(layer.water.o2[vert.top], out,  [k g, day-1], "O₂ gas exchange at surface") {
-		(!basin.ice.indicator) * basin.p_vel*(conc(o2[vert.top]) - layer.water.o2satconc[vert.top])*A[vert.top] ->>
+		(!basin.ice.indicator) * basin.p_vel*(conc(o2[vert.top]) - o2satconc[vert.top])*A[vert.top] ->>
 	}
 	
 	flux(layer.water.o2, out, [k g, day-1], "O₂ bubble formation") {
@@ -123,6 +123,8 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 		max(0, bubble*(conc(o2) - satconc)*A*dz) ->>
 	}
 	
+	
+	# In NIVAFjord, particles settle faster when deeper because they have aggregated into larger particles. We could add that.
 	flux(layer.water.sed, vert, [k g, day-1], "Layer particle settling") {
 		sett_vel * conc(sed) * A[vert.below] ->>
 	}
@@ -225,7 +227,10 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 		conc(phyt)*sed_vel*sediment.area ->>
 	}
 	
-
+	# TODO: In NIVAFjord there is a dynamic degradability that depends on the source of the organic matter also. Do we want that?
+	# Also it is depth dependent.
+	# Also dependent on NO3 and sometimes H2S ( different for aerob and anaerob )
+	
 	var(layer.water.resp, [day-1], "Microbial mineralization rate") {
 		rate := (K_OM / 365.25[day, year-1]), #* COS_resp^oc.nosc,
 		halfsat := Km_o2*o2_mol_mass->[m g, l-1],
@@ -235,6 +240,8 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 	
 	flux(layer.water.o2, out, [k g, day-1], "Microbial O₂ consumption") { 
 		# TODO: Do we want the NOSC?
+		
+		# TODO: The production of NO3 should also consume O2.
 		resp*(oc + sed.oc)*(o2_mol_mass/c_mol_mass)#*(2 - (4 + oc.nosc)/4)
 	}
 	
@@ -250,6 +257,8 @@ module("NIVAFjord chemistry", version(0, 0, 2),
 	flux(layer.water.sed.on, layer.water.din, [k g, day-1], "PON microbial mineralization") {
 		resp * nc_molar_to_mass_ratio(mic_nc) * on
 	}
+	
+	# TODO: Denitrification?
 }
 
 

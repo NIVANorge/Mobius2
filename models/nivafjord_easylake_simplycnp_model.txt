@@ -60,7 +60,7 @@ model("NIVAFjord-SimplyCNP") {
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, sed, temp, salinity))
 		
 	load("modules/nivafjord/sediment.txt",
-		module("NIVAFjord sediments", sediment, sed, oc, on, area, A, vert))
+		module("NIVAFjord sediments", layer, sediment, water, sed, oc, on, area, A, vert))
 		
 	solve(fjord_sol, sediment.sed)
 }

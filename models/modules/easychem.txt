@@ -166,8 +166,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	# note also that DOC to O2 ratio changes with COS of DOC, this is why we have "(2-(4+nosc)/4)"
 	
 	# TODO (MNO): from the formula for nosc, we have (2 - (4 + nosc)/4) = 2 - conc(oc.o2)  . Is there a reason not just to use that directly? Then you would not need nosc as a separate variable, it could just be computed for the use inside resp.
-	flux(hyp.water.o2, out, [k g, day-1], "O₂ bacterial consumption (hypo)") { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) }
-	flux(epi.water.o2, out, [k g, day-1], "O₂ bacterial consumption (epi)")  { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) } 
+	flux(hyp.water.o2, out, [k g, day-1], "O₂ bacterial consumption (hypo)") { resp*oc*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) }
+	flux(epi.water.o2, out, [k g, day-1], "O₂ bacterial consumption (epi)")  { resp*oc*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) } 
 	
 	var(epi.water.chl_a, [m g, l-1]) {
 		conc(phyt)*chl_a_f->>

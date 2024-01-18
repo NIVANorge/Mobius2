@@ -1,6 +1,8 @@
 
 module("NIVAFjord sediments", version(0, 0, 1),
+	layer    : compartment,
 	sediment : compartment,
+	water    : quantity,
 	sed      : quantity,
 	oc       : quantity,
 	on       : quantity,
@@ -15,6 +17,8 @@ module("NIVAFjord sediments", version(0, 0, 1),
 		
 		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 0.01, 0, 1)
 		init_n   : par_real("Initial sediment N fraction", [g, k g-1], 0.00001, 0, 1)
+		
+		resus    : par_real("Resuspension fraction", [], 0.01, 0, 1, "Fraction of settling material that is resuspended")
 	}
 	
 	sed_rho : constant("Sediment density", [k g, m-3], 2600) #Parameter?
@@ -30,10 +34,13 @@ module("NIVAFjord sediments", version(0, 0, 1),
 	
 	#TODO: phosphorous.
 	
-	#TODO: resuspension.
-	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)->>   }  # Keep the layer the same thickness by moving down as much as accumulates on top
+	# NOTE: In NIVAFjord it is just a reduction in settling, here instead it causes mixing of concentrations. Not sure what is best.
+	#   We could also make it independent of the settling (which is more realistic maybe).
+	flux(sediment.sed, layer.water.sed, [k g, day-1], "Sediment resuspension") {  in_flux(sed)*resus ->>  }
+	
+	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)*(1 - resus) ->>   }  # Keep the layer the same thickness by moving down as much as accumulates on top
 	
 	
-	#TODO: Processes of C, N, P and O2.
+	#TODO: Microbial processes for C, N, P and O2.
 	
 }

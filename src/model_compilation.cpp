@@ -529,7 +529,8 @@ ensure_has_initial_value(Model_Application *app, Var_Id var_id, std::vector<Mode
 		auto fun = var2->function_tree.get();
 		
 		if(fun) {			
-			instr->code = copy(fun);
+			//instr->code = copy(fun);
+			instr->code = prune_tree(copy(fun));
 			make_safe_for_initial(app, instr->code);
 			
 			// Have to do this recursively, since we may already have passed it in the outer loop.
@@ -881,6 +882,7 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 			if(var->type != State_Var::Type::declared) continue;
 			auto var2 = as<State_Var::Type::declared>(var);
 			if(var2->decl_type != Decl_Type::quantity) continue;
+			if(var2->function_tree) continue; // We may not necessarily need to put 'override' variables on solvers.
 			if(var->loc1.n_components != n_components) continue;
 
 			auto parent_id = app->vars.id_of(remove_dissolved(var->loc1));
@@ -935,7 +937,9 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 		if(!is_located(var->loc1)) continue;
 		if(var->loc1.r1.type == Restriction::none && var->loc2.r1.type == Restriction::none) continue;
 		auto source_id = app->vars.id_of(var->loc1);
-		if(!is_valid(instructions[source_id.id].solver)) {
+		if(as<State_Var::Type::declared>(app->vars[source_id])->function_tree) continue; // If it is 'override' it is not an issue.
+		auto s_instr = &instructions[source_id.id];
+		if(!is_valid(s_instr->solver)) {
 			// Technically not all fluxes may be declared, but if there is an error, it *should* trigger on a declared flux first.
 				// TODO: This is not all that robust.
 			model->fluxes[as<State_Var::Type::declared>(var)->decl_id]->source_loc.print_error_header();
@@ -1058,7 +1062,8 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		instr.type = Model_Instruction::Type::compute_state_var;
 
 		if(fun)
-			instr.code = copy(fun);
+			//instr.code = copy(fun);
+			instr.code = prune_tree(copy(fun));
 		else if(initial && var->type != State_Var::Type::parameter_aggregate)
 			instr.type = Model_Instruction::Type::invalid;
 		

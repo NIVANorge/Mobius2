@@ -174,11 +174,14 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			auto var = app->vars[instr.var_id];
 			
 			// Directly override the mass of a quantity
+			// Commented out since this happens in model_compilation now like with properties etc.
+			/*
 			if(var->type == State_Var::Type::declared) {
 				auto var2 = as<State_Var::Type::declared>(var);
 				if(var2->decl_type == Decl_Type::quantity && var2->function_tree && !var2->override_is_conc)
 					instr.code = copy(var2->function_tree.get());
 			}
+			*/
 			
 			// Codegen for concs of dissolved variables
 			if(var->type == State_Var::Type::dissolved_conc) {
@@ -189,7 +192,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				auto dissolved_in = conc->conc_in;
 				
 				if(mass_var->function_tree && mass_var->override_is_conc) {
-					instr.code = copy(mass_var->function_tree.get());
+					instr.code = prune_tree(copy(mass_var->function_tree.get()));
 
 					// If we override the conc, the mass is instead  conc*volume_we_are_dissolved_in .
 					auto mass_instr = &instructions[mass_id.id];

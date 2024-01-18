@@ -2,6 +2,11 @@
 
 	*** High pri ***
 	
+	
+		We have experimentally added some prune_tree when getting state variable code in model_compilation and model_codegen.
+			Be very careful to see if this causes any problems.
+	
+		
 		Within a given module, mark a data set par group for deletion if it no longer exists in the model.
 		
 		Specific models
@@ -117,13 +122,15 @@
 				Both for main and dissolved fluxes.
 				And maybe not allow unit_conversions and aggregation_weights (or otherwise multiply by the inverse when necessary).
 				
-		
 			Have an optional test to see if non-bidirectional non-mixing fluxes (with dissolvedes) were negative after or during a run.
 			
 			Need to check that a bidirectional flux wasn't discrete.
 
 	
 	*** Intermediate-pri ***
+	
+		When something is @override_conc we could just drop computing the mass variable whatsoever. It doesn't seem to be interesting to have.
+			It could technically be referenced in code, that is the problem. We would have to detect for that.
 	
 		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
 				In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
@@ -261,17 +268,18 @@
 				
 		
 		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
-			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
+			The problem is that the branch that branches on dynamic_epc0 is not pruned before dependencies are gathered, so it looks up "water", which is on a solver.
 			
-			Should use an is_ode() type check rather than just checking decl_type==Decl_Type::quantity in many types of checks. (is_ode would be false if @override).
+			We *can* prune when gathering the order dependencies.
+				Or maybe just even when setting dependencies directly.
+			Remember to remove the double gathering of the function tree in model_compilation.
 			
-		More cleanup of State_Var system
-			the way we handle regular_aggregates of fluxes is not necessarily that nice.
-			organize unit_conversion_tree differently.
-				and clean up how it is applied.
-		Maybe have a separate lookup structure for fluxes and have the common flux things stored there.
-			(in many cases we just loop over all fluxes and try to find common things for them)
-			loc1, loc2, unit_conv, connection, etc.
+			Another issue:
+				If we take away automatic setting on dissolved override variables on solvers, there is an issue where a connection flux goes from a discrete variable and it triggers an error.
+					We could probably just skip the error if the variable is override, because it should not cause a problem in this case (it will not need to be subtracted etc.).
+			
+			
+		The way we handle regular_aggregates of fluxes is a bit confusing when maintaining the framework.
 				
 		Let '/' always be a float division (promoting arguments to float always), and have a separate operator // (or similar) to force integer division in the few instances that is wanted.
 			
@@ -281,6 +289,13 @@
 			Lots of things to make less error prone, but...
 			Just do whatever is needed when it is needed
 			It is only used for NIVAFjord for now.
+			
+		Many times if some code depends on .below, it has a branch per lookup.
+			Could instead detect if the code depends on .below and then do a branch of the code total.
+			Also, could make existing_condition work for graph lookups better I think (?).
+		
+		The clamping of .specific expands the generated code a lot since it is done on every lookup. Maybe instead it should be tracked as a single state variable that is clamped, and just reference it.
+			Not possible for .specific in code (if we allow that), only if it is the target of a flux.
 		
 	*** Low-pri ****
 	
