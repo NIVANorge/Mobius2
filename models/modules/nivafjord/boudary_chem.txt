@@ -19,7 +19,7 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	var(bnd_layer.water.o2, [k g], [m g, l-1], "Boundary layer O₂")
 		@override_conc { o2sat*o2_saturation(temp, salin)*o2_mol_mass->> }
 	
-	# TODO: Input concs for the below
+	# TODO: Input series concentrations for all the boundary variables.
 	
 	var(bnd_layer.water.oc, [k g], [m g, l-1], "Boundary layer DOC")
 		@override_conc { 0[m g, l-1] }

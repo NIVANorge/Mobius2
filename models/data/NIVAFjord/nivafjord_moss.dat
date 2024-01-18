@@ -1,10 +1,41 @@
 data_set {
 	
 """
-TODO: Need to configure all the parameters correctly.
-TODO: Some part of the catchment that is not Mosselva (small).
+TODO: Need to configure all the parameters correctly.
+TODO: Some part of the catchment that is not Mosselva (small).
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
+
+	quick_select("River vars") [!
+		"Q" : [ "Reach flow flux" "Obs Q" ]
+		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
+		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
+		"TN" : [ "River TN" "Obs TN" ]
+		"TOC" : [ "River TOC concentration" "Obs TOC" ]
+		"TP" : [ "Total phosphorous" "Obs TP" ]
+		"PP" : [ "concentration(River PP, Reach water volume)" "Obs PP" ]
+		"TDP" : [ "concentration(River TDP, Reach water volume)" "Obs TDP" ]
+		"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
+	]
+	
+	quick_select("Lake vars") [!
+		"Temperature" : [ "Epilimnion temperature" "Obs Temperature" ]
+		"Ice ind" : [ "Ice indicator" "Observed ice indicator Vanem" ]
+		"DIN" : [ "concentration(Epilimnion DIN, Epilimnion volume)" "Obs DIN" ]
+		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
+		"TN" : [ "Epilimnion TN" "Obs TN" ]
+		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
+		"TP" : [ "Epilimnion total phosphorous" "Obs TP" ]
+		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
+		"SS" : [ "concentration(Epilimnion suspended sediments, Epilimnion volume)" "Obs SS" ]
+		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
+	]
+	
+	quick_select("Fjord vars") [!
+		"Temperature" : [ "Layer temperature" ]
+		"Salinity" : [ "Layer salinity" ]
+		"chl-a" : [ "Layer chl-a" ]
+	]
 	
 	time_step([3, hr])
 	
@@ -64,7 +95,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		[ 2017-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2021-12-31 ]
+		[ 2017-12-31 ]
 	
 	}
 	
@@ -226,7 +257,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	module("NIVAFjord chemistry", version(0, 0, 1)) {
+	module("NIVAFjord chemistry", version(0, 0, 2)) {
 		
 		par_group("Initial chem", basin, layer) {
 			
@@ -265,7 +296,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			par_real("Chl-a of phyto at equilibrium") 
 			[ 0.01 ]
 			
-			par_real("Temp adjustment of Phyto equilibrium") 
+			par_real("Q10 of Phyto equilibrium") 
 			[ 2 ]
 			
 			par_real("Phytoplankton turnover rate") 
@@ -277,40 +308,30 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			par_real("Half-saturation for nutrient uptake") 
 			[ 1.65625 ]
 			
-			par_real("N/C ratio in Phytoplankton") 
-			[ 0.1509 ]
-			
-			par_real("P/C ratio in Phytoplankton") 
-			[ 0.009434 ]
-			
 			par_real("Chl-a fraction") 
 			[ 2 ]
-		
-		}
-		
-		par_group("Nutrients") {
 			
-			par_real("Respiration rate") 
-			[ 1 ]
+			par_real("Molar N/C ratio in Phytoplankton") 
+			[ 0.1509 ]
 			
-			par_real("Respiration Q10") 
-			[ 1.58 ]
-			
-			par_real("Half-saturation concentration O₂") 
-			[ 0.0123 ]
+			par_real("Molar P/C ratio in Phytoplankton") 
+			[ 0.009434 ]
 		
 		}
 		
 		par_group("Microbes") {
 			
 			par_real("Respiration rate") 
-			[ 1 ]
+			[ 2 ]
 			
 			par_real("Respiration Q10") 
 			[ 1.58 ]
 			
 			par_real("Half-saturation concentration O₂") 
 			[ 0.0123 ]
+			
+			par_real("Molar N/C ratio in mineralization") 
+			[ 1.3 ]
 		
 		}
 	
@@ -768,7 +789,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		
 		}
 		
-		par_group("Nutrients") {
+		par_group("Microbes") {
 			
 			par_real("Respiration Q10") 
 			[ 2 ]
@@ -807,7 +828,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			par_real("Phytoplankton turnover rate") 
 			[ 0.08 ]
 			
-			par_real("Temp adjustment of Phyto equilibrium") 
+			par_real("Q10 of Phyto equilibrium") 
 			[ 4 ]
 			
 			par_real("Chl-a of phyto at equilibrium") 
@@ -882,6 +903,26 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			
 			par_real("DOM N/C ratio") 
 			[ 0.016 ]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord sediments", version(0, 0, 1)) {
+		
+		par_group("Sediments") {
+			
+			par_real("Active sediment thickness") 
+			[ 0.1 ]
+			
+			par_real("Sediment porosity") 
+			[ 0.5 ]
+			
+			par_real("Initial sediment C fraction") 
+			[ 1 ]
+			
+			par_real("Initial sediment N fraction") 
+			[ 0.02 ]
 		
 		}
 	

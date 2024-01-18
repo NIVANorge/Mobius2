@@ -20,8 +20,6 @@ nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river
 extern "C" DLLEXPORT void
 nivafjord_place_horizontal_fluxes(Value_Access *target_out, Value_Access *densities1, Value_Access *densities2, Value_Access *pressure1, Value_Access *pressure2, Value_Access *widths) {
 	
-	// TODO: Ideally this should also take alignment into account, but it is not crucial since the misalignment should be small.
-	
 	for(int layer = 0; layer < target_out->count; ++layer) {
 		
 		if(widths->at(layer) == 0.0) break;

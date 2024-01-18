@@ -2,18 +2,7 @@
 
 	*** High pri ***
 	
-		Regex checking of fjord_horizontal regex is bugged for nivafjord_moss
-			if the regex is switched to
-			river | (river? layer+ bnd_layer?)
-			it fails, so the | operator is not symmetrical somehow.
-		also it doesn't fail if there is an ->out on the downstream data even though that should not be allowed by the regex.
-			
-		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
-			In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
-		
-		MobiView: Hang-up when selecting 'Aligned depth' when the indexing was wrong.
-			General crashes when changing indexes in layered model.
-				Has not happened lately..
+		Within a given module, mark a data set par group for deletion if it no longer exists in the model.
 		
 		Specific models
 		
@@ -87,17 +76,22 @@
 			graph connections
 				
 				Regex
-					One should need to explicitly allow isolated nodes using something like    a | (....)
 					Finish regex check in the general case (cycles case)
+					
+					Regex checking of fjord_horizontal regex is bugged for nivafjord_moss
+						if the regex is switched to
+						river | (river? layer+ bnd_layer?)
+						it fails, so the | operator is not symmetrical somehow.
+					also it doesn't fail if there is an ->out on the downstream data even though that should not be allowed by the regex.
 				
 				For [below] accesses in code, we probably need to pre-process them to check that the units are the same in all instances etc.
-					Right now we do check units during final codegen, but would maybe be good to have a system for checking correctness of everything first.
-						Where?
 					Alternatively do unit conversions, but how?
-					May have to be done inside resolve_function_tree, so we need to access the connection data there.
+					May have to be done inside resolve_function_tree, in that case need to access the connection data there.
 					
-				When it accesses [below] across an index set that has a sub-index set, it has to check that the sub index set is not out of bounds (if the variable depends on it).
+				When it accesses [below] across an index set that has a sub-index set, it should check that the sub index set is not out of bounds (if the variable depends on it).
 					Probably put in make_restriction_condition().
+					Right now it doesn't break because the data is allocated and has value 0, but that should not be the case eventually.
+						Moreover it would be wrong if it was a flux with that target and not set to 0 for some other reason.
 				
 				Make it work with quantities as the node component.
 					And allow aggregation weight for quantities (can for instance be used for degradation chains of isotopes or POPs where some of the mass goes away as side products).
@@ -120,7 +114,9 @@
 			
 		Bidirectional (and mixing)
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
+				Both for main and dissolved fluxes.
 				And maybe not allow unit_conversions and aggregation_weights (or otherwise multiply by the inverse when necessary).
+				
 		
 			Have an optional test to see if non-bidirectional non-mixing fluxes (with dissolvedes) were negative after or during a run.
 			
@@ -129,17 +125,23 @@
 	
 	*** Intermediate-pri ***
 	
+		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
+				In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
+	
 		property default code:
 			Should be possible to set it within a module even if the property is globally declared
 			May be useful for Simply-Tox. Unless you just want to declare the physiochemistry par group globally (bad for reusability?).
 	
-		Multiple solvers:
-						Eventually may want/need to codegen smoothing or means. That is if a solver looks up something from another solver, it should linearly interpolate between last() value and current value using the time.fractional_step
-			May also want to compute (volume-weighted) means.
-	
 		MobiView :
 			Make model reloads work better wrt 'quick select'.
 				If the quick select tab is on
+				
+			Hang-up when selecting 'Aligned depth' when the indexing was wrong.
+			General crashes when changing indexes in layered model.
+				Two above have not happened lately..
+			Having all layers selected, then switching from a variable that indexes over more layers to one with fewer:
+				(or probably it is with having both selected?)
+				It has not updated the selected indexes in time and there is an internal error.
 		
 		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
 			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.
@@ -281,6 +283,10 @@
 			It is only used for NIVAFjord for now.
 		
 	*** Low-pri ****
+	
+		Multiple solvers:
+			Eventually may want/need to codegen smoothing or means. That is if a solver looks up something from another solver, it should linearly interpolate between last() value and current value using the time.fractional_step
+			May also want to compute (volume-weighted) means.
 		
 		Clean up the sorting algorithm
 			Make it independent of the Mobius framework code (no direct error exits, instead have error codes).

@@ -49,7 +49,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		sod          : par_real("Background sediment O₂ demand", [g, m-2, day-1], 0.5, 0.1, 4)
 	}
 	
-	par_group("Nutrients") { # Should be called Microbial?
+	par_group("Microbes") {
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
@@ -60,7 +60,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
 	par_group("Phytoplankton") {
 		phyt_eq_20    : par_real("Chl-a of phyto at equilibrium", [m g, l-1], 0.01, 0, 5, "Assuming 20°C and no nutrient or light limitations.")
-		phyt_q10      : par_real("Temp adjustment of Phyto equilibrium", [], 2, 1, 4) #TODO: Call it Q10
+		phyt_q10      : par_real("Q10 of Phyto equilibrium", [], 2, 1, 4)
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
 		
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
@@ -75,15 +75,34 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		#phyt_b : par_real("Phytoplankton amenability - depth factor", [], 0, 0, 10)
 	}
 	
+	# These should be passed in so that they are the same entity as in NIVAFjord.
 	p_vel     : property("O₂ piston velocity")
 	light_lim : property("Light limitation")
 	N_lim     : property("Nitrogen limitation")
 	P_lim     : property("Phosphorus limitation")
+	chl_a     : property("Chlorophyll-a")
 	
 	f_par     : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
 	
 	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }
 	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }  
+	
+	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
+	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
+	
+	#TODO (MNO): We should probably have a correct unit for these: At least document what they mean since they are not a real mass variable.
+	var(epi.water.oc.o2, [k g], [], "Epilimnion DOC-O₂ content")  @initial_conc { 1 }
+	var(hyp.water.oc.o2, [k g], [], "Hypolimnion DOC-O₂ content") @initial_conc { 1 }
+	
+	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_in }
+	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_in }
+	
+	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_p }
+	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
+	
+	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")  @initial_conc { init_phyt }
+	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton") @initial_conc { init_phyt }
+	
 	
 	var(epi.water.p_vel, [c m, hr-1]) {
 		pvel_scaler * o2_piston_velocity(air.wind, temp)
@@ -121,12 +140,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	#	epi.o2rate*area ->>
 	#}	
 	
-	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
-	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
-	
-	#TODO (MNO): We should probably have a correct unit for these: At least document what they mean since they are not a real mass variable.
-	var(epi.water.oc.o2, [k g], [], "Epilimnion DOC-O₂ content")  @initial_conc { 1 }
-	var(hyp.water.oc.o2, [k g], [], "Hypolimnion DOC-O₂ content") @initial_conc { 1 }
+	flux(out, epi.water.din, [k g, day-1], "Lake N deposition") { area*din_dep/365.25[day, year-1] ->> }
 	
 	nosc : property("Carbon Oxidation State") {
 		(conc(oc.o2) - 1)*4    # TODO: Where does the number come from?
@@ -154,11 +168,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	# TODO (MNO): from the formula for nosc, we have (2 - (4 + nosc)/4) = 2 - conc(oc.o2)  . Is there a reason not just to use that directly? Then you would not need nosc as a separate variable, it could just be computed for the use inside resp.
 	flux(hyp.water.o2, out, [k g, day-1], "O₂ bacterial consumption (hypo)") { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) }
 	flux(epi.water.o2, out, [k g, day-1], "O₂ bacterial consumption (epi)")  { resp*o2*(o2_mol_mass/c_mol_mass)*(2 - (4 + oc.nosc)/4) } 
-	
-	chl_a : property("Chlorophyll-a")
-	
-	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")  @initial_conc { init_phyt }
-	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton") @initial_conc { init_phyt }
 	
 	var(epi.water.chl_a, [m g, l-1]) {
 		conc(phyt)*chl_a_f->>
@@ -219,16 +228,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	flux(out, epi.water.o2, [k g, day-1], "Epilimnion O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
-	
-	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_in }
-	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_in }
-	
-	flux(out, epi.water.din, [k g, day-1], "Lake N deposition") { area*din_dep/365.25[day, year-1] ->> }
-	
 	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix  * nc_molar_to_mass_ratio(phyt_nc)   } # *(1 - n_fix_frac)  }
-	
-	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_p }
-	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
 	
 	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * pc_molar_to_mass_ratio(phyt_pc)   }
 	#flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
@@ -364,7 +364,7 @@ module("SuperEasyChem", version(0, 0, 1),
 	temp : property
 ) {	
 """
-Simplified version of EasyChem where retention rates are given by empirical numbers instead of simulating phytoplankton or bacteria.
+Simplified version of EasyChem where retention rates are given by empirical numbers instead of simulating phytoplankton or microbes.
 """
 	
 	load("stdlib/basic_math.txt", library("Response"))
@@ -381,11 +381,17 @@ Simplified version of EasyChem where retention rates are given by empirical numb
 		lake_tdp_ret : par_real("Lake TDP retention at 20°C", [day-1], 0, 0, 5)
 		lake_tdp_q10 : par_real("Lake TDP retention Q10", [], 1, 1, 5)
 
-		hyp_ret : par_real("Hyplimnion relative retention", [], 0, 0, 1, "Factor used to reduce retention rates in the hypolimnion relatively to the epilimnion.")
+		hyp_ret : par_real("Hypolimnion relative retention", [], 0, 0, 1, "Factor used to reduce retention rates in the hypolimnion relatively to the epilimnion.")
 	}
 	
 	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_doc }
 	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_doc }
+	
+	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
+	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
+	
+	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
+	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
 	
 	flux(epi.water.oc, out, [k g, day-1], "Epilimnion DOC retention") {
 		ret := q10_adjust(lake_doc_ret, 20.0[deg_c], temp, lake_doc_q10),
@@ -397,9 +403,6 @@ Simplified version of EasyChem where retention rates are given by empirical numb
 		din * ret * hyp_ret
 	}
 	
-	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
-	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
-	
 	flux(epi.water.din, out, [k g, day-1], "Epilimnion N retention") {
 		ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
 		din * ret
@@ -409,9 +412,6 @@ Simplified version of EasyChem where retention rates are given by empirical numb
 		ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
 		din * ret * hyp_ret
 	}
-	
-	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
-	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
 	
 	flux(epi.water.phos, out, [k g, day-1], "Epilimnion TDP retention") {
 		ret := q10_adjust(lake_tdp_ret, 20.0[deg_c], temp, lake_tdp_q10),

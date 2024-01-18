@@ -1,15 +1,17 @@
 
 
-module("NIVAFjord chemistry", version(0, 0, 1),
+module("NIVAFjord chemistry", version(0, 0, 2),
 	air   : compartment,
 	basin : compartment,
 	layer : compartment,
+	sediment : compartment,
 	water : quantity,
 	heat  : quantity,
 	o2    : quantity,
 	ice   : quantity,
 	oc    : quantity,
 	din   : quantity,
+	on    : quantity,
 	dip   : quantity,
 	sed   : quantity,
 	phyt  : quantity,
@@ -21,6 +23,7 @@ module("NIVAFjord chemistry", version(0, 0, 1),
 	indicator : property,
 	attn  : property,
 	precip : property,
+	area   : property,
 	A     : par_real,
 	vert  : connection,
 	sw_vert : connection
@@ -44,20 +47,21 @@ module("NIVAFjord chemistry", version(0, 0, 1),
 	
 	par_group("Phytoplankton") {
 		phyt_eq_20    : par_real("Chl-a of phyto at equilibrium", [m g, l-1], 0.01, 0, 5, "Assuming 20°C and no nutrient or light limitations.")
-		phyt_q10      : par_real("Temp adjustment of Phyto equilibrium", [], 2, 1, 4) #TODO: Call it Q10
+		phyt_q10      : par_real("Q10 of Phyto equilibrium", [], 2, 1, 4, "Adjustment of rate with 10°C change in temperature")
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
 		
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
-		phyt_nc    : par_real("N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
-		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
+		phyt_nc    : par_real("Molar N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
+		phyt_pc    : par_real("Molar P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
 	
 	par_group("Microbes") {
-		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
+		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10, "At 20°C")
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
+		mic_nc       : par_real("Molar N/C ratio in mineralization", [], 1.3) #TODO better defaults
 	}
 	
 	load("stdlib/basic_math.txt", library("Response"))
@@ -72,14 +76,18 @@ module("NIVAFjord chemistry", version(0, 0, 1),
 	
 	var(layer.water.din, [k g], [m g, l-1], "Layer DIN")
 	
+	var(layer.water.on, [k g], [m g, l-1], "Layer DON")
+	
 	var(layer.water.dip, [k g], [m g, l-1], "Layer DIP")
 	
 	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments")
 	
 	var(layer.water.sed.oc, [k g], "Layer POC") @show_conc(layer.water, [m g, l-1])
 	
-	# TODO: Need a separate phosphorous quantity type, but have to fix SimplyP first.
+	# TODO: Need a separate organic phosphorous quantity type, but have to fix SimplyP first.
 	#var(layer.water.sed.phos, [k g], "Layer PP") @show_conc(layer.water, [m g, l-1])
+	
+	var(layer.water.sed.on, [k g], "Layer PON") @show_conc(layer.water, [m g, l-1])
 	
 	
 	
@@ -100,7 +108,8 @@ module("NIVAFjord chemistry", version(0, 0, 1),
 	}
 	
 	flux(out, layer.water.o2[vert.top], [k g, day-1], "Precipitation O₂") {
-		conc := 0.9*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
+		precip_saturation := 0.9, # Probably ok estimate? Not extremely important in any case.
+		conc := precip_saturation*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],
 		air.precip*A[vert.top]*conc->>
 	}
 
@@ -114,14 +123,14 @@ module("NIVAFjord chemistry", version(0, 0, 1),
 		max(0, bubble*(conc(o2) - satconc)*A*dz) ->>
 	}
 	
-	flux(layer.water.sed, vert, [k g, day-1], "Layer particle settling") {
+	flux(layer.water.sed, sediment.sed, [k g, day-1], "Layer particle settling") {
 		sett_vel * conc(sed) * A[vert.below] ->>
 	}
 	
 	flux(layer.water.sed, out, [k g, day-1], "Layer particle settling to bottom") {
-		sett_vel * conc(sed) * (A - A[vert.below]) ->>
+		sett_vel * conc(sed) * sediment.area ->>
 	}
-	# TODO: Resuspension. Also need proper interaction with nutrients in bottom sediments.
+
 	
 	var(layer.water.attn, [], "Layer attenuation") {
 		# TODO: Maybe also a DOC effect.
@@ -187,25 +196,24 @@ module("NIVAFjord chemistry", version(0, 0, 1),
 	
 	# TODO: Production of surplus DOC when growth is nutrient limited? (Page 44 in 3113-94)
 	
-	flux(layer.water.phyt, layer.water.oc, [k g, day-1], "Phytoplankton death DOC release")  { phyt.death }
+	flux(layer.water.phyt, layer.water.sed.oc, [k g, day-1], "Phytoplankton death POC release")  { phyt.death }
+	
+	flux(out, layer.water.sed.on, [k g, day-1], "Phytoplankton death N release") {   phyt.death * nc_molar_to_mass_ratio(phyt_nc)   }
+	
 	
 	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
 	
-	var(layer.water.chl_a, [m g, l-1]) {
-		conc(phyt)*chl_a_f->>
-	}
+	var(layer.water.chl_a, [m g, l-1], "Layer chl-a") {   conc(phyt)*chl_a_f->>   }
 	
 	sed_vel : property("Sedimentation velocity")
 	
 	var(layer.water.phyt.sed_vel, [m, day-1], "Phytoplankton sinking velocity") {
-		c_max := 0.4[m g, l-1], #TODO: parameter
+		c_max := 0.4[m g, l-1], #Parametrize
+		min_sett := 0.1, #Parametrize
 		
 		nut_lim := min(N_lim, P_lim),
 		conc_lim := max(0, (c_max - conc(phyt))/c_max),
-		
 		totlim := 1-min(nut_lim, conc_lim),
-		
-		min_sett := 0.2, #Parametrize
 		
 		sett_vel*s_response(totlim, 0, 1, min_sett, 1)->>
 	}
@@ -214,24 +222,43 @@ module("NIVAFjord chemistry", version(0, 0, 1),
 		conc(phyt)*sed_vel*A[vert.below]->>
 	}
 	
-	flux(layer.water.phyt, out, [k g, day-1], "Phytoplankton settling to sediments") {
-		conc(phyt)*sed_vel*(A - A[vert.below])->>
+	flux(layer.water.phyt, sediment.sed.oc, [k g, day-1], "Phytoplankton settling to sediments") {
+		conc(phyt)*sed_vel*sediment.area ->>
 	}
+	
+	# TODO: This is a bit cumbersome, could we instead do something like  phyt.oc and phyt.on and move layer.water.phyt to sediment.sed?
+	#    Would also work for death, moving from layer.water.phyt to layer.water.sed.
+	# Alternatively just add the part that would go to sediments to death instead.
+	flux(out, sediment.sed.on, [k g, day-1], "Phytoplankton N to sediments") {
+		conc(layer.water.phyt)*layer.water.phyt.sed_vel*sediment.area*nc_molar_to_mass_ratio(phyt_nc)->>
+	}
+	#TODO: Also move the P contents of the phyto to the sediments.
+	
 
-	var(layer.water.resp, [day-1], "Bacterial mineralization") {
+	var(layer.water.resp, [day-1], "Microbial mineralization rate") {
 		rate := (K_OM / 365.25[day, year-1]), #* COS_resp^oc.nosc,
 		halfsat := Km_o2*o2_mol_mass->[m g, l-1],
 		o2_adj := conc(o2) / (halfsat + conc(o2)),
 		q10_adjust(rate*o2_adj, 20[deg_c], temp, respQ10)
 	}
 	
-	flux(layer.water.oc, out, [k g, day-1], "DOC bacterial mineralization") { resp * oc }
-	
-	flux(layer.water.o2, out, [k g, day-1], "O₂ bacterial consumption") { 
+	flux(layer.water.o2, out, [k g, day-1], "Microbial O₂ consumption") { 
 		# TODO: Do we want the NOSC?
-		resp*o2*(o2_mol_mass/c_mol_mass)#*(2 - (4 + oc.nosc)/4)
+		resp*(oc + sed.oc)*(o2_mol_mass/c_mol_mass)#*(2 - (4 + oc.nosc)/4)
 	}
 	
+	flux(layer.water.oc, out, [k g, day-1], "DOC microbial mineralization") { resp * oc }
+	
+	flux(layer.water.sed.oc, out, [k g, day-1], "POC microbial mineralization") { resp * oc }
+	
+	# Hmm, is it a bit problematic that this is not dependent on oc concentration?
+	flux(layer.water.on, layer.water.din, [k g, day-1], "DON microbial mineralization") {
+		resp * nc_molar_to_mass_ratio(mic_nc) * on
+	}
+	
+	flux(layer.water.sed.on, layer.water.din, [k g, day-1], "PON microbial mineralization") {
+		resp * nc_molar_to_mass_ratio(mic_nc) * on
+	}
 }
 
 

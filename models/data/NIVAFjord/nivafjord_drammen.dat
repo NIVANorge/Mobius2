@@ -626,7 +626,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Chl-a of phyto at equilibrium") 
 			[ 0.01 ]
 			
-			par_real("Temp adjustment of Phyto equilibrium") 
+			par_real("Q10 of Phyto equilibrium") 
 			[ 2 ]
 			
 			par_real("Phytoplankton turnover rate") 

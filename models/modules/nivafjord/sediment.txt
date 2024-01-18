@@ -1,0 +1,39 @@
+
+module("NIVAFjord sediments", version(0, 0, 1),
+	sediment : compartment,
+	sed      : quantity,
+	oc       : quantity,
+	on       : quantity,
+	area     : property,
+	A        : par_real,
+	vert     : connection
+) {
+	
+	par_group("Sediments") {
+		th       : par_real("Active sediment thickness", [m], 0.1, 0.00001, 1)
+		porosity : par_real("Sediment porosity", [], 0.5, 0, 0.99)
+		
+		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 0.01, 0, 1)
+		init_n   : par_real("Initial sediment N fraction", [g, k g-1], 0.00001, 0, 1)
+	}
+	
+	sed_rho : constant("Sediment density", [k g, m-3], 2600) #Parameter?
+	
+	# The sediment area of a water layer is the area of the layer minus the area of the water layer below.
+	var(sediment.area, [m 2], "Sediment area") {   A - A[vert.below]   }
+	
+	var(sediment.sed, [k g], "Sediment mass") @initial {   area*th*sed_rho*(1 - porosity)   }
+	
+	var(sediment.sed.oc, [k g], [g, k g-1], "Sediment organic carbon") @initial_conc { init_c }
+	
+	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_n }
+	
+	#TODO: phosphorous.
+	
+	#TODO: resuspension.
+	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)->>   }  # Keep the layer the same thickness by moving down as much as accumulates on top
+	
+	
+	#TODO: Processes of C, N, P and O2.
+	
+}

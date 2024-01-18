@@ -53,7 +53,7 @@ model("NIVAFjord") {
 	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
 											loc(A[vert.top]), loc(layer.water[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
 	
-	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sediment, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, vert, sw_vert, A, dz0))
+	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, vert, sw_vert, A, dz0))
 	
 	basin_idx     : index_set("Basin index")
 	bnd_basin_idx : index_set("Boundary basin index")

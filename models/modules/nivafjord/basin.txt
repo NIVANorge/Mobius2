@@ -3,7 +3,6 @@ module("NIVAFjord basin", version(0, 0, 2),
 	air       : compartment,
 	basin     : compartment,
 	layer     : compartment,
-	sed       : compartment,
 	water     : quantity,
 	salt      : quantity,
 	heat      : quantity,
@@ -42,16 +41,6 @@ module("NIVAFjord basin", version(0, 0, 2),
 		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0)
 		zshalf : par_real("Halving depth of additional mixing energy", [m], 3)
 		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
-	}
-	
-	# TODO: There should be a sediment compartment per layer instead..
-	par_group("Sediment parameters", sed) {
-		T_sed  : par_real("Deep sediment temperature", [deg_c], 4)
-		dz_sed : par_real("Depth of thermally active sediment layer", [m], 10)
-		k_sed  : par_real("Sediment thermal conductivity", [W, m-1, K-1], 1.3)
-		C_sed  : par_real("Sediment specific heat capacity", [J, k g-1, K-1], 4000)
-		rho_sed : par_real("Sediment density", [k g, m-3], 2600)
-		#TODO: porosity
 	}
 	
 	par_group("Initial layer physical", layer) {
@@ -181,39 +170,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 	
 	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { wmix*A[vert.below] } @mixing
 	
-	# The heat conduction is trivial compared to the mixing, so it doesn't seem necessary.
-	#flux(layer.water.heat, vert, [J, day-1], "Water layer heat conduction") {
-	#	mdz := 0.5*(dz + dz[below]),
-	#	k_water*(temp->[K] - temp[below]->[K])*A/mdz ->>
-	#}
-	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
 		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn) * A[vert.below]/A
 	}
-	
-	#flux(layer.water.heat, sed.heat, [J, day-1], "Shortwave to sediments") {
-	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
-		(in_flux(sw_vert, layer.water.heat)->[J, day-1])*(1 - attn) * (A - A[vert.below])/A
-	}
-	
-
-	#Note: Sediment temperature seems to have minimal effect on water temperature, so if it is not needed in itself, it should be removed.
-	/*
-	var(sed.heat, [J], "Sediment heat") @initial {
-		mass := (A - A[vert.below])*dz_sed*rho_sed,
-		C_sed * mass * (T_sed->[K])
-	}
-	
-	# Assumption of triangular shape of sediment temperature function.. Doesn't work that well, should be improved.
-	var(sed.temp, [deg_c], "Sediment surface temperature") {
-		mass := (A - A[vert.below])*dz_sed*rho_sed,
-		1*(2*heat / (mass*C_sed) - T_sed->[K]) -> [deg_c]
-	}
-	
-	# Water-Sediment heat transfer
-	flux(layer.water.heat, sed.heat, [J, day-1], "Water-sediment heat transfer") {
-		dz := dz_sed*0.2,  # Just the scaling factor for the transfer TODO: get a better estimate
-		(A - A[vert.below])*(temp->[K] - sed.temp->[K])*k_sed/dz ->>
-	}
-	*/
 }

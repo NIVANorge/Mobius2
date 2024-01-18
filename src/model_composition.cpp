@@ -950,7 +950,7 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		
 		if(!match_exact(&fun.unit, &expected_unit)) {
 			agg.code->source_loc.print_error_header();
-			fatal_error("Expected the unit an aggregation_weight expression to resolve to ", expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
+			fatal_error("Expected the unit of the aggregation_weight expression to resolve to ", expected_unit.to_utf8(), " (standard form), but got, ", fun.unit.to_utf8(), ".");
 		}
 		
 		auto agg_weight = make_cast(fun.fun, Value_Type::real);

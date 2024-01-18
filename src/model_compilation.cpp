@@ -973,6 +973,61 @@ maybe_ensure_initial_vars_for_external_computation_arguments(Model_Application *
 }
 
 void
+set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions) {
+	
+	auto instr = &instructions[var_id.id];
+	
+	auto model = app->model;
+	
+	instr->type = Model_Instruction::Type::external_computation;
+			
+	auto var2 = as<State_Var::Type::external_computation>(app->vars[instr->var_id]);
+	auto external = model->external_computations[var2->decl_id];
+	
+	std::vector<Entity_Id> index_sets;
+	if(is_valid(external->component))
+		index_sets = model->components[external->component]->index_sets;
+	
+	// TODO: Check for solver conflicts.
+	for(auto target_id : var2->targets) {
+		auto &target = instructions[target_id.id];
+		instr->solver = target.solver;
+		target.depends_on_instruction.insert(var_id.id);
+		
+		// TODO: Check that every target could index over the computation index sets at all
+		
+		// NOTE: A target of a external_computation should always index over as many index sets as it can.
+		auto &loc = app->vars[target_id]->loc1;
+		for(int idx = 0; idx < loc.n_components; ++idx) {
+			auto comp = model->components[loc.components[idx]];
+			for(auto index_set : comp->index_sets)
+				insert_dependency(app, &target, index_set);
+		}
+	}
+	
+	instr->code = copy(var2->code.get());
+	
+	for(auto index_set : index_sets)
+		insert_dependency(app, instr, index_set);
+	
+	auto code = static_cast<External_Computation_FT *>(instr->code);
+	
+	for(auto &arg : code->arguments) {
+		if(arg.has_flag(Identifier_Data::result)) continue;
+		
+		if(arg.variable_type == Variable_Type::state_var) {
+			insert_var_order_depencencies(app, instr, arg);
+			instr->instruction_is_blocking.insert(arg.var_id.id);
+			
+		} else if (arg.variable_type == Variable_Type::parameter) {
+			
+		} else
+			fatal_error(Mobius_Error::internal, "Unexpected variable type for external_computation argument.");
+	}
+}
+
+
+void
 build_instructions(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
 	
 	auto model = app->model;
@@ -1039,55 +1094,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		bool has_aggregate = var->has_flag(State_Var::has_aggregate);
 		
 		if(var->type == State_Var::Type::external_computation) {
-			
-			instr->type = Model_Instruction::Type::external_computation;
-			
-			auto var2 = as<State_Var::Type::external_computation>(var);
-			auto external = model->external_computations[var2->decl_id];
-			
-			std::vector<Entity_Id> index_sets;
-			if(is_valid(external->component))
-				index_sets = model->components[external->component]->index_sets;
-			
-			// TODO: Check for solver conflicts.
-			for(auto target_id : var2->targets) {
-				auto &target = instructions[target_id.id];
-				instr->solver = target.solver;
-				target.depends_on_instruction.insert(var_id.id);
-				
-				// TODO: Check that every target could index over the computation index sets at all
-				
-				// NOTE: A target of a external_computation should always index over as many index sets as it can.
-				auto &loc = app->vars[target_id]->loc1;
-				for(int idx = 0; idx < loc.n_components; ++idx) {
-					auto comp = model->components[loc.components[idx]];
-					for(auto index_set : comp->index_sets)
-						insert_dependency(app, &target, index_set);
-				}
-			}
-			
-			instr->code = copy(var2->code.get());
-			
-			for(auto index_set : index_sets)
-				insert_dependency(app, instr, index_set);
-			
-			auto code = static_cast<External_Computation_FT *>(instr->code);
-			
-			for(auto &arg : code->arguments) {
-				if(arg.has_flag(Identifier_Data::result)) continue;
-				
-				if(arg.variable_type == Variable_Type::state_var) {
-					//instr->depends_on_instruction.insert(arg.var_id.id);
-					
-					insert_var_order_depencencies(app, instr, arg);    // This doesn't work correctly yet.
-					instr->instruction_is_blocking.insert(arg.var_id.id);
-					
-				} else if (arg.variable_type == Variable_Type::parameter) {
-					
-				} else
-					fatal_error(Mobius_Error::internal, "Unexpected variable type for external_computation argument.");
-			}
-			
+			set_up_external_computation_instruction(app, var_id, instructions);
 			continue;
 		}
 		
