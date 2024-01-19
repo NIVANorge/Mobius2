@@ -17,8 +17,8 @@ preamble("SimplyTox physiochemical", version(0, 0, 3),
 		kH25        : par_real("Henry's constant at 25°C", [Pa, m 3, mol-1], 0, 0, 100)  #TODO: better default?
 		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", [], 0, -10, 10)
 		#log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", [], 0, -10, 10)
-		rwoc        : par_real("Water-OC rate coefficient", [k g, m-2, day-1],  0.5, 0, 3)
-		rfs         : par_real("Fast-Slow rate coefficient", [k g, m-2, day-1], 0.05, 0, 3)
+		rwoc        : par_real("Water-OC rate coefficient", [day-1],  0.5, 0, 3)
+		rfs         : par_real("Fast-Slow rate coefficient", [day-1], 0.05, 0, 3)
 		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3)
 		raa         : par_real("Soil atmosphere exchange rate", [m, day-1], 0.05, 0, 10)
 		
@@ -57,6 +57,8 @@ preamble("SimplyTox physiochemical", version(0, 0, 3),
 	degr : function(hl : [day], q10 : [], reftemp : [deg_c], temp : [deg_c]) {
 		q10_adjust(hl_to_rate(hl), reftemp, temp, q10)
 	}
+	
+	Cw    : property("Equilibrium concentration")
 }
 
 
@@ -70,7 +72,6 @@ module("SimplyTox soil", version(0, 0, 3),
 	oc    : quantity,
 	tox   : quantity,
 	temp  : property,
-	Cw    : property,
 	phys  : preamble
 ) {
 """
@@ -129,16 +130,15 @@ Testing functionality for now.
 	var(soilair.tox.Cw, [n g, m-3], "Soil air contaminant equilibrium concentration") { soil.water.tox.Cw * soil.water.tox.Kaw ->> }
 	
 	flux(soil.water.tox, soil.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
-		rwoc*(soil.oc.tox.Cw - conc(soil.oc.tox))
+		rwoc*soil.oc*(soil.oc.tox.Cw - conc(soil.oc.tox))
 	}
 	
-	# TODO: It would probably be much faster if this exchange was between SOC and DOC instead of water and DOC.
 	flux(soil.water.tox, soil.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (soil)") {
-		rwoc*(water.oc.tox.Cw - conc(water.oc.tox))
+		rwoc*water.oc*(water.oc.tox.Cw - conc(water.oc.tox)) ->>
 	}
 	
 	flux(soil.oc.tox, dsoil.oc.tox, [n g, m-2, day-1], "Fast-Slow contaminant exchange") {
-		rfs*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
+		rfs*soil.oc*(conc(soil.oc.tox) - conc(dsoil.oc.tox)) ->>
 	}
 	
 	flux(soil.water.tox, soilair.tox, [n g, m-2, day-1], "Water-air contaminant exchange") {
@@ -160,7 +160,6 @@ Testing functionality for now.
 	var(gw.temp, [deg_c], "Deep soil temperature") { deeptemp }
 	var(gw.oc, [k g, m-2], "Deep soil carbon")  @initial { mocdeep }
 	
-	# Should maybe make it possible to have solid organic carbon in the gw layers also (?)
 	
 	var(gw.oc.tox, [n g, m-2], [n g, k g-1], "Deep soil SOC contaminants")
 	var(gw.water.tox, [n g, m-2], [n g, l-1], "Groundwater dissolved contaminants")
@@ -186,13 +185,12 @@ Testing functionality for now.
 	var(gw.water.oc.tox.Cw, [n g, k g-1], "Groundwater DOC contaminant equilibrium concentration") {   gw.water.tox.Cw * gw.water.tox.Kdoc ->>  }
 	
 	flux(gw.water.tox, gw.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange (groundwater)") {
-		# Maybe this should be slower though
-		rwoc*(gw.oc.tox.Cw - conc(gw.oc.tox))
+		# Maybe this should be slower though. It is supposed to be slow-accessible carbon only.
+		rwoc*gw.oc*(gw.oc.tox.Cw - conc(gw.oc.tox)) ->>
 	}
 	
 	flux(gw.water.tox, gw.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (groundwater)") {
-		#rwoc*((conc(water.tox)->[n g, m-3])*Kdoc - conc(water.oc.tox))
-		rwoc*(water.oc.tox.Cw - conc(water.oc.tox))
+		rwoc*water.oc*(water.oc.tox.Cw - conc(water.oc.tox)) ->>
 	}
 	
 	flux(gw.oc.tox, out, [n g, m-2, day-1], "Deep soil SOC contaminant decay") { degr(hlslow, degrq10, degrref, temp)*tox }
@@ -218,20 +216,11 @@ module("SimplyTox river", version(0, 0, 1),
 	var(river.water.oc.tox, [n g], [n g, k g-1], "River DOC contaminant")
 	var(river.water.sed.oc.tox, [n g], [n g, k g-1], "River suspended sediment contaminant")
 
-	# These are very unstable, but because of the time scale they are probably not that important any way.
-	#    It has to do with water.sed.oc becoming very small. But it is very sensitive to the threshold, so it is not that good a solution to check for it.
-	
-	#flux(river.water.tox, river.water.sed.oc.tox, [n g, day-1], "Water-SOC contaminant exchange (river)") {
-	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.sed.oc.tox)/Koc)    if water.sed.oc > 1e-6[k g, m-2]*eff_a,
-	#	0                                                                          otherwise
-	#}
-	#flux(river.water.tox, river.water.oc.tox, [n g, day-1], "Water-DOC contaminant exchange (river)") {
-	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
-	#}
-
 	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Sediment mobilization tox") {
 		soil.e_fact*river.e_fact*conc(river.water.sed.oc)*conc(soil.oc.tox)->>
 	}
+	
+	#TODO: Exchange between water, oc and doc (using the new rate formulations).
 	
 	flux(river.water.tox, out, [n g, day-1], "River water dissolved contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	flux(river.water.oc.tox, out, [n g, day-1], "River DOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }

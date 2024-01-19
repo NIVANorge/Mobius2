@@ -17,7 +17,6 @@ model("SimplyTox") {
 	
 	tox   : quantity("Contaminant")
 	toc   : property("Total organic carbon")
-	Cw    : property("Equilibrium concentration")
 		
 	dsoil   : compartment("Slow-accessible soil")
 	soilair : compartment("Soil air")
@@ -36,7 +35,7 @@ model("SimplyTox") {
 
 	load("modules/simplytox.txt",
 		phys : preamble("SimplyTox physiochemical", tox, temp),
-		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, Cw, phys),
+		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
 		module("SimplyTox river", soil, river, water, oc, sed, tox, e_fact, temp, eff_a, phys)
 	)
 	

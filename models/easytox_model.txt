@@ -1,0 +1,13 @@
+
+model("EasyTox") {
+
+	extend("simplytox_model.txt") @exclude(downstream : connection)
+	extend("easylake_simplyq_model.txt") @exclude(heat : quantity, sol : solver)
+	
+	load("modules/easychem.txt",
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),  #TODO: last location is bottom sediments.
+		module("SuperEasyC", epi, hyp, water, oc, sed, temp, toc))
+	
+	load("modules/easytox.txt",
+		module("EasyTox", epi, hyp, water, oc, sed, tox, phys))
+}

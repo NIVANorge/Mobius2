@@ -267,20 +267,22 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(hyp.water.sed.oc, [k g], "Hypolimnion POC") @show_conc(hyp.water, [m g, l-1])
 	
 	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc)  + conc(phyt) + conc(sed.oc)*conc(sed)   }
+	
+	var(epi.water.sed.phos, [k g], "Epilimnion PP") @show_conc(epi.water, [m g, l-1])
+	var(hyp.water.sed.phos, [k g], "Hypolimnion PP") @show_conc(hyp.water, [m g, l-1])
 }
 
 
-module("EasyChem-Particulate", version(0, 0, 2),
+module("EasyChem-Particulate", version(0, 0, 3),
 	air : compartment,
 	epi : compartment,
 	hyp : compartment,
-	bot : compartment,
 	water : quantity,
 	sed   : quantity,
-	phos  : quantity,
 	wind  : property,
 	area  : property,
-	downstream : connection
+	downstream : connection,
+	sett_target : loc
 ) {
 """
 Particle transport and settling for EasyChem.
@@ -289,34 +291,23 @@ Particle transport and settling for EasyChem.
 	par_group("Particles") {
 		sett_vel : par_real("Sediment settling velocity", [m, day-1], 1, 0, 100, "The net settling velocity after taking into account mixing whithin (but not between) each compartment.")
 		resusp_f  : par_real("Resuspension factor", [], 0, 0, 1e-7, "Wind-proportional resuspension in epilimnion-sediment interface.")
-		sed_z    : par_real("Bottom sediment thickness", [m], 0.2, 0, 5, "Thickness of sediment layer participating in P exchange")
-	}
-	
-	par_group("Particles lake-specific", epi) {
-		init_sed_p : par_real("Initial bottom sediment P concentration", [m g, g-1], 0)
-		sed_p_release : par_real("Sediments P release", [m-2, day-1], 0)
+		#sed_z    : par_real("Bottom sediment thickness", [m], 0.2, 0, 5, "Thickness of sediment layer participating in P exchange")
 	}
 
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
 	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")
-	var(epi.water.sed.phos, [k g], "Epilimnion PP")
-	@show_conc(epi.water, [m g, l-1])
-	var(hyp.water.sed.phos, [k g], "Hypolimnion PP")
-	@show_conc(hyp.water, [m g, l-1])
 	
-	# TODO: It is a bit strange to use the variable epi area in all of these...
-	
-	flux(epi.water.sed, out, [k g, day-1], "Epilimnion sediment settling") {
+	flux(epi.water.sed, sett_target, [k g, day-1], "Epilimnion sediment settling") {
 		(max(0[m, day-1], sett_vel - air.wind*resusp_f->[m, day-1])) * conc(sed) * (area - hyp.area) ->>
 	}
 	flux(epi.water.sed, hyp.water.sed, [k g, day-1], "Epilimnion-hypolimnion settling") {
 		sett_vel * conc(sed) * hyp.area ->>
 	}
-	flux(hyp.water.sed, out, [k g, day-1], "Hypolimnion sediment settling") {
+	flux(hyp.water.sed, sett_target, [k g, day-1], "Hypolimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
 	}
 	
-	load("stdlib/basic_math.txt", library("Response"))
+	#load("stdlib/basic_math.txt", library("Response"))
 	
 	
 	/* # This is tricky without a 3d model...
@@ -332,8 +323,65 @@ Particle transport and settling for EasyChem.
 	}
 	*/
 	
-	#TODO: The below seems to not work that well.
-	/*
+	
+}
+
+
+module("SuperEasyC", version(0, 0, 1),
+	epi : compartment,
+	hyp : compartment,
+	water : quantity,
+	oc : quantity,
+	sed : quantity,
+	temp : property,
+	toc : property
+) {	
+"""
+A very simplified lake carbon module. Mainly for use with EasyTox if one doesn't want to run the full EasyChem.
+"""
+	
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	par_group("Lake C", epi) {
+		init_doc : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
+
+		lake_doc_hl  : par_real("Lake DOC half life at 20°C", [day], 200, 1, 10000, "Half-life of net loss to mineralization")
+		lake_doc_q10 : par_real("Lake DOC retention Q10", [], 1, 1, 5)
+		hyp_ret : par_real("Hypolimnion relative retention", [], 0, 0, 1, "Factor used to reduce retention rates in the hypolimnion relatively to the epilimnion.")
+	}
+	
+	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_doc }
+	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_doc }
+	
+	var(epi.water.sed.oc, [k g], "Epilimnion POC") @show_conc(epi.water, [m g, l-1])
+	var(hyp.water.sed.oc, [k g], "Hypolimnion POC") @show_conc(hyp.water, [m g, l-1])
+	
+	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc) + conc(sed.oc)*conc(sed)   }
+	
+	flux(epi.water.oc, out, [k g, day-1], "Epilimnion DOC net loss") {
+		ret := q10_adjust(hl_to_rate(lake_doc_hl), 20.0[deg_c], temp, lake_doc_q10),
+		oc * ret
+	} @no_carry  # So that it doesn't make C-bound contaminants disappear.
+	
+	flux(hyp.water.oc, out, [k g, day-1], "Hypolimnion DOC net loss") {
+		ret := q10_adjust(hl_to_rate(lake_doc_hl), 20.0[deg_c], temp, lake_doc_q10),
+		oc * ret * hyp_ret
+	} @no_carry # So that it doesn't make C-bound contaminants disappear.
+	
+	
+	# TODO: Bottom sediments.
+}
+
+
+
+
+/*
+#TODO: The below seems to not work that well.
+	par_group("Particles lake-specific", epi) {
+		init_sed_p : par_real("Initial bottom sediment P concentration", [m g, g-1], 0)
+		sed_p_release : par_real("Sediments P release", [m-2, day-1], 0)
+	}
+	
 	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 	
 	var(bot.phos, [k g], "Lake bottom sediment phosphorous") @initial { epi.area * sed_z * sed_dens * init_sed_p ->> }
@@ -350,76 +398,5 @@ Particle transport and settling for EasyChem.
 		#Shouldn't use epi area since it fluctuates. A_surf maybe.
 		bot.phos / (sed_dens * sed_z * epi.area) ->>
 	}
-	*/
-}
 
-
-module("SuperEasyChem", version(0, 0, 1),
-	epi : compartment,
-	hyp : compartment,
-	water : quantity,
-	oc : quantity,
-	din : quantity,
-	phos : quantity,
-	temp : property
-) {	
-"""
-Simplified version of EasyChem where retention rates are given by empirical numbers instead of simulating phytoplankton or microbes.
-"""
-	
-	load("stdlib/basic_math.txt", library("Response"))
-	
-	par_group("Lake CNP", epi) {
-		init_doc : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
-		init_din : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
-		init_tdp : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
-
-		lake_doc_ret : par_real("Lake DOC retention at 20°C", [day-1], 0, 0, 5)
-		lake_doc_q10 : par_real("Lake DOC retention Q10", [], 1, 1, 5)
-		lake_din_ret : par_real("Lake DIN retention at 20°C", [day-1], 0, 0, 5)
-		lake_din_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
-		lake_tdp_ret : par_real("Lake TDP retention at 20°C", [day-1], 0, 0, 5)
-		lake_tdp_q10 : par_real("Lake TDP retention Q10", [], 1, 1, 5)
-
-		hyp_ret : par_real("Hypolimnion relative retention", [], 0, 0, 1, "Factor used to reduce retention rates in the hypolimnion relatively to the epilimnion.")
-	}
-	
-	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_doc }
-	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_doc }
-	
-	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
-	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
-	
-	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
-	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
-	
-	flux(epi.water.oc, out, [k g, day-1], "Epilimnion DOC retention") {
-		ret := q10_adjust(lake_doc_ret, 20.0[deg_c], temp, lake_doc_q10),
-		din * ret
-	}
-	
-	flux(hyp.water.oc, out, [k g, day-1], "Hypolimnion DOC retention") {
-		ret := q10_adjust(lake_doc_ret, 20.0[deg_c], temp, lake_doc_q10),
-		din * ret * hyp_ret
-	}
-	
-	flux(epi.water.din, out, [k g, day-1], "Epilimnion N retention") {
-		ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
-		din * ret
-	}
-	
-	flux(hyp.water.din, out, [k g, day-1], "Hypolimnion N retention") {
-		ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
-		din * ret * hyp_ret
-	}
-	
-	flux(epi.water.phos, out, [k g, day-1], "Epilimnion TDP retention") {
-		ret := q10_adjust(lake_tdp_ret, 20.0[deg_c], temp, lake_tdp_q10),
-		phos * ret
-	}
-	
-	flux(hyp.water.phos, out, [k g, day-1], "Hypolimnion TDP retention") {
-		ret := q10_adjust(lake_tdp_ret, 20.0[deg_c], temp, lake_tdp_q10),
-		phos * ret * hyp_ret
-	}
-}
+*/

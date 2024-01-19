@@ -7,13 +7,13 @@ model("EasyLake-SimplyCNP") {
 	phyt : quantity("Phytoplankton")
 	o2   : quantity("O₂")
 	
-	bot  : compartment("Lake bottom sediments")
-	distribute(bot, lake_index)
+	#bot  : compartment("Lake bottom sediments")
+	#distribute(bot, lake_index)
 	#solve(simply_solver, bot.phos)
 	
 	load("modules/easychem.txt", 
 		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, ice, sed, temp, precip, sw, wind, indicator, tp, tn, toc, area),
-		module("EasyChem-Particulate", air, epi, hyp, bot, water, sed, phos, wind, area, downstream)
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)) # Remember to change loc(out) to the bottom sediments if we reimplement those
 	)
 	
 	module("Simple River O₂", version(0, 1, 0)) {

@@ -2,10 +2,25 @@
 module("EasyTox", version(0, 0, 0),
 	epi : compartment,
 	hyp : compartment,
+	water : quantity,
 	oc  : quantity,
+	sed : quantity,
 	tox : quantity,
+	phys : preamble
 ) {
 
-	#TODO
-
+	#TODO: Finish making this!
+	
+	# exchange between water, soc, doc,
+	# exchange with sediments
+	# exchange with air
+	# degradation
+	
+	var(epi.water.tox, [n g], [n g, l-1], "Epilimnion dissolved contaminant")
+	var(epi.water.oc.tox, [n g], [n g, k g-1], "Epilimnion DOC contaminant")
+	var(epi.water.sed.oc.tox, [n g], [n g, k g-1], "Epilimnion suspended sediment contaminant")
+	
+	var(hyp.water.tox, [n g], [n g, l-1], "Hypolimnion dissolved contaminant")
+	var(hyp.water.oc.tox, [n g], [n g, k g-1], "Hypolimnion DOC contaminant")
+	var(hyp.water.sed.oc.tox, [n g], [n g, k g-1], "Hypolimnion suspended sediment contaminant")
 }
