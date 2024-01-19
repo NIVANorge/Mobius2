@@ -19,6 +19,7 @@ Par_Group_Data : Registration_Base {
 	std::vector<Entity_Id> index_sets;
 	Decl_Scope scope;
 	bool error = false;
+	bool mark_for_deletion = false;
 	
 	void process_declaration(Catalog *catalog);
 };

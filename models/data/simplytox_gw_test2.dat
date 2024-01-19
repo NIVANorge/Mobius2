@@ -2,9 +2,9 @@ data_set {
 	
 	lu : index_set("Landscape units") [ "All" ]
 	
-	gw : index_set("Groundwater layer") [ 100 ]
+	gw : index_set("Groundwater layer") [ 30 ]
 	
-	tox : index_set("Toxin type") [ "PCB something" ]
+	tox : index_set("Contaminant type") [ "PCB something" ]
 	
 	series("langtjern.xlsx")
 	
@@ -24,6 +24,16 @@ data_set {
 		
 		par_real("Land use proportions") 
 		[ 1 ]
+	
+	}
+	
+	par_group("Solver step") {
+		
+		par_real("Solver desired step") 
+		[ 2 ]
+		
+		par_real("Solver minimal relative step") 
+		[ 1e-06 ]
 	
 	}
 	
@@ -89,26 +99,24 @@ data_set {
 		
 		}
 		
-		/*
 		par_group("Groundwater", gw) {
 			
 			par_real("Porosity") 
-			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
+			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
 			
 			par_real("Thickness") 
-			[ 1 1 1 1 1 1 1 1 1 1 ]
+			[ 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 ]
 			
 			par_real("Extraction (constant)") 
-			[ 0 0 0 0 0 0 0 0 0 0.4 ]
+			[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 ]
 			
 			par_real("Max flow rate") 
-			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
+			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
 			
 			par_real("Net horizontal loss fraction") 
-			[ 0.04 0 0 0 0 0 0 0 0 0 ]
+			[ 0.1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
 		
 		}
-		*/
 	
 	}
 	
@@ -132,7 +140,7 @@ data_set {
 			[ equilibrium ]
 			
 			par_enum("Groundwater DOC computation type") 
-			[ half_life ]
+			[ soil_avg ]
 		
 		}
 		
@@ -143,17 +151,15 @@ data_set {
 		
 		}
 		
-		/*
-		par_group("DOC deep soil", gw) {
+		par_group("DOC deep soil") {
 			
 			par_real("Groundwater DOC half-life") 
-			[ 8000 8000 8000 8000 8000 8000 8000 8000 8000 8000 ]
+			[ 800000 ]
 			
 			par_real("Groundwater DOC concentration") 
-			[ 10 9 8 7 6 5 4 4 4 4 ]
+			[ 10 ]
 		
 		}
-		*/
 	
 	}
 	
@@ -178,7 +184,7 @@ data_set {
 	
 	}
 	
-	module("SimplyTox soil", version(0, 0, 3)) {
+	preamble("SimplyTox physiochemical", version(0, 0, 3)) {
 		
 		par_group("Physiochemistry", tox) {
 			
@@ -195,7 +201,7 @@ data_set {
 			[ -0.9 ]
 			
 			par_real("Water-OC rate coefficient") 
-			[ 5e-05 ]
+			[ 0.005 ]
 			
 			par_real("Fast-Slow rate coefficient") 
 			[ 0.0005 ]
@@ -207,7 +213,7 @@ data_set {
 			[ 3650 ]
 			
 			par_real("Contaminant half life (groundwater)") 
-			[ 3650 ]
+			[ 36500 ]
 			
 			par_real("Contaminant degradation Q10") 
 			[ 1.65 ]
@@ -222,8 +228,12 @@ data_set {
 			[ 0.01 ]
 		
 		}
+	
+	}
+	
+	module("SimplyTox soil", version(0, 0, 3)) {
 		
-		par_group("Soil carbon", lu) {
+		par_group("Soil carbon and air", lu) {
 			
 			par_real("Soil organic carbon, fast accessible") 
 			[ 30 ]
@@ -236,10 +246,13 @@ data_set {
 		
 		}
 		
-		par_group("Groundwater temperature") {
+		par_group("Groundwater temperature and carbon", gw) {
 			
 			par_real("Deep soil temperature") 
-			[ 8 ]
+			[ 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 ]
+			
+			par_real("Deep soil organic carbon") 
+			[ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 ]
 		
 		}
 	

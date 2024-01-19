@@ -878,15 +878,25 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 	// Do it in stages of number of components so that we propagate them out.
 	for(int n_components = 3; n_components <= max_var_loc_components; ++n_components) {
 		for(Var_Id var_id : app->vars.all_state_vars()) {
+			if(is_valid(instructions[var_id.id].solver)) continue;
+			
 			auto var = app->vars[var_id];
 			if(var->type != State_Var::Type::declared) continue;
 			auto var2 = as<State_Var::Type::declared>(var);
 			if(var2->decl_type != Decl_Type::quantity) continue;
 			if(var2->function_tree) continue; // We may not necessarily need to put 'override' variables on solvers.
 			if(var->loc1.n_components != n_components) continue;
-
-			auto parent_id = app->vars.id_of(remove_dissolved(var->loc1));
-			instructions[var_id.id].solver = instructions[parent_id.id].solver;
+			
+			Var_Location loc = var->loc1;
+			do {
+				loc = remove_dissolved(loc);
+				auto parent_id = app->vars.id_of(loc);
+				auto parent_sol = instructions[parent_id.id].solver;
+				if(is_valid(parent_sol)) {
+					instructions[var_id.id].solver = parent_sol;
+					break;
+				}
+			} while(loc.n_components > 2);
 		}
 	}
 	

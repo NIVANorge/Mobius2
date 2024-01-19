@@ -654,6 +654,7 @@ Data_Set::read_from_file(String_View file_name) {
 		Decl_Type::index_set,
 		Decl_Type::connection,
 		Decl_Type::module,
+		Decl_Type::preamble,
 		Decl_Type::par_group,
 		Decl_Type::series,
 		Decl_Type::time_step,
@@ -668,7 +669,7 @@ Data_Set::read_from_file(String_View file_name) {
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::time_step)
 			process_time_step_decl(this, child);
-		else if(child->type == Decl_Type::module)
+		else if(child->type == Decl_Type::module || child->type == Decl_Type::preamble)
 			register_single_decl(scope, child, allowed_data_decls); // Just so that it doesn't try to process the 'version' argument separately
 		else
 			register_decls_recursive(scope, child, allowed_data_decls);
@@ -1126,7 +1127,7 @@ void
 write_par_group_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id par_group_id) {
 	
 	auto par_group = data_set->par_groups[par_group_id];
-	if(par_group->error) return;
+	if(par_group->error || par_group->mark_for_deletion) return;
 
 	writer->open_decl(data_set, par_group_id);
 	writer->write_identifier_list(data_set, par_group->index_sets, true);

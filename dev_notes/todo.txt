@@ -3,13 +3,13 @@
 	*** High pri ***
 	
 	
-		We have experimentally added some prune_tree when getting state variable code in model_compilation and model_codegen.
+		We have experimentally added some prune_tree when setting state variable code in model_compilation and model_codegen.
 			Be very careful to see if this causes any problems.
-	
-		
-		Within a given module, mark a data set par group for deletion if it no longer exists in the model.
 		
 		Specific models
+		
+			Use the new preamble functionality to avoid having global par groups in more models.
+		
 		
 			Split TDP between organic P and PO4 in SimplyP and EasyChem (and NIVAFjord)
 				Make phyto only use PO4, not all TDP.
@@ -129,15 +129,9 @@
 	
 	*** Intermediate-pri ***
 	
-		When something is @override_conc we could just drop computing the mass variable whatsoever. It doesn't seem to be interesting to have.
-			It could technically be referenced in code, that is the problem. We would have to detect for that.
 	
 		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
 				In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
-	
-		property default code:
-			Should be possible to set it within a module even if the property is globally declared
-			May be useful for Simply-Tox. Unless you just want to declare the physiochemistry par group globally (bad for reusability?).
 	
 		MobiView :
 			Make model reloads work better wrt 'quick select'.
@@ -265,19 +259,7 @@
 			Dynamic module choice (based on data set)
 			
 			For properties, maybe always just put the unit on the property (but not on quantities obviously).
-				
-		
-		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
-			The problem is that the branch that branches on dynamic_epc0 is not pruned before dependencies are gathered, so it looks up "water", which is on a solver.
-			
-			We *can* prune when gathering the order dependencies.
-				Or maybe just even when setting dependencies directly.
-			Remember to remove the double gathering of the function tree in model_compilation.
-			
-			Another issue:
-				If we take away automatic setting on dissolved override variables on solvers, there is an issue where a connection flux goes from a discrete variable and it triggers an error.
-					We could probably just skip the error if the variable is override, because it should not cause a problem in this case (it will not need to be subtracted etc.).
-			
+
 			
 		The way we handle regular_aggregates of fluxes is a bit confusing when maintaining the framework.
 				
@@ -298,6 +280,9 @@
 			Not possible for .specific in code (if we allow that), only if it is the target of a flux.
 		
 	*** Low-pri ****
+	
+		When something is @override_conc we could just drop computing the mass variable whatsoever. It doesn't seem to be interesting to have.
+			It could technically be referenced in code, that is the problem. We would have to detect for that.
 	
 		Multiple solvers:
 			Eventually may want/need to codegen smoothing or means. That is if a solver looks up something from another solver, it should linearly interpolate between last() value and current value using the time.fractional_step

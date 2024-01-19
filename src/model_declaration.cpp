@@ -121,15 +121,16 @@ register_intrinsics(Mobius_Model *model) {
 Entity_Id
 load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View path, String_View relative_to, const std::string &decl_name, Decl_Type type) {
 	
-	// NOTE: This one is only for modules and libraries.
+	// NOTE: This one is only for modules, preambles and libraries.
+	
+	bool is_preamble = (type == Decl_Type::preamble);
+	bool is_module_like = is_preamble || (type == Decl_Type::module);
 	
 	// TODO: Should really check if the model-relative path exists before changing the relative path.
 	std::string models_path = model->config.mobius_base_path + "models/"; // Note: since relative_to is a string view, this one must exist in the outer scope.
 	if(!model->config.mobius_base_path.empty()) {
-		//warning_print("*** Base path is ", model->mobius_base_path, "\n");
-		//warning_print("Bottom directory of \"", path, "\" is stdlib: ", bottom_directory_is(path, "stdlib"), "\n");
-		
-		if(type == Decl_Type::module && bottom_directory_is(path, "modules"))
+
+		if(is_module_like && bottom_directory_is(path, "modules"))
 			relative_to = models_path;
 		else if(type == Decl_Type::library && bottom_directory_is(path, "stdlib"))
 			relative_to = model->config.mobius_base_path;
@@ -138,15 +139,12 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	std::string normalized_path;
 	String_View file_data = model->file_handler.load_file(path, from, relative_to, &normalized_path);
 	
-	//warning_print("Try to load ", decl_name, " from ", normalized_path, "\n");
-	
 	bool already_parsed_file = false;
 	Entity_Id result = invalid_entity_id;
 	auto find_file = model->parsed_decls.find(normalized_path);
-	//warning_print("Look for file ", normalized_path, "\n");
+	
 	if(find_file != model->parsed_decls.end()) {
 		already_parsed_file = true;
-		//warning_print("Already parsed file\n");
 		auto find_decl = find_file->second.find(decl_name);
 		if(find_decl != find_file->second.end())
 			result = find_decl->second;
@@ -160,17 +158,17 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			Decl_AST *decl = parse_decl(&stream);
 			
 			// TODO: Could we find a way to not have to do these matches both here and inside process_module_declaration ?
-			if(decl->type == Decl_Type::module) {
+			if(is_module_like) {
 				match_declaration(decl,
 					{
 						{Token_Type::quoted_string, Decl_Type::version},
 						{Token_Type::quoted_string, Decl_Type::version, {true}}
 					}, false);
 			} else if (decl->type == Decl_Type::library) {
-				match_declaration(decl, {{Token_Type::quoted_string}}, false);   //TODO: Should just have versions here too maybe..
+				match_declaration(decl, {{Token_Type::quoted_string}}, false);
 			} else {
 				decl->source_loc.print_error_header();
-				fatal_error("Module files should only have modules or libraries in the top scope. Encountered a ", name(decl->type), ".");
+				fatal_error("Module files should only have modules, preambles or libraries in the top scope. This is a '", name(decl->type), "'.");
 			}
 			
 			std::string found_name = single_arg(decl, 0)->string_value;
@@ -182,7 +180,7 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
 				lib->name = found_name;
-			} else if (decl->type == Decl_Type::module) {
+			} else if (is_module_like) {
 				id = model->module_templates.register_decl(&model->top_scope, decl);
 				auto mod = model->module_templates[id];
 				mod->normalized_path = normalized_path;
@@ -191,15 +189,15 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			if(decl_name == found_name) {
 				result = id;
 				if(decl->type != type) {
-					decl->source_loc.print_error_header();
-					fatal_error(Mobius_Error::parsing, "The declaration '", decl_name, "' is of type ", name(decl->type), ", but was loaded as a ", name(type), ".");
+					decl->source_loc.print_error_header(Mobius_Error::parsing);
+					fatal_error("The declaration \"", decl_name, "\" is of type '", name(decl->type), "', but was loaded as a '", name(type), "'.");
 				}
 			}
 		}
 	}
 	
 	if(!is_valid(result))
-		fatal_error(Mobius_Error::parsing, "Could not find the ", name(type), " '", decl_name, "' in the file ", path, " .");
+		fatal_error(Mobius_Error::parsing, "Could not find the '", name(type), "' \"", decl_name, "\" in the file \"", path, "\".");
 	
 	return result;
 }
@@ -1033,22 +1031,24 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 }
 
 Entity_Id
-process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, bool import_scope = false) {
+process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, bool import_scope, String_View identifier) {
 	
 	auto mod_temp = model->module_templates[template_id];
+	bool is_preamble = (mod_temp->decl_type == Decl_Type::preamble);
 	
 	// TODO: It is a bit superfluous to process the name and version of the module template every time it is specialized.
 	//   Could do it in load_top_decl_from_file?
 	
+	bool allow_identifier = (import_scope && is_preamble); // Inline declared preambles are allowed to have an identifier.
 	auto decl = mod_temp->decl;
 	match_declaration(decl,
 		{
 			{Token_Type::quoted_string, Decl_Type::version},
 			{Token_Type::quoted_string, Decl_Type::version, {true}}
-		}, false, -1);
+		}, allow_identifier, -1);
 	
 	auto version_decl = decl->args[1]->decl;
-	
+
 	match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false);
 	
 	mod_temp->name                 = single_arg(decl, 0)->string_value;
@@ -1075,8 +1075,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	if(is_valid(module_id)) return module_id; // It has been specialized with this name already, so just return the one that was already created.
 	
-	// @CATALOG_REFACTOR: This is a bit hacky..
-	module_id = model->modules.create_internal(model_scope, "", spec_name, Decl_Type::module);
+	module_id = model->modules.create_internal(model_scope, identifier, spec_name, mod_temp->decl_type);
 	
 	auto module = model->modules[module_id];
 	module->source_loc = mod_temp->source_loc;
@@ -1085,10 +1084,6 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		module->full_name = mod_temp->name + " (" + module->name + ")";
 	else
 		module->full_name = module->name;
-	
-	// @CATALOG_REFACTOR: This comment seems outdated. What was it about?
-		// Ouch, this is a bit hacky, but it is to avoid the problem that Decl_Type::module is tied to Reg_Type::module_template .
-		// Maybe we should instead have another flag on it?
 	
 	module->scope.parent_id = module_id;
 	module->template_id = template_id;
@@ -1120,6 +1115,14 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 			fatal_error("Load arguments to a module must be of the form  identifier : decl_type.");
 		}
 		match_declaration(arg->decl, {{}}, true, false); // TODO: Not sure if we should allow passing a name to enforce name match.
+		
+		bool arg_is_preamble = arg->decl->type == Decl_Type::preamble;
+		
+		if(is_preamble && arg_is_preamble) {
+			arg->source_loc().print_error_header();
+			fatal_error("A preamble can't load another preamble.");
+		}
+		
 		std::string identifier = arg->decl->identifier.string_value;
 		auto *entity = model->find_entity(load_id);
 		if(arg->decl->type != entity->decl_type) {
@@ -1129,11 +1132,30 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 			mobius_error_exit();
 		}
 		
-		auto reg = module->scope.add_local(identifier, arg->decl->source_loc, load_id, false);
-		reg->is_load_arg = true;
+		if(!arg_is_preamble) {
+			// For a regular argument, associate the identifier with the id of the passed argument inside this scope.
+			auto reg = module->scope.add_local(identifier, arg->decl->source_loc, load_id, false);
+			reg->is_load_arg = true;
+		} else {
+			// TODO: What do we do with the identifier of the load argument in this case?
+			
+			// If it is a handle to a preamble, instead load the scope of the preamble into this scope.
+			auto preamble = model->modules[load_id];
+			module->scope.import(preamble->scope, &arg->decl->source_loc, true);
+			// The 'true' signifies that we allow imports of parameters (they are not local to the preamble scope since they are in a nested par_group scope.
+			// TODO: It is a bit problematic that this will also import parameters that were passed as load arguments to the preamble, which we don't really want.
+		}
 	}
 	
-	const std::set<Decl_Type> allowed_types = {
+	const std::set<Decl_Type> allowed_types = is_preamble ? std::set<Decl_Type> {
+		// Allowed in preambles.
+		Decl_Type::property,
+		Decl_Type::par_group,
+		Decl_Type::unit,
+		Decl_Type::function,
+		Decl_Type::constant,
+	} : std::set<Decl_Type> {
+		// Allowed in regular modules.
 		Decl_Type::property,
 		Decl_Type::connection,
 		Decl_Type::loc,
@@ -1527,9 +1549,20 @@ load_config(String_View file_name) {
 	return std::move(config);
 }
 
+struct
+Module_Load {
+	Decl_AST    *module_spec;
+	bool         is_inline;
+	String_View  file_name;
+	std::string  loaded_from;
+	
+	Module_Load(Decl_AST *module_spec, bool is_inline, String_View file_name, const std::string &loaded_from)
+		: module_spec(module_spec), is_inline(is_inline), file_name(file_name), loaded_from(loaded_from) {}
+};
+
 void
 pre_register_module_loads(Catalog *catalog, Decl_Scope *scope, Decl_AST *load_decl, 
-	std::vector<std::tuple<Decl_AST *, bool, String_View, std::string>> &module_loads, const std::string &loaded_from) {
+	std::vector<Module_Load> &module_loads, const std::string &loaded_from) {
 	
 	// NOTE: This one actually only checks inline decls, not ones you pass as identifiers.
 	//   This is why we don't for instance have par_real here since it can only be declared inside a par_group.
@@ -1621,6 +1654,53 @@ basic_checks_and_finalization(Mobius_Model *model) {
 	}
 }
 
+void
+process_module_load_outer(Mobius_Model *model, Module_Load &load) {
+	
+	auto scope = &model->top_scope;
+	auto module_spec = load.module_spec;
+		
+	if(load.is_inline) {
+		// Inline module sub-scope inside the model declaration.
+		auto template_id = model->module_templates.register_decl(scope, module_spec);
+		auto mod_temp = model->module_templates[template_id];
+		mod_temp->decl = module_spec;
+		mod_temp->normalized_path = load.loaded_from;
+		auto load_loc = module_spec->source_loc;
+		
+		std::vector<Entity_Id> load_args; // Inline modules don't have load arguments, so this should be left empty.
+		process_module_load(model, nullptr, template_id, load_loc, load_args, true, module_spec->identifier.string_value);
+	} else {
+		
+		bool allow_identifier = (module_spec->type == Decl_Type::preamble);
+		
+		int which = match_declaration(module_spec, 
+			{
+				{Token_Type::quoted_string, Token_Type::quoted_string},
+				{Token_Type::quoted_string, Token_Type::quoted_string, {true}},
+				{Token_Type::quoted_string},
+				{Token_Type::quoted_string, {true}}
+			}, allow_identifier, false);
+		
+		auto load_loc = module_spec->source_loc;
+		auto module_name = single_arg(module_spec, 0)->string_value;
+		Token *load_name = nullptr;
+		if(which <= 1)
+			load_name = single_arg(module_spec, 1);
+		
+		auto template_id = load_top_decl_from_file(model, load_loc, load.file_name, load.loaded_from, module_name, module_spec->type);
+		
+		std::vector<Entity_Id> load_args;
+		int args_start_at = 1;
+		if(which == 0 || which == 1)
+			args_start_at = 2;
+		for(int argidx = args_start_at; argidx < module_spec->args.size(); ++argidx)
+			// Reg_Type::unrecognized means 'any' in this case. Note that we already screened for allowed types earlier.
+			load_args.push_back(scope->resolve_argument(Reg_Type::unrecognized, module_spec->args[argidx]));
+		
+		auto module_id = process_module_load(model, load_name, template_id, load_loc, load_args, false, module_spec->identifier.string_value);
+	}
+}
 
 Mobius_Model *
 load_model(String_View file_name, Mobius_Config *config) {
@@ -1675,8 +1755,8 @@ load_model(String_View file_name, Mobius_Config *config) {
 		Decl_Type::solver,
 	};
 	
-	std::vector<Decl_AST *>                                             special_decls;
-	std::vector<std::tuple<Decl_AST *, bool, String_View, std::string>> module_loads;
+	std::vector<Decl_AST *>  special_decls;
+	std::vector<Module_Load> module_loads;
 	
 	for(auto &extend : extend_models) {
 		auto ast = extend.decl;
@@ -1754,56 +1834,16 @@ load_model(String_View file_name, Mobius_Config *config) {
 			process_unit_conversion_declaration(model, scope, decl);
 	}
 	
-	// Finally, load modules
-	for(auto &tuple : module_loads) {
-		
-		auto module_spec = std::get<0>(tuple);
-		bool is_inline   = std::get<1>(tuple);
-		auto file_name   = std::get<2>(tuple);
-		auto &loaded_from = std::get<3>(tuple);
-		
-		if(is_inline) {
-			// Inline module sub-scope inside the model declaration.
-			//auto template_id = model->module_templates.find_or_create(scope, nullptr, nullptr, module_spec);
-			auto template_id = model->module_templates.register_decl(scope, module_spec);
-			auto mod_temp = model->module_templates[template_id];
-			mod_temp->decl = module_spec;
-			mod_temp->normalized_path = loaded_from;
-			//auto load_loc = single_arg(module_spec, 0)->source_loc;
-			auto load_loc = module_spec->source_loc;
-			
-			std::vector<Entity_Id> load_args; // Inline modules don't have load arguments, so this should be left empty.
-			process_module_load(model, nullptr, template_id, load_loc, load_args, true);
-		} else {
-			
-			int which = match_declaration(module_spec, 
-				{
-					{Token_Type::quoted_string, Token_Type::quoted_string},
-					{Token_Type::quoted_string, Token_Type::quoted_string, {true}},
-					{Token_Type::quoted_string},
-					{Token_Type::quoted_string, {true}}
-				}, false, false);
-			
-			//auto load_loc = single_arg(child, 0)->source_loc;
-			auto load_loc = module_spec->source_loc;
-			auto module_name = single_arg(module_spec, 0)->string_value;
-			Token *load_name = nullptr;
-			if(which <= 1)
-				load_name = single_arg(module_spec, 1);
-			
-			auto template_id = load_top_decl_from_file(model, load_loc, file_name, loaded_from, module_name, Decl_Type::module);
-			
-			std::vector<Entity_Id> load_args;
-			//process_module_arguments(model, scope, module_spec, load_args, which <= 1 ? 2 : 1);
-			int args_start_at = 1;
-			if(which == 0 || which == 1)
-				args_start_at = 2;
-			for(int argidx = args_start_at; argidx < module_spec->args.size(); ++argidx)
-				// Reg_Type::unrecognized means 'any' in this case. Note that we already screened for allowed types earlier.
-				load_args.push_back(scope->resolve_argument(Reg_Type::unrecognized, module_spec->args[argidx]));
-			
-			auto module_id = process_module_load(model, load_name, template_id, load_loc, load_args);
-		}
+	// Finally, load modules. Load preambles first since they could be referenced by other modules.
+	// TODO: This splits up the sorting of modules we did earlier though....
+		// Maybe that system should be rewritten to take into account what references what instead? Probably too much effort..
+	for(auto &load : module_loads) {
+		if(load.module_spec->type == Decl_Type::module) continue;
+		process_module_load_outer(model, load);
+	}
+	for(auto &load : module_loads) {
+		if(load.module_spec->type == Decl_Type::preamble) continue;
+		process_module_load_outer(model, load);
 	}
 	
 	basic_checks_and_finalization(model);

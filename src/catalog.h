@@ -242,7 +242,7 @@ Registry<Registration_Type, reg_type>::register_decl(Decl_Scope *scope, Decl_AST
 	
 	// TODO: It is very annoying to have the module vs module_template thing work differently in Data_Set and Mobius_Model.
 	//   Is there a way to resolve this? Probably easiest to have get_reg_type(Decl_Type::module) == module, and just do something specific for inline module registrations in model_declaration.cpp ?
-	if(get_reg_type(decl->type) != reg_type && decl->type != Decl_Type::module) {
+	if(get_reg_type(decl->type) != reg_type && (decl->type != Decl_Type::module) && (decl->type != Decl_Type::preamble)) {
 		decl->source_loc.print_error_header(Mobius_Error::internal);
 		fatal_error("Registering declaration with a mismatching type.");
 	}

@@ -1,8 +1,12 @@
 
 
 model("SimplyToxGroundwater") {
+"""
+This is a specialized version of SimplyTox where there are several groundwater layers, but no river.
+"""
 
-	#TODO: Probably factor out SimplyQ-groundwater model?
+	# NOTE: We can't extend simplyc_model.txt because of the different groundwater configuration.
+	#   Although we should split the main simplyq module into soil and groundwater (although it is annoying because it would invalidate existing parameter files).
 	
 	air  : compartment("Atmosphere")
 	soil : compartment("Soil")
@@ -18,23 +22,25 @@ model("SimplyToxGroundwater") {
 	flow     : property("Flow")
 	pet      : property("Potential evapotranspiration")
 	
+	par_group("Solver step") {
+		solver_h     : par_real("Solver desired step", [hr], 2, 0.01, 24)
+		solver_rel_h : par_real("Solver minimal relative step", [], 0.01, 1e-5, 0.1)
+	}
+	
 	par_group("Land cover", soil) {
 		lu_prop  : par_real("Land use proportions", [], 1, 0, 1)
 	}
 
 	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
-	#load("modules/pet.txt",      module("Penman-Monteith PET"))
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
 	
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 
-	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
+	sol : solver("Simply solver", inca_dascru, solver_h, solver_rel_h)
 	
 	solve(sol, soil.water, gw.water)
-	
-	
-	
+
 	lu  : index_set("Landscape units")
 	gw_layer : index_set("Groundwater layer")
 	
@@ -50,20 +56,21 @@ model("SimplyToxGroundwater") {
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	
-	load("modules/simplytox.txt",      module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp))
+	load("modules/simplytox.txt",
+		phys : preamble("SimplyTox physiochemical", tox, temp),
+		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys)
+	)
 	
-	tox   : quantity("Toxin")
+	tox   : quantity("Contaminant")
 
 	dsoil : compartment("Slow-accessible soil")
 	soilair : compartment("Soil air")
 	
-	tox_index : index_set("Toxin type")
+	tox_index : index_set("Contaminant type")
 	
 	distribute(dsoil, lu)
 	distribute(tox, tox_index)
 	distribute(soilair, lu)
 	
-	solve(sol, soil.oc, dsoil.oc, soilair.tox)
-
-	
+	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox)
 }

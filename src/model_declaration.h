@@ -17,7 +17,7 @@ struct
 Module_Template_Registration : Registration_Base {
 	
 	Module_Version version;
-	Decl_AST      *decl = nullptr;
+	//Decl_AST      *decl = nullptr;
 	std::string    doc_string;
 	std::string    normalized_path;
 	

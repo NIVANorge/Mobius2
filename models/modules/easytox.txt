@@ -1,0 +1,11 @@
+
+module("EasyTox", version(0, 0, 0),
+	epi : compartment,
+	hyp : compartment,
+	oc  : quantity,
+	tox : quantity,
+) {
+
+	#TODO
+
+}

@@ -486,10 +486,11 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 		log_print("In ");
 		par_group_data->source_loc.print_log_header();
 		if(is_valid(module_id))
-			log_print("WARNING: The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_data->name, "\".\n\n");
+			log_print("WARNING: The module \"", model->modules[module_id]->name, "\" does not contain the parameter group \"", par_group_data->name, "\". This data will be discarded if the data set is saved.\n\n");
 			//TODO: say what file the module was declared in?
 		else
-			log_print("WARNING: The model does not contain the parameter group \"", par_group_data->name, "\".\n\n");
+			log_print("WARNING: The model does not contain the parameter group \"", par_group_data->name, "\". This data will be discarded if the data set is saved.\n\n");
+		par_group_data->mark_for_deletion = true;
 		return;
 	}
 	
@@ -1039,7 +1040,7 @@ Model_Application::save_to_data_set() {
 		auto module = model->modules[module_id];
 		auto module_data_id = map_id(model, data_set, module_id);
 		if(!is_valid(module_data_id))
-			module_data_id = data_set->modules.create_internal(&data_set->top_scope, "", module->name, Decl_Type::module);
+			module_data_id = data_set->modules.create_internal(&data_set->top_scope, "", module->name, module->decl_type);
 		auto module_data = data_set->modules[module_data_id];
 		module_data->scope.parent_id = module_data_id; // TODO: Easy to forget and has created many bugs. Would be nice to somehow have this automatic.
 		module_data->version = model->module_templates[module->template_id]->version;

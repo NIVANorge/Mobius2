@@ -3,32 +3,42 @@ model("SimplyTox") {
 
 	# This is not a finished model, only partial
 
-	extend("simplyc_model.txt")
-	#extend("simplysed_model.txt")
+	extend("simplyc_model.txt") @exclude(sol : solver)
+	extend("simplysed_model.txt") @exclude(sol : solver)
 	
-	tox   : quantity("Toxin")
-	#heat  : quantity("Heat energy")
+	par_group("Solver step") {
+		solver_h     : par_real("Solver desired step", [hr], 2, 0.01, 24)
+		solver_rel_h : par_real("Solver minimal relative step", [], 0.01, 1e-8, 0.1)
+	}
+	
+	# It is in some instances necessary for the user to configure the solver step in this model.
+	sol : solver("Simply solver", inca_dascru, solver_h, solver_rel_h)
+	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox)
+	
+	tox   : quantity("Contaminant")
+	toc   : property("Total organic carbon")
+	Cw    : property("Equilibrium concentration")
 		
-	dsoil : compartment("Slow-accessible soil")
+	dsoil   : compartment("Slow-accessible soil")
+	soilair : compartment("Soil air")
 	
-	tox_index : index_set("Toxin type")
+	tox_index : index_set("Contaminant type")
 	
 	distribute(dsoil, sc, lu)
+	distribute(soilair, sc, lu)
 	distribute(tox, tox_index)
 	
 	par_group("River data", river) {
 		eff_a : par_real("River effective surface area", [m 2], 1000, 0, 1000000)
 	}
-
-	#load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
-	load("modules/simplytox.txt",      module("SimplyTox soil", air, soil, dsoil, gw, water, oc, tox, temp))
 	
-	solve(sol, soil.oc)
-	solve(sol, dsoil.oc)
+	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc))
 
-	#TODO: Need a way to override this!
-	# For some reason the partitioning in the groundwater and river is numerically unstable, so we decrease the solver step.
-	#solver("Simply solver", "INCADascru", 0.001)
+	load("modules/simplytox.txt",
+		phys : preamble("SimplyTox physiochemical", tox, temp),
+		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, Cw, phys),
+		module("SimplyTox river", soil, river, water, oc, sed, tox, e_fact, temp, eff_a, phys)
+	)
 	
-	#unit_conversion(soil.oc.tox, river.water.sed.oc.tox) { a_catch }
+	unit_conversion(soil.oc.tox, river.water.sed.oc.tox) { a_catch }
 }

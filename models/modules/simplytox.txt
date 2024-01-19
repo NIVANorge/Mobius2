@@ -1,20 +1,10 @@
 
 
-
-module("SimplyTox soil", version(0, 0, 3),
-	air   : compartment,
-	soil  : compartment,
-	dsoil : compartment,
-	soilair : compartment,
-	gw    : compartment,
-	water : quantity,
-	oc    : quantity,
-	tox   : quantity,
-	temp  : property
+preamble("SimplyTox physiochemical", version(0, 0, 3),
+	tox  : quantity,
+	temp : property
 ) {
-"""
-Testing functionality for now.
-"""
+
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"))
 	load("stdlib/basic_math.txt", library("Response"))
 
@@ -27,7 +17,6 @@ Testing functionality for now.
 		kH25        : par_real("Henry's constant at 25°C", [Pa, m 3, mol-1], 0, 0, 100)  #TODO: better default?
 		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", [], 0, -10, 10)
 		#log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", [], 0, -10, 10)
-		#rwoc        : par_real("Water-OC rate coefficient", [m, day-1],  0.5, 0, 3)
 		rwoc        : par_real("Water-OC rate coefficient", [k g, m-2, day-1],  0.5, 0, 3)
 		rfs         : par_real("Fast-Slow rate coefficient", [k g, m-2, day-1], 0.05, 0, 3)
 		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3)
@@ -36,37 +25,9 @@ Testing functionality for now.
 		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10)
 		hlslow      : par_real("Contaminant half life (slow accessible)", [day], 20000, 0.1, 2e10)
 		hlgw        : par_real("Contaminant half life (groundwater)", [day], 20000, 0.1, 2e10)
-		degrq10     : par_real("Contaminant degradation Q10", [], 1, 1, 5)
+		degrq10     : par_real("Contaminant degradation Q10", [], 1, 1, 5, "Change in the rate with a change of 10°C change in temperature")
 		degrref     : par_real("Temperature at which the half life is given.", [deg_c], 25, 0, 40)
 	}
-	
-	par_group("Groundwater temperature") {
-		deeptemp    : par_real("Deep soil temperature", [deg_c], 8, 0, 20)
-	}
-	
-	par_group("Soil carbon", soil) {
-		mocf        : par_real("Soil organic carbon, fast accessible", [k g, m-2], 30, 0, 300)
-		mocs        : par_real("Soil organic carbon, slow accessible", [k g, m-2], 3, 0, 300)
-		Vsa         : par_real("Soil air volume", [m m], 10, 0, 1000)
-	}
-	
-	var(soil.oc, [k g, m-2])  @initial { mocf }
-	var(dsoil.oc, [k g, m-2]) @initial { mocs }
-	
-	var(soil.water.tox, [n g, m-2], [n g, l-1], "Soil water dissolved toxin")
-	var(soil.oc.tox, [n g, m-2], [n g, k g-1], "Fast-accessible SOC toxin")
-	var(dsoil.oc.tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC toxin")
-	var(soil.water.oc.tox, [n g, m-2], [n g, k g-1], "Soil DOC toxin")
-	
-	var(soilair.tox, [n g, m-2], "Soil air toxin")
-	
-	dep     : property("Contaminant deposition")
-	atmconc : property("Atmospheric concentration")
-	
-	var(air.dep, [n g, m-2, day-1])
-	var(air.atmconc, [n g, m-3])
-	
-	flux(out, soil.water.tox, [n g, m-2, day-1], "Contaminant deposition to land") {   air.dep   }
 	
 	Kow   : property("Octanol-water partitioning coefficient") {
 		log10Kow := enthalpy_adjust_log10(log10Kow25, 25[deg_c]->[K], temp->[K], dUow),
@@ -93,19 +54,87 @@ Testing functionality for now.
 		Kh / (temp->[K] * ideal_gas)
 	}
 	
+	degr : function(hl : [day], q10 : [], reftemp : [deg_c], temp : [deg_c]) {
+		q10_adjust(hl_to_rate(hl), reftemp, temp, q10)
+	}
+}
+
+
+module("SimplyTox soil", version(0, 0, 3),
+	air   : compartment,
+	soil  : compartment,
+	dsoil : compartment,
+	soilair : compartment,
+	gw    : compartment,
+	water : quantity,
+	oc    : quantity,
+	tox   : quantity,
+	temp  : property,
+	Cw    : property,
+	phys  : preamble
+) {
+"""
+Testing functionality for now.
+"""
+	
+	par_group("Soil carbon and air", soil) {
+		mocf        : par_real("Soil organic carbon, fast accessible", [k g, m-2], 30, 0, 300)
+		mocs        : par_real("Soil organic carbon, slow accessible", [k g, m-2], 3, 0, 300)
+		Vsa         : par_real("Soil air volume", [m m], 10, 0, 1000)
+	}
+	
+	par_group("Groundwater temperature and carbon", gw) {
+		deeptemp    : par_real("Deep soil temperature", [deg_c], 8, 0, 20)
+		mocdeep     : par_real("Deep soil organic carbon", [k g, m-2], 3, 0, 300)
+	}
+	
+	#TODO: Make a deposition module also (where it can compute deposition from air concentration if it is not given separately - see Mobius1->INCATox).
+	
+	var(soil.oc, [k g, m-2])  @initial { mocf }
+	var(dsoil.oc, [k g, m-2]) @initial { mocs }
+	
+	var(soil.water.tox, [n g, m-2], [n g, l-1], "Soil water dissolved contaminant")
+	var(soil.oc.tox, [n g, m-2], [n g, k g-1], "Fast-accessible SOC contaminant")
+	var(dsoil.oc.tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC contaminant")
+	var(soil.water.oc.tox, [n g, m-2], [n g, k g-1], "Soil DOC contaminant")
+	var(soilair.tox, [n g, m-2], "Soil air contaminant")
+	
+	dep     : property("Contaminant deposition")
+	atmconc : property("Atmospheric concentration")
+	
+	var(air.dep, [n g, m-2, day-1])
+	var(air.atmconc, [n g, m-3])
+	
+	flux(out, soil.water.tox, [n g, m-2, day-1], "Contaminant deposition to land") {   air.dep   }
+	
 	var(soil.water.tox.Kow, [])
 	var(soil.water.tox.Koc, [m 3, k g-1])
 	var(soil.water.tox.Kdoc, [m 3, k g-1])
 	var(soil.water.tox.Kh, [Pa, m 3, mol-1])
 	var(soil.water.tox.Kaw, [])
-	
-	
-	flux(soil.water.tox, soil.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
-		rwoc*((conc(water.tox)->[n g, m-3])*Koc - conc(soil.oc.tox))
+
+	var(soil.water.tox.Cw, [n g, l-1], "Soil water contaminant equilibrium concentration") {
+		m_total := soil.water.tox + soil.oc.tox + soil.water.oc.tox + soilair.tox,
+		m_total /
+		(
+			Koc * soil.oc -> [m m]
+		  + Kdoc * soil.water.oc -> [m m]
+		  + Kaw * Vsa
+		  + water
+		) ->>
 	}
 	
+	var(soil.oc.tox.Cw, [n g, k g-1], "Soil SOC contaminant equilibrium concentration") { soil.water.tox.Cw * soil.water.tox.Koc ->> }
+	var(soil.water.oc.tox.Cw, [n g, k g-1], "Soil DOC contaminant equilibrium concentration") { soil.water.tox.Cw * soil.water.tox.Kdoc ->> }
+	var(soilair.tox.Cw, [n g, m-3], "Soil air contaminant equilibrium concentration") { soil.water.tox.Cw * soil.water.tox.Kaw ->> }
+	
+	flux(soil.water.tox, soil.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
+		rwoc*(soil.oc.tox.Cw - conc(soil.oc.tox))
+	}
+	
+	# TODO: It would probably be much faster if this exchange was between SOC and DOC instead of water and DOC.
 	flux(soil.water.tox, soil.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (soil)") {
-		rwoc*((conc(water.tox)->[n g, m-3])*Kdoc - conc(water.oc.tox))
+		rwoc*(water.oc.tox.Cw - conc(water.oc.tox))
 	}
 	
 	flux(soil.oc.tox, dsoil.oc.tox, [n g, m-2, day-1], "Fast-Slow contaminant exchange") {
@@ -113,84 +142,82 @@ Testing functionality for now.
 	}
 	
 	flux(soil.water.tox, soilair.tox, [n g, m-2, day-1], "Water-air contaminant exchange") {
-		raw*((conc(water.tox)->[n g, m-3]*Kaw - soilair.tox/Vsa->[n g, m-3]))
+		concair := soilair.tox/Vsa -> [n g, m-3],
+		raw*(soilair.tox.Cw - concair)
 	}
 	
 	flux(soilair.tox, out, [n g, m-2, day-1], "Soil atmosphere contaminant exchange") {
-		raa*(soilair.tox/Vsa->[n g, m-3] - air.atmconc)
+		concair := soilair.tox/Vsa -> [n g, m-3],
+		raa*(concair - air.atmconc)
 	}
 	
-	
-	degr : function(hl : [day], q10 : [], reftemp : [deg_c], temp : [deg_c]) {
-		q10_adjust(hl_to_rate(hl), reftemp, temp, q10)
-	}
-	
-	flux(soil.water.tox, out, [n g, m-2, day-1], "Soil water dissolved toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox	}
-	flux(soil.water.oc.tox, out, [n g, m-2, day-1], "Soil DOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(soil.oc.tox, out, [n g, m-2, day-1], "Fast-acessible SOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(dsoil.oc.tox, out, [n g, m-2, day-1], "Slow-acessible SOC toxin decay") { degr(hlslow, degrq10, degrref, soil.temp)*tox }
+	flux(soil.water.tox, out, [n g, m-2, day-1], "Soil water dissolved contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox	}
+	flux(soil.water.oc.tox, out, [n g, m-2, day-1], "Soil DOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(soil.oc.tox, out, [n g, m-2, day-1], "Fast-acessible SOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(dsoil.oc.tox, out, [n g, m-2, day-1], "Slow-acessible SOC contaminant decay") { degr(hlslow, degrq10, degrref, soil.temp)*tox }
 	
 	# Could instead have a heat conduction model, but maybe not necessary
-	var(gw.temp, [deg_c], "Groundwater temperature") { deeptemp }
+	var(gw.temp, [deg_c], "Deep soil temperature") { deeptemp }
+	var(gw.oc, [k g, m-2], "Deep soil carbon")  @initial { mocdeep }
 	
+	# Should maybe make it possible to have solid organic carbon in the gw layers also (?)
+	
+	var(gw.oc.tox, [n g, m-2], [n g, k g-1], "Deep soil SOC contaminants")
 	var(gw.water.tox, [n g, m-2], [n g, l-1], "Groundwater dissolved contaminants")
 	var(gw.water.oc.tox, [n g, m-2], [n g, k g-1], "Groundwater DOC contaminants")
 	var(gw.water.tox.Kow, [])
 	var(gw.water.tox.Kdoc, [m 3, k g-1])
 	
-	flux(gw.water.tox, gw.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (groundwater)") {
-		rwoc*((conc(water.tox)->[n g, m-3])*Kdoc - conc(water.oc.tox))
+	var(gw.water.tox.Kow, [])
+	var(gw.water.tox.Koc, [m 3, k g-1])
+	var(gw.water.tox.Kdoc, [m 3, k g-1])
+	
+	var(gw.water.tox.Cw, [n g, l-1], "Groundwater dissolved contaminant equilibrium concentration") {
+		m_total := gw.water.tox + gw.water.oc.tox + gw.oc.tox,
+		m_total /
+		(
+			Koc * gw.oc -> [m m]
+		  + Kdoc * gw.water.oc -> [m m]
+		  + water
+		)
 	}
 	
-	flux(gw.water.tox, out, [n g, m-2, day-1], "Groundwater water dissolved toxin decay") { degr(hlgw, degrq10, degrref, temp)*tox }
-	flux(gw.water.oc.tox, out, [n g, m-2, day-1], "Groundwater DOC toxin decay") { degr(hlgw, degrq10, degrref, temp)*tox }
+	var(gw.oc.tox.Cw, [n g, k g-1], "Deep soil SOC contaminant equilibrium concentration") {   gw.water.tox.Cw * gw.water.tox.Koc ->>  }
+	var(gw.water.oc.tox.Cw, [n g, k g-1], "Groundwater DOC contaminant equilibrium concentration") {   gw.water.tox.Cw * gw.water.tox.Kdoc ->>  }
 	
-	# Should maybe be possible to have solid organic carbon in the gw layers also (?)
+	flux(gw.water.tox, gw.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange (groundwater)") {
+		# Maybe this should be slower though
+		rwoc*(gw.oc.tox.Cw - conc(gw.oc.tox))
+	}
+	
+	flux(gw.water.tox, gw.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (groundwater)") {
+		#rwoc*((conc(water.tox)->[n g, m-3])*Kdoc - conc(water.oc.tox))
+		rwoc*(water.oc.tox.Cw - conc(water.oc.tox))
+	}
+	
+	flux(gw.oc.tox, out, [n g, m-2, day-1], "Deep soil SOC contaminant decay") { degr(hlslow, degrq10, degrref, temp)*tox }
+	flux(gw.water.tox, out, [n g, m-2, day-1], "Groundwater water dissolved contaminant decay") { degr(hlgw, degrq10, degrref, temp)*tox }
+	flux(gw.water.oc.tox, out, [n g, m-2, day-1], "Groundwater DOC contaminant decay") { degr(hlgw, degrq10, degrref, temp)*tox }
 }
 	
 	
 module("SimplyTox river", version(0, 0, 1),
-	gw    : compartment,
+	soil  : compartment,
 	river : compartment,
 	water : quantity,
 	oc    : quantity,
 	sed   : quantity,
 	tox   : quantity,
-	Kow   : property,
-	Koc   : property,
-	Kdoc  : property,
-	eff_a : par_real
+	e_fact : property,
+	temp   : property,
+	eff_a : par_real,
+	phys  : preamble
 ) {
 
-	#TODO: This module is now a mess after we factored out the above... Have to fix before use.
+	var(river.water.tox, [n g], [n g, l-1], "River dissolved contaminant")
+	var(river.water.oc.tox, [n g], [n g, k g-1], "River DOC contaminant")
+	var(river.water.sed.oc.tox, [n g], [n g, k g-1], "River suspended sediment contaminant")
 
-
-
-	par_group("River carbon", river) {
-		sed_oc_c   : par_real("Sediment SOC concentration", [k g, k g-1], 0.02, 0, 0.3)
-	}
-
-	var(river.water.tox, [n g], [n g, l-1], "River dissolved toxin")
-	var(river.water.oc.tox, [n g], [n g, k g-1], "River DOC toxin")
-	
-	var(river.water.sed.oc, [k g], [k g, k g-1], "River suspended sediment SOC") @override_conc { sed_oc_c }
-	var(river.water.sed.oc.tox, [n g], [n g, k g-1], "River suspended sediment toxin")
-
-	var(river.water.tox.Kow, [])
-	var(river.water.tox.Koc, [m 3, k g-1])
-	
-	var(gw.water.tox.Kow, [])
-	var(gw.water.tox.Kdoc, [m 3, k g-1])
-
-	
-	var(gw.temp, [deg_c]) {
-		aggregate(soil.temp) #Should probably be modeled separately.
-	}
-	
-	flux(gw.water.tox, gw.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (groundwater)") {
-		rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
-	}
-	
 	# These are very unstable, but because of the time scale they are probably not that important any way.
 	#    It has to do with water.sed.oc becoming very small. But it is very sensitive to the threshold, so it is not that good a solution to check for it.
 	
@@ -202,20 +229,16 @@ module("SimplyTox river", version(0, 0, 1),
 	#	eff_a*rwoc*((conc(water.tox)->[n g, m-3]) - conc(water.oc.tox)/Kdoc)
 	#}
 
-	
 	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Sediment mobilization tox") {
-		soil.e_fact*river.e_fact*sed_oc_c*conc(soil.oc.tox)->>
+		soil.e_fact*river.e_fact*conc(river.water.sed.oc)*conc(soil.oc.tox)->>
 	}
 	
+	flux(river.water.tox, out, [n g, day-1], "River water dissolved contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(river.water.oc.tox, out, [n g, day-1], "River DOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(river.water.sed.oc.tox, out, [n g, day-1], "River suspended sediment contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	
 	
-	flux(river.water.tox, out, [n g, day-1], "River water dissolved toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(river.water.oc.tox, out, [n g, day-1], "River DOC toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(river.water.sed.oc.tox, out, [n g, day-1], "River suspended sediment toxin decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	
-	
-	# Remains to do: River sediment bed (+ exchanges), air-water exchange (soil and river), deposition computation (from air conc)
-	# Also slow SOC box in groundwater.
+	# Remains to do: River sediment bed (+ exchanges between river bed and water), air-water exchange
 }
 
 
