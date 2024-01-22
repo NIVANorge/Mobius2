@@ -10,7 +10,7 @@ preamble("SimplyTox physiochemical", version(0, 0, 3),
 
 	par_group("Physiochemistry", tox) {
 		#molmass     : par_real("Contaminant molar mass", [g, mol-1], 50, 0, 1000)
-		#molvol      : par_real("Contaminant molar volume", [c m 3, mol-1], 20, 0, 1000)
+		molvol      : par_real("Contaminant molar volume", [c m 3, mol-1], 20, 0, 1000)
 		dUaw        : par_real("Enthalpy of phase transfer between air and water", [k J, mol-1], 0, -100, 100)
 		dUow        : par_real("Enthalpy of phase transfer between octanol and water", [k J, mol-1], 0, -100, 100)
 		#dUoa        : par_real("Enthalpy of phase transfer between octanol and air", [k J, mol-1], 0, -100, 100)
@@ -58,7 +58,9 @@ preamble("SimplyTox physiochemical", version(0, 0, 3),
 		q10_adjust(hl_to_rate(hl), reftemp, temp, q10)
 	}
 	
-	Cw    : property("Equilibrium concentration")
+	Cw      : property("Equilibrium concentration")
+	dep     : property("Contaminant deposition")
+	atmconc : property("Atmospheric concentration")
 }
 
 
@@ -99,9 +101,7 @@ Testing functionality for now.
 	var(dsoil.oc.tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC contaminant")
 	var(soil.water.oc.tox, [n g, m-2], [n g, k g-1], "Soil DOC contaminant")
 	var(soilair.tox, [n g, m-2], "Soil air contaminant")
-	
-	dep     : property("Contaminant deposition")
-	atmconc : property("Atmospheric concentration")
+
 	
 	var(air.dep, [n g, m-2, day-1])
 	var(air.atmconc, [n g, m-3])
@@ -164,8 +164,6 @@ Testing functionality for now.
 	var(gw.oc.tox, [n g, m-2], [n g, k g-1], "Deep soil SOC contaminants")
 	var(gw.water.tox, [n g, m-2], [n g, l-1], "Groundwater dissolved contaminants")
 	var(gw.water.oc.tox, [n g, m-2], [n g, k g-1], "Groundwater DOC contaminants")
-	var(gw.water.tox.Kow, [])
-	var(gw.water.tox.Kdoc, [m 3, k g-1])
 	
 	var(gw.water.tox.Kow, [])
 	var(gw.water.tox.Koc, [m 3, k g-1])
@@ -200,6 +198,7 @@ Testing functionality for now.
 	
 	
 module("SimplyTox river", version(0, 0, 1),
+	air   : compartment,
 	soil  : compartment,
 	river : compartment,
 	water : quantity,
@@ -208,26 +207,147 @@ module("SimplyTox river", version(0, 0, 1),
 	tox   : quantity,
 	e_fact : property,
 	temp   : property,
+	wind   : property,
 	eff_a : par_real,
 	phys  : preamble
 ) {
 
 	var(river.water.tox, [n g], [n g, l-1], "River dissolved contaminant")
 	var(river.water.oc.tox, [n g], [n g, k g-1], "River DOC contaminant")
-	var(river.water.sed.oc.tox, [n g], [n g, k g-1], "River suspended sediment contaminant")
-
+	var(river.water.sed.oc.tox, [n g], [n g, k g-1], "River POC contaminant")
+	
+	var(river.water.tox.Kow, [])
+	var(river.water.tox.Koc, [m 3, k g-1])
+	var(river.water.tox.Kdoc, [m 3, k g-1])
+	var(river.water.tox.Kh, [Pa, m 3, mol-1])
+	var(river.water.tox.Kaw, [])
+	
 	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Sediment mobilization tox") {
 		soil.e_fact*river.e_fact*conc(river.water.sed.oc)*conc(soil.oc.tox)->>
 	}
 	
-	#TODO: Exchange between water, oc and doc (using the new rate formulations).
+	var(river.water.tox.Cw, [n g, l-1], "River dissolved contamninant equilibrium concentration") {
+		m_total := river.water.tox + river.water.oc.tox + river.water.sed.oc.tox,
+		m_total /
+		(
+			Koc * river.water.sed.oc
+		  + Kdoc * river.water.oc
+		  + water
+		) ->>
+	}
+	var(river.water.oc.tox.Cw, [n g, k g-1], "River DOC contaminant equilibrium concentration") {
+		river.water.tox.Cw * river.water.tox.Kdoc ->>
+	}
+	var(river.water.sed.oc.tox.Cw, [n g, k g-1], "River POC contaminant equilibrium concentration") {
+		river.water.tox.Cw * river.water.tox.Koc ->>
+	}
+	
+	flux(river.water.tox, river.water.sed.oc.tox, [n g, day-1], "Water-POC contaminant exchange (river)") {
+		rwoc*river.water.sed.oc*(river.water.sed.oc.tox.Cw - conc(river.water.sed.oc.tox))
+	}
+	flux(river.water.tox, river.water.oc.tox, [n g, day-1], "Water-DOC contaminant exchange (river)") {
+		rwoc*river.water.oc*(river.water.oc.tox.Cw - conc(river.water.oc.tox))
+	}
 	
 	flux(river.water.tox, out, [n g, day-1], "River water dissolved contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	flux(river.water.oc.tox, out, [n g, day-1], "River DOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(river.water.sed.oc.tox, out, [n g, day-1], "River suspended sediment contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
+	flux(river.water.sed.oc.tox, out, [n g, day-1], "River POC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	
 	
-	# Remains to do: River sediment bed (+ exchanges between river bed and water), air-water exchange
+	
+	# TODO: Factor this out to standard lib.
+	# TODO: Put back in some of the references.
+	
+	molvol_air : constan("Molecular volume of air at surface pressure", [c m 3, mol-1], 20.1)
+	molmass_air := constant("Molecular mass of air", [g, mol-1], 28.97)
+	molvol_h2o := constant("Molecular volume of H2O vapour at surface pressure", [c m 3, mol-1], 22.41)
+	molmass_h2o := constant("Molecular mass of H2O", [g, mol-1], 18.0)
+	
+	dynamic_viscosity_water : function(T : [K]) {
+		# Freshwater at surface pressure
+		2646.8[g, m-1, s-1]*exp(-0.0268*T=>[])
+	}
+	
+	kinematic_viscosity_water : function(T : [K]) {
+		# Freshwater at surface pressure
+		0.00285[m 2, s-1]*exp(-0.027*T=>[])
+	}
+	
+	molecular_diffusivity_in_air : function(mol_vol : [c m 3, mol-1], mol_mass : [g, mol-1], T : [K]) {
+		TT := T=>[],
+		c0 := cbrt(molvol_air=>[]) + cbrt(mol_vol=>[]),
+		c := sqrt(1.0/(molmass_air=>[]) + 1.0/(mol_mass=>[])) / (c0^2),
+		1e-7*c*TT^1.75 => [m 2, s-1]
+	}
+	
+	molecular_diffusivity_in_water : function(T : [K], mol_vol : [c m 3, mol-1]) {
+		# Hayduk and Laudie relationship.
+		dynvis := dynamic_viscosity_water(T)=>[],
+		13.26e-9[m 2, s-1] / ((dynvis^1.14)*((molvol=>[])^0.589))
+	}
+	
+	diffusion_velocity_of_vapour_in_air : function(wind : [m, s-1]) {
+		0.002*air.wind + 0.003[m, s-1]
+	}
+	
+	transfer_velocity_of_CO2_in_water : function(wind : [m, s-1]) {
+		w := wind => [],
+		{
+			0.65e-3                if w < 4.4,
+			(0.79*w - 2.68)*1e-3   if w < 13.0,
+			(1.64*w - 13.69)*1e-3  otherwise
+		} => [c m, s-1]
+	}
+	
+	
+	vel : property("Contaminant transfer velocity")
+	vel_air_water : property("Contaminant air-water transfer velocity")
+	
+	var(river.water.tox.vel, [m, s-1], "River water contaminant transfer velocity") {
+		
+		# TODO: This is only the low-turbulence case. Reimplement other cases for higher turbulence?
+		# Deacon (TODO: full reference)
+		
+		moldiff_water := molecular_diffusivity_in_water(temp->[K], molvol),
+		kinvis := kinematic_viscosity_water(temp->[K]),   # Kinematic viscosity of water
+		schmidt := kinvis / moldiff_water, # Schmidt number
+		
+		asc := {
+			0.67 if air.wind < 4.2[m, s-1],
+			0.5  otherwise
+		},
+		vCO2 := transfer_velocity_of_CO2_in_water(air.wind),
+		
+		((schmidt/600)^(-asc))*vCO2*0.01 ->>
+	}
+	
+	#TODO: Would like an   air.tox.vel, but air.tox is not a variable... If we tie it to river.water.tox, it is not reusable from the lake..
+	# Maybe we should make it so that for properties (not quantities) one can tie something to a non-existing location?
+	# On the other hand it is not that costly to declare it as a variable, just a bit confusing.
+	/*
+	
+	var(air.tox.vel, [m, s-1], "Air contaminant transfer velocity") {
+		
+		moldiff_air    := molecular_diffusivity_in_air(molvol, molmass, temp->[K]),
+		moldiffH2O_air := molecular_diffusivity_in_air(molvol_h2o, molmass_h2o, temp->[K]),
+		vel_H2O        := diffusion_velocity_of_vapour_in_air(wind),
+		
+		vel_H2O*(moldiff_air/moldifH2O_air)^0.67
+	}
+	*/
+	
+	var(river.water.tox.vel_air_water, [m, s-1], "River air-water contaminant transfer velocity") {
+		inv := (1.0/vel + 1.0/(air.tox.vel*Kaw)),
+		1.0 / inv
+	}
+	
+	flux(river.water.tox, out, [n g, day-1], "River water atmosphere contaminant exchange") {
+		vel_air_water * (conc(water.tox) - concair/Kaw) ->> #TODO Check correctness. Is it multiplied on left or divided on right??
+	}
+	
+	
+	# Deposition to river surface (and other direct inputs)
+	# Remains to do: River sediment bed (+ exchanges between river bed and water)
 }
 
 

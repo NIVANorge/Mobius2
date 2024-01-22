@@ -36,7 +36,7 @@ model("SimplyTox") {
 	load("modules/simplytox.txt",
 		phys : preamble("SimplyTox physiochemical", tox, temp),
 		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
-		module("SimplyTox river", soil, river, water, oc, sed, tox, e_fact, temp, eff_a, phys)
+		module("SimplyTox river", air, soil, river, water, oc, sed, tox, e_fact, temp, wind, eff_a, phys)
 	)
 	
 	unit_conversion(soil.oc.tox, river.water.sed.oc.tox) { a_catch }
