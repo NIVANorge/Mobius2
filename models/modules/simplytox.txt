@@ -110,50 +110,19 @@ Testing functionality for now.
 	var(soil.oc, [k g, m-2])  @initial { mocf }
 	var(dsoil.oc, [k g, m-2]) @initial { mocs }
 	
-	var(soil.water.tox, [n g, m-2], [n g, l-1], "Soil water dissolved contaminant")
-	var(soil.oc.tox, [n g, m-2], [n g, k g-1], "Fast-accessible SOC contaminant")
 	var(dsoil.oc.tox, [n g, m-2], [n g, k g-1], "Slow-accessible SOC contaminant")
-	var(soil.water.oc.tox, [n g, m-2], [n g, k g-1], "Soil DOC contaminant")
 	var(soilair.tox, [n g, m-2], "Soil air contaminant")
-
 	
 	var(air.tox.dep, [n g, m-2, day-1])
 	var(air.tox.atmconc, [n g, m-3])
 	
 	flux(out, soil.water.tox, [n g, m-2, day-1], "Contaminant deposition to land") {   air.tox.dep   }
 	
-	var(soil.water.tox.Kow, [])
-	var(soil.water.tox.Koc, [m 3, k g-1])
-	var(soil.water.tox.Kdoc, [m 3, k g-1])
 	var(soil.water.tox.Kh, [Pa, m 3, mol-1])
 	var(soil.water.tox.Kaw, [])
-
-	var(soil.water.tox.Ceq, [n g, l-1], "Soil water contaminant equilibrium concentration") {
-		m_total := soil.water.tox + soil.oc.tox + soil.water.oc.tox + soilair.tox,
-		m_total /
-		(
-			Koc * soil.oc -> [m m]
-		  + Kdoc * soil.water.oc -> [m m]
-		  + Kaw * Vsa
-		  + water
-		) ->>
-	}
 	
-	var(soil.oc.tox.Ceq, [n g, k g-1], "Soil SOC contaminant equilibrium concentration") { soil.water.tox.Ceq * soil.water.tox.Koc ->> }
-	var(soil.water.oc.tox.Ceq, [n g, k g-1], "Soil DOC contaminant equilibrium concentration") { soil.water.tox.Ceq * soil.water.tox.Kdoc ->> }
+	# NOTE: There is a small error here since the air is not taken into account in computing soil.water.tox.Ceq, but it doesn't seem to matter that much.
 	var(soilair.tox.Ceq, [n g, m-3], "Soil air contaminant equilibrium concentration") { soil.water.tox.Ceq * soil.water.tox.Kaw ->> }
-	
-	flux(soil.water.tox, soil.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
-		rwoc*soil.oc*(soil.oc.tox.Ceq - conc(soil.oc.tox))
-	}
-	
-	flux(soil.water.tox, soil.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange (soil)") {
-		rwoc*water.oc*(water.oc.tox.Ceq - conc(water.oc.tox)) ->>
-	}
-	
-	flux(soil.oc.tox, dsoil.oc.tox, [n g, m-2, day-1], "Fast-Slow contaminant exchange") {
-		rfs*soil.oc*(conc(soil.oc.tox) - conc(dsoil.oc.tox)) ->>
-	}
 	
 	flux(soil.water.tox, soilair.tox, [n g, m-2, day-1], "Water-air contaminant exchange") {
 		concair := soilair.tox/Vsa -> [n g, m-3],
@@ -165,9 +134,6 @@ Testing functionality for now.
 		raa*(concair - air.tox.atmconc)
 	}
 	
-	flux(soil.water.tox, out, [n g, m-2, day-1], "Soil water dissolved contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox	}
-	flux(soil.water.oc.tox, out, [n g, m-2, day-1], "Soil DOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(soil.oc.tox, out, [n g, m-2, day-1], "Fast-acessible SOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
 	flux(dsoil.oc.tox, out, [n g, m-2, day-1], "Slow-acessible SOC contaminant decay") { degr(hlslow, degrq10, degrref, soil.temp)*tox }
 	
 	# Could instead have a heat conduction model, but maybe not necessary
@@ -175,105 +141,69 @@ Testing functionality for now.
 	var(gw.oc, [k g, m-2], "Deep soil carbon")  @initial { mocdeep }
 }
 
-# TODO:
-# Hmm, we are not that far off from being able to unify SimplyTox water with SimplyTox solid.
-	# Only thing stopping is the unit of water volume we convert to inside the Ceq equation. Also what parameters are used for rates (but could be passed as module arguments maybe).
-# Also, a lot in the soil phase could also be reused like water-soc and water-doc exchange. Only Ceq must be separate because of air part.
-
-module("SimplyTox solid", version(0, 0, 0),
+module("SimplyTox compartment", version(0, 0, 0),
 	comp : compartment,
 	water : quantity,
 	oc : quantity,
 	tox : quantity,
 	temp : property,
 	solid_oc : loc,
+	water_unit : unit,
+	mass_unit : unit,
+	flux_unit : unit,
+	fast_degr : constant,
 	phys : preamble
 ) {
 	# NOTE: This one works for groundwater and bottom sediments, not for soil since it also has an air compartment.
 	
-	var(solid_oc.tox, [n g, m-2], [n g, k g-1], "SOC contaminants")
-	var(comp.water.tox, [n g, m-2], [n g, l-1], "Dissolved contaminants")
-	var(comp.water.oc.tox, [n g, m-2], [n g, k g-1], "DOC contaminants")
+	var(comp.water.tox, mass_unit, [n g, l-1], "Dissolved contaminants")
+	var(comp.water.oc.tox, mass_unit, [n g, k g-1], "DOC contaminants")
+	var(solid_oc.tox, mass_unit, [n g, k g-1], "SOC contaminants")
 	
 	var(comp.water.tox.Kow, [])
-	var(comp.water.tox.Koc, [m 3, k g-1])
 	var(comp.water.tox.Kdoc, [m 3, k g-1])
+	var(comp.water.tox.Koc, [m 3, k g-1])
+	
+	#TODO: This is a bit cumbersome. It is because we can't convert directly to the water_unit inside the equation.
+	#   Also it would be nice to just be able to convert to unit_of(water) so that we wouldn't have to even pass the unit to this module.
+	eqvol : property("Equilibrium volume")
+	var(comp.water.tox.eqvol, water_unit) {
+		  Koc*solid_oc->>
+		+ Kdoc*comp.water.oc->>
+		+ water
+	} @no_store
 	
 	var(comp.water.tox.Ceq, [n g, l-1], "Dissolved contaminant equilibrium concentration") {
 		m_total := comp.water.tox + comp.water.oc.tox + solid_oc.tox,
-		m_total /
-		(
-			Koc * solid_oc -> [m m]
-		  + Kdoc * comp.water.oc -> [m m]
-		  + water
-		)
+		m_total / eqvol ->>
 	}
 	
 	var(solid_oc.tox.Ceq, [n g, k g-1], "SOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Koc ->>  }
 	var(comp.water.oc.tox.Ceq, [n g, k g-1], "DOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Kdoc ->>  }
 	
-	flux(comp.water.tox, solid_oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
+	flux(comp.water.tox, solid_oc.tox, flux_unit, "Water-SOC contaminant exchange") {
 		# Maybe this should be slower though. It is supposed to be slow-accessible carbon only.
 		rwoc*solid_oc*(solid_oc.tox.Ceq - conc(solid_oc.tox)) ->>
 	}
 	
-	flux(comp.water.tox, comp.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange") {
+	flux(comp.water.tox, comp.water.oc.tox, flux_unit, "Water-DOC contaminant exchange") {
 		rwoc*water.oc*(water.oc.tox.Ceq - conc(water.oc.tox)) ->>
 	}
 	
-	flux(solid_oc.tox, out, [n g, m-2, day-1], "SOC contaminant decay") { degr(hlslow, degrq10, degrref, temp)*tox }
-	flux(comp.water.tox, out, [n g, m-2, day-1], "Dissolved contaminant decay") { degr(hlgw, degrq10, degrref, temp)*tox }
-	flux(comp.water.oc.tox, out, [n g, m-2, day-1], "DOC contaminant decay") { degr(hlgw, degrq10, degrref, temp)*tox }
+	flux(solid_oc.tox, out, flux_unit, "SOC contaminant decay") {
+		hl := { hlfast if fast_degr, hlslow otherwise },
+		degr(hl, degrq10, degrref, temp)*tox
+	}
+	flux(comp.water.tox, out, flux_unit, "Dissolved contaminant decay") {
+		hl := { hlfast if fast_degr, hlgw otherwise },
+		degr(hl, degrq10, degrref, temp)*tox
+	}
+	flux(comp.water.oc.tox, out, flux_unit, "DOC contaminant decay") {
+		hl := { hlfast if fast_degr, hlgw otherwise },
+		degr(hl, degrq10, degrref, temp)*tox
+	}
 }
 
-
-module("SimplyTox water", version(0, 0, 0),
-	comp : compartment,
-	water : quantity,
-	oc : quantity,
-	sed : quantity,
-	tox : quantity,
-	temp : property,
-	phys : preamble
-) {
-	# This one only works for surface waters (river, lake) where there are suspended particles.
-
-	var(comp.water.tox, [n g], [n g, l-1], "Dissolved contaminant")
-	var(comp.water.oc.tox, [n g], [n g, k g-1], "DOC contaminant")
-	var(comp.water.sed.oc.tox, [n g], [n g, k g-1], "POC contaminant")
-	
-	var(comp.water.tox.Kow, [])
-	var(comp.water.tox.Koc, [m 3, k g-1])
-	var(comp.water.tox.Kdoc, [m 3, k g-1])
-	
-	var(comp.water.tox.Ceq, [n g, l-1], "Dissolved contamninant equilibrium concentration") {
-		m_total := water.tox + water.oc.tox + water.sed.oc.tox,
-		m_total /
-		(
-			Koc * water.sed.oc
-		  + Kdoc * water.oc
-		  + water
-		) ->>
-	}
-	var(comp.water.oc.tox.Ceq, [n g, k g-1], "DOC contaminant equilibrium concentration") {
-		water.tox.Ceq * water.tox.Kdoc ->>
-	}
-	var(comp.water.sed.oc.tox.Ceq, [n g, k g-1], "POC contaminant equilibrium concentration") {
-		water.tox.Ceq * water.tox.Koc ->>
-	}
-	
-	flux(comp.water.tox, comp.water.sed.oc.tox, [n g, day-1], "Water-POC contaminant exchange") {
-		rwoc*water.sed.oc*(water.sed.oc.tox.Ceq - conc(water.sed.oc.tox))
-	}
-	flux(comp.water.tox, comp.water.oc.tox, [n g, day-1], "Water-DOC contaminant exchange") {
-		rwoc*water.oc*(water.oc.tox.Ceq - conc(water.oc.tox))
-	}
-	
-	flux(comp.water.tox, out, [n g, day-1], "Dissolved contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(comp.water.oc.tox, out, [n g, day-1], "DOC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	flux(comp.water.sed.oc.tox, out, [n g, day-1], "POC contaminant decay") { degr(hlfast, degrq10, degrref, temp)*tox }
-	
-}
 
 module("SimplyTox air-water", version(0, 0, 1),
 	air : compartment,

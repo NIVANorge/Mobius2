@@ -17,10 +17,10 @@ model("EasyTox") {
 	)
 	
 	load("modules/simplytox.txt",
-		module("SimplyTox water", "SimplyTox epilimnion", epi, water, oc, sed, tox, temp, phys),
-		module("SimplyTox water", "SimplyTox hypolimnion", hyp, water, oc, sed, tox, temp, phys),
+		module("SimplyTox compartment", "SimplyTox epilimnion", epi, water, oc, tox, temp, loc(epi.water.sed.oc), [m 3], [n g], [n g, day-1], constant(true), phys),
+		module("SimplyTox compartment", "SimplyTox hypolimnion", hyp, water, oc, tox, temp, loc(hyp.water.sed.oc), [m 3],  [n g], [n g, day-1], constant(true), phys),
 		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(A_surf), phys),
-		module("SimplyTox solid", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), phys)
+		module("SimplyTox compartment", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), [m m], [n g, m-2], [n g, m-2, day-1], constant(false), phys)
 	)
 	load("modules/easytox.txt",
 		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, sed, tox, indicator, sw, temp, area, loc(A_surf), phys, sedpars))

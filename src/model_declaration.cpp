@@ -76,7 +76,8 @@ register_intrinsics(Mobius_Model *model) {
 	
 	auto dimless_id = model->units.create_internal(nullptr, "na", "dimensionless", Decl_Type::unit); // NOTE: this is not exported to the scope. Just have it as a unit for pi.
 	auto pi_id = model->constants.create_internal(global, "pi", "π", Decl_Type::constant);
-	model->constants[pi_id]->value = 3.14159265358979323846;
+	model->constants[pi_id]->value.val_real = 3.14159265358979323846;
+	model->constants[pi_id]->value_type = Value_Type::real;
 	model->constants[pi_id]->unit = dimless_id;
 	
 	auto mod_scope = &model->top_scope;
@@ -604,13 +605,23 @@ Function_Registration::process_declaration(Catalog *catalog) {
 void
 Constant_Registration::process_declaration(Catalog *catalog) {
 	
-	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::unit, Token_Type::real}});
+	int which = match_declaration(decl, 
+		{
+			{Token_Type::quoted_string, Decl_Type::unit, Token_Type::real},
+			{Token_Type::boolean}
+		});
 	
-	set_serial_name(catalog, this);
-	auto scope = catalog->get_scope(scope_id);
-	
-	unit = scope->resolve_argument(Reg_Type::unit, decl->args[1]);
-	value = single_arg(decl, 2)->double_value();
+	if(which == 0) {
+		set_serial_name(catalog, this);
+		auto scope = catalog->get_scope(scope_id);
+		
+		unit = scope->resolve_argument(Reg_Type::unit, decl->args[1]);
+		value.val_real = single_arg(decl, 2)->double_value();
+		value_type = Value_Type::real;
+	} else {
+		value.val_boolean = single_arg(decl, 0)->val_bool;
+		value_type = Value_Type::boolean;
+	}
 	
 	has_been_processed = true;
 }
@@ -1596,6 +1607,8 @@ pre_register_module_loads(Catalog *catalog, Decl_Scope *scope, Decl_AST *load_de
 		Decl_Type::quantity,
 		Decl_Type::loc,
 		Decl_Type::connection,
+		Decl_Type::unit,
+		Decl_Type::constant
 	};
 	
 	String_View file_name = single_arg(load_decl, 0)->string_value;

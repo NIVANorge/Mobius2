@@ -893,10 +893,15 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 				
 				delete new_ident; // A little stupid to do it that way, but oh well.
 				auto const_decl = model->constants[reg->id];
-				result.fun  = make_literal(const_decl->value);
-				result.unit = model->units[const_decl->unit]->data.standard_form;
+				if(const_decl->value_type == Value_Type::real)
+					result.fun  = make_literal(const_decl->value.val_real);
+				else if(const_decl->value_type == Value_Type::boolean)
+					result.fun  = make_literal((bool)const_decl->value.val_boolean);
+				else
+					fatal_error(Mobius_Error::internal, "Unimplemented value type for constant.");
+				if(is_valid(const_decl->unit))
+					result.unit = model->units[const_decl->unit]->data.standard_form;
 				found = true;
-				
 			}
 		}
 		

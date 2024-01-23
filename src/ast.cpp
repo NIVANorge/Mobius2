@@ -177,10 +177,14 @@ parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_uni
 		fatal_error("Unexpected token: ", next.string_value, " .");
 	}
 	
+	// TODO: Had to disable this error since it triggers also when one passes units as arguments to a module.
+	//   But we should check that there is no erroneous use of this otherwise.
+	/*
 	if(decl->decl.string_value == "unit") {
 		next.source_loc.print_error_header();
 		fatal_error("Direct unit() declarations are not allowed. Use the [] format instead.");
 	}
+	*/
 	
 	next = stream->peek_token();
 	if((char)next.type != '(')

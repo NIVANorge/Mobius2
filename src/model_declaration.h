@@ -205,7 +205,8 @@ Function_Registration : Registration_Base {
 
 struct
 Constant_Registration : Registration_Base {
-	double    value;   //Hmm, should we allow integer constants too? But that would require two declaration types.
+	Value_Type value_type;
+	Parameter_Value value;
 	Entity_Id unit;
 	
 	void process_declaration(Catalog *catalog);
