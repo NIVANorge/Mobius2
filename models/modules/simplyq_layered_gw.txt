@@ -11,9 +11,10 @@ module("SimplyQ groundwater", version(0, 0, 2),
 ) {
 """
 SimplyQ but with deep layered groundwater.
-TODO: We should factor out the soil part to a common module between this and regular SimplyQ land.
-  The problem is just that this will cause a lot of refactoring work in different saved parameter files.
 """
+# TODO: We should factor out the soil part to a common module between this and regular SimplyQ land.
+#The problem is just that this will cause a lot of refactoring work in different saved parameter files.
+
 	load("stdlib/basic_math.txt", library("Response"))
 	
 	par_group("Hydrology general") {

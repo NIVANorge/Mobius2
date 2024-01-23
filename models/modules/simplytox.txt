@@ -27,9 +27,9 @@ preamble("SimplyTox physiochemical", version(0, 0, 4),
 		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3)
 		raa         : par_real("Soil atmosphere exchange rate", [m, day-1], 0.05, 0, 10)
 		
-		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10)
-		hlslow      : par_real("Contaminant half life (slow accessible carbon)", [day], 20000, 0.1, 2e10)
-		hlgw        : par_real("Contaminant half life (groundwater and sediments)", [day], 20000, 0.1, 2e10)
+		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10, "Used for dissolved contaminants in soil and surface water")
+		hlslow      : par_real("Contaminant half life (slow accessible carbon)", [day], 20000, 0.1, 2e10, "Used for slow-accessible carbon-bound contaminants in soil and in deep soil and sediments.")
+		hlgw        : par_real("Contaminant half life (groundwater and sediments)", [day], 20000, 0.1, 2e10, "Used for dissolved contaminants in groundwater and sediment pore water.")
 		degrq10     : par_real("Contaminant degradation Q10", [], 1, 1, 5, "Change in the rate with a change of 10°C change in temperature")
 		degrref     : par_real("Temperature at which the half life is given.", [deg_c], 25, 0, 40)
 	}
@@ -358,6 +358,7 @@ module("SimplyTox river", version(0, 0, 1),
 ) {
 	load("stdlib/physiochemistry.txt", library("Water utils"))
 	
+	#TODO: Photo-degradation maybe also in river, (See EasyTox).
 	
 	par_group("River bed") {
 		#dg : par_real("Geometric mean sediment grain size", [m m], 0.1, 0.001, 1)
@@ -366,7 +367,6 @@ module("SimplyTox river", version(0, 0, 1),
 		sed_poc : par_real("River bed POC dry density", [], 0.01)
 		sed_doc : par_real("River bed DOC concentration", [m g, l-1], 6)
 		sed_exch : par_real("Suspended sediment bed exchange coefficient", [day-1], 0.2)
-		
 	}
 	
 	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Sediment mobilization tox") {

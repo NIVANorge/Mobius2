@@ -4,15 +4,32 @@ model("EasyTox") {
 	extend("simplytox_model.txt") @exclude(downstream : connection)
 	extend("easylake_simplyq_model.txt") @exclude(heat : quantity, sol : solver)
 	
+	lake_sed : compartment("Lake sediments")
+	
+	distribute(lake_sed, lake_index)
+	solve(sol, lake_sed.water, lake_sed.sed)
+	
 	load("modules/easychem.txt",
-		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),  #TODO: last location is bottom sediments once we have that.
-		module("SuperEasyC", epi, hyp, water, oc, sed, temp, toc))
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),#loc(lake_sed.sed)),  #Note: last location is target of settling fluxes
+		module("SuperEasyC", epi, hyp, water, oc, sed, temp, toc),
+		sedpars : preamble("SuperEasyC-Sediments dimensions", lake_sed),
+		module("SuperEasyC-Sediments", lake_sed, water, sed, oc, sedpars)
+	)
 	
 	load("modules/simplytox.txt",
 		module("SimplyTox water", "SimplyTox epilimnion", epi, water, oc, sed, tox, temp, phys),
 		module("SimplyTox water", "SimplyTox hypolimnion", hyp, water, oc, sed, tox, temp, phys),
-		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(A_surf), phys)
-		)
+		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(A_surf), phys)#,
+		#module("SimplyTox solid", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, phys)
+	)
 	load("modules/easytox.txt",
-		module("EasyTox", air, epi, hyp, ice, water, oc, sed, tox, indicator, sw, loc(A_surf), phys))
+		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, sed, tox, indicator, sw, loc(A_surf), phys, sedpars))
+		
+	# TODO: We have to make this work
+	#unit_conversion(epi.water.sed, lake_sed.sed) { 1/epi.area }
+	
+	# Other things
+	#	We should be able to set bottom sediment temperature by accessing the t_bot parameter in easylake.
+	#   SimplyTox solid must be configured so that it can set the  solid oc  as comp.sed.oc, not just comp.oc. Probably pass as a loc()
+	#			Then have to update everywhere it is used.
 }

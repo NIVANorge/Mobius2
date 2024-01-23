@@ -3,6 +3,7 @@ module("EasyTox", version(0, 0, 0),
 	air : compartment,
 	epi : compartment,
 	hyp : compartment,
+	lake_sed : compartment,
 	ice : quantity,
 	water : quantity,
 	oc  : quantity,
@@ -11,13 +12,12 @@ module("EasyTox", version(0, 0, 0),
 	indicator : property,
 	sw : property,
 	A_surf : loc,
-	phys : preamble
+	phys : preamble,
+	sedpars : preamble
 ) {
 
 	# TODO: Remains:
 	# 	exchange with bottom sediments
-	
-	#TODO: Photo-degradation maybe also in river, in that case move photodeg stuff to another module.
 	
 	par_group("Photo-degradation", tox) {
 		opt_c : par_real("Optical cross-section", [m 2, mol-1], 255, "Optical cross-section of contaminant")
@@ -37,16 +37,21 @@ module("EasyTox", version(0, 0, 0),
 		(!ice.indicator)*opt_c * qy * (f_par / e_par) * sw * tox ->>
 	}
 	
-	/*
 	var(epi.water.tox.diff_sed, [m 2, s-1]) {
-		# th is sediment porosity (get from somewhere)
 		moldiff / (1 + 3*(1 + th))
 	}
-	*/
 	
-	/*
-	# flux is :
-			A_surf * diff_sed * (conc(river.water.tox) - conc(sediment.water.tox)) / dz ->>
-		# dz is thickness of active layer (roughly).
+	/* #TODO: Have to make the unit conversion thing work for this to work
+		
+		#Hmm, should also ideally have exchange with epi, but there is an issue that the same sediment box connects to both hyp and epi, and that would
+		# work as a conduit for transport from hyp to epi, which is not ideal.
+		
+		flux(hyp.water.tox, lake_sed.water.tox, [k g, day-1], "Lake-sediment bed diffusive dissolved contaminant exchange") {
+			diff_sed * area * (conc(hyp.water.tox) - conc(river_sed.water.tox)) / dz ->>
+		}
+	
+		flux(hyp.water.oc.tox, river_sed.water.oc.tox, [k g, day-1], "Lake-sediment bed diffusive DOC contaminant exchange") {
+			water.tox.diff_sed * area * (conc(hyp.water.oc.tox)*conc(hyp.water.oc) - conc(river_sed.water.oc.tox)*conc(river_sed.water.oc)) / dz ->>
+		}
 	*/
 }

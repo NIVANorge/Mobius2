@@ -367,9 +367,48 @@ A very simplified lake carbon module. Mainly for use with EasyTox if one doesn't
 		ret := q10_adjust(hl_to_rate(lake_doc_hl), 20.0[deg_c], temp, lake_doc_q10),
 		oc * ret * hyp_ret
 	} @no_carry # So that it doesn't make C-bound contaminants disappear.
+}
+
+preamble("SuperEasyC-Sediments dimensions", version(0, 0, 1),
+	lake_sed : compartment
+) {
+	par_group("Lake sediments") {
+		th : par_real("Lake bed porosity", [], 0.6)
+		dz : par_real("Lake bed active layer thickness", [m], 0.1)
+	}
+}
+
+module("SuperEasyC-Sediments", version(0, 0, 1),
+	lake_sed : compartment,
+	water : quantity,
+	sed : quantity,
+	oc : quantity,
+	sedpars : preamble
+) {
+	# TODO: The th and dz parameters must actually be accessible from EasyTox, so should be in a preamble.
+	
+	# TODO: It is uncertain how we would do unit conversions for exchange between lake and bed sediment since unit conversions can't depend on properties.
+	#    Do we have to make that work then?
+	
+	par_group("Lake sediment C", lake_sed) {
+		init_oc : par_real("Initial lake bed oc concentration", [g, k g-1], 0.1) #TODO: Instead just use the conc from the TOC module?
+		bed_doc : par_real("Pore water DOC concentration", [m g, l-1], 5)
+	}
+	
+	sed_dens : constant("Sediment density", [k g, m-3], 2600)
+
+	var(lake_sed.sed, [k g, m-2], "Lake bed sediment mass") @initial { dz*th*sed_dens }
+	
+	var(lake_sed.sed.oc, [k g, m-2], "Lake bed POC") @initial_conc { init_oc ->> }
+	
+	var(lake_sed.water, [m m], "Lake bed pore water") @override{ th*dz->> }
+	var(lake_sed.water.oc, [k g, m-2], [m g, l-1], "Lake bed pore water DOC") @override_conc { bed_doc }
+	
+	flux(lake_sed.sed, out, [k g, m-2, day-1], "Sediment burial") {
+		in_flux(sed)->>
+	}
 	
 	
-	# TODO: Bottom sediments.
 }
 
 

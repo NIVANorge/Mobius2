@@ -120,7 +120,7 @@
 			Should zero out fluxes / accesses across (as in connections) the super index set if they also index over the sub index set and the target sub index is out of bounds. (mostly relevant for all_to_all, grid1d (and graph)).
 				In make_restriction_condition
 			
-		Bidirectional (and mixing)
+		Bidirectional
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
 				Both for main and dissolved fluxes.
 				And maybe not allow unit_conversions and aggregation_weights (or otherwise multiply by the inverse when necessary).
@@ -128,7 +128,7 @@
 			Have an optional test to see if non-bidirectional non-mixing fluxes (with dissolvedes) were negative after or during a run.
 			
 			Need to check that a bidirectional flux wasn't discrete.
-
+		Note: unit_conversion seems to work fine for @mixing, but we should test it properly. Also, it probably depends on the concentration variable being the same for dissolved ones (just not the mass variable). That is maybe also the case for @bidirectional.
 	
 	*** Intermediate-pri ***
 	

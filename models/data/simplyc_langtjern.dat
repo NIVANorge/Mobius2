@@ -107,9 +107,6 @@ TODO: description
 		}
 	}
 
-	module("Priestley-Taylor PET", version(0, 0, 16)) {
-	}
-
 	module("Simply soil temperature", version(0, 1, 0)) {
 		par_group("Soil temperature general") {
 			par_real("Snow depth / soil temperature factor")
@@ -125,7 +122,7 @@ TODO: description
 		}
 	}
 
-	module("SimplyC", version(1, 0, 1)) {
+	module("SimplyC land", version(1, 0, 1)) {
 		par_group("DOC general") {
 			par_real("Baseline soil DOC dissolution rate")
 			[ 100 ]
