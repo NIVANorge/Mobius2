@@ -1,7 +1,7 @@
 
 model("EasyLake-SimplyQ") {
 	
-	extend("simplyq_model.txt") @exclude(connection()) #Exclude the downstream connection so that we can redeclare it with the epilimnion in it.
+	extend("simplyq_model.txt") @exclude(downstream : connection) #Exclude the downstream connection so that we can redeclare it with the epilimnion in it.
 	
 	epi      : compartment("Epilimnion")
 	hyp      : compartment("Hypolimnion")

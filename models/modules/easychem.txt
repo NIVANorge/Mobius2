@@ -385,10 +385,6 @@ module("SuperEasyC-Sediments", version(0, 0, 1),
 	oc : quantity,
 	sedpars : preamble
 ) {
-	# TODO: The th and dz parameters must actually be accessible from EasyTox, so should be in a preamble.
-	
-	# TODO: It is uncertain how we would do unit conversions for exchange between lake and bed sediment since unit conversions can't depend on properties.
-	#    Do we have to make that work then?
 	
 	par_group("Lake sediment C", lake_sed) {
 		init_oc : par_real("Initial lake bed oc concentration", [g, k g-1], 0.1) #TODO: Instead just use the conc from the TOC module?
@@ -397,7 +393,7 @@ module("SuperEasyC-Sediments", version(0, 0, 1),
 	
 	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 
-	var(lake_sed.sed, [k g, m-2], "Lake bed sediment mass") @initial { dz*th*sed_dens }
+	var(lake_sed.sed, [k g, m-2], "Lake bed sediment mass") @initial { dz*(1 - th)*sed_dens }
 	
 	var(lake_sed.sed.oc, [k g, m-2], "Lake bed POC") @initial_conc { init_oc ->> }
 	
@@ -407,21 +403,17 @@ module("SuperEasyC-Sediments", version(0, 0, 1),
 	flux(lake_sed.sed, out, [k g, m-2, day-1], "Sediment burial") {
 		in_flux(sed)->>
 	}
-	
-	
 }
 
 
 
 
 /*
-#TODO: The below seems to not work that well.
+#TODO: Try to get P exchange between lake bed and lake to work again.
 	par_group("Particles lake-specific", epi) {
 		init_sed_p : par_real("Initial bottom sediment P concentration", [m g, g-1], 0)
 		sed_p_release : par_real("Sediments P release", [m-2, day-1], 0)
 	}
-	
-	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 	
 	var(bot.phos, [k g], "Lake bottom sediment phosphorous") @initial { epi.area * sed_z * sed_dens * init_sed_p ->> }
 	

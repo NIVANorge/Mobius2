@@ -1028,7 +1028,8 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	auto scope = model->get_scope(found_conv->scope_id);
 	
 	Function_Resolve_Data res_data = { app, scope, {}, &app->baked_parameters, expected_unit.standard_form };
-	res_data.restrictive_lookups = true;
+	res_data.restrictive_lookups = false; // TODO: We should monitor if this works out ok.
+	res_data.allow_in_flux = false;
 	
 	auto fun = resolve_function_tree(ast, &res_data);
 	unit_conv = make_cast(fun.fun, Value_Type::real);

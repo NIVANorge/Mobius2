@@ -152,7 +152,7 @@ Decl_Scope::expect(Reg_Type expected_type, Token *identifier) {
 		identifier->print_error_header();
 		fatal_error("The identifier '", identifier->string_value, "' has not been declared.");
 	}
-	if(reg->id.reg_type != expected_type) {
+	if((expected_type != Reg_Type::unrecognized) && reg->id.reg_type != expected_type) {
 		identifier->print_error_header();
 		fatal_error("Expected '", identifier->string_value, "' to be a '", name(expected_type), "', but it was declared as a '", name(reg->id.reg_type), "'.");
 	}

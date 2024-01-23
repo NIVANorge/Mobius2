@@ -69,7 +69,10 @@ preamble("SimplyTox physiochemical", version(0, 0, 4),
 	
 	vel_air_water : property("Contaminant air-water transfer velocity")
 	
-	moldiff : property("Molecular diffusivity of contaminant in water")
+	moldiff : property("Molecular diffusivity of contaminant in water") {
+		dynvis        := dynamic_viscosity_water(temp->[K]),
+		molecular_diffusivity_of_compound_in_water(molvol, dynvis)
+	}
 	
 	diff_sed : property("Water-sediment effective diffusivity")
 }
@@ -173,11 +176,9 @@ Testing functionality for now.
 }
 
 # TODO:
-# Hmm, we are not that far off from being able to unify SimplyTox water with SimplyTox solid. Is there a way to do it (could for instance pass the 'loc' of the solid form)
-	#  Is maybe a problem with units in the Ceq equation?
-	#  Also the degradation rate..
+# Hmm, we are not that far off from being able to unify SimplyTox water with SimplyTox solid.
+	# Only thing stopping is the unit of water volume we convert to inside the Ceq equation. Also what parameters are used for rates (but could be passed as module arguments maybe).
 # Also, a lot in the soil phase could also be reused like water-soc and water-doc exchange. Only Ceq must be separate because of air part.
-
 
 module("SimplyTox solid", version(0, 0, 0),
 	comp : compartment,
@@ -185,11 +186,12 @@ module("SimplyTox solid", version(0, 0, 0),
 	oc : quantity,
 	tox : quantity,
 	temp : property,
+	solid_oc : loc,
 	phys : preamble
 ) {
 	# NOTE: This one works for groundwater and bottom sediments, not for soil since it also has an air compartment.
 	
-	var(comp.oc.tox, [n g, m-2], [n g, k g-1], "SOC contaminants")
+	var(solid_oc.tox, [n g, m-2], [n g, k g-1], "SOC contaminants")
 	var(comp.water.tox, [n g, m-2], [n g, l-1], "Dissolved contaminants")
 	var(comp.water.oc.tox, [n g, m-2], [n g, k g-1], "DOC contaminants")
 	
@@ -198,28 +200,28 @@ module("SimplyTox solid", version(0, 0, 0),
 	var(comp.water.tox.Kdoc, [m 3, k g-1])
 	
 	var(comp.water.tox.Ceq, [n g, l-1], "Dissolved contaminant equilibrium concentration") {
-		m_total := comp.water.tox + comp.water.oc.tox + comp.oc.tox,
+		m_total := comp.water.tox + comp.water.oc.tox + solid_oc.tox,
 		m_total /
 		(
-			Koc * comp.oc -> [m m]
+			Koc * solid_oc -> [m m]
 		  + Kdoc * comp.water.oc -> [m m]
 		  + water
 		)
 	}
 	
-	var(comp.oc.tox.Ceq, [n g, k g-1], "SOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Koc ->>  }
+	var(solid_oc.tox.Ceq, [n g, k g-1], "SOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Koc ->>  }
 	var(comp.water.oc.tox.Ceq, [n g, k g-1], "DOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Kdoc ->>  }
 	
-	flux(comp.water.tox, comp.oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
+	flux(comp.water.tox, solid_oc.tox, [n g, m-2, day-1], "Water-SOC contaminant exchange") {
 		# Maybe this should be slower though. It is supposed to be slow-accessible carbon only.
-		rwoc*comp.oc*(comp.oc.tox.Ceq - conc(comp.oc.tox)) ->>
+		rwoc*solid_oc*(solid_oc.tox.Ceq - conc(solid_oc.tox)) ->>
 	}
 	
 	flux(comp.water.tox, comp.water.oc.tox, [n g, m-2, day-1], "Water-DOC contaminant exchange") {
 		rwoc*water.oc*(water.oc.tox.Ceq - conc(water.oc.tox)) ->>
 	}
 	
-	flux(comp.oc.tox, out, [n g, m-2, day-1], "SOC contaminant decay") { degr(hlslow, degrq10, degrref, temp)*tox }
+	flux(solid_oc.tox, out, [n g, m-2, day-1], "SOC contaminant decay") { degr(hlslow, degrq10, degrref, temp)*tox }
 	flux(comp.water.tox, out, [n g, m-2, day-1], "Dissolved contaminant decay") { degr(hlgw, degrq10, degrref, temp)*tox }
 	flux(comp.water.oc.tox, out, [n g, m-2, day-1], "DOC contaminant decay") { degr(hlgw, degrq10, degrref, temp)*tox }
 }
@@ -293,10 +295,7 @@ module("SimplyTox air-water", version(0, 0, 1),
 	vel_water : property("Contaminant water-side transfer velocity")
 	vel_air   : property("Contaminant air-side transfer velocity")
 	
-	var(comp.water.tox.moldiff, [m 2, s-1]) {
-		dynvis        := dynamic_viscosity_water(temp->[K]),
-		molecular_diffusivity_of_compound_in_water(molvol, dynvis)
-	}
+	var(comp.water.tox.moldiff, [m 2, s-1])
 	
 	# Maybe put this one in the library also?
 	waterside_vel_low_turbulence : function(T : [K], moldiff : [m 2, s-1], wind : [m, s-1]) {
@@ -378,11 +377,13 @@ module("SimplyTox river", version(0, 0, 1),
 		A_surf * vel_air_water * (conc(water.tox)->[n g, m-3] - air.tox.atmconc/Kaw) ->>
 	}
 	
+	sed_dens : constant("Sediment density", [k g, m-3], 2600)
+	
 	var(river_sed.temp, [deg_c], "River sediment temperature") { river.water.temp } @no_store
 	
 	var(river_sed.water, [m m], "River bed pore water") @override {   dz*th->>   }
 	var(river_sed.water.oc, [k g, m-2], [m g, l-1], "River bed DOC") @override_conc {  sed_doc   }   #conc(river.oc)   }
-	var(river_sed.oc, [k g, m-2], "River bed POC") @override {   sed_poc*th*dz*2600[k g, m-3]   }
+	var(river_sed.oc, [k g, m-2], "River bed POC") @override {   sed_poc*(1 - th)*dz*sed_dens   }
 	
 	flux(river.water.sed.oc, river_sed.oc, [k g, day-1], "River suspended sediment - bed exchange") {
 		oc*sed_exch

@@ -10,7 +10,7 @@ model("EasyTox") {
 	solve(sol, lake_sed.water, lake_sed.sed)
 	
 	load("modules/easychem.txt",
-		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),#loc(lake_sed.sed)),  #Note: last location is target of settling fluxes
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),  #Note: last location is target of settling fluxes
 		module("SuperEasyC", epi, hyp, water, oc, sed, temp, toc),
 		sedpars : preamble("SuperEasyC-Sediments dimensions", lake_sed),
 		module("SuperEasyC-Sediments", lake_sed, water, sed, oc, sedpars)
@@ -19,16 +19,16 @@ model("EasyTox") {
 	load("modules/simplytox.txt",
 		module("SimplyTox water", "SimplyTox epilimnion", epi, water, oc, sed, tox, temp, phys),
 		module("SimplyTox water", "SimplyTox hypolimnion", hyp, water, oc, sed, tox, temp, phys),
-		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(A_surf), phys)#,
-		#module("SimplyTox solid", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, phys)
+		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(A_surf), phys),
+		module("SimplyTox solid", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), phys)
 	)
 	load("modules/easytox.txt",
-		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, sed, tox, indicator, sw, loc(A_surf), phys, sedpars))
+		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, sed, tox, indicator, sw, temp, area, loc(A_surf), phys, sedpars))
 		
-	# TODO: We have to make this work
-	#unit_conversion(epi.water.sed, lake_sed.sed) { 1/epi.area }
-	
-	# Other things
+	unit_conversion(epi.water.sed, lake_sed.sed) { 1/epi.area }
+	unit_conversion(hyp.water.sed, lake_sed.sed) { 1/hyp.area }
+	unit_conversion(hyp.water, lake_sed.water) { 1/hyp.area }
+	# TODO
 	#	We should be able to set bottom sediment temperature by accessing the t_bot parameter in easylake.
 	#   SimplyTox solid must be configured so that it can set the  solid oc  as comp.sed.oc, not just comp.oc. Probably pass as a loc()
 	#			Then have to update everywhere it is used.

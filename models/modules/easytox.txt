@@ -11,6 +11,8 @@ module("EasyTox", version(0, 0, 0),
 	tox : quantity,
 	indicator : property,
 	sw : property,
+	temp : property,
+	area : property,
 	A_surf : loc,
 	phys : preamble,
 	sedpars : preamble
@@ -37,21 +39,23 @@ module("EasyTox", version(0, 0, 0),
 		(!ice.indicator)*opt_c * qy * (f_par / e_par) * sw * tox ->>
 	}
 	
-	var(epi.water.tox.diff_sed, [m 2, s-1]) {
+	var(hyp.water.tox.moldiff, [m 2, s-1])
+	
+	var(hyp.water.tox.diff_sed, [m 2, s-1]) {
 		moldiff / (1 + 3*(1 + th))
 	}
 	
-	/* #TODO: Have to make the unit conversion thing work for this to work
-		
-		#Hmm, should also ideally have exchange with epi, but there is an issue that the same sediment box connects to both hyp and epi, and that would
-		# work as a conduit for transport from hyp to epi, which is not ideal.
-		
-		flux(hyp.water.tox, lake_sed.water.tox, [k g, day-1], "Lake-sediment bed diffusive dissolved contaminant exchange") {
-			diff_sed * area * (conc(hyp.water.tox) - conc(river_sed.water.tox)) / dz ->>
-		}
+	var(lake_sed.temp, [deg_c], "Bottom temperature") { hyp.water.temp }     #TODO:   This should be t_bot instead!!
 	
-		flux(hyp.water.oc.tox, river_sed.water.oc.tox, [k g, day-1], "Lake-sediment bed diffusive DOC contaminant exchange") {
-			water.tox.diff_sed * area * (conc(hyp.water.oc.tox)*conc(hyp.water.oc) - conc(river_sed.water.oc.tox)*conc(river_sed.water.oc)) / dz ->>
-		}
-	*/
+	#TODO: Hmm, should also ideally have exchange with epi, but there is an issue that the same sediment box connects to both hyp and epi, and that would
+	# work as a conduit for transport from hyp to epi, which is not ideal.
+	
+	flux(hyp.water.tox, lake_sed.water.tox, [k g, day-1], "Lake-sediment bed diffusive dissolved contaminant exchange") {
+		diff_sed * area * (conc(hyp.water.tox) - conc(lake_sed.water.tox)) / dz ->>
+	}
+
+	flux(hyp.water.oc.tox, lake_sed.water.oc.tox, [k g, day-1], "Lake-sediment bed diffusive DOC contaminant exchange") {
+		hyp.water.tox.diff_sed * area * (conc(hyp.water.oc.tox)*conc(hyp.water.oc) - conc(lake_sed.water.oc.tox)*conc(lake_sed.water.oc)) / dz ->>
+	}
+	
 }

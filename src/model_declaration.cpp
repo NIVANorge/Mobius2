@@ -296,9 +296,33 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 		}
 	} else if (count >= 2 && count <= max_var_loc_components) {
 		location->type     = Var_Location::Type::located;
-		for(int idx = 0; idx < count; ++idx)
-			location->components[idx] = scope->expect(Reg_Type::component, &symbol[idx]);
-		location->n_components        = count;
+		
+		auto comp0 = scope->expect(Reg_Type::unrecognized, &symbol[0]);
+		if(comp0.reg_type == Reg_Type::loc) {
+			// compose a   loc_something.something.else..
+			//  TODO: This does not preserve restrictions.
+			auto loc = model->locs[comp0];
+			*location = loc->loc;
+			if(location->type != Var_Location::Type::located) {
+				symbol[0].source_loc.print_error_header();
+				fatal_error("Only a located var location can be composed with other components.");
+			}
+			int offset = location->n_components;
+			if(offset + count - 1 > max_var_loc_components) {
+				symbol[0].print_error_header();
+				fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
+			}
+			if(is_valid(loc->loc.r1.connection_id))
+				fatal_error(Mobius_Error::internal, "Not supported to compose locs that have restrictions yet.");
+			
+			for(int idx = 1; idx < count; ++idx)
+				location->components[(idx-1) + offset] = scope->expect(Reg_Type::component, &symbol[idx]);
+			location->n_components = offset + count - 1;
+		} else {
+			for(int idx = 0; idx < count; ++idx)
+				location->components[idx] = scope->expect(Reg_Type::component, &symbol[idx]);
+			location->n_components = count;
+		}
 	} else {
 		symbol[0].print_error_header();
 		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");

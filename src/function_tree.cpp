@@ -1031,6 +1031,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 		}
 		if(!resolved) {
 			std::vector<Entity_Id> chain;
+			
 			for(int idx = 0; idx < chain_size; ++idx) {
 				std::string str = ident->chain[idx].string_value;
 				auto reg = decl_scope[str];
@@ -1039,12 +1040,26 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 					error_print("The identifier '", str, "' is not declared or loaded in this scope.");
 					fatal_error_trace(scope);
 				}
-				if(reg->id.reg_type != Reg_Type::component) {
-					ident->chain[idx].print_error_header();
-					error_print("The identifier '", str, "' does not refer to a variable location component (compartment, quantity or property)");
-					fatal_error_trace(scope);
+				if(idx == 0 && reg->id.reg_type == Reg_Type::loc) {
+					auto loc = model->locs[reg->id];
+					if(loc->loc.type != Var_Location::Type::located) {
+						ident->chain[0].print_error_header();
+						error_print("If you compose a location with a 'loc', you can only use one that is located.");
+						fatal_error_trace(scope);
+					}
+					// TODO: What if the loc has a restriction?
+					if(is_valid(loc->loc.r1.connection_id))
+						fatal_error(Mobius_Error::internal, "Not supported to compose locs that have restrictions yet.");
+					for(int jdx = 0; jdx < loc->loc.n_components; ++jdx)
+						chain.push_back(loc->loc.components[jdx]);
+				} else {
+					if(reg->id.reg_type != Reg_Type::component) {
+						ident->chain[idx].print_error_header();
+						error_print("The identifier '", str, "' does not refer to a variable location component (compartment, quantity or property)");
+						fatal_error_trace(scope);
+					}
+					chain.push_back(reg->id);
 				}
-				chain.push_back(reg->id);
 			}
 			Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
 			set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
