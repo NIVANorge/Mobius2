@@ -17,10 +17,10 @@ model("EasyTox") {
 	)
 	
 	load("modules/simplytox.txt",
-		module("SimplyTox compartment", "SimplyTox epilimnion", epi, water, oc, tox, temp, loc(epi.water.sed.oc), [m 3], [n g], [n g, day-1], constant(true), phys),
-		module("SimplyTox compartment", "SimplyTox hypolimnion", hyp, water, oc, tox, temp, loc(hyp.water.sed.oc), [m 3],  [n g], [n g, day-1], constant(true), phys),
+		module("SimplyTox partitioning", "SimplyTox epilimnion", epi, water, oc, tox, temp, loc(epi.water.sed.oc), [m 3], [n g], [n g, day-1], constant(true), phys),
+		module("SimplyTox partitioning", "SimplyTox hypolimnion", hyp, water, oc, tox, temp, loc(hyp.water.sed.oc), [m 3],  [n g], [n g, day-1], constant(true), phys),
 		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(A_surf), phys),
-		module("SimplyTox compartment", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), [m m], [n g, m-2], [n g, m-2, day-1], constant(false), phys)
+		module("SimplyTox partitioning", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), [m m], [n g, m-2], [n g, m-2, day-1], constant(false), phys)
 	)
 	load("modules/easytox.txt",
 		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, sed, tox, indicator, sw, temp, area, loc(A_surf), phys, sedpars))
@@ -30,6 +30,4 @@ model("EasyTox") {
 	unit_conversion(hyp.water, lake_sed.water) { 1/hyp.area }
 	# TODO
 	#	We should be able to set bottom sediment temperature by accessing the t_bot parameter in easylake.
-	#   SimplyTox solid must be configured so that it can set the  solid oc  as comp.sed.oc, not just comp.oc. Probably pass as a loc()
-	#			Then have to update everywhere it is used.
 }

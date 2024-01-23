@@ -24,8 +24,8 @@ preamble("SimplyTox physiochemical", version(0, 0, 4),
 		#log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", [], 0, -10, 10)
 		rwoc        : par_real("Water-OC rate coefficient", [day-1],  0.5, 0, 3)
 		rfs         : par_real("Fast-Slow rate coefficient", [day-1], 0.05, 0, 3)
-		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3)
-		raa         : par_real("Soil atmosphere exchange rate", [m, day-1], 0.05, 0, 10)
+		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3, "Inside soil pores only.")
+		raa         : par_real("Soil atmosphere exchange rate", [m, day-1], 0.05, 0, 10, "Between soil pore air and atmosphere")
 		
 		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10, "Used for dissolved contaminants in soil and surface water")
 		hlslow      : par_real("Contaminant half life (slow accessible carbon)", [day], 20000, 0.1, 2e10, "Used for slow-accessible carbon-bound contaminants in soil and in deep soil and sediments.")
@@ -90,9 +90,7 @@ module("SimplyTox soil", version(0, 0, 3),
 	temp  : property,
 	phys  : preamble
 ) {
-"""
-Testing functionality for now.
-"""
+
 	
 	par_group("Soil carbon and air", soil) {
 		mocf        : par_real("Soil organic carbon, fast accessible", [k g, m-2], 30, 0, 300)
@@ -137,11 +135,11 @@ Testing functionality for now.
 	flux(dsoil.oc.tox, out, [n g, m-2, day-1], "Slow-acessible SOC contaminant decay") { degr(hlslow, degrq10, degrref, soil.temp)*tox }
 	
 	# Could instead have a heat conduction model, but maybe not necessary
-	var(gw.temp, [deg_c], "Deep soil temperature") { deeptemp }
-	var(gw.oc, [k g, m-2], "Deep soil carbon")  @initial { mocdeep }
+	var(gw.temp, [deg_c], "Deep soil temperature") { deeptemp } @no_store
+	var(gw.oc, [k g, m-2], "Deep soil carbon")  @override { mocdeep }
 }
 
-module("SimplyTox compartment", version(0, 0, 0),
+module("SimplyTox partitioning", version(0, 0, 0),
 	comp : compartment,
 	water : quantity,
 	oc : quantity,
@@ -190,16 +188,16 @@ module("SimplyTox compartment", version(0, 0, 0),
 		rwoc*water.oc*(water.oc.tox.Ceq - conc(water.oc.tox)) ->>
 	}
 	
-	flux(solid_oc.tox, out, flux_unit, "SOC contaminant decay") {
-		hl := { hlfast if fast_degr, hlslow otherwise },
-		degr(hl, degrq10, degrref, temp)*tox
-	}
 	flux(comp.water.tox, out, flux_unit, "Dissolved contaminant decay") {
 		hl := { hlfast if fast_degr, hlgw otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	}
 	flux(comp.water.oc.tox, out, flux_unit, "DOC contaminant decay") {
 		hl := { hlfast if fast_degr, hlgw otherwise },
+		degr(hl, degrq10, degrref, temp)*tox
+	}
+	flux(solid_oc.tox, out, flux_unit, "SOC contaminant decay") {
+		hl := { hlfast if fast_degr, hlslow otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	}
 }

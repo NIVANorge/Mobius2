@@ -58,8 +58,9 @@ This is a specialized version of SimplyTox where there are several groundwater l
 	
 	load("modules/simplytox.txt",
 		phys : preamble("SimplyTox physiochemical", air, tox, temp),
+		module("SimplyTox partitioning", "SimplyTox soil water", soil, water, oc, tox, temp, loc(soil.oc), [m m], [n g, m-2], [n g, m-2, day-1], constant(true), phys),
 		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
-		module("SimplyTox solid", "SimplyTox groundwater", gw, water, oc, tox, temp, loc(gw.oc), phys)
+		module("SimplyTox partitioning", "SimplyTox groundwater", gw, water, oc, tox, temp, loc(gw.oc), [m m], [n g, m-2], [n g, m-2, day-1], constant(false), phys)
 	)
 	
 	tox   : quantity("Contaminant")
