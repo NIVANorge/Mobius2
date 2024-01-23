@@ -1,5 +1,5 @@
 
-module("SimplyQ groundwater", version(0, 0, 1),
+module("SimplyQ groundwater", version(0, 0, 2),
 	soil  : compartment,
 	gw    : compartment,
 	water : quantity,
@@ -27,18 +27,19 @@ TODO: We should factor out the soil part to a common module between this and reg
 	}
 		
 	par_group("Groundwater", gw) {
-		porosity : par_real("Porosity", [], 0.2, 0, 1)
-		th       : par_real("Thickness", [m], 1, 0.1, 10)
+		#porosity : par_real("Porosity", [], 0.2, 0, 1)
+		#th       : par_real("Thickness", [m], 1, 0.1, 10)
 		#vert_K   : par_real("Vertical hydraulic conductivity", [m, s-1], 0)
 		#horz_K   : par_real("Horizontal hydraulic conductivity", [m, s-1], 0)
 		#spec_S   : par_real("Specific storage", [m-1], 0)
+		cap       : par_real("Water capacity", [m m], 200)
 		ext_c     : par_real("Extraction (constant)", [m m, day-1], 0)
 		max_rate  : par_real("Max flow rate", [day-1], 0.1, 0, 10)
 		h_loss    : par_real("Net horizontal loss fraction", [], 0, 0, 0.1)
 	}
 	
 	var(soil.water, [m m], "Soil water volume")  @initial { fc }
-	var(gw.water,   [m m], "Groundwater volume") @initial { th*porosity->> }
+	var(gw.water,   [m m], "Groundwater volume") @initial { cap }
 	
 	flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
 		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
@@ -67,12 +68,12 @@ TODO: We should factor out the soil part to a common module between this and reg
 	
 	flux(gw.water, vert, [m m, day-1], "Groundwater percolation") {
 		maxperc := flow*(1 - h_loss),
-		cap_below := porosity[vert.below]*th[vert.below]->[m m],
+		cap_below := cap[vert.below],
 		maxperc * s_response(water[vert.below]/cap_below, 0.95, 1, 1, 0) # Slowly turn off percolation when layer below goes above 95% of capacity
 	}
 	
 	flux(gw.water, gw_target, [m m, day-1], "Groundwater net horizontal loss") {
-		flow2 := max(max_rate*(h - porosity*th->[m m]), 0),
+		flow2 := max(max_rate*(h - cap), 0),
 		flow2 * h_loss
 	}
 	
@@ -81,69 +82,4 @@ TODO: We should factor out the soil part to a common module between this and reg
 	var(gw.water.ext, [m m, day-1])
 	
 	flux(gw.water, out, [m m, day-1], "Groundwater extraction") {   ext + ext_c   }
-}
-
-
-module("SimplyC soil", version(1, 0, 1),
-	air   : compartment,
-	soil  : compartment,
-	gw    : compartment,
-	water : quantity,
-	oc    : quantity,
-	temp  : property
-) {
-"""
-This is an alternative DOC model for use just with the SimplyTox-groundwater module.
-#TODO: Would ideally want to reuse some components from SimplyC instead of redeclaring it. I.e. split SimplyC into land and river components.
-"""
-
-	load("stdlib/basic_math.txt", library("Response"))
-	
-	so4   : property("SO4 deposition")
-	
-	var(air.so4, [m g, l-1])
-	
-	par_group("DOC general") {
-		kt1        : par_real("Soil temperature DOC creation linear coefficient", [deg_c-1], 0, 0, 0.1)
-		kt2        : par_real("Soil temperature DOC creation second-order coefficient", [deg_c-2], 0, 0, 0.1)
-		kso4       : par_real("Soil DOC linear SO4 dependence", [l, m g-1], 0, 0, 0.1)
-		cdoc       : par_real("Baseline soil DOC dissolution rate", [m g, l-1, day-1], 1, 0, 10, "Only used if the soil DOC computation type is dynamic.")
-		soildoc_type : par_enum("Soil DOC computation type", equilibrium) { const equilibrium dynamic }
-		gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { const soil_avg half_life }
-	}
-	
-	par_group("DOC land", soil) {
-		basedoc    : par_real("Baseline soil DOC concentration", [m g, l-1], 10, 0, 100)
-	}
-	
-	par_group("DOC deep soil", gw) {
-		gwdochl    : par_real("Groundwater DOC half-life", [day], 80, 1, 500)
-		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20)
-	}
-	
-	var(soil.water.oc, [k g, k m -2], [m g, l-1], "Soil water DOC")
-		@initial_conc { basedoc }
-		@override_conc {
-			basedoc                                             if soildoc_type.const,
-			basedoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4)  if soildoc_type.equilibrium,
-			no_override                                         otherwise
-		}
-		
-	var(gw.water.oc,   [k g, k m -2], [m g, l-1], "Deep soil DOC")
-		@initial_conc {
-			gwdocconc
-		} @override_conc {
-			gwdocconc                       if gwdoc_type.const,
-			aggregate(conc(soil.water.oc))  if gwdoc_type.soil_avg,
-			no_override                     otherwise
-		}
-
-	flux(out, soil.water.oc, [k g, k m-2, day-1], "Soil DOC production") {  max(0, water*cdoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4))  }
-	
-	flux(soil.water.oc, out, [k g, k m-2, day-1], "Soil DOC mineralization+resorption") {  oc * (cdoc / basedoc)  } @no_carry
-	
-	flux(gw.water.oc, out, [k g, k m-2, day-1], "Deep soil DOC mineralization") {
-		rate := hl_to_rate(gwdochl),
-		oc * rate
-	} @no_carry
 }

@@ -1,10 +1,9 @@
 
 
-module("SimplyC", version(1, 0, 1),
+module("SimplyC land", version(1, 0, 1),
 	air   : compartment,
 	soil  : compartment,
 	gw    : compartment,
-	river : compartment,
 	water : quantity,
 	oc    : quantity,
 	temp  : property
@@ -37,11 +36,6 @@ A simple DOC model.
 		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20)
 	}
 	
-	par_group("DOC river", river) {
-		r_loss : par_real("River DOC loss rate at 20°C", [day-1], 0)
-		r_q10  : par_real("River DOC loss Q10", [], 1)
-	}
-	
 	var(soil.water.oc, [k g, k m -2], [m g, l-1], "Soil water DOC")
 		@initial_conc { basedoc }
 		@override_conc {
@@ -60,8 +54,6 @@ A simple DOC model.
 			no_override                     otherwise
 		}
 	
-	var(river.water.oc, [k g], [m g, l-1], "River water DOC") @initial_conc {  conc(gw.water.oc)  }
-	
 	flux(out, soil.water.oc, [k g, k m-2, day-1], "Soil DOC production") {  max(0, water*cdoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4))  }
 	
 	flux(soil.water.oc, out, [k g, k m-2, day-1], "Soil DOC mineralization+resorption") {  oc * (cdoc / basedoc)  } @no_carry
@@ -70,6 +62,24 @@ A simple DOC model.
 		rate := hl_to_rate(gwdochl),
 		oc * rate
 	} @no_carry
+	
+}
+
+module("SimplyC river", version(0, 0, 1),
+	river : compartment,
+	gw    : compartment,
+	water : quantity,
+	oc    : quantity,
+	temp  : property
+) {
+	load("stdlib/basic_math.txt", library("Response"))
+
+	par_group("DOC river", river) {
+		r_loss : par_real("River DOC loss rate at 20°C", [day-1], 0)
+		r_q10  : par_real("River DOC loss Q10", [], 1)
+	}
+
+	var(river.water.oc, [k g], [m g, l-1], "River water DOC") @initial_conc {  conc(gw.water.oc)  }
 	
 	flux(river.water.oc, out, [k g, day-1], "River DOC loss") {
 		rate := q10_adjust(r_loss, 20.0[deg_c], temp, r_q10),

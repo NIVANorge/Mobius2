@@ -732,9 +732,11 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			
 			if(var->var_location.n_components != n_components) continue;
 			
+			Decl_Type type = model->find_entity(var->var_location.last())->decl_type;
+			
 			if(var->var_location.is_dissolved()) {
 				auto above_var = app->vars.id_of(remove_dissolved(var->var_location));
-				if(!is_valid(above_var)) {
+				if(!is_valid(above_var) && type == Decl_Type::quantity) {
 					var->source_loc.print_error_header(Mobius_Error::model_building);
 					//TODO: Print the above_var.
 					fatal_error("The located quantity that this 'var' declaration is assigned to has itself not been created using a 'var' declaration.");
@@ -747,8 +749,6 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			auto name = var->var_name;
 			if(name.empty())
 				name = model->find_entity(var->var_location.last())->name;  //TODO: should this use the serial name instead?
-			
-			Decl_Type type = model->find_entity(var->var_location.last())->decl_type;
 			
 			bool is_series = false;
 			if(type == Decl_Type::property) {

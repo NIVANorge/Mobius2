@@ -77,7 +77,7 @@ data_set {
 	
 	}
 	
-	module("SimplyQ groundwater", version(0, 0, 1)) {
+	module("SimplyQ groundwater", version(0, 0, 2)) {
 		
 		par_group("Hydrology general") {
 			
@@ -101,12 +101,6 @@ data_set {
 		
 		par_group("Groundwater", gw) {
 			
-			par_real("Porosity") 
-			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
-			
-			par_real("Thickness") 
-			[ 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 0.3 ]
-			
 			par_real("Extraction (constant)") 
 			[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 ]
 			
@@ -115,6 +109,9 @@ data_set {
 			
 			par_real("Net horizontal loss fraction") 
 			[ 0.1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+			
+			par_real("Water capacity") 
+			[ 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40 ]
 		
 		}
 	
@@ -184,7 +181,7 @@ data_set {
 	
 	}
 	
-	preamble("SimplyTox physiochemical", version(0, 0, 3)) {
+	preamble("SimplyTox physiochemical", version(0, 0, 4)) {
 		
 		par_group("Physiochemistry", tox) {
 			
@@ -209,12 +206,6 @@ data_set {
 			par_real("Contaminant half life") 
 			[ 730 ]
 			
-			par_real("Contaminant half life (slow accessible)") 
-			[ 3650 ]
-			
-			par_real("Contaminant half life (groundwater)") 
-			[ 36500 ]
-			
 			par_real("Contaminant degradation Q10") 
 			[ 1.65 ]
 			
@@ -226,6 +217,18 @@ data_set {
 			
 			par_real("Soil atmosphere exchange rate") 
 			[ 0.01 ]
+			
+			par_real("Contaminant molar mass") 
+			[ 50 ]
+			
+			par_real("Contaminant molar volume") 
+			[ 20 ]
+			
+			par_real("Contaminant half life (slow accessible carbon)") 
+			[ 20000 ]
+			
+			par_real("Contaminant half life (groundwater and sediments)") 
+			[ 20000 ]
 		
 		}
 	
@@ -252,6 +255,49 @@ data_set {
 			[ 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 ]
 			
 			par_real("Deep soil organic carbon") 
+			[ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 ]
+		
+		}
+	
+	}
+	
+	module("SimplyC land", version(1, 0, 1)) {
+		
+		par_group("DOC general") {
+			
+			par_real("Soil temperature DOC creation linear coefficient") 
+			[ 0 ]
+			
+			par_real("Soil temperature DOC creation second-order coefficient") 
+			[ 0 ]
+			
+			par_real("Soil DOC linear SO4 dependence") 
+			[ 0 ]
+			
+			par_real("Baseline soil DOC dissolution rate") 
+			[ 1 ]
+			
+			par_enum("Soil DOC computation type") 
+			[ equilibrium ]
+			
+			par_enum("Groundwater DOC computation type") 
+			[ soil_avg ]
+		
+		}
+		
+		par_group("DOC land", lu) {
+			
+			par_real("Baseline soil DOC concentration") 
+			[ 10 ]
+		
+		}
+		
+		par_group("DOC deep soil", gw) {
+			
+			par_real("Groundwater DOC half-life") 
+			[ 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
+			
+			par_real("Groundwater DOC concentration") 
 			[ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 ]
 		
 		}

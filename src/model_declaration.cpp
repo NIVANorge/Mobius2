@@ -1100,7 +1100,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	int required_args = decl->args.size() - 2;
 	if(load_args.size() != required_args) {
 		load_loc.print_error_header();
-		error_print("The module \"", mod_temp->name, "\" requires ", required_args, " load arguments. Only ", load_args.size(), " were passed. See declaration at\n");
+		error_print("The module \"", mod_temp->name, "\" requires ", required_args, " load arguments. ", (required_args > load_args.size()) ? "Only " : "", load_args.size(), " were passed. See declaration at\n");
 		decl->source_loc.print_error();
 		mobius_error_exit();
 	}

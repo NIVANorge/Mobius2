@@ -1,26 +1,52 @@
 
 module("EasyTox", version(0, 0, 0),
+	air : compartment,
 	epi : compartment,
 	hyp : compartment,
+	ice : quantity,
 	water : quantity,
 	oc  : quantity,
 	sed : quantity,
 	tox : quantity,
+	indicator : property,
+	sw : property,
+	A_surf : loc,
 	phys : preamble
 ) {
 
-	#TODO: Finish making this!
+	# TODO: Remains:
+	# 	exchange with bottom sediments
 	
-	# exchange between water, soc, doc,
-	# exchange with sediments
-	# exchange with air
-	# degradation
+	#TODO: Photo-degradation maybe also in river, in that case move photodeg stuff to another module.
 	
-	var(epi.water.tox, [n g], [n g, l-1], "Epilimnion dissolved contaminant")
-	var(epi.water.oc.tox, [n g], [n g, k g-1], "Epilimnion DOC contaminant")
-	var(epi.water.sed.oc.tox, [n g], [n g, k g-1], "Epilimnion suspended sediment contaminant")
+	par_group("Photo-degradation", tox) {
+		opt_c : par_real("Optical cross-section", [m 2, mol-1], 255, "Optical cross-section of contaminant")
+		qy    : par_real("Quantum yield", [], 0.45, 0, 10, "Degraded contaminant mol per mol photons")
+		f_par : par_real("Fraction of photo-active", [], 0.06, 0, 1, "Fraction of incoming shortwave radiation that contributes to degradation of this contaminant")
+		e_par : par_real("Energy of photo-active", [J, mol-1], 351843, 0, 1000000, "Average energy per mol photons")
+	}
 	
-	var(hyp.water.tox, [n g], [n g, l-1], "Hypolimnion dissolved contaminant")
-	var(hyp.water.oc.tox, [n g], [n g, k g-1], "Hypolimnion DOC contaminant")
-	var(hyp.water.sed.oc.tox, [n g], [n g, k g-1], "Hypolimnion suspended sediment contaminant")
+	# Unfortunately we can't have this one in the air-water module, because we don't track river ice, so the same formula can't be reused for the river.
+	flux(epi.water.tox, out, [n g, day-1], "Lake water-atmosphere contaminant exchange") {
+		(!ice.indicator)*vel_air_water * (conc(water.tox)->[n g, m-3] - air.tox.atmconc/Kaw)* A_surf ->>
+	}
+	
+	# TODO: Why does this slow down the model so much?
+	flux(epi.water.tox, out, [n g, day-1], "Lake contaminant photo-degradation") {
+		# TODO: What about attenuation of sw in the epilimnion?
+		(!ice.indicator)*opt_c * qy * (f_par / e_par) * sw * tox ->>
+	}
+	
+	/*
+	var(epi.water.tox.diff_sed, [m 2, s-1]) {
+		# th is sediment porosity (get from somewhere)
+		moldiff / (1 + 3*(1 + th))
+	}
+	*/
+	
+	/*
+	# flux is :
+			A_surf * diff_sed * (conc(river.water.tox) - conc(sediment.water.tox)) / dz ->>
+		# dz is thickness of active layer (roughly).
+	*/
 }

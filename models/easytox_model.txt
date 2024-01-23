@@ -5,9 +5,14 @@ model("EasyTox") {
 	extend("easylake_simplyq_model.txt") @exclude(heat : quantity, sol : solver)
 	
 	load("modules/easychem.txt",
-		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),  #TODO: last location is bottom sediments.
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),  #TODO: last location is bottom sediments once we have that.
 		module("SuperEasyC", epi, hyp, water, oc, sed, temp, toc))
 	
+	load("modules/simplytox.txt",
+		module("SimplyTox water", "SimplyTox epilimnion", epi, water, oc, sed, tox, temp, phys),
+		module("SimplyTox water", "SimplyTox hypolimnion", hyp, water, oc, sed, tox, temp, phys),
+		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(A_surf), phys)
+		)
 	load("modules/easytox.txt",
-		module("EasyTox", epi, hyp, water, oc, sed, tox, phys))
+		module("EasyTox", air, epi, hyp, ice, water, oc, sed, tox, indicator, sw, loc(A_surf), phys))
 }

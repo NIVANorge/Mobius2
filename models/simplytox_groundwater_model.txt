@@ -50,15 +50,16 @@ This is a specialized version of SimplyTox where there are several groundwater l
 	gw_vert : connection("Groundwater vertical") @grid1d(gw, gw_layer)
 	
 	load("modules/simplyq_layered_gw.txt", 
-		module("SimplyQ groundwater", soil, gw, water, flow, pet, gw_vert, loc(out), loc(out)),
-		module("SimplyC soil", air, soil, gw, water, oc, temp)
-	)
+		module("SimplyQ groundwater", soil, gw, water, flow, pet, gw_vert, loc(out), loc(out)))
+	load("modules/simplyc.txt",
+		module("SimplyC land", air, soil, gw, water, oc, temp))
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	
 	load("modules/simplytox.txt",
-		phys : preamble("SimplyTox physiochemical", tox, temp),
-		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys)
+		phys : preamble("SimplyTox physiochemical", air, tox, temp),
+		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
+		module("SimplyTox solid", "SimplyTox groundwater", gw, water, oc, tox, temp, phys)
 	)
 	
 	tox   : quantity("Contaminant")
