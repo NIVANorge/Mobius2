@@ -1,32 +1,45 @@
-index_set("Layer index") [ 100 ]
+data_set {
+	
+	layer : index_set("Layer index") [ 100 ]
+	
+	branch : index_set("Branch index") [ "A" "B" "C" ]
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 1990-01-01 ]
+		
+		par_datetime("End date") 
+		[ 1995-01-01 ]
+	
+	}
+	
+	module("Diffusion", version(1, 0, 0)) {
+		
+		par_group("Layers", layer) {
+			
+			par_real("Diffusion coeff") 
+			[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.02 0.02 0.02 0.02 0.02 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
+			
+			par_real("initial O₂") 
+			[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+		
+		}
+		
+		par_group("Bottom compartment", branch) {
+			
+			par_real("Bottom initial O₂") 
+			[ 1000 500 10 ]
+		
+		}
+		
+		par_group("Side transfer", branch) {
+			
+			par_real("Transfer coeff") 
+			[ 0.5 0.05 0 ]
+		
+		}
+	
+	}
 
-index_set("Branch index") [ "A" "B" "C" ]
-
-par_group("System") {
-	par_datetime("Start date")
-	[ 1990-01-01 ]
-
-	par_datetime("End date")
-	[ 1995-01-01 ]
 }
-
-module("Diffusion", version(1, 0, 0)) {
-	par_group("Layers") [ "Layer index" ] {
-		par_real("Diffusion coeff")
-		[ 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.02 0.02 0.02 0.02 0.02 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 ]
-
-		par_real("initial O₂")
-		[ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
-	}
-
-	par_group("Bottom compartment") [ "Branch index" ] {
-		par_real("Bottom initial O₂")
-		[ 1000 500 10 ]
-	}
-
-	par_group("Side transfer") [ "Branch index" ] {
-		par_real("Transfer coeff")
-		[ 0.5 0.05 0 ]
-	}
-}
-

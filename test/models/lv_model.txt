@@ -5,7 +5,7 @@ model("Predator-prey test model") {
 	pred : quantity("Predators")
 	prey : quantity("Prey")
 	
-	solve(solver("LV-Solver", "INCADascru", 0.1), habitat.prey, habitat.pred)
+	solve(solver("LV-Solver", inca_dascru, [1/4, month]), habitat.prey, habitat.pred)
 	
 	module("Predator-prey", version(1, 1, 0)) {
 		

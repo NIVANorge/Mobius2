@@ -5,7 +5,7 @@ model("Giblet-Thrasher test model") {
 	pred : quantity("Thrashers")
 	prey : quantity("Giblets")
 	
-	solve(solver("LV-Solver", "INCADascru", 0.1), habitat.pred, habitat.prey)
+	solve(solver("LV-Solver", inca_dascru, [2, hr]), habitat.pred, habitat.prey)
 	
 	distribute(habitat, hi)
 	

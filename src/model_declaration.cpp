@@ -1828,7 +1828,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 				// We still may have to handle inline decls in arguments.
 				for(auto arg : child->args) {
 					if(arg->decl)
-						model->register_decls_recursive(scope, child, allowed_model_decls);
+						model->register_decls_recursive(scope, arg->decl, allowed_model_decls);
 				}
 			} else {
 				model->register_decls_recursive(scope, child, allowed_model_decls);

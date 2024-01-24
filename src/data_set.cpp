@@ -786,7 +786,7 @@ read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_V
 				
 				while(true) {
 					stream.read_token();
-					auto index_set_id = data_set->top_scope.expect(Reg_Type::index_set, &token);
+					auto index_set_id = data_set->deserialize(token.string_value, Reg_Type::index_set);
 					
 					stream.expect_token(':');
 					auto next = stream.read_token();

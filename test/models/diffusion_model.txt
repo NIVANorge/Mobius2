@@ -51,7 +51,7 @@ model("Diffusion") {
 	distribute(botcomp, branch_index)
 	distribute(layer, branch_index, layer_index)
 	
-	sol : solver("Solver", "INCADascru", 0.1)
+	sol : solver("Solver", inca_dascru, [2, hr])
 	solve(sol, layer.o2, botcomp.o2)
 	
 }

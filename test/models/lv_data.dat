@@ -1,32 +1,35 @@
-time_step([month])
 
-par_group("System") {
-	par_datetime("Start date")
-	[ 2000-01-01 ]
+data_set {
+	time_step([month])
 
-	par_datetime("End date")
-	[ 2010-12-31 ]
-}
+	par_group("System") {
+		par_datetime("Start date")
+		[ 2000-01-01 ]
 
-module("Predator-prey", 1, 1, 0) {
-	par_group("Habitat parameters") {
-		par_real("Initial predators")
-		[ 1 ]
+		par_datetime("End date")
+		[ 2010-12-31 ]
+	}
 
-		par_real("Initial prey")
-		[ 1 ]
+	module("Predator-prey", version(1, 1, 0)) {
+		par_group("Habitat parameters") {
+			par_real("Initial predators")
+			[ 1 ]
 
-		par_real("Prey birth rate")
-		[ 0.2 ]
+			par_real("Initial prey")
+			[ 1 ]
 
-		par_real("Predation rate")
-		[ 0.1 ]
+			par_real("Prey birth rate")
+			[ 0.2 ]
 
-		par_real("Predator birth rate")
-		[ 0.025 ]
+			par_real("Predation rate")
+			[ 0.1 ]
 
-		par_real("Predator death rate")
-		[ 0.05 ]
+			par_real("Predator birth rate")
+			[ 0.025 ]
+
+			par_real("Predator death rate")
+			[ 0.05 ]
+		}
 	}
 }
 

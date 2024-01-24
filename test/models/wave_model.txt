@@ -9,7 +9,8 @@ model("Wave") {
 	
 	li : index_set("Layer index")
 	distribute(layer, li)
-	solve(solver("Solver", inca_dascru, [hr]), layer.amp, layer.mom)
+	
+	solve(solver("Solver", inca_dascru, [hr], 0.01), layer.amp, layer.mom)
 	
 	module("Wave", version(1, 0, 0)) {
 		
@@ -29,11 +30,5 @@ model("Wave") {
 		} @bidirectional
 		
 		flux(layer.amp, out, [Pa, day-1], "Wave propagation") { mom }
-		
-		test : property("Test")
-		var(layer.test, []) {
-			in_flux(l, mom)=>>
-		}
-		
 	}
 }
