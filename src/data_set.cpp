@@ -831,7 +831,7 @@ read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_V
 						fatal_error("Expected a ], another flag identifier or a unit declaration.");
 					}
 				}
-				//TODO: Check for conflicting flags.
+				
 			} else {
 				token.print_error_header();
 				fatal_error("Expected the name of an index set or a flag");

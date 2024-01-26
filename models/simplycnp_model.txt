@@ -3,12 +3,15 @@ model("SimplyCNP") {
 
 	extend("simplyc_model.txt")
 	extend("simplyn_model.txt") @exclude(heat : quantity) # Exclude it to not clash with the one in SimplyC
-	extend("simplyp_model.txt")
+	extend("simplyp_model.txt") @exclude(phos : quantity) # To be able to rename it
 
+	phos : quantity("Inorganic phosphorous")
 	on   : quantity("Organic nitrogen")
+	op   : quantity("Organic phosphorous")
 	toc  : property("Total organic carbon")
 	tn   : property("Total nitrogen")
 	
 	load("modules/simplyn.txt",    module("Simply organic C-N", river, water, din, on, oc, tn))
+	load("modules/simplyp.txt",    module("Simply organic C-P", river, water, op, oc))
 	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc))
 }

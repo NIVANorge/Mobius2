@@ -1,5 +1,29 @@
 
 
+
+# Would like to have something like
+	sum_var(river.water.toc, [k g], [m g, l-1], "River TOC")
+	add_to_sum(river.water.toc) { 
+		river.water.oc + river.water.sed.oc
+	}
+# Etc.
+# Then another module could e.g. do
+	add_to_sum(river.water.toc) {
+		river.water.phyt
+	}
+# (More relevant for e.g. P in lake etc.)
+
+
+
+
+
+
+
+
+
+
+
+
 # This is maybe better to have in the dataset than in the model declaration
 quick_select [
 	"Nutrients" : [

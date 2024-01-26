@@ -10,6 +10,7 @@ module("EasyChem", version(0, 0, 3),
 	din    : quantity,
 	phos   : quantity,
 	on     : quantity,
+	op     : quantity,
 	ice    : quantity,
 	sed    : quantity,
 	
@@ -39,7 +40,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		init_c       : par_real("Initial lake DOC concentration", [m g, l-1], 10, 0, 1000)
 		init_in      : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
 		init_on      : par_real("Initial lake DON concentration", [m g, l-1], 0, 0, 1000)
-		init_p       : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
+		init_ip      : par_real("Initial lake DIP concentration", [m g, l-1], 0, 0, 1000)
+		init_op      : par_real("Initial lake DOP concentration", [m g, l-1], 0, 0, 1000)
 		init_phyt    : par_real("Initial phytoplankton concentration", [m g, l-1], 0.5, 0.01, 1)
 		din_dep      : par_real("Direct lake DIN deposition", [k g, ha-1, year-1], 0, 0, 100)
 	}
@@ -64,9 +66,9 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
 		
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
-		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
-		phyt_nc    : par_real("N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
-		phyt_pc    : par_real("P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
+		halfsat    : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
+		phyt_nc    : par_real("Molar N/C ratio in Phytoplankton", [], 0.05, 0.01, 0.1)
+		phyt_pc    : par_real("Molar P/C ratio in Phytoplankton", [], 0.001, 0.0005, 0.0015)
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
 	
@@ -97,8 +99,11 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_in }
 	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_in }
 	
-	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_p }
-	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_p }
+	var(epi.water.phos, [k g], [m g, l-1], "Epilimnion DIP")  @initial_conc { init_ip }
+	var(hyp.water.phos, [k g], [m g, l-1], "Hypolimnion DIP") @initial_conc { init_ip }
+	
+	var(epi.water.op, [k g], [m g, l-1], "Epilimnion DOP") @initial_conc { init_op }
+	var(hyp.water.op, [k g], [m g, l-1], "Hypolimnion DOP") @initial_conc { init_op }
 	
 	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")  @initial_conc { init_phyt }
 	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton") @initial_conc { init_phyt }
@@ -181,26 +186,22 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 	
 	var(epi.water.phyt.N_lim, []) {
-		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
+		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is measured as mg(N)/l)
 		cmol := conc(water.din)/n_mol_mass->[m mol, m-3],
-		ntemp := cmol^2,
-		ntemp / ((alpha*phyt_nc)^2 + ntemp)
+		cmol^2 / ((halfsat*phyt_nc)^2 + cmol^2)
 	}
 	
 	var(epi.water.phyt.P_lim, []) {
 		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
 		cmol := conc(water.phos)/p_mol_mass->[m mol, m-3],
-		ptemp := cmol^2,
-		ptemp / ((alpha*phyt_pc)^2 + ptemp)
+		cmol^2 / ((halfsat*phyt_pc)^2 + cmol^2)
 	}
 	
 	equi : property("Equilibrium concentration")
 	
 	var(epi.water.phyt.equi, [m g, l-1], "Phytoplankton equilibrium concentration") {
 		phyt_eq := q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10) / (chl_a_f->[]),
-		
-		#phyt_a := 1-phyt_b*ln(depth+1)
-		
+	
 		phyt_eq*phyt_a*min(light_lim, min(N_lim, P_lim))
 	}
 	
@@ -231,34 +232,28 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	flux(epi.water.din, out, [k g, day-1], "Phytoplankton N uptake") {   phyt.fix  * nc_molar_to_mass_ratio(phyt_nc)   } # *(1 - n_fix_frac)  }
 	
 	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix * pc_molar_to_mass_ratio(phyt_pc)   }
-	#flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
-	#flux(out, hyp.water.sed.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
 	
-	flux(out, epi.water.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
-	flux(out, hyp.water.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
+	flux(out, epi.water.sed.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
+	flux(out, hyp.water.sed.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
+	#flux(out, epi.water.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
+	#flux(out, hyp.water.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
 	
+	tdp : property("TDP")
 	
-	tdpphyt : property("TDP + phyto P")
-	
-	var(epi.water.tdpphyt, [m g, l-1]) {
-		conc(phos) + conc(phyt)*pc_molar_to_mass_ratio(phyt_pc)
+	var(epi.water.tdp, [m g, l-1], "Epilimnion TDP") {
+		conc(phos) + conc(op)
 	}
 	
-	var(epi.water.tp, [m g, l-1], "Epilimnion total phosphorous") {
-		 conc(sed)*conc(sed.phos) + conc(phos) + conc(phyt)*pc_molar_to_mass_ratio(phyt_pc)
+	var(epi.water.tp, [m g, l-1], "Epilimnion TP") {
+		tdp + conc(sed)*conc(sed.phos) + conc(phyt)*pc_molar_to_mass_ratio(phyt_pc)
 	}
 	
 	var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")  @initial_conc { init_on }
 	var(hyp.water.on, [k g], [m g, l-1], "Hypolimnion DON") @initial_conc { init_on }
 	
-	# Releasing N just doesn't give the right N balance in the data in Vansjø
+	# Releasing N just doesn't give the right N balance in the data in Vansjø. Instead it probably goes to the sediments where it is buried or denitrified (rarely released back to the lake)
 	#flux(out, epi.water.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	#flux(out, hyp.water.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
-	
-	# TODO: DON mineralization (?). Difficult to parametrize maybe.
-	# Denitrification (?)
-	
-	# Mostly need phyt sinking/sedimentation (accounts for loss of TN)
 	
 	var(epi.water.tn, [m g, l-1], "Epilimnion TN") {  conc(on) + conc(din)  }
 	
@@ -291,7 +286,6 @@ Particle transport and settling for EasyChem.
 	par_group("Particles") {
 		sett_vel : par_real("Sediment settling velocity", [m, day-1], 1, 0, 100, "The net settling velocity after taking into account mixing whithin (but not between) each compartment.")
 		resusp_f  : par_real("Resuspension factor", [], 0, 0, 1e-7, "Wind-proportional resuspension in epilimnion-sediment interface.")
-		#sed_z    : par_real("Bottom sediment thickness", [m], 0.2, 0, 5, "Thickness of sediment layer participating in P exchange")
 	}
 
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
@@ -322,9 +316,51 @@ Particle transport and settling for EasyChem.
 		in_s * min(1, (max(conc(sed)/6[m g, l-1], 1)^2 - 1))
 	}
 	*/
-	
-	
 }
+
+module("EasyChem-Sediment-P", version(0, 0, 1),
+	lake_sed : compartment,
+	epi      : compartment,
+	hyp      : compartment,
+	water    : quantity,
+	phos     : quantity,
+	sed      : quantity,
+	temp     : property
+) {	
+	# TODO : Should this just be unified with SuperEasyC-Sediments?
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	sed_dens : constant("Sediment density", [k g, m-3], 2600)
+	
+	par_group("Lake sediments") {
+		th : par_real("Lake bed porosity", [], 0.6)
+		dz : par_real("Lake bed active layer thickness", [m], 0.1)
+		sed_p_release : par_real("Sediments P release", [day-1], 0)
+	}
+	par_group("Particles lake-specific", lake_sed) {
+		init_sed_p : par_real("Initial bottom sediment P concentration", [m g, g-1], 0)	# TODO: Should instead derive this from soil parameters maybe.
+	}
+	
+	var(lake_sed.sed, [k g, m-2], "Lake bed sediment mass") @initial { dz*(1 - th)*sed_dens }
+	
+	flux(lake_sed.sed, out, [k g, m-2, day-1], "Sediment burial") {
+		in_flux(sed)->>
+	}
+	
+	var(lake_sed.sed.phos, [k g, m-2], [m g, g-1], "Lake sediment phosphorous") @initial_conc { init_sed_p }
+	
+	# TODO: Seasonalize.
+	flux(lake_sed.sed.phos, epi.water.phos, [k g, m-2, day-1], "Sediments DIP release (epi)") {
+		q10 := 2, #Parametrize?
+		q10_adjust(sed_p_release, 20[deg_c], hyp.water.temp, q10)*lake_sed.sed.phos ->>
+	}
+	
+	# It maybe works a bit better with this off. We need to test it more.
+	#flux(lake_sed.sed.phos, hyp.water.phos, [k g, m-2, day-1], "Sediments DIP release (hyp)") {
+	#	sed_p_release*lake_sed.sed.phos ->>
+	#}
+}
+
 
 
 module("SuperEasyC", version(0, 0, 1),
@@ -376,6 +412,8 @@ preamble("SuperEasyC-Sediments dimensions", version(0, 0, 1),
 		th : par_real("Lake bed porosity", [], 0.6)
 		dz : par_real("Lake bed active layer thickness", [m], 0.1)
 	}
+	
+	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 }
 
 module("SuperEasyC-Sediments", version(0, 0, 1),
@@ -390,8 +428,6 @@ module("SuperEasyC-Sediments", version(0, 0, 1),
 		init_oc : par_real("Initial lake bed oc concentration", [g, k g-1], 0.1) #TODO: Instead just use the conc from the TOC module?
 		bed_doc : par_real("Pore water DOC concentration", [m g, l-1], 5)
 	}
-	
-	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 
 	var(lake_sed.sed, [k g, m-2], "Lake bed sediment mass") @initial { dz*(1 - th)*sed_dens }
 	
@@ -404,30 +440,3 @@ module("SuperEasyC-Sediments", version(0, 0, 1),
 		in_flux(sed)->>
 	}
 }
-
-
-
-
-/*
-#TODO: Try to get P exchange between lake bed and lake to work again.
-	par_group("Particles lake-specific", epi) {
-		init_sed_p : par_real("Initial bottom sediment P concentration", [m g, g-1], 0)
-		sed_p_release : par_real("Sediments P release", [m-2, day-1], 0)
-	}
-	
-	var(bot.phos, [k g], "Lake bottom sediment phosphorous") @initial { epi.area * sed_z * sed_dens * init_sed_p ->> }
-	
-	flux(epi.water.sed.phos, bot.phos, [k g, day-1], "Epilimnion-sediment P exchange") {
-		(epi.area - hyp.area)*(sett_vel*conc(sed)*conc(sed.phos)->[k g, m-2, day-1] - bot.phos*sed_p_release)
-	}
-	flux(hyp.water.sed.phos, bot.phos, [k g, day-1], "Hypolimnion-sediment P exchange") {
-		hyp.area*(sett_vel*conc(sed)*conc(sed.phos)->[k g, m-2, day-1])
-	}
-	
-	p_dens : property("P density")
-	var(bot.p_dens, [m g, g-1], "Sediment P density") {
-		#Shouldn't use epi area since it fluctuates. A_surf maybe.
-		bot.phos / (sed_dens * sed_z * epi.area) ->>
-	}
-
-*/

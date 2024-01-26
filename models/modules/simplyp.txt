@@ -128,4 +128,25 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 	}
 }
 
+module("Simply organic C-P", version(0, 0, 1),
+	river : compartment,
+	water : quantity,
+	#plab  : quantity,
+	op    : quantity,
+	oc    : quantity
+) {
 
+	# TODO: Need to take op into account in river.water.tp
+
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+
+	par_group("Organic P") {
+		dom_pc : par_real("DOM P/C ratio", [], 0.01, 0, 0.2)
+	}
+		
+	var(river.water.op, [k g], [m g, l-1], "River DOP")
+		
+	flux(out, river.water.op, [k g, day-1], "Catchment DOP production") {
+		in_flux(oc)*pc_molar_to_mass_ratio(dom_pc)->>
+	}
+}

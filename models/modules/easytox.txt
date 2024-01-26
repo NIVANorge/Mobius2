@@ -18,11 +18,8 @@ module("EasyTox", version(0, 0, 0),
 	sedpars : preamble
 ) {
 
-	# TODO: Remains:
-	# 	exchange with bottom sediments
-	
 	par_group("Photo-degradation", tox) {
-		opt_c : par_real("Optical cross-section", [m 2, mol-1], 255, "Optical cross-section of contaminant")
+		opt_c : par_real("Absorption cross-section", [m 2, mol-1], 2, "Absorption cross-section of contaminant")
 		qy    : par_real("Quantum yield", [], 0.45, 0, 10, "Degraded contaminant mol per mol photons")
 		f_par : par_real("Fraction of photo-active", [], 0.06, 0, 1, "Fraction of incoming shortwave radiation that contributes to degradation of this contaminant")
 		e_par : par_real("Energy of photo-active", [J, mol-1], 351843, 0, 1000000, "Average energy per mol photons")
@@ -45,9 +42,9 @@ module("EasyTox", version(0, 0, 0),
 		moldiff / (1 + 3*(1 + th))
 	}
 	
-	var(lake_sed.temp, [deg_c], "Bottom temperature") { hyp.water.temp }     #TODO:   This should be t_bot instead!!
+	var(lake_sed.temp, [deg_c], "Lake sediment temperature") { hyp.water.temp }
 	
-	#TODO: Hmm, should also ideally have exchange with epi, but there is an issue that the same sediment box connects to both hyp and epi, and that would
+	#TODO: Hmm, should also ideally have exchange between sediments and epi, but there is an issue that the same sediment box connects to both hyp and epi, and that would
 	# work as a conduit for transport from hyp to epi, which is not ideal.
 	
 	flux(hyp.water.tox, lake_sed.water.tox, [k g, day-1], "Lake-sediment bed diffusive dissolved contaminant exchange") {

@@ -12,6 +12,8 @@
 		
 		Specific models
 		
+			Make simple TOC same in river and lake in terms of parametrization of concentrations (and river bed).
+		
 			Use the new preamble functionality to avoid having global par groups in more models.
 		
 		
