@@ -21,7 +21,9 @@
 		
 		
 			Split TDP between organic P and PO4 in SimplyP and EasyChem (and NIVAFjord)
-				Make phyto only use PO4, not all TDP.
+				Also for particulate P.
+				
+				
 			
 			NIVAFjord!		
 				

@@ -1,8 +1,8 @@
 data_set {
 	
 """
-TODO: Need to configure all the parameters correctly.
-TODO: Some part of the catchment that is not Mosselva (small).
+TODO: Need to configure all the parameters correctly.
+TODO: Some part of the catchment that is not Mosselva (small).
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
@@ -73,9 +73,11 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
 		"TN" : [ "Epilimnion TN" "Obs TN" ]
 		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
-		"TP" : [ "Epilimnion total phosphorous" "Obs TP" ]
+		"TP" : [ "Epilimnion TP" "Obs TP" ]
+		"TDP" : [ "Epilimnion TDP" "Obs TDP" ]
+		"DIP" : [ "concentration(Epilimnion DIP, Epilimnion volume)" "Obs DIP" "Obs TDP" ]
 		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
-		"SS" : [ "concentration(Epilimnion suspended sediments, Epilimnion volume)" "Obs SS" ]
+		"SS" : [ "Epilimnion STS" "Obs SS" ]
 		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
 	]
 	
@@ -95,7 +97,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		[ 2017-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2017-12-31 ]
+		[ 2019-12-31 ]
 	
 	}
 	
@@ -104,6 +106,33 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_real("Layer area") [
 			5653000 5528500 5404000 5279500 5155000 5030500 4906000 4781500 4657000 4532500 4408000 4330700 4253400 4176100 4098800 4021500 3944200 3866900 3789600 3712300 3635000 3572100 3509200 3446300 3383400 3320500 3257600 3194700 3131800 3068900 3006000 2948700 2891400 2834100 2776800 2719500 2662200 2604900 2547600 2490300 2433000 2369900 2306800 2243700 2180600 2117500 2054400 1991300 1928200 1865100 1802000 1733600 1665200 1596800 1528400 1460000 1391600 1323200 1254800 1186400 1118000 1061900 1005800 949700 893600 837500 781400 725300 669200 613100 557000 530600 504200 477800 451400 425000 398600 372200 345800 319400 293000 271400 249800 228200 206600 185000 163400 141800 120200 98600 77000 71100 65200 59300 53400 47500 41600 35700 29800 23900 18000 16200 14400 12600 10800 9000 7200 5400 3600 1800 
 		]
+	
+	}
+	
+	par_group("Fjord horizontal boundary", basin, fjord_conn, layer) {
+		
+		par_real("Boundary width") [
+			568 552 537 521 506 490 475 459 444 428 412 397 381 366 350 335 319 304 288 273 257 247 236 226 215 205 195 184 174 163 153 148 144 139 134 130 125 120 115 111 106 104 102 100 98 96 93 91 89 87 85 76 68 60 51 42 34 26 17 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+		]
+	
+	}
+	
+	par_group("Layer thickness", all_basin, layer) {
+		
+		par_real("Stable layer thickness") [
+			1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+		]
+	
+	}
+	
+	par_group("Solver step") {
+		
+		par_real("Initial solver step") 
+		[ 0.1 ]
+		
+		par_real("Solver relative min step") 
+		[ 0.01 ]
 	
 	}
 	
@@ -136,33 +165,6 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	par_group("Fjord horizontal boundary", basin, fjord_conn, layer) {
-		
-		par_real("Boundary width") [
-			568 552 537 521 506 490 475 459 444 428 412 397 381 366 350 335 319 304 288 273 257 247 236 226 215 205 195 184 174 163 153 148 144 139 134 130 125 120 115 111 106 104 102 100 98 96 93 91 89 87 85 76 68 60 51 42 34 26 17 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-		]
-	
-	}
-	
-	par_group("Layer thickness", all_basin, layer) {
-		
-		par_real("Stable layer thickness") [
-			1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-			1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-		]
-	
-	}
-	
-	par_group("Solver step") {
-		
-		par_real("Initial solver step") 
-		[ 0.1 ]
-		
-		par_real("Solver relative min step") 
-		[ 0.01 ]
-	
-	}
-	
 	module("NIVAFjord basin", version(0, 0, 2)) {
 		
 		par_group("Mixing parameters") {
@@ -187,25 +189,6 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			
 			par_real("Diminishing rate of additional mixing energy") 
 			[ 4 ]
-		
-		}
-		
-		par_group("Sediment parameters") {
-			
-			par_real("Deep sediment temperature") 
-			[ 6 ]
-			
-			par_real("Depth of thermally active sediment layer") 
-			[ 1 ]
-			
-			par_real("Sediment thermal conductivity") 
-			[ 4 ]
-			
-			par_real("Sediment specific heat capacity") 
-			[ 2000 ]
-			
-			par_real("Sediment density") 
-			[ 2600 ]
 		
 		}
 		
@@ -257,7 +240,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	module("NIVAFjord chemistry", version(0, 0, 2)) {
+	module("NIVAFjord chemistry", version(0, 0, 3)) {
 		
 		par_group("Initial chem", basin, layer) {
 			
@@ -275,19 +258,9 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			
 			par_real("Bubble formation coefficient") 
 			[ 0 ]
-		
-		}
-		
-		par_group("Suspended sediments") {
 			
-			par_real("Settling velocity") 
+			par_real("Oxicity threshold") 
 			[ 2 ]
-			
-			par_real("Diffuse attenuation coefficent (clear water)") 
-			[ 0.2 ]
-			
-			par_real("Shading factor") 
-			[ 0.02 ]
 		
 		}
 		
@@ -321,17 +294,46 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		
 		par_group("Microbes") {
 			
-			par_real("Respiration rate") 
-			[ 2 ]
-			
-			par_real("Respiration Q10") 
-			[ 1.58 ]
-			
-			par_real("Half-saturation concentration O₂") 
-			[ 0.0123 ]
-			
 			par_real("Molar N/C ratio in mineralization") 
 			[ 1.3 ]
+			
+			par_real("Decomposition Q10") 
+			[ 1.2 ]
+			
+			par_real("Maximal decomposition rate at 20°C") 
+			[ 0.01 ]
+			
+			par_real("Maximal denitrification rate at 20°C") 
+			[ 0.01 ]
+			
+			par_real("Microbial half-saturation concentration O₂") 
+			[ 0.0123 ]
+			
+			par_real("Molar P/C ratio in mineralization") 
+			[ 0.5 ]
+			
+			par_real("Threshold N for denitrification") 
+			[ 0.01 ]
+		
+		}
+		
+		par_group("Light") {
+			
+			par_real("Diffuse attenuation coefficent (clear water)") 
+			[ 0.2 ]
+			
+			par_real("Shading factor") 
+			[ 0.02 ]
+		
+		}
+		
+		par_group("Suspended particles") {
+			
+			par_real("Settling velocity") 
+			[ 2 ]
+			
+			par_real("POM dissolution rate") 
+			[ 0.001 ]
 		
 		}
 	
@@ -515,7 +517,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	module("SimplyC", version(1, 0, 1)) {
+	module("SimplyC land", version(1, 0, 1)) {
 		
 		par_group("DOC general") {
 			
@@ -523,7 +525,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			[ 5 ]
 			
 			par_real("Soil temperature DOC creation linear coefficient") 
-			[ 0.038 ]
+			[ 0.08 ]
 			
 			par_real("Soil temperature DOC creation second-order coefficient") 
 			[ 0 ]
@@ -542,7 +544,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("DOC land", lu) {
 			
 			par_real("Baseline soil DOC concentration") 
-			[ 12 9 ]
+			[ 16 7 ]
 		
 		}
 		
@@ -555,6 +557,10 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			[ 7 ]
 		
 		}
+	
+	}
+	
+	module("SimplyC river", version(0, 0, 1)) {
 		
 		par_group("DOC river") {
 			
@@ -713,7 +719,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			[ 0.00218 ]
 			
 			par_real("Particulate P enrichment factor") 
-			[ 1.2 ]
+			[ 1.6 ]
 			
 			par_bool("Dynamic EPC0, TDP and soil labile P") 
 			[ false ]
@@ -723,7 +729,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Soil P", lu) {
 			
 			par_real("Initial soil TDP concentration and EPC0") 
-			[ 0.15 0.009 ]
+			[ 0.06 0.006 ]
 			
 			par_real("Initial total soil P content") 
 			[ 1200 873 ]
@@ -739,7 +745,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Groundwater P") {
 			
 			par_real("Groundwater TDP concentration") 
-			[ 0.009 ]
+			[ 0.0055 ]
 		
 		}
 		
@@ -752,7 +758,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	}
 	
-	module("EasyChem", version(0, 0, 3)) {
+	module("EasyChem", version(0, 0, 4)) {
 		
 		par_group("Lake specific chemistry", lake) {
 			
@@ -765,7 +771,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			par_real("Initial lake DIN concentration") 
 			[ 0.5 0.5 0.5 0.5 ]
 			
-			par_real("Initial lake TDP concentration") 
+			par_real("Initial lake DIP concentration") 
 			[ 0.01 0.01 0.01 0.01 ]
 			
 			par_real("Initial phytoplankton concentration") 
@@ -776,6 +782,9 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			
 			par_real("Direct lake DIN deposition") 
 			[ 6 6 6 6 ]
+			
+			par_real("Initial lake DOP concentration") 
+			[ 0 0 0 0 ]
 		
 		}
 		
@@ -792,19 +801,13 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Microbes") {
 			
 			par_real("Respiration Q10") 
-			[ 2 ]
-			
-			par_real("Carbon Oxidation State adjustment coefficient") 
-			[ 2 ]
+			[ 1.6 ]
 			
 			par_real("Half-saturation concentration O₂") 
 			[ 0.0123 ]
 			
 			par_real("Respiration rate") 
-			[ 1.4 ]
-			
-			par_real("Carbon Oxidation State autoch DOC") 
-			[ 0.5 ]
+			[ 0.6 ]
 		
 		}
 		
@@ -816,14 +819,14 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			par_real("Half-saturation for nutrient uptake") 
 			[ 6 ]
 			
-			par_real("N/C ratio in Phytoplankton") 
-			[ 0.14 ]
+			par_real("Molar N/C ratio in Phytoplankton") 
+			[ 0.12 ]
 			
-			par_real("P/C ratio in Phytoplankton") 
-			[ 0.01 ]
+			par_real("Molar P/C ratio in Phytoplankton") 
+			[ 0.001 ]
 			
 			par_real("Chl-a fraction") 
-			[ 2.5 ]
+			[ 2 ]
 			
 			par_real("Phytoplankton turnover rate") 
 			[ 0.08 ]
@@ -832,55 +835,80 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			[ 4 ]
 			
 			par_real("Chl-a of phyto at equilibrium") 
-			[ 0.01 ]
+			[ 0.014 ]
 		
 		}
 		
 		par_group("Lake specific phytoplankton", lake) {
 			
 			par_real("Phytoplankton amenability") 
-			[ 1.5 1.8 1 2.4 ]
+			[ 1.5 1.8 0.8 2.2 ]
 		
 		}
 	
 	}
 	
-	module("EasyChem-Particulate", version(0, 0, 2)) {
+	module("EasyChem-Particulate", version(0, 0, 3)) {
 		
 		par_group("Particles") {
 			
 			par_real("Sediment settling velocity") 
-			[ 0.08 ]
-			
-			par_real("Bottom sediment thickness") 
-			[ 0.2 ]
+			[ 0.05 ]
 			
 			par_real("Resuspension factor") 
-			[ 3e-07 ]
-		
-		}
-		
-		par_group("Particles lake-specific", lake) {
+			[ 2e-07 ]
 			
-			par_real("Initial bottom sediment P concentration") 
-			[ 0 0 1 0.2 ]
-			
-			par_real("Sediments P release") 
-			[ 0 0 0 0 ]
+			par_real("Sediment concentration of fast settling") 
+			[ 10 ]
 		
 		}
 	
 	}
 	
-	module("Simple River O₂", version(0, 1, 0)) {
+	module("Simple River O₂", version(0, 1, 1)) {
 		
 		par_group("River oxygen") {
 			
-			par_real("Carbon Oxidation State alloch DOC") 
-			[ -0.5 ]
-			
 			par_real("Catchment O₂ saturation fraction") 
 			[ 0.9 ]
+		
+		}
+	
+	}
+	
+	module("SuperEasyChem", version(0, 0, 1)) {
+		
+		par_group("Lake CNP", lake) {
+			
+			par_real("Initial lake DOC concentration") 
+			[ 2 2 8 8 ]
+			
+			par_real("Initial lake DIN concentration") 
+			[ 0 0 0 0 ]
+			
+			par_real("Initial lake TDP concentration") 
+			[ 0 0 0 0 ]
+			
+			par_real("Lake DOC retention at 20°C") 
+			[ 0.02 0 0 0 ]
+			
+			par_real("Lake DOC retention Q10") 
+			[ 2 2 2 2 ]
+			
+			par_real("Lake DIN retention at 20°C") 
+			[ 0.015 0.015 0.015 0.04 ]
+			
+			par_real("Lake DIN retention Q10") 
+			[ 1.5 1.5 1.5 1.5 ]
+			
+			par_real("Lake TDP retention at 20°C") 
+			[ 0.009 0.009 0.009 0 ]
+			
+			par_real("Lake TDP retention Q10") 
+			[ 1 1 1 1 ]
+			
+			par_real("Hyplimnion relative retention") 
+			[ 0 0 0 0.01 ]
 		
 		}
 	
@@ -902,7 +930,68 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		par_group("Organic N") {
 			
 			par_real("DOM N/C ratio") 
-			[ 0.016 ]
+			[ 0.02 ]
+		
+		}
+	
+	}
+	
+	module("SimplyQ river trapezoid", version(0, 1, 0)) {
+		
+		par_group("Reach parameters", sc) {
+			
+			par_real("Reach bank slope") 
+			[ 1 1 1 1 1 1 1 1 ]
+			
+			par_real("Reach bottom width") 
+			[ 2 2 2 2 2 2 2 2 ]
+			
+			par_real("Reach slope") 
+			[ 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02 ]
+			
+			par_real("Reach length") 
+			[ 6000 4000 1000 20000 13000 15000 5000 4000 ]
+			
+			par_real("Manning's roughness coefficient") 
+			[ 0.04 0.04 0.04 0.04 0.04 0.04 0.04 0.04 ]
+			
+			par_real("Initial reach flow") 
+			[ 1 1 1 1 1 1 1 1 ]
+		
+		}
+	
+	}
+	
+	module("Simply organic C-P", version(0, 0, 1)) {
+		
+		par_group("Organic P") {
+			
+			par_real("DOM P/C ratio") 
+			[ 0.00015 ]
+		
+		}
+	
+	}
+	
+	module("EasyChem-Sediment-P", version(0, 0, 1)) {
+		
+		par_group("Lake sediments") {
+			
+			par_real("Lake bed porosity") 
+			[ 0.6 ]
+			
+			par_real("Lake bed active layer thickness") 
+			[ 0.01 ]
+			
+			par_real("Sediments P release") 
+			[ 3e-07 ]
+		
+		}
+		
+		par_group("Particles lake-specific", lake) {
+			
+			par_real("Initial bottom sediment P concentration") 
+			[ 0.6 0.6 0 0.6 ]
 		
 		}
 	
@@ -923,6 +1012,15 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 			
 			par_real("Initial sediment N fraction") 
 			[ 0.02 ]
+			
+			par_real("Resuspension fraction") 
+			[ 0.01 ]
+			
+			par_real("Initial sediment IP fraction") 
+			[ 1e-06 ]
+			
+			par_real("Initial sediment OP fraction") 
+			[ 1e-06 ]
 		
 		}
 	

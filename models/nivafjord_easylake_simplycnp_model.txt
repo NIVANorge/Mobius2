@@ -1,6 +1,6 @@
 
 
-model("NIVAFjord-SimplyCNP") {
+model("NIVAFjord-EasyLake-SimplyCNP") {
 
 	extend("nivafjord_model.txt")
 	
@@ -54,13 +54,13 @@ model("NIVAFjord-SimplyCNP") {
 	
 	#TODO: Like in EasyLake, we need eventually to separate tdp (phos) into dip and dop.
 	load("modules/nivafjord/fjordchem.txt",
-		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, sed, fjord_phyt, temp, salinity, wind, z, dz, indicator, attn, precip, area, A, vert, sw_vert))
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, temp, salinity, wind, z, dz, indicator, attn, precip, area, A, vert, sw_vert))
 		
 	load("modules/nivafjord/boudary_chem.txt",
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, sed, temp, salinity))
 		
 	load("modules/nivafjord/sediment.txt",
-		module("NIVAFjord sediments", layer, sediment, water, sed, oc, on, area, A, vert))
+		module("NIVAFjord sediments", layer, sediment, water, sed, oc, on, phos, op, area, A, vert))
 		
 	solve(fjord_sol, sediment.sed)
 }

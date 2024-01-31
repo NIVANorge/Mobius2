@@ -67,11 +67,9 @@ New to version 0.5:
 		spring*p_spring + autumn*(1 - p_spring)
 	}
 	
-	#e_fact : property("Erosion factor")
-	
 	var(soil.e_fact, [k g, k m-2, day-1], "Erosion factor land")          {   land_slope * c_cover * (1 - loadred) * (1 - loadred_var) =>>  }
 	
-	var(river.e_fact, [], "Erosion factor river")                         {   (1e-3*ksed * in_flux(water) / a_catch)^psed  }
+	var(river.e_fact, [], "Erosion factor river")                         {   (1e6*(ksed * in_flux(water)/a_catch)->[])^psed  }
 
 	flux(out, river.water.sed, [k g, day-1], "Sediment mobilization") {   a_catch * aggregate(soil.e_fact) * e_fact }
 }

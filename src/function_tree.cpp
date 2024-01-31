@@ -583,7 +583,7 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 	} else if (op == '^') {
 		bool is_const;
 		auto val = is_constant_rational(rhs, scope, &is_const);
-		if(b.is_fully_dimensionless() && a.is_dimensionless()) {
+		if(b.is_fully_dimensionless() && a.is_fully_dimensionless()) {
 			// Do nothing, the unit should remain dimensionless.
 		} else if(is_const) {
 			bool success = pow(a, result, Rational<s16>((s16)val.nom, (s16)val.denom));  //TODO: Ooops, this could cause truncation!

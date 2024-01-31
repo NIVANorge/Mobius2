@@ -15,52 +15,17 @@ model("EasyLake-SimplyCNP") {
 	distribute(lake_sed, lake_index)
 	solve(sol, lake_sed.sed)
 	
-	unit_conversion(epi.water.sed, lake_sed.sed) { 1/epi.area }
+	unit_conversion(epi.water.sed, lake_sed.sed) { 1/(epi.area - hyp.area) }
 	unit_conversion(hyp.water.sed, lake_sed.sed) { 1/hyp.area }
-	unit_conversion(lake_sed.sed.phos, epi.water.phos) { epi.area }
-	unit_conversion(lake_sed.sed.phos, hyp.water.phos) { hyp.area }
+	unit_conversion(epi.water.phos, lake_sed.sed.phos) { 1/(epi.area - hyp.area) }
+	#unit_conversion(lake_sed.sed.phos, epi.water.phos) { epi.area }
+	#unit_conversion(lake_sed.sed.phos, hyp.water.phos) { hyp.area }
 	
-	load("modules/easychem.txt", 
+	load("modules/easychem.txt",
+		module("Simple River O₂", river, water, o2, temp),
 		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, op, ice, sed, temp, precip, sw, wind, indicator, tp, tn, toc, area),
 		#module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out))
 		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),
-		module("EasyChem-Sediment-P", lake_sed, epi, hyp, water, phos, sed, temp)
+		module("EasyChem-Sediment-P", lake_sed, epi, hyp, water, phos, sed, temp, loc(A_surf))
 	)
-	
-	module("Simple River O₂", version(0, 1, 0)) {
-		"The purpose of this module is only to provide oxygen inputs to EasyChem."
-		
-		#TODO: Not sure if we should do anything else for this module. Could also have mass balance and instead set concs in flow from land.
-		
-		load("stdlib/seawater.txt", library("Sea oxygen"))
-		load("stdlib/physiochemistry.txt", library("Chemistry"))
-		
-		par_group("River oxygen") {
-			f_o2sat    : par_real("Catchment O₂ saturation fraction", [], 0.9, 0, 1)
-			COS_alloch : par_real("Carbon Oxidation State alloch DOC", [], -0.5, -1, 0)
-		}
-
-		var(river.water.o2, [k g], [m g, l-1], "River oxygen") 
-		#@override_conc {
-		#	o2_saturation(temp, 0) * o2_mol_mass ->>
-		#}
-		flux(out, river.water.o2, [k g, day-1], "River oxygen from catchment") {
-			#catch_conc := 8[m g, l-1],#
-			catch_conc := f_o2sat*o2_saturation(temp, 0) * o2_mol_mass,
-			in_flux(water)*catch_conc->>
-		}
-		
-		var(river.water.oc.o2, [k g], [], "River DOC oxidation state") @override_conc {
-			1 + COS_alloch/4
-		}
-		
-		# Hmm: This doesn't work properly unless you also count it under PP(TDP?) and TP in the river.
-		var(river.water.phyt, [k g], [m g, l-1]) # Just to allow transport of it.
-		#flux(river.water.phyt, river.water.oc, [k g, day-1], "River phyto DOC release") {
-		#	phyt*0.1[day-1]
-		#}
-		#flux(out, river.water.sed.phos, [k g, day-1], "River phyto P release") {
-		#	0=>>#phyt*0.009*0.1[day-1]
-		#}
-	}
 }

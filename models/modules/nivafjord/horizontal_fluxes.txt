@@ -123,7 +123,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(layer.water.horz_bal, [m 3, day-1]) {
 		#TODO: If we implement out_flux, we don't need the separate horz_flow variable.
 		aggregate(edge_layer.horz_flow) - in_flux(horz, water)->>
-	}
+	} @no_store
 	
 	align : property("Vertical realignment")
 	var(layer.water.align, [m 3, day-1])

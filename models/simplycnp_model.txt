@@ -12,6 +12,6 @@ model("SimplyCNP") {
 	tn   : property("Total nitrogen")
 	
 	load("modules/simplyn.txt",    module("Simply organic C-N", river, water, din, on, oc, tn))
-	load("modules/simplyp.txt",    module("Simply organic C-P", river, water, op, oc))
+	load("modules/simplyp.txt",    module("Simply organic C-P", river, water, op, oc, sed))
 	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc))
 }

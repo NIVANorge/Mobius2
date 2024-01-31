@@ -198,10 +198,10 @@ data_set {
 			[ -0.9 ]
 			
 			par_real("Water-OC rate coefficient") 
-			[ 0.005 ]
+			[ 0.05 ]
 			
 			par_real("Fast-Slow rate coefficient") 
-			[ 0.0005 ]
+			[ 0.05 ]
 			
 			par_real("Contaminant half life") 
 			[ 730 ]
@@ -213,7 +213,7 @@ data_set {
 			[ 8 ]
 			
 			par_real("Water-air rate coefficient") 
-			[ 0.005 ]
+			[ 0.05 ]
 			
 			par_real("Soil atmosphere exchange rate") 
 			[ 0.01 ]
@@ -228,7 +228,7 @@ data_set {
 			[ 20000 ]
 			
 			par_real("Contaminant half life (groundwater and sediments)") 
-			[ 20000 ]
+			[ 4000 ]
 		
 		}
 	
@@ -266,7 +266,7 @@ data_set {
 		par_group("DOC general") {
 			
 			par_real("Soil temperature DOC creation linear coefficient") 
-			[ 0 ]
+			[ 0.01 ]
 			
 			par_real("Soil temperature DOC creation second-order coefficient") 
 			[ 0 ]
@@ -281,24 +281,24 @@ data_set {
 			[ equilibrium ]
 			
 			par_enum("Groundwater DOC computation type") 
-			[ soil_avg ]
+			[ half_life ]
 		
 		}
 		
 		par_group("DOC land", lu) {
 			
 			par_real("Baseline soil DOC concentration") 
-			[ 10 ]
+			[ 6 ]
 		
 		}
 		
 		par_group("DOC deep soil", gw) {
 			
 			par_real("Groundwater DOC half-life") 
-			[ 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ]
+			[ 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 800 ]
 			
 			par_real("Groundwater DOC concentration") 
-			[ 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 ]
+			[ 6 5 4 3.5 3 2.5 2 1.8 1.6 1.4 1.2 1 1 0.8 0.6 0.4 0.4 0.4 0.3 0.3 0.2 0.2 0.2 0.2 0.2 0.1 0.1 0.1 0.1 0.1 ]
 		
 		}
 	

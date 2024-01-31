@@ -133,7 +133,8 @@ module("Simply organic C-P", version(0, 0, 1),
 	water : quantity,
 	#plab  : quantity,
 	op    : quantity,
-	oc    : quantity
+	oc    : quantity,
+	sed   : quantity
 ) {
 
 	# TODO: Need to take op into account in river.water.tp
@@ -145,8 +146,11 @@ module("Simply organic C-P", version(0, 0, 1),
 	}
 		
 	var(river.water.op, [k g], [m g, l-1], "River DOP")
+	var(river.water.sed.op, [k g], "River POP")
 		
 	flux(out, river.water.op, [k g, day-1], "Catchment DOP production") {
 		in_flux(oc)*pc_molar_to_mass_ratio(dom_pc)->>
 	}
+	
+	# Should there be POP production?
 }

@@ -46,7 +46,7 @@ A simple DOC model.
 		
 	var(gw.water.oc,   [k g, k m -2], [m g, l-1], "Deep soil DOC")
 		@initial_conc {
-			gwdocconc                       if gwdoc_type.const,
+			gwdocconc                       if gwdoc_type.const | gwdoc_type.half_life,
 			aggregate(conc(soil.water.oc))  otherwise
 		} @override_conc {
 			gwdocconc                       if gwdoc_type.const,

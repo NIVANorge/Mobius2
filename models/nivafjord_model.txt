@@ -74,5 +74,4 @@ model("NIVAFjord") {
 	fjord_sol : solver("NIVAFjord solver", euler, solver_h, solver_hmin)
 	
 	solve(fjord_sol, layer.water, basin.ice)
-	#solve(fjord_sol, sediment.heat)
 }
