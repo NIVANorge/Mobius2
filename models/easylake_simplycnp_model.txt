@@ -7,10 +7,6 @@ model("EasyLake-SimplyCNP") {
 	phyt : quantity("Phytoplankton")
 	o2   : quantity("O₂")
 	
-	#bot  : compartment("Lake bottom sediments")
-	#distribute(bot, lake_index)
-	#solve(simply_solver, bot.phos)
-	
 	lake_sed : compartment("Lake sediment bed")
 	distribute(lake_sed, lake_index)
 	solve(sol, lake_sed.sed)
@@ -18,12 +14,10 @@ model("EasyLake-SimplyCNP") {
 	unit_conversion(epi.water.sed, lake_sed.sed) { 1/(epi.area - hyp.area) }
 	unit_conversion(hyp.water.sed, lake_sed.sed) { 1/hyp.area }
 	unit_conversion(epi.water.phos, lake_sed.sed.phos) { 1/(epi.area - hyp.area) }
-	#unit_conversion(lake_sed.sed.phos, epi.water.phos) { epi.area }
-	#unit_conversion(lake_sed.sed.phos, hyp.water.phos) { hyp.area }
 	
 	load("modules/easychem.txt",
 		module("Simple River O₂", river, water, o2, temp),
-		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, op, ice, sed, temp, precip, sw, wind, indicator, tp, tn, toc, area),
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, op, ice, sed, temp, precip, sw, wind, indicator, tp, tdp, tn, toc, area, om_cnp),
 		#module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out))
 		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),
 		module("EasyChem-Sediment-P", lake_sed, epi, hyp, water, phos, sed, temp, loc(A_surf))

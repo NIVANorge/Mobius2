@@ -76,7 +76,7 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 	Entity_Id      decl_id    = invalid_entity_id;     // This is the ID of the declaration, either Decl_Type::has or Decl_Type::flux
 	Entity_Id      connection = invalid_entity_id;     // Set if this is a flux on a connection.
 	Var_Id         conc       = invalid_var;           // If this is a mass (or volume) variable of a dissolved quantity, conc is the variable for the concentration.
-	
+
 	// If this is the source or target variable of one or more connection fluxes, these point to the aggregation variables for the connection fluxes.
 	// (one variable per connection, not per flux) (only all_to_all have agg for the source yet.)
 	std::vector<Var_Id> conn_source_aggs;

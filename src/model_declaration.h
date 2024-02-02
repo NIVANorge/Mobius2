@@ -139,6 +139,8 @@ Var_Registration : Registration_Base {
 	bool override_is_conc = false;
 	Math_Block_AST *override_code = nullptr;
 	
+	Math_Block_AST *adds_code_to_existing = nullptr;
+	
 	void process_declaration(Catalog *catalog);
 };
 

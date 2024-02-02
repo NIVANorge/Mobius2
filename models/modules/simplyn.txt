@@ -6,7 +6,8 @@ module("SimplyN", version(0, 0, 4),
 	water  : quantity,
 	din    : quantity,
 	sn     : quantity,
-	temp   : property
+	temp   : property,
+	tn     : property
 ) {
 """
 A simple dissolved inorganic nitrogen (DIN) model.
@@ -81,30 +82,9 @@ This module is not finished.
 		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10),
 		din * rate
 	}
-}
-
-module("Simply organic C-N", version(0, 0, 1),
-	river : compartment,
-	water : quantity,
-	din   : quantity,
-	on    : quantity,
-	oc    : quantity,
-	tn    : property
-) {
-
-	load("stdlib/physiochemistry.txt", library("Chemistry"))
-
-	par_group("Organic N") {
-		dom_nc : par_real("DOM N/C ratio", [], 0.01, 0, 0.2)
-	}
-		
-	var(river.water.on, [k g], [m g, l-1], "River DON")
-		
-	flux(out, river.water.on, [k g, day-1], "Catchment DON production") {
-		in_flux(oc)*nc_molar_to_mass_ratio(dom_nc)->>
-	}
 	
+	# Note: other modules can add to this one.
 	var(river.water.tn, [m g, l-1], "River TN") {
-		conc(din) + conc(on)
+		conc(din)
 	}
 }

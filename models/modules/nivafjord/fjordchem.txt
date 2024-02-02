@@ -16,6 +16,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	op    : quantity,
 	sed   : quantity,
 	phyt  : quantity,
+	zoo   : quantity,
 	temp  : property,
 	salin : property,
 	wind  : property,
@@ -60,6 +61,8 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
 		phyt_nc    : par_real("Molar N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
 		phyt_pc    : par_real("Molar P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
+		excr       : par_real("Phytoplankton excretion rate", [day-1], 0.01, 0, 0.1)
+		
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
 	
@@ -147,7 +150,6 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		sett_vel * conc(sed) * sediment.area ->>
 	}
 	
-	# Temperature dependence of dissolution?
 	flux(layer.water.sed.oc, layer.water.oc, [k g, day-1], "Layer POC dissolution") {
 		diss_r * sed.oc
 	}
@@ -169,7 +171,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	N_lim     : property("Nitrogen limitation")
 	P_lim     : property("Phosphorus limitation")
 	
-	#TODO: Ideally factor out from EasyChem:
+
 	
 	var(layer.water.phyt, [k g], [m g, l-1], "Layer phytoplankton")
 	var(layer.water.phyt.oc, [k g], "Phytoplankton C") @override_conc { 1 }
@@ -211,16 +213,20 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	}
 	
 	flux(out, layer.water.phyt, [k g, day-1], "Phytoplankton growth") {   fix   }
-	
 	flux(layer.water.din, layer.water.phyt.on, [k g, day-1], "Phytoplankton growth N uptake") {   phyt.fix*nc_molar_to_mass_ratio(phyt_nc)   }
 	flux(layer.water.phos, layer.water.phyt.op, [k g, day-1], "Phytoplankton growth P uptake") {   phyt.fix*pc_molar_to_mass_ratio(phyt_pc)   }
 	
-	# TODO: Production of surplus DOC when growth is nutrient limited? (Page 44 in 3113-94)
+	flux(layer.water.phyt,    layer.water.oc, [k g, day-1], "Phytoplankton C excretion") { excr*phyt }
+	flux(layer.water.phyt.on, layer.water.on, [k g, day-1], "Phytoplankton N excretion") { excr*phyt.on }
+	flux(layer.water.phyt.op, layer.water.op, [k g, day-1], "Phytoplankton P excretion") { excr*phyt.op }
 	
-	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10)
+	
+	
+	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10) # Parametrize?
 	
 	flux(layer.water.phyt, layer.water.sed, [k g, day-1], "Phytoplankton death")  {
-		o2_factor := s_response(conc(o2), 0.7*ox_th, 1.3*ox_th, phyt_death_anox, 1),
+		wd := 0.5,
+		o2_factor := s_response(conc(o2), (1-wd)*ox_th, (1+wd)*ox_th, phyt_death_anox, 1),
 		phyt_turnover*phyt*o2_factor
 	}
 	
@@ -251,8 +257,9 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	ox_fac : property("Oxicity factor")
 	var(layer.water.ox_fac, []) {
-		#0.5*(1 + tanh(conc(o2) - ox_th))
-		wd := 0.3,
+		#0.5*(1 + tanh((conc(o2) - ox_th)=>[]))
+		
+		wd := 1,
 		s_response(conc(o2), (1-wd)*ox_th, (1+wd)*ox_th, 0, 1)
 	} @no_store
 	
@@ -262,16 +269,10 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	} @no_store
 	
 	min_rat : property("Mineralization rate")
-	denit_rat : property("Denitrification rate")
 	
 	var(layer.water.min_rat, [day-1], "OM mineralization rate") {
 		ox_fac*temp_fac*maxdecomp_20
-	}
-	
-	var(layer.water.denit_rat, [day-1], "Denitrification rate") {
-		wd := 0.3,
-		(1-ox_fac)*temp_fac*maxdenitr_20*s_response(conc(din), (1-wd)*n_denit_th, (1+wd)*n_denit_th, 0, 1)
-	}
+	} @no_store
 	
 	flux(layer.water.oc, out, [k g, day-1], "DOC mineralization") {
 		oc*min_rat
@@ -281,7 +282,6 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		sed.oc*min_rat
 	}
 	
-	
 	# TODO: Finish oxygen budget. Has to take into account all decay processes (including N, P).
 	# How take into account existing oxygen content of DOM?
 	flux(layer.water.o2, out, [k g, day-1], "O₂ microbial consumption") {
@@ -290,14 +290,13 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		# + also PO4 formation.
 	}
 	
-	flux(out, layer.water.o2, [k g, day-1], "O₂ microbial production") {
-		(3./2.)*(o2_mol_mass/n_mol_mass)*din*denit_rat
-	}
-	
+	#flux(out, layer.water.o2, [k g, day-1], "O₂ microbial production") {
+	#	(3./2.)*(o2_mol_mass/n_mol_mass)*din*denit_rat
+	#}
 	
 	limit_rate : function(rate : [k g, day-1], mass : [k g]) {
-		#s_response(rate, 0, 0.5[day-1]*max(0, mass), 0, rate)
-		min(rate, 0.5[day-1]*mass) #TODO: This is not that smooth, but the above didn't work for some reason.
+		#s_response(rate, 0, 0.5[day-1]*max(0, mass), 0, rate)   # TODO: Why doesn't this one work?
+		min(rate, 0.5[day-1]*mass) #TODO: This is not that smooth.
 	}
 	
 	flux(layer.water.on, layer.water.din, [k g, day-1], "DON mineralization") {
@@ -323,15 +322,30 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		limit_rate(rate, sed.op)
 	}
 	
-	# TODO: Direct denitrification of ON.
-	
-	# What happens to o2 when there is denitrification?
-	
-	flux(layer.water.din, out, [k g, day-1], "NO3 denitrification") {
-		din*denit_rat
+	denit_rat : property("Denitrification rate")
+	var(layer.water.denit_rat, [day-1], "Denitrification rate") {
+		wd := 1,
+		n_fac := s_response(conc(din), (1-wd)*n_denit_th, (1+wd)*n_denit_th, 0, 1),
+		(1-ox_fac)*temp_fac*maxdenitr_20*n_fac
+	} @no_store
+
+	# TODO: These should break down all organic matter including C and P.
+	flux(layer.water.on, out, [k g, day-1], "DON denitrification loss") {
+		water.on*denit_rat
 	}
 	
-	# TODO: Oxygen loss to S and Mn reduction .
+	flux(layer.water.sed.on, out, [k g, day-1], "PON denitrification loss") {
+		water.sed.on*denit_rat
+	}
+	
+	n_to_n : constant("Richards denitrification factor", [], 5.3e3)
+	
+	flux(layer.water.din, out, [k g, day-1], "NO3 denitrification loss") {
+		n_to_n*(water.on + water.sed.on)*denit_rat
+	}
+	
+	
+	# TODO: Oxygen loss to S and Mn .
 	
 	# TODO: Partitioning of inorganic P between particles and water. 
 
@@ -351,7 +365,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	# Anoxic without NO3:
 	#  Sulfate reduction. (In NIVAFjord).
 	
-	# PO4 release from particles/ Organic P?
+	# PO4 release from / adsorption to particles
 	
 }
 

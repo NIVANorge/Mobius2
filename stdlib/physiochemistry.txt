@@ -104,9 +104,6 @@ library("Chemistry") {
 	nc_molar_to_mass_ratio : function(nc_molar : []) {   nc_molar * n_mol_mass / c_mol_mass   }
 	pc_molar_to_mass_ratio : function(pc_molar : []) {   pc_molar * p_mol_mass / c_mol_mass   }
 	
-	#ca_valency   : constant("Ca valency", [eq, mol-1], 2)
-
-	#mass_to_eq : function(mass, mol_mass, valency) {
-	#	mass * valency / mol_mass
-	#}
+	cn_molar_to_mass_ratio : function(cn_molar : []) {   cn_molar * c_mol_mass / n_mol_mass   }
+	cp_molar_to_mass_ratio : function(cp_molar : []) {   cp_molar * c_mol_mass / p_mol_mass   }
 }

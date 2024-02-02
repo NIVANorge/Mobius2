@@ -186,8 +186,8 @@ struct
 Code_Special_Lookups {
 	std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>>            in_fluxes;
 	std::map<Var_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
-	// aggregates[agg_of] is a pair ( (to_compartment), (looked_up_by) )
-	/* where
+	/* aggregates[agg_of] is a pair ( (to_compartment), (looked_up_by) )
+	  where
 		agg_of is the variable that needs an aggregation variable
 		to_compartment is a set of compartments whose point of view we need an aggregate from
 		looked_up_by   is a list of other variables who need to veiw this aggregate from their function.
@@ -1220,7 +1220,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 			initial_is_conc = override_is_conc;
 		}
 		
-		if(var2->decl_type == Decl_Type::quantity && ast) {
+		if((var2->decl_type == Decl_Type::quantity) && ast) {
 			var_decl->source_loc.print_error_header();
 			fatal_error("A quantity should not have an un-tagged code block.");
 		}
@@ -1255,6 +1255,38 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 		if(keep_code)
 			var2->function_tree = owns_code(fun);
 		else
+			delete fun;
+	}
+	
+	// See if there are any other declarations that 'add_to_existing' for this one.
+	//   Hmm, this is now N^2. We could instead store info about this from an earlier pass.
+	// TODO: Also, this will now not trigger at all if we 'add_to_existing' on something that doesn't exist.
+	for(auto id : model->vars) {
+		auto var_decl = model->vars[id];
+		if(!var_decl->adds_code_to_existing) continue;
+		if(var_decl->var_location != var->loc1) continue;
+		if(var2->decl_type != Decl_Type::property) {  // Could also make it work for 'override'.
+			var_decl->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("An 'add_to_existing' can only be done on a property, not on a quantity");
+		}
+		if(!ast) {
+			var_decl->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("This 'add_to_existing' adds to something that doesn't already have code.");
+		}
+		auto res_data2 = res_data;
+		res_data2.scope = model->get_scope(var_decl->scope_id);
+		auto res = resolve_function_tree(var_decl->adds_code_to_existing, &res_data2);
+		auto fun = make_cast(res.fun, Value_Type::real);
+		find_identifier_flags(app, fun, specials, var_id, from_compartment);
+		
+		if(!match_exact(&res.unit, &res_data2.expected_unit)) {
+			var_decl->adds_code_to_existing->source_loc.print_error_header();
+			fatal_error("Expected the unit of this expression to resolve to ", res_data2.expected_unit.to_utf8(), " (standard form), but got, ", res.unit.to_utf8(), ".");
+		}
+		if(keep_code) {
+			auto existing = copy(var2->function_tree.get());
+			var2->function_tree = owns_code(make_binop('+', existing, fun));
+		} else
 			delete fun;
 	}
 	

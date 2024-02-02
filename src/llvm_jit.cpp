@@ -128,6 +128,9 @@ create_llvm_module() {
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_atan, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_acos, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_asin, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_tanh, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_sinh, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_cosh, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_cbrt, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_floor, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_ceil, mathfun_type);

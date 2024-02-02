@@ -9,9 +9,10 @@ model("SimplyCNP") {
 	on   : quantity("Organic nitrogen")
 	op   : quantity("Organic phosphorous")
 	toc  : property("Total organic carbon")
-	tn   : property("Total nitrogen")
 	
-	load("modules/simplyn.txt",    module("Simply organic C-N", river, water, din, on, oc, tn))
-	load("modules/simplyp.txt",    module("Simply organic C-P", river, water, op, oc, sed))
-	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc))
+	load("modules/simplyc.txt",
+		module("Simple river TOC", river, water, oc, sed, toc))
+	load("modules/organic_np.txt",
+		om_cnp : preamble("Organic CNP land"),
+		module("Simple organic NP", river, water, oc, sed, on, op, tn, tp, tdp, om_cnp))
 }

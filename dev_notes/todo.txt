@@ -138,6 +138,10 @@
 			Need to check that a bidirectional flux wasn't discrete.
 		Note: unit_conversion seems to work fine for @mixing, but we should test it properly. Also, it probably depends on the concentration variable being the same for dissolved ones (just not the mass variable). That is maybe also the case for @bidirectional.
 	
+	
+		Make it possible to compose locs that have restrictions.
+	
+	
 	*** Intermediate-pri ***
 	
 	

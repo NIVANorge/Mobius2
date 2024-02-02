@@ -698,10 +698,20 @@ Var_Registration::process_declaration(Catalog *catalog) {
 			process_location_argument(model, scope, note->args[0], &additional_conc_medium);
 			additional_conc_unit = scope->resolve_argument(Reg_Type::unit, note->args[1]);
 			
+		} else if(str == "add_to_existing") {
+			
+			match_declaration_base(note, {{}}, -1);
+			adds_code_to_existing = static_cast<Function_Body_AST *>(note->body)->block;
+			
 		} else {
 			note->decl.print_error_header();
 			fatal_error("Urecognized note '", str, "' for var declaration.");
 		}
+	}
+	
+	if(adds_code_to_existing && (code || override_code || initial_code)) {
+		source_loc.print_error_header();
+		fatal_error("An 'add_to_existing' block can't be combined with other function blocks for a single 'var' declaration.");
 	}
 	
 	if(override_code && code) {

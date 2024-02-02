@@ -10,6 +10,7 @@ module("SimplyP", version(0, 6, 0),
 	flow    : property,
 	e_fact  : property,
 	tp      : property,
+	tdp     : property,
 	a_catch : par_real
 ) {
 """
@@ -67,7 +68,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		init_epc0                             otherwise
 	} @initial { init_epc0 }
 	
-	var(soil.water.phos, [k g, k m-2], [m g, l-1], "Soil TDP mass") @override {
+	var(soil.water.phos, [k g, k m-2], [m g, l-1], "Soil DIP mass") @override {
 		{
 			days   := time.step_length_in_seconds->[day],
 			pin    := p_input * days / time.days_this_year ->[k g, k m-2],
@@ -104,11 +105,11 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 
 	var(soil.plab.plabconc, [m g, k g-1]) {  plab / m_soil_m2  }
 	
-	var(gw.water.phos, [k g, k m-2], [m g, l-1], "Groundwater TDP") @initial_conc { gw_tdp } @override_conc { gw_tdp }
+	var(gw.water.phos, [k g, k m-2], [m g, l-1], "Groundwater DIP") @initial_conc { gw_tdp } @override_conc { gw_tdp }
 	
-	var(river.water.phos, [k g], [m g, l-1], "River TDP") @initial_conc { gw_tdp }
+	var(river.water.phos, [k g], [m g, l-1], "River DIP") @initial_conc { gw_tdp }
 	
-	flux(out, river.water.phos, [k g, day-1], "River effluent TDP") { eff_tdp }
+	flux(out, river.water.phos, [k g, day-1], "River effluent DIP") { eff_tdp }
 	
 	var(river.water.sed.phos, [k g], "River PP")
 	@show_conc(river.water, [m g, l-1])      # The default concentration displayed is the conc of phos in sed. We want conc of phos in water.
@@ -123,34 +124,11 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 		a_catch * river.e_fact * aggregate(soil.plab.pp_fact)
 	}
 	
-	var(river.water.tp, [m g, l-1]) {
+	var(river.water.tp, [m g, l-1], "River TP") {
 		conc(phos) + conc(sed)*conc(sed.phos)   # NOTE: conc(sed.phos) still refers to the default concentration of phos in sed, not in water, hence we must multiply.
 	}
-}
-
-module("Simply organic C-P", version(0, 0, 1),
-	river : compartment,
-	water : quantity,
-	#plab  : quantity,
-	op    : quantity,
-	oc    : quantity,
-	sed   : quantity
-) {
-
-	# TODO: Need to take op into account in river.water.tp
-
-	load("stdlib/physiochemistry.txt", library("Chemistry"))
-
-	par_group("Organic P") {
-		dom_pc : par_real("DOM P/C ratio", [], 0.01, 0, 0.2)
-	}
-		
-	var(river.water.op, [k g], [m g, l-1], "River DOP")
-	var(river.water.sed.op, [k g], "River POP")
-		
-	flux(out, river.water.op, [k g, day-1], "Catchment DOP production") {
-		in_flux(oc)*pc_molar_to_mass_ratio(dom_pc)->>
-	}
 	
-	# Should there be POP production?
+	var(river.water.tdp, [m g, l-1], "River TDP") { # NOTE: Other modules for organic P can add to this.
+		conc(phos)
+	}
 }
