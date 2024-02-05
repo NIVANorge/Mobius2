@@ -284,13 +284,9 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	# How take into account existing oxygen content of DOM?
 	flux(layer.water.o2, out, [k g, day-1], "O₂ microbial consumption") {
 		(oc + sed.oc)*min_rat*(o2_mol_mass/c_mol_mass)
-		#+ (on + sed.on)*   have to take into account the limited rate from below.
-		# + also PO4 formation.
+		# + NH4 -> NO3
+		# + also PO4 formation? (maybe not, it has O bound to it in organic form?)
 	}
-	
-	#flux(out, layer.water.o2, [k g, day-1], "O₂ microbial production") {
-	#	(3./2.)*(o2_mol_mass/n_mol_mass)*din*denit_rat
-	#}
 	
 	limit_rate : function(rate : [k g, day-1], mass : [k g]) {
 		#s_response(rate, 0, 0.5[day-1]*max(0, mass), 0, rate)   # TODO: Why doesn't this one work?
@@ -348,8 +344,8 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	# Should probably have them in a separate module so that it could be reused for sediments.
 	
 	# Oxic:
-	#  ON, O2  -> NO3      Mineralization
-	#  OC, O2  -> CO2
+	#  OC, O2  -> CO2  Mineralization
+	#  ON, O2  -> NO3  (really via NH4)    
 	#  OP, O2  -> PO4
 	#  NH4, O2 ->  NO3     Nitrification
 	
@@ -357,7 +353,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	#  OC, NO3 -> CO2, N2   Denitrification
 	
 	# Anoxic without NO3:
-	#  Sulfate reduction. (In NIVAFjord).
+	#  Sulfate (and Mn) reduction. (In NIVAFjord).
 	
 	# PO4 release from / adsorption to particles
 	
