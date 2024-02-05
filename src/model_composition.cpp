@@ -899,6 +899,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->loc2.r1 = flux->loc2.r1;
 			gen_flux->loc2.r2 = flux->loc2.r2;
 			
+			gen_flux->store_series = false;
+			
 			gen_flux->allowed_index_sets = get_allowed_index_sets(app, gen_flux->loc1, gen_flux->loc2);
 		}
 	
@@ -1364,7 +1366,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 	
 	if(specific_ast) {
 		res_data.allow_no_override = false;
-		res_data.allow_in_flux = false; // Do we??
+		res_data.allow_in_flux = false;
 		res_data.expected_unit = {};
 		res_data.allow_no_override = false;
 		auto res = resolve_function_tree(specific_ast, &res_data);

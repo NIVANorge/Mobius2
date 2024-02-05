@@ -90,8 +90,6 @@ library("Diffusivity") {
 
 
 library("Chemistry") {
-
-	#avogadro         : constant("Avogadro constant", [mol -1], 6.02214076e23)
 	
 	o2_mol_mass  : constant("O₂ molar mass",    [g, mol-1], 31.998)
 	c_mol_mass   : constant("C molar mass",     [g, mol-1], 12)

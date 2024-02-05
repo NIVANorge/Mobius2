@@ -642,10 +642,10 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		par_group("Light") {
 			
 			par_real("Diffuse attenuation coefficent (clear water)") 
-			[ 0.2 ]
+			[ 0.15 ]
 			
 			par_real("Shading factor") 
-			[ 0.005 ]
+			[ 0.003 ]
 		
 		}
 		
@@ -800,7 +800,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			[ 6.625 ]
 			
 			par_real("OM molar C/P ratio") 
-			[ 106 ]
+			[ 306 ]
 		
 		}
 	

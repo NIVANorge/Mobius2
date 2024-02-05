@@ -51,10 +51,10 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, w_bnd, A, dz0))
 	
 	fjord_phyt : quantity("Fjord phytoplankton") # To distinguish from freshwater once we add EasyLake.
+	zoo        : quantity("Zooplankton")
 	
-	#TODO: Like in EasyLake, we need eventually to separate tdp (phos) into dip and dop.
 	load("modules/nivafjord/fjordchem.txt",
-		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, temp, salinity, wind, z, dz, indicator, attn, precip, area, A, vert, sw_vert))
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, temp, salinity, wind, z, dz, indicator, attn, precip, area, A, vert, sw_vert))
 		
 	load("modules/nivafjord/boudary_chem.txt",
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, sed, temp, salinity))
