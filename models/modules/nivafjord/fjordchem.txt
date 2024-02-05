@@ -106,8 +106,6 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	var(layer.water.sed.on, [k g], "Layer PON") @show_conc(layer.water, [m g, l-1])
 	
-	
-	
 	p_vel     : property("O₂ piston velocity")
 	o2satconc : property("O₂ saturation concentration")
 	o2sat     : property("O₂ saturation")
@@ -126,7 +124,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	flux(out, layer.water.o2[vert.top], [k g, day-1], "Precipitation O₂") {
 		precip_saturation := 0.9, # Probably ok estimate? Not extremely important in any case.
-		conc := precip_saturation*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],
+		conc := precip_saturation*o2_saturation(air.temp, 0)*o2_mol_mass,
 		air.precip*A[vert.top]*conc->>
 	}
 
@@ -329,13 +327,13 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		(1-ox_fac)*temp_fac*maxdenitr_20*n_fac
 	} @no_store
 
-	# TODO: These should break down all organic matter including C and P.
-	flux(layer.water.on, out, [k g, day-1], "DON denitrification loss") {
-		water.on*denit_rat
+	
+	flux(layer.water.oc, out, [k g, day-1], "DOC mineralization by denitrification") {
+		water.oc*denit_rat
 	}
 	
-	flux(layer.water.sed.on, out, [k g, day-1], "PON denitrification loss") {
-		water.sed.on*denit_rat
+	flux(layer.water.sed.oc, out, [k g, day-1], "POC mineralization by denitrification") {
+		water.sed.oc*denit_rat
 	}
 	
 	n_to_n : constant("Richards denitrification factor", [], 5.3e3)
@@ -345,22 +343,18 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	}
 	
 	
-	# TODO: Oxygen loss to S and Mn .
-	
-	# TODO: Partitioning of inorganic P between particles and water. 
-
-	
-	
 	# Processes:
 	
 	# Should probably have them in a separate module so that it could be reused for sediments.
 	
 	# Oxic:
-	#  ON, O2  ->  NO3      Mineralization
-	#  NH4, O2 ->  NO3      Nitrification
+	#  ON, O2  -> NO3      Mineralization
+	#  OC, O2  -> CO2
+	#  OP, O2  -> PO4
+	#  NH4, O2 ->  NO3     Nitrification
 	
 	# Anoxic, with NO3:
-	#  NO3 -> N2   (O2?)    Denitrification
+	#  OC, NO3 -> CO2, N2   Denitrification
 	
 	# Anoxic without NO3:
 	#  Sulfate reduction. (In NIVAFjord).
