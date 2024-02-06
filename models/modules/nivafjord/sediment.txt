@@ -1,5 +1,5 @@
 
-module("NIVAFjord sediments", version(0, 0, 1),
+module("NIVAFjord sediments", version(0, 0, 2),
 	layer    : compartment,
 	sediment : compartment,
 	water    : quantity,
@@ -19,13 +19,14 @@ module("NIVAFjord sediments", version(0, 0, 1),
 	par_group("Sediments") {
 		th       : par_real("Active sediment thickness", [m], 0.1, 0.00001, 1)
 		porosity : par_real("Sediment porosity", [], 0.5, 0, 0.99)
-		
-		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 0.01, 0, 1)
-		init_n   : par_real("Initial sediment N fraction", [g, k g-1], 0.00001, 0, 1)
-		init_p   : par_real("Initial sediment IP fraction", [g, k g-1], 0.000001, 0, 1)
-		init_op  : par_real("Initial sediment OP fraction", [g, k g-1], 0.000001, 0, 1)
-		
 		resus    : par_real("Resuspension fraction", [], 0.01, 0, 1, "Fraction of settling material that is resuspended")
+	}
+	
+	par_group("Initial chem", sediment) {
+		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 10, 0, 1)
+		init_n   : par_real("Initial sediment N fraction", [g, k g-1], 1, 0, 1)
+		init_p   : par_real("Initial sediment IP fraction", [g, k g-1], 1, 0, 1)
+		init_op  : par_real("Initial sediment OP fraction", [g, k g-1], 0.1, 0, 1)
 	}
 	
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
