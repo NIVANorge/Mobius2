@@ -3,14 +3,17 @@ module("NIVAFjord sediments", version(0, 0, 1),
 	layer    : compartment,
 	sediment : compartment,
 	water    : quantity,
+	o2       : quantity,
 	sed      : quantity,
 	oc       : quantity,
+	din      : quantity,
 	on       : quantity,
 	phos     : quantity,
 	op       : quantity,
 	area     : property,
 	A        : par_real,
-	vert     : connection
+	vert     : connection,
+	chem_par : preamble
 ) {
 	
 	par_group("Sediments") {
@@ -24,6 +27,8 @@ module("NIVAFjord sediments", version(0, 0, 1),
 		
 		resus    : par_real("Resuspension fraction", [], 0.01, 0, 1, "Fraction of settling material that is resuspended")
 	}
+	
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	
 	sed_rho : constant("Sediment density", [k g, m-3], 2600) #Parameter?
 	
@@ -47,6 +52,44 @@ module("NIVAFjord sediments", version(0, 0, 1),
 	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)*(1 - resus) ->>   }  # Keep the layer the same thickness by moving down as much as accumulates on top
 	
 	
-	#TODO: Microbial processes for C, N, P and O2.
+	
+	
+	#TODO: It is annoying to redo the below formulas for the sediments. Should be possible to unify the code.
+	
+	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization") {
+		sed.oc*layer.water.min_rat
+	}
+	
+	flux(sediment.sed.on, layer.water.din, [k g, day-1], "PON mineralization and nitrification") {
+		sed.on*layer.water.min_rat*n_min
+	}
+	
+	# TODO: Should we assume PO4 formation is O2 limited?
+	flux(sediment.sed.op, sediment.sed.phos, [k g, day-1], "POP mineralization") {
+		sed.op*layer.water.temp_fac*maxdecomp_20*p_min
+	}
+	
+	# TODO: Finish oxygen budget. Has to take into account all decay processes (including N, P).
+	# How take into account existing oxygen content of DOM?
+	flux(layer.water.o2, out, [k g, day-1], "O₂ sediment microbial consumption") {
+		mr := layer.water.min_rat,
+		(sediment.sed.oc)*mr*(o2_mol_mass/c_mol_mass)*O2toC    
+		+ (sediment.sed.on)*mr*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
+	}
+	
+	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization by denitrification") {
+		sediment.sed.oc*layer.water.denit_rat
+	}
+	
+	flux(layer.water.din, out, [k g, day-1], "NO3 sediment denitrification consumption") {
+		bo2 := (water.oc + water.sed.oc)*layer.water.denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
+		bo2*(3./2.)*n_mol_mass/o2_mol_mass
+	}
+	
+	flux(layer.water.phos, sediment.sed.phos, [k g, day-1], "PO4 desorption / adsorption to sediment layer") {
+		epc0 := ox_fac*conc(sediment.sed.phos)/k_sorp -> [m g, l-1],
+		epc0_ := min(epc0, 0[m g, l-1]), # We get numeric instability if we don't put the 'min(.., 0)' there.
+		r_sorp*(conc(water.phos) - epc0_)*water ->>
+	}
 	
 }

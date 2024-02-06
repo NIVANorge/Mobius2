@@ -29,15 +29,18 @@ model("NIVAFjord-SimplyCNP") {
 	
 	fjord_phyt : quantity("Fjord phytoplankton") # To distinguish from freshwater once we add EasyLake.
 	zoo        : quantity("Zooplankton")
+	o2         : quantity("O₂")
+	area       : property("Area")
 	
 	load("modules/nivafjord/fjordchem.txt",
-		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, temp, salinity, wind, z, dz, indicator, attn, precip, area, A, vert, sw_vert))
-		
+		chem_par : preamble("NIVAFjord chemistry rates"),
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, temp, salinity, wind, z, dz, indicator, attn, precip, area, A, vert, sw_vert, chem_par))
+	
+	load("modules/nivafjord/sediment.txt",
+		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, area, A, vert, chem_par))
+	
 	load("modules/nivafjord/boudary_chem.txt",
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, sed, temp, salinity))
-		
-	load("modules/nivafjord/sediment.txt",
-		module("NIVAFjord sediments", layer, sediment, water, sed, oc, on, phos, op, area, A, vert))
 		
 	load("modules/easychem.txt",
 		module("Simple River O₂", river, water, o2, temp))
@@ -53,8 +56,5 @@ model("NIVAFjord-SimplyCNP") {
 	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
 		(river? layer+ bnd_layer?) | river
 	} @no_cycles
-	
-	o2 : quantity("O₂")
-	area : property("Area")
 }
 

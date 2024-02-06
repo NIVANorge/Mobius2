@@ -247,6 +247,8 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 	int count = symbol.size();
 	bool is_out = false;
 	
+	bool is_loc = false;
+	
 	if(count == 1) {
 		Token *token = &symbol[0];
 		if(token->string_value == "out") {
@@ -264,69 +266,66 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 					specific_loc->r1.connection_id = reg->id;
 					specific_loc->r1.type          = Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
 				} else if (reg->id.reg_type == Reg_Type::loc) {
-					auto loc = model->locs[reg->id];
-					
-					if(allow_restriction)
-						*specific_loc = loc->loc;
-					else {
-						*location = loc->loc;
-						if(loc->loc.r1.type != Restriction::none) {
-							loc->source_loc.print_error_header();
-							error_print("This declared location has a bracketed restriction, but that is not allowed when it is used in the following context :\n");
-							token->source_loc.print_error();
-							mobius_error_exit();
-						}
-					}
-					if(is_valid(loc->par_id)) {
-						if(par_id)
-							*par_id = loc->par_id;
-						else {
-							loc->source_loc.print_error_header();
-							error_print("This location is declared as a parameter, but that is not allowed when it is used in the following context :\n");
-							token->source_loc.print_error();
-							mobius_error_exit();
-						}
-					}
-				} else if (par_id && reg->id.reg_type == Reg_Type::parameter)
+					is_loc = true;
+				} else if (par_id && reg->id.reg_type == Reg_Type::parameter) {
 					*par_id = reg->id;
-				else {
+				} else {
 					token->print_error_header();
 					fatal_error("The entity '", token->string_value, "' has not been declared in this scope, or is of a type that is not recognized in a location argument.");
 				}
 			}
 		}
-	} else if (count >= 2 && count <= max_var_loc_components) {
-		location->type     = Var_Location::Type::located;
+	}
+	
+	if (count >= 2 || is_loc) {
+
+		int offset = 1;
 		
 		auto comp0 = scope->expect(Reg_Type::unrecognized, &symbol[0]);
 		if(comp0.reg_type == Reg_Type::loc) {
 			// compose a   loc_something.something.else..
-			//  TODO: This does not preserve restrictions.
 			auto loc = model->locs[comp0];
-			*location = loc->loc;
-			if(location->type != Var_Location::Type::located) {
+			
+			if(is_valid(loc->loc.r1.connection_id)) {
+				if(allow_restriction) {
+					*specific_loc = loc->loc;
+				} else {
+					loc->source_loc.print_error_header();
+					error_print("This declared location has a bracketed restriction, but that is not allowed when it is used in the following context :\n");
+					symbol[0].source_loc.print_error();
+					mobius_error_exit();
+				}
+				if(!bracketed.empty()) {
+					bracketed[0].source_loc.print_error_header();
+					error_print("A bracketed restriction can't be added to this location since it already has one on '", symbol[0].string_value, "' coming from here: ");
+					loc->source_loc.print_error();
+					mobius_error_exit();
+				}
+			} else {
+				*location = loc->loc;
+			}
+			
+			if(location->type != Var_Location::Type::located && count > 1) {
 				symbol[0].source_loc.print_error_header();
 				fatal_error("Only a located var location can be composed with other components.");
 			}
-			int offset = location->n_components;
-			if(offset + count - 1 > max_var_loc_components) {
-				symbol[0].print_error_header();
-				fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
-			}
-			if(is_valid(loc->loc.r1.connection_id))
-				fatal_error(Mobius_Error::internal, "Not supported to compose locs that have restrictions yet.");
 			
-			for(int idx = 1; idx < count; ++idx)
-				location->components[(idx-1) + offset] = scope->expect(Reg_Type::component, &symbol[idx]);
-			location->n_components = offset + count - 1;
+			offset = location->n_components;
+			
 		} else {
-			for(int idx = 0; idx < count; ++idx)
-				location->components[idx] = scope->expect(Reg_Type::component, &symbol[idx]);
-			location->n_components = count;
+			location->type     = Var_Location::Type::located;
+			location->components[0] = scope->expect(Reg_Type::component, &symbol[0]);
 		}
-	} else {
-		symbol[0].print_error_header();
-		fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
+		
+		if(offset + count - 1 > max_var_loc_components) {
+			symbol[0].print_error_header();
+			fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
+		}
+		
+		for(int idx = 1; idx < count; ++idx)
+			location->components[(idx-1) + offset] = scope->expect(Reg_Type::component, &symbol[idx]);
+		location->n_components = offset + count - 1;
+
 	}
 	
 	if(allow_restriction) {

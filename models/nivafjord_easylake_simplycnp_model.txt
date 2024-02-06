@@ -2,7 +2,7 @@
 
 model("NIVAFjord-EasyLake-SimplyCNP") {
 
-	extend("nivafjord_model.txt")
+	#extend("nivafjord_model.txt")
 	
 	# Exclude overlapping definitions with nivafjord_model and things we want to redeclare here.
 	extend("easylake_simplycnp_model.txt") @exclude(
@@ -11,6 +11,7 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		water : quantity,
 		heat : quantity,
 		ice : quantity,
+		o2  : quantity,
 		temp : property,
 		precip : property,
 		wind : property,
@@ -25,7 +26,13 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		indicator : property,
 		evap : property,
 		z : property,
+		area : property,
 		wb_index : index_set
+	)
+	
+	extend("nivafjord_simplycnp_model.txt") @exclude(
+		downstream : connection,
+		wb_index   : index_set
 	)
 	
 	wb_index : index_set("Water body") @union(sc, lake_index, basin_idx)
@@ -34,6 +41,7 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		(river|epi)+
 	} @no_cycles
 	
+	/*
 	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
 		(river? layer+ bnd_layer?) | river
 	} @no_cycles                    # Not sure if we should have no_cycles, but it should always be acheivable since the direction doesn't matter.
@@ -63,5 +71,6 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		module("NIVAFjord sediments", layer, sediment, water, sed, oc, on, phos, op, area, A, vert))
 		
 	solve(fjord_sol, sediment.sed)
+	*/
 }
 

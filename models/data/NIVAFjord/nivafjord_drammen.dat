@@ -559,7 +559,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("NIVAFjord chemistry", version(0, 0, 3)) {
+	module("NIVAFjord chemistry", version(0, 0, 5)) {
 		
 		par_group("Initial chem", basin, layer) {
 			
@@ -570,16 +570,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Initial DOC concentration") [
 				0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 			]
-		
-		}
-		
-		par_group("Oxygen") {
-			
-			par_real("Bubble formation coefficient") 
-			[ 5 ]
-			
-			par_real("Oxicity threshold") 
-			[ 2 ]
 		
 		}
 		
@@ -603,39 +593,14 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Chl-a fraction") 
 			[ 2 ]
 			
-			par_real("Molar N/C ratio in Phytoplankton") 
-			[ 0.1509 ]
-			
-			par_real("Molar P/C ratio in Phytoplankton") 
-			[ 0.009434 ]
-			
 			par_real("Phytoplankton excretion rate") 
 			[ 0.01 ]
-		
-		}
-		
-		par_group("Microbes") {
 			
-			par_real("Decomposition Q10") 
-			[ 1.2 ]
+			par_real("Molar C/N ratio in Phytoplankton") 
+			[ 6.625 ]
 			
-			par_real("Maximal decomposition rate at 20°C") 
-			[ 0.001 ]
-			
-			par_real("Maximal denitrification rate at 20°C") 
-			[ 0.001 ]
-			
-			par_real("Microbial half-saturation concentration O₂") 
-			[ 0.0123 ]
-			
-			par_real("Molar N/C ratio in mineralization") 
-			[ 1.3 ]
-			
-			par_real("Molar P/C ratio in mineralization") 
-			[ 0.5 ]
-			
-			par_real("Threshold N for denitrification") 
-			[ 0.01 ]
+			par_real("Molar C/P ratio in Phytoplankton") 
+			[ 106 ]
 		
 		}
 		
@@ -653,9 +618,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Settling velocity") 
 			[ 2 ]
-			
-			par_real("POM dissolution rate") 
-			[ 0.001 ]
 		
 		}
 	
@@ -801,6 +763,58 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("OM molar C/P ratio") 
 			[ 306 ]
+		
+		}
+	
+	}
+	
+	preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
+		
+		par_group("Oxygen") {
+			
+			par_real("Bubble formation coefficient") 
+			[ 0 ]
+			
+			par_real("Oxicity threshold") 
+			[ 1.2 ]
+		
+		}
+		
+		par_group("Microbes") {
+			
+			par_real("Decomposition Q10") 
+			[ 1.2 ]
+			
+			par_real("Maximal decomposition rate at 20°C") 
+			[ 0.01 ]
+			
+			par_real("Maximal denitrification rate at 20°C") 
+			[ 0.01 ]
+			
+			par_real("Molar O₂/C ratio in respiration") 
+			[ 1 ]
+			
+			par_real("N mineralization and nitrification rate modifier") 
+			[ 1 ]
+			
+			par_real("P mineralization modifier") 
+			[ 1 ]
+			
+			par_real("NO3 threshold for denitrification") 
+			[ 0.1 ]
+			
+			par_real("POM dissolution rate") 
+			[ 0.001 ]
+		
+		}
+		
+		par_group("P desorption / adsorption") {
+			
+			par_real("PO4 sorption coefficient") 
+			[ 0.0001 ]
+			
+			par_real("PO4 sorption rate") 
+			[ 0.01 ]
 		
 		}
 	

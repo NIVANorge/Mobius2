@@ -1,6 +1,41 @@
 
 
-module("NIVAFjord chemistry", version(0, 0, 3),
+preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
+	
+	par_group("Oxygen") {
+		bubble   : par_real("Bubble formation coefficient", [day-1], 0, 0, 1)
+		ox_th    : par_real("Oxicity threshold", [m g, l-1], 2, 0, 5)
+	}
+	
+	par_group("Microbes") {
+		decompQ10      : par_real("Decomposition Q10", [], 1.2, 1, 4, "Adjustment of rate with 10°C change in temperature")
+		maxdecomp_20   : par_real("Maximal decomposition rate at 20°C", [day-1], 0.01, 0, 1)
+		maxdenitr_20   : par_real("Maximal denitrification rate at 20°C", [day-1], 0.01, 0, 1)
+		#halfsat_o2_mic : par_real("Microbial half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
+		O2toC          : par_real("Molar O₂/C ratio in respiration", [], 1, 0.5, 1)
+		
+		n_min          : par_real("N mineralization and nitrification rate modifier", [], 1, 0, 10)
+		p_min          : par_real("P mineralization modifier", [], 1, 0, 10)
+		
+		n_denit_th     : par_real("NO3 threshold for denitrification", [m g, l-1], 0.1, 0, 1) #TODO: Better default values.
+		
+		# This one isn't necessarily microbial, but it is just convenient to have it in this group.
+		diss_r   : par_real("POM dissolution rate", [day-1], 0.001, 0, 1)
+	}
+	
+	par_group("P desorption / adsorption") {
+		k_sorp         : par_real("PO4 sorption coefficient", [l, m g-1], 1e-4, 0, 0.1)
+		r_sorp         : par_real("PO4 sorption rate", [day-1], 0.01, 0, 1)
+	}
+	
+	ox_fac    : property("Oxicity factor")
+	temp_fac  : property("Temperature factor")
+	denit_rat : property("Denitrification rate")
+	min_rat   : property("Mineralization rate")
+}
+
+
+module("NIVAFjord chemistry", version(0, 0, 5),
 	air   : compartment,
 	basin : compartment,
 	layer : compartment,
@@ -28,18 +63,14 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	area   : property,
 	A     : par_real,
 	vert  : connection,
-	sw_vert : connection
+	sw_vert : connection,
+	chem_par : preamble
 ) {
 	#TODO: Would be nice to unify easychem and fjordchem a bit more, maybe some shared code.
 	
 	par_group("Initial chem", layer) {
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		init_DOC : par_real("Initial DOC concentration", [m g, l-1], 0, 0, 100)
-	}
-	
-	par_group("Oxygen") {
-		bubble   : par_real("Bubble formation coefficient", [day-1], 0, 0, 1)
-		ox_th    : par_real("Oxicity threshold", [m g, l-1], 2, 0, 5)
 	}
 	
 	par_group("Light") {
@@ -49,7 +80,6 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	par_group("Suspended particles") {
 		sett_vel : par_real("Settling velocity", [m, day-1], 2, 0, 1)
-		diss_r   : par_real("POM dissolution rate", [day-1], 0.001, 0, 1)
 	}
 	
 	par_group("Phytoplankton") {
@@ -59,22 +89,11 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		
 		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha      : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
-		phyt_nc    : par_real("Molar N/C ratio in Phytoplankton", [], 0.1509, 0.1, 0.2)
-		phyt_pc    : par_real("Molar P/C ratio in Phytoplankton", [], 0.009434, 0.009, 0.01)
+		phyt_cn    : par_real("Molar C/N ratio in Phytoplankton", [], 6.625, 1, 100, "The default is the Redfield ratio")
+		phyt_cp    : par_real("Molar C/P ratio in Phytoplankton", [], 106, 50, 200, "The default is the Redfield ratio")
 		excr       : par_real("Phytoplankton excretion rate", [day-1], 0.01, 0, 0.1)
 		
 		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
-	}
-	
-	par_group("Microbes") {
-		decompQ10      : par_real("Decomposition Q10", [], 1.2, 1, 4, "Adjustment of rate with 10°C change in temperature")
-		maxdecomp_20   : par_real("Maximal decomposition rate at 20°C", [day-1], 0.01, 0, 1)
-		maxdenitr_20   : par_real("Maximal denitrification rate at 20°C", [day-1], 0.01, 0, 1)
-		halfsat_o2_mic : par_real("Microbial half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
-		mic_nc         : par_real("Molar N/C ratio in mineralization", [], 1.3) #TODO better defaults
-		mic_pc         : par_real("Molar P/C ratio in mineralization", [], 0.5)
-		
-		n_denit_th     : par_real("Threshold N for denitrification", [m g, l-1], 0.01, 0, 1) #TODO: Better default values.
 	}
 	
 	
@@ -98,13 +117,13 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments")
 	
-	var(layer.water.sed.oc, [k g], "Layer POC") @show_conc(layer.water, [m g, l-1])
+	var(layer.water.sed.oc, [k g], [g, k g-1], "Layer POC") @show_conc(layer.water, [m g, l-1])
 	
-	var(layer.water.sed.phos, [k g], "Layer PIP") @show_conc(layer.water, [m g, l-1])
+	var(layer.water.sed.phos, [k g], [g, k g-1], "Layer PIP") @show_conc(layer.water, [m g, l-1])
 	
-	var(layer.water.sed.op, [k g], "Layer POP") @show_conc(layer.water, [m g, l-1])
+	var(layer.water.sed.op, [k g], [g, k g-1], "Layer POP") @show_conc(layer.water, [m g, l-1])
 	
-	var(layer.water.sed.on, [k g], "Layer PON") @show_conc(layer.water, [m g, l-1])
+	var(layer.water.sed.on, [k g], [g, k g-1], "Layer PON") @show_conc(layer.water, [m g, l-1])
 	
 	p_vel     : property("O₂ piston velocity")
 	o2satconc : property("O₂ saturation concentration")
@@ -135,7 +154,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	flux(layer.water.o2, out, [k g, day-1], "O₂ bubble formation") {
 		pressure_corr := (1 + 0.476[m-1]*z[vert.above]),
 		satconc := o2satconc*pressure_corr,
-		max(0, bubble*(conc(o2) - satconc)*A*dz) ->>
+		max(0, bubble*(conc(o2) - satconc)*water) ->>
 	}
 	
 	
@@ -155,7 +174,6 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	flux(layer.water.sed.on, layer.water.on, [k g, day-1], "Layer PON dissolution") {
 		diss_r * sed.on
 	}
-	# TODO: May need to split PP into POP and PIP, where IP has a different way of partitioning to solids (but maybe only in sediments?).
 	
 	var(layer.water.attn, [], "Layer attenuation") {
 		# TODO: Maybe DOC has a smaller shading effect than particles?
@@ -169,12 +187,10 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	N_lim     : property("Nitrogen limitation")
 	P_lim     : property("Phosphorus limitation")
 	
-
-	
-	var(layer.water.phyt, [k g], [m g, l-1], "Layer phytoplankton")
-	var(layer.water.phyt.oc, [k g], "Phytoplankton C") @override_conc { 1 }
-	var(layer.water.phyt.on, [k g], "Phytoplankton N") @override_conc { nc_molar_to_mass_ratio(phyt_nc) }
-	var(layer.water.phyt.op, [k g], "Phytoplankton P") @override_conc { pc_molar_to_mass_ratio(phyt_pc) }
+	var(layer.water.phyt,    [k g], [m g, l-1], "Layer phytoplankton")
+	var(layer.water.phyt.oc, [k g], "Phytoplankton C") @override_conc { 1 } # Phyto is measured in C equivalents here.
+	var(layer.water.phyt.on, [k g], "Phytoplankton N") @override_conc { 1/cn_molar_to_mass_ratio(phyt_cn) }
+	var(layer.water.phyt.op, [k g], "Phytoplankton P") @override_conc { 1/cp_molar_to_mass_ratio(phyt_cp) }
 	
 	
 	var(layer.water.phyt.light_lim, []) {
@@ -185,14 +201,14 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	var(layer.water.phyt.N_lim, []) {
 		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
-		cmol := conc(water.din)/n_mol_mass->[m mol, m-3],
-		cmol^2 / ((alpha*phyt_nc)^2 + cmol^2)
+		cmol := phyt_cn*conc(water.din)/n_mol_mass->[m mol, m-3],
+		cmol^2 / ((alpha/phyt_cn)^2 + cmol^2)
 	} @no_store
 	
 	var(layer.water.phyt.P_lim, []) {
 		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
 		cmol := conc(water.phos)/p_mol_mass->[m mol, m-3],
-		cmol^2 / ((alpha*phyt_pc)^2 + cmol^2)
+		cmol^2 / ((alpha/phyt_cp)^2 + cmol^2)
 	} @no_store
 	
 	equi : property("Equilibrium concentration")
@@ -211,14 +227,12 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	}
 	
 	flux(out, layer.water.phyt, [k g, day-1], "Phytoplankton growth") {   fix   }
-	flux(layer.water.din, layer.water.phyt.on, [k g, day-1], "Phytoplankton growth N uptake") {   phyt.fix*nc_molar_to_mass_ratio(phyt_nc)   }
-	flux(layer.water.phos, layer.water.phyt.op, [k g, day-1], "Phytoplankton growth P uptake") {   phyt.fix*pc_molar_to_mass_ratio(phyt_pc)   }
+	flux(layer.water.din, layer.water.phyt.on, [k g, day-1], "Phytoplankton growth N uptake") {   phyt.fix/cn_molar_to_mass_ratio(phyt_cn)   }
+	flux(layer.water.phos, layer.water.phyt.op, [k g, day-1], "Phytoplankton growth P uptake") {   phyt.fix/cp_molar_to_mass_ratio(phyt_cp)   }
 	
 	flux(layer.water.phyt,    layer.water.oc, [k g, day-1], "Phytoplankton C excretion") { excr*phyt }
 	flux(layer.water.phyt.on, layer.water.on, [k g, day-1], "Phytoplankton N excretion") { excr*phyt.on }
 	flux(layer.water.phyt.op, layer.water.op, [k g, day-1], "Phytoplankton P excretion") { excr*phyt.op }
-	
-	
 	
 	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10) # Parametrize?
 	
@@ -228,7 +242,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		phyt_turnover*phyt*o2_factor
 	}
 	
-	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   phyt.fix*o2_mol_mass/c_mol_mass   }
+	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   phyt.fix*O2toC*o2_mol_mass/c_mol_mass   }
 	
 	var(layer.water.chl_a, [m g, l-1], "Layer chl-a") {   conc(phyt)*chl_a_f->>   }
 	
@@ -253,7 +267,11 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		conc(phyt)*sed_vel*sediment.area ->>
 	}
 	
-	ox_fac : property("Oxicity factor")
+	
+	
+	# TODO: Direct deposition of DIN to surface(?)
+	
+	
 	var(layer.water.ox_fac, []) {
 		#0.5*(1 + tanh((conc(o2) - ox_th)=>[]))
 		
@@ -261,12 +279,10 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		s_response(conc(o2), (1-wd)*ox_th, (1+wd)*ox_th, 0, 1)
 	} @no_store
 	
-	temp_fac : property("Temperature factor")
+	
 	var(layer.water.temp_fac, []) {
 		q10_adjust(1, 20[deg_c], temp, decompQ10)
 	} @no_store
-	
-	min_rat : property("Mineralization rate")
 	
 	var(layer.water.min_rat, [day-1], "OM mineralization rate") {
 		ox_fac*temp_fac*maxdecomp_20
@@ -280,46 +296,33 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		sed.oc*min_rat
 	}
 	
-	# TODO: Finish oxygen budget. Has to take into account all decay processes (including N, P).
-	# How take into account existing oxygen content of DOM?
-	flux(layer.water.o2, out, [k g, day-1], "O₂ microbial consumption") {
-		(oc + sed.oc)*min_rat*(o2_mol_mass/c_mol_mass)
-		# + NH4 -> NO3
-		# + also PO4 formation? (maybe not, it has O bound to it in organic form?)
+	flux(layer.water.on, layer.water.din, [k g, day-1], "DON mineralization and nitrification") {
+		on*min_rat*n_min
 	}
 	
-	limit_rate : function(rate : [k g, day-1], mass : [k g]) {
-		#s_response(rate, 0, 0.5[day-1]*max(0, mass), 0, rate)   # TODO: Why doesn't this one work?
-		min(rate, 0.5[day-1]*mass) #TODO: This is not that smooth.
+	flux(layer.water.sed.on, layer.water.din, [k g, day-1], "PON mineralization and nitrification") {
+		sed.on*min_rat*n_min
 	}
 	
-	flux(layer.water.on, layer.water.din, [k g, day-1], "DON mineralization") {
-		rate := nc_molar_to_mass_ratio(mic_nc)*oc*min_rat,
-		limit_rate(rate, on)
-		#on*min_rat
-	}
-	
-	flux(layer.water.sed.on, layer.water.din, [k g, day-1], "PON mineralization") {
-		rate := nc_molar_to_mass_ratio(mic_nc)*sed.oc*min_rat,
-		limit_rate(rate, sed.on)
-		#on*min_rat
-	}
-	
+	# TODO: Should we assume PO4 formation is O2 limited?
 	flux(layer.water.op, layer.water.phos, [k g, day-1], "DOP mineralization") {
-		rate := pc_molar_to_mass_ratio(mic_pc)*oc*min_rat,
-		limit_rate(rate, op)
-		#op*min_rat
+		op*temp_fac*maxdecomp_20*p_min
 	}
 	
 	flux(layer.water.sed.op, layer.water.phos, [k g, day-1], "POP mineralization") {
-		rate := pc_molar_to_mass_ratio(mic_pc)*sed.oc*min_rat,
-		limit_rate(rate, sed.op)
+		sed.op*temp_fac*maxdecomp_20*p_min
 	}
 	
-	denit_rat : property("Denitrification rate")
+	# TODO: Finish oxygen budget. Has to take into account all decay processes (including N, P).
+	# How take into account existing oxygen content of DOM?
+	flux(layer.water.o2, out, [k g, day-1], "O₂ microbial consumption") {
+		  (oc + sed.oc)*min_rat*(o2_mol_mass/c_mol_mass)*O2toC    
+		+ (on + sed.on)*min_rat*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
+	}
+	
 	var(layer.water.denit_rat, [day-1], "Denitrification rate") {
-		wd := 1,
-		n_fac := s_response(conc(din), (1-wd)*n_denit_th, (1+wd)*n_denit_th, 0, 1),
+		wd := 0.5,
+		n_fac := s_response(conc(din)/n_denit_th, (1-wd), (1+wd), 0, 1),
 		(1-ox_fac)*temp_fac*maxdenitr_20*n_fac
 	} @no_store
 
@@ -332,10 +335,15 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 		water.sed.oc*denit_rat
 	}
 	
-	n_to_n : constant("Richards denitrification factor", [], 5.3e3)
+	flux(layer.water.din, out, [k g, day-1], "NO3 denitrification consumption") {
+		bo2 := (water.oc + water.sed.oc)*denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
+		bo2*(3./2.)*n_mol_mass/o2_mol_mass
+	}
 	
-	flux(layer.water.din, out, [k g, day-1], "NO3 denitrification loss") {
-		n_to_n*(water.on + water.sed.on)*denit_rat
+	flux(layer.water.phos, layer.water.sed.phos, [k g, day-1], "PO4 desorption / adsorption to particles") {
+		epc0 := ox_fac*conc(sed.phos)/k_sorp -> [m g, l-1],
+		epc0_ := min(epc0, 0[m g, l-1]), # We get numeric instability if we don't put the 'min(.., 0)' there.
+		r_sorp*(conc(water.phos) - epc0_)*water ->>
 	}
 	
 	
@@ -345,7 +353,7 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	# Oxic:
 	#  OC, O2  -> CO2  Mineralization
-	#  ON, O2  -> NO3  (really via NH4)    
+	#  ON, O2  -> NH4 -> NO3  Mineralization, nitrification.
 	#  OP, O2  -> PO4
 	#  NH4, O2 ->  NO3     Nitrification
 	
@@ -357,6 +365,8 @@ module("NIVAFjord chemistry", version(0, 0, 3),
 	
 	# PO4 release from / adsorption to particles
 	
+	# TODO:
+		# sulfate reduction, maybe zooplankton.
 }
 
 
