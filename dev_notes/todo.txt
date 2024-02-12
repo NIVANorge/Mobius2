@@ -2,13 +2,14 @@
 
 	*** High pri ***
 	
-	
-		Want a unit_of(identifier) for unit conversions.
-			That way we could fully generalize SimplyTox-compartment.
-	
-	
 		We have experimentally added some prune_tree when setting state variable code in model_compilation and model_codegen.
 			Be very careful to see if this causes any problems.
+			
+		Allow passing a constant as a loc().
+			Maybe we should separate between a loc() and a val() where the first must be a valid flux target, while the latter has more options (?).
+			
+		Overhaul of process_location_argument and resolve_identifier. Make them better structured (branch on type of initial symbol instead of the amount of components), and combine as much code as possible for these two.
+			Difficult to share that much code since you can have partial chains inside code scope.
 		
 		Specific models
 		
@@ -16,30 +17,14 @@
 		
 			Use the new preamble functionality to avoid having global par groups in more models.
 		
-		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
-		
-		
-			Split TDP between organic P and PO4 in SimplyP and EasyChem (and NIVAFjord)
-				Also for particulate P.
-				
-				
 			
 			NIVAFjord!		
 				
 				Finish biochemistry.
 					Do we need separate NO3/NH4? Do we need Si?
-					Denitrification?
-					POC -> DOC (page 68 ++)
-						Along with remineralization of N and P that is (will be) bound to it.
-						Release/binding of dissolved P.
-						
-					Bottom sediment interaction (particles settle, resuspend) Carry CNP.
-						Remineralization in bottom sediments (only?). Release to water.
 					
-					Burial/covering of sediment layer.
-					
-					anoxic processes?
+					Sulfate reduction?
 					
 				More careful setup of boundary values.
 					
@@ -47,7 +32,7 @@
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
 				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
 				
-				Take into account angle of shortwave radiation as it goes down the depth (so that one gets the right attenuation).
+				Take into account angle of shortwave radiation as it goes down the depth (so that one gets the right attenuation). Maybe diurnal variations.
 				
 				(general, but for use here)
 					Make it possible to interpolate parameter values, and set parameter values based on depth.
@@ -57,6 +42,9 @@
 					Must be used whenever translating a symbol (Token or string) to an index.
 					-- the way we started doing it is a bit problematic because it requires the index set dimension to be set first, but in actuality we want the number of layers to  be dependent on the layer thickness, and instead just have a max depth set by the user.
 						Maybe process the index set dimensions in a pass after all position maps are set, then co-process that information along with the position maps when relevant (in this instance interpret the dimension number as a depth).
+				
+				Should really solve the advection/diffusion equation with Crank-Nicolson.
+					A bit difficult to integrate it into the existing framework.
 				
 			EasyChem
 				Figure out how to do effluents.
@@ -125,7 +113,7 @@
 					Could then also allow .specific inside main code.
 				Tridiagonal distribution of flux target as in original NIVAFjord (?).
 				
-			Should zero out fluxes / accesses across (as in connections) the super index set if they also index over the sub index set and the target sub index is out of bounds. (mostly relevant for all_to_all, grid1d (and graph)).
+			Should zero out fluxes / accesses across (as in connections) the super index set if they also index over the sub index set and the target sub index is out of bounds.
 				In make_restriction_condition
 			
 		Bidirectional
@@ -136,14 +124,17 @@
 			Have an optional test to see if non-bidirectional non-mixing fluxes (with dissolvedes) were negative after or during a run.
 			
 			Need to check that a bidirectional flux wasn't discrete.
-		Note: unit_conversion seems to work fine for @mixing, but we should test it properly. Also, it probably depends on the concentration variable being the same for dissolved ones (just not the mass variable). That is maybe also the case for @bidirectional.
+		Note: unit_conversion seems to work fine for @mixing, but we should test it properly. Also, it probably depends on the computed concentration in that expression being the same for dissolved ones (just not the mass variable). That is maybe also the case for @bidirectional.
 	
 	
 		Make it possible to compose locs that have restrictions.
+			Now works in the flux source/target fields. Not inside equations yet.
 	
 	
 	*** Intermediate-pri ***
 	
+		Want a unit_of(identifier) for unit conversions.
+			That way we could fully generalize SimplyTox-compartment.
 	
 		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
 				In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
@@ -170,7 +161,7 @@
 				Now dependency resolution for special instructions should be much easier since we could just inspect the index lookups.
 				
 	
-		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Data_Set. Could instead just have the decl be
+		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Model. Could instead just have the decl be
 			compartment("Soil", sc, lu)
 		like in the data set connection components.
 			Maybe not, because we could want extending models to distribute differently.

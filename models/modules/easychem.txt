@@ -92,11 +92,11 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		phyt_q10      : par_real("Q10 of Phyto equilibrium", [], 2, 1, 4)
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
 		
-		iopt       : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
-		halfsat    : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
-		phyt_cn    : par_real("Molar C/N ratio in Phytoplankton", [], 6.625, 0.1, 100)
-		phyt_cp    : par_real("Molar C/P ratio in Phytoplankton", [], 106, 1, 300)
-		chl_a_f    : par_real("Chl-a fraction", [perc], 2, 1.5, 3.7, "How large a fraction of the phytoplankton mass is chlorophyll a")
+		iopt          : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
+		halfsat       : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
+		phyt_cn       : par_real("Molar C/N ratio in Phytoplankton", [], 6.625, 0.1, 100)
+		phyt_cp       : par_real("Molar C/P ratio in Phytoplankton", [], 106, 1, 300)
+		chl_a_f       : par_real("Chl-a fraction", [perc], 1, 0.2, 2.2, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
 	
 	par_group("Lake specific phytoplankton", epi) {
@@ -338,9 +338,11 @@ Particle transport and settling for EasyChem.
 	flux(epi.water.sed, sett_target, [k g, day-1], "Epilimnion sediment settling") {
 		(max(0[m, day-1], sett_vel - air.wind*resusp_f->[m, day-1])) * conc(sed) * (area - hyp.area) ->>
 	}
+	
 	flux(epi.water.sed, hyp.water.sed, [k g, day-1], "Epilimnion-hypolimnion settling") {
 		sett_vel * conc(sed) * hyp.area ->>
 	}
+	
 	flux(hyp.water.sed, sett_target, [k g, day-1], "Hypolimnion sediment settling") {
 		sett_vel * conc(sed) * area ->>
 	}

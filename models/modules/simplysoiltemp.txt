@@ -28,7 +28,7 @@ Soil temperature is computed at a depth of 15 cm.
 	
 	var(soil.coup, [deg_c]) @initial { init_st } {
 		last(coup) + (stc  / (2*st_depth)^2) * (air.temp - last(coup))*time.step_length_in_seconds ->>
-	}
+	} @no_store
 	
 	var(soil.temp, [deg_c], "Soil temperature") { 
 		coup * exp(depthst * snow_box.snow ->[])

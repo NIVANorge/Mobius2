@@ -71,7 +71,8 @@ model("NIVAFjord") {
 	
 	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, dz0, vert))
 	
-	fjord_sol : solver("NIVAFjord solver", euler, solver_h, solver_hmin)
-	
-	solve(fjord_sol, layer.water, basin.ice)
+	#fjord_sol : solver("NIVAFjord solver", euler, solver_h, solver_hmin)
+	#solve(fjord_sol, layer.water, basin.ice)
+	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
+	solve(sol, layer.water, basin.ice)
 }

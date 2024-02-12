@@ -57,6 +57,10 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	
 	#TODO: It is annoying to redo the below formulas for the sediments. Should be possible to unify the code.
 	
+	#flux(sediment.sed.oc, layer.water.oc, [k g, day-1], "Sediment POC dissolution") {
+	#	diss_r * sed.oc
+	#}
+	
 	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization") {
 		sed.oc*layer.water.min_rat
 	}
@@ -70,7 +74,6 @@ module("NIVAFjord sediments", version(0, 0, 2),
 		sed.op*layer.water.temp_fac*maxdecomp_20*p_min
 	}
 	
-	# TODO: Finish oxygen budget. Has to take into account all decay processes (including N, P).
 	# How take into account existing oxygen content of DOM?
 	flux(layer.water.o2, out, [k g, day-1], "O₂ sediment microbial consumption") {
 		mr := layer.water.min_rat,
@@ -87,10 +90,13 @@ module("NIVAFjord sediments", version(0, 0, 2),
 		bo2*(3./2.)*n_mol_mass/o2_mol_mass
 	}
 	
-	flux(layer.water.phos, sediment.sed.phos, [k g, day-1], "PO4 desorption / adsorption to sediment layer") {
-		epc0 := ox_fac*conc(sediment.sed.phos)/k_sorp -> [m g, l-1],
+	flux(layer.water.phos, sediment.sed.phos, [k g, day-1], "PO4 adsorption / desorption to sediment layer") {
+		
+		epc0 := conc(sediment.sed.phos)/k_sorp -> [m g, l-1],
 		epc0_ := min(epc0, 0[m g, l-1]), # We get numeric instability if we don't put the 'min(.., 0)' there.
-		r_sorp*(conc(water.phos) - epc0_)*water ->>
+		
+		# If there is high oxicity, use regular partitioning. With low oxicity, PO4 leeches out. (TODO: should maybe be a different rate)
+		r_sorp*(ox_fac*(conc(water.phos) - epc0_)*water->[k g] - (1-ox_fac)*sediment.sed.phos)
 	}
 	
 }

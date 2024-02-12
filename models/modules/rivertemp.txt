@@ -27,7 +27,7 @@ module("RiverTemperature", version(0, 1, 1),
 	}
 	
 	flux(out, river.water.heat, [J, day-1], "River sensible heat flux") {
-		(water_temp_to_heat(water, air.temp) - heat)*coeff * (air.temp >= min_t)
+		(water_temp_to_heat(water, max(air.temp, min_t)) - heat)*coeff
 	}
 	
 	var(river.water.temp, [deg_c], "River temperature") {

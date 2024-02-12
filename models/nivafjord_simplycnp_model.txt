@@ -12,7 +12,8 @@ model("NIVAFjord-SimplyCNP") {
 		water : quantity,
 		heat : quantity,
 		temp : property,
-		precip : property
+		precip : property,
+		sol : solver
 	)
 	
 	edge       : compartment("Basin edge")
@@ -45,7 +46,8 @@ model("NIVAFjord-SimplyCNP") {
 	load("modules/easychem.txt",
 		module("Simple River O₂", river, water, o2, temp))
 		
-	solve(fjord_sol, sediment.sed)
+	#solve(fjord_sol, sediment.sed)
+	solve(sol, sediment.sed)
 	
 	wb_index : index_set("Water body") @union(sc, basin_idx)
 	

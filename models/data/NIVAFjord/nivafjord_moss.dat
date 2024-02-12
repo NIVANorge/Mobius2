@@ -95,7 +95,7 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		[ 2017-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2017-06-30 ]
+		[ 2017-01-30 ]
 	
 	}
 	
@@ -130,7 +130,7 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		[ 0.0025 ]
 		
 		par_real("Solver relative min step") 
-		[ 0.01 ]
+		[ 0.001 ]
 	
 	}
 	
@@ -1023,10 +1023,10 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 1.2 ]
 			
 			par_real("Maximal decomposition rate at 20°C") 
-			[ 0.01 ]
+			[ 0.001 ]
 			
 			par_real("Maximal denitrification rate at 20°C") 
-			[ 0.01 ]
+			[ 0.0001 ]
 			
 			par_real("Molar O₂/C ratio in respiration") 
 			[ 1 ]
@@ -1041,17 +1041,17 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 0.1 ]
 			
 			par_real("POM dissolution rate") 
-			[ 0.001 ]
+			[ 0.01 ]
 		
 		}
 		
 		par_group("P desorption / adsorption") {
 			
 			par_real("PO4 sorption coefficient") 
-			[ 0.0001 ]
+			[ 10000 ]
 			
 			par_real("PO4 sorption rate") 
-			[ 0.01 ]
+			[ 1e-06 ]
 		
 		}
 	

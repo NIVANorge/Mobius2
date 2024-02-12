@@ -27,7 +27,8 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		evap : property,
 		z : property,
 		area : property,
-		wb_index : index_set
+		wb_index : index_set,
+		sol : solver
 	)
 	
 	extend("nivafjord_simplycnp_model.txt") @exclude(
