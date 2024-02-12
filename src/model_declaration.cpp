@@ -230,7 +230,7 @@ process_bracket(Decl_Scope *scope, std::vector<Token> &bracket, Restriction &res
 // TODO: A lot of this function could be merged with similar functionality in function_tree.cpp
 void
 process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
-	bool allow_unspecified, bool allow_restriction, Entity_Id *par_id) {
+	bool allow_unspecified, bool allow_restriction, Entity_Id *val_id) {
 	
 	Specific_Var_Location *specific_loc = nullptr;
 	if(allow_restriction)
@@ -267,12 +267,15 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 					specific_loc->r1.type          = Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
 				} else if (reg->id.reg_type == Reg_Type::loc) {
 					is_loc = true;
-				} else if (par_id && reg->id.reg_type == Reg_Type::parameter) {
-					*par_id = reg->id;
+				} else if (val_id && (reg->id.reg_type == Reg_Type::parameter || reg->id.reg_type == Reg_Type::constant) ) {
+					*val_id = reg->id;
 				} else {
 					token->print_error_header();
-					fatal_error("The entity '", token->string_value, "' has not been declared in this scope, or is of a type that is not recognized in a location argument.");
+					fatal_error("The entity '", token->string_value, "' is of a type that is not allowed in this context.");
 				}
+			} else {
+				token->print_error_header();
+				fatal_error("The entity '", token->string_value, "' has not been declared in this scope.");
 			}
 		}
 	}
@@ -329,7 +332,9 @@ process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 	}
 	
 	if(allow_restriction) {
-		bool allow_bracket = !is_out &&	(count >= 2 || (par_id && is_valid(*par_id))); // We can only have a bracket on something that is either a full var location or a parameter.
+		// We can only have a bracket on something that is either a full var location or a parameter.
+		bool is_par = val_id && is_valid(*val_id) && (val_id->reg_type == Reg_Type::parameter);
+		bool allow_bracket = !is_out &&	(count >= 2 || is_par);
 		process_bracket(scope, bracketed,  specific_loc->r1, allow_bracket);
 		process_bracket(scope, bracketed2, specific_loc->r2, allow_bracket);
 		
@@ -986,11 +991,10 @@ Loc_Registration::process_declaration(Catalog *catalog) {
 
 	match_declaration(decl, {{Arg_Pattern::loc}});
 	
-	
 	auto scope = catalog->get_scope(scope_id);
 	auto model = static_cast<Mobius_Model *>(catalog);
 	
-	process_location_argument(model, scope, decl->args[0], &loc, true, true, &par_id);
+	process_location_argument(model, scope, decl->args[0], &loc, true, true, &val_id);
 	
 	has_been_processed = true;
 }

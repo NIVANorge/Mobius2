@@ -796,7 +796,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	for(auto loc_id : model->locs) {
 		auto loc = model->locs[loc_id];
-		if(!is_valid(loc->par_id)) continue;
+		if(is_valid(loc->val_id)) continue;
 		check_location(app, loc->source_loc, loc->loc);
 	}
 	

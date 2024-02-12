@@ -761,7 +761,8 @@ process_graph_connection_aggregation(Model_Application *app, std::vector<Model_I
 	auto conn = model->connections[agg_var->connection];
 	auto var_solver = instructions[agg_id.id].solver;
 	
-	instructions[flux_id.id].restriction = flux_var->loc2;
+	if(flux_var->type == State_Var::Type::declared) // For dissolved substances it isn't necessary to have this additional branch as the parent flux will already have been checked.
+		instructions[flux_id.id].restriction = flux_var->loc2;
 	
 	auto source_id = app->vars.id_of(flux_var->loc1);
 	int add_to_aggr_id = make_add_to_aggregate_instr(app, instructions, var_solver, agg_id, flux_id, clear_id, source_id, &flux_var->loc2);

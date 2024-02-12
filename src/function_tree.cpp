@@ -817,6 +817,39 @@ maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &re
 }
 
 void
+inline_constant(Mobius_Model *model, Entity_Id id, Function_Resolve_Result &result) {
+	auto const_decl = model->constants[id];
+	if(const_decl->value_type == Value_Type::real)
+		result.fun  = make_literal(const_decl->value.val_real);
+	else if(const_decl->value_type == Value_Type::boolean)
+		result.fun  = make_literal((bool)const_decl->value.val_boolean);
+	else
+		fatal_error(Mobius_Error::internal, "Unimplemented value type for constant.");
+	if(is_valid(const_decl->unit))
+		result.unit = model->units[const_decl->unit]->data.standard_form;
+}
+
+void
+resolve_parameter(Mobius_Model *model, Entity_Id id, Function_Resolve_Result &result, Identifier_FT *new_ident, Function_Scope *scope, Source_Location &source_loc) {
+	auto par = model->parameters[id];
+				
+	if(par->decl_type == Decl_Type::par_enum) {
+		source_loc.print_error_header();
+		error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
+		fatal_error_trace(scope);
+	} else if (par->decl_type == Decl_Type::par_datetime) {
+		source_loc.print_error_header();
+		error_print("It is currently not supported to look up the value of date time parameters inside equations.\n");
+		fatal_error_trace(scope);
+	}
+	new_ident->variable_type = Variable_Type::parameter;
+	new_ident->par_id = id;
+	new_ident->value_type = get_value_type(par->decl_type);
+	if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
+		result.unit = model->units[par->unit]->data.standard_form;
+}
+
+void
 resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
 	
 	auto app = data->app;
@@ -876,33 +909,20 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 		Entity_Id id = invalid_entity_id;
 		
 		//TODO: Not sure if global constants should be available in simplified mode or not
-		
 		if(!found) {
-			
 			auto reg = decl_scope[n1];
-			
 			if(!reg) {
 				ident->chain[0].print_error_header();
 				error_print("The name '", n1, "' is not the name of a local variable or entity declared or loaded in this scope.\n");
 				fatal_error_trace(scope);
 			}
-			
 			id = reg->id;
-			
-			if(id.reg_type == Reg_Type::constant) {
-				
-				delete new_ident; // A little stupid to do it that way, but oh well.
-				auto const_decl = model->constants[reg->id];
-				if(const_decl->value_type == Value_Type::real)
-					result.fun  = make_literal(const_decl->value.val_real);
-				else if(const_decl->value_type == Value_Type::boolean)
-					result.fun  = make_literal((bool)const_decl->value.val_boolean);
-				else
-					fatal_error(Mobius_Error::internal, "Unimplemented value type for constant.");
-				if(is_valid(const_decl->unit))
-					result.unit = model->units[const_decl->unit]->data.standard_form;
-				found = true;
-			}
+		}
+		
+		if(id.reg_type == Reg_Type::constant) {
+			delete new_ident; // A little stupid to do it that way, but oh well.
+			inline_constant(model, id, result);
+			found = true;
 		}
 		
 		if(!found && isfun) {
@@ -914,22 +934,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 		if(!found) {
 			if(id.reg_type == Reg_Type::parameter) {
 				
-				auto par = model->parameters[id];
-				
-				if(par->decl_type == Decl_Type::par_enum) {
-					ident->chain[0].print_error_header();
-					error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
-					fatal_error_trace(scope);
-				} else if (par->decl_type == Decl_Type::par_datetime) {
-					ident->chain[0].print_error_header();
-					error_print("It is currently not supported to look up the value of date time parameters inside equations.\n");
-					fatal_error_trace(scope);
-				}
-				new_ident->variable_type = Variable_Type::parameter;
-				new_ident->par_id = id;
-				new_ident->value_type = get_value_type(par->decl_type);
-				if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
-					result.unit = model->units[par->unit]->data.standard_form;
+				resolve_parameter(model, id, result, new_ident, scope, ident->chain[0].source_loc);
 				
 			} else if (id.reg_type == Reg_Type::component) {
 				
@@ -950,18 +955,21 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 			} else if (id.reg_type == Reg_Type::loc) {
 				// TODO: Will this break if the loc is a connection without a specific location? (In that case it should not be valid to reference it here).
 				auto loc = model->locs[id];
-				if(is_valid(loc->par_id)) {
-					auto par = model->parameters[loc->par_id];
-					new_ident->variable_type = Variable_Type::parameter;
-					new_ident->par_id = loc->par_id;
-					new_ident->value_type = get_value_type(par->decl_type);
-					if(is_valid(par->unit))
-						result.unit = model->units[par->unit]->data.standard_form;
+				if(is_valid(loc->val_id)) {
+					if(loc->val_id.reg_type == Reg_Type::parameter) {
+
+						resolve_parameter(model, loc->val_id, result, new_ident, scope, ident->chain[0].source_loc);
+
+					} else if(loc->val_id.reg_type == Reg_Type::constant) {
+						delete new_ident; new_ident = nullptr;
+						inline_constant(model, loc->val_id, result);
+					}
 				} else {
 					Var_Id var_id = app->vars.id_of(loc->loc);
 					set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 				}
-				new_ident->restriction = loc->loc;
+				if(new_ident)
+					new_ident->restriction = loc->loc;
 				
 			} else {
 				ident->chain[0].print_error_header();
@@ -1054,13 +1062,13 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 					}
 					// TODO: What if the loc has a restriction?
 					if(is_valid(loc->loc.r1.connection_id))
-						fatal_error(Mobius_Error::internal, "Not supported to compose locs that have restrictions yet.");
+						fatal_error(Mobius_Error::internal, "It is not supported to extend locs that have restrictions yet (inside functions).");
 					for(int jdx = 0; jdx < loc->loc.n_components; ++jdx)
 						chain.push_back(loc->loc.components[jdx]);
 				} else {
 					if(reg->id.reg_type != Reg_Type::component) {
 						ident->chain[idx].print_error_header();
-						error_print("The identifier '", str, "' does not refer to a variable location component (compartment, quantity or property)");
+						error_print("The identifier '", str, "' does not refer to a location component (compartment, quantity or property)");
 						fatal_error_trace(scope);
 					}
 					chain.push_back(reg->id);
