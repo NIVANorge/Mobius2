@@ -177,10 +177,6 @@ Function_Resolve_Data {
 	bool                         allow_result        = false; // Allow result() . Used for external_computation
 	bool                         value_last_only     = true; // Only last statement in a block can be a value.
 	
-	// For unit_conversion and aggregation_weight :
-	//Entity_Id                    source_compartment = invalid_entity_id;
-	//Entity_Id                    target_compartment = invalid_entity_id;
-	
 	// The simplified option is if we are resolving a simple expression of provided symbols, not for main code, but e.g. for parameter exprs in an optimizer run.
 	bool                         simplified = false;
 	std::vector<std::string>     simplified_syms;

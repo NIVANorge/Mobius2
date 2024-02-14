@@ -1,38 +1,28 @@
 
 
-// Note: unfinished work intended to merge identifier resolution between function_tree and model_declaration.
+#include "resolve_identifier.h"
 
+// Note: unfinished work, intended to merge (parts of) identifier resolution between function_tree and model_declaration.
 
-struct
-Location_Resolve {
-	Variable_Type       type;
-	Entity_Id           val_id = invalid_entity_id;
-	Var_Location        loc;
-	Var_Loc_Restriction restriction;
-	// TODO: Probably need a Source_Location decl_loc  so that we can untrace loc() declarations in errors.
-};
-
-
-// Have to figure out how to do errors here, because they should be reported differently depending on context.
 
 void
-expect_n_items(int expected, int got, Source_Location &source_loc, bool *error) {
+expect_n_items(int expected, int got, const Source_Location &source_loc, bool *error) {
 	if(got == expected) return;
 	
 	source_loc.print_error_header();
-	error_print("Expected exactly ", expected, " item", (expected == 1 ? "", "s"), " in this identifier chain, got ", got, ".");
+	error_print("Expected exactly ", expected, " item", (expected == 1 ? "" : "s"), " in this identifier chain, got ", got, ".");
 	*error = true;
 }
 
 void
-set_single_value(Mobius_Model *model, Entity_Id id, Location_Resolve &resolve, int n_items, Source_Location &source_loc, bool *error) {
+set_single_value(Mobius_Model *model, Entity_Id id, Location_Resolve &resolve, int n_items, const Source_Location &source_loc, bool *error) {
 	
 	// TODO: Something will go wrong if you pass an enum parameter in a loc(). It should not require the . dereference before it is actually dereferenced.
 	//    We could also just disallow it. Or make new syntax for enum would be even better maybe.
 	
 	if(id.reg_type == Reg_Type::parameter) {
-		result.val_id = id; 
-		result.type = Variable_Type::parameter;
+		resolve.val_id = id; 
+		resolve.type = Variable_Type::parameter;
 		auto par = model->parameters[id];
 		int expect_num = 1;
 		if(par->decl_type == Decl_Type::par_enum) {
@@ -44,20 +34,19 @@ set_single_value(Mobius_Model *model, Entity_Id id, Location_Resolve &resolve, i
 		}
 		expect_n_items(expect_num, n_items, source_loc, error);
 	} else if (id.reg_type == Reg_Type::constant) {
-		result.val_id = id;
-		result.variable_type = Variable_Type::constant; // Doesn't exist yet. May not want it and instead just say parameter, then do fixup in function_scope_resolve...
+		resolve.val_id = id;
+		resolve.type = Variable_Type::constant;
 		expect_n_items(1, n_items, source_loc, error);
 	} else if (id.reg_type == Reg_Type::connection) {
-		result.val_id = id;
-		result.variable_type = Variable_Type::connection;
+		resolve.val_id = id;
+		resolve.type = Variable_Type::connection;
 		expect_n_items(1, n_items, source_loc, error);
 	} else
 		fatal_error(Mobius_Error::internal, "Misuse of set_single_value.");
 }
 
-// This should be an internal function, combined with something that processes bracket(s), into an exported function.
 void
-resolve_location(Mobius_Model *model, Location_Resolve &result, std::vector<Token> &chain, Decl_Scope *scope, bool *error) {
+resolve_location(Mobius_Model *model, Location_Resolve &result, const std::vector<Token> &chain, Decl_Scope *scope, bool *error) {
 
 	auto str0 = chain[0].string_value;
 	
@@ -94,11 +83,15 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, std::vector<Toke
 		return;
 	}
 
-	std::vector<Entity_Id> id_chain(chain.size(), invalid_entity_id); // TODO: This one is unnecessary.. Could do resolution in loop below directly.
+	std::vector<Entity_Id> id_chain(chain.size(), invalid_entity_id); // TODO: The vector is unnecessary.. Could do resolution in loop below directly.
 	for(int idx = 0; idx < chain.size(); ++idx) {
 		auto reg = (*scope)[chain[idx].string_value];
-		if(reg) id_chain[idx] = reg->id;
-		else {
+		if(reg) {
+			id_chain[idx] = reg->id;
+			// Hmm, this is an ugly fix. It is needed because we don't put the enum options as symbols in the scope.
+			if(idx == 0 && reg->id.reg_type == Reg_Type::parameter && model->parameters[reg->id]->decl_type == Decl_Type::par_enum)
+				break;
+		} else {
 			chain[idx].print_error_header();
 			error_print("The symbol '", chain[idx].string_value, "' can not be resolved in this scope.");
 			*error = true;
@@ -109,15 +102,15 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, std::vector<Toke
 	int offset = 0;
 	if(id_chain[0].reg_type == Reg_Type::parameter || id_chain[0].reg_type == Reg_Type::constant || id_chain[0].reg_type == Reg_Type::connection) {
 		
-		set_single_value(model, id_chain[0], result, id_chain.size(), id_chain[0].source_loc, error);
+		set_single_value(model, id_chain[0], result, id_chain.size(), chain[0].source_loc, error);
 		return;
 		
 	} else if( id_chain[0].reg_type == Reg_Type::loc) {
 		auto loc = model->locs[id_chain[0]];
 		
-		result.restriction = loc;
+		result.restriction = loc->loc;
 		if(is_valid(loc->val_id)) {
-			set_single_value(model, loc->val_id, result, id_chain.size(), id_chain[0].source_loc, error);
+			set_single_value(model, loc->val_id, result, id_chain.size(), chain[0].source_loc, error);
 			return;
 		} else {
 			result.loc = loc->loc;
@@ -129,7 +122,7 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, std::vector<Toke
 	
 	// Note: n_components is not 0 if we have already unpacked a loc() in the first components.
 	int base_offset = (int)result.loc.n_components - offset;
-	result.loc.n_components = (result.loc.n_components + (int)id_chain.size() - offset)
+	result.loc.n_components = (result.loc.n_components + (int)id_chain.size() - offset);
 	if(result.loc.n_components  > max_var_loc_components) {
 		chain[0].print_error_header();
 		error_print("Too many components in a location.");
@@ -138,7 +131,10 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, std::vector<Toke
 	}
 	
 	if((offset != 0) && (chain.size() != 1) && result.loc.type != Var_Location::Type::located) {
-		// TODO: error, can't compose unless it is a located loc.
+		chain[0].print_error_header();
+		error_print("The 'loc' '", chain[0].string_value, "' is not located, and so it can't be further composed with other components.");
+		*error = true;
+		return;
 	}
 	
 	result.loc.type = Var_Location::Type::located;
@@ -153,36 +149,41 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, std::vector<Toke
 		}
 		result.loc.components[base_offset + idx] = comp;
 	}
-	
-	return;
 }
 
 // Maybe not that clean to pass the implicit_conn_id to this function... But annoying to insert it in later.
 void
-process_bracket(Mobius_Model *model, Restriction &res, Decl_Scope *scope, std::vector<Token> &bracket, bool *error, Entity_Id *implicit_conn_id = nullptr) {
+resolve_bracket(Mobius_Model *model, Restriction &res, Decl_Scope *scope, const std::vector<Token> &bracket, bool *error, Entity_Id implicit_conn_id = invalid_entity_id) {
 	
 	if(bracket.empty()) return;
 	
 	if(is_valid(res.connection_id) && !bracket.empty()) {
 		// This could happen if we already got one from a loc().
 		bracket[0].print_error_header();
-		error_print("A bracket can't be added to this identifier since it already has one from a 'loc'.");
+		error_print("A bracketed restriction can't be added to this identifier since it already has one from a 'loc'.");
 		*error = true;
 		return;
 	}
-	String_View type;
+	Token type_token;
 	if(bracket.size() == 1) {
-		type = bracket[0].string_value;
-		if(!implicit_conn_id) {
-			//error
+		type_token = bracket[0];
+		if(!is_valid(implicit_conn_id)) {
+			type_token.print_error_header();
+			error_print("No connection could be inferred from the context, so one must be explicitly provided in the bracket.");
+			*error = true;
+			return;
 		}
-		res.conn_id = *implicit_conn_id;
+		res.connection_id = implicit_conn_id;
 	} else if (bracket.size() == 2) {
-		type = bracket[1].string_value;
+		type_token = bracket[1];
 		res.connection_id = scope->expect(Reg_Type::connection, &bracket[0]);
 	} else {
-		// error
+		bracket[0].print_error_header();
+		error_print("Expected exactly 1 or 2 tokens in the bracket.");
+		*error = true;
+		return;
 	}
+	auto type = type_token.string_value;
 	
 	if(type == "top")
 		res.type = Restriction::top;
@@ -192,20 +193,57 @@ process_bracket(Mobius_Model *model, Restriction &res, Decl_Scope *scope, std::v
 		res.type = Restriction::specific;
 	else if(type == "below")
 		res.type = Restriction::below;
+	else if(type == "above")
+		res.type = Restriction::above;
 	else {
-		// TODO: error
+		type_token.print_error_header();
+		error_print("Unrecognized restriction type '", type, "'.");
+		*error = true;
+		return;
 	}
 }
-//TODO: Rembember to check if a bracket is allowed or required (is_at) for the given variable type (not just the context).
 
-
-// TODO: have convenience functions to unpack the resolve to specific context.
-//    These should give errors if it contains something that is not appropriate to the context. E.g. restriction on simple loc, simple loc or flux loc is parameter, etc.
-
-
-// This calls the combined resolve function that also processes brackets. Calls mobius_error_exit() on error.
 void
-resolve_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Location_Resolve &resolve); // TODO
+resolve_full_location(Mobius_Model *model, Location_Resolve &result, const std::vector<Token> &chain, const std::vector<Token> &bracket, const std::vector<Token> &bracket2, Decl_Scope *scope, bool *error, Entity_Id implicit_conn_id) {
+	
+	resolve_location(model, result, chain, scope, error);
+	if(*error) return;
+	
+	resolve_bracket(model, result.restriction.r1, scope, bracket, error, implicit_conn_id);
+	if(*error) return;
+	
+	resolve_bracket(model, result.restriction.r2, scope, bracket2, error);
+	if(*error) return;
+	
+	if(is_valid(result.restriction.r1.connection_id)) {
+		if(result.type == Variable_Type::state_var) {
+			if(result.loc.type != Var_Location::Type::located) {
+				bracket[0].print_error_header();
+				error_print("Only a located location can have a bracketed restriction.");
+				*error = true;
+				return;
+			}
+		} else if (result.type != Variable_Type::parameter && result.type != Variable_Type::is_at) {
+			bracket[0].print_error_header();
+			error_print("The identifier '", chain[0].string_value, "' can't have a bracketed restriction.");
+			*error = true;
+			return;
+		}
+	} else if(result.type == Variable_Type::is_at) {
+		chain[0].print_error_header();
+		error_print("An 'is_at' is only valid with a bracketed restriction.");
+		*error = true;
+		return;
+	}
+}
+
+void
+resolve_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Location_Resolve &resolve) {
+	
+	bool error = false;
+	resolve_full_location(model, resolve, arg->chain, arg->bracketed_chain, arg->secondary_bracketed, scope, &error);
+	if(error) mobius_error_exit();
+}
 
 void
 resolve_simple_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location &loc) {
@@ -221,11 +259,14 @@ resolve_simple_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST
 		arg->bracketed_chain[0].source_loc.print_error_header();
 		fatal_error("A bracketed restriction is not allowed in this context.");
 	}
+	if(resolve.loc.type != Var_Location::Type::located) {
+		arg->source_loc().print_error_header();
+		fatal_error("Expected only a located location in this context, not 'out'.");
+	}
 	
 	loc = resolve.loc;
 }
 
-// remember to unpack a 'connection' identifier to a Specific_Var_Location also.
 void
 resolve_flux_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Specific_Var_Location &loc) {
 	
@@ -249,14 +290,27 @@ resolve_flux_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 	}
 }
 
-// This should allow state_var, parameter, constant, connection.
 void
-resolve_loc_decl_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Loc_Declaration &loc_decl);
-
-
-// This is the function tree one, should reuse most of what we do in resolve_identifier there.
-// Need to pass the chain in case of enum parameters
-// todo: also pass function resolve context.
-// This one must also resolve value type, and inline constants (as literals).
-void
-unpack_function_resolve(Model_Application *app, Location_Resolve &resolve, std::vector<Token> &chain, Function_Resolve_Result &result);
+resolve_loc_decl_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Loc_Registration &loc_decl) {
+	
+	Location_Resolve resolve;
+	resolve_loc_argument(model, scope, arg, resolve);
+	
+	static_cast<Var_Loc_Restriction &>(loc_decl.loc) = resolve.restriction;
+	
+	if(resolve.type == Variable_Type::state_var) {
+		
+		static_cast<Var_Location &>(loc_decl.loc) = resolve.loc;
+		
+	} else if (resolve.type == Variable_Type::parameter || resolve.type == Variable_Type::constant || resolve.type == Variable_Type::connection) {
+		
+		loc_decl.val_id = resolve.val_id;
+		
+	} else {
+		
+		arg->source_loc().print_error_header();
+		fatal_error("Only locations, parameters, constants and connections can be passed as a 'loc'.");
+		
+	}
+	
+}

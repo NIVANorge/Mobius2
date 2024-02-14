@@ -580,8 +580,8 @@ process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes
 	} else if (res.r1.type == Restriction::bottom) {
 		check_against = make_binop('-', app->get_index_count_code(index_set, indexes), make_literal((s64)1));  // count-1
 	} else {
-		ident->source_loc.print_error_header(Mobius_Error::internal);
-		fatal_error("Unimplemented codegen for 'is_at' check.");
+		ident->source_loc.print_error_header(Mobius_Error::model_building);
+		fatal_error("Only 'top' and 'bottom' are supported restrictions for 'is_at'.");
 	}
 	
 	delete ident;

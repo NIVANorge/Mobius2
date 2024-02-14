@@ -163,7 +163,7 @@ get_token_type(Decl_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var, connection_info, index_count, local,
+	parameter, series, state_var, connection_info, index_count, local, constant,
 	// Not really variables, but identifier types:
 	no_override, is_at, connection,
 	// "special" state variables

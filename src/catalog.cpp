@@ -142,7 +142,7 @@ Decl_Scope::resolve_argument(Reg_Type expected_type, Argument_AST *arg) {
 }
 
 Entity_Id
-Decl_Scope::expect(Reg_Type expected_type, Token *identifier) {
+Decl_Scope::expect(Reg_Type expected_type, const Token *identifier) {
 	if(identifier->type != Token_Type::identifier) {
 		identifier->print_error_header();
 		fatal_error("Expected an identifier.");

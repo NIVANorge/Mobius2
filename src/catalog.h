@@ -40,7 +40,7 @@ Decl_Scope {
 	void check_for_unreferenced_things(Catalog *catalog);
 	
 	Entity_Id resolve_argument(Reg_Type expected_type, Argument_AST *arg);
-	Entity_Id expect(Reg_Type expected_type, Token *identifier);
+	Entity_Id expect(Reg_Type expected_type, const Token *identifier);
 	
 	Scope_Entity *operator[](const std::string &identifier) {
 		auto find = visible_entities.find(identifier);

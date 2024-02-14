@@ -24,6 +24,7 @@
 
 #include "model_application.h"
 #include "function_tree.h"
+#include "resolve_identifier.h"
 
 #include <sstream>
 #include <map>
@@ -591,12 +592,13 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 			
 			auto scope = model->get_scope(external->scope_id);
 			
-			// TODO: This is a stupid way to do it. Should instead unify some of the code for location argument and function tree resolution.
+			// TODO: This is a stupid way to do it. Instead make a function that takes the
+			// chain directly.
 			Argument_AST arg;
 			arg.chain = ident->chain;
 			
 			Var_Location loc;
-			process_location_argument(model, scope, &arg, &loc);
+			resolve_simple_loc_argument(model, scope, &arg, loc);
 			
 			auto find = external_targets.find(loc);
 			if(find != external_targets.end()) {

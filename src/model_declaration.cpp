@@ -2,7 +2,10 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <sstream>
+
 #include "model_declaration.h"
+#include "resolve_identifier.h"
+#include "function_tree.h"
 
 
 Registry_Base *
@@ -202,155 +205,6 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	
 	return result;
 }
-
-void
-process_bracket(Decl_Scope *scope, std::vector<Token> &bracket, Restriction &res, bool allow_bracket) {
-	if(bracket.size() == 2 && allow_bracket) {
-		
-		res.connection_id = scope->expect(Reg_Type::connection, &bracket[0]);
-		auto type = bracket[1].string_value;
-		if(type == "top")
-			res.type = Restriction::top;
-		else if(type == "bottom")
-			res.type = Restriction::bottom;
-		else if(type == "specific")
-			res.type = Restriction::specific;
-		else if(type == "below")
-			res.type = Restriction::below;
-		else {
-			bracket[1].print_error_header();
-			fatal_error("The keyword '", type, "' is not allowed as a location restriction in this context.");
-		}
-	} else if(!bracket.empty()) {
-		bracket[0].print_error_header();
-		fatal_error("This bracketed restriction is either invalidly placed or invalidly formatted.");
-	}
-}
-
-// TODO: A lot of this function could be merged with similar functionality in function_tree.cpp
-void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
-	bool allow_unspecified, bool allow_restriction, Entity_Id *val_id) {
-	
-	Specific_Var_Location *specific_loc = nullptr;
-	if(allow_restriction)
-		specific_loc = static_cast<Specific_Var_Location *>(location);
-	
-	if(arg->decl) {   // Hmm, this disallows inlined loc() declarations, but those are nonsensical anyway.
-		arg->decl->source_loc.print_error_header();
-		fatal_error("Expected a single identifier or a .-separated chain of identifiers.");
-	}
-	auto &symbol     = arg->chain;
-	auto &bracketed  = arg->bracketed_chain;
-	auto &bracketed2 = arg->secondary_bracketed;
-	
-	int count = symbol.size();
-	bool is_out = false;
-	
-	bool is_loc = false;
-	
-	if(count == 1) {
-		Token *token = &symbol[0];
-		if(token->string_value == "out") {
-			if(!allow_unspecified) {
-				token->print_error_header();
-				fatal_error("An 'out' is not allowed in this context.");
-			}
-			location->type = Var_Location::Type::out;
-			is_out = true;
-		} else {
-			auto reg = (*scope)[token->string_value];
-			if(reg) {
-				if(reg->id.reg_type == Reg_Type::connection) {
-					location->type = Var_Location::Type::connection;
-					specific_loc->r1.connection_id = reg->id;
-					specific_loc->r1.type          = Restriction::below;  // This means that the target of the flux is the 'next' index along the connection.
-				} else if (reg->id.reg_type == Reg_Type::loc) {
-					is_loc = true;
-				} else if (val_id && (reg->id.reg_type == Reg_Type::parameter || reg->id.reg_type == Reg_Type::constant) ) {
-					*val_id = reg->id;
-				} else {
-					token->print_error_header();
-					fatal_error("The entity '", token->string_value, "' is of a type that is not allowed in this context.");
-				}
-			} else {
-				token->print_error_header();
-				fatal_error("The entity '", token->string_value, "' has not been declared in this scope.");
-			}
-		}
-	}
-	
-	if (count >= 2 || is_loc) {
-
-		int offset = 1;
-		
-		auto comp0 = scope->expect(Reg_Type::unrecognized, &symbol[0]);
-		if(comp0.reg_type == Reg_Type::loc) {
-			// compose a   loc_something.something.else..
-			auto loc = model->locs[comp0];
-			
-			if(is_valid(loc->loc.r1.connection_id)) {
-				if(allow_restriction) {
-					*specific_loc = loc->loc;
-				} else {
-					loc->source_loc.print_error_header();
-					error_print("This declared location has a bracketed restriction, but that is not allowed when it is used in the following context :\n");
-					symbol[0].source_loc.print_error();
-					mobius_error_exit();
-				}
-				if(!bracketed.empty()) {
-					bracketed[0].source_loc.print_error_header();
-					error_print("A bracketed restriction can't be added to this location since it already has one on '", symbol[0].string_value, "' coming from here: ");
-					loc->source_loc.print_error();
-					mobius_error_exit();
-				}
-			} else {
-				*location = loc->loc;
-			}
-			
-			if(location->type != Var_Location::Type::located && count > 1) {
-				symbol[0].source_loc.print_error_header();
-				fatal_error("Only a located var location can be composed with other components.");
-			}
-			
-			offset = location->n_components;
-			
-		} else {
-			location->type     = Var_Location::Type::located;
-			location->components[0] = scope->expect(Reg_Type::component, &symbol[0]);
-		}
-		
-		if(offset + count - 1 > max_var_loc_components) {
-			symbol[0].print_error_header();
-			fatal_error("Too many components in a variable location (max ", max_var_loc_components, " allowed).");
-		}
-		
-		for(int idx = 1; idx < count; ++idx)
-			location->components[(idx-1) + offset] = scope->expect(Reg_Type::component, &symbol[idx]);
-		location->n_components = offset + count - 1;
-
-	}
-	
-	if(allow_restriction) {
-		// We can only have a bracket on something that is either a full var location or a parameter.
-		bool is_par = val_id && is_valid(*val_id) && (val_id->reg_type == Reg_Type::parameter);
-		bool allow_bracket = !is_out &&	(count >= 2 || is_par);
-		process_bracket(scope, bracketed,  specific_loc->r1, allow_bracket);
-		process_bracket(scope, bracketed2, specific_loc->r2, allow_bracket);
-		
-		if(!bracketed2.empty() && specific_loc->r1.type != Restriction::below) {
-			bracketed2[0].print_error_header();
-			fatal_error("For now, if there is a second argument in the location bracket, the first one must be 'below'.");
-		}
-		
-		if(specific_loc->r1.type == Restriction::below)
-			specific_loc->type = Var_Location::Type::connection;
-	} else if (!bracketed.empty()) {
-		bracketed[0].print_error_header();
-		fatal_error("A bracketed restriction on the location argument is not allowed in this context.");
-	}
-}
-
 
 // TODO: We could acutally move some functionality into these, but it is not crucial..
 void
@@ -656,7 +510,7 @@ Var_Registration::process_declaration(Catalog *catalog) {
 	auto model = static_cast<Mobius_Model *>(catalog);
 	auto scope = catalog->get_scope(scope_id);
 
-	process_location_argument(model, scope, decl->args[0], &var_location);	
+	resolve_simple_loc_argument(model, scope, decl->args[0], var_location);
 	
 	unit = scope->resolve_argument(Reg_Type::unit, decl->args[1]);
 	
@@ -699,7 +553,7 @@ Var_Registration::process_declaration(Catalog *catalog) {
 			
 			match_declaration_base(note, {{Arg_Pattern::loc, Decl_Type::unit}}, 0);
 			
-			process_location_argument(model, scope, note->args[0], &additional_conc_medium);
+			resolve_simple_loc_argument(model, scope, note->args[0], additional_conc_medium);
 			additional_conc_unit = scope->resolve_argument(Reg_Type::unit, note->args[1]);
 			
 		} else if(str == "add_to_existing") {
@@ -748,8 +602,8 @@ Flux_Registration::process_declaration(Catalog *catalog) {
 	unit = scope->resolve_argument(Reg_Type::unit, decl->args[2]);
 	//resolve_argument<Reg_Type::unit>(model, scope, decl, 2);
 	
-	process_location_argument(model, scope, decl->args[0], &source, true, true);
-	process_location_argument(model, scope, decl->args[1], &target, true, true);
+	resolve_flux_loc_argument(model, scope, decl->args[0], source);
+	resolve_flux_loc_argument(model, scope, decl->args[1], target);
 	
 	if(source == target && is_located(source)) {
 		decl->source_loc.print_error_header();
@@ -994,7 +848,7 @@ Loc_Registration::process_declaration(Catalog *catalog) {
 	auto scope = catalog->get_scope(scope_id);
 	auto model = static_cast<Mobius_Model *>(catalog);
 	
-	process_location_argument(model, scope, decl->args[0], &loc, true, true, &val_id);
+	resolve_loc_decl_argument(model, scope, decl->args[0], *this);
 	
 	has_been_processed = true;
 }
@@ -1368,7 +1222,7 @@ process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 	
 	for(int idx = 1; idx < decl->args.size(); ++idx) {
 		Var_Location loc;
-		process_location_argument(model, scope, decl->args[idx], &loc);
+		resolve_simple_loc_argument(model, scope, decl->args[idx], loc);
 	
 		solver->locs.push_back({loc, decl->args[idx]->source_loc()});
 	}
@@ -1426,9 +1280,10 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	match_declaration(decl, {{Arg_Pattern::loc, Arg_Pattern::loc}}, false, -1);
 	
 	Flux_Unit_Conversion_Data data = {};
+
+	resolve_simple_loc_argument(model, scope, decl->args[0], data.source);
+	resolve_simple_loc_argument(model, scope, decl->args[1], data.target);
 	
-	process_location_argument(model, scope, decl->args[0], &data.source);
-	process_location_argument(model, scope, decl->args[1], &data.target);
 	data.code = static_cast<Function_Body_AST *>(decl->body)->block;
 	data.scope_id = scope->parent_id;
 	

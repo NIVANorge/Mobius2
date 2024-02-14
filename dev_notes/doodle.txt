@@ -1,6 +1,9 @@
 
 
 
+
+
+
 # Would like to have something like
 	var(river.water.toc, [m g, l-1], "River TOC") {
 		oc
@@ -12,15 +15,6 @@
 		sed.oc
 	}
 # (More relevant for e.g. P in lake etc.)
-
-
-
-
-
-
-
-
-
 
 
 

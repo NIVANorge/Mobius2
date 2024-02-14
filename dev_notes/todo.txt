@@ -2,6 +2,9 @@
 
 	*** High pri ***
 	
+		After identifier resolution refactor:
+			Do we check anywhere that fluxes can't go to 'above'? (with proper error message)?
+	
 		We have experimentally added some prune_tree when setting state variable code in model_compilation and model_codegen.
 			Be very careful to see if this causes any problems.
 			

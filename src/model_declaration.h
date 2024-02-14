@@ -315,9 +315,9 @@ load_config(String_View config = "config.txt");
 Mobius_Model *
 load_model(String_View file_name, Mobius_Config *config = nullptr);
 
-void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
-	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr);
+//void
+//process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
+//	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr);
 
 // TODO: these could be moved to common_types.h (along with impl.)
 Var_Location
