@@ -219,8 +219,13 @@ Unit_Registration : Registration_Base {
 	
 	void process_declaration(Catalog *catalog);
 
-	Unit_Data data;
+	Unit_Data data; // This is only guaranteed to be valid after model is finalized.
+	
+	// The below ones are only used until the model is finalized.
 	std::vector<Entity_Id> composed_of;
+	Entity_Id unit_of        = invalid_entity_id;
+	Var_Location unit_of_loc = invalid_var_location;
+	Entity_Id refers_to      = invalid_entity_id;
 };
 
 enum class
@@ -233,7 +238,7 @@ Connection_Registration : Registration_Base {
 	Connection_Type type = Connection_Type::unrecognized;
 	
 	Entity_Id node_index_set = invalid_entity_id;  // Only for grid1d. For directed graph, the nodes could be indexed variously
-	Entity_Id edge_index_set = invalid_entity_id;  // Only for directed graph for now.
+	Entity_Id edge_index_set = invalid_entity_id;  // Only for directed_graph for now.
 	
 	bool no_cycles = false;
 	

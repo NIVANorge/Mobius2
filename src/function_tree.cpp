@@ -1320,9 +1320,18 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			if(conv->auto_convert) {
 				to_unit = data->expected_unit;
 			} else {
-				Unit_Data conv_unit;
-				conv_unit.set_data(conv->unit);
-				to_unit = std::move(conv_unit.standard_form);
+				if(conv->by_identifier) {
+					auto reg = decl_scope[conv->unit_identifier.string_value];
+					if(!reg || reg->id.reg_type != Reg_Type::unit) {
+						conv->unit_identifier.print_error_header();
+						error_print("The identifier '", conv->unit_identifier.string_value, "' does not refer to a unit.");
+					}
+					to_unit = model->units[reg->id]->data.standard_form;
+				} else {
+					Unit_Data conv_unit;
+					conv_unit.set_data(conv->unit);
+					to_unit = std::move(conv_unit.standard_form);
+				}
 			}
 			
 			bool offset = false;

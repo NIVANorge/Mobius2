@@ -146,15 +146,14 @@ module("SimplyTox partitioning", version(0, 0, 0),
 	tox : quantity,
 	temp : property,
 	solid_oc : loc,
-	water_unit : unit,
 	mass_unit : unit,
-	#flux_unit : unit,
 	fast_degr : constant,
 	phys : preamble
 ) {
 	# NOTE: This one works for groundwater and bottom sediments, not for soil since it also has an air compartment.
 	
-	flux_unit : compose_unit(mass_unit, [day-1])
+	water_unit : unit_of(comp.water)
+	flux_unit  : compose_unit(mass_unit, [day-1])
 	
 	var(comp.water.tox, mass_unit, [n g, l-1], "Dissolved contaminants")
 	var(comp.water.oc.tox, mass_unit, [n g, k g-1], "DOC contaminants")
@@ -164,16 +163,12 @@ module("SimplyTox partitioning", version(0, 0, 0),
 	var(comp.water.tox.Kdoc, [m 3, k g-1])
 	var(comp.water.tox.Koc, [m 3, k g-1])
 	
-	#TODO: This is a bit cumbersome. It is because we can't convert directly to the water_unit inside the equation.
-	#   Also it would be nice to just be able to convert to unit_of(water) so that we wouldn't have to even pass the unit to this module.
-	eqvol : property("Equilibrium volume")
-	var(comp.water.tox.eqvol, water_unit) {
-		  Koc*solid_oc->>
-		+ Kdoc*comp.water.oc->>
-		+ water
-	} @no_store
-	
 	var(comp.water.tox.Ceq, [n g, l-1], "Dissolved contaminant equilibrium concentration") {
+		eqvol :=
+			  Koc*solid_oc -> water_unit
+			+ Kdoc*comp.water.oc -> water_unit
+			+ water,
+			
 		m_total := comp.water.tox + comp.water.oc.tox + solid_oc.tox,
 		m_total / eqvol ->>
 	}

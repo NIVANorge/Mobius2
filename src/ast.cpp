@@ -530,14 +530,19 @@ potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool
 	unit_conv->exprs.push_back(lhs);
 	if(!auto_convert) {
 		auto peek = stream->peek_token();
-		if((char)peek.type != '[') {     // TODO: We should also allow referencing units by identifiers!
-			peek.print_error_header();
-			fatal_error("Expected a unit declaration, starting with '['");
+		if(peek.type == Token_Type::identifier) {
+			unit_conv->by_identifier = true;
+			unit_conv->unit_identifier = stream->read_token();
+		} else {
+			if((char)peek.type != '[') {
+				peek.print_error_header();
+				fatal_error("Expected a unit identifier or a unit declaration, starting with '['");
+			}
+			unit_conv->unit = new Decl_AST();
+			stream->fold_minus = true;   // Fold e.g. -1 as a single token instead of two tokens - and 1 .
+			parse_unit_decl(stream, unit_conv->unit);
+			stream->fold_minus = false;
 		}
-		unit_conv->unit = new Decl_AST();
-		stream->fold_minus = true;   // Fold e.g. -1 as a single token instead of two tokens - and 1 .
-		parse_unit_decl(stream, unit_conv->unit);
-		stream->fold_minus = false;
 	}
 	
 	return unit_conv;

@@ -226,6 +226,7 @@ Module_Registration::process_declaration(Catalog *catalog) {
 void
 Unit_Registration::process_declaration(Catalog *catalog) {
 	
+	auto model = static_cast<Mobius_Model *>(catalog);
 	auto scope = catalog->get_scope(scope_id);
 	
 	if(decl->type == Decl_Type::unit)
@@ -234,11 +235,30 @@ Unit_Registration::process_declaration(Catalog *catalog) {
 		match_declaration(decl, {{Decl_Type::unit, {Decl_Type::unit, true}}});
 		for(auto arg : decl->args)
 			composed_of.push_back(scope->resolve_argument(Reg_Type::unit, arg));
+	} else if(decl->type == Decl_Type::unit_of) {
+		
+		int which = match_declaration(decl, {
+			{Decl_Type::par_real},
+			{Decl_Type::par_int},
+			{Decl_Type::constant},
+			{Arg_Pattern::loc}
+		});
+		if(which == 0 || which == 1)
+			unit_of = scope->resolve_argument(Reg_Type::parameter, decl->args[0]);
+		else if(which == 2)
+			unit_of = scope->resolve_argument(Reg_Type::constant, decl->args[1]);
+		else {
+			// TODO: This is a bit hacky.
+			Loc_Registration reg;
+			resolve_loc_decl_argument(model, scope, decl->args[0], reg);
+			unit_of = reg.val_id;
+			unit_of_loc = reg.loc;
+		}
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Unimplemented unit declaration type");
 	
-	// TODO: We also want 'unit_of', but it is very tricky because it can't be resolved until after state vars are resolved, but when we resolve state vars we already want the units to be available...
+	// TODO: We also want 'unit_of', but it is very tricky because it can't be resolved until after state vars are resolved, but when we resolve state vars we already want the units to be available... Although we could just iterate over 'var' declarations and match the var_location. Then model_composition will check consistency of those any way.
 	
 	has_been_processed = true;
 }
@@ -405,7 +425,7 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 
 	// NOTE: Have to allow Decl_Type::unit since they are often inline declared in parameter declarations.
 	for(Decl_AST *child : body->child_decls)
-		catalog->register_decls_recursive(&scope, child, {Decl_Type::par_real, Decl_Type::par_int, Decl_Type::par_bool, Decl_Type::par_enum, Decl_Type::unit, Decl_Type::compose_unit});
+		catalog->register_decls_recursive(&scope, child, {Decl_Type::par_real, Decl_Type::par_int, Decl_Type::par_bool, Decl_Type::par_enum, Decl_Type::unit, Decl_Type::compose_unit, Decl_Type::unit_of});
 	
 	for(auto id : scope.all_ids) {
 		catalog->find_entity(id)->process_declaration(catalog);
@@ -899,7 +919,7 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
 		for(Decl_AST *child : body->child_decls) {
 			if(child->type == Decl_Type::load) continue; // processed below.
 			
-			model->register_decls_recursive(&lib->scope, child, { Decl_Type::constant, Decl_Type::function, Decl_Type::unit, Decl_Type::compose_unit });
+			model->register_decls_recursive(&lib->scope, child, { Decl_Type::constant, Decl_Type::function, Decl_Type::unit, Decl_Type::compose_unit, Decl_Type::unit_of });
 		}
 		
 		// Check recursively for library loads into the current library.
@@ -1071,6 +1091,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::par_group,
 		Decl_Type::unit,
 		Decl_Type::compose_unit,
+		Decl_Type::unit_of,
 		Decl_Type::function,
 		Decl_Type::constant,
 	} : std::set<Decl_Type> {
@@ -1083,6 +1104,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::function, 
 		Decl_Type::unit,
 		Decl_Type::compose_unit,
+		Decl_Type::unit_of,
 		Decl_Type::flux,
 		Decl_Type::var,
 		Decl_Type::discrete_order,
@@ -1491,6 +1513,7 @@ pre_register_module_loads(Catalog *catalog, Decl_Scope *scope, Decl_AST *load_de
 		Decl_Type::connection,
 		Decl_Type::unit,
 		Decl_Type::compose_unit,
+		Decl_Type::unit_of,
 		Decl_Type::constant
 	};
 	
@@ -1516,34 +1539,63 @@ pre_register_module_loads(Catalog *catalog, Decl_Scope *scope, Decl_AST *load_de
 void
 basic_checks_and_finalization(Mobius_Model *model) {
 	
-	// NOTE: We have to resolve units in the correct order so we have to sort them first.
+	// Find out what unit each unit_of unit refers to.
+	for(auto unit_id : model->units) {
+		auto unit = model->units[unit_id];
+		if(unit->decl && unit->decl->type == Decl_Type::unit_of) {
+			if(is_valid(unit->unit_of)) {
+				if(unit->unit_of.reg_type == Reg_Type::parameter)
+					unit->refers_to = model->parameters[unit->unit_of]->unit;
+				else if(unit->unit_of.reg_type == Reg_Type::constant)
+					unit->refers_to = model->constants[unit->unit_of]->unit;
+			} else {
+				// NOTE: We can't use final resolved units yet from the model composition, but we also can't wait for that stage since that stage needs the units to have been resolved already. Hopefully this doesn't cause problems.
+				// Hmm, maybe we should have some kind of lookup hash table for Var_Location -> Entity_Id also then?
+				for(auto var_id : model->vars) {
+					auto var = model->vars[var_id];
+					if(var->var_location == unit->unit_of_loc) {
+						unit->refers_to = var->unit;
+						break;
+					}
+				}
+			}
+		}
+	}
 	
+	// We have to resolve compose_unit and unit_of units in the correct order (if they depend on one another) so we have to sort them first.
 	struct
 	Unit_Sorting_Predicate {
 		Mobius_Model *model;
 		inline bool participates(Entity_Id node) {
 			auto unit = model->units[node];
-			return unit->decl && unit->decl->type == Decl_Type::compose_unit;
+			return unit->decl && (unit->decl->type == Decl_Type::compose_unit || unit->decl->type == Decl_Type::unit_of);
 		}
-		inline const std::vector<Entity_Id> &edges(Entity_Id node) {
-			return model->units[node]->composed_of;
+		// A bit annoying that we have to return a vector copy..
+		inline std::vector<Entity_Id> edges(Entity_Id node) {
+			auto unit = model->units[node];
+			if(unit->decl->type == Decl_Type::compose_unit)
+				return unit->composed_of;
+			return { unit->refers_to };
 		}
 	} unit_sorting_predicate = { model };
 	
 	std::vector<Entity_Id> sorted_units;
 	topological_sort<Unit_Sorting_Predicate, Entity_Id>(unit_sorting_predicate, sorted_units, Entity_Id {Reg_Type::unit, (s16)model->units.count()}, [model](const std::vector<Entity_Id> &cycle) {
 		model->units[cycle[0]]->source_loc.print_error_header();
-		fatal_error("There is a circular 'compose_unit' reference involving the above declaration.");
+		fatal_error("There is a circular 'compose_unit' or 'unit_of' reference involving the above declaration.");
 	}, Entity_Id { Reg_Type::unit, 0} );
 	
 	for(auto unit_id : sorted_units) {
 		auto unit = model->units[unit_id];
-		if(unit->decl && unit->decl->type == Decl_Type::compose_unit) { // unit->decl  is nullptr if this is an intrinsic.
+
+		if(unit->decl->type == Decl_Type::compose_unit) { // unit->decl  is nullptr if this is an intrinsic.
 			for(auto other_id : unit->composed_of)
 				unit->data = multiply(unit->data, model->units[other_id]->data);
+		} else if (unit->decl->type == Decl_Type::unit_of) {
+			if(is_valid(unit->refers_to))
+				unit->data = model->units[unit->refers_to]->data;
 		}
 	}
-	
 	
 	for(auto conn_id : model->connections) {
 		auto conn = model->connections[conn_id];
