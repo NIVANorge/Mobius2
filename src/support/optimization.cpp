@@ -181,7 +181,7 @@ Expr_Parameters::set(Model_Application *app, const std::vector<Indexed_Parameter
 		gather_dependencies(exprs[idx].get(), graph[idx].second);
 	}
 	
-	topological_sort(predicate, order, exprs.size(), [&](const std::vector<int> &cycle) {
+	topological_sort<Graph_Sorting_Predicate, int>(predicate, order, exprs.size(), [&](const std::vector<int> &cycle) {
 		begin_error(Mobius_Error::api_usage);
 		error_print("There is a circular reference between the expressions for the following parameters:\n");
 		for(int par_idx : cycle)

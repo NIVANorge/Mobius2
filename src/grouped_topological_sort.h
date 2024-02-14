@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <vector>
 #include <set>
+#include <functional>
 
 /*
 Example of how one could make a sorting predicate for the functions
@@ -34,35 +35,35 @@ https://en.wikipedia.org/wiki/Topological_sorting
 Tarjan (1976), "Edge-disjoint spanning trees and depth-first search", Acta Informatica, 6 (2)
 The primary use case is to actually do the sorting, but it will also report a circuit if it finds one (in which case the sorting is impossible).
 */
-template <typename Predicate>
+template <typename Predicate, typename itype = int>
 void
-topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements, const std::function<void(const std::vector<int> &)> &report_circuit) {
+topological_sort(Predicate &predicate, std::vector<itype> &sorted, itype n_elements, const std::function<void(const std::vector<itype> &)> &report_circuit, itype zeroval = 0) {
 	
 	struct
 	Visit_Helper {
 		std::vector<uint8_t> temp_visited;
 		std::vector<uint8_t> visited;
 		
-		std::vector<int> potential_cycle;
-		std::vector<int> *sorted;
+		std::vector<itype> potential_cycle;
+		std::vector<itype> *sorted;
 		Predicate *predicate;
 		
-		Visit_Helper(int size, Predicate *predicate, std::vector<int> *sorted) : temp_visited(size, false), visited(size, false), predicate(predicate), sorted(sorted) {}
+		Visit_Helper(itype size, Predicate *predicate, std::vector<itype> *sorted) : temp_visited(size_t(size), false), visited(size_t(size), false), predicate(predicate), sorted(sorted) {}
 		
 		bool
-		visit(int node) {
+		visit(itype node) {
 			if(!predicate->participates(node)) return false;
-			if(visited[node])                 return false;
+			if(visited[size_t(node)])          return false;
 			potential_cycle.push_back(node);
-			if(temp_visited[node])            return true;
+			if(temp_visited[size_t(node)])     return true;
 
-			temp_visited[node] = true;
-			for(int other_node : predicate->edges(node)) {
+			temp_visited[size_t(node)] = true;
+			for(itype other_node : predicate->edges(node)) {
 				bool cycle = visit(other_node);
 				if(cycle) return true;
 			}
 			potential_cycle.resize(potential_cycle.size() - 1);
-			visited[node]      = true;
+			visited[size_t(node)]      = true;
 			sorted->push_back(node);
 			return false;
 		}
@@ -70,13 +71,13 @@ topological_sort(Predicate &predicate, std::vector<int> &sorted, int n_elements,
 	
 	sorted.clear();
 	Visit_Helper visits(n_elements, &predicate, &sorted);
-	for(int node = 0; node < n_elements; ++node) {
+	for(itype node = zeroval; node < n_elements; ++node) {
 		visits.potential_cycle.clear();
 		bool is_cycle = visits.visit(node);
 		if(is_cycle) {
 			auto &cycle = visits.potential_cycle;
 			// Remove the first part that was not part of the cycle.
-			int starts_at = cycle.back(); // If there was a cycle, it starts at what it ended at
+			itype starts_at = cycle.back(); // If there was a cycle, it starts at what it ended at
 			auto start = std::find(cycle.begin(), cycle.end(), starts_at);
 			cycle.erase(cycle.begin(), start+1);
 			report_circuit(cycle);
@@ -474,7 +475,7 @@ label_grouped_topological_sort_additional_weak_constraint(
 	Cycle_Sorting_Predicate sort_predicate { &max_components };
 	std::vector<int> sorted_components;
 
-	topological_sort(sort_predicate, sorted_components, max_components.size(), [&](const std::vector<int> &cycle){
+	topological_sort<Cycle_Sorting_Predicate, int>(sort_predicate, sorted_components, max_components.size(), [&](const std::vector<int> &cycle){
 		// Note: There should be no cycles in the condensed graph (or the component finding algorithm is wrong)
 		fatal_error(Mobius_Error::internal, "Got a cycle among the cycles!!!\n");
 	});
@@ -525,7 +526,7 @@ label_grouped_topological_sort_additional_weak_constraint(
 				}
 				
 				std::vector<int> sorted;
-				topological_sort(sort_predicate2, sorted, cycle_nodes.size(), [&](const std::vector<int> &cycle){
+				topological_sort<Cycle_Internal_Sort_Predicate, int>(sort_predicate2, sorted, cycle_nodes.size(), [&](const std::vector<int> &cycle){
 					fatal_error(Mobius_Error::internal, "Unable to unpack-sort a cycle.");
 				});
 				

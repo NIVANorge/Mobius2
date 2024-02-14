@@ -17,9 +17,9 @@ struct
 Module_Template_Registration : Registration_Base {
 	
 	Module_Version version;
-	//Decl_AST      *decl = nullptr;
 	std::string    doc_string;
 	std::string    normalized_path;
+	bool           was_inline_declared = false;
 	
 	void process_declaration(Catalog *catalog);
 };
@@ -216,9 +216,11 @@ Constant_Registration : Registration_Base {
 
 struct
 Unit_Registration : Registration_Base {
-	Unit_Data data;
 	
 	void process_declaration(Catalog *catalog);
+
+	Unit_Data data;
+	std::vector<Entity_Id> composed_of;
 };
 
 enum class
@@ -298,11 +300,9 @@ Mobius_Model : Catalog {
 	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;
 	
 	// NOTE: The ASTs are reused every time you create a Model_Application from the model, so you should only free them if you know you are not going to create more Model_Applications from them.
-	//    A Model_Application is not dependent on the ASTs still existing after it is constructed though.
-	// TODO: Or do we get problems with some stored Source_Locations ?
 	void free_asts();
 	~Mobius_Model() {
-		//free_asts();   // TODO: Hmm, seems like it causes a problem some times??
+		free_asts();
 	}
 };
 

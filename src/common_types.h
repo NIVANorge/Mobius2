@@ -237,6 +237,7 @@ Entity_Id {
 	
 	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
 	Entity_Id &operator++() { id++; return *this; }
+	explicit operator size_t() { return (size_t)id; }
 };
 
 constexpr Entity_Id invalid_entity_id = Entity_Id::invalid();

@@ -6,6 +6,7 @@
 #include "model_declaration.h"
 #include "resolve_identifier.h"
 #include "function_tree.h"
+#include "grouped_topological_sort.h"
 
 
 Registry_Base *
@@ -211,10 +212,12 @@ void
 Library_Registration::process_declaration(Catalog *catalog) {
 	fatal_error(Mobius_Error::internal, "Registration<Reg_Type::library>::process_declaration should not be called.");
 }
+
 void
 Module_Template_Registration::process_declaration(Catalog *catalog) {
 	fatal_error(Mobius_Error::internal, "Registration<Reg_Type::module_template>::process_declaration should not be called.");
 }
+
 void
 Module_Registration::process_declaration(Catalog *catalog) {
 	fatal_error(Mobius_Error::internal, "Registration<Reg_Type::module>::process_declaration should not be called.");
@@ -222,8 +225,20 @@ Module_Registration::process_declaration(Catalog *catalog) {
 
 void
 Unit_Registration::process_declaration(Catalog *catalog) {
-
-	data.set_data(decl);
+	
+	auto scope = catalog->get_scope(scope_id);
+	
+	if(decl->type == Decl_Type::unit)
+		data.set_data(decl);
+	else if(decl->type == Decl_Type::compose_unit) {
+		match_declaration(decl, {{Decl_Type::unit, {Decl_Type::unit, true}}});
+		for(auto arg : decl->args)
+			composed_of.push_back(scope->resolve_argument(Reg_Type::unit, arg));
+		
+	} else
+		fatal_error(Mobius_Error::internal, "Unimplemented unit declaration type");
+	
+	// TODO: We also want 'unit_of', but it is very tricky because it can't be resolved until after state vars are resolved, but when we resolve state vars we already want the units to be available...
 	
 	has_been_processed = true;
 }
@@ -390,7 +405,7 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 
 	// NOTE: Have to allow Decl_Type::unit since they are often inline declared in parameter declarations.
 	for(Decl_AST *child : body->child_decls)
-		catalog->register_decls_recursive(&scope, child, {Decl_Type::par_real, Decl_Type::par_int, Decl_Type::par_bool, Decl_Type::par_enum, Decl_Type::unit});
+		catalog->register_decls_recursive(&scope, child, {Decl_Type::par_real, Decl_Type::par_int, Decl_Type::par_bool, Decl_Type::par_enum, Decl_Type::unit, Decl_Type::compose_unit});
 	
 	for(auto id : scope.all_ids) {
 		catalog->find_entity(id)->process_declaration(catalog);
@@ -884,7 +899,7 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
 		for(Decl_AST *child : body->child_decls) {
 			if(child->type == Decl_Type::load) continue; // processed below.
 			
-			model->register_decls_recursive(&lib->scope, child, { Decl_Type::constant, Decl_Type::function, Decl_Type::unit });
+			model->register_decls_recursive(&lib->scope, child, { Decl_Type::constant, Decl_Type::function, Decl_Type::unit, Decl_Type::compose_unit });
 		}
 		
 		// Check recursively for library loads into the current library.
@@ -957,6 +972,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	mod_temp->version.major        = single_arg(version_decl, 0)->val_int;
 	mod_temp->version.minor        = single_arg(version_decl, 1)->val_int;
 	mod_temp->version.revision     = single_arg(version_decl, 2)->val_int;
+	mod_temp->was_inline_declared  = import_scope;
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->body);
 	
@@ -1054,6 +1070,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::property,
 		Decl_Type::par_group,
 		Decl_Type::unit,
+		Decl_Type::compose_unit,
 		Decl_Type::function,
 		Decl_Type::constant,
 	} : std::set<Decl_Type> {
@@ -1065,6 +1082,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::constant, 
 		Decl_Type::function, 
 		Decl_Type::unit,
+		Decl_Type::compose_unit,
 		Decl_Type::flux,
 		Decl_Type::var,
 		Decl_Type::discrete_order,
@@ -1084,16 +1102,12 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	
 	for(auto id : module->scope.all_ids) {
 		if(id.reg_type == Reg_Type::component || id.reg_type == Reg_Type::connection || id.reg_type == Reg_Type::unit || id.reg_type == Reg_Type::par_group) {
-			auto entity = model->find_entity(id);
-			//if(entity->has_been_processed) continue; // 
-			entity->process_declaration(model);
+			model->find_entity(id)->process_declaration(model);
 		}
 	}
 	
 	for(auto id : module->scope.by_type<Reg_Type::loc>()) {
-		auto entity = model->find_entity(id);
-		//if(entity->has_been_processed) continue;
-		entity->process_declaration(model);
+		model->find_entity(id)->process_declaration(model);
 	}
 	
 	for(auto id : module->scope.all_ids) {
@@ -1476,6 +1490,7 @@ pre_register_module_loads(Catalog *catalog, Decl_Scope *scope, Decl_AST *load_de
 		Decl_Type::loc,
 		Decl_Type::connection,
 		Decl_Type::unit,
+		Decl_Type::compose_unit,
 		Decl_Type::constant
 	};
 	
@@ -1500,6 +1515,36 @@ pre_register_module_loads(Catalog *catalog, Decl_Scope *scope, Decl_AST *load_de
 
 void
 basic_checks_and_finalization(Mobius_Model *model) {
+	
+	// NOTE: We have to resolve units in the correct order so we have to sort them first.
+	
+	struct
+	Unit_Sorting_Predicate {
+		Mobius_Model *model;
+		inline bool participates(Entity_Id node) {
+			auto unit = model->units[node];
+			return unit->decl && unit->decl->type == Decl_Type::compose_unit;
+		}
+		inline const std::vector<Entity_Id> &edges(Entity_Id node) {
+			return model->units[node]->composed_of;
+		}
+	} unit_sorting_predicate = { model };
+	
+	std::vector<Entity_Id> sorted_units;
+	topological_sort<Unit_Sorting_Predicate, Entity_Id>(unit_sorting_predicate, sorted_units, Entity_Id {Reg_Type::unit, (s16)model->units.count()}, [model](const std::vector<Entity_Id> &cycle) {
+		model->units[cycle[0]]->source_loc.print_error_header();
+		fatal_error("There is a circular 'compose_unit' reference involving the above declaration.");
+	}, Entity_Id { Reg_Type::unit, 0} );
+	
+	for(auto unit_id : sorted_units) {
+		auto unit = model->units[unit_id];
+		if(unit->decl && unit->decl->type == Decl_Type::compose_unit) { // unit->decl  is nullptr if this is an intrinsic.
+			for(auto other_id : unit->composed_of)
+				unit->data = multiply(unit->data, model->units[other_id]->data);
+		}
+	}
+	
+	
 	for(auto conn_id : model->connections) {
 		auto conn = model->connections[conn_id];
 		if(conn->type == Connection_Type::grid1d) {
@@ -1743,11 +1788,11 @@ load_model(String_View file_name, Mobius_Config *config) {
 	// TODO: This splits up the sorting of modules we did earlier though....
 		// Maybe that system should be rewritten to take into account what references what instead? Probably too much effort..
 	for(auto &load : module_loads) {
-		if(load.module_spec->type == Decl_Type::module) continue;
+		if(load.module_spec->type != Decl_Type::preamble) continue;
 		process_module_load_outer(model, load);
 	}
 	for(auto &load : module_loads) {
-		if(load.module_spec->type == Decl_Type::preamble) continue;
+		if(load.module_spec->type != Decl_Type::module) continue;
 		process_module_load_outer(model, load);
 	}
 	
@@ -1813,7 +1858,6 @@ check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets
 	}
 }
 
-// TODO: Could probably get this to work with Catalog again.
 void
 Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
 	std::unordered_map<Entity_Id, bool, Entity_Id_Hash> lib_was_used;
@@ -1845,6 +1889,7 @@ Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
 			}
 		}
 	}
+	
 	for(auto &pair : lib_was_used) {
 		if(!pair.second) {
 			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
@@ -1883,15 +1928,17 @@ log_print_location(Mobius_Model *model, const Specific_Var_Location &loc) {
 
 void
 Mobius_Model::free_asts() {
-	// NOTE: All other ASTs, eg. function code, are sub-trees of one of these, so we don't need to delete them separately (though we could maybe null them).
+	// NOTE: All other ASTs, eg. function code, are sub-trees of one of the ones that we delete below, so we should not delete them separately (though we could maybe null them).
+	
 	delete main_decl;
 	main_decl = nullptr;
 	
-	// TODO: This is not correct for inlined modules as their AST is a part of the model AST and is deleted recursively from there.
-	//   Have to flag inlined module declarations.
+	// NOTE: For inline-declared modules, their AST is a part of the model AST and should not be deleted separately.
 	for(auto id : module_templates) {
-		delete module_templates[id]->decl;
-		module_templates[id]->decl = nullptr;
+		auto temp = module_templates[id];
+		if(temp->was_inline_declared) continue;
+		delete temp->decl;
+		temp->decl = nullptr;
 	}
 	for(auto id : libraries) {
 		delete libraries[id]->decl;

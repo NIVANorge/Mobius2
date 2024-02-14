@@ -1443,7 +1443,7 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 	std::vector<int> sorted_instructions;
 	
 	Instruction_Sort_Predicate predicate { &instructions };
-	topological_sort(predicate, sorted_instructions, instructions.size(), [&](const std::vector<int> &cycle) {
+	topological_sort<Instruction_Sort_Predicate, int>(predicate, sorted_instructions, instructions.size(), [&](const std::vector<int> &cycle) {
 		report_instruction_cycle(app, instructions, cycle);
 	});
 	
@@ -1476,7 +1476,7 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 	
 	std::vector<int> sorted_pre_batches;
 	Pre_Batch_Sort_Predicate predicate2 { &pre_batches };
-	topological_sort(predicate2, sorted_pre_batches, pre_batches.size(), [&](const std::vector<int> &cycle) {
+	topological_sort<Pre_Batch_Sort_Predicate, int>(predicate2, sorted_pre_batches, pre_batches.size(), [&](const std::vector<int> &cycle) {
 		fatal_error(Mobius_Error::internal, "Unable to sort pre batches. This should not be possible if solvers are correctly propagated.");
 	});
 	
@@ -1770,7 +1770,7 @@ Model_Application::compile(bool store_code_strings) {
 	
 	// Sort the initial instructions too.
 	Instruction_Sort_Predicate predicate { &initial_instructions };
-	topological_sort(predicate, initial_batch.instrs, initial_instructions.size(), [&](const std::vector<int> &cycle) {
+	topological_sort<Instruction_Sort_Predicate, int>(predicate, initial_batch.instrs, initial_instructions.size(), [&](const std::vector<int> &cycle) {
 		report_instruction_cycle(this, initial_instructions, cycle, true);
 	});
 

@@ -69,7 +69,7 @@
 Argument_AST::~Argument_AST() { delete decl; }
 Function_Body_AST::~Function_Body_AST() { delete block; }
 Regex_Body_AST::~Regex_Body_AST() { delete expr; }
-Unit_Convert_AST::~Unit_Convert_AST() { delete unit; }
+Unit_Convert_AST::~Unit_Convert_AST() { if(unit) delete unit; }
 
 
 Source_Location &

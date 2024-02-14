@@ -53,7 +53,8 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)*(1 - resus) ->>   }  # Keep the layer the same thickness by moving down as much as accumulates on top
 	
 	
-	
+	#TODO: Take into account porosity?
+	#   Track temperature in sediments separately (with heat balance)?
 	
 	#TODO: It is annoying to redo the below formulas for the sediments. Should be possible to unify the code.
 	

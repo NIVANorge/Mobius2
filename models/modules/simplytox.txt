@@ -148,11 +148,13 @@ module("SimplyTox partitioning", version(0, 0, 0),
 	solid_oc : loc,
 	water_unit : unit,
 	mass_unit : unit,
-	flux_unit : unit,
+	#flux_unit : unit,
 	fast_degr : constant,
 	phys : preamble
 ) {
 	# NOTE: This one works for groundwater and bottom sediments, not for soil since it also has an air compartment.
+	
+	flux_unit : compose_unit(mass_unit, [day-1])
 	
 	var(comp.water.tox, mass_unit, [n g, l-1], "Dissolved contaminants")
 	var(comp.water.oc.tox, mass_unit, [n g, k g-1], "DOC contaminants")

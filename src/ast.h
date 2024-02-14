@@ -175,7 +175,7 @@ Local_Var_AST : Math_Expr_AST {
 
 struct
 Unit_Convert_AST : Math_Expr_AST {
-	Decl_AST *unit;
+	Decl_AST *unit = nullptr;
 	bool auto_convert, force;
 	
 	Unit_Convert_AST() : Math_Expr_AST(Math_Expr_Type::unit_convert) {};
