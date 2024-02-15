@@ -20,6 +20,6 @@ model("EasyLake-SimplyCNP") {
 		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, op, ice, sed, temp, precip, sw, wind, indicator, tp, tdp, tn, toc, area, om_cnp),
 		#module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out))
 		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),
-		module("EasyChem-Sediment-P", lake_sed, epi, hyp, water, phos, sed, temp, loc(A_surf))
+		module("EasyChem-Sediment-P", lake_sed, epi, hyp, water, phos, sed, temp, area)
 	)
 }

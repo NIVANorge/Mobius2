@@ -19,7 +19,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	horz   : connection,
 	vert   : connection,
-	w_bnd  : par_real,
 	A      : par_real,
 	dz0    : par_real
 ) {
@@ -32,6 +31,10 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		alpha_u : par_real("Pressure difference flow coefficient", [], 0.5, 0.1, 1)
 		
 		align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
+	}
+	
+	par_group("Fjord horizontal boundary", edge_layer) {
+		w_bnd  : par_real("Boundary width", [m], 0, 0, 10000)
 	}
 
 	vert_target : property("Vertical exchange target")

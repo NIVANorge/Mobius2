@@ -2,8 +2,6 @@
 
 model("NIVAFjord-SimplyCNP") {
 	
-	# This one is deprecated in favor of NIVAFjord-EasyLake-SimplyCNP
-	
 	extend("nivafjord_model.txt")
 	
 	extend("simplycnp_model.txt") @exclude(
@@ -21,12 +19,8 @@ model("NIVAFjord-SimplyCNP") {
 	distribute(edge,       basin_idx, e_idx)
 	distribute(edge_layer, basin_idx, e_idx, layer_idx)
 	
-	par_group("Fjord horizontal boundary", edge_layer) {
-		w_bnd  : par_real("Boundary width", [m], 0, 0, 10000)
-	}
-	
 	load("modules/nivafjord/horizontal_fluxes.txt",
-		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, w_bnd, A, dz0))
+		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, A, dz0))
 	
 	fjord_phyt : quantity("Fjord phytoplankton") # To distinguish from freshwater once we add EasyLake.
 	zoo        : quantity("Zooplankton")

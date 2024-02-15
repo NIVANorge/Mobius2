@@ -290,7 +290,7 @@ find_tagged_scope(const std::string &iter_tag, Function_Scope *scope) {
 	auto block = scope->block;
 	if(block->iter_tag == iter_tag)
 		return block->unique_block_id;
-	if(scope->function_name.empty()) // Can't refernce iteration scopes through function calls.
+	if(scope->function_name.empty()) // Can't reference iteration scopes through function calls.
 		return find_tagged_scope(iter_tag, scope->parent);
 	return -1;
 }
@@ -546,6 +546,8 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 
 void
 check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &units, std::vector<Math_Expr_FT *> &exprs, Function_Scope *scope) {
+	// Check the units of an 'if' expression.
+	
 	// Check conditions:
 	for(int idx = 1; idx < units.size(); idx+=2)
 		check_boolean_dimensionless(units[idx], exprs[idx]->source_loc, scope);
@@ -569,6 +571,17 @@ check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &u
 	}
 }
 
+void
+arguments_must_be_values(Math_Expr_FT *expr, Function_Scope *scope) {
+	for(auto arg : expr->exprs) {
+		if(!is_value(arg->value_type)) {
+			arg->source_loc.print_error_header();
+			error_print("This expression argument must resolve to a value.");
+			fatal_error_trace(scope);
+		}
+	}
+}
+
 enum class Directive {
 	none = 0,
 	#define ENUM_VALUE(name) name,
@@ -577,10 +590,10 @@ enum class Directive {
 };
 
 Directive
-get_special_directive(const std::string &name) {
+get_special_directive(String_View name) {
 	Directive result = Directive::none;
 	if(false) {}
-	#define ENUM_VALUE(h) else if(#h == name) result = Directive::h;
+	#define ENUM_VALUE(h) else if(name == #h) result = Directive::h;
 	#include "special_directives.incl"
 	#undef ENUM_VALUE
 	
@@ -588,8 +601,9 @@ get_special_directive(const std::string &name) {
 }
 
 Function_Resolve_Result
-resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::string &fun_name, Function_Resolve_Data *data, Function_Scope *scope) {
-	Function_Resolve_Result result;
+resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
+	
+	auto fun_name = ast->name.string_value;
 	
 	if(data->simplified) {
 		ast->source_loc.print_error_header();
@@ -619,7 +633,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	bool can_param  = (directive == Directive::aggregate);
 	if(!(ident->variable_type == Variable_Type::state_var || (can_series && ident->variable_type == Variable_Type::series) || (can_param && ident->variable_type == Variable_Type::parameter))) {
 		ident->source_loc.print_error_header();
-		error_print("A ", fun_name, "() declaration can only be applied to a state variable");
+		error_print("A '", fun_name, "' declaration can only be applied to a state variable");
 		if(can_series) error_print(" or input series");
 		if(can_param)  error_print(" or parameter");
 		error_print(".\n");
@@ -687,9 +701,138 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		result.unit = data->app->vars[conc_id]->unit.standard_form;
 	} else
 		result.unit = std::move(arg_units[var_idx]);
-	
-	return result;
 }
+
+void
+resolve_function_call(Function_Call_AST *fun, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
+	
+	auto model = data->app->model;
+	auto fun_name = fun->name.string_value;
+	
+	auto reg = (*data->scope)[fun_name];
+	if(!reg || reg->id.reg_type != Reg_Type::function) {
+		fun->name.print_error_header();
+		error_print("The identifier '", fun_name, "' does not refer to a function.\n");
+		fatal_error_trace(scope);
+	}
+	auto fun_decl = model->functions[reg->id];
+	auto fun_type = fun_decl->fun_type;
+	
+	//TODO: should be replaced with check in resolve_arguments
+	if(fun->exprs.size() != fun_decl->args.size()) {
+		fun->name.print_error_header();
+		error_print("Wrong number of arguments to function '", fun_name, "'. Expected ", fun_decl->args.size(), ", got ", fun->exprs.size(), ".\n");
+		fatal_error_trace(scope);
+	}
+	
+	if(fun_type == Function_Type::intrinsic) {
+		// Represents a function that is directly implemented in llvm, either as an llvm intrinsic or cstdlib.
+		auto new_fun = new Function_Call_FT();
+		
+		std::vector<Standardized_Unit> arg_units;
+		resolve_arguments(new_fun, fun, data, scope, arg_units);
+		
+		arguments_must_be_values(new_fun, scope);
+		
+		new_fun->fun_type = fun_type;
+		new_fun->fun_name = fun_name;
+		fixup_intrinsic(new_fun, &fun->name);
+		
+		result.fun = new_fun;
+		if(arg_units.size() == 1) {
+			set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
+		} else if (arg_units.size() == 2) {
+			if(fun_name == "min" || fun_name == "max") {
+				// NOTE: The min and max functions behave like '+' when it comes to units
+				apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, new_fun->exprs[0], new_fun->exprs[1]);
+			} else if(fun_name == "copysign") {
+				result.unit = arg_units[0];
+			} else
+				fatal_error(Mobius_Error::internal, "Unimplemented unit checking for intrinsic ", fun_name, ".");
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic when unit checking");
+	} else if(fun_type == Function_Type::linked) {
+		// A function that is implemented in C++ and linked into the code.
+		
+		auto new_fun = new Function_Call_FT();
+		std::vector<Standardized_Unit> arg_units;
+		resolve_arguments(new_fun, fun, data, scope, arg_units);
+		
+		new_fun->fun_type = fun_type;
+		new_fun->fun_name = fun_name;
+		// TODO: If we make anything else of this than just the "_test_fun_" function, the types and units must be provided in the declaration.
+		new_fun->value_type = Value_Type::real;
+		result.fun = new_fun;
+		// result.unit remains dimensionless.
+	} else if(fun_type == Function_Type::decl) {
+		// A function that is implemented and compiled in the Mobius2 language.
+		
+		if(is_inside_function(scope, fun_name)) {
+			fun->name.print_error_header();
+			error_print("The function \"", fun_name, "\" calls itself either directly or indirectly. This is not allowed.\n");
+			fatal_error_trace(scope);
+		}
+		// Inline in the function call as a new block with the arguments as local vars.
+		auto inlined_fun = new Math_Block_FT();
+		inlined_fun->source_loc = fun->source_loc; //NOTE: do this to get correct diagnostics in fatal_error_trace()
+		
+		std::vector<Standardized_Unit> arg_units;
+		resolve_arguments(inlined_fun, fun, data, scope, arg_units);
+		
+		arguments_must_be_values(inlined_fun, scope);
+		
+		inlined_fun->n_locals = inlined_fun->exprs.size();
+		
+		Function_Scope new_scope;
+		new_scope.parent = scope;
+		new_scope.block = inlined_fun;
+		new_scope.function_name = fun_name;
+		
+		for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
+			auto arg = inlined_fun->exprs[argidx];
+			
+			if(!is_value(arg->value_type)) {
+				arg->source_loc.print_error_header();
+				error_print("The arguments to a function must resolve to a value.");
+				fatal_error_trace(scope);
+			}
+			
+			auto inlined_arg = new Local_Var_FT();
+			inlined_arg->exprs.push_back(arg);
+			inlined_arg->name = fun_decl->args[argidx];
+			inlined_arg->value_type = arg->value_type;
+			inlined_fun->exprs[argidx] = inlined_arg;
+			inlined_arg->id = argidx;
+			new_scope.local_var_units[argidx] = arg_units[argidx];
+			
+		
+			auto &argg = inlined_arg->exprs[0];
+			auto loc = inlined_arg->exprs[0]->source_loc;
+			if(is_valid(fun_decl->expected_units[argidx])) {
+				auto &expect_unit = model->units[fun_decl->expected_units[argidx]]->data.standard_form;
+				if(is_constant_zero(argg, scope)) continue;  // Constant 0 match against any unit
+				if(!match_exact(&expect_unit, &arg_units[argidx])) {
+					loc.print_error_header();
+					error_print("The function declaration requires a unit (which on standard form is) ", expect_unit.to_utf8(), " for argument ", argidx, ", but we got ", arg_units[argidx].to_utf8(), ". See declaration of function here:\n");
+					fun_decl->source_loc.print_error();
+					fatal_error_trace(scope);
+				}
+			}
+		}
+		
+		Function_Resolve_Data sub_data = *data;
+		sub_data.scope = model->get_scope(fun_decl->scope_id);  // Resolve the function body in the scope it was declared in.
+		
+		auto res = resolve_function_tree(fun_decl->code, &sub_data, &new_scope);
+		inlined_fun->exprs.push_back(res.fun);
+		inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
+		
+		result.fun = inlined_fun;
+		result.unit = std::move(res.unit);
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled function type.");
+}
+
 
 void
 resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
@@ -732,7 +875,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 	
 	if(chain_size == 1) {
 		bool found = find_local_variable(new_ident, result.unit, n1, scope);
-		if(found) return; //TODO: Is this ok?
+		if(found) return;
 	}
 	
 	bool error = false;
@@ -835,7 +978,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 		set_time_unit(result.unit, app, new_ident->variable_type);
 		
 		if(new_ident->variable_type == Variable_Type::time_step_length_in_seconds && app->time_step_size.unit == Time_Step_Size::second) {
-			// If the step size is measured in seconds, it is constant (if it is measured in months is is not).
+			// If the step size unit is 'second', the step size is constant and can be inlined as a literal (if it is measured in months is is not).
 			auto new_literal = new Literal_FT();
 			new_literal->value_type = new_ident->value_type;
 			new_literal->value.val_integer = app->time_step_size.multiplier;
@@ -856,7 +999,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 	}
 	
 	Var_Id var_id = invalid_var;
-	// If it looks well-formed, try it directly.
+	// If it looks well-formed (begins with a compartment), try it directly.
 	if(model->components[resolve.loc.components[0]]->decl_type == Decl_Type::compartment) {
 		var_id = app->vars.id_of(resolve.loc);
 		set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
@@ -882,20 +1025,15 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 	set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 }
 
-void
-arguments_must_be_values(Math_Expr_FT *expr, Function_Scope *scope) {
-	for(auto arg : expr->exprs) {
-		if(!is_value(arg->value_type)) {
-			arg->source_loc.print_error_header();
-			error_print("This expression argument must resolve to a value.");
-			fatal_error_trace(scope);
-		}
-	}
-}
-
-
 Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
+	
+	// This takes a math expression AST and turns it into a more convenient internal representation (called function tree). It also
+	//   - Resolves all identifiers and ties them to specific model Entity_Ids or Var_Ids (or local variable declarations).
+	//   - Does type checking / resolution.
+	//   - Does unit checking / resolution and implements unit conversions.
+	//   - Inlines function calls if applicable.
+	
 	Function_Resolve_Result result = { nullptr, {}};
 	
 	Decl_Scope &decl_scope = *data->scope;
@@ -919,7 +1057,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_block, ast, data, &new_scope, arg_units);
 			
-			// the value of a block is the value of the last expression in the block.
+			// The value of a block is the value of the last expression in the block.
 			Math_Expr_FT *last = new_block->exprs.back();
 			if(last->value_type == Value_Type::none) {
 				last->source_loc.print_error_header();
@@ -940,7 +1078,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			}
 			
 			// TODO: Better message. This also applies if the 'iterate' value type passes up through several blocks.
-			for(int idx = 0; idx < new_block->exprs.size()-1; ++idx) {
+			for(int idx = 0; idx < (int)new_block->exprs.size()-1; ++idx) {
 				if(new_block->exprs[idx]->value_type == Value_Type::iterate) {
 					new_block->exprs[idx]->source_loc.print_error_header();
 					error_print("An 'iterate' expression must be the last in a block.");
@@ -980,133 +1118,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		case Math_Expr_Type::function_call : {
 			auto fun = static_cast<Function_Call_AST *>(ast);
 			
-			std::string fun_name = fun->name.string_value;
+			// First check for "special" calls that are not really function calls, like last(), in_flux(), etc.
+			auto directive = get_special_directive(fun->name.string_value);
+			if(directive != Directive::none)
+				resolve_special_directive(fun, directive, data, scope, result);
+			else
+				resolve_function_call(fun, data, scope, result);
 			
-			// First check for "special" calls that are not really function calls.
-			auto directive = get_special_directive(fun_name);
-			if(directive != Directive::none) {
-				result = resolve_special_directive(ast, directive, fun_name, data, scope);
-			} else {
-				// Otherwise it should have been registered as an entity.
-
-				auto reg = decl_scope[fun_name];
-				if(!reg || reg->id.reg_type != Reg_Type::function) {
-					fun->name.print_error_header();
-					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
-					fatal_error_trace(scope);
-				}
-				auto fun_decl = model->functions[reg->id];
-				auto fun_type = fun_decl->fun_type;
-				
-				//TODO: should be replaced with check in resolve_arguments
-				if(fun->exprs.size() != fun_decl->args.size()) {
-					fun->name.print_error_header();
-					error_print("Wrong number of arguments to function \"", fun_name, "\". Expected ", fun_decl->args.size(), ", got ", fun->exprs.size(), ".\n");
-					fatal_error_trace(scope);
-				}
-				
-				if(fun_type == Function_Type::intrinsic) {
-					auto new_fun = new Function_Call_FT();
-					
-					std::vector<Standardized_Unit> arg_units;
-					resolve_arguments(new_fun, ast, data, scope, arg_units);
-					
-					arguments_must_be_values(new_fun, scope);
-					
-					new_fun->fun_type = fun_type;
-					new_fun->fun_name = fun_name;
-					fixup_intrinsic(new_fun, &fun->name);
-					
-					result.fun = new_fun;
-					if(arg_units.size() == 1) {
-						set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
-					} else if (arg_units.size() == 2) {
-						if(fun_name == "min" || fun_name == "max") {
-							// NOTE: The min and max functions behave like '+' when it comes to units
-							apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, new_fun->exprs[0], new_fun->exprs[1]);
-						} else if(fun_name == "copysign") {
-							result.unit = arg_units[0];
-						} else
-							fatal_error(Mobius_Error::internal, "Unimplemented unit checking for intrinsic ", fun_name, ".");
-					} else
-						fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic when unit checking");
-				} else if(fun_type == Function_Type::linked) {
-					auto new_fun = new Function_Call_FT();
-					std::vector<Standardized_Unit> arg_units;
-					resolve_arguments(new_fun, ast, data, scope, arg_units);
-					
-					new_fun->fun_type = fun_type;
-					new_fun->fun_name = fun_name;
-					// TODO: If we make anything else of this than just the "_test_fun_" function, the types and units must be provided in the declaration.
-					new_fun->value_type = Value_Type::real;
-					result.fun = new_fun;
-					// result.unit remains dimensionless.
-				} else if(fun_type == Function_Type::decl) {
-					if(is_inside_function(scope, fun_name)) {
-						fun->name.print_error_header();
-						error_print("The function \"", fun_name, "\" calls itself either directly or indirectly. This is not allowed.\n");
-						fatal_error_trace(scope);
-					}
-					// Inline in the function call as a new block with the arguments as local vars.
-					auto inlined_fun = new Math_Block_FT();
-					inlined_fun->source_loc = fun->source_loc; //NOTE: do this to get correct diagnostics in fatal_error_trace()
-					
-					std::vector<Standardized_Unit> arg_units;
-					resolve_arguments(inlined_fun, ast, data, scope, arg_units);
-					
-					arguments_must_be_values(inlined_fun, scope);
-					
-					inlined_fun->n_locals = inlined_fun->exprs.size();
-					
-					Function_Scope new_scope;
-					new_scope.parent = scope;
-					new_scope.block = inlined_fun;
-					new_scope.function_name = fun_name;
-					
-					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
-						auto arg = inlined_fun->exprs[argidx];
-						
-						if(!is_value(arg->value_type)) {
-							arg->source_loc.print_error_header();
-							error_print("The arguments to a function must resolve to a value.");
-							fatal_error_trace(scope);
-						}
-						
-						auto inlined_arg = new Local_Var_FT();
-						inlined_arg->exprs.push_back(arg);
-						inlined_arg->name = fun_decl->args[argidx];
-						inlined_arg->value_type = arg->value_type;
-						inlined_fun->exprs[argidx] = inlined_arg;
-						inlined_arg->id = argidx;
-						new_scope.local_var_units[argidx] = arg_units[argidx];
-						
-					
-						auto &argg = inlined_arg->exprs[0];
-						auto loc = inlined_arg->exprs[0]->source_loc;
-						if(is_valid(fun_decl->expected_units[argidx])) {
-							auto &expect_unit = model->units[fun_decl->expected_units[argidx]]->data.standard_form;
-							if(is_constant_zero(argg, scope)) continue;  // Constant 0 match against any unit
-							if(!match_exact(&expect_unit, &arg_units[argidx])) {
-								loc.print_error_header();
-								error_print("The function declaration requires a unit (which on standard form is) ", expect_unit.to_utf8(), " for argument ", argidx, ", but we got ", arg_units[argidx].to_utf8(), ". See declaration of function here:\n");
-								fun_decl->source_loc.print_error();
-								fatal_error_trace(scope);
-							}
-						}
-					}
-					
-					Function_Resolve_Data sub_data = *data;
-					sub_data.scope = model->get_scope(fun_decl->scope_id);  // Resolve the function body in the scope of the library it was imported from (if relevant).
-					
-					auto res = resolve_function_tree(fun_decl->code, &sub_data, &new_scope);
-					inlined_fun->exprs.push_back(res.fun);
-					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
-					
-					result.fun = inlined_fun;
-					result.unit = std::move(res.unit);
-				} else
-					fatal_error(Mobius_Error::internal, "Unhandled function type.");
-			}
 		} break;
 		
 		case Math_Expr_Type::unary_operator : {

@@ -881,7 +881,6 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->type = State_Var::Type::dissolved_flux;
 			gen_flux->flux_of_medium = flux_id;
 			gen_flux->set_flag(State_Var::flux);
-			//gen_flux->conc = gen_conc_id;
 			
 			gen_flux->bidirectional = flux->bidirectional;
 			if(flux->mixing_base)
@@ -901,6 +900,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->loc2.r1 = flux->loc2.r1;
 			gen_flux->loc2.r2 = flux->loc2.r2;
 			
+			// It is just much cleaner in MobiView if this is off, but on the other hand we do want to know some of these fluxes quite often. Make a more granular way to specify which ones to store?
 			gen_flux->store_series = false;
 			
 			gen_flux->allowed_index_sets = get_allowed_index_sets(app, gen_flux->loc1, gen_flux->loc2);
@@ -1528,6 +1528,8 @@ Model_Application::compose_and_resolve() {
 			if(invalidate) continue;
 			
 			// NOTE: If this flux could not be invalidated, neither could any of its parents since this one relies on them.
+			// Edit: This is no longer true. It only relies on the topmost one. Let's see if it works to turn off this code.
+			/*
 			auto above_id = var_id;
 			auto above_var = var;
 			while(above_var->type == State_Var::Type::dissolved_flux) {
@@ -1535,6 +1537,7 @@ Model_Application::compose_and_resolve() {
 				could_be_invalidated[above_id] = false;
 				above_var = vars[above_id];
 			}
+			*/
 		}
 		for(auto &pair : could_be_invalidated) {
 			if(!pair.second) continue;

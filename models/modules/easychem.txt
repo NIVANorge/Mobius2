@@ -91,6 +91,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		phyt_eq_20    : par_real("Chl-a of phyto at equilibrium", [m g, l-1], 0.01, 0, 5, "Assuming 20°C and no nutrient or light limitations.")
 		phyt_q10      : par_real("Q10 of Phyto equilibrium", [], 2, 1, 4)
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
+		excr          : par_real("Excretion rate", [day-1], 0.01, 0, 0.1)
 		
 		iopt          : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		halfsat       : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
@@ -280,6 +281,10 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	flux(epi.water.phos, out, [k g, day-1], "Phytoplankton P uptake") {   phyt.fix / cp_molar_to_mass_ratio(phyt_cp)   }
 	
+	flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phytoplankton C excretion") {  phyt*excr  }
+	flux(epi.water.phyt, epi.water.on, [k g, day-1], "Phytoplankton N excretion") {  phyt*excr / cn_molar_to_mass_ratio(phyt_cn) }
+	flux(epi.water.phyt, epi.water.op, [k g, day-1], "Phytoplankton P excretion") {  phyt*excr / cp_molar_to_mass_ratio(phyt_cp) }
+	
 	#flux(out, epi.water.sed.op, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
 	#flux(out, hyp.water.sed.op, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
 	#flux(out, epi.water.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
@@ -291,7 +296,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	}
 
 	var(epi.water.tp, [m g, l-1], "Epilimnion TP") {
-		tdp + conc(sed)*(conc(sed.phos) + conc(sed.op))#+ conc(phyt)/cp_molar_to_mass_ratio(phyt_cp)
+		tdp + conc(sed)*(conc(sed.phos) + conc(sed.op))
+		+ conc(phyt)/cp_molar_to_mass_ratio(phyt_cp)
 	}
 	
 	#var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")  @initial_conc { init_on }
@@ -301,7 +307,11 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	#flux(out, epi.water.sed.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	#flux(out, hyp.water.sed.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
 	
-	var(epi.water.tn, [m g, l-1], "Epilimnion TN") {  conc(on) + conc(din) + conc(sed)*conc(sed.on)  }#+ conc(phyt)/cn_molar_to_mass_ratio(phyt_cn)
+	var(epi.water.tn, [m g, l-1], "Epilimnion TN") {
+		conc(on) + conc(din) + conc(sed)*conc(sed.on)
+		#+ conc(phyt)/cn_molar_to_mass_ratio(phyt_cn)
+	}
+	
 	var(epi.water.toc, [m g, l-1], "Epilimnion TOC") {   conc(oc)  + conc(sed.oc)*conc(sed) + conc(phyt)  }
 	
 	sts : property("Suspended dry matter")
@@ -364,7 +374,7 @@ module("EasyChem-Sediment-P", version(0, 0, 1),
 	phos     : quantity,
 	sed      : quantity,
 	temp     : property,
-	A_surf   : loc
+	area     : property
 ) {	
 	# TODO : Should this just be unified with SuperEasyC-Sediments?
 	
@@ -396,7 +406,8 @@ module("EasyChem-Sediment-P", version(0, 0, 1),
 	# Could make this oxicity dependent, but is tricky.
 	flux(epi.water.phos, lake_sed.sed.phos, [k g, day-1], "Sediments DIP release (epi)") {
 		q10 := 2, #Parametrize?
-		-q10_adjust(A_surf*sed_p_release/dz, 20[deg_c], hyp.water.temp, q10)*lake_sed.sed.phos ->>
+		A := epi.area - hyp.area,
+		-q10_adjust(A*sed_p_release/dz, 20[deg_c], hyp.water.temp, q10)*lake_sed.sed.phos ->>
 	}
 	
 	# It maybe works a bit better with exchange with hypolimnion off. We need to test it more.

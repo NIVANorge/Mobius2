@@ -35,6 +35,10 @@ model("NIVAFjord") {
 	vert    : connection("Fjord vertical") @grid1d(layer, layer_idx)
 	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 	
+	# TODO: Would like to put the dimension parameters in a preamble for better organization, but then the symbol 'A' does not become available in model scope. And then we can't pass it to airsea.
+	#   Maybe make it so that loaded preambles are imported into model scope?
+	#   No, doesn't work because modules and preambles must be processed after the model scope.
+	#   Only solution would be to make a layer.area property.
 	par_group("Layer thickness") {
 		dz0    : par_real("Stable layer thickness", [m], 1, 0.1, 5)
 	} @index_with(all_basins, layer_idx)
@@ -50,8 +54,8 @@ model("NIVAFjord") {
 	
 	load("modules/atmospheric.txt", module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
 	
-	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
-											loc(A[vert.top]), loc(layer.water[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
+	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,
+							evap, loc(A[vert.top]), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, freeze_temp, vert, sw_vert, A, dz0))
 	

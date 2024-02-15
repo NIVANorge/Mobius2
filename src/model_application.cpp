@@ -1219,7 +1219,7 @@ Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
 			//auto sz2 = round_up(data_alignment, sz);
 			//data = (Val_T *) _aligned_malloc(sz2, data_alignment);  // should be replaced with std::aligned_alloc(data_alignment, sz2) when that is available.
 			if(!data)
-				fatal_error(Mobius_Error::internal, "Failed to allocated data (size ", sz, ") bytes.");
+				fatal_error(Mobius_Error::internal, "Failed to allocated data (", sz, " bytes).");
 		} else
 			data = nullptr;
 		is_owning = true;

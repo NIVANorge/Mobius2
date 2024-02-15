@@ -8,9 +8,6 @@
 		We have experimentally added some prune_tree when setting state variable code in model_compilation and model_codegen.
 			Be very careful to see if this causes any problems.
 			
-		Allow passing a constant as a loc().
-			Maybe we should separate between a loc() and a val() where the first must be a valid flux target, while the latter has more options (?).
-			
 		Overhaul of process_location_argument and resolve_identifier. Make them better structured (branch on type of initial symbol instead of the amount of components), and combine as much code as possible for these two.
 			Difficult to share that much code since you can have partial chains inside code scope.
 		
@@ -136,8 +133,8 @@
 	
 	*** Intermediate-pri ***
 	
-		Want a unit_of(identifier) for unit conversions.
-			That way we could fully generalize SimplyTox-compartment.
+		If several loc() refer to one another in the wrong order, that is probably broken? Shouldn't be any valid use case for it, but it could happen on accident.
+	
 	
 		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
 				In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
@@ -152,6 +149,8 @@
 			Having all layers selected, then switching from a variable that indexes over more layers to one with fewer:
 				(or probably it is with having both selected?)
 				It has not updated the selected indexes in time and there is an internal error.
+				
+			Seasonal aggregation.
 		
 		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
 			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.

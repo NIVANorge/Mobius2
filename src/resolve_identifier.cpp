@@ -93,7 +93,7 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, const std::vecto
 				break;
 		} else {
 			chain[idx].print_error_header();
-			error_print("The symbol '", chain[idx].string_value, "' can not be resolved in this scope.");
+			error_print("The identifier '", chain[idx].string_value, "' has not been declared in or imported to this scope.");
 			*error = true;
 			return;
 		}
@@ -143,7 +143,7 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, const std::vecto
 		auto comp = id_chain[idx];
 		if(comp.reg_type != Reg_Type::component) {
 			chain[idx].print_error_header();
-			error_print("Expected a location component (compartment, quantity or property).");
+			error_print("The identifier '", chain[idx].string_value, "' does not refer to a location component (compartment, quantity or property).");
 			*error = true;
 			return;
 		}
@@ -286,7 +286,7 @@ resolve_flux_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 		
 	} else {
 		arg->source_loc().print_error_header();
-		fatal_error("This argument must resolve to a state variable or connection.");
+		fatal_error("This argument must resolve to a location or connection.");
 	}
 }
 

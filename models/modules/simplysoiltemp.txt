@@ -18,7 +18,7 @@ Soil temperature is computed at a depth of 15 cm.
 	st_depth : constant("Soil temperature depth", [c m], 15)
 	
 	par_group("Soil temperature general") {
-		depthst : par_real("Snow depth / soil temperature factor", [c m -1], -0.2, -3.0, -0.001)
+		depthst : par_real("Snow depth / soil temperature factor", [c m -1], -0.2, -3.0, -0.001, "Per cm snow water equivalents")
 		init_st : par_real("Initial soil temperature", [deg_c], 10, -30, 40)
 	}
 	

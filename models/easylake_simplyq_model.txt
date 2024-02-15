@@ -29,16 +29,14 @@ model("EasyLake-SimplyQ") {
 		(river|epi)+ out
 	} @no_cycles
 	
-	par_group("Lake data", epi) { # TODO: This could be local to EasyLake, and the rest of the modules could access it through epi.area
-		A_surf : par_real("Lake surface area", [m 2], 107183, 0, 371e9)
-	}
-	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
-	load("modules/airsea.txt",         module("AirSea", "AirSea Lake", air, epi, ice, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, evap,
-											loc(A_surf), loc(epi.water), ht : loc(epi.water.heat), ht, loc(epi.water.temp)))
-	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z, freeze_temp, area, A_surf, loc(downstream)))
+	load("modules/airsea.txt",         module("AirSea", "AirSea Lake", air, epi, ice, heat, temp, precip, 
+						wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, 
+						evap, loc(epi.area), loc(epi.water), loc(epi.water.heat) ))
+						
+	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z, freeze_temp, area, loc(downstream)))
 	
 	solve(sol, epi.water, hyp.water, epi.ice)
 	

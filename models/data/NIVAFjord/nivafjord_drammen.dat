@@ -84,14 +84,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	par_group("Fjord horizontal boundary", basin, fjord_conn, layer) {
-		
-		par_real("Boundary width") [
-			250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-		]
-	
-	}
-	
 	par_group("Layer thickness", all_basin, layer) {
 		
 		par_real("Stable layer thickness") [
@@ -339,6 +331,14 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Vertical realignment rate") 
 			[ 20 ]
+		
+		}
+		
+		par_group("Fjord horizontal boundary", basin, fjord_conn, layer) {
+			
+			par_real("Boundary width") [
+				250 233.333 216.667 200 185 170 166 162 158 154 150 120 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+			]
 		
 		}
 	
@@ -714,7 +714,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("NIVAFjord sediments", version(0, 0, 1)) {
+	module("NIVAFjord sediments", version(0, 0, 2)) {
 		
 		par_group("Sediments") {
 			
@@ -724,20 +724,28 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Sediment porosity") 
 			[ 0.5 ]
 			
-			par_real("Initial sediment C fraction") 
-			[ 0.01 ]
-			
-			par_real("Initial sediment N fraction") 
-			[ 1e-05 ]
-			
-			par_real("Initial sediment IP fraction") 
-			[ 1e-06 ]
-			
-			par_real("Initial sediment OP fraction") 
-			[ 1e-06 ]
-			
 			par_real("Resuspension fraction") 
 			[ 0.01 ]
+		
+		}
+		
+		par_group("Initial chem", basin, layer) {
+			
+			par_real("Initial sediment C fraction") [
+				10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 
+			]
+			
+			par_real("Initial sediment N fraction") [
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			]
+			
+			par_real("Initial sediment IP fraction") [
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			]
+			
+			par_real("Initial sediment OP fraction") [
+				0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 
+			]
 		
 		}
 	
@@ -786,19 +794,19 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			[ 1.2 ]
 			
 			par_real("Maximal decomposition rate at 20°C") 
-			[ 0.01 ]
+			[ 0.0001 ]
 			
 			par_real("Maximal denitrification rate at 20°C") 
-			[ 0.01 ]
+			[ 1e-05 ]
 			
 			par_real("Molar O₂/C ratio in respiration") 
 			[ 1 ]
 			
 			par_real("N mineralization and nitrification rate modifier") 
-			[ 1 ]
+			[ 100 ]
 			
 			par_real("P mineralization modifier") 
-			[ 1 ]
+			[ 100 ]
 			
 			par_real("NO3 threshold for denitrification") 
 			[ 0.1 ]

@@ -115,10 +115,6 @@ get_decl_type(Token *string_name) {
 	#define ENUM_VALUE(name, body_type, _) if(string_name->string_value == #name) { return Decl_Type::name; }
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
-	
-	//string_name->print_error_header();
-	//fatal_error("Unrecognized declaration type '", string_name->string_value, "'.");
-	
 	return Decl_Type::unrecognized;
 }
 
@@ -128,6 +124,18 @@ get_body_type(Decl_Type decl_type) {
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
 	return Body_Type::none;
+}
+
+Data_Type
+get_data_type(Decl_Type decl_type) {
+	// TODO: Maybe put this info into decl_types.incl same as body types so that it is more easily maintained.
+	if(decl_type == Decl_Type::index_set) return Data_Type::map;   // can be both map and list, but that is accounted for.
+	if(decl_type == Decl_Type::directed_graph) return Data_Type::directed_graph;
+	if(decl_type == Decl_Type::quick_select) return Data_Type::map;
+	if(decl_type == Decl_Type::position_map) return Data_Type::map;
+	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::list; // list of parameter values.
+	
+	return Data_Type::none;
 }
 
 void
@@ -335,18 +343,6 @@ parse_body(Token_Stream *stream, Decl_Type decl_type, Body_Type body_type) {
 Data_AST *
 parse_data(Token_Stream *stream, Data_Type type);
 
-Data_Type
-get_data_type(Decl_Type decl_type) {
-	// TODO: Maybe put this info into decl_types.incl same as body types
-	if(decl_type == Decl_Type::index_set) return Data_Type::map;   // can be both map and list, but that is accounted for.
-	if(decl_type == Decl_Type::directed_graph) return Data_Type::directed_graph;
-	if(decl_type == Decl_Type::quick_select) return Data_Type::map;
-	if(decl_type == Decl_Type::position_map) return Data_Type::map;
-	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::list; // list of parameter values.
-	
-	return Data_Type::none;
-}
-
 Decl_AST *
 parse_decl(Token_Stream *stream) {
 	
@@ -470,7 +466,7 @@ Math_Expr_AST *
 potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math_Expr_AST *lhs) {
 	
 	while(true) {
-		// TODO: This is not clean...
+		// TODO: The code could maybe be cleaner if a unit conversion is treated as a binary operator, but the problem is that the rhs is not a math expression in that case.
 		if(prev_prec < 5000)
 			lhs = potentially_parse_unit_conversion(stream, lhs);
 		
@@ -482,7 +478,7 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 		Token token = stream->read_token(); // consume the operator
 		Math_Expr_AST *rhs = parse_primary_expr(stream);
 		
-		// TODO: This is not clean...
+		// See note above.
 		if(cur_prec < 5000)
 			rhs = potentially_parse_unit_conversion(stream, rhs);
 		
@@ -533,15 +529,14 @@ potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool
 		if(peek.type == Token_Type::identifier) {
 			unit_conv->by_identifier = true;
 			unit_conv->unit_identifier = stream->read_token();
-		} else {
-			if((char)peek.type != '[') {
-				peek.print_error_header();
-				fatal_error("Expected a unit identifier or a unit declaration, starting with '['");
-			}
+		} else if ((char)peek.type == '[') {
 			unit_conv->unit = new Decl_AST();
 			stream->fold_minus = true;   // Fold e.g. -1 as a single token instead of two tokens - and 1 .
 			parse_unit_decl(stream, unit_conv->unit);
 			stream->fold_minus = false;
+		} else {
+			peek.print_error_header();
+			fatal_error("Expected a unit identifier or a unit declaration, starting with '['");
 		}
 	}
 	
@@ -595,9 +590,9 @@ parse_primary_expr(Token_Stream *stream) {
 			}
 		}
 	} else if (is_numeric_or_bool(token.type)) {
+		stream->read_token();
 		auto val = new Literal_AST();
 		val->source_loc = token.source_loc;
-		stream->read_token();
 		val->value = token;
 		result = potentially_parse_unit_conversion(stream, val, false);
 	} else if ((char)token.type == '(') {
@@ -1016,8 +1011,6 @@ parse_data(Token_Stream *stream, Data_Type type) {
 	
 	return result;
 }
-
-
 
 
 int

@@ -9,7 +9,6 @@ module("EasyLake", version(0, 1, 0),
 	th     : property,
 	freeze_temp : property,
 	area   : property,
-	A_surf : par_real,
 	epi_target : loc
 ) {
 """
@@ -23,6 +22,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	load("stdlib/physiochemistry.txt", library("Water utils"))
 	
 	par_group("Lake physical", epi) {
+		A_surf    : par_real("Lake surface area", [m 2], 107183, 0, 371e9)
 		z_outflow : par_real("Water level at which outflow is 0", [m], 10, 0.1, 1642.0)
 		th_epi_w  : par_real("Winter epilimnion thickness", [m], 2, 0.1, 10)
 		th_epi_s  : par_real("Spring epilimnion thickness", [m], 2, 0.1, 10)

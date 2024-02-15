@@ -31,7 +31,7 @@ This module is not finished.
 		net_annual_N_input : par_real("Net annual DIN input to soil", [k g, ha-1, year-1], 0.0, 0.0, 1000.0)
 		fert_day           : par_int("Fertilizer addition day", [day], 60, 1, 365)
 		fert_n             : par_real("Fertilizer N", [k g, ha-1], 0, 0, 100)
-		fert_rel           : par_real("Fertilizer DIN release", [day-1], 0, 0, 1)
+		fert_rel           : par_real("Fertilizer DIN release", [m-1, day-1], 0, 0, 1, "Per meter of soil water (giving less dissolution in dry years)")
 	}
 	
 	par_group("River DIN", river) {
@@ -46,7 +46,7 @@ This module is not finished.
 	}
 	
 	flux(soil.sn, soil.water.din, [k g, k m-2, day-1], "Fertilizer DIN release") {
-		soil.sn * fert_rel
+		soil.sn * fert_rel * soil.water ->>
 	}
 	
 	var(soil.water.din, [k g, k m -2], [m g, l-1], "Soil water DIN") @initial_conc { sw_din_init }

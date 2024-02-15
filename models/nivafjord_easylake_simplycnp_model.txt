@@ -1,8 +1,6 @@
 
 
 model("NIVAFjord-EasyLake-SimplyCNP") {
-
-	#extend("nivafjord_model.txt")
 	
 	# Exclude overlapping definitions with nivafjord_model and things we want to redeclare here.
 	extend("easylake_simplycnp_model.txt") @exclude(

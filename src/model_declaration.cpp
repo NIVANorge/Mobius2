@@ -968,7 +968,7 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 }
 
 Entity_Id
-process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, bool import_scope, String_View identifier) {
+process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, bool inline_declared, String_View identifier) {
 	
 	auto mod_temp = model->module_templates[template_id];
 	bool is_preamble = (mod_temp->decl_type == Decl_Type::preamble);
@@ -976,7 +976,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	// TODO: It is a bit superfluous to process the name and version of the module template every time it is specialized.
 	//   Could do it in load_top_decl_from_file?
 	
-	bool allow_identifier = (import_scope && is_preamble); // Inline declared preambles are allowed to have an identifier.
+	bool allow_identifier = (inline_declared && is_preamble); // Inline declared preambles are allowed to have an identifier.
 	auto decl = mod_temp->decl;
 	match_declaration(decl,
 		{
@@ -992,7 +992,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	mod_temp->version.major        = single_arg(version_decl, 0)->val_int;
 	mod_temp->version.minor        = single_arg(version_decl, 1)->val_int;
 	mod_temp->version.revision     = single_arg(version_decl, 2)->val_int;
-	mod_temp->was_inline_declared  = import_scope;
+	mod_temp->was_inline_declared  = inline_declared;
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->body);
 	
@@ -1027,10 +1027,10 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	module->template_id = template_id;
 	module->scope.import(model->global_scope);
 	
-	if(import_scope)
+	if(inline_declared)
 		module->scope.import(*model_scope, &load_loc, true);  // The 'true' is to signify that we also import parameters (that would otherwise be a double import since they come from a par_group scope)
 	
-	if(import_scope && decl->args.size() > 2) {
+	if(inline_declared && decl->args.size() > 2) {
 		decl->source_loc.print_error_header();
 		fatal_error("Inlined module declarations should not have load arguments.\n");
 	}
@@ -1783,7 +1783,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 					process_load_library_declaration(model, child, scope->parent_id, file_name);
 			} else if (child->type == Decl_Type::extend) {
 				// Do nothing. This was handled already.
-			} else if (child->type == Decl_Type::module) {
+			} else if (child->type == Decl_Type::module || child->type == Decl_Type::preamble) {
 				// Inline module declaration. These are handled later.
 				module_loads.emplace_back(child, true, "", file_name);  // true signifies it is an inline decl.
 				
