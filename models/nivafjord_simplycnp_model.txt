@@ -20,19 +20,18 @@ model("NIVAFjord-SimplyCNP") {
 	distribute(edge_layer, basin_idx, e_idx, layer_idx)
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
-		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, A, dz0))
+		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, dims))
 	
 	fjord_phyt : quantity("Fjord phytoplankton") # To distinguish from freshwater once we add EasyLake.
 	zoo        : quantity("Zooplankton")
 	o2         : quantity("O₂")
-	area       : property("Area")
 	
 	load("modules/nivafjord/fjordchem.txt",
 		chem_par : preamble("NIVAFjord chemistry rates"),
-		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, temp, salinity, wind, z, dz, indicator, attn, precip, area, A, vert, sw_vert, chem_par))
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, heat, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, temp, salinity, wind, z, dz, indicator, attn, precip, area, vert, sw_vert, chem_par, dims))
 	
 	load("modules/nivafjord/sediment.txt",
-		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, area, A, vert, chem_par))
+		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, area, vert, chem_par, dims))
 	
 	load("modules/nivafjord/boudary_chem.txt",
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, sed, temp, salinity))

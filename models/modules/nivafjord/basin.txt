@@ -1,4 +1,20 @@
 
+preamble("NIVAFjord dimensions", version(0, 0, 0),
+	all_basins : index_set,
+	layer_idx  : index_set,
+	layer      : compartment
+) {
+
+	par_group("Layer thickness") {
+		dz0    : par_real("Stable layer thickness", [m], 1, 0.1, 5)
+	} @index_with(all_basins, layer_idx)
+	
+	par_group("Layer area", layer) {
+		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
+	}
+}
+
+
 module("NIVAFjord basin", version(0, 0, 2),
 	air       : compartment,
 	basin     : compartment,
@@ -16,11 +32,11 @@ module("NIVAFjord basin", version(0, 0, 2),
 	z         : property,
 	dz        : property,
 	h         : property,
+	area      : property,
 	freeze_temp : property,
 	vert      : connection,
 	sw_vert   : connection,
-	A         : par_real,
-	dz0       : par_real
+	dims      : preamble
 ) {
 
 	load("stdlib/basic_math.txt", library("Basic"))
@@ -61,6 +77,10 @@ module("NIVAFjord basin", version(0, 0, 2),
 	var(basin.h, [m], "Basin sea level") {
 		aggregate(layer.dz) - aggregate(dz0)
 	}
+	
+	var(basin.area, [m 2], "Basin area") {
+		A[vert.top]
+	} @no_store
 	
 	var(layer.water, [m 3], "Layer water") @initial { A*dz0 }
 	

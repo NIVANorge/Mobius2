@@ -11,8 +11,8 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	h         : property,
 	rho       : property,
 	pressure  : property,
-	dz0       : par_real,
-	vert      : connection
+	vert      : connection,
+	dims      : preamble
 ) {
 
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))

@@ -19,8 +19,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	
 	horz   : connection,
 	vert   : connection,
-	A      : par_real,
-	dz0    : par_real
+	dims   : preamble
 ) {
 
 	load("stdlib/seawater.txt", library("Seawater"))

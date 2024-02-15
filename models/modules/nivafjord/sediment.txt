@@ -11,8 +11,8 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	phos     : quantity,
 	op       : quantity,
 	area     : property,
-	A        : par_real,
 	vert     : connection,
+	dims     : preamble,
 	chem_par : preamble
 ) {
 	
