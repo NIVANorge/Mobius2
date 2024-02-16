@@ -30,5 +30,7 @@ model("Wave") {
 		} @bidirectional
 		
 		flux(layer.amp, out, [Pa, day-1], "Wave propagation") { mom }
+		
+		flux(layer.amp, layer.amp[l.above], [Pa, day-1], "Test") { 0.1*amp=>> }
 	}
 }

@@ -5,13 +5,17 @@ model("SimplyArctic") {
 Master model including all different things I've tried out and maximum complexity.
 """
 
-	air      : compartment("Atmosphere")
-	snow_box : compartment("Snow box")
-	glacier  : compartment("Glacier")
-    quick    : compartment("Quick")
-	soil     : compartment("Soil")
-	deepgw   : compartment("Deep groundwater")
-	river    : compartment("River")
+	sc     : index_set("Subcatchment")
+	patch  : index_set("Patch")  # This is for both land cover and elevation
+	aspect : index_set("Aspect")
+
+	air      : compartment("Atmosphere",       sc, patch)
+	snow_box : compartment("Snow box",         sc, patch, aspect)
+	glacier  : compartment("Glacier",          sc, patch) # Maybe also aspect? Then would need to change aggregation_weight
+    quick    : compartment("Quick",            sc, patch)
+	soil     : compartment("Soil",             sc, patch)
+	deepgw   : compartment("Deep groundwater", sc)
+	river    : compartment("River",            sc)
 	
 	water : quantity("Water")
 	snow  : quantity("Snow (water equivalents)")
@@ -32,18 +36,6 @@ Master model including all different things I've tried out and maximum complexit
 	load("modules/pet.txt", module("Degree-day PET", air, soil, pet, temp))
 	
 	load("modules/simplyq.txt",	module("SimplyQ river", river, water, flow, loc(downstream)))
-	
-	sc     : index_set("Subcatchment")
-	patch  : index_set("Patch")  # This is for both land cover and elevation
-	aspect : index_set("Aspect")
-	
-	distribute(snow_box, sc, patch, aspect)
-	distribute(glacier,  sc, patch)  # Maybe also aspect? Then would need to change aggregation_weight
-	distribute(soil,     sc, patch)
-	distribute(deepgw,   sc)
-	distribute(river,    sc)
-	distribute(air,      sc, patch)
-    distribute(quick,    sc, patch)
 
 	par_group("Catchment data", river) {
 		a_catch    : par_real("Catchment area", [k m 2], 50, 1e-6, 7e6)

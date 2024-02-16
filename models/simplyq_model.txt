@@ -1,11 +1,14 @@
 
 model("SimplyQ") {
+
+	sc       : index_set("Subcatchment")
+	lu       : index_set("Landscape units")
 	
 	air      : compartment("Atmosphere")
-	snow_box : compartment("Snow layer")
-	soil     : compartment("Soil")
-	gw       : compartment("Groundwater")
-	river    : compartment("River")
+	snow_box : compartment("Snow layer",  sc)
+	soil     : compartment("Soil",        sc, lu)
+	gw       : compartment("Groundwater", sc)
+	river    : compartment("River",       sc)
 	
 	snow     : quantity("Snow")
 	water    : quantity("Water")
@@ -47,14 +50,7 @@ model("SimplyQ") {
 	unit_conversion(gw.water, river.water)   { a_catch }
 	
 		
-	###### Distribute compartments over index sets and set ODE solvers
-	
-	sc : index_set("Subcatchment")
-	lu : index_set("Landscape units")
-	
-	distribute(soil,  sc, lu)
-	distribute(gw,    sc)
-	distribute(river, sc)
+	###### Set ODE solvers
 	
 	#par_group("Solver configuration") {
 	#	solver_h : par_real("Solver fractional step", [hr], 2)

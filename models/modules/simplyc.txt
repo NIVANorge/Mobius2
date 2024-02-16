@@ -88,7 +88,7 @@ module("SimplyC river", version(0, 0, 1),
 }
 
 
-module("Simple river TOC", version(0, 1, 0),
+module("Simple river TOC", version(0, 1, 1),
 	river : compartment,
 	water : quantity,
 	oc    : quantity,
@@ -96,7 +96,7 @@ module("Simple river TOC", version(0, 1, 0),
 	toc   : property
 ) {
 	par_group("Particulate carbon") {
-		sed_oc : par_real("Suspended sediments OC mass fraction", [], 0.02, 0, 1)
+		sed_oc : par_real("Particle OC mass fraction", [g, k g-1], 20, 0, 1)
 	}
 
 	var(river.water.sed.oc, [k g], "River POC") @show_conc(river.water, [m g, l-1])

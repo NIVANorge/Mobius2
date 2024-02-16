@@ -48,7 +48,7 @@ module("EasyChem", version(0, 0, 5),
 	tp     : property,
 	tdp    : property,
 	tn     : property,
-	toc    : property,  #TODO: Could maybe make this external
+	toc    : property,
 	
 	area   : property,
 	
@@ -84,6 +84,8 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		#COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
 		#COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
+		relrate_p    : par_real("P mineralization rel rate", [], 8)
+		relrate_n    : par_real("N mineralization rel rate", [], 1)
 	}
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
@@ -102,7 +104,6 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	
 	par_group("Lake specific phytoplankton", epi) {
 		phyt_a : par_real("Phytoplankton amenability", [], 1, 0.5, 1.5, "Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration")
-		#phyt_b : par_real("Phytoplankton amenability - depth factor", [], 0, 0, 10)
 	}
 	
 	# These should be passed in so that they are the same entity as in NIVAFjord.
@@ -212,13 +213,21 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	flux(hyp.water.oc, out, [k g, day-1], "DOC bacterial mineralization (hypo)") { resp * oc }
 	flux(epi.water.oc, out, [k g, day-1], "DOC bacterial mineralization (epi)")  { resp * oc }
 	
-	# note also that DOC to O2 ratio changes with COS of DOC, this is why we have "(2-(4+nosc)/4)"
+	# TODO: The C/O2 ratio in mineralization isn't on average 1 since there is O in the OM.
 	flux(hyp.water.o2, out, [k g, day-1], "O₂ bacterial consumption (hypo)") { resp*oc*(o2_mol_mass/c_mol_mass) }#*(2 - (4 + oc.nosc)/4) }
 	flux(epi.water.o2, out, [k g, day-1], "O₂ bacterial consumption (epi)")  { resp*oc*(o2_mol_mass/c_mol_mass) }#*(2 - (4 + oc.nosc)/4) } 
 	
 	var(epi.water.chl_a, [m g, l-1]) {
 		conc(phyt)*chl_a_f->>
 	}
+	
+	flux(epi.water.op, epi.water.phos, [k g, day-1], "DOP mineralization (epi)") { resp * op * relrate_p }
+	flux(hyp.water.op, epi.water.phos, [k g, day-1], "DOP mineralization (hyp)") { resp * op * relrate_p }
+	flux(epi.water.sed.op, epi.water.phos, [k g, day-1], "POP mineralization (epi)") { resp * sed.op * relrate_p }
+	flux(hyp.water.sed.op, hyp.water.phos, [k g, day-1], "POP mineralization (hyp)") { resp * sed.op * relrate_p }
+	
+	flux(hyp.water.on, hyp.water.din, [k g, day-1], "DON mineralization (hyp)") { resp * on * relrate_n }
+	flux(epi.water.on, epi.water.din, [k g, day-1], "DON mineralization (epi)") { resp * on * relrate_n }
 	
 	var(epi.water.phyt.light_lim, []) {
 		# TODO: There should be some kind of self-shading where TOC and phyto remove shortwave.
@@ -285,14 +294,13 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 	flux(epi.water.phyt, epi.water.on, [k g, day-1], "Phytoplankton N excretion") {  phyt*excr / cn_molar_to_mass_ratio(phyt_cn) }
 	flux(epi.water.phyt, epi.water.op, [k g, day-1], "Phytoplankton P excretion") {  phyt*excr / cp_molar_to_mass_ratio(phyt_cp) }
 	
-	#flux(out, epi.water.sed.op, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
-	#flux(out, hyp.water.sed.op, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
-	#flux(out, epi.water.phos, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
-	#flux(out, hyp.water.phos, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death * pc_molar_to_mass_ratio(phyt_pc) }
+	flux(out, epi.water.sed.op, [k g, day-1], "Pytoplankton death P release (epi)") { phyt.death / cp_molar_to_mass_ratio(phyt_cp) }
+	flux(out, hyp.water.sed.op, [k g, day-1], "Pytoplankton death P release (hyp)") { phyt.death / cp_molar_to_mass_ratio(phyt_cp) }
 	
 
 	var(epi.water.tdp, [m g, l-1], "Epilimnion TDP") {
 		conc(phos) + conc(op)
+		#+ conc(phyt)/cp_molar_to_mass_ratio(phyt_cp)
 	}
 
 	var(epi.water.tp, [m g, l-1], "Epilimnion TP") {
@@ -300,12 +308,9 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		+ conc(phyt)/cp_molar_to_mass_ratio(phyt_cp)
 	}
 	
-	#var(epi.water.on, [k g], [m g, l-1], "Epilimnion DON")  @initial_conc { init_on }
-	#var(hyp.water.on, [k g], [m g, l-1], "Hypolimnion DON") @initial_conc { init_on }
-	
 	# Releasing N just doesn't give the right N balance in the data in Vansjø. Instead it probably goes to the sediments where it is buried or denitrified (rarely released back to the lake)
-	#flux(out, epi.water.sed.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
-	#flux(out, hyp.water.sed.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death * nc_molar_to_mass_ratio(phyt_nc) }
+	#flux(out, epi.water.sed.on, [k g, day-1], "Phytoplankton death N release (epi)") { phyt.death / cn_molar_to_mass_ratio(phyt_cn) }
+	#flux(out, hyp.water.sed.on, [k g, day-1], "Phytoplankton death N release (hyp)") { phyt.death / cn_molar_to_mass_ratio(phyt_cn) }
 	
 	var(epi.water.tn, [m g, l-1], "Epilimnion TN") {
 		conc(on) + conc(din) + conc(sed)*conc(sed.on)
@@ -341,6 +346,8 @@ Particle transport and settling for EasyChem.
 		resusp_f  : par_real("Resuspension factor", [], 0, 0, 1e-7, "Wind-proportional resuspension in epilimnion-sediment interface.")
 		maxconc   : par_real("Sediment concentration of fast settling", [m g, l-1], 10, 0, 20, "With suspended sediment concentrations in the river higher than this, it is assumed to contain larger grain sizes that settle faster")
 	}
+	
+	load("stdlib/basic_math.txt", library("Response"))
 
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
 	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")
@@ -362,7 +369,9 @@ Particle transport and settling for EasyChem.
 		in_q := in_flux(downstream, epi.water),
 		in_conc := in_s/in_q -> [m g, l-1],
 		# TODO: Maybe make this smoother..
-		max(0, in_conc-maxconc)*in_q->>
+		excess := in_conc - maxconc,
+		s_response(excess, 0, 5[m g, l-1], 0, excess*in_q)->>
+		#max(0, in_conc-maxconc)*in_q->>
 	}
 }
 
@@ -372,6 +381,7 @@ module("EasyChem-Sediment-P", version(0, 0, 1),
 	hyp      : compartment,
 	water    : quantity,
 	phos     : quantity,
+	#on       : quantity,
 	sed      : quantity,
 	temp     : property,
 	area     : property
@@ -398,6 +408,8 @@ module("EasyChem-Sediment-P", version(0, 0, 1),
 	flux(lake_sed.sed, out, [k g, m-2, day-1], "Sediment burial") {
 		in_flux(sed)->>
 	}
+	
+	#var(lake_sed.sed.on, [k g, m-2], "Lake sediment N") #Just testing this. It has to be here so that settling removes PON.
 	
 	var(lake_sed.sed.phos, [k g, m-2], [m g, g-1], "Lake sediment phosphorous") @initial_conc { init_sed_p }
 	

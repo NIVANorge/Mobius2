@@ -1,21 +1,8 @@
 
 
 	*** High pri ***
-	
-		After identifier resolution refactor:
-			Do we check anywhere that fluxes can't go to 'above'? (with proper error message)?
-	
-		We have experimentally added some prune_tree when setting state variable code in model_compilation and model_codegen.
-			Be very careful to see if this causes any problems.
-			
-		Overhaul of process_location_argument and resolve_identifier. Make them better structured (branch on type of initial symbol instead of the amount of components), and combine as much code as possible for these two.
-			Difficult to share that much code since you can have partial chains inside code scope.
 		
 		Specific models
-		
-			Make simple TOC same in river and lake in terms of parametrization of concentrations (and river bed).
-		
-			Use the new preamble functionality to avoid having global par groups in more models.
 		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
 			
@@ -48,13 +35,8 @@
 				
 			EasyChem
 				Figure out how to do effluents.
-				Phyto sinking here also!
-				
-				Count phyto in particulate mass (when comparing to Obs SS)
-				
+							
 				Shading effect on phyto light availability.
-			
-			// Finish the simple hydraulics model.
 			
 		Finish connection system
 		
@@ -65,7 +47,7 @@
 				(in terms of how it is handled internally, not in terms of user-facing functionality)
 				Ideally the entire system should be re-thought or restructured.
 		
-			Component index sets should probably be declared in the connection declaration in the model (also for directed_graph). It is too integral to how to model works to leave it to data set.
+			Component index sets should probably be declared in the connection declaration in the model (also for directed_graph). It is too integral to how the model works to leave it to data set.
 			
 			Have to figure out what something like
 				flux(blabla, something[vert.below], ...)				
@@ -106,6 +88,8 @@
 					Unless we make a special system for it not to have an index set dependency on the grid index in this case. That seems like a lot of work for this special case though.
 				Alternatively, in the ODE codegen, directly make a subtraction of the flux (on condition of correct index).
 					This is maybe the easiest, but is still a bit of work for this special case.
+					
+				Actually in grid1d the connection aggregate is always unnecessary unless it is referenced. Would be better to remove it as a default and only generate it if it is referenced by in_flux(connection).
 			
 			
 			.specific target:
@@ -133,7 +117,7 @@
 	
 	*** Intermediate-pri ***
 	
-		If several loc() refer to one another in the wrong order, that is probably broken? Shouldn't be any valid use case for it, but it could happen on accident.
+		If several loc() refer to one another in the wrong order, that is probably broken? Same with circularity. Could probably only happen with malicious purpose though.
 	
 	
 		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
@@ -155,12 +139,7 @@
 		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
 			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.
 		Clear model input series to NaN outside the individual interval.
-			What to do if an input is interpolated and not 'inside'?		
-		
-		Codegen:
-			Instead of partially generating the code for the instructions, should generate full code for each instruction including assignments and index set lookups.
-				Need placeholders Math_Expr_FT for index lookups that are replaced when everything is glued together.
-				Now dependency resolution for special instructions should be much easier since we could just inspect the index lookups.
+			What to do if an input is interpolated and not 'inside'?
 				
 	
 		distribute() declarations are actually not needed since compartments and quantities can only be declared in the Model. Could instead just have the decl be

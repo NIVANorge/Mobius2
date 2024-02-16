@@ -14,10 +14,8 @@ model("NIVAFjord-SimplyCNP") {
 		sol : solver
 	)
 	
-	edge       : compartment("Basin edge")
-	edge_layer : compartment("Basin edge layer")
-	distribute(edge,       basin_idx, e_idx)
-	distribute(edge_layer, basin_idx, e_idx, layer_idx)
+	edge       : compartment("Basin edge",       basin_idx, e_idx)
+	edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, dims))

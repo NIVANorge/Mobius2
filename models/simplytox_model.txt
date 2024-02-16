@@ -16,20 +16,15 @@ model("SimplyTox") {
 	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox,
 		river_sed.oc, river_sed.water)
 	
-	tox   : quantity("Contaminant")
-	toc   : property("Total organic carbon")
-		
-	dsoil   : compartment("Slow-accessible soil")
-	soilair : compartment("Soil air")
-	river_sed : compartment("River sediment bed")
-	
 	tox_index : index_set("Contaminant type")
 	
-	distribute(dsoil, sc, lu)
-	distribute(soilair, sc, lu)
-	distribute(river_sed, sc)
-	distribute(tox, tox_index)
-	
+	tox   : quantity("Contaminant", tox_index)
+	toc   : property("Total organic carbon")
+		
+	dsoil     : compartment("Slow-accessible soil",  sc, lu)
+	soilair   : compartment("Soil air",              sc, lu)
+	river_sed : compartment("River sediment bed",    sc)
+
 	par_group("River data", river) {
 		eff_a : par_real("River effective surface area", [m 2], 1000, 0, 1000000)
 	}

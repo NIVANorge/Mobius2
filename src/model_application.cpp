@@ -1311,7 +1311,10 @@ Model_Application::find_base_flux(Var_Id dissolved_flux_id) {
 	State_Var *var_flux = vars[dissolved_flux_id];
 	// NOTE: It could be a chain of dissolvedes.
 	do {
-		result_id = as<State_Var::Type::dissolved_flux>(var_flux)->flux_of_medium;
+		//result_id = as<State_Var::Type::dissolved_flux>(var_flux)->flux_of_medium;
+		// Have to do it this way because intermediate ones could have been disabled, and that
+		// triggers an error in 'as'.
+		result_id = static_cast<State_Var_Sub<State_Var::Type::dissolved_flux> *>(var_flux)->flux_of_medium;
 		var_flux = vars[result_id];
 	} while(var_flux->type != State_Var::Type::declared);
 	return result_id;

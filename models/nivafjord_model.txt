@@ -1,12 +1,18 @@
 
 model("NIVAFjord") {
+
+	basin_idx     : index_set("Basin index")
+	bnd_basin_idx : index_set("Boundary basin index")
+	all_basins    : index_set("All basins") @union(basin_idx, bnd_basin_idx)
+	e_idx         : index_set("Fjord connection index") @sub(basin_idx) # Ideally this should not be declared in this model, but then it sometimes is declared out of order.
+	layer_idx     : index_set("Layer index") @sub(all_basins)
 	
 	air       : compartment("Atmosphere")
-	basin     : compartment("Basin")
-	layer     : compartment("Fjord layer")
-	sediment  : compartment("Fjord sediment")
-	bnd_basin : compartment("Boundary basin")
-	bnd_layer : compartment("Boundary layer")
+	basin     : compartment("Basin",          basin_idx)
+	layer     : compartment("Fjord layer",    basin_idx, layer_idx)
+	sediment  : compartment("Fjord sediment", basin_idx, layer_idx)
+	bnd_basin : compartment("Boundary basin", bnd_basin_idx)
+	bnd_layer : compartment("Boundary layer", bnd_basin_idx, layer_idx)
 	
 	water : quantity("Water")
 	ice   : quantity("Ice")
@@ -51,20 +57,6 @@ model("NIVAFjord") {
 	load("modules/nivafjord/basin.txt",
 		dims : preamble("NIVAFjord dimensions", all_basins, layer_idx, layer),
 		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_temp, vert, sw_vert, dims))
-	
-	basin_idx     : index_set("Basin index")
-	bnd_basin_idx : index_set("Boundary basin index")
-	all_basins    : index_set("All basins") @union(basin_idx, bnd_basin_idx)
-	
-	e_idx         : index_set("Fjord connection index") @sub(basin_idx)
-	layer_idx     : index_set("Layer index") @sub(all_basins)
-	
-	distribute(basin, basin_idx)
-	distribute(layer, basin_idx, layer_idx)
-	distribute(sediment, basin_idx, layer_idx)
-	
-	distribute(bnd_basin, bnd_basin_idx)
-	distribute(bnd_layer, bnd_basin_idx, layer_idx)
 	
 	load("modules/nivafjord/boundary_basin.txt", module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, vert, dims))
 	

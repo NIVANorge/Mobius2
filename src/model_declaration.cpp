@@ -268,11 +268,11 @@ Component_Registration::process_declaration(Catalog *catalog) {
 	// NOTE: the Decl_Type is either compartment, property or quantity.
 	
 	//TODO: If we want to allow units on this declaration directly, we have to check for mismatches between decls in different modules.
-	// For now it is safer to just have it on the "has", but we could go over this later and see if we could make it work.
+	// For now it is safer to just have it on the 'var', but we could go over this later and see if we could make it work.
 	int which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string},
-			//{Token_Type::quoted_string, Decl_Type::unit},
+			{Token_Type::quoted_string, {Decl_Type::index_set, true}},
 		});
 	
 	set_serial_name(catalog, this);
@@ -285,12 +285,19 @@ Component_Registration::process_declaration(Catalog *catalog) {
 		auto fun = static_cast<Function_Body_AST *>(decl->body);
 		default_code = fun->block;
 	}
-	/*
-	if(which == 1)
-		component->unit = resolve_argument<Reg_Type::unit>(module, decl, 1);
-	else
-		component->unit = invalid_entity_id;
-	*/
+	
+	auto scope = catalog->get_scope(scope_id);
+	
+	if(decl->args.size() > 1) {
+		if(decl->type == Decl_Type::property) {
+			decl->args[1]->source_loc().print_error_header();
+			fatal_error("A 'property' declaration should not be directly distributed over index sets.");
+		}
+		for(int idx = 1; idx < decl->args.size(); ++idx) {
+			auto id = scope->resolve_argument(Reg_Type::index_set, decl->args[idx]);
+			index_sets.push_back(id);
+		}
+	}
 	
 	has_been_processed = true;
 }
@@ -1265,29 +1272,6 @@ process_solve_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl
 }
 
 void
-process_distribute_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
-	match_declaration(decl,
-	{
-		{Decl_Type::compartment, {Decl_Type::index_set, true}},
-		{Decl_Type::quantity,    {Decl_Type::index_set, true}},
-	}, false);
-	
-	auto comp_id   = scope->resolve_argument(Reg_Type::component, decl->args[0]);
-	auto component = model->components[comp_id];
-	
-	if(component->decl_type == Decl_Type::property) {
-		decl->source_loc.print_error_header(Mobius_Error::model_building);
-		fatal_error("Only compartments and quantities can be distributed over index sets, not properties");
-	}
-	
-	for(int idx = 1; idx < decl->args.size(); ++idx) {
-		auto id = scope->resolve_argument(Reg_Type::index_set, decl->args[idx]);
-		component->index_sets.push_back(id);
-	}
-	check_valid_distribution(model, component->index_sets, decl->source_loc);
-}
-
-void
 process_aggregation_weight_declaration(Mobius_Model *model, Decl_Scope *scope, Decl_AST *decl) {
 	int which = match_declaration(decl,
 		{
@@ -1742,7 +1726,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 	auto scope = &model->top_scope;
 	
 	// Declarations allowed in the model top scope.
-	// Not including declarations that don't create an entity registration (solve, distribute...) . These are handled separately.
+	// Not including declarations that don't create an entity registration (solve, ...) . These are handled separately.
 	const std::set<Decl_Type> allowed_model_decls = {
 		Decl_Type::property,
 		Decl_Type::compartment,
@@ -1787,7 +1771,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 				// Inline module declaration. These are handled later.
 				module_loads.emplace_back(child, true, "", file_name);  // true signifies it is an inline decl.
 				
-			} else if (child->type == Decl_Type::solve || child->type == Decl_Type::distribute || child->type == Decl_Type::unit_conversion || child->type == Decl_Type::aggregation_weight) {
+			} else if (child->type == Decl_Type::solve || child->type == Decl_Type::unit_conversion || child->type == Decl_Type::aggregation_weight) {
 				// These don't create registrations on their own.. They will be processed after other declarations below.
 				special_decls.push_back(child);
 				// We still may have to handle inline decls in arguments.
@@ -1828,8 +1812,6 @@ load_model(String_View file_name, Mobius_Config *config) {
 	for(auto decl : special_decls) {
 		if      (decl->type == Decl_Type::solve)
 			process_solve_declaration(model, scope, decl);
-		else if (decl->type == Decl_Type::distribute)
-			process_distribute_declaration(model, scope, decl);
 		else if (decl->type == Decl_Type::aggregation_weight)
 			process_aggregation_weight_declaration(model, scope, decl);
 		else if (decl->type == Decl_Type::unit_conversion)

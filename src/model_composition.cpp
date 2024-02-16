@@ -164,6 +164,10 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 				fatal_error("This connection type can't have fluxes with specified locations.");
 			}
 		}
+		if(loc.r1.type == Restriction::above) {
+			source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("Fluxes can't go to 'above', instead declare a @bidirectional flux in the opposite direction.");
+		}
 		// TODO: We could just do the checks on loc.r2 here ?
 		
 		//TODO: This check should NOT use the connection_components. It must use the component options that are stored on the flux.

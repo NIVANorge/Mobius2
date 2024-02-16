@@ -16,7 +16,8 @@ This is a very simple lake model for use along with cathcment models.
 The physical part of the model simulates water balance and temperature.
 
 The water balance part of the model is conceptually similar to VEMALA
-[A National-Scale Nutrient Loading Model for Finnish Watersheds - VEMALA, Inse Huttunen et. al. 2016, Environ Model Assess 21, 83-109](https://doi.org/10.1007/s10666-015-9470-6)
+[A National-Scale Nutrient Loading Model for Finnish Watersheds - VEMALA, Inse Huttunen et. al. 2016, Environ Model Assess 21, 83-109](https://doi.org/10.1007/s10666-015-9470-6), 
+but allows for more specific parametrization of the lake shape.
 """
 
 	load("stdlib/physiochemistry.txt", library("Water utils"))
@@ -33,12 +34,13 @@ The water balance part of the model is conceptually similar to VEMALA
 		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
 	}
 	
-	# This is the volume of a basin with water level z if the surface area is A_top when the water level is z_top. theta is a shape factor
-	# The volume is a wedge where the side length along the bottom is theta* the side length along the top.
+	# The basin has a horizontal cross-section that is parametrized by A_surf (surface area when outflow is 0), z_outflow (max depth when outflow is 0) and theta (a shape factor)
+	
 	# The horizontal cross-section at a given level z is
-	# 	A(z) = A0*(z/z0)^(1+theta)
-	# The volume up to level z is as given in the formula below, and is equal to
-	# 	V(z) = integral(A(z)dz, 0, z)
+	# 	A(z) = A_surf*(z/z0)^(1+theta)
+	# The volume is equal to
+	# 	V(z) = integral(A(z)dz, 0, z) = A_surf * z * ((z/z_0)^(theta+1)) / (theta+2)
+	
 	shape_cross_section_A : function(A_0 : [m 2], z_0 : [m], z : [m], theta : []) {
 		A_0 * ((z/z_0)^(theta+1))
 	}
@@ -64,7 +66,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	#   T(z) = ((T_e - T_b)*(z/z_0)^2 + T_b
 	# where T_e is epilimnion temperature and T_b is bottom temperature
 	# Can be symbolically integrated e.g. in sympy:
-	#	integrate((((T_e - T_b)/z_e**2)*z**2 + T_b)*((z/z_0)**(n+1)), (z, 0, z_e))
+	#	integrate((((T_e - T_b)/z_e**2)*z**2 + T_b)*((z/z_0)**(theta+1)), (z, 0, z_e))
 	hypo_temperature_integral : function(A_0 : [m 2], T_e : [deg_c], T_b : [deg_c], z_e : [m], z_0 : [m], theta : []) {
 		(2*T_b + (theta+2)*T_e)*A_0*((z_e^3)*(z_e/z_0)^(theta+1))/((theta^2 + 6*theta + 8)*z_e^2)
 	}
@@ -103,7 +105,6 @@ The water balance part of the model is conceptually similar to VEMALA
 	
 	var(epi.area, [m 2], "Epilimnion surface area")                       {   shape_cross_section_A(A_surf, z_outflow, level+z_outflow, theta)   }
 	
-	#TODO: Fix this one when epilimnion thickness works better:
 	var(hyp.area, [m 2], "Hypolimnion surface area")                      {	  shape_cross_section_A(A_surf, z_outflow, z_outflow-epi.th, theta)   }
 	
 	var(epi.water.heat, [J]) @initial                                     {   water_temp_to_heat(water, t_epi)   }
@@ -117,8 +118,7 @@ The water balance part of the model is conceptually similar to VEMALA
 	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
 		V := water + hyp.water,
 		lake_t := water_heat_to_temp(V, heat + hyp.water.heat), # Mean lake temperature.
-		z_e := z_outflow-epi.th,
-		hypo_temp := hypo_temperature_integral(A_surf, temp, t_bot, z_e, z_outflow, theta),
+		hypo_temp := hypo_temperature_integral(A_surf, temp, t_bot, z_outflow-epi.th, z_outflow, theta),
 		T_e_should_be := (lake_t*V - hypo_temp)/water,
 		epi_heat_should_be := water_temp_to_heat(water, T_e_should_be),
 		5[day-1]*(heat - epi_heat_should_be)   # The 5 is pretty arbitrary. Just to get a quick equilibration

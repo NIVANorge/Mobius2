@@ -1,13 +1,21 @@
 
 model("EasyLake-SimplyQ") {
 	
-	extend("simplyq_model.txt") @exclude(downstream : connection) #Exclude the downstream connection so that we can redeclare it with the epilimnion in it.
+	extend("simplyq_model.txt") @exclude(
+		downstream : connection, # Exclude the downstream connection so that we can redeclare it with the epilimnion in it.
+		air        : compartment # Must be redeclared distributed
+	)
 	
-	epi      : compartment("Epilimnion")
-	hyp      : compartment("Hypolimnion")
+	lake_index : index_set("Lake")
+	wb_index   : index_set("Water body") @union(sc, lake_index)
+	
+	epi      : compartment("Epilimnion",  lake_index)
+	hyp      : compartment("Hypolimnion", lake_index)
+	air      : compartment("Atmosphere",  wb_index)
 	
 	ice      : quantity("Ice")
 	
+	# TODO: We could maybe put these in a preamble?
 	wind     : property("Wind speed")
 	g_rad    : property("Global radiation")
 	pressure : property("Pressure")
@@ -38,16 +46,5 @@ model("EasyLake-SimplyQ") {
 						
 	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z, freeze_temp, area, loc(downstream)))
 	
-	solve(sol, epi.water, hyp.water, epi.ice)
-	
-	lake_index : index_set("Lake")
-	
-	wb_index : index_set("Water body") @union(sc, lake_index)
-	
-	distribute(air, wb_index)
-	distribute(snow_box, sc)
-	
-	distribute(epi, lake_index)
-	distribute(hyp, lake_index)
-	
+	solve(sol, epi.water, hyp.water, epi.ice)	
 }

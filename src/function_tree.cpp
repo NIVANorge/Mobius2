@@ -600,7 +600,7 @@ get_special_directive(String_View name) {
 	return result;
 }
 
-Function_Resolve_Result
+void
 resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
 	
 	auto fun_name = ast->name.string_value;
