@@ -1172,26 +1172,31 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			if(op == '|' || op == '&') {
 				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::boolean);
 				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::boolean);
-				
 				new_binary->value_type = Value_Type::boolean;
+			} else if (op == '/') {
+				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::real);
+				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::real);
+				new_binary->value_type = Value_Type::real;
 			} else if (op == '^') {
 				//Note: we could implement pow for lhs of type int too, but llvm does not have an intrinsic for it, and there is unlikely to be any use case.
 				new_binary->value_type = Value_Type::real;
 				new_binary->exprs[0]   = make_cast(new_binary->exprs[0], Value_Type::real);
 				if(new_binary->exprs[1]->value_type == Value_Type::boolean) new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
-			} else if (op == '%') {
+			} else if (op == '%' || binary->oper == Token_Type::div_int) {
 				if(new_binary->exprs[0]->value_type == Value_Type::real || new_binary->exprs[1]->value_type == Value_Type::real) {
 					binary->source_loc.print_error_header();
-					error_print("Operator % can only take integer arguments.\n");
+					error_print("The operator ", name(binary->oper), " can only take integer arguments.\n");
 					fatal_error_trace(scope);
 				}
+				if(binary->oper == Token_Type::div_int)
+					new_binary->oper = (Token_Type)'/';  // It is more convenient to treat real and int division as the same operator type in later code.
 				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::integer);
 				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
 				new_binary->value_type = Value_Type::integer;
 			} else {
 				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1]);
 				
-				if(op == '+' || op == '-' || op == '*' || op == '/')
+				if(op == '+' || op == '-' || op == '*')
 					new_binary->value_type = new_binary->exprs[0]->value_type;
 				else
 					new_binary->value_type = Value_Type::boolean;

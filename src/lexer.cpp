@@ -263,6 +263,7 @@ Token_Stream::read_token_base(Token *token) {
 				else if(c == '<' && n == '-') token->type = Token_Type::arr_l;
 				else if(c == '-' && n == '>') token->type = Token_Type::arr_r;
 				else if(c == '=' && n == '>') token->type = Token_Type::d_arr_r;
+				else if(c == '/' && n == '/') token->type = Token_Type::div_int;
 				
 				if     (c == '-' && n == '>' && nn == '>') token->type = Token_Type::arr_r_r;
 				else if(c == '=' && n == '>' && nn == '>') token->type = Token_Type::d_arr_r_r;

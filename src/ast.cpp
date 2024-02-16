@@ -444,7 +444,7 @@ operator_precedence(Token_Type t) {
 	else if((c == '<') || (c == '>') || (t == Token_Type::leq) || (t == Token_Type::geq) || (c == '=') || (t == Token_Type::neq)) return 3000;
 	else if((c == '+') || (c == '-')) return 4000;
 	else if(c == '*') return 5000;
-	else if(c == '/' || c == '%') return 6000;
+	else if(c == '/' || c == '%' || t == Token_Type::div_int) return 6000;
 	else if(c == '^') return 7000;
 	
 	return 0;

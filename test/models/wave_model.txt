@@ -1,14 +1,12 @@
 
 
 model("Wave") {
-	
-	layer : compartment("Layer")
+		
+	li : index_set("Layer index")
+	layer : compartment("Layer", li)
 	
 	amp   : quantity("amplitude")
 	mom   : quantity("momentum")
-	
-	li : index_set("Layer index")
-	distribute(layer, li)
 	
 	solve(solver("Solver", inca_dascru, [hr], 0.01), layer.amp, layer.mom)
 	
@@ -30,7 +28,5 @@ model("Wave") {
 		} @bidirectional
 		
 		flux(layer.amp, out, [Pa, day-1], "Wave propagation") { mom }
-		
-		flux(layer.amp, layer.amp[l.above], [Pa, day-1], "Test") { 0.1*amp=>> }
 	}
 }
