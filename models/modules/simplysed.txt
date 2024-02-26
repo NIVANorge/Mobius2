@@ -32,7 +32,7 @@ New to version 0.5:
 		doy_autumn : par_int ("Day of year when soil erodibility is max for autumn-grown crops", [day], 304, 30, 335)
 		p_spring   : par_real("Proportion of spring-grown crops", [], 0.65, 0, 1)
 		loadred    : par_real("Reduction of load in sediment", [], 0, 0, 1)
-		shp        : par_enum("Cover factor shape", flat) { flat triangular smooth }
+		shp        : par_enum("Cover factor shape", flat) { flat step triangular smooth }
 	}
 	
 	par_group("Land slope", soil) {
@@ -40,7 +40,7 @@ New to version 0.5:
 	}
 	
 	par_group("River erosion", river) {
-		ksed  : par_real("Erosion scaling factor", [day, k m-1], 15, 0, 100)
+		ksed  : par_real("Erosion scaling factor", [day, m m-1], 15, 0, 100)
 		psed  : par_real("Erosion power factor", [], 2, 0.1, 5)
 	}
 	
@@ -52,26 +52,25 @@ New to version 0.5:
 	
 	var(river.water.sed, [k g], [m g, l-1], "Suspended sediments")
 
+	cover_shape : function(doy, doy_max, len, c_cov, shp_step, shp_tri, shp_smooth) {
+		step_response (doy, doy_max - len/2, doy_max + len/2, c_cov, 1, c_cov)           if shp_step,
+		wedge_response(doy, doy_max - len/2, doy_max, doy_max + len/2, c_cov, 1, c_cov)  if shp_tri,
+		bump_response (doy, doy_max - len/2, doy_max, doy_max + len/2, c_cov, 1, c_cov)  if shp_smooth,
+		c_cov                                                                            otherwise
+	}
+
 	var(soil.c_cover, []) {
 		E_risk_period := 60.0[day],
-		spring := {
-			wedge_response(time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
-			bump_response (time.day_of_year, doy_spring - E_risk_period/2, doy_spring, doy_spring + E_risk_period/2, c_cov, 1, c_cov)    if shp.smooth,
-			c_cov                                                                                                                        otherwise
-		},
-		autumn := {
-			wedge_response(time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if shp.triangular,
-			bump_response (time.day_of_year, doy_autumn - E_risk_period/2, doy_autumn, doy_autumn + E_risk_period/2, c_cov, 1, c_cov)    if shp.smooth,
-			c_cov                                                                                                                        otherwise
-		},
+		spring := cover_shape(time.day_of_year, doy_spring, E_risk_period, c_cov, shp.step, shp.triangular, shp.smooth),
+		autumn := cover_shape(time.day_of_year, doy_autumn, E_risk_period, c_cov, shp.step, shp.triangular, shp.smooth),
 		spring*p_spring + autumn*(1 - p_spring)
 	}
 	
 	var(soil.e_fact, [k g, k m-2, day-1], "Erosion factor land")          {   land_slope * c_cover * (1 - loadred) * (1 - loadred_var) =>>  }
 	
-	var(river.e_fact, [], "Erosion factor river")                         {   (1e6*(ksed * in_flux(water)/a_catch)->[])^psed  }
+	var(river.e_fact, [], "Erosion factor river")                         {   ((ksed * in_flux(water)/a_catch)->[])^psed  }
 
-	flux(out, river.water.sed, [k g, day-1], "Sediment mobilization") {   a_catch * aggregate(soil.e_fact) * e_fact }
+	flux(out, river.water.sed, [k g, day-1], "Sediment mobilization") {   a_catch * aggregate(soil.e_fact) * river.e_fact }
 }
 
 
