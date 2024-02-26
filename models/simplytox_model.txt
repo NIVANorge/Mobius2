@@ -32,7 +32,7 @@ model("SimplyTox") {
 	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc))
 
 	load("modules/simplytox.txt",
-		phys : preamble("SimplyTox physiochemical", air, tox, temp),
+		phys : preamble("SimplyTox physiochemical", tox, temp),
 		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
 		module("SimplyTox partitioning", "SimplyTox soil water", soil, water, oc, tox, temp, loc(soil.oc), [n g, m-2], constant(true), phys),
 		module("SimplyTox partitioning", "SimplyTox groundwater", gw, water, oc, tox, temp, loc(gw.oc), [n g, m-2], constant(false), phys),

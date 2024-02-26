@@ -1,10 +1,12 @@
 
 
 preamble("SimplyTox physiochemical", version(0, 0, 4),
-	air  : compartment,
 	tox  : quantity,
 	temp : property
 ) {
+"""
+Parameters for specifying various physiochemical properties of a contaminant.
+"""
 	
 	load("stdlib/basic_math.txt", library("Response"))
 	
@@ -63,7 +65,7 @@ preamble("SimplyTox physiochemical", version(0, 0, 4),
 		q10_adjust(hl_to_rate(hl), reftemp, temp, q10)
 	}
 	
-	Ceq      : property("Equilibrium concentration")
+	Ceq     : property("Equilibrium concentration")
 	dep     : property("Contaminant deposition")
 	atmconc : property("Atmospheric concentration")
 	
@@ -75,6 +77,70 @@ preamble("SimplyTox physiochemical", version(0, 0, 4),
 	}
 	
 	diff_sed : property("Water-sediment effective diffusivity")
+}
+
+module("SimplyTox partitioning", version(0, 0, 0),
+	comp : compartment,
+	water : quantity,
+	oc : quantity,
+	tox : quantity,
+	temp : property,
+	solid_oc : loc,
+	mass_unit : unit,
+	fast_degr : constant,
+	phys : preamble
+) {
+"""
+A module for partitioning a contaminant between solid organic carbon, dissolved organic carbon and a truly dissolved phase. Can be applied to multiple settings.
+"""
+	
+	water_unit : unit_of(comp.water)
+	flux_unit  : compose_unit(mass_unit, [day-1])
+	
+	# TODO: There should be a way to set initial values of these.
+	var(comp.water.tox, mass_unit, [n g, l-1], "Dissolved contaminants")
+	var(comp.water.oc.tox, mass_unit, [n g, k g-1], "DOC contaminants")
+	var(solid_oc.tox, mass_unit, [n g, k g-1], "SOC contaminants")
+	
+	var(comp.water.tox.Kow, [])
+	var(comp.water.tox.Kdoc, [m 3, k g-1])
+	var(comp.water.tox.Koc, [m 3, k g-1])
+	
+	var(comp.water.tox.Ceq, [n g, l-1], "Dissolved contaminant equilibrium concentration") {
+		eqvol :=
+			  Koc*solid_oc -> water_unit
+			+ Kdoc*comp.water.oc -> water_unit
+			+ water,
+			
+		m_total := comp.water.tox + comp.water.oc.tox + solid_oc.tox,
+		m_total / eqvol ->>
+	}
+	
+	var(solid_oc.tox.Ceq, [n g, k g-1], "SOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Koc ->>  }
+	var(comp.water.oc.tox.Ceq, [n g, k g-1], "DOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Kdoc ->>  }
+	
+	flux(comp.water.tox, solid_oc.tox, flux_unit, "Water-SOC contaminant exchange") {
+		rwoc*solid_oc*(solid_oc.tox.Ceq - conc(solid_oc.tox)) ->>
+	} @no_store
+	
+	flux(comp.water.tox, comp.water.oc.tox, flux_unit, "Water-DOC contaminant exchange") {
+		rwoc*water.oc*(water.oc.tox.Ceq - conc(water.oc.tox)) ->>
+	} @no_store
+	
+	flux(comp.water.tox, out, flux_unit, "Dissolved contaminant decay") {
+		hl := { hlfast if fast_degr, hlgw otherwise },
+		degr(hl, degrq10, degrref, temp)*tox
+	} @no_store
+	
+	flux(comp.water.oc.tox, out, flux_unit, "DOC contaminant decay") {
+		hl := { hlfast if fast_degr, hlgw otherwise },
+		degr(hl, degrq10, degrref, temp)*tox
+	} @no_store
+	
+	flux(solid_oc.tox, out, flux_unit, "SOC contaminant decay") {
+		hl := { hlfast if fast_degr, hlslow otherwise },
+		degr(hl, degrq10, degrref, temp)*tox
+	} @no_store
 }
 
 
@@ -90,7 +156,9 @@ module("SimplyTox soil", version(0, 0, 3),
 	temp  : property,
 	phys  : preamble
 ) {
-
+"""
+Soil-specific contaminant processes that are not covered by the partitioning module.
+"""
 	
 	par_group("Soil carbon and air", soil) {
 		mocf        : par_real("Soil organic carbon, fast accessible", [k g, m-2], 30, 0, 300)
@@ -139,66 +207,6 @@ module("SimplyTox soil", version(0, 0, 3),
 	var(gw.oc, [k g, m-2], "Deep soil carbon")  @override { mocdeep }
 }
 
-module("SimplyTox partitioning", version(0, 0, 0),
-	comp : compartment,
-	water : quantity,
-	oc : quantity,
-	tox : quantity,
-	temp : property,
-	solid_oc : loc,
-	mass_unit : unit,
-	fast_degr : constant,
-	phys : preamble
-) {
-	# NOTE: This one works for groundwater and bottom sediments, not for soil since it also has an air compartment.
-	
-	water_unit : unit_of(comp.water)
-	flux_unit  : compose_unit(mass_unit, [day-1])
-	
-	var(comp.water.tox, mass_unit, [n g, l-1], "Dissolved contaminants")
-	var(comp.water.oc.tox, mass_unit, [n g, k g-1], "DOC contaminants")
-	var(solid_oc.tox, mass_unit, [n g, k g-1], "SOC contaminants")
-	
-	var(comp.water.tox.Kow, [])
-	var(comp.water.tox.Kdoc, [m 3, k g-1])
-	var(comp.water.tox.Koc, [m 3, k g-1])
-	
-	var(comp.water.tox.Ceq, [n g, l-1], "Dissolved contaminant equilibrium concentration") {
-		eqvol :=
-			  Koc*solid_oc -> water_unit
-			+ Kdoc*comp.water.oc -> water_unit
-			+ water,
-			
-		m_total := comp.water.tox + comp.water.oc.tox + solid_oc.tox,
-		m_total / eqvol ->>
-	}
-	
-	var(solid_oc.tox.Ceq, [n g, k g-1], "SOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Koc ->>  }
-	var(comp.water.oc.tox.Ceq, [n g, k g-1], "DOC contaminant equilibrium concentration") {   comp.water.tox.Ceq * comp.water.tox.Kdoc ->>  }
-	
-	flux(comp.water.tox, solid_oc.tox, flux_unit, "Water-SOC contaminant exchange") {
-		# Maybe this should be slower though. It is supposed to be slow-accessible carbon only.
-		rwoc*solid_oc*(solid_oc.tox.Ceq - conc(solid_oc.tox)) ->>
-	}
-	
-	flux(comp.water.tox, comp.water.oc.tox, flux_unit, "Water-DOC contaminant exchange") {
-		rwoc*water.oc*(water.oc.tox.Ceq - conc(water.oc.tox)) ->>
-	}
-	
-	flux(comp.water.tox, out, flux_unit, "Dissolved contaminant decay") {
-		hl := { hlfast if fast_degr, hlgw otherwise },
-		degr(hl, degrq10, degrref, temp)*tox
-	}
-	flux(comp.water.oc.tox, out, flux_unit, "DOC contaminant decay") {
-		hl := { hlfast if fast_degr, hlgw otherwise },
-		degr(hl, degrq10, degrref, temp)*tox
-	}
-	flux(solid_oc.tox, out, flux_unit, "SOC contaminant decay") {
-		hl := { hlfast if fast_degr, hlslow otherwise },
-		degr(hl, degrq10, degrref, temp)*tox
-	}
-}
-
 
 module("SimplyTox air-water", version(0, 0, 1),
 	air : compartment,
@@ -210,6 +218,10 @@ module("SimplyTox air-water", version(0, 0, 1),
 	A_surf : loc,
 	phys : preamble
 ) {
+"""
+Contaminant exchange between a surface water and the atmosphere.
+"""
+
 	load("stdlib/physiochemistry.txt",
 		library("Water utils"),
 		library("Diffusivity"))
@@ -280,7 +292,11 @@ module("SimplyTox river", version(0, 0, 1),
 	A_surf : loc,
 	phys  : preamble
 ) {
-	load("stdlib/physiochemistry.txt", library("Water utils"))
+"""
+River-specific contaminant processes that are not covered by the partitioning module or the air-water exchange module.
+"""
+
+	#load("stdlib/physiochemistry.txt", library("Water utils"))
 	
 	#TODO: Photo-degradation maybe also in river, (See EasyTox).
 	
@@ -293,11 +309,11 @@ module("SimplyTox river", version(0, 0, 1),
 		sed_exch : par_real("Suspended sediment bed exchange coefficient", [day-1], 0.2)
 	}
 	
-	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Sediment mobilization tox") {
+	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Contaminants mobilized with sediment mobilization") {
 		soil.e_fact*river.e_fact*conc(river.water.sed.oc)*conc(soil.oc.tox)->>
 	}
 	
-	# Unfortunately we can't have this one in the air-water module, because the version of that must be limited by ice.
+	# Unfortunately we can't have this one in the air-water module, because the lake version of that must be limited by ice, so we have to specify it separately for lakes and rivers.
 	flux(river.water.tox, out, [n g, day-1], "River water-atmosphere contaminant exchange") {
 		A_surf * vel_air_water * (conc(water.tox)->[n g, m-3] - air.tox.atmconc/Kaw) ->>
 	}
@@ -349,10 +365,6 @@ module("SimplyTox river", version(0, 0, 1),
 			5e-4*scale    if scale > 2000,
 			1             otherwise
 		},
-		
-		# flux is :
-			A_surf * diff_sed * (conc(river.water.tox) - conc(sediment.water.tox)) / dz ->>
-		# dz is thickness of active layer (roughly).
 	*/
 	
 	# Remains to do: River sediment bed (+ exchanges between river bed and water)

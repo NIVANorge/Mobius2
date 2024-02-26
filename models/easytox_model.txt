@@ -1,7 +1,7 @@
 
 model("EasyTox") {
 
-	extend("simplytox_model.txt") @exclude(downstream : connection)
+	extend("simplytox_model.txt") @exclude(downstream : connection, air : compartment)
 	extend("easylake_simplyq_model.txt") @exclude(heat : quantity, sol : solver)
 	
 	lake_sed : compartment("Lake sediments", lake_index)
@@ -9,20 +9,20 @@ model("EasyTox") {
 	solve(sol, lake_sed.water, lake_sed.sed)
 	
 	load("modules/easychem.txt",
-		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),  #Note: last location is target of settling fluxes
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),  #Note: the last location is the target of particle settling
 		module("SuperEasyC", epi, hyp, water, oc, sed, temp, toc),
-		sedpars : preamble("SuperEasyC-Sediments dimensions", lake_sed),
+		sedpars : preamble("SuperEasyC-Sediments dimensions"),#, lake_sed),
 		module("SuperEasyC-Sediments", lake_sed, water, sed, oc, sedpars)
 	)
 	
 	load("modules/simplytox.txt",
 		module("SimplyTox partitioning", "SimplyTox epilimnion", epi, water, oc, tox, temp, loc(epi.water.sed.oc), [n g], constant(true), phys),
 		module("SimplyTox partitioning", "SimplyTox hypolimnion", hyp, water, oc, tox, temp, loc(hyp.water.sed.oc), [n g], constant(true), phys),
-		module("SimplyTox air-water", "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(epi.area), phys),
+		module("SimplyTox air-water",    "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(epi.area), phys),
 		module("SimplyTox partitioning", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), [n g, m-2], constant(false), phys)
 	)
 	load("modules/easytox.txt",
-		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, sed, tox, indicator, sw, temp, area, loc(epi.area), phys, sedpars))
+		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, tox, indicator, sw, temp, area, loc(epi.area), phys, sedpars))
 		
 	unit_conversion(epi.water.sed, lake_sed.sed) { 1/epi.area }
 	unit_conversion(hyp.water.sed, lake_sed.sed) { 1/hyp.area }

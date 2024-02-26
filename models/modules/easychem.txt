@@ -472,8 +472,8 @@ A very simplified lake carbon module. Mainly for use with EasyTox if one doesn't
 	} @no_carry # So that it doesn't make C-bound contaminants disappear.
 }
 
-preamble("SuperEasyC-Sediments dimensions", version(0, 0, 1),
-	lake_sed : compartment
+preamble("SuperEasyC-Sediments dimensions", version(0, 0, 1)#,
+	#lake_sed : compartment
 ) {
 	par_group("Lake sediments") {
 		th : par_real("Lake bed porosity", [], 0.6)

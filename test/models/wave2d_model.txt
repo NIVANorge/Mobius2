@@ -2,18 +2,15 @@
 
 model("Wave2D") {
 	
-	cell : compartment("Cell")
+	vi : index_set("Vertical")
+	hi : index_set("Horizontal")
+	
+	cell : compartment("Cell", vi, hi)
 	
 	amp   : quantity("Amplitude")
 	mom   : quantity("Momentum")
 	
-	vi : index_set("Vertical")
-	hi : index_set("Horizontal")
-	
-	distribute(cell, vi, hi)
-	
-	sol : solver("Solver", inca_dascru, [hr]) #TODO: Why didn't it work to inline declare it?
-	solve(sol, cell.amp, cell.mom)
+	solve(solver("Solver", inca_dascru, [hr]), cell.amp, cell.mom)
 	
 	v : connection("Vert") @grid1d(cell, vi)
 	h : connection("Horz") @grid1d(cell, hi)

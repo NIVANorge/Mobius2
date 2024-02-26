@@ -9,7 +9,7 @@
 			NIVAFjord!		
 				
 				Finish biochemistry.
-					Do we need separate NO3/NH4? Do we need Si?
+					Do we need separate NH4? Do we need Si?
 					
 					Sulfate reduction?
 					
@@ -29,6 +29,8 @@
 					Must be used whenever translating a symbol (Token or string) to an index.
 					-- the way we started doing it is a bit problematic because it requires the index set dimension to be set first, but in actuality we want the number of layers to  be dependent on the layer thickness, and instead just have a max depth set by the user.
 						Maybe process the index set dimensions in a pass after all position maps are set, then co-process that information along with the position maps when relevant (in this instance interpret the dimension number as a depth).
+					Issue: The 'index count' set by the user should instead be reinterpreted as the position of the last layer (total depth), but then this index set must be resized.
+						This can be done if position map is always processed right after the index sets and if we disallow sub-indexing to a index set with a position map.
 				
 				Should really solve the advection/diffusion equation with Crank-Nicolson.
 					A bit difficult to integrate it into the existing framework.

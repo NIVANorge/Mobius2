@@ -52,33 +52,6 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		]
 	}
 	
-	quick_select("River vars") [!
-		"Q" : [ "Reach flow flux" "Obs Q" ]
-		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
-		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
-		"TN" : [ "River TN" "Obs TN" ]
-		"TOC" : [ "River TOC concentration" "Obs TOC" ]
-		"TP" : [ "Total phosphorous" "Obs TP" ]
-		"PP" : [ "concentration(River PP, Reach water volume)" "Obs PP" ]
-		"TDP" : [ "concentration(River TDP, Reach water volume)" "Obs TDP" ]
-		"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
-	]
-	
-	quick_select("Lake vars") [!
-		"Temperature" : [ "Epilimnion temperature" "Obs Temperature" ]
-		"Ice ind" : [ "Ice indicator" "Observed ice indicator Vanem" ]
-		"DIN" : [ "concentration(Epilimnion DIN, Epilimnion volume)" "Obs DIN" ]
-		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
-		"TN" : [ "Epilimnion TN" "Obs TN" ]
-		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
-		"TP" : [ "Epilimnion TP" "Obs TP" ]
-		"TDP" : [ "Epilimnion TDP" "Obs TDP" ]
-		"DIP" : [ "concentration(Epilimnion DIP, Epilimnion volume)" "Obs DIP" "Obs TDP" ]
-		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
-		"SS" : [ "Epilimnion STS" "Obs SS" ]
-		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
-	]
-	
 	quick_select("Fjord vars") [!
 		"Temperature" : [ "Layer temperature" ]
 		"Salinity" : [ "Layer salinity" ]
@@ -99,28 +72,24 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	}
 	
-	par_group("Layer parameters", basin, layer) {
+	preamble("NIVAFjord dimensions", version(0, 0, 0)) {
 		
-		par_real("Layer area") [
-			5653000 5528500 5404000 5279500 5155000 5030500 4906000 4781500 4657000 4532500 4408000 4330700 4253400 4176100 4098800 4021500 3944200 3866900 3789600 3712300 3635000 3572100 3509200 3446300 3383400 3320500 3257600 3194700 3131800 3068900 3006000 2948700 2891400 2834100 2776800 2719500 2662200 2604900 2547600 2490300 2433000 2369900 2306800 2243700 2180600 2117500 2054400 1991300 1928200 1865100 1802000 1733600 1665200 1596800 1528400 1460000 1391600 1323200 1254800 1186400 1118000 1061900 1005800 949700 893600 837500 781400 725300 669200 613100 557000 530600 504200 477800 451400 425000 398600 372200 345800 319400 293000 271400 249800 228200 206600 185000 163400 141800 120200 98600 77000 71100 65200 59300 53400 47500 41600 35700 29800 23900 18000 16200 14400 12600 10800 9000 7200 5400 3600 1800 
-		]
-	
-	}
-	
-	par_group("Fjord horizontal boundary", basin, fjord_conn, layer) {
+		par_group("Layer area", basin, layer) {
+			
+			par_real("Layer area") [
+				5653000 5528500 5404000 5279500 5155000 5030500 4906000 4781500 4657000 4532500 4408000 4330700 4253400 4176100 4098800 4021500 3944200 3866900 3789600 3712300 3635000 3572100 3509200 3446300 3383400 3320500 3257600 3194700 3131800 3068900 3006000 2948700 2891400 2834100 2776800 2719500 2662200 2604900 2547600 2490300 2433000 2369900 2306800 2243700 2180600 2117500 2054400 1991300 1928200 1865100 1802000 1733600 1665200 1596800 1528400 1460000 1391600 1323200 1254800 1186400 1118000 1061900 1005800 949700 893600 837500 781400 725300 669200 613100 557000 530600 504200 477800 451400 425000 398600 372200 345800 319400 293000 271400 249800 228200 206600 185000 163400 141800 120200 98600 77000 71100 65200 59300 53400 47500 41600 35700 29800 23900 18000 16200 14400 12600 10800 9000 7200 5400 3600 1800 
+			]
 		
-		par_real("Boundary width") [
-			568 552 537 521 506 490 475 459 444 428 412 397 381 366 350 335 319 304 288 273 257 247 236 226 215 205 195 184 174 163 153 148 144 139 134 130 125 120 115 111 106 104 102 100 98 96 93 91 89 87 85 76 68 60 51 42 34 26 17 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
-		]
-	
-	}
-	
-	par_group("Layer thickness", all_basin, layer) {
+		}
 		
-		par_real("Stable layer thickness") [
-			1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-			1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-		]
+		par_group("Layer thickness", all_basin, layer) {
+			
+			par_real("Stable layer thickness") [
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			]
+		
+		}
 	
 	}
 	
@@ -133,35 +102,7 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		[ 0.001 ]
 	
 	}
-	
-	par_group("Catchment data", sc) {
-		
-		par_real("Catchment area") 
-		[ 49.257 106.904 37.188 107.68 30.3688 253.213 55.7764 13.9768 ]
-	
-	}
-	
-	par_group("Land cover", sc, lu) {
-		
-		par_real("Land use proportions") [
-			0.49 0.51 
-			0.04 0.96 
-			0.15 0.85 
-			0.32 0.68 
-			0.27 0.73 
-			0.13 0.87 
-			0.21 0.78 
-			0.04 0.96 
-		]
-	
-	}
-	
-	par_group("Lake data", lake) {
-		
-		par_real("Lake surface area") 
-		[ 2423400 1668800 23800000 12000000 ]
-	
-	}
+
 	
 	module("NIVAFjord basin", version(0, 0, 2)) {
 		
@@ -235,6 +176,14 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 30 ]
 		
 		}
+		
+		par_group("Fjord horizontal boundary", basin, fjord_conn, layer) {
+			
+			par_real("Boundary width") [
+				568 552 537 521 506 490 475 459 444 428 412 397 381 366 350 335 319 304 288 273 257 247 236 226 215 205 195 184 174 163 153 148 144 139 134 130 125 120 115 111 106 104 102 100 98 96 93 91 89 87 85 76 68 60 51 42 34 26 17 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+			]
+		
+		}
 	
 	}
 	
@@ -302,6 +251,145 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	}
 	
+	module("NIVAFjord sediments", version(0, 0, 2)) {
+		
+		par_group("Sediments") {
+			
+			par_real("Active sediment thickness") 
+			[ 0.1 ]
+			
+			par_real("Sediment porosity") 
+			[ 0.5 ]
+			
+			par_real("Resuspension fraction") 
+			[ 0.01 ]
+		
+		}
+		
+		par_group("Initial chem", basin, layer) {
+			
+			par_real("Initial sediment C fraction") [
+				10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 
+			]
+			
+			par_real("Initial sediment N fraction") [
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			]
+			
+			par_real("Initial sediment IP fraction") [
+				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
+			]
+			
+			par_real("Initial sediment OP fraction") [
+				0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 
+			]
+		
+		}
+	
+	}
+	
+	preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
+		
+		par_group("Oxygen") {
+			
+			par_real("Bubble formation coefficient") 
+			[ 0 ]
+			
+			par_real("Oxicity threshold") 
+			[ 2 ]
+		
+		}
+		
+		par_group("Microbes") {
+			
+			par_real("Decomposition Q10") 
+			[ 1.2 ]
+			
+			par_real("Maximal decomposition rate at 20°C") 
+			[ 0.001 ]
+			
+			par_real("Maximal denitrification rate at 20°C") 
+			[ 0.0001 ]
+			
+			par_real("Molar O₂/C ratio in respiration") 
+			[ 1 ]
+			
+			par_real("N mineralization and nitrification rate modifier") 
+			[ 1 ]
+			
+			par_real("P mineralization modifier") 
+			[ 1 ]
+			
+			par_real("NO3 threshold for denitrification") 
+			[ 0.1 ]
+			
+			par_real("POM dissolution rate") 
+			[ 0.01 ]
+		
+		}
+		
+		par_group("P desorption / adsorption") {
+			
+			par_real("PO4 sorption coefficient") 
+			[ 10000 ]
+			
+			par_real("PO4 sorption rate") 
+			[ 1e-06 ]
+		
+		}
+	
+	}
+	
+	quick_select("River vars") [!
+		"Q" : [ "Reach flow flux" "Obs Q" ]
+		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
+		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
+		"TN" : [ "River TN" "Obs TN" ]
+		"TOC" : [ "River TOC concentration" "Obs TOC" ]
+		"TP" : [ "River TP" "Obs TP" ]
+		"TDP" : [ "River TDP" "Obs TDP" ]
+		"DIP" : [ "concentration(River DIP, Reach water volume)" "Obs DIP" ]
+		"PP" : [ "concentration(River PP, Reach water volume)" "Obs PP" ]
+		"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
+	]
+	
+	quick_select("Lake vars") [!
+		"Temperature" : [ "Epilimnion temperature" "Obs Temperature" ]
+		"Ice ind" : [ "Ice indicator" "Observed ice indicator Vanem" ]
+		"DIN" : [ "concentration(Epilimnion DIN, Epilimnion volume)" "Obs DIN" ]
+		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
+		"TN" : [ "Epilimnion TN" "Obs TN" ]
+		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
+		"TP" : [ "Epilimnion TP" "Obs TP" ]
+		"TDP" : [ "Epilimnion TDP" "Obs TDP" ]
+		"DIP" : [ "concentration(Epilimnion DIP, Epilimnion volume)" "Obs DIP" "Obs TDP" ]
+		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
+		"SS" : [ "Epilimnion STS" "Obs SS" ]
+		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
+	]
+	
+	par_group("Catchment data", sc) {
+		
+		par_real("Catchment area") 
+		[ 49.257 106.904 37.188 107.68 30.3688 253.213 55.7764 13.9768 ]
+	
+	}
+	
+	par_group("Land cover", sc, lu) {
+		
+		par_real("Land use proportions") [
+			0.49 0.51 
+			0.04 0.96 
+			0.15 0.85 
+			0.32 0.68 
+			0.27 0.73 
+			0.13 0.87 
+			0.21 0.78 
+			0.04 0.96 
+		]
+	
+	}
+	
 	module("HBVSnow", version(1, 0, 0)) {
 		
 		par_group("Snow") {
@@ -356,7 +444,7 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 25 ]
 			
 			par_real("Groundwater retention volume") 
-			[ 70 ]
+			[ 15 ]
 		
 		}
 	
@@ -385,6 +473,9 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	module("EasyLake", version(0, 1, 0)) {
 		
 		par_group("Lake physical", lake) {
+			
+			par_real("Lake surface area") 
+			[ 2423400 1668800 23800000 12000000 ]
 			
 			par_real("Water level at which outflow is 0") 
 			[ 10 10 41 19 ]
@@ -537,23 +628,6 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	}
 	
-	module("Priestley-Taylor PET", version(1, 0, 0)) {
-		
-		par_group("Potential evapotranspiration") {
-			
-			par_real("PET multiplication factor") 
-			[ 1.28 ]
-			
-			par_real("Land albedo") 
-			[ 0.23 ]
-			
-			par_real("Snow albedo") 
-			[ 0.8 ]
-		
-		}
-	
-	}
-	
 	module("Atmospheric", version(0, 1, 0)) {
 		
 		par_group("Location") {
@@ -601,13 +675,13 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 6 6 ]
 			
 			par_int("Fertilizer addition day") 
-			[ 120 60 ]
+			[ 115 60 ]
 			
 			par_real("Fertilizer N") 
-			[ 140 140 ]
+			[ 100 140 ]
 			
 			par_real("Fertilizer DIN release") 
-			[ 0.01 0 ]
+			[ 0.0015 0 ]
 		
 		}
 		
@@ -732,10 +806,10 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 6 6 6 7 ]
 			
 			par_real("Initial lake DIN concentration") 
-			[ 0.5 0.5 0.5 0.5 ]
+			[ 0.5 0.5 0.7 0.4 ]
 			
 			par_real("Initial lake DIP concentration") 
-			[ 0.01 0.01 0.01 0.01 ]
+			[ 0.001 0.001 0.001 0.001 ]
 			
 			par_real("Initial phytoplankton concentration") 
 			[ 0.1 0.1 0.1 0.1 ]
@@ -764,6 +838,12 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 0.0123 ]
 			
 			par_real("Respiration rate") 
+			[ 0.7 ]
+			
+			par_real("P mineralization rel rate") 
+			[ 40 ]
+			
+			par_real("N mineralization rel rate") 
 			[ 0.6 ]
 		
 		}
@@ -777,10 +857,10 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 6 ]
 			
 			par_real("Chl-a fraction") 
-			[ 2 ]
+			[ 1.4 ]
 			
 			par_real("Phytoplankton turnover rate") 
-			[ 0.08 ]
+			[ 0.05 ]
 			
 			par_real("Q10 of Phyto equilibrium") 
 			[ 4 ]
@@ -789,17 +869,20 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 0.014 ]
 			
 			par_real("Molar C/N ratio in Phytoplankton") 
-			[ 6.625 ]
+			[ 7 ]
 			
 			par_real("Molar C/P ratio in Phytoplankton") 
-			[ 106 ]
+			[ 230 ]
+			
+			par_real("Excretion rate") 
+			[ 0.018 ]
 		
 		}
 		
 		par_group("Lake specific phytoplankton", lake) {
 			
 			par_real("Phytoplankton amenability") 
-			[ 1.5 1.8 0.8 2.2 ]
+			[ 1.5 1.8 0.7 2 ]
 		
 		}
 	
@@ -810,13 +893,13 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		par_group("Particles") {
 			
 			par_real("Sediment settling velocity") 
-			[ 0.05 ]
+			[ 0.045 ]
 			
 			par_real("Resuspension factor") 
 			[ 2e-07 ]
 			
 			par_real("Sediment concentration of fast settling") 
-			[ 10 ]
+			[ 12 ]
 		
 		}
 	
@@ -833,98 +916,12 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	}
 	
-	module("SuperEasyChem", version(0, 0, 1)) {
-		
-		par_group("Lake CNP", lake) {
-			
-			par_real("Initial lake DOC concentration") 
-			[ 2 2 8 8 ]
-			
-			par_real("Initial lake DIN concentration") 
-			[ 0 0 0 0 ]
-			
-			par_real("Initial lake TDP concentration") 
-			[ 0 0 0 0 ]
-			
-			par_real("Lake DOC retention at 20°C") 
-			[ 0.02 0 0 0 ]
-			
-			par_real("Lake DOC retention Q10") 
-			[ 2 2 2 2 ]
-			
-			par_real("Lake DIN retention at 20°C") 
-			[ 0.015 0.015 0.015 0.04 ]
-			
-			par_real("Lake DIN retention Q10") 
-			[ 1.5 1.5 1.5 1.5 ]
-			
-			par_real("Lake TDP retention at 20°C") 
-			[ 0.009 0.009 0.009 0 ]
-			
-			par_real("Lake TDP retention Q10") 
-			[ 1 1 1 1 ]
-			
-			par_real("Hyplimnion relative retention") 
-			[ 0 0 0 0.01 ]
-		
-		}
-	
-	}
-	
-	module("Simple river TOC", version(0, 1, 0)) {
+	module("Simple river TOC", version(0, 1, 1)) {
 		
 		par_group("Particulate carbon") {
 			
-			par_real("Suspended sediments OC mass fraction") 
-			[ 0.03 ]
-		
-		}
-	
-	}
-	
-	module("Simply organic C-N", version(0, 0, 1)) {
-		
-		par_group("Organic N") {
-			
-			par_real("DOM N/C ratio") 
-			[ 0.02 ]
-		
-		}
-	
-	}
-	
-	module("SimplyQ river trapezoid", version(0, 1, 0)) {
-		
-		par_group("Reach parameters", sc) {
-			
-			par_real("Reach bank slope") 
-			[ 1 1 1 1 1 1 1 1 ]
-			
-			par_real("Reach bottom width") 
-			[ 2 2 2 2 2 2 2 2 ]
-			
-			par_real("Reach slope") 
-			[ 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02 ]
-			
-			par_real("Reach length") 
-			[ 6000 4000 1000 20000 13000 15000 5000 4000 ]
-			
-			par_real("Manning's roughness coefficient") 
-			[ 0.04 0.04 0.04 0.04 0.04 0.04 0.04 0.04 ]
-			
-			par_real("Initial reach flow") 
-			[ 1 1 1 1 1 1 1 1 ]
-		
-		}
-	
-	}
-	
-	module("Simply organic C-P", version(0, 0, 1)) {
-		
-		par_group("Organic P") {
-			
-			par_real("DOM P/C ratio") 
-			[ 0.00015 ]
+			par_real("Particle OC mass fraction") 
+			[ 20 ]
 		
 		}
 	
@@ -941,51 +938,14 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 0.01 ]
 			
 			par_real("Sediments P release") 
-			[ 3e-07 ]
+			[ 1.5e-07 ]
 		
 		}
 		
 		par_group("Particles lake-specific", lake) {
 			
 			par_real("Initial bottom sediment P concentration") 
-			[ 0.6 0.6 0 0.6 ]
-		
-		}
-	
-	}
-	
-	module("NIVAFjord sediments", version(0, 0, 2)) {
-		
-		par_group("Sediments") {
-			
-			par_real("Active sediment thickness") 
-			[ 0.1 ]
-			
-			par_real("Sediment porosity") 
-			[ 0.5 ]
-			
-			par_real("Resuspension fraction") 
-			[ 0.01 ]
-		
-		}
-		
-		par_group("Initial chem", basin, layer) {
-			
-			par_real("Initial sediment C fraction") [
-				10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 
-			]
-			
-			par_real("Initial sediment N fraction") [
-				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-			]
-			
-			par_real("Initial sediment IP fraction") [
-				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-			]
-			
-			par_real("Initial sediment OP fraction") [
-				0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 
-			]
+			[ 0.6 0.6 1.6 5 ]
 		
 		}
 	
@@ -996,62 +956,10 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		par_group("Organic nutrient ratios land") {
 			
 			par_real("OM molar C/N ratio") 
-			[ 6.625 ]
+			[ 90 ]
 			
 			par_real("OM molar C/P ratio") 
-			[ 106 ]
-		
-		}
-	
-	}
-	
-	preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
-		
-		par_group("Oxygen") {
-			
-			par_real("Bubble formation coefficient") 
-			[ 0 ]
-			
-			par_real("Oxicity threshold") 
-			[ 2 ]
-		
-		}
-		
-		par_group("Microbes") {
-			
-			par_real("Decomposition Q10") 
-			[ 1.2 ]
-			
-			par_real("Maximal decomposition rate at 20°C") 
-			[ 0.001 ]
-			
-			par_real("Maximal denitrification rate at 20°C") 
-			[ 0.0001 ]
-			
-			par_real("Molar O₂/C ratio in respiration") 
-			[ 1 ]
-			
-			par_real("N mineralization and nitrification rate modifier") 
-			[ 1 ]
-			
-			par_real("P mineralization modifier") 
-			[ 1 ]
-			
-			par_real("NO3 threshold for denitrification") 
-			[ 0.1 ]
-			
-			par_real("POM dissolution rate") 
-			[ 0.01 ]
-		
-		}
-		
-		par_group("P desorption / adsorption") {
-			
-			par_real("PO4 sorption coefficient") 
-			[ 10000 ]
-			
-			par_real("PO4 sorption rate") 
-			[ 1e-06 ]
+			[ 2500 ]
 		
 		}
 	
