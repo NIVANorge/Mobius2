@@ -216,12 +216,13 @@ mobius_get_index_set_count(Model_Application *app, Entity_Id id) {
 DLLEXPORT void
 mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps) {
 	
-	if(var_id.type == Var_Id::Type::temp_var)
-		fatal_error(Mobius_Error::api_usage, "The time series for the variable \"", app->vars[var_id]->name, "\" is not stored.");
-	
-	if(!time_steps) return;
-	
 	try {
+	
+		if(var_id.type == Var_Id::Type::temp_var)
+			fatal_error(Mobius_Error::api_usage, "The time series for the variable \"", app->vars[var_id]->name, "\" is not stored.");
+		
+		if(!time_steps) return;
+	
 		auto &storage = app->data.get_storage(var_id.type);
 		s64 offset = get_offset_by_index_values(app, storage.structure, var_id, indexes, indexes_count);
 
@@ -230,6 +231,31 @@ mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value
 		
 	} catch(int) {}
 }
+
+DLLEXPORT void
+mobius_set_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *values, s64 *dates, s64 time_steps) {
+	
+	try {
+	
+		if(var_id.type != Var_Id::Type::series && var_id.type != Var_Id::Type::additional_series)
+			fatal_error(Mobius_Error::api_usage, "The variable \"", app->vars[var_id]->name, "\" is not an input series.");
+		
+		if(!time_steps) return;
+		
+		auto &storage = app->data.get_storage(var_id.type);
+		s64 offset = get_offset_by_index_values(app, storage.structure, var_id, indexes, indexes_count);
+
+		// TODO: Should probably have bounds check on step also.
+		for(s64 step_idx = 0; step_idx < time_steps; ++step_idx) {
+			Date_Time date;
+			date.seconds_since_epoch = dates[step_idx];
+			s64 step = steps_between(storage.start_date, date, app->time_step_size);
+			*storage.get_value(offset, step) = values[step_idx];
+		}
+	
+	} catch(int) {}
+}
+
 
 inline bool
 is_none_dim(s64 slice_dim) {

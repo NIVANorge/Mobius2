@@ -89,6 +89,8 @@ dll.mobius_get_special_var.restype = Var_Id
 
 dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
+dll.mobius_set_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
+
 dll.mobius_resolve_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Slice), ctypes.c_int64, ctypes.POINTER(Mobius_Index_Range)]
 
 dll.mobius_get_series_data_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Range), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
@@ -460,11 +462,19 @@ class State_Var :
 		# Although that should maybe return a pd.DataFrame with those two as different columns instead (?). In that case it could not be combined with slices.
 	
 	def __setitem__(self, indexes, values) :
-		# TODO:
-		# Undecided what is the best way to set input series. Do we do it on a data_set object?
-		# If we do it directly on the app, we probably cut the series off by existing stard and end date?
-		# Still have to transform the date vector into a format that can be passed to the c_api. Probably best to transform to seconds after 1970-1-1 directly in python?
-		pass
+		
+		if _has_slice(indexes) :
+			raise ValueError("Slices not yet supported for setting input series")
+		
+		if not isinstance(values, pd.Series) :
+			raise ValueError("Expected a pandas Series object for the values")
+		
+		time_steps = len(values)
+		dates = (ctypes.c_int64 * time_steps)(*(ts.astype('datetime64[s]').astype('int') for ts in values.index.values))
+		series = (ctypes.c_double * time_steps)(*values.values)
+		
+		dll.mobius_set_series_data(self.app_ptr, self.var_id, _pack_indexes(indexes), _len(indexes), series, dates, time_steps)
+		_check_for_errors()
 		
 	def __getattr__(self, handle_name) :
 		# TODO: Should be error if this is a flux or special variable.
