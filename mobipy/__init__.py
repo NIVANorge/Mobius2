@@ -84,7 +84,7 @@ dll.mobius_deserialize_var.restype = Var_Id
 dll.mobius_get_var_id_from_list.argtypes = [ctypes.c_void_p, ctypes.POINTER(Entity_Id), ctypes.c_int64]
 dll.mobius_get_var_id_from_list.restype = Var_Id
 
-dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Var_Id, ctypes.c_int16]
+dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Entity_Id, ctypes.c_int16]
 dll.mobius_get_special_var.restype = Var_Id
 
 dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
@@ -467,17 +467,25 @@ class State_Var :
 		pass
 		
 	def __getattr__(self, handle_name) :
+		# TODO: Should be error if this is a flux or special variable.
 		scope = Scope(self.app_ptr, self.scope_id)
 		other = scope.__getattr__(handle_name)
 		new_list = self.id_list + [other.entity_id]
 		return State_Var.from_id_list(self.app_ptr, self.scope_id, new_list)
 
 	def conc(self) :
-		conc_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, invalid_var, 5)
+		conc_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, invalid_entity_id, 5)
+		_check_for_errors()
 		if not is_valid(conc_id) :
 			raise ValueError("This variable does not have a concentration.")
-		_check_for_errors()
 		return State_Var(self.app_ptr, self.scope_id, [], conc_id)
+		
+	def carries(self, quant) :
+		carry_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, quant.entity_id, 4)
+		_check_for_errors()
+		if not is_valid(carry_id) :
+			raise ValueError("This variable does not carry this quantity.")
+		return State_Var(self.app_ptr, self.scope_id, [], carry_id)
 		
 	def transport(self, substance) :
 		# TODO

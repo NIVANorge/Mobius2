@@ -165,11 +165,23 @@ mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count
 }
 
 DLLEXPORT Var_Id
-mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, State_Var::Type type) {
+mobius_get_special_var(Model_Application *app, Var_Id parent1, Entity_Id parent2, State_Var::Type type) {
 	try {
 		if(type == State_Var::Type::dissolved_conc)
 			return app->vars.find_conc(parent1);
-		else
+		else if(type == State_Var::Type::dissolved_flux) {
+			//log_print("Trying to find carry of ", app->model->find_entity(parent2)->name, " by ", app->vars[parent1]->name, ".\n");
+			// TODO: Could also check if the first is a flux and the second a quantity, and give error otherwise.
+			for(auto var_id : app->vars.all_fluxes()) {
+				auto var = app->vars[var_id];
+				if(var->type != State_Var::Type::dissolved_flux) continue;
+				if(!is_located(var->loc1) || var->loc1.last() != parent2) continue;
+				auto var2 = as<State_Var::Type::dissolved_flux>(var);
+				if(var2->flux_of_medium != parent1) continue;
+				return var_id;
+			}
+			return invalid_var;
+		} else
 			fatal_error(Mobius_Error::internal, "Unimplemented special type");
 	} catch(int) {}
 	return invalid_var;

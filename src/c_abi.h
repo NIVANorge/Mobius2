@@ -88,7 +88,7 @@ DLLEXPORT Var_Id
 mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count);
 
 DLLEXPORT Var_Id
-mobius_get_special_var(Model_Application *app, Var_Id parent1, Var_Id parent2, State_Var::Type type);
+mobius_get_special_var(Model_Application *app, Var_Id parent1, Entity_Id parent2, State_Var::Type type);
 
 DLLEXPORT s64
 mobius_get_index_set_count(Model_Application *app, Entity_Id id);
