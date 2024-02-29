@@ -109,10 +109,16 @@ mobius_get_series_metadata(Model_Application *app, Var_Id var_id);
 DLLEXPORT s64
 mobius_get_value_type(Model_Application *app, Entity_Id id);
 
+union
+Parameter_Value_Simple {
+	double val_real;
+	s64    val_int;
+};
+
 DLLEXPORT void
 mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value value);
 
-DLLEXPORT Parameter_Value
+DLLEXPORT Parameter_Value_Simple
 mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
 
 DLLEXPORT void

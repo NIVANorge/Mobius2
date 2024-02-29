@@ -120,6 +120,16 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, const std::vecto
 	
 	result.type = Variable_Type::state_var; // At this stage we don't know if it is a 'series', that has to be corrected later if relevant.
 	
+	if(offset > 0 && (result.loc.type == Var_Location::Type::out || result.loc.type == Var_Location::Type::connection)) {
+		if(id_chain.size() > 1) {
+			chain[0].print_error_header();
+			error_print("An 'out' or a connection can't be composed with other components.");
+			*error = true;
+			return;
+		}
+		return;
+	}
+	
 	// Note: n_components is not 0 if we have already unpacked a loc() in the first components.
 	int base_offset = (int)result.loc.n_components - offset;
 	result.loc.n_components = (result.loc.n_components + (int)id_chain.size() - offset);

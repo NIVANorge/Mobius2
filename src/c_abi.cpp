@@ -352,13 +352,16 @@ mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_In
 	} catch(int) {}
 }
 
-DLLEXPORT Parameter_Value
+// For some reason it doesn't create the correct C linkage if we return a Parameter_Value, probably because it contains a more complex C++ type.
+DLLEXPORT Parameter_Value_Simple
 mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count) {
+	Parameter_Value_Simple result;
 	try {
 		s64 offset = get_offset_by_index_values(app, &app->parameter_structure, par_id, indexes, indexes_count);
-		return *app->data.parameters.get_value(offset);
+		auto res = *app->data.parameters.get_value(offset);
+		result.val_real = res.val_real; // Shouldn't matter what type we copy since the bytes will be copied correctly any way.
 	} catch(int) {}
-	return Parameter_Value();
+	return result;
 }
 
 DLLEXPORT void

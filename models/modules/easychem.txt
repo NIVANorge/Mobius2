@@ -428,6 +428,23 @@ module("EasyChem-Sediment-P", version(0, 0, 1),
 	#}
 }
 
+module("EasyChem-Sediment-Simple-P", version(0, 0, 0),
+	epi   : compartment,
+	hyp   : compartment,
+	water : quantity,
+	phos  : quantity,
+	area  : property
+) {
+	
+	par_group("Sediment P", epi) {
+		prel : par_real("Sediments P release", [k g, m-2, day-1], 0, 0, 10)
+	}
+	
+	flux(out, epi.water.phos, [k g, day-1], "Sediments DIP release (epi)") {
+		prel*(epi.area - hyp.area)
+	}
+}
+
 
 
 module("SuperEasyC", version(0, 0, 1),

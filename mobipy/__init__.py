@@ -223,7 +223,7 @@ def _get_par_value(app_ptr, entity_id, indexes) :
 	elif type <= 4 :
 		result = dll.mobius_get_parameter_string(app_ptr, entity_id, _pack_indexes(indexes), _len(indexes))
 		if type == 4 :
-			result = pd.to_datetime(result)
+			result = pd.to_datetime(result.decode('utf-8'))
 	else :
 		raise ValueError("Unimplemented parameter type")
 	_check_for_errors()
