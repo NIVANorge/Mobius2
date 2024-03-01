@@ -60,7 +60,7 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	series("C:/Data/simplycnp_oslofjord/mobius2_files/vansjo/vansjo_mobius_one_meteo.xlsx")
 	
-	series("nivafjord_moss.xlsx")
+	series("nivafjord_moss_artificial.xlsx")
 	
 	par_group("System") {
 		

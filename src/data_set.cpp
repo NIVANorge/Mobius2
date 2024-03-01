@@ -1282,7 +1282,7 @@ Data_Set::write_to_file(String_View file_name) {
 		//backup_data = read_entire_file(file_name); // Oops, this obviously only works if it doesn't exist already.
 		
 		// read_entire_file has closed it. Open it again for writing.
-		file = open_file(file_name, "w");
+		file = open_file(file_name, "wb");
 		Scope_Writer writer;
 		writer.file = file;
 		

@@ -67,7 +67,6 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 				*try_h = h;
 				h = 1.0 - t;
 				run = false;
-				
 				// TODO: If h is extremely small or 0, shouldn't this just exit immediately?
 			}
 			
@@ -119,13 +118,12 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 				double est = std::abs(dx + dx - 1.5 * (dx0 + wk2[var_idx]));
 				
 				if (est < tol || !step_can_be_reduced) {
-					if (est >= 0.03125 * tol)
+					if (est >= (1.0/32.0) * tol)
 						step_can_be_increased = false;
 				} else {
+					h *= 0.5; // Reduce the step size.
 					run = true; // If we thought we reached the end of the integration, that may no longer be true since we are reducing the step size.
 					step_was_reduced = true;
-					
-					h = 0.5 * h; // Reduce the step size.
 
 					if(h < hmin) {
 						h = hmin;

@@ -55,8 +55,8 @@
 				flux(blabla, something[vert.below], ...)				
 			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc.
 				Need this for NIVAFjord
-			Maybe just make the syntax
-					flux(blabla, next[vert.below])
+			Maybe just make the standard syntax
+				flux(blabla, next[vert.below])
 			And this is what we do for all 'below' connection targets.
 				Maybe still allow the shorthand though.
 				Could later extend it to have different code depending on the target (for graph).
@@ -119,26 +119,28 @@
 	
 	*** Intermediate-pri ***
 	
-		If several loc() refer to one another in the wrong order, that is probably broken? Same with circularity. Could probably only happen with malicious purpose though.
+		Ideally we should always (automatically) check if an entity we reference has_been_processed (unless we expect it not to be as during the construction step).
+	
+		If several loc() refer to one another in the wrong order, that is probably broken since they are resolved in order of declaration?
+			Very unlikely that it would happen in practice.
+			It is now detected with an error at least. But hard for users to understand.
 	
 	
-		Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
+		process_series_data
+	
+			Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
 				In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
-				
-		Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
+				E.g.   crop_series( 2015-01-01, 2020-12-31 )	
+					
+			Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
 	
 		MobiView :
 			Make model reloads work better wrt 'quick select'.
 				If the quick select tab is on
-				
-			Hang-up when selecting 'Aligned depth' when the indexing was wrong.
-			General crashes when changing indexes in layered model.
-				Two above have not happened lately..
-			Having all layers selected, then switching from a variable that indexes over more layers to one with fewer:
-				(or probably it is with having both selected?)
-				It has not updated the selected indexes in time and there is an internal error.
-				
+								
 			Seasonal aggregation.
+				I.e. the mean for jan, feb, ... across multiple years.
+				Maybe with box plot.
 		
 		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
 			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.
@@ -146,11 +148,11 @@
 			What to do if an input is interpolated and not 'inside'?
 				
 	
-
 		mobipy slow to load easylake_simplycnp?
 	
-		Doubling newlines when saving loaded text data..
-			Should have better processing of docstrings in general.
+		
+		Should have better processing of docstrings.
+			Right now they must be tabbed entirely to the left or otherwise the tabs inside the string is recorded.
 	
 	
 		Data_Set

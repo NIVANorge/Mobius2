@@ -649,12 +649,12 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("Simple river TOC", version(0, 1, 0)) {
+	module("Simple river TOC", version(0, 1, 1)) {
 		
 		par_group("Particulate carbon") {
 			
-			par_real("Suspended sediments OC mass fraction") 
-			[ 0.02 ]
+			par_real("Particle OC mass fraction") 
+			[ 20 ]
 		
 		}
 	

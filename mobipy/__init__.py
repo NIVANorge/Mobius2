@@ -470,38 +470,34 @@ class State_Var :
 			raise ValueError("Expected a pandas Series object for the values")
 		
 		time_steps = len(values)
-		dates = (ctypes.c_int64 * time_steps)(*(ts.astype('datetime64[s]').astype('int') for ts in values.index.values))
+		dates = (ctypes.c_int64 * time_steps)(*(ts.astype('datetime64[s]').astype(np.int64) for ts in values.index.values))
+		# alternatively ts.astype(np.timedelta64) / np.timedelta64(1, 's')
 		series = (ctypes.c_double * time_steps)(*values.values)
 		
 		dll.mobius_set_series_data(self.app_ptr, self.var_id, _pack_indexes(indexes), _len(indexes), series, dates, time_steps)
 		_check_for_errors()
 		
 	def __getattr__(self, handle_name) :
-		# TODO: Should be error if this is a flux or special variable.
+		# TODO: Should better check what type of variable this is (quantity, flux, special ..)
 		scope = Scope(self.app_ptr, self.scope_id)
-		other = scope.__getattr__(handle_name)
-		new_list = self.id_list + [other.entity_id]
-		return State_Var.from_id_list(self.app_ptr, self.scope_id, new_list)
-
+		if len(self.id_list) > 0 :
+			other = scope.__getattr__(handle_name)
+			new_list = self.id_list + [other.entity_id]
+			return State_Var.from_id_list(self.app_ptr, self.scope_id, new_list)
+		else :
+			quant = scope.__getattr__(handle_name)
+			carry_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, quant.entity_id, 4)
+			_check_for_errors()
+			if not is_valid(carry_id) :
+				raise ValueError("This variable does not carry this quantity.")
+			return State_Var(self.app_ptr, self.scope_id, [], carry_id)
+			
 	def conc(self) :
 		conc_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, invalid_entity_id, 5)
 		_check_for_errors()
 		if not is_valid(conc_id) :
 			raise ValueError("This variable does not have a concentration.")
-		return State_Var(self.app_ptr, self.scope_id, [], conc_id)
-		
-	def carries(self, quant) :
-		carry_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, quant.entity_id, 4)
-		_check_for_errors()
-		if not is_valid(carry_id) :
-			raise ValueError("This variable does not carry this quantity.")
-		return State_Var(self.app_ptr, self.scope_id, [], carry_id)
-		
-	def transport(self, substance) :
-		# TODO
-		# flux_id = dll.mobius_get_special_var(self.app_ptr, self.var_id, substance.var_id, 4)
-		#etc.
-		pass
+		return State_Var(self.app_ptr, self.scope_id, [], conc_id)		
 
 	def name(self) :
 		data = dll.mobius_get_series_metadata(self.app_ptr, self.var_id)

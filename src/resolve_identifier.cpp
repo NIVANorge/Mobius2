@@ -108,6 +108,14 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, const std::vecto
 	} else if( id_chain[0].reg_type == Reg_Type::loc) {
 		auto loc = model->locs[id_chain[0]];
 		
+		if(!loc->has_been_processed) {
+			loc->source_loc.print_error_header(Mobius_Error::internal);
+			error_print("This 'loc' was referenced before being processed. The reference is here:\n");
+			chain[0].source_loc.print_error();
+			*error = true;
+			return;
+		}
+		
 		result.restriction = loc->loc;
 		if(is_valid(loc->val_id)) {
 			set_single_value(model, loc->val_id, result, id_chain.size(), chain[0].source_loc, error);
