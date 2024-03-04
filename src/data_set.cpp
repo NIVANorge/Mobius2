@@ -1,6 +1,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <numeric>
 
 #include "data_set.h"
 #include "ole_wrapper.h"
@@ -115,6 +116,106 @@ Par_Group_Data::process_declaration(Catalog *catalog) {
 		catalog->find_entity(id)->process_declaration(catalog);
 }
 
+
+void
+parse_parameter_map_recursive(Data_Set *data_set, Data_Map_AST *map, std::vector<Entity_Id> &index_sets, std::vector<Token> &index_tokens, std::vector<Parmap_Entry> &push_to, int level) {
+	
+	for(auto &entry : map->entries) {
+		index_tokens[level] = entry.key;
+		if(level == (int)index_sets.size() - 1) {
+			Indexes indexes;
+			data_set->index_data.find_indexes(index_sets, index_tokens, indexes);
+			if(entry.data) {
+				entry.data->source_loc.print_error_header();
+				fatal_error("Expected a single value.");
+			}
+			if(!is_numeric(entry.single_value.type)) {
+				entry.single_value.print_error_header();
+				fatal_error("Expected a numeric value.");
+			}
+			Parmap_Entry entry2;
+			entry2.indexes = indexes;
+			entry2.value = entry.single_value.double_value();
+			push_to.push_back(entry2);
+		} else {
+			if(!entry.data || entry.data->data_type != Data_Type::map) {
+				entry.key.print_error_header();
+				fatal_error("Expected a nested map over the next index set.");
+			}
+			parse_parameter_map_recursive(data_set, static_cast<Data_Map_AST *>(entry.data), index_sets, index_tokens, push_to, level + 1);
+		}
+	}
+	
+}
+
+void
+unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std::vector<Parmap_Entry> &data, std::vector<Parameter_Value> &values) {
+	
+	std::vector<Entity_Id> index_sets_upper = index_sets;
+	index_sets_upper.pop_back(); // The last index set is the one we interpolate over, and so is handled differently.
+	
+	data_set->index_data.for_each(index_sets_upper, [data_set, &values, &data, &index_sets](Indexes &indexes) {
+		std::vector<std::pair<Index_T, double>> inner;
+		// This is a bit inefficient, but will probably not matter since these typically should have few entries.
+
+		for(auto &entry : data) {
+
+			if(!entry.indexes.lookup_ordered || !indexes.lookup_ordered)
+				fatal_error(Mobius_Error::internal, "unpack_parameter_map: Implementation dependent on these indexes being lookup-ordered.");
+			
+			//log_print(entry.indexes.indexes.size(), " ", entry.indexes.indexes[0].index, " ", entry.value, "\n");
+			
+			bool match = true;
+			for(int idx = 0; idx < indexes.indexes.size(); ++idx) {
+				if(indexes.indexes[idx] != entry.indexes.indexes[idx])
+					match = false;
+			}
+			if(match)
+				inner.push_back({entry.indexes.indexes.back(), entry.value});
+			
+		}
+		
+		std::sort(inner.begin(), inner.end(), [](const auto &a, const auto &b) {
+			return a.first < b.first;
+		});
+		
+		auto interp_set = index_sets.back();
+		auto count = data_set->index_data.get_index_count(indexes, interp_set);
+		
+		double prev_val = inner[0].second;
+		// Assume linear interpolation for now. We could make more options
+		
+		std::vector<double> unpacked_values(count.index);
+		
+		// TODO: Remember to fill before and after also
+		
+		// TODO: Guard against subsequent items being in the same position.
+		
+		for(int at = 0; at < (int)inner.size()-1; ++at) {
+			Index_T first = inner[at].first;
+			Index_T last  = inner[at+1].first;
+			double firstval = inner[at].second;
+			double lastval  = inner[at+1].second;
+			
+			log_print("Pair:  ", first.index, ": ", firstval, ". ", last.index, ": ", lastval, "\n");
+			
+			for(Index_T index = first; index <= last; ++index) {
+				
+				// TODO: This should instead use the position value of the index. And first and last should be the ones that were given directly, not flattened down to an index value.
+				double tt = ((double)index.index - (double)first.index) / ((double)last.index - (double)first.index);
+				
+				unpacked_values[index.index] = (1.0 - tt)*firstval + tt*lastval;
+			}
+		}
+		for(double valr : unpacked_values) {
+			Parameter_Value val;
+			val.val_real = valr;
+			values.push_back(val);
+		}
+	});
+}
+
+
 void
 Parameter_Data::process_declaration(Catalog *catalog) {
 
@@ -122,54 +223,91 @@ Parameter_Data::process_declaration(Catalog *catalog) {
 	
 	set_serial_name(catalog, this);
 	
-	if(decl->data->data_type != Data_Type::list)
-		fatal_error(Mobius_Error::internal, "Somehow got non-list data for a parameter.");
-	auto &data = static_cast<Data_List_AST *>(decl->data)->list;
+	//log_print("Initially map data size is ", parmap_data.size(), "\n");
 	
-	if(decl_type == Decl_Type::par_enum) {
-		values_enum.reserve(data.size());
-		for(auto &token : data) {
-			if(token.type != Token_Type::identifier) {
-				token.print_error_header();
-				fatal_error("Expected an identifier.");
+	if(decl->data->data_type == Data_Type::list) {
+		
+		auto &data = static_cast<Data_List_AST *>(decl->data)->list;
+		
+		if(decl_type == Decl_Type::par_enum) {
+			values_enum.reserve(data.size());
+			for(auto &token : data) {
+				if(token.type != Token_Type::identifier) {
+					token.print_error_header();
+					fatal_error("Expected an identifier.");
+				}
+				values_enum.push_back(token.string_value);
 			}
-			values_enum.push_back(token.string_value);
-		}
-	} else if(decl_type == Decl_Type::par_datetime) {
-		// Hmm, this is a bit clumsy now.. Only placing it seems to be an issue though.
-		for(int idx = 0; idx < data.size(); ++idx) {
+		} else if(decl_type == Decl_Type::par_datetime) {
+			// Hmm, this is a bit clumsy now.. Only placing it seems to be an issue though.
+			for(int idx = 0; idx < data.size(); ++idx) {
+				Parameter_Value val;
+				auto &date_token = data[idx];
+				if(date_token.type != Token_Type::date) {
+					date_token.print_error_header();
+					fatal_error("Expected a date value.");
+				}
+				val.val_datetime = date_token.val_date;
+				if(idx+1 < data.size() && data[idx+1].type == Token_Type::time) {
+					val.val_datetime += data[idx+1].val_date;
+					++idx;
+				}
+				values.push_back(val);
+			}
+		} else {
+			values.reserve(data.size());
 			Parameter_Value val;
-			auto &date_token = data[idx];
-			if(date_token.type != Token_Type::date) {
-				date_token.print_error_header();
-				fatal_error("Expected a date value.");
+			for(auto &token : data) {
+				if(decl_type == Decl_Type::par_real && is_numeric(token.type))
+					val.val_real    = token.double_value();
+				else if(decl_type == Decl_Type::par_int && token.type == Token_Type::integer)
+					val.val_integer = token.val_int;
+				else if(decl_type == Decl_Type::par_bool && token.type == Token_Type::boolean)
+					val.val_boolean = token.val_bool;
+				else {
+					token.print_error_header();
+					fatal_error("Expected a parameter value of type ", ::name(get_value_type(decl_type)), ".");
+				}
+				values.push_back(val);
 			}
-			val.val_datetime = date_token.val_date;
-			if(idx+1 < data.size() && data[idx+1].type == Token_Type::time) {
-				val.val_datetime += data[idx+1].val_date;
-				++idx;
-			}
-			values.push_back(val);
 		}
-	} else {
-		values.reserve(data.size());
-		Parameter_Value val;
-		for(auto &token : data) {
-			if(decl_type == Decl_Type::par_real && is_numeric(token.type))
-				val.val_real    = token.double_value();
-			else if(decl_type == Decl_Type::par_int && token.type == Token_Type::integer)
-				val.val_integer = token.val_int;
-			else if(decl_type == Decl_Type::par_bool && token.type == Token_Type::boolean)
-				val.val_boolean = token.val_bool;
-			else {
-				token.print_error_header();
-				fatal_error("Expected a parameter value of type ", ::name(get_value_type(decl_type)), ".");
-			}
-			values.push_back(val);
+	} else if (decl->data->data_type == Data_Type::map) {
+		
+		if(decl_type != Decl_Type::par_real) {
+			decl->source_loc.print_error_header();
+			fatal_error("Only 'par_real' can have a data block on map form.");
 		}
-	}
+		
+		is_on_map_form = true;
+		
+		auto data_set = static_cast<Data_Set *>(catalog);
+		auto par_group = data_set->par_groups[scope_id];
+		
+		if(par_group->index_sets.empty()) {
+			decl->source_loc.print_error_header();
+			fatal_error("For parameter data to be on map form, the par_group must index over at least one index set.");
+		}
+		
+		auto map = static_cast<Data_Map_AST *>(decl->data);
+		std::vector<Token> index_tokens(par_group->index_sets.size());
+	
+		
+		parse_parameter_map_recursive(data_set, map, par_group->index_sets, index_tokens, parmap_data, 0);
+		
+		//log_print("Data size here is : ", map_data.size(), "\n");
+		
+		unpack_parameter_map(data_set, par_group->index_sets, parmap_data, values);
+		
+	} else
+		fatal_error(Mobius_Error::internal, "Invalid data format for parameter.");
 	
 	has_been_processed = true;
+}
+
+int
+Parameter_Data::get_count() {
+	if(decl_type == Decl_Type::par_enum) return values_enum.size();
+	else                                 return values.size();
 }
 
 // NOTE: We had to put these as a global, because if we put them as a member of the Data_Set, we have to put them in data_set.h, and that creates all sorts of problems with double-inclusion of windows.h (for some reason, strange that the include guards don't work..)
@@ -521,11 +659,7 @@ Quick_Select_Data::process_declaration(Catalog *catalog) {
 void
 Position_Map_Data::process_declaration(Catalog *catalog) {
 	
-	
-	// TODO: Ouch, we need to store the raw data from the declaration in order to be able to save it out again, so we need to store it as a registration..
-	//    including    index_vals_raw, y_vals_raw, raw_is_widths, linear_interp
-	
-	match_data_declaration(decl, {{Decl_Type::index_set}}, true, 0, true);
+	match_data_declaration(decl, {{Decl_Type::index_set}}, true, 0, false);
 	
 	if(decl->data->data_type != Data_Type::map) {
 		decl->data->source_loc.print_error_header();
@@ -545,33 +679,34 @@ Position_Map_Data::process_declaration(Catalog *catalog) {
 		fatal_error("Can not provide a position_map for an index set that is not numeric.");
 	}
 	
-	s64 max_count = data_set->index_data.get_max_count(index_set_id).index;
-	
 	auto map_data = static_cast<Data_Map_AST *>(decl->data);
 	
 	for(auto &entry : map_data->entries) {
-		if(entry.key.type != Token_Type::integer) {
+		if(!is_numeric(entry.key.type)) {
 			entry.key.print_error_header();
-			fatal_error("Expected an integer index value as the key.");
+			fatal_error("Expected an numeric position value as the key.");
 		}
 		if(entry.data || !is_numeric(entry.single_value.type)) {
 			map_data->source_loc.print_error_header();
 			fatal_error("All value entries in the map must be numeric.");
 		}
-		index_vals_raw.push_back(entry.key.val_int);
+		double pos = entry.key.double_value();
 		double value = entry.single_value.double_value();
-		if(value < 0.0) {
-			entry.single_value.print_error_header();
-			fatal_error("All values must be positive numbers.");
+		if(value < 0.0 || pos < 0.0) {
+			entry.key.print_error_header();
+			fatal_error("All position map values must be positive numbers.");
 		}
-		y_vals_raw.push_back(value);
+		pos_vals_raw.push_back(pos);
+		width_vals_raw.push_back(value);
 	}
 	
-	if(index_vals_raw.empty()) {
+	if(pos_vals_raw.empty()) {
 		map_data->source_loc.print_error_header();
 		fatal_error("The position_map data can't be empty.");
 	}
 	
+	// Widths is default for now. Make option for linear_interpolate later instead.
+	/*
 	for(auto note : decl->notes) {
 		auto str = note->decl.string_value;
 		if(str == "widths")
@@ -583,51 +718,44 @@ Position_Map_Data::process_declaration(Catalog *catalog) {
 			fatal_error("Unexpected note '", str, "' for position_map declaration.");
 		}
 	}
+	*/
 	
 	// TODO: This should be factored out, for reuse with parameter values.
 	
-	std::vector<int> order(index_vals_raw.size());
-	std::sort(order.begin(), order.end(), [this](int row_a, int row_b) -> bool { return index_vals_raw[row_a] < index_vals_raw[row_b]; });
+	std::vector<int> order(pos_vals_raw.size());
+	std::iota(order.begin(), order.end(), 0);
+	std::sort(order.begin(), order.end(), [this](int row_a, int row_b) -> bool { return pos_vals_raw[row_a] < pos_vals_raw[row_b]; });
 	
-	expanded_ys.resize(max_count);
-	s64 prev_idx = -1;
-	double prev_val = 0.0;
-	for(int pos : order) {
-		s64 index_val = index_vals_raw[pos];
-		double y_val  = y_vals_raw[pos];
+	// Reinterpret the index set size as a max "depth".
+	double max_width = (double)data_set->index_data.get_max_count(index_set_id).index;
+	
+	std::vector<double> expanded_ys;
+	
+	double at_pos = 0.0;
+	
+	for(int idxidx = 0; idxidx < order.size(); ++idxidx) {
+		int idx = order[idxidx];
 		
-		if(!raw_is_widths) {
-			if(y_val <= prev_val) {
-				map_data->source_loc.print_error_header();
-				fatal_error("The position values must be in ascending order.");
-			}
+		double width = width_vals_raw[idx];
+		at_pos += width;
+		expanded_ys.push_back(at_pos);
+		
+		bool at_end = true;
+		double pos_next = max_width;
+		if(idxidx < (int)order.size()-1) {
+			int idxp1 = order[idxidx+1];
+			pos_next = pos_vals_raw[idxp1];
+			at_end = false;
 		}
 		
-		if(prev_idx == -1) {
-			for(int idx = 0; idx <= std::min(index_val, max_count-1); ++idx)
-				expanded_ys[idx] = y_val;
-		} else {
-			for(int idx = prev_idx; idx <= std::min(index_val, max_count-1); ++idx) {
-				if(linear_interp) {
-					double t = double(idx-prev_idx)/double(index_val - prev_idx);
-					expanded_ys[idx] = (1.0-t)*prev_val + t*y_val;
-				} else
-					expanded_ys[idx] = prev_val;
-			}
+		while(at_pos < pos_next) {
+			at_pos += width; // TODO: Implement linear interp option later.
+			if(at_end) at_pos = std::min(at_pos, pos_next); // TODO: Do we always do this, or only towards the end like now?
+			expanded_ys.push_back(at_pos);
 		}
-		prev_idx = index_val;
-		prev_val = y_val;
-	}
-	for(int idx = prev_idx + 1; idx < max_count; ++idx)
-		expanded_ys[idx] = prev_val;
-	
-	std::vector<double> final_ys = expanded_ys;
-	if(raw_is_widths) {
-		for(int idx = 1; idx < final_ys.size(); ++idx)
-			final_ys[idx] += final_ys[idx-1];
 	}
 	
-	data_set->index_data.set_position_map(index_set_id, std::move(final_ys), decl->source_loc);
+	data_set->index_data.set_position_map(index_set_id, expanded_ys, decl->source_loc);
 	
 	has_been_processed = true;
 }
@@ -1166,6 +1294,9 @@ write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id para
 	auto par = data_set->parameters[parameter_id];
 	if(par->mark_for_deletion) return;
 	
+	if(par->is_on_map_form)
+		fatal_error(Mobius_Error::internal, "Can't write out parameters on map form yet.");
+	
 	writer->open_decl(data_set, parameter_id);
 	writer->write(") ");
 	auto par_group = data_set->par_groups[par->scope_id];
@@ -1225,13 +1356,13 @@ write_position_map_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id m
 	
 	writer->open_decl(data_set, map_id);
 	writer->write("%s) ", data_set->get_symbol(map->index_set_id).c_str());
-	if(map->raw_is_widths)
-		writer->write("@widths ");
-	if(map->linear_interp)
-		writer->write("@linear_interpolate ");
+	//if(map->raw_is_widths)
+	//	writer->write("@widths ");
+	//if(map->linear_interp)
+	//	writer->write("@linear_interpolate ");
 	writer->open_scope('!');
-	for(int idx = 0; idx < map->index_vals_raw.size(); ++idx) {
-		writer->write("%lld : %.15g", (long long)map->index_vals_raw[idx], map->y_vals_raw[idx]);
+	for(int idx = 0; idx < map->pos_vals_raw.size(); ++idx) {
+		writer->write("%%.15g : %.15g", map->pos_vals_raw[idx], map->width_vals_raw[idx]);
 		writer->newline();
 	}
 	writer->close_scope();

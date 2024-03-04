@@ -21,16 +21,16 @@
 				
 				Take into account angle of shortwave radiation as it goes down the depth (so that one gets the right attenuation). Maybe diurnal variations.
 				
-				(general, but for use here)
-					Make it possible to interpolate parameter values, and set parameter values based on depth.
-						E.g. there is some system for assigning a value to a value, and saying what other parameter governs the ranges of the second value.
+				
 				Position_Map
-					Must be copied over to Model index_data also.
-					Must be used whenever translating a symbol (Token or string) to an index.
-					-- the way we started doing it is a bit problematic because it requires the index set dimension to be set first, but in actuality we want the number of layers to  be dependent on the layer thickness, and instead just have a max depth set by the user.
-						Maybe process the index set dimensions in a pass after all position maps are set, then co-process that information along with the position maps when relevant (in this instance interpret the dimension number as a depth).
-					Issue: The 'index count' set by the user should instead be reinterpreted as the position of the last layer (total depth), but then this index set must be resized.
-						This can be done if position map is always processed right after the index sets and if we disallow sub-indexing to a index set with a position map.
+					Use it to position values in MobiView Profile and Profile2d also!
+					Implement from_map for a parameter
+				Parameters on map form:
+					Implement write_to_file
+					Implement unpacking the data in the model_application.
+					These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn it off for now).
+						Well, technically they could be, but couldn't be saved back to dataset.
+					
 				
 				Should really solve the advection/diffusion equation with Crank-Nicolson.
 					A bit difficult to integrate it into the existing framework.
@@ -164,7 +164,7 @@
 			Make it possible to make a data file that is referring to another one, but with a subset of the indexes.
 				Just uses reshape after loading the Data_Set in the one referred to.
 			e.g.
-				data_subset("other file name.dat") {
+				data_set @subset("other file name.dat") {
 					index_set() ....
 				}
 				Have to decide what to do with broken connection arrows.

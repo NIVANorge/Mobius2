@@ -21,7 +21,9 @@ Index_T {
 
 //TODO: should we do sanity check on the index_set in the order comparison operators?
 inline bool operator<(const Index_T &a, const Index_T &b) {	return a.index < b.index; }
+inline bool operator>(const Index_T &a, const Index_T &b) {	return a.index > b.index; }
 inline bool operator>=(const Index_T &a, const Index_T &b) { return a.index >= b.index; }
+inline bool operator<=(const Index_T &a, const Index_T &b) { return a.index <= b.index; }
 inline bool operator==(const Index_T &a, const Index_T &b) { return a.index_set == b.index_set && a.index == b.index; }
 inline bool operator!=(const Index_T &a, const Index_T &b) { return a.index_set != b.index_set || a.index != b.index; }
 
@@ -73,7 +75,6 @@ Index_Record {
 	std::vector<std::vector<std::string>>               index_names;
 	std::vector<std::unordered_map<std::string, s32>>   name_to_index;
 	
-	
 	bool has_index_position_map = false;
 	std::vector<double> pos_vals;
 	s32 map_index(double value);
@@ -89,7 +90,7 @@ Index_Data {
 	void set_indexes(Entity_Id index_set, const std::vector<Token> &names, Index_T parent_idx = Index_T::no_index());
 	void initialize_union(Entity_Id index_set_id, Source_Location source_loc);
 	
-	void set_position_map(Entity_Id index_set_id, std::vector<double> &&pos_vals, Source_Location &source_loc);
+	void set_position_map(Entity_Id index_set_id, std::vector<double> &pos_vals, Source_Location &source_loc);
 	
 	void find_index(Entity_Id index_set, Token *idx_name, Indexes &indexes_out);
 	void find_indexes(const std::vector<Entity_Id> &index_sets, std::vector<Token> &idx_names, Indexes &indexes_out);

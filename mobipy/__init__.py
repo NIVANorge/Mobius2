@@ -158,7 +158,7 @@ def _pack_index(index) :
 	
 def _pack_indexes(indexes) :
 	
-	if isinstance(indexes, list) or isinstance(indexes, tuple):
+	if isinstance(indexes, list) or isinstance(indexes, tuple) :
 		cindexes = [_pack_index(index) for index in indexes]
 	else :
 		cindexes = [_pack_index(indexes)]    # Just a single index was passed instead of a list/tuple
@@ -277,9 +277,7 @@ class Scope :
 		if not is_valid(entity_id) :
 			raise ValueError("The handle name '%s' does not refer to a valid entity" % handle_name)
 		_check_for_errors()
-		return Entity(self.app_ptr, self.scope_id, entity_id)
-	
-	# TODO: Would be nice if we could override __setattr__ for parameters with a single instance, but it is very tricky since it overrides also things like self.app_ptr = ..
+		return Entity(self.app_ptr, self.scope_id, entity_id)	
 	
 	def list_all(self, type) :
 		# TODO
@@ -508,7 +506,3 @@ class State_Var :
 		data = dll.mobius_get_series_metadata(self.app_ptr, self.var_id)
 		_check_for_errors()
 		return data.unit.decode('utf-8')
-
-
-#TODO: Can use setattr any way if we call super.__setattr__() etc to not override on certain symbols. Then we don't need the unnecessary [()] syntax on non-indexed items.
-#   So we can e.g. have app.start_date = '2023-01-01'

@@ -82,14 +82,21 @@ Series_Data : Registration_Base {
 
 
 struct
+Parmap_Entry {
+	Indexes indexes;
+	double value;
+};
+
+struct
 Parameter_Data : Registration_Base {
 	std::vector<Parameter_Value> values;
 	std::vector<std::string> values_enum; // Can't resolve them to int without knowledge of the model, which we on purpose don't have here.
+	
+	bool is_on_map_form = false;
+	std::vector<Parmap_Entry> parmap_data;
+	
 	bool mark_for_deletion = false;
-	int get_count() {
-		if(decl_type == Decl_Type::par_enum) return values_enum.size();
-		else                                 return values.size();
-	}
+	int get_count();
 	
 	void process_declaration(Catalog *catalog);
 };
@@ -147,11 +154,10 @@ Position_Map_Data : Registration_Base {
 	// The processed data that will be used is stored in the index_data.
 	
 	Entity_Id           index_set_id = invalid_entity_id;
-	std::vector<s64>    index_vals_raw;
-	std::vector<double> y_vals_raw;
-	bool raw_is_widths = false;
-	bool linear_interp = false;
-	std::vector<double> expanded_ys;
+	std::vector<double> pos_vals_raw;
+	std::vector<double> width_vals_raw;
+	//bool raw_is_widths = false;
+	//bool linear_interp = false;
 	
 	void process_declaration(Catalog *catalog);
 };

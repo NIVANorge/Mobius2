@@ -18,9 +18,12 @@ check_index_set_amount(Model_Application *app, const std::vector<Entity_Id> &ind
 	if(index_sets.size() == indexes_count) return;
 	
 	begin_error(Mobius_Error::api_usage);
-	error_print("The object requires ", index_sets.size(), " index", index_sets.size()>1?"es":"", ", got ", indexes_count, ". The following index sets need to be addressed (in that order):\n");
-	for(auto index_set : index_sets)
-		error_print("\"", app->model->index_sets[index_set]->name, "\" ");
+	error_print("The object requires ", index_sets.size(), " index", index_sets.size()!=1?"es":"", ", got ", indexes_count, ".");
+	if(index_sets.size() > 0) {
+		" The following index sets need to be addressed (in that order):\n");
+		for(auto index_set : index_sets)
+			error_print("\"", app->model->index_sets[index_set]->name, "\" ");
+	}
 	mobius_error_exit();
 }
 
@@ -245,11 +248,11 @@ mobius_set_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value
 		auto &storage = app->data.get_storage(var_id.type);
 		s64 offset = get_offset_by_index_values(app, storage.structure, var_id, indexes, indexes_count);
 
-		// TODO: Should probably have bounds check on step also.
 		for(s64 step_idx = 0; step_idx < time_steps; ++step_idx) {
 			Date_Time date;
 			date.seconds_since_epoch = dates[step_idx];
 			s64 step = steps_between(storage.start_date, date, app->time_step_size);
+			if(step < 0 || step >= storage.time_steps) continue;
 			*storage.get_value(offset, step) = values[step_idx];
 		}
 	
@@ -381,12 +384,11 @@ mobius_get_value_type(Model_Application *app, Entity_Id id) {
 
 // TODO: For some parameters we need to check if they are baked, and then set a flag on the Model_Application telling it it has to be recompiled before further use.
 //   This must then be reflected in mobipy so that it actually does the recompilation.
-
 DLLEXPORT void
-mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value value) {
+mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value_Simple value) {
 	try {
 		s64 offset = get_offset_by_index_values(app, &app->parameter_structure, par_id, indexes, indexes_count);
-		*app->data.parameters.get_value(offset) = value;
+		(*app->data.parameters.get_value(offset)).val_real = value.val_real; // Again, shouldn't matter what type we copy since the bytes will be correct.
 	} catch(int) {}
 }
 

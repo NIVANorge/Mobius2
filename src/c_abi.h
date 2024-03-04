@@ -97,6 +97,9 @@ DLLEXPORT void
 mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps);
 
 DLLEXPORT void
+mobius_set_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *values, s64 *dates, s64 time_steps);
+
+DLLEXPORT void
 mobius_resolve_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Slice *indexes, s64 indexes_count, Mobius_Index_Range *ranges_out);
 
 DLLEXPORT void
@@ -104,7 +107,6 @@ mobius_get_series_data_slice(Model_Application *app, Var_Id var_id, Mobius_Index
 
 DLLEXPORT Mobius_Series_Metadata
 mobius_get_series_metadata(Model_Application *app, Var_Id var_id);
-
 
 DLLEXPORT s64
 mobius_get_value_type(Model_Application *app, Entity_Id id);
@@ -116,7 +118,7 @@ Parameter_Value_Simple {
 };
 
 DLLEXPORT void
-mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value value);
+mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value_Simple value);
 
 DLLEXPORT Parameter_Value_Simple
 mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);

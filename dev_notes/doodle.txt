@@ -1,6 +1,35 @@
 
 
 
+
+
+
+par_real("Layer area") [!
+	"Drammensfjorden" : [!
+		0 : 49030000
+		124 : 737500
+	]
+]
+
+
+
+
+
+
+position_map(layer) [!
+	0 : 1
+	20 : 5
+]
+# Ideally the first column should refer to mapped indexes ( so it is a bit self-referential, but it should work
+# I.e. after depth 20, the widths should be 5.
+
+
+
+
+
+
+
+
 # Want something like this:
 crop_series( 2015-01-01, 2020-12-31 )
 

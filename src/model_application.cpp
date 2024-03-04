@@ -384,12 +384,6 @@ Model_Application::get_index_count_code(Entity_Id index_set, Index_Exprs &indexe
 }
 
 
-inline Entity_Id
-map_id(Catalog *from, Catalog *to, Entity_Id id) {
-	return to->deserialize(from->serialize(id), id.reg_type);
-}
-
-
 void
 process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id par_group_data_id, 
 	std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> &par_group_index_sets) {
@@ -549,6 +543,7 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 			++idx;
 			*app->data.parameters.get_value(offset) = value;
 		});
+		
 	}
 }
 
@@ -1122,81 +1117,6 @@ make_connection_component_indexing_structure(Model_Application *app, Storage_Str
 	
 	components_structure->set_up(std::move(structure));
 }
-
-void
-Index_Data::transfer_data(Index_Data &other, Entity_Id data_id) {
-	
-	auto target_id = map_id(catalog, other.catalog, data_id);
-	
-	auto set_data = catalog->index_sets[data_id];
-	if(!is_valid(target_id)) {
-		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
-		set_data->source_loc.print_error_header();
-		fatal_error("\"", set_data->name, "\" has not been declared as an index set in the model \"", other.catalog->model_name, "\".");
-	}
-	auto set = other.catalog->index_sets[target_id];
-	
-	if(!set->union_of.empty()) {
-		// Check that the unions match
-		bool error = false;
-		if(set_data->union_of.size() != set->union_of.size())
-			error = true;
-		else {
-			int idx = 0;
-			for(auto ui_id : set_data->union_of) {
-				auto ui_id_model = map_id(catalog, other.catalog, ui_id);
-				
-				if(!is_valid(ui_id_model) || ui_id_model != set->union_of[idx]) {
-					error = true;
-					break;
-				}
-				++idx;
-			}
-		}
-		
-		if(error) {
-			set_data->source_loc.print_error_header();
-			fatal_error("The index set \"", set_data->name, "\" is declared as a union in the model, but is not the same union in the data set.");
-		}
-		
-		other.initialize_union(target_id, set_data->source_loc);
-		return; // NOTE: There is no separate index data to copy for a union.
-		
-	} else if (!set_data->union_of.empty()) {
-		set_data->source_loc.print_error_header();
-		fatal_error("The index set \"", set_data->name, "\" is not declared as a union in the model, but is in the data set");
-	}
-	
-	Entity_Id sub_indexed_to = invalid_entity_id;
-	if(is_valid(set_data->sub_indexed_to))
-		sub_indexed_to = map_id(catalog, other.catalog, set_data->sub_indexed_to);
-	if(set->sub_indexed_to != sub_indexed_to) {
-		set_data->source_loc.print_error_header();
-		fatal_error("The sub-indexing of the index set \"", set_data->name, "\" does not match between the model and the data set.");
-	}
-	
-	auto &data = index_data[data_id.id];
-	
-	for(int super = 0; super < data.index_counts.size(); ++super) {
-		Index_T parent_idx = Index_T { sub_indexed_to, super };
-		if(!is_valid(sub_indexed_to))
-			parent_idx = invalid_index;
-		
-		other.initialize(target_id, parent_idx, data.type, set_data->source_loc);
-		
-		auto &new_data = other.index_data[target_id.id];
-		
-		new_data.index_counts[super] = data.index_counts[super];
-		if(data.type == Index_Record::Type::numeric1) {
-			// Nothing else to do.
-		} else if (data.type == Index_Record::Type::named) {
-			new_data.index_names[super] = data.index_names[super];
-			new_data.name_to_index[super] = data.name_to_index[super];
-		} else
-			fatal_error(Mobius_Error::internal, "Unimplemented index data type.");
-	}
-}
-
 
 inline size_t
 round_up(int align, size_t size) {

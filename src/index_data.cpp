@@ -318,7 +318,14 @@ Index_Data::find_index_base(Entity_Id index_set_id, Token *idx_name, Index_T ind
 	auto &data = index_data[index_set_id.id];
 	int super = is_valid(index_of_super) ? index_of_super.index : 0;
 	
-	if(idx_name->type == Token_Type::quoted_string) {
+	if(data.has_index_position_map && (is_numeric(idx_name->type))) {
+		double val = idx_name->double_value();
+		s32 mapped = data.map_index(val);
+		Index_T result = Index_T { index_set_id, mapped };
+		if(result.index < 0 || result.index >= get_count_base(index_set_id, index_of_super))
+			return Index_T::no_index();
+		return result;
+	} else if(idx_name->type == Token_Type::quoted_string) {
 		if(data.type != Index_Record::Type::named)
 			return Index_T::no_index();
 		auto &nmap = data.name_to_index[super];
@@ -588,7 +595,12 @@ Index_Data::get_index_name_base(Index_T index, Index_T index_of_super, bool *is_
 	
 	if(data.type == Index_Record::Type::numeric1 || invalid_name_support) {
 		if(is_quotable) *is_quotable = false;
-		return std::to_string(index.index);
+		if(data.has_index_position_map) {
+			static char buf[64];
+			sprintf(buf, "%.15g", data.pos_vals[index.index]);
+			return buf;
+		} else
+			return std::to_string(index.index);
 	} else if (data.type == Index_Record::Type::named) {
 		if(is_quotable) *is_quotable = true;
 
@@ -797,7 +809,7 @@ Index_Data::raise(Index_T member_idx, Entity_Id union_set) {
 }
 
 void
-Index_Data::set_position_map(Entity_Id index_set_id, std::vector<double> &&pos_vals, Source_Location &source_loc) {
+Index_Data::set_position_map(Entity_Id index_set_id, std::vector<double> &pos_vals, Source_Location &source_loc) {
 	if(!are_all_indexes_set(index_set_id))
 		fatal_error(Mobius_Error::internal, "Tried to set an index map for an uninitialized index set.");
 	
@@ -808,6 +820,24 @@ Index_Data::set_position_map(Entity_Id index_set_id, std::vector<double> &&pos_v
 	}
 	if(data.type != Index_Record::Type::numeric1)
 		fatal_error(Mobius_Error::internal, "Tried to set an index map for a non-numeric index set.");
+	for(auto id : catalog->index_sets) {
+		if(catalog->index_sets[id]->sub_indexed_to == index_set_id) {
+			source_loc.print_error_header();
+			fatal_error("Can not set a position map for index sets that have other index sets sub-indexed to it.");
+		}
+	}
+	
+	// Resize the index set so that it the previously provided size is now reinterpreted as a "max position" instead.
+	for(int instanceidx = 0; instanceidx < data.index_counts.size(); ++instanceidx) {
+		double max_width = (double)data.index_counts[instanceidx];
+		
+		int idx = 0;
+		for(; idx < pos_vals.size(); ++idx) {
+			if(pos_vals[idx] > max_width) break;
+		}
+		data.index_counts[instanceidx] = idx;
+	}
+	
 	data.has_index_position_map = true;
 	data.pos_vals = pos_vals;
 }
@@ -849,4 +879,83 @@ Index_Record::map_index(double value) {
 	}
 	return guess;
 	*/
+}
+
+void
+Index_Data::transfer_data(Index_Data &other, Entity_Id data_id) {
+	
+	auto target_id = map_id(catalog, other.catalog, data_id);
+	
+	auto set_data = catalog->index_sets[data_id];
+	if(!is_valid(target_id)) {
+		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
+		set_data->source_loc.print_error_header();
+		fatal_error("\"", set_data->name, "\" has not been declared as an index set in the model \"", other.catalog->model_name, "\".");
+	}
+	auto set = other.catalog->index_sets[target_id];
+	
+	if(!set->union_of.empty()) {
+		// Check that the unions match
+		bool error = false;
+		if(set_data->union_of.size() != set->union_of.size())
+			error = true;
+		else {
+			int idx = 0;
+			for(auto ui_id : set_data->union_of) {
+				auto ui_id_model = map_id(catalog, other.catalog, ui_id);
+				
+				if(!is_valid(ui_id_model) || ui_id_model != set->union_of[idx]) {
+					error = true;
+					break;
+				}
+				++idx;
+			}
+		}
+		
+		if(error) {
+			set_data->source_loc.print_error_header();
+			fatal_error("The index set \"", set_data->name, "\" is declared as a union in the model, but is not the same union in the data set.");
+		}
+		
+		other.initialize_union(target_id, set_data->source_loc);
+		return; // NOTE: There is no separate index data to copy for a union.
+		
+	} else if (!set_data->union_of.empty()) {
+		set_data->source_loc.print_error_header();
+		fatal_error("The index set \"", set_data->name, "\" is not declared as a union in the model, but is in the data set");
+	}
+	
+	Entity_Id sub_indexed_to = invalid_entity_id;
+	if(is_valid(set_data->sub_indexed_to))
+		sub_indexed_to = map_id(catalog, other.catalog, set_data->sub_indexed_to);
+	if(set->sub_indexed_to != sub_indexed_to) {
+		set_data->source_loc.print_error_header();
+		fatal_error("The sub-indexing of the index set \"", set_data->name, "\" does not match between the model and the data set.");
+	}
+	
+	auto &data = index_data[data_id.id];
+	
+	for(int super = 0; super < data.index_counts.size(); ++super) {
+		Index_T parent_idx = Index_T { sub_indexed_to, super };
+		if(!is_valid(sub_indexed_to))
+			parent_idx = Index_T::no_index();
+		
+		other.initialize(target_id, parent_idx, data.type, set_data->source_loc);
+		
+		auto &new_data = other.index_data[target_id.id];
+		
+		new_data.index_counts[super] = data.index_counts[super];
+		if(data.type == Index_Record::Type::numeric1) {
+			// Nothing else to do.
+		} else if (data.type == Index_Record::Type::named) {
+			new_data.index_names[super] = data.index_names[super];
+			new_data.name_to_index[super] = data.name_to_index[super];
+		} else
+			fatal_error(Mobius_Error::internal, "Unimplemented index data type.");
+	}
+	
+	// Transfer position maps.
+	auto &other_data = other.index_data[target_id.id];
+	other_data.has_index_position_map = data.has_index_position_map;
+	other_data.pos_vals = data.pos_vals;
 }

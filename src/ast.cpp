@@ -133,7 +133,7 @@ get_data_type(Decl_Type decl_type) {
 	if(decl_type == Decl_Type::directed_graph) return Data_Type::directed_graph;
 	if(decl_type == Decl_Type::quick_select) return Data_Type::map;
 	if(decl_type == Decl_Type::position_map) return Data_Type::map;
-	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::list; // list of parameter values.
+	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::map; // list of parameter values, or special map format.
 	
 	return Data_Type::none;
 }

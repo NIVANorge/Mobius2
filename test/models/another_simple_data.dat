@@ -3,7 +3,7 @@ data_set {
 """
 The doc string
 """
-	k : index_set("K") [ 7 ]
+	k : index_set("K") [ 10 ]
 
 	par_group("System") {
 		par_datetime("Start date")
@@ -15,7 +15,11 @@ The doc string
 	
 	module("So simple", version(2, 0, 0)) {
 		par_group("The Q", k) {
-			par_real("Q") [ 1 2 3 4 5 6 7 ]
+			par_real("Q") [!
+				0: 0
+				5: 20
+				9: 100
+			]
 		}
 	}
 }

@@ -25,12 +25,10 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	index_set("Water body") @union(sc, basin) 
 	
-	position_map(layer) @widths [!
-		0 : 1
-		15 : 2
-		35 : 5
-		40 : 10
-	]
+	#position_map(layer) [!
+	#	0 : 1
+	#	20 : 5
+	#]
 	
 	connection("Downstream") {
 		

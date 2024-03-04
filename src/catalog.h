@@ -226,6 +226,11 @@ protected :
 	void register_single_decl(Decl_Scope *scope, Decl_AST *decl, const std::set<Decl_Type> &allowed_types);
 };
 
+inline Entity_Id
+map_id(Catalog *from, Catalog *to, Entity_Id id) {
+	return to->deserialize(from->serialize(id), id.reg_type);
+}
+
 Decl_AST *
 read_catalog_ast_from_file(Decl_Type expected_type, File_Data_Handler *handler, String_View file_name, String_View rel_path = {}, std::string *normalized_path_out = nullptr);
 
