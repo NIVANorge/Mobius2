@@ -25,6 +25,8 @@
 				Position_Map
 					Should probably rename to width_map.
 					Use it to position x/y-values in MobiView2 Profile and Profile2d also!
+					Should probably display the index name as the position before, not the end position of the index. Or even as the interval. ("0-1" etc).
+						Just have to make sure they are not stored as that in any files.
 				Parameters on map form:
 					These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn it off for now).
 						Well, technically they could be, but couldn't be saved back to dataset.

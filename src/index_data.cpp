@@ -832,6 +832,16 @@ Index_Data::set_position_map(Entity_Id index_set_id, std::vector<double> &pos_va
 	}
 	if(data.type != Index_Record::Type::numeric1)
 		fatal_error(Mobius_Error::internal, "Tried to set an index map for a non-numeric index set.");
+	// TODO: May also be problematic if it is a union member
+	auto set = catalog->index_sets[index_set_id];
+	if(!set->union_of.empty()) {
+		source_loc.print_error_header();
+		fatal_error("Can not set a position map for an index set that is a union.");
+	}
+	if(is_valid(set->is_edge_of_connection)) {
+		source_loc.print_error_header();
+		fatal_error("Can not set a position map for an index set that indexes a connection edge.");
+	}
 	for(auto id : catalog->index_sets) {
 		if(catalog->index_sets[id]->sub_indexed_to == index_set_id) {
 			source_loc.print_error_header();

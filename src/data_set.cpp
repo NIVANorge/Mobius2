@@ -1428,13 +1428,15 @@ write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id para
 		
 		for(auto &entry : par->parmap_data) {
 			
-			size = entry.indexes.indexes.size(); // This should be the same for all entries.
+			size = (int)entry.indexes.indexes.size(); // This should be the same for all entries.
 			
+			rewind = 0;
 			if(prev) {
-				for(rewind = 0; rewind < size; ++rewind) {
+				for(; rewind < size; ++rewind) {
 					if(prev->indexes.indexes[rewind] != entry.indexes.indexes[rewind])
 						break;
 				}
+				rewind = std::min(size-1, rewind); // TODO: Why is this necessary???? Compiler bug?
 				for(int p = size-1; p > rewind; --p)
 					writer->close_scope(false);
 			}
