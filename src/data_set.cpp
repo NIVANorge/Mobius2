@@ -136,6 +136,10 @@ parse_parameter_map_recursive(Data_Set *data_set, Data_Map_AST *map, std::vector
 			Parmap_Entry entry2;
 			entry2.indexes = indexes;
 			entry2.value = entry.single_value.double_value();
+			if(is_numeric(entry.key.type))
+				entry2.pos = entry.key.double_value();
+			else
+				entry2.pos = (double)indexes.indexes.back().index;
 			push_to.push_back(entry2);
 		} else {
 			if(!entry.data || entry.data->data_type != Data_Type::map) {
@@ -155,8 +159,16 @@ unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std
 	index_sets_upper.pop_back(); // The last index set is the one we interpolate over, and so is handled differently.
 	
 	data_set->index_data.for_each(index_sets_upper, [data_set, &values, &data, &index_sets](Indexes &indexes) {
-		std::vector<std::pair<Index_T, double>> inner;
+		
+		struct
+		Sorted_Entry {
+			Index_T index_pos;
+			double pos;
+			double val;
+		};
+		
 		// This is a bit inefficient, but will probably not matter since these typically should have few entries.
+		std::vector<Sorted_Entry> inner;
 
 		for(auto &entry : data) {
 
@@ -171,42 +183,44 @@ unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std
 					match = false;
 			}
 			if(match)
-				inner.push_back({entry.indexes.indexes.back(), entry.value});
+				inner.push_back({entry.indexes.indexes.back(), entry.pos, entry.value});
 			
 		}
 		
 		std::sort(inner.begin(), inner.end(), [](const auto &a, const auto &b) {
-			return a.first < b.first;
+			return a.index_pos < b.index_pos;
 		});
 		
 		auto interp_set = index_sets.back();
-		auto count = data_set->index_data.get_index_count(indexes, interp_set);
+		int count = data_set->index_data.get_index_count(indexes, interp_set).index;
 		
-		double prev_val = inner[0].second;
+		std::vector<double> unpacked_values(count);
+		
+		// Fill constant before and after
+		for(int idx = 0; idx < inner[0].index_pos.index; ++idx)
+			unpacked_values[idx] = inner[0].val;
+		
+		for(int idx = inner.back().index_pos.index; idx < count; ++idx)
+			unpacked_values[idx] = inner.back().val;
+		
 		// Assume linear interpolation for now. We could make more options
-		
-		std::vector<double> unpacked_values(count.index);
-		
-		// TODO: Remember to fill before and after also
-		
-		// TODO: Guard against subsequent items being in the same position.
-		
+		// Linear interpolate inside
 		for(int at = 0; at < (int)inner.size()-1; ++at) {
-			Index_T first = inner[at].first;
-			Index_T last  = inner[at+1].first;
-			double firstval = inner[at].second;
-			double lastval  = inner[at+1].second;
 			
-			log_print("Pair:  ", first.index, ": ", firstval, ". ", last.index, ": ", lastval, "\n");
+			auto &first = inner[at];
+			auto &last  = inner[at+1];
 			
-			for(Index_T index = first; index <= last; ++index) {
+			for(Index_T index = first.index_pos; index <= last.index_pos; ++index) {
 				
-				// TODO: This should instead use the position value of the index. And first and last should be the ones that were given directly, not flattened down to an index value.
-				double tt = ((double)index.index - (double)first.index) / ((double)last.index - (double)first.index);
+				double pos = data_set->index_data.get_position(index);
+				if(pos < first.pos || pos > last.pos) continue;
 				
-				unpacked_values[index.index] = (1.0 - tt)*firstval + tt*lastval;
+				double tt = (pos - first.pos) / (last.pos - first.pos);
+				
+				unpacked_values[index.index] = (1.0 - tt)*first.val + tt*last.val;
 			}
 		}
+		
 		for(double valr : unpacked_values) {
 			Parameter_Value val;
 			val.val_real = valr;

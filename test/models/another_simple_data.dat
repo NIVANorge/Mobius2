@@ -3,7 +3,11 @@ data_set {
 """
 The doc string
 """
-	k : index_set("K") [ 10 ]
+	j : index_set("J") [ "A" "B" ]
+	k : index_set("K") @sub(j) [!
+		"A" : [ 10 ]
+		"B" : [ 5 ]
+	]
 
 	par_group("System") {
 		par_datetime("Start date")
@@ -13,12 +17,24 @@ The doc string
 		[ 1990-12-31 ]
 	}
 	
+	position_map(k) [!
+		0: 1
+		5: 0.5
+	]
+	
 	module("So simple", version(2, 0, 0)) {
-		par_group("The Q", k) {
+		par_group("The Q", j, k) {
 			par_real("Q") [!
-				0: 0
-				5: 20
-				9: 100
+				"A" : [!
+					0: 0
+					5: 20
+					9: 100
+				]
+				"B" : [!
+					0 : 10
+					2 : 5
+					4 : 8
+				]
 			]
 		}
 	}

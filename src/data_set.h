@@ -84,6 +84,7 @@ Series_Data : Registration_Base {
 struct
 Parmap_Entry {
 	Indexes indexes;
+	double pos;
 	double value;
 };
 

@@ -881,6 +881,20 @@ Index_Record::map_index(double value) {
 	*/
 }
 
+double
+Index_Data::get_position(Index_T index) {
+	auto &data = index_data[index.index_set.id];
+	
+	if(data.has_index_position_map) {
+		if(index.index < 0 || index.index >= data.pos_vals.size())
+			fatal_error(Mobius_Error::internal, "Index out of bounds when looking up position.");
+		return data.pos_vals[index.index];
+	}
+	return (double)index.index;
+}
+
+
+
 void
 Index_Data::transfer_data(Index_Data &other, Entity_Id data_id) {
 	

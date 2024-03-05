@@ -2,9 +2,10 @@
 
 model("Another simple") {
 
-	k : index_set("K")
+	j : index_set("J")
+	k : index_set("K") @sub(j)
 
-	a : compartment("A", k)
+	a : compartment("A", j, k)
 	p : property("P")
 	
 	module("So simple", version(2, 0, 0)) {
