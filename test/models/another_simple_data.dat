@@ -1,48 +1,42 @@
+
 data_set {
-	
 """
 The doc string
 """
-	
-	
 	j : index_set("J") [ "A" "B" ]
-	
 	k : index_set("K") @sub(j) [!
-		"A"  : [ 15 ]
-		"B"  : [ 5 ]
+		"A" : [ 10 ]
+		"B" : [ 5 ]
 	]
-	
-	position_map(k) [!
-		%.15g : 0
-		%.15g : 5
-	]
-	
+
 	par_group("System") {
-		
-		par_datetime("Start date") 
+		par_datetime("Start date")
 		[ 1990-01-01 ]
-		
-		par_datetime("End date") 
+
+		par_datetime("End date")
 		[ 1990-12-31 ]
-	
 	}
 	
+	position_map(k) [!
+		0: 1
+		5: 0.5
+	]
+	
 	module("So simple", version(2, 0, 0)) {
-		
 		par_group("The Q", j, k) {
-			
-			par_real("Q") [!"A"
-				 : [!1
-					 : 0
-				]5.5
-				 : 20
-			]9.5
-			 : 100
+			par_real("Q") [!
+				"A" : [!
+					0: 0
+					5: 20
+					9: 100
+				]
+				"B" : [!
+					0 : 10
+					2 : 5
+					4 : 8
+				]
+			]
 		}
-	}"B"
-	 : [!1
-		 : 10
-	]3
-	 : 5
-}5
- : 8
+	}
+}
+
