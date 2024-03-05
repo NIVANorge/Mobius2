@@ -25,6 +25,8 @@
 				Position_Map
 					Use it to position values in MobiView Profile and Profile2d also!
 					Implement from_map for a parameter
+					When saving the dataset it should write the count as the max depth again. (i.e. pos_vals.back())
+						(is that right? Doesn't that offset incorrectly?)
 				Parameters on map form:
 					Implement write_to_file
 					Implement unpacking the data in the model_application.

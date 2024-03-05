@@ -117,6 +117,7 @@ Index_Data {
 	
 	void write_index_to_file(FILE *file, Index_T index, Index_T parent_idx = Index_T::no_index());
 	void write_indexes_to_file(FILE *file, Entity_Id index_set, Index_T parent_idx = Index_T::no_index());
+	void write_index_to_file(FILE *file, Indexes &indexes, Index_T index);
 	
 	bool can_be_sub_indexed_to(Entity_Id parent_set, Entity_Id other_set, s32* offset = nullptr);
 	

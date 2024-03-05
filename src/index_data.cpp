@@ -716,6 +716,15 @@ Index_Data::write_index_to_file(FILE *file, Index_T index, Index_T parent_idx) {
 }
 
 void
+Index_Data::write_index_to_file(FILE *file, Indexes &indexes, Index_T index) {
+	// We could also make this more efficient by not copying the string..
+	bool is_quotable;
+	std::string result = get_index_name(indexes, index, &is_quotable);
+	maybe_quote(result, is_quotable);
+	fprintf(file, "%s", result.c_str());
+}
+
+void
 Index_Data::write_indexes_to_file(FILE *file, Entity_Id index_set, Index_T parent_idx) {
 	
 	auto set = catalog->index_sets[index_set];

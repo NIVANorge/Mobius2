@@ -1308,59 +1308,93 @@ write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id para
 	auto par = data_set->parameters[parameter_id];
 	if(par->mark_for_deletion) return;
 	
-	if(par->is_on_map_form)
-		fatal_error(Mobius_Error::internal, "Can't write out parameters on map form yet.");
-	
 	writer->open_decl(data_set, parameter_id);
 	writer->write(") ");
 	auto par_group = data_set->par_groups[par->scope_id];
 	
-	int n_dims = std::max(1, (int)par_group->index_sets.size());
-	bool multiline = n_dims > 1;
-	if(!multiline) writer->newline();
-	writer->open_scope('[', multiline);
+	if(!par->is_on_map_form) {
 	
-	int expect_count = data_set->index_data.get_instance_count(par_group->index_sets);
-	if(expect_count != par->get_count())
-		fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par->name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
-	
-	int offset = 0;
-	data_set->index_data.for_each(par_group->index_sets,
-		[&](Indexes &indexes) {
+		int n_dims = std::max(1, (int)par_group->index_sets.size());
+		bool multiline = n_dims > 1;
+		if(!multiline) writer->newline();
+		writer->open_scope('[', multiline);
+		
+		int expect_count = data_set->index_data.get_instance_count(par_group->index_sets);
+		if(expect_count != par->get_count())
+			fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par->name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
+		
+		int offset = 0;
+		data_set->index_data.for_each(par_group->index_sets,
+			[&](Indexes &indexes) {
+				
+				int val_idx = offset++;
+				if(par->decl_type == Decl_Type::par_enum) {
+					writer->write("%s ", par->values_enum[val_idx].data());
+				} else {
+					Parameter_Value val = par->values[val_idx];
+					char buf[64];
+					switch(par->decl_type) {
+						case Decl_Type::par_real :
+							writer->write("%.15g ", val.val_real);
+							break;
+						
+						case Decl_Type::par_bool :
+							writer->write("%s ", val.val_boolean ? "true" : "false");
+							break;
+						
+						case Decl_Type::par_int :
+							writer->write("%lld ", (long long)val.val_integer);
+							break;
+						
+						case Decl_Type::par_datetime :
+							val.val_datetime.to_string(buf);
+							writer->write("%s ", buf);
+							break;
+					}
+				}
+			},
+			[&](int pos) {
+				if(multiline && (offset > 0) && (pos == n_dims-1))
+					writer->newline();
+			}
+		);
+		if(multiline)
+			writer->newline();
+	} else {
+		writer->open_scope('!', true);
+		
+		int rewind = 0;
+		Parmap_Entry *prev = nullptr;
+		
+		for(auto &entry : par->parmap_data) {
 			
-			int val_idx = offset++;
-			if(par->decl_type == Decl_Type::par_enum) {
-				writer->write("%s ", par->values_enum[val_idx].data());
-			} else {
-				Parameter_Value val = par->values[val_idx];
-				char buf[64];
-				switch(par->decl_type) {
-					case Decl_Type::par_real :
-						writer->write("%.15g ", val.val_real);
-						break;
-					
-					case Decl_Type::par_bool :
-						writer->write("%s ", val.val_boolean ? "true" : "false");
-						break;
-					
-					case Decl_Type::par_int :
-						writer->write("%lld ", (long long)val.val_integer);
-						break;
-					
-					case Decl_Type::par_datetime :
-						val.val_datetime.to_string(buf);
-						writer->write("%s ", buf);
+			int size = entry.indexes.indexes.size(); // This should be the same for all entries.
+			
+			if(prev) {
+				for(rewind = 0; rewind < size; ++rewind) {
+					if(prev->indexes.indexes[rewind] != entry.indexes.indexes[rewind])
 						break;
 				}
+				for(int p = size-1; p >= rewind; --p)
+					writer->close_scope(false);
 			}
-		},
-		[&](int pos) {
-			if(multiline && (offset > 0) && (pos == n_dims-1))
-				writer->newline();
+			prev = &entry;
+			
+			for(int p = rewind; p < size; ++p) {
+				auto index = entry.indexes.indexes[p];
+				// TODO: For the inner scope, this will not record the position correctly.
+				data_set->index_data.write_index_to_file(writer->file, entry.indexes, index);
+				writer->write(" : ");
+				if(p != size-1)
+					writer->open_scope('!', true);
+				else {
+					writer->write("%.15g", entry.value);
+					writer->newline();
+				}
+			}
 		}
-	);
-	if(multiline)
-		writer->newline();
+	}
+	
 	writer->close_scope();
 }
 
