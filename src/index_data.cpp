@@ -739,9 +739,12 @@ Index_Data::write_indexes_to_file(FILE *file, Entity_Id index_set, Index_T paren
 	if(data.type == Index_Record::Type::named) {
 		for(auto &name : data.index_names[super])
 			fprintf(file, "\"%s\" ", name.data());
-	} else if (data.type == Index_Record::Type::numeric1)
-		fprintf(file, "%d ", data.index_counts[super]);
-	else
+	} else if (data.type == Index_Record::Type::numeric1) {
+		if(!data.has_index_position_map)
+			fprintf(file, "%d ", data.index_counts[super]);
+		else
+			fprintf(file, "%d ", data.backup_counts[super]);
+	} else
 		fatal_error(Mobius_Error::internal, "Unhandled index type in write_indexes_to_file().");
 }
 
@@ -835,6 +838,8 @@ Index_Data::set_position_map(Entity_Id index_set_id, std::vector<double> &pos_va
 			fatal_error("Can not set a position map for index sets that have other index sets sub-indexed to it.");
 		}
 	}
+	
+	data.backup_counts = data.index_counts; // We need these in case we want to write them out to a file again.
 	
 	// Resize the index set so that it the previously provided size is now reinterpreted as a "max position" instead.
 	for(int instanceidx = 0; instanceidx < data.index_counts.size(); ++instanceidx) {

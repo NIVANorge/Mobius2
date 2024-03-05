@@ -89,7 +89,7 @@ Par_Group_Data::process_declaration(Catalog *catalog) {
 	auto data_set = static_cast<Data_Set *>(catalog);
 	auto parent_scope = catalog->get_scope(scope_id);
 	scope.parent_id = id;
-	scope.import(*parent_scope); // Not sure if this is necessary here. Nice to do it for consistency maybe.
+	scope.import(*parent_scope); // Needed since some parameter decls may want access to index_set identifiers.
 	
 	for(int argidx = 1; argidx < decl->args.size(); ++argidx) {
 		auto id = parent_scope->resolve_argument(Reg_Type::index_set, decl->args[argidx]);
@@ -212,7 +212,12 @@ unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std
 			
 			for(Index_T index = first.index_pos; index <= last.index_pos; ++index) {
 				
-				double pos = data_set->index_data.get_position(index);
+				// We want the position of the beginning of the interval rather than the end.
+				Index_T index2 = index;
+				index2.index--;
+				double pos = 0.0;
+				if(index2.index >= 0)
+					pos = data_set->index_data.get_position(index2);
 				if(pos < first.pos || pos > last.pos) continue;
 				
 				double tt = (pos - first.pos) / (last.pos - first.pos);
@@ -233,13 +238,65 @@ unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std
 void
 Parameter_Data::process_declaration(Catalog *catalog) {
 
-	match_data_declaration(decl, {{Token_Type::quoted_string}});
+	match_data_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true, 1);
 	
 	set_serial_name(catalog, this);
 	
-	//log_print("Initially map data size is ", parmap_data.size(), "\n");
+	auto data_set = static_cast<Data_Set *>(catalog);
+	auto par_group = data_set->par_groups[scope_id];
+	// This is a bit hacky. We want to look in the top scope since that is where the index sets are visible.
+	auto scope = catalog->get_scope(par_group->scope_id);
 	
-	if(decl->data->data_type == Data_Type::list) {
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "from_position") {
+			match_declaration_base(note, {{Decl_Type::index_set}}, 0);
+			from_pos = scope->resolve_argument(Reg_Type::index_set, note->args[0]);
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note type '", str, "' for a parameter.");
+		}
+	}
+	
+	if(is_valid(from_pos)) {
+		if(decl->data) {
+			decl->source_loc.print_error_header();
+			fatal_error("A parameter with 'from_position' should not have a data block.");
+		}
+		if(decl_type != Decl_Type::par_real) {
+			decl->source_loc.print_error_header();
+			fatal_error("A parameter with 'from_position' must be 'par_real'.");
+		}
+		
+		bool found = false;
+		int idx_pos;
+		for(idx_pos = 0; idx_pos < par_group->index_sets.size(); ++idx_pos) {
+			if(par_group->index_sets[idx_pos] == from_pos) {
+				found = true;
+				break;
+			}
+		}
+		if(!found) {
+			decl->source_loc.print_error_header();
+			fatal_error("The parameter does not index over the index set that the 'from_position' was declared with.");
+		}
+		
+		// NOTE: Assuming delta position for now. Could also allow absolute position if desired later.
+		double prev_pos = 0.0;
+		data_set->index_data.for_each(par_group->index_sets, [this, data_set, idx_pos, &prev_pos](Indexes &indexes) {
+			Parameter_Value val;
+			auto index = indexes.indexes[idx_pos];
+			// Ouch, this is a bit hacky.
+			if(index.index == 0)
+				prev_pos = 0.0;
+			double cur_pos = data_set->index_data.get_position(index);
+			val.val_real = (cur_pos - prev_pos);
+			values.push_back(val);
+			prev_pos = cur_pos;
+		});
+		
+	
+	} else if(decl->data->data_type == Data_Type::list) {
 		
 		auto &data = static_cast<Data_List_AST *>(decl->data)->list;
 		
@@ -293,9 +350,6 @@ Parameter_Data::process_declaration(Catalog *catalog) {
 		}
 		
 		is_on_map_form = true;
-		
-		auto data_set = static_cast<Data_Set *>(catalog);
-		auto par_group = data_set->par_groups[scope_id];
 		
 		if(par_group->index_sets.empty()) {
 			decl->source_loc.print_error_header();
@@ -673,7 +727,7 @@ Quick_Select_Data::process_declaration(Catalog *catalog) {
 void
 Position_Map_Data::process_declaration(Catalog *catalog) {
 	
-	match_data_declaration(decl, {{Decl_Type::index_set}}, true, 0, false);
+	match_data_declaration(decl, {{Decl_Type::index_set}});
 	
 	if(decl->data->data_type != Data_Type::map) {
 		decl->data->source_loc.print_error_header();
@@ -1312,7 +1366,11 @@ write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id para
 	writer->write(") ");
 	auto par_group = data_set->par_groups[par->scope_id];
 	
-	if(!par->is_on_map_form) {
+	if(is_valid(par->from_pos)) {
+		writer->write("@from_position(%s)", data_set->get_symbol(par->from_pos).data());
+		writer->newline(2);
+		
+	} else if(!par->is_on_map_form) {
 	
 		int n_dims = std::max(1, (int)par_group->index_sets.size());
 		bool multiline = n_dims > 1;
@@ -1360,42 +1418,47 @@ write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id para
 		);
 		if(multiline)
 			writer->newline();
+		writer->close_scope();
 	} else {
-		writer->open_scope('!', true);
+		writer->open_scope('!');
 		
 		int rewind = 0;
 		Parmap_Entry *prev = nullptr;
+		int size;
 		
 		for(auto &entry : par->parmap_data) {
 			
-			int size = entry.indexes.indexes.size(); // This should be the same for all entries.
+			size = entry.indexes.indexes.size(); // This should be the same for all entries.
 			
 			if(prev) {
 				for(rewind = 0; rewind < size; ++rewind) {
 					if(prev->indexes.indexes[rewind] != entry.indexes.indexes[rewind])
 						break;
 				}
-				for(int p = size-1; p >= rewind; --p)
+				for(int p = size-1; p > rewind; --p)
 					writer->close_scope(false);
 			}
 			prev = &entry;
 			
 			for(int p = rewind; p < size; ++p) {
 				auto index = entry.indexes.indexes[p];
-				// TODO: For the inner scope, this will not record the position correctly.
-				data_set->index_data.write_index_to_file(writer->file, entry.indexes, index);
-				writer->write(" : ");
-				if(p != size-1)
-					writer->open_scope('!', true);
-				else {
-					writer->write("%.15g", entry.value);
+				
+				if(p != size-1) {
+					writer->process_newlines();
+					data_set->index_data.write_index_to_file(writer->file, entry.indexes, index);
+					writer->write(" : ");
+					writer->open_scope('!');
+				} else {
+					// TODO: this is not entirely correct if the inner index was not numeric.
+					writer->write("%.15g : %.15g", entry.pos, entry.value);
 					writer->newline();
 				}
 			}
 		}
+		for(int idx = 0; idx < size-1; ++idx) // TODO: is this correct?
+			writer->close_scope(false);
+		writer->close_scope();
 	}
-	
-	writer->close_scope();
 }
 
 void
@@ -1410,7 +1473,7 @@ write_position_map_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id m
 	//	writer->write("@linear_interpolate ");
 	writer->open_scope('!');
 	for(int idx = 0; idx < map->pos_vals_raw.size(); ++idx) {
-		writer->write("%%.15g : %.15g", map->pos_vals_raw[idx], map->width_vals_raw[idx]);
+		writer->write("%.15g : %.15g", map->pos_vals_raw[idx], map->width_vals_raw[idx]);
 		writer->newline();
 	}
 	writer->close_scope();

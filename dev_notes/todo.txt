@@ -23,18 +23,14 @@
 				
 				
 				Position_Map
-					Use it to position values in MobiView Profile and Profile2d also!
-					Implement from_map for a parameter
-					When saving the dataset it should write the count as the max depth again. (i.e. pos_vals.back())
-						(is that right? Doesn't that offset incorrectly?)
+					Should probably rename to width_map.
+					Use it to position x/y-values in MobiView2 Profile and Profile2d also!
 				Parameters on map form:
-					Implement write_to_file
-					Implement unpacking the data in the model_application.
 					These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn it off for now).
 						Well, technically they could be, but couldn't be saved back to dataset.
 					
 				
-				Should really solve the advection/diffusion equation with Crank-Nicolson.
+				Should really solve the advection/diffusion equation with Crank-Nicholson.
 					A bit difficult to integrate it into the existing framework.
 				
 			EasyChem

@@ -12,6 +12,7 @@ model("Another simple") {
 
 		par_group("The Q", a) {
 			q : par_real("Q", [], 0)
+			r : par_real("R", [], 0)
 		}
 		
 		var(a.p, [], "A P") {

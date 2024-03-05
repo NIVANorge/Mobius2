@@ -93,6 +93,8 @@ Parameter_Data : Registration_Base {
 	std::vector<Parameter_Value> values;
 	std::vector<std::string> values_enum; // Can't resolve them to int without knowledge of the model, which we on purpose don't have here.
 	
+	Entity_Id from_pos = invalid_entity_id;
+	
 	bool is_on_map_form = false;
 	std::vector<Parmap_Entry> parmap_data;
 	

@@ -86,23 +86,27 @@ Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc, bool al
 		const auto &identifier = ent.first;
 		const auto &entity = ent.second;
 		// NOTE: In a model, parameters are in the scope of parameter groups, and would not otherwise be imported into inlined modules. This fix is a bit unelegant though.
-		if(!entity.external || (allow_recursive_import_params && entity.id.reg_type == Reg_Type::parameter)) { // NOTE: no recursive importing
-			auto find = visible_entities.find(identifier);
-			if(find != visible_entities.end()) {
-				if(import_loc)
-					import_loc->print_error_header();
-				else
-					begin_error(Mobius_Error::parsing);
-				error_print("There is a name conflict with the identifier '", identifier, "'. It was declared separately in the following two locations:\n");
-				entity.source_loc.print_error();
-				find->second.source_loc.print_error();
-				fatal_error();
-			}
-			Scope_Entity new_entity = entity;
-			new_entity.external = true;
-			visible_entities[identifier] = new_entity;
-			identifiers[entity.id] = identifier;
+		// NOTE: no recursive importing unless explicitly specified.
+		// TODO: We should instead have two types of import (or 'exernal'), one that comes from a load() and one that comes from a parent scope.
+		
+		if(entity.external && !(allow_recursive_import_params && entity.id.reg_type == Reg_Type::parameter))
+			continue;
+		
+		auto find = visible_entities.find(identifier);
+		if(find != visible_entities.end()) {
+			if(import_loc)
+				import_loc->print_error_header();
+			else
+				begin_error(Mobius_Error::parsing);
+			error_print("There is a name conflict with the identifier '", identifier, "'. It was declared separately in the following two locations:\n");
+			entity.source_loc.print_error();
+			find->second.source_loc.print_error();
+			fatal_error();
 		}
+		Scope_Entity new_entity = entity;
+		new_entity.external = true;
+		visible_entities[identifier] = new_entity;
+		identifiers[entity.id] = identifier;
 	}
 }
 

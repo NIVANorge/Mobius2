@@ -76,6 +76,7 @@ Index_Record {
 	std::vector<std::unordered_map<std::string, s32>>   name_to_index;
 	
 	bool has_index_position_map = false;
+	std::vector<s32>                                    backup_counts;
 	std::vector<double> pos_vals;
 	s32 map_index(double value);
 };
