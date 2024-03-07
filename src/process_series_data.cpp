@@ -8,6 +8,8 @@ void
 fill_constant_range(Model_Application *app, Date_Time d0, Date_Time d1, double y, std::vector<s64> &write_offsets, Data_Storage<double, Var_Id> *data) {
 	s64 first = steps_between(data->start_date, d0, app->time_step_size);
 	s64 last  = steps_between(data->start_date, d1, app->time_step_size);
+	first = std::max(first, (s64)0);
+	last  = std::min(last, data->time_steps-1);
 	for(s64 ts = first; ts <= last; ++ts) {
 		for(s64 offset : write_offsets)
 			*data->get_value(offset, ts) = y;
@@ -40,10 +42,11 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 		for(int row = 0; row < (int)x_vals.size()-1; ++row) {
 			int at   = order[row];
 			int atp1 = order[row + 1];
-			fill_constant_range(app, dates[at], dates[atp1], y_vals[at], write_offsets, data);
+			if(x_vals[at] < data->start_date && x_vals[atp1] < data->start_date) continue;
+			fill_constant_range(app, x_vals[at], x_vals[atp1], y_vals[at], write_offsets, data);
 		}
 	} else if(flags & series_data_interp_linear || ((flags & series_data_interp_spline) && x_vals.size() <= 2) ) {
-		for(int row = 0; row < dates.size()-1; ++row) {
+		for(int row = 0; row < x_vals.size()-1; ++row) {
 			int at   = order[row];
 			int atp1 = order[row + 1];
 			
@@ -51,6 +54,8 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 			Date_Time last  = x_vals[atp1];
 			double    y0    = y_vals[at];
 			double    y1    = y_vals[atp1];
+			
+			if(first < data->start_date && last < data->start_date) continue;
 			
 			Expanded_Date_Time date(first, app->time_step_size);
 			double x_range = (double)(last.seconds_since_epoch - first.seconds_since_epoch);
@@ -62,6 +67,7 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 				
 			while(date.step <= last_step) {
 				if(date.step >= 0) {
+					if(date.step >= data->time_steps) break; // TODO: It could break out of the outer loop too.
 					double t = (double)(date.date_time.seconds_since_epoch - first.seconds_since_epoch) / x_range;
 					double y = t*y1 + (1.0 - t)*y0;
 					for(s64 offset : write_offsets)
@@ -132,8 +138,12 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 		}
 		
 		for(int row = 0; row < n_pt-1; ++row) {
+			
 			int at   = order[row];
 			int atp1 = order[row+1];
+			
+			if(x_vals[at] < data->start_date && x_vals[atp1] < data->start_date) continue;
+			
 			Expanded_Date_Time date(x_vals[at], app->time_step_size);
 		
 			double x_range = (double)(x_vals[atp1].seconds_since_epoch - x_vals[at].seconds_since_epoch);
@@ -147,12 +157,16 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 			date.step = step;
 			
 			while(date.step <= last_step) {
-				double t   = (double)(date.date_time.seconds_since_epoch - x_vals[at].seconds_since_epoch) / x_range;			
-				double y = (1.0-t)*y_vals[at] + t*y_vals[atp1] + t*(1.0-t)*( (1.0-t)*a + t*b );
 				
-				for(s64 offset : write_offsets)
-					*data->get_value(offset, date.step) = y;
-				
+				if(date.step >= 0) {
+					if(date.step >= data->time_steps) break; // TODO: It could break out of the outer loop too!
+					
+					double t   = (double)(date.date_time.seconds_since_epoch - x_vals[at].seconds_since_epoch) / x_range;			
+					double y = (1.0-t)*y_vals[at] + t*y_vals[atp1] + t*(1.0-t)*( (1.0-t)*a + t*b );
+					
+					for(s64 offset : write_offsets)
+						*data->get_value(offset, date.step) = y;
+				}
 				date.advance();
 			}
 		}
@@ -274,10 +288,15 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 				}
 				interpolate(app, series.dates, series.raw_values[col], offsets[col], header.flags, end_date, data);
 			} else {
+				// Write the data in directly.
 				for(s64 row = 0; row < nrows; ++row) {
 					s64 ts = first_step + row;
+					
 					if(series.has_date_vector)
 						ts = steps_between(data->start_date, series.dates[row], app->time_step_size);
+					
+					if(ts < 0) continue;
+					if(ts >= data->time_steps) break;
 					
 					double val = series.raw_values[col][row];
 					for(s64 offset : offsets[col])
@@ -288,6 +307,8 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 			// TODO: This processing should somehow happen before the interpolation, otherwise it
 			// is not nice in the year boundary. But then it must operate on the provided data rather than the processed data,
 			// and that is a bit tricky...
+			
+			// TODO: This breaks if the data is clamped by a series_interval. Another reason for it to read the source data directly and not the processed data.
 			if(header.flags & series_data_repeat_yearly) {
 				s32 y, m, d, h, mt, s;
 				

@@ -498,12 +498,29 @@ process_time_step_decl(Data_Set *data_set, Decl_AST *decl) {
 	
 	if(data_set->time_step_was_provided) {
 		decl->source_loc.print_error_header();
-		fatal_error("Duplicate declaration of time_step.");
+		fatal_error("Duplicate declaration of 'time_step'.");
 	}
 	match_declaration(decl, {{Decl_Type::unit}}, false);
 	data_set->time_step_unit.set_data(decl->args[0]->decl);
 	data_set->unit_source_loc = decl->source_loc;
 	data_set->time_step_was_provided = true;
+}
+
+void
+process_series_interval_decl(Data_Set *data_set, Decl_AST *decl) {
+	if(data_set->series_interval_was_provided) {
+		decl->source_loc.print_error_header();
+		fatal_error("Duplicate declaration of 'series_interval'.");
+	}
+	match_declaration(decl, {{Token_Type::date, Token_Type::date}}, false);
+	data_set->series_begin = single_arg(decl, 0)->val_date;
+	data_set->series_end   = single_arg(decl, 1)->val_date;
+	data_set->series_interval_was_provided = true;
+	
+	if(data_set->series_end < data_set->series_begin) {
+		single_arg(decl, 0)->print_error_header();
+		fatal_error("The start date can't be later than the end date for the 'series_interval'.");
+	}
 }
 
 void
@@ -853,6 +870,7 @@ Data_Set::read_from_file(String_View file_name) {
 		Decl_Type::preamble,
 		Decl_Type::par_group,
 		Decl_Type::series,
+		Decl_Type::series_interval,
 		Decl_Type::time_step,
 		Decl_Type::quick_select,
 		Decl_Type::position_map
@@ -865,6 +883,8 @@ Data_Set::read_from_file(String_View file_name) {
 	for(Decl_AST *child : body->child_decls) {
 		if(child->type == Decl_Type::time_step)
 			process_time_step_decl(this, child);
+		else if(child->type == Decl_Type::series_interval)
+			process_series_interval_decl(this, child);
 		else if(child->type == Decl_Type::module || child->type == Decl_Type::preamble)
 			register_single_decl(scope, child, allowed_data_decls); // Just so that it doesn't try to process the 'version' argument separately
 		else
@@ -1177,7 +1197,7 @@ Scope_Writer {
 };
 
 void
-write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer);
+write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer, bool leading_newline = true);
 
 void
 write_index_set_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id index_set_id) {
@@ -1482,9 +1502,13 @@ write_position_map_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id m
 }
 
 void
-write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer) {
+write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer, bool leading_newline) {
 	
-	writer->newline();
+	if(leading_newline)
+		writer->newline();
+	
+	for(auto id : scope->by_type<Reg_Type::series>())
+		write_series_to_file(data_set, writer, id);
 	
 	for(auto id : scope->by_type<Reg_Type::index_set>())
 		write_index_set_to_file(data_set, writer, id);
@@ -1495,14 +1519,11 @@ write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer)
 	for(auto id : scope->by_type<Reg_Type::connection>())
 		write_connection_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::quick_select>())
-		write_quick_select_to_file(data_set, writer, id);
-	
 	for(auto id : scope->by_type<Reg_Type::component>())
 		write_component_to_file(data_set, writer, id);
-		
-	for(auto id : scope->by_type<Reg_Type::series>())
-		write_series_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type<Reg_Type::quick_select>())
+		write_quick_select_to_file(data_set, writer, id);
 	
 	for(auto id : scope->by_type<Reg_Type::par_group>())
 		write_par_group_to_file(data_set, writer, id);
@@ -1517,15 +1538,11 @@ write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer)
 void
 Data_Set::write_to_file(String_View file_name) {
 	
-	//String_View backup_data = {};
-	
 	FILE *file = nullptr;
 	
 	bool error = false;
 	try {
-		//backup_data = read_entire_file(file_name); // Oops, this obviously only works if it doesn't exist already.
 		
-		// read_entire_file has closed it. Open it again for writing.
 		file = open_file(file_name, "wb");
 		Scope_Writer writer;
 		writer.file = file;
@@ -1546,10 +1563,18 @@ Data_Set::write_to_file(String_View file_name) {
 		if(time_step_was_provided) {
 			std::string unit_str = time_step_unit.to_decl_str();
 			writer.write("time_step(%s)", unit_str.data());
-			writer.newline();
+			writer.newline(2);
 		}
 		
-		write_scope_to_file(this, &top_scope, &writer);
+		if(series_interval_was_provided) {
+			char buf1[64], buf2[64];
+			series_begin.to_string(buf1);
+			series_end.to_string(buf2);
+			writer.write("series_interval(%s, %s)", buf1, buf2);
+			writer.newline(2);
+		}
+		
+		write_scope_to_file(this, &top_scope, &writer, false);
 		
 		writer.close_scope();
 		
@@ -1563,18 +1588,6 @@ Data_Set::write_to_file(String_View file_name) {
 	
 	if(error) {
 		error_print("Error occured during data set saving. ");
-		/*
-		if(backup_data.count && file_was_opened) {
-			try {
-				error_print("Trying to back up the file to its original state.");
-				file = open_file(file_name, "w");
-				if(file) {
-					fwrite(backup_data.data, backup_data.count, 1, file);
-					fclose(file);
-				}
-			} catch(int) {
-			}
-		}*/
 		mobius_error_exit();
 	}
 }

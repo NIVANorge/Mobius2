@@ -111,7 +111,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	horz_flow : property("Horizontal flow")
 	var(edge_layer.horz_flow, [m 3, day-1], "Layer horizontal outflow") {
 		#NOTE: This can be both positive and negative depending on the flow direction.
-		#copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP) * w_bnd * layer.dz ->>
 		horz_flow_vel*w_bnd*layer.dz->>
 	} @no_store
 	
@@ -154,5 +153,10 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	align_frac : property("Alignment fraction")
 	var(layer.align_frac, [day-1]) {
 		water.align/water
+	}
+	
+	horz_flow_frac : property("Horizontal flow fraction")
+	var(layer.horz_flow_frac, [day-1]) {
+		aggregate(edge_layer.horz_flow) / water
 	}
 }

@@ -139,19 +139,13 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		
 		}
 		
-		par_group("Initial layer physical", basin, layer) {
+		par_group("Initial layer physical") {
 			
-			par_real("Initial layer temperature") [!
-				"Drammensfjorden" : [!
-					0 : 8
-				]
-			]
+			par_real("Initial layer temperature") 
+			[ 8 ]
 			
-			par_real("Initial layer salinity") [!
-				"Drammensfjorden" : [!
-					0 : 33
-				]
-			]
+			par_real("Initial layer salinity") 
+			[ 3 ]
 		
 		}
 	

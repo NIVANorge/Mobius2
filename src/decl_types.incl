@@ -35,6 +35,7 @@ ENUM_VALUE(flux, function, flux)
 ENUM_VALUE(discrete_order, function, discrete_order)
 ENUM_VALUE(external_computation, function, external_computation)
 ENUM_VALUE(series, none, series)    // NOTE: This one is only for data sets, not in model code.
+ENUM_VALUE(series_interval, none, unrecognized) // data set
 ENUM_VALUE(directed_graph, regex, unrecognized)  // same here, although it does appear as a note in the model.
 ENUM_VALUE(time_step, none, unrecognized) // only for data sets.
 ENUM_VALUE(quick_select, none, quick_select) // data sets

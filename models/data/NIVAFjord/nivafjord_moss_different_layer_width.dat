@@ -1,10 +1,13 @@
 data_set {
 	
 """
-TODO: Need to configure all the parameters correctly.TODO: Some part of the catchment that is not Mosselva (small).NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
+TODO: Need to configure all the parameters correctly.NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
 	time_step([3, hr])
+	
+	series_interval(2015-01-01, 2020-12-31)
+	
 	
 	basin : index_set("Basin index") [ "Mossesundet" ]
 	
@@ -25,13 +28,13 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	water_body : index_set("Water body") @union(sc, lake, basin) 
 	
-	fjord_conn : index_set("Fjord connection index") @sub(basin)
+	fjord_conn : index_set("Fjord connection index") @sub(basin) 
 	
 	position_map(layer) [!
 		0 : 1
-		20 : 2
-		40 : 5
-		60 : 10
+		6 : 2
+		10 : 10
+		60 : 20
 	]
 	
 	connection("Downstream") {
@@ -59,15 +62,47 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		]
 	}
 	
-	quick_select("Fjord vars") [!
-		"Temperature" : [ "Layer temperature" ]
-		"Salinity" : [ "Layer salinity" ]
-		"chl-a" : [ "Layer chl-a" ]
-	]
-	
 	series("C:/Data/simplycnp_oslofjord/mobius2_files/vansjo/vansjo_mobius_one_meteo.xlsx")
 	
 	series("nivafjord_moss.xlsx")
+	
+	quick_select("Fjord vars") [!
+		"Temperature" : [ "Layer temperature" ]
+		"Salinity" : [ "Layer salinity" ]
+		"O₂" : [ "O₂ saturation" ]
+		"chl-a" : [ "Layer chl-a" ]
+		"DOC" : [ "concentration(Layer DOC, Layer water)" ]
+		"DIN" : [ "concentration(Layer DIN, Layer water)" ]
+		"DIP" : [ "concentration(Layer DIP, Layer water)" ]
+	]
+	
+	quick_select("River vars") [!
+		"Q" : [ "Reach flow flux" "Obs Q" ]
+		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
+		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
+		"TN" : [ "River TN" "Obs TN" ]
+		"TOC" : [ "River TOC concentration" "Obs TOC" ]
+		"TP" : [ "River TP" "Obs TP" ]
+		"TDP" : [ "River TDP" "Obs TDP" ]
+		"DIP" : [ "concentration(River DIP, Reach water volume)" "Obs DIP" ]
+		"PP" : [ "concentration(River PP, Reach water volume)" "Obs PP" ]
+		"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
+	]
+	
+	quick_select("Lake vars") [!
+		"Temperature" : [ "Epilimnion temperature" "Obs Temperature" ]
+		"Ice ind" : [ "Ice indicator" "Observed ice indicator Vanem" ]
+		"DIN" : [ "concentration(Epilimnion DIN, Epilimnion volume)" "Obs DIN" ]
+		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
+		"TN" : [ "Epilimnion TN" "Obs TN" ]
+		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
+		"TP" : [ "Epilimnion TP" "Obs TP" ]
+		"TDP" : [ "Epilimnion TDP" "Obs TDP" ]
+		"DIP" : [ "concentration(Epilimnion DIP, Epilimnion volume)" "Obs DIP" "Obs TDP" ]
+		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
+		"SS" : [ "Epilimnion STS" "Obs SS" ]
+		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
+	]
 	
 	par_group("System") {
 		
@@ -79,24 +114,56 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	}
 	
+	par_group("Solver step") {
+		
+		par_real("Initial solver step") 
+		[ 0.5 ]
+		
+		par_real("Solver relative min step") 
+		[ 0.01 ]
+	
+	}
+	
+	par_group("Catchment data", sc) {
+		
+		par_real("Catchment area") 
+		[ 49.257 106.904 37.188 107.68 30.3688 253.213 55.7764 13.9768 ]
+	
+	}
+	
+	par_group("Land cover", sc, lu) {
+		
+		par_real("Land use proportions") [
+			0.49 0.51 
+			0.04 0.96 
+			0.15 0.85 
+			0.32 0.68 
+			0.27 0.73 
+			0.13 0.87 
+			0.21 0.78 
+			0.04 0.96 
+		]
+	
+	}
+	
 	preamble("NIVAFjord dimensions", version(0, 0, 0)) {
 		
 		par_group("Layer area", basin, layer) {
 			
 			par_real("Layer area") [!
 				"Mossesundet" : [!
-					0 : 5.653e6
-					10 : 4.408e6
-					20 : 3.635e6
-					30 : 3.006e6
-					40 : 2.433e6
-					50 : 1.802e6
-					60 : 1.118e6
-					70 : 0.557e6
-					80 : 0.293e6
-					90 : 0.077e6
-					100: 0.018e6
-					109.9: 0
+					0 : 5653000
+					10 : 4408000
+					20 : 3635000
+					30 : 3006000
+					40 : 2433000
+					50 : 1802000
+					60 : 1118000
+					70 : 557000
+					80 : 293000
+					90 : 77000
+					100 : 18000
+					109.9 : 0
 				]
 			]
 		
@@ -109,17 +176,6 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		}
 	
 	}
-	
-	par_group("Solver step") {
-		
-		par_real("Initial solver step") 
-		[ 0.0025 ]
-		
-		par_real("Solver relative min step") 
-		[ 0.001 ]
-	
-	}
-
 	
 	module("NIVAFjord basin", version(0, 0, 2)) {
 		
@@ -150,13 +206,11 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		
 		par_group("Initial layer physical") {
 			
-			par_real("Initial layer temperature") [
-				8
-			]
+			par_real("Initial layer temperature") 
+			[ 8 ]
 			
-			par_real("Initial layer salinity") [
-				33 
-			]
+			par_real("Initial layer salinity") 
+			[ 33 ]
 		
 		}
 	
@@ -190,7 +244,7 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 0.05 ]
 			
 			par_real("Vertical realignment rate") 
-			[ 30 ]
+			[ 200 ]
 		
 		}
 		
@@ -217,13 +271,11 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		
 		par_group("Initial chem") {
 			
-			par_real("Initial O₂ saturation") [
-				1
-			]
+			par_real("Initial O₂ saturation") 
+			[ 1 ]
 			
-			par_real("Initial DOC concentration") [
-				0
-			]
+			par_real("Initial DOC concentration") 
+			[ 0 ]
 		
 		}
 		
@@ -294,21 +346,17 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		
 		par_group("Initial chem") {
 			
-			par_real("Initial sediment C fraction") [
-				10 
-			]
+			par_real("Initial sediment C fraction") 
+			[ 10 ]
 			
-			par_real("Initial sediment N fraction") [
-				1 
-			]
+			par_real("Initial sediment N fraction") 
+			[ 1 ]
 			
-			par_real("Initial sediment IP fraction") [
-				1
-			]
+			par_real("Initial sediment IP fraction") 
+			[ 1 ]
 			
-			par_real("Initial sediment OP fraction") [
-				0.1
-			]
+			par_real("Initial sediment OP fraction") 
+			[ 0.1 ]
 		
 		}
 	
@@ -363,56 +411,6 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			[ 1e-06 ]
 		
 		}
-	
-	}
-	
-	quick_select("River vars") [!
-		"Q" : [ "Reach flow flux" "Obs Q" ]
-		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
-		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
-		"TN" : [ "River TN" "Obs TN" ]
-		"TOC" : [ "River TOC concentration" "Obs TOC" ]
-		"TP" : [ "River TP" "Obs TP" ]
-		"TDP" : [ "River TDP" "Obs TDP" ]
-		"DIP" : [ "concentration(River DIP, Reach water volume)" "Obs DIP" ]
-		"PP" : [ "concentration(River PP, Reach water volume)" "Obs PP" ]
-		"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
-	]
-	
-	quick_select("Lake vars") [!
-		"Temperature" : [ "Epilimnion temperature" "Obs Temperature" ]
-		"Ice ind" : [ "Ice indicator" "Observed ice indicator Vanem" ]
-		"DIN" : [ "concentration(Epilimnion DIN, Epilimnion volume)" "Obs DIN" ]
-		"DON" : [ "concentration(Epilimnion DON, Epilimnion volume)" "Obs DON" ]
-		"TN" : [ "Epilimnion TN" "Obs TN" ]
-		"TOC" : [ "Epilimnion TOC" "Obs TOC" ]
-		"TP" : [ "Epilimnion TP" "Obs TP" ]
-		"TDP" : [ "Epilimnion TDP" "Obs TDP" ]
-		"DIP" : [ "concentration(Epilimnion DIP, Epilimnion volume)" "Obs DIP" "Obs TDP" ]
-		"O₂" : [ "concentration(Epilimnion O₂, Epilimnion volume)" "Obs O₂" ]
-		"SS" : [ "Epilimnion STS" "Obs SS" ]
-		"chl-a" : [ "Chlorophyll-a" "Obs chl-a" ]
-	]
-	
-	par_group("Catchment data", sc) {
-		
-		par_real("Catchment area") 
-		[ 49.257 106.904 37.188 107.68 30.3688 253.213 55.7764 13.9768 ]
-	
-	}
-	
-	par_group("Land cover", sc, lu) {
-		
-		par_real("Land use proportions") [
-			0.49 0.51 
-			0.04 0.96 
-			0.15 0.85 
-			0.32 0.68 
-			0.27 0.73 
-			0.13 0.87 
-			0.21 0.78 
-			0.04 0.96 
-		]
 	
 	}
 	
@@ -986,6 +984,17 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 			
 			par_real("OM molar C/P ratio") 
 			[ 2500 ]
+		
+		}
+	
+	}
+	
+	module("EasyChem-Sediment-Simple-P", version(0, 0, 0)) {
+		
+		par_group("Sediment P", lake) {
+			
+			par_real("Sediments P release") 
+			[ 0 0 0 0 ]
 		
 		}
 	

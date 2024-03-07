@@ -1,6 +1,10 @@
 
 
 	*** High pri ***
+	
+		Would be very useful to turn on an option to store out what variables are causing error control to reduce step size somehow.
+		
+		May want some type of markup for date literals in main Data_Set (not in series file).
 		
 		Specific models
 		
@@ -22,13 +26,20 @@
 				Take into account angle of shortwave radiation as it goes down the depth (so that one gets the right attenuation). Maybe diurnal variations.
 				
 				
+				Make volume use avg. of area at top and bottom.
+					Similarly with area to connection.
+					And make sure this makes sense throughout.
+						Difficult if we continue to have dynamic thickness, because computing the thickness doesn't make that much sense in that case.
+				
 				Position_Map
-					Should probably rename to width_map.
+					Should probably rename to 'width_map' or 'thickness'.
 					Use it to position x/y-values in MobiView2 Profile and Profile2d also!
-					Should probably display the index name as the position before, not the end position of the index. Or even as the interval. ("0-1" etc).
+					Should probably display the index name as the position before, not the end position of the end of the index. Or even as the interval. ("0-1" etc).
 						Just have to make sure they are not stored as that in any files.
+					There can be problems if the max depth doesn't exactly match a boundary of two widths.
+						See for instance Breiangen in nivafjord_moss
 				Parameters on map form:
-					These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn it off for now).
+					These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn off editing for now).
 						Well, technically they could be, but couldn't be saved back to dataset.
 					
 				

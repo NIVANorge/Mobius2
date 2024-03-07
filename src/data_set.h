@@ -190,6 +190,11 @@ Data_Set : Catalog {
 	Unit_Data                       time_step_unit;
 	bool                            time_step_was_provided = false;
 	
+	Date_Time                       series_begin;
+	Date_Time                       series_end;
+	bool                            series_interval_was_provided = false;
+	
+	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
 	void generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of);

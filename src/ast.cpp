@@ -235,7 +235,7 @@ parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_uni
 					stream->expect_token(']');
 				}
 			}
-		} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type)) { // Literal values.
+		} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type) || next.type == Token_Type::date) { // Literal values.
 			arg->chain.push_back(next);
 			stream->read_token();
 		} else if ((char)next.type == '[') { // Unit declaration

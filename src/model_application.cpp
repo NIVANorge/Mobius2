@@ -559,14 +559,17 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Entity_Id se
 			(!series.has_date_vector && series.time_steps==0) )   // Ignore empty data block.
 			return;
 		
-		if(series.start_date < metadata->start_date)
-			metadata->start_date = series.start_date;
-		
-		Date_Time end_date = series.end_date;
-		if(!series.has_date_vector)
-			end_date = advance(series.start_date, app->time_step_size, series.time_steps-1);
-		
-		if(end_date > metadata->end_date) metadata->end_date = end_date;
+		// If the data set does not provide a clamping interval for the series data, expand the interval to fit all the provided data.
+		if(!data_set->series_interval_was_provided) {
+			if(series.start_date < metadata->start_date)
+				metadata->start_date = series.start_date;
+			
+			Date_Time end_date = series.end_date;
+			if(!series.has_date_vector)
+				end_date = advance(series.start_date, app->time_step_size, series.time_steps-1);
+			
+			if(end_date > metadata->end_date) metadata->end_date = end_date;
+		}
 		
 		metadata->any_data_at_all = true;
 
@@ -601,8 +604,9 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Entity_Id se
 				if(metadata->index_sets_additional.find(*ids.begin()) != metadata->index_sets_additional.end()) continue;
 			}
 			
-			for(auto &index : header.indexes[0].indexes) {  // NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples somewhere else.
-				// NOTE: this should be valid since we already tested it internally in the data set.
+			for(auto &index : header.indexes[0].indexes) {
+				// NOTE: just check the index sets of the first index tuple. We check for internal consistency between tuples when we process the data later
+				// NOTE: the tuple should be structurally valid since we already tested it internally in the data set. We only have to check that it can index the components of the series location.
 				auto idx_set = data_set->index_sets[index.index_set];
 				Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
 				if(!is_valid(index_set))
@@ -995,6 +999,11 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		Series_Metadata metadata;
 		metadata.start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
 		metadata.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
+		
+		if(data_set->series_interval_was_provided) {
+			metadata.start_date = data_set->series_begin;
+			metadata.end_date = data_set->series_end;
+		}
 		
 		for(auto series_id : data_set->series)
 			process_series_metadata(this, data_set, series_id, &metadata);

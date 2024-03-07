@@ -341,10 +341,10 @@ struct
 Series_Metadata {
 	Date_Time start_date;
 	Date_Time end_date;
-	bool any_data_at_all;
+	bool any_data_at_all = false;
 	std::unordered_map<Var_Id, std::vector<Entity_Id>, Hash_Fun<Var_Id>> index_sets;
 	std::unordered_map<Var_Id, std::vector<Entity_Id>, Hash_Fun<Var_Id>> index_sets_additional;
-	Series_Metadata() : any_data_at_all(false) {}
+	Series_Metadata() {}
 };
 
 struct

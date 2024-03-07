@@ -321,8 +321,14 @@ Index_Data::find_index_base(Entity_Id index_set_id, Token *idx_name, Index_T ind
 	if(data.has_index_position_map && (is_numeric(idx_name->type))) {
 		double val = idx_name->double_value();
 		s32 mapped = data.map_index(val);
+		auto count = get_count_base(index_set_id, index_of_super);
+		
+		// TODO: This is just a very cheap fix and could probably cause errors. Fix it properly instead.
+		//if(mapped == count)
+		//	mapped = count-1;
+		
 		Index_T result = Index_T { index_set_id, mapped };
-		if(result.index < 0 || result.index >= get_count_base(index_set_id, index_of_super))
+		if(result.index < 0 || result.index >= count)
 			return Index_T::no_index();
 		return result;
 	} else if(idx_name->type == Token_Type::quoted_string) {
