@@ -37,7 +37,7 @@ The user must provide either "Global radiation" or "Cloud cover" as an input ser
 	# The idea is that some of these can be overridden with input data if it exists. TODO: make a @can_override or something like that to allow it.
 	
 	var(air.g_rad_cloud_free, [W, m-2]) {
-		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year, time.days_this_year=>[day]),
+		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year),
 		clear_sky_shortwave(ext, elev)
 	}
 	

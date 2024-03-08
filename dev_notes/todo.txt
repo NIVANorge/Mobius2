@@ -2,9 +2,8 @@
 
 	*** High pri ***
 	
-		Would be very useful to turn on an option to store out what variables are causing error control to reduce step size somehow.
-		
-		May want some type of markup for date literals in main Data_Set (not in series file).
+		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size somehow.
+			Requires a lot of extra infrastructure for this to be possible though.
 		
 		Specific models
 		
@@ -137,30 +136,27 @@
 			It is now detected with an error at least. But hard for users to understand.
 	
 	
-		process_series_data
-	
-			Find a way to make it possible to specify a certain range of input dates for a data set not relying on each loaded series file.
-				In case we only want to load a section of the series (if there are memory limitations or the processing is slow).
-				E.g.   crop_series( 2015-01-01, 2020-12-31 )	
+		process_series_data	
 					
 			Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
+				Have to be more careful that we don't do double assignments during interpolation in that case.
+				Is there a way to do it without double allocation during setup?
+				
+			Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
+				A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.
+				
+				It is only really relevant for some series. In some cases it is ok if provided data doesn't cover the entire interval.
+			Clear model input series to NaN outside the individual interval.
+				What to do if an input is interpolated and not 'inside'?
 	
 		MobiView :
 			Make model reloads work better wrt 'quick select'.
-				If the quick select tab is on
+				If the quick_select tab is open, it should choose the right thing back.
 								
 			Seasonal aggregation.
 				I.e. the mean for jan, feb, ... across multiple years.
 				Maybe with box plot.
 		
-		Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
-			A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.
-		Clear model input series to NaN outside the individual interval.
-			What to do if an input is interpolated and not 'inside'?
-				
-	
-		mobipy slow to load easylake_simplycnp?
-	
 		
 		Should have better processing of docstrings.
 			Right now they must be tabbed entirely to the left or otherwise the tabs inside the string is recorded.
@@ -179,6 +175,10 @@
 					index_set() ....
 				}
 				Have to decide what to do with broken connection arrows.
+			
+			Make it possible to have a data file extend another one.
+				The problem is how the 'save' functionality will work for that...
+				Also may want @except on this too. (For instance for connections that could be different in the extending file).
 			
 		Allow index sets to be empty (needed for above to work).
 			Invalidate state variables that are dependent on empty index sets.

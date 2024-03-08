@@ -28,6 +28,8 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 	order.reserve(dates.size());
 	
 	int valid = 0;
+	// NOTE: We can't rule out dates that fall outside the date range here already, because we
+	// may use partially overlapping intervals for the interpolation.
 	for(int row = 0; row < dates.size(); ++row) {
 		if(std::isfinite(vals[row])) {
 			x_vals.push_back(dates[row]);
@@ -308,9 +310,13 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 			// is not nice in the year boundary. But then it must operate on the provided data rather than the processed data,
 			// and that is a bit tricky...
 			
-			// TODO: This breaks if the data is clamped by a series_interval. Another reason for it to read the source data directly and not the processed data.
 			if(header.flags & series_data_repeat_yearly) {
 				s32 y, m, d, h, mt, s;
+				
+				if(series.start_date < data->start_date) {
+					header.source_loc.print_error_header();
+					fatal_error("A 'repeat_yearly' can only be used when the series starts at or after the 'series_interval' start (when a 'series_interval' is provided).");
+				}
 				
 				Date_Time behind = series.start_date;
 				
@@ -321,6 +327,7 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 				ahead.add_timestamp(h, mt, s);
 				s64 first_new = steps_between(data->start_date, ahead, app->time_step_size);
 				s64 nrows     = steps_between(ahead, end_date, app->time_step_size);
+				if(nrows < 0) continue;
 				
 				Expanded_Date_Time iter(behind, app->time_step_size);
 				for(s64 row = 0; row < nrows; ++row) {

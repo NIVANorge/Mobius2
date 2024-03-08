@@ -64,22 +64,42 @@ library("Radiation") {
 
 	load(library("Meteorology"))
 	load("physiochemistry.txt", library("Thermodynamics"))
+	load("basic_math.txt", library("Basic"))
 	
 	# TODO: Document!
 	
 	solar_constant : constant("Solar constant", [W, m-2], 1361)
 	
-	daily_average_extraterrestrial_radiation : function(latitude : [deg], day_of_year : [day], days_this_year : [day]) {
-		orbit_rad              := (2*pi*day_of_year)/days_this_year,  # NOTE: Have to bracket the first part to avoid integer division.
-		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(orbit_rad),
+	daily_average_extraterrestrial_radiation : function(latitude : [deg], day_of_year : [day]) {
+		orbit_rad              := (2*pi*day_of_year)/365.0[day],
+		lat_rad                := radians(latitude),
 		solar_declination      := 0.409*sin(orbit_rad - 1.39),
-		lat_rad                := latitude * pi / 180.0[deg],
 		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination)),
+		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(orbit_rad),
 		
 		(solar_constant / pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
 	}
 	
+	hourly_average_radiation : function(daily_mean_rad : [W, m-2], day_of_year : [day], hour_of_day : [hr], time_zone : [hr], latitude : [deg], longitude : [deg]) {
+		orbit_rad              := (2*pi*day_of_year)/365.0[day],
+		lat_rad                := radians(latitude),
+		solar_declination      := 0.409*sin(orbit_rad - 1.39),
+		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination)),
+		
+		b                      := 2*pi*(day_of_year - 81[day])/365.0[day],
+		eot                    := 9.87*sin(b) - 7.53*cos(b) - 1.5*sin(b),                    # "Equation of time"
+		lsmt                   := 15[deg, hr-1]*time_zone,                                   # Local standard meridian
+		ast                    := hour_of_day + eot + 4[min, deg-1]*(lsmt - longitude)->[hr], # Apparent true solar time
+		hour_angle             := radians(15[deg, hr-1]*(ast - 12[hr])),
+		
+		cosshr := cos(sunset_hour_angle),
+		factor := (pi/24)*(cos(hour_angle) - cosshr) / (sin(sunset_hour_angle) - sunset_hour_angle*cosshr),
+		
+		daily_mean_rad * max(0, factor)
+	}
+	
 	clear_sky_shortwave : function(extrad : [W, m-2], elev : [m]) {
+		# Shortwave on the earth surface given extraterrestrial radiation and elevation (assuming no cloud cover).
 		extrad * (0.75 + 2e-5[m-1]*elev)
 	}
 	
@@ -93,6 +113,4 @@ library("Radiation") {
 		black_body_radiation(eff_t)
 	}
 }
-	
-	# TODO: Make hourly_average_extraterrestrial_radiation
 	

@@ -463,8 +463,7 @@ Model_Application {
 	void set_up_connection_structure();
 	void set_up_index_count_structure();
 	
-	void
-	set_up_series_structure(Var_Id::Type type, Series_Metadata *metadata);
+	void set_up_series_structure(Var_Id::Type type, Series_Metadata *metadata);
 	
 	// TODO: this one should maybe be on the Model_Data struct instead
 	void allocate_series_data(s64 time_steps, Date_Time start_date);

@@ -1023,6 +1023,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		
 		for(auto series_id : data_set->series)
 			process_series(this, data_set, series_id, metadata.end_date);
+		
 	} else {
 		set_up_series_structure(Var_Id::Type::series,            nullptr);
 		set_up_series_structure(Var_Id::Type::additional_series, nullptr);

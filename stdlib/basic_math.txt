@@ -17,6 +17,10 @@ library("Basic") {
 	clamp : function(a, mn, mx) {
 		min(max(a, mn), mx)
 	}
+	
+	radians : function(a : [deg]) {
+		a * pi / 180[deg]
+	}
 }
 
 
