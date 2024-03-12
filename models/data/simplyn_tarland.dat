@@ -58,7 +58,7 @@ module("HBVSnow", 1, 0, 0) {
 
 module("Degree-day PET", 1, 0, 0) {
 	par_group("Potential evapotranspiration") {
-		par_real("Deegree-day factor for evapotranspiration")
+		par_real("Degree-day factor for evapotranspiration")
 		[ 0.15 ]
 
 		par_real("Minimal temperature for evapotranspiration")

@@ -309,7 +309,7 @@ River-specific contaminant processes that are not covered by the partitioning mo
 		sed_exch : par_real("Suspended sediment bed exchange coefficient", [day-1], 0.2)
 	}
 	
-	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Contaminants mobilized with sediment mobilization") {
+	flux(soil.oc.tox, river.water.sed.oc.tox, [n g, m-2, day-1], "Contaminant transport with sediment mobilization") {
 		soil.e_fact*river.e_fact*conc(river.water.sed.oc)*conc(soil.oc.tox)->>
 	}
 	

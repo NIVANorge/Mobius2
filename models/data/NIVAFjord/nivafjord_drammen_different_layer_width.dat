@@ -203,7 +203,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		
 		par_group("Potential evapotranspiration", sc, lu) {
 			
-			par_real("Deegree-day factor for evapotranspiration") [
+			par_real("Degree-day factor for evapotranspiration") [
 				0.09 
 			]
 			

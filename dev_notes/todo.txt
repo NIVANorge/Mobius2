@@ -7,6 +7,13 @@
 		
 		Specific models
 		
+		
+			TDP mass balance in SimplyP requires that the 'flow' used in the equation should include quick flow.
+				Another reason why it would be nice to have 'out_flux'.
+			
+			"Deegree-day factor" in PET module.
+				Unfortunately have to fix all the parameter files too :(
+		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
 			
 			NIVAFjord!		
@@ -141,6 +148,9 @@
 			Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
 				Have to be more careful that we don't do double assignments during interpolation in that case.
 				Is there a way to do it without double allocation during setup?
+				
+				What we really want this for is just when indexes of the same series are provided multiple times.
+				
 				
 			Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
 				A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.

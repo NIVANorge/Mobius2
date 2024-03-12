@@ -74,7 +74,7 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 		
 		par_group("Potential evapotranspiration") {
 			
-			par_real("Deegree-day factor for evapotranspiration") 
+			par_real("Degree-day factor for evapotranspiration") 
 			[ 0.15 ]
 			
 			par_real("Minimal temperature for evapotranspiration") 

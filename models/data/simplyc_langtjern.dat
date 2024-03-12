@@ -99,7 +99,7 @@ TODO: description
 
 	module("Degree-day PET", version(1, 0, 0)) {
 		par_group("Potential evapotranspiration", lu) {
-			par_real("Deegree-day factor for evapotranspiration")
+			par_real("Degree-day factor for evapotranspiration")
 			[ 0.12 ]
 
 			par_real("Minimal temperature for evapotranspiration")

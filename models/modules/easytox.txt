@@ -33,7 +33,7 @@ module("EasyTox", version(0, 0, 0),
 	# TODO: Why does this slow down the model so much?
 	flux(epi.water.tox, out, [n g, day-1], "Lake contaminant photo-degradation") {
 		# TODO: What about attenuation of sw in the epilimnion?
-		(!ice.indicator)*opt_c * qy * (f_par / e_par) * sw * tox ->>
+		(!ice.indicator) * opt_c * qy * (f_par / e_par) * sw * tox ->>
 	}
 	
 	var(hyp.water.tox.moldiff, [m 2, s-1])

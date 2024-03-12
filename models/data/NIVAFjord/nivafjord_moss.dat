@@ -529,7 +529,7 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 		
 		par_group("Potential evapotranspiration", lu) {
 			
-			par_real("Deegree-day factor for evapotranspiration") 
+			par_real("Degree-day factor for evapotranspiration") 
 			[ 0.14 0.22 ]
 			
 			par_real("Minimal temperature for evapotranspiration") 

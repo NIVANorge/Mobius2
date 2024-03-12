@@ -194,7 +194,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * A[vert.below]/A
 	}
 	
-	#TODO: If we implement sediment temperature, this should be directed to sediment.heat instead.
+	#TODO: If we implement sediment heat balance, this should be directed to sediment.heat instead.
 	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
 		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * (A - A[vert.below])/A
 	}
