@@ -322,11 +322,6 @@ Index_Data::find_index_base(Entity_Id index_set_id, Token *idx_name, Index_T ind
 		double val = idx_name->double_value();
 		s32 mapped = data.map_index(val);
 		auto count = get_count_base(index_set_id, index_of_super);
-		
-		// TODO: This is just a very cheap fix and could probably cause errors. Fix it properly instead.
-		//if(mapped == count)
-		//	mapped = count-1;
-		
 		Index_T result = Index_T { index_set_id, mapped };
 		if(result.index < 0 || result.index >= count)
 			return Index_T::no_index();

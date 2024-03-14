@@ -200,8 +200,7 @@ mobius_get_series_metadata(Model_Application *app, Var_Id var_id) {
 		result.name = (char *)var->name.data();
 		auto unit = var->unit.to_utf8();
 		strcpy(unit_buffer, unit.data());
-		result.unit = unit_buffer;   // TODO: Not thread safe.
-		//result.unit = var->unit.to_utf8()
+		result.unit = unit_buffer;   // TODO: Not thread safe or buffer safe.
 	} catch(int) {}
 	return result;
 }
@@ -365,7 +364,6 @@ mobius_get_series_data_slice(Model_Application *app, Var_Id var_id, Mobius_Index
 		s64 offset = storage.structure->get_offset(var_id, indexes);
 		
 		for(s64 step = 0; step < time_steps; ++step)
-			//series_out[idx*time_steps + step] = *storage.get_value(offset, step);
 			series_out[step*dim + idx] = *storage.get_value(offset, step);
 	}
 }
@@ -442,17 +440,30 @@ mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Ind
 
 DLLEXPORT Mobius_Entity_Metadata
 mobius_get_entity_metadata(Model_Application *app, Entity_Id id) {
+	static char unit_buffer[128];
+	
 	Mobius_Entity_Metadata result = {};
 	try {
 		auto reg = app->model->find_entity(id);
 		result.name = (char *)reg->name.data();
 		if(id.reg_type == Reg_Type::parameter) {
-			// TODO: Unit;
+			
 			auto par = app->model->parameters[id];
 			result.description = (char *)par->description.data();
 			result.min = par->min_val;
 			result.max = par->max_val;
+			auto unit = var->unit.to_utf8();
+			strcpy(unit_buffer, unit.data());
+			result.unit = unit_buffer;   // TODO: Not thread safe or buffer safe.
 		}
 	} catch(int) {}
 	return result;
+}
+
+DLLEXPORT Var_Id
+mobius_get_flux(Model_Application *app, Entity_Id decl_id) {
+	try {
+		fatal_error(Mobius_Error::internal, "Unimplemented mobius_get_flux!");
+	} catch(int) {}
+	return invalid_var;
 }

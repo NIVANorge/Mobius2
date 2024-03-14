@@ -149,7 +149,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// NOTE: it is easier just to set the generated code for both the mass and conc as we process the mass
 			auto conc = as<State_Var::Type::dissolved_conc>(app->vars[conc_id]);
 			auto &conc_instr = instructions[conc_id.id];
-			auto dissolved_in = conc->conc_in;//app->vars.id_of(remove_dissolved(var->loc1));
+			auto dissolved_in = conc->conc_in;
 				
 			if(var2->initial_is_conc) {
 				// conc is given. compute mass
@@ -172,16 +172,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 		
 		if(!initial && instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = app->vars[instr.var_id];
-			
-			// Directly override the mass of a quantity
-			// Commented out since this happens in model_compilation now like with properties etc.
-			/*
-			if(var->type == State_Var::Type::declared) {
-				auto var2 = as<State_Var::Type::declared>(var);
-				if(var2->decl_type == Decl_Type::quantity && var2->function_tree && !var2->override_is_conc)
-					instr.code = copy(var2->function_tree.get());
-			}
-			*/
 			
 			// Codegen for concs of dissolved variables
 			if(var->type == State_Var::Type::dissolved_conc) {
@@ -321,6 +311,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				weight = copy(weight);
 			
 			instr.code = make_possibly_weighted_var_ident(app, instr.var_id, weight, nullptr);
+			
 		} else if (instr.type == Model_Instruction::Type::add_to_parameter_aggregate) {
 			
 			auto agg_var = as<State_Var::Type::parameter_aggregate>(app->vars[instr.target_id]);
@@ -408,6 +399,8 @@ set_grid1d_target_indexes_with_possible_specific(Model_Application *app, Index_E
 void
 set_graph_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id connection_id, Entity_Id source_compartment, Entity_Id target_compartment) {
 	
+	// Assuming we are in a source_compartment and want to look at a target_compartment allong a connection, we update the indexes expression to correctly index the target (potentially depending on the indexes of the source).
+	
 	auto type = app->model->connections[connection_id]->type;
 	if(type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "Misuse of set_graph_target_indexes().");
@@ -419,6 +412,10 @@ set_graph_target_indexes(Model_Application *app, Index_Exprs &indexes, Entity_Id
 	if(find_target->index_sets.empty()) return;
 	
 	for(int idx = 0; idx < find_target->index_sets.size(); ++idx) {
+		
+		// TODO: We update the indexes at the same time as we modify them. Ideally the result should only be dependent on what we initially passed in...
+		//   This will rarely cause a problem since it is unlikely to be an overlap, but we should fix it.
+		
 		int id = idx+1;
 		auto index_set = find_target->index_sets[idx];
 		// NOTE: we create the formula to look up the index of the target, but this is stored using the indexes of the source.
@@ -446,16 +443,12 @@ maybe_apply_back_step(Model_Application *app, Identifier_Data *ident, Math_Expr_
 	else if(ident->variable_type == Variable_Type::state_var && ident->var_id.type == Var_Id::Type::state_var)
 		back_step = app->result_structure.total_count;
 	
-	ident->remove_flag(Identifier_FT::last_result);
+	ident->remove_flag(Identifier_FT::last_result); // NOTE: The flag is removed so that we can validate in the end that all flags are taken care of.
 	
 	if(back_step > 0)
 		return make_binop('-', offset_code, make_literal(back_step));
 	
-	return offset_code;
-	// Actually, no, because if this was a state var with @no_store (it is a temp_var) we should still allow it.
-	//else
-	//	fatal_error(Mobius_Error::internal, "Received a 'last_result' flag on an identifier that should not have one.");
-	
+	return offset_code;	
 }
 
 void
@@ -503,11 +496,10 @@ give_the_same_condition(Model_Application *app, Var_Loc_Restriction *a, Var_Loc_
 Math_Expr_FT *
 make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Expr_FT *alt_val, Var_Loc_Restriction restriction, Index_Exprs &index_expr, Entity_Id source_compartment = invalid_entity_id) {
 	
-	// TOOD: Also for the secondary restriction r2!
-	
 	// For grid1d connections, if we look up 'above' or 'below', we can't do it if we are on the first or last index respectively, and so the entire expression must be invalidated.
 	// Same if the expression itself is for a flux that is along a grid1d connection and we are at the last index.
 	// This function creates the code to compute the boolean condition that the expression should be invalidated.
+	
 	auto connection_id = restriction.r1.connection_id;
 	
 	if(!is_valid(connection_id)) return value;
@@ -571,6 +563,8 @@ make_restriction_condition(Model_Application *app, Math_Expr_FT *value, Math_Exp
 
 Math_Expr_FT *
 process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes) {
+	// Do code generation for the 'is_at' check.
+	
 	auto &res = ident->restriction;
 	auto index_set = app->model->connections[res.r1.connection_id]->node_index_set;
 	
@@ -588,7 +582,7 @@ process_is_at(Model_Application *app, Identifier_FT *ident, Index_Exprs &indexes
 	
 	auto index = indexes.get_index(app, index_set);
 	if(!index)
-		fatal_error(Mobius_Error::internal, "Missing index set ", app->model->index_sets[index_set]->name, " for is_at instruction.");
+		fatal_error(Mobius_Error::internal, "Missing index set ", app->model->index_sets[index_set]->name, " for 'is_at' instruction.");
 	
 	return make_binop('=', index, check_against);
 }

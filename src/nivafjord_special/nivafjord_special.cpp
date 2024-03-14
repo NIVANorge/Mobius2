@@ -7,8 +7,6 @@ nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river
 	double dens0 = density_river->at(0);
 	int closest = 0;
 	
-	//log_print("Dens below ", densities_target->at(0), "\n");
-	
 	for(int layer = 0; layer < densities_target->count; ++layer) {
 		if(dens0 <= densities_target->at(layer)) break;
 		closest = layer;

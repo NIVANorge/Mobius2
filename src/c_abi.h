@@ -27,8 +27,7 @@ Mobius_Index_Slice {
 	bool is_slice;
 	s64 first;
 	s64 last;
-	// Maybe not support stride to begin with (although that would be easy I guess).
-	//  Have to support all python versions of this, where some arguments can be negative or None etc. How to pack that in C++ ints?
+	// TODO: Support stride too?
 };
 
 struct
@@ -83,6 +82,9 @@ mobius_get_entity(Model_Application *app, Entity_Id scope_id, char *handle_name)
 
 DLLEXPORT Var_Id
 mobius_deserialize_var(Model_Application *app, char *serial_name);
+
+DLLEXPORT Var_Id
+mobius_get_flux(Model_Application *app, Entity_Id decl_id);
 
 DLLEXPORT Var_Id
 mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count);
