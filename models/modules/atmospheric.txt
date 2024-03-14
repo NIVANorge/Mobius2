@@ -7,24 +7,32 @@ module("Atmospheric", version(0, 1, 0),
 	pressure : property,
 	a_hum    : property,
 	dens     : property,
-	lwd      : property
+	lwd      : property,
+	cos_z    : property  # This is not really needed by most modules. Maybe move?
 ) {
 """
 Simple module for some common atmospheric attributes.
-The user must provide either "Global radiation" or "Cloud cover" as an input series, but one of these can be computed from the other.
+The user must provide either "Daily average solar radiation" or "Cloud cover" as an input series, but one of these can be computed from the other.
 """
 	
 	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
 	load("stdlib/basic_math.txt", library("Basic"))
 
 	par_group("Location", air) {
-		 #TODO: Elevation could be used in other modules, and should maybe be declared in model scope.
-		latitude : par_real("Latitude", [deg], 60, -90, 90, "Only used if Global radiation is not provided as a series")
-		elev     : par_real("Elevation", [m], 0, 0, 8887,   "Only used if Global radiation is not provided as a series")
+		 #TODO: Some of these could be used in other modules, so this group should maybe be moved to a preamble.
+		latitude  : par_real("Latitude",  [deg], 60, -90, 90, "Only used if Daily average radiation is not provided as a series")
+		longitude : par_real("Longitude", [deg], 10, -180, 180, "Only used if sub-daily precision is used.")
+		time_zone : par_real("GMT zone",  [hr], 1, -11, 12, "Only used if sub-daily precision is used.")
+		elev      : par_real("Elevation", [m], 0, 0, 8887,   "Only used if Daily average radiation is not provided as a series")
+	}
+	
+	par_group("Radiation") {
+		subdaily  : par_bool("Use sub-daily precision", false, "Compute hourly averages of solar radiation")
 	}
 	
 	r_hum            : property("Relative humidity")
-	g_rad_cloud_free : property("Solar radiation on a clear sky day")
+	g_rad_cloud_free : property("Daily average global radiation on a clear sky day")
+	g_rad_day        : property("Daily average global radiation")
 	cloud            : property("Cloud cover")
 	#TODO: These two should instead be declared in model scope, for potential use with PET model.
 	s_vap            : property("Saturation vapour pressure")
@@ -34,7 +42,8 @@ The user must provide either "Global radiation" or "Cloud cover" as an input ser
 	var(air.r_hum, [perc])
 	var(air.wind,  [m, s-1])
 	
-	# The idea is that some of these can be overridden with input data if it exists. TODO: make a @can_override or something like that to allow it.
+	# The idea is that some of these can be overridden with input data if it exists.
+	# For instance, one of g_rad_day or cloud should be provided as an input series by the user.
 	
 	var(air.g_rad_cloud_free, [W, m-2]) {
 		ext := daily_average_extraterrestrial_radiation(latitude, time.day_of_year),
@@ -42,12 +51,35 @@ The user must provide either "Global radiation" or "Cloud cover" as an input ser
 	}
 	
 	#TODO: Should maybe parametrize the cloud cover - radiation relationship
-	var(air.g_rad,  [W, m-2]) {
+	var(air.g_rad_day, [W, m-2]) {
 		(1 - 0.75*cloud^3.4) * g_rad_cloud_free
 	}
 	
+	var(air.g_rad,  [W, m-2]) {
+		{
+			# TODO: The problem is that this will not be put on the solver, so fractional_step will not be valid..
+			#   should have an error when that happens, and it should be possible to put it on the solver in the model construction.
+			# Also, the interpolated amount of seconds should be directly accessible from the framework.
+			hour := floor((time.second_of_day + time.fractional_step*time.step_length_in_seconds) -> [hr]),
+			hour_a := hour_angle(time.day_of_year, time_zone, hour, longitude),
+			hourly_average_radiation(g_rad_day, time.day_of_year, latitude, hour_a)
+		}            if subdaily,
+		g_rad_day    otherwise
+	}
+	
+	var(air.cos_z, []) {
+		hour_a := {
+			# TODO: See above
+			hour := (time.second_of_day + time.fractional_step*time.step_length_in_seconds) -> [hr],
+			#hour := time.second_of_day -> [hr],
+			hour_angle(time.day_of_year, time_zone, hour, longitude),
+		}   if subdaily,
+		0   otherwise, # This gives zenith angle of sun in solar noon.
+		cos_zenith_angle(hour_a, time.day_of_year, latitude) otherwise
+	}
+	
 	var(air.cloud,  []) {
-		sw_ratio := g_rad/g_rad_cloud_free,
+		sw_ratio := g_rad_day/g_rad_cloud_free,
 		#cc := ((1 - sw_ratio)/0.75)^(1/3.4),     #Hmm, this just didn't work that well. Find something better?
 		#cc := (1 - (1.1*sw_ratio - 0.6)),
 		cc := 1 - sw_ratio,                 # Works much better for EasyLake on Vansjø... May be other complicating factors though.

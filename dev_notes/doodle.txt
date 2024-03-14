@@ -2,6 +2,18 @@
 
 
 
+# Multiple return values could be useful in some functions that reuse some partial computations. E.g.
+
+solar_declination : function(day_of_year : [day]) {
+	orbit_rad              := (2*pi*day_of_year)/365[day],
+	orbit_rad; 0.409*sin(orbit_rad - 1.39)]
+}
+orbit_rad; solar_decl := solar_declination(day_of_year)
+
+# Probably want to require always unpacking the tuple so that we don't need syntax for accessing elements of a tuple.
+# Probably also don't want implicit discard if you only unpack one value since it complicates things a bit too much.
+# Right now it is a bit annoying to parse whether or not it is a tuple unpacking or a tuple packing. We have to scan more to find out if a := appears.
+
 
 
 par_real("Layer area") [!

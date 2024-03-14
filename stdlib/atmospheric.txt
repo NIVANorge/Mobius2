@@ -70,32 +70,49 @@ library("Radiation") {
 	
 	solar_constant : constant("Solar constant", [W, m-2], 1361)
 	
+	solar_declination : function(day_of_year : [day]) {
+		orbit_rad              := (2*pi*day_of_year)/365[day],
+		0.409*sin(orbit_rad - 1.39)
+	}
+	
+	hour_angle : function(day_of_year : [day], time_zone : [hr], hour_of_day : [hr], longitude : [deg]) {
+		b                      := 2*pi*(day_of_year - 81[day])/365[day],
+		eot                    := (9.87*sin(2*b) - 7.53*cos(b) - 1.5*sin(b)) =>[hr],          # "Equation of time"
+		lsmt                   := 15[deg, hr-1]*time_zone,                                    # Local standard meridian time
+		ast                    := hour_of_day + eot + 4[min, deg-1]*(lsmt - longitude)->[hr], # Apparent solar time
+		radians(15[deg, hr-1]*(ast - 12[hr]))
+	}
+	
+	cos_zenith_angle : function(hour_a : [], day_of_year : [day], latitude : [deg]) {
+		lat_rad := radians(latitude),
+		solar_decl := solar_declination(day_of_year),
+		sin(lat_rad)*sin(solar_decl) + cos(lat_rad)*cos(solar_decl)*cos(hour_a)
+	}
+	
+	refract : function(cos_z, index) {
+		# Utility to do refraction if you have the cosine of the angle rather than the sine.
+		sqrt(1 - (1 - cos_z^2)/index^2)
+	}
+	
 	daily_average_extraterrestrial_radiation : function(latitude : [deg], day_of_year : [day]) {
 		orbit_rad              := (2*pi*day_of_year)/365[day],
 		lat_rad                := radians(latitude),
-		solar_declination      := 0.409*sin(orbit_rad - 1.39),
-		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination)),
+		solar_decl             := solar_declination(day_of_year),
+		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_decl)),
 		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(orbit_rad),
 		
-		(solar_constant / pi) * inv_rel_dist_earth_sun * (sunset_hour_angle * sin(lat_rad) * sin(solar_declination) + cos(lat_rad) * cos(solar_declination) * sin(sunset_hour_angle))
+		(solar_constant / pi)*inv_rel_dist_earth_sun*(sunset_hour_angle*sin(lat_rad)*sin(solar_decl) + cos(lat_rad)*cos(solar_decl)*sin(sunset_hour_angle))
 	}
 	
-	hourly_average_radiation : function(daily_avg_rad : [W, m-2], day_of_year : [day], hour_of_day : [hr], time_zone : [hr], latitude : [deg], longitude : [deg]) {
+	hourly_average_radiation : function(daily_avg_rad : [W, m-2], day_of_year : [day], latitude : [deg], hour_angle : []) {
 		# Liu, Jordan “The interrelationship and characteristic distribution of direct, diffuse and total solar radiation,” Solar Energy, vol. 4, no. 3, pp. 1–19, 1960.
 		
-		orbit_rad              := (2*pi*day_of_year)/365[day],
 		lat_rad                := radians(latitude),
-		solar_declination      := 0.409*sin(orbit_rad - 1.39),
-		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_declination)),
-		
-		b                      := 2*pi*(day_of_year - 81[day])/365[day],
-		eot                    := 9.87*sin(2*b) - 7.53*cos(b) - 1.5*sin(b),                   # "Equation of time"
-		lsmt                   := 15[deg, hr-1]*time_zone,                                    # Local standard meridian time
-		ast                    := hour_of_day + eot + 4[min, deg-1]*(lsmt - longitude)->[hr], # Apparent solar time
-		hour_angle             := radians(15[deg, hr-1]*(ast - 12[hr])),
+		solar_decl             := solar_declination(day_of_year),
+		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_decl)),
 		
 		cosshr := cos(sunset_hour_angle),
-		factor := (pi/24)*(cos(hour_angle) - cosshr) / (sin(sunset_hour_angle) - sunset_hour_angle*cosshr),
+		factor := pi*(cos(hour_angle) - cosshr) / (sin(sunset_hour_angle) - sunset_hour_angle*cosshr),
 		
 		daily_avg_rad * max(0, factor)
 	}

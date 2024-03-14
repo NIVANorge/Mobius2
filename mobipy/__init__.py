@@ -14,40 +14,68 @@ invalid_entity_id = Entity_Id(0, -1)
 max_var_loc_components = 6
 
 class Var_Id(ctypes.Structure) :
-	_fields_ = [("type", ctypes.c_int32), ("id", ctypes.c_int32)]
+	_fields_ = [
+		("type", ctypes.c_int32), 
+		("id", ctypes.c_int32)
+	]
 	
 invalid_var = Var_Id(0, -1)
 	
 class Time_Step_Size(ctypes.Structure) :
-	_fields_ = [("unit", ctypes.c_int32), ("magnitude", ctypes.c_int32)]
+	_fields_ = [
+		("unit", ctypes.c_int32),
+		("magnitude", ctypes.c_int32)
+	]
 	
 class Mobius_Series_Metadata(ctypes.Structure) :
-	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p)]
+	_fields_ = [
+		("name", ctypes.c_char_p),
+		("unit", ctypes.c_char_p)
+	]
 
-# TODO: Use this for interacting with parameter values instead of having separate functions.
 class Parameter_Value(ctypes.Union) :
-	_fields_ = [("val_real", ctypes.c_double), ("val_int", ctypes.c_int64)]
+	_fields_ = [
+		("val_real", ctypes.c_double),
+		("val_int", ctypes.c_int64)
+	]
 
 class Mobius_Index_Value(ctypes.Structure) :
-	_fields_ = [("name", ctypes.c_char_p), ("value", ctypes.c_int64)]
+	_fields_ = [
+		("name", ctypes.c_char_p), 
+		("value", ctypes.c_int64)
+	]
 	
 class Mobius_Index_Slice(ctypes.Structure) :
-	_fields_ = [("name", ctypes.c_char_p), ("is_slice", ctypes.c_bool), ("first", ctypes.c_int64), ("last", ctypes.c_int64)]
+	_fields_ = [
+		("name", ctypes.c_char_p),
+		("is_slice", ctypes.c_bool),
+		("first", ctypes.c_int64),
+		("last", ctypes.c_int64)
+	]
 	
 class Mobius_Index_Range(ctypes.Structure) :
-	_fields_ = [("first", ctypes.c_int64), ("last", ctypes.c_int64)]
+	_fields_ = [
+		("first", ctypes.c_int64),
+		("last", ctypes.c_int64)
+	]
 
 class Mobius_Entity_Metadata(ctypes.Structure) :
-	_fields_ = [("name", ctypes.c_char_p), ("unit", ctypes.c_char_p), ("description", ctypes.c_char_p), ("min", Parameter_Value), ("max", Parameter_Value)]
+	_fields_ = [
+		("name", ctypes.c_char_p),
+		("unit", ctypes.c_char_p),
+		("description", ctypes.c_char_p),
+		("min", Parameter_Value),
+		("max", Parameter_Value)
+	]
 
 
-# NOTE: Must match Reg_Types: We should find a way to auto-generate this instead!
+# NOTE: Must match Reg_Type: We should find a way to auto-generate this from reg_types.incl instead!
 MODULE_TYPE = 1
 COMPONENT_TYPE = 2
 PARAMETER_TYPE = 3
+FLUX_TYPE = 4
 
 dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_abi.dll"))
-#dll = ctypes.CDLL("c_api.dll")
 
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_error.restype = ctypes.c_int64
@@ -57,8 +85,6 @@ dll.mobius_encountered_log.restype = ctypes.c_int64
 
 dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
 dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
-
-
 
 dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 dll.mobius_get_steps.restype = ctypes.c_int64
@@ -80,6 +106,9 @@ dll.mobius_get_entity.restype = Entity_Id
 
 dll.mobius_deserialize_var.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 dll.mobius_deserialize_var.restype = Var_Id
+
+dll.mobius_get_flux.argtypes = [ctypes.c_void_p, Entity_Id]
+dll.mobius_get_flux.restype = Var_Id
 
 dll.mobius_get_var_id_from_list.argtypes = [ctypes.c_void_p, ctypes.POINTER(Entity_Id), ctypes.c_int64]
 dll.mobius_get_var_id_from_list.restype = Var_Id
@@ -264,7 +293,6 @@ class Scope :
 		self.scope_id = scope_id
 	
 	# TODO: If either of these are a flux, it should return a State_Var
-	# TODO: Check validity of the id.
 	def __getitem__(self, serial_name) :
 		entity_id = dll.mobius_deserialize_entity(self.app_ptr, self.scope_id, _c_str(serial_name))
 		_check_for_errors()
@@ -277,7 +305,7 @@ class Scope :
 		if not is_valid(entity_id) :
 			raise ValueError("The handle name '%s' does not refer to a valid entity" % handle_name)
 		_check_for_errors()
-		return Entity(self.app_ptr, self.scope_id, entity_id)	
+		return Entity(self.app_ptr, self.scope_id, entity_id)
 	
 	def list_all(self, type) :
 		# TODO
@@ -385,7 +413,7 @@ class Entity(Scope) :
 		
 	def unit(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
-			raise ValueError("This entity doesn't have a description.")
+			raise ValueError("This entity doesn't have a unit.")
 		data = dll.mobius_get_entity_metadata(self.app_ptr, self.entity_id)
 		_check_for_errors()
 		return data.unit.decode('utf-8')

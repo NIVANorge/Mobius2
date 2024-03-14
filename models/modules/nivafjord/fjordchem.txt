@@ -61,6 +61,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	attn  : property,
 	precip : property,
 	area   : property,
+	cos_z : property,
 	vert  : connection,
 	sw_vert : connection,
 	dims     : preamble,
@@ -97,9 +98,10 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	}
 	
 	
-	load("stdlib/basic_math.txt", library("Response"))
+	load("stdlib/basic_math.txt", library("Basic"), library("Response"))
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	load("stdlib/atmospheric.txt", library("Radiation"))
 	
 	# TODO: Initial states for all these:
 	# Main variables:
@@ -178,7 +180,10 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	var(layer.water.attn, [], "Layer attenuation") {
 		# TODO: Maybe DOC has a smaller shading effect than particles?
 		att_c := attn0 + (conc(sed) + conc(phyt) + conc(oc))*shade_f,
-		1 - exp(-att_c*dz)
+		cz := max(0.01, refract(air.cos_z, refraction_index_water)),
+		#cz := max(0.01, air.cos_z),
+		th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
+		1 - exp(-att_c*th)
 	}
 	
 	f_par : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
@@ -197,19 +202,19 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		par_sw := in_flux(sw_vert, layer.water.heat)*(1 - f_par)/A -> [W, m-2],
 		f := par_sw/max(0.5*par_sw, iopt),
 		f*exp(1 - f)
-	} #@no_store
+	} @no_store
 	
 	var(layer.water.phyt.N_lim, []) {
 		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
 		cmol := phyt_cn*conc(water.din)/n_mol_mass->[m mol, m-3],
 		cmol^2 / ((alpha/phyt_cn)^2 + cmol^2)
-	} #@no_store
+	} @no_store
 	
 	var(layer.water.phyt.P_lim, []) {
 		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
 		cmol := conc(water.phos)/p_mol_mass->[m mol, m-3],
 		cmol^2 / ((alpha/phyt_cp)^2 + cmol^2)
-	} #@no_store
+	} @no_store
 	
 	equi : property("Equilibrium concentration")
 	

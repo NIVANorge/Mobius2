@@ -19,6 +19,7 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		rho : property,
 		lwd : property,
 		sw : property,
+		cos_z : property,
 		attn : property,
 		freeze_temp : property,
 		indicator : property,

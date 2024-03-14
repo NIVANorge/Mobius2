@@ -4,7 +4,9 @@ data_set {
 NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we only need to know their condition down to the threshold.
 """
 	
-	time_step([day])
+	time_step([3, hr])
+	
+	series("nivafjord_drammen.xlsx")
 	
 	basin : index_set("Basin index") [ "Drammensfjorden" ]
 	
@@ -47,8 +49,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] -> b[ "Breiangen" ]
 		]
 	}
-	
-	series("nivafjord_drammen.xlsx")
 	
 	par_group("System") {
 		
@@ -145,7 +145,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			[ 8 ]
 			
 			par_real("Initial layer salinity") 
-			[ 3 ]
+			[ 33 ]
 		
 		}
 	
@@ -180,20 +180,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Frazil threshold") 
 			[ 0.05 ]
-		
-		}
-	
-	}
-	
-	module("NIVAFjord tracer test", version(0, 0, 1)) {
-		
-		par_group("Tracer") {
-			
-			par_real("River tracer concentration") 
-			[ 1 ]
-			
-			par_real("Boundary tracer concentration") 
-			[ 0 ]
 		
 		}
 	
@@ -648,17 +634,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("Simply organic C-N", version(0, 0, 1)) {
-		
-		par_group("Organic N") {
-			
-			par_real("DOM N/C ratio") 
-			[ 0.01 ]
-		
-		}
-	
-	}
-	
 	module("Simple river TOC", version(0, 1, 1)) {
 		
 		par_group("Particulate carbon") {
@@ -675,7 +650,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		par_group("DOC general") {
 			
 			par_real("Soil temperature DOC creation linear coefficient") 
-			[ 0 ]
+			[ 0.1 ]
 			
 			par_real("Soil temperature DOC creation second-order coefficient") 
 			[ 0 ]
@@ -697,7 +672,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		par_group("DOC land", sc, lu) {
 			
 			par_real("Baseline soil DOC concentration") [
-				10 
+				5 
 			]
 		
 		}
@@ -756,17 +731,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Initial sediment OP fraction") 
 			[ 0.1 ]
-		
-		}
-	
-	}
-	
-	module("Simply organic C-P", version(0, 0, 1)) {
-		
-		par_group("Organic P") {
-			
-			par_real("DOM P/C ratio") 
-			[ 0.01 ]
 		
 		}
 	

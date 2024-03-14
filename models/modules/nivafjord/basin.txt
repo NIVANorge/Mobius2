@@ -67,7 +67,10 @@ module("NIVAFjord basin", version(0, 0, 2),
 	var(basin.freeze_temp, [deg_c]) { ice_formation_temperature(layer.water.salinity[vert.top])	}
 	
 	var(layer.dz, [m], "Layer thickness") {
-		water / A
+		# NOTE: This is a bit simplified since if the level changes, A would in reality also change.
+		Aavg := 0.5*(A + A[vert.below]),
+		#Aavg := A,
+		water / Aavg
 	} @initial {    dz0   }
 	
 	var(layer.z, [m], "Depth (to bottom of layer)") {
@@ -82,7 +85,11 @@ module("NIVAFjord basin", version(0, 0, 2),
 		A[vert.top]
 	} @no_store
 	
-	var(layer.water, [m 3], "Layer water") @initial { A*dz0 }
+	var(layer.water, [m 3], "Layer water") @initial {
+		Aavg := 0.5*(A + A[vert.below]),
+		#Aavg := A,
+		Aavg*dz0
+	}
 	
 	var(layer.water.salt, [k g], [k g, m-3], "Layer salt")
 		@initial_conc { salinity*1e-3*rho_water }
@@ -184,8 +191,10 @@ module("NIVAFjord basin", version(0, 0, 2),
 	}
 	
 	var(layer.water.wmix, [m, day-1]) {
+		dz_ := 0.5*(dz + dz[vert.below]),
+		
 		K := Kt + Ks + Kw,
-		K / dz ->>
+		K / dz_ ->>
 	}
 	
 	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { wmix*A[vert.below] } @mixing

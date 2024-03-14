@@ -55,6 +55,8 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	
 	#TODO: Take into account porosity?
 	#   Track temperature in sediments separately (with heat balance)?
+	#  Should sediment processes access pore water instead, and then have slow exchange between pore water and water column?
+	#           Probably unnecessary?
 	
 	#TODO: It is annoying to redo the below formulas for the sediments. Should be possible to unify the code.
 	
@@ -88,7 +90,7 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	
 	flux(layer.water.din, out, [k g, day-1], "NO3 sediment denitrification consumption") {
 		bo2 := (water.oc + water.sed.oc)*layer.water.denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
-		bo2*(3./2.)*n_mol_mass/o2_mol_mass
+		bo2*1.5*n_mol_mass/o2_mol_mass
 	}
 	
 	flux(layer.water.phos, sediment.sed.phos, [k g, day-1], "PO4 adsorption / desorption to sediment layer") {

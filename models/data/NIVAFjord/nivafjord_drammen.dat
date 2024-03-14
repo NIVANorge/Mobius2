@@ -180,20 +180,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("NIVAFjord tracer test", version(0, 0, 1)) {
-		
-		par_group("Tracer") {
-			
-			par_real("River tracer concentration") 
-			[ 1 ]
-			
-			par_real("Boundary tracer concentration") 
-			[ 0 ]
-		
-		}
-	
-	}
-	
 	module("Degree-day PET", version(1, 0, 0)) {
 		
 		par_group("Potential evapotranspiration", sc, lu) {
@@ -582,17 +568,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("Simply organic C-N", version(0, 0, 1)) {
-		
-		par_group("Organic N") {
-			
-			par_real("DOM N/C ratio") 
-			[ 0.01 ]
-		
-		}
-	
-	}
-	
 	module("Simple river TOC", version(0, 1, 1)) {
 		
 		par_group("Particulate carbon") {
@@ -694,17 +669,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Initial sediment OP fraction") [
 				0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 
 			]
-		
-		}
-	
-	}
-	
-	module("Simply organic C-P", version(0, 0, 1)) {
-		
-		par_group("Organic P") {
-			
-			par_real("DOM P/C ratio") 
-			[ 0.01 ]
 		
 		}
 	

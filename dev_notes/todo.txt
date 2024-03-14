@@ -4,15 +4,15 @@
 	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size somehow.
 			Requires a lot of extra infrastructure for this to be possible though.
+			
+		Multiple return values from functions (tuples).
+			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
 		
 		Specific models
 		
 		
 			TDP mass balance in SimplyP requires that the 'flow' used in the equation should include quick flow.
 				Another reason why it would be nice to have 'out_flux'.
-			
-			"Deegree-day factor" in PET module.
-				Unfortunately have to fix all the parameter files too :(
 		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
 			
@@ -23,19 +23,12 @@
 					
 					Sulfate reduction?
 					
+					
 				More careful setup of boundary values.
 					
 				Go over wind mixing again, it seems a bit broken.
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
 				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
-				
-				Take into account angle of shortwave radiation as it goes down the depth (so that one gets the right attenuation). Maybe diurnal variations.
-				
-				
-				Make volume use avg. of area at top and bottom.
-					Similarly with area to connection.
-					And make sure this makes sense throughout.
-						Difficult if we continue to have dynamic thickness, because computing the thickness doesn't make that much sense in that case.
 				
 				Position_Map
 					Should probably rename to 'width_map' or 'thickness'.
@@ -48,11 +41,10 @@
 					These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn off editing for now).
 						Well, technically they could be, but couldn't be saved back to dataset.
 					
-				
 				Should really solve the advection/diffusion equation with Crank-Nicholson.
 					A bit difficult to integrate it into the existing framework.
 				
-			EasyChem
+			EasyChem + SimplyCNP
 				Figure out how to do effluents.
 							
 				Shading effect on phyto light availability.

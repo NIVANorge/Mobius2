@@ -4,7 +4,7 @@ data_set {
 NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 """
 	
-	time_step([3, hr])
+	time_step([1, day])
 	
 	series_interval(2015-01-01, 2020-12-31)
 	
@@ -110,7 +110,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		[ 2017-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2017-01-30 ]
+		[ 2017-12-31 ]
 	
 	}
 	

@@ -111,7 +111,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	horz_flow : property("Horizontal flow")
 	var(edge_layer.horz_flow, [m 3, day-1], "Layer horizontal outflow") {
 		#NOTE: This can be both positive and negative depending on the flow direction.
-		horz_flow_vel*w_bnd*layer.dz->>
+		w := 0.5*(w_bnd + w_bnd[vert.below]),
+		#w := w_bnd,
+		horz_flow_vel*w*layer.dz->>
 	} @no_store
 	
 	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {

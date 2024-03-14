@@ -29,6 +29,7 @@ model("NIVAFjord") {
 	rho      : property("Density")
 	lwd      : property("Downwelling longwave radiation")
 	sw       : property("Shortwave radiation")
+	cos_z    : property("Cosine of the solar zenith angle") 
 	attn     : property("Attenuation")
 	freeze_temp : property("Ice formation temperature")
 	indicator : property("Ice indicator")
@@ -48,11 +49,11 @@ model("NIVAFjord") {
 	}
 	
 	load("modules/atmospheric.txt",
-		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z))
 	
 	load("modules/airsea.txt",
 		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,
-							evap, loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+							evap, cos_z, loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	load("modules/nivafjord/basin.txt",
 		dims : preamble("NIVAFjord dimensions", all_basins, layer_idx, layer),
