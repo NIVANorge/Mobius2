@@ -86,9 +86,11 @@ library("Radiation") {
 	cos_zenith_angle : function(hour_a : [], day_of_year : [day], latitude : [deg]) {
 		lat_rad := radians(latitude),
 		solar_decl := solar_declination(day_of_year),
-		sin(lat_rad)*sin(solar_decl) + cos(lat_rad)*cos(solar_decl)*cos(hour_a)
+		cz := sin(lat_rad)*sin(solar_decl) + cos(lat_rad)*cos(solar_decl)*cos(hour_a),
+		max(0, cz)
 	}
 	
+	# Maybe put this one in another library.
 	refract : function(cos_z, index) {
 		# Utility to do refraction if you have the cosine of the angle rather than the sine.
 		sqrt(1 - (1 - cos_z^2)/index^2)
