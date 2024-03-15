@@ -68,7 +68,7 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	series("breiangen_of800_boundary.xlsx")
 	
-	series("breiangen_of800_boundary_chem.xlsx")
+	#series("breiangen_of800_boundary_chem.xlsx")
 	
 	quick_select("Fjord vars") [!
 		"Temperature" : [ "Layer temperature" ]

@@ -2,11 +2,16 @@
 
 	*** High pri ***
 	
+
 		Excel inputs:
 			When there is an error, the excel process is not properly closed in all cases.
 				Either fix, or choose another excel library (see below).
 			Typically when the error is raised by a function call that does not know it should use the error intercept, e.g. in index_data.
-	
+		
+		Why does it crash if including breiangen_of800_boundary_chem.xlsx ?
+		
+		
+		
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size somehow.
 			Requires a lot of extra infrastructure for this to be possible though.
 			

@@ -93,6 +93,7 @@ Index_Data {
 	
 	void set_position_map(Entity_Id index_set_id, std::vector<double> &pos_vals, Source_Location &source_loc);
 	double get_position(Index_T index);
+	bool has_position_map(Entity_Id index_set_id);
 	
 	void find_index(Entity_Id index_set, Token *idx_name, Indexes &indexes_out);
 	void find_indexes(const std::vector<Entity_Id> &index_sets, std::vector<Token> &idx_names, Indexes &indexes_out);

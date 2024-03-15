@@ -598,7 +598,12 @@ Index_Data::get_index_name_base(Index_T index, Index_T index_of_super, bool *is_
 		if(is_quotable) *is_quotable = false;
 		if(data.has_index_position_map) {
 			static char buf[64];
-			sprintf(buf, "%.15g", data.pos_vals[index.index]);
+			double from = 0.0;
+			if(index.index > 0)
+				from = data.pos_vals[index.index-1];
+			double to = data.pos_vals[index.index];
+			sprintf(buf, "%.15g-%.15g", from, to);
+			//sprintf(buf, ".15g", from);
 			return buf;
 		} else
 			return std::to_string(index.index);
@@ -918,6 +923,10 @@ Index_Data::get_position(Index_T index) {
 	return (double)index.index;
 }
 
+bool
+Index_Data::has_position_map(Entity_Id index_set_id) {
+	return index_data[index_set_id.id].has_index_position_map;
+}
 
 
 void
