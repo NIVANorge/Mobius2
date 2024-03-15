@@ -132,7 +132,9 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	
 	var(surf.ice.attn, []) {
 		cz := max(0.01, refract(air.cos_z, refraction_index_ice)),
+		#cz := max(0.01, air.cos_z),
 		th := ice / cz, # Length a sun ray travels through the ice sheet, taking solar zenith angle into account.
+		#th := ice,
 		0                         if !indicator,
 		1 - exp(-ice_att_c * th) otherwise
 	}

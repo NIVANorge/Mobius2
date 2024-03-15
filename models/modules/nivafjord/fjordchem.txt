@@ -100,7 +100,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	load("stdlib/basic_math.txt", library("Basic"), library("Response"))
 	load("stdlib/seawater.txt", library("Sea oxygen"))
-	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"), library("Water utils"))
 	load("stdlib/atmospheric.txt", library("Radiation"))
 	
 	# TODO: Initial states for all these:
@@ -183,6 +183,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		cz := max(0.01, refract(air.cos_z, refraction_index_water)),
 		#cz := max(0.01, air.cos_z),
 		th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
+		#th := dz,
 		1 - exp(-att_c*th)
 	}
 	

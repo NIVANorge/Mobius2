@@ -64,7 +64,11 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 	
 	series("C:/Data/simplycnp_oslofjord/mobius2_files/vansjo/vansjo_mobius_one_meteo.xlsx")
 	
-	series("nivafjord_moss.xlsx")
+	series("mossesundet_observed.xlsx")
+	
+	series("breiangen_of800_boundary.xlsx")
+	
+	series("breiangen_of800_boundary_chem.xlsx")
 	
 	quick_select("Fjord vars") [!
 		"Temperature" : [ "Layer temperature" ]
@@ -76,8 +80,18 @@ NOTE: Breiangen is set to be 60 deep since that is the lowest threshold.
 		"DIP" : [ "concentration(Layer DIP, Layer water)" ]
 	]
 	
+	quick_select("Fjord calib") [!
+		"Temperature" : [ "Layer temperature" "Obs fjord Temperature" ]
+		"Salinity" : [ "Layer salinity" "Obs fjord Salinity" ]
+		"PO4" : [ "concentration(Layer DIP, Layer water)" "Obs fjord PO4" ]
+		"NO3" : [ "concentration(Layer DIN, Layer water)" "Obs fjord NO3" ]
+		"DOC" : [ "concentration(Layer DOC, Layer water)" "Obs fjord DOC" ]
+		"chl-a" : [ "Layer chl-a" "Obs fjord Chl-a" ]
+	]
+	
 	quick_select("River vars") [!
 		"Q" : [ "Reach flow flux" "Obs Q" ]
+		"Q to fjord" : [ "Reach discharge to fjord" "Obs Q" ]
 		"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
 		"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
 		"TN" : [ "River TN" "Obs TN" ]

@@ -71,11 +71,10 @@ The user must provide either "Daily average solar radiation" or "Cloud cover" as
 		hour_a := {
 			# TODO: See above
 			hour := (time.second_of_day + time.fractional_step*time.step_length_in_seconds) -> [hr],
-			#hour := time.second_of_day -> [hr],
-			hour_angle(time.day_of_year, time_zone, hour, longitude),
-		}   if subdaily,
-		0   otherwise, # This gives zenith angle of sun in solar noon.
-		cos_zenith_angle(hour_a, time.day_of_year, latitude) otherwise
+			hour_angle(time.day_of_year, time_zone, hour, longitude) if subdaily,
+			0   otherwise # This gives zenith angle of sun in solar noon. Should maybe have something that is more representative of the average?
+		},
+		cos_zenith_angle(hour_a, time.day_of_year, latitude)
 	}
 	
 	var(air.cloud,  []) {

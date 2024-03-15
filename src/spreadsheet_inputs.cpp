@@ -86,11 +86,16 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_H
 		
 		// ********* Parse the header data
 		
+		std::vector<Token> prev_index(index_sets.size());
+		std::vector<u8>    has_prev_index(index_sets.size(), false);
+		std::vector<std::string> index_names_str(index_sets.size()); // This is needed to have temporary storage for the data...
+		
 		std::string current_input_name = "";
 		for(int col = 0; col < search_len; ++col) {
 			VARIANT name = ole_get_matrix_value(&matrix, 1, col+2, handles);
 			
 			bool got_name_this_column = false;
+			bool got_new_indexes_this_column = false;
 			
 			ole_get_string(&name, buf, buf_size);
 			if(strlen(buf) > 0) {
@@ -101,7 +106,12 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_H
 				fatal_error("Missing an input name.");
 			}
 			
-			std::vector<std::string> index_names_str(index_sets.size()); // This is needed to have temporary storage for the data...
+			if(got_name_this_column) {
+				for(auto &b : has_prev_index) b = false;
+			}
+				
+			
+			
 			std::vector<Token> index_names;
 			std::vector<Entity_Id> active_index_sets;
 			
@@ -139,7 +149,14 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_H
 				} else
 					fatal_error(Mobius_Error::internal, "The type of the index set was not properly initialized.");
 				
-				if(empty) continue;
+				if(empty) {
+					if(has_prev_index[row]) {
+						active_index_sets.push_back(index_sets[row]);
+						index_names.push_back(prev_index[row]);
+					}
+					continue;
+				} else
+					got_new_indexes_this_column = true;
 				
 				token.source_loc.tab = tab;
 				token.source_loc.line = row+2;
@@ -151,9 +168,12 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, OLE_H
 				}
 				active_index_sets.push_back(index_sets[row]);
 				index_names.push_back(token);
+				
+				has_prev_index[row] = true;
+				prev_index[row] = token;
 			}
 			
-			if(!got_name_this_column && index_names.empty()) // There was no name on top of the column and no indexes. This means there are no more data columns
+			if(!got_name_this_column && !got_new_indexes_this_column) // There was no name on top of the column and no indexes. This means there are no more data columns
 				break;
 			
 			data_set->index_data.check_valid_distribution(active_index_sets, token.source_loc);

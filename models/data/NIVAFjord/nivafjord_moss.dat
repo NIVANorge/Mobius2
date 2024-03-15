@@ -62,6 +62,8 @@ TODO: Need to configure all the parameters correctly.TODO: Some part of the cat
 	
 	series("nivafjord_moss_artificial.xlsx")
 	
+	series("mossesundet_observed.xlsx")
+	
 	par_group("System") {
 		
 		par_datetime("Start date") 

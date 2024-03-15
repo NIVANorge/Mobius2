@@ -192,6 +192,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 	
 	var(layer.water.wmix, [m, day-1]) {
 		dz_ := 0.5*(dz + dz[vert.below]),
+		#dz_ := dz,
 		
 		K := Kt + Ks + Kw,
 		K / dz_ ->>
