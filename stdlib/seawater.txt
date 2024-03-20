@@ -157,6 +157,21 @@ library("Seawater") {
 
 library("Sea oxygen") {
 	
+	/*
+	o2_saturation : function (T : [deg_c], S : []) {
+		tk := (T->[K]*0.01)=>[],
+		c := -173.4292 + 249.6339/tk + 143.3483*ln(tk) - 21.8492*tk
+			+ S*(-0.033096 + 0.014259*tk - 0.0017*tk^2),
+		exp(c)*1[m l, l-1]*((1.33/32)=>[m mol, m l-1])  # This is at surface pressure. TODO: Make this work better
+	}
+	
+	o2_piston_velocity : function(wind : [m, s-1], temp : [deg_c]) {
+		t := temp=>[],
+		schmidt := 1920.4 - 135.6*t + 5.2122*t^2 -0.10939*t^3 + 0.00093777*t^4,
+		(0.251*wind*2*(schmidt/660)^(-0.5)=>[c m, hr-1])
+	}
+	*/
+	
 	o2_saturation : function (T : [deg_c], S : []) {
 		# Formula from Weiss 1970 (also in Selma).
 		T_k := (T -> [K]) => [], # 

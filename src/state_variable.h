@@ -103,6 +103,7 @@ State_Var_Sub<State_Var::Type::declared> : State_Var {
 template<> struct
 State_Var_Sub<State_Var::Type::in_flux_aggregate> : State_Var {
 	Var_Id         in_flux_to = invalid_var; // The target state variable of the fluxes this is an aggregate for
+	bool           is_out     = false;   // True if it is out_flux, otherwise in_flux.
 	
 	State_Var_Sub() {}
 };
@@ -156,7 +157,7 @@ template<> struct
 State_Var_Sub<State_Var::Type::connection_aggregate> : State_Var {
 	Entity_Id      connection = invalid_entity_id;
 	Var_Id         agg_for    = invalid_var;     // The state variable this is an aggregate for fluxes going to or from.
-	bool           is_source  = false;   // If it aggregates sources from or targets to that state var.
+	bool           is_out     = false;   // If it aggregates sources from or targets to that state var.
 	
 	// If this is a target aggregate (!is_source), conversion_data contains items with data for fluxes coming from that particular source (to the target agg_for)
 	std::vector<Conversion_Data> conversion_data;

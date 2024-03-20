@@ -2,14 +2,26 @@
 
 	*** High pri ***
 	
+	
+		Use the new out_flux wherever it makes sense to avoid having to reference 'flow' etc.
+			Make correct icon and name for out_flux in MobiView.
+	
+		
+		2d plot doesn't work when only certain layers are selected. For instance the 2-3 first layers.
+			This seems to be circumstantial.
+		Also, the y-values entered should correspond to the indexes that were actually selected, otherwise it is only correct if the selected indexes is an interval starting at the beginning.
+			The plot won't make sense at all unless the selected indexes is one single contiguous interval.
+			
+		The way positioned indexes are named in get_index_names is not going to work for serialization.
+			May need to separate between serialization name and display name for these.
+		
+		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
+	
 
 		Excel inputs:
 			When there is an error, the excel process is not properly closed in all cases.
 				Either fix, or choose another excel library (see below).
 			Typically when the error is raised by a function call that does not know it should use the error intercept, e.g. in index_data.
-		
-		Why does it crash if including breiangen_of800_boundary_chem.xlsx ?
-		
 		
 		
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size somehow.
@@ -20,11 +32,9 @@
 		
 		Specific models
 		
-		
-			TDP mass balance in SimplyP requires that the 'flow' used in the equation should include quick flow.
-				Another reason why it would be nice to have 'out_flux'.
-		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
+			
+			Improve the O2 surface exchange model, maybe using the NERSEM version of it.
 			
 			NIVAFjord!		
 				
@@ -315,14 +325,9 @@
 			if you have a property depending on the [below] of itself.
 			Tricky since it would imply a complication of the instruction and index set dependency system for a very small special case.
 	
-		Make out_flux (?)
-			out_flux(connection, substance) first.
-			Also out_flux(substance).
-			Could also have out_flux(target, substance) (And also for in_flux).
-				where target is either a connection or a location.
-			Replace things like 'flow' in some places? Maybe doesn't work.
-			
-			Or do we just wait since out_flux could always be computed with a property.
+		
+		Could also have out_flux(target, substance) (And also for in_flux).
+			where target is either a connection or a location.
 			
 		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
 			Or just switch to e.g. https://github.com/troldal/OpenXLSX/tree/master 

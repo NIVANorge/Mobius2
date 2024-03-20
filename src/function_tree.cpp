@@ -614,7 +614,7 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 	std::vector<Standardized_Unit> arg_units;
 	resolve_arguments(new_fun, ast, data, scope, arg_units);
 	int allowed_arg_count = 1;
-	if(directive == Directive::in_flux)
+	if(directive == Directive::in_flux || directive == Directive::out_flux)
 		allowed_arg_count = 2;
 	int arg_count = new_fun->exprs.size();
 	if(arg_count == 0 || arg_count > allowed_arg_count) {
@@ -629,7 +629,7 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 		fatal_error_trace(scope);
 	}
 	auto ident = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
-	bool can_series = (directive != Directive::in_flux) && (directive != Directive::conc);
+	bool can_series = (directive != Directive::in_flux) && (directive != Directive::out_flux) && (directive != Directive::conc);
 	bool can_param  = (directive == Directive::aggregate);
 	if(!(ident->variable_type == Variable_Type::state_var || (can_series && ident->variable_type == Variable_Type::series) || (can_param && ident->variable_type == Variable_Type::parameter))) {
 		ident->source_loc.print_error_header();
@@ -643,6 +643,8 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 		ident->set_flag(Identifier_FT::last_result);
 	else if(directive == Directive::in_flux)
 		ident->set_flag(Identifier_FT::in_flux);
+	else if(directive == Directive::out_flux)
+		ident->set_flag(Identifier_FT::out_flux);
 	else if(directive == Directive::aggregate)
 		ident->set_flag(Identifier_FT::aggregate);
 	else if(directive == Directive::result)
@@ -656,11 +658,11 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 		error_print("A 'result' is now allowed in this context.");
 	}
 	
-	if(directive == Directive::in_flux) {
+	if(directive == Directive::in_flux || directive == Directive::out_flux) {
 		
 		if(!data->allow_in_flux) {
 			new_fun->source_loc.print_error_header();
-			error_print("An 'in_flux' is not allowed in this context.");
+			error_print("An 'in_flux' or 'out_flux' is not allowed in this context.");
 			fatal_error_trace(scope);
 		}
 		
@@ -687,7 +689,7 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 	delete new_fun;
 	
 	result.fun = ident;
-	if(directive == Directive::in_flux) {
+	if(directive == Directive::in_flux || directive == Directive::out_flux) {
 		result.unit = multiply(arg_units[var_idx], data->app->time_step_unit.standard_form, -1);
 	} else if(directive == Directive::conc) {
 		auto var = as<State_Var::Type::declared>(data->app->vars[ident->var_id]);

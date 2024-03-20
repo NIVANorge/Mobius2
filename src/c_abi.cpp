@@ -20,7 +20,7 @@ check_index_set_amount(Model_Application *app, const std::vector<Entity_Id> &ind
 	begin_error(Mobius_Error::api_usage);
 	error_print("The object requires ", index_sets.size(), " index", index_sets.size()!=1?"es":"", ", got ", indexes_count, ".");
 	if(index_sets.size() > 0) {
-		" The following index sets need to be addressed (in that order):\n");
+		error_print(" The following index sets need to be addressed (in that order):\n");
 		for(auto index_set : index_sets)
 			error_print("\"", app->model->index_sets[index_set]->name, "\" ");
 	}
@@ -452,8 +452,10 @@ mobius_get_entity_metadata(Model_Application *app, Entity_Id id) {
 			result.description = (char *)par->description.data();
 			result.min = par->min_val;
 			result.max = par->max_val;
-			auto unit = var->unit.to_utf8();
-			strcpy(unit_buffer, unit.data());
+			if(is_valid(par->unit)) {
+				auto unit = app->model->units[par->unit]->data.to_utf8();
+				strcpy(unit_buffer, unit.data());
+			}
 			result.unit = unit_buffer;   // TODO: Not thread safe or buffer safe.
 		}
 	} catch(int) {}

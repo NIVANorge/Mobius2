@@ -7,5 +7,5 @@ model("SimplyP") {
 	tp : property("Total phosphorous")
 	tdp : property("Total dissolved phosphorous")
 	
-	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, phos, plab, sed, flow, e_fact, tp, tdp, a_catch))
+	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, phos, plab, sed, e_fact, tp, tdp, a_catch))
 }

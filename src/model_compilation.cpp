@@ -400,7 +400,7 @@ check_for_special_weak_cycles(Model_Application *app, std::vector<Model_Instruct
 			auto var = app->vars[instr.var_id];
 			if(var->type != State_Var::Type::connection_aggregate) continue;
 			auto var2 = as<State_Var::Type::connection_aggregate>(var);
-			if(var2->is_source) continue; // Not sure if this could even happen.
+			if(var2->is_out) continue; // Not sure if this could even happen.
 			auto conn = model->connections[var2->connection];
 			if(conn->type != Connection_Type::directed_graph) continue;
 			if(conn->no_cycles) continue;
@@ -741,7 +741,7 @@ process_graph_connection_aggregation(Model_Application *app, std::vector<Model_I
 	Entity_Id target_comp_id = invalid_entity_id;
 	Sub_Indexed_Component *find_target = nullptr;
 	
-	if(agg_var->is_source) {
+	if(agg_var->is_out) {
 		if(agg_var->agg_for != app->vars.id_of(flux_var->loc1)) return;
 	} else {
 		// Check if this flux could point at the given aggregate location.
@@ -779,7 +779,7 @@ process_graph_connection_aggregation(Model_Application *app, std::vector<Model_I
 		insert_dependency(app, &instructions[flux_id.id], conn->edge_index_set);
 	}
 	
-	if(!agg_var->is_source) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
+	if(!agg_var->is_out) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
 		
 		// TODO: Make a better explanation of what is going on in this block and why it is needed (What is the failure case otherwise).
 		

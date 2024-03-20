@@ -47,15 +47,15 @@ Source_Location::print_error_header(Mobius_Error type) const {
 }
 
 void
-Source_Location::print_log_header() const {
+Source_Location::print_log_header(Log_Mode mode) const {
 	if(type == Type::text_file)
-		log_print("file ", filename, " line ", line+1, " column ", column, ":\n");
+		log_print(mode, "In file ", filename, " line ", line+1, " column ", column, ":\n");
 	else if(type == Type::spreadsheet) {
 		static char buf[64];
 		col_row_to_cell(column, line, buf);
-		log_print("file ", filename, " cell ", buf, ":\n");
+		log_print(mode, "In file ", filename, " cell ", buf, ":\n");
 	} else
-		log_print("(compiler internal)\n");
+		log_print(mode, "In (compiler internal)\n");
 }
 
 void

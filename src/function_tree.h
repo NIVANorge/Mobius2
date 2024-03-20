@@ -42,9 +42,10 @@ Identifier_Data {
 		none        = 0x0,
 		last_result = 0x1,
 		in_flux     = 0x2,
-		aggregate   = 0x4,
-		conc        = 0x8,
-		result      = 0x16,
+		out_flux    = 0x4,
+		aggregate   = 0x8,
+		conc        = 0x10,
+		result      = 0x20,
 	}                            flags;
 	Var_Loc_Restriction          restriction;
 	Entity_Id                    other_connection;

@@ -108,25 +108,14 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
 	}
 	
-	horz_flow : property("Horizontal flow")
-	var(edge_layer.horz_flow, [m 3, day-1], "Layer horizontal outflow") {
+	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
 		#NOTE: This can be both positive and negative depending on the flow direction.
 		w := 0.5*(w_bnd + w_bnd[vert.below]),
 		#w := w_bnd,
-		horz_flow_vel*w*layer.dz->>
-	} @no_store
-	
-	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
-		edge_layer.horz_flow
+		edge_layer.horz_flow_vel*w*layer.dz->>
 	} @specific {
 		edge_layer.vert_target
 	} @bidirectional
-	
-	horz_bal : property("Horizontal water balance")
-	var(layer.water.horz_bal, [m 3, day-1]) {
-		#TODO: If we implement out_flux, we don't need the separate horz_flow variable.
-		aggregate(edge_layer.horz_flow) - in_flux(horz, water)->>
-	} @no_store
 	
 	align : property("Vertical realignment")
 	var(layer.water.align, [m 3, day-1])
@@ -157,8 +146,8 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		water.align/water
 	}
 	
-	horz_flow_frac : property("Horizontal flow fraction")
+	horz_flow_frac : property("Horizontal balance fraction")
 	var(layer.horz_flow_frac, [day-1]) {
-		aggregate(edge_layer.horz_flow) / water
+		(out_flux(horz, water) - in_flux(horz, water)) / water ->>
 	}
 }

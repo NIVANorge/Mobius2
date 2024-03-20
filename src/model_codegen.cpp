@@ -220,7 +220,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
 			//   Make a lookup accelleration for this?
 			
-			// Codegen for regular in_flux (not connection in_flux):
+			// Codegen for regular in_flux and out_flux (not connection in_flux):
 			if(var->type == State_Var::Type::in_flux_aggregate) {
 				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 				Math_Expr_FT *flux_sum = make_literal((double)0.0);
@@ -228,7 +228,9 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto flux_id : app->vars.all_fluxes()) {
 					auto flux_var = app->vars[flux_id];
 					
-					if(flux_var->mixing_base || flux_var->loc2.r1.type != Restriction::none || !is_located(flux_var->loc2) || app->vars.id_of(flux_var->loc2) != var2->in_flux_to) continue;
+					auto &check_loc = var2->is_out ? flux_var->loc1 : flux_var->loc2;
+					
+					if(flux_var->mixing_base || check_loc.r1.type != Restriction::none || !is_located(check_loc) || app->vars.id_of(check_loc) != var2->in_flux_to) continue;
 					
 					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
 					if(flux_var->unit_conversion_tree)
@@ -638,7 +640,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[context_instr->target_id]);
 					auto agg_for = app->vars[agg_var->agg_for];
 					
-					if(!agg_var->is_source && flux_var->loc1 == agg_for->loc1) {
+					if(!agg_var->is_out && flux_var->loc1 == agg_for->loc1) {
 						valid = true;
 						
 						Entity_Id target_comp = agg_for->loc1.first();
@@ -769,7 +771,7 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id var_i
 	auto model = app->model;
 	auto target_agg = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	
-	if(target_agg->is_source) {
+	if(target_agg->is_out) {
 		auto agg_offset = app->get_storage_structure(agg_id.type).get_offset_code(agg_id, indexes);
 		return add_value_to_state_var(agg_id, agg_offset, value, '+');
 	}
@@ -782,7 +784,7 @@ add_value_to_graph_agg(Model_Application *app, Math_Expr_FT *value, Var_Id var_i
 	new_indexes.copy(indexes);
 	set_graph_target_indexes(app, new_indexes, restriction.connection_id, source_compartment, target_compartment);
 	
-	if(r2.type != Restriction::none && !target_agg->is_source) {
+	if(r2.type != Restriction::none && !target_agg->is_out) {
 			
 		// TODO: Should be checked at an earlier stage instead of here.
 		auto conn2 = model->connections[r2.connection_id];

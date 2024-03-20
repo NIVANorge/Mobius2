@@ -1297,7 +1297,7 @@ Model_Application::serialize(Var_Id id) {
 			auto var2 = as<State_Var::Type::connection_aggregate>(var);
 			auto agg_for = vars[var2->agg_for];
 			ss << "connection_aggregate@";
-			ss << (var2->is_source ? "source@" : "target@");
+			ss << (var2->is_out ? "source@" : "target@");
 			ss << model->serialize(var2->connection) << '@';
 			serialize_loc(model, ss, agg_for->loc1);
 		} else if(var->type == State_Var::Type::external_computation) {

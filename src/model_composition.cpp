@@ -189,7 +189,7 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 
 struct
 Code_Special_Lookups {
-	std::map<std::pair<Var_Id, Entity_Id>, std::vector<Var_Id>>            in_fluxes;
+	std::map<std::tuple<Var_Id, Entity_Id, bool>, std::vector<Var_Id>>     in_fluxes;
 	std::map<Var_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
 	/* aggregates[agg_of] is a pair ( (to_compartment), (looked_up_by) )
 	  where
@@ -222,7 +222,9 @@ find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_L
 		}
 		
 		if(specials && ident->has_flag(Identifier_FT::in_flux))
-			specials->in_fluxes[{ident->var_id, ident->other_connection}].push_back(looked_up_by);
+			specials->in_fluxes[{ident->var_id, ident->other_connection, false}].push_back(looked_up_by);
+		else if (specials && ident->has_flag(Identifier_FT::out_flux))
+			specials->in_fluxes[{ident->var_id, ident->other_connection, true}].push_back(looked_up_by);
 		
 		if(ident->has_flag(Identifier_FT::aggregate)) {
 			if(!is_valid(lookup_compartment)) {
@@ -277,6 +279,8 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 		} else {
 			delete expr;
 			return make_literal((double)0.0);
+			ident->source_loc.print_log_header(Log_Mode::dev);
+			log_print(Log_Mode::dev, "Warning: The specified variable does not exist, it is replaced by a 0.\n");
 		}
 	}
 
@@ -1097,7 +1101,7 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, invalid_entity_id, false, varname, true);
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	agg_var->agg_for = target_var_id;
-	agg_var->is_source = is_source;
+	agg_var->is_out = is_source;
 	agg_var->connection = conn_id;
 	
 	var = as<State_Var::Type::declared>(app->vars[target_var_id]);
@@ -1819,34 +1823,51 @@ Model_Application::compose_and_resolve() {
 	for(auto &in_flux : specials.in_fluxes) {
 		
 		auto &key = in_flux.first;
-		Var_Id target_id = key.first;
-		auto target = as<State_Var::Type::declared>(vars[target_id]);
-		Entity_Id connection = key.second;
+		Var_Id target_id     = std::get<0>(key);
+		Entity_Id connection = std::get<1>(key);
+		bool is_out          = std::get<2>(key);
+		auto target = as<State_Var::Type::declared>(vars[target_id]); // Hmm, this could maybe trigger an internal error unless we check that a declared one was provided.
 		
 		Var_Id in_flux_id = invalid_var;
 		if(!is_valid(connection)) {
-			sprintf(varname, "in_flux(%s)", target->name.data());
+			if(is_out)
+				sprintf(varname, "in_flux(%s)", target->name.data());
+			else
+				sprintf(varname, "out_flux(%s)", target->name.data());
 			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(this, invalid_entity_id, false, varname, true);
 			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(vars[in_flux_id]);
 			in_flux_var->in_flux_to = target_id;
+			in_flux_var->is_out     = is_out;
 			
 			vars[in_flux_id]->unit = divide(target->unit, time_step_unit); //NOTE: In codegen, the components in the sum are rescaled to this unit.
 		} else {
-			//We don't have to register an aggregate for the connection since that will always have been done for a variable on a connection if it is at all relevant.
-			for(auto conn_agg_id : target->conn_target_aggs) {
-				if( as<State_Var::Type::connection_aggregate>(vars[conn_agg_id])->connection == connection)
-					in_flux_id = conn_agg_id;
+			// Note: if a connection aggregate exists it has already been created.
+			// TODO: For source aggregates, they will not always be created even if they are relevant. Should we create them here if relevant?
+			if(is_out) {
+				for(auto conn_agg_id : target->conn_target_aggs) {
+					if( as<State_Var::Type::connection_aggregate>(vars[conn_agg_id])->connection == connection) {
+						in_flux_id = conn_agg_id;
+						break;
+					}
+				}
+			} else {
+				for(auto conn_agg_id : target->conn_source_aggs) {
+					if( as<State_Var::Type::connection_aggregate>(vars[conn_agg_id])->connection == connection) {
+						in_flux_id = conn_agg_id;
+						break;
+					}
+				}
 			}
 		}
 		
-		// NOTE: If in_flux_id is invalid at this point (since the referenced connection aggregate did not exist), replace_flagged will put a literal 0.0 in place of this value.
-		//   TODO: Maybe print a warning?
+		// NOTE: If in_flux_id is invalid at this point (since the referenced connection aggregate did not exist), replace_flagged will put a literal 0.0 in place of this value, which is how we want it to work, but we print a warning in case it was unintentional.
 		
 		// NOTE: We have disallowed in_flux lookups in initial code and specific_target code for now.
+		auto replace_flag = is_out ? Identifier_FT::Flags::out_flux : Identifier_FT::Flags::in_flux;
 		for(auto rep_id : in_flux.second) {
 			auto var = as<State_Var::Type::declared>(vars[rep_id]);
 			if(var->function_tree)
-				replace_flagged(var->function_tree.get(), target_id, in_flux_id, Identifier_FT::Flags::in_flux, connection);
+				replace_flagged(var->function_tree.get(), target_id, in_flux_id, replace_flag, connection);
 		}
 	}
 	
