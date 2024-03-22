@@ -41,7 +41,13 @@ preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
 		
 		chl_a_f       : par_real("Chl-a fraction", [perc], 2, 0.2, 2.2, "How large a fraction of the phytoplankton mass is chlorophyll a")
 	}
-	
+	/*
+	par_group("Zooplankton") {
+		graz_phyt     : par_real("Grazing rate on phytoplankton", [day-1], 0.01, 0, 1)
+		phy_hs        : par_real("Phytoplankton half-saturation for grazing", [], 0.01, 0, 1)
+		zoo_d         : par_real("Zooplankton death rate", [day-1], 0.01, 0, 1)
+	}
+	*/
 	ox_fac    : property("Oxicity factor")
 	temp_fac  : property("Temperature factor")
 	denit_rat : property("Denitrification rate")
@@ -55,7 +61,6 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	layer : compartment,
 	sediment : compartment,
 	water : quantity,
-	heat  : quantity,
 	o2    : quantity,
 	ice   : quantity,
 	oc    : quantity,
@@ -77,8 +82,8 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	precip : property,
 	area   : property,
 	cos_z : property,
+	sw    : property,
 	vert  : connection,
-	sw_vert : connection,
 	dims     : preamble,
 	chem_par : preamble
 ) {
@@ -87,6 +92,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	par_group("Initial chem", layer) {
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		init_DOC : par_real("Initial DOC concentration", [m g, l-1], 0, 0, 100)
+		#init_zoo : par_real("Initial zooplankton concentration", [m g, l-1], 0.0001, 0, 0.1)
 	}
 	
 	par_group("Light") {
@@ -201,10 +207,10 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	
 	var(layer.water.phyt.light_lim, []) {
-		par_sw := in_flux(sw_vert, layer.water.heat)*(1 - f_par)/A -> [W, m-2],
+		par_sw := sw*f_par,
 		f := par_sw/max(0.5*par_sw, iopt),
 		f*exp(1 - f)
-	} @no_store
+	} #@no_store
 	
 	var(layer.water.phyt.N_lim, []) {
 		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
@@ -233,12 +239,12 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	}
 	
 	flux(out, layer.water.phyt, [k g, day-1], "Phytoplankton growth") {   fix   }
-	flux(layer.water.din, layer.water.phyt.on, [k g, day-1], "Phytoplankton growth N uptake") {   phyt.fix/cn_molar_to_mass_ratio(phyt_cn)   }
-	flux(layer.water.phos, layer.water.phyt.op, [k g, day-1], "Phytoplankton growth P uptake") {   phyt.fix/cp_molar_to_mass_ratio(phyt_cp)   }
+	flux(layer.water.din, layer.water.phyt.on, [k g, day-1], "Phytoplankton growth N uptake") {   phyt.fix/cn_molar_to_mass_ratio(phyt_cn)   } @no_store
+	flux(layer.water.phos, layer.water.phyt.op, [k g, day-1], "Phytoplankton growth P uptake") {   phyt.fix/cp_molar_to_mass_ratio(phyt_cp)   } @no_store
 	
-	flux(layer.water.phyt,    layer.water.oc, [k g, day-1], "Phytoplankton C excretion") { excr*phyt }
-	flux(layer.water.phyt.on, layer.water.on, [k g, day-1], "Phytoplankton N excretion") { excr*phyt.on }
-	flux(layer.water.phyt.op, layer.water.op, [k g, day-1], "Phytoplankton P excretion") { excr*phyt.op }
+	flux(layer.water.phyt,    layer.water.oc, [k g, day-1], "Phytoplankton C excretion") { excr*phyt } @no_store
+	flux(layer.water.phyt.on, layer.water.on, [k g, day-1], "Phytoplankton N excretion") { excr*phyt.on } @no_store
+	flux(layer.water.phyt.op, layer.water.op, [k g, day-1], "Phytoplankton P excretion") { excr*phyt.op } @no_store
 	
 	phyt_death_anox : constant("Phytoplankton increased death rate from anoxicity", [], 10) # Parametrize?
 	
@@ -275,6 +281,21 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	}
 	*/
 	
+	/*
+	var(layer.water.zoo, [k g], [m g, l-1], "Layer zooplankton") @initial_conc { init_zoo }
+	var(layer.water.zoo.oc, [k g], "Zooplankton C") @override_conc { 1 } # Phyto is measured in C equivalents here.
+	var(layer.water.zoo.on, [k g], "Zooplankton N") @override_conc { 1/cn_molar_to_mass_ratio(phyt_cn) }
+	var(layer.water.zoo.op, [k g], "Zooplankton P") @override_conc { 1/cp_molar_to_mass_ratio(phyt_cp) }
+	
+	flux(layer.water.phyt, layer.water.zoo, [k g, day-1], "Zooplankton grazing on phytoplankton") {
+		f := safe_divide(phyt, zoo)^2,
+		zoo * graz_phyt * (f / (f + phy_hs)
+	}
+	
+	flux(layer.water.zoo, layer.water.sed, [k g, day-1], "Zooplankton death") {
+		zoo_d * zoo
+	}
+	*/
 	
 	# TODO: Direct deposition of DIN to surface(?)
 	
@@ -284,7 +305,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		
 		wd := 1,
 		s_response(conc(o2), (1-wd)*ox_th, (1+wd)*ox_th, 0, 1)
-	} @no_store
+	} #@no_store
 	
 	
 	var(layer.water.temp_fac, []) {

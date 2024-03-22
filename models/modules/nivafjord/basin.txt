@@ -34,6 +34,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 	h         : property,
 	area      : property,
 	freeze_temp : property,
+	sw        : property,
 	vert      : connection,
 	sw_vert   : connection,
 	dims      : preamble
@@ -196,6 +197,11 @@ module("NIVAFjord basin", version(0, 0, 2),
 		
 		K := Kt + Ks + Kw,
 		K / dz_ ->>
+	}
+	
+	var(layer.water.sw, [W, m-2], "Layer shortwave radiation") {
+		# TODO: This should instead be an average through the layer. Now it is how much enters at the top.
+		in_flux(sw_vert, layer.water.heat)/A ->>
 	}
 	
 	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { wmix*A[vert.below] } @mixing

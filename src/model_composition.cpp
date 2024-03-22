@@ -1843,7 +1843,7 @@ Model_Application::compose_and_resolve() {
 		} else {
 			// Note: if a connection aggregate exists it has already been created.
 			// TODO: For source aggregates, they will not always be created even if they are relevant. Should we create them here if relevant?
-			if(is_out) {
+			if(!is_out) {
 				for(auto conn_agg_id : target->conn_target_aggs) {
 					if( as<State_Var::Type::connection_aggregate>(vars[conn_agg_id])->connection == connection) {
 						in_flux_id = conn_agg_id;

@@ -1,19 +1,6 @@
 
 
 	*** High pri ***
-	
-	
-		Use the new out_flux wherever it makes sense to avoid having to reference 'flow' etc.
-			Make correct icon and name for out_flux in MobiView.
-	
-		
-		2d plot doesn't work when only certain layers are selected. For instance the 2-3 first layers.
-			This seems to be circumstantial.
-		Also, the y-values entered should correspond to the indexes that were actually selected, otherwise it is only correct if the selected indexes is an interval starting at the beginning.
-			The plot won't make sense at all unless the selected indexes is one single contiguous interval.
-			
-		The way positioned indexes are named in get_index_names is not going to work for serialization.
-			May need to separate between serialization name and display name for these.
 		
 		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
 	
@@ -65,6 +52,9 @@
 					A bit difficult to integrate it into the existing framework.
 				
 			EasyChem + SimplyCNP
+			
+				Should somehow transform lake phyto that is transported by the river into POC.
+			
 				Figure out how to do effluents.
 							
 				Shading effect on phyto light availability.
@@ -142,11 +132,20 @@
 		Note: unit_conversion seems to work fine for @mixing, but we should test it properly. Also, it probably depends on the computed concentration in that expression being the same for dissolved ones (just not the mass variable). That is maybe also the case for @bidirectional.
 	
 	
-		Make it possible to compose locs that have restrictions.
-			Now works in the flux source/target fields. Not inside equations yet.
-	
-	
 	*** Intermediate-pri ***
+	
+		MobiView
+		
+			Circumstantial bugs, not repeated yet:
+				Calibration stats and observed stats bugging out in fjord layers.
+				2d plot doesn't work when only certain layers are selected. For instance the 2-3 first layers.
+			
+			2d plot: The plot won't make sense at all unless the selected indexes is one single contiguous interval (that ideally starts at 0).
+				Warning if it isn't?
+			
+		The way positioned indexes are named in get_index_names is not going to work for serialization.
+			May need to separate between serialization name and display name for these.
+				Actually, right now indexes are serialized by number and not name any way, so it is not a problem?
 	
 		
 		For sub-indexed index sets, don't allocate the entire max size for each instance (for data blocks).
@@ -154,16 +153,12 @@
 		For additional_series data it is very wasteful that it allocates the max vector even though most of it is going to be nan. Esp. for fjord data.
 			Could make an entire separate system for how these are stored, but a lot of work, esp. taking into account that it has to fit into how MobiView works.
 			
-		
-		
-		
-	
+			
 		Ideally we should always (automatically) check if an entity we reference has_been_processed (unless we expect it not to be as during the construction step).
 	
 		If several loc() refer to one another in the wrong order, that is probably broken since they are resolved in order of declaration?
 			Very unlikely that it would happen in practice.
 			It is now detected with an error at least. But hard for users to understand.
-	
 	
 		process_series_data	
 					
@@ -203,7 +198,7 @@
 			Make it possible to make a data file that is referring to another one, but with a subset of the indexes.
 				Just uses reshape after loading the Data_Set in the one referred to.
 			e.g.
-				data_set @subset("other file name.dat") {
+				data_set @subset("other_file_name.dat") {
 					index_set() ....
 				}
 				Have to decide what to do with broken connection arrows.
@@ -313,7 +308,7 @@
 		In the tree pruning, try to merge local variables that are identical.
 	
 		'iterate' in function scope.
-			Make the iter_tag be referencable as an iterator.
+			Make the iter_tag be referencable as a value.
 			
 			i:{
 				a <- a*2,
@@ -326,8 +321,7 @@
 			Tricky since it would imply a complication of the instruction and index set dependency system for a very small special case.
 	
 		
-		Could also have out_flux(target, substance) (And also for in_flux).
-			where target is either a connection or a location.
+		Could also have flux(source, target) like in_flux, out_flux, but just summing between these locations.
 			
 		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
 			Or just switch to e.g. https://github.com/troldal/OpenXLSX/tree/master 

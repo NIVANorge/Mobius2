@@ -89,7 +89,7 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	}
 	
 	flux(layer.water.din, out, [k g, day-1], "NO3 sediment denitrification consumption") {
-		bo2 := (water.oc + water.sed.oc)*layer.water.denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
+		bo2 := sediment.sed.oc*layer.water.denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
 		bo2*1.5*n_mol_mass/o2_mol_mass
 	}
 	

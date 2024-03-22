@@ -11,8 +11,6 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	phyt : quantity,
 	chl_a : property,
 	sed : quantity,
-	temp : property,
-	salin : property,
 	chem_par : preamble
 ) {
 
