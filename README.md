@@ -1,5 +1,6 @@
 # Mobius2
 
+## Introduction
 Mobius2 is a modelling framework for coupling systems of different biochemical components in complex mass balance transport networks.
 
 The framework can be used to model any system ordinary differential equations or discrete step equations, but has special support for mass balance of transported substances, with automatic transport of dissolved substances.
@@ -12,19 +13,19 @@ Any model created in Mobius2 can be explored in the graphical user interface Mob
 
 **insert nice plots**
 
-# MobiView
+## MobiView
 
-# mobipy
+## mobipy
 
-# Installation
+## Installation
 
-# The Mobius2 modelling language
+## The Mobius2 modelling language
 
-# Documentation and tutorials
+## Documentation and tutorials
 
-# Examples of use cases
+## Examples of use cases
 
-# Usage and attribution
+## Usage and attribution
 
 The old version of Mobius, Mobius 1, can be found here:
 https://github.com/NIVANorge/Mobius
