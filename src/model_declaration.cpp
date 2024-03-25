@@ -1455,7 +1455,7 @@ load_config(String_View file_name) {
 		} else if(item == "Developer mode") {
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::boolean}}, false);
 			
-			mobius_developer_mode = single_arg(decl, 1)->val_bool;
+			config.developer_mode = single_arg(decl, 1)->val_bool;
 			
 			log_print(Log_Mode::dev, file_name, ": Configured to developer mode.\n");
 		} else if(item == "Just store all the series") {
@@ -1697,6 +1697,8 @@ load_model(String_View file_name, Mobius_Config *config) {
 		model->config = *config;
 	else 
 		model->config = load_config();
+	
+	mobius_developer_mode = model->config.developer_mode;
 	
 	auto decl = read_catalog_ast_from_file(Decl_Type::model, &model->file_handler, file_name);
 	match_declaration(decl, {{Token_Type::quoted_string}}, false, -1);

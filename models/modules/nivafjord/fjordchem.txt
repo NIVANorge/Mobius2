@@ -378,8 +378,6 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	# Processes:
 	
-	# Should probably have them in a separate module so that it could be reused for sediments.
-	
 	# Oxic:
 	#  OC, O2  -> CO2  Mineralization
 	#  ON, O2  -> NH4 -> NO3  Mineralization, nitrification.

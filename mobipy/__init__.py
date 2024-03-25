@@ -3,6 +3,7 @@ import ctypes
 import numpy as np
 import pandas as pd
 import os
+import pathlib
 
 # Volatile! These structure must match the corresponding in the c++ code
 # TODO: we should have a way to auto-generate some of this.
@@ -83,7 +84,7 @@ dll.mobius_encountered_error.restype = ctypes.c_int64
 dll.mobius_encountered_log.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_log.restype = ctypes.c_int64
 
-dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool]
 dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
 
 dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
@@ -321,8 +322,9 @@ class Model_Application(Scope) :
 		pass
 	
 	@classmethod
-	def build_from_model_and_data_file(cls, model_file, data_file) :
-		app_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file))
+	def build_from_model_and_data_file(cls, model_file, data_file, store_series=False, dev_mode=False) :
+		base_path = str(pathlib.Path(__file__).parent.resolve().parent)
+		app_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), store_series, dev_mode)
 		_check_for_errors()
 		return cls(app_ptr)
 		

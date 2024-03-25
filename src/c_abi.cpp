@@ -78,7 +78,12 @@ mobius_encountered_log(char *msg_out, s64 buf_len) {
 }
 
 DLLEXPORT Model_Application *
-mobius_build_from_model_and_data_file(char * model_file, char * data_file) {
+mobius_build_from_model_and_data_file(char * model_file, char * data_file, char *base_path, bool store_series, bool dev_mode) {
+	
+	Mobius_Config config;
+	config.mobius_base_path = base_path;
+	config.store_all_series = store_series;
+	config.developer_mode   = dev_mode;
 	
 	try {
 		Mobius_Model *model = load_model(model_file);

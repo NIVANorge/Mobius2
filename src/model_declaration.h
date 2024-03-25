@@ -271,6 +271,7 @@ struct
 Mobius_Config {
 	std::string mobius_base_path;
 	bool store_all_series = false;
+	bool developer_mode   = false;
 };
 
 struct

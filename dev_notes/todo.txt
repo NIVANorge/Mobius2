@@ -1,6 +1,15 @@
 
 
 	*** High pri ***
+	
+	
+		Make the config system work better.
+			Could have mobius_base_path set for MobiView and mobipy (actually, this one doesn't need it since it is already in the repository), but then make the other options in a common config.txt in Mobius
+			Some config options should be project specific, such as what state variables should be recorded.
+				Could have this in the Data_Set, e.g.
+					store("Name of variable")
+		
+		
 		
 		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
 	
@@ -11,11 +20,11 @@
 			Typically when the error is raised by a function call that does not know it should use the error intercept, e.g. in index_data.
 		
 		
-		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size somehow.
+		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
+		Also, get the average step size through the time step, not just the last one.	
 			Requires a lot of extra infrastructure for this to be possible though.
 			
-		Multiple return values from functions (tuples).
-			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
+		
 		
 		Specific models
 		
@@ -23,41 +32,29 @@
 			
 			Improve the O2 surface exchange model, maybe using the NERSEM version of it.
 			
+			Maybe factor out common phyto module for EasyChem and FjordChem.
+			
 			NIVAFjord!		
 				
 				Finish biochemistry.
 					Do we need separate NH4? Do we need Si?
-					
 					Sulfate reduction?
+					Zooplankton?
 					
-					
-				More careful setup of boundary values.
+					Experiment with different phytoplankton formulation.
 					
 				Go over wind mixing again, it seems a bit broken.
 					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
 				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
-				
-				Position_Map
-					Should probably rename to 'width_map' or 'thickness'.
-					Use it to position x/y-values in MobiView2 Profile and Profile2d also!
-					Should probably display the index name as the position before, not the end position of the end of the index. Or even as the interval. ("0-1" etc).
-						Just have to make sure they are not stored as that in any files.
-					There can be problems if the max depth doesn't exactly match a boundary of two widths.
-						See for instance Breiangen in nivafjord_moss
-				Parameters on map form:
-					These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn off editing for now).
-						Well, technically they could be, but couldn't be saved back to dataset.
 					
 				Should really solve the advection/diffusion equation with Crank-Nicholson.
 					A bit difficult to integrate it into the existing framework.
 				
 			EasyChem + SimplyCNP
 			
-				Should somehow transform lake phyto that is transported by the river into POC.
-			
 				Figure out how to do effluents.
 							
-				Shading effect on phyto light availability.
+				Shading effect on phyto light availability (light should be more like an average in the epilimnion taking into account attenuation).
 			
 		Finish connection system
 		
@@ -133,6 +130,20 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		Multiple return values from functions (tuples).
+			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
+	
+		Position_Map
+			Should probably rename to 'width_map' or 'thickness'.
+			Use it to position x/y-values in MobiView2 Profile and Profile2d also!
+			Should probably display the index name as the position before, not the end position of the end of the index. Or even as the interval. ("0-1" etc).
+				Just have to make sure they are not stored as that in any files.
+			There can be problems if the max depth doesn't exactly match a boundary of two widths.
+				See for instance Breiangen in nivafjord_moss
+		Parameters on map form:
+			These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn off editing for now).
+				Well, technically they could be, but couldn't be saved back to dataset.
 	
 		MobiView
 		
