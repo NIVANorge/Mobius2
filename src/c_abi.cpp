@@ -86,7 +86,7 @@ mobius_build_from_model_and_data_file(char * model_file, char * data_file, char 
 	config.developer_mode   = dev_mode;
 	
 	try {
-		Mobius_Model *model = load_model(model_file);
+		Mobius_Model *model = load_model(model_file, &config);
 		auto app = new Model_Application(model);
 			
 		Data_Set *data_set = new Data_Set;

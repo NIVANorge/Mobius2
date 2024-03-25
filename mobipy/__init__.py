@@ -76,7 +76,8 @@ COMPONENT_TYPE = 2
 PARAMETER_TYPE = 3
 FLUX_TYPE = 4
 
-dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_abi.dll"))
+#dll = ctypes.CDLL(os.path.join(os.path.dirname(__file__), "c_abi.dll"))
+dll = ctypes.CDLL(str(pathlib.Path(__file__).parent / 'c_abi.dll'))
 
 dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 dll.mobius_encountered_error.restype = ctypes.c_int64
@@ -322,9 +323,9 @@ class Model_Application(Scope) :
 		pass
 	
 	@classmethod
-	def build_from_model_and_data_file(cls, model_file, data_file, store_series=False, dev_mode=False) :
-		base_path = str(pathlib.Path(__file__).parent.resolve().parent)
-		app_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), store_series, dev_mode)
+	def build_from_model_and_data_file(cls, model_file, data_file, store_all_series=False, dev_mode=False) :
+		base_path = f'{pathlib.Path(__file__).parent.resolve().parent}{os.sep}'
+		app_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), store_all_series, dev_mode)
 		_check_for_errors()
 		return cls(app_ptr)
 		
