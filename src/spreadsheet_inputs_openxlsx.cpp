@@ -11,7 +11,7 @@ close_due_to_error(OpenXLSX::XLDocument &doc, int tab, u32 row, u16 col) {
 	col_row_to_cell(col, row, &buf[0]); // TODO: Could probably use XLCellReference instead.
 	
 	auto &sheet = doc.workbook().sheet(tab);
-	begin_error(Mobius_Error::parsing); // TODO: Make a spreadsheet error type.
+	begin_error(Mobius_Error::spreadsheet);
 	error_print("In file \"", doc.name(), "\", tab \"", sheet.name(), "\", cell ", buf, "\n");
 	doc.close();
 }
@@ -21,12 +21,11 @@ can_be_date(OpenXLSX::XLCellValueProxy &val, Date_Time *datetime = nullptr) {
 	
 	using namespace OpenXLSX;
 	
-	// Unfortunately OpenXLSX doesn't offer a better solution for checking if the original cell had a date format.
+	// Unfortunately OpenXLSX doesn't yet offer a better solution for checking if the original cell had a date format.
 	
 	bool is_float = (val.type() == XLValueType::Float);
 	if(is_float || val.type() == XLValueType::Integer) {
 		if(datetime) {
-			// TODO: Do error checking here too? Or do we assume it will be correct?
 			if(is_float)
 				*datetime = from_spreadsheet_time_fractional(val.get<double>());
 			else
@@ -160,6 +159,8 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			token.source_loc.filename = file_name;
 			token.source_loc.type = Source_Location::Type::spreadsheet;
 			
+			// ****** Read indexes if any
+			
 			if(!index_sets.empty()) {
 				
 				auto &rowrange = sheet.range(XLCellReference(2, col), XLCellReference(index_sets.size()+1, col));
@@ -176,9 +177,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 					
 					auto idxtype = data_set->index_data.get_index_type(index_sets[idx]);
 					
-					// TODO: We have to do some checking depending on the expected type of the index.
-					///   Also, .. what to do with float type? (Should be allowed for positioned index sets).
-					
+					// TODO: We should maybe do some checking depending on the expected type of the index.
 					bool empty = false;
 					if(val.type() == XLValueType::Integer) {
 						
@@ -236,14 +235,14 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			
 			data.header_data.push_back({});
 			auto &header = data.header_data.back();
-			// TODO: Make a system for having more than one index tuple for the same series.
+			
 			header.name = current_input_name;
 			header.source_loc.filename = file_name;
 			header.source_loc.type = Source_Location::Type::spreadsheet;
 			header.source_loc.column = col;
 			header.source_loc.line   = 1;
 			header.source_loc.tab    = tab;
-			
+			// TODO: Make a system for having more than one index tuple for the same series, like we have for the csv format.
 			header.indexes.push_back(std::move(indexes));
 			
 			

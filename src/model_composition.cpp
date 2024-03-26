@@ -1831,9 +1831,9 @@ Model_Application::compose_and_resolve() {
 		Var_Id in_flux_id = invalid_var;
 		if(!is_valid(connection)) {
 			if(is_out)
-				sprintf(varname, "in_flux(%s)", target->name.data());
-			else
 				sprintf(varname, "out_flux(%s)", target->name.data());
+			else
+				sprintf(varname, "in_flux(%s)", target->name.data());
 			in_flux_id = register_state_variable<State_Var::Type::in_flux_aggregate>(this, invalid_entity_id, false, varname, true);
 			auto in_flux_var = as<State_Var::Type::in_flux_aggregate>(vars[in_flux_id]);
 			in_flux_var->in_flux_to = target_id;

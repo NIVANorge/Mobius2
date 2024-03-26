@@ -596,6 +596,13 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Entity_Id se
 				//TODO check that the units of multiple instances of the same series cohere. Or should the rule be that only the first instance declares the unit? In that case we should still give an error if later cases declares a unit. Or should we be even more fancy and allow for automatic unit conversions?
 			}
 			
+			for(auto id : ids) {
+				if(id.type == Var_Id::Type::state_var || id.type == Var_Id::Type::temp_var) {
+					header.source_loc.print_error_header();
+					fatal_error("The name \"", header.name, "\" refers to a variable that can't be provided as an input series.");
+				}
+			}
+			
 			if(header.indexes.empty()) continue;
 			
 			if(ids.begin()->type == Var_Id::Type::series) {
@@ -615,9 +622,22 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Entity_Id se
 					
 					if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
 						
-						auto var = as<State_Var::Type::declared>(app->vars[id]);
-						
-						if(!var->allowed_index_sets.has(index_set)) {
+						auto var0 = app->vars[id];
+						//Index_Set_Tuple allowed = {};
+						auto allowed = as<State_Var::Type::declared>(var0)->allowed_index_sets;
+						/*
+						if(var0->type == State_Var::Type::declared)
+							allowed = as<State_Var::Type::declared>(var0)->allowed_index_sets;
+						else if(var0->type == State_Var::Type::dissolved_conc) {
+							auto var = as<State_Var::Type::dissolved_conc>(var0);
+							auto allowed_diss = as<State_Var::Type::declared>(app->vars[var->conc_of])->allowed_index_sets;
+							auto allowed_med  = as<State_Var::Type::declared>(app->vars[var->conc_in])->allowed_index_sets;
+							allowed = allowed_diss;
+							allowed.insert(allowed_med);
+						} else
+							fatal_error(Mobius_Error::internal, "Unsupported state var type for input series.");
+						*/
+						if(!allowed.has(index_set)) {
 							header.source_loc.print_error_header();
 							fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the relevant components are not distributed over that index set.");
 						}

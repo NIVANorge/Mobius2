@@ -61,7 +61,12 @@ make_state_var_identifier(Var_Id state_var) {
 		fatal_error(Mobius_Error::internal, "Tried to make an identifier to an invalid Var_Id.");
 	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;
-	ident->variable_type = Variable_Type::state_var;
+	if(state_var.type == Var_Id::Type::state_var || state_var.type == Var_Id::Type::temp_var)
+		ident->variable_type = Variable_Type::state_var;
+	else if(state_var.type == Var_Id::Type::series)
+		ident->variable_type = Variable_Type::series;
+	else
+		fatal_error(Mobius_Error::internal, "Tried to make an identifier to something that is not supported.");
 	ident->var_id        = state_var;
 	return ident;
 }
@@ -700,6 +705,8 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 			fatal_error_trace(scope);
 		}
 		ident->var_id = conc_id;
+		//if(conc_id.type == Var_Id::Type::series)  // Annoying that this is not automatic..
+		//	ident->variable_type = Variable_Type::series;
 		result.unit = data->app->vars[conc_id]->unit.standard_form;
 	} else
 		result.unit = std::move(arg_units[var_idx]);

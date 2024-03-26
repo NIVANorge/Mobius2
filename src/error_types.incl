@@ -3,6 +3,6 @@ ENUM_VALUE(internal)
 ENUM_VALUE(parsing)
 ENUM_VALUE(file)
 ENUM_VALUE(api_usage)
-ENUM_VALUE(ole)
+ENUM_VALUE(spreadsheet)
 ENUM_VALUE(numerical)
 //etc.

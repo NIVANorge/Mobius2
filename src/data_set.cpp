@@ -5,13 +5,10 @@
 #include <cstdarg>
 
 #include "data_set.h"
-//#include "ole_wrapper.h"
 
 void
 read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_View file_name, String_View text_data);
 
-//void
-//read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series_data, OLE_Handles *handles, String_View file_name);
 void
 read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, String_View file_name);
 
@@ -403,16 +400,12 @@ Series_Data::process_declaration(Catalog *catalog) {
 	
 	bool success;
 	String_View extension = get_extension(other_file_name, &success);
+	
 	if(success && (extension == ".xlsx" || extension == ".xls")) {
-		//#if OLE_AVAILABLE
+
 		String_View relative = make_path_relative_to(other_file_name, data_set->path);
-		//ole_open_spreadsheet(relative, &ole_handles);
-		//read_series_data_from_spreadsheet(data_set, this, &ole_handles, other_file_name);
 		read_series_data_from_spreadsheet(data_set, this, relative);
-		/*#else
-		single_arg(decl, 0)->print_error_header();
-		fatal_error("Spreadsheet reading is only available on Windows.");
-		#endif*/
+		
 	} else {
 		String_View text_data = data_set->file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, data_set->path);
 		read_series_data_from_csv(data_set, this, other_file_name, text_data);

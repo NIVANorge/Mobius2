@@ -767,10 +767,16 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 						result = data->builder->CreateTrunc(result, llvm::Type::getInt1Ty(*data->context));
 				}
 			} else if(ident->variable_type == Variable_Type::state_var) {
+				if(ident->var_id.type != Var_Id::Type::state_var && ident->var_id.type != Var_Id::Type::temp_var)
+					fatal_error(Mobius_Error::internal, "Got a state var identifier that doesn't refer to a state var");
+				
 				int argidx = ident->var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
 				result = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "var");
 			} else if(ident->variable_type == Variable_Type::series) {
+				if(ident->var_id.type != Var_Id::Type::series)
+					fatal_error(Mobius_Error::internal, "Got a series identifier that doesn't refer to a series");
+				
 				result = data->builder->CreateGEP(double_ty, args[series_idx], offset, "series_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "series");
 			} else if(ident->variable_type == Variable_Type::local) {

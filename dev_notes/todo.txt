@@ -2,23 +2,14 @@
 
 	*** High pri ***
 		
-		
-		
 		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
-	
-
-		Excel inputs:
-			We should switch to using https://github.com/troldal/OpenXLSX/tree/master
-				It reads the excel file directly, it doesn't rely on communicating with an Excel process on the computer.
-				It also seems to be much faster and is easier to program against.
-		
+			Turned out to be very difficult due to how things are organized, and caused a totally unrelated series to crash.
+			
 		
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	
 			Requires a lot of extra infrastructure for this to be possible though.
 			
-		
-		
 		Specific models
 		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
