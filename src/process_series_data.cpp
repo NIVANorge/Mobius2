@@ -290,6 +290,7 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 				}
 				interpolate(app, series.dates, series.raw_values[col], offsets[col], header.flags, end_date, data);
 			} else {
+				
 				// Write the data in directly.
 				for(s64 row = 0; row < nrows; ++row) {
 					s64 ts = first_step + row;

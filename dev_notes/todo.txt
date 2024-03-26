@@ -1,13 +1,6 @@
 
 
 	*** High pri ***
-	
-	
-		Make the config system work better.
-			Could have mobius_base_path set for MobiView and mobipy (actually, this one doesn't need it since it is already in the repository), but then make the other options in a common config.txt in Mobius
-			Some config options should be project specific, such as what state variables should be recorded.
-				Could have this in the Data_Set, e.g.
-					store("Name of variable")
 		
 		
 		
@@ -15,9 +8,9 @@
 	
 
 		Excel inputs:
-			When there is an error, the excel process is not properly closed in all cases.
-				Either fix, or choose another excel library (see below).
-			Typically when the error is raised by a function call that does not know it should use the error intercept, e.g. in index_data.
+			We should switch to using https://github.com/troldal/OpenXLSX/tree/master
+				It reads the excel file directly, it doesn't rely on communicating with an Excel process on the computer.
+				It also seems to be much faster and is easier to program against.
 		
 		
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
@@ -332,11 +325,7 @@
 			Tricky since it would imply a complication of the instruction and index set dependency system for a very small special case.
 	
 		
-		Could also have flux(source, target) like in_flux, out_flux, but just summing between these locations.
-			
-		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
-			Or just switch to e.g. https://github.com/troldal/OpenXLSX/tree/master 
-			Will probably not lose formula evaluation since that seems to be stored in the file.
+		Could also have flux(source, target) like in_flux, out_flux, but just summing between these locations.	
 	
 		Give proper error when externally linked function is not found.
 			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
