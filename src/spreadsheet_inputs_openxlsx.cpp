@@ -192,8 +192,25 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 					} else if(val.type() == XLValueType::String) {
 						
 						index_names_str[idx] = val.get<std::string>();
-						token.type = Token_Type::quoted_string;
-						token.string_value = String_View(index_names_str[idx].c_str());
+						if(idxtype == Index_Record::Type::numeric1) {
+							// It could be a string-formatted number. We allow that for indexes.
+							// TODO: If the stream errors, that will not be the correct behaviour. We need an option to turn it off.
+							Token_Stream stream(file_name, String_View(index_names_str[idx]));
+							auto token2 = stream.read_token();
+							if(token2.type == Token_Type::integer || token2.type == Token_Type::real) {
+								token.type = token2.type;
+								if(token2.type == Token_Type::integer)
+									token.val_int = token2.val_int;
+								else
+									token.val_double = token2.val_double;
+							} else {
+								close_due_to_error(doc, tab, row, 1);
+								fatal_error("This index set requires numeric indexes.");
+							}
+						} else {
+							token.type = Token_Type::quoted_string;
+							token.string_value = String_View(index_names_str[idx].c_str());
+						}
 						
 					} else if(val.type() == XLValueType::Empty) {
 						

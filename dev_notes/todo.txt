@@ -1,6 +1,8 @@
 
 
 	*** High pri ***
+	
+		2D plot is broken for Drammensfjorden setup.
 			
 		
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.

@@ -1311,13 +1311,12 @@ Model_Application::serialize(Var_Id id) {
 		} else if(var->type == State_Var::Type::in_flux_aggregate) {
 			auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 			auto var_to = vars[var2->in_flux_to];
-			ss << "in_flux_aggregate@";
+			ss << var2->is_out ? "out_flux@" : "in_flux@";
 			serialize_loc(model, ss, var_to->loc1);
 		} else if(var->type == State_Var::Type::connection_aggregate) {
 			auto var2 = as<State_Var::Type::connection_aggregate>(var);
 			auto agg_for = vars[var2->agg_for];
-			ss << "connection_aggregate@";
-			ss << (var2->is_out ? "source@" : "target@");
+			ss << var2->is_out ? "out_flux@" : "in_flux@";
 			ss << model->serialize(var2->connection) << '@';
 			serialize_loc(model, ss, agg_for->loc1);
 		} else if(var->type == State_Var::Type::external_computation) {

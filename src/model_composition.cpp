@@ -1062,7 +1062,7 @@ add_connection_agg_weights(Model_Application *app, std::vector<Conversion_Data> 
 }
 
 void
-register_connection_agg(Model_Application *app, bool is_source, Var_Id target_var_id, Entity_Id target_comp, Entity_Id conn_id, char *varname) {
+register_connection_agg(Model_Application *app, bool is_out, Var_Id target_var_id, Entity_Id target_comp, Entity_Id conn_id, char *varname) {
 	
 	auto model = app->model;
 	auto connection = model->connections[conn_id];
@@ -1074,27 +1074,24 @@ register_connection_agg(Model_Application *app, bool is_source, Var_Id target_va
 		return;
 	
 	// See if we have a connection aggregate for this variable and connection already.
-	auto &aggs = is_source ? var->conn_source_aggs : var->conn_target_aggs;
+	auto &aggs = is_out ? var->conn_source_aggs : var->conn_target_aggs;
 	for(auto existing_agg : aggs) {
 		if(as<State_Var::Type::connection_aggregate>(app->vars[existing_agg])->connection == conn_id)
 			return;
 	}
-	
-	if(is_source)
-		sprintf(varname, "in_flux_connection_source(%s, %s)", connection->name.data(), app->vars[target_var_id]->name.data());
-	else
-		sprintf(varname, "in_flux_connection_target(%s, %s)", connection->name.data(), app->vars[target_var_id]->name.data());
-	
+
+	sprintf(varname, "%s(%s, %s)", is_out ? "out_flux" : "in_flux", connection->name.data(), app->vars[target_var_id]->name.data());
+
 	Var_Id agg_id = register_state_variable<State_Var::Type::connection_aggregate>(app, invalid_entity_id, false, varname, true);
 	auto agg_var = as<State_Var::Type::connection_aggregate>(app->vars[agg_id]);
 	agg_var->agg_for = target_var_id;
-	agg_var->is_out = is_source;
+	agg_var->is_out = is_out;
 	agg_var->connection = conn_id;
 	
 	var = as<State_Var::Type::declared>(app->vars[target_var_id]);
 	
 	agg_var->unit = divide(var->unit, app->time_step_unit);
-	if(is_source) {
+	if(is_out) {
 		var->conn_source_aggs.push_back(agg_id);
 	} else {
 		var->conn_target_aggs.push_back(agg_id);

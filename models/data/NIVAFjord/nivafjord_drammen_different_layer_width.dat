@@ -6,7 +6,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	time_step([3, hr])
 	
-	series("nivafjord_drammen.xlsx")
+	series("C:\Data\Mobius2\models\data\NIVAFjord\nivafjord_drammen.xlsx")
 	
 	basin : index_set("Basin index") [ "Drammensfjorden" ]
 	
@@ -56,7 +56,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		[ 2018-01-01 ]
 		
 		par_datetime("End date") 
-		[ 2021-12-31 ]
+		[ 2018-12-31 ]
 	
 	}
 	
@@ -160,6 +160,19 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Elevation") 
 			[ 0 ]
+			
+			par_real("Longitude") 
+			[ 10 ]
+			
+			par_real("GMT zone") 
+			[ 1 ]
+		
+		}
+		
+		par_group("Radiation") {
+			
+			par_bool("Use sub-daily precision") 
+			[ false ]
 		
 		}
 	
@@ -573,37 +586,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		
 		}
 		
-		par_group("Phytoplankton") {
-			
-			par_real("Chl-a of phyto at equilibrium") 
-			[ 0.01 ]
-			
-			par_real("Q10 of Phyto equilibrium") 
-			[ 2 ]
-			
-			par_real("Phytoplankton turnover rate") 
-			[ 0.2 ]
-			
-			par_real("Optimal PAR intensity") 
-			[ 100 ]
-			
-			par_real("Half-saturation for nutrient uptake") 
-			[ 1.65625 ]
-			
-			par_real("Chl-a fraction") 
-			[ 2 ]
-			
-			par_real("Phytoplankton excretion rate") 
-			[ 0.01 ]
-			
-			par_real("Molar C/N ratio in Phytoplankton") 
-			[ 6.625 ]
-			
-			par_real("Molar C/P ratio in Phytoplankton") 
-			[ 106 ]
-		
-		}
-		
 		par_group("Light") {
 			
 			par_real("Diffuse attenuation coefficent (clear water)") 
@@ -797,6 +779,54 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("PO4 sorption rate") 
 			[ 0.01 ]
+		
+		}
+		
+		par_group("Phytoplankton") {
+			
+			par_real("Chl-a of phyto at equilibrium") 
+			[ 0.01 ]
+			
+			par_real("Q10 of Phyto equilibrium") 
+			[ 2 ]
+			
+			par_real("Phytoplankton turnover rate") 
+			[ 0.2 ]
+			
+			par_real("Optimal PAR intensity") 
+			[ 100 ]
+			
+			par_real("Half-saturation for nutrient uptake") 
+			[ 1.65625 ]
+			
+			par_real("Molar C/N ratio in Phytoplankton") 
+			[ 6.625 ]
+			
+			par_real("Molar C/P ratio in Phytoplankton") 
+			[ 106 ]
+			
+			par_real("Phytoplankton excretion rate") 
+			[ 0.01 ]
+			
+			par_real("Chl-a fraction") 
+			[ 2 ]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord boundary chemistry", version(0, 0, 0)) {
+		
+		par_group("Boundary organic matter") {
+			
+			par_real("Molar C/N ratio in boundary OM") 
+			[ 6.625 ]
+			
+			par_real("Molar C/P ratio in boundary OM") 
+			[ 106 ]
+			
+			par_real("Particle organic carbon fraction") 
+			[ 0.5 ]
 		
 		}
 	
