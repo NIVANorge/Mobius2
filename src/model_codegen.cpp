@@ -440,12 +440,13 @@ Math_Expr_FT *
 maybe_apply_back_step(Model_Application *app, Identifier_Data *ident, Math_Expr_FT *offset_code) {
 	if(!ident->has_flag(Identifier_FT::last_result)) return offset_code;
 	s64 back_step = -1;
-	if(ident->variable_type == Variable_Type::series)
+	if(ident->is_input_series())
 		back_step = app->series_structure.total_count;
-	else if(ident->variable_type == Variable_Type::state_var && ident->var_id.type == Var_Id::Type::state_var)
+	else if(ident->is_stored_computed_series())
 		back_step = app->result_structure.total_count;
 	
-	ident->remove_flag(Identifier_FT::last_result); // NOTE: The flag is removed so that we can validate in the end that all flags are taken care of.
+	// NOTE: The flag is removed so that we can validate later that all flags are taken care of.
+	ident->remove_flag(Identifier_FT::last_result);
 	
 	if(back_step > 0)
 		return make_binop('-', offset_code, make_literal(back_step));
@@ -460,16 +461,12 @@ put_var_lookup_indexes_basic(Identifier_FT *ident, Model_Application *app, Index
 	if(ident->variable_type == Variable_Type::parameter) {
 		offset_code = app->parameter_structure.get_offset_code(ident->par_id, index_expr);
 	} else if(ident->variable_type == Variable_Type::series) {
-		offset_code = app->series_structure.get_offset_code(ident->var_id, index_expr);
-	} else if(ident->variable_type == Variable_Type::state_var) {
 		auto var = app->vars[ident->var_id];
 		if(!var->is_valid())
 			fatal_error(Mobius_Error::internal, "put_var_lookup_indexes() Tried to look up the value of an invalid variable \"", var->name, "\".");
 		
-		if(ident->var_id.type == Var_Id::Type::state_var)
-			offset_code = app->result_structure.get_offset_code(ident->var_id, index_expr);
-		else
-			offset_code = app->temp_result_structure.get_offset_code(ident->var_id, index_expr);
+		auto &structure = app->get_storage_structure(ident->var_id.type);
+		offset_code = structure.get_offset_code(ident->var_id, index_expr);
 	}
 	
 	offset_code = maybe_apply_back_step(app, ident, offset_code);
@@ -602,7 +599,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 	if(ident->variable_type == Variable_Type::is_at)
 		return process_is_at(app, ident, index_expr);
 	
-	if(ident->variable_type != Variable_Type::parameter && ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var)
+	if(ident->variable_type != Variable_Type::parameter && ident->variable_type != Variable_Type::series)
 		return expr;
 	
 	if(!expr->exprs.empty())
@@ -660,7 +657,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					
 			} else {
 			
-				if(ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::state_var) {
+				if(ident->variable_type != Variable_Type::series) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("On a directed_graph connection, 'below' can only be used on a state variable, series or parameter.");
 				}
@@ -910,7 +907,7 @@ generate_external_computation_code(Model_Application *app, External_Computation_
 				!is_valid(target_compartment) ||
 				arg.restriction.r1.type != Restriction::below || 
 				arg.restriction.r1.connection_id != connection_id ||
-				arg.variable_type != Variable_Type::state_var
+				!arg.is_computed_series()
 			)
 				fatal_error(Mobius_Error::internal, "Something went wrong with configuring an external_computation over a connection.");
 			
@@ -930,7 +927,7 @@ generate_external_computation_code(Model_Application *app, External_Computation_
 		}
 		
 		Offset_Stride_Code res;
-		if(arg.variable_type == Variable_Type::state_var) {
+		if(arg.variable_type == Variable_Type::series) {
 			res = app->get_storage_structure(target_id.type).get_special_offset_stride_code(target_id, new_indexes);
 		} else if(arg.variable_type == Variable_Type::parameter)
 			res = app->parameter_structure.get_special_offset_stride_code(arg.par_id, new_indexes);

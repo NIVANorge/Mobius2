@@ -210,7 +210,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 			Typed_Value result;
 			result.type = expr->value_type;
 			s64 offset = 0;
-			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
+			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::series
 				|| ident->variable_type == Variable_Type::connection_info || ident->variable_type == Variable_Type::index_count) {
 				DEBUG(warning_print("lookup var offset.\n"))
 				offset = emulate_expression(expr->exprs[0], state, locals).val_integer;
@@ -223,15 +223,15 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 					result = Typed_Value {state->parameters[offset], expr->value_type};
 				} break;
 				
-				case Variable_Type::state_var : {
+				case Variable_Type::series : {
 					if(ident->var_id.type == Var_Id::Type::state_var)
 						result.val_real = state->state_vars[offset];
-					else
+					else if(ident->var_id.type == Var_Id::Type::temp_var)
 						result.val_real = state->temp_vars[offset];
-				} break;
-				
-				case Variable_Type::series : {
-					result.val_real = state->series[offset];
+					else if(ident->var_id.type == Var_Id::Type::series)
+						result.val_real = state->series[offset];
+					else
+						fatal_error(Mobius_Error::internal, "Unsupported var_id type for identifier.");
 				} break;
 				
 				case Variable_Type::connection_info : {

@@ -163,7 +163,7 @@ get_token_type(Decl_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var, connection_info, index_count, local, constant,
+	parameter, series, connection_info, index_count, local, constant,
 	// Not really variables, but identifier types:
 	no_override, is_at, connection,
 	// "special" state variables
@@ -177,7 +177,6 @@ inline const char *
 name(Variable_Type type) {
 	if(type == Variable_Type::parameter) return "parameter";
 	if(type == Variable_Type::series) return "series";
-	if(type == Variable_Type::state_var) return "state_var";
 	if(type == Variable_Type::connection_info) return "connection_info";
 	if(type == Variable_Type::index_count) return "index_count";
 	if(type == Variable_Type::local) return "local";

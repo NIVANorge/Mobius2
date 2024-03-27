@@ -77,7 +77,8 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, const std::vecto
 		}
 		return;
 	} else if(str0 == "out") {
-		result.type = Variable_Type::state_var;
+		//result.type = Variable_Type::state_var;
+		result.type = Variable_Type::series;
 		result.loc.type = Var_Location::Type::out;
 		expect_n_items(1, chain.size(), chain[0].source_loc, error);
 		return;
@@ -126,7 +127,8 @@ resolve_location(Mobius_Model *model, Location_Resolve &result, const std::vecto
 		}
 	}
 	
-	result.type = Variable_Type::state_var; // At this stage we don't know if it is a 'series', that has to be corrected later if relevant.
+	//result.type = Variable_Type::state_var; // At this stage we don't know if it is a 'series', that has to be corrected later if relevant.
+	result.type = Variable_Type::series;
 	
 	if(offset > 0 && (result.loc.type == Var_Location::Type::out || result.loc.type == Var_Location::Type::connection)) {
 		if(id_chain.size() > 1) {
@@ -234,7 +236,8 @@ resolve_full_location(Mobius_Model *model, Location_Resolve &result, const std::
 	if(*error) return;
 	
 	if(is_valid(result.restriction.r1.connection_id)) {
-		if(result.type == Variable_Type::state_var) {
+		if(result.type == Variable_Type::series) {
+		//if(result.type == Variable_Type::state_var) {
 			if(result.loc.type != Var_Location::Type::located) {
 				bracket[0].print_error_header();
 				error_print("Only a located location can have a bracketed restriction.");
@@ -269,7 +272,8 @@ resolve_simple_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST
 	Location_Resolve resolve;
 	resolve_loc_argument(model, scope, arg, resolve);
 
-	if(resolve.type != Variable_Type::state_var) {
+	//if(resolve.type != Variable_Type::state_var) {
+	if(resolve.type != Variable_Type::series) {
 		arg->source_loc().print_error_header();
 		fatal_error("This argument must resolve to a state variable.");
 	}
@@ -297,7 +301,8 @@ resolve_flux_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 		loc.r1.connection_id = resolve.val_id;
 		loc.r1.type          = Restriction::below;
 		
-	} else if (resolve.type == Variable_Type::state_var) {
+	//} else if (resolve.type == Variable_Type::state_var) {
+	} else if (resolve.type == Variable_Type::series) {
 		
 		loc = resolve.loc;
 		static_cast<Var_Loc_Restriction &>(loc) = resolve.restriction;
@@ -316,7 +321,8 @@ resolve_loc_decl_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *
 	
 	static_cast<Var_Loc_Restriction &>(loc_decl.loc) = resolve.restriction;
 	
-	if(resolve.type == Variable_Type::state_var) {
+	//if(resolve.type == Variable_Type::state_var) {
+	if (resolve.type == Variable_Type::series) {
 		
 		static_cast<Var_Location &>(loc_decl.loc) = resolve.loc;
 		

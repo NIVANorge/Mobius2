@@ -201,7 +201,7 @@ void
 insert_var_index_set_dependencies(Model_Application *app, Model_Instruction *instr, const Identifier_Data &dep) {
 	auto model = app->model;
 	
-	if(dep.variable_type == Variable_Type::parameter || dep.variable_type == Variable_Type::series) {
+	if(dep.variable_type == Variable_Type::parameter || dep.is_input_series()) {
 				
 		insert_dependencies(app, instr, dep);
 
@@ -210,7 +210,7 @@ insert_var_index_set_dependencies(Model_Application *app, Model_Instruction *ins
 		auto index_set = app->model->connections[dep.restriction.r1.connection_id]->node_index_set;
 		insert_dependency(app, instr, index_set);
 		
-	} else if(dep.variable_type == Variable_Type::state_var) {
+	} else if(dep.is_computed_series()) {
 		
 		if(!is_valid(dep.var_id)) {
 			fatal_error(Mobius_Error::internal, "Found a dependency on an invalid Var_Id for instruction ", instr->debug_string(app), ".");
@@ -257,7 +257,7 @@ get_possible_target_ids(Model_Application *app, const Identifier_Data &ident, st
 	auto model = app->model;
 	auto &res = ident.restriction.r1;
 	
-	if(ident.variable_type != Variable_Type::state_var || !is_valid(res.connection_id))
+	if(!ident.is_computed_series() || !is_valid(res.connection_id))
 		fatal_error(Mobius_Error::internal, "Misuse of get_possible_target_ids");
 	
 	auto conn = model->connections[res.connection_id];
@@ -277,7 +277,7 @@ get_possible_target_ids(Model_Application *app, const Identifier_Data &ident, st
 void
 insert_var_order_depencencies(Model_Application *app, Model_Instruction *instr, const Identifier_Data &dep) {
 	
-	if(dep.variable_type != Variable_Type::state_var) return;
+	if(!dep.is_computed_series()) return;
 	
 	auto model = app->model;
 
@@ -496,7 +496,7 @@ make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
 		if(ident->has_flag(Identifier_FT::last_result));
 			ident->remove_flag(Identifier_FT::last_result);
 		
-		if(ident->variable_type == Variable_Type::state_var) {
+		if(ident->is_computed_series()) {
 			auto var = app->vars[ident->var_id];
 			if(var->type == State_Var::Type::connection_aggregate || var->type == State_Var::Type::in_flux_aggregate) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
@@ -564,7 +564,7 @@ create_initial_vars_for_lookups(Model_Application *app, Math_Expr_FT *expr, std:
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type == Variable_Type::state_var)
+		if(ident->is_computed_series())
 			ensure_has_initial_value(app, ident->var_id, instructions);
 	}
 }
@@ -1030,7 +1030,7 @@ set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, s
 	for(auto &arg : code->arguments) {
 		if(arg.has_flag(Identifier_Data::result)) continue;
 		
-		if(arg.variable_type == Variable_Type::state_var) {
+		if(arg.is_computed_series()) {
 			insert_var_order_depencencies(app, instr, arg);
 			instr->instruction_is_blocking.insert(arg.var_id.id);
 			

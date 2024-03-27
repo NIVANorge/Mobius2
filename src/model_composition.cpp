@@ -201,26 +201,13 @@ Code_Special_Lookups {
 };
 
 void
-find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_Lookups *specials, Var_Id looked_up_by, Entity_Id lookup_compartment, bool allow_last = true, bool remove_last = false) {
-	for(auto arg : expr->exprs) find_identifier_flags(app, arg, specials, looked_up_by, lookup_compartment, allow_last, remove_last);
+find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_Lookups *specials, Var_Id looked_up_by, Entity_Id lookup_compartment) {
+	for(auto arg : expr->exprs) find_identifier_flags(app, arg, specials, looked_up_by, lookup_compartment);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		
 		auto ident = static_cast<Identifier_FT *>(expr);
-		
-		if(ident->variable_type == Variable_Type::state_var && ident->has_flag(Identifier_FT::last_result)) {   // Could this instead be baked into the function tree resolution?
-			if(!allow_last) {
-				expr->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Can't use a last() in an @initial block.");
-			}
-			if(!app->vars[ident->var_id]->store_series) {
-				expr->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("Can not use a last() on a variable that is @no_store.");
-			}
-			if(remove_last)
-				ident->remove_flag(Identifier_FT::last_result);
-		}
-		
+			
 		if(specials && ident->has_flag(Identifier_FT::in_flux))
 			specials->in_fluxes[{ident->var_id, ident->other_connection, false}].push_back(looked_up_by);
 		else if (specials && ident->has_flag(Identifier_FT::out_flux))
@@ -238,12 +225,12 @@ find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_L
 					agg_data.first.insert(lookup_compartment);
 					if(is_valid(looked_up_by))
 						agg_data.second.push_back(looked_up_by);
-				} else if (ident->variable_type == Variable_Type::state_var) {
+				} else if (ident->is_computed_series()) {
 					auto &agg_data = specials->aggregates[ident->var_id];
 					agg_data.first.insert(lookup_compartment);
 					if(is_valid(looked_up_by))
 						agg_data.second.push_back(looked_up_by);
-				} else if (ident->variable_type == Variable_Type::series) {
+				} else if (ident->is_input_series()) {
 					//TODO: Why did we determine that the state_var way of doing it doesn't work for input series?
 					// TODO: Make it use the above code and debug what happens (fix errors).
 					fatal_error(Mobius_Error::internal, "aggregate() is not implemented for input series.");
@@ -265,7 +252,7 @@ replace_flagged(Math_Expr_FT *expr, Var_Id replace_this, Var_Id with, Identifier
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	
-	if(ident->variable_type == Variable_Type::state_var 
+	if(ident->is_computed_series() 
 		&& (ident->var_id == replace_this)
 		&& (ident->has_flag(flag))
 		&& ((ident->other_connection == connection_id) || (!is_valid(ident->other_connection) && !is_valid(connection_id)))
@@ -300,9 +287,9 @@ replace_flagged_par(Math_Expr_FT *expr, Entity_Id replace_this, Var_Id with, Ide
 		&& (ident->par_id == replace_this)
 		&& (ident->has_flag(flag))
 	) {
-		//ident->par_id = invalid_entity_id; // Ooops, since this is a union, this should not be set after ident->var_id
+		//ident->par_id = invalid_entity_id; // Ooops, since this is a union, this should not be set along with ident->var_id
 		ident->var_id = with;
-		ident->variable_type = Variable_Type::state_var;
+		ident->variable_type = Variable_Type::series;
 		ident->remove_flag(flag);
 	}
 	
@@ -437,7 +424,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
 			}
-		} else if (dep.variable_type == Variable_Type::series) {
+		} else if (dep.is_input_series()) {
 			
 			Specific_Var_Location ident_loc(app->vars[dep.var_id]->loc1, dep.restriction);
 			auto maximal_series_sets = get_allowed_index_sets(app, ident_loc);
@@ -447,7 +434,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 				fatal_error("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
 			}
 		
-		} else if (dep.variable_type == Variable_Type::state_var) {
+		} else if (dep.is_computed_series()) {
 			auto dep_var = app->vars[dep.var_id];
 		
 			// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
@@ -532,7 +519,7 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 			fatal_error("Only quantity identifiers are allowed in a 'no_carry'.");
 		}
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->variable_type != Variable_Type::state_var) {
+		if(!ident->is_computed_series()) {
 			ident->source_loc.print_error_header();
 			fatal_error("Only state variables are relevant for a 'no_carry'.");
 		}
@@ -1308,11 +1295,12 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 			res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
 		
 		res_data.allow_in_flux = false;
+		res_data.allow_last = !init_is_override; // NOTE: Only make an error for occurrences of 'last' if the block came from an @initial not an @override
+		
 		auto res = resolve_function_tree(init_ast, &res_data);
 		auto fun = make_cast(res.fun, Value_Type::real);
 		
-		// NOTE: Only make an error for occurrences of 'last' if the block came from an @initial not an @override
-		find_identifier_flags(app, fun, specials, var_id, from_compartment, !init_is_override, false);
+		find_identifier_flags(app, fun, specials, var_id, from_compartment);
 		var2->initial_is_conc = initial_is_conc;
 		
 		if(!match_exact(&res.unit, &res_data.expected_unit)) {
@@ -1452,15 +1440,15 @@ Model_Application::compose_and_resolve() {
 				fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a external_computation.");
 			
 			auto ident = static_cast<Identifier_FT *>(arg);
-			// TODO: Also implement for series
-			if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::parameter) {
+			// TODO: Also implement for input series
+			if(!ident->is_computed_series() && ident->variable_type != Variable_Type::parameter) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("We only support state variables and parameters as the arguments to a 'external_computation'.");
 			}
 			
 			external_comp->arguments.push_back(*ident);
 			if(ident->has_flag(Identifier_FT::result)) {
-				if(ident->variable_type != Variable_Type::state_var) {
+				if(!ident->is_computed_series()) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Only state variables can be a 'result' of a 'external_computation'.");
 				}
@@ -1477,7 +1465,7 @@ Model_Application::compose_and_resolve() {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("A result of an 'external_computation' can't have a connection restriction.");
 				}
-				if(ident->variable_type != Variable_Type::state_var) {
+				if(!ident->is_computed_series()) {
 					ident->source_loc.print_error_header(Mobius_Error::model_building);
 					fatal_error("Connection restrictions are not supported for parameters in 'external_computation'.");
 				}

@@ -1,9 +1,6 @@
 
 
 	*** High pri ***
-		
-		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
-			Turned out to be very difficult due to how things are organized, and caused a totally unrelated series to crash.
 			
 		
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
@@ -115,16 +112,19 @@
 	
 	*** Intermediate-pri ***
 	
+		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
+			Turned out to be very difficult due to how things are organized, and caused a totally unrelated series to become NaN.
+			May have messed up indexing of series values?
+	
 		Multiple return values from functions (tuples).
 			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
 	
 		Position_Map
-			Should probably rename to 'width_map' or 'thickness'.
-			Use it to position x/y-values in MobiView2 Profile and Profile2d also!
-			Should probably display the index name as the position before, not the end position of the end of the index. Or even as the interval. ("0-1" etc).
-				Just have to make sure they are not stored as that in any files.
 			There can be problems if the max depth doesn't exactly match a boundary of two widths.
 				See for instance Breiangen in nivafjord_moss
+		The way positioned indexes are named in get_index_names is not going to work for serialization.
+			May need to separate between serialization name and display name for these.
+				Actually, right now indexes are serialized by number and not name any way, so it is not a problem?
 		Parameters on map form:
 			These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn off editing for now).
 				Well, technically they could be, but couldn't be saved back to dataset.
@@ -137,10 +137,13 @@
 			
 			2d plot: The plot won't make sense at all unless the selected indexes is one single contiguous interval (that ideally starts at 0).
 				Warning if it isn't?
-			
-		The way positioned indexes are named in get_index_names is not going to work for serialization.
-			May need to separate between serialization name and display name for these.
-				Actually, right now indexes are serialized by number and not name any way, so it is not a problem?
+				
+			Make model reloads work better wrt 'quick select'.
+				If the quick_select tab is open, it should choose the right thing back.
+								
+			Seasonal aggregation.
+				I.e. the mean for jan, feb, ... across multiple years.
+				Maybe with box plot.
 	
 		
 		For sub-indexed index sets, don't allocate the entire max size for each instance (for data blocks).
@@ -171,17 +174,9 @@
 			Clear model input series to NaN outside the individual interval.
 				What to do if an input is interpolated and not 'inside'?
 	
-		MobiView :
-			Make model reloads work better wrt 'quick select'.
-				If the quick_select tab is open, it should choose the right thing back.
-								
-			Seasonal aggregation.
-				I.e. the mean for jan, feb, ... across multiple years.
-				Maybe with box plot.
-		
-		
 		Should have better processing of docstrings.
 			Right now they must be tabbed entirely to the left or otherwise the tabs inside the string is recorded.
+				Should be easy since we can do it when they are copied over to std::string.
 	
 	
 		Data_Set
@@ -210,6 +205,7 @@
 		@no_store :
 				
 			May need a more granular system for specifying what series to store (for non-declared series).
+				Like have a store() declaration in the Data_Set.
 			
 			Make @no_store available for @override quantities even on solvers.
 				I.e. for all declared variables that are not is_mass_balance_quantity().
@@ -233,8 +229,6 @@
 				That would only be correct if the flux is of the form dx/dt = -b*x
 			
 		What to do about things like (computed) global radiation that should really have an hourly variation with low step sizes but should be averaged with higher?
-		
-		Warning on HUGE allocations.
 		
 		Union index sets.   Update: this probably is correct now??
 			say     a : index_set("A") @union(b, c)

@@ -58,6 +58,10 @@ Identifier_Data {
 	void remove_flag(Flags flag) { flags = (Flags)(flags & ~flag); }
 	bool has_flag(Flags flag) const { return flags & flag; }
 	
+	bool is_computed_series() const { return (variable_type == Variable_Type::series) && ((var_id.type == Var_Id::Type::state_var) || (var_id.type == Var_Id::Type::temp_var)); }
+	bool is_stored_computed_series() const { return (variable_type == Variable_Type::series) && (var_id.type == Var_Id::Type::state_var); }
+	bool is_input_series() const { return (variable_type == Variable_Type::series) && (var_id.type == Var_Id::Type::series); }
+	
 	Identifier_Data() : flags(Flags::none), other_connection(invalid_entity_id) { };
 };
 
@@ -172,6 +176,7 @@ Function_Resolve_Data {
 	Standardized_Unit            expected_unit;
 	Entity_Id                    connection = invalid_entity_id;
 	
+	bool                         allow_last          = true;
 	bool                         restrictive_lookups = false;
 	bool                         allow_in_flux       = true;
 	bool                         allow_no_override   = false;

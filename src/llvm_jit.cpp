@@ -636,7 +636,7 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 		auto count  = build_expression_ir(external->exprs[3*idx + 2], locals, args, data);
 		llvm::Value *valptr;
 		auto &ident = external->arguments[idx];
-		if(ident.variable_type == Variable_Type::state_var) {
+		if(ident.is_computed_series()) {
 			int argidx = ident.var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
 			valptr = data->builder->CreateGEP(double_ty, args[argidx], offset, "state_var_ptr");
 		} else if(ident.variable_type == Variable_Type::parameter)
@@ -744,7 +744,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			llvm::Value *result = nullptr;
 			
 			llvm::Value *offset = nullptr;
-			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
+			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::series
 				|| ident->variable_type == Variable_Type::connection_info || ident->variable_type == Variable_Type::index_count) {
 				if(expr->exprs.size() != 1)
 					fatal_error(Mobius_Error::internal, "An identifier was not properly indexed before LLVM codegen.");
@@ -766,19 +766,21 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 					if(ident->value_type == Value_Type::boolean)
 						result = data->builder->CreateTrunc(result, llvm::Type::getInt1Ty(*data->context));
 				}
-			} else if(ident->variable_type == Variable_Type::state_var) {
-				if(ident->var_id.type != Var_Id::Type::state_var && ident->var_id.type != Var_Id::Type::temp_var)
-					fatal_error(Mobius_Error::internal, "Got a state var identifier that doesn't refer to a state var");
+			} else if(ident->variable_type == Variable_Type::series) {
 				
-				int argidx = ident->var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+				int argidx;
+				if(ident->var_id.type == Var_Id::Type::state_var)
+					argidx = state_vars_idx;
+				else if(ident->var_id.type == Var_Id::Type::temp_var)
+					argidx = temp_vars_idx;
+				else if(ident->var_id.type == Var_Id::Type::series)
+					argidx = series_idx;
+				else
+					fatal_error(Mobius_Error::internal, "Unexpected variable type for identifier.");
+				
 				result = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "var");
-			} else if(ident->variable_type == Variable_Type::series) {
-				if(ident->var_id.type != Var_Id::Type::series)
-					fatal_error(Mobius_Error::internal, "Got a series identifier that doesn't refer to a series");
-				
-				result = data->builder->CreateGEP(double_ty, args[series_idx], offset, "series_ptr");
-				result = data->builder->CreateLoad(double_ty, result, "series");
+		
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = find_local_var(locals, ident->local_var);
 				if(!result)

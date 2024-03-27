@@ -61,11 +61,8 @@ make_state_var_identifier(Var_Id state_var) {
 		fatal_error(Mobius_Error::internal, "Tried to make an identifier to an invalid Var_Id.");
 	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;
-	if(state_var.type == Var_Id::Type::state_var || state_var.type == Var_Id::Type::temp_var)
-		ident->variable_type = Variable_Type::state_var;
-	else if(state_var.type == Var_Id::Type::series)
-		ident->variable_type = Variable_Type::series;
-	else
+	ident->variable_type = Variable_Type::series;
+	if(!(state_var.type == Var_Id::Type::state_var || state_var.type == Var_Id::Type::temp_var || state_var.type == Var_Id::Type::series))
 		fatal_error(Mobius_Error::internal, "Tried to make an identifier to something that is not supported.");
 	ident->var_id        = state_var;
 	return ident;
@@ -383,7 +380,7 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 			error_print("The location can not be inferred from the context.");
 		fatal_error_trace(scope);
 	}
-	ident->variable_type = ((var_id.type == Var_Id::Type::state_var || var_id.type == Var_Id::Type::temp_var) ? Variable_Type::state_var : Variable_Type::series);
+	ident->variable_type = Variable_Type::series;
 	ident->var_id        = var_id;
 	unit                 = data->app->vars[var_id]->unit.standard_form;
 	ident->value_type    = Value_Type::real;
@@ -636,7 +633,8 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 	auto ident = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
 	bool can_series = (directive != Directive::in_flux) && (directive != Directive::out_flux) && (directive != Directive::conc);
 	bool can_param  = (directive == Directive::aggregate);
-	if(!(ident->variable_type == Variable_Type::state_var || (can_series && ident->variable_type == Variable_Type::series) || (can_param && ident->variable_type == Variable_Type::parameter))) {
+	
+	if(!(ident->is_computed_series() || (can_series && ident->is_input_series()) || (can_param && ident->variable_type == Variable_Type::parameter))) {
 		ident->source_loc.print_error_header();
 		error_print("A '", fun_name, "' declaration can only be applied to a state variable");
 		if(can_series) error_print(" or input series");
@@ -658,9 +656,24 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 		//Do nothing, we can solve it directly.
 	}
 	
+	if (directive == Directive::last) {
+		if (!data->allow_last) {
+			new_fun->source_loc.print_error_header();
+			error_print("A 'last' is not allowed in this context.");
+			fatal_error_trace(scope);
+		}
+		if (ident->var_id.type == Var_Id::Type::temp_var) {
+			// TODO: We should check the var declaration, not the variable type, because otherwise the rule is not enforced if @no_store is overridden.
+			new_fun->source_loc.print_error_header();
+			error_print("Can't apply 'last' to this variable since it is @no_store.");
+			fatal_error_trace(scope);
+		}
+	}
+	
 	if(directive == Directive::result && !data->allow_result) {
 		new_fun->source_loc.print_error_header();
 		error_print("A 'result' is now allowed in this context.");
+		fatal_error_trace(scope);
 	}
 	
 	if(directive == Directive::in_flux || directive == Directive::out_flux) {
@@ -998,7 +1011,7 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 		
 	}
 	
-	if(resolve.type != Variable_Type::state_var)
+	if(resolve.type != Variable_Type::series)
 		fatal_error(Mobius_Error::internal, "Unhandled variable type in resolution of identifier in function scope.");
 	
 	if(!is_located(resolve.loc)) {
@@ -1419,7 +1432,7 @@ register_dependencies(Math_Expr_FT *expr, std::set<Identifier_Data> *depends) {
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 
-	if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series || ident->variable_type == Variable_Type::is_at)
+	if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::series || ident->variable_type == Variable_Type::is_at)
 		depends->insert(*ident);
 }
 
@@ -1639,7 +1652,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 				os << "par[" << model->get_symbol(ident->par_id) << "]";
 			else {
 				os << name(ident->variable_type);
-				if(ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series) {
+				if(ident->variable_type == Variable_Type::series) {
 					os << "[";
 					print_var_symbol(context, ident->var_id);
 					os << "]";
@@ -1789,10 +1802,6 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os) {//, const std::string &function_name) {
 	
-	// TODO: Could do something like this (and modify the printout to be valid C++) to be able to generate permanently compilable code.
-	//    that could then be compiled to a .dll or .so on a target machine like a web server if we don't want to set up llvm there.
-	
-	//os << "void " << function_name << "(Parameter_Value *parameter, double *series, double *state_var, double *solver_workspace, Expanded_Date_Time *time)\n";
 	Print_Tree_Context context;
 	context.app = app;
 	context.os = &os;
