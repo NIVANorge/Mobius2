@@ -87,7 +87,7 @@ Decl_Scope::import(const Decl_Scope &other, Source_Location *import_loc, bool al
 		const auto &entity = ent.second;
 		// NOTE: In a model, parameters are in the scope of parameter groups, and would not otherwise be imported into inlined modules. This fix is a bit unelegant though.
 		// NOTE: no recursive importing unless explicitly specified.
-		// TODO: We should instead have two types of import (or 'exernal'), one that comes from a load() and one that comes from a parent scope.
+		// TODO: We should instead have two types of import (or 'external'), one that comes from a load() and one that comes from a parent scope.
 		
 		if(entity.external && !(allow_recursive_import_params && entity.id.reg_type == Reg_Type::parameter))
 			continue;

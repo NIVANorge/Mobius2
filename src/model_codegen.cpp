@@ -691,13 +691,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					
 					auto target_id = app->get_connection_target_variable(loc0, target_comp, is_conc);
 					if(!is_valid(target_id)) {
-						// TODO: Having this give an error is annoying. But maybe make it give a warning in developer mode?
-						// TODO: Maybe we should do this validity check in model_composition already, before we do the codegen.
-						
-						/*
-						ident->source_loc.print_error_header();
-						fatal_error("The variable \"", app->vars[ident->var_id]->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.");
-						*/
+						ident->source_loc.print_log_header(Log_Mode::dev);
+						log_print(Log_Mode::dev, "The variable \"", app->vars[ident->var_id]->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.\n");
 						continue;
 					}
 					

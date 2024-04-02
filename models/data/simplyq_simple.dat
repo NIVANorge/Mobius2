@@ -1,9 +1,10 @@
 data_set {
 	
 """
-Can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
+You can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
 """
-	
+	#time_step([hr])
+	time_step([day])
 	
 	lu : index_set("Landscape units") [ "One" ]
 	

@@ -48,17 +48,11 @@
 				(in terms of how it is handled internally, not in terms of user-facing functionality)
 				Ideally the entire system should be re-thought or restructured.
 		
-			Component index sets should probably be declared in the connection declaration in the model (also for directed_graph). It is too integral to how the model works to leave it to data set.
-			
 			Have to figure out what something like
 				flux(blabla, something[vert.below], ...)				
-			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc.
+			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc on the secondary restriction.
 				Need this for NIVAFjord
-			Maybe just make the standard syntax
-				flux(blabla, next[vert.below])
-			And this is what we do for all 'below' connection targets.
-				Maybe still allow the shorthand though.
-				Could later extend it to have different code depending on the target (for graph).
+			Could later extend it to have different code depending on the target (for graph).
 		
 			graph connections
 				
@@ -68,24 +62,25 @@
 					Regex checking of fjord_horizontal regex is bugged for nivafjord_moss
 						if the regex is switched to
 						river | (river? layer+ bnd_layer?)
-						it fails, so the | operator is not symmetrical somehow.
+						it fails, so the | operator is not symmetric somehow.
 					also it doesn't fail if there is an ->out on the downstream data even though that should not be allowed by the regex.
 				
 				For [below] accesses in code, we probably need to pre-process them to check that the units are the same in all instances etc.
-					Alternatively do unit conversions, but how?
+					Is currently done in codegen (put_var_lookup_indexes).
 					May have to be done inside resolve_function_tree, in that case need to access the connection data there.
 					
 				When it accesses [below] across an index set that has a sub-index set, it should check that the sub index set is not out of bounds (if the variable depends on it).
 					Probably put in make_restriction_condition().
-					Right now it doesn't break because the data is allocated and has value 0, but that should not be the case eventually.
+					Right now it doesn't break because the data is allocated and has value 0, but that may not be the case eventually.
 						Moreover it would be wrong if it was a flux with that target and not set to 0 for some other reason.
 				
 				Make it work with quantities as the node component.
 					And allow aggregation weight for quantities (can for instance be used for degradation chains of isotopes or POPs where some of the mass goes away as side products).
+						Although that could just be done with an additional ->out branch.
 
 			grid1d
 				The way we go around not having a source_aggregate for these when we have something going from [below] (and maybe from [top] if that works now) is not clean and could cause problems if people want to use the in_flux aggregate in the code.
-				However it also seems like a waste to make a source_aggregate when it is only needed for one of the indexes.
+				However it also seems like a waste to make a out_flux aggregate when it is only needed for one of the indexes.
 					Unless we make a special system for it not to have an index set dependency on the grid index in this case. That seems like a lot of work for this special case though.
 				Alternatively, in the ODE codegen, directly make a subtraction of the flux (on condition of correct index).
 					This is maybe the easiest, but is still a bit of work for this special case.
@@ -97,9 +92,6 @@
 				Maybe the @specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
 					Could then also allow .specific inside main code.
 				Tridiagonal distribution of flux target as in original NIVAFjord (?).
-				
-			Should zero out fluxes / accesses across (as in connections) the super index set if they also index over the sub index set and the target sub index is out of bounds.
-				In make_restriction_condition
 			
 		Bidirectional
 			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
