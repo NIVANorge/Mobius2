@@ -153,12 +153,21 @@ parse_parameter_map_recursive(Data_Set *data_set, Data_Map_AST *map, std::vector
 }
 
 void
-unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std::vector<Parmap_Entry> &data, std::vector<Parameter_Value> &values) {
+Parameter_Data::unpack_parameter_map(Data_Set *data_set) {
+	//, std::vector<Entity_Id> &index_sets, std::vector<Parmap_Entry> &data, std::vector<Parameter_Value> &values) {
 	
-	std::vector<Entity_Id> index_sets_upper = index_sets;
+	if(decl_type != Decl_Type::par_real)
+		fatal_error(Mobius_Error::internal, "Somehow tried to unpack map data for a non-double parameter.");
+	
+	values.clear();
+	
+	auto group = data_set->par_groups[this->scope_id];
+	
+	std::vector<Entity_Id> index_sets_upper = group->index_sets;
+	Entity_Id interp_set = index_sets_upper.back();
 	index_sets_upper.pop_back(); // The last index set is the one we interpolate over, and so is handled differently.
 	
-	data_set->index_data.for_each(index_sets_upper, [data_set, &values, &data, &index_sets](Indexes &indexes) {
+	data_set->index_data.for_each(index_sets_upper, [this, data_set, interp_set](Indexes &indexes) {
 		
 		struct
 		Sorted_Entry {
@@ -170,7 +179,7 @@ unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std
 		// This is a bit inefficient, but will probably not matter since these typically should have few entries.
 		std::vector<Sorted_Entry> inner;
 
-		for(auto &entry : data) {
+		for(auto &entry : parmap_data) {
 
 			if(!entry.indexes.lookup_ordered || !indexes.lookup_ordered)
 				fatal_error(Mobius_Error::internal, "unpack_parameter_map: Implementation dependent on these indexes being lookup-ordered.");
@@ -191,7 +200,6 @@ unpack_parameter_map(Data_Set *data_set, std::vector<Entity_Id> &index_sets, std
 			return a.index_pos < b.index_pos;
 		});
 		
-		auto interp_set = index_sets.back();
 		int count = data_set->index_data.get_index_count(indexes, interp_set).index;
 		
 		std::vector<double> unpacked_values(count);
@@ -364,7 +372,7 @@ Parameter_Data::process_declaration(Catalog *catalog) {
 		
 		//log_print("Data size here is : ", map_data.size(), "\n");
 		
-		unpack_parameter_map(data_set, par_group->index_sets, parmap_data, values);
+		unpack_parameter_map(data_set);
 		
 	} else
 		fatal_error(Mobius_Error::internal, "Invalid data format for parameter.");
@@ -377,12 +385,6 @@ Parameter_Data::get_count() {
 	if(decl_type == Decl_Type::par_enum) return values_enum.size();
 	else                                 return values.size();
 }
-
-// NOTE: We had to put these as a global, because if we put them as a member of the Data_Set, we have to put them in data_set.h, and that creates all sorts of problems with double-inclusion of windows.h (for some reason, strange that the include guards don't work..)
-/*#if OLE_AVAILABLE
-OLE_Handles ole_handles = {};
-#endif
-*/
 
 void
 Series_Data::process_declaration(Catalog *catalog) {
@@ -403,8 +405,9 @@ Series_Data::process_declaration(Catalog *catalog) {
 	
 	if(success && (extension == ".xlsx" || extension == ".xls")) {
 
-		String_View relative = make_path_relative_to(other_file_name, data_set->path);
-		read_series_data_from_spreadsheet(data_set, this, relative);
+		String_View path = make_path_relative_to(other_file_name, data_set->path);
+		this->file_name = std::string(other_file_name); // This is the path that is saved if the data_set is saved, it must be the same as what is loaded.
+		read_series_data_from_spreadsheet(data_set, this, path);
 		
 	} else {
 		String_View text_data = data_set->file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, data_set->path);
@@ -847,8 +850,6 @@ Position_Map_Data::process_declaration(Catalog *catalog) {
 void
 Data_Set::read_from_file(String_View file_name) {
 	
-	// NOTE: read_from_file is not thread safe since it is accessing global ole_handles.
-	
 	if(path != "")
 		fatal_error(Mobius_Error::api_usage, "Tried make a data set read from a file ", file_name, ", but it already contains data from the file ", path, ".");
 	
@@ -906,9 +907,6 @@ Data_Set::read_from_file(String_View file_name) {
 		entity->process_declaration(this);
 	}
 	
-#if OLE_AVAILABLE
-	ole_close_app_and_spreadsheet(&ole_handles);
-#endif
 	file_handler.unload_all();
 	delete main_decl;
 	

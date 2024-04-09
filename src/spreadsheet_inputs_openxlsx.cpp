@@ -55,10 +55,9 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 	using namespace OpenXLSX;
 	
 	XLDocument doc;
-	series->file_name = std::string(file_name);
 	
 	try {
-		doc.open(series->file_name);
+		doc.open(std::string(file_name));
 	} catch(...) {
 		fatal_error(Mobius_Error::parsing, "The file \"", file_name, "\" can't be opened.");
 	}
@@ -156,7 +155,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			std::vector<Entity_Id> active_index_sets;
 			
 			Token token = {};
-			token.source_loc.filename = file_name;
+			token.source_loc.filename = series->file_name;
 			token.source_loc.type = Source_Location::Type::spreadsheet;
 			
 			// ****** Read indexes if any
@@ -254,7 +253,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			auto &header = data.header_data.back();
 			
 			header.name = current_input_name;
-			header.source_loc.filename = file_name;
+			header.source_loc.filename = series->file_name;
 			header.source_loc.type = Source_Location::Type::spreadsheet;
 			header.source_loc.column = col;
 			header.source_loc.line   = 1;

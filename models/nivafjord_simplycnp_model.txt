@@ -30,7 +30,7 @@ model("NIVAFjord-SimplyCNP") {
 		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
 	
 	load("modules/nivafjord/sediment.txt",
-		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, area, vert, chem_par, dims))
+		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, heat, area, temp, dz, vert, chem_par, dims))
 	
 	load("modules/nivafjord/boudary_chem.txt",
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, din, on, phos, op, fjord_phyt, chl_a, sed, chem_par))
@@ -39,7 +39,7 @@ model("NIVAFjord-SimplyCNP") {
 		module("Simple River O₂", river, water, o2, temp))
 		
 	#solve(fjord_sol, sediment.sed)
-	solve(sol, sediment.sed)
+	solve(sol, sediment.sed, sediment.heat)
 	
 	wb_index : index_set("Water body") @union(sc, basin_idx)
 	

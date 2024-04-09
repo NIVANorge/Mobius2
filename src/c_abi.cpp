@@ -101,6 +101,13 @@ mobius_build_from_model_and_data_file(char * model_file, char * data_file, char 
 	return nullptr;
 }
 
+DLLEXPORT void
+mobius_delete_application(Model_Application *app) {
+	delete app->data_set;
+	delete app->model;
+	delete app;
+}
+
 // TODO: We should probably have most of these work with Model_Data instances instead of Model_Application instances.
 
 DLLEXPORT bool

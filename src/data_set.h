@@ -4,7 +4,6 @@
 
 #include "catalog.h"
 #include "index_data.h"
-//#include "ole_wrapper.h"
 
 struct
 Module_Data : Registration_Base {
@@ -32,7 +31,6 @@ Series_Data_Flags {
 	series_data_interp_spline     = 0x04,
 	series_data_interp_inside     = 0x08,
 	series_data_repeat_yearly     = 0x10,
-	// TODO: could allow specifying an "series_data_override" to let this series override a state variable.
 };
 
 inline bool
@@ -40,8 +38,8 @@ set_flag(Series_Data_Flags *flags, String_View name) {
 	if     (name == "step_interpolate")   *flags = (Series_Data_Flags)(*flags | series_data_interp_step);
 	else if(name == "linear_interpolate") *flags = (Series_Data_Flags)(*flags | series_data_interp_linear);
 	else if(name == "spline_interpolate") *flags = (Series_Data_Flags)(*flags | series_data_interp_spline);
-	else if(name == "inside")        *flags = (Series_Data_Flags)(*flags | series_data_interp_inside);
-	else if(name == "repeat_yearly") *flags = (Series_Data_Flags)(*flags | series_data_repeat_yearly);
+	else if(name == "inside")             *flags = (Series_Data_Flags)(*flags | series_data_interp_inside);
+	else if(name == "repeat_yearly")      *flags = (Series_Data_Flags)(*flags | series_data_repeat_yearly);
 	else
 		return false;
 	return true;
@@ -88,6 +86,8 @@ Parmap_Entry {
 	double value;
 };
 
+struct Data_Set;
+
 struct
 Parameter_Data : Registration_Base {
 	std::vector<Parameter_Value> values;
@@ -102,6 +102,8 @@ Parameter_Data : Registration_Base {
 	int get_count();
 	
 	void process_declaration(Catalog *catalog);
+	
+	void unpack_parameter_map(Data_Set *data_set);
 };
 
 struct

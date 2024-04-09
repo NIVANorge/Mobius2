@@ -1680,6 +1680,8 @@ process_module_load_outer(Mobius_Model *model, Module_Load &load) {
 		int args_start_at = 1;
 		if(which == 0 || which == 1)
 			args_start_at = 2;
+		// TODO: This one gives an undecipherable error if this is an argument that can't be resolved in this way
+		// (e.g. it is a literal)
 		for(int argidx = args_start_at; argidx < module_spec->args.size(); ++argidx)
 			// Reg_Type::unrecognized means 'any' in this case. Note that we already screened for allowed types earlier.
 			load_args.push_back(scope->resolve_argument(Reg_Type::unrecognized, module_spec->args[argidx]));

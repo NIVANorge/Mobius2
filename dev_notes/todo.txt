@@ -1,10 +1,13 @@
 
 
 	*** High pri ***
-	
-		2D plot is broken for Drammensfjorden setup.
-			
 		
+		
+		Make it easy to edit parameters that are on map form.
+			Make the regular edit fields disabled, but have a separate button to open an editor.
+				(Needs to edit in the Data_Set and re-loaded to Model_Application, but that should be fine, just factor out some code from parameter loading).
+			Parameters that are from_map should still be disabled since that would require an index set resize.
+	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	
 			Requires a lot of extra infrastructure for this to be possible though.
@@ -13,11 +16,13 @@
 		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
 			
-			Improve the O2 surface exchange model, maybe using the NERSEM version of it.
+			Improve the O2 surface exchange model, maybe using the NERSEM version of it?
 			
 			Maybe factor out common phyto module for EasyChem and FjordChem.
 			
-			NIVAFjord!		
+			NIVAFjord!
+			
+				Initial sediment N and P based on some ratios to C.
 				
 				Finish biochemistry.
 					Do we need separate NH4? Do we need Si?
@@ -119,9 +124,7 @@
 		The way positioned indexes are named in get_index_names is not going to work for serialization.
 			May need to separate between serialization name and display name for these.
 				Actually, right now indexes are serialized by number and not name any way, so it is not a problem?
-		Parameters on map form:
-			These and from_map parameters shouldn't be editable in MobiView (without a lot of extra GUI work, so just turn off editing for now).
-				Well, technically they could be, but couldn't be saved back to dataset.
+
 	
 		MobiView
 		
@@ -393,7 +396,6 @@
 		More mobipy functionality.
 			Multidimensional slices and strides
 			Slices for parameters (setting and getting)
-			Setting series data.
 			Saving to file (incl saving inputs, but that should be a core Mobius2 feature).
 			More python wrapper stuff from Mobius1.
 		

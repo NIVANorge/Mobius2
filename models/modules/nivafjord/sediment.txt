@@ -1,5 +1,5 @@
 
-module("NIVAFjord sediments", version(0, 0, 2),
+module("NIVAFjord sediments", version(0, 0, 3),
 	layer    : compartment,
 	sediment : compartment,
 	water    : quantity,
@@ -10,7 +10,10 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	on       : quantity,
 	phos     : quantity,
 	op       : quantity,
+	heat     : quantity,
 	area     : property,
+	temp     : property,
+	dz       : property,
 	vert     : connection,
 	dims     : preamble,
 	chem_par : preamble
@@ -24,14 +27,36 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	
 	par_group("Initial chem", sediment) {
 		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 10, 0, 1)
-		init_n   : par_real("Initial sediment N fraction", [g, k g-1], 1, 0, 1)
 		init_p   : par_real("Initial sediment IP fraction", [g, k g-1], 1, 0, 1)
-		init_op  : par_real("Initial sediment OP fraction", [g, k g-1], 0.1, 0, 1)
 	}
 	
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	
-	sed_rho : constant("Sediment density", [k g, m-3], 2600) #Parameter?
+	# Set these as parameters: ?
+	sed_rho : constant("Sediment density", [k g, m-3], 2600)
+	sed_C   : constant("Sediment specific heat capacity", [J, k g-1, K-1], 5000) #TODO: Find a good value
+	sed_k   : constant("Sediment heat conductivity coefficient", [W, m-1, K-1], 20) #TODO: This is 10 times too high, but it probably must black-body radiate??
+	
+	par_group("Sediment temperature") {
+		dzh : par_real("Thickness of thermally active sediment layer", [m], 0.5)
+		T_bot : par_real("Deep sediment temperature", [deg_c], 8)
+	}
+	
+	var(sediment.heat, [J], "Sediment thermal energy") @initial {
+		(temp->[K]) * sed_C * (area*dzh) * sed_rho
+	}
+	
+	var(sediment.temp, [deg_c], "Sediment surface temperature") {
+		V := area*dzh,
+		T_avg := heat / (sed_C*sed_rho*area*dzh) -> [deg_c],
+		2*T_avg - T_bot
+	} @initial { layer.water.temp } # Or T_bot?
+	
+	flux(layer.water.heat, sediment.heat, [J, day-1], "Water-sediment heat conduction") {
+		dz_ := 0.5*(layer.dz + dzh),
+		sediment.area*(layer.water.temp->[K] - sediment.temp->[K])*sed_k/dz_ ->>
+	}
+	
 	
 	# The sediment area of a water layer is the area of the layer minus the area of the water layer below.
 	var(sediment.area, [m 2], "Sediment area") {   A - A[vert.below]   }
@@ -40,11 +65,11 @@ module("NIVAFjord sediments", version(0, 0, 2),
 	
 	var(sediment.sed.oc, [k g], [g, k g-1], "Sediment organic carbon") @initial_conc { init_c }
 	
-	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_n }
+	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(phyt_cn) }
 	
 	var(sediment.sed.phos, [k g], [g, k g-1], "Sediment IP") @initial_conc { init_p }
 	
-	var(sediment.sed.op, [k g], [g, k g-1], "Sediment OP") @initial_conc { init_op }
+	var(sediment.sed.op, [k g], [g, k g-1], "Sediment OP") @initial_conc { init_c / cp_molar_to_mass_ratio(phyt_cp) }
 	
 	# NOTE: In NIVAFjord it is just a reduction in settling, here instead it causes mixing of concentrations. Not sure what is best.
 	#   We could also make it independent of the settling (which is more realistic maybe).

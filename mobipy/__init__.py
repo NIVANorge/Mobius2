@@ -87,6 +87,8 @@ dll.mobius_encountered_log.restype = ctypes.c_int64
 dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool]
 dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
 
+dll.mobius_delete_application.argtypes = [ctypes.c_void_p]
+
 dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 dll.mobius_get_steps.restype = ctypes.c_int64
 
@@ -318,8 +320,7 @@ class Model_Application(Scope) :
 		
 	
 	def __del__(self) :
-		#TODO
-		pass
+		dll.mobius_delete_application(self.app_ptr)
 	
 	@classmethod
 	def build_from_model_and_data_file(cls, model_file, data_file, store_all_series=False, dev_mode=False) :
@@ -339,6 +340,12 @@ class Model_Application(Scope) :
 			raise ValueError('The serial name "%s" does not refer to a valid state variable or series.' % serial_name)
 		_check_for_errors()
 		return State_Var(self.app_ptr, invalid_entity_id, [], var_id) #TODO: Should maybe retrieve the entity id list from loc1 (if relevant)?
+		
+	def __setattr__(self, handle_name, value) :
+		if handle_name in ['app_ptr', 'scope_id'] :
+			Scope.__setattr__(self, handle_name, value)
+		else :
+			self.__getattr__(handle_name).__setitem__((), value)
 	
 		
 class Entity(Scope) :

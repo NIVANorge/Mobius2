@@ -6,7 +6,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	time_step([3, hr])
 	
-	series("C:\Data\Mobius2\models\data\NIVAFjord\nivafjord_drammen.xlsx")
+	series("nivafjord_drammen.xlsx")
 	
 	basin : index_set("Basin index") [ "Drammensfjorden" ]
 	

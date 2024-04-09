@@ -443,6 +443,12 @@ Model_Application {
 	bool                                                     is_compiled = false;
 	std::vector<Entity_Id>                                   baked_parameters;
 	
+	bool        is_baked_parameter(Entity_Id par_id) {
+		return std::find(baked_parameters.begin(), baked_parameters.end(), par_id) != baked_parameters.end();
+	}
+	
+	enum class Edit_Form { direct, map, disabled };
+	Edit_Form   get_parameter_edit_form(Entity_Id par_id);
 	
 	bool        all_indexes_are_set();
 	

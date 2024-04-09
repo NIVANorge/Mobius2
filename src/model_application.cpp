@@ -102,6 +102,19 @@ Model_Application::Model_Application(Mobius_Model *model) :
 	llvm_data = create_llvm_module();
 }
 
+Model_Application::Edit_Form
+Model_Application::get_parameter_edit_form(Entity_Id par_id) {
+	
+	auto par_id_data = map_id(model, data_set, par_id);
+	auto par = data_set->parameters[par_id_data];
+	if(is_valid(par->from_pos))
+		return Edit_Form::disabled;
+	if(par->is_on_map_form)
+		return Edit_Form::map;
+	return Edit_Form::direct; 
+}
+
+
 void
 Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets) {
 	if(parameter_structure.has_been_set_up)

@@ -15,7 +15,7 @@ preamble("NIVAFjord dimensions", version(0, 0, 0),
 }
 
 
-module("NIVAFjord basin", version(0, 0, 2),
+module("NIVAFjord basin", version(0, 0, 3),
 	air       : compartment,
 	basin     : compartment,
 	layer     : compartment,
@@ -37,6 +37,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 	sw        : property,
 	vert      : connection,
 	sw_vert   : connection,
+	sw_sed    : loc,
 	dims      : preamble
 ) {
 
@@ -51,13 +52,16 @@ module("NIVAFjord basin", version(0, 0, 2),
 	par_group("Mixing parameters", basin) {	
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
-		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor when the B-V frequency is equal to the reference")
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
 		
 		# TODO: Find correct defaults:
 		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0)
 		zshalf : par_real("Halving depth of additional mixing energy", [m], 3)
 		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
+	}
+	
+	par_group("Layer specific mixing", layer) {
+		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor when the B-V frequency is equal to the reference")
 	}
 	
 	par_group("Initial layer physical", layer) {
@@ -210,8 +214,7 @@ module("NIVAFjord basin", version(0, 0, 2),
 		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * A[vert.below]/A
 	}
 	
-	#TODO: If we implement sediment heat balance, this should be directed to sediment.heat instead.
-	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
+	flux(layer.water.heat, sw_sed, [J, day-1], "Shortwave to sediments") {
 		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * (A - A[vert.below])/A
 	}
 }
