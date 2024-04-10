@@ -309,6 +309,12 @@ class Scope :
 			raise ValueError("The handle name '%s' does not refer to a valid entity" % handle_name)
 		_check_for_errors()
 		return Entity(self.app_ptr, self.scope_id, entity_id)
+		
+	def __setattr__(self, handle_name, value) :
+		if handle_name in ['app_ptr', 'scope_id', 'entity_id', 'superscope_id'] :
+			Scope.__setattr__(self, handle_name, value)
+		else :
+			self.__getattr__(handle_name).__setitem__((), value)
 	
 	def list_all(self, type) :
 		# TODO
@@ -340,12 +346,6 @@ class Model_Application(Scope) :
 			raise ValueError('The serial name "%s" does not refer to a valid state variable or series.' % serial_name)
 		_check_for_errors()
 		return State_Var(self.app_ptr, invalid_entity_id, [], var_id) #TODO: Should maybe retrieve the entity id list from loc1 (if relevant)?
-		
-	def __setattr__(self, handle_name, value) :
-		if handle_name in ['app_ptr', 'scope_id'] :
-			Scope.__setattr__(self, handle_name, value)
-		else :
-			self.__getattr__(handle_name).__setitem__((), value)
 	
 		
 class Entity(Scope) :

@@ -487,6 +487,8 @@ Model_Application {
 	std::string llvm_ir;
 };
 
+void
+read_single_parameter_data(Model_Application *app, Entity_Id par_id, Parameter_Data *par_data);
 
 Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction);

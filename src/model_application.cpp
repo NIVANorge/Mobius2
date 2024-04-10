@@ -450,6 +450,41 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 	}
 }
 
+void
+read_single_parameter_data(Model_Application *app, Entity_Id par_id, Parameter_Data *par_data) {
+	// NOTE: This should be tested for in the data set already, so this is just a safety tripwire.
+	s64 expect_count = app->index_data.get_instance_count(app->parameter_structure.get_index_sets(par_id));
+	if(expect_count != par_data->get_count()) {
+		par_data->source_loc.print_error_header();
+		fatal_error("Got ", par_data->get_count(), " values for this parameter, expected ", expect_count, ".");
+	}
+	
+	auto par = app->model->parameters[par_id];
+	
+	int idx = 0;
+	app->parameter_structure.for_each(par_id, [&idx, &app, &par, &par_data](auto idxs, s64 offset) {
+		Parameter_Value value;
+		if(par_data->decl_type == Decl_Type::par_enum) {
+			s64 idx2 = 0;
+			bool found = false;
+			for(; idx2 < par->enum_values.size(); ++idx2) {
+				if(par->enum_values[idx2] == par_data->values_enum[idx].data()) {
+					found = true;
+					break;
+				}
+			}
+			if(!found) {
+				par_data->source_loc.print_error_header();
+				fatal_error("\"", par_data->values_enum[idx], "\" is not a valid value for the enum parameter \"", par_data->name, "\".");
+			}
+			value.val_integer = idx2;
+		} else
+			value = par_data->values[idx];
+		++idx;
+		*app->data.parameters.get_value(offset) = value;
+	});
+}
+
 
 void
 process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id, std::vector<u8> &warned_module_already) {
@@ -527,35 +562,7 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 			fatal_error("The parameter \"", par_data->name, "\" should be of type ", name(par->decl_type), ", not of type ", name(par_data->decl_type), ".");
 		}
 		
-		// NOTE: This should be tested for in the data set already, so this is just a safety tripwire.
-		s64 expect_count = app->index_data.get_instance_count(app->parameter_structure.get_index_sets(par_id));
-		if(expect_count != par_data->get_count()) {
-			par_data->source_loc.print_error_header();
-			fatal_error("Got ", par_data->get_count(), " values for this parameter, expected ", expect_count, ".");
-		}
-		
-		int idx = 0;
-		app->parameter_structure.for_each(par_id, [&idx, &app, &par, &par_data](auto idxs, s64 offset) {
-			Parameter_Value value;
-			if(par_data->decl_type == Decl_Type::par_enum) {
-				s64 idx2 = 0;
-				bool found = false;
-				for(; idx2 < par->enum_values.size(); ++idx2) {
-					if(par->enum_values[idx2] == par_data->values_enum[idx].data()) {
-						found = true;
-						break;
-					}
-				}
-				if(!found) {
-					par_data->source_loc.print_error_header();
-					fatal_error("\"", par_data->values_enum[idx], "\" is not a valid value for the enum parameter \"", par_data->name, "\".");
-				}
-				value.val_integer = idx2;
-			} else
-				value = par_data->values[idx];
-			++idx;
-			*app->data.parameters.get_value(offset) = value;
-		});
+		read_single_parameter_data(app, par_id, par_data);
 		
 	}
 }

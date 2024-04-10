@@ -3,10 +3,8 @@
 	*** High pri ***
 		
 		
-		Make it easy to edit parameters that are on map form.
-			Make the regular edit fields disabled, but have a separate button to open an editor.
-				(Needs to edit in the Data_Set and re-loaded to Model_Application, but that should be fine, just factor out some code from parameter loading).
-			Parameters that are from_map should still be disabled since that would require an index set resize.
+		MobiView:
+			Make it so that editing map based parameters works when the last index is not position based (?)
 	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	
@@ -16,13 +14,9 @@
 		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
 			
-			Improve the O2 surface exchange model, maybe using the NERSEM version of it?
-			
 			Maybe factor out common phyto module for EasyChem and FjordChem.
 			
 			NIVAFjord!
-			
-				Initial sediment N and P based on some ratios to C.
 				
 				Finish biochemistry.
 					Do we need separate NH4? Do we need Si?
@@ -43,6 +37,7 @@
 				Figure out how to do effluents.
 							
 				Shading effect on phyto light availability (light should be more like an average in the epilimnion taking into account attenuation).
+					But that would also be problematic since it is quite uneven but the resulting phyto conc isn't.
 			
 		Finish connection system
 		
