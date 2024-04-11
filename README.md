@@ -4,7 +4,7 @@ See the main site at
 https://nivanorge.github.io/Mobius2/
 
 ## Introduction
-Mobius2 is a modelling framework for coupling systems of different biochemical components in complex mass balance transport networks.
+Mobius2 is a modelling framework for coupling systems of different biochemical components to produce models with biochemical processes and mass balance-based transport networks.
 
 The framework can be used to model any system ordinary differential equations or discrete step equations, but has special support for mass balance of transported substances, with automatic transport of dissolved substances.
 
