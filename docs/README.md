@@ -25,4 +25,4 @@ https://github.com/NIVANorge/Mobius
 
 
 ** Math test **
-$ \frac{1 \pm 2}{c} $
+$$ \frac{1 \pm 2}{c} $$
