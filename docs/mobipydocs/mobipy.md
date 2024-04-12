@@ -1,6 +1,6 @@
 ---
 layout: default
-title: MobiView2
+title: mobipy
 parent: Mobius2
 nav_order: 1
 ---
