@@ -1,3 +1,9 @@
+---
+layout: default
+title: Mobius2 language
+parent: Mobius2
+nav_order: 0
+---
 
 # The Mobius2 model building language
 
