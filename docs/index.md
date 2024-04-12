@@ -22,4 +22,5 @@ Any model created in Mobius2 can be explored in the graphical user interface Mob
 **insert nice plots**
 
 The original version of Mobius can be found here:
-https://github.com/NIVANorge/Mobius
+[https://github.com/NIVANorge/Mobius](https://github.com/NIVANorge/Mobius)
+Mobius supports some models that have not been ported over to Mobius2 yet.
