@@ -12,3 +12,14 @@ The Mobius2 language is a language for specifying models that can be run by the 
 The goal of the language is to be flexible enough to allow you to specify a large range of model structures while still requiring minimal programming by the model builder and letting the framework take care of most of the heavy lifting.
 
 Documentation is forthcoming. For now see [existing models](https://github.com/NIVANorge/Mobius2/tree/main/models) for inspiration.
+
+Testing something:
+```python
+module("Simple-hydrology", version(1, 1, 0),
+  soil : compartment
+) {
+  par_group("Hydrology soil", soil) {
+    bfi : par_real("Baseflow index")
+  }
+}
+```
