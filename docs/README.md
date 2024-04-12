@@ -1,7 +1,3 @@
----
-title : Mobius2
-has_children : true
----
 
 # Mobius2
 
