@@ -22,7 +22,3 @@ Any model created in Mobius2 can be explored in the graphical user interface Mob
 
 The old version of Mobius, Mobius 1, can be found here:
 https://github.com/NIVANorge/Mobius
-
-
-** Math test **
-$$ \frac{1 \pm 2}{c} $$
