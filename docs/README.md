@@ -16,9 +16,9 @@ Different modules for water transport (for instance soils, rivers, lakes) can be
 
 Mobius2 also provides special support for transport along directed graphs and grids. This can be used to model for instance branched river networks, downhill drainage, hydraulic systems, layered lakes, fjords and lagoons, and more.
 
-Any model created in Mobius2 can be explored in the graphical user interface MobiView and interacted with through python in the mobipy package, without the model creator having to write any binding code between the model and various user interfaces.
+Any model created in Mobius2 can be explored in the graphical user interface MobiView and interacted with through python in the mobipy package, without the model creator having to write any binding code between the model and user interfaces.
 
 **insert nice plots**
 
-The old version of Mobius, Mobius 1, can be found here:
+The original version of Mobius can be found here:
 https://github.com/NIVANorge/Mobius
