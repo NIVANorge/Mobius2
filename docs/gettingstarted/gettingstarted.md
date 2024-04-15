@@ -11,8 +11,8 @@ nav_order: 0
 ## Download Mobius2 and run a model
 
 The easiest way to run models in Mobius2 is to use the MobiView2 graphical user interface. You need to
-	1. Get the Mobius2 repository from github.
-	2. Get the MobiView2 program.
+1. Get the Mobius2 repository from github.
+2. Get the MobiView2 program.
 	
 ### 1. Get the Mobius2 repository from github.
 
@@ -28,11 +28,11 @@ For now we only support MobiView2 on Windows. It is technically possible to comp
 
 Open ftp://mobiserver.niva.no/Mobius2 in a file explorer (not a web browser), then download the entire MobiView2 folder.
 
-Edit MobiView2/config.txt so that the "Mobius2 base path" field contains the location where you put Mobius2, e.g. "C:/Data/Mobius2".
+Edit MobiView2/config.txt so that the "Mobius2 base path" field contains the location where you put Mobius2, e.g. `"C:/Data/Mobius2"`.
 
-You can now run MobiView2.exe. Click the open icon in the top left and select e.g. "Mobius2/models/simplyq.txt", then "Mobius2/models/data/simplyq_simple.dat". If the model loaded correctly you can now run it by clicking the orange runner icon in the MobiView2 top bar. You can then select series to plot in the result and input series selections in the bottom right.
+You can now run MobiView2.exe. Click the open icon in the top left and select e.g. `"Mobius2/models/simplyq.txt"`, then `"Mobius2/models/data/simplyq_simple.dat"`. If the model loaded correctly you can now run it by clicking the orange runner icon in the MobiView2 top bar. You can then select series to plot in the result and input series selections in the bottom right.
 
-![MobiView2](/img/mobiview2.png)
+![MobiView2](../img/mobiview2.png)
 
 Next, you can select a parameter group in the top left, which will allow you to edit parameter values in the top center. After changing some values, you can re-run the model and see 
 
@@ -40,10 +40,37 @@ Next, you can select a parameter group in the top left, which will allow you to 
 
 What you want to do next depends on what you want to use Mobius2 for, so not all the options below may be relevant to you.
 
-(to be written)
-Get to know the existing models.
-Learn more about MobiView2.
-Learn the data format to set up models for other locations.
-Use mobipy to script your model runs.
-Build new models or modify existing ones using the Mobius2 language.
-Involve yourself with feedback to the developer team, or become a developer.
+Some of the documentation is still very sparse. We hope to fill it out and add some tutorials soon.
+
+### Get to know the existing models.
+
+(documentation to be written)
+
+### Learn the data format to set up models for other locations.
+
+(documentation to be written)
+
+### Learn more about MobiView2.
+
+MobiView2 contains many more features that can help you to quickly calibrate or autocalibrate your model, generate various types of plots, and run sensitivity analysis.
+See [the full documentation](../mobiview2docs/mobiview.html).
+
+### Use mobipy to script your model runs.
+
+The mobipy python package allows you to dynamically set parameter values and input series, and exctract result series from the model via python. This is useful if you want to script model runs to e.g.
+- Run many different scenarios where you load data from some secondary source, without having to make many separate model data files.
+- Script your own sensitivity analysis or autocalibration.
+- Run the models in the backend of a web page with a custom web interface.
+- Whatever you can think of.
+
+See [the full documentation](../mobipydocs/mobipy.html).
+
+### Build new models or modify existing ones using the Mobius2 language.
+
+Mobius2 models are specified in the Mobius2 language. If you need to make modifications to existing modules, make new modules, or combine modules to new models you need to learn how to use this language.
+
+See [the full documentation](../mobius2docs/language.html).
+
+### Involve yourself with feedback to the developer team, or become a developer.
+
+Please use the github issues tracker to report bugs. You can also contact us at `magnus.norling@niva.no`
