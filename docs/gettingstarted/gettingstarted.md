@@ -1,8 +1,7 @@
 ---
 layout: default
 title: Getting started
-parent: Mobius2
-nav_order: 0
+nav_order: 1
 ---
 
 

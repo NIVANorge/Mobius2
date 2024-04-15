@@ -1,8 +1,7 @@
 ---
 layout: default
 title: Existing models
-parent: Mobius2
-nav_order: 1
+nav_order: 2
 has_children: true
 ---
 
@@ -10,6 +9,6 @@ has_children: true
 
 This documentation is yet to be written. We apologize for the inconvenience.
 
-- The Simply family
-- EasyLake
-- NIVAFjord
+- [The Simply family](simply.html)
+- [EasyLake](easylake.html)
+- [NIVAFjord](nivafjord.html)

@@ -1,8 +1,7 @@
 ---
 layout: default
 title: MobiView2
-parent: Mobius2
-nav_order: 2
+nav_order: 3
 ---
 
 # MobiView2

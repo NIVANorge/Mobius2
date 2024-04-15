@@ -1,8 +1,7 @@
 ---
 layout: default
 title: Model language
-parent: Mobius2
-nav_order: 4
+nav_order: 5
 ---
 
 # The Mobius2 model building language
