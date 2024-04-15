@@ -2,7 +2,7 @@
 layout: default
 title: Mobius2 language
 parent: Mobius2
-nav_order: 2
+nav_order: 3
 ---
 
 # The Mobius2 model building language

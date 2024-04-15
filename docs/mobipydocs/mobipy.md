@@ -2,7 +2,7 @@
 layout: default
 title: mobipy
 parent: Mobius2
-nav_order: 1
+nav_order: 2
 ---
 
 # mobipy
