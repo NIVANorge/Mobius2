@@ -32,7 +32,9 @@ Edit MobiView2/config.txt so that the "Mobius2 base path" field contains the loc
 
 You can now run MobiView2.exe. Click the open icon in the top left and select e.g. `"Mobius2/models/simplyq.txt"`, then `"Mobius2/models/data/simplyq_simple.dat"`. If the model loaded correctly you can now run it by clicking the orange runner icon in the MobiView2 top bar. You can then select series to plot in the result and input series selections in the bottom right.
 
-![MobiView2](../img/mobiview2.png)
+If you chose simplyq.txt, you are running SimplyQ, which is a very simple hydrology model for predicting river discharge.
+
+![MobiView2](../img/mobiview.png)
 
 Next, you can select a parameter group in the top left, which will allow you to edit parameter values in the top center. After changing some values, you can re-run the model and see 
 
@@ -44,11 +46,11 @@ Some of the documentation is still very sparse. We hope to fill it out and add s
 
 ### Get to know the existing models.
 
-(documentation to be written)
+This documentation is yet to be written. We apologize for the inconvenience.
 
 ### Learn the data format to set up models for other locations.
 
-(documentation to be written)
+This documentation is yet to be written. We apologize for the inconvenience.
 
 ### Learn more about MobiView2.
 
@@ -67,7 +69,7 @@ See [the full documentation](../mobipydocs/mobipy.html).
 
 ### Build new models or modify existing ones using the Mobius2 language.
 
-Mobius2 models are specified in the Mobius2 language. If you need to make modifications to existing modules, make new modules, or combine modules to new models you need to learn how to use this language.
+Mobius2 models are specified in the Mobius2 language. If you need to make modifications to existing modules, make new modules, or combine modules to new models you need to learn how to use this language. The language is designed to make it easy to use even if you don't know much programming, and it does most of the heavy lifting for you.
 
 See [the full documentation](../mobius2docs/language.html).
 

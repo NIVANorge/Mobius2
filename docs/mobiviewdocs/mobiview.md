@@ -7,4 +7,4 @@ nav_order: 1
 
 # MobiView2
 
-Documentation to be written
+This documentation is yet to be written. We apologize for the inconvenience.

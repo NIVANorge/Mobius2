@@ -5,14 +5,14 @@ module("Degree-day PET", version(1, 0, 0),
 	pet  : property,
 	temp : property
 ) {
-"This is a very simple potential evapotranspiration model using a linear relationship between PET and air temperature."
+"This is a very simple potential evapotranspiration model that uses a linear relationship between PET and air temperature."
 	
 	par_group("Potential evapotranspiration", soil) {
 		ddf_pet   : par_real("Degree-day factor for evapotranspiration", [m m, deg_c -1, day -1], 0.12, 0.05, 0.2)
 		pet_min_t : par_real("Minimal temperature for evapotranspiration", [deg_c], 0, -5, 5)
 	}
 	
-	var(soil.pet, [m m, day -1])                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
+	var(soil.pet, [m m, day -1]) {   max(0, ddf_pet*(air.temp - pet_min_t))   }
 }
 
 

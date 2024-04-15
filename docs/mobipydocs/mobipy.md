@@ -7,4 +7,4 @@ nav_order: 2
 
 # mobipy
 
-To be written.
+This documentation is yet to be written. We apologize for the inconvenience.
