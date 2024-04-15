@@ -7,11 +7,13 @@ has_children: true
 
 # Mobius2
 
+## What is Mobius2?
+
 **(The documentation is a construction site)**
 
 Mobius2 is a modelling framework for biogeochemical models. It allows you to model such things as transport of and processes of nutrients and contaminants in e.g. catchments, rivers, lakes and ocean basins. The framework allows you to couple modules for many different modular components into a single integrated model. It also makes it easy to modify or write new modules.
 
-See how to quickly [get started](/gettingstarted/gettingstarted.html).
+See how to quickly [get started](gettingstarted/gettingstarted.html).
 
 ## Existing models
 

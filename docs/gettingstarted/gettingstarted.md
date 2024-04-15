@@ -55,7 +55,7 @@ This documentation is yet to be written. We apologize for the inconvenience.
 ### Learn more about MobiView2.
 
 MobiView2 contains many more features that can help you to quickly calibrate or autocalibrate your model, generate various types of plots, and run sensitivity analysis.
-See [the full documentation](../mobiview2docs/mobiview.html).
+See [the full documentation](../mobiviewdocs/mobiview.html).
 
 ### Use mobipy to script your model runs.
 
