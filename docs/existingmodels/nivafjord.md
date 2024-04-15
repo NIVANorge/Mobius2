@@ -2,7 +2,7 @@
 layout: default
 title: NIVAFjord
 parent: Existing models
-nav_order: 0
+nav_order: 2
 ---
 # NIVAFjord
 

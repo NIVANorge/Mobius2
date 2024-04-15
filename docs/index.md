@@ -7,7 +7,7 @@ has_children: true
 
 # Mobius2
 
-## What is Mobius2?
+## The framework for fast and flexible biogeochemical modelling
 
 **(This is a construction site. We apologize for the temporary inconvenience)**
 

@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Mobius2 language
+title: Model language
 parent: Mobius2
 nav_order: 4
 ---
