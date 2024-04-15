@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Mobius2
+title: Mobius2 introduction
 nav_order: 0
 ---
 
@@ -17,9 +17,9 @@ See how to quickly [get started](gettingstarted/gettingstarted.html).
 ## Existing models
 
 The Mobius2 framework comes with several (existing modules and models)[existingmodels/existingmodels.html] that can be used directly or modified to accomodate new research questions. These include
-- The Simply family. This is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
-- EasyLake. This is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
-- NIVAFjord. This is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients and phytoplankton and sediments.
+- The (Simply family)[existingmodels/simply.html]. This is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
+- (EasyLake)[existingmodels/easylake.html]. This is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
+- (NIVAFjord)[existingmodels/nivafjord.html]. This is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.
 
 ## Support infrastructure
 

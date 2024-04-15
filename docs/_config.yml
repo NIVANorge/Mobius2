@@ -1,6 +1,8 @@
 remote_theme: just-the-docs/just-the-docs
-logo : "mobius.png"
+logo: "mobius.png"
 favicon_ico: "mobius.ico"
+
+title: Mobius2
 
 nav_external_links:
   - title: Mobius2 on GitHub
