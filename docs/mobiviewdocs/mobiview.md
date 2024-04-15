@@ -2,6 +2,7 @@
 layout: default
 title: MobiView2
 nav_order: 4
+has_children: true
 ---
 
 # MobiView2
@@ -28,11 +29,11 @@ The MobiView2 toolbar contains the following buttons
 5. ![Search](../img/toolbar/Search.png) **Search** (ctrl-F). Opens a new window where you can search parameters by name to find their module and parameter group.
 6. ![Model structure](../img/toolbar/ViewReaches.png) **Model structure**. This opens a window with a graphical visualization of the model. It is mainly useful for model developers.
 7. ![Run](../img/toolbar/Run.png) **Run the model** (F7). Runs the model taking into account any edits to parameter values (whether or not they are saved to a file). After the model is run, the result time series are available for plotting **(link to separate doc when available)**
-8. ![Additional plots](../img/toolbar/ViewMorePlots.png) **Additional plot view**. Opens an additional window where you can display multiple plots at the same time **(link to separate doc when available)**
+8. ![Additional plots](../img/toolbar/ViewMorePlots.png) **Additional plot view**. Opens an [additional window](additionalplots.html) where you can display multiple plots at the same time.
 9. ![Save baseline](../img/toolbar/SaveBaseline.png) **Save baseline**. Takes a background copy of the current dataset in memory. This is used in the "Compare baseline" plot mode **(link to separate doc when available)**. This can be used to compare model results before and after you edit parameters.
 10. ![Revert baseline](../img/toolbar/RevertBaseline.png) **Revert to baseline**. Overwrites the current parameter values with the ones that were saved in the baseline copy (if one exists) and deletes the baseline copy.
-11. ![Sensitivity](../img/toolbar/Perturb.png) **Simple sensitivity**. Allows you to see the effect on one time series of perturbing a single parameter **(link to separate doc when available)**
-12. ![Autocalibration](../img/toolbar/Optimize.png) **Autocalibration and advanced sentitivity**. Allows you to autocalibrate and run Markov Chain Monte Carlo and Variance-based sensitivity analysis **(link to separate doc when available)**
+11. ![Sensitivity](../img/toolbar/Perturb.png) **Simple sensitivity**. Allows you to see the effect on one time series of [perturbing a single parameter](simplesensitivity.html).
+12. ![Autocalibration](../img/toolbar/Optimize.png) **Autocalibration and advanced sentitivity**. Allows you to (autocalibrate and run Markov Chain Monte Carlo and Variance-based sensitivity analysis)[advancedsensitivity.md] **(link to separate doc when available)**
 13. ![Statistics settings](../img/toolbar/StatSettings.png) **Statistics settings**. Here you can turn on and off what statistics you want displayed in the time series info box, in addition to a few other settings.
 14. ![Model code](../img/toolbar/BatchStructure.png) **Model structure debug information**. This opens a window that displays debug information about the compiled model. This is mainly useful for model developers **(link to separate doc when available)**
 15. ![Model info](../img/toolbar/Info.png) **Model info**. This opens a window that displays any documentation that is written by the creator of the currently loaded model.
