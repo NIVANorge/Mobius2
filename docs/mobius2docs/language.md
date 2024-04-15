@@ -2,10 +2,12 @@
 layout: default
 title: Mobius2 language
 parent: Mobius2
-nav_order: 3
+nav_order: 4
 ---
 
 # The Mobius2 model building language
+
+## Introduction
 
 The Mobius2 language is a language for specifying models that can be run by the Mobius2 framework. Models are just-in-time compiled to machine code when they are loaded by one of the Mobius2 binaries (e.g. MobiView2 or mobipy).
 
@@ -25,3 +27,7 @@ module("Simple-hydrology", version(1, 1, 0),
   }
 }
 ```
+
+## Why you should choose the Mobius2 language to build your model
+
+(to be written).

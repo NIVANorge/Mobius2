@@ -1,10 +1,9 @@
 ---
 layout: default
-title: mobipy
-parent: Mobius2
-nav_order: 3
+title: EasyLake
+parent: Existing models
+nav_order: 0
 ---
-
-# mobipy
+# EasyLake
 
 This documentation is yet to be written. We apologize for the inconvenience.
