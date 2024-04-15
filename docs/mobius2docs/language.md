@@ -28,6 +28,6 @@ module("Simple-hydrology", version(1, 1, 0),
 }
 ```
 
-## Why you should choose the Mobius2 language to build your model
+## Build your model with the Mobius2 language
 
 (to be written).
