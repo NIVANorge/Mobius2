@@ -17,6 +17,18 @@ The GUI allows you to quickly explore effects of changing parameter values, plot
 
 MobiView2 is created using the [Ultimate++ framework](https://www.ultimatepp.org/) and the [Scatter](https://github.com/anboto/Scatter) plotting package.
 
+**make the diagram explaining the main window**
+
+## Parameter editing
+
+MobiView2 allows you to [edit parameter values](parameters.html) and immediately re-run the model to see the effects. This gives you an interactive experience of calibrating the model and looking at effects of scenarios. When you re-run a model, the main plot (and additional plot view) is automatically refreshed with the new results.
+
+## The main plot and series selection
+
+MobiView2 allows you to explore model results using powerful visualization tools. You can select model result series and input series to be displayed in the (main plot)[plots.html]. There are also many different plot modes, such as line plots, histograms, profiles, heatmaps, etc. You can also transform the plot using various seasonal aggregations or similar.
+
+**show some examples here**
+
 ## The toolbar
 
 ![The toolbar](../img/toolbar.png)
@@ -38,10 +50,3 @@ The MobiView2 toolbar contains the following buttons
 14. ![Model code](../img/toolbar/BatchStructure.png) **Model structure debug information**. This opens a window that displays debug information about the compiled model. This is mainly useful for model developers **(link to separate doc when available)**
 15. ![Model info](../img/toolbar/Info.png) **Model info**. This opens a window that displays any documentation that is written by the creator of the currently loaded model.
 
-## Parameter editing
-
-(to be written)
-
-## The main plot and series selection
-
-(to be written)

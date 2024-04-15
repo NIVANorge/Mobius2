@@ -2,6 +2,7 @@
 layout: default
 title: Autocalibration and advanced sensitivity
 parent: Sensitivity and optimization
+grand_parent: MobiView2
 nav_order: 1
 ---
 
