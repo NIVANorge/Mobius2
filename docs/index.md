@@ -44,11 +44,11 @@ Leah Jackson-Blake (Simply models, general testing), François Clayer (EasyLake 
 
 Please use the issue tracker on the github page to report bugs. For general questions and feedback, please contact `magnus.norling@niva.no`.
 
+![NIVA](img/niva.png)
+
 ## Usage and attribution
 
 Mobius2 is © Norsk Institutt for Vannforskning, NIVA (The Norwegian Institute for Water Research) 2024. Mobius2 is published open source under the Apache 2.0 license. See the [LICENSE](https://github.com/NIVANorge/Mobius2/blob/main/LICENSE) file in the github repository for details.
-
-![NIVA](img/niva.png)
 
 We would be grateful if publications that use Mobius2 or a model developed in Mobius2 provide a link to this page.
 

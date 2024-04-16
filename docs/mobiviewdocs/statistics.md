@@ -24,7 +24,7 @@ During model calibration you can also see the changes in each statistic between 
 
 Most of the goodness-of-fit statistics are implemented following \[Krause05\]. Further properties of the various statistics are discussed in that paper.
 
-Let $$o=\{o_i\}_{i\in I}$$ be the observed time series, and let $$m=\{m_i\}_{i\in I}$$ be the modelled time series. The set $$I$$ of comparison points is the set of all time steps inside the stat interval (see Section \ref{sec:gofint} where both series have a valid value. For instance, the observed time series can have missing values, so the timesteps corresponding to the missing values will not be considered when evaluating goodness-of-fit. The stat interval is the entire model run interval unless something else is specified by the user. Let
+Let $$o=\{o_i\}_{i\in I}$$ be the observed time series, and let $$m=\{m_i\}_{i\in I}$$ be the modelled time series. The set $$I$$ of comparison points is the set of all time steps inside the stat interval where both series have a valid value. For instance, the observed time series can have missing values, so the timesteps corresponding to the missing values will not be considered when evaluating goodness-of-fit. The stat interval is the entire model run interval unless something else is specified by the user. Let
 
 $$
 \overline{m} = \frac{1}{|I|}\sum_{i\in I}m_i
