@@ -34,7 +34,7 @@ denote the mean of a time series.
 
 ### Data points
 
-The data points is the size of the set of comparison points $$I$$, denoted $$|I|$$.
+The data points is the size of the set of comparison points $$I$$, denoted $$\|I\|$$.
 
 ### Mean error (bias)
 
@@ -54,8 +54,6 @@ $$
 \frac{1}{|I|}\sum_{i\in I}|o_i - m_i|,
 $$
 
-where $$|x|$$ denotes the absolute value of a number $$x$$.
-
 ### RMSE
 
 RMSE is the root mean square error
@@ -63,6 +61,8 @@ RMSE is the root mean square error
 $$
 \sqrt{\frac{1}{|I|}\sum_{i\in I}(o_i-m_i)^2}.
 $$
+
+### N-S
 
 N-S is the Nash-Sutcliffe efficiency coefficient \[NashSutcliffe70\]
 
@@ -72,10 +72,32 @@ $$
 
 This coefficient takes values in $$(-\infty, 1]$$, where a value of 1 means a perfect fit, while a value of 0 or less means that the modeled series is a no better predictor than the mean of the observed series.
 
+### log N-S
+
+log N-S is the same as N-S, but where $$o_i$$ is replaced by $$\ln(o_i)$$ and $$m_i$$ by $$\ln(m_i)$$ for each $$i\in I$$. Here $$\ln$$ denotes the natural logarithm.
+
+$$
+1 - \frac{\sum_{i\in I}(\ln(o_i) - \ln(m_i))^2}{\sum_{i\in I}(\ln(o_i)-\overline{\ln(o)})^2}.
+$$
+
+This coefficient behaves similarly to N-S, but is less sensitive to errors on time steps where both series have large values.
+
+### r2
+$$r^2$$ is the coefficient of determination
+
+$$
+\left(\frac{\sum_{i\in I}(o_i-\overline{o})(m_i-\overline{m})}{\sqrt{\sum_{i\in I}(o_i-\overline{o})^2}\sqrt{\sum_{i\in I}(m_i-\overline{m})^2}}\right)^2.
+$$
+
+This coefficient takes values in $$[0, 1]$$.
+
 ** to be continued **
 
 ## Citations
 
-\[Krause05\] P Krause, D. P. Boyle, and F. Bäse. *Comparison of different efficiency criteria for hdyrological model assessment*. Advances in Geosciences, 5, 89-97, [https://doi.org/10.5194/adgeo-5-89-2005](https://doi.org/10.5194/adgeo-5-89-2005), 2005
+\[Krause05\] P Krause, D. P. Boyle, and F. Bäse. *Comparison of different efficiency criteria for hdyrological model assessment*. Advances in Geosciences, 5, 89-97, [https://doi.org/10.5194/adgeo-5-89-2005](https://doi.org/10.5194/adgeo-5-89-2005), 2005.
 
-\[NashSutcliffe70\] J. E. Nash and J. V. Sutcliffe. *River flow forcasting through conceptual models part I - A discussion of principles*. Journal of Hydrology, 10, 282-290, [https://doi.org/10.1016/0022-1694(70)90255-6](https://doi.org/10.1016/0022-1694(70)90255-6) 1970
+\[NashSutcliffe70\] J. E. Nash and J. V. Sutcliffe. *River flow forcasting through conceptual models part I - A discussion of principles*. Journal of Hydrology, 10, 282-290, [https://doi.org/10.1016/0022-1694(70)90255-6](https://doi.org/10.1016/0022-1694(70)90255-6) 1970.
+
+
+{% include lib/mathjax.html %}
