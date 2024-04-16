@@ -47,7 +47,6 @@ $$
 For fluxes, the mean error is related to the discrepancy in mass balance.
 
 ### MAE
-
 MAE is the mean absolute error
 
 $$
@@ -55,7 +54,6 @@ $$
 $$
 
 ### RMSE
-
 RMSE is the root mean square error
 
 $$
@@ -63,7 +61,6 @@ $$
 $$
 
 ### N-S
-
 N-S is the Nash-Sutcliffe efficiency coefficient \[NashSutcliffe70\]
 
 $$
@@ -73,7 +70,6 @@ $$
 This coefficient takes values in $$(-\infty, 1]$$, where a value of 1 means a perfect fit, while a value of 0 or less means that the modeled series is a no better predictor than the mean of the observed series.
 
 ### log N-S
-
 log N-S is the same as N-S, but where $$o_i$$ is replaced by $$\ln(o_i)$$ and $$m_i$$ by $$\ln(m_i)$$ for each $$i\in I$$. Here $$\ln$$ denotes the natural logarithm.
 
 $$
@@ -91,13 +87,73 @@ $$
 
 This coefficient takes values in $$[0, 1]$$.
 
-** to be continued **
+### Idx. of agr.
+The index of agreement is
+
+$$
+1 - \frac{\sum_{i\in I}(o_i-m_i)^2}{\sum_{i\in I}(|m_i-\overline{o}| + |o_i-\overline{o}|)^2}.
+$$
+
+### KGE
+KGE is the Kling-Gupta efficiency \[KlingGupta89\]
+
+$$
+1 - \sqrt{(r-1)^2 + (\beta-1)^2 + (\delta-1)^2}
+$$
+
+where $$r$$ is the square root of the coefficient of determination $$r^2$$, $$\beta=\overline{m}/\overline{o}$$, and $$\delta=Cv(m)/Cv(o)$$, $$Cv(x)=\sigma(x)/\overline{x}$$, $$\sigma$$ being the standard deviation.
+
+### Spearman's RCC
+Spearman's rank correlation coefficient \[Spearman04\] is computed as follows: For a time series $$x=\{x_i\}_{i\in_I}$$, let $$\mathrm{rank}(x_i)$$ be the index of $$x_i$$ (starting from 1) in the list $$\mathrm{sort}(x)$$ which is $x$ sorted from smallest to largest. The rank correlation coefficient can then be computed as
+
+$$
+1 - \frac{6\sum_{i\in I}(\mathrm{rank}(o_i)-\mathrm{rank}(m_i))^2}{|I|(|I|^2 - 1)}.
+$$
+
+The coefficient takes values in $$[-1, 1]$$. If the value is 1, the modeled series is a (positively) monotone function of the observed series.
+
+## Hydrological indexes
+
+In addition to the common statistics like mean, standard deviation etc., MobiView computes some hydrological indexes. These are mostly meaningful only for flow series, but are computed for all series any way. See e.g. \[Fenicia18\] for reference.
+
+### Flashiness
+
+The flashiness index is defined as
+$$
+\frac{\sum_{i=2}^N|m_i-m_{i-1}|}{\overline{m}}
+$$
+and says something about how quick the time series is to respond to events.
+
+### Baseflow index (filter approximation)
+
+The baseflow index approximation (est.bfi) is
+
+$$
+\frac{\sum{m_i^b}}{\sum{m_i}}
+$$
+
+where $$m_i^b$$ is the result of applying the single pass forward filter
+
+$$
+m_i^b = \min(m_i, am_{i-1}^b + (1-a)\frac{m_{i-1}+m_i}{2})
+$$
+
+The filter constant $$a$$ can be set in the statistics settings menu ![StatSettings](../img/toolbar/StatSettings.png).
+
+This index is an approximation that tries to separate out how much of the signal comes from a long-frequency source.
+
+Note that even if you have a model that uses a "Baseflow index" parameter, this approximation will probably not coincide with that parameter, but should be linearly correlated with it.
 
 ## Citations
 
-\[Krause05\] P Krause, D. P. Boyle, and F. Bäse. *Comparison of different efficiency criteria for hdyrological model assessment*. Advances in Geosciences, 5, 89-97, [https://doi.org/10.5194/adgeo-5-89-2005](https://doi.org/10.5194/adgeo-5-89-2005), 2005.
+\[Krause05\] P Krause, D. P. Boyle, and F. Bäse. *Comparison of different efficiency criteria for hydrological model assessment*. Advances in Geosciences, 5, 89-97, [https://doi.org/10.5194/adgeo-5-89-2005](https://doi.org/10.5194/adgeo-5-89-2005), 2005.
 
-\[NashSutcliffe70\] J. E. Nash and J. V. Sutcliffe. *River flow forcasting through conceptual models part I - A discussion of principles*. Journal of Hydrology, 10, 282-290, [https://doi.org/10.1016/0022-1694(70)90255-6](https://doi.org/10.1016/0022-1694(70)90255-6) 1970.
+\[NashSutcliffe70\] J. E. Nash and J. V. Sutcliffe. *River flow forcasting through conceptual models part I - A discussion of principles*. Journal of Hydrology, 10, 282-290, [https://doi.org/10.1016/0022-1694(70)90255-6](https://doi.org/10.1016/0022-1694(70)90255-6), 1970.
 
+\[KlingGupta89\] H. V. Gupta, H. Kling, K. K. Yilmaz, and G. F. Martinez. *Decomposition of the mean squared error and NSE performance criteria: Implications for improving hydrological modelling*. J. Hydrol, 307, 80-91, [https://doi.org/10.1016/j.jhydrol.2009.08.003](https://doi.org/10.1016/j.jhydrol.2009.08.003), 2009.
+
+\[Spearman04\] C. Spearman. *The proof and measurement of association between two things*. American Journal of Psychology, 15, 72.101, [https://doi.org/10.2307/1422689](https://doi.org/10.2307/1422689), 1904
+
+\[Fenicia18\] Fabrizio Fenicia, Dmitri Kavetsky, Peter Reichert, and Carlo Albert. *Signature-domain calibration of hydrological models using approximate bayesian computation: Empirical analysis of fundamental properties*. Water Resources Research, 54, 4059-4083, [https://doi.org/10.1002/2017WR021616](https://doi.org/10.1002/2017WR021616), 2018
 
 {% include lib/mathjax.html %}
