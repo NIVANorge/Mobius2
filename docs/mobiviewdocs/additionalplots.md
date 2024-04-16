@@ -18,6 +18,8 @@ For each row you can
 - Push the `<<` button to copy the plot setup from the main window to the local one.
 - Push the `>>` button to copy the local plot setup back to the main window.
 
+Each row also has its own [statistics window](statistics.html) that uses the same goodness-of-fit interval as the main window.
+
 Like the main plot, these also update whenever you run the model.
 
 This window has a toolbar with two buttons on its own

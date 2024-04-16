@@ -29,7 +29,11 @@ MobiView2 allows you to explore model results using powerful visualization tools
 
 ![Stacked plot](../img/mobiview/stackedplot.png)
 
+Figure 1: A stacked plot of the groundwater recharge from different land use types in [SimplyQ](../existingmodels/simply.html#simplyq)
+
 ![Profile2d](../img/mobiview/profile2d.png)
+
+Figure 2: A heatmap plot of basin temperature in [NIVAFjord](../existingmodels/nivafjord.html). The y-axis indicates depth.
 
 ## The toolbar
 

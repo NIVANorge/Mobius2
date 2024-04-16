@@ -56,13 +56,13 @@ Plot modes can be chosen to visualize the selected series in different ways.
 
 ### Regular
 
-[Regular plot](../img/mobiview/regularplot.png)
+![Regular plot](../img/mobiview/regularplot.png)
 
 The Regular plot mode provides a line plot or scatter plot of all selected time series as a function of time. This mode is compatible with all plot options.
 
 ### Stacked
 
-[Stacked plot](../img/mobiview/stackedplot.png)
+![Stacked plot](../img/mobiview/stackedplot.png)
 
 The Stacked plot modes function like the regular plot mode, but makes a stacked plot instead of a line plot. Only result time series will be stacked, not input time series.
 
