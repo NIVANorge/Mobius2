@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Data files
-nav_order: 3
+nav_order: 5
 ---
 
 # Setting up a data file for your own simulation

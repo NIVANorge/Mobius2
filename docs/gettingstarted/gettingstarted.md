@@ -31,7 +31,7 @@ Edit MobiView2/config.txt so that the "Mobius2 base path" field contains the loc
 
 You can now run MobiView2.exe. Click the open icon in the top left and select e.g. `"Mobius2/models/simplyq.txt"`, then `"Mobius2/models/data/simplyq_simple.dat"`. If the model loaded correctly you can now run it by clicking the orange runner icon in the MobiView2 top bar. You can then select series to plot in the result and input series selections in the bottom right.
 
-If you chose simplyq.txt, you are running SimplyQ, which is a very simple hydrology model for predicting river discharge.
+If you chose simplyq.txt, you are running [SimplyQ](../existingmodels/simply.html#simplyq), which is a simple hydrology model for predicting river discharge.
 
 ![MobiView2](../img/mobiview_gettingstarted.png)
 

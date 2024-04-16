@@ -3,7 +3,7 @@ layout: default
 title: The additional plot view
 parent: Plots and statistics
 grand_parent: MobiView2
-nav_order: 0
+nav_order: 1
 ---
 
 # The additional plot view
