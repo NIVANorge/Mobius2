@@ -33,7 +33,7 @@ You can now run MobiView2.exe. Click the open icon in the top left and select e.
 
 If you chose simplyq.txt, you are running SimplyQ, which is a very simple hydrology model for predicting river discharge.
 
-![MobiView2](../img/mobiview.png)
+![MobiView2](../img/mobiview_gettingstarted.png)
 
 Next, you can select a parameter group in the top left, which will allow you to edit parameter values in the top center. After changing some values, you can re-run the model and see 
 
