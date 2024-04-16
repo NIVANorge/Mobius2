@@ -17,9 +17,9 @@ See how to quickly [get started](gettingstarted/gettingstarted.html).
 ## Existing models
 
 The Mobius2 framework comes with several (existing modules and models)[existingmodels/existingmodels.html] that can be used directly or modified to accomodate new research questions. These include
-- The [Simply family](existingmodels/simply.html). This is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
-- [EasyLake](existingmodels/easylake.html). This is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
-- [NIVAFjord](existingmodels/nivafjord.html). This is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.
+- The [Simply family](existingmodels/simply.html) is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
+- [EasyLake](existingmodels/easylake.html) is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
+- [NIVAFjord](existingmodels/nivafjord.html) is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.
 
 ## Support infrastructure
 
@@ -37,7 +37,7 @@ Mobius2 also provides special support for transport along directed graphs and gr
 
 ## Authors and acknowledgement
 
-The Mobius2 framework has been developed by Magnus Dahler Norling for the [Norwegian institute for water research](https://www.niva.no/) (NIVA).
+The Mobius2 framework is developed by Magnus Dahler Norling for [The Norwegian Institute for Water Research](https://www.niva.no/en) (NIVA).
 
 Additional contributions:
 Leah Jackson-Blake (Simply models, general testing), François Clayer (EasyLake model, general testing).
@@ -46,7 +46,7 @@ Please use the issue tracker on the github page to report bugs. For general ques
 
 ## Usage and attribution
 
-Mobius2 is © Norsk Institutt for Vannforskning, NIVA (Norwegian institute for water research) 2024. Mobius2 is published open source under the Apache 2.0 license. See the [LICENSE](https://github.com/NIVANorge/Mobius2/blob/main/LICENSE) file in the github repository for details.
+Mobius2 is © Norsk Institutt for Vannforskning, NIVA (The Norwegian Institute for Water Research) 2024. Mobius2 is published open source under the Apache 2.0 license. See the [LICENSE](https://github.com/NIVANorge/Mobius2/blob/main/LICENSE) file in the github repository for details.
 
 We would be grateful if publications that use Mobius2 or a model developed in Mobius2 provide a link to this page.
 

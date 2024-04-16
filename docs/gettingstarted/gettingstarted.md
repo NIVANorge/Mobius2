@@ -41,8 +41,6 @@ Next, you can select a parameter group in the top left, which will allow you to 
 
 What you want to do next depends on what you want to use Mobius2 for, so not all the options below may be relevant to you.
 
-**Some of the documentation is still very sparse. We hope to fill it out and add some tutorials soon.**
-
 ### Get to know the existing models.
 
 A good place to start is to get aquainted with the [existing models](../existingmodels/existingmodels.html) to see if they suit your modelling needs or to use them as an inspiration for your own models. Most of these come with example datasets in the repository. You open these models from `Mobius2/models`, and the example data files are in `Mobius2/models/data`.
