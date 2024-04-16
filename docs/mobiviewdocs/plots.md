@@ -29,7 +29,7 @@ In many of the plot modes you can scroll and zoom the plot.
 
 ## Context menu options
 
-If you right click a plot you get context menu options (curtesy to the [Scatter](https://github.com/anboto/Scatter) package). These allow you to (among other things)
+If you right click a plot you get context menu options (curtesy of the [Scatter](https://github.com/anboto/Scatter) package). These allow you to (among other things)
 - Copy the plot to clipboard. Unfortunately, pasting it again only works in some applications and not others.
 - Save the plot to a file.
 - View the data behind the plot. Here you can for instance copy the data to a spreadsheet file using `ctrl-A` `ctrl-C`, then paste it inside a spreadsheet application, or you can directly export it as a `.csv` file.
@@ -56,9 +56,13 @@ Plot modes can be chosen to visualize the selected series in different ways.
 
 ### Regular
 
+[Regular plot](../img/mobiview/regularplot.png)
+
 The Regular plot mode provides a line plot or scatter plot of all selected time series as a function of time. This mode is compatible with all plot options.
 
 ### Stacked
+
+[Stacked plot](../img/mobiview/stackedplot.png)
 
 The Stacked plot modes function like the regular plot mode, but makes a stacked plot instead of a line plot. Only result time series will be stacked, not input time series.
 
@@ -72,15 +76,15 @@ This option only works if you have exactly one time series selected. it will mak
 
 ### Profile
 
+![Profile plot](../img/mobiview/profile.png)
+
 Select one time series. Moreover, select two or more indexes of exactly one index set that this time series varies over. For a given point in time, a bar plot will be displayed with the selected indexes as the X axis. The point in time can be selected using a slider or a text field. This mode also works together with aggregations, so you can display e.g. yearly mean values (for a selected year).
 
 One use case for this is e.g. to view a depth profile of a variable in a 1D grid model such as [NIVAFjord](../existingmodels/nivafjord.html).
 
-![Profile plot](../img/mobiview/profile.png)
+Click the ![Play](../img/toolbar/Play.png) button to make it play an animation of the profile across the model run, and click ![Rewind](../img/toolbar/Rewind.png) to rewind.
 
 Note that the bars in the above plot are unevenly spaced because this particular model setup has non-uniform layer thickness.
-
-Click the ![Play](../img/toolbar/Play.png) button to make it play an animation of the profile across the model run, and click ![Rewind](../img/toolbar/Rewind.png) to rewind.
 
 ### Profile2D
 
@@ -96,6 +100,8 @@ This can be useful for exploring differences in outcomes from different paramete
 
 ### Residuals
 
+![Residual plot](../img/mobiview/residualplot.png)
+
 You must have exactly one result time series and one input time series selected. The plots shows the residual time series (observed - modeled). Select "Scatter inputs" to display it as a scatter plot instead of a line plot.
 
 A linear regression line of the residuals is also displayed. This shows the trend in the residuals. For instance if this trend goes up, it says that the observed quantity increases over time compared to the modeled one. The regression line is only computed for the [stat interval](statistics.html).
@@ -104,10 +110,14 @@ You can also use aggregation. For instance, the monthly sum of the residuals of 
 
 ### Residuals histogram
 
+![Residual histogram](../img/mobiview/residualhistogram.png)
+
 You must have exactly one result time series and one input time series selected. The shows a histogram of the residuals. The number of bins are selected using the same rule as for the Histogram option. Moreover, red dots show what the distribution of residuals would look like if it was perfectly normally distributed (with the same mean and standard deviation).
 
 ### Quantile-Quantile
 
-You must have exactly one result time series and one input time series selected. This shows a quantile-quantile plot of the two time series, and can be used to see if your modeled time series is roughly similarly distributed to the observed one.
+![Residual plot](../img/mobiview/qqplot.png)
+
+You must have exactly one result time series and one input time series selected. This shows a [quantile-quantile plot](https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot) of the two time series, and can be used to see if your modeled time series is roughly similarly distributed to the observed one.
 
 The displayed percentiles can be edited in the statistics settings window, which can be opened from the toolbar. The X axis is the result series, while the Y axis is the input series. The two have the same quantiles if the blue dots are on the red diagonal line.
