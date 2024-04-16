@@ -34,7 +34,7 @@ denote the mean of a time series.
 
 ### Data points
 
-The data points is the size of the set of comparison points $$I$$, denoted $$|I|$$.
+The data points is the size of the set of comparison points $$I$$.
 
 ### Mean error (bias)
 

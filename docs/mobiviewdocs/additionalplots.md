@@ -8,7 +8,7 @@ nav_order: 1
 
 # The additional plot view
 
-From the toolbar you can open an additional window to display multiple plots at the same time.
+From the toolbar you can open an additional window ![Additional plots](../img/ViewMorePlots.png) to display multiple plots at the same time.
 
 ![Additional plots](../img/mobiview/additionalplots.png)
 

@@ -25,7 +25,7 @@ MobiView2 allows you to [edit parameter values](parameters.html) and immediately
 
 ## The main plot and series selection
 
-MobiView2 allows you to explore model results using powerful visualization tools. You can select model result series and input series to be displayed in the (main plot)[plots.html]. There are also many different plot modes, such as line plots, histograms, profiles, heatmaps, etc. You can also transform the plot using various seasonal aggregations or similar.
+MobiView2 allows you to explore model results using powerful visualization tools. You can select model result series and input series to be displayed in the [main plot](plots.html). There are also many different plot modes, such as line plots, histograms, profiles, heatmaps, etc. You can also transform the plot using various seasonal aggregations or similar.
 
 **show some examples here**
 
