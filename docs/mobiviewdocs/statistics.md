@@ -14,7 +14,7 @@ MobiView2 computes several statistics for the selected series. These are display
 
 You can select the stat interval below the time series info box. The interval consists of two dates, and only values between these dates (inclusive) will be considered in the statistics and goodness-of-fit computations.
 
-**show example image**
+![Statistics window](../img/mobiview/statistics.png)
 
 ## Goodness-of-fit
 
@@ -34,7 +34,7 @@ denote the mean of a time series.
 
 ### Data points
 
-The data points is the size of the set of comparison points $$I$$, denoted $$\|I\|$$.
+The data points is the size of the set of comparison points $$I$$, denoted $$|I|$$.
 
 ### Mean error (bias)
 
@@ -119,10 +119,12 @@ In addition to the common statistics like mean, standard deviation etc., MobiVie
 ### Flashiness
 
 The flashiness index is defined as
+
 $$
 \frac{\sum_{i=2}^N|m_i-m_{i-1}|}{\overline{m}}
 $$
-and says something about how quick the time series is to respond to events.
+
+and says something about how quickly the time series responds to events.
 
 ### Baseflow index (filter approximation)
 
@@ -132,7 +134,7 @@ $$
 \frac{\sum{m_i^b}}{\sum{m_i}}
 $$
 
-where $$m_i^b$$ is the result of applying the single pass forward filter
+where $$m_i^b$$ is the result of applying the single pass forward filter to $$m_i$$:
 
 $$
 m_i^b = \min(m_i, am_{i-1}^b + (1-a)\frac{m_{i-1}+m_i}{2})

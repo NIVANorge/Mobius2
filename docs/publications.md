@@ -22,7 +22,7 @@ Norling, M. D., Jackson-Blake, L. A., Calidonio, J.-L. G., and Sample, J. E.: *R
 
 Clayer, F. et. al.: *Modelling plastic fluxes with INCA-macroplastics in the Imus catchment: impacts of long-term accumulation and extreme events*, Environ. Res. Lett., 19,  [https://doi.org/10.1088/1748-9326/ad163f](https://doi.org/10.1088/1748-9326/ad163f), 2024
 
-Norling, M. D. et. al.: 'Retention efficiency for microplastic in a landscape estimated from empirically validated dynamic model predictions*, J. Haz. Mat., 464
+Norling, M. D. et. al.: *Retention efficiency for microplastic in a landscape estimated from empirically validated dynamic model predictions*, J. Haz. Mat., 464
 [https://doi.org/10.1016/j.jhazmat.2023.132993](https://doi.org/10.1016/j.jhazmat.2023.132993), 2024
 
 Clayer, F. et. al.: *Sources of skill in lake temperature, discharge and ice-off seasonal forecasting tools*, Hydr. Earth Sys. Sci., 27(6), [https://doi.org/10.5194/hess-27-1361-2023](https://doi.org/10.5194/hess-27-1361-2023), 2023

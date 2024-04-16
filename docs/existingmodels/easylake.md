@@ -10,10 +10,10 @@ nav_order: 1
 This documentation is yet to be written. We apologize for the inconvenience.
 
 
-# EasyLake physical
+## EasyLake physical
 
 
-# EasyChem
+## EasyChem
 
 
-# EasyTox
+## EasyTox
