@@ -17,7 +17,7 @@ The GUI allows you to quickly explore effects of changing parameter values, plot
 
 MobiView2 is created using the [Ultimate++ framework](https://www.ultimatepp.org/) and the [Scatter](https://github.com/anboto/Scatter) plotting package.
 
-![MobiView2](../img/mobiview_gettingstarted.png)
+![MobiView2](../img/mobiview.png)
 
 ## Parameter editing
 
