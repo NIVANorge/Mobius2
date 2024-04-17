@@ -9,3 +9,7 @@ nav_external_links:
     url: https://github.com/NIVANorge/Mobius2/tree/main
     hide_icon: false
     opens_in_new_tab: true
+  - title: NIVA
+    url: https://www.niva.no/en
+    hide_icon: false
+    opens_in_new_tab: true

@@ -44,7 +44,7 @@ Leah Jackson-Blake (Simply models, general testing), François Clayer (EasyLake 
 
 Please use the issue tracker on the github page to report bugs. For general questions and feedback, please contact `magnus.norling@niva.no`.
 
-![NIVA](img/niva.png)
+[![NIVA](img/niva.png)](https://www.niva.no/en)
 
 ## Usage and attribution
 
