@@ -23,5 +23,5 @@ Each row also has its own [statistics window](statistics.html) that uses the sam
 Like the main plot, these also update whenever you run the model.
 
 This window has a toolbar with two buttons on its own
-- Save. You can store the current plot setup to a file.
-- Load. You can load the current plot setup from a saved file. Note that the actual time series data will be from the current model run, not the one that was active when the setup was stored. Only the actual plot setup (i.e. name of time series, indexes, plot mode etc.) is stored and loaded.
+- [Save](../img/toolbar/Save.png) Save. You can store the current plot setup to a file.
+- [Load](../img/toolbar/Open.png) Load. You can load the current plot setup from a saved file. Note that the actual time series data will be from the current model run, not the one that was active when the setup was stored. Only the actual plot setup (i.e. name of time series, indexes, plot mode etc.) is stored and loaded.

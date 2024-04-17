@@ -23,6 +23,11 @@ Apart from the [simple parameter perturbation](simplesensitivity.html) setup, al
 
 ![Common setup](../img/mobiview/optimsetup.png)
 
+In the toolbar of the setup window you can click buttons to
+
+- [Save](../img/toolbar/Save.png) Save the current setup for future use.
+- [Load](../img/toolbar/Open.png) Load it again. Note that you must make sure that you are using the same data file for the model setup, this is not stored in the setup file.
+
 ### The parameter space
 
 If you select a parameter in the main window, you can click ![Add parameter](../img/toolbar/Add.png) "Add parameter" in the setup to add it to the list. You can set the min and max values that you want to constrain this parameter with. Note that all values in the range have to be valid values that don't make the model crash. For the optimizer it helps if you can narrow down the range as much as possible before running it.
@@ -47,7 +52,3 @@ Statistics are computed inside the given Start and End interval (inclusive), whi
 ### Timeout
 
 The individual run timeout allows you to set a timeout on each individual run of the model in milliseconds. This can be useful if the model sometimes crashes on certain combinations of parameters, but it is hard to exclude them using the parameter intervals. If the model run times out, the calibration statistic is set to $\infty$ or $-\infty$ depending on whether the target statistic is being minimalized or maximized respectively. If you set the timeout negative, there is no timeout.
-
-### Additional functionality
-
-In the toolbar of the optimization setup window you can click buttons to save the current setup for future use, or load it again.

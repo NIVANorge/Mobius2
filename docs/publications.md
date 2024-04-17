@@ -29,3 +29,5 @@ Clayer, F. et. al.: *Sources of skill in lake temperature, discharge and ice-off
 
 Norling, M. D., Clayer, F., Gundersen, C. B.: *Levels of nitramines and nitrosamines in lake drinking water close to a CO2 capture plant: A modelling perspective*, Env. Res. 212(D), 
 [https://doi.org/10.1016/j.envres.2022.113581](https://doi.org/10.1016/j.envres.2022.113581), 2022
+
+Whitehead, P. G. et. al.; *Modelling Microplastics in the River Thames: Sources, Sinks and Policy Implications*. Water, 13(6), 861, [https://doi.org/10.3390/w13060861](https://doi.org/10.3390/w13060861), 2021
