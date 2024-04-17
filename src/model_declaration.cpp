@@ -1984,3 +1984,24 @@ Mobius_Model::free_asts() {
 	}
 }
 
+void
+insert_dependency(Mobius_Model *model, Index_Set_Tuple &index_sets, Entity_Id index_set) {
+	
+	if(index_sets.has(index_set)) return;
+	
+	// Replace an existing index set with a union member if applicable
+	// TODO: Is there a more efficient way to do this: ? It should be very rare also.
+	Index_Set_Tuple remove;
+	for(auto existing : index_sets) {
+		auto set = model->index_sets[existing];
+		if(!set->union_of.empty()) {
+			auto find = std::find(set->union_of.begin(), set->union_of.end(), index_set);
+			if(find != set->union_of.end()) {
+				// TODO:    It may be better to give an error in this case rather than allowing the overwrite. We'll see how it works out.
+				remove.insert(existing);
+			}
+		}
+	}
+	index_sets.remove(remove);
+	index_sets.insert(index_set);
+}
