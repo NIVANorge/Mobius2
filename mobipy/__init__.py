@@ -312,7 +312,7 @@ class Scope :
 		
 	def __setattr__(self, handle_name, value) :
 		if handle_name in ['app_ptr', 'scope_id', 'entity_id', 'superscope_id'] :
-			Scope.__setattr__(self, handle_name, value)
+			super().__setattr__(handle_name, value)
 		else :
 			self.__getattr__(handle_name).__setitem__((), value)
 	
@@ -412,6 +412,8 @@ class Entity(Scope) :
 			return data.max.val_real
 		else :
 			return data.max.val_int
+			
+	# TODO: default(self) :
 		
 	def description(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :

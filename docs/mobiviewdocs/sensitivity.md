@@ -43,6 +43,8 @@ If a parameter is given an "Expression", it is no longer treated as a part of th
 
 This can also be used to force two parameters to have the same value by making one have an Expression that just contains the Symbol of the other.
 
+If you want a parameter to have a non-uniform prior distribution (in MCMC) or sampling distribution (in Variance based sensitivity), you could add a virtual parameter (which will be uniformly sampled) and let your main parameter have an Expression that transforms the value of the virtual one.
+
 ### Targets
 
 To add a target statistic, select one result series and up to one comparison input series in the main window (similarly to how you [select them for plotting](plots.html)), then click ![Add parameter](../img/toolbar/Add.png) "Add target". You can select the target statistic from a dropdown list of statistics. The available statistic will depend on what kind of run you want (optimizer, MCMC or variance-based sensitivity). The total statistic that is considered in each model run is the weighted sum of the statistics for the individual targets, where the Weight per target is user-defined.

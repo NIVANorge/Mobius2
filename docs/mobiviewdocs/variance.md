@@ -18,7 +18,7 @@ The parameter space (with the user-provided min-max intervals) is sampled unifor
 
 We compute the first-order sensitivity coefficient (main effect index) and total effect index of the listed parameters on the chosen (compound) target statistic. The algorithms used for computation are based on the ones suggested in \[Saltelli10\].
 
-The first-order sensitivity coefficient is
+The **first-order sensitivity coefficient** is
 
 $$
 S_i = \frac{V_{X_i}(E_{X_{\sim i}}(Y|X_i))}{V(Y)}
@@ -26,19 +26,19 @@ $$
 
 where $$V$$ is the variance, $$E$$ the expected value, $$X=(X_i)_{i=1}^n$$ the parameter vector, $$X_{\sim i}$$ the parameter space excluding parameter $$i$$, and $$Y$$ the (compound) target statistic.
 
-The total effect index is
+The **total effect index** is
 
 $$
 S_{T_i} = \frac{E_{X_{\sim i}}(V_{X_i}(Y|X_{\sim i}))}{V(Y)}
 $$
 
-The total effect index measures both the first-order effect and the higher-order effects (interactions between parameter $$i$$ and others). In general one has
+The total effect index measures both the first-order effect and the higher-order effects (interactions between parameter $$i$$ and others). In general one has for all $$i$$
 
 $$
-\sum_{i=1}^n S_i \leq 1,\; \sum_{i=1}^n S_{T_i} \geq 1.
+\sum_{i=1}^n S_i \leq 1,\; \sum_{i=1}^n S_{T_i} \geq 1\; 0 \leq S_i \leq S_{T_i}.
 $$
 
-Note that since these are estimated using a Monte-Carlo method, they will not be exact, and especially small values are unreliable. The estimated first-order index can be negative even though the exact value has to be positive, and the estimated first order index could be smaller than the estimated total index even though that is not possible for the exact values. You can try to run with a higher number of samples if this becomes a problem.
+Note that since these are estimated using a Monte-Carlo method, they will not be exact, and especially small values are unreliable. This means that the estimated values may violate some of the above constraints. You can try to run with a higher number of samples if this becomes a problem.
 
 In the result view, the histogram shows the distribution of the target statistic.
 

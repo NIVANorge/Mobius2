@@ -22,7 +22,7 @@ You may need a high number of walkers to get good performance (think 50-100 or m
 
 For MCMC the targets have to be set up using a formal Bayesian likelihood structure. Each of the likelihood structures require one or more error parameters that are sampled along with the model parameters. The error parameters have to be manually added in the parameter view using ![Add virtual](../img/toolbar/Add.png) "Add virtual". You can give the error parameters what symbol you like, but have to list what symbol is the error parameter for what likelihood structure in the "error param(s)" field in the target setup. If a structure requires more than one error parameter, you have to list the symbols as a comma-separated list (they have to be in the same order as given in the below table.
 
-Let $$\{o_i\}_i$$ and $$\{m_i\}_i$$ be observed and modeled series respectively, and let $$\epsilon_i=o_i-m_i$$ be the residual at time point $$i$$. The assumption we make is that there $$\{y_i\}_i$$ is a series of independently distributed standard normals (mean 0, standard deviation 1) called the *standard residuals* that is related to the actual residuals as in the table below (depending on what structure is chosen).
+Let $$\{o_i\}_i$$ and $$\{m_i\}_i$$ be observed and modeled series respectively, and let $$\epsilon_i=o_i-m_i$$ be the residual at time point $$i$$. The assumption we make is that there exists a series $$\{y_i\}_i$$ of independently distributed standard normals (mean 0, standard deviation 1) called the *standard residuals* that is related to the actual residuals as given in the table below (depending on what structure is chosen).
 
 | **Name** | **Error structure** | **Error parameters** |
 | -------- | ------------------- | -------------------- |

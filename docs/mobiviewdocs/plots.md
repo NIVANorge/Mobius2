@@ -118,6 +118,6 @@ You must have exactly one result time series and one input time series selected.
 
 ![Q-Q plot](../img/mobiview/qqplot.png)
 
-You must have exactly one result time series and one input time series selected. This shows a [quantile-quantile plot](https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot) of the two time series, and can be used to see if your modeled time series is roughly similarly distributed to the observed one.
+You must have exactly one result time series and one input time series selected. This shows a [quantile-quantile plot](https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot) of the two time series, and can be used to see if your modeled time series is roughly similarly distributed to the observed one. If the quantiles are on the red diagonal, they are the same for the two series.
 
 The displayed percentiles can be edited in the statistics settings window, which can be opened from the toolbar ![Statistics settings](../img/toolbar/StatSettings.png). The X axis is the result series, while the Y axis is the input series. The two have the same quantiles if the blue dots are on the red diagonal line.

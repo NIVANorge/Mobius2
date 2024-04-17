@@ -6,4 +6,136 @@ nav_order: 4
 
 # mobipy
 
-This documentation is yet to be written. We apologize for the inconvenience.
+The mobipy python package can be used to run the model from python. It also allows you to set parameter values and input series dynamically and read out result data.
+
+Among other things, this allows you to:
+
+- Automate running of many different scenarios. For instance, your script could access various climate scenarios from a database (or files), set them as forcings in the model, then storing and comparing the results. This can be done without generating different input files for the model.
+- Make a website for stakeholder interaction that uses a python backend such as [streamlit](https://streamlit.io/), and have it dynamically run a model based on a custom user web interface or forecasts from a database. See one example of this being done with [INCA-Microplastics](https://ikhapp.org/inca-microplastics/) in Mobius1
+- Write your own autocalibration and uncertainty analysis scripts if you need something more specific than what you find in [MobiView2](../mobiviewdocs/sensitivity.html).
+
+To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
+
+![Notebook](../img/notebook.png)
+
+Figure: An example of running the [NIVAFjord](../existingmodels/nivafjord.html) model with mobipy in a [jupyter notebook](https://jupyter.org/).
+
+Full documentation of mobipy is not yet available, but we will soon make a good example file.
+
+## Basic usage
+
+**(Note: Some of the concepts below like "entities", "serial name", "identifier" will be better explained once we write the Mobius2 language documentation)**
+
+First you need to load a model application using
+
+```python
+app = mobipy.Model_Application.build_from_model_and_data_file("model_file_path.txt", "data_file_path.txt")
+```
+
+To be able to extract any results you need to run the model, using
+
+```python
+app.run()
+```
+
+It is important to note that the `Model_Application` object is not serializable in a python sense, so its state is not stored in Jupyter notebooks. This means that if you use a notebook, the entire state is lost if the kernel is restarted. Moreover, operations done on the `app` in later cells can effect the outcome if you run earlier cells.
+
+### Acessing model entities
+
+Any [model entity](../mobius2docs/language.html) can in principle be accessed in the `app`, but for the most part it only makes sense to access modules, parameters or components.
+
+Entities are accessed using one of the following methods
+
+- `scope.identifier` where `identifier` is the Mobius2 language identifier of the entity in the given model scope.
+- `scope["Serial name"]` where `"Serial name"` is the Mobius2 language serial name of the entity in the given model scope.
+
+The `app` is itself the top scope. You can then scope into modules from it using e.g.
+
+```python
+app["Module name"]
+```
+
+For a full example,
+
+```python
+app["SimplyQ land"].bfi
+```
+
+accesses the `bfi` parameter in the `"SimplyQ land"` module. You can also store scopes in variables to reuse them:
+
+```python
+sq = app["SimplyQ land"]
+sq.bfi = 0.1
+```
+
+Series can be accessed by composing the Mobius2 components for the series variable location (if one exists), e.g. the river water dissolved organic carbon could be (depending on how it is declared in the model)
+
+```python
+app.river.water.oc
+```
+
+You can also access any model series (result or input) using
+
+```python
+app.var("Series serial name")
+```
+
+where `"Series name"` is the name (either series serial name or declared name) of the series in the current application.
+
+### Parameters
+
+You can set the value of a parameter by using the regular field setting syntax in python, e.g.
+
+```python
+app.start_date = '1995-01-01'
+```
+
+However if the parameter indexes over one or more index sets, you have to provide an index (tuple) for it. E.g.
+
+```python
+app["SimplyQ land"].tc_s["Agricultural"] = 3
+```
+
+Remember that you must rerun the model for the parameter edit to take effect.
+
+To read the value you must always provide an index even if it doesn't index over anything. If there are no index sets, use `[()]`.
+
+```python
+print("The start date is %s" % app.start_date[()])
+```
+
+Parameters also have the `min()`, `max()`, `unit()` and `description()` member functions that let you extract this information from their declaration in the model. These must be called on the Entity, not on the value access (i.e. don't index it)
+
+### Series
+
+When you read the values of a series, you must access it using its indexes. If the series does not have any index sets, you must still access it using an empty tuple `[()]`. The result of reading a series is a `pandas.Series`. See the [pandas documentation](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.html). It is indexed by a `pandas.DateTimeIndex`. It is convenient to quickly plot such series, such as in the example below.
+
+![notebook minimal](../img/notebook_minimal.png)
+
+You can also construct a `pandas.DataFrame` from several such series, which is one of the most common ways to organize scientific data in python.
+
+If a series indexes over several indexes you can also read out a slice. We only support slicing one index set at a time for now, and no custom strides. When slicing, instead of a ´pd.Series´ you get a pair `(values, dates)`, where ´values´ is a ´numpy.ndarray´ with dimensions ´(time_steps, indexes)`, where `indexes` is the amount of indexes in the slice range. Example
+
+```python
+temps, dates = app.layer.water.temp["Drammensfjorden", 4:10]
+```
+
+In the example, the temperatures in the "Drammensfjorden" basin in [NIVAFjord](../existingmodels/nivafjord.html) is extracted between layers 4 and 10.
+
+For input series you always get the expanded data that is sampled to the applications sampling frequency, even if it was provided sparsely in the data file.
+
+You can also set the values of an input series. The value you provide must be a `pandas.Series` that is indexed by a DateTimeIndex. This could be sparse. In that case, only the given dates are overwritten.
+
+For now we don't support setting slices.
+
+Model series have a `unit()` member function giving you a string representation of its unit.
+
+You can also get the concentratoion series of a dissolved variable using `conc()`. For a flux, you can further use the `.` operator to get the transport flux of dissolved variables.
+
+The conc and transport operations must be called on the `mobipy.Series` object, not on the `pandas.Series` value (i.e. don't index it before the function call). Example:
+
+```python
+fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(8, 8))
+app.river.water.oc.conc()["Kråkstadelva"].plot(ax=ax0) # Plot the concentration of organic carbon in the river water.
+app.var("Reach flow flux").oc["Kråkstadelva"].plot(ax=ax1) # Plot the transport flux of organic carbon with the river discharge.
+```
