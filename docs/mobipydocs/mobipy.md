@@ -27,13 +27,10 @@ Full documentation of mobipy is not yet available, but we will soon make a good 
 **(Note: Some of the concepts below like "entities", "serial name", "identifier" will be better explained once we write the Mobius2 language documentation)**
 
 First you need to load a model application using
-
 ```python
 app = mobipy.Model_Application.build_from_model_and_data_file("model_file_path.txt", "data_file_path.txt")
 ```
-
 To be able to extract any results you need to run the model, using
-
 ```python
 app.run()
 ```
