@@ -116,7 +116,7 @@ You must have exactly one result time series and one input time series selected.
 
 ### Quantile-Quantile
 
-![Residual plot](../img/mobiview/qqplot.png)
+![Q-Q plot](../img/mobiview/qqplot.png)
 
 You must have exactly one result time series and one input time series selected. This shows a [quantile-quantile plot](https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot) of the two time series, and can be used to see if your modeled time series is roughly similarly distributed to the observed one.
 
