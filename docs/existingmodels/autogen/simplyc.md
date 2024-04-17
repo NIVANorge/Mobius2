@@ -10,7 +10,7 @@ nav_order: 1
 
 This is auto-generated documentation based on the model code in models/simplyc_model.txt .
 
-The file was generated at 2024-04-17 17:42:31.
+The file was generated at 2024-04-17 17:46:02.
 
 ## SimplyC land
 
@@ -30,17 +30,20 @@ A simple DOC model.
 | Baseline soil DOC dissolution rate | cdoc | mg l⁻¹ day⁻¹ | Only used if the soil DOC computation type is dynamic. |
 | Soil DOC computation type | soildoc_type |  |  |
 | Groundwater DOC computation type | gwdoc_type |  |  |
+
 **DOC land**
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | Baseline soil DOC concentration | basedoc | mg l⁻¹ |  |
+
 **DOC deep soil**
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | Groundwater DOC half-life | gwdochl | day |  |
 | Groundwater DOC concentration | gwdocconc | mg l⁻¹ |  |
+
 ## SimplyC river
 
 ### Parameters
@@ -51,3 +54,4 @@ A simple DOC model.
 | ---- | ------ | ---- |  ----------- |
 | River DOC loss rate at 20°C | r_loss | day⁻¹ |  |
 | River DOC loss Q10 | r_q10 |  |  |
+
