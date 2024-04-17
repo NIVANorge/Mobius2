@@ -52,6 +52,7 @@ To set up a model for a new location you may need to edit the [data files](../da
 ### Learn more about MobiView2.
 
 MobiView2 contains many more features that can help you to quickly calibrate or autocalibrate your model, generate various types of plots, and run sensitivity analysis.
+
 See [the full documentation](../mobiviewdocs/mobiview.html).
 
 ### Use mobipy to script your model runs.
@@ -61,6 +62,8 @@ The mobipy python package allows you to dynamically set parameter values and inp
 - Script your own sensitivity analysis or autocalibration.
 - Run the models in the backend of a web page with a custom web interface.
 - Whatever you can think of.
+
+To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
 
 See [the full documentation](../mobipydocs/mobipy.html).
 

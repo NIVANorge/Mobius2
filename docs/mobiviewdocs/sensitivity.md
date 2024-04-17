@@ -19,4 +19,35 @@ MobiView2 includes four different modes of doing optimization, sensitivity and u
 
 Apart from the [simple parameter perturbation](simplesensitivity.html) setup, all the advanced forms of autocalibration and sensitivity analysis ([autocalibration](autocalibration.html), [MCMC](mcmc.html) and [variance-based sensitivity](variance.html)) share a common part of their setup:
 
-(to be written).
+![Common setup](../img/mobiview/optimsetup.png)
+
+### The parameter space
+
+If you select a parameter in the main window, you can click ![Add parameter](../img/toolbar/Add.png) "Add parameter" in the setup to add it to the list. You can set the min and max values that you want to constrain this parameter with. Note that all values in the range have to be valid values that don't make the model crash. For the optimizer it helps if you can narrow down the range as much as possible before running it.
+
+You can click ![Add group(../img/toolbar/AddGroup.png) "Add group" to add all the parameters that are visible in the main parameter view.
+
+If an index set was set as locked ![Locked](../img/toolbar/Lock.png) in the main window at the time a parameter was added, all values across the indexes of that index set will be treated as a single parameter, and all of them will be given the same value every time the model is run.
+
+### Symbols and expressions
+You can set a "Symbol" per parameter. These must all be different. This is used both for reference in expressions and as a shorthand name in some statistic reports (the latter is only relevant for MCMC and variance-based sensitivity).
+
+If a parameter is given an "Expression", it is no longer treated as a part of the parameter space that should be directly sampled by the algorithm you are running (so the min-max range is no longer relevant). Instead it will at each sample time be given the value of the expression. The Expression can refer to the Symbol of other parameters. The expression syntax uses the same math notation as the [Mobius2 model language](../mobius2docs/language.html). Example: `1.0 - 0.5*bfi`, where `bfi` is the Symbol of another parameter.
+
+This can also be used to force two parameters to have the same value by making one have an Expression that just contains the Symbol of the other.
+
+### Targets
+
+To add a target statistic, select one result series and up to one comparison input series in the main window (similarly to how you [select them for plotting](plots.html)), then click ![Add parameter](../img/toolbar/Add.png) "Add target". You can select the target statistic from a dropdown list of statistics. The available statistic will depend on what kind of run you want (optimizer, MCMC or variance-based sensitivity). The total statistic that is considered in each model run is the weighted sum of the statistics for the individual targets, where the Weight per target is user-defined.
+
+Statistics are computed inside the given Start and End interval (inclusive), which can be set per statistic. The "Error param(s)" is only relevant for the [MCMC](mcmc.html) setup, and is explained there.
+
+### Timeout
+
+The individual run timeout allows you to set a timeout on each individual run of the model in milliseconds. This can be useful if the model sometimes crashes on certain combinations of parameters, but it is hard to exclude them using the parameter intervals. If the model run times out, the calibration statistic is set to $\infty$ or $-\infty$ depending on whether the target statistic is being minimalized or maximized respectively. If you set the timeout negative, there is no timeout.
+
+### Additional functionality
+
+If you need a more complex setup than the one you can make here, we recommend that you use [mobipy](../mobipydocs/mobipy.html) to script it yourself instead.
+
+In the toolbar of the optimization setup window you can click buttons to save the current setup for future use, or load it again.

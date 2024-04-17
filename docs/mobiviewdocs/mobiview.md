@@ -9,8 +9,6 @@ has_children: true
 
 ## Introduction
 
-**This documentation is incomplete for now. We apologize for the inconvenience.**
-
 MobiView2 is a graphical user interface that can load any model built using the [Mobius2 model language](../mobius2docs/language.html).
 
 The GUI allows you to quickly explore effects of changing parameter values, plotting model results and calibrating the model using formal goodness-of-fit statistics. It also contains different systems for autocalibration, sensitivity and uncertainty analysis, including Markov Chain Monte Carlo.
