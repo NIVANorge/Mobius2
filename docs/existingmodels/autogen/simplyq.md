@@ -10,7 +10,7 @@ nav_order: 0
 
 This is auto-generated documentation based on the model code in models/simplyq_model.txt .
 
-The file was generated at 2024-04-17 17:38:26.
+The file was generated at 2024-04-17 17:42:31.
 
 ## SimplyQ land
 
@@ -30,25 +30,19 @@ New to version 0.5 :
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | Baseflow index | bfi |  |  |
-
 | Quick flow inflection point | qqinfl | mm day⁻¹ |  |
-
 **Hydrology land**
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | Field capacity | fc | mm |  |
-
 | Soil water time constant | tc_s | day |  |
-
 **Groundwater**
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | Groundwater time constant | tc_g | day |  |
-
 | Groundwater retention volume | gw_ret | mm |  |
-
 ## SimplyQ river
 
 ### Docstring
@@ -62,10 +56,6 @@ The river part of the SimplyQ module.
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | Reach slope | slope |  |  |
-
 | Reach length | len | m |  |
-
 | Manning's roughness coefficient | c_mann | s m⁻¹′³ | Default of 0.04 is for clean winding natural channels. See e.g. Chow 1959 for a table of values for other channel types |
-
 | Initial reach flow | init_flow | m³ s⁻¹ |  |
-

@@ -94,7 +94,7 @@ generate_docs(int navorder, std::vector<const char *> &tuple) {
 				   //<< " | " << par->min_val.val_real
 				   //<< " | " << par->max_val.val_real
 				   << " | " << par->description   // TODO: Ideally we should check that there are no markdown characters in it..
-				   << " |\n\n";
+				   << " |\n";
 			}
 		}
 	}
