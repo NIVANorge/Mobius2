@@ -117,7 +117,7 @@ If a series indexes over several indexes you can also read out a slice. We only 
 temps, dates = app.layer.water.temp["Drammensfjorden", 4:10]
 ```
 
-In the example, the temperatures in the "Drammensfjorden" basin in [NIVAFjord](../existingmodels/nivafjord.html) is extracted between layers 4 and 10.
+In this example, the temperatures in the "Drammensfjorden" basin in [NIVAFjord](../existingmodels/nivafjord.html) is extracted between layers 4 and 10.
 
 For input series you always get the expanded data that is sampled to the applications sampling frequency, even if it was provided sparsely in the data file.
 
