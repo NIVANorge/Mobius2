@@ -15,6 +15,8 @@ MobiView2 includes four different modes of doing optimization, sensitivity and u
 - [MCMC](mcmc.html), or Markov Chain Monte Carlo, is an advanced form of Bayesian sensitivity and uncertainty analysis. It finds the posterior likelihood distribution of the set of parameter values, allowing you both to see how certain/uncertain a given parameter set is (given a likelihood structure of the observed data) and how correlated pairs of parameters are.
 - [Variance-based sensitivity](variance.html) allows you to explore how much the variance of a chosen result statistic is affected by the variation of each selected parameter, giving you a sense of what parameters it is the most sensitive to.
 
+If you need a more complex setup than the one you can make in MobiView2, we recommend that you use [mobipy](../mobipydocs/mobipy.html) to script it yourself instead.
+
 ## The common setup
 
 Apart from the [simple parameter perturbation](simplesensitivity.html) setup, all the advanced forms of autocalibration and sensitivity analysis ([autocalibration](autocalibration.html), [MCMC](mcmc.html) and [variance-based sensitivity](variance.html)) share a common part of their setup:
@@ -47,7 +49,5 @@ Statistics are computed inside the given Start and End interval (inclusive), whi
 The individual run timeout allows you to set a timeout on each individual run of the model in milliseconds. This can be useful if the model sometimes crashes on certain combinations of parameters, but it is hard to exclude them using the parameter intervals. If the model run times out, the calibration statistic is set to $\infty$ or $-\infty$ depending on whether the target statistic is being minimalized or maximized respectively. If you set the timeout negative, there is no timeout.
 
 ### Additional functionality
-
-If you need a more complex setup than the one you can make here, we recommend that you use [mobipy](../mobipydocs/mobipy.html) to script it yourself instead.
 
 In the toolbar of the optimization setup window you can click buttons to save the current setup for future use, or load it again.

@@ -17,6 +17,10 @@ MobiView2 is created using the [Ultimate++ framework](https://www.ultimatepp.org
 
 ![MobiView2](../img/mobiview.png)
 
+## Downloading MobiView2
+
+The [source code for MobiView2](https://github.com/NIVANorge/MobiView2) is open source under the Apache 2.0 license. However we don't have a portable build system yet, so to get the program we suggest you follow the [getting started guide](../gettingstarted/gettingstarted.html).
+
 ## Parameter editing
 
 MobiView2 allows you to [edit parameter values](parameters.html) and immediately re-run the model to see the effects. This gives you an interactive experience of calibrating the model and looking at effects of scenarios. When you re-run a model, the main plot (and additional plot view) is automatically refreshed with the new results.
@@ -53,4 +57,3 @@ The MobiView2 toolbar contains the following buttons
 13. ![Statistics settings](../img/toolbar/StatSettings.png) **Statistics settings**. Here you can turn on and off what statistics you want displayed in the time series info box, in addition to a few other settings.
 14. ![Model code](../img/toolbar/BatchStructure.png) **Model structure debug information**. This opens a window that displays debug information about the compiled model. This is mainly useful for model developers **(link to separate doc when available)**
 15. ![Model info](../img/toolbar/Info.png) **Model info**. This opens a window that displays any documentation that is written by the creator of the currently loaded model.
-
