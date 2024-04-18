@@ -94,6 +94,23 @@ print_chain(std::stringstream &ss, std::vector<Token> &chain) {
 	}
 }
 
+void
+print_unit_ast(std::stringstream &ss, Unit_Convert_AST *conv, bool print_identity) {
+	if(conv->unit) {
+		Unit_Data data;
+		data.set_data(conv->unit);
+		std::string str = data.to_latex();
+		// TODO: Must be more robust. If it is another number, should insert a \cdot also.
+		if(!print_identity && str=="1")
+			return;
+		ss << str;
+	} else if (conv->by_identifier) {
+		print_ident(ss, conv->unit_identifier.string_value);
+	} else {
+		ss << "\\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
+	}
+}
+
 // TODO: Also have to make a precedence system like in the other print_expression.
 // Could we unify code with that??
 void
@@ -134,22 +151,21 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 		// TODO: Should this also adhere to operator precedence?
 		
 		auto conv = static_cast<Unit_Convert_AST*>(ast);
-		ss << "\\left(";
-		print_equation(ss, model, scope, ast->exprs[0]);
-		if(conv->force)
-			ss << "\\Rightarrow ";
-		else
-			ss << "\\rightarrow ";
-		if(conv->unit) {
-			Unit_Data data;
-			data.set_data(conv->unit);
-			ss << data.to_latex();
-		} else if (conv->by_identifier) {
-			print_ident(ss, conv->unit_identifier.string_value);
+		
+		if(ast->exprs[0]->type == Math_Expr_Type::literal) {
+			print_equation(ss, model, scope, ast->exprs[0]);
+			ss << " ";
+			print_unit_ast(ss, conv, false);
 		} else {
-			ss << "\\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
+			ss << "\\left(";
+			print_equation(ss, model, scope, ast->exprs[0]);
+			if(conv->force)
+				ss << "\\Rightarrow ";
+			else
+				ss << "\\rightarrow ";
+			print_unit_ast(ss, conv, true);
+			ss << "\\right)";
 		}
-		ss << "\\right)";
 		
 	} else if (ast->type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_Chain_AST *>(ast);

@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 13:14:25.
+The file was generated at 2024-04-18 13:23:24.
 
 ---
 
@@ -134,7 +134,7 @@ Unit: m³
 Initial value:
 
 $$
-\mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow 1\right) \\ \mathrm{depth} = \left(0.349\Rightarrow m\right)\cdot\mathrm{q}^{0.34} \\ \mathrm{width} = \left(2.71\Rightarrow m\right)\cdot\mathrm{q}^{0.557} \\ \mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
+\mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow 1\right) \\ \mathrm{depth} = 0.349 m\cdot\mathrm{q}^{0.34} \\ \mathrm{width} = 2.71 m\cdot\mathrm{q}^{0.557} \\ \mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
 $$
 
 #### Reach flow
@@ -146,7 +146,7 @@ Unit: m³ s⁻¹
 Value:
 
 $$
-\left(0.28\Rightarrow m^{3}s^{-1}\right)\cdot\left(\mathrm{water}\cdot\frac{\mathrm{sqrt}\left(\mathrm{slope}\right)}{\mathrm{len}\cdot\mathrm{c\_mann}}\Rightarrow 1\right)^{1.5}
+0.28 m^{3}s^{-1}\cdot\left(\mathrm{water}\cdot\frac{\mathrm{sqrt}\left(\mathrm{slope}\right)}{\mathrm{len}\cdot\mathrm{c\_mann}}\Rightarrow 1\right)^{1.5}
 $$
 
 Initial value:
