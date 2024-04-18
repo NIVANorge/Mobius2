@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 12:43:56.
+The file was generated at 2024-04-18 12:56:51.
 
 ---
 
@@ -60,9 +60,9 @@ New to version 0.5 :
 
 #### Soil water volume
 
-| Location | Unit |
-| -------- | ---- |
-| soil.water | mm |
+Location: soil.water
+
+Unit: mm
 
 Initial value:
 
@@ -72,9 +72,9 @@ $$
 
 #### Groundwater volume
 
-| Location | Unit |
-| -------- | ---- |
-| gw.water | mm |
+Location: gw.water
+
+Unit: mm
 
 Initial value:
 
@@ -84,9 +84,9 @@ $$
 
 #### Soil water flow
 
-| Location | Unit |
-| -------- | ---- |
-| soil.water.flow | mm day⁻¹ |
+Location: soil.water.flow
+
+Unit: mm day⁻¹
 
 Value:
 
@@ -127,9 +127,9 @@ The river part of the SimplyQ module.
 
 #### Reach water volume
 
-| Location | Unit |
-| -------- | ---- |
-| river.water | m³ |
+Location: river.water
+
+Unit: m³
 
 Initial value:
 
@@ -139,9 +139,9 @@ $$
 
 #### Reach flow
 
-| Location | Unit |
-| -------- | ---- |
-| river.water.flow | m³ s⁻¹ |
+Location: river.water.flow
+
+Unit: m³ s⁻¹
 
 Value:
 

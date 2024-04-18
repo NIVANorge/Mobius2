@@ -191,7 +191,7 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 		for(int i = 0; i < n_cases; ++i) {
 			if(!first) ss << " \\\\ ";
 			print_equation(ss, model, scope, ast->exprs[2*i]);
-			ss << " & \\text{ if }";
+			ss << " & \\text{ if }\\,";
 			print_equation(ss, model, scope, ast->exprs[2*i + 1]);
 			first = false;
 		}
@@ -276,22 +276,15 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			
 			std::string locstr = loc_str(&module->scope, var->var_location);
 			
-			ss << "#### " << var->var_name << "\n\n";
+			if(var->var_name.empty()) {
+				ss << "#### " << model->components[var->var_location.last()]->name << "\n\n";
+			} else
+				ss << "#### " << var->var_name << "\n\n";
 			
-			ss << "| Location | Unit |";
+			ss << "Location: " << locstr << "\n\n";
+			ss << "Unit: " << unit_str(model, var->unit) << "\n\n";
 			if(is_valid(var->conc_unit))
-				ss << " Conc. unit |";
-			ss << "\n";
-			ss << "| -------- | ---- |";
-			if(is_valid(var->conc_unit))
-				ss << " ---- |";
-			ss << "\n";
-			
-			ss << "| " << locstr
-			   << " | " << unit_str(model, var->unit);
-			if(is_valid(var->conc_unit))
-				ss << " | " << unit_str(model, var->conc_unit);
-			ss << " |\n\n";
+				ss << "Conc. unit: " << unit_str(model, var->conc_unit) << "\n\n";
 			
 			if(var->code || var->override_code) {
 				auto code = var->code ? var->code : var->override_code;
@@ -302,8 +295,6 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 				ss << "Initial value:\n\n";
 				ss << "$$\n" << equation_str(model, &module->scope, var->initial_code) << "\n$$\n\n";
 			}
-			
-			// TODO: Adds to existing
 		}
 	}
 }
