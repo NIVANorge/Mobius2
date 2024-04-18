@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 13:38:01.
+The file was generated at 2024-04-18 13:46:00.
 
 ---
 
@@ -107,7 +107,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\mathrm{drylim} = 0.9 \\ \mathrm{flow} = \left(\mathrm{in\_flux}\left(\mathrm{water}\right)\rightarrow \mathrm{some\_unit}\right) \\ \mathrm{flow}\cdot \mathrm{s\_response}\left(\mathrm{water}, \mathrm{drylim}\cdot \mathrm{fc}, \mathrm{fc}, 0, 1\right)\cdot \mathrm{atan}\left(\frac{\mathrm{flow}}{\mathrm{qqinfl}}\right)\cdot \frac{2}{\mathrm{pi}}
+\mathrm{drylim} = 0.9 \\ \mathrm{flow} = \left(\mathrm{in\_flux}\left(\mathrm{water}\right)\rightarrow \mathrm{some\_unit}\right) \\ \mathrm{flow}\cdot \mathrm{s\_response}\left(\mathrm{water}, \mathrm{drylim}\cdot \mathrm{fc}, \mathrm{fc}, 0, 1\right)\cdot \mathrm{atan}\left(\frac{\mathrm{flow}}{\mathrm{qqinfl}}\right)\cdot \frac{2}{\pi}
 $$
 
 #### *Evapotranspiration*
@@ -218,7 +218,7 @@ Unit: m³ s⁻¹
 Value:
 
 $$
-0.28 m^{3}s^{-1}\cdot \left(\mathrm{water}\cdot \frac{\mathrm{sqrt}\left(\mathrm{slope}\right)}{\mathrm{len}\cdot \mathrm{c\_mann}}\Rightarrow 1\right)^{1.5}
+0.28 m^{3}s^{-1}\cdot \left(\mathrm{water}\cdot \frac{\sqrt{\mathrm{slope}}}{\mathrm{len}\cdot \mathrm{c\_mann}}\Rightarrow 1\right)^{1.5}
 $$
 
 Initial value:

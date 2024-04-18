@@ -80,8 +80,12 @@ print_oper(std::stringstream &ss, Token_Type oper) {
 void
 print_ident(std::stringstream &ss, String_View ident) {
 	std::string res = ident;
-	replace(res, "_", "\\_");
-	ss << "\\mathrm{" << res << "}";
+	if(res == "pi")
+		ss << "\\pi";
+	else {
+		replace(res, "_", "\\_");
+		ss << "\\mathrm{" << res << "}";
+	}
 }
 
 void
@@ -197,6 +201,18 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 			ss << "e^{";
 			print_equation(ss, model, scope, fun->exprs[0]);
 			ss << "}";
+		} else if(fun->name.string_value == "sqrt") {
+			ss << "\\sqrt{";
+			print_equation(ss, model, scope, fun->exprs[0]);
+			ss << "}";
+		} else if (fun->name.string_value == "cbrt") {
+			ss << "\\sqrt[3]{";
+			print_equation(ss, model, scope, fun->exprs[0]);
+			ss << "}";
+		} else if (fun->name.string_value == "log10") {
+			ss << "\\mathrm{log}_{10}\left(";
+			print_equation(ss, model, scope, fun->exprs[0]);
+			ss << "\right)";
 		} else {
 			print_ident(ss, fun->name.string_value);
 			ss << "\\left(";
