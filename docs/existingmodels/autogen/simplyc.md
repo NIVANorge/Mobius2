@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in models/simplyc_model.txt .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 11:50:01.
+The file was generated at 2024-04-18 12:15:01.
 
 ---
 
@@ -68,7 +68,7 @@ $$
 Initial value:
 
 $$
-\mathrm{expr}
+\mathrm{basedoc}
 $$
 
 | Location | Unit | Conc. unit | Name |

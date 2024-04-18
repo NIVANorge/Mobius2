@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in models/simplyq_model.txt .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 11:50:01.
+The file was generated at 2024-04-18 12:15:01.
 
 ---
 
@@ -65,7 +65,7 @@ New to version 0.5 :
 Initial value:
 
 $$
-\mathrm{expr}
+\mathrm{fc}
 $$
 
 | Location | Unit | Name |
@@ -75,7 +75,7 @@ $$
 Initial value:
 
 $$
-\mathrm{expr}+\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}}, \mathrm{some\_unit}\right)
+\mathrm{gw\_ret}+\mathrm{convert}\left(\mathrm{tc\_g}\cdot\frac{\mathrm{river}.\mathrm{water}.\mathrm{flow}}{\mathrm{a\_catch}}, \mathrm{some\_unit}\right)
 $$
 
 | Location | Unit | Name |
@@ -83,7 +83,7 @@ $$
 | soil.water.flow | mm day⁻¹ | Soil water flow |
 
 $$
-\mathrm{expr} \\\mathrm{expr}
+\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\\mathrm{expr}
 $$
 
 ---
@@ -124,7 +124,7 @@ The river part of the SimplyQ module.
 Initial value:
 
 $$
-\mathrm{expr} \\\mathrm{expr} \\\mathrm{expr} \\\mathrm{expr}\cdot\mathrm{expr}\cdot\mathrm{expr}
+\mathrm{q} = \mathrm{convert}\left(\mathrm{init\_flow}, \mathrm{some\_unit}\right) \\\mathrm{depth} = \mathrm{convert}\left(0.349, \mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.34} \\\mathrm{width} = \mathrm{convert}\left(2.71, \mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.557} \\\mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
 $$
 
 | Location | Unit | Name |
@@ -132,13 +132,13 @@ $$
 | river.water.flow | m³ s⁻¹ | Reach flow |
 
 $$
-\mathrm{convert}\left(\mathrm{expr}, \mathrm{some\_unit}\right)\cdot\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}\cdot\mathrm{expr}}, \mathrm{some\_unit}\right)^{\mathrm{expr}}
+\mathrm{convert}\left(0.28, \mathrm{some\_unit}\right)\cdot\mathrm{convert}\left(\mathrm{water}\cdot\frac{\mathrm{expr}}{\mathrm{len}\cdot\mathrm{c\_mann}}, \mathrm{some\_unit}\right)^{1.5}
 $$
 
 Initial value:
 
 $$
-\mathrm{expr}
+\mathrm{init\_flow}
 $$
 
 

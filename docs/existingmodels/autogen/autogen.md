@@ -9,3 +9,5 @@ has_children: true
 # Auto-generated documentation
 
 Here is documentation for some of the modules that is auto-generated based on the model files.
+
+(This is work in progress and may be broken in some aspects).

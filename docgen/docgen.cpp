@@ -77,6 +77,23 @@ print_oper(std::stringstream &ss, Token_Type oper) {
 	// TODO: Probably have to handle many other types!
 }
 
+void
+print_ident(std::stringstream &ss, String_View ident) {
+	std::string res = ident;
+	replace(res, "_", "\\_");
+	ss << "\\mathrm{" << res << "}";
+}
+
+void
+print_chain(std::stringstream &ss, std::vector<Token> &chain) {
+	bool begin = true;
+	for(auto &t : chain) {
+		if(!begin) ss << '.';
+		print_ident(ss, t.string_value);
+		begin = false;
+	}
+}
+
 // TODO: Also have to make a precedence system like in the other print_expression.
 // Could we unify code with that??
 void
@@ -117,6 +134,30 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 		print_equation(ss, model, scope, ast->exprs[0]);
 		ss << ", \\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
 		ss << "\\right)";
+	} else if (ast->type == Math_Expr_Type::identifier) {
+		auto ident = static_cast<Identifier_Chain_AST *>(ast);
+		print_chain(ss, ident->chain);
+		if(!ident->bracketed_chain.empty()) {
+			ss << "\\[";
+			print_chain(ss, ident->bracketed_chain);
+			ss << "\\]";
+		}
+	} else if (ast->type == Math_Expr_Type::literal) {
+		auto literal = static_cast<Literal_AST *>(ast);
+		auto &v = literal->value;
+		if(v.type == Token_Type::integer)
+			ss << v.val_int;
+		else if(v.type == Token_Type::real)
+			ss << v.val_double;    // TODO: We want to format it better
+		else if(v.type == Token_Type::boolean)
+			ss << (v.val_bool ? "\\matrm{true}" : "\\mathrm{false}");
+		else
+			fatal_error(Mobius_Error::internal, "Unhandled literal type");
+	} else if (ast->type == Math_Expr_Type::local_var) {
+		auto local = static_cast<Local_Var_AST *>(ast);
+		print_ident(ss, local->name.string_value);
+		ss << " = ";
+		print_equation(ss, model, scope, ast->exprs[0]);
 	} else {
 		ss << "\\mathrm{expr}";
 	}
