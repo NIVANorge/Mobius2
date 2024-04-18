@@ -17,6 +17,7 @@ nav_order: _NAVORDER_
 # _TITLE_
 
 This is auto-generated documentation based on the model code in models/_MODELFILE_ .
+Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the module.
 
 The file was generated at _DATE_.
 
@@ -36,6 +37,133 @@ replace(std::string &str, const char *substring, const char *replacement) {
 	}
 }
 
+std::string
+unit_str(Mobius_Model *model, Entity_Id unit_id) {
+	return (is_valid(unit_id) ? model->units[unit_id]->data.to_utf8() : "");
+}
+
+
+// Oops, it is problematic that we don't store in the declaration if a Var_Location is from a 'loc'!
+// In the docs we want to print that, not the resolved location...
+// Although we could just go back to the AST??
+std::string
+loc_str(Decl_Scope *scope, Var_Location &loc) {
+	std::stringstream ss;
+	if(loc.type == Var_Location::Type::out)
+		return "out";
+	else if(loc.type == Var_Location::Type::connection)
+		return "(connection)";   // TODO!
+	else {
+		bool begin = true;
+		for(int i = 0; i < loc.n_components; ++i) {
+			if(!begin) ss << '.';
+			auto find = scope->identifiers.find(loc.components[i]);
+			if(find == scope->identifiers.end())
+				fatal_error(Mobius_Error::internal, "Unable to find identifier in the scope!");
+			ss << find->second;
+			begin = false;
+		}
+		return ss.str();
+	}
+}
+
+std::string
+equation_str(Mobius_Model *model, Decl_Scope *scope, Math_Expr_AST *code) {
+	return "\\mathrm{Equation printing not yet implemented}";
+}
+
+void
+document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_name) {
+	auto module_id = model->deserialize(module_name, Reg_Type::module);
+	auto module = model->modules[module_id];
+	auto modtemplate = model->module_templates[module->template_id];
+	
+	ss << "## " << module->name << "\n\n";
+	if(!modtemplate->doc_string.empty()) {
+		// TODO: Ideally this should be put as a quote
+		ss << "### Docstring" << "\n\n" << modtemplate->doc_string << "\n\n";
+	}
+	
+	ss << "### External symbols\n\n";
+	ss << "| Name | Symbol | Type |\n";
+	ss << "| ---- | ------ | ---- |\n";
+	for(auto &pair : module->scope.visible_entities) {
+		auto &symbol = pair.first;
+		auto &record = pair.second;
+		auto entity = model->find_entity(record.id);
+		
+		if(!record.is_load_arg) continue;
+		
+		ss << "| " << entity->name << " | " << symbol << " | " << name(entity->decl_type) << " |\n";
+	}
+	ss << "\n";
+	
+	auto groups = module->scope.by_type<Reg_Type::par_group>();
+	if(groups.size() > 0) {
+		
+		ss << "### Parameters\n\n";
+		ss << "| Name | Symbol | Unit |  Description |\n";
+		ss << "| ---- | ------ | ---- |  ----------- |\n";
+		
+		for(auto group_id : groups) {
+			auto group = model->par_groups[group_id];
+			ss << "| **" << group->name << "** | | | |\n";
+			
+			for(auto par_id : group->scope.by_type<Reg_Type::parameter>()) {
+				auto par = model->parameters[par_id];
+				//if(par->decl_type != Decl_Type::par_real) continue; //TODO!
+				
+				ss << "| " << par->name 
+				   << " | " << model->get_symbol(par_id)
+				   << " | " << unit_str(model, par->unit)
+				   //<< " | " << par->default_val.val_real
+				   //<< " | " << par->min_val.val_real
+				   //<< " | " << par->max_val.val_real
+				   << " | " << par->description   // TODO: Ideally we should check that there are no markdown characters in it..
+				   << " |\n";
+			}
+		}
+		ss << "\n";
+	}
+	
+	auto vars = module->scope.by_type<Reg_Type::var>();
+	if(vars.size() > 0) {
+		ss << "### State variables\n\n";
+		
+		for(auto var_id : vars) {
+			auto var = model->vars[var_id];
+			
+			std::string locstr = loc_str(&module->scope, var->var_location);
+			
+			ss << "| Location | Unit | ";
+			if(is_valid(var->conc_unit))
+				ss << "Conc. unit | ";
+			ss << "Name |\n";
+			ss << "| -------- | ---- | ---- |";
+			if(is_valid(var->conc_unit))
+				ss << " ---- |";
+			ss << "\n";
+			
+			ss << "| " << locstr
+			   << " | " << unit_str(model, var->unit);
+			if(is_valid(var->conc_unit))
+				ss << " | " << unit_str(model, var->conc_unit);
+			ss << " | " << var->var_name << " |\n\n";
+			
+			if(var->code || var->override_code) {
+				auto code = var->code ? var->code : var->override_code;
+				
+				ss << "$$\n" << equation_str(model, &module->scope, code) << "\n$$\n\n";
+			}
+			if(var->initial_code) {
+				ss << "Initial value:\n\n";
+				ss << "$$\n" << equation_str(model, &module->scope, var->initial_code) << "\n$$\n\n";
+			}
+			
+			// TODO: Adds to existing
+		}
+	}
+}
 
 void
 generate_docs(int navorder, std::vector<const char *> &tuple) {
@@ -66,40 +194,11 @@ generate_docs(int navorder, std::vector<const char *> &tuple) {
 	
 	for(int i = 2; i < tuple.size(); ++i) {
 		std::string module_name = tuple[i];
-		
-		auto module_id = model->deserialize(module_name, Reg_Type::module);
-		auto module = model->modules[module_id];
-		auto modtemplate = model->module_templates[module->template_id];
-		
-		ss << "## " << module->name << "\n\n";
-		if(!modtemplate->doc_string.empty()) {
-			// TODO: Ideally this should be put as a quote
-			ss << "### Docstring" << "\n\n" << modtemplate->doc_string << "\n\n";
-		}
-		ss << "### Parameters\n\n";
-		
-		for(auto group_id : module->scope.by_type<Reg_Type::par_group>()) {
-			auto group = model->par_groups[group_id];
-			ss << "**" << group->name << "**\n\n";
-			ss << "| Name | Symbol | Unit |  Description |\n";
-			ss << "| ---- | ------ | ---- |  ----------- |\n";
-			for(auto par_id : group->scope.by_type<Reg_Type::parameter>()) {
-				auto par = model->parameters[par_id];
-				//if(par->decl_type != Decl_Type::par_real) continue; //TODO!
-				
-				ss << "| " << par->name 
-				   << " | " << model->get_symbol(par_id)
-				   << " | " << (is_valid(par->unit) ? model->units[par->unit]->data.to_utf8() : "")
-				   //<< " | " << par->default_val.val_real
-				   //<< " | " << par->min_val.val_real
-				   //<< " | " << par->max_val.val_real
-				   << " | " << par->description   // TODO: Ideally we should check that there are no markdown characters in it..
-				   << " |\n";
-			}
-			ss << "\n";
-		}
+		ss << "---\n\n";
+		document_module(ss, model, module_name);
 	}
 	
+	ss << "\n\n{% include lib/mathjax.html %}\n\n";
 	
 	std::string result_file_name = tuple[0];
 	std::transform(result_file_name.begin(), result_file_name.end(), result_file_name.begin(), [](unsigned char c){ return std::tolower(c); });
@@ -108,7 +207,7 @@ generate_docs(int navorder, std::vector<const char *> &tuple) {
 	auto outpathstr = out_path.str();
 	
 	std::ofstream out;
-	out.open(outpathstr.c_str());
+	out.open(outpathstr.c_str(), std::ios::binary);
 	out << ss.str();
 	out.close();
 }

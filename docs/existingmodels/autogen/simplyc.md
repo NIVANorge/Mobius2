@@ -9,8 +9,11 @@ nav_order: 1
 # SimplyC
 
 This is auto-generated documentation based on the model code in models/simplyc_model.txt .
+Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the module.
 
-The file was generated at 2024-04-17 17:46:02.
+The file was generated at 2024-04-18 11:19:04.
+
+---
 
 ## SimplyC land
 
@@ -18,40 +21,103 @@ The file was generated at 2024-04-17 17:46:02.
 
 A simple DOC model.
 
-### Parameters
+### External symbols
 
-**DOC general**
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| Atmosphere | air | compartment |
+| Soil | soil | compartment |
+| Groundwater | gw | compartment |
+| Water | water | quantity |
+| Organic carbon | oc | quantity |
+| Temperature | temp | property |
+
+### Parameters
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
+| **DOC general** | | | |
 | Soil temperature DOC creation linear coefficient | kt1 | °C⁻¹ |  |
 | Soil temperature DOC creation second-order coefficient | kt2 | °C⁻² |  |
 | Soil DOC linear SO4 dependence | kso4 | l mg⁻¹ |  |
 | Baseline soil DOC dissolution rate | cdoc | mg l⁻¹ day⁻¹ | Only used if the soil DOC computation type is dynamic. |
 | Soil DOC computation type | soildoc_type |  |  |
 | Groundwater DOC computation type | gwdoc_type |  |  |
-
-**DOC land**
-
-| Name | Symbol | Unit |  Description |
-| ---- | ------ | ---- |  ----------- |
+| **DOC land** | | | |
 | Baseline soil DOC concentration | basedoc | mg l⁻¹ |  |
-
-**DOC deep soil**
-
-| Name | Symbol | Unit |  Description |
-| ---- | ------ | ---- |  ----------- |
+| **DOC deep soil** | | | |
 | Groundwater DOC half-life | gwdochl | day |  |
 | Groundwater DOC concentration | gwdocconc | mg l⁻¹ |  |
 
+### State variables
+
+| Location | Unit | Name |
+| -------- | ---- | ---- |
+| air.so4 | mg l⁻¹ |  |
+
+| Location | Unit | Conc. unit | Name |
+| -------- | ---- | ---- | ---- |
+| soil.water.oc | kg km⁻² | mg l⁻¹ | Soil water DOC |
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+Initial value:
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+| Location | Unit | Conc. unit | Name |
+| -------- | ---- | ---- | ---- |
+| gw.water.oc | kg km⁻² | mg l⁻¹ | Deep soil DOC |
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+Initial value:
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+---
+
 ## SimplyC river
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| River | river | compartment |
+| Groundwater | gw | compartment |
+| Water | water | quantity |
+| Temperature | temp | property |
+| Organic carbon | oc | quantity |
 
 ### Parameters
 
-**DOC river**
-
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
+| **DOC river** | | | |
 | River DOC loss rate at 20°C | r_loss | day⁻¹ |  |
 | River DOC loss Q10 | r_q10 |  |  |
+
+### State variables
+
+| Location | Unit | Conc. unit | Name |
+| -------- | ---- | ---- | ---- |
+| river.water.oc | kg | mg l⁻¹ | River water DOC |
+
+Initial value:
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+
+
+{% include lib/mathjax.html %}
 

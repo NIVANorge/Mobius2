@@ -9,42 +9,82 @@ nav_order: 0
 # SimplyQ
 
 This is auto-generated documentation based on the model code in models/simplyq_model.txt .
+Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the module.
 
-The file was generated at 2024-04-17 17:46:02.
+The file was generated at 2024-04-18 11:19:04.
+
+---
 
 ## SimplyQ land
 
 ### Docstring
 
-This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
-
-[Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
-
-New to version 0.5 :
+This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
+
+[Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
+
+New to version 0.5 :
 	- New implementation in the Mobius2 framework.
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| Soil | soil | compartment |
+| Groundwater | gw | compartment |
+| River | river | compartment |
+|  | runoff_target | loc |
+| Water | water | quantity |
+| Flow | flow | property |
+| Potential evapotranspiration | pet | property |
+| Catchment area | a_catch | par_real |
+|  | gw_target | loc |
 
 ### Parameters
 
-**Hydrology general**
-
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
+| **Hydrology general** | | | |
 | Baseflow index | bfi |  |  |
 | Quick flow inflection point | qqinfl | mm day⁻¹ |  |
-
-**Hydrology land**
-
-| Name | Symbol | Unit |  Description |
-| ---- | ------ | ---- |  ----------- |
+| **Hydrology land** | | | |
 | Field capacity | fc | mm |  |
 | Soil water time constant | tc_s | day |  |
-
-**Groundwater**
-
-| Name | Symbol | Unit |  Description |
-| ---- | ------ | ---- |  ----------- |
+| **Groundwater** | | | |
 | Groundwater time constant | tc_g | day |  |
 | Groundwater retention volume | gw_ret | mm |  |
+
+### State variables
+
+| Location | Unit | Name |
+| -------- | ---- | ---- |
+| soil.water | mm | Soil water volume |
+
+Initial value:
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+| Location | Unit | Name |
+| -------- | ---- | ---- |
+| gw.water | mm | Groundwater volume |
+
+Initial value:
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+| Location | Unit | Name |
+| -------- | ---- | ---- |
+| soil.water.flow | mm day⁻¹ | Soil water flow |
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+---
 
 ## SimplyQ river
 
@@ -52,14 +92,52 @@ New to version 0.5 :
 
 The river part of the SimplyQ module.
 
-### Parameters
+### External symbols
 
-**Reach parameters**
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| River | river | compartment |
+| Water | water | quantity |
+| Flow | flow | property |
+|  | river_target | loc |
+
+### Parameters
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
+| **Reach parameters** | | | |
 | Reach slope | slope |  |  |
 | Reach length | len | m |  |
 | Manning's roughness coefficient | c_mann | s m⁻¹′³ | Default of 0.04 is for clean winding natural channels. See e.g. Chow 1959 for a table of values for other channel types |
 | Initial reach flow | init_flow | m³ s⁻¹ |  |
+
+### State variables
+
+| Location | Unit | Name |
+| -------- | ---- | ---- |
+| river.water | m³ | Reach water volume |
+
+Initial value:
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+| Location | Unit | Name |
+| -------- | ---- | ---- |
+| river.water.flow | m³ s⁻¹ | Reach flow |
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+Initial value:
+
+$$
+\mathrm{Equation printing not yet implemented}
+$$
+
+
+
+{% include lib/mathjax.html %}
 
