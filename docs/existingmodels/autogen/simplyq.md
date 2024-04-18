@@ -9,9 +9,9 @@ nav_order: 0
 # SimplyQ
 
 This is auto-generated documentation based on the model code in models/simplyq_model.txt .
-Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the module.
+Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 11:46:43.
+The file was generated at 2024-04-18 11:50:01.
 
 ---
 
@@ -75,7 +75,7 @@ $$
 Initial value:
 
 $$
-\mathrm{expr}+\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}, \mathrm{some\_unit}\right)
+\mathrm{expr}+\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}}, \mathrm{some\_unit}\right)
 $$
 
 | Location | Unit | Name |
@@ -132,7 +132,7 @@ $$
 | river.water.flow | m³ s⁻¹ | Reach flow |
 
 $$
-\mathrm{convert}\left(\mathrm{expr}, \mathrm{some\_unit}\right)\cdot\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}\cdot\mathrm{expr}, \mathrm{some\_unit}\right)^{\mathrm{expr}}
+\mathrm{convert}\left(\mathrm{expr}, \mathrm{some\_unit}\right)\cdot\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}\cdot\mathrm{expr}}, \mathrm{some\_unit}\right)^{\mathrm{expr}}
 $$
 
 Initial value:

@@ -17,7 +17,7 @@ nav_order: _NAVORDER_
 # _TITLE_
 
 This is auto-generated documentation based on the model code in models/_MODELFILE_ .
-Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the module.
+Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
 The file was generated at _DATE_.
 
@@ -99,6 +99,7 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 			print_equation(ss, model, scope, binop->exprs[0]);
 			ss << "}{";
 			print_equation(ss, model, scope, binop->exprs[1]);
+			ss << "}";
 		} else if(c == '^') {
 			print_equation(ss, model, scope, binop->exprs[0]);
 			ss << "^{";
