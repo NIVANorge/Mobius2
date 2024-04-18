@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 13:23:24.
+The file was generated at 2024-04-18 13:31:10.
 
 ---
 
@@ -58,7 +58,7 @@ New to version 0.5 :
 
 ### State variables
 
-#### Soil water volume
+#### *Soil water volume*
 
 Location: soil.water
 
@@ -70,7 +70,7 @@ $$
 \mathrm{fc}
 $$
 
-#### Groundwater volume
+#### *Groundwater volume*
 
 Location: gw.water
 
@@ -82,7 +82,7 @@ $$
 \mathrm{gw\_ret}+\left(\mathrm{tc\_g}\cdot\frac{\mathrm{river}.\mathrm{water}.\mathrm{flow}}{\mathrm{a\_catch}}\rightarrow mm\right)
 $$
 
-#### Soil water flow
+#### *Soil water flow*
 
 Location: soil.water.flow
 
@@ -125,7 +125,7 @@ The river part of the SimplyQ module.
 
 ### State variables
 
-#### Reach water volume
+#### *Reach water volume*
 
 Location: river.water
 
@@ -137,7 +137,7 @@ $$
 \mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow 1\right) \\ \mathrm{depth} = 0.349 m\cdot\mathrm{q}^{0.34} \\ \mathrm{width} = 2.71 m\cdot\mathrm{q}^{0.557} \\ \mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
 $$
 
-#### Reach flow
+#### *Reach flow*
 
 Location: river.water.flow
 

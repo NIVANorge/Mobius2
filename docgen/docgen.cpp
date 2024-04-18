@@ -215,7 +215,7 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 		for(int i = 0; i < n_cases; ++i) {
 			if(!first) ss << " \\\\ ";
 			print_equation(ss, model, scope, ast->exprs[2*i]);
-			ss << " & \\text{ if }\\,";
+			ss << " & \\text{if}\\;";
 			print_equation(ss, model, scope, ast->exprs[2*i + 1]);
 			first = false;
 		}
@@ -301,9 +301,9 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			std::string locstr = loc_str(&module->scope, var->var_location);
 			
 			if(var->var_name.empty()) {
-				ss << "#### " << model->components[var->var_location.last()]->name << "\n\n";
+				ss << "#### *" << model->components[var->var_location.last()]->name << "*\n\n";
 			} else
-				ss << "#### " << var->var_name << "\n\n";
+				ss << "#### *" << var->var_name << "*\n\n";
 			
 			ss << "Location: " << locstr << "\n\n";
 			ss << "Unit: " << unit_str(model, var->unit) << "\n\n";
@@ -318,6 +318,9 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			if(var->initial_code) {
 				ss << "Initial value:\n\n";
 				ss << "$$\n" << equation_str(model, &module->scope, var->initial_code) << "\n$$\n\n";
+			}
+			if(!var->code && !var->override_code && !var->initial_code && !var->adds_code_to_existing) {
+				ss << "This series is externally defined. It may be an input series.\n\n";
 			}
 		}
 	}
