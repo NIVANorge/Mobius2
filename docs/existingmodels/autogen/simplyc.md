@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in models/simplyc_model.txt .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 12:15:01.
+The file was generated at 2024-04-18 12:27:46.
 
 ---
 
@@ -53,13 +53,19 @@ A simple DOC model.
 
 ### State variables
 
-| Location | Unit | Name |
-| -------- | ---- | ---- |
-| air.so4 | mg l⁻¹ |  |
+#### 
 
-| Location | Unit | Conc. unit | Name |
-| -------- | ---- | ---- | ---- |
-| soil.water.oc | kg km⁻² | mg l⁻¹ | Soil water DOC |
+| Location | Unit |
+| -------- | ---- |
+| air.so4 | mg l⁻¹ |
+
+#### Soil water DOC
+
+| Location | Unit | Conc. unit |
+| -------- | ---- | ---- |
+| soil.water.oc | kg km⁻² | mg l⁻¹ |
+
+Value:
 
 $$
 \mathrm{expr}
@@ -71,9 +77,13 @@ $$
 \mathrm{basedoc}
 $$
 
-| Location | Unit | Conc. unit | Name |
-| -------- | ---- | ---- | ---- |
-| gw.water.oc | kg km⁻² | mg l⁻¹ | Deep soil DOC |
+#### Deep soil DOC
+
+| Location | Unit | Conc. unit |
+| -------- | ---- | ---- |
+| gw.water.oc | kg km⁻² | mg l⁻¹ |
+
+Value:
 
 $$
 \mathrm{expr}
@@ -111,9 +121,11 @@ Version: 0.0.1
 
 ### State variables
 
-| Location | Unit | Conc. unit | Name |
-| -------- | ---- | ---- | ---- |
-| river.water.oc | kg | mg l⁻¹ | River water DOC |
+#### River water DOC
+
+| Location | Unit | Conc. unit |
+| -------- | ---- | ---- |
+| river.water.oc | kg | mg l⁻¹ |
 
 Initial value:
 

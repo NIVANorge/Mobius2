@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in models/simplyq_model.txt .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 12:15:01.
+The file was generated at 2024-04-18 12:27:46.
 
 ---
 
@@ -58,9 +58,11 @@ New to version 0.5 :
 
 ### State variables
 
-| Location | Unit | Name |
-| -------- | ---- | ---- |
-| soil.water | mm | Soil water volume |
+#### Soil water volume
+
+| Location | Unit |
+| -------- | ---- |
+| soil.water | mm |
 
 Initial value:
 
@@ -68,19 +70,25 @@ $$
 \mathrm{fc}
 $$
 
-| Location | Unit | Name |
-| -------- | ---- | ---- |
-| gw.water | mm | Groundwater volume |
+#### Groundwater volume
+
+| Location | Unit |
+| -------- | ---- |
+| gw.water | mm |
 
 Initial value:
 
 $$
-\mathrm{gw\_ret}+\mathrm{convert}\left(\mathrm{tc\_g}\cdot\frac{\mathrm{river}.\mathrm{water}.\mathrm{flow}}{\mathrm{a\_catch}}, \mathrm{some\_unit}\right)
+\mathrm{gw\_ret}+\left(\mathrm{tc\_g}\cdot\frac{\mathrm{river}.\mathrm{water}.\mathrm{flow}}{\mathrm{a\_catch}}\rightarrow\mathrm{some\_unit}\right)
 $$
 
-| Location | Unit | Name |
-| -------- | ---- | ---- |
-| soil.water.flow | mm day⁻¹ | Soil water flow |
+#### Soil water flow
+
+| Location | Unit |
+| -------- | ---- |
+| soil.water.flow | mm day⁻¹ |
+
+Value:
 
 $$
 \mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\\mathrm{expr}
@@ -117,22 +125,28 @@ The river part of the SimplyQ module.
 
 ### State variables
 
-| Location | Unit | Name |
-| -------- | ---- | ---- |
-| river.water | m³ | Reach water volume |
+#### Reach water volume
+
+| Location | Unit |
+| -------- | ---- |
+| river.water | m³ |
 
 Initial value:
 
 $$
-\mathrm{q} = \mathrm{convert}\left(\mathrm{init\_flow}, \mathrm{some\_unit}\right) \\\mathrm{depth} = \mathrm{convert}\left(0.349, \mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.34} \\\mathrm{width} = \mathrm{convert}\left(2.71, \mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.557} \\\mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
+\mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow\mathrm{some\_unit}\right) \\\mathrm{depth} = \left(0.349\Rightarrow\mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.34} \\\mathrm{width} = \left(2.71\Rightarrow\mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.557} \\\mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
 $$
 
-| Location | Unit | Name |
-| -------- | ---- | ---- |
-| river.water.flow | m³ s⁻¹ | Reach flow |
+#### Reach flow
+
+| Location | Unit |
+| -------- | ---- |
+| river.water.flow | m³ s⁻¹ |
+
+Value:
 
 $$
-\mathrm{convert}\left(0.28, \mathrm{some\_unit}\right)\cdot\mathrm{convert}\left(\mathrm{water}\cdot\frac{\mathrm{expr}}{\mathrm{len}\cdot\mathrm{c\_mann}}, \mathrm{some\_unit}\right)^{1.5}
+\left(0.28\Rightarrow\mathrm{some\_unit}\right)\cdot\left(\mathrm{water}\cdot\frac{\mathrm{expr}}{\mathrm{len}\cdot\mathrm{c\_mann}}\Rightarrow\mathrm{some\_unit}\right)^{1.5}
 $$
 
 Initial value:

@@ -130,10 +130,19 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 	} else if (ast->type == Math_Expr_Type::cast) {
 		print_equation(ss, model, scope, ast->exprs[0], outer);
 	} else if (ast->type == Math_Expr_Type::unit_convert) {
-		ss << "\\mathrm{convert}\\left(";
+		
+		// TODO: Should this also adhere to operator precedence?
+		
+		auto conv = static_cast<Unit_Convert_AST*>(ast);
+		ss << "\\left(";
 		print_equation(ss, model, scope, ast->exprs[0]);
-		ss << ", \\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
+		if(conv->force)
+			ss << "\\Rightarrow";
+		else
+			ss << "\\rightarrow";
+		ss << "\\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
 		ss << "\\right)";
+		
 	} else if (ast->type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_Chain_AST *>(ast);
 		print_chain(ss, ident->chain);
@@ -235,11 +244,13 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			
 			std::string locstr = loc_str(&module->scope, var->var_location);
 			
-			ss << "| Location | Unit | ";
+			ss << "#### " << var->var_name << "\n\n";
+			
+			ss << "| Location | Unit |";
 			if(is_valid(var->conc_unit))
-				ss << "Conc. unit | ";
-			ss << "Name |\n";
-			ss << "| -------- | ---- | ---- |";
+				ss << " Conc. unit |";
+			ss << "\n";
+			ss << "| -------- | ---- |";
 			if(is_valid(var->conc_unit))
 				ss << " ---- |";
 			ss << "\n";
@@ -248,11 +259,11 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			   << " | " << unit_str(model, var->unit);
 			if(is_valid(var->conc_unit))
 				ss << " | " << unit_str(model, var->conc_unit);
-			ss << " | " << var->var_name << " |\n\n";
+			ss << " |\n\n";
 			
 			if(var->code || var->override_code) {
 				auto code = var->code ? var->code : var->override_code;
-				
+				ss << "Value:\n\n";
 				ss << "$$\n" << equation_str(model, &module->scope, code) << "\n$$\n\n";
 			}
 			if(var->initial_code) {
