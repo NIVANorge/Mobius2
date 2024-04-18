@@ -11,11 +11,13 @@ nav_order: 0
 This is auto-generated documentation based on the model code in models/simplyq_model.txt .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the module.
 
-The file was generated at 2024-04-18 11:19:04.
+The file was generated at 2024-04-18 11:46:43.
 
 ---
 
 ## SimplyQ land
+
+Version: 0.5.0
 
 ### Docstring
 
@@ -63,7 +65,7 @@ New to version 0.5 :
 Initial value:
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}
 $$
 
 | Location | Unit | Name |
@@ -73,7 +75,7 @@ $$
 Initial value:
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}+\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}, \mathrm{some\_unit}\right)
 $$
 
 | Location | Unit | Name |
@@ -81,12 +83,14 @@ $$
 | soil.water.flow | mm day⁻¹ | Soil water flow |
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr} \\\mathrm{expr}
 $$
 
 ---
 
 ## SimplyQ river
+
+Version: 0.5.0
 
 ### Docstring
 
@@ -120,7 +124,7 @@ The river part of the SimplyQ module.
 Initial value:
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr} \\\mathrm{expr} \\\mathrm{expr} \\\mathrm{expr}\cdot\mathrm{expr}\cdot\mathrm{expr}
 $$
 
 | Location | Unit | Name |
@@ -128,13 +132,13 @@ $$
 | river.water.flow | m³ s⁻¹ | Reach flow |
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{convert}\left(\mathrm{expr}, \mathrm{some\_unit}\right)\cdot\mathrm{convert}\left(\mathrm{expr}\cdot\frac{\mathrm{expr}}{\mathrm{expr}\cdot\mathrm{expr}, \mathrm{some\_unit}\right)^{\mathrm{expr}}
 $$
 
 Initial value:
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}
 $$
 
 

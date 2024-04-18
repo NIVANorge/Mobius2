@@ -11,11 +11,13 @@ nav_order: 1
 This is auto-generated documentation based on the model code in models/simplyc_model.txt .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the module.
 
-The file was generated at 2024-04-18 11:19:04.
+The file was generated at 2024-04-18 11:46:43.
 
 ---
 
 ## SimplyC land
+
+Version: 1.0.1
 
 ### Docstring
 
@@ -60,13 +62,13 @@ A simple DOC model.
 | soil.water.oc | kg km⁻² | mg l⁻¹ | Soil water DOC |
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}
 $$
 
 Initial value:
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}
 $$
 
 | Location | Unit | Conc. unit | Name |
@@ -74,18 +76,20 @@ $$
 | gw.water.oc | kg km⁻² | mg l⁻¹ | Deep soil DOC |
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}
 $$
 
 Initial value:
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}
 $$
 
 ---
 
 ## SimplyC river
+
+Version: 0.0.1
 
 ### External symbols
 
@@ -114,7 +118,7 @@ $$
 Initial value:
 
 $$
-\mathrm{Equation printing not yet implemented}
+\mathrm{expr}
 $$
 
 

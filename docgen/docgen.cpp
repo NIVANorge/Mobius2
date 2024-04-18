@@ -67,9 +67,65 @@ loc_str(Decl_Scope *scope, Var_Location &loc) {
 	}
 }
 
+void
+print_oper(std::stringstream &ss, Token_Type oper) {
+	auto c = (char)oper;
+	if(c == '*')
+		ss << "\\cdot";
+	else
+		ss << c;
+	// TODO: Probably have to handle many other types!
+}
+
+// TODO: Also have to make a precedence system like in the other print_expression.
+// Could we unify code with that??
+void
+print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Math_Expr_AST *ast, bool outer = false) {
+	if(ast->type == Math_Expr_Type::block) {
+		if(outer) {
+			for(int i = 0; i < ast->exprs.size(); ++i) {
+				print_equation(ss, model, scope, ast->exprs[i]);
+				if(i != (int)ast->exprs.size()-1)
+					ss << " \\\\";
+			}
+		} else {
+			ss << "\\mathrm{expr}";
+		}
+	} else if (ast->type == Math_Expr_Type::binary_operator) {
+		auto binop = static_cast<Binary_Operator_AST *>(ast);
+		auto c = (char)binop->oper;
+		if(c == '/') {
+			ss << "\\frac{";
+			print_equation(ss, model, scope, binop->exprs[0]);
+			ss << "}{";
+			print_equation(ss, model, scope, binop->exprs[1]);
+		} else if(c == '^') {
+			print_equation(ss, model, scope, binop->exprs[0]);
+			ss << "^{";
+			print_equation(ss, model, scope, binop->exprs[1]);
+			ss << "}";
+		} else {
+			print_equation(ss, model, scope, binop->exprs[0]);
+			print_oper(ss, binop->oper);
+			print_equation(ss, model, scope, binop->exprs[1]);
+		}
+	} else if (ast->type == Math_Expr_Type::cast) {
+		print_equation(ss, model, scope, ast->exprs[0], outer);
+	} else if (ast->type == Math_Expr_Type::unit_convert) {
+		ss << "\\mathrm{convert}\\left(";
+		print_equation(ss, model, scope, ast->exprs[0]);
+		ss << ", \\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
+		ss << "\\right)";
+	} else {
+		ss << "\\mathrm{expr}";
+	}
+}
+
 std::string
 equation_str(Mobius_Model *model, Decl_Scope *scope, Math_Expr_AST *code) {
-	return "\\mathrm{Equation printing not yet implemented}";
+	std::stringstream ss;
+	print_equation(ss, model, scope, code, true);
+	return ss.str();
 }
 
 void
@@ -79,6 +135,8 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 	auto modtemplate = model->module_templates[module->template_id];
 	
 	ss << "## " << module->name << "\n\n";
+	auto &ver = modtemplate->version;
+	ss << "Version: " << ver.major << "." << ver.minor << "." << ver.revision << "\n\n";
 	if(!modtemplate->doc_string.empty()) {
 		// TODO: Ideally this should be put as a quote
 		ss << "### Docstring" << "\n\n" << modtemplate->doc_string << "\n\n";
