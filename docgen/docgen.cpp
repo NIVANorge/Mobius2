@@ -16,7 +16,7 @@ nav_order: _NAVORDER_
 
 # _TITLE_
 
-This is auto-generated documentation based on the model code in models/_MODELFILE_ .
+This is auto-generated documentation based on the model code in [models/_MODELFILE_](https://github.com/NIVANorge/Mobius2/blob/main/models/_MODELFILE_) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
 The file was generated at _DATE_.
@@ -167,6 +167,38 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 		print_ident(ss, local->name.string_value);
 		ss << " = ";
 		print_equation(ss, model, scope, ast->exprs[0]);
+	} else if (ast->type == Math_Expr_Type::function_call) {
+		auto fun = static_cast<Function_Call_AST *>(ast);
+		if(fun->name.string_value == "exp") {
+			ss << "e^{";
+			print_equation(ss, model, scope, fun->exprs[0]);
+			ss << "}";
+		} else {
+			print_ident(ss, fun->name.string_value);
+			ss << "\\left(";
+			bool first = true;
+			for(auto expr : fun->exprs) {
+				if(!first) ss << ", ";
+				print_equation(ss, model, scope, expr);
+				first = false;
+			}
+			ss << "\\right)";
+		}
+	} else if (ast->type == Math_Expr_Type::if_chain) {
+		ss << "\\begin{cases}";
+		int n_cases = ((int)ast->exprs.size() - 1)/2;
+		bool first = true;
+		for(int i = 0; i < n_cases; ++i) {
+			if(!first) ss << " \\\\ ";
+			print_equation(ss, model, scope, ast->exprs[2*i]);
+			ss << " & \\text{ if }";
+			print_equation(ss, model, scope, ast->exprs[2*i + 1]);
+			first = false;
+		}
+		ss << " \\\\ ";
+		print_equation(ss, model, scope, ast->exprs.back());
+		ss << " & \\text{otherwise}";
+		ss << "\\end{cases}";
 	} else {
 		ss << "\\mathrm{expr}";
 	}

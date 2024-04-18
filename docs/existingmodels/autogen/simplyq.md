@@ -8,10 +8,10 @@ nav_order: 0
 
 # SimplyQ
 
-This is auto-generated documentation based on the model code in models/simplyq_model.txt .
+This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 12:27:46.
+The file was generated at 2024-04-18 12:43:56.
 
 ---
 
@@ -91,7 +91,7 @@ $$
 Value:
 
 $$
-\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\\mathrm{expr}
+\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\\mathrm{s\_response}\left(\mathrm{water}, \mathrm{fc}, 1.01\cdot\mathrm{fc}, 0, \mathrm{rate}\right)
 $$
 
 ---
@@ -146,7 +146,7 @@ $$
 Value:
 
 $$
-\left(0.28\Rightarrow\mathrm{some\_unit}\right)\cdot\left(\mathrm{water}\cdot\frac{\mathrm{expr}}{\mathrm{len}\cdot\mathrm{c\_mann}}\Rightarrow\mathrm{some\_unit}\right)^{1.5}
+\left(0.28\Rightarrow\mathrm{some\_unit}\right)\cdot\left(\mathrm{water}\cdot\frac{\mathrm{sqrt}\left(\mathrm{slope}\right)}{\mathrm{len}\cdot\mathrm{c\_mann}}\Rightarrow\mathrm{some\_unit}\right)^{1.5}
 $$
 
 Initial value:
