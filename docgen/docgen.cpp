@@ -103,7 +103,7 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 			for(int i = 0; i < ast->exprs.size(); ++i) {
 				print_equation(ss, model, scope, ast->exprs[i]);
 				if(i != (int)ast->exprs.size()-1)
-					ss << " \\\\";
+					ss << " \\\\ ";
 			}
 		} else {
 			ss << "\\mathrm{expr}";
@@ -137,10 +137,18 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 		ss << "\\left(";
 		print_equation(ss, model, scope, ast->exprs[0]);
 		if(conv->force)
-			ss << "\\Rightarrow";
+			ss << "\\Rightarrow ";
 		else
-			ss << "\\rightarrow";
-		ss << "\\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
+			ss << "\\rightarrow ";
+		if(conv->unit) {
+			Unit_Data data;
+			data.set_data(conv->unit);
+			ss << data.to_latex();
+		} else if (conv->by_identifier) {
+			print_ident(ss, conv->unit_identifier.string_value);
+		} else {
+			ss << "\\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
+		}
 		ss << "\\right)";
 		
 	} else if (ast->type == Math_Expr_Type::identifier) {

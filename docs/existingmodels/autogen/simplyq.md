@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 12:56:51.
+The file was generated at 2024-04-18 13:14:25.
 
 ---
 
@@ -79,7 +79,7 @@ Unit: mm
 Initial value:
 
 $$
-\mathrm{gw\_ret}+\left(\mathrm{tc\_g}\cdot\frac{\mathrm{river}.\mathrm{water}.\mathrm{flow}}{\mathrm{a\_catch}}\rightarrow\mathrm{some\_unit}\right)
+\mathrm{gw\_ret}+\left(\mathrm{tc\_g}\cdot\frac{\mathrm{river}.\mathrm{water}.\mathrm{flow}}{\mathrm{a\_catch}}\rightarrow mm\right)
 $$
 
 #### Soil water flow
@@ -91,7 +91,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\\mathrm{s\_response}\left(\mathrm{water}, \mathrm{fc}, 1.01\cdot\mathrm{fc}, 0, \mathrm{rate}\right)
+\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\ \mathrm{s\_response}\left(\mathrm{water}, \mathrm{fc}, 1.01\cdot\mathrm{fc}, 0, \mathrm{rate}\right)
 $$
 
 ---
@@ -134,7 +134,7 @@ Unit: m³
 Initial value:
 
 $$
-\mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow\mathrm{some\_unit}\right) \\\mathrm{depth} = \left(0.349\Rightarrow\mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.34} \\\mathrm{width} = \left(2.71\Rightarrow\mathrm{some\_unit}\right)\cdot\mathrm{q}^{0.557} \\\mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
+\mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow 1\right) \\ \mathrm{depth} = \left(0.349\Rightarrow m\right)\cdot\mathrm{q}^{0.34} \\ \mathrm{width} = \left(2.71\Rightarrow m\right)\cdot\mathrm{q}^{0.557} \\ \mathrm{width}\cdot\mathrm{depth}\cdot\mathrm{len}
 $$
 
 #### Reach flow
@@ -146,7 +146,7 @@ Unit: m³ s⁻¹
 Value:
 
 $$
-\left(0.28\Rightarrow\mathrm{some\_unit}\right)\cdot\left(\mathrm{water}\cdot\frac{\mathrm{sqrt}\left(\mathrm{slope}\right)}{\mathrm{len}\cdot\mathrm{c\_mann}}\Rightarrow\mathrm{some\_unit}\right)^{1.5}
+\left(0.28\Rightarrow m^{3}s^{-1}\right)\cdot\left(\mathrm{water}\cdot\frac{\mathrm{sqrt}\left(\mathrm{slope}\right)}{\mathrm{len}\cdot\mathrm{c\_mann}}\Rightarrow 1\right)^{1.5}
 $$
 
 Initial value:
