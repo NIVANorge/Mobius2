@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in [models/simplyc_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyc_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-18 13:31:10.
+The file was generated at 2024-04-18 13:38:01.
 
 ---
 
@@ -72,7 +72,7 @@ Conc. unit: mg l⁻¹
 Value:
 
 $$
-\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot1+\mathrm{kt1}+\mathrm{kt2}\cdot\mathrm{temp}\cdot\mathrm{temp}-\mathrm{kso4}\cdot\mathrm{air}.\mathrm{so4} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot 1+\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}
 $$
 
 Initial value:
@@ -99,6 +99,50 @@ Initial value:
 
 $$
 \begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const}|\mathrm{gwdoc\_type}.\mathrm{half\_life} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{otherwise}\end{cases}
+$$
+
+### Fluxes
+
+#### *Soil DOC production*
+
+Source: (to be implemented)
+
+Target: (to be implemented)
+
+Unit: kg km⁻² day⁻¹
+
+Value:
+
+$$
+\mathrm{max}\left(0, \mathrm{water}\cdot \mathrm{cdoc}\cdot 1+\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right)
+$$
+
+#### *Soil DOC mineralization+resorption*
+
+Source: (to be implemented)
+
+Target: (to be implemented)
+
+Unit: kg km⁻² day⁻¹
+
+Value:
+
+$$
+\mathrm{oc}\cdot \frac{\mathrm{cdoc}}{\mathrm{basedoc}}
+$$
+
+#### *Deep soil DOC mineralization*
+
+Source: (to be implemented)
+
+Target: (to be implemented)
+
+Unit: kg km⁻² day⁻¹
+
+Value:
+
+$$
+\mathrm{rate} = \mathrm{hl\_to\_rate}\left(\mathrm{gwdochl}\right) \\ \mathrm{oc}\cdot \mathrm{rate}
 $$
 
 ---
@@ -139,6 +183,22 @@ Initial value:
 
 $$
 \mathrm{conc}\left(\mathrm{gw}.\mathrm{water}.\mathrm{oc}\right)
+$$
+
+### Fluxes
+
+#### *River DOC loss*
+
+Source: (to be implemented)
+
+Target: (to be implemented)
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{rate} = \mathrm{q10\_adjust}\left(\mathrm{r\_loss}, 20 °C, \mathrm{temp}, \mathrm{r\_q10}\right) \\ \mathrm{oc}\cdot \mathrm{rate}
 $$
 
 

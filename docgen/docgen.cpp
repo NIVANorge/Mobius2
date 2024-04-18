@@ -71,7 +71,7 @@ void
 print_oper(std::stringstream &ss, Token_Type oper) {
 	auto c = (char)oper;
 	if(c == '*')
-		ss << "\\cdot";
+		ss << "\\cdot ";
 	else
 		ss << c;
 	// TODO: Probably have to handle many other types!
@@ -322,6 +322,26 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			if(!var->code && !var->override_code && !var->initial_code && !var->adds_code_to_existing) {
 				ss << "This series is externally defined. It may be an input series.\n\n";
 			}
+		}
+	}
+	
+	auto fluxes = module->scope.by_type<Reg_Type::flux>();
+	if(fluxes.size() > 0) {
+		ss << "### Fluxes\n\n";
+		
+		for(auto flux_id : fluxes) {
+			auto flux = model->fluxes[flux_id];
+			
+			ss << "#### *" << flux->name << "*\n\n";
+			
+			ss << "Source: (to be implemented)\n\n";
+			ss << "Target: (to be implemented)\n\n";
+			ss << "Unit: " << unit_str(model, flux->unit) << "\n\n";
+			
+			ss << "Value:\n\n";
+			ss << "$$\n" << equation_str(model, &module->scope, flux->code) << "\n$$\n\n";
+			
+			// TODO: Other info such as no_carry etc.
 		}
 	}
 }
