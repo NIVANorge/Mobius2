@@ -77,6 +77,8 @@ precedence(Math_Expr_AST *expr) {
 	}
 	if(expr->type == Math_Expr_Type::unary_operator)
 		return 50'000;
+	if(expr->type == Math_Expr_Type::if_chain)
+		return 4500;
 	return 1000'000;
 }
 
@@ -195,6 +197,15 @@ print_unit_ast(Print_Equation_Context &context, Unit_Convert_AST *conv, bool pri
 		fatal_error(Mobius_Error::internal, "Unrecognized unit conversion type.");
 }
 
+std::string
+format_double_tex(double d) {
+	std::string str = std::to_string(d);
+	auto find = str.find("e");
+	if(find == std::string::npos)
+		return str;
+	return str.substr(0, find) + "\\cdot 10^{" + str.substr(find+1, str.size()) + "}";
+}
+
 // TODO: Also have to make a precedence system like in the other print_expression.
 // Could we unify code with that??
 void
@@ -299,7 +310,7 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 		if(v.type == Token_Type::integer)
 			context.ss << v.val_int;
 		else if(v.type == Token_Type::real)
-			context.ss << v.val_double;    // TODO: We want to format it better
+			context.ss << format_double_tex(v.val_double);
 		else if(v.type == Token_Type::boolean)
 			context.ss << (v.val_bool ? "\\matrm{true}" : "\\mathrm{false}");
 		else

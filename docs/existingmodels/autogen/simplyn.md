@@ -11,7 +11,7 @@ nav_order: 2
 This is auto-generated documentation based on the model code in [models/simplyn_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyn_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 13:53:35.
+The file was generated at 2024-04-19 14:46:11.
 
 ---
 
@@ -182,7 +182,7 @@ Unit: kg km⁻² day⁻¹
 Value:
 
 $$
-\mathrm{rate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{din\_immob\_rate},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{din\_immob\_q10}\right) \\ \left(\mathrm{conc}\left(\mathrm{din}\right)\cdot \mathrm{rate}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
+\mathrm{rate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{din\_immob\_rate},\, 20.000000 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{din\_immob\_q10}\right) \\ \left(\mathrm{conc}\left(\mathrm{din}\right)\cdot \mathrm{rate}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **River effluent DIN**
@@ -210,7 +210,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{rate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{reach\_denit\_rate},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{reach\_denit\_q10}\right) \\ \mathrm{din}\cdot \mathrm{rate}
+\mathrm{rate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{reach\_denit\_rate},\, 20.000000 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{reach\_denit\_q10}\right) \\ \mathrm{din}\cdot \mathrm{rate}
 $$
 
 

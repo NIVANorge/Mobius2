@@ -12,7 +12,7 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 13:53:35.
+The file was generated at 2024-04-19 14:46:11.
 
 ---
 
@@ -47,13 +47,13 @@ P. R. Lowe, 1977, An approximating polynomial for the computation of saturation 
 **latent_heat_of_vaporization(T : °C)** = 
 
 $$
-2.501 \mathrm{MJ}\,\mathrm{kg}^{-1}\,-0.002361 \mathrm{MJ}\,\mathrm{kg}^{-1}\,\mathrm{°C}^{-1}\,\cdot \mathrm{T}
+2.501000 \mathrm{MJ}\,\mathrm{kg}^{-1}\,-0.002361 \mathrm{MJ}\,\mathrm{kg}^{-1}\,\mathrm{°C}^{-1}\,\cdot \mathrm{T}
 $$
 
 **mean_barometric_pressure(elevation : m)** = 
 
 $$
-\mathrm{elev} = \left(\mathrm{elevation}\Rightarrow 1\right) \\ \left(101.3-\left(0.01152-5.44e-07\cdot \mathrm{elev}\right)\cdot \mathrm{elev}\Rightarrow \mathrm{kPa}\,\right)
+\mathrm{elev} = \left(\mathrm{elevation}\Rightarrow 1\right) \\ \left(101.300000-\left(0.011520-0.000001\cdot \mathrm{elev}\right)\cdot \mathrm{elev}\Rightarrow \mathrm{kPa}\,\right)
 $$
 
 **air_density(temp : °C, pressure : hPa, a_vap : hPa)** = 
@@ -71,19 +71,19 @@ $$
 **saturation_vapor_pressure(T : °C)** = 
 
 $$
-\mathrm{t} = \left(\mathrm{T}\Rightarrow 1\right) \\ \left(6.1078+\mathrm{t}\cdot \left(0.443652+\mathrm{t}\cdot \left(0.0142895+\mathrm{t}\cdot \left(0.000265065+\mathrm{t}\cdot \left(3.03124e-06+\mathrm{t}\cdot \left(2.03408e-08+\mathrm{t}\cdot 6.13682e-11\right)\right)\right)\right)\right)\Rightarrow \mathrm{hPa}\,\right)
+\mathrm{t} = \left(\mathrm{T}\Rightarrow 1\right) \\ \left(6.107800+\mathrm{t}\cdot \left(0.443652+\mathrm{t}\cdot \left(0.014289+\mathrm{t}\cdot \left(0.000265+\mathrm{t}\cdot \left(0.000003+\mathrm{t}\cdot \left(0.000000+\mathrm{t}\cdot 0.000000\right)\right)\right)\right)\right)\Rightarrow \mathrm{hPa}\,\right)
 $$
 
 **slope_of_saturation_pressure_curve(T : °C, svap : kPa)** = 
 
 $$
-\mathrm{tk} = \left(\mathrm{T}\rightarrow \mathrm{K}\,\right) \\ \frac{\mathrm{svap}}{\mathrm{tk}}\cdot \left(\frac{6790.5 \mathrm{K}\,}{\mathrm{tk}}-5.028\right)
+\mathrm{tk} = \left(\mathrm{T}\rightarrow \mathrm{K}\,\right) \\ \frac{\mathrm{svap}}{\mathrm{tk}}\cdot \left(\frac{6790.500000 \mathrm{K}\,}{\mathrm{tk}}-5.028000\right)
 $$
 
 **dew_point_temperature(vapor_pressure : hPa)** = 
 
 $$
-34.07 \mathrm{K}\,+\frac{4157 \mathrm{K}\,}{\mathrm{ln}\left(\frac{2.1718e+08 \mathrm{hPa}\,}{\mathrm{vapor\_pressure}}\right)}
+34.070000 \mathrm{K}\,+\frac{4157.000000 \mathrm{K}\,}{\mathrm{ln}\left(\frac{217180000.000000 \mathrm{hPa}\,}{\mathrm{vapor\_pressure}}\right)}
 $$
 
 **specific_humidity_from_pressure(total_air_pressure : hPa, vapor_pressure : hPa)** = 
@@ -115,13 +115,13 @@ The formulas are based on [FAO paper 56](https://www.fao.org/3/x0490e/x0490e07.h
 **solar_declination(day_of_year : day)** = 
 
 $$
-\mathrm{orbit\_rad} = \frac{2\cdot \pi\cdot \mathrm{day\_of\_year}}{365 \mathrm{day}\,} \\ 0.409\cdot \mathrm{sin}\left(\mathrm{orbit\_rad}-1.39\right)
+\mathrm{orbit\_rad} = \frac{2\cdot \pi\cdot \mathrm{day\_of\_year}}{365 \mathrm{day}\,} \\ 0.409000\cdot \mathrm{sin}\left(\mathrm{orbit\_rad}-1.390000\right)
 $$
 
 **hour_angle(day_of_year : day, time_zone : hr, hour_of_day : hr, longitude : °)** = 
 
 $$
-\mathrm{b} = 2\cdot \pi\cdot \frac{\mathrm{day\_of\_year}-81 \mathrm{day}\,}{365 \mathrm{day}\,} \\ \mathrm{eot} = \left(9.87\cdot \mathrm{sin}\left(2\cdot \mathrm{b}\right)-7.53\cdot \mathrm{cos}\left(\mathrm{b}\right)-1.5\cdot \mathrm{sin}\left(\mathrm{b}\right)\Rightarrow \mathrm{hr}\,\right) \\ \mathrm{lsmt} = 15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \mathrm{time\_zone} \\ \mathrm{ast} = \mathrm{hour\_of\_day}+\mathrm{eot}+\left(4 \mathrm{min}\,\mathrm{°}^{-1}\,\cdot \left(\mathrm{lsmt}-\mathrm{longitude}\right)\rightarrow \mathrm{hr}\,\right) \\ \href{stdlib.html#basic}{\mathrm{radians}}\left(15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \left(\mathrm{ast}-12 \mathrm{hr}\,\right)\right)
+\mathrm{b} = 2\cdot \pi\cdot \frac{\mathrm{day\_of\_year}-81 \mathrm{day}\,}{365 \mathrm{day}\,} \\ \mathrm{eot} = \left(9.870000\cdot \mathrm{sin}\left(2\cdot \mathrm{b}\right)-7.530000\cdot \mathrm{cos}\left(\mathrm{b}\right)-1.500000\cdot \mathrm{sin}\left(\mathrm{b}\right)\Rightarrow \mathrm{hr}\,\right) \\ \mathrm{lsmt} = 15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \mathrm{time\_zone} \\ \mathrm{ast} = \mathrm{hour\_of\_day}+\mathrm{eot}+\left(4 \mathrm{min}\,\mathrm{°}^{-1}\,\cdot \left(\mathrm{lsmt}-\mathrm{longitude}\right)\rightarrow \mathrm{hr}\,\right) \\ \href{stdlib.html#basic}{\mathrm{radians}}\left(15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \left(\mathrm{ast}-12 \mathrm{hr}\,\right)\right)
 $$
 
 **cos_zenith_angle(hour_a, day_of_year : day, latitude : °)** = 
@@ -139,7 +139,7 @@ $$
 **daily_average_extraterrestrial_radiation(latitude : °, day_of_year : day)** = 
 
 $$
-\mathrm{orbit\_rad} = \frac{2\cdot \pi\cdot \mathrm{day\_of\_year}}{365 \mathrm{day}\,} \\ \mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{inv\_rel\_dist\_earth\_sun} = 1+0.033\cdot \mathrm{cos}\left(\mathrm{orbit\_rad}\right) \\ \frac{\mathrm{solar\_constant}}{\pi}\cdot \mathrm{inv\_rel\_dist\_earth\_sun}\cdot \left(\mathrm{sunset\_hour\_angle}\cdot \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)\right)
+\mathrm{orbit\_rad} = \frac{2\cdot \pi\cdot \mathrm{day\_of\_year}}{365 \mathrm{day}\,} \\ \mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{inv\_rel\_dist\_earth\_sun} = 1.000000+0.033000\cdot \mathrm{cos}\left(\mathrm{orbit\_rad}\right) \\ \frac{\mathrm{solar\_constant}}{\pi}\cdot \mathrm{inv\_rel\_dist\_earth\_sun}\cdot \left(\mathrm{sunset\_hour\_angle}\cdot \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)\right)
 $$
 
 **hourly_average_radiation(daily_avg_rad : W m⁻², day_of_year : day, latitude : °, hour_angle)** = 
@@ -151,13 +151,13 @@ $$
 **clear_sky_shortwave(extrad : W m⁻², elev : m)** = 
 
 $$
-\mathrm{extrad}\cdot \left(0.75+2e-05 \mathrm{m}^{-1}\,\cdot \mathrm{elev}\right)
+\mathrm{extrad}\cdot \left(0.750000+0.000020 \mathrm{m}^{-1}\,\cdot \mathrm{elev}\right)
 $$
 
 **downwelling_longwave(air_temp : °C, a_vap : hPa, cloud)** = 
 
 $$
-\mathrm{air\_t} = \left(\mathrm{air\_temp}\rightarrow \mathrm{K}\,\right) \\ \mathrm{dpt} = \href{stdlib.html#meteorology}{\mathrm{dew\_point\_temperature}}\left(\mathrm{a\_vap}\right) \\ \mathrm{dew\_point\_depression} = \mathrm{dpt}-\mathrm{air\_t} \\ \mathrm{cloud\_effect} = \left(10.77\cdot \mathrm{cloud}^{2}+2.34\cdot \mathrm{cloud}-18.44\Rightarrow \mathrm{K}\,\right) \\ \mathrm{vapor\_effect} = 0.84\cdot \left(\mathrm{dew\_point\_depression}+4.01 \mathrm{K}\,\right) \\ \mathrm{eff\_t} = \mathrm{air\_t}+\mathrm{cloud\_effect}+\mathrm{vapor\_effect} \\ \href{stdlib.html#thermodynamics}{\mathrm{black\_body\_radiation}}\left(\mathrm{eff\_t}\right)
+\mathrm{air\_t} = \left(\mathrm{air\_temp}\rightarrow \mathrm{K}\,\right) \\ \mathrm{dpt} = \href{stdlib.html#meteorology}{\mathrm{dew\_point\_temperature}}\left(\mathrm{a\_vap}\right) \\ \mathrm{dew\_point\_depression} = \mathrm{dpt}-\mathrm{air\_t} \\ \mathrm{cloud\_effect} = \left(10.770000\cdot \mathrm{cloud}^{2}+2.340000\cdot \mathrm{cloud}-18.440000\Rightarrow \mathrm{K}\,\right) \\ \mathrm{vapor\_effect} = 0.840000\cdot \left(\mathrm{dew\_point\_depression}+4.010000 \mathrm{K}\,\right) \\ \mathrm{eff\_t} = \mathrm{air\_t}+\mathrm{cloud\_effect}+\mathrm{vapor\_effect} \\ \href{stdlib.html#thermodynamics}{\mathrm{black\_body\_radiation}}\left(\mathrm{eff\_t}\right)
 $$
 
 ---
@@ -247,19 +247,19 @@ $$
 **water_density(T : °C)** = 
 
 $$
-\mathrm{dtemp} = \left(\mathrm{T}\rightarrow \mathrm{K}\,\right)-277.13 \mathrm{K}\, \\ \mathrm{rho\_water}\cdot \left(1-0.5\cdot 1.6509e-05 \mathrm{K}^{-2}\,\cdot \mathrm{dtemp}^{2}\right)
+\mathrm{dtemp} = \left(\mathrm{T}\rightarrow \mathrm{K}\,\right)-277.130000 \mathrm{K}\, \\ \mathrm{rho\_water}\cdot \left(1-0.500000\cdot 0.000017 \mathrm{K}^{-2}\,\cdot \mathrm{dtemp}^{2}\right)
 $$
 
 **dynamic_viscosity_water(T : K)** = 
 
 $$
-2646.8 \mathrm{g}\,\mathrm{m}^{-1}\,\mathrm{s}^{-1}\,\cdot e^{\left(-0.0268\cdot \mathrm{T}\Rightarrow 1\right)}
+2646.800000 \mathrm{g}\,\mathrm{m}^{-1}\,\mathrm{s}^{-1}\,\cdot e^{\left(-0.026800\cdot \mathrm{T}\Rightarrow 1\right)}
 $$
 
 **kinematic_viscosity_water(T : K)** = 
 
 $$
-0.00285 \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\cdot e^{\left(-0.027\cdot \mathrm{T}\Rightarrow 1\right)}
+0.002850 \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\cdot e^{\left(-0.027000\cdot \mathrm{T}\Rightarrow 1\right)}
 $$
 
 ---
@@ -288,25 +288,25 @@ Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2
 **molecular_diffusivity_of_compound_in_air(mol_vol : cm³ mol⁻¹, mol_mass : g mol⁻¹, T : K)** = 
 
 $$
-\mathrm{TT} = \left(\mathrm{T}\Rightarrow 1\right) \\ \mathrm{c0} = \sqrt[3]{\left(\mathrm{molvol\_air}\Rightarrow 1\right)}+\sqrt[3]{\left(\mathrm{mol\_vol}\Rightarrow 1\right)} \\ \mathrm{c} = \frac{\sqrt{\frac{1}{\left(\mathrm{molmass\_air}\Rightarrow 1\right)}+\frac{1}{\left(\mathrm{mol\_mass}\Rightarrow 1\right)}}}{\mathrm{c0}^{2}} \\ \left(1e-07\cdot \mathrm{c}\cdot \mathrm{TT}^{1.75}\Rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right)
+\mathrm{TT} = \left(\mathrm{T}\Rightarrow 1\right) \\ \mathrm{c0} = \sqrt[3]{\left(\mathrm{molvol\_air}\Rightarrow 1\right)}+\sqrt[3]{\left(\mathrm{mol\_vol}\Rightarrow 1\right)} \\ \mathrm{c} = \frac{\sqrt{\frac{1.000000}{\left(\mathrm{molmass\_air}\Rightarrow 1\right)}+\frac{1.000000}{\left(\mathrm{mol\_mass}\Rightarrow 1\right)}}}{\mathrm{c0}^{2}} \\ \left(0.000000\cdot \mathrm{c}\cdot \mathrm{TT}^{1.750000}\Rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right)
 $$
 
 **molecular_diffusivity_of_compound_in_water(mol_vol : cm³ mol⁻¹, dynamic_viscosity : g m⁻¹ s⁻¹)** = 
 
 $$
-\mathrm{dynv} = \left(\mathrm{dynamic\_viscosity}\Rightarrow 1\right) \\ \frac{1.326e-08 \mathrm{m}^{2}\,\mathrm{s}^{-1}\,}{\mathrm{dynv}^{1.14}\cdot \left(\mathrm{mol\_vol}\Rightarrow 1\right)^{0.589}}
+\mathrm{dynv} = \left(\mathrm{dynamic\_viscosity}\Rightarrow 1\right) \\ \frac{0.000000 \mathrm{m}^{2}\,\mathrm{s}^{-1}\,}{\mathrm{dynv}^{1.140000}\cdot \left(\mathrm{mol\_vol}\Rightarrow 1\right)^{0.589000}}
 $$
 
 **diffusion_velocity_of_vapour_in_air(wind : m s⁻¹)** = 
 
 $$
-0.002\cdot \mathrm{wind}+0.003 \mathrm{m}\,\mathrm{s}^{-1}\,
+0.002000\cdot \mathrm{wind}+0.003000 \mathrm{m}\,\mathrm{s}^{-1}\,
 $$
 
 **transfer_velocity_of_CO2_in_water_20C(wind : m s⁻¹)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \left(\begin{cases}0.00065 & \text{if}\;\mathrm{w}\leq 4.2 \\ \left(0.79\cdot \mathrm{w}-2.68\right)\cdot 0.001 & \text{if}\;\mathrm{w}\leq 13 \\ \left(1.64\cdot \mathrm{w}-13.69\right)\cdot 0.001 & \text{otherwise}\end{cases}\Rightarrow \mathrm{cm}\,\mathrm{s}^{-1}\,\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \left(\begin{cases}0.000650 & \text{if}\;\mathrm{w}\leq 4.200000 \\ \left(0.790000\cdot \mathrm{w}-2.680000\right)\cdot 0.001000 & \text{if}\;\mathrm{w}\leq 13.000000 \\ \left(1.640000\cdot \mathrm{w}-13.690000\right)\cdot 0.001000 & \text{otherwise}\end{cases}\Rightarrow \mathrm{cm}\,\mathrm{s}^{-1}\,\right)
 $$
 
 ---
@@ -442,7 +442,7 @@ $$
 **tanh_curve(x, th)** = 
 
 $$
-0.5\cdot \left(1+\mathrm{tanh}\left(\mathrm{x}-\mathrm{th}\right)\right)
+0.500000\cdot \left(1+\mathrm{tanh}\left(\mathrm{x}-\mathrm{th}\right)\right)
 $$
 
 **linear_response(x, x0, x1, y0, y1)** = 
@@ -493,25 +493,25 @@ The implementation used here is influenced by the implementation in [GOTM](https
 **surface_stability(wind : m s⁻¹, water_temp : °C, air_temp : °C)** = 
 
 $$
-\mathrm{ww} = \mathrm{wind}+1e-10 \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.25\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\left|\mathrm{s0}\right|}{\left|\mathrm{s0}\right|+0.01}
+\mathrm{ww} = \mathrm{wind}+0.000000 \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.250000\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\left|\mathrm{s0}\right|}{\left|\mathrm{s0}\right|+0.010000}
 $$
 
 **stab_modify(wind : m s⁻¹, stab)** = 
 
 $$
-\begin{cases}0 & \text{if}\;\left|\mathrm{wind}\right|<0.001 \mathrm{m}\,\mathrm{s}^{-1}\, \\ 0.1+0.03\cdot \mathrm{stab}\cdot 0.9\cdot e^{4.8\cdot \mathrm{stab}} & \text{if}\;\mathrm{stab}<0\;\text{and}\;\mathrm{stab}>-3.3 \\ 0 & \text{if}\;\mathrm{stab}<0 \\ 1+0.63\cdot \sqrt{\mathrm{stab}} & \text{otherwise}\end{cases}
+\begin{cases}0 & \text{if}\;\left|\mathrm{wind}\right|<0.001000 \mathrm{m}\,\mathrm{s}^{-1}\, \\ 0.100000+0.030000\cdot \mathrm{stab}\cdot 0.900000\cdot e^{4.800000\cdot \mathrm{stab}} & \text{if}\;\mathrm{stab}<0\;\text{and}\;\mathrm{stab}>-3.300000 \\ 0 & \text{if}\;\mathrm{stab}<0 \\ 1+0.630000\cdot \sqrt{\mathrm{stab}} & \text{otherwise}\end{cases}
 $$
 
 **tc_latent_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \begin{cases}0+1.23\cdot e^{-0.16\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.969+0.0521\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.18+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.196+0.008\cdot \mathrm{w}-0.0004\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.68-0.016\cdot \mathrm{w} & \text{otherwise}\end{cases}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+0.000000 \\ \begin{cases}0+1.230000\cdot e^{-0.160000\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.200000 \\ 0.969000+0.052100\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.180000+0.010000\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.196000+0.008000\cdot \mathrm{w}-0.000400\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.680000-0.016000\cdot \mathrm{w} & \text{otherwise}\end{cases}\cdot 0.001000\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 **tc_sensible_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \begin{cases}0+1.185\cdot e^{-0.157\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.927+0.0546\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.15+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.17+0.0075\cdot \mathrm{w}-0.00045\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.652-0.017\cdot \mathrm{w} & \text{otherwise}\end{cases}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+0.000000 \\ \begin{cases}0+1.185000\cdot e^{-0.157000\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.200000 \\ 0.927000+0.054600\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.150000+0.010000\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.170000+0.007500\cdot \mathrm{w}-0.000450\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.652000-0.017000\cdot \mathrm{w} & \text{otherwise}\end{cases}\cdot 0.001000\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 ---
@@ -543,25 +543,25 @@ $$
 **seawater_dens_standard_mean(T : °C)** = 
 
 $$
-\mathrm{a0} = 999.843 \\ \mathrm{a1} = 0.0679395 \\ \mathrm{a2} = -0.00909529 \\ \mathrm{a3} = 0.000100169 \\ \mathrm{a4} = -1.12008e-06 \\ \mathrm{a5} = 6.53633e-09 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \left(\mathrm{a0}+\left(\mathrm{a1}+\left(\mathrm{a2}+\left(\mathrm{a3}+\left(\mathrm{a4}+\mathrm{a5}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
+\mathrm{a0} = 999.842594 \\ \mathrm{a1} = 0.067940 \\ \mathrm{a2} = -0.009095 \\ \mathrm{a3} = 0.000100 \\ \mathrm{a4} = -0.000001 \\ \mathrm{a5} = 0.000000 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.000240\Rightarrow 1\right) \\ \left(\mathrm{a0}+\left(\mathrm{a1}+\left(\mathrm{a2}+\left(\mathrm{a3}+\left(\mathrm{a4}+\mathrm{a5}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **seawater_pot_dens(T : °C, S)** = 
 
 $$
-\mathrm{b0} = 0.824493 \\ \mathrm{b1} = -0.0040899 \\ \mathrm{b2} = 7.6438e-05 \\ \mathrm{b3} = -8.2467e-07 \\ \mathrm{b4} = 5.3875e-09 \\ \mathrm{c0} = -0.00572466 \\ \mathrm{c1} = 0.00010227 \\ \mathrm{c2} = -1.6546e-06 \\ \mathrm{d0} = 0.00048314 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \href{stdlib.html#seawater}{\mathrm{seawater\_dens\_standard\_mean}}\left(\mathrm{T}\right)+\left(\left(\mathrm{b0}+\left(\mathrm{b1}+\left(\mathrm{b2}+\left(\mathrm{b3}+\mathrm{b4}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}+\left(\mathrm{c0}+\left(\mathrm{c1}+\mathrm{c2}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}\cdot \sqrt{\mathrm{S}}+\mathrm{d0}\cdot \mathrm{S}^{2}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
+\mathrm{b0} = 0.824493 \\ \mathrm{b1} = -0.004090 \\ \mathrm{b2} = 0.000076 \\ \mathrm{b3} = -0.000001 \\ \mathrm{b4} = 0.000000 \\ \mathrm{c0} = -0.005725 \\ \mathrm{c1} = 0.000102 \\ \mathrm{c2} = -0.000002 \\ \mathrm{d0} = 0.000483 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.000240\Rightarrow 1\right) \\ \href{stdlib.html#seawater}{\mathrm{seawater\_dens\_standard\_mean}}\left(\mathrm{T}\right)+\left(\left(\mathrm{b0}+\left(\mathrm{b1}+\left(\mathrm{b2}+\left(\mathrm{b3}+\mathrm{b4}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}+\left(\mathrm{c0}+\left(\mathrm{c1}+\mathrm{c2}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}\cdot \sqrt{\mathrm{S}}+\mathrm{d0}\cdot \mathrm{S}^{2}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **dynamic_viscosity_fresh_water(T : °C)** = 
 
 $$
-\mathrm{eta20} = 0.001002 \mathrm{Pa}\,\mathrm{s}\, \\ \mathrm{tm20} = 20 \mathrm{°C}\,-\mathrm{T} \\ \mathrm{lograt} = \frac{1.1709\cdot \mathrm{tm20}-0.001827 \mathrm{°C}^{-1}\,\cdot \mathrm{tm20}^{2}}{\mathrm{T}+89.93 \mathrm{°C}\,} \\ \mathrm{eta20}\cdot 10^{\mathrm{lograt}}
+\mathrm{eta20} = 0.001002 \mathrm{Pa}\,\mathrm{s}\, \\ \mathrm{tm20} = 20 \mathrm{°C}\,-\mathrm{T} \\ \mathrm{lograt} = \frac{1.170900\cdot \mathrm{tm20}-0.001827 \mathrm{°C}^{-1}\,\cdot \mathrm{tm20}^{2}}{\mathrm{T}+89.930000 \mathrm{°C}\,} \\ \mathrm{eta20}\cdot 10^{\mathrm{lograt}}
 $$
 
 **dynamic_viscosity_sea_water(T : °C, S)** = 
 
 $$
-\mathrm{eta\_t} = \href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_fresh\_water}}\left(\mathrm{T}\right) \\ \mathrm{a} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.000366,\, 0.001403\right) \\ \mathrm{b} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.002756,\, 0.003416\right) \\ \mathrm{cl} = \mathrm{max}\left(0,\, \frac{\mathrm{S}-0.03}{1.805}\right) \\ \mathrm{clv} = \left(\href{stdlib.html#seawater}{\mathrm{seawater\_pot\_dens}}\left(\mathrm{T},\, \mathrm{S}\right)\cdot \mathrm{cl}\Rightarrow 1\right) \\ \mathrm{eta\_t}\cdot \left(1+\mathrm{a}\cdot \sqrt{\mathrm{clv}}+\mathrm{b}\cdot \mathrm{clv}\right)
+\mathrm{eta\_t} = \href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_fresh\_water}}\left(\mathrm{T}\right) \\ \mathrm{a} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.000366,\, 0.001403\right) \\ \mathrm{b} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.002756,\, 0.003416\right) \\ \mathrm{cl} = \mathrm{max}\left(0,\, \frac{\mathrm{S}-0.030000}{1.805000}\right) \\ \mathrm{clv} = \left(\href{stdlib.html#seawater}{\mathrm{seawater\_pot\_dens}}\left(\mathrm{T},\, \mathrm{S}\right)\cdot \mathrm{cl}\Rightarrow 1\right) \\ \mathrm{eta\_t}\cdot \left(1+\mathrm{a}\cdot \sqrt{\mathrm{clv}}+\mathrm{b}\cdot \mathrm{clv}\right)
 $$
 
 **diffusivity_in_water(ref_diff, ref_T : °C, ref_S, T : °C, S)** = 
@@ -589,13 +589,13 @@ The implementation is influenced by the one in [SELMA](https://github.com/fabm-m
 **o2_saturation(T : °C, S)** = 
 
 $$
-\mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \left(e^{-135.902+\frac{157570}{\mathrm{T\_k}}-\frac{6.64231e+07}{\mathrm{T\_k}^{2}}+\frac{1.2438e+10}{\mathrm{T\_k}^{3}}-\frac{8.62195e+11}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{T\_k}}+\frac{2140.7}{\mathrm{T\_k}^{2}}\right)}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
+\mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \left(e^{-135.902050+\frac{157570.100000}{\mathrm{T\_k}}-\frac{66423080.000000}{\mathrm{T\_k}^{2}}+\frac{12438000000.000000}{\mathrm{T\_k}^{3}}-\frac{862194900000.000000}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754000}{\mathrm{T\_k}}+\frac{2140.700000}{\mathrm{T\_k}^{2}}\right)}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **o2_piston_velocity(wind : m s⁻¹, temp : °C)** = 
 
 $$
-\mathrm{wnd} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \mathrm{T} = \left(\mathrm{temp}\Rightarrow 1\right) \\ \mathrm{k\_600} = 2.07+0.215\cdot \mathrm{wnd}^{1.7} \\ \mathrm{schmidt} = 1800.6-120.1\cdot \mathrm{T}+3.7818\cdot \mathrm{T}^{2}-0.047608\cdot \mathrm{T}^{3} \\ \left(\mathrm{k\_600}\cdot \left(\frac{\mathrm{schmidt}}{600}\right)^{-0.666}\Rightarrow \mathrm{cm}\,\mathrm{hr}^{-1}\,\right)
+\mathrm{wnd} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \mathrm{T} = \left(\mathrm{temp}\Rightarrow 1\right) \\ \mathrm{k\_600} = 2.070000+0.215000\cdot \mathrm{wnd}^{1.700000} \\ \mathrm{schmidt} = 1800.600000-120.100000\cdot \mathrm{T}+3.781800\cdot \mathrm{T}^{2}-0.047608\cdot \mathrm{T}^{3} \\ \left(\mathrm{k\_600}\cdot \left(\frac{\mathrm{schmidt}}{600}\right)^{-0.666000}\Rightarrow \mathrm{cm}\,\mathrm{hr}^{-1}\,\right)
 $$
 
 

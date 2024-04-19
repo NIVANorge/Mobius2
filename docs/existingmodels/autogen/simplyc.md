@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in [models/simplyc_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyc_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 13:53:35.
+The file was generated at 2024-04-19 14:46:11.
 
 ---
 
@@ -202,7 +202,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{rate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{r\_loss},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{r\_q10}\right) \\ \mathrm{oc}\cdot \mathrm{rate}
+\mathrm{rate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{r\_loss},\, 20.000000 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{r\_q10}\right) \\ \mathrm{oc}\cdot \mathrm{rate}
 $$
 
 
