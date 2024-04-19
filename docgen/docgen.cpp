@@ -206,6 +206,8 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 				if(i != (int)ast->exprs.size()-1)
 					context.ss << " \\\\ ";
 			}
+		} else if(ast->exprs.size() == 1) {
+			print_equation(context, ast->exprs[0]);
 		} else {
 			context.ss << "\\mathrm{expr}";
 		}

@@ -12,7 +12,7 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 13:50:12.
+The file was generated at 2024-04-19 13:53:35.
 
 ---
 
@@ -306,7 +306,7 @@ $$
 **transfer_velocity_of_CO2_in_water_20C(wind : m s⁻¹)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \left(\mathrm{expr}\Rightarrow \mathrm{cm}\,\mathrm{s}^{-1}\,\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \left(\begin{cases}0.00065 & \text{if}\;\mathrm{w}\leq 4.2 \\ \left(0.79\cdot \mathrm{w}-2.68\right)\cdot 0.001 & \text{if}\;\mathrm{w}\leq 13 \\ \left(1.64\cdot \mathrm{w}-13.69\right)\cdot 0.001 & \text{otherwise}\end{cases}\Rightarrow \mathrm{cm}\,\mathrm{s}^{-1}\,\right)
 $$
 
 ---
@@ -505,13 +505,13 @@ $$
 **tc_latent_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \begin{cases}0+1.23\cdot e^{-0.16\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.969+0.0521\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.18+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.196+0.008\cdot \mathrm{w}-0.0004\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.68-0.016\cdot \mathrm{w} & \text{otherwise}\end{cases}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 **tc_sensible_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \begin{cases}0+1.185\cdot e^{-0.157\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.927+0.0546\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.15+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.17+0.0075\cdot \mathrm{w}-0.00045\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.652-0.017\cdot \mathrm{w} & \text{otherwise}\end{cases}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 ---
