@@ -11,7 +11,7 @@ nav_order: 4
 This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 12:22:26.
+The file was generated at 2024-04-19 12:38:59.
 
 ---
 
@@ -190,7 +190,7 @@ Unit: J
 Initial value:
 
 $$
-\mathrm{water\_temp\_to\_heat}\left(\mathrm{water},\, \mathrm{t\_epi}\right)
+\href{stdlib.html#water-utils}{\mathrm{water\_temp\_to\_heat}}\left(\mathrm{water},\, \mathrm{t\_epi}\right)
 $$
 
 #### **Heat energy**
@@ -202,7 +202,7 @@ Unit: J
 Initial value:
 
 $$
-\mathrm{t\_hyp} = \frac{\mathrm{hypo\_temperature\_integral}\left(\mathrm{A\_surf},\, \mathrm{t\_epi},\, \mathrm{t\_bot},\, \mathrm{z\_outflow}-\mathrm{epi}.\mathrm{th},\, \mathrm{z\_outflow},\, \mathrm{theta}\right)}{\mathrm{water}} \\ \mathrm{water\_temp\_to\_heat}\left(\mathrm{water},\, \mathrm{t\_hyp}\right)
+\mathrm{t\_hyp} = \frac{\mathrm{hypo\_temperature\_integral}\left(\mathrm{A\_surf},\, \mathrm{t\_epi},\, \mathrm{t\_bot},\, \mathrm{z\_outflow}-\mathrm{epi}.\mathrm{th},\, \mathrm{z\_outflow},\, \mathrm{theta}\right)}{\mathrm{water}} \\ \href{stdlib.html#water-utils}{\mathrm{water\_temp\_to\_heat}}\left(\mathrm{water},\, \mathrm{t\_hyp}\right)
 $$
 
 #### **Epilimnion temperature**
@@ -214,7 +214,7 @@ Unit: °C
 Value:
 
 $$
-\mathrm{water\_heat\_to\_temp}\left(\mathrm{water},\, \mathrm{water}.\mathrm{heat}\right)
+\href{stdlib.html#water-utils}{\mathrm{water\_heat\_to\_temp}}\left(\mathrm{water},\, \mathrm{water}.\mathrm{heat}\right)
 $$
 
 Initial value:
@@ -232,7 +232,7 @@ Unit: °C
 Value:
 
 $$
-\mathrm{water\_heat\_to\_temp}\left(\mathrm{water},\, \mathrm{water}.\mathrm{heat}\right)
+\href{stdlib.html#water-utils}{\mathrm{water\_heat\_to\_temp}}\left(\mathrm{water},\, \mathrm{water}.\mathrm{heat}\right)
 $$
 
 #### **Mixing indicator**
@@ -288,7 +288,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\mathrm{V} = \mathrm{water}+\mathrm{hyp}.\mathrm{water} \\ \mathrm{lake\_t} = \mathrm{water\_heat\_to\_temp}\left(\mathrm{V},\, \mathrm{heat}+\mathrm{hyp}.\mathrm{water}.\mathrm{heat}\right) \\ \mathrm{hypo\_temp} = \mathrm{hypo\_temperature\_integral}\left(\mathrm{A\_surf},\, \mathrm{temp},\, \mathrm{t\_bot},\, \mathrm{z\_outflow}-\mathrm{epi}.\mathrm{th},\, \mathrm{z\_outflow},\, \mathrm{theta}\right) \\ \mathrm{T\_e\_should\_be} = \frac{\mathrm{lake\_t}\cdot \mathrm{V}-\mathrm{hypo\_temp}}{\mathrm{water}} \\ \mathrm{epi\_heat\_should\_be} = \mathrm{water\_temp\_to\_heat}\left(\mathrm{water},\, \mathrm{T\_e\_should\_be}\right) \\ 5 \mathrm{day}^{-1}\,\cdot \left(\mathrm{heat}-\mathrm{epi\_heat\_should\_be}\right)
+\mathrm{V} = \mathrm{water}+\mathrm{hyp}.\mathrm{water} \\ \mathrm{lake\_t} = \href{stdlib.html#water-utils}{\mathrm{water\_heat\_to\_temp}}\left(\mathrm{V},\, \mathrm{heat}+\mathrm{hyp}.\mathrm{water}.\mathrm{heat}\right) \\ \mathrm{hypo\_temp} = \mathrm{hypo\_temperature\_integral}\left(\mathrm{A\_surf},\, \mathrm{temp},\, \mathrm{t\_bot},\, \mathrm{z\_outflow}-\mathrm{epi}.\mathrm{th},\, \mathrm{z\_outflow},\, \mathrm{theta}\right) \\ \mathrm{T\_e\_should\_be} = \frac{\mathrm{lake\_t}\cdot \mathrm{V}-\mathrm{hypo\_temp}}{\mathrm{water}} \\ \mathrm{epi\_heat\_should\_be} = \href{stdlib.html#water-utils}{\mathrm{water\_temp\_to\_heat}}\left(\mathrm{water},\, \mathrm{T\_e\_should\_be}\right) \\ 5 \mathrm{day}^{-1}\,\cdot \left(\mathrm{heat}-\mathrm{epi\_heat\_should\_be}\right)
 $$
 
 #### **Mixing**
@@ -396,7 +396,7 @@ Conc. unit: mg l⁻¹
 Initial value:
 
 $$
-\left(\mathrm{o2\_saturation}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
 $$
 
 #### **Hypolimnion O₂**
@@ -410,7 +410,7 @@ Conc. unit: mg l⁻¹
 Initial value:
 
 $$
-\left(\mathrm{o2\_saturation}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
 $$
 
 #### **Epilimnion DOC**
@@ -492,7 +492,7 @@ Conc. unit: mg l⁻¹
 Initial value:
 
 $$
-\frac{\mathrm{init\_c}}{\mathrm{cn\_molar\_to\_mass\_ratio}\left(\mathrm{om\_cn}\right)}
+\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}
 $$
 
 #### **Hypolimnion DON**
@@ -506,7 +506,7 @@ Conc. unit: mg l⁻¹
 Initial value:
 
 $$
-\frac{\mathrm{init\_c}}{\mathrm{cn\_molar\_to\_mass\_ratio}\left(\mathrm{om\_cn}\right)}
+\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}
 $$
 
 #### **Epilimnion PON**
@@ -560,7 +560,7 @@ Conc. unit: mg l⁻¹
 Initial value:
 
 $$
-\frac{\mathrm{init\_c}}{\mathrm{cp\_molar\_to\_mass\_ratio}\left(\mathrm{om\_cp}\right)}
+\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}
 $$
 
 #### **Hypolimnion DOP**
@@ -574,7 +574,7 @@ Conc. unit: mg l⁻¹
 Initial value:
 
 $$
-\frac{\mathrm{init\_c}}{\mathrm{cp\_molar\_to\_mass\_ratio}\left(\mathrm{om\_cp}\right)}
+\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}
 $$
 
 #### **Epilimnion PIP**
@@ -638,7 +638,7 @@ Unit: cm hr⁻¹
 Value:
 
 $$
-\mathrm{pvel\_scaler}\cdot \mathrm{o2\_piston\_velocity}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{temp}\right)
+\mathrm{pvel\_scaler}\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_piston\_velocity}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{temp}\right)
 $$
 
 #### **O₂ saturation concentration**
@@ -650,7 +650,7 @@ Unit: mg l⁻¹
 Value:
 
 $$
-\left(\mathrm{o2\_saturation}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
 $$
 
 #### **Sediment O₂ consumption rate**
@@ -662,7 +662,7 @@ Unit: kg m⁻² day⁻¹
 Value:
 
 $$
-\mathrm{q10} = 2 \\ \mathrm{rate20} = \left(\mathrm{sod}\cdot \mathrm{min}\left(1,\, 1-\frac{0.05 \mathrm{mg}\,\mathrm{l}^{-1}\,-\mathrm{conc}\left(\mathrm{water}.\mathrm{o2}\right)}{0.05 \mathrm{mg}\,\mathrm{l}^{-1}\,}\right)\rightarrow \mathrm{kg}\,\mathrm{m}^{-2}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{q10\_adjust}\left(\mathrm{rate20},\, 20 \mathrm{°C}\,,\, \mathrm{hyp}.\mathrm{water}.\mathrm{temp},\, \mathrm{q10}\right)
+\mathrm{q10} = 2 \\ \mathrm{rate20} = \left(\mathrm{sod}\cdot \mathrm{min}\left(1,\, 1-\frac{0.05 \mathrm{mg}\,\mathrm{l}^{-1}\,-\mathrm{conc}\left(\mathrm{water}.\mathrm{o2}\right)}{0.05 \mathrm{mg}\,\mathrm{l}^{-1}\,}\right)\rightarrow \mathrm{kg}\,\mathrm{m}^{-2}\,\mathrm{day}^{-1}\,\right) \\ \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{rate20},\, 20 \mathrm{°C}\,,\, \mathrm{hyp}.\mathrm{water}.\mathrm{temp},\, \mathrm{q10}\right)
 $$
 
 #### **Bacterial mineralization (epi)**
@@ -738,7 +738,7 @@ Unit: mg l⁻¹
 Value:
 
 $$
-\mathrm{phyt\_eq} = \frac{\mathrm{q10\_adjust}\left(\mathrm{phyt\_eq\_20},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{phyt\_q10}\right)}{\left(\mathrm{chl\_a\_f}\rightarrow 1\right)} \\ \mathrm{phyt\_eq}\cdot \mathrm{phyt\_a}\cdot \mathrm{min}\left(\mathrm{light\_lim},\, \mathrm{min}\left(\mathrm{N\_lim},\, \mathrm{P\_lim}\right)\right)
+\mathrm{phyt\_eq} = \frac{\href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{phyt\_eq\_20},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{phyt\_q10}\right)}{\left(\mathrm{chl\_a\_f}\rightarrow 1\right)} \\ \mathrm{phyt\_eq}\cdot \mathrm{phyt\_a}\cdot \mathrm{min}\left(\mathrm{light\_lim},\, \mathrm{min}\left(\mathrm{N\_lim},\, \mathrm{P\_lim}\right)\right)
 $$
 
 #### **Photosynthetic C fixation**
@@ -790,7 +790,7 @@ Unit: mg l⁻¹
 Value:
 
 $$
-\mathrm{tdp}+\mathrm{conc}\left(\mathrm{sed}\right)\cdot \left(\mathrm{conc}\left(\mathrm{sed}.\mathrm{phos}\right)+\mathrm{conc}\left(\mathrm{sed}.\mathrm{op}\right)\right)+\frac{\mathrm{conc}\left(\mathrm{phyt}\right)}{\mathrm{cp\_molar\_to\_mass\_ratio}\left(\mathrm{phyt\_cp}\right)}
+\mathrm{tdp}+\mathrm{conc}\left(\mathrm{sed}\right)\cdot \left(\mathrm{conc}\left(\mathrm{sed}.\mathrm{phos}\right)+\mathrm{conc}\left(\mathrm{sed}.\mathrm{op}\right)\right)+\frac{\mathrm{conc}\left(\mathrm{phyt}\right)}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
 $$
 
 #### **Epilimnion TN**
@@ -842,7 +842,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{conc} = \left(0.9\cdot \mathrm{o2\_saturation}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{area}\cdot \mathrm{conc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\mathrm{conc} = \left(0.9\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{area}\cdot \mathrm{conc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **O₂ gas exchange at surface**
@@ -1094,7 +1094,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\frac{\mathrm{phyt}.\mathrm{fix}}{\mathrm{cn\_molar\_to\_mass\_ratio}\left(\mathrm{phyt\_cn}\right)}
+\frac{\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
 $$
 
 #### **Phytoplankton P uptake**
@@ -1108,7 +1108,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\frac{\mathrm{phyt}.\mathrm{fix}}{\mathrm{cp\_molar\_to\_mass\_ratio}\left(\mathrm{phyt\_cp}\right)}
+\frac{\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
 $$
 
 #### **Phytoplankton C excretion**
@@ -1136,7 +1136,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{phyt}\cdot \frac{\mathrm{excr}}{\mathrm{cn\_molar\_to\_mass\_ratio}\left(\mathrm{phyt\_cn}\right)}
+\mathrm{phyt}\cdot \frac{\mathrm{excr}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
 $$
 
 #### **Phytoplankton P excretion**
@@ -1150,7 +1150,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{phyt}\cdot \frac{\mathrm{excr}}{\mathrm{cp\_molar\_to\_mass\_ratio}\left(\mathrm{phyt\_cp}\right)}
+\mathrm{phyt}\cdot \frac{\mathrm{excr}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
 $$
 
 #### **Pytoplankton death P release (epi)**
@@ -1164,7 +1164,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\frac{\mathrm{phyt}.\mathrm{death}}{\mathrm{cp\_molar\_to\_mass\_ratio}\left(\mathrm{phyt\_cp}\right)}
+\frac{\mathrm{phyt}.\mathrm{death}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
 $$
 
 #### **Pytoplankton death P release (hyp)**
@@ -1178,7 +1178,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\frac{\mathrm{phyt}.\mathrm{death}}{\mathrm{cp\_molar\_to\_mass\_ratio}\left(\mathrm{phyt\_cp}\right)}
+\frac{\mathrm{phyt}.\mathrm{death}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
 $$
 
 ---
@@ -1287,7 +1287,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\frac{\mathrm{in\_s}}{\mathrm{in\_q}}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{in\_conc}-\mathrm{maxconc} \\ \left(\mathrm{s\_response}\left(\mathrm{excess},\, 0,\, 5 \mathrm{mg}\,\mathrm{l}^{-1}\,,\, 0,\, \mathrm{excess}\cdot \mathrm{in\_q}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\frac{\mathrm{in\_s}}{\mathrm{in\_q}}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{in\_conc}-\mathrm{maxconc} \\ \left(\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{excess},\, 0,\, 5 \mathrm{mg}\,\mathrm{l}^{-1}\,,\, 0,\, \mathrm{excess}\cdot \mathrm{in\_q}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 

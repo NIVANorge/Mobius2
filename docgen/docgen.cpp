@@ -109,6 +109,8 @@ struct
 Print_Equation_Context {
 	std::stringstream ss;
 	std::string outer_unit;
+	Mobius_Model *model;
+	Decl_Scope *scope;
 };
 
 void
@@ -319,7 +321,27 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 			print_equation(context, fun->exprs[0]);
 			context.ss << "\right)";
 		} else {
-			print_ident(context, fun->name.string_value);
+			std::string fun_name = fun->name.string_value;
+			auto reg = (*context.scope)[fun_name];
+			if(reg) {  // It doesn't find reg if it is a special directive.
+				
+				auto funreg = context.model->functions[reg->id];
+				
+				if(funreg->fun_type == Function_Type::decl && funreg->scope_id.reg_type == Reg_Type::library) {
+					auto lib = context.model->libraries[funreg->scope_id];
+					
+					std::string libident = lib->name;
+					std::transform(libident.begin(), libident.end(), libident.begin(), [](unsigned char c){ return std::tolower(c); });
+					replace(libident, " ", "-");
+					
+					context.ss << "\\href{stdlib.html#" << libident << "}{";
+					print_ident(context, fun->name.string_value);
+					context.ss << "}";
+				} else
+					print_ident(context, fun->name.string_value);
+			} else
+				print_ident(context, fun->name.string_value);
+			
 			context.ss << "\\left(";
 			bool first = true;
 			for(auto expr : fun->exprs) {
@@ -358,7 +380,7 @@ equation_str(Print_Equation_Context &context, Math_Expr_AST *code) {
 
 
 void
-print_function_definition(Mobius_Model *model, Entity_Id fun_id, std::stringstream &ss) {
+print_function_definition(Mobius_Model *model, Decl_Scope *scope, Entity_Id fun_id, std::stringstream &ss) {
 	
 	auto fun = model->functions[fun_id];
 	ss << "**" << model->get_symbol(fun_id) << "**(";
@@ -373,6 +395,8 @@ print_function_definition(Mobius_Model *model, Entity_Id fun_id, std::stringstre
 	ss << ") = \n\n";
 	
 	Print_Equation_Context context;
+	context.model = model;
+	context.scope = scope;
 	
 	ss << "$$\n";
 
@@ -435,7 +459,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		ss << "### Module functions\n\n";
 		
 		for(auto fun_id : funs) {
-			print_function_definition(model, fun_id, ss);
+			print_function_definition(model, &module->scope, fun_id, ss);
 		}
 	}
 	
@@ -487,6 +511,8 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 				ss << "Conc. unit: " << unit_str(model, var->conc_unit) << "\n\n";
 			
 			Print_Equation_Context context;
+			context.model = model;
+			context.scope = &module->scope;
 			context.outer_unit = unit_str(model, var->unit, false);
 			
 			if(var->code || var->override_code) {
@@ -526,6 +552,8 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			ss << "Unit: " << unit_str(model, flux->unit) << "\n\n";
 			
 			Print_Equation_Context context;
+			context.model = model;
+			context.scope = &module->scope;
 			context.outer_unit = unit_str(model, flux->unit, false);
 			
 			ss << "Value:\n\n";
@@ -619,7 +647,7 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 		ss << "### Library functions\n\n";
 		
 		for(auto fun_id : funs) {
-			print_function_definition(model, fun_id, ss);
+			print_function_definition(model, &lib->scope, fun_id, ss);
 		}
 	}
 }

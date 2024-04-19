@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 12:22:26.
+The file was generated at 2024-04-19 12:38:59.
 
 ---
 
@@ -91,7 +91,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\ \mathrm{s\_response}\left(\mathrm{water},\, \mathrm{fc},\, 1.01\cdot \mathrm{fc},\, 0,\, \mathrm{rate}\right)
+\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\ \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, \mathrm{fc},\, 1.01\cdot \mathrm{fc},\, 0,\, \mathrm{rate}\right)
 $$
 
 ### Fluxes
@@ -107,7 +107,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\mathrm{drylim} = 0.9 \\ \mathrm{flow} = \left(\mathrm{in\_flux}\left(\mathrm{water}\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{flow}\cdot \mathrm{s\_response}\left(\mathrm{water},\, \mathrm{drylim}\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, 1\right)\cdot \mathrm{atan}\left(\frac{\mathrm{flow}}{\mathrm{qqinfl}}\right)\cdot \frac{2}{\pi}
+\mathrm{drylim} = 0.9 \\ \mathrm{flow} = \left(\mathrm{in\_flux}\left(\mathrm{water}\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{flow}\cdot \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, \mathrm{drylim}\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, 1\right)\cdot \mathrm{atan}\left(\frac{\mathrm{flow}}{\mathrm{qqinfl}}\right)\cdot \frac{2}{\pi}
 $$
 
 #### **Evapotranspiration**
@@ -121,7 +121,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\mathrm{s\_response}\left(\mathrm{water},\, 0.5\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, \mathrm{pet}\right)
+\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, 0.5\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, \mathrm{pet}\right)
 $$
 
 #### **Soil runoff**

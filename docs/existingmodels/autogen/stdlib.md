@@ -12,7 +12,7 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 12:22:26.
+The file was generated at 2024-04-19 12:38:59.
 
 ---
 
@@ -103,13 +103,13 @@ $$
 **hour_angle**(day_of_year : day, time_zone : hr, hour_of_day : hr, longitude : °) = 
 
 $$
-\mathrm{b} = 2\cdot \pi\cdot \frac{\mathrm{day\_of\_year}-81 \mathrm{day}\,}{365 \mathrm{day}\,} \\ \mathrm{eot} = \left(9.87\cdot \mathrm{sin}\left(2\cdot \mathrm{b}\right)-7.53\cdot \mathrm{cos}\left(\mathrm{b}\right)-1.5\cdot \mathrm{sin}\left(\mathrm{b}\right)\Rightarrow \mathrm{hr}\,\right) \\ \mathrm{lsmt} = 15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \mathrm{time\_zone} \\ \mathrm{ast} = \mathrm{hour\_of\_day}+\mathrm{eot}+\left(4 \mathrm{min}\,\mathrm{°}^{-1}\,\cdot \left(\mathrm{lsmt}-\mathrm{longitude}\right)\rightarrow \mathrm{hr}\,\right) \\ \mathrm{radians}\left(15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \left(\mathrm{ast}-12 \mathrm{hr}\,\right)\right)
+\mathrm{b} = 2\cdot \pi\cdot \frac{\mathrm{day\_of\_year}-81 \mathrm{day}\,}{365 \mathrm{day}\,} \\ \mathrm{eot} = \left(9.87\cdot \mathrm{sin}\left(2\cdot \mathrm{b}\right)-7.53\cdot \mathrm{cos}\left(\mathrm{b}\right)-1.5\cdot \mathrm{sin}\left(\mathrm{b}\right)\Rightarrow \mathrm{hr}\,\right) \\ \mathrm{lsmt} = 15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \mathrm{time\_zone} \\ \mathrm{ast} = \mathrm{hour\_of\_day}+\mathrm{eot}+\left(4 \mathrm{min}\,\mathrm{°}^{-1}\,\cdot \left(\mathrm{lsmt}-\mathrm{longitude}\right)\rightarrow \mathrm{hr}\,\right) \\ \href{stdlib.html#basic}{\mathrm{radians}}\left(15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \left(\mathrm{ast}-12 \mathrm{hr}\,\right)\right)
 $$
 
 **cos_zenith_angle**(hour_a : , day_of_year : day, latitude : °) = 
 
 $$
-\mathrm{lat\_rad} = \mathrm{radians}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \mathrm{solar\_declination}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{cz} = \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{cos}\left(\mathrm{hour\_a}\right) \\ \mathrm{max}\left(0,\, \mathrm{cz}\right)
+\mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{cz} = \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{cos}\left(\mathrm{hour\_a}\right) \\ \mathrm{max}\left(0,\, \mathrm{cz}\right)
 $$
 
 **refract**(cos_z, index) = 
@@ -121,13 +121,13 @@ $$
 **daily_average_extraterrestrial_radiation**(latitude : °, day_of_year : day) = 
 
 $$
-\mathrm{orbit\_rad} = \frac{2\cdot \pi\cdot \mathrm{day\_of\_year}}{365 \mathrm{day}\,} \\ \mathrm{lat\_rad} = \mathrm{radians}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \mathrm{solar\_declination}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{inv\_rel\_dist\_earth\_sun} = 1+0.033\cdot \mathrm{cos}\left(\mathrm{orbit\_rad}\right) \\ \frac{\mathrm{solar\_constant}}{\pi}\cdot \mathrm{inv\_rel\_dist\_earth\_sun}\cdot \left(\mathrm{sunset\_hour\_angle}\cdot \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)\right)
+\mathrm{orbit\_rad} = \frac{2\cdot \pi\cdot \mathrm{day\_of\_year}}{365 \mathrm{day}\,} \\ \mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{inv\_rel\_dist\_earth\_sun} = 1+0.033\cdot \mathrm{cos}\left(\mathrm{orbit\_rad}\right) \\ \frac{\mathrm{solar\_constant}}{\pi}\cdot \mathrm{inv\_rel\_dist\_earth\_sun}\cdot \left(\mathrm{sunset\_hour\_angle}\cdot \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)\right)
 $$
 
 **hourly_average_radiation**(daily_avg_rad : W m⁻², day_of_year : day, latitude : °, hour_angle : ) = 
 
 $$
-\mathrm{lat\_rad} = \mathrm{radians}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \mathrm{solar\_declination}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{cosshr} = \mathrm{cos}\left(\mathrm{sunset\_hour\_angle}\right) \\ \mathrm{factor} = \pi\cdot \frac{\mathrm{cos}\left(\mathrm{hour\_angle}\right)-\mathrm{cosshr}}{\mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)-\mathrm{sunset\_hour\_angle}\cdot \mathrm{cosshr}} \\ \mathrm{daily\_avg\_rad}\cdot \mathrm{max}\left(0,\, \mathrm{factor}\right)
+\mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{cosshr} = \mathrm{cos}\left(\mathrm{sunset\_hour\_angle}\right) \\ \mathrm{factor} = \pi\cdot \frac{\mathrm{cos}\left(\mathrm{hour\_angle}\right)-\mathrm{cosshr}}{\mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)-\mathrm{sunset\_hour\_angle}\cdot \mathrm{cosshr}} \\ \mathrm{daily\_avg\_rad}\cdot \mathrm{max}\left(0,\, \mathrm{factor}\right)
 $$
 
 **clear_sky_shortwave**(extrad : W m⁻², elev : m) = 
@@ -139,7 +139,7 @@ $$
 **downwelling_longwave**(air_temp : °C, a_vap : hPa, cloud : ) = 
 
 $$
-\mathrm{air\_t} = \left(\mathrm{air\_temp}\rightarrow \mathrm{K}\,\right) \\ \mathrm{dpt} = \mathrm{dew\_point\_temperature}\left(\mathrm{a\_vap}\right) \\ \mathrm{dew\_point\_depression} = \mathrm{dpt}-\mathrm{air\_t} \\ \mathrm{cloud\_effect} = \left(10.77\cdot \mathrm{cloud}^{2}+2.34\cdot \mathrm{cloud}-18.44\Rightarrow \mathrm{K}\,\right) \\ \mathrm{vapor\_effect} = 0.84\cdot \left(\mathrm{dew\_point\_depression}+4.01 \mathrm{K}\,\right) \\ \mathrm{eff\_t} = \mathrm{air\_t}+\mathrm{cloud\_effect}+\mathrm{vapor\_effect} \\ \mathrm{black\_body\_radiation}\left(\mathrm{eff\_t}\right)
+\mathrm{air\_t} = \left(\mathrm{air\_temp}\rightarrow \mathrm{K}\,\right) \\ \mathrm{dpt} = \href{stdlib.html#meteorology}{\mathrm{dew\_point\_temperature}}\left(\mathrm{a\_vap}\right) \\ \mathrm{dew\_point\_depression} = \mathrm{dpt}-\mathrm{air\_t} \\ \mathrm{cloud\_effect} = \left(10.77\cdot \mathrm{cloud}^{2}+2.34\cdot \mathrm{cloud}-18.44\Rightarrow \mathrm{K}\,\right) \\ \mathrm{vapor\_effect} = 0.84\cdot \left(\mathrm{dew\_point\_depression}+4.01 \mathrm{K}\,\right) \\ \mathrm{eff\_t} = \mathrm{air\_t}+\mathrm{cloud\_effect}+\mathrm{vapor\_effect} \\ \href{stdlib.html#thermodynamics}{\mathrm{black\_body\_radiation}}\left(\mathrm{eff\_t}\right)
 $$
 
 ---
@@ -394,13 +394,13 @@ $$
 **linear_response**(x, x0, x1, y0, y1) = 
 
 $$
-\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y1} & \text{if}\;\mathrm{x}\geq \mathrm{x1} \\ \mathrm{lerp}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y1} & \text{if}\;\mathrm{x}\geq \mathrm{x1} \\ \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{otherwise}\end{cases}
 $$
 
 **s_response**(x, x0, x1, y0, y1) = 
 
 $$
-\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y1} & \text{if}\;\mathrm{x}\geq \mathrm{x1} \\ \mathrm{s\_curve}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y1} & \text{if}\;\mathrm{x}\geq \mathrm{x1} \\ \href{stdlib.html#response}{\mathrm{s\_curve}}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{otherwise}\end{cases}
 $$
 
 **step_response**(x, x0, x1, y0, y1, y2) = 
@@ -412,13 +412,13 @@ $$
 **wedge_response**(x, x0, x1, x2, y0, y1, y2) = 
 
 $$
-\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y2} & \text{if}\;\mathrm{x}\geq \mathrm{x2} \\ \mathrm{lerp}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{if}\;\mathrm{x}\leq \mathrm{x1} \\ \mathrm{lerp}\left(\mathrm{x},\, \mathrm{x1},\, \mathrm{x2},\, \mathrm{y1},\, \mathrm{y2}\right) & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y2} & \text{if}\;\mathrm{x}\geq \mathrm{x2} \\ \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{if}\;\mathrm{x}\leq \mathrm{x1} \\ \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{x},\, \mathrm{x1},\, \mathrm{x2},\, \mathrm{y1},\, \mathrm{y2}\right) & \text{otherwise}\end{cases}
 $$
 
 **bump_response**(x, x0, x1, x2, y0, y1, y2) = 
 
 $$
-\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y2} & \text{if}\;\mathrm{x}\geq \mathrm{x2} \\ \mathrm{s\_curve}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{if}\;\mathrm{x}\leq \mathrm{x1} \\ \mathrm{s\_curve}\left(\mathrm{x},\, \mathrm{x1},\, \mathrm{x2},\, \mathrm{y1},\, \mathrm{y2}\right) & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{y0} & \text{if}\;\mathrm{x}\leq \mathrm{x0} \\ \mathrm{y2} & \text{if}\;\mathrm{x}\geq \mathrm{x2} \\ \href{stdlib.html#response}{\mathrm{s\_curve}}\left(\mathrm{x},\, \mathrm{x0},\, \mathrm{x1},\, \mathrm{y0},\, \mathrm{y1}\right) & \text{if}\;\mathrm{x}\leq \mathrm{x1} \\ \href{stdlib.html#response}{\mathrm{s\_curve}}\left(\mathrm{x},\, \mathrm{x1},\, \mathrm{x2},\, \mathrm{y1},\, \mathrm{y2}\right) & \text{otherwise}\end{cases}
 $$
 
 ---
@@ -444,13 +444,13 @@ $$
 **tc_latent_heat**(wind : m s⁻¹, stability : ) = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \mathrm{stab\_modify}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 **tc_sensible_heat**(wind : m s⁻¹, stability : ) = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \mathrm{stab\_modify}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 ---
@@ -482,7 +482,7 @@ $$
 **seawater_pot_dens**(T : °C, S : ) = 
 
 $$
-\mathrm{b0} = 0.824493 \\ \mathrm{b1} = -0.0040899 \\ \mathrm{b2} = 7.6438e-05 \\ \mathrm{b3} = -8.2467e-07 \\ \mathrm{b4} = 5.3875e-09 \\ \mathrm{c0} = -0.00572466 \\ \mathrm{c1} = 0.00010227 \\ \mathrm{c2} = -1.6546e-06 \\ \mathrm{d0} = 0.00048314 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \mathrm{seawater\_dens\_standard\_mean}\left(\mathrm{T}\right)+\left(\left(\mathrm{b0}+\left(\mathrm{b1}+\left(\mathrm{b2}+\left(\mathrm{b3}+\mathrm{b4}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}+\left(\mathrm{c0}+\left(\mathrm{c1}+\mathrm{c2}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}\cdot \sqrt{\mathrm{S}}+\mathrm{d0}\cdot \mathrm{S}^{2}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
+\mathrm{b0} = 0.824493 \\ \mathrm{b1} = -0.0040899 \\ \mathrm{b2} = 7.6438e-05 \\ \mathrm{b3} = -8.2467e-07 \\ \mathrm{b4} = 5.3875e-09 \\ \mathrm{c0} = -0.00572466 \\ \mathrm{c1} = 0.00010227 \\ \mathrm{c2} = -1.6546e-06 \\ \mathrm{d0} = 0.00048314 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \href{stdlib.html#seawater}{\mathrm{seawater\_dens\_standard\_mean}}\left(\mathrm{T}\right)+\left(\left(\mathrm{b0}+\left(\mathrm{b1}+\left(\mathrm{b2}+\left(\mathrm{b3}+\mathrm{b4}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}+\left(\mathrm{c0}+\left(\mathrm{c1}+\mathrm{c2}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}\cdot \sqrt{\mathrm{S}}+\mathrm{d0}\cdot \mathrm{S}^{2}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **dynamic_viscosity_fresh_water**(T : °C) = 
@@ -494,13 +494,13 @@ $$
 **dynamic_viscosity_sea_water**(T : °C, S : ) = 
 
 $$
-\mathrm{eta\_t} = \mathrm{dynamic\_viscosity\_fresh\_water}\left(\mathrm{T}\right) \\ \mathrm{a} = \mathrm{lerp}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.000366,\, 0.001403\right) \\ \mathrm{b} = \mathrm{lerp}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.002756,\, 0.003416\right) \\ \mathrm{cl} = \mathrm{max}\left(0,\, \frac{\mathrm{S}-0.03}{1.805}\right) \\ \mathrm{clv} = \left(\mathrm{seawater\_pot\_dens}\left(\mathrm{T},\, \mathrm{S}\right)\cdot \mathrm{cl}\Rightarrow 1\right) \\ \mathrm{eta\_t}\cdot \left(1+\mathrm{a}\cdot \sqrt{\mathrm{clv}}+\mathrm{b}\cdot \mathrm{clv}\right)
+\mathrm{eta\_t} = \href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_fresh\_water}}\left(\mathrm{T}\right) \\ \mathrm{a} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.000366,\, 0.001403\right) \\ \mathrm{b} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.002756,\, 0.003416\right) \\ \mathrm{cl} = \mathrm{max}\left(0,\, \frac{\mathrm{S}-0.03}{1.805}\right) \\ \mathrm{clv} = \left(\href{stdlib.html#seawater}{\mathrm{seawater\_pot\_dens}}\left(\mathrm{T},\, \mathrm{S}\right)\cdot \mathrm{cl}\Rightarrow 1\right) \\ \mathrm{eta\_t}\cdot \left(1+\mathrm{a}\cdot \sqrt{\mathrm{clv}}+\mathrm{b}\cdot \mathrm{clv}\right)
 $$
 
 **diffusivity_in_water**(ref_diff, ref_T : °C, ref_S : , T : °C, S : ) = 
 
 $$
-\mathrm{ref\_diff}\cdot \frac{\mathrm{dynamic\_viscosity\_sea\_water}\left(\mathrm{ref\_T},\, \mathrm{ref\_S}\right)}{\mathrm{dynamic\_viscosity\_sea\_water}\left(\mathrm{T},\, \mathrm{S}\right)}\cdot \frac{\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)}{\left(\mathrm{ref\_T}\rightarrow \mathrm{K}\,\right)}
+\mathrm{ref\_diff}\cdot \frac{\href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_sea\_water}}\left(\mathrm{ref\_T},\, \mathrm{ref\_S}\right)}{\href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_sea\_water}}\left(\mathrm{T},\, \mathrm{S}\right)}\cdot \frac{\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)}{\left(\mathrm{ref\_T}\rightarrow \mathrm{K}\,\right)}
 $$
 
 ---
