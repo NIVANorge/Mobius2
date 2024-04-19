@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in [models/simplyc_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyc_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:26:45.
+The file was generated at 2024-04-19 10:33:29.
 
 ---
 
@@ -53,7 +53,7 @@ A simple DOC model.
 
 ### State variables
 
-#### *SO4 deposition*
+#### **SO4 deposition**
 
 Location: **air.so4**
 
@@ -61,7 +61,7 @@ Unit: mg l⁻¹
 
 This series is externally defined. It may be an input series.
 
-#### *Soil water DOC*
+#### **Soil water DOC**
 
 Location: **soil.water.oc**
 
@@ -81,7 +81,7 @@ $$
 \mathrm{basedoc}
 $$
 
-#### *Deep soil DOC*
+#### **Deep soil DOC**
 
 Location: **gw.water.oc**
 
@@ -103,7 +103,7 @@ $$
 
 ### Fluxes
 
-#### *Soil DOC production*
+#### **Soil DOC production**
 
 Source: out
 
@@ -117,7 +117,7 @@ $$
 \mathrm{max}\left(0,\, \mathrm{water}\cdot \mathrm{cdoc}\cdot \left(1+\left(\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\right)\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right)\right)
 $$
 
-#### *Soil DOC mineralization+resorption*
+#### **Soil DOC mineralization+resorption**
 
 Source: soil.water.oc
 
@@ -131,7 +131,7 @@ $$
 \mathrm{oc}\cdot \frac{\mathrm{cdoc}}{\mathrm{basedoc}}
 $$
 
-#### *Deep soil DOC mineralization*
+#### **Deep soil DOC mineralization**
 
 Source: gw.water.oc
 
@@ -171,7 +171,7 @@ Version: 0.0.1
 
 ### State variables
 
-#### *River water DOC*
+#### **River water DOC**
 
 Location: **river.water.oc**
 
@@ -187,7 +187,7 @@ $$
 
 ### Fluxes
 
-#### *River DOC loss*
+#### **River DOC loss**
 
 Source: river.water.oc
 

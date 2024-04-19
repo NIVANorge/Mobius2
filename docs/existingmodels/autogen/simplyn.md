@@ -11,7 +11,7 @@ nav_order: 2
 This is auto-generated documentation based on the model code in [models/simplyn_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyn_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:26:45.
+The file was generated at 2024-04-19 10:33:29.
 
 ---
 
@@ -59,15 +59,13 @@ This module is not finished.
 
 ### State variables
 
-#### *Soil undissolved fertilizer N*
+#### **Soil undissolved fertilizer N**
 
 Location: **soil.sn**
 
 Unit: kg km⁻²
 
-This series is externally defined. It may be an input series.
-
-#### *Soil water DIN*
+#### **Soil water DIN**
 
 Location: **soil.water.din**
 
@@ -81,7 +79,7 @@ $$
 \mathrm{sw\_din\_init}
 $$
 
-#### *Groundwater DIN*
+#### **Groundwater DIN**
 
 Location: **gw.water.din**
 
@@ -101,7 +99,7 @@ $$
 \mathrm{gw\_din\_conc}
 $$
 
-#### *River water DIN*
+#### **River water DIN**
 
 Location: **river.water.din**
 
@@ -115,7 +113,7 @@ $$
 \mathrm{conc}\left(\mathrm{gw}.\mathrm{water}.\mathrm{din}\right)
 $$
 
-#### *River TN*
+#### **River TN**
 
 Location: **river.water.tn**
 
@@ -129,7 +127,7 @@ $$
 
 ### Fluxes
 
-#### *Fertilizer N addition*
+#### **Fertilizer N addition**
 
 Source: out
 
@@ -143,7 +141,7 @@ $$
 \begin{cases}\left(\mathrm{fert\_n}\cdot 1 \mathrm{day}^{-1}\,\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right) & \text{if}\;\mathrm{time}.\mathrm{day\_of\_year}=\mathrm{fert\_day} \\ 0 & \text{otherwise}\end{cases}
 $$
 
-#### *Fertilizer DIN release*
+#### **Fertilizer DIN release**
 
 Source: soil.sn
 
@@ -157,7 +155,7 @@ $$
 \left(\mathrm{soil}.\mathrm{sn}\cdot \mathrm{fert\_rel}\cdot \mathrm{in\_flux}\left(\mathrm{soil}.\mathrm{water}\right)\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
-#### *Net soil water DIN addition*
+#### **Net soil water DIN addition**
 
 Source: out
 
@@ -171,7 +169,7 @@ $$
 \left(\frac{\mathrm{net\_annual\_N\_input}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
-#### *Soil water DIN uptake*
+#### **Soil water DIN uptake**
 
 Source: soil.water.din
 
@@ -185,7 +183,7 @@ $$
 \mathrm{rate} = \mathrm{q10\_adjust}\left(\mathrm{din\_immob\_rate},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{din\_immob\_q10}\right) \\ \left(\mathrm{conc}\left(\mathrm{din}\right)\cdot \mathrm{rate}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
-#### *River effluent DIN*
+#### **River effluent DIN**
 
 Source: out
 
@@ -199,7 +197,7 @@ $$
 \mathrm{eff\_din}
 $$
 
-#### *River DIN denitrification loss*
+#### **River DIN denitrification loss**
 
 Source: river.water.din
 

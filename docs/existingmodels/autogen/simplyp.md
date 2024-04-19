@@ -11,7 +11,7 @@ nav_order: 3
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:26:45.
+The file was generated at 2024-04-19 10:33:29.
 
 ---
 
@@ -66,7 +66,7 @@ New to version 0.5:
 
 ### State variables
 
-#### *Variable reduction of load in sediments*
+#### **Variable reduction of load in sediments**
 
 Location: **soil.loadred_var**
 
@@ -74,7 +74,7 @@ Unit:
 
 This series is externally defined. It may be an input series.
 
-#### *Suspended sediments*
+#### **Suspended sediments**
 
 Location: **river.water.sed**
 
@@ -82,9 +82,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-This series is externally defined. It may be an input series.
-
-#### *Time dependent vegetation cover factor*
+#### **Time dependent vegetation cover factor**
 
 Location: **soil.c_cover**
 
@@ -96,7 +94,7 @@ $$
 \mathrm{E\_risk\_period} = 60 \mathrm{day}\, \\ \mathrm{spring} = \mathrm{cover\_shape}\left(\mathrm{time}.\mathrm{day\_of\_year},\, \mathrm{doy\_spring},\, \mathrm{E\_risk\_period},\, \mathrm{c\_cov},\, \mathrm{shp}.\mathrm{step},\, \mathrm{shp}.\mathrm{triangular},\, \mathrm{shp}.\mathrm{smooth}\right) \\ \mathrm{autumn} = \mathrm{cover\_shape}\left(\mathrm{time}.\mathrm{day\_of\_year},\, \mathrm{doy\_autumn},\, \mathrm{E\_risk\_period},\, \mathrm{c\_cov},\, \mathrm{shp}.\mathrm{step},\, \mathrm{shp}.\mathrm{triangular},\, \mathrm{shp}.\mathrm{smooth}\right) \\ \mathrm{spring}\cdot \mathrm{p\_spring}+\mathrm{autumn}\cdot \left(1-\mathrm{p\_spring}\right)
 $$
 
-#### *Erosion factor land*
+#### **Erosion factor land**
 
 Location: **soil.e_fact**
 
@@ -108,7 +106,7 @@ $$
 \left(\mathrm{land\_slope}\cdot \mathrm{c\_cover}\cdot \left(1-\mathrm{loadred}\right)\cdot \left(1-\mathrm{loadred\_var}\right)\Rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
-#### *Erosion factor river*
+#### **Erosion factor river**
 
 Location: **river.e_fact**
 
@@ -122,7 +120,7 @@ $$
 
 ### Fluxes
 
-#### *Sediment mobilization*
+#### **Sediment mobilization**
 
 Source: out
 
@@ -199,7 +197,7 @@ For reference, here is [the original Python implementation of SimplyP](https://g
 
 ### State variables
 
-#### *EPC0*
+#### **EPC0**
 
 Location: **soil.epc0**
 
@@ -217,7 +215,7 @@ $$
 \mathrm{init\_epc0}
 $$
 
-#### *Soil DIP mass*
+#### **Soil DIP mass**
 
 Location: **soil.water.phos**
 
@@ -237,7 +235,7 @@ $$
 \mathrm{init\_epc0}
 $$
 
-#### *Soil labile P mass*
+#### **Soil labile P mass**
 
 Location: **soil.plab**
 
@@ -255,7 +253,7 @@ $$
 \left(\mathrm{init\_soil\_p\_conc}-\mathrm{inactive\_soil\_p\_conc}\right)\cdot \mathrm{m\_soil\_m2}
 $$
 
-#### *Labile P concentration*
+#### **Labile P concentration**
 
 Location: **soil.plab.plabconc**
 
@@ -267,7 +265,7 @@ $$
 \frac{\mathrm{plab}}{\mathrm{m\_soil\_m2}}
 $$
 
-#### *Groundwater DIP*
+#### **Groundwater DIP**
 
 Location: **gw.water.phos**
 
@@ -287,7 +285,7 @@ $$
 \mathrm{gw\_tdp}
 $$
 
-#### *River DIP*
+#### **River DIP**
 
 Location: **river.water.phos**
 
@@ -301,15 +299,13 @@ $$
 \mathrm{gw\_tdp}
 $$
 
-#### *River PP*
+#### **River PP**
 
 Location: **river.water.sed.phos**
 
 Unit: kg
 
-This series is externally defined. It may be an input series.
-
-#### *PP mobilization factor*
+#### **PP mobilization factor**
 
 Location: **soil.plab.pp_fact**
 
@@ -321,7 +317,7 @@ $$
 \left(\left(\mathrm{plabconc}+\mathrm{inactive\_soil\_p\_conc}\right)\cdot \mathrm{e\_fact}\cdot \mathrm{pp\_enrich}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
-#### *River TP*
+#### **River TP**
 
 Location: **river.water.tp**
 
@@ -333,7 +329,7 @@ $$
 \mathrm{conc}\left(\mathrm{phos}\right)+\mathrm{conc}\left(\mathrm{sed}\right)\cdot \mathrm{conc}\left(\mathrm{sed}.\mathrm{phos}\right)
 $$
 
-#### *River TDP*
+#### **River TDP**
 
 Location: **river.water.tdp**
 
@@ -347,7 +343,7 @@ $$
 
 ### Fluxes
 
-#### *River effluent DIP*
+#### **River effluent DIP**
 
 Source: out
 
@@ -361,7 +357,7 @@ $$
 \mathrm{eff\_tdp}
 $$
 
-#### *PP mobilization*
+#### **PP mobilization**
 
 Source: out
 

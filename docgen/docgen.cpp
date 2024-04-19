@@ -397,9 +397,9 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			std::string locstr = loc_str(&module->scope, var->var_location);
 			
 			if(var->var_name.empty()) {
-				ss << "#### *" << model->components[var->var_location.last()]->name << "*\n\n";
+				ss << "#### **" << model->components[var->var_location.last()]->name << "**\n\n";
 			} else
-				ss << "#### *" << var->var_name << "*\n\n";
+				ss << "#### **" << var->var_name << "**\n\n";
 			
 			ss << "Location: **" << locstr << "**\n\n";
 			ss << "Unit: " << unit_str(model, var->unit) << "\n\n";
@@ -420,7 +420,8 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 				ss << "$$\n" << equation_str(context, var->initial_code) << "\n$$\n\n";
 			}
 			if(!var->code && !var->override_code && !var->initial_code && !var->adds_code_to_existing) {
-				ss << "This series is externally defined. It may be an input series.\n\n";
+				if(model->components[var->var_location.last()]->decl_type == Decl_Type::property)
+					ss << "This series is externally defined. It may be an input series.\n\n";
 			}
 		}
 	}
@@ -432,7 +433,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		for(auto flux_id : fluxes) {
 			auto flux = model->fluxes[flux_id];
 			
-			ss << "#### *" << flux->name << "*\n\n";
+			ss << "#### **" << flux->name << "**\n\n";
 			
 			ss << "Source: ";
 			auto source = flux->decl->args[0];
