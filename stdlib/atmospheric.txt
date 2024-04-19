@@ -64,7 +64,7 @@ library("Radiation") {
 
 	load(library("Meteorology"))
 	load("physiochemistry.txt", library("Thermodynamics"))
-	load("basic_math.txt", library("Basic"))
+	load("stdlib/basic_math.txt", library("Basic"))
 	
 	# TODO: Document!
 	
