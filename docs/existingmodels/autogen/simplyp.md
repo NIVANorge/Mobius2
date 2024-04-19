@@ -11,7 +11,7 @@ nav_order: 3
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:15:59.
+The file was generated at 2024-04-19 10:22:42.
 
 ---
 
@@ -148,7 +148,7 @@ SimplyP is a parsimonious phosphorus model. It was originally implemented in Pyt
 
 [Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
 
-For news, updates and references, see [the model's github home page](https://github.com/NIVANorge/Mobius/tree/master/Applications/SimplyP)
+For news, updates and references, see [the model's github home page](https://nivanorge.github.io/Mobius2/existingmodels/simply.html)
 
 New to version 0.6:
 * The model has been ported to Mobius2. Everything is solved as one large coupled ODE system, so transport between land and river and between different river sections is more precise.
