@@ -11,7 +11,7 @@ nav_order: 4
 This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 16:17:34.
+The file was generated at 2024-04-19 16:24:13.
 
 ---
 
@@ -38,17 +38,17 @@ The internal heat distribution is inspired by (but not as complex as) the [FLake
 We assume that the hypsograph of the lake follows a shape so that
 
 $$
-A(z) = A_0 * \left(\frac{z_{max}-z}{z_{max}\right)^{\theta+1)}
+A(z) = A_0 \left(\frac{z}{z_{max}}\right)^{\theta+1}
 $$
 
-where $$A(z)$$ is the area of the horizontal cross-section of the lake at depth $$z$$, $$z_{max}$$ is the max depth of the lake, $A_0$ is the surface area at the zero level of the outlet, and $$\theta$$ is a parameter.
+where $$A(z)$$ is the area of the horizontal cross-section of the lake at level $$z$$ measuring up from the maximal depth $$z_{max}$$, $A_0$ is the surface area at the zero level of the outlet, and $$\theta$$ is a user-defined parameter.
 
 We also assume that the discharge is linearly proportional to the water level at the outlet.
 
 The lake is partitioned into an epilimnion and a hypolimnion. The epilimnion is assumed to have a temperature profile that does not depend on the depth. In the hypolimnion, the temperature profile follows
 
 $$
-T(z) = ((T_e - T_b)\left(\frac{z_{max}-z}{z_{max}\right)^2 + T_b\; z > z_e
+T(z) = ((T_e - T_b)\left(\frac{z}{z_{max}}\right)^2 + T_b\; z > z_e
 $$
 
 Where $$T_e$$ is current epilimnion temperature and $$T_b$$ is bottom temperature (user-defined constant parameter), and $$z_e$$ is epilimnion thickness. The total heat of the lake is then proportional to
