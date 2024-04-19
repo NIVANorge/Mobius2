@@ -38,11 +38,11 @@ replace(std::string &str, const char *substring, const char *replacement) {
 }
 
 std::string
-unit_str(Mobius_Model *model, Entity_Id unit_id, bool enclose = true) {
+unit_str(Mobius_Model *model, Entity_Id unit_id, bool utf8 = true) {
 	if(is_valid(unit_id)) {
 		auto unit = model->units[unit_id];
-		if(enclose) {
-			return "$$" + unit->data.to_latex() + "$$";
+		if(utf8) {
+			return unit->data.to_utf8();
 		}
 		return unit->data.to_latex();
 	}
@@ -278,9 +278,8 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 
 std::string
 equation_str(Print_Equation_Context &context, Math_Expr_AST *code) {
-	std::stringstream ss;
 	print_equation(context, code, true);
-	return ss.str();
+	return context.ss.str();
 }
 
 void
@@ -327,8 +326,8 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 				//if(par->decl_type != Decl_Type::par_real) continue; //TODO!
 				
 				ss << "| " << par->name 
-				   << " | " << model->get_symbol(par_id)
-				   << " | " << unit_str(model, par->unit)
+				   << " | **" << model->get_symbol(par_id)
+				   << "** | " << unit_str(model, par->unit)
 				   //<< " | " << par->default_val.val_real
 				   //<< " | " << par->min_val.val_real
 				   //<< " | " << par->max_val.val_real

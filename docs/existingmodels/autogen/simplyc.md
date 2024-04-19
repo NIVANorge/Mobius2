@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in [models/simplyc_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyc_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 09:44:42.
+The file was generated at 2024-04-19 09:48:24.
 
 ---
 
@@ -39,17 +39,17 @@ A simple DOC model.
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | **DOC general** | | | |
-| Soil temperature DOC creation linear coefficient | kt1 | $$°C^{-1}\,$$ |  |
-| Soil temperature DOC creation second-order coefficient | kt2 | $$°C^{-2}\,$$ |  |
-| Soil DOC linear SO4 dependence | kso4 | $$l\,mg^{-1}\,$$ |  |
-| Baseline soil DOC dissolution rate | cdoc | $$mg\,l^{-1}\,day^{-1}\,$$ | Only used if the soil DOC computation type is dynamic. |
-| Soil DOC computation type | soildoc_type |  |  |
-| Groundwater DOC computation type | gwdoc_type |  |  |
+| Soil temperature DOC creation linear coefficient | **kt1** | °C⁻¹ |  |
+| Soil temperature DOC creation second-order coefficient | **kt2** | °C⁻² |  |
+| Soil DOC linear SO4 dependence | **kso4** | l mg⁻¹ |  |
+| Baseline soil DOC dissolution rate | **cdoc** | mg l⁻¹ day⁻¹ | Only used if the soil DOC computation type is dynamic. |
+| Soil DOC computation type | **soildoc_type** |  |  |
+| Groundwater DOC computation type | **gwdoc_type** |  |  |
 | **DOC land** | | | |
-| Baseline soil DOC concentration | basedoc | $$mg\,l^{-1}\,$$ |  |
+| Baseline soil DOC concentration | **basedoc** | mg l⁻¹ |  |
 | **DOC deep soil** | | | |
-| Groundwater DOC half-life | gwdochl | $$day\,$$ |  |
-| Groundwater DOC concentration | gwdocconc | $$mg\,l^{-1}\,$$ |  |
+| Groundwater DOC half-life | **gwdochl** | day |  |
+| Groundwater DOC concentration | **gwdocconc** | mg l⁻¹ |  |
 
 ### State variables
 
@@ -57,7 +57,7 @@ A simple DOC model.
 
 Location: **air.so4**
 
-Unit: $$mg\,l^{-1}\,$$
+Unit: mg l⁻¹
 
 This series is externally defined. It may be an input series.
 
@@ -65,40 +65,40 @@ This series is externally defined. It may be an input series.
 
 Location: **soil.water.oc**
 
-Unit: $$kg\,km^{-2}\,$$
+Unit: kg km⁻²
 
-Conc. unit: $$mg\,l^{-1}\,$$
+Conc. unit: mg l⁻¹
 
 Value:
 
 $$
-
+\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot 1+\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}
 $$
 
 Initial value:
 
 $$
-
+\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot 1+\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}\mathrm{basedoc}
 $$
 
 #### *Deep soil DOC*
 
 Location: **gw.water.oc**
 
-Unit: $$kg\,km^{-2}\,$$
+Unit: kg km⁻²
 
-Conc. unit: $$mg\,l^{-1}\,$$
+Conc. unit: mg l⁻¹
 
 Value:
 
 $$
-
+\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{soil\_avg} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}
 $$
 
 Initial value:
 
 $$
-
+\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{soil\_avg} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const}|\mathrm{gwdoc\_type}.\mathrm{half\_life} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{otherwise}\end{cases}
 $$
 
 ### Fluxes
@@ -109,12 +109,12 @@ Source: (to be implemented)
 
 Target: (to be implemented)
 
-Unit: $$kg\,km^{-2}\,day^{-1}\,$$
+Unit: kg km⁻² day⁻¹
 
 Value:
 
 $$
-
+\mathrm{max}\left(0,\, \mathrm{water}\cdot \mathrm{cdoc}\cdot 1+\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right)
 $$
 
 #### *Soil DOC mineralization+resorption*
@@ -123,12 +123,12 @@ Source: (to be implemented)
 
 Target: (to be implemented)
 
-Unit: $$kg\,km^{-2}\,day^{-1}\,$$
+Unit: kg km⁻² day⁻¹
 
 Value:
 
 $$
-
+\mathrm{oc}\cdot \frac{\mathrm{cdoc}}{\mathrm{basedoc}}
 $$
 
 #### *Deep soil DOC mineralization*
@@ -137,12 +137,12 @@ Source: (to be implemented)
 
 Target: (to be implemented)
 
-Unit: $$kg\,km^{-2}\,day^{-1}\,$$
+Unit: kg km⁻² day⁻¹
 
 Value:
 
 $$
-
+\mathrm{rate} = \mathrm{hl\_to\_rate}\left(\mathrm{gwdochl}\right) \\ \mathrm{oc}\cdot \mathrm{rate}
 $$
 
 ---
@@ -166,8 +166,8 @@ Version: 0.0.1
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | **DOC river** | | | |
-| River DOC loss rate at 20°C | r_loss | $$day^{-1}\,$$ |  |
-| River DOC loss Q10 | r_q10 | $$1$$ |  |
+| River DOC loss rate at 20°C | **r_loss** | day⁻¹ |  |
+| River DOC loss Q10 | **r_q10** |  |  |
 
 ### State variables
 
@@ -175,14 +175,14 @@ Version: 0.0.1
 
 Location: **river.water.oc**
 
-Unit: $$kg\,$$
+Unit: kg
 
-Conc. unit: $$mg\,l^{-1}\,$$
+Conc. unit: mg l⁻¹
 
 Initial value:
 
 $$
-
+\mathrm{conc}\left(\mathrm{gw}.\mathrm{water}.\mathrm{oc}\right)
 $$
 
 ### Fluxes
@@ -193,12 +193,12 @@ Source: (to be implemented)
 
 Target: (to be implemented)
 
-Unit: $$kg\,day^{-1}\,$$
+Unit: kg day⁻¹
 
 Value:
 
 $$
-
+\mathrm{rate} = \mathrm{q10\_adjust}\left(\mathrm{r\_loss},\, 20 °C\,,\, \mathrm{temp},\, \mathrm{r\_q10}\right) \\ \mathrm{oc}\cdot \mathrm{rate}
 $$
 
 
