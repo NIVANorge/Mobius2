@@ -12,7 +12,7 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 13:45:57.
+The file was generated at 2024-04-19 13:50:12.
 
 ---
 
@@ -272,7 +272,7 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 This library contains functions for computing diffusivities of compounds in water and air.
 
-Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed.
+Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed [https://doi.org/10.1002/0471649643](https://doi.org/10.1002/0471649643).
 
 ### Constants
 

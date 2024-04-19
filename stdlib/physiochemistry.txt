@@ -69,7 +69,7 @@ library("Diffusivity") {
 """
 This library contains functions for computing diffusivities of compounds in water and air.
 
-Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed.
+Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed [https://doi.org/10.1002/0471649643](https://doi.org/10.1002/0471649643).
 """
 	
 	molvol_air : constant("Molecular volume of air at surface pressure", [c m 3, mol-1], 20.1)
