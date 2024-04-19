@@ -77,7 +77,7 @@ precedence(Math_Expr_AST *expr) {
 	}
 	if(expr->type == Math_Expr_Type::unary_operator)
 		return 50'000;
-	if(expr->type == Math_Expr_Type::if_chain)
+	if(expr->type == Math_Expr_Type::if_chain || expr->type == Math_Expr_Type::block)
 		return 4500;
 	return 1000'000;
 }
@@ -199,7 +199,9 @@ print_unit_ast(Print_Equation_Context &context, Unit_Convert_AST *conv, bool pri
 
 std::string
 format_double_tex(double d) {
-	std::string str = std::to_string(d);
+	std::stringstream ss;
+	ss << d;
+	std::string str = ss.str();
 	auto find = str.find("e");
 	if(find == std::string::npos)
 		return str;

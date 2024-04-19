@@ -11,7 +11,7 @@ nav_order: 4
 This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:46:11.
+The file was generated at 2024-04-19 14:50:50.
 
 ---
 
@@ -246,7 +246,7 @@ Unit:
 Value:
 
 $$
-\left|\mathrm{water}.\mathrm{temp}-\mathrm{hyp}.\mathrm{water}.\mathrm{temp}\right|<0.400000 \mathrm{°C}\,
+\left|\mathrm{water}.\mathrm{temp}-\mathrm{hyp}.\mathrm{water}.\mathrm{temp}\right|<0.4 \mathrm{°C}\,
 $$
 
 ### Fluxes
@@ -304,7 +304,7 @@ Unit: m³ day⁻¹
 Value:
 
 $$
-\mathrm{A\_surf}\cdot \mathrm{epi}.\mathrm{th}\cdot \mathrm{epi}.\mathrm{ind}\cdot 0.100000 \mathrm{day}^{-1}\,
+\mathrm{A\_surf}\cdot \mathrm{epi}.\mathrm{th}\cdot \mathrm{epi}.\mathrm{ind}\cdot 0.1 \mathrm{day}^{-1}\,
 $$
 
 ---
@@ -669,7 +669,7 @@ Unit: kg m⁻² day⁻¹
 Value:
 
 $$
-\mathrm{q10} = 2 \\ \mathrm{rate20} = \left(\mathrm{sod}\cdot \mathrm{min}\left(1,\, 1-\frac{0.050000 \mathrm{mg}\,\mathrm{l}^{-1}\,-\mathrm{conc}\left(\mathrm{water}.\mathrm{o2}\right)}{0.050000 \mathrm{mg}\,\mathrm{l}^{-1}\,}\right)\rightarrow \mathrm{kg}\,\mathrm{m}^{-2}\,\mathrm{day}^{-1}\,\right) \\ \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{rate20},\, 20 \mathrm{°C}\,,\, \mathrm{hyp}.\mathrm{water}.\mathrm{temp},\, \mathrm{q10}\right)
+\mathrm{q10} = 2 \\ \mathrm{rate20} = \left(\mathrm{sod}\cdot \mathrm{min}\left(1,\, 1-\frac{0.05 \mathrm{mg}\,\mathrm{l}^{-1}\,-\mathrm{conc}\left(\mathrm{water}.\mathrm{o2}\right)}{0.05 \mathrm{mg}\,\mathrm{l}^{-1}\,}\right)\rightarrow \mathrm{kg}\,\mathrm{m}^{-2}\,\mathrm{day}^{-1}\,\right) \\ \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{rate20},\, 20 \mathrm{°C}\,,\, \mathrm{hyp}.\mathrm{water}.\mathrm{temp},\, \mathrm{q10}\right)
 $$
 
 #### **Bacterial mineralization (epi)**
@@ -709,7 +709,7 @@ Unit:
 Value:
 
 $$
-\mathrm{par\_sw} = \mathrm{sw}\cdot \left(1-\mathrm{f\_par}\right) \\ \mathrm{f} = \frac{\mathrm{par\_sw}}{\mathrm{max}\left(0.500000\cdot \mathrm{par\_sw},\, \mathrm{iopt}\right)} \\ \mathrm{f}\cdot e^{1-\mathrm{f}}
+\mathrm{par\_sw} = \mathrm{sw}\cdot \left(1-\mathrm{f\_par}\right) \\ \mathrm{f} = \frac{\mathrm{par\_sw}}{\mathrm{max}\left(0.5\cdot \mathrm{par\_sw},\, \mathrm{iopt}\right)} \\ \mathrm{f}\cdot e^{1-\mathrm{f}}
 $$
 
 #### **Nitrogen limitation**
@@ -849,7 +849,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{conc} = \left(0.900000\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{area}\cdot \mathrm{conc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\mathrm{conc} = \left(0.9\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{area}\cdot \mathrm{conc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **O₂ gas exchange at surface**
@@ -891,7 +891,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\left(\mathrm{area}\cdot \frac{\mathrm{din\_dep}}{365.250000 \mathrm{day}\,\mathrm{year}^{-1}\,}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\left(\mathrm{area}\cdot \frac{\mathrm{din\_dep}}{365.25 \mathrm{day}\,\mathrm{year}^{-1}\,}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **DOC bacterial mineralization (hypo)**

@@ -11,7 +11,7 @@ nav_order: 3
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:46:11.
+The file was generated at 2024-04-19 14:50:50.
 
 ---
 
@@ -101,7 +101,7 @@ Unit:
 Value:
 
 $$
-\mathrm{E\_risk\_period} = 60.000000 \mathrm{day}\, \\ \mathrm{spring} = \mathrm{cover\_shape}\left(\mathrm{time}.\mathrm{day\_of\_year},\, \mathrm{doy\_spring},\, \mathrm{E\_risk\_period},\, \mathrm{c\_cov},\, \mathrm{shp}.\mathrm{step},\, \mathrm{shp}.\mathrm{triangular},\, \mathrm{shp}.\mathrm{smooth}\right) \\ \mathrm{autumn} = \mathrm{cover\_shape}\left(\mathrm{time}.\mathrm{day\_of\_year},\, \mathrm{doy\_autumn},\, \mathrm{E\_risk\_period},\, \mathrm{c\_cov},\, \mathrm{shp}.\mathrm{step},\, \mathrm{shp}.\mathrm{triangular},\, \mathrm{shp}.\mathrm{smooth}\right) \\ \mathrm{spring}\cdot \mathrm{p\_spring}+\mathrm{autumn}\cdot \left(1-\mathrm{p\_spring}\right)
+\mathrm{E\_risk\_period} = 60 \mathrm{day}\, \\ \mathrm{spring} = \mathrm{cover\_shape}\left(\mathrm{time}.\mathrm{day\_of\_year},\, \mathrm{doy\_spring},\, \mathrm{E\_risk\_period},\, \mathrm{c\_cov},\, \mathrm{shp}.\mathrm{step},\, \mathrm{shp}.\mathrm{triangular},\, \mathrm{shp}.\mathrm{smooth}\right) \\ \mathrm{autumn} = \mathrm{cover\_shape}\left(\mathrm{time}.\mathrm{day\_of\_year},\, \mathrm{doy\_autumn},\, \mathrm{E\_risk\_period},\, \mathrm{c\_cov},\, \mathrm{shp}.\mathrm{step},\, \mathrm{shp}.\mathrm{triangular},\, \mathrm{shp}.\mathrm{smooth}\right) \\ \mathrm{spring}\cdot \mathrm{p\_spring}+\mathrm{autumn}\cdot \left(1-\mathrm{p\_spring}\right)
 $$
 
 #### **Erosion factor land**

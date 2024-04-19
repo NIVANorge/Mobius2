@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:46:11.
+The file was generated at 2024-04-19 14:50:50.
 
 ---
 
@@ -93,7 +93,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\ \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, \mathrm{fc},\, 1.010000\cdot \mathrm{fc},\, 0,\, \mathrm{rate}\right)
+\mathrm{rate} = \frac{\mathrm{water}-\mathrm{fc}}{\mathrm{tc\_s}} \\ \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, \mathrm{fc},\, 1.01\cdot \mathrm{fc},\, 0,\, \mathrm{rate}\right)
 $$
 
 ### Fluxes
@@ -109,7 +109,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\mathrm{drylim} = 0.900000 \\ \mathrm{flow} = \left(\mathrm{in\_flux}\left(\mathrm{water}\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{flow}\cdot \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, \mathrm{drylim}\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, 1\right)\cdot \mathrm{atan}\left(\frac{\mathrm{flow}}{\mathrm{qqinfl}}\right)\cdot \frac{2}{\pi}
+\mathrm{drylim} = 0.9 \\ \mathrm{flow} = \left(\mathrm{in\_flux}\left(\mathrm{water}\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{flow}\cdot \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, \mathrm{drylim}\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, 1\right)\cdot \mathrm{atan}\left(\frac{\mathrm{flow}}{\mathrm{qqinfl}}\right)\cdot \frac{2}{\pi}
 $$
 
 #### **Evapotranspiration**
@@ -123,7 +123,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, 0.500000\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, \mathrm{pet}\right)
+\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, 0.5\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, \mathrm{pet}\right)
 $$
 
 #### **Soil runoff**
@@ -210,7 +210,7 @@ Unit: m³
 Initial value:
 
 $$
-\mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow 1\right) \\ \mathrm{depth} = 0.349000 \mathrm{m}\,\cdot \mathrm{q}^{0.340000} \\ \mathrm{width} = 2.710000 \mathrm{m}\,\cdot \mathrm{q}^{0.557000} \\ \mathrm{width}\cdot \mathrm{depth}\cdot \mathrm{len}
+\mathrm{q} = \left(\mathrm{init\_flow}\Rightarrow 1\right) \\ \mathrm{depth} = 0.349 \mathrm{m}\,\cdot \mathrm{q}^{0.34} \\ \mathrm{width} = 2.71 \mathrm{m}\,\cdot \mathrm{q}^{0.557} \\ \mathrm{width}\cdot \mathrm{depth}\cdot \mathrm{len}
 $$
 
 #### **Reach flow**
@@ -222,7 +222,7 @@ Unit: m³ s⁻¹
 Value:
 
 $$
-0.280000 \mathrm{m}^{3}\,\mathrm{s}^{-1}\,\cdot \left(\mathrm{water}\cdot \frac{\sqrt{\mathrm{slope}}}{\mathrm{len}\cdot \mathrm{c\_mann}}\Rightarrow 1\right)^{1.500000}
+0.28 \mathrm{m}^{3}\,\mathrm{s}^{-1}\,\cdot \left(\mathrm{water}\cdot \frac{\sqrt{\mathrm{slope}}}{\mathrm{len}\cdot \mathrm{c\_mann}}\Rightarrow 1\right)^{1.5}
 $$
 
 Initial value:
