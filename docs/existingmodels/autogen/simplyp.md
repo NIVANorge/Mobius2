@@ -11,13 +11,15 @@ nav_order: 3
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 12:47:35.
+The file was generated at 2024-04-19 13:02:42.
 
 ---
 
 ## SimplySed
 
 Version: 0.6.0
+
+File: [modules/simplysed.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/simplysed.txt)
 
 ### Description
 
@@ -49,7 +51,7 @@ New to version 0.5:
 
 ### Module functions
 
-**cover_shape**(doy, doy_max, len, c_cov, shp_step, shp_tri, shp_smooth) = 
+**cover_shape(doy, doy_max, len, c_cov, shp_step, shp_tri, shp_smooth)** = 
 
 $$
 \begin{cases}\href{stdlib.html#response}{\mathrm{step\_response}}\left(\mathrm{doy},\, \mathrm{doy\_max}-\frac{\mathrm{len}}{2},\, \mathrm{doy\_max}+\frac{\mathrm{len}}{2},\, \mathrm{c\_cov},\, 1,\, \mathrm{c\_cov}\right) & \text{if}\;\mathrm{shp\_step} \\ \href{stdlib.html#response}{\mathrm{wedge\_response}}\left(\mathrm{doy},\, \mathrm{doy\_max}-\frac{\mathrm{len}}{2},\, \mathrm{doy\_max},\, \mathrm{doy\_max}+\frac{\mathrm{len}}{2},\, \mathrm{c\_cov},\, 1,\, \mathrm{c\_cov}\right) & \text{if}\;\mathrm{shp\_tri} \\ \href{stdlib.html#response}{\mathrm{bump\_response}}\left(\mathrm{doy},\, \mathrm{doy\_max}-\frac{\mathrm{len}}{2},\, \mathrm{doy\_max},\, \mathrm{doy\_max}+\frac{\mathrm{len}}{2},\, \mathrm{c\_cov},\, 1,\, \mathrm{c\_cov}\right) & \text{if}\;\mathrm{shp\_smooth} \\ \mathrm{c\_cov} & \text{otherwise}\end{cases}
@@ -147,6 +149,8 @@ $$
 ## SimplyP
 
 Version: 0.6.0
+
+File: [modules/simplyp.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/simplyp.txt)
 
 ### Description
 

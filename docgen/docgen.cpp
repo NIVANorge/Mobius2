@@ -212,6 +212,10 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 	} else if (ast->type == Math_Expr_Type::binary_operator) {
 		auto binop = static_cast<Binary_Operator_AST *>(ast);
 		auto c = (char)binop->oper;
+		int prec = precedence(binop);
+		int prec0 = precedence(binop->exprs[0]);
+		int prec1 = precedence(binop->exprs[1]);
+		
 		if(c == '/') {
 			context.ss << "\\frac{";
 			print_equation(context, binop->exprs[0]);
@@ -219,14 +223,15 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 			print_equation(context, binop->exprs[1]);
 			context.ss << "}";
 		} else if(c == '^') {
+			if(prec0 < prec)
+				context.ss << "\\left(";
 			print_equation(context, binop->exprs[0]);
+			if(prec0 < prec)
+				context.ss << "\\right)";
 			context.ss << "^{";
 			print_equation(context, binop->exprs[1]);
 			context.ss << "}";
 		} else {
-			int prec = precedence(binop);
-			int prec0 = precedence(binop->exprs[0]);
-			int prec1 = precedence(binop->exprs[1]);
 			if(prec0 < prec)
 				context.ss << "\\left(";
 			print_equation(context, binop->exprs[0]);
@@ -383,7 +388,7 @@ void
 print_function_definition(Mobius_Model *model, Decl_Scope *scope, Entity_Id fun_id, std::stringstream &ss) {
 	
 	auto fun = model->functions[fun_id];
-	ss << "**" << model->get_symbol(fun_id) << "**(";
+	ss << "**" << model->get_symbol(fun_id) << "(";
 	bool first = true;
 	for(int i = 0; i < fun->args.size(); ++i) {
 		if(!first) ss << ", ";
@@ -392,7 +397,7 @@ print_function_definition(Mobius_Model *model, Decl_Scope *scope, Entity_Id fun_
 			ss << " : " << unit_str(model, fun->expected_units[i]);
 		first = false;
 	}
-	ss << ") = \n\n";
+	ss << ")** = \n\n";
 	
 	Print_Equation_Context context;
 	context.model = model;
@@ -406,21 +411,20 @@ print_function_definition(Mobius_Model *model, Decl_Scope *scope, Entity_Id fun_
 }
 
 
-// TODO: Document library, insert links to library functions in code where they are used.
-
 void
 document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_name) {
 	auto module_id = model->deserialize(module_name, Reg_Type::module);
 	auto module = model->modules[module_id];
 	auto modtemplate = model->module_templates[module->template_id];
 	
-	// TODO: Link to individual module code.
-	
-	// TODO: Document module functions and constants
-	
 	ss << "## " << module->name << "\n\n";
 	auto &ver = modtemplate->version;
 	ss << "Version: " << ver.major << "." << ver.minor << "." << ver.revision << "\n\n";
+	
+	// Hmm, this is a bit volatile since it assumes the module was loaded as "modules/...". Should instead try to locate it?
+	std::string file = modtemplate->source_loc.filename;
+	ss << "File: [" << file << "](https://github.com/NIVANorge/Mobius2/tree/main/models/" << file << ")\n\n";
+	
 	if(!modtemplate->doc_string.empty()) {
 		// TODO: Ideally this should be put as a quote
 		ss << "### Description" << "\n\n" << modtemplate->doc_string << "\n\n";

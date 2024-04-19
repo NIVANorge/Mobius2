@@ -11,13 +11,15 @@ nav_order: 4
 This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 12:47:35.
+The file was generated at 2024-04-19 13:02:42.
 
 ---
 
 ## EasyLake
 
 Version: 0.1.0
+
+File: [modules/easylake.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easylake.txt)
 
 ### Description
 
@@ -44,34 +46,34 @@ but allows for more specific parametrization of the lake shape.
 
 ### Module functions
 
-**shape_cross_section_A**(A_0 : m², z_0 : m, z : m, theta : ) = 
+**shape_cross_section_A(A_0 : m², z_0 : m, z : m, theta : )** = 
 
 $$
-\mathrm{A\_0}\cdot \frac{\mathrm{z}}{\mathrm{z\_0}}^{\mathrm{theta}+1}
+\mathrm{A\_0}\cdot \left(\frac{\mathrm{z}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}
 $$
 
-**shape_tip_V**(A_0 : m², z_0 : m, z : m, theta : ) = 
+**shape_tip_V(A_0 : m², z_0 : m, z : m, theta : )** = 
 
 $$
-\mathrm{A\_0}\cdot \mathrm{z}\cdot \frac{\frac{\mathrm{z}}{\mathrm{z\_0}}^{\mathrm{theta}+1}}{\mathrm{theta}+2}
+\mathrm{A\_0}\cdot \mathrm{z}\cdot \frac{\left(\frac{\mathrm{z}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}}{\mathrm{theta}+2}
 $$
 
-**shape_section_V**(A_0 : m², z_0 : m, z1 : m, z2 : m, theta : ) = 
+**shape_section_V(A_0 : m², z_0 : m, z1 : m, z2 : m, theta : )** = 
 
 $$
 \mathrm{shape\_tip\_V}\left(\mathrm{A\_0},\, \mathrm{z\_0},\, \mathrm{z1},\, \mathrm{theta}\right)-\mathrm{shape\_tip\_V}\left(\mathrm{A\_0},\, \mathrm{z\_0},\, \mathrm{z2},\, \mathrm{theta}\right)
 $$
 
-**shape_tip_z**(A_0 : m², z_0 : m, V : m³, theta : ) = 
+**shape_tip_z(A_0 : m², z_0 : m, V : m³, theta : )** = 
 
 $$
 \mathrm{zz\_0} = \left(\mathrm{z\_0}\Rightarrow 1\right) \\ \mathrm{f} = \left(\mathrm{V}\cdot \left(\mathrm{theta}+2\right)\cdot \frac{\mathrm{zz\_0}^{\mathrm{theta}+1}}{\mathrm{A\_0}}\Rightarrow 1\right) \\ \left(\mathrm{f}^{\frac{1}{\mathrm{theta}+2}}\Rightarrow \mathrm{m}\,\right)
 $$
 
-**hypo_temperature_integral**(A_0 : m², T_e : °C, T_b : °C, z_e : m, z_0 : m, theta : ) = 
+**hypo_temperature_integral(A_0 : m², T_e : °C, T_b : °C, z_e : m, z_0 : m, theta : )** = 
 
 $$
-\left(2\cdot \mathrm{T\_b}+\left(\mathrm{theta}+2\right)\cdot \mathrm{T\_e}\right)\cdot \mathrm{A\_0}\cdot \frac{\mathrm{z\_e}^{3}\cdot \frac{\mathrm{z\_e}}{\mathrm{z\_0}}^{\mathrm{theta}+1}}{\left(\mathrm{theta}^{2}+6\cdot \mathrm{theta}+8\right)\cdot \mathrm{z\_e}^{2}}
+\left(2\cdot \mathrm{T\_b}+\left(\mathrm{theta}+2\right)\cdot \mathrm{T\_e}\right)\cdot \mathrm{A\_0}\cdot \frac{\mathrm{z\_e}^{3}\cdot \left(\frac{\mathrm{z\_e}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}}{\left(\mathrm{theta}^{2}+6\cdot \mathrm{theta}+8\right)\cdot \mathrm{z\_e}^{2}}
 $$
 
 ### Parameters
@@ -310,6 +312,8 @@ $$
 ## EasyChem
 
 Version: 0.0.5
+
+File: [modules/easychem.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem.txt)
 
 ### Description
 
@@ -714,7 +718,7 @@ Unit:
 Value:
 
 $$
-\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{din}\right)}{\mathrm{n\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\frac{\mathrm{halfsat}}{\mathrm{phyt\_cn}}^{2}+\mathrm{cmol}^{2}}
+\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{din}\right)}{\mathrm{n\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{halfsat}}{\mathrm{phyt\_cn}}\right)^{2}+\mathrm{cmol}^{2}}
 $$
 
 #### **Phosphorus limitation**
@@ -726,7 +730,7 @@ Unit:
 Value:
 
 $$
-\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{phos}\right)}{\mathrm{p\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\frac{\mathrm{halfsat}}{\mathrm{phyt\_cp}}^{2}+\mathrm{cmol}^{2}}
+\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{phos}\right)}{\mathrm{p\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{halfsat}}{\mathrm{phyt\_cp}}\right)^{2}+\mathrm{cmol}^{2}}
 $$
 
 #### **Phytoplankton equilibrium concentration**
@@ -1186,6 +1190,8 @@ $$
 ## EasyChem-Particulate
 
 Version: 0.0.3
+
+File: [modules/easychem.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem.txt)
 
 ### Description
 
