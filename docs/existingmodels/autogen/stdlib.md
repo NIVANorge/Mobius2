@@ -12,7 +12,7 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 16:24:13.
+The file was generated at 2024-04-19 16:32:36.
 
 ---
 

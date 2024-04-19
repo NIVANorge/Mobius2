@@ -11,7 +11,7 @@ nav_order: 2
 This is auto-generated documentation based on the model code in [models/simplyn_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyn_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 16:24:13.
+The file was generated at 2024-04-19 16:32:36.
 
 ---
 
@@ -158,7 +158,7 @@ $$
 \left(\mathrm{soil}.\mathrm{sn}\cdot \mathrm{fert\_rel}\cdot \mathrm{in\_flux}\left(\mathrm{soil}.\mathrm{water}\right)\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
-#### **Net soil water DIN addition**
+#### **Non-agricultural soil water DIN addition**
 
 Source: out
 

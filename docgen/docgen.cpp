@@ -205,10 +205,15 @@ format_double_tex(double d) {
 	auto find = str.find("e");
 	if(find == std::string::npos)
 		return str;
-	auto sub = str.substr(0, find);
-	if(sub == "1")
-		return "10^{" + str.substr(find+1, str.size()) + "}";
-	return sub + "\\cdot 10^{" + str.substr(find+1, str.size()) + "}";
+	auto base = str.substr(0, find);
+	
+	std::string power = str.substr(find+1, str.size());
+	power.erase(0, std::min(power.find_first_not_of('0'), power.size()-1)); // Remove leading zeros
+	
+	if(base == "1")
+		return "10^{" + power + "}";
+	
+	return base + "\\cdot 10^{" + power + "}";
 }
 
 // TODO: Also have to make a precedence system like in the other print_expression.

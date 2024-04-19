@@ -12,7 +12,7 @@ module("EasyLake", version(0, 1, 0),
 	epi_target : loc
 ) {
 """
-This is a very simple lake model for use along with cathcment models.
+EasyLake is a simple lake model for use along with catchment models. It simulates residence time in the lake in an upper and lower compartment, and it has separate modules for nutrient retention and contaminants.
 
 The physical part of the model simulates water balance and temperature.
 

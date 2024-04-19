@@ -63,7 +63,7 @@ In addition fertilizer can be added at a single day per year. The fertilizer N i
 	
 	# Soil water fluxes
 	
-	flux(out, soil.water.din, [k g, k m-2, day-1], "Net soil water DIN addition") {
+	flux(out, soil.water.din, [k g, k m-2, day-1], "Non-agricultural soil water DIN addition") {
 		net_annual_N_input / time.days_this_year ->>
 	}
 	
