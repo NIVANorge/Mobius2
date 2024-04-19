@@ -624,6 +624,8 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 		filename = "stdlib/" + filename;
 	ss << "File: " << "[" << filename << "](https://github.com/NIVANorge/Mobius2/tree/main/" << filename << ")\n\n";
 	
+	ss << "### Description\n\n";
+	ss << lib->doc_string << "\n\n";
 	// TODO: Print the docstring, and provide proper documentation in each library!.
 	
 	// Hmm, could factor this out from document_module:

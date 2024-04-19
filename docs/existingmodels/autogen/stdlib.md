@@ -12,13 +12,17 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 12:38:59.
+The file was generated at 2024-04-19 12:47:35.
 
 ---
 
 ## Meteorology
 
 File: [stdlib/atmospheric.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/atmospheric.txt)
+
+### Description
+
+
 
 ### Constants
 
@@ -86,6 +90,10 @@ $$
 
 File: [stdlib/atmospheric.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/atmospheric.txt)
 
+### Description
+
+
+
 ### Constants
 
 | Name | Symbol | Unit |
@@ -148,6 +156,10 @@ $$
 
 File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/physiochemistry.txt)
 
+### Description
+
+
+
 ### Constants
 
 | Name | Symbol | Unit |
@@ -159,6 +171,10 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 ## Thermodynamics
 
 File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/physiochemistry.txt)
+
+### Description
+
+
 
 ### Constants
 
@@ -187,6 +203,10 @@ $$
 ## Water utils
 
 File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/physiochemistry.txt)
+
+### Description
+
+
 
 ### Constants
 
@@ -236,6 +256,10 @@ $$
 
 File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/physiochemistry.txt)
 
+### Description
+
+
+
 ### Constants
 
 | Name | Symbol | Unit |
@@ -276,6 +300,10 @@ $$
 ## Chemistry
 
 File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/physiochemistry.txt)
+
+### Description
+
+
 
 ### Constants
 
@@ -321,6 +349,10 @@ $$
 
 File: [stdlib/basic_math.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/basic_math.txt)
 
+### Description
+
+
+
 ### Library functions
 
 **safe_divide**(a, b) = 
@@ -352,6 +384,10 @@ $$
 ## Response
 
 File: [stdlib/basic_math.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/basic_math.txt)
+
+### Description
+
+
 
 ### Library functions
 
@@ -427,6 +463,12 @@ $$
 
 File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/seawater.txt)
 
+### Description
+
+Air-sea/lake heat fluxes are based off of
+[Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112](https://link.springer.com/article/10.1007/BF00232256)
+The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
+
 ### Library functions
 
 **surface_stability**(wind : m s⁻¹, water_temp : °C, air_temp : °C) = 
@@ -458,6 +500,10 @@ $$
 ## Seawater
 
 File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/seawater.txt)
+
+### Description
+
+
 
 ### Constants
 
@@ -508,6 +554,10 @@ $$
 ## Sea oxygen
 
 File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdlib/seawater.txt)
+
+### Description
+
+
 
 ### Library functions
 
