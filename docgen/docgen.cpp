@@ -97,9 +97,14 @@ print_oper(Print_Equation_Context &context, Token_Type oper) {
 	auto c = (char)oper;
 	if(c == '*')
 		context.ss << "\\cdot ";
+	else if(c == '|')
+		context.ss << "\\;\\text{or}\\;";
+	else if(c == '&')
+		context.ss << "\\;\\text{and}\\;";
+	else if(c == '!')
+		context.ss << "\\;\\text{not}\\;";
 	else
 		context.ss << c;
-	// TODO: Probably have to handle many other types!
 }
 
 void
@@ -120,6 +125,28 @@ print_chain(Print_Equation_Context &context, std::vector<Token> &chain) {
 		if(!begin) context.ss << '.';
 		print_ident(context, t.string_value);
 		begin = false;
+	}
+}
+
+void
+print_chain_alt(std::stringstream &ss, std::vector<Token> &chain) {
+	// This one is for the non-equation side of it
+	bool begin = true;
+	for(auto &t : chain) {
+		if(!begin) ss << '.';
+		ss << t.string_value;
+		begin = false;
+	}
+}
+
+void
+print_double_chain(std::stringstream &ss, std::vector<Token> &chain, std::vector<Token> &bracketed_chain) {
+	// This one is for the non-equation side of it
+	print_chain_alt(ss, chain);
+	if(!bracketed_chain.empty()) {
+		ss << "\[";
+		print_chain_alt(ss, bracketed_chain);
+		ss << "\]";
 	}
 }
 
@@ -170,13 +197,34 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 			print_equation(context, binop->exprs[1]);
 			context.ss << "}";
 		} else {
+			int prec = precedence(binop);
+			int prec0 = precedence(binop->exprs[0]);
+			int prec1 = precedence(binop->exprs[1]);
+			if(prec0 < prec)
+				context.ss << "\\left(";
 			print_equation(context, binop->exprs[0]);
+			if(prec0 < prec)
+				context.ss << "\\right)";
+			
 			print_oper(context, binop->oper);
+			
+			if(prec1 < prec)
+				context.ss << "\\left(";
 			print_equation(context, binop->exprs[1]);
+			if(prec1 < prec)
+				context.ss << "\\right)";
 		}
 	} else if (ast->type == Math_Expr_Type::unary_operator) {
+		int prec = precedence(ast);
+		int prec0 = precedence(ast->exprs[0]);
+		auto unary = static_cast<Unary_Operator_AST *>(ast);
+		print_oper(context, unary->oper);
 		
-		
+		if(prec0 < prec)
+			context.ss << "\\left(";
+		print_equation(context, unary->exprs[0]);
+		if(prec0 < prec)
+			context.ss << "\\right)";
 		
 	} else if (ast->type == Math_Expr_Type::cast) {
 		
@@ -384,8 +432,14 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			
 			ss << "#### *" << flux->name << "*\n\n";
 			
-			ss << "Source: (to be implemented)\n\n";
-			ss << "Target: (to be implemented)\n\n";
+			ss << "Source: ";
+			auto source = flux->decl->args[0];
+			print_double_chain(ss, source->chain, source->bracketed_chain);
+			ss << "\n\n";
+			ss << "Target: ";
+			auto target = flux->decl->args[1];
+			print_double_chain(ss, target->chain, target->bracketed_chain);
+			ss << "\n\n";
 			ss << "Unit: " << unit_str(model, flux->unit) << "\n\n";
 			
 			Print_Equation_Context context;
@@ -454,6 +508,8 @@ main() {
 	std::vector<std::vector<const char *>> models = {
 		{"SimplyQ", "simplyq_model.txt", "SimplyQ land", "SimplyQ river"},
 		{"SimplyC", "simplyc_model.txt", "SimplyC land", "SimplyC river"},
+		{"SimplyN", "simplyn_model.txt", "SimplyN"},
+		{"SimplyP", "simplyp_model.txt", "SimplySed", "SimplyP"},
 	};
 	
 	for(int i = 0; i < models.size(); ++i)

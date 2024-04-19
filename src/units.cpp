@@ -449,7 +449,9 @@ Unit_Data::to_decl_str() {
 template<typename T> void
 print_latex_rational(std::stringstream &ss, Rational<T> r) {
 	if(r.denom != 1) {
-		ss << "\\frac{" << r.nom << "}{" << r.denom << "}";
+		if(r.nom > 0)
+			ss << "-";
+		ss << "\\frac{" << std::abs(r.nom) << "}{" << r.denom << "}";
 	} else {
 		ss << r.nom;
 	}
@@ -464,9 +466,11 @@ Unit_Data::to_latex() {
 		ss << "1";
 	
 	for(auto &part : declared_form) {
+		ss << "\\mathrm{";
 		if(part.magnitude != 0)
 			ss << get_si_prefix(part.magnitude, false);
 		ss << unit_symbols[(int)part.unit]; //TODO: Do we need a separate LaTeX version for greek letters?
+		ss << "}"; // end mathrm
 		if(part.power != Rational<s16>(1)) {
 			ss << "^{";
 			print_latex_rational(ss, part.power);

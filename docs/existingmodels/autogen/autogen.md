@@ -10,4 +10,6 @@ has_children: true
 
 Here is documentation for some of the modules that is auto-generated based on the model files.
 
+Some of the concepts (like State Variable, Flux) will be better explained once the language documentation is written.
+
 (This is work in progress and may be broken in some aspects).
