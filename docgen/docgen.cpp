@@ -331,11 +331,18 @@ equation_str(Print_Equation_Context &context, Math_Expr_AST *code) {
 	return context.ss.str();
 }
 
+
+// TODO: Document library, insert links to library functions in code where they are used.
+
 void
 document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_name) {
 	auto module_id = model->deserialize(module_name, Reg_Type::module);
 	auto module = model->modules[module_id];
 	auto modtemplate = model->module_templates[module->template_id];
+	
+	// TODO: Link to individual module code.
+	
+	// TODO: Document module functions and constants
 	
 	ss << "## " << module->name << "\n\n";
 	auto &ver = modtemplate->version;
@@ -513,6 +520,7 @@ main() {
 		{"SimplyC", "simplyc_model.txt", "SimplyC land", "SimplyC river"},
 		{"SimplyN", "simplyn_model.txt", "SimplyN"},
 		{"SimplyP", "simplyp_model.txt", "SimplySed", "SimplyP"},
+		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "EasyChem", "EasyChem-Particulate"},
 	};
 	
 	for(int i = 0; i < models.size(); ++i)

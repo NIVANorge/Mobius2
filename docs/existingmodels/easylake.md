@@ -13,6 +13,7 @@ This documentation is yet to be written. We apologize for the inconvenience.
 
 ![EasyLake](../img/EasyLake.png)
 
+See the [mathematical description](autogen/easylake.html).
 
 ## EasyChem
 
