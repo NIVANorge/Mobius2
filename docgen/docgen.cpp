@@ -325,6 +325,10 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 			context.ss << "\\mathrm{log}_{10}\left(";
 			print_equation(context, fun->exprs[0]);
 			context.ss << "\right)";
+		} else if (fun->name.string_value == "abs") {
+			context.ss << "\\left|";
+			print_equation(context, fun->exprs[0]);
+			context.ss << "\\right|";
 		} else {
 			std::string fun_name = fun->name.string_value;
 			auto reg = (*context.scope)[fun_name];
@@ -393,8 +397,11 @@ print_function_definition(Mobius_Model *model, Decl_Scope *scope, Entity_Id fun_
 	for(int i = 0; i < fun->args.size(); ++i) {
 		if(!first) ss << ", ";
 		ss << fun->args[i];
-		if(is_valid(fun->expected_units[i]))
-			ss << " : " << unit_str(model, fun->expected_units[i]);
+		if(is_valid(fun->expected_units[i])) {
+			auto unit = model->units[fun->expected_units[i]];
+			if(!unit->data.standard_form.is_fully_dimensionless())
+				ss << " : " << unit_str(model, fun->expected_units[i]);
+		}
 		first = false;
 	}
 	ss << ")** = \n\n";
@@ -408,6 +415,31 @@ print_function_definition(Mobius_Model *model, Decl_Scope *scope, Entity_Id fun_
 	ss << equation_str(context, fun->code);
 	
 	ss << "\n$$\n\n";
+}
+
+void
+print_constants(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope) {
+	auto constants = scope->by_type<Reg_Type::constant>();
+	if(constants.size() > 0) {
+		
+		ss << "### Constants\n\n";
+		ss << "| Name | Symbol | Unit | Value |\n";
+		ss << "| ---- | ------ | ---- | ----- |\n";
+		
+		for(auto const_id : constants) {
+			auto con = model->constants[const_id];
+			ss << "| " << con->name << " | " << model->get_symbol(const_id) << " | " << unit_str(model, con->unit) << " | ";
+			if(con->value_type == Value_Type::real) {
+				ss << con->value.val_real;
+			} else if (con->value_type == Value_Type::boolean) {
+				ss << con->value.val_boolean;
+			} else
+				fatal_error(Mobius_Error::internal, "Unsupported constant value type.");
+			ss << " |\n";
+		
+		}
+		ss << "\n";
+	}
 }
 
 
@@ -444,19 +476,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 	}
 	ss << "\n";
 	
-	auto constants = module->scope.by_type<Reg_Type::constant>();
-	if(constants.size() > 0) {
-		
-		ss << "### Constants\n\n";
-		ss << "| Name | Symbol | Unit |\n";
-		ss << "| ---- | ------ | ---- |\n";
-		
-		for(auto const_id : constants) {
-			auto con = model->constants[const_id];
-			ss << "| " << con->name << " | " << model->get_symbol(const_id) << " | " << unit_str(model, con->unit), " |\n";
-		}
-		ss << "\n";
-	}
+	print_constants(ss, model, &module->scope);
 	
 	auto funs = module->scope.by_type<Reg_Type::function>();
 	if(funs.size() > 0) {
@@ -634,19 +654,7 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 	
 	// Hmm, could factor this out from document_module:
 	
-	auto constants = lib->scope.by_type<Reg_Type::constant>();
-	if(constants.size() > 0) {
-		
-		ss << "### Constants\n\n";
-		ss << "| Name | Symbol | Unit |\n";
-		ss << "| ---- | ------ | ---- |\n";
-		
-		for(auto const_id : constants) {
-			auto con = model->constants[const_id];
-			ss << "| " << con->name << " | " << model->get_symbol(const_id) << " | " << unit_str(model, con->unit) << " |\n";
-		}
-		ss << "\n";
-	}
+	print_constants(ss, model, &lib->scope);
 	
 	auto funs = lib->scope.by_type<Reg_Type::function>();
 	if(funs.size() > 0) {

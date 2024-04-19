@@ -12,7 +12,7 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 13:02:42.
+The file was generated at 2024-04-19 13:14:46.
 
 ---
 
@@ -26,13 +26,13 @@ File: [stdlib/atmospheric.txt](https://github.com/NIVANorge/Mobius2/tree/main/st
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Specific heat capacity of air | C_air | J kg⁻¹ K⁻¹ |
-| Specific heat capacity of moist air | C_moist_air | kJ kg⁻¹ K⁻¹ |
-| Molar ratio to mass ratio of vapor in air | vapor_mol_to_mass |  |
-| Specific gas constant of dry air | Rdry_air | J kg⁻¹ K⁻¹ |
-| Specific gas constant of vapor | Rvap_air | J kg⁻¹ K⁻¹ |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Specific heat capacity of air | C_air | J kg⁻¹ K⁻¹ | 1008 |
+| Specific heat capacity of moist air | C_moist_air | kJ kg⁻¹ K⁻¹ | 1.013 |
+| Molar ratio to mass ratio of vapor in air | vapor_mol_to_mass |  | 0.62198 |
+| Specific gas constant of dry air | Rdry_air | J kg⁻¹ K⁻¹ | 287.058 |
+| Specific gas constant of vapor | Rvap_air | J kg⁻¹ K⁻¹ | 461.495 |
 
 ### Library functions
 
@@ -96,9 +96,9 @@ File: [stdlib/atmospheric.txt](https://github.com/NIVANorge/Mobius2/tree/main/st
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Solar constant | solar_constant | W m⁻² |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Solar constant | solar_constant | W m⁻² | 1361 |
 
 ### Library functions
 
@@ -114,7 +114,7 @@ $$
 \mathrm{b} = 2\cdot \pi\cdot \frac{\mathrm{day\_of\_year}-81 \mathrm{day}\,}{365 \mathrm{day}\,} \\ \mathrm{eot} = \left(9.87\cdot \mathrm{sin}\left(2\cdot \mathrm{b}\right)-7.53\cdot \mathrm{cos}\left(\mathrm{b}\right)-1.5\cdot \mathrm{sin}\left(\mathrm{b}\right)\Rightarrow \mathrm{hr}\,\right) \\ \mathrm{lsmt} = 15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \mathrm{time\_zone} \\ \mathrm{ast} = \mathrm{hour\_of\_day}+\mathrm{eot}+\left(4 \mathrm{min}\,\mathrm{°}^{-1}\,\cdot \left(\mathrm{lsmt}-\mathrm{longitude}\right)\rightarrow \mathrm{hr}\,\right) \\ \href{stdlib.html#basic}{\mathrm{radians}}\left(15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \left(\mathrm{ast}-12 \mathrm{hr}\,\right)\right)
 $$
 
-**cos_zenith_angle(hour_a : , day_of_year : day, latitude : °)** = 
+**cos_zenith_angle(hour_a, day_of_year : day, latitude : °)** = 
 
 $$
 \mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{cz} = \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{cos}\left(\mathrm{hour\_a}\right) \\ \mathrm{max}\left(0,\, \mathrm{cz}\right)
@@ -132,7 +132,7 @@ $$
 \mathrm{orbit\_rad} = \frac{2\cdot \pi\cdot \mathrm{day\_of\_year}}{365 \mathrm{day}\,} \\ \mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{inv\_rel\_dist\_earth\_sun} = 1+0.033\cdot \mathrm{cos}\left(\mathrm{orbit\_rad}\right) \\ \frac{\mathrm{solar\_constant}}{\pi}\cdot \mathrm{inv\_rel\_dist\_earth\_sun}\cdot \left(\mathrm{sunset\_hour\_angle}\cdot \mathrm{sin}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{sin}\left(\mathrm{solar\_decl}\right)+\mathrm{cos}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{cos}\left(\mathrm{solar\_decl}\right)\cdot \mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)\right)
 $$
 
-**hourly_average_radiation(daily_avg_rad : W m⁻², day_of_year : day, latitude : °, hour_angle : )** = 
+**hourly_average_radiation(daily_avg_rad : W m⁻², day_of_year : day, latitude : °, hour_angle)** = 
 
 $$
 \mathrm{lat\_rad} = \href{stdlib.html#basic}{\mathrm{radians}}\left(\mathrm{latitude}\right) \\ \mathrm{solar\_decl} = \href{stdlib.html#radiation}{\mathrm{solar\_declination}}\left(\mathrm{day\_of\_year}\right) \\ \mathrm{sunset\_hour\_angle} = \mathrm{acos}\left(-\mathrm{tan}\left(\mathrm{lat\_rad}\right)\cdot \mathrm{tan}\left(\mathrm{solar\_decl}\right)\right) \\ \mathrm{cosshr} = \mathrm{cos}\left(\mathrm{sunset\_hour\_angle}\right) \\ \mathrm{factor} = \pi\cdot \frac{\mathrm{cos}\left(\mathrm{hour\_angle}\right)-\mathrm{cosshr}}{\mathrm{sin}\left(\mathrm{sunset\_hour\_angle}\right)-\mathrm{sunset\_hour\_angle}\cdot \mathrm{cosshr}} \\ \mathrm{daily\_avg\_rad}\cdot \mathrm{max}\left(0,\, \mathrm{factor}\right)
@@ -144,7 +144,7 @@ $$
 \mathrm{extrad}\cdot \left(0.75+2e-05 \mathrm{m}^{-1}\,\cdot \mathrm{elev}\right)
 $$
 
-**downwelling_longwave(air_temp : °C, a_vap : hPa, cloud : )** = 
+**downwelling_longwave(air_temp : °C, a_vap : hPa, cloud)** = 
 
 $$
 \mathrm{air\_t} = \left(\mathrm{air\_temp}\rightarrow \mathrm{K}\,\right) \\ \mathrm{dpt} = \href{stdlib.html#meteorology}{\mathrm{dew\_point\_temperature}}\left(\mathrm{a\_vap}\right) \\ \mathrm{dew\_point\_depression} = \mathrm{dpt}-\mathrm{air\_t} \\ \mathrm{cloud\_effect} = \left(10.77\cdot \mathrm{cloud}^{2}+2.34\cdot \mathrm{cloud}-18.44\Rightarrow \mathrm{K}\,\right) \\ \mathrm{vapor\_effect} = 0.84\cdot \left(\mathrm{dew\_point\_depression}+4.01 \mathrm{K}\,\right) \\ \mathrm{eff\_t} = \mathrm{air\_t}+\mathrm{cloud\_effect}+\mathrm{vapor\_effect} \\ \href{stdlib.html#thermodynamics}{\mathrm{black\_body\_radiation}}\left(\mathrm{eff\_t}\right)
@@ -162,9 +162,9 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Earth surface gravity | grav | m s⁻² |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Earth surface gravity | grav | m s⁻² | 9.81 |
 
 ---
 
@@ -178,11 +178,11 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Ideal gas constant | ideal_gas | J K⁻¹ mol⁻¹ |
-| Boltzmann constant | boltzmann | J K⁻¹ |
-| Stefan-Boltzmann constant | stefan_boltzmann | W m⁻² K⁻⁴ |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Ideal gas constant | ideal_gas | J K⁻¹ mol⁻¹ | 8.31446 |
+| Boltzmann constant | boltzmann | J K⁻¹ | 1.38065e-23 |
+| Stefan-Boltzmann constant | stefan_boltzmann | W m⁻² K⁻⁴ | 5.67037e-08 |
 
 ### Library functions
 
@@ -192,7 +192,7 @@ $$
 \mathrm{stefan\_boltzmann}\cdot \mathrm{T\_kelvin}^{4}
 $$
 
-**enthalpy_adjust_log10(log10ref : , ref_T : K, T : K, dU : kJ mol⁻¹)** = 
+**enthalpy_adjust_log10(log10ref, ref_T : K, T : K, dU : kJ mol⁻¹)** = 
 
 $$
 \mathrm{du} = \left(\mathrm{dU}\rightarrow \mathrm{J}\,\mathrm{mol}^{-1}\,\right) \\ \mathrm{log10ref}-\frac{\mathrm{du}}{\mathrm{ideal\_gas}\cdot \mathrm{ln}\left(10\right)}\cdot \left(\frac{1}{\mathrm{T}}-\frac{1}{\mathrm{ref\_T}}\right)
@@ -210,13 +210,13 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Water density | rho_water | kg m⁻³ |
-| Specific heat capacity of water | C_water | J kg⁻¹ K⁻¹ |
-| Thermal conductivity of water | k_water | W m⁻¹ K⁻¹ |
-| Refraction index of water | refraction_index_water |  |
-| Refraction index of ice | refraction_index_ice |  |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Water density | rho_water | kg m⁻³ | 999.98 |
+| Specific heat capacity of water | C_water | J kg⁻¹ K⁻¹ | 4186 |
+| Thermal conductivity of water | k_water | W m⁻¹ K⁻¹ | 0.6 |
+| Refraction index of water | refraction_index_water |  | 1.33 |
+| Refraction index of ice | refraction_index_ice |  | 1.31 |
 
 ### Library functions
 
@@ -262,12 +262,12 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Molecular volume of air at surface pressure | molvol_air | cm³ mol⁻¹ |
-| Molecular mass of air | molmass_air | g mol⁻¹ |
-| Molecular volume of H2O vapour at surface pressure | molvol_h2o | cm³ mol⁻¹ |
-| Molecular mass of H2O | molmass_h2o | g mol⁻¹ |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Molecular volume of air at surface pressure | molvol_air | cm³ mol⁻¹ | 20.1 |
+| Molecular mass of air | molmass_air | g mol⁻¹ | 28.97 |
+| Molecular volume of H2O vapour at surface pressure | molvol_h2o | cm³ mol⁻¹ | 22.41 |
+| Molecular mass of H2O | molmass_h2o | g mol⁻¹ | 18 |
 
 ### Library functions
 
@@ -307,37 +307,37 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| O₂ molar mass | o2_mol_mass | g mol⁻¹ |
-| C molar mass | c_mol_mass | g mol⁻¹ |
-| N molar mass | n_mol_mass | g mol⁻¹ |
-| P molar mass | p_mol_mass | g mol⁻¹ |
-| NO₃ molar mass | no3_mol_mass | g mol⁻¹ |
-| PO₄ molar mass | po4_mol_mass | g mol⁻¹ |
-| Ca molar mass | ca_mol_mass | g mol⁻¹ |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| O₂ molar mass | o2_mol_mass | g mol⁻¹ | 31.998 |
+| C molar mass | c_mol_mass | g mol⁻¹ | 12 |
+| N molar mass | n_mol_mass | g mol⁻¹ | 14.01 |
+| P molar mass | p_mol_mass | g mol⁻¹ | 30.97 |
+| NO₃ molar mass | no3_mol_mass | g mol⁻¹ | 62 |
+| PO₄ molar mass | po4_mol_mass | g mol⁻¹ | 94.9714 |
+| Ca molar mass | ca_mol_mass | g mol⁻¹ | 40.078 |
 
 ### Library functions
 
-**nc_molar_to_mass_ratio(nc_molar : )** = 
+**nc_molar_to_mass_ratio(nc_molar)** = 
 
 $$
 \mathrm{nc\_molar}\cdot \frac{\mathrm{n\_mol\_mass}}{\mathrm{c\_mol\_mass}}
 $$
 
-**pc_molar_to_mass_ratio(pc_molar : )** = 
+**pc_molar_to_mass_ratio(pc_molar)** = 
 
 $$
 \mathrm{pc\_molar}\cdot \frac{\mathrm{p\_mol\_mass}}{\mathrm{c\_mol\_mass}}
 $$
 
-**cn_molar_to_mass_ratio(cn_molar : )** = 
+**cn_molar_to_mass_ratio(cn_molar)** = 
 
 $$
 \mathrm{cn\_molar}\cdot \frac{\mathrm{c\_mol\_mass}}{\mathrm{n\_mol\_mass}}
 $$
 
-**cp_molar_to_mass_ratio(cp_molar : )** = 
+**cp_molar_to_mass_ratio(cp_molar)** = 
 
 $$
 \mathrm{cp\_molar}\cdot \frac{\mathrm{c\_mol\_mass}}{\mathrm{p\_mol\_mass}}
@@ -364,7 +364,7 @@ $$
 **close(a, b, tol)** = 
 
 $$
-\mathrm{abs}\left(\mathrm{a}-\mathrm{b}\right)<\mathrm{tol}
+\left|\mathrm{a}-\mathrm{b}\right|<\mathrm{tol}
 $$
 
 **clamp(a, mn, mx)** = 
@@ -403,7 +403,7 @@ $$
 \frac{\mathrm{ln}\left(2\right)}{\mathrm{rate}}
 $$
 
-**q10_adjust(ref_rate, ref_temp : °C, temp : °C, q10 : )** = 
+**q10_adjust(ref_rate, ref_temp : °C, temp : °C, q10)** = 
 
 $$
 \mathrm{ref\_rate}\cdot \mathrm{q10}^{\frac{\mathrm{temp}-\mathrm{ref\_temp}}{10 \mathrm{°C}\,}}
@@ -474,22 +474,22 @@ The implementation used here is influenced by the implementation in [GOTM](https
 **surface_stability(wind : m s⁻¹, water_temp : °C, air_temp : °C)** = 
 
 $$
-\mathrm{ww} = \mathrm{wind}+1e-10 \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.25\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\mathrm{abs}\left(\mathrm{s0}\right)}{\mathrm{abs}\left(\mathrm{s0}\right)+0.01}
+\mathrm{ww} = \mathrm{wind}+1e-10 \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.25\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\left|\mathrm{s0}\right|}{\left|\mathrm{s0}\right|+0.01}
 $$
 
-**stab_modify(wind : m s⁻¹, stab : )** = 
+**stab_modify(wind : m s⁻¹, stab)** = 
 
 $$
-\begin{cases}0 & \text{if}\;\mathrm{abs}\left(\mathrm{wind}\right)<0.001 \mathrm{m}\,\mathrm{s}^{-1}\, \\ 0.1+0.03\cdot \mathrm{stab}\cdot 0.9\cdot e^{4.8\cdot \mathrm{stab}} & \text{if}\;\mathrm{stab}<0\;\text{and}\;\mathrm{stab}>-3.3 \\ 0 & \text{if}\;\mathrm{stab}<0 \\ 1+0.63\cdot \sqrt{\mathrm{stab}} & \text{otherwise}\end{cases}
+\begin{cases}0 & \text{if}\;\left|\mathrm{wind}\right|<0.001 \mathrm{m}\,\mathrm{s}^{-1}\, \\ 0.1+0.03\cdot \mathrm{stab}\cdot 0.9\cdot e^{4.8\cdot \mathrm{stab}} & \text{if}\;\mathrm{stab}<0\;\text{and}\;\mathrm{stab}>-3.3 \\ 0 & \text{if}\;\mathrm{stab}<0 \\ 1+0.63\cdot \sqrt{\mathrm{stab}} & \text{otherwise}\end{cases}
 $$
 
-**tc_latent_heat(wind : m s⁻¹, stability : )** = 
+**tc_latent_heat(wind : m s⁻¹, stability)** = 
 
 $$
 \mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
-**tc_sensible_heat(wind : m s⁻¹, stability : )** = 
+**tc_sensible_heat(wind : m s⁻¹, stability)** = 
 
 $$
 \mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+1e-12 \\ \mathrm{expr}\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
@@ -507,13 +507,13 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Ice formation temperature salinity dependence | fr_t_s | °C |
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Ice formation temperature salinity dependence | fr_t_s | °C | 0.056 |
 
 ### Library functions
 
-**ice_formation_temperature(S : )** = 
+**ice_formation_temperature(S)** = 
 
 $$
 -\mathrm{S}\cdot \mathrm{fr\_t\_s}
@@ -525,7 +525,7 @@ $$
 \mathrm{a0} = 999.843 \\ \mathrm{a1} = 0.0679395 \\ \mathrm{a2} = -0.00909529 \\ \mathrm{a3} = 0.000100169 \\ \mathrm{a4} = -1.12008e-06 \\ \mathrm{a5} = 6.53633e-09 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \left(\mathrm{a0}+\left(\mathrm{a1}+\left(\mathrm{a2}+\left(\mathrm{a3}+\left(\mathrm{a4}+\mathrm{a5}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
 $$
 
-**seawater_pot_dens(T : °C, S : )** = 
+**seawater_pot_dens(T : °C, S)** = 
 
 $$
 \mathrm{b0} = 0.824493 \\ \mathrm{b1} = -0.0040899 \\ \mathrm{b2} = 7.6438e-05 \\ \mathrm{b3} = -8.2467e-07 \\ \mathrm{b4} = 5.3875e-09 \\ \mathrm{c0} = -0.00572466 \\ \mathrm{c1} = 0.00010227 \\ \mathrm{c2} = -1.6546e-06 \\ \mathrm{d0} = 0.00048314 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \href{stdlib.html#seawater}{\mathrm{seawater\_dens\_standard\_mean}}\left(\mathrm{T}\right)+\left(\left(\mathrm{b0}+\left(\mathrm{b1}+\left(\mathrm{b2}+\left(\mathrm{b3}+\mathrm{b4}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}+\left(\mathrm{c0}+\left(\mathrm{c1}+\mathrm{c2}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}\cdot \sqrt{\mathrm{S}}+\mathrm{d0}\cdot \mathrm{S}^{2}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
@@ -537,13 +537,13 @@ $$
 \mathrm{eta20} = 0.001002 \mathrm{Pa}\,\mathrm{s}\, \\ \mathrm{tm20} = 20 \mathrm{°C}\,-\mathrm{T} \\ \mathrm{lograt} = \frac{1.1709\cdot \mathrm{tm20}-0.001827 \mathrm{°C}^{-1}\,\cdot \mathrm{tm20}^{2}}{\mathrm{T}+89.93 \mathrm{°C}\,} \\ \mathrm{eta20}\cdot 10^{\mathrm{lograt}}
 $$
 
-**dynamic_viscosity_sea_water(T : °C, S : )** = 
+**dynamic_viscosity_sea_water(T : °C, S)** = 
 
 $$
 \mathrm{eta\_t} = \href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_fresh\_water}}\left(\mathrm{T}\right) \\ \mathrm{a} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.000366,\, 0.001403\right) \\ \mathrm{b} = \href{stdlib.html#response}{\mathrm{lerp}}\left(\mathrm{T},\, 5 \mathrm{°C}\,,\, 25 \mathrm{°C}\,,\, 0.002756,\, 0.003416\right) \\ \mathrm{cl} = \mathrm{max}\left(0,\, \frac{\mathrm{S}-0.03}{1.805}\right) \\ \mathrm{clv} = \left(\href{stdlib.html#seawater}{\mathrm{seawater\_pot\_dens}}\left(\mathrm{T},\, \mathrm{S}\right)\cdot \mathrm{cl}\Rightarrow 1\right) \\ \mathrm{eta\_t}\cdot \left(1+\mathrm{a}\cdot \sqrt{\mathrm{clv}}+\mathrm{b}\cdot \mathrm{clv}\right)
 $$
 
-**diffusivity_in_water(ref_diff, ref_T : °C, ref_S : , T : °C, S : )** = 
+**diffusivity_in_water(ref_diff, ref_T : °C, ref_S, T : °C, S)** = 
 
 $$
 \mathrm{ref\_diff}\cdot \frac{\href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_sea\_water}}\left(\mathrm{ref\_T},\, \mathrm{ref\_S}\right)}{\href{stdlib.html#seawater}{\mathrm{dynamic\_viscosity\_sea\_water}}\left(\mathrm{T},\, \mathrm{S}\right)}\cdot \frac{\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)}{\left(\mathrm{ref\_T}\rightarrow \mathrm{K}\,\right)}
@@ -561,7 +561,7 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 
 ### Library functions
 
-**o2_saturation(T : °C, S : )** = 
+**o2_saturation(T : °C, S)** = 
 
 $$
 \mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \left(e^{-135.902+\frac{157570}{\mathrm{T\_k}}-\frac{6.64231e+07}{\mathrm{T\_k}^{2}}+\frac{1.2438e+10}{\mathrm{T\_k}^{3}}-\frac{8.62195e+11}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{T\_k}}+\frac{2140.7}{\mathrm{T\_k}^{2}}\right)}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)

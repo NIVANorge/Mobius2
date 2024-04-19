@@ -11,7 +11,7 @@ nav_order: 4
 This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 13:02:42.
+The file was generated at 2024-04-19 13:14:46.
 
 ---
 
@@ -46,31 +46,31 @@ but allows for more specific parametrization of the lake shape.
 
 ### Module functions
 
-**shape_cross_section_A(A_0 : m², z_0 : m, z : m, theta : )** = 
+**shape_cross_section_A(A_0 : m², z_0 : m, z : m, theta)** = 
 
 $$
 \mathrm{A\_0}\cdot \left(\frac{\mathrm{z}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}
 $$
 
-**shape_tip_V(A_0 : m², z_0 : m, z : m, theta : )** = 
+**shape_tip_V(A_0 : m², z_0 : m, z : m, theta)** = 
 
 $$
 \mathrm{A\_0}\cdot \mathrm{z}\cdot \frac{\left(\frac{\mathrm{z}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}}{\mathrm{theta}+2}
 $$
 
-**shape_section_V(A_0 : m², z_0 : m, z1 : m, z2 : m, theta : )** = 
+**shape_section_V(A_0 : m², z_0 : m, z1 : m, z2 : m, theta)** = 
 
 $$
 \mathrm{shape\_tip\_V}\left(\mathrm{A\_0},\, \mathrm{z\_0},\, \mathrm{z1},\, \mathrm{theta}\right)-\mathrm{shape\_tip\_V}\left(\mathrm{A\_0},\, \mathrm{z\_0},\, \mathrm{z2},\, \mathrm{theta}\right)
 $$
 
-**shape_tip_z(A_0 : m², z_0 : m, V : m³, theta : )** = 
+**shape_tip_z(A_0 : m², z_0 : m, V : m³, theta)** = 
 
 $$
 \mathrm{zz\_0} = \left(\mathrm{z\_0}\Rightarrow 1\right) \\ \mathrm{f} = \left(\mathrm{V}\cdot \left(\mathrm{theta}+2\right)\cdot \frac{\mathrm{zz\_0}^{\mathrm{theta}+1}}{\mathrm{A\_0}}\Rightarrow 1\right) \\ \left(\mathrm{f}^{\frac{1}{\mathrm{theta}+2}}\Rightarrow \mathrm{m}\,\right)
 $$
 
-**hypo_temperature_integral(A_0 : m², T_e : °C, T_b : °C, z_e : m, z_0 : m, theta : )** = 
+**hypo_temperature_integral(A_0 : m², T_e : °C, T_b : °C, z_e : m, z_0 : m, theta)** = 
 
 $$
 \left(2\cdot \mathrm{T\_b}+\left(\mathrm{theta}+2\right)\cdot \mathrm{T\_e}\right)\cdot \mathrm{A\_0}\cdot \frac{\mathrm{z\_e}^{3}\cdot \left(\frac{\mathrm{z\_e}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}}{\left(\mathrm{theta}^{2}+6\cdot \mathrm{theta}+8\right)\cdot \mathrm{z\_e}^{2}}
@@ -246,7 +246,7 @@ Unit:
 Value:
 
 $$
-\mathrm{abs}\left(\mathrm{water}.\mathrm{temp}-\mathrm{hyp}.\mathrm{water}.\mathrm{temp}\right)<0.4 \mathrm{°C}\,
+\left|\mathrm{water}.\mathrm{temp}-\mathrm{hyp}.\mathrm{water}.\mathrm{temp}\right|<0.4 \mathrm{°C}\,
 $$
 
 ### Fluxes
@@ -351,9 +351,12 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 
 ### Constants
 
-| Name | Symbol | Unit |
-| ---- | ------ | ---- |
-| Fraction of PAR in SW radiation | f_par | | Phytoplankton increased death rate from anoxicity | phyt_death_anox | | Anoxicity threshold | anox_threshold | mg l⁻¹
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Fraction of PAR in SW radiation | f_par |  | 0.45 |
+| Phytoplankton increased death rate from anoxicity | phyt_death_anox |  | 10 |
+| Anoxicity threshold | anox_threshold | mg l⁻¹ | 2 |
+
 ### Parameters
 
 | Name | Symbol | Unit |  Description |
