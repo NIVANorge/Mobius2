@@ -220,14 +220,14 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 			print_equation(context, ast->exprs[0]);
 		} else {
 			if(!outer)
-				context.ss << "\\begin{matrix}";
+				context.ss << "\\begin{pmatrix}";
 			for(int i = 0; i < ast->exprs.size(); ++i) {
 				print_equation(context, ast->exprs[i]);
 				if(i != (int)ast->exprs.size()-1)
 					context.ss << " \\\\ ";
 			}
 			if(!outer)
-				context.ss << "\\end{matrix}";
+				context.ss << "\\end{pmatrix}";
 		}
 	} else if (ast->type == Math_Expr_Type::binary_operator) {
 		auto binop = static_cast<Binary_Operator_AST *>(ast);
