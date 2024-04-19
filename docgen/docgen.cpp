@@ -38,8 +38,27 @@ replace(std::string &str, const char *substring, const char *replacement) {
 }
 
 std::string
-unit_str(Mobius_Model *model, Entity_Id unit_id) {
-	return (is_valid(unit_id) ? model->units[unit_id]->data.to_utf8() : "");
+unit_str(Mobius_Model *model, Entity_Id unit_id, bool enclose = true) {
+	if(is_valid(unit_id)) {
+		auto unit = model->units[unit_id];
+		if(enclose) {
+			return "$$" + unit->data.to_latex() + "$$";
+		}
+		return unit->data.to_latex();
+	}
+	return "";
+}
+
+
+int
+precedence(Math_Expr_AST *expr) {
+	if(expr->type == Math_Expr_Type::binary_operator) {
+		auto binop = static_cast<Binary_Operator_AST *>(expr);
+		return operator_precedence(binop->oper);
+	}
+	if(expr->type == Math_Expr_Type::unary_operator)
+		return 50'000;
+	return 1000'000;
 }
 
 
@@ -67,39 +86,45 @@ loc_str(Decl_Scope *scope, Var_Location &loc) {
 	}
 }
 
+struct
+Print_Equation_Context {
+	std::stringstream ss;
+	std::string outer_unit;
+};
+
 void
-print_oper(std::stringstream &ss, Token_Type oper) {
+print_oper(Print_Equation_Context &context, Token_Type oper) {
 	auto c = (char)oper;
 	if(c == '*')
-		ss << "\\cdot ";
+		context.ss << "\\cdot ";
 	else
-		ss << c;
+		context.ss << c;
 	// TODO: Probably have to handle many other types!
 }
 
 void
-print_ident(std::stringstream &ss, String_View ident) {
+print_ident(Print_Equation_Context &context, String_View ident) {
 	std::string res = ident;
 	if(res == "pi")
-		ss << "\\pi";
+		context.ss << "\\pi";
 	else {
 		replace(res, "_", "\\_");
-		ss << "\\mathrm{" << res << "}";
+		context.ss << "\\mathrm{" << res << "}";
 	}
 }
 
 void
-print_chain(std::stringstream &ss, std::vector<Token> &chain) {
+print_chain(Print_Equation_Context &context, std::vector<Token> &chain) {
 	bool begin = true;
 	for(auto &t : chain) {
-		if(!begin) ss << '.';
-		print_ident(ss, t.string_value);
+		if(!begin) context.ss << '.';
+		print_ident(context, t.string_value);
 		begin = false;
 	}
 }
 
 void
-print_unit_ast(std::stringstream &ss, Unit_Convert_AST *conv, bool print_identity) {
+print_unit_ast(Print_Equation_Context &context, Unit_Convert_AST *conv, bool print_identity) {
 	if(conv->unit) {
 		Unit_Data data;
 		data.set_data(conv->unit);
@@ -107,49 +132,56 @@ print_unit_ast(std::stringstream &ss, Unit_Convert_AST *conv, bool print_identit
 		// TODO: Must be more robust. If it is another number, should insert a \cdot also.
 		if(!print_identity && str=="1")
 			return;
-		ss << str;
+		context.ss << str;
 	} else if (conv->by_identifier) {
-		print_ident(ss, conv->unit_identifier.string_value);
-	} else {
-		ss << "\\mathrm{some\\_unit}"; //TODO: Need latex formatting of units.
-	}
+		print_ident(context, conv->unit_identifier.string_value);
+	} else if (conv->auto_convert) {
+		context.ss << context.outer_unit;
+	} else
+		fatal_error(Mobius_Error::internal, "Unrecognized unit conversion type.");
 }
 
 // TODO: Also have to make a precedence system like in the other print_expression.
 // Could we unify code with that??
 void
-print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Math_Expr_AST *ast, bool outer = false) {
+print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer = false) {
 	if(ast->type == Math_Expr_Type::block) {
 		if(outer) {
 			for(int i = 0; i < ast->exprs.size(); ++i) {
-				print_equation(ss, model, scope, ast->exprs[i]);
+				print_equation(context, ast->exprs[i]);
 				if(i != (int)ast->exprs.size()-1)
-					ss << " \\\\ ";
+					context.ss << " \\\\ ";
 			}
 		} else {
-			ss << "\\mathrm{expr}";
+			context.ss << "\\mathrm{expr}";
 		}
 	} else if (ast->type == Math_Expr_Type::binary_operator) {
 		auto binop = static_cast<Binary_Operator_AST *>(ast);
 		auto c = (char)binop->oper;
 		if(c == '/') {
-			ss << "\\frac{";
-			print_equation(ss, model, scope, binop->exprs[0]);
-			ss << "}{";
-			print_equation(ss, model, scope, binop->exprs[1]);
-			ss << "}";
+			context.ss << "\\frac{";
+			print_equation(context, binop->exprs[0]);
+			context.ss << "}{";
+			print_equation(context, binop->exprs[1]);
+			context.ss << "}";
 		} else if(c == '^') {
-			print_equation(ss, model, scope, binop->exprs[0]);
-			ss << "^{";
-			print_equation(ss, model, scope, binop->exprs[1]);
-			ss << "}";
+			print_equation(context, binop->exprs[0]);
+			context.ss << "^{";
+			print_equation(context, binop->exprs[1]);
+			context.ss << "}";
 		} else {
-			print_equation(ss, model, scope, binop->exprs[0]);
-			print_oper(ss, binop->oper);
-			print_equation(ss, model, scope, binop->exprs[1]);
+			print_equation(context, binop->exprs[0]);
+			print_oper(context, binop->oper);
+			print_equation(context, binop->exprs[1]);
 		}
+	} else if (ast->type == Math_Expr_Type::unary_operator) {
+		
+		
+		
 	} else if (ast->type == Math_Expr_Type::cast) {
-		print_equation(ss, model, scope, ast->exprs[0], outer);
+		
+		print_equation(context, ast->exprs[0], outer);
+		
 	} else if (ast->type == Math_Expr_Type::unit_convert) {
 		
 		// TODO: Should this also adhere to operator precedence?
@@ -157,97 +189,97 @@ print_equation(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope, Ma
 		auto conv = static_cast<Unit_Convert_AST*>(ast);
 		
 		if(ast->exprs[0]->type == Math_Expr_Type::literal) {
-			print_equation(ss, model, scope, ast->exprs[0]);
-			ss << " ";
-			print_unit_ast(ss, conv, false);
+			print_equation(context, ast->exprs[0]);
+			context.ss << " ";
+			print_unit_ast(context, conv, false);
 		} else {
-			ss << "\\left(";
-			print_equation(ss, model, scope, ast->exprs[0]);
+			context.ss << "\\left(";
+			print_equation(context, ast->exprs[0]);
 			if(conv->force)
-				ss << "\\Rightarrow ";
+				context.ss << "\\Rightarrow ";
 			else
-				ss << "\\rightarrow ";
-			print_unit_ast(ss, conv, true);
-			ss << "\\right)";
+				context.ss << "\\rightarrow ";
+			print_unit_ast(context, conv, true);
+			context.ss << "\\right)";
 		}
 		
 	} else if (ast->type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_Chain_AST *>(ast);
-		print_chain(ss, ident->chain);
+		print_chain(context, ident->chain);
 		if(!ident->bracketed_chain.empty()) {
-			ss << "\\[";
-			print_chain(ss, ident->bracketed_chain);
-			ss << "\\]";
+			context.ss << "\\[";
+			print_chain(context, ident->bracketed_chain);
+			context.ss << "\\]";
 		}
 	} else if (ast->type == Math_Expr_Type::literal) {
 		auto literal = static_cast<Literal_AST *>(ast);
 		auto &v = literal->value;
 		if(v.type == Token_Type::integer)
-			ss << v.val_int;
+			context.ss << v.val_int;
 		else if(v.type == Token_Type::real)
-			ss << v.val_double;    // TODO: We want to format it better
+			context.ss << v.val_double;    // TODO: We want to format it better
 		else if(v.type == Token_Type::boolean)
-			ss << (v.val_bool ? "\\matrm{true}" : "\\mathrm{false}");
+			context.ss << (v.val_bool ? "\\matrm{true}" : "\\mathrm{false}");
 		else
 			fatal_error(Mobius_Error::internal, "Unhandled literal type");
 	} else if (ast->type == Math_Expr_Type::local_var) {
 		auto local = static_cast<Local_Var_AST *>(ast);
-		print_ident(ss, local->name.string_value);
-		ss << " = ";
-		print_equation(ss, model, scope, ast->exprs[0]);
+		print_ident(context, local->name.string_value);
+		context.ss << " = ";
+		print_equation(context, ast->exprs[0]);
 	} else if (ast->type == Math_Expr_Type::function_call) {
 		auto fun = static_cast<Function_Call_AST *>(ast);
 		if(fun->name.string_value == "exp") {
-			ss << "e^{";
-			print_equation(ss, model, scope, fun->exprs[0]);
-			ss << "}";
+			context.ss << "e^{";
+			print_equation(context, fun->exprs[0]);
+			context.ss << "}";
 		} else if(fun->name.string_value == "sqrt") {
-			ss << "\\sqrt{";
-			print_equation(ss, model, scope, fun->exprs[0]);
-			ss << "}";
+			context.ss << "\\sqrt{";
+			print_equation(context, fun->exprs[0]);
+			context.ss << "}";
 		} else if (fun->name.string_value == "cbrt") {
-			ss << "\\sqrt[3]{";
-			print_equation(ss, model, scope, fun->exprs[0]);
-			ss << "}";
+			context.ss << "\\sqrt[3]{";
+			print_equation(context, fun->exprs[0]);
+			context.ss << "}";
 		} else if (fun->name.string_value == "log10") {
-			ss << "\\mathrm{log}_{10}\left(";
-			print_equation(ss, model, scope, fun->exprs[0]);
-			ss << "\right)";
+			context.ss << "\\mathrm{log}_{10}\left(";
+			print_equation(context, fun->exprs[0]);
+			context.ss << "\right)";
 		} else {
-			print_ident(ss, fun->name.string_value);
-			ss << "\\left(";
+			print_ident(context, fun->name.string_value);
+			context.ss << "\\left(";
 			bool first = true;
 			for(auto expr : fun->exprs) {
-				if(!first) ss << ", ";
-				print_equation(ss, model, scope, expr);
+				if(!first) context.ss << ",\\, ";
+				print_equation(context, expr);
 				first = false;
 			}
-			ss << "\\right)";
+			context.ss << "\\right)";
 		}
 	} else if (ast->type == Math_Expr_Type::if_chain) {
-		ss << "\\begin{cases}";
+		context.ss << "\\begin{cases}";
 		int n_cases = ((int)ast->exprs.size() - 1)/2;
 		bool first = true;
 		for(int i = 0; i < n_cases; ++i) {
-			if(!first) ss << " \\\\ ";
-			print_equation(ss, model, scope, ast->exprs[2*i]);
-			ss << " & \\text{if}\\;";
-			print_equation(ss, model, scope, ast->exprs[2*i + 1]);
+			if(!first) context.ss << " \\\\ ";
+			print_equation(context, ast->exprs[2*i]);
+			context.ss << " & \\text{if}\\;";
+			print_equation(context, ast->exprs[2*i + 1]);
 			first = false;
 		}
-		ss << " \\\\ ";
-		print_equation(ss, model, scope, ast->exprs.back());
-		ss << " & \\text{otherwise}";
-		ss << "\\end{cases}";
+		context.ss << " \\\\ ";
+		print_equation(context, ast->exprs.back());
+		context.ss << " & \\text{otherwise}";
+		context.ss << "\\end{cases}";
 	} else {
-		ss << "\\mathrm{expr}";
+		context.ss << "\\mathrm{expr}";
 	}
 }
 
 std::string
-equation_str(Mobius_Model *model, Decl_Scope *scope, Math_Expr_AST *code) {
+equation_str(Print_Equation_Context &context, Math_Expr_AST *code) {
 	std::stringstream ss;
-	print_equation(ss, model, scope, code, true);
+	print_equation(context, code, true);
 	return ss.str();
 }
 
@@ -262,7 +294,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 	ss << "Version: " << ver.major << "." << ver.minor << "." << ver.revision << "\n\n";
 	if(!modtemplate->doc_string.empty()) {
 		// TODO: Ideally this should be put as a quote
-		ss << "### Docstring" << "\n\n" << modtemplate->doc_string << "\n\n";
+		ss << "### Description" << "\n\n" << modtemplate->doc_string << "\n\n";
 	}
 	
 	ss << "### External symbols\n\n";
@@ -275,7 +307,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		
 		if(!record.is_load_arg) continue;
 		
-		ss << "| " << entity->name << " | " << symbol << " | " << name(entity->decl_type) << " |\n";
+		ss << "| " << entity->name << " | **" << symbol << "** | " << name(entity->decl_type) << " |\n";
 	}
 	ss << "\n";
 	
@@ -321,19 +353,22 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			} else
 				ss << "#### *" << var->var_name << "*\n\n";
 			
-			ss << "Location: " << locstr << "\n\n";
+			ss << "Location: **" << locstr << "**\n\n";
 			ss << "Unit: " << unit_str(model, var->unit) << "\n\n";
 			if(is_valid(var->conc_unit))
 				ss << "Conc. unit: " << unit_str(model, var->conc_unit) << "\n\n";
 			
+			Print_Equation_Context context;
+			context.outer_unit = unit_str(model, var->unit, false);
+			
 			if(var->code || var->override_code) {
 				auto code = var->code ? var->code : var->override_code;
 				ss << "Value:\n\n";
-				ss << "$$\n" << equation_str(model, &module->scope, code) << "\n$$\n\n";
+				ss << "$$\n" << equation_str(context, code) << "\n$$\n\n";
 			}
 			if(var->initial_code) {
 				ss << "Initial value:\n\n";
-				ss << "$$\n" << equation_str(model, &module->scope, var->initial_code) << "\n$$\n\n";
+				ss << "$$\n" << equation_str(context, var->initial_code) << "\n$$\n\n";
 			}
 			if(!var->code && !var->override_code && !var->initial_code && !var->adds_code_to_existing) {
 				ss << "This series is externally defined. It may be an input series.\n\n";
@@ -354,8 +389,11 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			ss << "Target: (to be implemented)\n\n";
 			ss << "Unit: " << unit_str(model, flux->unit) << "\n\n";
 			
+			Print_Equation_Context context;
+			context.outer_unit = unit_str(model, flux->unit, false);
+			
 			ss << "Value:\n\n";
-			ss << "$$\n" << equation_str(model, &module->scope, flux->code) << "\n$$\n\n";
+			ss << "$$\n" << equation_str(context, flux->code) << "\n$$\n\n";
 			
 			// TODO: Other info such as no_carry etc.
 		}

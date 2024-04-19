@@ -472,6 +472,7 @@ Unit_Data::to_latex() {
 			print_latex_rational(ss, part.power);
 			ss << "}";
 		}
+		ss << "\\,";
 	}
 	return ss.str();
 }
