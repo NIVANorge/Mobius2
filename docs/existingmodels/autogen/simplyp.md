@@ -9,9 +9,9 @@ nav_order: 3
 # SimplyP
 
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
-Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
+Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:44:57.
+The file was generated at 2024-04-19 11:07:17.
 
 ---
 
@@ -46,6 +46,14 @@ New to version 0.5:
 | Particles | **sed** | quantity |
 | Erosion factor | **e_fact** | property |
 | Catchment area | **a_catch** | par_real |
+
+### Module functions
+
+cover_shape(doy, doy_max, len, c_cov, shp_step, shp_tri, shp_smooth) = 
+
+$$
+\begin{cases}\mathrm{step\_response}\left(\mathrm{doy},\, \mathrm{doy\_max}-\frac{\mathrm{len}}{2},\, \mathrm{doy\_max}+\frac{\mathrm{len}}{2},\, \mathrm{c\_cov},\, 1,\, \mathrm{c\_cov}\right) & \text{if}\;\mathrm{shp\_step} \\ \mathrm{wedge\_response}\left(\mathrm{doy},\, \mathrm{doy\_max}-\frac{\mathrm{len}}{2},\, \mathrm{doy\_max},\, \mathrm{doy\_max}+\frac{\mathrm{len}}{2},\, \mathrm{c\_cov},\, 1,\, \mathrm{c\_cov}\right) & \text{if}\;\mathrm{shp\_tri} \\ \mathrm{bump\_response}\left(\mathrm{doy},\, \mathrm{doy\_max}-\frac{\mathrm{len}}{2},\, \mathrm{doy\_max},\, \mathrm{doy\_max}+\frac{\mathrm{len}}{2},\, \mathrm{c\_cov},\, 1,\, \mathrm{c\_cov}\right) & \text{if}\;\mathrm{shp\_smooth} \\ \mathrm{c\_cov} & \text{otherwise}\end{cases}
+$$
 
 ### Parameters
 

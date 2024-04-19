@@ -9,9 +9,9 @@ nav_order: 0
 # SimplyQ
 
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
-Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
+Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:44:57.
+The file was generated at 2024-04-19 11:07:17.
 
 ---
 

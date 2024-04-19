@@ -17,7 +17,7 @@ nav_order: _NAVORDER_
 # _TITLE_
 
 This is auto-generated documentation based on the model code in [models/_MODELFILE_](https://github.com/NIVANorge/Mobius2/blob/main/models/_MODELFILE_) .
-Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
+Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
 The file was generated at _DATE_.
 
@@ -332,6 +332,32 @@ equation_str(Print_Equation_Context &context, Math_Expr_AST *code) {
 }
 
 
+void
+print_function_definition(Mobius_Model *model, Entity_Id fun_id, std::stringstream &ss) {
+	
+	auto fun = model->functions[fun_id];
+	ss << model->get_symbol(fun_id);
+	ss << "(";
+	bool first = true;
+	for(int i = 0; i < fun->args.size(); ++i) {
+		if(!first) ss << ", ";
+		ss << fun->args[i];
+		if(is_valid(fun->expected_units[i]))
+			ss << " : " << unit_str(model, fun->expected_units[i]);
+		first = false;
+	}
+	ss << ") = \n\n";
+	
+	Print_Equation_Context context;
+	
+	ss << "$$\n";
+
+	ss << equation_str(context, fun->code);
+	
+	ss << "\n$$\n\n";
+}
+
+
 // TODO: Document library, insert links to library functions in code where they are used.
 
 void
@@ -365,6 +391,29 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		ss << "| " << entity->name << " | **" << symbol << "** | " << name(entity->decl_type) << " |\n";
 	}
 	ss << "\n";
+	
+	auto constants = module->scope.by_type<Reg_Type::constant>();
+	if(constants.size() > 0) {
+		
+		ss << "### Constants\n\n";
+		ss << "| Name | Symbol | Unit |";
+		ss << "| ---- | ------ | ---- |";
+		
+		for(auto const_id : constants) {
+			auto con = model->constants[const_id];
+			ss << "| " << con->name << " | " << model->get_symbol(const_id) << " | " << unit_str(model, con->unit), " |\n";
+		}
+		ss << "\n";
+	}
+	
+	auto funs = module->scope.by_type<Reg_Type::function>();
+	if(funs.size() > 0) {
+		ss << "### Module functions\n\n";
+		
+		for(auto fun_id : funs) {
+			print_function_definition(model, fun_id, ss);
+		}
+	}
 	
 	auto groups = module->scope.by_type<Reg_Type::par_group>();
 	if(groups.size() > 0) {
