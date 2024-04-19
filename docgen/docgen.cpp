@@ -122,6 +122,12 @@ print_oper(Print_Equation_Context &context, Token_Type oper) {
 		context.ss << "\\;\\text{and}\\;";
 	else if(c == '!')
 		context.ss << "\\;\\text{not}\\;";
+	else if(oper == Token_Type::leq)
+		context.ss << "\\leq ";
+	else if(oper == Token_Type::geq)
+		context.ss << "\\geq ";
+	else if(oper == Token_Type::neq)
+		context.ss << "\\neq ";
 	else
 		context.ss << c;
 }
@@ -355,8 +361,7 @@ void
 print_function_definition(Mobius_Model *model, Entity_Id fun_id, std::stringstream &ss) {
 	
 	auto fun = model->functions[fun_id];
-	ss << model->get_symbol(fun_id);
-	ss << "(";
+	ss << "**" << model->get_symbol(fun_id) << "**(";
 	bool first = true;
 	for(int i = 0; i < fun->args.size(); ++i) {
 		if(!first) ss << ", ";
@@ -583,9 +588,13 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 	
 	auto lib = model->libraries[lib_id];
 	
-	ss << "## " << lib->name, "\n\n";
+	ss << "## " << lib->name << "\n\n";
 	
-	ss << "File: " << lib->source_loc.filename << "\n\n";
+	// TODO: This is a bit error prone, should just use some util to extract filename from path.
+	std::string filename = lib->source_loc.filename;
+	if(filename.find("stdlib/") != 0)
+		filename = "stdlib/" + filename;
+	ss << "File: " << "[" << filename << "](https://github.com/NIVANorge/Mobius2/tree/main/" << filename << ")\n\n";
 	
 	// TODO: Print the docstring, and provide proper documentation in each library!.
 	
@@ -600,7 +609,7 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 		
 		for(auto const_id : constants) {
 			auto con = model->constants[const_id];
-			ss << "| " << con->name << " | " << model->get_symbol(const_id) << " | " << unit_str(model, con->unit), " |\n";
+			ss << "| " << con->name << " | " << model->get_symbol(const_id) << " | " << unit_str(model, con->unit) << " |\n";
 		}
 		ss << "\n";
 	}
