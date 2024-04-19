@@ -3,7 +3,8 @@ library("Air-sea") {
 	
 """
 Air-sea/lake heat fluxes are based off of
-[Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112](https://link.springer.com/article/10.1007/BF00232256)
+Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112 [https://doi.org/10.1007/BF00232256](https://doi.org/10.1007/BF00232256)
+
 The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
 """
 	
@@ -44,8 +45,11 @@ The implementation used here is influenced by the implementation in [GOTM](https
 }
 
 library("Seawater") {
+"""
+This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library "Water utils" for simplified versions of these functions.
 
-	# TODO: Put in all the references!
+The formulas are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
+"""
 	
 	load("basic_math.txt", library("Response"))
 	
@@ -156,6 +160,13 @@ library("Seawater") {
 }
 
 library("Sea oxygen") {
+"""
+This contains formulas for O2 saturation and surface exchange in sea water. Based on
+
+R.F. Weiss, The solubility of nitrogen, oxygen and argon in water and seawater, Deep Sea Research and Oceanographic Abstracts, Volume 17, Issue 4, 1970, 721-735, [https://doi.org/10.1016/0011-7471(70)90037-9](https://doi.org/10.1016/0011-7471(70)90037-9).
+
+The implementation is influenced by the one in [SELMA](https://github.com/fabm-model/fabm/tree/master/src/models/selma).
+"""
 	/*
 	o2_saturation_alt : function (T : [deg_c], S : []) {
 		tk := (T->[K]*0.01)=>[],

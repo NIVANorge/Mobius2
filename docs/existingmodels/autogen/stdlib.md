@@ -12,7 +12,7 @@ This is auto-generated documentation based on the Mobius2 standard library in [M
 
 The standard library provides common functions and constants for many models.
 
-The file was generated at 2024-04-19 13:14:46.
+The file was generated at 2024-04-19 13:45:57.
 
 ---
 
@@ -22,7 +22,15 @@ File: [stdlib/atmospheric.txt](https://github.com/NIVANorge/Mobius2/tree/main/st
 
 ### Description
 
+These are functions to derive various meteorological variables from more commonly measured variables. For use in e.g. estimation of potential evapotranspiration and air-sea heat fluxes.
 
+They are mostly based on
+
+Ventura, F., Spano, D., Duce, P. et al. An evaluation of common evapotranspiration equations. Irrig Sci 18, 163–170 (1999). [https://doi.org/10.1007/s002710050058](https://doi.org/10.1007/s002710050058)
+
+See also
+
+P. R. Lowe, 1977, An approximating polynomial for the computation of saturation vapor pressure, J. Appl. Meteor., 16, 100-103 [https://doi.org/10.1175/1520-0450(1977)016<0100:AAPFTC>2.0.CO;2](https://doi.org/10.1175/1520-0450(1977)016<0100:AAPFTC>2.0.CO;2)
 
 ### Constants
 
@@ -92,7 +100,9 @@ File: [stdlib/atmospheric.txt](https://github.com/NIVANorge/Mobius2/tree/main/st
 
 ### Description
 
+This library provides functions for estimating solar radiation and downwelling longwave radiation.
 
+The formulas are based on [FAO paper 56](https://www.fao.org/3/x0490e/x0490e07.htm#solar%20radiation)
 
 ### Constants
 
@@ -158,7 +168,7 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Description
 
-
+Some common physical constants.
 
 ### Constants
 
@@ -174,7 +184,7 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Description
 
-
+Some common thermodynamic constants and functions.
 
 ### Constants
 
@@ -206,7 +216,9 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Description
 
+These are simplified functions for computing properties of freshwater at surface pressure. See the SeaWater module for functions that work better in more general cases.
 
+References to be inserted.
 
 ### Constants
 
@@ -258,7 +270,9 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Description
 
+This library contains functions for computing diffusivities of compounds in water and air.
 
+Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed.
 
 ### Constants
 
@@ -303,7 +317,7 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Description
 
-
+This library contains some commonly used molar masses and functions to convert molar ratios to mass ratios.
 
 ### Constants
 
@@ -351,7 +365,7 @@ File: [stdlib/basic_math.txt](https://github.com/NIVANorge/Mobius2/tree/main/std
 
 ### Description
 
-
+This library provides some very common math functions.
 
 ### Library functions
 
@@ -387,7 +401,11 @@ File: [stdlib/basic_math.txt](https://github.com/NIVANorge/Mobius2/tree/main/std
 
 ### Description
 
+This library provides functions that let some state respond to another state. For instance,
 
+`q10_adjust` creates a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient)) response of a reference rate to a temperature.
+
+`s_response` is a general function that is constant with values y0 and y1 below and above the thresholds x0 and x1 respectively, and smoothly interpolates the values between them.
 
 ### Library functions
 
@@ -466,7 +484,8 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 ### Description
 
 Air-sea/lake heat fluxes are based off of
-[Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112](https://link.springer.com/article/10.1007/BF00232256)
+Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112 [https://doi.org/10.1007/BF00232256](https://doi.org/10.1007/BF00232256)
+
 The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
 
 ### Library functions
@@ -503,7 +522,9 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 
 ### Description
 
+This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library "Water utils" for simplified versions of these functions.
 
+The formulas are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
 
 ### Constants
 
@@ -557,7 +578,11 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 
 ### Description
 
+This contains formulas for O2 saturation and surface exchange in sea water. Based on
 
+R.F. Weiss, The solubility of nitrogen, oxygen and argon in water and seawater, Deep Sea Research and Oceanographic Abstracts, Volume 17, Issue 4, 1970, 721-735, [https://doi.org/10.1016/0011-7471(70)90037-9](https://doi.org/10.1016/0011-7471(70)90037-9).
+
+The implementation is influenced by the one in [SELMA](https://github.com/fabm-model/fabm/tree/master/src/models/selma).
 
 ### Library functions
 

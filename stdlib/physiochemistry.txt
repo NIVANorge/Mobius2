@@ -1,11 +1,17 @@
 
 
 library("Basic constants") {
+"""
+Some common physical constants.
+"""
 	grav : constant("Earth surface gravity", [m, s-2], 9.81)
 }
 
 
 library("Thermodynamics") {
+"""
+Some common thermodynamic constants and functions.
+"""
 	
 	ideal_gas        : constant("Ideal gas constant",        [J, K -1, mol -1], 8.31446261815324)
 	boltzmann        : constant("Boltzmann constant",        [J, K -1],         1.380649e-23)
@@ -20,6 +26,11 @@ library("Thermodynamics") {
 }
 
 library("Water utils") {
+"""
+These are simplified functions for computing properties of freshwater at surface pressure. See the SeaWater module for functions that work better in more general cases.
+
+References to be inserted.
+"""
 	
 	rho_water  : constant("Water density",                   [k g, m-3],     999.98)
 	C_water    : constant("Specific heat capacity of water", [J, k g-1, K-1], 4186)
@@ -55,8 +66,11 @@ library("Water utils") {
 }
 
 library("Diffusivity") {
-	
-	#TODO: Put in references. (Mainly Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed.)
+"""
+This library contains functions for computing diffusivities of compounds in water and air.
+
+Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed.
+"""
 	
 	molvol_air : constant("Molecular volume of air at surface pressure", [c m 3, mol-1], 20.1)
 	molmass_air : constant("Molecular mass of air", [g, mol-1], 28.97)
@@ -93,6 +107,9 @@ library("Diffusivity") {
 
 
 library("Chemistry") {
+"""
+This library contains some commonly used molar masses and functions to convert molar ratios to mass ratios.
+"""
 	
 	o2_mol_mass  : constant("O₂ molar mass",    [g, mol-1], 31.998)
 	c_mol_mass   : constant("C molar mass",     [g, mol-1], 12)

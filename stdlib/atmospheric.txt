@@ -1,7 +1,17 @@
 
 
 library("Meteorology") {
-	# TODO: allow version numbers on libraries?
+"""
+These are functions to derive various meteorological variables from more commonly measured variables. For use in e.g. estimation of potential evapotranspiration and air-sea heat fluxes.
+
+They are mostly based on
+
+Ventura, F., Spano, D., Duce, P. et al. An evaluation of common evapotranspiration equations. Irrig Sci 18, 163–170 (1999). [https://doi.org/10.1007/s002710050058](https://doi.org/10.1007/s002710050058)
+
+See also
+
+P. R. Lowe, 1977, An approximating polynomial for the computation of saturation vapor pressure, J. Appl. Meteor., 16, 100-103 [https://doi.org/10.1175/1520-0450(1977)016<0100:AAPFTC>2.0.CO;2](https://doi.org/10.1175/1520-0450(1977)016<0100:AAPFTC>2.0.CO;2)
+"""
 	
 	latent_heat_of_vaporization : function(T : [deg_c]) {   # Harrison 1963
 		2.501[M J, k g-1] - 2.361e-3[M J, k g-1, deg_c-1] * T
@@ -61,12 +71,15 @@ library("Meteorology") {
 }
 
 library("Radiation") {
+"""
+This library provides functions for estimating solar radiation and downwelling longwave radiation.
+
+The formulas are based on [FAO paper 56](https://www.fao.org/3/x0490e/x0490e07.htm#solar%20radiation)
+"""
 
 	load(library("Meteorology"))
 	load("physiochemistry.txt", library("Thermodynamics"))
 	load("stdlib/basic_math.txt", library("Basic"))
-	
-	# TODO: Document!
 	
 	solar_constant : constant("Solar constant", [W, m-2], 1361)
 	

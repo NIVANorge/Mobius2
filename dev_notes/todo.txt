@@ -7,6 +7,8 @@
 			Make it so that editing map based parameters works when the last index is not position based (?)
 			
 			Transport fluxes are not displayed at all, even if they are configured to be stored.
+			
+		Version numbers on libraries?
 	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	

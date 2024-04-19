@@ -1,8 +1,9 @@
 
 
-#TODO: maybe make an intrinsic operator for safe_divide. Like "//".
-
 library("Basic") {
+"""
+This library provides some very common math functions.
+"""
 
 	safe_divide : function(a, b) {
 		r := a/b,
@@ -25,6 +26,13 @@ library("Basic") {
 
 
 library("Response") {
+"""
+This library provides functions that let some state respond to another state. For instance,
+
+`q10_adjust` creates a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient)) response of a reference rate to a temperature.
+
+`s_response` is a general function that is constant with values y0 and y1 below and above the thresholds x0 and x1 respectively, and smoothly interpolates the values between them.
+"""
 	
 	hl_to_rate : function(hl)   {   ln(2) / hl   }
 	
