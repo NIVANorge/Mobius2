@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in [models/simplyc_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyc_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:22:42.
+The file was generated at 2024-04-19 10:26:45.
 
 ---
 
@@ -78,7 +78,7 @@ $$
 Initial value:
 
 $$
-\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot \left(1+\left(\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\right)\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right) & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}\mathrm{basedoc}
+\mathrm{basedoc}
 $$
 
 #### *Deep soil DOC*
@@ -98,7 +98,7 @@ $$
 Initial value:
 
 $$
-\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{soil\_avg} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const}\;\text{or}\;\mathrm{gwdoc\_type}.\mathrm{half\_life} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const}\;\text{or}\;\mathrm{gwdoc\_type}.\mathrm{half\_life} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{otherwise}\end{cases}
 $$
 
 ### Fluxes

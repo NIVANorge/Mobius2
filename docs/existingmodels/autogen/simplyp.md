@@ -11,7 +11,7 @@ nav_order: 3
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:22:42.
+The file was generated at 2024-04-19 10:26:45.
 
 ---
 
@@ -214,7 +214,7 @@ $$
 Initial value:
 
 $$
-\mathrm{m\_soil} = \left(\mathrm{m\_soil\_m2}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \begin{cases}\mathrm{safe\_divide}\left(\mathrm{last}\left(\mathrm{plab}\right),\, \mathrm{kf}\cdot \mathrm{m\_soil}\right) & \text{if}\;\mathrm{dyn\_epc0} \\ \mathrm{init\_epc0} & \text{otherwise}\end{cases}\mathrm{init\_epc0}
+\mathrm{init\_epc0}
 $$
 
 #### *Soil DIP mass*
@@ -234,7 +234,7 @@ $$
 Initial value:
 
 $$
-\begin{cases}\mathrm{expr} & \text{if}\;\mathrm{dyn\_epc0} \\ \left(\mathrm{init\_epc0}\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) & \text{otherwise}\end{cases}\mathrm{init\_epc0}
+\mathrm{init\_epc0}
 $$
 
 #### *Soil labile P mass*
@@ -252,7 +252,7 @@ $$
 Initial value:
 
 $$
-\begin{cases}\mathrm{expr} & \text{if}\;\mathrm{dyn\_epc0} \\ \mathrm{last}\left(\mathrm{plab}\right) & \text{otherwise}\end{cases}\left(\mathrm{init\_soil\_p\_conc}-\mathrm{inactive\_soil\_p\_conc}\right)\cdot \mathrm{m\_soil\_m2}
+\left(\mathrm{init\_soil\_p\_conc}-\mathrm{inactive\_soil\_p\_conc}\right)\cdot \mathrm{m\_soil\_m2}
 $$
 
 #### *Labile P concentration*
@@ -284,7 +284,7 @@ $$
 Initial value:
 
 $$
-\mathrm{gw\_tdp}\mathrm{gw\_tdp}
+\mathrm{gw\_tdp}
 $$
 
 #### *River DIP*

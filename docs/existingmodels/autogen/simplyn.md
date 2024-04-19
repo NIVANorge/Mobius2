@@ -11,7 +11,7 @@ nav_order: 2
 This is auto-generated documentation based on the model code in [models/simplyn_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyn_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:22:42.
+The file was generated at 2024-04-19 10:26:45.
 
 ---
 
@@ -98,7 +98,7 @@ $$
 Initial value:
 
 $$
-\begin{cases}\mathrm{gw\_din\_conc} & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{din}\right)\right) & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{soil\_avg} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}\mathrm{gw\_din\_conc}
+\mathrm{gw\_din\_conc}
 $$
 
 #### *River water DIN*

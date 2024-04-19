@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 10:22:42.
+The file was generated at 2024-04-19 10:26:45.
 
 ---
 
@@ -224,7 +224,7 @@ $$
 Initial value:
 
 $$
-0.28 \mathrm{m}^{3}\,\mathrm{s}^{-1}\,\cdot \left(\mathrm{water}\cdot \frac{\sqrt{\mathrm{slope}}}{\mathrm{len}\cdot \mathrm{c\_mann}}\Rightarrow 1\right)^{1.5}\mathrm{init\_flow}
+\mathrm{init\_flow}
 $$
 
 ### Fluxes

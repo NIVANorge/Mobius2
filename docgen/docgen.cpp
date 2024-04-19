@@ -326,6 +326,7 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 
 std::string
 equation_str(Print_Equation_Context &context, Math_Expr_AST *code) {
+	context.ss.str("");
 	print_equation(context, code, true);
 	return context.ss.str();
 }
@@ -413,7 +414,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 				ss << "Value:\n\n";
 				ss << "$$\n" << equation_str(context, code) << "\n$$\n\n";
 			}
-			context.ss.str();
+		
 			if(var->initial_code) {
 				ss << "Initial value:\n\n";
 				ss << "$$\n" << equation_str(context, var->initial_code) << "\n$$\n\n";
