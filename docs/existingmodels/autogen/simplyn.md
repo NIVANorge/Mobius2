@@ -11,7 +11,7 @@ nav_order: 2
 This is auto-generated documentation based on the model code in [models/simplyn_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyn_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:50:50.
+The file was generated at 2024-04-19 15:36:35.
 
 ---
 
@@ -23,8 +23,9 @@ File: [modules/simplyn.txt](https://github.com/NIVANorge/Mobius2/tree/main/model
 
 ### Description
 
-A simple dissolved inorganic nitrogen (DIN) model.
-This module is not finished.
+This is a simple dissolved inorganic nitrogen (DIN) model. The main assumption in the model is that there is a semi-constant input of DIN to the soil water from deposition and fixation, while loss (plant uptake + denitrification) is temperature-dependent. The latter two are bundled in one single process.
+
+In addition fertilizer can be added at a single day per year. The fertilizer N is added as solid, and dissolves proportionally to the amount of new water (precipitation + snow melt) entering the soil.
 
 ### External symbols
 
@@ -44,7 +45,7 @@ This module is not finished.
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | **DIN universal params** | | | |
-| Soilwater DIN uptake rate at 20°C | **din_immob_rate** | m day⁻¹ |  |
+| Soilwater DIN uptake rate at 20°C | **din_immob_rate** | m day⁻¹ | (name is outdated, should be changed). This represents uptake and denitrification. |
 | Soilwater DIN uptake rate response to 10°C change (Q10) | **din_immob_q10** |  |  |
 | Groundwater DIN computation type | **gw_conc_type** |  |  |
 | Groundwater DIN concentration | **gw_din_conc** | mg l⁻¹ | Only used if type is const |
@@ -52,7 +53,7 @@ This module is not finished.
 | (Q10) Reach denitrification rate response to 10°C change in temperature | **reach_denit_q10** |  |  |
 | **Soil DIN params varying by land use** | | | |
 | Initial soilwater DIN concentration | **sw_din_init** | mg l⁻¹ |  |
-| Net annual DIN input to soil | **net_annual_N_input** | kg ha⁻¹ year⁻¹ |  |
+| Net annual DIN input to soil | **net_annual_N_input** | kg ha⁻¹ year⁻¹ | (name outdated, should be changed) These are the gross DIN inputs to soil disregarding fertilizer inputs. Represents atmospheric deposition and fixation. |
 | Fertilizer addition day | **fert_day** | day |  |
 | Fertilizer N | **fert_n** | kg ha⁻¹ |  |
 | Fertilizer DIN release | **fert_rel** | mm⁻¹ | Per mm of soil water input (giving less dissolution in dry years) |

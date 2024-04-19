@@ -205,7 +205,10 @@ format_double_tex(double d) {
 	auto find = str.find("e");
 	if(find == std::string::npos)
 		return str;
-	return str.substr(0, find) + "\\cdot 10^{" + str.substr(find+1, str.size()) + "}";
+	auto sub = str.substr(0, find);
+	if(sub == "1")
+		return "10^{" + str.substr(find+1, str.size()) + "}";
+	return sub + "\\cdot 10^{" + str.substr(find+1, str.size()) + "}";
 }
 
 // TODO: Also have to make a precedence system like in the other print_expression.
@@ -443,7 +446,7 @@ print_constants(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope) {
 		
 		for(auto const_id : constants) {
 			auto con = model->constants[const_id];
-			ss << "| " << con->name << " | " << model->get_symbol(const_id) << " | " << unit_str(model, con->unit) << " | ";
+			ss << "| " << con->name << " | **" << model->get_symbol(const_id) << "** | " << unit_str(model, con->unit) << " | ";
 			if(con->value_type == Value_Type::real) {
 				ss << con->value.val_real;
 			} else if (con->value_type == Value_Type::boolean) {

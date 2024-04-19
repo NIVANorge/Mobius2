@@ -10,6 +10,12 @@ module("SimplySed", version(0, 6, 0),
 """
 This is a simple sediment transport module created as a part of SimplyP.
 
+Erosion is computed as a product of a land erosion factor and a river erosion factor.
+
+The land erosion factor depends on the land slope and the vegetation cover factor. The vegetation cover factor can either be be flat, or can have peaks in spring and autumn (with a user-determined proportion of the size of these peaks), representing plowing.
+
+The erosion factor in the river follows a $$(aQ)^b$$ - type relationship, where Q is the total runoff from the catchment to the river.
+
 version 0.6:
 * First Mobius2 version.
 * Dynamic vegetation cover is computed a bit differently.

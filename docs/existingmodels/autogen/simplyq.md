@@ -11,7 +11,7 @@ nav_order: 0
 This is auto-generated documentation based on the model code in [models/simplyq_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyq_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:50:50.
+The file was generated at 2024-04-19 15:36:35.
 
 ---
 
@@ -25,10 +25,10 @@ File: [modules/simplyq.txt](https://github.com/NIVANorge/Mobius2/tree/main/model
 
 This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
 
-[Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
+Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. [doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
 
 New to version 0.5 :
-	- New implementation in the Mobius2 framework.
+- New implementation in the Mobius2 framework.
 
 ### External symbols
 

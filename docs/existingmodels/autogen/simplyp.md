@@ -11,7 +11,7 @@ nav_order: 3
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:50:50.
+The file was generated at 2024-04-19 15:36:35.
 
 ---
 
@@ -24,6 +24,12 @@ File: [modules/simplysed.txt](https://github.com/NIVANorge/Mobius2/tree/main/mod
 ### Description
 
 This is a simple sediment transport module created as a part of SimplyP.
+
+Erosion is computed as a product of a land erosion factor and a river erosion factor.
+
+The land erosion factor depends on the land slope and the vegetation cover factor. The vegetation cover factor can either be be flat, or can have peaks in spring and autumn (with a user-determined proportion of the size of these peaks), representing plowing.
+
+The erosion factor in the river follows a $$(aQ)^b$$ - type relationship, where Q is the total runoff from the catchment to the river.
 
 version 0.6:
 * First Mobius2 version.
@@ -154,21 +160,66 @@ File: [modules/simplyp.txt](https://github.com/NIVANorge/Mobius2/tree/main/model
 
 ### Description
 
-SimplyP is a parsimonious phosphorus model. It was originally implemented in Python and published as
+SimplyP is a parsimonious phosphorus model. SimplyP models total dissolved phosphorous (TDP) in the soil solution using a equilibrium phosphate concentration at net zero sorption (EPC0) constant. The soil water TDP concentration tends to EPC0 with a speed dependent on a phosphorous sorption coefficient. The non-dissolved phosphorous is tracked as labile phosporous.
 
-[Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. doi:10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
+If dynamic EPC0 is turned on, the EPC0 will change slowly over time depending on the total amount of labile phosphorous.
 
 For news, updates and references, see [the model's github home page](https://nivanorge.github.io/Mobius2/existingmodels/simply.html)
 
+Technical implementation: The soil TDP mass is described by the ODE equation
+
+$$
+d(TDPs)/dt  = input - kf*m_soil*(TDPs/water - epc0) - flow*TDPs/water
+$$
+
+This equation is generally stiff (hence computationally difficult to solve). However, if we assume that flow (soil water flow) and water are approximately constant over the time step, we have an equation on the form
+
+$$
+d(TDPs)/dt  = (input + kf*m_soil*epc0)  -  ((kf*m_soil + flow) / water)*TDPs = a - b*TDPs
+$$
+
+This has the exact solution
+
+$$
+TDPs(t) = a/b + (TDPs(0) - a/b) * exp(-b*t),
+$$
+
+where we can insert t=1 to integrate over the time step.
+Solving it this way saves time by a factor of about 50-100, and has miniscule error compared to solving it with time-variable water and flow.
+	
+Now, the soil labile P mass is described by
+
+$$
+d(Plab)/dt  = kf*m_soil*((TDPs/water)-epc0)
+$$
+
+So
+
+$$
+Plab(1) = Plab(0) + \int_0^1 kf*m_soil*((TDPs(t)/water) - epc0) \mathrm{d}t
+$$
+
+Again, assuming constant water, the integral will be
+
+$$
+I = (kf*m_soil)*( (1/water)*\int_0^1 TDPs(t)\mathrm{d}t - EPC0) \\
+= (kf*m_soil)*( (1/water)(a/b + (TDPs(0)-a/b)*(1/b)*(1 - exp(-b)) ) - EPC0) \\
+= (kf*m_soil)*( (1/(water*b))(a + (TDPs(0) - a/b)(1 - exp(-b)) ) - EPC0)
+$$
+
+SimplyP was originally implemented in Python and published as
+
+Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. [https://doi.org/10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
+
 New to version 0.6:
-* The model has been ported to Mobius2. Everything is solved as one large coupled ODE system, so transport between land and river and between different river sections is more precise.
+- The model has been ported to Mobius2. Everything is solved as one large coupled ODE system, so transport between land and river and between different river sections is more precise.
 
 New to version 0.4:
-* Landscape units are dynamic and user-specified instead of hardcoded.
-* Sediment and hydrology equations are factored out into separate modules (SimplyQ, SimplySed)
+- Landscape units are dynamic and user-specified instead of hardcoded.
+- Sediment and hydrology equations are factored out into separate modules (SimplyQ, SimplySed)
 
 New to version 0.3:
-* More realistic hydrology.
+- More realistic hydrology.
 
 For reference, here is [the original Python implementation of SimplyP](https://github.com/LeahJB/SimplyP), which is no longer being developed.
 

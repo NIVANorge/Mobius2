@@ -11,7 +11,7 @@ nav_order: 1
 This is auto-generated documentation based on the model code in [models/simplyc_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyc_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:50:50.
+The file was generated at 2024-04-19 15:36:35.
 
 ---
 
@@ -23,7 +23,13 @@ File: [modules/simplyc.txt](https://github.com/NIVANorge/Mobius2/tree/main/model
 
 ### Description
 
-A simple DOC model.
+This is a simple dissolved organic carbon (DOC) model that has as its main assumption that temperature and SO4 deposition are the strongest drivers for soil water DOC concentration.
+
+The main purpose of the module is to predict DOC transport from land to river. The module does *not* keep track of the soil organic carbon pool as a whole, and so long-term changes in soil carbon availability are not taken into account, neither are effects from vegetation disturbance.
+
+The user can configure the soil DOC concentration to either be constant, at a (temperature- and SO4-dependent) equilibrium, or always tending toward that equilibrium with a speed set by the `cdoc` parameter. In the latter case, influx of clean water (precipitation or snow melt) will dilute the soil water DOC concentration for a while before it again reaches equilibrium.
+
+The ground water DOC concentration can be set to either be constant, equal to the average of the soil water DOC concentration, or follow mass balance (transport with recharge and runoff). In the latter case, the groundwater DOC decays with a user-set half life.
 
 ### External symbols
 
@@ -48,10 +54,10 @@ A simple DOC model.
 | Soil DOC computation type | **soildoc_type** |  |  |
 | Groundwater DOC computation type | **gwdoc_type** |  |  |
 | **DOC land** | | | |
-| Baseline soil DOC concentration | **basedoc** | mg l⁻¹ |  |
+| Baseline soil DOC concentration | **basedoc** | mg l⁻¹ | Soil water equilibrium DOC concentration when temperature is 0°C and there is no SO4. |
 | **DOC deep soil** | | | |
-| Groundwater DOC half-life | **gwdochl** | day |  |
-| Groundwater DOC concentration | **gwdocconc** | mg l⁻¹ |  |
+| Groundwater DOC half-life | **gwdochl** | day | Half life of decay rate if groundwater DOC follows mass balance. |
+| Groundwater DOC concentration | **gwdocconc** | mg l⁻¹ | Concentration if groundwater DOC is set to be constant. |
 
 ### State variables
 
@@ -100,7 +106,7 @@ $$
 Initial value:
 
 $$
-\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const}\;\text{or}\;\mathrm{gwdoc\_type}.\mathrm{half\_life} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const}\;\text{or}\;\mathrm{gwdoc\_type}.\mathrm{mass\_bal} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{otherwise}\end{cases}
 $$
 
 ### Fluxes

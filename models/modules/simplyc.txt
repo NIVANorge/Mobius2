@@ -9,7 +9,13 @@ module("SimplyC land", version(1, 0, 1),
 	temp  : property
 ) {
 """
-A simple DOC model.
+This is a simple dissolved organic carbon (DOC) model that has as its main assumption that temperature and SO4 deposition are the strongest drivers for soil water DOC concentration.
+
+The main purpose of the module is to predict DOC transport from land to river. The module does *not* keep track of the soil organic carbon pool as a whole, and so long-term changes in soil carbon availability are not taken into account, neither are effects from vegetation disturbance.
+
+The user can configure the soil DOC concentration to either be constant, at a (temperature- and SO4-dependent) equilibrium, or always tending toward that equilibrium with a speed set by the `cdoc` parameter. In the latter case, influx of clean water (precipitation or snow melt) will dilute the soil water DOC concentration for a while before it again reaches equilibrium.
+
+The ground water DOC concentration can be set to either be constant, equal to the average of the soil water DOC concentration, or follow mass balance (transport with recharge and runoff). In the latter case, the groundwater DOC decays with a user-set half life.
 """
 
 	load("stdlib/basic_math.txt", library("Response"))
@@ -24,16 +30,16 @@ A simple DOC model.
 		kso4       : par_real("Soil DOC linear SO4 dependence", [l, m g-1], 0, 0, 0.1)
 		cdoc       : par_real("Baseline soil DOC dissolution rate", [m g, l-1, day-1], 1, 0, 10, "Only used if the soil DOC computation type is dynamic.")
 		soildoc_type : par_enum("Soil DOC computation type", equilibrium) { const equilibrium dynamic }
-		gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { const soil_avg half_life }
+		gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { const soil_avg mass_bal }
 	}
 	
 	par_group("DOC land", soil) {
-		basedoc    : par_real("Baseline soil DOC concentration", [m g, l-1], 10, 0, 100)
+		basedoc    : par_real("Baseline soil DOC concentration", [m g, l-1], 10, 0, 100, "Soil water equilibrium DOC concentration when temperature is 0°C and there is no SO4.")
 	}
 	
 	par_group("DOC deep soil", gw) {
-		gwdochl    : par_real("Groundwater DOC half-life", [day], 80, 1, 500)
-		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20)
+		gwdochl    : par_real("Groundwater DOC half-life", [day], 80, 1, 500, "Half life of decay rate if groundwater DOC follows mass balance.")
+		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20, "Concentration if groundwater DOC is set to be constant.")
 	}
 	
 	var(soil.water.oc, [k g, k m -2], [m g, l-1], "Soil water DOC")
@@ -46,7 +52,7 @@ A simple DOC model.
 		
 	var(gw.water.oc,   [k g, k m -2], [m g, l-1], "Deep soil DOC")
 		@initial_conc {
-			gwdocconc                       if gwdoc_type.const | gwdoc_type.half_life,
+			gwdocconc                       if gwdoc_type.const | gwdoc_type.mass_bal,
 			aggregate(conc(soil.water.oc))  otherwise
 		} @override_conc {
 			gwdocconc                       if gwdoc_type.const,

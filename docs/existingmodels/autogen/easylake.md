@@ -11,7 +11,7 @@ nav_order: 4
 This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 14:50:50.
+The file was generated at 2024-04-19 15:36:35.
 
 ---
 
@@ -353,9 +353,9 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 
 | Name | Symbol | Unit | Value |
 | ---- | ------ | ---- | ----- |
-| Fraction of PAR in SW radiation | f_par |  | 0.45 |
-| Phytoplankton increased death rate from anoxicity | phyt_death_anox |  | 10 |
-| Anoxicity threshold | anox_threshold | mg l⁻¹ | 2 |
+| Fraction of PAR in SW radiation | **f_par** |  | 0.45 |
+| Phytoplankton increased death rate from anoxicity | **phyt_death_anox** |  | 10 |
+| Anoxicity threshold | **anox_threshold** | mg l⁻¹ | 2 |
 
 ### Parameters
 
