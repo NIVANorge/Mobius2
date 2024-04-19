@@ -22,19 +22,19 @@ For news, updates and references, see [the model's github home page](https://niv
 Technical implementation: The soil TDP mass is described by the ODE equation
 
 $$
-d(TDPs)/dt  = input - kf*m_soil*(TDPs/water - epc0) - flow*TDPs/water
+d(TDPs)/dt  = input - kf\cdot m_soil\cdot (TDPs/water - epc0) - flow\cdot TDPs/water
 $$
 
 This equation is generally stiff (hence computationally difficult to solve). However, if we assume that flow (soil water flow) and water are approximately constant over the time step, we have an equation on the form
 
 $$
-d(TDPs)/dt  = (input + kf*m_soil*epc0)  -  ((kf*m_soil + flow) / water)*TDPs = a - b*TDPs
+d(TDPs)/dt  = (input + kf\cdot m_soil\cdot epc0)  -  ((kf\cdot m_soil + flow) / water)\cdot TDPs = a - b\cdot TDPs
 $$
 
 This has the exact solution
 
 $$
-TDPs(t) = a/b + (TDPs(0) - a/b) * exp(-b*t),
+TDPs(t) = a/b + (TDPs(0) - a/b) \cdot exp(-b\cdot t),
 $$
 
 where we can insert t=1 to integrate over the time step.
@@ -43,21 +43,21 @@ Solving it this way saves time by a factor of about 50-100, and has miniscule er
 Now, the soil labile P mass is described by
 
 $$
-d(Plab)/dt  = kf*m_soil*((TDPs/water)-epc0)
+d(Plab)/dt  = kf\cdot m\_soil\cdot ((TDPs/water)-epc0)
 $$
 
 So
 
 $$
-Plab(1) = Plab(0) + \int_0^1 kf*m_soil*((TDPs(t)/water) - epc0) \mathrm{d}t
+Plab(1) = Plab(0) + \int_0^1 kf\cdot m\_soil\cdot ((TDPs(t)/water) - epc0) \mathrm{d}t
 $$
 
 Again, assuming constant water, the integral will be
 
 $$
-I = (kf*m_soil)*( (1/water)*\int_0^1 TDPs(t)\mathrm{d}t - EPC0) \\
-= (kf*m_soil)*( (1/water)(a/b + (TDPs(0)-a/b)*(1/b)*(1 - exp(-b)) ) - EPC0) \\
-= (kf*m_soil)*( (1/(water*b))(a + (TDPs(0) - a/b)(1 - exp(-b)) ) - EPC0)
+I = (kf*m\_soil)\cdot ( (1/water)\cdot \int_0^1 TDPs(t)\mathrm{d}t - EPC0) \\
+= (kf*m\_soil)\cdot ( (1/water)(a/b + (TDPs(0)-a/b)\cdot (1/b)\cdot (1 - exp(-b)) ) - EPC0) \\
+= (kf*m\_soil)\cdot ( (1/(water*b))(a + (TDPs(0) - a/b)(1 - exp(-b)) ) - EPC0)
 $$
 
 SimplyP was originally implemented in Python and published as
