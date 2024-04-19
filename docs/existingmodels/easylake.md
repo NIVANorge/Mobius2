@@ -12,6 +12,7 @@ This documentation is yet to be written. We apologize for the inconvenience.
 ## EasyLake physical
 
 ![EasyLake](../img/EasyLake.png)
+(this figure is a bit out of date, the bathymetry is differently described now).
 
 See the [mathematical description](autogen/easylake.html).
 

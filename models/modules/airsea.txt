@@ -26,11 +26,15 @@ module("AirSea", version(0, 1, 1),
 	top_water_heat_sw : loc # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
 ) {
 """
-Air-sea/lake heat fluxes are based off of
-[Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112](https://link.springer.com/article/10.1007/BF00232256)
+Air-sea/lake heat fluxes are based off of Kondo 1975
+
 The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
 
 The ice module is influenced by the ice module in MyLake, and uses Stefan's law for ice accumulation.
+
+Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112 [https://doi.org/10.1007/BF00232256](https://doi.org/10.1007/BF00232256)
+
+MyLake—A multi-year lake simulation model code suitable for uncertainty and sensitivity analysis simulations, Tuomo M. Saloranta and Tom Andersen 2007, Ecological Modelling 207(1), 45-60, [https://doi.org/10.1016/j.ecolmodel.2007.03.018](https://doi.org/10.1016/j.ecolmodel.2007.03.018)
 """
 	
 	load("stdlib/seawater.txt", library("Air-sea"))

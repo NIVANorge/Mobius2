@@ -11,7 +11,7 @@ nav_order: 3
 This is auto-generated documentation based on the model code in [models/simplyp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/simplyp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 15:47:33.
+The file was generated at 2024-04-19 16:17:34.
 
 ---
 
@@ -169,13 +169,13 @@ For news, updates and references, see [the model's github home page](https://niv
 Technical implementation: The soil TDP mass is described by the ODE equation
 
 $$
-d(TDPs)/dt  = input - kf\cdot m_soil\cdot (TDPs/water - epc0) - flow\cdot TDPs/water
+d(TDPs)/dt  = input - kf\cdot m\_soil\cdot (TDPs/water - epc0) - flow\cdot TDPs/water
 $$
 
 This equation is generally stiff (hence computationally difficult to solve). However, if we assume that flow (soil water flow) and water are approximately constant over the time step, we have an equation on the form
 
 $$
-d(TDPs)/dt  = (input + kf\cdot m_soil\cdot epc0)  -  ((kf\cdot m_soil + flow) / water)\cdot TDPs = a - b\cdot TDPs
+d(TDPs)/dt  = (input + kf\cdot m\_soil\cdot epc0)  -  ((kf\cdot m\_soil + flow) / water)\cdot TDPs = a - b\cdot TDPs
 $$
 
 This has the exact solution

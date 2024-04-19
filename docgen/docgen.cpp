@@ -731,8 +731,10 @@ main() {
 		{"SimplyC", "simplyc_model.txt", "SimplyC land", "SimplyC river"},
 		{"SimplyN", "simplyn_model.txt", "SimplyN"},
 		{"SimplyP", "simplyp_model.txt", "SimplySed", "SimplyP"},
-		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "EasyChem", "EasyChem-Particulate"},
+		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "AirSea Lake", "EasyChem", "EasyChem-Particulate"},
 	};
+	// TODO: Maybe have AirSea lake in a separate file.
+	// Also: snow, evapotranspiration.
 	
 	for(int i = 0; i < models.size(); ++i)
 		generate_docs(i, models[i]);

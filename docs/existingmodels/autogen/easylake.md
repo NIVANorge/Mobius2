@@ -11,7 +11,7 @@ nav_order: 4
 This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
-The file was generated at 2024-04-19 15:47:34.
+The file was generated at 2024-04-19 16:17:34.
 
 ---
 
@@ -24,11 +24,46 @@ File: [modules/easylake.txt](https://github.com/NIVANorge/Mobius2/tree/main/mode
 ### Description
 
 This is a very simple lake model for use along with cathcment models.
+
 The physical part of the model simulates water balance and temperature.
+
+The lake can also be equipped with an ice module (defined in the AirSea module).
 
 The water balance part of the model is conceptually similar to VEMALA
 [A National-Scale Nutrient Loading Model for Finnish Watersheds - VEMALA, Inse Huttunen et. al. 2016, Environ Model Assess 21, 83-109](https://doi.org/10.1007/s10666-015-9470-6), 
 but allows for more specific parametrization of the lake shape.
+
+The internal heat distribution is inspired by (but not as complex as) the [FLake model](http://www.flake.igb-berlin.de/).
+
+We assume that the hypsograph of the lake follows a shape so that
+
+$$
+A(z) = A_0 * \left(\frac{z_{max}-z}{z_{max}\right)^{\theta+1)}
+$$
+
+where $$A(z)$$ is the area of the horizontal cross-section of the lake at depth $$z$$, $$z_{max}$$ is the max depth of the lake, $A_0$ is the surface area at the zero level of the outlet, and $$\theta$$ is a parameter.
+
+We also assume that the discharge is linearly proportional to the water level at the outlet.
+
+The lake is partitioned into an epilimnion and a hypolimnion. The epilimnion is assumed to have a temperature profile that does not depend on the depth. In the hypolimnion, the temperature profile follows
+
+$$
+T(z) = ((T_e - T_b)\left(\frac{z_{max}-z}{z_{max}\right)^2 + T_b\; z > z_e
+$$
+
+Where $$T_e$$ is current epilimnion temperature and $$T_b$$ is bottom temperature (user-defined constant parameter), and $$z_e$$ is epilimnion thickness. The total heat of the lake is then proportional to
+
+$$
+\int_0^{z_{max}} A(z)T(z)\mathrm{d}z
+$$
+
+which has an exact solution, which one can back-solve for $$T_e$$ if the total heat of the lake is known.
+
+The total heat is computed as an ordinary differential equation, and depends mostly on surface heat exchange (computed by the AirSea module).
+
+The epilimnion is set to have a dynamic thickness. This is not simulated, but is instead determined by user-defined empirical parameters. The epilimnion and hypolimnion mix when the difference between epilimnion temperature and mean hypolimnion temperature is less than 0.4°C (typically in spring and autumn).
+
+The thickness is set to have a given winter value, then is set to an initial thickness after spring mixing, after which it increases linearly.
 
 ### External symbols
 
