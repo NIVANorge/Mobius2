@@ -104,7 +104,7 @@ $$
 where $$r$$ is the square root of the coefficient of determination $$r^2$$, $$\beta=\overline{m}/\overline{o}$$, and $$\delta=Cv(m)/Cv(o)$$, $$Cv(x)=\sigma(x)/\overline{x}$$, $$\sigma$$ being the standard deviation.
 
 ### Spearman's RCC
-Spearman's rank correlation coefficient \[Spearman04\] is computed as follows: For a time series $$x=\{x_i\}_{i\in_I}$$, let $$\mathrm{rank}(x_i)$$ be the index of $$x_i$$ (starting from 1) in the list $$\mathrm{sort}(x)$$ which is $x$ sorted from smallest to largest. The rank correlation coefficient can then be computed as
+Spearman's rank correlation coefficient \[Spearman04\] is computed as follows: For a time series $$x=\{x_i\}_{i\in_I}$$, let $$\mathrm{rank}(x_i)$$ be the index of $$x_i$$ (starting from 1) in the list $$\mathrm{sort}(x)$$ (the values of $$x$$ sorted from smallest to largest). The rank correlation coefficient can then be computed as
 
 $$
 1 - \frac{6\sum_{i\in I}(\mathrm{rank}(o_i)-\mathrm{rank}(m_i))^2}{|I|(|I|^2 - 1)}.

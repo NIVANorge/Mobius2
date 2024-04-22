@@ -43,9 +43,8 @@ New to version 0.5 :
 	
 	flux(soil.water, river.water, [m m, day-1], "Quick flow") {
 		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
-		flow   := in_flux(water)->>,
-		#flow * s_response(water, drylim*fc, fc, 0, 1) * (2 / (1 + exp(-flow/qqinfl)) - 1)
-		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
+		q_in   := in_flux(water)->>,
+		q_in * s_response(water, drylim*fc, fc, 0, 1) * atan(q_in/qqinfl)*2/pi
 	}
 	
 	flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
