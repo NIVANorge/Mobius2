@@ -20,9 +20,9 @@ A Mobius2 file must always be [UTF-8](https://en.wikipedia.org/wiki/UTF-8). Exce
 ## File types
 
 Mobius2 uses the following file types
-- Model files. These contain a single model declaration in the outer scope and nothing more. They are of `.txt` type.
-- Module/Library files. These contain one or more modules or libraries in the outer scope. They are of `.txt` type.
-- Data files. These contain a single `data_set` declaration in the outer scope.
+- Model files. These contain a single model declaration in the outer scope and nothing more. They have a `.txt` suffix.
+- Module/Library files. These contain one or more modules or libraries in the outer scope. They have a `.txt` suffix.
+- Data files. These contain a single `data_set` declaration in the outer scope. These have a `.dat` suffix.
 
 ## Comments.
 
@@ -75,6 +75,7 @@ A string literal must be on a single line if it is enclosed in single quotation 
 ```python
 """
 Hello, biochemists!
+"""
 ```
 
 ## Unit declarations

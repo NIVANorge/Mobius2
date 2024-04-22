@@ -15,18 +15,7 @@ The goal of the language is to be minimalistic and fast to write. It should flex
 
 If you are fluent in the language, it is so efficient to use that you can make modifications to the models to make them better fit each specific use case if desired.
 
-This documentation is yet to be written. We apologize for the inconvenience. For now see [existing models](https://github.com/NIVANorge/Mobius2/tree/main/models) for inspiration.
-
-Testing something:
-```python
-module("Simple-hydrology", version(1, 1, 0),
-  soil : compartment
-) {
-  par_group("Hydrology soil", soil) {
-    bfi : par_real("Baseflow index")
-  }
-}
-```
+This documentation is under construction. We apologize for the inconvenience. For now see [existing models](https://github.com/NIVANorge/Mobius2/tree/main/models) for inspiration.
 
 ## Build your model with the Mobius2 language
 
