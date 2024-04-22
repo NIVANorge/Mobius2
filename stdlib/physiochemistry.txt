@@ -17,7 +17,7 @@ Some common thermodynamic constants and functions.
 	boltzmann        : constant("Boltzmann constant",        [J, K -1],         1.380649e-23)
 	stefan_boltzmann : constant("Stefan-Boltzmann constant", [W, m -2, K -4],   5.670373e-8)
 	
-	black_body_radiation : function(T_kelvin) {   stefan_boltzmann * T_kelvin^4   }
+	black_body_radiation : function(T : [K]) {   stefan_boltzmann * T^4   }
 	
 	enthalpy_adjust_log10 : function(log10ref : [], ref_T : [K], T : [K], dU : [k J, mol-1]) {
 		du := dU->[J, mol-1],

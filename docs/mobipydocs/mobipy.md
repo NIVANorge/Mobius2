@@ -20,11 +20,11 @@ To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobise
 
 Figure: An example of running the [NIVAFjord](../existingmodels/nivafjord.html) model with mobipy in a [jupyter notebook](https://jupyter.org/).
 
-Full documentation of mobipy is not yet available, but we will soon make a good example file.
+Full documentation of mobipy is not yet available, but we will soon make an example notebook.
 
 ## Basic usage
 
-**(Note: Some of the concepts below like "entities", "serial name", "identifier" will be better explained once we write the Mobius2 language documentation)**
+It is useful to look at the [central model concepts](../mobius2docs/central_concepts.html) to understand what we mean by certain concepts below like ("parameter", "state variable", "identifier", etc.).
 
 First you need to load a model application using
 ```python
@@ -44,7 +44,7 @@ Any [model entity](../mobius2docs/language.html) can in principle be accessed in
 Entities are accessed using one of the following methods
 
 - `scope.identifier` where `identifier` is the Mobius2 language identifier of the entity in the given model scope.
-- `scope["Serial name"]` where `"Serial name"` is the Mobius2 language serial name of the entity in the given model scope.
+- `scope["Name"]` where `"Name"` is the Mobius2 language name of the entity in the given model scope.
 
 The `app` is itself the top scope. You can then scope into modules from it using e.g.
 
@@ -65,7 +65,7 @@ sq = app["SimplyQ land"]
 sq.bfi = 0.1
 ```
 
-Series can be accessed by composing the Mobius2 components for the series variable location (if one exists), e.g. the river water dissolved organic carbon could be (depending on how it is declared in the model)
+The time series of a state variable can be accessed by composing the Mobius2 components for the *location* (if one exists), e.g. the river water dissolved organic carbon could be (depending on how it is declared in the model)
 
 ```python
 app.river.water.oc
@@ -74,7 +74,7 @@ app.river.water.oc
 You can also access any model series (result or input) using
 
 ```python
-app.var("Series serial name")
+app.var("Series name")
 ```
 
 where `"Series name"` is the name (either series serial name or declared name) of the series in the current application.
@@ -105,13 +105,13 @@ Parameters also have the `min()`, `max()`, `unit()` and `description()` member f
 
 ### Series
 
-When you read the values of a series, you must access it using its indexes. If the series does not have any index sets, you must still access it using an empty tuple `[()]`. The result of reading a series is a `pandas.Series`. See the [pandas documentation](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.html). It is indexed by a `pandas.DateTimeIndex`. It is convenient to quickly plot such series, such as in the example below.
+When you read the values of a series, you must access it using its indexes. If the series does not have any index sets, you must still access it using an empty tuple `[()]`. The result of reading a series is a `pandas.Series`. See the [pandas documentation](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.html). It is indexed by a `pandas.DateTimeIndex`. It is convenient to quickly plot such series, as in the example below.
 
 ![notebook minimal](../img/notebook_minimal.png)
 
 You can also construct a `pandas.DataFrame` from several such series, which is one of the most common ways to organize scientific data in python.
 
-If a series indexes over several indexes you can also read out a slice. We only support slicing one index set at a time for now, and no custom strides. When slicing, instead of a ´pd.Series´ you get a pair `(values, dates)`, where ´values´ is a ´numpy.ndarray´ with dimensions ´(time_steps, indexes)`, where `indexes` is the amount of indexes in the slice range. Example
+If a series indexes over several indexes you can also read out a slice. We only support slicing one index set at a time for now, and no custom strides. When slicing, instead of a ´pd.Series´ you get a pair `(values, dates)`, where `values` is a `numpy.ndarray` with dimensions `(time_steps, n_indexes)`. Here `n_indexes` is the amount of indexes in the slice range. Example
 
 ```python
 temps, dates = app.layer.water.temp["Drammensfjorden", 4:10]
@@ -129,10 +129,15 @@ Model series have a `unit()` member function giving you a string representation 
 
 You can also get the concentratoion series of a dissolved variable using `conc()`. For a flux, you can further use the `.` operator to get the transport flux of dissolved variables.
 
-The conc and transport operations must be called on the `mobipy.Series` object, not on the `pandas.Series` value (i.e. don't index it before the function call). Example:
+The conc and transport operations must be called on the `mobipy.Series` object, not on the `pandas.Series` value (i.e. don't index it before the operation). Example:
 
 ```python
+# Correct:
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(8, 8))
 app.river.water.oc.conc()["Kråkstadelva"].plot(ax=ax0) # Plot the concentration of organic carbon in the river water.
 app.var("Reach flow flux").oc["Kråkstadelva"].plot(ax=ax1) # Plot the transport flux of organic carbon with the river discharge.
+
+# Wrong:
+app.river.water.oc["Kråkstadelva"].conc()
+app.var("Reach flow flux")["Kråkstadelva"].oc
 ```

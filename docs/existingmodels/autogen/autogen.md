@@ -8,9 +8,11 @@ has_children: true
 
 # Mathematical description
 
-Here is documentation for some of the modules that is auto-generated based on the model files.
+Here is documentation for some of the existing modules we provide with Mobius2.
 
-Some of the concepts (like State Variable, Flux) will be better explained once the language documentation is written.
+The mathematical description is auto-generated based on the model files.
+
+It is useful to look at the [central model concepts](../mobius2docs/central_concepts.html) to understand what we mean by certain concepts in the descriptions ("parameter", "state variable", "flux", etc.).
 
 ## Notation
 

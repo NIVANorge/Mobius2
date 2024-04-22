@@ -15,10 +15,10 @@ The Mobius2 framework comes with several existing modules and models that can be
 
 If desired, the above models can be coupled together into a full catchment to coast system.
 
-In addition to these, Mobius2 comes with modules for other processes such as
+In addition to these, Mobius2 comes with modules for other processes that are convenient to include into larger models.
 - Snow pack and melt
 - Evapotranspiration
 - Atmospheric variables (radiation, humidity...)
 - Air-sea heat exchange
 
-These are convenient to include into larger models.
+We expect to eventually port over other models from Mobius1 such as MAGIC and SedFlex.

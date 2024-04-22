@@ -92,6 +92,8 @@ Note that the bars in the above plot are unevenly spaced because this particular
 
 You select a series and a contiguous set of indexes for a given index set similarly to how you do it for the Profile mode above. This produces a heatmap where the x-axis is time and the y-axis is the indexes of the selected index set, while the color of the heatmap gives the value of the selected variable.
 
+The example plot above shows temperature in a fjord basin as function of depth and time.
+
 ### Compare baseline
 
 This is only available if you have clicked the ![Save baseline](../img/toolbar/SaveBaseline.png) button in the toolbar. You must have only one result time series (and optionally one input time series) selected. The plot will display both the current value of the selected time series and the value of the time series at the point you clicked ![Save baseline](../img/toolbar/SaveBaseline.png). All plot options are available.

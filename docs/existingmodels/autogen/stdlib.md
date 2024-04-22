@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-22 11:49:32.
+The file was generated at 2024-04-22 14:24:16.
 
 ---
 
@@ -198,10 +198,10 @@ Some common thermodynamic constants and functions.
 
 ### Library functions
 
-**black_body_radiation(T_kelvin)** = 
+**black_body_radiation(T : K)** = 
 
 $$
-\mathrm{stefan\_boltzmann}\cdot \mathrm{T\_kelvin}^{4}
+\mathrm{stefan\_boltzmann}\cdot \mathrm{T}^{4}
 $$
 
 **enthalpy_adjust_log10(log10ref, ref_T : K, T : K, dU : kJ mol⁻¹)** = 

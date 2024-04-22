@@ -2,6 +2,7 @@
 layout: default
 title: Model language
 nav_order: 6
+has_children: true
 ---
 
 # The Mobius2 model building language
