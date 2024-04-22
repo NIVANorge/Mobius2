@@ -77,23 +77,23 @@ A property is any number that is computed for each evaluation of the subsystem (
 
 While a property can have more than two components in its location, this is mostly for convenient organization, and does *not* have the same semantics as the concept of a dissolved variable that exists for quantities (see below).
 
-Any property variable can be overridden with an input series from the [data set](../datafiledocs/datafiles.html). Some properties are never computed by the model and must be provided as input series.
+Any property variable can be overridden with an input series from the [data set](../datafiledocs/datafiles.html). Some properties are never computed by the model and must be provided as input series. (In a formal sense these are not state variables, but forcings, but they are treated similarly in many respects in the framework).
 
 #### Quantities
 
 A quantity is something that can be transported using fluxes, and whos mass balance is tracked by the Mobius2 framework.
 
-Quantities are typically not directly computed using a single equation. Instead their state is given an initial value, and is updated by subtracting outgoing fluxes and adding incoming fluxes. Often the quantity is configured to be treated as a part of a system of ordinary differential equations (ODE), and the state is updated using an ODE integration algorithm.
+A quantity is typically not directly computed using a single equation. Instead its state is given an initial value, and is updated by subtracting outgoing fluxes and adding incoming fluxes. Often the quantity is configured to be treated as a part of a system of ordinary differential equations (ODE), and the state is updated using an ODE integration algorithm.
 
 The value of a quantity can in some rare instances be overridden with an equation, in which case all mass balance guarantees are absolved (fluxes are not added to or subtracted from it).
 
 If the location of a quantity has more than two components, it is called a *dissolved* quantity. Unless otherwise specified, dissolved quantities are automatically transported along with what they are dissolved in. So if a flux transports `soil.water` somewhere, it will also transport the soil water dissolved organic carbon `soil.water.oc` proportionally to the concentration of the latter.
 
-Note that the term "dissolved" is just a convenient way to name it, but this system could just as well be used to model `habitat.cattle.lice`, i.e. anything that is attached to and transported along with another quantity.
+Note that the term *dissolved* is just a convenient way to name it, but this system could just as well be used to model `habitat.cattle.lice`, i.e. any quantity that is attached to and transported along with another quantity.
 
 ### Fluxes
 
-We use the term "flux" in the loose sense of the rate of transportation of a quantity from somewhere to somewhere else. This is *not* restricted to the formal meaning of a transport per surface area often used in physics.
+We use the term "flux" in the loose sense of the rate of transportation of a quantity from somewhere to somewhere else. This is *not* restricted to the formal meaning of a transport per unit of surface area often used in physics.
 
 Every flux has two locations, one source and one target. These are either
 - Valid *locations* identifying primary variable quantities.
@@ -106,7 +106,7 @@ Sources and targets can also be more specifically restricted along a 1D grid, su
 
 Connections can be used to direct fluxes between differently indexed copies of the same state variable, or some times to different types of target state variable depending on the indexes of the source state variable.
 
-For instance, a connection can be used to describe how different river sections connect to one another, and also to some times let a river section connect to a lake instead of another river section.
+For instance, a connection can be used to describe how different river sections connect to one another, and also to some times let a river section discharge to a lake instead of another river section.
 
 There are two types of connections: directed graph and 1D grid.
 
