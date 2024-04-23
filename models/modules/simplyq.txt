@@ -81,7 +81,7 @@ $$
 v = \frac{R_h^{2/3}S^{1/2}}{n}
 $$
 
-Where $$v$$ is the cross-sectional average velocity, $$R_h$$ the hydraulic radius, $$S$$ the channel slope an $$n$$ the roughness coefficient (c_mann below). Now $$Q = v*A$$, where $$Q$$ is the discharge and $$A$$ the cross-sectional area. Now, $$A = V/l$$ where $$V$$ is the volume and $$l$$ the length.
+Where $$v$$ is the cross-sectional average velocity, $$R_h$$ the hydraulic radius, $$S$$ the channel slope an $$n$$ the roughness coefficient (c_mann below). Now $$Q = vA$$, where $$Q$$ is the discharge and $$A$$ the cross-sectional area. Also, $$A = V/l$$ where $$V$$ is the volume and $$l$$ the length.
 
 We also assume that depth and width of the river are given by the formulas
 
@@ -95,13 +95,13 @@ These are taken from (reference to be inserted).
 We use the approximation
 
 $$
-R_h = \frac{dw}{2d+w},
+R_h = \frac{dw}{2d+w}.
 $$
 
-Putting this together and rearranging we can get
+Putting everything together and rearranging we can get
 
 $$
-\frac{2}{2.71}Q^{0.943} + \frac{1}{1.16}Q^{1.16} = \left(\frac{V\sqrt{S}}{ln}\right)^{\frac{3}{2}}
+\frac{2}{2.71}Q^{0.943} + \frac{1}{0.35}Q^{1.16} = \left(\frac{V\sqrt{S}}{ln}\right)^{\frac{3}{2}}
 $$
 
 We then make the approximation $$Q^{0.943} \simeq Q^{1.16} \simeq Q$$, and get
