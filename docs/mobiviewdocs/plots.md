@@ -36,6 +36,8 @@ If you right click a plot you get context menu options (curtesy of the [Scatter]
 
 ## Plot options
 
+![Plot options](../img/mobiview/plotoptions.png)
+
 The availability of the following options depend on the plot mode.
 
 ### Scatter sparse
@@ -44,7 +46,7 @@ If this option is checked it will use a scatter plot to display series that have
 ### Aggregation
 You can aggregate series over larger time intervals. The available aggregations are always larger than the sampling frequency of your current data set. You can also choose an aggregator function such as mean, sum, min, max, freq (the last one just counts the number of valid values per interval). If your aggregation interval is yearly, you can choose the pivot month in the dropdown list at the bottom.
 
-## Transform 
+### Transform 
 You can choose transforms for the y axis.
 - Regular Y axis. This applies no transform.
 - Normalized. Every series is scaled independently so that it ranges between 0 and 1.

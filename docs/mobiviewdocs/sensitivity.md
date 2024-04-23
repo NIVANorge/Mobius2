@@ -32,7 +32,7 @@ In the toolbar of the setup window you can click buttons to
 
 If you select a parameter in the main window, you can click ![Add parameter](../img/toolbar/Add.png) "Add parameter" in the setup to add it to the list. You can set the min and max values that you want to constrain this parameter with. Note that all values in the range have to be valid values that don't make the model crash. For the optimizer it helps if you can narrow down the range as much as possible before running it.
 
-You can click ![Add group(../img/toolbar/AddGroup.png) "Add group" to add all the parameters that are visible in the main parameter view.
+You can click ![Add group](../img/toolbar/AddGroup.png) "Add group" to add all the parameters that are visible in the main parameter view.
 
 If an index set was set as locked ![Locked](../img/toolbar/Lock.png) in the main window at the time a parameter was added, all values across the indexes of that index set will be treated as a single parameter, and all of them will be given the same value every time the model is run.
 

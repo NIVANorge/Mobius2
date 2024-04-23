@@ -37,13 +37,13 @@ An object can be distributed over multiple index sets, which means you get a cop
 
 ## Parameters
 
-Parameters are values that are held constant through each single model run. They are typically used to constrain a model to a given geographical location without changing the model code. Parameters can either be "global" (for the entire modeled system, not for the entire world as such), or be distributed, i.e. have a different value per different copy of the subsystem (such as having different slope per river section or different nitrogen plant uptake rates per land use type).
+Parameters are values that are held constant through each single model run. They are typically used to constrain a model to a given geographical location without changing the model code. They are also used to calibrate the model and run scenarios. Parameters can either be "global" (for the entire modeled system, not for the entire world as such), or be distributed, i.e. have a different value per different copy of the subsystem (such as having different slope per river section or different nitrogen plant uptake rates per land use type).
 
 Parameters are always organized into parameter groups, and it is the group that determines the distribution of the parameters within it.
 
 ## Components and locations
 
-We use the term *location* to refer to what may be thought of as the address of a state variable. A location is a '.'-separated chain of component identifiers, e.g. `soil.water.temp`. The types of components are
+We use the term *location* to refer to what may be thought of as the address of a state variable. A location is a `.`-separated chain of component identifiers, e.g. `soil.water.temp`. The types of components are
 - **Compartment**. The first item (and only the first) component of a location is always a compartment. This typically represents a physical location, such as the soil layer, a lake, the heart of a fish, etc.
 - **Property**. The last (and only the last) component of a location can be a property. These are used to address values that are computed from the state of the rest of the system (and can be referenced in other equations), but is not subject to mass balance.
 - **Quantity**. These are used to form the location of state variables that are subject to automatic mass balance. See more about this below.

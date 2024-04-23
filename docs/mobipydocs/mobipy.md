@@ -6,12 +6,12 @@ nav_order: 4
 
 # mobipy
 
-The mobipy python package can be used to run the model from python. It also allows you to set parameter values and input series dynamically and read out result data.
+The mobipy python package can be used to run Mobius2 models from python. It also allows you to set parameter values and input series dynamically and read out result data.
 
 Among other things, this allows you to:
 
 - Automate running of many different scenarios. For instance, your script could access various climate scenarios from a database (or files), set them as forcings in the model, then storing and comparing the results. This can be done without generating different input files for the model.
-- Make a website for stakeholder interaction that uses a python backend such as [streamlit](https://streamlit.io/), and have it dynamically run a model based on a custom user web interface or forecasts from a database. See one example of this being done with [INCA-Microplastics](https://ikhapp.org/inca-microplastics/) in Mobius1
+- Make a website for stakeholder interaction that uses a python backend such as [streamlit](https://streamlit.io/), and have it dynamically run a model based on a custom user web interface or forecasts from a database. See one example of this being done with [INCA-Microplastics](https://ikhapp.org/inca-microplastics/) using Mobius1.
 - Write your own autocalibration and uncertainty analysis scripts if you need something more specific than what you find in [MobiView2](../mobiviewdocs/sensitivity.html).
 
 To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
@@ -39,14 +39,14 @@ It is important to note that the `Model_Application` object is not serializable 
 
 ### Acessing model entities
 
-Any [model entity](../mobius2docs/language.html) can in principle be accessed in the `app`, but for the most part it only makes sense to access modules, parameters or components.
+Any [model entity](../mobius2docs/central_concepts.html) can in principle be accessed in the `app`, but for the most part it only makes sense to access modules, parameters or components.
 
 Entities are accessed using one of the following methods
 
-- `scope.identifier` where `identifier` is the Mobius2 language identifier of the entity in the given model scope.
+- `scope.identifier` where `identifier` is the [Mobius2 language identifier](../mobius2docs/declaration_format.html#entities-and-identifiers) of the entity in the given model scope.
 - `scope["Name"]` where `"Name"` is the Mobius2 language name of the entity in the given model scope.
 
-The `app` is itself the top scope. You can then scope into modules from it using e.g.
+The `app` is itself the model top scope. You can then scope into modules from it using e.g.
 
 ```python
 app["Module name"]
@@ -65,7 +65,7 @@ sq = app["SimplyQ land"]
 sq.bfi = 0.1
 ```
 
-The time series of a state variable can be accessed by composing the Mobius2 components for the *location* (if one exists), e.g. the river water dissolved organic carbon could be (depending on how it is declared in the model)
+The time series of a state variable can be accessed by composing the Mobius2 components for the [*location*](../mobius2docs/central_concepts#components-and-locations) (if one exists), e.g. the river water dissolved organic carbon could be (depending on how it is declared in the model)
 
 ```python
 app.river.water.oc

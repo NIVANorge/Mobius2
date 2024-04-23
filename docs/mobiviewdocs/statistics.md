@@ -134,7 +134,7 @@ $$
 \frac{\sum{m_i^b}}{\sum{m_i}}
 $$
 
-where $$m_i^b$$ is the result of applying the single pass forward filter to $$m_i$$:
+where $$m_i^b$$ is the result of applying the following single pass forward filter to $$m_i$$:
 
 $$
 m_i^b = \min(m_i, am_{i-1}^b + (1-a)\frac{m_{i-1}+m_i}{2})

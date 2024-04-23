@@ -35,7 +35,7 @@ $$
 The total effect index measures both the first-order effect and the higher-order effects (interactions between parameter $$i$$ and others). In general one has for all $$i$$
 
 $$
-\sum_{i=1}^n S_i \leq 1,\; \sum_{i=1}^n S_{T_i} \geq 1\; 0 \leq S_i \leq S_{T_i}.
+\sum_{i=1}^n S_i \leq 1,\; \sum_{i=1}^n S_{T_i} \geq 1,\; 0 \leq S_i \leq S_{T_i}.
 $$
 
 Note that since these are estimated using a Monte-Carlo method, they will not be exact, and especially small values are unreliable. This means that the estimated values may violate some of the above constraints. You can try to run with a higher number of samples if this becomes a problem.
