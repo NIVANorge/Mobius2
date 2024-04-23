@@ -17,6 +17,8 @@ Each Mobius2 file is a sequence of *declarations* that can again contain nested 
 
 A Mobius2 file must always be [UTF-8](https://en.wikipedia.org/wiki/UTF-8). Except inside string literals, every character must be from the ascii subset of UTF-8. We recommend editing them with a plain text editor such as notepad++.
 
+Files in the Mobius2 declaration format are whitespace agnostic, that is any number of whitespace, tabulars or newlines count as a single whitespace for the parser. Use of newlines and tabulars are therefore entirely for human readability reasons only.
+
 ## File types
 
 Mobius2 uses the following file types
@@ -143,6 +145,40 @@ var(soil.water, [m m], "Soil water") @initial { fc }   # The @initial note has n
 
 ## Data blocks
 
-In a data file only, a declaration can have a single data block (no data block per note).
+In a data file only, a declaration can have a single data block (there is no separate data block per note).
 
-(Documentation to be written).
+A data block is enclosed in square brackets `[ .. ]`. A data block can either encode a list, a map, or a directed graph.
+
+### List
+
+A list is a space-separated list of single values. The single values are either numbers, identifiers or quoted strings.
+
+Examples:
+
+```python
+[0 8 3.2]
+
+["Arable" "Semi-natural"]
+```
+
+### Maps
+
+A map always opens with a `!` after the opening bracket. It is then a space-separated list of `key : value` pairs. The key is always a single value (number, identifier or string), while the value is a single value or a nested data block (either list or map).
+
+Examples:
+
+```python
+[!
+	0 : 4
+	5 : 10
+]
+
+[!
+	"Breiangen" : [ 4 5 6 ]
+	"Vestfjord" : [ 7 8 9 ]
+]
+```
+
+### Directed graph
+
+A directed graph only appears as the data block for a directed graph connection in the data set. Separate documentation will be written.

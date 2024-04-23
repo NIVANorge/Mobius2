@@ -22,7 +22,7 @@ Units in Mobius2 are roughly [SI-based](https://en.wikipedia.org/wiki/Internatio
 | Kelvin | `K` |
 | Ampere | `A` |
 
-The following compound units are also available (and are constructed from the base units).
+The following compound units are also available (and can be expressed in terms of the base units).
 
 | Name | Symbol |
 | ---- | ------ |
@@ -39,7 +39,7 @@ The following compound units are also available (and are constructed from the ba
 
 (More compound units could be added if they are needed).
 
-There are also the `min`, `hr`, `day`, `week`, `month` and `year` time units. Note that you can't automatically convert `month` or `year` to any of the smaller time units since that would depend on what month or year is in question. Instead look at using values from the `time` structure.
+There are also the `min`, `hr`, `day`, `week`, `month` and `year` time units. Note that you can't automatically convert between `month` or `year` and any of the smaller time units since that would depend on what month or year is in question. Instead look at using values from the `time` structure.
 
 The following SI prefixes are available
 
@@ -68,7 +68,7 @@ The following SI prefixes are available
 
 ## The unit declaration format
 
-In model code, units are declared inside square brackets `[ .. ]`, and are a `,`-separated list of parts. Each part is either a
+In model code, units are declared inside square brackets `[ .. ]` that contains a `,`-separated list of parts. Each part is either a
 
 - Scaling factor. This can only appear as the first part, and can be used if you can't express the scaling using SI prefixes. The scaling factor is an integer or a rational number.
 - A unit part.
@@ -88,6 +88,6 @@ Examples:
 
 ## The standard form
 
-Mobius2 converts all units down to a standard form which is a scaling factor followed by the unit expressed in base units only. This form is often what you see reported in error messages.
+Mobius2 internally converts all units down to a standard form which is a scaling factor followed by the unit expressed in base units only. This form is often what you see reported in error messages.
 
 The standard form also allows Mobius2 to do automatic computations of conversion factors between units and to check that units of different expressions match.
