@@ -115,8 +115,8 @@ Mobius2 also allows you to access some values that say something about the *mode
 | ------ | ---- | ----------- |
 | `time.year` | `[year]` |  |
 | `time.month` | `[month]` | Month of year. January=1 |
-| `time.day_of_year | `[day]` | Starts at 1 |
-| `time.day_of_month | `[day]` | Starts at 1 |
+| `time.day_of_year` | `[day]` | Starts at 1 |
+| `time.day_of_month` | `[day]` | Starts at 1 |
 | `time.days_this_year` | [day, year-1] | 365 or 366 |
 | `time.days_this_month` | [day, month-1] | |
 | `time.step` | \* | The time step of the model. |
@@ -125,7 +125,7 @@ Mobius2 also allows you to access some values that say something about the *mode
 
 \* These have a unit equal to the time step unit of the current model application.
 
-### Binary operator\
+### Binary operator
 
 A \<binary-operator\> is of the form
 
@@ -133,8 +133,7 @@ A \<binary-operator\> is of the form
 <primary-expression><operator><primary-expression>
 ```
 
-The precedence of an operator can determine association of the participating expressions if there are multiple operators. For instance,
-`a + b * c` is equivalent to `a + (b * c)` since `*` has higher precedence than `+`.
+The precedence of an operator can determine association of the participating expressions if there are multiple operators. For instance, `a + b * c` is equivalent to `a + (b * c)` since `*` has higher precedence than `+`. You can use parentheses `( .. )` to force association, e.g. `(a + b)*c`.
 
 | Symbol | Description | Precedence | Units |
 | ------ | ----------- | ---------- | ----- |
