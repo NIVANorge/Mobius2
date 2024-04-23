@@ -9,7 +9,7 @@ has_children: true
 
 ## Introduction
 
-The Mobius2 language is a language for specifying models that can be run by the Mobius2 framework. Models are just-in-time compiled to machine code when they are loaded by one of the Mobius2 binaries (e.g. MobiView2 or mobipy).
+The Mobius2 language is a language for specifying models that can be run by the Mobius2 framework. Models are just-in-time compiled to machine code (using [LLVM](https://llvm.org/)) when they are loaded by one of the Mobius2 binaries (e.g. MobiView2 or mobipy).
 
 The goal of the language is to be minimalistic and fast to write. It should flexible enough to allow you to specify a large range of model structures while still requiring minimal programming and letting the framework take care of most of the heavy lifting. This allows you to quickly write new models and test new processes. The integration with MobiView2 allows you to test the models during the entire design process and incorporate what you learn in a dynamic way.
 

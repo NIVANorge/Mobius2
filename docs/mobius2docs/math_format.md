@@ -62,10 +62,11 @@ A \<primary-expression\> is one of the following
 - \<unary-operator\>
 - \<function-evaluation\>
 - \<unit-conversion\>
+- (\<primary-expression\>)
 
 ### If expression
 
-An if-expression is something that evaluates to different values depending on some conditions. It is on the format
+An \<if-expression\> is something that evaluates to different values depending on some conditions. It is on the format
 ```python
 <primary-expression> if <primary-expression>,
 ..
@@ -80,13 +81,104 @@ The units of all the values must be the same, and this is the unit of the \<if-e
 
 ### Literal
 
+A \<literal\> is a number or value placed directly in the code. Examples
+
+```python
+5
+0.32
+false
+2.8e12
+```
+These are formatted like in most other programming languages.
+
+Literals are dimensionless, but can be given a unit by following them directly with a [unit declaration](units.html):
+
+```python
+2000[m 2]    # 2000 square meters
+```
 
 ### Identifier
 
+An \<identifier\> is either the identifier of a previously declared local variable, the identifier of an entity declared in the outer declaration scope (such as a parameter), a `.`-separated chain of identifiers forming a [location](central_concepts.html#components-and-locations), or a special value.
+
+These have the units and types they are declared with. If a value is indexed over index sets, it will primarily be accessed using the same indexes as the current expression are evaluated with. (This causes expressions to propagate index set dependencies to one another and to put some restrictions on what can be accessed. This will be separately documented).
+
+Note that the value you get when you access a parameter value in the model is the one provided in the data set (corresponding to the current index combination). The default value in the parameter declaration is just a helper for somebody who create a new data set.
+
+When you access the value of a state variable or input series, you get the current value of that variable (this can some times force what order state variables have to be computed in. This will also be separately documented).
+
+You can some times also access a value across a connection using a square bracket `[ .. ]`. This will be documented later.
+
+Mobius2 also allows you to access some values that say something about the *model time* (not real time!) of the current evaluation of the expression
+
+| Symbol | Unit | Comment |
+| ------ | ---- | ----------- |
+| `time.year` | `[year]` |  |
+| `time.month` | `[month]` | Month of year. January=1 |
+| `time.day_of_year | `[day]` | Starts at 1 |
+| `time.day_of_month | `[day]` | Starts at 1 |
+| `time.days_this_year` | [day, year-1] | 365 or 366 |
+| `time.days_this_month` | [day, month-1] | |
+| `time.step` | \* | The time step of the model. |
+| `time.step_length_in_seconds` | `[s]` | |
+| `time.fractional_step` | \* | If we are in an ODE solver, this is how far along the current time step we are. Always between 0 and 1. |
+
+\* These have a unit equal to the time step unit of the current model application.
+
 ### Binary operator\
 
-### Unary operator\
+A \<binary-operator\> is of the form
 
-### Function evaluation\
+```python
+<primary-expression><operator><primary-expression>
+```
+
+The precedence of an operator can determine association of the participating expressions if there are multiple operators. For instance,
+`a + b * c` is equivalent to `a + (b * c)` since `*` has higher precedence than `+`.
+
+| Symbol | Description | Precedence | Units |
+| ------ | ----------- | ---------- | ----- |
+| `|`    | logical or  | 1000       | \* (boolean) |
+| `&`    | logical and | 2000       | \* (boolean) |
+| `<`    | less than   | 3000       | \*\* (comparison) |
+| `>`    | greater than   | 3000       | \*\* (comparison) |
+| `<=`    | less than or equal  | 3000       | \*\* (comparison) |
+| `>=`    | greater than or equal  | 3000       | \*\* (comparison) |
+| `=`    | equal   | 3000       | \*\* (comparison) |
+| `!=`    | not equal   | 3000       | \*\* (comparison) |
+| `+`    | plus | 4000 | \*\*\* (aritmetic) |
+| `-`    | minus | 4000 | \*\*\* (arithmetic) |
+| `*`    | product | 5000 | \*\*\* (arithmetic) |
+| `/`    | real division | 6000 | \*\*\* (arithmetic) |
+| `//`    | integer division | 6000 | \*\*\* (arithmetic) |
+| `%`    |  integer remainder | 6000 | \*\*\* (arithmetic) |
+| `^`    |  exponentiation | 7000 | \*\*\*\* (exponentiation) |
+
+\* The units of the arguments to a (boolean) operator must be dimensioness (the arguments are cast to boolean type). It produces a dimensionless boolean result.
+
+\*\* The units of the arguments to a (comparison) operator must be of the same unit. It produces a dimensionless boolean result.
+
+\*\*\* For the `+` and `-` operators the types of the two arguments must be the same, and the result has that unit. For `*`, `/` and `//`, unit arithmetic is applied. That is, the units of the arguments are themselves multiplied or divided with one another to produce the result unit.
+
+\*\*\*\* With exponentiation, the unit of the left hand side is raised to the power of the right hand side if it is possible. It is possible if the left hand side is dimensionless or if it can be determined that the right hand side is a constant integer or rational value.
+
+Usually if you get an error with units it means you forgot a unit conversion somewhere, but it can some times be problematic. For instance, if you are dealing with empirical formulas that come e.g. from regression fits, the unit of the expression may not make sense in terms of the units of the arguments. In this case we recommend that you force convert the units of the arguments to dimensionless, do the computation, then force convert the result back to the unit you need it to be in. Example:
+
+```python
+mean_barometric_pressure : function(elevation : [m]) {
+	elev := elevation => [],                            # Force the unit of the argument to dimensionless
+	(101.3 - (0.01152 - 0.544e-6*elev)*elev) => [k Pa]  # Force the unit of the result to kilo-Pascals.
+}
+```
+
+### Unary operator
+
+To be written
+
+### Function evaluation
+
+To be written
 
 ### Unit conversion
+
+To be written

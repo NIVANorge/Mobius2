@@ -44,7 +44,7 @@ my_identifier : <declaration>
 
 The declaration type is chosen from one of several different [pre-defined keywords](declaration_types.html). It is the first part of the declaration apart from the optional identifier. For instance
 
-```
+```python
 soil : compartment <rest of declaration>
 ```
 
