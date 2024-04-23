@@ -211,9 +211,9 @@ The following intrinsic functions are visible in every function scope. They are 
 
 | Signature  | Description | Units |
 | ---------- | ----------- | ----- |
-| `min(a, b) | minimum value | a and b must have the same unit. Result has that same unit |
-| `max(a, b) | maximum value | Same as min |
-| `copysign(a, b) | magnitude of a with sign of b | Result has the unit of a |
+| `min(a, b)` | minimum value | a and b must have the same unit. Result has that same unit |
+| `max(a, b)` | maximum value | Same as min |
+| `copysign(a, b)` | magnitude of a with sign of b | Result has the unit of a |
 | `sqrt(a)`  | square root | Result unit is the square root of the unit of a if possible |
 | `cbrt(a)`  | cube root | Result unit is the cube root of the unit of a if possible |
 | `abs(a)` | absolute value | Preserves unit |
