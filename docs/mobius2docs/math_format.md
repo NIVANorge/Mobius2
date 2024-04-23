@@ -75,9 +75,11 @@ An \<if-expression\> is something that evaluates to different values depending o
 ```
 There must be at least one line containing an `if` and one containing an `otherwise`.
 
-The left \<primary-expression\> is a value, and the right one is a condition. The first value where the condition holds is the value of the entire \<if-expression\>. If no condition holds, the value is the one with the `otherwise`.
+The left \<primary-expression\> is a value, and the right one is a condition. The first value where the condition is `true` is the value of the entire \<if-expression\>. If no condition holds, the value is the one with the `otherwise`.
 
 The units of all the values must be the same, and this is the unit of the \<if-expression\> itself.
+
+The conditions must be dimensionless, and are cast to boolean if they are not already boolean.
 
 ### Literal
 
@@ -125,6 +127,13 @@ Mobius2 also allows you to access some values that say something about the *mode
 
 \* These have a unit equal to the time step unit of the current model application.
 
+Other special identifiers:
+
+| Symbol | Comment |
+| ------ | ------- |
+| `no_override` | This can be used to cancel an @override or @override_conc expression of a `var` declaration. The compiler must be able to resolve to either `no_override` or not `no_override` at compile time, meaning any `if` branches to these can only rely on constants or constant parameters. (to be documented) |
+| `is_at` | This can be used to determine location in a grid1d connection. Will be documented later. |
+
 ### Binary operator
 
 A \<binary-operator\> is of the form
@@ -161,7 +170,83 @@ The precedence of an operator can determine association of the participating exp
 
 \*\*\*\* With exponentiation, the unit of the left hand side is raised to the power of the right hand side if it is possible. It is possible if the left hand side is dimensionless or if it can be determined that the right hand side is a constant integer or rational value.
 
-Usually if you get an error with units it means you forgot a unit conversion somewhere, but it can some times be problematic. For instance, if you are dealing with empirical formulas that come e.g. from regression fits, the unit of the expression may not make sense in terms of the units of the arguments. In this case we recommend that you force convert the units of the arguments to dimensionless, do the computation, then force convert the result back to the unit you need it to be in. Example:
+### Unary operator
+
+A \<unary-operator\ is of the form
+
+```python
+<operator><primary-expression>
+```
+
+There are only two unary operators
+
+| Symbol | Description |
+| ------ | ----------- |
+| `-`    | minus |
+| `!`    | not |
+
+Minus preserves the unit of the argument. The not operator always produces a boolean value and must have a dimensionless argument. The argument is cast to boolean.
+
+### Function evaluation
+
+A \<function-evaluation\> is either a regular function evaluation or a special directive.
+
+#### Regular function evaluation
+
+These are of the form
+
+```python
+identifier(<primary-expression>, .., <primary-expression>)
+```
+
+The function has 0 or more arguments.
+
+The function identifier identifies either a function declaration that is visible in the parent declaration scope, or an intrinsic function.
+
+If it is a declared function, it can have requirements about the units of the arguments, and the result will have the unit of the expression of the body of the function declaration. 
+
+Declared functions are inlined at the site they are called. This means that you can't have recursive declared functions (for now, this may be implemented later).
+
+The following intrinsic functions are visible in every function scope. They are implemented either using [LLVM intrinsics](https://llvm.org/docs/LangRef.html#intrinsic-functions) or [LLVM libc](https://libc.llvm.org/math/index.html).
+
+| Signature  | Description | Units |
+| ---------- | ----------- | ----- |
+| `min(a, b) | minimum value | a and b must have the same unit. Result has that same unit |
+| `max(a, b) | maximum value | Same as min |
+| `copysign(a, b) | magnitude of a with sign of b | Result has the unit of a |
+| `sqrt(a)`  | square root | Result unit is the square root of the unit of a if possible |
+| `cbrt(a)`  | cube root | Result unit is the cube root of the unit of a if possible |
+| `abs(a)` | absolute value | Preserves unit |
+| `exp(a)` | Euler number to the power of a | a must be dimensionless, result is dimensionless |
+| `pow2(a)` | 2 to the power of a | a must be dimensionless, result is dimensionless  |
+| `ln(a)` | natural logarithm | a must be dimensionless, result is dimensionless  |
+| `log10(a)` | base-10 logarithm | a must be dimensionless, result is dimensionless  |
+| `ln2(a)` | base-2 logarithm | a must be dimensionless, result is dimensionless  |
+| `cos(a)` | cosine | a must be dimensionless, result is dimensionless  |
+| `sin(a)` | sine | a must be dimensionless, result is dimensionless  |
+| `tan(a)` | tangent | a must be dimensionless, result is dimensionless |
+| `acos(a)` | inverse cosine | a must be dimensionless, result is dimensionless |
+| `asin(a)` | inverse sine | a must be dimensionless, result is dimensionless |
+| `atan(a)` | inverse tangent | a must be dimensionless, result is dimensionless |
+| `sinh(a)` | hyperbolic sine | a must be dimensionless, result is dimensionless |
+| `cosh(a)` | hyperbolic cosine | a must be dimensionless, result is dimensionless |
+| `tanh(a)` | hyperbolic tangent | a must be dimensionless, result is dimensionless |
+| `floor(a)` | round down to closest integer | Preserves unit |
+| `ceil(a)` | round up to closest integer | Preserves unit |
+| `is_finite(a)` | `true` if a is finite, otherwise `false` | a is any unit. Result is dimensionless |
+
+#### Special directives
+
+To be written
+
+### Unit conversion
+
+To be written
+
+
+## Note on unit errors
+
+Usually if you get an error with units it means you forgot a unit conversion somewhere, but these errors can some times be problematic. For instance, if you are dealing with empirical formulas that come e.g. from regression fits, the unit of the expression may not make sense in terms of the units of the arguments. In this case we recommend that you force convert the units of the arguments to dimensionless, do the computation, then force convert the result back to the unit you need it to be in. Example:
 
 ```python
 mean_barometric_pressure : function(elevation : [m]) {
@@ -170,14 +255,8 @@ mean_barometric_pressure : function(elevation : [m]) {
 }
 ```
 
-### Unary operator
+## Imperative constructs
 
-To be written
+If you need to, there are some imperative programming constructs you can use.
 
-### Function evaluation
-
-To be written
-
-### Unit conversion
-
-To be written
+To be written.
