@@ -49,7 +49,7 @@ Every math expression in Mobius2 has one outer block which is the body of some d
 A \<local-var-declaration\> is of the format
 
 ```python
-identifier := <primary-expression>,
+<identifier> := <primary-expression>,
 ```
 
 The value of the right hand side primary expression is bound to the left hand side identifier below in the same block or any sub-scopes. You will normally not reassign the value of an already declared variable, but a local variable in a nested scope will shadow the one in an outer scope if it has the same identifier.
@@ -256,8 +256,38 @@ If `var` is on a solver, `last(var)` will reference the end-of-timestep value fr
 
 ### Unit conversion
 
-To be written
+There are four unit conversion operators with the following syntax
 
+```python
+<primary-expression> -> <unit-declaration>
+<primary-expression> ->>
+<primary-expression> => <unit-declaration>
+<primary-expression> =>>
+```
+where a \<unit-declaration\> follows the [unit declaration format](units.html#the-unit-declaration-format).
+
+| Operator | Description |
+| -------- | ----------- |
+| `->`     | Convert the lhs to the rhs unit by multiplying with a conversion factor if one exists (otherwise there is an error). The unit conversion factor exists if the units have the same SI dimensions when reduced to [standard form](units.html#the-standard-form). |
+| `->>`    | Same as `->` but converts the lhs to the unit of the state variable declaration that the outer function body is attached to. |
+| `=>`     | Discards the unit of the lhs and replaces it with the rhs unit, keeping the same underlying numerical value. |
+| `=>>`    | Same as `=>`, but replaces the unit with the unit of the state variable of the outer function body. |
+
+For instance,
+
+```python
+10[day] -> [s]
+# translates to
+10[day]*86400[s, day-1] # = 864000[s]
+```
+
+If a unit conversion appears in conjunction with binary operators, the unit conversion acts as if it has precedence 4500. For instance
+
+```python
+a + b*c -> unit
+# is equivalent to
+a + ((b*c) -> unit)
+```
 
 ## Note on unit errors
 
@@ -272,6 +302,33 @@ mean_barometric_pressure : function(elevation : [m]) {
 
 ## Imperative constructs
 
-If you need to, there are some imperative programming constructs you can use.
+If you need to, there are some imperative programming constructs you can use. We recommend that you only use this if you need to compute an iterative solution to something.
 
-To be written.
+A \<block\> can be given an optional *iteration tag* by writing
+
+```python
+<identifier> : <block>
+```
+
+If you within that or a nested block write `iterate <identifier>`, the function evaluation skips back to the start of that block.
+
+You can also update the value of a local variable using the syntax
+
+```python
+<identifier> <- <primary-expression>
+```
+
+where the identifier is that of the local variable.
+
+For instance, the below code uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) for finding `sin(x)+e^x = 0` within accuracy `eps`
+
+```python
+eps := 1e-6,
+x   := 0,
+i:{
+	xi := x - (sin(x)+exp(x))/(cos(x)+exp(x)),
+	
+	xi                    if abs(x - xi) < eps,
+	{ x <- xi, iterate i} otherwise
+}
+```

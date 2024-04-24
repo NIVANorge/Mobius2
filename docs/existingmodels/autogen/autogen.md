@@ -54,4 +54,19 @@ $$
 
 If you see a double right arrow $$(\mathrm{expression} \Rightarrow \mathrm{unit})$$ it means that the unit of the expression is discarded and replaced with the new unit, while the numerical value of the expression is kept. If you see $$(\mathrm{expression} \Rightarrow 1)$$, it means that the expression is put on dimensionless form (i.e. with unit 1).
 
+### If-expressions
+
+In if-expressions, a condition implicitly includes the exclusion of the conditions above it. For instance in the example
+
+$$
+a = \begin{cases}
+0 & \text{if}\; b > 5 \\
+1 & \text{if}\; b > 3 \\
+2 & \text{otherwise}
+\end{cases}
+$$
+
+the condition $$b > 3$$ implies the exclusion of the above condition $$b > 5$$, so that the implied condition is $$3 < b \leq 5$$.
+
+
 {% include lib/mathjax.html %}

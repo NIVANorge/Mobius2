@@ -377,7 +377,7 @@ Authors: Magnus D. Norling
 	flux(epi.water.sed, sett_target, [k g, day-1], "Epilimnion SS inlet settling") {
 		in_s := in_flux(downstream, epi.water.sed),
 		in_q := in_flux(downstream, epi.water),
-		in_conc := in_s/in_q -> [m g, l-1],
+		in_conc := safe_divide(in_s, in_q) -> [m g, l-1],
 		# TODO: Maybe make this smoother..
 		excess := in_conc - maxconc,
 		s_response(excess, 0, 5[m g, l-1], 0, excess*in_q)->>
