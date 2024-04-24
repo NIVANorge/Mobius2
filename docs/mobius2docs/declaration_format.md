@@ -2,7 +2,7 @@
 layout: default
 title: Common declaration format
 parent: Model language
-nav_order: 0
+nav_order: 2
 has_children: true
 comment: "While we use python markup for code snippets, they are not actually python, it just creates convenient coloring for this format."
 ---
@@ -11,7 +11,7 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 The common declaration format is the format followed by all Mobius2 model, module, library and data files.
 
-Although this specification is important to have for reference, it can be easier to work through some examples rather than reading this documentation, and instead refer back to this for checking details.
+Although this specification is important to have for reference, it can be easier to work through some examples and follow the [guide](guide.html) rather than reading this documentation.
 
 Each Mobius2 file is a sequence of *declarations* that can again contain nested declarations in various ways.
 
@@ -69,7 +69,7 @@ soil : compartment("Soil")
 
 par_group("Soil hydrology", soil) <rest of declaration>
 
-par_group("River parameters", river : compartment("River)) <rest of declaration>
+par_group("River parameters", river : compartment("River")) <rest of declaration>
 ```
 
 A string literal must be on a single line if it is enclosed in single quotation marks, or can be across multiple lines if it is enclosed in triple quotation marks
@@ -140,7 +140,8 @@ Following the main body (if it has one), a declaration can have zero or more not
 
 Example:
 ```python
-var(soil.water, [m m], "Soil water") @initial { fc }   # The @initial note has no arguments, but has a function body.
+# The @initial note has no arguments, but has a function body.
+var(soil.water, [m m], "Soil water") @initial { fc }
 ```
 
 ## Data blocks
@@ -157,7 +158,6 @@ Examples:
 
 ```python
 [0 8 3.2]
-
 ["Arable" "Semi-natural"]
 ```
 

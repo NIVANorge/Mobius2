@@ -22,7 +22,7 @@ Units in Mobius2 are roughly [SI-based](https://en.wikipedia.org/wiki/Internatio
 | Kelvin | `K` |
 | Ampere | `A` |
 
-The following compound units are also available (and can be expressed in terms of the base units).
+The following derived units are also available (and can be expressed in terms of the base units).
 
 | Name | Symbol |
 | ---- | ------ |
@@ -37,7 +37,7 @@ The following compound units are also available (and can be expressed in terms o
 | Volt | `V` |
 | Ohm | `ohm` |
 
-(More compound units could be added if they are needed).
+(More derived units could be added if they are needed).
 
 There are also the `min`, `hr`, `day`, `week`, `month` and `year` time units. Note that you can't automatically convert between `month` or `year` and any of the smaller time units since that would depend on what month or year is in question. Instead look at using values from the `time` structure.
 
@@ -73,7 +73,7 @@ In model code, units are declared inside square brackets `[ .. ]` that contains 
 - Scaling factor. This can only appear as the first part, and can be used if you can't express the scaling using SI prefixes. The scaling factor is an integer or a rational number.
 - A unit part.
 	- This starts with an optional SI prefix.
-	- It is then followed by the symbol of a base or compound unit.
+	- It is then followed by the symbol of a base or derived unit.
 	- Next it is followed by an optional power. The power is integer or rational, and applies to both the unit and the SI prefix.
 
 Examples:
@@ -90,4 +90,6 @@ Examples:
 
 Mobius2 internally converts all units down to a standard form which is a scaling factor followed by the unit expressed in base units only. This form is often what you see reported in error messages.
 
-The standard form also allows Mobius2 to do automatic computations of conversion factors between units and to check that units of different expressions match.
+For instance, the standard form of `[k W, m m]` is 10³ g m³ s⁻³.
+
+Two units can be converted to one another if they have the same *dimension*, that is if the part after the multiplier (the powers of the base units) is the same. In this case the conversion factor is the ratio of the two multipliers.

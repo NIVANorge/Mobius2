@@ -23,6 +23,14 @@ Every expresson also has a [unit](units.html). Units can be transformed by the m
 
 See the [note on unit errors](math_format.html#note-on-unit-errors) for some tips about how to deal with them.
 
+## The context location
+
+If the math expression is the body of a `var` or `flux` declaration, it has a context [*location*](central_concepts.html#components-and-locations).
+
+For a `var` declaration, the context location is the single location of that state variable.
+
+For a `flux` declaration, the context location is the source of the flux if it is not `out`, otherwise it is the target of the flux.
+
 ## Expression components
 
 ### Block
@@ -93,9 +101,9 @@ A \<literal\> is a number or value placed directly in the code. Examples
 false
 2.8e12
 ```
-These are formatted like in most other programming languages.
+These are formatted like in most other programming languages, including the use of [E notation](https://en.wikipedia.org/wiki/Scientific_notation#E_notation) for reals.
 
-Literals are dimensionless, but can be given a unit by following them directly with a [unit declaration](units.html):
+Literals are dimensionless, but can be given a unit by following them directly with a [unit declaration](units.html#the-unit-declaration-format):
 
 ```python
 2000[m 2]    # 2000 square meters
@@ -103,7 +111,9 @@ Literals are dimensionless, but can be given a unit by following them directly w
 
 ### Identifier
 
-An \<identifier\> is either the identifier of a previously declared local variable, the identifier of an entity declared in the outer declaration scope (such as a parameter), a `.`-separated chain of identifiers forming a [location](central_concepts.html#components-and-locations), or a special value.
+An \<identifier\> is either the identifier of a previously declared local variable, the identifier of an entity declared in the outer declaration scope (such as a parameter or constant), a `.`-separated chain of identifiers forming a [location](central_concepts.html#components-and-locations), or a special value.
+
+If you are in an expression with a context location, you can some times use shorthands for the location of a refereced state variable. For instance, if the context location is `river.water.oc`, and you try to access `temp`, if `temp` does not refer to a single value, Mobius2 will first look for `river.water.oc.temp`, then `river.water.temp` if the prior does not exist, and finally `river.temp`.
 
 These have the units and types they are declared with. If a value is indexed over index sets, it will primarily be accessed using the same indexes as the current expression are evaluated with. (This causes expressions to propagate index set dependencies to one another and to put some restrictions on what can be accessed. This will be separately documented).
 
@@ -121,8 +131,8 @@ Mobius2 also allows you to access some values that say something about the *mode
 | `time.month` | `[month]` | Month of year. January=1 |
 | `time.day_of_year` | `[day]` | Starts at 1 |
 | `time.day_of_month` | `[day]` | Starts at 1 |
-| `time.days_this_year` | [day, year-1] | 365 or 366 |
-| `time.days_this_month` | [day, month-1] | |
+| `time.days_this_year` | `[day, year-1]` | 365 or 366 |
+| `time.days_this_month` | `[day, month-1]` | |
 | `time.step` | \* | The time step of the model. |
 | `time.step_length_in_seconds` | `[s]` | |
 | `time.fractional_step` | \* | If we are in an ODE solver, this is how far along the current time step we are. Always between 0 and 1. |
@@ -174,7 +184,7 @@ The precedence of an operator can determine association of the participating exp
 
 ### Unary operator
 
-A \<unary-operator\ is of the form
+A \<unary-operator\> is of the form
 
 ```python
 <operator><primary-expression>
@@ -198,7 +208,7 @@ A \<function-evaluation\> is either a regular function evaluation or a special d
 These are of the form
 
 ```python
-identifier(<primary-expression>, .., <primary-expression>)
+<function-identifier>(<primary-expression>, .., <primary-expression>)
 ```
 
 The function has 0 or more arguments.
@@ -241,18 +251,21 @@ More intrinsics could be added if they are needed.
 
 #### Special directives
 
-Special directives allow you to reference a separate value related to a state variable.
+Special directives allow you to reference a separate value related to a state variable `var`.
 
 | Signature | Description | Unit |
 | --------- | ----------- | ---- |
-| last(var) | The previous time step value of the state variable `var` | Same as `var` |
+| `last(var)` | The previous time step value of the state variable `var` | Same as `var` |
 | `in_flux(var)` | Sum of all fluxes that have `var` as a target excluding fluxes along connections | The unit of `var` divided by the model time step unit |
 | `in_flux(con, var)` | Sum of all fluxes that have `var` as a target along the connection `con` | As above |
 | `out_flux(var)` | Sum of all fluxes that have `var` as a source excluding fluxes along connections | As above |
 | `out_flux(con, var)` | Sum of all fluxes that have `var` as a source along the connection `con` | As above |
 | `conc(var)` | The concentration of `var`. Only available if `var` is *dissolved*. | Either the declared concentration unit of `var`, or (if none was declared) the unit of `var` divided by the unit of the quantity it is dissolved in. |
+| `aggregate(var)` | This refers to a (possibly weighted) sum of this variable over index sets that the context location does not index over. |
 
 If `var` is on a solver, `last(var)` will reference the end-of-timestep value from the last step.
+
+You can use `aggregate(var)` if `var` indexes over a higher number of index sets than the context location of the code you are in. In that case, it will sum the `var` over the excess index sets, applying an `aggregation_weight` if one exists between the compartment of `var` and the compartment of the current context location.
 
 ### Unit conversion
 
@@ -279,6 +292,14 @@ For instance,
 10[day] -> [s]
 # translates to
 10[day]*86400[s, day-1] # = 864000[s]
+```
+
+There is one exception, where converting between `[deg_c]` and `[K]` instead causes an addition or subtraction
+
+```python
+25[deg_c] -> [K]
+# translates to
+(25 + 273.15) => [K] # = 298.15[K]
 ```
 
 If a unit conversion appears in conjunction with binary operators, the unit conversion acts as if it has precedence 4500. For instance
@@ -320,15 +341,16 @@ You can also update the value of a local variable using the syntax
 
 where the identifier is that of the local variable.
 
-For instance, the below code uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) for finding `sin(x)+e^x = 0` within accuracy `eps`
+For instance, the below expression uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) for finding `sin(x)+e^x = 0` within accuracy `eps`
 
 ```python
-eps := 1e-6,
-x   := 0,
-i:{
-	xi := x - (sin(x)+exp(x))/(cos(x)+exp(x)),
-	
-	xi                    if abs(x - xi) < eps,
-	{ x <- xi, iterate i} otherwise
+solve_equation : function(eps) {
+	x   := 0,
+	i:{
+		xi := x - (sin(x)+exp(x))/(cos(x)+exp(x)),
+		
+		xi                    if abs(x - xi) < eps,
+		{ x <- xi, iterate i} otherwise
+	}
 }
 ```
