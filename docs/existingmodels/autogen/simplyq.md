@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-23 11:15:18.
+The file was generated at 2024-04-24 13:41:48.
 
 ---
 
@@ -31,6 +31,8 @@ Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are ou
 
 New to version 0.5 :
 - New implementation in the Mobius2 framework.
+
+Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 
 ### External symbols
 
@@ -182,43 +184,7 @@ File: [modules/simplyq.txt](https://github.com/NIVANorge/Mobius2/tree/main/model
 
 The river part of SimplyQ.
 
-The flow equations are derived as follows:
-
-We assume the flow follows Manning's formula:
-
-$$
-v = \frac{R_h^{2/3}S^{1/2}}{n}
-$$
-
-Where $$v$$ is the cross-sectional average velocity, $$R_h$$ the hydraulic radius, $$S$$ the channel slope an $$n$$ the roughness coefficient (c_mann below). Now $$Q = vA$$, where $$Q$$ is the discharge and $$A$$ the cross-sectional area. Also, $$A = V/l$$ where $$V$$ is the volume and $$l$$ the length.
-
-We also assume that depth and width of the river are given by the formulas
-
-$$
-d = 0.35 Q^{0.34} \\
-w = 2.71  Q^{0.557}
-$$
-
-These are taken from (reference to be inserted).
-
-We use the approximation
-
-$$
-R_h = \frac{dw}{2d+w}.
-$$
-
-Putting everything together and rearranging we can get
-
-$$
-\frac{2}{2.71}Q^{0.943} + \frac{1}{0.35}Q^{1.16} = \left(\frac{V\sqrt{S}}{ln}\right)^{\frac{3}{2}}
-$$
-
-We then make the approximation $$Q^{0.943} \simeq Q^{1.16} \simeq Q$$, and get
-
-$$
-Q \simeq 0.28\left(\frac{V\sqrt{S}}{ln}\right)^{\frac{3}{2}}
-$$
-
+Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 ### External symbols
 

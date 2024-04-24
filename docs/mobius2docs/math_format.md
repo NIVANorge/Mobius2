@@ -21,6 +21,8 @@ Mobius2 has automatic up-casting of integers and booleans to reals if they are a
 
 Every expresson also has a [unit](units.html). Units can be transformed by the math expressions, for instance if you multiply two expressions, the resulting value has the unit that is the product of the units of the two factors.
 
+See the [note on unit errors](math_format.html#note-on-unit-errors) for some tips about how to deal with them.
+
 ## Expression components
 
 ### Block
@@ -205,7 +207,7 @@ The function identifier identifies either a function declaration that is visible
 
 If it is a declared function, it can have requirements about the units of the arguments, and the result will have the unit of the expression of the body of the function declaration. 
 
-Declared functions are inlined at the site they are called. This means that you can't have recursive declared functions (for now, this may be implemented later).
+Declared functions are inlined at the site they are evaluated. (This means that you can't have recursive declared functions for now, this may be implemented later).
 
 The following intrinsic functions are visible in every function scope. They are implemented either using [LLVM intrinsics](https://llvm.org/docs/LangRef.html#intrinsic-functions) or [LLVM libc](https://libc.llvm.org/math/index.html).
 
@@ -217,6 +219,9 @@ The following intrinsic functions are visible in every function scope. They are 
 | `sqrt(a)`  | square root | Result unit is the square root of the unit of a if possible |
 | `cbrt(a)`  | cube root | Result unit is the cube root of the unit of a if possible |
 | `abs(a)` | absolute value | Preserves unit |
+| `floor(a)` | round down to closest integer | Preserves unit |
+| `ceil(a)` | round up to closest integer | Preserves unit |
+| `is_finite(a)` | `true` if a is finite, `false` otherwise | a is any unit. Result is dimensionless |
 | `exp(a)` | Euler number to the power of a | a must be dimensionless, result is dimensionless |
 | `pow2(a)` | 2 to the power of a | a must be dimensionless, result is dimensionless  |
 | `ln(a)` | natural logarithm | a must be dimensionless, result is dimensionless  |
@@ -231,13 +236,23 @@ The following intrinsic functions are visible in every function scope. They are 
 | `sinh(a)` | hyperbolic sine | a must be dimensionless, result is dimensionless |
 | `cosh(a)` | hyperbolic cosine | a must be dimensionless, result is dimensionless |
 | `tanh(a)` | hyperbolic tangent | a must be dimensionless, result is dimensionless |
-| `floor(a)` | round down to closest integer | Preserves unit |
-| `ceil(a)` | round up to closest integer | Preserves unit |
-| `is_finite(a)` | `true` if a is finite, otherwise `false` | a is any unit. Result is dimensionless |
+
+More intrinsics could be added if they are needed.
 
 #### Special directives
 
-To be written
+Special directives allow you to reference a separate value related to a state variable.
+
+| Signature | Description | Unit |
+| --------- | ----------- | ---- |
+| last(var) | The previous time step value of the state variable `var` | Same as `var` |
+| `in_flux(var)` | Sum of all fluxes that have `var` as a target excluding fluxes along connections | The unit of `var` divided by the model time step unit |
+| `in_flux(con, var)` | Sum of all fluxes that have `var` as a target along the connection `con` | As above |
+| `out_flux(var)` | Sum of all fluxes that have `var` as a source excluding fluxes along connections | As above |
+| `out_flux(con, var)` | Sum of all fluxes that have `var` as a source along the connection `con` | As above |
+| `conc(var)` | The concentration of `var`. Only available if `var` is *dissolved*. | Either the declared concentration unit of `var`, or (if none was declared) the unit of `var` divided by the unit of the quantity it is dissolved in. |
+
+If `var` is on a solver, `last(var)` will reference the end-of-timestep value from the last step.
 
 ### Unit conversion
 

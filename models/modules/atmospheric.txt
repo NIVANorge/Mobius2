@@ -11,8 +11,11 @@ module("Atmospheric", version(0, 1, 0),
 	cos_z    : property  # This is not really needed by most modules. Maybe move?
 ) {
 """
-Simple module for some common atmospheric attributes.
-The user must provide either "Daily average solar radiation" or "Cloud cover" as an input series, but one of these can be computed from the other.
+Simple module for some common atmospheric attributes for use e.g. with evapotranspiration or air-sea heat exchange modules.
+
+The user must provide either "Daily average solar radiation" or "Cloud cover" as an input series, but one of these can be computed from the other if not both are available.
+
+Authors: Magnus D. Norling
 """
 	
 	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))

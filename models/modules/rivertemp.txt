@@ -8,6 +8,11 @@ module("RiverTemperature", version(0, 1, 1),
 	heat  : quantity,
 	temp  : property
 ) {
+"""
+A simple model for river water temperature. Water from the catchment is assumed to have the same temperature as the soil. Then heat is exchanged with the atmosphere with a constant rate relative to the temperature difference.
+
+Authors: Magnus D. Norling
+"""
 
 	load("stdlib/physiochemistry.txt", library("Water utils"))
 	

@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-23 11:15:18.
+The file was generated at 2024-04-24 13:41:48.
 
 ---
 
@@ -66,6 +66,8 @@ The total heat is computed as an ordinary differential equation, and depends mos
 The epilimnion is set to have a dynamic thickness. This is not simulated, but is instead determined by user-defined empirical parameters. The epilimnion and hypolimnion mix when the difference between epilimnion temperature and mean hypolimnion temperature is less than 0.4°C (typically in spring and autumn).
 
 The thickness is set to have a given winter value, then is set to an initial thickness after spring mixing, after which it increases linearly.
+
+Authors: François Clayer, Magnus D. Norling
 
 ### External symbols
 
@@ -364,6 +366,8 @@ Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, B
 
 MyLake—A multi-year lake simulation model code suitable for uncertainty and sensitivity analysis simulations, Tuomo M. Saloranta and Tom Andersen 2007, Ecological Modelling 207(1), 45-60, [https://doi.org/10.1016/j.ecolmodel.2007.03.018](https://doi.org/10.1016/j.ecolmodel.2007.03.018)
 
+Authors: Magnus D. Norling
+
 ### External symbols
 
 | Name | Symbol | Type |
@@ -536,7 +540,7 @@ Unit: W m⁻²
 Value:
 
 $$
-\mathrm{z\_surf} = 1 \mathrm{m}\, \\ \mathrm{K\_ice} = 200 \mathrm{W}\,\mathrm{m}^{-3}\,\mathrm{°C}^{-1}\, \\ \mathrm{e} = \left(\mathrm{freeze\_temp}-\mathrm{top\_water}.\mathrm{temp}\right)\cdot \mathrm{z\_surf}\cdot \mathrm{K\_ice} \\ \begin{cases}0 & \text{if}\;\mathrm{ice}<10^{-06} \mathrm{m}\,\;\text{and}\;\mathrm{e}<0 \\ \mathrm{e} & \text{otherwise}\end{cases}
+\mathrm{z\_surf} = 1 \mathrm{m}\, \\ \mathrm{K\_ice} = 200 \mathrm{W}\,\mathrm{m}^{-3}\,\mathrm{°C}^{-1}\, \\ \mathrm{e} = \left(\mathrm{freeze\_temp}-\mathrm{top\_water}.\mathrm{temp}\right)\cdot \mathrm{z\_surf}\cdot \mathrm{K\_ice} \\ \begin{cases}0 & \text{if}\;\mathrm{ice}<10^{6} \mathrm{m}\,\;\text{and}\;\mathrm{e}<0 \\ \mathrm{e} & \text{otherwise}\end{cases}
 $$
 
 #### **Ice indicator**
@@ -713,9 +717,13 @@ File: [modules/easychem.txt](https://github.com/NIVANorge/Mobius2/tree/main/mode
 
 ### Description
 
-This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake
+This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake.
 
-Many of the equations are taken from SelmaProtBas, but with simplifications https://github.com/jorritmesman/selmaprotbas/tree/main
+More description to be written.
+
+Many of the equations are inspired by [Selma](https://github.com/fabm-model/fabm/tree/master/src/models/selma), but with simplifications. 
+
+Authors: François Clayer, Magnus D. Norling
 
 ### External symbols
 
@@ -1164,7 +1172,7 @@ Unit: kg day⁻¹
 
 This series is externally defined. It may be an input series.
 
-#### **Phytoplankton death rate (epi)**
+#### **Phytoplankton death rate (hyp)**
 
 Location: **hyp.water.phyt.death**
 
@@ -1595,6 +1603,8 @@ File: [modules/easychem.txt](https://github.com/NIVANorge/Mobius2/tree/main/mode
 ### Description
 
 Particle transport and settling for EasyChem.
+
+Authors: Magnus D. Norling
 
 ### External symbols
 

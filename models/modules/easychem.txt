@@ -6,7 +6,11 @@ module("Simple River O₂", version(0, 1, 1),
 	o2    : quantity,
 	temp : property
 ) {
-	"The purpose of this module is only to provide oxygen inputs to EasyChem and NIVAFjord."
+"""
+The purpose of this module is only to provide oxygen inputs to EasyChem and NIVAFjord.
+
+Authors: Magnus D. Norling
+"""
 	
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
@@ -55,9 +59,13 @@ module("EasyChem", version(0, 0, 5),
 	om_cnp : preamble
 ) {
 """
-This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake
+This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake.
 
-Many of the equations are taken from SelmaProtBas, but with simplifications https://github.com/jorritmesman/selmaprotbas/tree/main
+More description to be written.
+
+Many of the equations are inspired by [Selma](https://github.com/fabm-model/fabm/tree/master/src/models/selma), but with simplifications. 
+
+Authors: François Clayer, Magnus D. Norling
 """
 
 	load("stdlib/basic_math.txt", library("Response"))
@@ -272,7 +280,7 @@ Many of the equations are taken from SelmaProtBas, but with simplifications http
 		phyt_turnover*phyt*o2_factor
 	}
 	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
-	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
+	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (hyp)")
 	
 	#flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phytoplankton death DOC release (epi)")  { phyt.death }
 	#flux(out, epi.water.oc.o2,         [k g, day-1], "Phytoplankton death O₂ release (epi)")   { phyt.death*(4 + COS_autoch)/4	}
@@ -339,6 +347,8 @@ module("EasyChem-Particulate", version(0, 0, 3),
 ) {
 """
 Particle transport and settling for EasyChem.
+
+Authors: Magnus D. Norling
 """
 	
 	par_group("Particles") {
@@ -458,6 +468,8 @@ module("SuperEasyC", version(0, 0, 1),
 ) {	
 """
 A very simplified lake carbon module. Mainly for use with EasyTox if one doesn't want to run the full EasyChem.
+
+Authors: Magnus D. Norling
 """
 	
 	load("stdlib/basic_math.txt", library("Response"))
@@ -507,6 +519,11 @@ module("SuperEasyC-Sediments", version(0, 0, 1),
 	oc : quantity,
 	sedpars : preamble
 ) {
+"""
+Sediment organic carbon for SuperEasyC
+
+Authors: Magnus D. Norling
+"""
 	
 	par_group("Lake sediment C", lake_sed) {
 		init_oc : par_real("Initial lake bed oc concentration", [g, k g-1], 0.1) #TODO: Instead just use the conc from the TOC module?

@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-23 11:15:18.
+The file was generated at 2024-04-24 13:41:48.
 
 ---
 
@@ -28,6 +28,8 @@ File: [modules/simplyn.txt](https://github.com/NIVANorge/Mobius2/tree/main/model
 This is a simple dissolved inorganic nitrogen (DIN) model. The main assumption in the model is that there is a semi-constant input of DIN to the soil water from deposition and fixation, while loss (plant uptake + denitrification) is temperature-dependent. The latter two are bundled in one single process.
 
 In addition fertilizer can be added at a single day per year. The fertilizer N is added as solid, and dissolves proportionally to the amount of new water (precipitation + snow melt) entering the soil.
+
+Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 ### External symbols
 

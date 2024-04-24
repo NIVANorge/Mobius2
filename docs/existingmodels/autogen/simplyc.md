@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-23 11:15:18.
+The file was generated at 2024-04-24 13:41:48.
 
 ---
 
@@ -32,6 +32,8 @@ The main purpose of the module is to predict DOC transport from land to river. T
 The user can configure the soil DOC concentration to either be constant, at a (temperature- and SO4-dependent) equilibrium, or always tending toward that equilibrium with a speed set by the `cdoc` parameter. In the latter case, influx of clean water (precipitation or snow melt) will dilute the soil water DOC concentration for a while before it again reaches equilibrium.
 
 The ground water DOC concentration can be set to either be constant, equal to the average of the soil water DOC concentration, or follow mass balance (transport with recharge and runoff). In the latter case, the groundwater DOC decays with a user-set half life.
+
+Authors: Magnus D. Norling, Leah A. Jackson-Blake
 
 ### External symbols
 
@@ -162,6 +164,12 @@ $$
 Version: 0.0.1
 
 File: [modules/simplyc.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/simplyc.txt)
+
+### Description
+
+River processes for DOC.
+
+Authors: Magnus D. Norling
 
 ### External symbols
 

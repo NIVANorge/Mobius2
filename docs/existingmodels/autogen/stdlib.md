@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-23 11:15:18.
+The file was generated at 2024-04-24 13:41:48.
 
 ---
 
@@ -55,7 +55,7 @@ $$
 **mean_barometric_pressure(elevation : m)** = 
 
 $$
-\mathrm{elev} = \left(\mathrm{elevation}\Rightarrow 1\right) \\ \left(101.3-\left(0.01152-5.44\cdot 10^{-07}\cdot \mathrm{elev}\right)\cdot \mathrm{elev}\Rightarrow \mathrm{kPa}\,\right)
+\mathrm{elev} = \left(\mathrm{elevation}\Rightarrow 1\right) \\ \left(101.3-\left(0.01152-5.44\cdot 10^{7}\cdot \mathrm{elev}\right)\cdot \mathrm{elev}\Rightarrow \mathrm{kPa}\,\right)
 $$
 
 **air_density(temp : °C, pressure : hPa, a_vap : hPa)** = 
@@ -73,7 +73,7 @@ $$
 **saturation_vapor_pressure(T : °C)** = 
 
 $$
-\mathrm{t} = \left(\mathrm{T}\Rightarrow 1\right) \\ \left(6.1078+\mathrm{t}\cdot \left(0.443652+\mathrm{t}\cdot \left(0.0142895+\mathrm{t}\cdot \left(0.000265065+\mathrm{t}\cdot \left(3.03124\cdot 10^{-06}+\mathrm{t}\cdot \left(2.03408\cdot 10^{-08}+\mathrm{t}\cdot 6.13682\cdot 10^{-11}\right)\right)\right)\right)\right)\Rightarrow \mathrm{hPa}\,\right)
+\mathrm{t} = \left(\mathrm{T}\Rightarrow 1\right) \\ \left(6.1078+\mathrm{t}\cdot \left(0.443652+\mathrm{t}\cdot \left(0.0142895+\mathrm{t}\cdot \left(0.000265065+\mathrm{t}\cdot \left(3.03124\cdot 10^{6}+\mathrm{t}\cdot \left(2.03408\cdot 10^{8}+\mathrm{t}\cdot 6.13682\cdot 10^{11}\right)\right)\right)\right)\right)\Rightarrow \mathrm{hPa}\,\right)
 $$
 
 **slope_of_saturation_pressure_curve(T : °C, svap : kPa)** = 
@@ -85,7 +85,7 @@ $$
 **dew_point_temperature(vapor_pressure : hPa)** = 
 
 $$
-34.07 \mathrm{K}\,+\frac{4157 \mathrm{K}\,}{\mathrm{ln}\left(\frac{2.1718\cdot 10^{+08} \mathrm{hPa}\,}{\mathrm{vapor\_pressure}}\right)}
+34.07 \mathrm{K}\,+\frac{4157 \mathrm{K}\,}{\mathrm{ln}\left(\frac{2.1718\cdot 10^{8} \mathrm{hPa}\,}{\mathrm{vapor\_pressure}}\right)}
 $$
 
 **specific_humidity_from_pressure(total_air_pressure : hPa, vapor_pressure : hPa)** = 
@@ -153,7 +153,7 @@ $$
 **clear_sky_shortwave(extrad : W m⁻², elev : m)** = 
 
 $$
-\mathrm{extrad}\cdot \left(0.75+2\cdot 10^{-05} \mathrm{m}^{-1}\,\cdot \mathrm{elev}\right)
+\mathrm{extrad}\cdot \left(0.75+2\cdot 10^{5} \mathrm{m}^{-1}\,\cdot \mathrm{elev}\right)
 $$
 
 **downwelling_longwave(air_temp : °C, a_vap : hPa, cloud)** = 
@@ -249,7 +249,7 @@ $$
 **water_density(T : °C)** = 
 
 $$
-\mathrm{dtemp} = \left(\mathrm{T}\rightarrow \mathrm{K}\,\right)-277.13 \mathrm{K}\, \\ \mathrm{rho\_water}\cdot \left(1-0.5\cdot 1.6509\cdot 10^{-05} \mathrm{K}^{-2}\,\cdot \mathrm{dtemp}^{2}\right)
+\mathrm{dtemp} = \left(\mathrm{T}\rightarrow \mathrm{K}\,\right)-277.13 \mathrm{K}\, \\ \mathrm{rho\_water}\cdot \left(1-0.5\cdot 1.6509\cdot 10^{5} \mathrm{K}^{-2}\,\cdot \mathrm{dtemp}^{2}\right)
 $$
 
 **dynamic_viscosity_water(T : K)** = 
@@ -290,13 +290,13 @@ Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2
 **molecular_diffusivity_of_compound_in_air(mol_vol : cm³ mol⁻¹, mol_mass : g mol⁻¹, T : K)** = 
 
 $$
-\mathrm{TT} = \left(\mathrm{T}\Rightarrow 1\right) \\ \mathrm{c0} = \sqrt[3]{\left(\mathrm{molvol\_air}\Rightarrow 1\right)}+\sqrt[3]{\left(\mathrm{mol\_vol}\Rightarrow 1\right)} \\ \mathrm{c} = \frac{\sqrt{\frac{1}{\left(\mathrm{molmass\_air}\Rightarrow 1\right)}+\frac{1}{\left(\mathrm{mol\_mass}\Rightarrow 1\right)}}}{\mathrm{c0}^{2}} \\ \left(10^{-07}\cdot \mathrm{c}\cdot \mathrm{TT}^{1.75}\Rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right)
+\mathrm{TT} = \left(\mathrm{T}\Rightarrow 1\right) \\ \mathrm{c0} = \sqrt[3]{\left(\mathrm{molvol\_air}\Rightarrow 1\right)}+\sqrt[3]{\left(\mathrm{mol\_vol}\Rightarrow 1\right)} \\ \mathrm{c} = \frac{\sqrt{\frac{1}{\left(\mathrm{molmass\_air}\Rightarrow 1\right)}+\frac{1}{\left(\mathrm{mol\_mass}\Rightarrow 1\right)}}}{\mathrm{c0}^{2}} \\ \left(10^{7}\cdot \mathrm{c}\cdot \mathrm{TT}^{1.75}\Rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right)
 $$
 
 **molecular_diffusivity_of_compound_in_water(mol_vol : cm³ mol⁻¹, dynamic_viscosity : g m⁻¹ s⁻¹)** = 
 
 $$
-\mathrm{dynv} = \left(\mathrm{dynamic\_viscosity}\Rightarrow 1\right) \\ \frac{1.326\cdot 10^{-08} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,}{\mathrm{dynv}^{1.14}\cdot \left(\mathrm{mol\_vol}\Rightarrow 1\right)^{0.589}}
+\mathrm{dynv} = \left(\mathrm{dynamic\_viscosity}\Rightarrow 1\right) \\ \frac{1.326\cdot 10^{8} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,}{\mathrm{dynv}^{1.14}\cdot \left(\mathrm{mol\_vol}\Rightarrow 1\right)^{0.589}}
 $$
 
 **diffusion_velocity_of_vapour_in_air(wind : m s⁻¹)** = 
@@ -495,7 +495,7 @@ The implementation used here is influenced by the implementation in [GOTM](https
 **surface_stability(wind : m s⁻¹, water_temp : °C, air_temp : °C)** = 
 
 $$
-\mathrm{ww} = \mathrm{wind}+10^{-10} \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.25\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\left|\mathrm{s0}\right|}{\left|\mathrm{s0}\right|+0.01}
+\mathrm{ww} = \mathrm{wind}+10^{10} \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.25\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\left|\mathrm{s0}\right|}{\left|\mathrm{s0}\right|+0.01}
 $$
 
 **stab_modify(wind : m s⁻¹, stab)** = 
@@ -507,13 +507,13 @@ $$
 **tc_latent_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{-12} \\ \left(\begin{cases}0+1.23\cdot e^{-0.16\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.969+0.0521\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.18+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.196+0.008\cdot \mathrm{w}-0.0004\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.68-0.016\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{12} \\ \left(\begin{cases}0+1.23\cdot e^{-0.16\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.969+0.0521\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.18+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.196+0.008\cdot \mathrm{w}-0.0004\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.68-0.016\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 **tc_sensible_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{-12} \\ \left(\begin{cases}0+1.185\cdot e^{-0.157\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.927+0.0546\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.15+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.17+0.0075\cdot \mathrm{w}-0.00045\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.652-0.017\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{12} \\ \left(\begin{cases}0+1.185\cdot e^{-0.157\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.927+0.0546\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.15+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.17+0.0075\cdot \mathrm{w}-0.00045\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.652-0.017\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 ---
@@ -526,7 +526,11 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 
 This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library "Water utils" for simplified versions of these functions.
 
-The formulas are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
+The formulas for density are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
+
+The formulas for viscosity and diffusivity are taken from
+
+Riley, J. P. & Skirrow, G. Chemical oceanography. 2 edn, Vol. 1 606 (Academic Press, 1975).
 
 ### Constants
 
@@ -545,13 +549,13 @@ $$
 **seawater_dens_standard_mean(T : °C)** = 
 
 $$
-\mathrm{a0} = 999.843 \\ \mathrm{a1} = 0.0679395 \\ \mathrm{a2} = -0.00909529 \\ \mathrm{a3} = 0.000100169 \\ \mathrm{a4} = -1.12008\cdot 10^{-06} \\ \mathrm{a5} = 6.53633\cdot 10^{-09} \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \left(\mathrm{a0}+\left(\mathrm{a1}+\left(\mathrm{a2}+\left(\mathrm{a3}+\left(\mathrm{a4}+\mathrm{a5}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
+\mathrm{a0} = 999.843 \\ \mathrm{a1} = 0.0679395 \\ \mathrm{a2} = -0.00909529 \\ \mathrm{a3} = 0.000100169 \\ \mathrm{a4} = -1.12008\cdot 10^{6} \\ \mathrm{a5} = 6.53633\cdot 10^{9} \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \left(\mathrm{a0}+\left(\mathrm{a1}+\left(\mathrm{a2}+\left(\mathrm{a3}+\left(\mathrm{a4}+\mathrm{a5}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **seawater_pot_dens(T : °C, S)** = 
 
 $$
-\mathrm{b0} = 0.824493 \\ \mathrm{b1} = -0.0040899 \\ \mathrm{b2} = 7.6438\cdot 10^{-05} \\ \mathrm{b3} = -8.2467\cdot 10^{-07} \\ \mathrm{b4} = 5.3875\cdot 10^{-09} \\ \mathrm{c0} = -0.00572466 \\ \mathrm{c1} = 0.00010227 \\ \mathrm{c2} = -1.6546\cdot 10^{-06} \\ \mathrm{d0} = 0.00048314 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \href{stdlib.html#seawater}{\mathrm{seawater\_dens\_standard\_mean}}\left(\mathrm{T}\right)+\left(\left(\mathrm{b0}+\left(\mathrm{b1}+\left(\mathrm{b2}+\left(\mathrm{b3}+\mathrm{b4}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}+\left(\mathrm{c0}+\left(\mathrm{c1}+\mathrm{c2}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}\cdot \sqrt{\mathrm{S}}+\mathrm{d0}\cdot \mathrm{S}^{2}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
+\mathrm{b0} = 0.824493 \\ \mathrm{b1} = -0.0040899 \\ \mathrm{b2} = 7.6438\cdot 10^{5} \\ \mathrm{b3} = -8.2467\cdot 10^{7} \\ \mathrm{b4} = 5.3875\cdot 10^{9} \\ \mathrm{c0} = -0.00572466 \\ \mathrm{c1} = 0.00010227 \\ \mathrm{c2} = -1.6546\cdot 10^{6} \\ \mathrm{d0} = 0.00048314 \\ \mathrm{T68} = \left(\mathrm{T}\cdot 1.00024\Rightarrow 1\right) \\ \href{stdlib.html#seawater}{\mathrm{seawater\_dens\_standard\_mean}}\left(\mathrm{T}\right)+\left(\left(\mathrm{b0}+\left(\mathrm{b1}+\left(\mathrm{b2}+\left(\mathrm{b3}+\mathrm{b4}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}+\left(\mathrm{c0}+\left(\mathrm{c1}+\mathrm{c2}\cdot \mathrm{T68}\right)\cdot \mathrm{T68}\right)\cdot \mathrm{S}\cdot \sqrt{\mathrm{S}}+\mathrm{d0}\cdot \mathrm{S}^{2}\Rightarrow \mathrm{kg}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **dynamic_viscosity_fresh_water(T : °C)** = 
@@ -591,7 +595,7 @@ The implementation is influenced by the one in [SELMA](https://github.com/fabm-m
 **o2_saturation(T : °C, S)** = 
 
 $$
-\mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \left(e^{-135.902+\frac{157570}{\mathrm{T\_k}}-\frac{6.64231\cdot 10^{+07}}{\mathrm{T\_k}^{2}}+\frac{1.2438\cdot 10^{+10}}{\mathrm{T\_k}^{3}}-\frac{8.62195\cdot 10^{+11}}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{T\_k}}+\frac{2140.7}{\mathrm{T\_k}^{2}}\right)}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
+\mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \left(e^{-135.902+\frac{157570}{\mathrm{T\_k}}-\frac{6.64231\cdot 10^{7}}{\mathrm{T\_k}^{2}}+\frac{1.2438\cdot 10^{10}}{\mathrm{T\_k}^{3}}-\frac{8.62195\cdot 10^{11}}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{T\_k}}+\frac{2140.7}{\mathrm{T\_k}^{2}}\right)}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **o2_piston_velocity(wind : m s⁻¹, temp : °C)** = 

@@ -211,6 +211,8 @@ format_double_tex(double d) {
 		return str;
 	auto base = str.substr(0, find);
 	
+	if(str.data()[find+1] == '+' || str.data()[find+1] == '-')
+		++find;
 	std::string power = str.substr(find+1, str.size());
 	// Remove leading zeros. TODO: This didn't work :( . Oh, because it has problem if there is a leading minus...
 	power.erase(0, std::min(power.find_first_not_of('0'), power.size()-1)); 

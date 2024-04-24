@@ -20,11 +20,12 @@ The Mobius2 framework comes with several [existing modules and models](existingm
 - The [Simply family](existingmodels/simply.html) is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
 - [EasyLake](existingmodels/easylake.html) is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
 - [NIVAFjord](existingmodels/nivafjord.html) is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.
-The above models can be coupled to one another in a larger transport network.
+
+All Mobius2 models can be coupled to one another in larger transport networks.
 
 ## Support infrastructure
 
-Any model created in Mobius2 can be run from the graphical user interface [MobiView2](mobiviewdocs/mobiview.html) and in the [mobipy](mobipydocs/mobipy.html) python package. This allows model creators and users to interact with the models in powerful and user friendly ways. This includes different kinds of plots, uncertainty and sensitivity analysis.
+Any model created in Mobius2 can be run from the graphical user interface [MobiView2](mobiviewdocs/mobiview.html) and in the [mobipy](mobipydocs/mobipy.html) python package. This allows model creators and users to interact with the models in powerful and user friendly ways. Included are multiple types of plots, and state-of-the-art autocalibration, uncertainty and sensitivity analysis.
 
 ![MobiView2](img/mobiview_front.png)
 

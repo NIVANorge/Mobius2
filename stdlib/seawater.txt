@@ -48,7 +48,11 @@ library("Seawater") {
 """
 This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library "Water utils" for simplified versions of these functions.
 
-The formulas are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
+The formulas for density are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
+
+The formulas for viscosity and diffusivity are taken from
+
+Riley, J. P. & Skirrow, G. Chemical oceanography. 2 edn, Vol. 1 606 (Academic Press, 1975).
 """
 	
 	load("basic_math.txt", library("Response"))

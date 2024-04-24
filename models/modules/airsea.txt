@@ -35,6 +35,8 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112 [https://doi.org/10.1007/BF00232256](https://doi.org/10.1007/BF00232256)
 
 MyLake—A multi-year lake simulation model code suitable for uncertainty and sensitivity analysis simulations, Tuomo M. Saloranta and Tom Andersen 2007, Ecological Modelling 207(1), 45-60, [https://doi.org/10.1016/j.ecolmodel.2007.03.018](https://doi.org/10.1016/j.ecolmodel.2007.03.018)
+
+Authors: Magnus D. Norling
 """
 	
 	load("stdlib/seawater.txt", library("Air-sea"))

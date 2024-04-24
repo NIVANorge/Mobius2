@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-23 11:15:18.
+The file was generated at 2024-04-24 13:41:48.
 
 ---
 
@@ -87,6 +87,8 @@ New to version 0.3:
 - More realistic hydrology.
 
 For reference, here is [the original Python implementation of SimplyP](https://github.com/LeahJB/SimplyP), which is no longer being developed.
+
+Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 ### External symbols
 
@@ -329,6 +331,8 @@ New to version 0.5:
 * Moved reach slope to be a reach parameter.
 * Remove need for “Arable” land class.
 * Can have dynamic erodibility for all land classes and % spring-sown crops.
+
+Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 ### External symbols
 

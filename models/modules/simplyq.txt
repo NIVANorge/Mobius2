@@ -18,6 +18,8 @@ Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are ou
 
 New to version 0.5 :
 - New implementation in the Mobius2 framework.
+
+Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 """
 	load("stdlib/basic_math.txt", library("Response"))
 	
@@ -73,43 +75,7 @@ module("SimplyQ river", version(0, 5, 0),
 """
 The river part of SimplyQ.
 
-The flow equations are derived as follows:
-
-We assume the flow follows Manning's formula:
-
-$$
-v = \frac{R_h^{2/3}S^{1/2}}{n}
-$$
-
-Where $$v$$ is the cross-sectional average velocity, $$R_h$$ the hydraulic radius, $$S$$ the channel slope an $$n$$ the roughness coefficient (c_mann below). Now $$Q = vA$$, where $$Q$$ is the discharge and $$A$$ the cross-sectional area. Also, $$A = V/l$$ where $$V$$ is the volume and $$l$$ the length.
-
-We also assume that depth and width of the river are given by the formulas
-
-$$
-d = 0.35 Q^{0.34} \\
-w = 2.71  Q^{0.557}
-$$
-
-These are taken from (reference to be inserted).
-
-We use the approximation
-
-$$
-R_h = \frac{dw}{2d+w}.
-$$
-
-Putting everything together and rearranging we can get
-
-$$
-\frac{2}{2.71}Q^{0.943} + \frac{1}{0.35}Q^{1.16} = \left(\frac{V\sqrt{S}}{ln}\right)^{\frac{3}{2}}
-$$
-
-We then make the approximation $$Q^{0.943} \simeq Q^{1.16} \simeq Q$$, and get
-
-$$
-Q \simeq 0.28\left(\frac{V\sqrt{S}}{ln}\right)^{\frac{3}{2}}
-$$
-
+Authors: Leah A. Jackson-Blake, Magnus D. Norling
 """
 
 	par_group("Reach parameters", river) {
@@ -133,6 +99,8 @@ $$
 	# NOTE: Empirical formula, so the units don't make sense, hence forced unit conversion.
 	var(river.water.flow, [m 3, s-1], "Reach flow") {
 		0.28[m 3, s-1] * (water * sqrt(slope) / (len * c_mann) =>[] )^1.5
+		
+		#0.386[m 3, s-1] * ((water / len =>[])^0.606)*((sqrt(slope)/c_mann =>[])^0.909)
 	} @initial { init_flow }
 	@no_store # It is identical to the Reach flow flux. We only have it as a separate variable for reference by the gw module
 	
@@ -147,6 +115,8 @@ module("SimplyQ river trapezoid", version(0, 1, 0),
 ) {
 """
 Alternative version of the SimplyQ river module assuming trapezoid cross-section of the river.
+
+Authors: Magnus D. Norling
 """
 
 	par_group("Reach parameters", river) {
@@ -186,6 +156,8 @@ module("SimplyQ river manual", version(0, 0, 1),
 ) {
 """
 Alternative version of the SimplyQ river module using a user-supplied mean velocity
+
+Authors: Leah A. Jackson-Blake
 """
 
 	par_group("Reach parameters", river) {

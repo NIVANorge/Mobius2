@@ -13,6 +13,8 @@ module("SimplyN", version(0, 0, 4),
 This is a simple dissolved inorganic nitrogen (DIN) model. The main assumption in the model is that there is a semi-constant input of DIN to the soil water from deposition and fixation, while loss (plant uptake + denitrification) is temperature-dependent. The latter two are bundled in one single process.
 
 In addition fertilizer can be added at a single day per year. The fertilizer N is added as solid, and dissolves proportionally to the amount of new water (precipitation + snow melt) entering the soil.
+
+Authors: Leah A. Jackson-Blake, Magnus D. Norling
 """
 
 	load("stdlib/basic_math.txt", library("Response"))

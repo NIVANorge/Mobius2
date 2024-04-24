@@ -53,6 +53,8 @@ The total heat is computed as an ordinary differential equation, and depends mos
 The epilimnion is set to have a dynamic thickness. This is not simulated, but is instead determined by user-defined empirical parameters. The epilimnion and hypolimnion mix when the difference between epilimnion temperature and mean hypolimnion temperature is less than 0.4°C (typically in spring and autumn).
 
 The thickness is set to have a given winter value, then is set to an initial thickness after spring mixing, after which it increases linearly.
+
+Authors: François Clayer, Magnus D. Norling
 """
 
 	load("stdlib/physiochemistry.txt", library("Water utils"))

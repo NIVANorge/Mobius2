@@ -28,6 +28,8 @@ New to version 0.5:
 * Moved reach slope to be a reach parameter.
 * Remove need for “Arable” land class.
 * Can have dynamic erodibility for all land classes and % spring-sown crops.
+
+Authors: Leah A. Jackson-Blake, Magnus D. Norling
 """
 
 	load("stdlib/basic_math.txt", library("Response"))

@@ -16,6 +16,8 @@ The main purpose of the module is to predict DOC transport from land to river. T
 The user can configure the soil DOC concentration to either be constant, at a (temperature- and SO4-dependent) equilibrium, or always tending toward that equilibrium with a speed set by the `cdoc` parameter. In the latter case, influx of clean water (precipitation or snow melt) will dilute the soil water DOC concentration for a while before it again reaches equilibrium.
 
 The ground water DOC concentration can be set to either be constant, equal to the average of the soil water DOC concentration, or follow mass balance (transport with recharge and runoff). In the latter case, the groundwater DOC decays with a user-set half life.
+
+Authors: Magnus D. Norling, Leah A. Jackson-Blake
 """
 
 	load("stdlib/basic_math.txt", library("Response"))
@@ -78,6 +80,11 @@ module("SimplyC river", version(0, 0, 1),
 	oc    : quantity,
 	temp  : property
 ) {
+"""
+River processes for DOC.
+
+Authors: Magnus D. Norling
+"""
 	load("stdlib/basic_math.txt", library("Response"))
 
 	par_group("DOC river", river) {
@@ -101,6 +108,11 @@ module("Simple river TOC", version(0, 1, 1),
 	sed   : quantity,
 	toc   : property
 ) {
+"""
+River particulate organic carbon.
+
+Authors: Magnus D. Norling
+"""
 	par_group("Particulate carbon") {
 		sed_oc : par_real("Particle OC mass fraction", [g, k g-1], 20, 0, 1)
 	}
