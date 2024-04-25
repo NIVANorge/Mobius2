@@ -35,7 +35,7 @@ The [Mobius2 language](mobius2docs/language.html) can be used to model any syste
 
 Different modules for water transport (for instance soils, rivers, lakes) can be coupled without them knowing about one another, and biochemical components can be specified independently of the transport modules.
 
-Mobius2 also provides special support for transport along directed graphs and grids. This can be used to model for instance branched river networks, downhill drainage, hydraulic systems, layered lakes, fjords and lagoons and more.
+Mobius2 also provides special support for transport along directed graphs and grids. This can be used to model for instance branched river networks, downhill drainage, hydraulic systems, layered lakes, fjords, lagoons and more.
 
 ## Authors and acknowledgement
 
