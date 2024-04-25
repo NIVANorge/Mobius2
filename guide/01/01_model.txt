@@ -1,0 +1,17 @@
+
+model("The first model") {
+	
+	# Declare the components
+	soil : compartment("Soil")
+	temp : property("Temperature")
+	
+	# This module declaration is inlined into the body of the model declaration.
+	# Because of this identifiers in the model scope (soil, temp) are visible inside the module scope.
+	module("A module", version(0, 0, 0)) {
+		
+		# Declare your first state variable. It has unit degrees Celsius.
+		var(soil.temp, [deg_c], "Soil temperature") {
+			20[deg_c]
+		}
+	}
+}

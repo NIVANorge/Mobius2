@@ -25,20 +25,23 @@ model("The first model") {
 		par_group("Growing parameters") {
 			
 			# A par_real is a parameter taking values in the real number line.
-			# The third argument is the default value. This is not always the value that is used when the model is run, 
-			# instead the value from the data_set is used
+			# The third argument is the default value. This is not always the
+			# value that is used when the model is run, instead the value from 
+			# the data_set is used
 			br : par_real("Base growth rate", [k g, day-1], 1)
 			
 			# This parameter has a dimensionless unit:
 			td : par_real("Growth rate temperature dependence", [], 2)
 		}
 		
-		# This variable does not have a math expression, and since this is the only module, it can't be declared with one anywhere else either. It must therefore be a forcing.
+		# This variable does not have a math expression, and since this 
+		# is the only module, it can't be declared with one anywhere else either.
+		# It must therefore be a forcing.
 		var(soil.temp, [deg_c], "Soil temperature")
 		
 		# We can refer to other values in the math expression for this variable:
 		var(soil.growth_rate, [k g, day-1], "Plant growth rate") {
-			br * td^((soil.temp - 20)/10)
+			br * td^((soil.temp - 20[deg_c])/10[deg_c])
 		}
 	}
 }
@@ -66,7 +69,8 @@ data_set {
 		}
 	}
 	
-	# This instructs the model to load series data from the given .csv format. You can also use .xlsx files.
+	# This instructs the model to load series data from the 
+	# given .csv format. You can also use .xlsx files.
 	series("data.csv")
 }
 ```
@@ -75,18 +79,19 @@ The data.csv file:
 
 ```
 "Soil temperature" [spline_interpolate]
-2004-01-01	-5
-2004-02-01	-4
-2004-02-01	-1
-2004-02-01	2
-2004-02-01	7
-2004-02-01	11
-2004-02-01	14
-2004-02-01	12
-2004-02-01	9
-2004-02-01	4
-2004-02-01	1
-2004-02-01	-3
+2000-01-01	-5
+2000-02-01	-4
+2000-03-01	-1
+2000-04-01	2
+2000-05-01	7
+2000-06-01	11
+2000-07-01	14
+2000-08-01	12
+2000-09-01	9
+2000-10-01	4
+2000-11-01	1
+2000-12-01	-3
+2001-01-01	-5
 ```
 
 Here Mobius2 is instructed to interpolate for missing values, but you could just provide a value per time step if you have that.
@@ -96,3 +101,5 @@ Currently we are running with a daily time step. That is configurable, but we wi
 Try to run the model in MobiView2, plot the "Plant growth rate" series, and see what happens if you edit a parameter value and run the model again.
 
 Try also to experiment with changing the equations or adding more complexity to the model.
+
+[Full code for chapter 02](https://github.com/NIVANorge/Mobius2/tree/main/guide/02).

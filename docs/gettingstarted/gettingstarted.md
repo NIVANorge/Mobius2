@@ -71,7 +71,7 @@ See [the full documentation](../mobipydocs/mobipy.html).
 
 Mobius2 models are specified in the Mobius2 language. If you need to make modifications to existing modules, make new modules, or combine modules to new models you need to learn how to use this language. The language is designed to make it easy to use even if you don't know much programming, and it does most of the heavy lifting for you.
 
-See [the full documentation](../mobius2docs/language.html).
+The [Guide](../mobius2docs/guide.html) is a good place to start.
 
 ### Involve yourself with feedback to the developer team, or become a developer.
 

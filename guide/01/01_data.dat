@@ -1,0 +1,10 @@
+
+data_set {
+	par_group("System") {
+		par_datetime("Start date")
+		[ 2000-01-01 ]
+
+		par_datetime("End date")
+		[ 2000-12-31 ]
+	}
+}

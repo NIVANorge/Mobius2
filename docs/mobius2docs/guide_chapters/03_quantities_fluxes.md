@@ -11,6 +11,8 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 In this chapter we will build a simple hydrology model and see how you can use Mobius2 to specify transport of water between different compartments.
 
+We refer to the [envornmental modelling notebook](https://nbviewer.org/github/JamesSample/enviro_mod_notes/blob/master/notebooks/05_A_Hydrological_Model.ipynb) for a more detailed description of a very similar model.
+
 From now on we will not display the entire model code in the guide page, only the new parts we create.
 
 Start with a blank model and create the following location components
@@ -52,7 +54,7 @@ var(soil.water, [m m], "Soil water volume") @initial { fc }
 # For the groundwater we assume that there is no retention volume (for now).
 # Here we could also leave out the @initial note since the default initial value
 # for a quantity is 0.
-var(gw.water, [m m], "Groundwater volume") @initial { 0 }
+var(gw.water, [m m], "Groundwater volume") @initial { 0[m m] }
 
 ```
 
@@ -78,10 +80,11 @@ In the model scope (not module) we declare a solver and say that our two quantit
 
 ```python
 
-# The name "Hydrology solver" is arbitrary, you can call it what you want. This is just for reference e.g. in error messages.
+# The name "Hydrology solver" is arbitrary, you can call it what you want.
 # inca_dascru identifies a specific algorithm. This one is good for most purposes.
 # [2, hr] is the initial solver step length.
-# 1e-2 is how much the solver algorithm is allowed to decrease the step size to preserve accuracy of the solution.
+# 1e-2 is how much the solver algorithm is allowed to decrease the step size to
+#    preserve accuracy of the solution.
 sol : solver("Hydrology solver", inca_dascru, [2, hr], 1e-2)
 
 # Put the two variables in the ODE system of this solver. You can call solve as many times you want
@@ -106,13 +109,13 @@ par_group("Soil hydrology") {
 }
 
 # Add a couple of meteorological forcings that can drive the system
-var(air.temp,   "Air temperature", [deg_c])
-var(air.precip, "Precipitation", [m m, day-1])
+var(air.temp,   [deg_c], "Air temperature")
+var(air.precip, [m m, day-1], "Precipitation")
 
 # Let the precipitation be a pure source of water to the system
 # This is specified by letting the source of the flux be 'out'.
 # We ignore the possibily of freezing or snow for now.
-flux(out, soil.water, "Precipitation to soil", [m m, day-1]) {
+flux(out, soil.water, [m m, day-1], "Precipitation to soil") {
 	air.precip
 }
 
@@ -124,7 +127,7 @@ var(soil.water.flow, [m m, day-1], "Soil water flow") {
 	# water above field capacity. This makes it a so-called
 	# "Linear reservoir".
 	
-	max(0, water - fc)*tcs
+	max(0, water - fc)/tcs
 }
 
 # Take water from the soil and move it to the groundwater
@@ -158,11 +161,13 @@ flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
 # Make the groundwater into another linear reservoir. The target is really the river,
 # but we don't model it yet.
 flux(gw.water, out, [m m, day-1], "Groundwater runoff") {
-	water*tcg
+	water/tcg
 }
 ```
 
-A full code file with a data set will soon be added.
+[Full code for chapter 03](https://github.com/NIVANorge/Mobius2/tree/main/guide/03).
+
+Note that you can't use the provided calibration series for anything yet since we don't compute the river flow. That is for the next chapter.
 
 ## Discrete step equations
 

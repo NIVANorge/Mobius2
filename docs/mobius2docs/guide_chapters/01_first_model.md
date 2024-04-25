@@ -52,3 +52,5 @@ data_set {
 ```
 
 Of course, this model is not that interesting yet as the state variable is constant.
+
+[Full code for chapter 01](https://github.com/NIVANorge/Mobius2/tree/main/guide/01).
