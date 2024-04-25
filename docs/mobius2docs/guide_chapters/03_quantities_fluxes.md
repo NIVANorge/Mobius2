@@ -15,17 +15,17 @@ We refer to the [envornmental modelling notebook](https://nbviewer.org/github/Ja
 
 From now on we will not display the entire model code in the guide page, only the new parts we create.
 
-Start with a blank model and create the following location components
+We start with a blank model and create the following location components
 
 ```python
-air : compartment("Atmosphere")
+air  : compartment("Atmosphere")
 soil : compartment("Soil")
-gw : compartment("Groundwater")
+gw   : compartment("Groundwater")
 
-temp : property("Temperature")
+temp   : property("Temperature")
 precip : property("Precipitation")
 
-water : quantity("Water")
+water  : quantity("Water")
 ```
 
 Here, `water` is declared as a `quantity`, which means that it can be transported using what we call fluxes. In Mobius2, a flux just means transport rate between two locations.
@@ -60,26 +60,25 @@ var(gw.water, [m m], "Groundwater volume") @initial { 0[m m] }
 
 In most Mobius2 models, we model quantities using ordinary differential equations (ODE).
 
-An ODE, unlike a regular equation that directly computes the value of somehting, specifies a rate of change. For instance the equation
+An ODE, unlike a regular equation that directly computes the value of somehting, specifies a rate of change of that something. For instance the equation
 
 $$
 \frac{\mathrm{d}a(t)}{\mathrm{d}t} = -c\cdot a(t)
 $$
 
-Says that the variable $$a$$ decreases over time proportionally (with specific rate $$-c$$) to its own value. This formulation is very common for e.g. degradation or removal of various substances in natural systems, and also in many cases for water transport.
+says that the variable $$a(t)$$ decreases over time proportionally (with specific rate $$-c$$) to its own value. This formulation is very common for e.g. degradation or removal of various substances in natural systems, and also in many cases for water transport.
 
-While if $$c$$ is constant, the above equation has an exact solution $$a(t) = a(0)e^{-ct}$$, the picture is much more complex in most practical applications (either there are more terms to the equation, or the terms are more complex).
+While the above equation has an exact solution $$a(t) = a(0)e^{-ct}$$ if $$c$$ is constant, the picture is much more complex in most practical applications (either there are more terms to the equation, or the terms are not linear in the state variables).
 
-Since exact descriptions are usually difficult or impossible to find for the solutions of more complex systems, mathematicians and physicists have developed numerical solution algorihtms (sometimes called integration algorithms) that can give approximate solutions with high accuracy.
+Since exact solutions are usually difficult or impossible to find, mathematicians and physicists have developed numerical solver algorithms (sometimes called integration algorithms) that can compute approximate solutions with high accuracy.
 
 The solver algorithm will advance the solution in small step lengths (typically smaller than the step length of the model). The framework only records the values at each model step, but between that the solver could do many more evaluations to preserve accuracy of the solution. Many solvers are adaptive so that they will try to use as few computational resources as possible while preserving accuracy.
 
-To use ODEs in Mobius2, you don't need to understand much more about the theory of ODEs or solvers than what is explained here, but see the note about unstable equations at the bottom of this page.
+To use ODEs in Mobius2, you don't need to understand much more about the theory of ODEs or solvers than what is mentioned here, but see the note about unstable equations at the bottom of this page.
 
 In the model scope (not module) we declare a solver and say that our two quantity variables should be part of the system of ODEs to be integrated by that solver.
 
 ```python
-
 # The name "Hydrology solver" is arbitrary, you can call it what you want.
 # inca_dascru identifies a specific algorithm. This one is good for most purposes.
 # [2, hr] is the initial solver step length.
@@ -92,7 +91,7 @@ sol : solver("Hydrology solver", inca_dascru, [2, hr], 1e-2)
 solve(sol, soil.water, gw.water)
 ```
 
-In Mobius2, each `flux` is internally subtracted as a term from the ODE of the source quantity and added as a term to the ODE of the target quantity.
+In Mobius2, each `flux` is internally subtracted as a term from the ODE of the source quantity of the flux and added as a term to the ODE of the target quantity.
 
 Let's add some fluxes to let water drain through the system
 
@@ -105,7 +104,7 @@ par_group("Soil hydrology") {
 	tcs : par_real("Soil water time constant", [day], 2)
 	tcg : par_real("Groundwater time constant", [day], 20)
 	bfi : par_real("Baseflow index", [], 0.7)
-	ddfpet : par_real("Degree-day factor for potential evapotranspiration", [m m, deg_c-1, day-1], 1.2)
+	ddfpet : par_real("Degree-day factor for potential evapotranspiration", [m m, deg_c-1, day-1], 0.12)
 }
 
 # Add a couple of meteorological forcings that can drive the system
@@ -126,7 +125,9 @@ var(soil.water.flow, [m m, day-1], "Soil water flow") {
 	# We let the amount of runoff be proportional to the amount of
 	# water above field capacity. This makes it a so-called
 	# "Linear reservoir".
-	
+	# In real simulations it may be a good idea to use a cutoff
+	# function that is not as sharp as this, but we will not worry
+	# about that for now.
 	max(0, water - fc)/tcs
 }
 
@@ -165,6 +166,10 @@ flux(gw.water, out, [m m, day-1], "Groundwater runoff") {
 }
 ```
 
+![The model](03.png)
+
+The runoff curve becomes smoother and more delayed if you increase the time constant.
+
 [Full code for chapter 03](https://github.com/NIVANorge/Mobius2/tree/main/guide/03).
 
 Note that you can't use the provided calibration series for anything yet since we don't compute the river flow. That is for the next chapter.
@@ -173,7 +178,7 @@ Note that you can't use the provided calibration series for anything yet since w
 
 It is also possible to model quantities so that fluxes just cause a single update to a quantity per model time step, but this can cause less realistic simulations, and makes the model depend more on the size of the time step. However, for some specific systems it may be appropriate. We may cover that in another guide chapter.
 
-## A note about unstable differential equations
+## Unstable differential equations
 
 If a flux is very high compared to the value of its source or target quantity, this could cause the solution to be unstable. This is usually not a problem, but this could cause the model to run to a halt or produce nonsensical results.
 

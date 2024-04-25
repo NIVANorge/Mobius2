@@ -1,11 +1,11 @@
 
 model("Hydrology model") {
 
-	air : compartment("Atmosphere")
-	soil : compartment("Soil")
-	gw : compartment("Groundwater")
+	air    : compartment("Atmosphere")
+	soil   : compartment("Soil")
+	gw     : compartment("Groundwater")
 
-	temp : property("Temperature")
+	temp   : property("Temperature")
 	precip : property("Precipitation")
 
 	water : quantity("Water")
@@ -21,7 +21,7 @@ model("Hydrology model") {
 			tcs : par_real("Soil water time constant", [day], 2)
 			tcg : par_real("Groundwater time constant", [day], 20)
 			bfi : par_real("Baseflow index", [], 0.7)
-			ddfpet : par_real("Degree-day factor for potential evapotranspiration", [m m, deg_c-1, day-1], 1.2)
+			ddfpet : par_real("Degree-day factor for potential evapotranspiration", [m m, deg_c-1, day-1], 0.12)
 		}
 
 		# Initializing the soil water volume at field capacity is just a convenience. You could create
@@ -51,7 +51,9 @@ model("Hydrology model") {
 			# We let the amount of runoff be proportional to the amount of
 			# water above field capacity. This makes it a so-called
 			# "Linear reservoir".
-			
+			# In real simulations it may be a good idea to use a cutoff
+			# function that is not as sharp as this, but we will not worry
+			# about that for now.
 			max(0, water - fc)/tcs
 		}
 

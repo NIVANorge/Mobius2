@@ -28,7 +28,7 @@ data_set {
 			[ 0.7 ]
 			
 			par_real("Degree-day factor for potential evapotranspiration") 
-			[ 1.2 ]
+			[ 0.12 ]
 		
 		}
 	
