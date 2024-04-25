@@ -102,4 +102,6 @@ Try to run the model in MobiView2, plot the "Plant growth rate" series, and see 
 
 Try also to experiment with changing the equations or adding more complexity to the model.
 
+Rembember that if you add a new parameter, or parameter group, you don't need to manually add these to the `data_set`. Mobius2 will auto-generate parameter values for these for you.
+
 [Full code for chapter 02](https://github.com/NIVANorge/Mobius2/tree/main/guide/02).

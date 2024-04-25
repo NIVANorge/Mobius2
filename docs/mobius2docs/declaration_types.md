@@ -8,7 +8,9 @@ nav_order: 0
 
 # The declaration types
 
-This lists the specification of each declaration type. For a better understanding of how to use them together, see the [guide](guide.html).
+In this document lists the specification of each declaration type. For a better understanding of how to use them together, see the [guide](guide.html).
+
+We specify how these declarations work in model, module and library files. Declarations in data set files function differently.
 
 ## model
 

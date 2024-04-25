@@ -18,7 +18,7 @@ You can select the stat interval below the time series info box. The interval co
 
 ## Goodness-of-fit
 
-The goodness-of-fit statistics are displayed in the time series info box if you have exactly one result series and one input series selected, and the "Show GOF" box is checked. They are also used by the [autocalibrator](autocalibration.html).
+The goodness-of-fit statistics are displayed in the time series info box if you have exactly one result series and one [comparison input series](../datafiledocs/datafiles.html#model-inputs-and-comparison-series) selected, and the "Show GOF" box is checked. They are also used by the [autocalibrator](autocalibration.html).
 
 During model calibration you can also see the changes in each statistic between runs. This is displayed to the right of the value, and is color coded to show if the change was good or bad. If the plot is in "compare baseline" mode, the changes in the GOF will be computed relative to the baseline, otherwise it is always relative to the previous run of the model.
 

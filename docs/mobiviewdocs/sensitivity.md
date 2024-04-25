@@ -47,7 +47,7 @@ If you want a parameter to have a non-uniform prior distribution (in MCMC) or sa
 
 ### Targets
 
-To add a target statistic, select one result series and up to one comparison input series in the main window (similarly to how you [select them for plotting](plots.html)), then click ![Add parameter](../img/toolbar/Add.png) "Add target". You can select the target statistic from a dropdown list of statistics. The available statistic will depend on what kind of run you want (optimizer, MCMC or variance-based sensitivity). The total statistic that is considered in each model run is the weighted sum of the statistics for the individual targets, where the Weight per target is user-defined.
+To add a target statistic, select one result series and up to one [comparison input series](../datafiledocs/datafiles.html#model-inputs-and-comparison-series) in the main window (similarly to how you [select them for plotting](plots.html)), then click ![Add target](../img/toolbar/Add.png) "Add target". You can select the target statistic from a dropdown list of statistics. The available statistic will depend on what kind of run you want (optimizer, MCMC or variance-based sensitivity). The total statistic that is considered in each model run is the weighted sum of the statistics for the individual targets, where the Weight per target is user-defined.
 
 Statistics are computed inside the given Start and End interval (inclusive), which can be set per statistic. The "Error param(s)" is only relevant for the [MCMC](mcmc.html) setup, and is explained there.
 
