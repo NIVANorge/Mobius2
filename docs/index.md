@@ -6,17 +6,17 @@ nav_order: 0
 
 # Mobius2
 
-## The framework for fast and flexible biogeochemical modelling
+## The framework for fast and flexible environmental modelling
 
-Mobius2 is a modelling framework for biogeochemical and water quality models. It allows researchers to easily create new models that run fast and are user friendly.
+Mobius2 is a modelling framework for environmental models such as biogeochemical and water quality models. It allows researchers to easily create new models that run fast and are user friendly.
 
-The framework allows you to model such things as hydrology, and transport and processes of nutrients and contaminants in catchments, rivers, lakes and ocean basins. It allows you to compose modules for many different components into a single integrated model.
+The framework allows you to model things like hydrology, and transport and biochemical processes of nutrients and contaminants in catchments, rivers, lakes and ocean basins. It allows you to compose modules for many different components into a single integrated model.
 
 See how to quickly [get started](gettingstarted/gettingstarted.html).
 
 ## Existing models
 
-The Mobius2 framework comes with several [existing modules and models](existingmodels/existingmodels.html) that can be used directly or modified to accomodate other processes, different data availability, or new research questions.
+The Mobius2 framework comes with several [existing modules and models](existingmodels/existingmodels.html) that can be used directly or modified to accomodate other use cases, different data availability, or new research questions.
 - The [Simply family](existingmodels/simply.html) is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
 - [EasyLake](existingmodels/easylake.html) is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
 - [NIVAFjord](existingmodels/nivafjord.html) is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.

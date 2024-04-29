@@ -73,34 +73,32 @@ We say that the type of the variable is the same as the type of the last compone
 
 #### Properties
 
-A property is any number that is computed for each evaluation of the subsystem (often once per time step) and whos value can be referenced in other equations. Properties are typically only *directly* dependent on the current state of the system (though there are exceptions to that).
+A property is any number that is computed for each evaluation of the subsystem (often once per time step) and whos value can be referenced in other equations. Properties are typically only *directly* dependent on the current state of other variables, not earlier states (though there are exceptions to that).
 
-While a property can have more than two components in its location, this is mostly for convenient organization, and does *not* have the same semantics as the concept of a dissolved variable that exists for quantities (see below).
+While a property can have more than two components in its location, this is mostly for convenient organization, and does *not* have the same semantics as the concept of a *dissolved* variable that exists for quantities (see below).
 
-Any property variable can be overridden with an input series from the [data set](../datafiledocs/datafiles.html). Some properties are never computed by the model and must be provided as input series. (In a formal sense these are not state variables, but forcings, but they are treated similarly in many respects in the framework).
+Any property variable can be overridden with an input series from the [data set](../datafiledocs/datafiles.html). Some properties are never computed by the model and must be provided as input series. In a formal sense these are not state variables, but forcings, but they are in many respects treated similarly to state variables in the framework.
 
 #### Quantities
 
 A quantity is something that can be transported using fluxes, and whos mass balance is tracked by the Mobius2 framework.
 
-A quantity is typically not directly computed using a single equation. Instead its state is given an initial value, and is updated by subtracting outgoing fluxes and adding incoming fluxes. Often the quantity is configured to be treated as a part of a system of ordinary differential equations (ODE), and the state is updated using an ODE integration algorithm.
+A quantity is typically not directly computed using a single equation. Instead its state is given an initial value, and is updated by subtracting outgoing fluxes and adding incoming fluxes. Often the quantity is treated as a part of a system of ordinary differential equations (ODE), and the state is advanced using an ODE integration algorithm.
 
-The value of a quantity can in some rare instances be overridden with an equation, in which case all mass balance guarantees are absolved (fluxes are not added to or subtracted from it).
+The value of a quantity can in some rare instances be overridden with an equation. In this case it behaves more like a property, and all mass balance guarantees are absolved (fluxes are not added to or subtracted from it).
 
-If the location of a quantity has more than two components, it is called a *dissolved* quantity. Unless otherwise specified, dissolved quantities are automatically transported along with what they are dissolved in. So if a flux transports `soil.water` somewhere, it will also transport the soil water dissolved organic carbon `soil.water.oc` proportionally to the concentration of the latter.
+If the location of a quantity has more than two components, it is called a *dissolved* quantity. Unless otherwise specified, dissolved quantities are automatically transported along with what they are dissolved in. So if for instance a flux transports `soil.water` somewhere, it will also transport the soil water dissolved organic carbon `soil.water.oc` proportionally to the concentration of the latter.
 
 Note that the term *dissolved* is just a convenient way to name it, but this system could just as well be used to model `habitat.cattle.lice`, i.e. any quantity that is attached to and transported along with another quantity.
 
 ### Fluxes
 
-We use the term "flux" in the loose sense of the rate of transportation of a quantity from somewhere to somewhere else. This is *not* restricted to the formal meaning of a transport per unit of surface area often used in physics.
+We use the term "flux" in the loose sense of the rate of transportation of a quantity from somewhere to somewhere else. This is *not* restricted to the meaning of a transport per unit of surface area often used in physics.
 
 Every flux has two locations, one source and one target. These are either
 - Valid *locations* identifying primary variable quantities.
 - `out`. A flux source or target is `out` if it is outside of the model domain. This means that it is either a pure source or sink in the modeled system.
 - A target can also be placed along a connection, which makes it more flexible how to connect it up. See more about connections below.
-
-Sources and targets can also be more specifically restricted along a 1D grid, such as identifying one end of the grid, but we will not go into detail about that here.
 
 ## Connections
 
@@ -130,9 +128,11 @@ We use this to model layered fjord basins, lakes and groundwater reservoirs.
 
 Note that this does not limit you to 1-dimensional systems since you could distribute the compartment along two or more index sets and impose connections along each of them to simulate multiple dimensions.
 
+Sources and targets of fluxes can also be more specifically restricted along a 1D grid, such as identifying one end of the grid or a specific position in it, but we will not go into detail about that here.
+
 ## Units
 
-Every value in the model (parameter, state variable, constant, ..) must have a unit. All model equations are subject to unit checks so that the unit of any expression is guaranteed to be correct if the unit of each part of the expression is correct. This will be documented separately.
+Every value in the model (parameter, state variable, constant, ..) must have a unit. All model equations are subject to unit checks so that the unit of any expression is guaranteed to be correct if the unit of each part of the expression is correct. [Units are documented separately](units.html).
 
 
 

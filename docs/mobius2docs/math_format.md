@@ -60,7 +60,7 @@ A \<local-var-declaration\> is of the format
 <identifier> := <primary-expression>,
 ```
 
-The value of the right hand side primary expression is bound to the left hand side identifier below in the same block or any sub-scopes. You will normally not reassign the value of an already declared variable, but a local variable in a nested scope will shadow the one in an outer scope if it has the same identifier.
+The value of the right hand side is bound to the left hand side identifier, which can be referenced in any expression below it in the same block (including in nested blocks). You will normally not reassign the value of an already declared variable, but a local variable in a nested scope will shadow one in an outer scope if it has the same identifier.
 
 ### Primary expression
 
@@ -111,9 +111,9 @@ Literals are dimensionless by default, but can be given a unit by following them
 
 ### Identifier
 
-An \<identifier\> is either the identifier of a previously declared local variable, the identifier of an entity declared in the outer declaration scope (such as a parameter or constant), a `.`-separated chain of identifiers forming a [location](central_concepts.html#components-and-locations), or a special value.
+An \<identifier\> is either the identifier of a local variable, the identifier of an entity declared in the outer declaration scope (such as a parameter or constant), a `.`-separated chain of identifiers forming a [location](central_concepts.html#components-and-locations), or a special value.
 
-If you are in an expression with a context location, you can some times use shorthands for the location of a refereced state variable. For instance, if the context location is `river.water.oc`, and you try to access `temp`, if `temp` does not refer to a single value, Mobius2 will first look for `river.water.oc.temp`, then `river.water.temp` if the prior does not exist, and finally `river.temp`.
+If you are in an expression with a *context location*, you can some times use shorthands for the location of a refereced state variable. For instance, if the context location is `river.water.oc`, and you try to access `temp`, if `temp` does not refer to a single value, Mobius2 will first look for `river.water.oc.temp`, then `river.water.temp` if the prior does not exist, and finally `river.temp`.
 
 These have the units and types they are declared with. If a value is indexed over index sets, it will primarily be accessed using the same indexes as the current expression are evaluated with. (This causes expressions to propagate index set dependencies to one another and to put some restrictions on what can be accessed. This will be separately documented).
 
@@ -245,8 +245,8 @@ The following intrinsic functions are visible in every function scope. They are 
 | `acos(a)` | inverse cosine | a must be dimensionless, result is dimensionless |
 | `asin(a)` | inverse sine | a must be dimensionless, result is dimensionless |
 | `atan(a)` | inverse tangent | a must be dimensionless, result is dimensionless |
-| `sinh(a)` | hyperbolic sine | a must be dimensionless, result is dimensionless |
 | `cosh(a)` | hyperbolic cosine | a must be dimensionless, result is dimensionless |
+| `sinh(a)` | hyperbolic sine | a must be dimensionless, result is dimensionless |
 | `tanh(a)` | hyperbolic tangent | a must be dimensionless, result is dimensionless |
 
 More intrinsics could be added if they are needed.
@@ -284,9 +284,9 @@ where a \<unit-declaration\> follows the [unit declaration format](units.html#th
 | Operator | Description |
 | -------- | ----------- |
 | `->`     | Convert the lhs to the rhs unit by multiplying with a conversion factor if one exists (otherwise there is an error). The unit conversion factor exists if the units have the same SI dimensions when reduced to [standard form](units.html#the-standard-form). |
-| `->>`    | Same as `->` but converts the lhs to the unit of the state variable declaration that the outer function body is attached to. |
+| `->>`    | Same as `->` but converts the lhs to the unit of the state variable declaration that the outer function body is attached to (if it is attached to one, otherwise this raises an error). |
 | `=>`     | Discards the unit of the lhs and replaces it with the rhs unit, keeping the same underlying numerical value. |
-| `=>>`    | Same as `=>`, but replaces the unit with the unit of the state variable of the outer function body. |
+| `=>>`    | Same as `=>`, but replaces the unit with the unit of the state variable of the outer function body similarly to `->>`. |
 
 For instance,
 
@@ -314,7 +314,9 @@ a + ((b*c) -> unit)
 
 ## Note on unit errors
 
-Usually if you get an error with units it means you forgot a unit conversion somewhere, but these errors can some times be problematic. For instance, if you are dealing with empirical formulas that come e.g. from regression fits, the unit of the expression may not make sense in terms of the units of the arguments. In this case we recommend that you force convert the units of the arguments to dimensionless, do the computation, then force convert the result back to the unit you need it to be in. Example:
+Usually if you get an error with units it means you forgot a unit conversion somewhere, but these errors can some times be problematic.
+
+For instance, if you are dealing with empirical formulas that come e.g. from regression fits, the unit of the expression may not make sense in terms of the units of the arguments. In this case we recommend that you force convert the units of the arguments to dimensionless, do the computation, then force convert the result back to the unit you need it to be in. Example:
 
 ```python
 mean_barometric_pressure : function(elevation : [m]) {
