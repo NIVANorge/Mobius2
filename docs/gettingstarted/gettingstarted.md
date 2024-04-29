@@ -17,7 +17,7 @@ The easiest way to run models in Mobius2 is to use the MobiView2 graphical user 
 
 The reason you want to get the Mobius2 repository is that it contains many existing models and data set examples that you can work with. You will not need to compile the Mobius2 framework itself.
 
-Clone the repository [https://github.com/NIVANorge/Mobius2](https://github.com/NIVANorge/Mobius2). This can be done by using your favourite git client such as [Tortoise git](https://tortoisegit.org/) or [Github desktop](https://desktop.github.com/).
+Clone the repository [https://github.com/NIVANorge/Mobius2](https://github.com/NIVANorge/Mobius2). This can be done by using your favourite git client such as [Tortoise git](https://tortoisegit.org/) or [Github desktop](https://desktop.github.com/) (or [git command line](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository)).
 
 You can also download a zip archive of the repository from the front page, but then it is not as convenient to get the latest updates.
 
@@ -35,7 +35,7 @@ If you chose simplyq.txt, you are running [SimplyQ](../existingmodels/simply.htm
 
 ![MobiView2](../img/mobiview_gettingstarted.png)
 
-Next, you can select a parameter group in the top left, which will allow you to edit parameter values in the top center. After changing some values, you can re-run the model and see 
+Next, you can select a parameter group in the top left, which will allow you to edit parameter values in the top center. After changing some values, you can re-run the model and see the changes to the model predictions in the plot view.
 
 ## Further steps
 
@@ -47,7 +47,7 @@ A good place to start is to get aquainted with the [existing models](../existing
 
 ### Learn the data format to set up models for other locations.
 
-To set up a model for a new location you may need to edit the [data files](../datafiledocs/datafiles.html) in a text editor. It can be a good idea to use an existing example as a base and just edit it.
+To set up a model for a new location you may need to edit the [data files](../datafiledocs/datafiles.html) in a text editor. It can be a good idea to use an existing example as a base instead of starting from scratch.
 
 ### Learn more about MobiView2.
 

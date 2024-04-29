@@ -7,7 +7,7 @@ nav_order: 2
 
 # The XLSX format
 
-The spreadsheet format is very convenient to edit by hand if you have a program like Excel or OpenOffice calc.
+The spreadsheet format for Mobius2 time series inputs is very convenient to edit by hand if you have a program like Excel or OpenOffice calc.
 
 ## General information
 

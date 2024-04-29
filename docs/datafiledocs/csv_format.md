@@ -7,17 +7,17 @@ nav_order: 1
 
 # The CSV format
 
-The `.csv` format for Mobius2 inputs is a plain-text format. It is not strictly a "comma-separated" file, but the format is close enough that common packages in e.g. python and other languages can be used to work with them.
+The `.csv` format for Mobius2 time series inputs is a plain-text format. It is not strictly a "comma-separated" file, but the format is close enough to fall within the same general family.
 
 Like the common declaration format, these files must be UTF-8. Moreover, these files are also whitespace-agnostic. That is, a string of space-like characters (tabs etc.) are seen as a single space.
 
-# Date indexing or not date indexing.
+## Date indexing or not date indexing.
 
 There is a simple format where data rows are not date indexed. In that case the file starts with a single [date(-time)](datafiles.html#datetime-format) which is the common start date of all series in this file. The value rows are then assumed to proceed from the start date (inclusive) with the data set [sampling step](datafiles.html#the-sampling-step) frequency.
 
 If you use date indexed value rows, there is no date at the top of the file, and it instead starts directly with the header.
 
-# The header.
+## The header.
 
 The header is a single row of space-separated input names, optionally with indexes and flags. In the simplest example, the header is a space-separated sequence of quoted names,
 
@@ -49,7 +49,7 @@ You can also attach [flags](datafiles.html#series-flags) to a series by putting 
 <the value block>
 ```
 
-# The value block
+## The value block
 
 If you are not date indexing, you provide one value per series per row. If you are date indexing you also start every row with a [date(-time)](datafiles.html#datetime-format).
 

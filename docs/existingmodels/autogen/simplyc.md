@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-29 12:11:16.
+The file was generated at 2024-04-29 12:51:59.
 
 ---
 
@@ -84,7 +84,7 @@ Conc. unit: mg l⁻¹
 Value:
 
 $$
-\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot \left(1+\left(\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\right)\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right) & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \mathrm{(mass balance)} & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot \left(1+\left(\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\right)\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right) & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \text{(mass balance)} & \text{otherwise}\end{cases}
 $$
 
 Initial value:
@@ -104,7 +104,7 @@ Conc. unit: mg l⁻¹
 Value:
 
 $$
-\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{soil\_avg} \\ \mathrm{(mass balance)} & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{soil\_avg} \\ \text{(mass balance)} & \text{otherwise}\end{cases}
 $$
 
 Initial value:

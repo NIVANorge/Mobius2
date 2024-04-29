@@ -11,11 +11,11 @@ The Mobius2 framework comes with several existing modules and models that can be
 
 - The [Simply family](simply.html). This is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
 - [EasyLake](easylake.html). This is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
-- [NIVAFjord](nivafjord.html). This is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.
+- [NIVAFjord](nivafjord.html). This is a 1-dimensional layered (multi-)basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.
 
-If desired, the above models can be coupled together into a full catchment to coast system.
+If desired, the above models can be coupled together into a full catchment-to-coast system, or you can use them separately to study smaller sub-systems.
 
-In addition to these, Mobius2 comes with modules for other processes that are convenient to include into larger models.
+In addition to these, Mobius2 comes with modules for other processes that are convenient to include into larger models, for instance
 - Snow pack and melt
 - Evapotranspiration
 - Atmospheric variables (radiation, humidity...)

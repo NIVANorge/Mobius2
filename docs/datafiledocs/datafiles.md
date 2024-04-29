@@ -7,17 +7,17 @@ has_children: true
 
 # The Mobius2 data formats
 
-To run a Mobius2 model you need to provide it with site specific data for parameters, forcings (and sometimes more, like topological info).
+To run a Mobius2 model you need to provide it with site specific data for parameters, forcings (and sometimes more, like topological information).
 
-A model combined with data is called a *model application*
+A model combined with site-specific data is called a *model application*.
 
 Each Mobius2 model application has a single main data file with a `.dat` suffix.
 
 The main data file uses the [common declaration format](../mobius2docs/declaration_format.html), but you don't need to fully learn this format to use existing Mobius2 models. Instead we provide a [guide to set up a new project](new_project.html) from an existing example file for a given model.
 
-Time series (forcing and comparison data) are not put directly in the main data file, instead it is declared in the data file what files they are loaded from.
+Input time series (forcing and comparison data) are not put directly in the main data file, instead the main data file says what other files series data is loaded from.
 
-Time series can be provided either on [`.csv`](csv_format.html) or [`.xlsx`](xlsx_format.html) format.
+Time series can be provided either on a [`.csv`](csv_format.html) or [`.xlsx`](xlsx_format.html) format.
 
 ## Model inputs and comparison series
 

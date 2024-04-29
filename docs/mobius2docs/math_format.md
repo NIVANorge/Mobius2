@@ -103,7 +103,7 @@ false
 ```
 These are formatted like in most other programming languages, including the use of [E notation](https://en.wikipedia.org/wiki/Scientific_notation#E_notation) for reals.
 
-Literals are dimensionless, but can be given a unit by following them directly with a [unit declaration](units.html#the-unit-declaration-format):
+Literals are dimensionless by default, but can be given a unit by following them directly with a [unit declaration](units.html#the-unit-declaration-format):
 
 ```python
 2000[m 2]    # 2000 square meters
@@ -145,6 +145,8 @@ Other special identifiers:
 | ------ | ------- |
 | `no_override` | This can be used to cancel an @override or @override_conc expression of a `var` declaration. The compiler must be able to resolve to either `no_override` or not `no_override` at compile time, meaning any `if` branches to these can only rely on constants or constant parameters. (to be documented) |
 | `is_at` | This can be used to determine location in a grid1d connection. Will be documented later. |
+
+Enum parameters: Enum parameters are accessed using `par_identifier.value_identifier`, where `value_identifier` is one of the declared possible values of this enum parameter. The expression evaluates to `true` if the parameter has the given value, and `false` otherwise.
 
 ### Binary operator
 

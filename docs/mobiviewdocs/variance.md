@@ -42,7 +42,7 @@ Note that since these are estimated using a Monte-Carlo method, they will not be
 
 In the result view, the histogram shows the distribution of the target statistic.
 
-# Citations
+## Citations
 
 \[Saltelli10\] Andrea Saltelli et. al. *Variance based sensitivity analysis of model output. Design and estimator for the total sensitivity index*. Computer Physics Communications, 181(2), 259-270, [https://doi.org/10.1016/j.cpc.2009.09.018](https://doi.org/10.1016/j.cpc.2009.09.018), 2010
 
